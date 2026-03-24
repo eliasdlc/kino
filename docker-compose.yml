@@ -1,0 +1,23 @@
+# docker-compose.yml
+services:
+  postgres:
+    image: postgres:15-alpine
+    container_name: kino-db
+    restart: unless-stopped
+    ports:
+      - "5433:5432"
+    environment:
+      POSTGRES_USER: kino
+      POSTGRES_PASSWORD: kino_dev_password
+      POSTGRES_DB: kino
+    volumes:
+      - kino_pgdata:/var/lib/postgresql/data
+      - ./init-db:/docker-entrypoint-initdb.d
+    healthcheck:
+      test: [ "CMD-SHELL", "pg_isready -U kino -d kino" ]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  kino_pgdata:
