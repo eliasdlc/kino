@@ -1,6 +1,6 @@
 import { auth } from "../../../../../auth";
-import { toNodeHandler } from "better-auth/node";
+import { toNextJsHandler } from "better-auth/next-js";
 
-const handler = toNodeHandler(auth.handler);
+const handler = toNextJsHandler(auth.handler);
 
 export { handler as GET, handler as POST };

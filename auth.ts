@@ -9,14 +9,11 @@ export const auth = betterAuth({
         schema,
 
     }),
-
-    // ── User table mapping ──
     // Better Auth's "user" model → our "users" table
     user: {
         modelName: "users",
         fields: {
             name: "full_name",
-            // Better Auth expects "image" for avatar — map to our column
             image: "avatar_url",
             emailVerified: "email_verified",
         },
@@ -69,29 +66,24 @@ export const auth = betterAuth({
         },
     },
 
-    // ── Session table mapping ──
     session: {
         modelName: "sessions",
     },
 
-    // ── Account table mapping ──
     // Better Auth manages OAuth accounts separately from the user table.
     // This is the "accounts" table in our schema.
     account: {
         modelName: "accounts",
     },
 
-    // ── Verification table mapping ──
     verification: {
         modelName: "verifications",
     },
 
-    // ── Email + Password auth ──
     emailAndPassword: {
         enabled: true,
     },
 
-    // ── OAuth providers ──
     socialProviders: {
         google: {
             clientId: process.env.GOOGLE_CLIENT_ID!,
@@ -105,7 +97,6 @@ export const auth = betterAuth({
 
     advanced: {
         database: {
-            // Let PostgreSQL generate UUIDs via defaultRandom()
             generateId: false,
         },
     },
