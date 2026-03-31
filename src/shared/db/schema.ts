@@ -2,6 +2,7 @@
 
 
 import {
+    AnyPgColumn,
     pgTable,
     uuid,
     varchar,
@@ -377,7 +378,7 @@ export const tasks = pgTable(
         systemId: uuid('system_id')
             .notNull()
             .references(() => systems.id, { onDelete: 'cascade' }),
-        parentTaskId: uuid('parent_task_id').references((): any => tasks.id, {
+        parentTaskId: uuid('parent_task_id').references((): AnyPgColumn => tasks.id, {
             onDelete: 'cascade',
         }),
         title: varchar('title', { length: 500 }).notNull(),
@@ -393,7 +394,7 @@ export const tasks = pgTable(
         isRecurring: boolean('is_recurring').notNull().default(false),
         recurrenceRule: varchar('recurrence_rule', { length: 500 }),
         recurrenceParentId: uuid('recurrence_parent_id').references(
-            (): any => tasks.id,
+            (): AnyPgColumn => tasks.id,
             { onDelete: 'set null' },
         ),
         contextTagId: uuid('context_tag_id').references(() => contextTags.id, {
@@ -453,7 +454,7 @@ export const folders = pgTable(
         systemId: uuid('system_id').references(() => systems.id, {
             onDelete: 'set null',
         }),
-        parentId: uuid('parent_id').references((): any => folders.id, {
+        parentId: uuid('parent_id').references((): AnyPgColumn => folders.id, {
             onDelete: 'cascade',
         }),
         name: varchar('name', { length: 255 }).notNull(),

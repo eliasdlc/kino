@@ -43,3 +43,8 @@ next-env.d.ts
 public/sw.js
 public/workbox-*.js
 public/swe-worker-*.js
+
+# MD
+Kino_Especificaciones_Tecnicas_v2.3.md
+SADD_arc42_Kino_v2.3.md
+kino_roadmap.md
