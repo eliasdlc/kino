@@ -1,7 +1,7 @@
 import { db } from "@/shared/db";
 import { CreateSystemInput, System, UpdateSystemInput } from "./systems.types"
 import { systems } from "@/shared/db/schema";
-import { and, eq } from "drizzle-orm";
+import { and, eq, max } from "drizzle-orm";
 import { ForbiddenError, NotFoundError } from "@/shared/utils/error";
 
 export async function createInboxForUser(userId: string) {
@@ -23,11 +23,23 @@ export async function assertNotInbox(system: System) {
     }
 }
 
-export async function geyUsersSystem(userId: string) {
-    return db.select().from(systems).where(eq(systems.userId, userId)).orderBy(systems.sortOrder);
+export async function geyUsersSystems(userId: string) {
+    return db.select()
+        .from(systems)
+        .where(
+            and(
+                eq(systems.userId, userId),
+                eq(systems.isActive, true)
+            )
+        ).orderBy(systems.sortOrder);
 
 }
 export async function createSystem(userId: string, input: CreateSystemInput) {
+    const [{ maxOrder }] = await db
+        .select({ maxOrder: max(systems.sortOrder) })
+        .from(systems)
+        .where(eq(systems.userId, userId));
+
     const [created] = await db.insert(systems).values({
         userId,
         name: input.name,
@@ -38,7 +50,7 @@ export async function createSystem(userId: string, input: CreateSystemInput) {
         icon: input.icon ?? "folder",
         expectedFrequency: input.expectedFrequency ?? "daily",
         triggerContext: input.triggerContext ?? "",
-        sortOrder: 0,
+        sortOrder: (maxOrder ?? -1) + 1,
     }).returning();
 
     return created ?? null;
@@ -50,7 +62,14 @@ export async function updateSystem(id: string, userId: string, update: UpdateSys
 }
 
 export async function getSystembyId(id: string, userId: string) {
-    const [system] = await db.select().from(systems).where(and(eq(systems.id, id), eq(systems.userId, userId)));
+    const [system] = await db.select()
+        .from(systems)
+        .where(
+            and(
+                eq(systems.id, id),
+                eq(systems.userId, userId),
+            )
+        );
 
     return system ?? null;
 }

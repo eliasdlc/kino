@@ -1,0 +1,1 @@
+export { GET, PATCH, DELETE } from "@/features/systems/systems.routes";
