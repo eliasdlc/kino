@@ -1,11 +1,11 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+//import { usePathname } from "next/navigation";
 import { useSystems } from "./systems.hooks";
 
 export function SystemsSidebar() {
-  const pathname = usePathname();
+  //const pathname = usePathname();
   const { data: systems, isLoading } = useSystems();
 
   return (
