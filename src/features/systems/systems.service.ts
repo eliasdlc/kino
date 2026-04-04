@@ -23,7 +23,7 @@ export async function assertNotInbox(system: System) {
   }
 }
 
-export async function geyUsersSystems(userId: string) {
+export async function getUsersSystems(userId: string) {
   return db.select()
     .from(systems)
     .where(

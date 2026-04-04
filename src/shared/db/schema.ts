@@ -106,7 +106,7 @@ export const questTypeEnum = pgEnum('quest_type', [
   'recovery',
 ]);
 
-export const questFrequencyEnum = pgEnum('quest_frequency', [
+export const frequencyEnum = pgEnum('frequency', [
   'daily',
   'weekly',
   'monthly',
@@ -655,7 +655,7 @@ export const quests = pgTable(
     title: varchar('title', { length: 255 }).notNull(),
     description: text('description').notNull(),
     questType: questTypeEnum('quest_type').notNull(),
-    frequency: questFrequencyEnum('frequency').notNull().default('daily'),
+    frequency: frequencyEnum('frequency').notNull().default('daily'),
     targetValue: integer('target_value').notNull(),
     currentValue: integer('current_value').notNull().default(0),
     expiresAt: date('expires_at').notNull(),

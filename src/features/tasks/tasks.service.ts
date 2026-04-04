@@ -127,7 +127,8 @@ export async function moveTask(taskId: string, newStatus: TaskStatus, userId: st
 
   const [task] = await db.update(tasks)
     .set({ status: newStatus, updatedAt: new Date() })
-    .where(and(eq(tasks.id, taskId), eq(tasks.userId, userId), isNull(tasks.deletedAt)));
+    .where(and(eq(tasks.id, taskId), eq(tasks.userId, userId), isNull(tasks.deletedAt)))
+    .returning();
 
   if (!task) throw new NotFoundError("Task not found");
   return task;

@@ -1,1 +1,1 @@
-export { POST } from "@/features/systems/systems.routes";
+export { GET, POST } from "@/features/systems/systems.routes";
