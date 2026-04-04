@@ -1,26 +1,26 @@
-import { z } from "zod";
+import { z } from 'zod';
 
 export const createTaskSchema = z.object({
-    systemId: z.string().uuid(),
-    title: z.string().min(1).max(500),
-    description: z.string().optional(),
-    status: z.enum(["backlog", "week", "today", "done", "archived"]).optional(),
-    energyLevel: z.enum(["high", "medium", "low"]).optional(),
-    energyPoints: z.number().int().min(1).max(10).optional(),
-    priority: z.enum(["critical", "high", "medium", "low"]).optional(),
-    dueDate: z.string().date().optional(),
-    scheduledDate: z.string().date().optional(),
-    estimatedMinutes: z.number().int().positive().optional(),
-    parentTaskId: z.string().uuid().optional(),
-    contextTagId: z.string().uuid().optional(),
+  systemId: z.string().uuid(),
+  title: z.string().min(1).max(500),
+  description: z.string().optional(),
+  status: z.enum(["backlog", "week", "today", "done", "archived"]).optional(),
+  energyLevel: z.enum(["high", "medium", "low"]).optional(),
+  energyPoints: z.number().int().min(1).max(10).optional(),
+  priority: z.enum(["critical", "high", "medium", "low"]).optional(),
+  dueDate: z.string().date().optional(),
+  scheduledDate: z.string().date().optional(),
+  estimatedMinutes: z.number().int().positive().optional(),
+  parentTaskId: z.string().uuid().optional(),
+  contextTagId: z.string().uuid().optional(),
 });
 
 export const updateTaskSchema = createTaskSchema.partial().omit({ systemId: true });
 
 export const moveTaskSchema = z.object({
-    status: z.enum(["backlog", "week", "today", "done", "archived"]),
+  status: z.enum(["backlog", "week", "today", "done", "archived"]),
 });
 
 export const reorderTasksSchema = z.object({
-    ids: z.array(z.string().uuid()).min(1),
+  ids: z.array(z.string().uuid()).min(1),
 });
