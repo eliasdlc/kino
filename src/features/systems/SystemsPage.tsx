@@ -1,9 +1,10 @@
 export default function SystemsPage() {
 
+  return (
+    <div>
+      <div>
 
-    return (
-        <div>
-
-        </div>
-    )
+      </div>
+    </div>
+  )
 }
