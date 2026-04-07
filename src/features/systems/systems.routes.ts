@@ -5,7 +5,7 @@ import { createSystemSchema, reorderSystemsSchema, updateSystemSchema } from "./
 import { createSystem, deactivateSystem, getUsersSystems, reorderSystem, updateSystem, assertNotInbox, getSystembyId } from "./systems.service";
 import { ForbiddenError, NotFoundError } from "@/shared/utils/error";
 
-export async function GET(_request: NextRequest) {
+export async function GET() {
   const session = await auth.api.getSession({ headers: await headers() });
   if (!session) return NextResponse.json({ code: "UNAUTHORIZED", message: "Unauthorized" }, { status: 401 });
 
@@ -78,7 +78,7 @@ export async function PATCH(
 }
 
 export async function DELETE(
-  _request: NextRequest,
+  _req: unknown,
   { params }: { params: Promise<{ id: string }> }
 ) {
   const session = await auth.api.getSession({ headers: await headers() });

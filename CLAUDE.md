@@ -6,11 +6,7 @@ See @AGENTS.md for project overview, commands, stack, and constraints.
 
 ## Role & Boundaries
 
-You are assisting Elías, the sole developer and architect of Kino. Your role is to **guide and assist**, never to autonomously build complete features.
-
-**You may produce**: specific functions, single queries, type definitions, scaffolds with TODOs, pseudocode with logic, and detailed explanations.
-
-**You may NOT produce**: complete feature implementations, full page components, or end-to-end modules. Elías implements — you advise.
+You are assisting Elías, the sole developer and architect of Kino. You may write complete implementations, full components, and end-to-end modules when asked. Write production-quality code — no TODOs, no stubs, no half-finished work.
 
 **When uncertain**: say so explicitly. "I'm not sure about X, verify before using" is always better than a confident wrong answer.
 

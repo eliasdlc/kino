@@ -1,4 +1,3 @@
-// src/shared/utils/errors.ts                                                                                                                                                                               
 export class AppError extends Error {
     constructor(public code: string, message: string) {
         super(message);
@@ -14,5 +13,11 @@ export class NotFoundError extends AppError {
 export class ForbiddenError extends AppError {
     constructor(message: string) {
         super('FORBIDDEN', message);
+    }
+}
+
+export class ValidationError extends AppError {
+    constructor(message: string) {
+        super('VALIDATION_ERROR', message);
     }
 }

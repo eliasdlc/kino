@@ -17,7 +17,7 @@ export function CreateSystemDialog() {
     const [name, setName] = useState("");
     const [description, setDescription] = useState("");
     const [color, setColor] = useState("blue");
-    const [icon, setIcon] = useState("folder");
+    const [icon] = useState("folder");
     const [templateType, setTemplateType] = useState("custom");
     const [energyIdeal, setEnergyIdeal] = useState("medium");
     const [expectedFrequency, setExpectedFrequency] = useState("daily");
@@ -26,8 +26,6 @@ export function CreateSystemDialog() {
 
 
     const handleCreateSystem = async () => {
-        console.log("Creating system...");
-
         const data: CreateSystemInput = {
             name,
             identityStatement: description,
@@ -59,7 +57,7 @@ export function CreateSystemDialog() {
     return (
         <Dialog open={open} onOpenChange={setOpen}>
             <DialogTrigger asChild>
-                <Button className="w-1/2">Add System</Button>
+                <Button variant="outline" className="w-full">+ Nuevo sistema</Button>
             </DialogTrigger>
             <DialogContent>
                 <DialogHeader className="flex flex-col gap-4">

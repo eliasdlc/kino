@@ -3,7 +3,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { auth } from "../../../auth";
 import { createTaskSchema, moveTaskSchema, reorderTasksSchema, updateTaskSchema } from "./tasks.schemas";
 import { createTask, deleteTask, getTasksBySystem, moveTask, reorderTasks, toggleTask, updateTask } from "./tasks.service";
-import { NotFoundError } from "@/shared/utils/error";
+import { NotFoundError, ValidationError } from "@/shared/utils/error";
 
 export async function GET(
     _request: NextRequest,
@@ -96,6 +96,9 @@ export async function postToggle(
         if (error instanceof NotFoundError) {
             return NextResponse.json({ code: "NOT_FOUND", message: "Task not found" }, { status: 404 });
         }
+        if (error instanceof ValidationError) {
+            return NextResponse.json({ code: "VALIDATION_ERROR", message: error.message }, { status: 422 });
+        }
         throw error;
     }
 }
@@ -124,6 +127,9 @@ export async function patchMove(
     } catch (error) {
         if (error instanceof NotFoundError) {
             return NextResponse.json({ code: "NOT_FOUND", message: "Task not found" }, { status: 404 });
+        }
+        if (error instanceof ValidationError) {
+            return NextResponse.json({ code: "VALIDATION_ERROR", message: error.message }, { status: 422 });
         }
         throw error;
     }

@@ -68,6 +68,7 @@ export async function getSystembyId(id: string, userId: string) {
       and(
         eq(systems.id, id),
         eq(systems.userId, userId),
+        eq(systems.isActive, true),
       )
     );
 

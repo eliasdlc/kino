@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { auth } from "@/auth";
+import { getSessionCookie } from "better-auth/cookies";
 
 const rateLimitMap = new Map<string, { count: number; lastReset: number }>();
 const RATE_LIMIT_WINDOW_MS = 60 * 1000;
@@ -30,32 +30,24 @@ export async function proxy(request: NextRequest) {
   const isPublicRoute =
     pathname.startsWith("/login") ||
     pathname.startsWith("/register") ||
-    pathname.startsWith("/api/auth") ||
-    pathname.includes(".");
+    pathname.startsWith("/api/auth");
 
   if (!isPublicRoute) {
-    try {
-      const session = await auth.api.getSession({
-        headers: request.headers,
-      });
 
-      if (!session) {
-        const url = request.nextUrl.clone();
-        url.pathname = "/login";
-        url.searchParams.set("callbackUrl", pathname);
-        return NextResponse.redirect(url);
-      }
-    } catch {
-      // Si la DB falla, redirigir a login — nunca exponer el error al cliente
+    const sessionCookie = getSessionCookie(request);
+
+    if (!sessionCookie) {
       const url = request.nextUrl.clone();
       url.pathname = "/login";
+      url.searchParams.set("callbackUrl", pathname);
       return NextResponse.redirect(url);
     }
+
   }
 
   return NextResponse.next();
 }
 
 export const config = {
-  matcher: ['/((?!_next/static|_next/image|favicon.ico).*)'],
+  matcher: ["/((?!_next/static|_next/image|favicon.ico|.*\\..*).*)"],
 };

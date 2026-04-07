@@ -1,11 +1,40 @@
 import { db } from "@/shared/db";
-import { tasks, taskStatusEnum, users } from "@/shared/db/schema";
+import { tasks, users, userSettings } from "@/shared/db/schema";
 import { and, eq, isNull, sql } from "drizzle-orm";
-import { NotFoundError } from "@/shared/utils/error";
-import { validateTransition } from "./tasks.state-machine";
+import { NotFoundError, ValidationError } from "@/shared/utils/error";
+import { validateTransition, type TaskStatus, type TransitionAction } from "./tasks.state-machine";
 import { Task, CreateTaskInput, UpdateTaskInput } from "./tasks.types";
 
-type TaskStatus = (typeof taskStatusEnum.enumValues)[number];
+async function getEnergyContext(userId: string) {
+  const [energyData] = await db
+    .select({ total: sql<number>`COALESCE(SUM(${tasks.energyPoints}), 0)` })
+    .from(tasks)
+    .where(and(eq(tasks.userId, userId), eq(tasks.status, "today"), isNull(tasks.deletedAt)));
+
+  const [settings] = await db
+    .select({ dailyEnergyLimit: userSettings.dailyEnergyLimit })
+    .from(userSettings)
+    .where(eq(userSettings.userId, userId));
+
+  return {
+    currentDayEnergyUsed: energyData?.total ?? 0,
+    dailyEnergyLimit: settings?.dailyEnergyLimit ?? 50,
+  };
+}
+
+function deriveAction(currentStatus: TaskStatus, targetStatus: TaskStatus): TransitionAction | undefined {
+  const map: Record<string, TransitionAction> = {
+    "backlog->week": "move_to_week",
+    "backlog->today": "move_to_today",
+    "backlog->done": "toggle_done",
+    "week->today": "move_to_today",
+    "week->backlog": "move_to_backlog",
+    "today->done": "toggle_done",
+    "today->backlog": "move_to_backlog",
+    "done->today": "undo_done",
+  };
+  return map[`${currentStatus}->${targetStatus}`];
+}
 
 export async function getTasksBySystem(systemId: string, userId: string) {
   return db.select()
@@ -58,17 +87,19 @@ export async function toggleTask(taskId: string, userId: string): Promise<{ stat
   const isDone = current.status === "done";
   const action = isDone ? "undo_done" : "toggle_done";
 
+  const energyContext = await getEnergyContext(userId);
+
   const result = validateTransition({
     currentStatus: current.status,
     action,
     taskEnergyPoints: current.energyPoints,
-    currentDayEnergyUsed: 0, // TODO: calcular si necesitas validar energy limit
-    dailyEnergyLimit: 50,    // TODO: traer de user_settings
+    currentDayEnergyUsed: energyContext.currentDayEnergyUsed,
+    dailyEnergyLimit: energyContext.dailyEnergyLimit,
     isRecurring: current.isRecurring,
   });
 
   if (!result.valid || !result.newStatus) {
-    throw new Error(result.error ?? "Invalid transition");
+    throw new ValidationError(result.error ?? "Invalid transition");
   }
 
   const updates: Partial<typeof tasks.$inferInsert> = {
@@ -124,12 +155,75 @@ export async function reorderTasks(userId: string, ids: string[]) {
 }
 
 export async function moveTask(taskId: string, newStatus: TaskStatus, userId: string): Promise<Task> {
+  const [current] = await db.select()
+    .from(tasks)
+    .where(and(eq(tasks.id, taskId), eq(tasks.userId, userId), isNull(tasks.deletedAt)));
 
-  const [task] = await db.update(tasks)
-    .set({ status: newStatus, updatedAt: new Date() })
-    .where(and(eq(tasks.id, taskId), eq(tasks.userId, userId), isNull(tasks.deletedAt)))
-    .returning();
+  if (!current) throw new NotFoundError("Task not found");
 
-  if (!task) throw new NotFoundError("Task not found");
-  return task;
+  const action = deriveAction(current.status, newStatus);
+  if (!action) {
+    throw new ValidationError(`Cannot move task from '${current.status}' to '${newStatus}'`);
+  }
+
+  const energyContext = await getEnergyContext(userId);
+
+  const result = validateTransition({
+    currentStatus: current.status,
+    action,
+    taskEnergyPoints: current.energyPoints,
+    currentDayEnergyUsed: energyContext.currentDayEnergyUsed,
+    dailyEnergyLimit: energyContext.dailyEnergyLimit,
+    isRecurring: current.isRecurring,
+  });
+
+  if (!result.valid || !result.newStatus) {
+    throw new ValidationError(result.error ?? "Invalid transition");
+  }
+
+  const updates: Partial<typeof tasks.$inferInsert> = {
+    status: result.newStatus,
+    updatedAt: new Date()
+  };
+
+  let xpDelta = 0;
+
+  for (const effect of result.sideEffects ?? []) {
+    switch (effect.type) {
+      case "set_completed_at":
+        updates.completedAt = effect.value;
+        break;
+      case "clear_completed_at":
+        updates.completedAt = null;
+        break;
+      case "grant_xp":
+        xpDelta = effect.amount;
+        break;
+      case "revert_xp":
+        xpDelta = -effect.amount;
+        break;
+      case "set_deleted_at":
+        updates.deletedAt = effect.value;
+        break;
+    }
+  }
+
+  let updatedTask: Task | null = null;
+
+  await db.transaction(async (tx) => {
+    const [result] = await tx.update(tasks).set(updates)
+      .where(and(eq(tasks.id, taskId), eq(tasks.userId, userId), isNull(tasks.deletedAt)))
+      .returning();
+
+    updatedTask = result ?? null;
+
+    if (xpDelta !== 0) {
+      await tx.update(users)
+        .set({ xpTotal: sql`${users.xpTotal} + ${xpDelta}` })
+        .where(eq(users.id, userId));
+    }
+  });
+
+  if (!updatedTask) throw new NotFoundError("Task not found");
+  return updatedTask;
 }
