@@ -5,6 +5,7 @@ import { db } from "@/shared/db";
 import { tasks, userSettings } from "@/shared/db/schema";
 import { and, eq, isNull, sql } from "drizzle-orm";
 import { Progress } from "@/components/ui/progress";
+import { PageWrapper } from "@/components/PageWrapper";
 
 export const metadata = { title: "Dashboard - Kino" };
 
@@ -32,12 +33,13 @@ export default async function DashboardPage() {
 
   const usedEnergy = energyData?.total ?? 0;
   const limit = settings?.dailyEnergyLimit ?? 50;
-  const percentage = Math.round((usedEnergy / limit) * 100);
+  const percentage = Math.min(Math.round((usedEnergy / limit) * 100), 100);
 
   return (
-    <div className="p-6 space-y-6 max-w-3xl">
+    <PageWrapper>
+      {/* Greeting */}
       <div>
-        <h1 className="text-3xl font-bold">
+        <h1 className="text-3xl font-bold tracking-tight">
           Buenos días, {session.user.name}
         </h1>
         <p className="text-muted-foreground mt-1">
@@ -50,11 +52,12 @@ export default async function DashboardPage() {
         </p>
       </div>
 
-      <div className="rounded-lg border p-6 space-y-4 bg-card">
+      {/* Energy card */}
+      <div className="rounded-lg border bg-card p-6 space-y-4">
         <div className="space-y-2">
           <h2 className="text-lg font-semibold">Energía de hoy</h2>
           <div className="flex items-baseline gap-2">
-            <span className="text-4xl font-bold">{usedEnergy}</span>
+            <span className="text-4xl font-bold text-primary">{usedEnergy}</span>
             <span className="text-muted-foreground">/ {limit}</span>
           </div>
         </div>
@@ -66,14 +69,15 @@ export default async function DashboardPage() {
         </div>
       </div>
 
-      <div className="rounded-lg border p-6 space-y-4 bg-card">
+      {/* Today's tasks */}
+      <div className="rounded-lg border bg-card p-6 space-y-4">
         <h2 className="text-lg font-semibold">Tareas de hoy</h2>
         {todayTasks.length === 0 ? (
           <p className="text-sm text-muted-foreground py-4">
             No hay tareas programadas para hoy. ¡Descansa o planifica el día!
           </p>
         ) : (
-          <ul className="space-y-3">
+          <ul className="space-y-1">
             {todayTasks.map((task) => (
               <li
                 key={task.id}
@@ -87,7 +91,7 @@ export default async function DashboardPage() {
                     </p>
                   )}
                 </div>
-                <span className="text-xs font-medium whitespace-nowrap text-muted-foreground bg-muted px-2 py-1 rounded">
+                <span className="text-xs font-medium whitespace-nowrap text-primary bg-primary/10 px-2 py-1 rounded">
                   {task.energyPoints} EP
                 </span>
               </li>
@@ -96,12 +100,13 @@ export default async function DashboardPage() {
         )}
       </div>
 
-      <div className="rounded-lg border p-6 bg-card/50 space-y-2">
+      {/* Coming soon */}
+      <div className="rounded-lg border bg-muted/30 p-6">
         <p className="text-sm text-muted-foreground">
           💡 Esta es una vista simplificada. En futuras fases tendrás acceso a Smart View,
           análisis de energía, brain dump, y mucho más.
         </p>
       </div>
-    </div>
+    </PageWrapper>
   );
 }

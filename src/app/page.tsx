@@ -1,23 +1,17 @@
-"use client";
+import { headers } from "next/headers";
+import { redirect } from "next/navigation";
+import { auth } from "@/auth";
 
-import { authClient } from "@/auth-client";
-import { useRouter } from "next/navigation";
+/**
+ * Root page — redirects to dashboard if authenticated, login if not.
+ * No actual content lives here.
+ */
+export default async function Home() {
+  const session = await auth.api.getSession({ headers: await headers() });
 
-export default function Home() {
-  const router = useRouter();
-
-  async function handleSignOut() {
-    await authClient.signOut();
-    router.push("/login");
+  if (session) {
+    redirect("/dashboard");
+  } else {
+    redirect("/login");
   }
-
-  return (
-    <div className="flex flex-col flex-1 items-center justify-center bg-zinc-50 font-sans dark:bg-black">
-      <main className="flex flex-1 w-full max-w-3xl flex-col items-center justify-between py-32 px-16 bg-white dark:bg-black sm:items-start">
-        <button onClick={handleSignOut}>
-          Sign out
-        </button>
-      </main>
-    </div>
-  );
 }

@@ -8,6 +8,7 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Calendar } from "@/components/ui/calendar";
+import { Textarea } from "@/components/ui/textarea";
 import { Separator } from "@/components/ui/separator";
 import { Slider } from "@/components/ui/slider";
 import { taskPriorityEnum, taskStatusEnum, energyLevelEnum } from "@/shared/db/schema";
@@ -108,7 +109,7 @@ export function CreateTaskDialog({ systemId, parentTaskId }: CreateTaskDialogPro
             <p className="text-sm text-destructive">{error}</p>
           )}
 
-          {/* ── campos esenciales ── */}
+          {/* ── essential fields ── */}
           <div className="space-y-2">
             <Label htmlFor="title">Título *</Label>
             <Input
@@ -170,17 +171,17 @@ export function CreateTaskDialog({ systemId, parentTaskId }: CreateTaskDialogPro
             </Button>
           </div>
 
-          {/* ── campos avanzados ── */}
+          {/* ── advanced fields ── */}
           {showMore && (
             <div className="flex flex-col gap-4">
               <div className="space-y-2">
                 <Label htmlFor="description">Descripción</Label>
-                <textarea
+                <Textarea
                   id="description"
-                  className="flex min-h-[72px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 resize-none"
                   placeholder="Detalles opcionales..."
                   value={description}
                   onChange={(e) => setDescription(e.target.value)}
+                  className="min-h-[72px] resize-none"
                 />
               </div>
 

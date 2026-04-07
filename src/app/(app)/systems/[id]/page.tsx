@@ -3,31 +3,25 @@ import { getSystembyId } from "@/features/systems/systems.service";
 import { headers } from "next/headers";
 import { notFound, redirect } from "next/navigation";
 import { getTasksBySystem } from "@/features/tasks/tasks.service";
-import { TasksList } from "@/features/tasks/TasksList";
-import { PagesList } from "@/features/pages/PagesList";
-import { FoldersList } from "@/features/folders/FoldersList";
+import { PageWrapper } from "@/components/PageWrapper";
+import { SystemDetailHeader } from "@/features/systems/SystemDetailHeader";
+import { SystemDetailTabs } from "@/features/systems/SystemDetailTabs";
 
 export default async function SystemPage({ params }: { params: Promise<{ id: string }> }) {
+  const { id } = await params;
+  const session = await auth.api.getSession({ headers: await headers() });
 
-    const { id } = await params;
-    const session = await auth.api.getSession({ headers: await headers() });
+  if (!session) redirect("/login");
 
-    if (!session) redirect("/login");
+  const system = await getSystembyId(id, session.user.id);
+  const tasks = await getTasksBySystem(id, session.user.id);
 
-    const system = await getSystembyId(id, session.user.id);
+  if (!system) notFound();
 
-    if (!system) notFound();
-
-    const tasks = await getTasksBySystem(id, session.user.id);
-
-    return (
-        <div className="p-4 flex flex-col gap-6 w-full h-full">
-            <h1 className="text-3xl font-bold">{system.name}</h1>
-            <div className="flex flex-col gap-6">
-                <TasksList systemId={id} initialData={tasks} />
-                <PagesList />
-                <FoldersList />
-            </div>
-        </div>
-    )
-}    
+  return (
+    <PageWrapper>
+      <SystemDetailHeader system={system} taskCount={tasks.length} />
+      <SystemDetailTabs systemId={id} initialTasks={tasks} />
+    </PageWrapper>
+  );
+}

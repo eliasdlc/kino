@@ -3,6 +3,7 @@
 import { isBefore, parseISO, startOfToday } from "date-fns";
 import { BatteryLow, Minus, Zap } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { Badge } from "@/components/ui/badge";
 import type { Task } from "./tasks.types";
 
 interface TaskCardProps {
@@ -10,24 +11,24 @@ interface TaskCardProps {
   onToggle: (taskId: string) => void;
 }
 
-const STATUS_STYLES: Record<string, string> = {
-  backlog:  "bg-slate-100 text-slate-600",
-  week:     "bg-blue-100 text-blue-700",
-  today:    "bg-amber-100 text-amber-700",
-  done:     "bg-green-100 text-green-700",
-  archived: "bg-gray-100 text-gray-500",
+const STATUS_VARIANT: Record<string, "default" | "secondary" | "outline" | "destructive"> = {
+  backlog: "outline",
+  week: "secondary",
+  today: "default",
+  done: "secondary",
+  archived: "outline",
 };
 
 const PRIORITY_DOT: Record<string, string> = {
   critical: "bg-red-500",
-  high:     "bg-orange-400",
-  medium:   "bg-yellow-400",
-  low:      "bg-slate-300",
+  high: "bg-orange-400",
+  medium: "bg-yellow-400",
+  low: "bg-slate-300",
 };
 
 function EnergyIcon({ level }: { level: string }) {
-  if (level === "high")   return <Zap size={12} />;
-  if (level === "low")    return <BatteryLow size={12} />;
+  if (level === "high") return <Zap size={12} />;
+  if (level === "low") return <BatteryLow size={12} />;
   return <Minus size={12} />;
 }
 
@@ -48,7 +49,7 @@ export function TaskCard({ task, onToggle }: TaskCardProps) {
   return (
     <div
       className={cn(
-        "flex items-start gap-3 px-3 py-2.5 rounded-md border bg-card transition-opacity",
+        "flex items-start gap-3 px-3 py-2.5 rounded-md border bg-card transition-all hover:shadow-sm",
         isDone && "opacity-60"
       )}
     >
@@ -61,7 +62,7 @@ export function TaskCard({ task, onToggle }: TaskCardProps) {
           "mt-0.5 size-4 shrink-0 rounded-full border-2 transition-colors",
           isDone
             ? "border-green-500 bg-green-500"
-            : "border-muted-foreground/40 hover:border-green-400"
+            : "border-muted-foreground/40 hover:border-primary"
         )}
       />
 
@@ -87,16 +88,11 @@ export function TaskCard({ task, onToggle }: TaskCardProps) {
         </div>
 
         {/* Row 2: chips */}
-        <div className="flex items-center gap-1.5 mt-1 flex-wrap">
+        <div className="flex items-center gap-1.5 mt-1.5 flex-wrap">
           {/* Status badge */}
-          <span
-            className={cn(
-              "inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium",
-              STATUS_STYLES[task.status] ?? "bg-slate-100 text-slate-600"
-            )}
-          >
+          <Badge variant={STATUS_VARIANT[task.status] ?? "outline"} className="text-[10px] px-1.5 py-0">
             {task.status}
-          </span>
+          </Badge>
 
           {/* Energy chip */}
           <span className="inline-flex items-center gap-0.5 text-[10px] text-muted-foreground">

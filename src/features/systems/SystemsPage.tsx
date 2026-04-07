@@ -1,21 +1,22 @@
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { CreateSystemDialog } from "./CreateSystemDialog";
 import { SystemsList } from "./SystemsList";
+import { PageWrapper, PageHeader } from "@/components/PageWrapper";
+import { Input } from "@/components/ui/input";
+import { Search } from "lucide-react";
 
 export default function SystemsPage() {
-
-
   return (
-    <div className="p-4 flex flex-col gap-2 bg-white w-full h-full">
-      <h2 className="text-2xl font-bold">Systems</h2>
-      <div className="w-full flex flex-row gap-2">
-        <Input className="w-1/2" placeholder="Search System" />
-        <CreateSystemDialog />
-        <Button>Filter Systems</Button>
+    <PageWrapper>
+      <PageHeader
+        title="Systems"
+        description="Your identity-based productivity systems."
+        actions={<CreateSystemDialog />}
+      />
+      <div className="relative">
+        <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground" />
+        <Input className="pl-9" placeholder="Search systems..." />
       </div>
       <SystemsList />
-
-    </div>
-  )
+    </PageWrapper>
+  );
 }

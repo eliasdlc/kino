@@ -16,8 +16,12 @@ export default async function AppLayout({
   return (
     <Providers>
       <div className="flex h-screen">
-        <SystemsSidebar />
-        <main className="flex-1 overflow-y-auto">
+        <SystemsSidebar
+          userName={session.user.name}
+          userEmail={session.user.email}
+          userImage={session.user.image}
+        />
+        <main className="flex-1 overflow-y-auto bg-background">
           {children}
         </main>
       </div>
