@@ -6,18 +6,13 @@ import { validateTransition, type TaskStatus, type TransitionAction } from "./ta
 import { Task, CreateTaskInput, UpdateTaskInput } from "./tasks.types";
 
 async function getEnergyContext(userId: string) {
-  const [energyData] = await db
-    .select({ total: sql<number>`COALESCE(SUM(${tasks.energyPoints}), 0)` })
-    .from(tasks)
-    .where(and(eq(tasks.userId, userId), eq(tasks.status, "today"), isNull(tasks.deletedAt)));
-
   const [settings] = await db
     .select({ dailyEnergyLimit: userSettings.dailyEnergyLimit })
     .from(userSettings)
     .where(eq(userSettings.userId, userId));
 
   return {
-    currentDayEnergyUsed: energyData?.total ?? 0,
+    currentDayEnergyUsed: 0,
     dailyEnergyLimit: settings?.dailyEnergyLimit ?? 50,
   };
 }
@@ -93,10 +88,10 @@ export async function toggleTask(taskId: string, userId: string): Promise<{ stat
   const result = validateTransition({
     currentStatus: current.status,
     action,
-    taskEnergyPoints: current.energyPoints,
+    taskEnergyPoints: 3,
     currentDayEnergyUsed: energyContext.currentDayEnergyUsed,
     dailyEnergyLimit: energyContext.dailyEnergyLimit,
-    isRecurring: current.isRecurring,
+    isRecurring: current.recurrenceRule !== null && current.recurrenceRule !== undefined,
   });
 
   if (!result.valid || !result.newStatus) {
@@ -172,10 +167,10 @@ export async function moveTask(taskId: string, newStatus: TaskStatus, userId: st
   const result = validateTransition({
     currentStatus: current.status,
     action,
-    taskEnergyPoints: current.energyPoints,
+    taskEnergyPoints: 3,
     currentDayEnergyUsed: energyContext.currentDayEnergyUsed,
     dailyEnergyLimit: energyContext.dailyEnergyLimit,
-    isRecurring: current.isRecurring,
+    isRecurring: current.recurrenceRule !== null && current.recurrenceRule !== undefined,
   });
 
   if (!result.valid || !result.newStatus) {

@@ -32,11 +32,11 @@ function EnergyIcon({ level }: { level: string }) {
   return <Minus size={12} />;
 }
 
-function formatMinutes(minutes: number): string {
-  if (minutes < 60) return `${minutes}m`;
-  const h = Math.floor(minutes / 60);
-  const m = minutes % 60;
-  return m > 0 ? `${h}h ${m}m` : `${h}h`;
+function formatTime(timeStr: string): string {
+  const [h, m] = timeStr.split(':').map(Number);
+  if (h === 0) return `${m}m`;
+  if (m === 0) return `${h}h`;
+  return `${h}h ${m}m`;
 }
 
 export function TaskCard({ task, onToggle }: TaskCardProps) {
@@ -114,9 +114,9 @@ export function TaskCard({ task, onToggle }: TaskCardProps) {
           )}
 
           {/* Estimated time */}
-          {task.estimatedMinutes && (
+          {task.estimatedTime && (
             <span className="text-[10px] text-muted-foreground">
-              {formatMinutes(task.estimatedMinutes)}
+              {formatTime(task.estimatedTime)}
             </span>
           )}
         </div>

@@ -10,8 +10,7 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { Calendar } from "@/components/ui/calendar";
 import { Textarea } from "@/components/ui/textarea";
 import { Separator } from "@/components/ui/separator";
-import { Slider } from "@/components/ui/slider";
-import { taskPriorityEnum, taskStatusEnum, energyLevelEnum } from "@/shared/db/schema";
+import { taskPriorityEnum, taskStatusEnum, energyLevelEnum, taskTypeEnum } from "@/shared/db/schema";
 import { ChevronDown, ChevronUp } from "lucide-react";
 import type { CreateTaskInput } from "./tasks.types";
 import { useCreateTask } from "./tasks.hooks";
@@ -28,9 +27,9 @@ const DEFAULT_STATE = {
   status: "backlog" as CreateTaskInput["status"],
   dueDate: undefined as string | undefined,
   energyLevel: "medium" as CreateTaskInput["energyLevel"],
-  energyPoints: 3 as number,
+  taskType: undefined as CreateTaskInput["taskType"],
   scheduledDate: undefined as string | undefined,
-  estimatedMinutes: undefined as number | undefined,
+  estimatedTime: undefined as string | undefined,
 };
 
 export function CreateTaskDialog({ systemId, parentTaskId }: CreateTaskDialogProps) {
@@ -44,9 +43,9 @@ export function CreateTaskDialog({ systemId, parentTaskId }: CreateTaskDialogPro
   const [status, setStatus] = useState(DEFAULT_STATE.status);
   const [dueDate, setDueDate] = useState(DEFAULT_STATE.dueDate);
   const [energyLevel, setEnergyLevel] = useState(DEFAULT_STATE.energyLevel);
-  const [energyPoints, setEnergyPoints] = useState(DEFAULT_STATE.energyPoints);
+  const [taskType, setTaskType] = useState(DEFAULT_STATE.taskType);
   const [scheduledDate, setScheduledDate] = useState(DEFAULT_STATE.scheduledDate);
-  const [estimatedMinutes, setEstimatedMinutes] = useState(DEFAULT_STATE.estimatedMinutes);
+  const [estimatedTime, setEstimatedTime] = useState(DEFAULT_STATE.estimatedTime);
 
   const { mutate: createTask, isPending } = useCreateTask(systemId);
 
@@ -57,9 +56,9 @@ export function CreateTaskDialog({ systemId, parentTaskId }: CreateTaskDialogPro
     setStatus(DEFAULT_STATE.status);
     setDueDate(DEFAULT_STATE.dueDate);
     setEnergyLevel(DEFAULT_STATE.energyLevel);
-    setEnergyPoints(DEFAULT_STATE.energyPoints);
+    setTaskType(DEFAULT_STATE.taskType);
     setScheduledDate(DEFAULT_STATE.scheduledDate);
-    setEstimatedMinutes(DEFAULT_STATE.estimatedMinutes);
+    setEstimatedTime(DEFAULT_STATE.estimatedTime);
     setShowMore(false);
     setError(null);
   }
@@ -74,10 +73,10 @@ export function CreateTaskDialog({ systemId, parentTaskId }: CreateTaskDialogPro
       priority,
       ...(description ? { description } : {}),
       ...(energyLevel !== "medium" ? { energyLevel } : {}),
-      ...(energyPoints !== 3 ? { energyPoints } : {}),
+      ...(taskType ? { taskType } : {}),
       ...(dueDate ? { dueDate } : {}),
       ...(scheduledDate ? { scheduledDate } : {}),
-      ...(estimatedMinutes ? { estimatedMinutes } : {}),
+      ...(estimatedTime ? { estimatedTime } : {}),
       ...(parentTaskId ? { parentTaskId } : {}),
     };
 
@@ -96,7 +95,7 @@ export function CreateTaskDialog({ systemId, parentTaskId }: CreateTaskDialogPro
   return (
     <Dialog open={open} onOpenChange={(val) => { setOpen(val); if (!val) resetForm(); }}>
       <DialogTrigger asChild>
-        <Button variant="outline" className="w-full">+ Nueva tarea</Button>
+        <Button variant="outline" className="w-fit">Nueva tarea</Button>
       </DialogTrigger>
 
       <DialogContent className="max-h-[90vh] overflow-y-auto">
@@ -199,15 +198,18 @@ export function CreateTaskDialog({ systemId, parentTaskId }: CreateTaskDialogPro
                 </Select>
               </div>
 
-              <div className="space-y-3">
-                <Label>Puntos de energía: <span className="font-semibold">{energyPoints}</span></Label>
-                <Slider
-                  min={1}
-                  max={10}
-                  step={1}
-                  value={[energyPoints]}
-                  onValueChange={([v]) => setEnergyPoints(v ?? 3)}
-                />
+              <div className="space-y-2">
+                <Label>Tipo de tarea</Label>
+                <Select value={taskType ?? ""} onValueChange={(val) => setTaskType(val as CreateTaskInput["taskType"])}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Seleccionar tipo..." />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {taskTypeEnum.enumValues.map((t) => (
+                      <SelectItem key={t} value={t}>{t}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
 
               <div className="grid grid-cols-2 gap-3">
@@ -263,14 +265,13 @@ export function CreateTaskDialog({ systemId, parentTaskId }: CreateTaskDialogPro
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="estimatedMinutes">Tiempo estimado (minutos)</Label>
+                <Label htmlFor="estimatedTime">Tiempo estimado (HH:MM:SS)</Label>
                 <Input
-                  id="estimatedMinutes"
-                  type="number"
-                  min={1}
-                  placeholder="Ej: 30"
-                  value={estimatedMinutes ?? ""}
-                  onChange={(e) => setEstimatedMinutes(e.target.value ? Number(e.target.value) : undefined)}
+                  id="estimatedTime"
+                  type="time"
+                  placeholder="00:00:00"
+                  value={estimatedTime ?? ""}
+                  onChange={(e) => setEstimatedTime(e.target.value || undefined)}
                 />
               </div>
             </div>

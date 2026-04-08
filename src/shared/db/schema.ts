@@ -106,6 +106,13 @@ export const questTypeEnum = pgEnum('quest_type', [
   'recovery',
 ]);
 
+export const taskTypeEnum = pgEnum('task_type', [
+  'idea',
+  'reminder',
+  'project',
+  'todo',
+]);
+
 export const frequencyEnum = pgEnum('frequency', [
   'daily',
   'weekly',
@@ -385,13 +392,11 @@ export const tasks = pgTable(
     description: text('description'),
     status: taskStatusEnum('status').notNull().default('backlog'),
     energyLevel: energyLevelEnum('energy_level').notNull().default('medium'),
-    energyPoints: smallint('energy_points').notNull().default(3),
     priority: taskPriorityEnum('priority').notNull().default('medium'),
-    taskType: varchar('task_type', { length: 100 }),
+    taskType: taskTypeEnum('task_type'),
     dueDate: date('due_date'),
     scheduledDate: date('scheduled_date'),
-    estimatedMinutes: integer('estimated_minutes'),
-    isRecurring: boolean('is_recurring').notNull().default(false),
+    estimatedTime: time('estimated_time'),
     recurrenceRule: varchar('recurrence_rule', { length: 500 }),
     recurrenceParentId: uuid('recurrence_parent_id').references(
       (): AnyPgColumn => tasks.id,
@@ -412,14 +417,6 @@ export const tasks = pgTable(
       .defaultNow(),
   },
   (table) => [
-    check(
-      'energy_points_range',
-      sql`${table.energyPoints} BETWEEN 1 AND 10`,
-    ),
-    check(
-      'estimated_minutes_positive',
-      sql`${table.estimatedMinutes} > 0`,
-    ),
     index('idx_tasks_user_status')
       .on(table.userId, table.status)
       .where(sql`${table.deletedAt} IS NULL`),
@@ -434,7 +431,7 @@ export const tasks = pgTable(
     index('idx_tasks_recurring')
       .on(table.userId)
       .where(
-        sql`${table.isRecurring} = true AND ${table.deletedAt} IS NULL`,
+        sql`${table.recurrenceRule} IS NOT NULL AND ${table.deletedAt} IS NULL`,
       ),
     index('idx_tasks_parent')
       .on(table.parentTaskId)

@@ -17,7 +17,7 @@ export default async function DashboardPage() {
 
   const [[energyData], [settings], todayTasks] = await Promise.all([
     db
-      .select({ total: sql<number>`COALESCE(SUM(${tasks.energyPoints}), 0)` })
+      .select({ total: sql<number>`0` })
       .from(tasks)
       .where(and(eq(tasks.userId, userId), eq(tasks.status, "today"), isNull(tasks.deletedAt))),
     db
@@ -92,7 +92,7 @@ export default async function DashboardPage() {
                   )}
                 </div>
                 <span className="text-xs font-medium whitespace-nowrap text-primary bg-primary/10 px-2 py-1 rounded">
-                  {task.energyPoints} EP
+                  ⚡
                 </span>
               </li>
             ))}
