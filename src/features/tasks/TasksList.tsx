@@ -1,9 +1,12 @@
 "use client";
 
 import type { Task } from "./tasks.types";
-import { useTasks, useToggleTask } from "./tasks.hooks";
-import { TaskCard } from "./TaskCard";
 import { CreateTaskDialog } from "./CreateTaskDialog";
+import { CircleCheckBig } from "lucide-react";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { TaskActionView } from "./TaskActionView";
+import { TaskPlanningView } from "./TaskPlanningView";
+import { TaskArchiveView } from "./TaskArchiveView";
 
 interface TasksListProps {
   systemId: string;
@@ -11,31 +14,26 @@ interface TasksListProps {
 }
 
 export function TasksList({ systemId, initialData }: TasksListProps) {
-  const { data: tasks } = useTasks(systemId, initialData);
-  const { mutate: toggleTask } = useToggleTask(systemId);
-
   return (
-    <div className="w-full">
-      <div className="flex items-center justify-between mb-3">
-        <h2 className="text-lg font-semibold">Tareas</h2>
+    <Tabs defaultValue="action" className="w-full flex flex-col gap-4">
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-4">
+          <CircleCheckBig className="size-8" />
+          <h2 className="text-3xl font-extrabold">Tareas</h2>
+          <TabsList>
+            <TabsTrigger value="planning">Planning</TabsTrigger>
+            <TabsTrigger value="action">Action</TabsTrigger>
+            <TabsTrigger value="archive">Archive</TabsTrigger>
+          </TabsList>
+        </div>
         <CreateTaskDialog systemId={systemId} />
       </div>
 
-      {tasks && tasks.length === 0 ? (
-        <p className="text-sm text-muted-foreground py-6 text-center">
-          Sin tareas. Crea una con el botón de arriba.
-        </p>
-      ) : (
-        <div className="flex flex-col gap-1.5">
-          {tasks?.map((task) => (
-            <TaskCard
-              key={task.id}
-              task={task}
-              onToggle={(taskId) => toggleTask(taskId)}
-            />
-          ))}
-        </div>
-      )}
-    </div>
+      <TabsContent value="planning"><TaskPlanningView /></TabsContent>
+      <TabsContent value="action">
+        <TaskActionView systemId={systemId} initialData={initialData} />
+      </TabsContent>
+      <TabsContent value="archive"><TaskArchiveView /></TabsContent>
+    </Tabs>
   );
 }

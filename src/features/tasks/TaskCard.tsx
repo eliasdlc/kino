@@ -32,7 +32,8 @@ function EnergyIcon({ level }: { level: string }) {
   return <Minus size={12} />;
 }
 
-function formatTime(timeStr: string): string {
+function formatTime(timeStr: unknown): string {
+  if (typeof timeStr !== 'string') return '';
   const [h, m] = timeStr.split(':').map(Number);
   if (h === 0) return `${m}m`;
   if (m === 0) return `${h}h`;

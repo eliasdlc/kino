@@ -11,18 +11,18 @@ import { MoreHorizontal, Pencil, Trash2, Power } from "lucide-react";
 import type { System } from "./systems.types";
 
 const COLOR_ACCENT: Record<string, string> = {
-  blue: "border-l-blue-500",
-  red: "border-l-red-500",
-  green: "border-l-green-500",
-  yellow: "border-l-yellow-500",
-  purple: "border-l-purple-500",
-  pink: "border-l-pink-500",
-  orange: "border-l-orange-500",
-  teal: "border-l-teal-500",
-  gray: "border-l-gray-500",
-  black: "border-l-gray-900",
-  white: "border-l-gray-300",
-  cyan: "border-l-cyan-500",
+  blue: "border-t-blue-500",
+  red: "border-t-red-500",
+  green: "border-t-green-500",
+  yellow: "border-t-yellow-500",
+  purple: "border-t-purple-500",
+  pink: "border-t-pink-500",
+  orange: "border-t-orange-500",
+  teal: "border-t-teal-500",
+  gray: "border-t-gray-500",
+  black: "border-t-gray-900",
+  white: "border-t-gray-300",
+  cyan: "border-t-cyan-500",
 };
 
 const COLOR_DOT: Record<string, string> = {
@@ -50,12 +50,12 @@ interface SystemDetailHeaderProps {
  * Shows system name, identity statement, metadata badges, and stats.
  */
 export function SystemDetailHeader({ system, taskCount }: SystemDetailHeaderProps) {
-  const borderColor = COLOR_ACCENT[system.color] ?? "border-l-gray-400";
+  const borderColor = COLOR_ACCENT[system.color] ?? "border-t-gray-400";
   const dotColor = COLOR_DOT[system.color] ?? "bg-gray-400";
 
   return (
     <div
-      className={`rounded-lg border border-l-4 ${borderColor} bg-card p-6 space-y-4`}
+      className={`rounded-lg border border-t-4 ${borderColor} bg-card p-6 space-y-4 w-full`}
     >
       {/* Title row */}
       <div className="flex items-start justify-between gap-4">
@@ -77,7 +77,7 @@ export function SystemDetailHeader({ system, taskCount }: SystemDetailHeaderProp
               <MoreHorizontal className="size-4" />
             </Button>
           </DropdownMenuTrigger>
-          <DropdownMenuContent align="end">
+          <DropdownMenuContent align="end" className="w-40">
             <DropdownMenuItem className="flex items-center gap-2">
               <Pencil className="size-4" />
               Edit system
@@ -108,10 +108,10 @@ export function SystemDetailHeader({ system, taskCount }: SystemDetailHeaderProp
           <Badge variant="secondary">{system.templateType}</Badge>
         )}
         {system.energyIdeal && (
-          <Badge variant="secondary">⚡ {system.energyIdeal}</Badge>
+          <Badge variant="secondary">{system.energyIdeal}</Badge>
         )}
         {system.expectedFrequency && (
-          <Badge variant="secondary">📅 {system.expectedFrequency}</Badge>
+          <Badge variant="secondary">{system.expectedFrequency}</Badge>
         )}
       </div>
 

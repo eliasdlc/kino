@@ -35,7 +35,7 @@ export function PageHeader({ title, description, actions }: PageHeaderProps) {
  */
 export function PageWrapper({ children, className }: PageWrapperProps) {
   return (
-    <div className={cn("p-6 max-w-5xl mx-auto w-full space-y-6", className)}>
+    <div className={cn("p-4 w-full space-y-6", className)}>
       {children}
     </div>
   );

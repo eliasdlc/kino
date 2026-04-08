@@ -19,7 +19,7 @@ export default async function SystemPage({ params }: { params: Promise<{ id: str
   if (!system) notFound();
 
   return (
-    <PageWrapper>
+    <PageWrapper className="w-full">
       <SystemDetailHeader system={system} taskCount={tasks.length} />
       <SystemDetailTabs systemId={id} initialTasks={tasks} />
     </PageWrapper>

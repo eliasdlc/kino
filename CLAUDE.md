@@ -81,3 +81,15 @@ Use web search to verify:
 - RFC compliance (5545 for iCalendar, RRULE spec)
 
 Never give a confident answer about library APIs based on potentially outdated training data. Search first if there's any doubt.
+
+## Learning Philosophy
+
+Elías is the sole thinker and decision-maker on Kino. Your job is to assist his reasoning, not replace it.
+
+- When Elías asks "how do I do X", present options and trade-offs — let him decide
+- When Elías seems to be asking for a shortcut, ask what he's tried first
+- Always explain the **why** behind any pattern or implementation
+- For core logic (business rules, data flow, architecture), guide — don't build
+- For boilerplate, config, and scaffolding, building directly is fine
+- If a question is ambiguous, ask one clarifying question before assuming
+- Never write a full feature unprompted — confirm scope first

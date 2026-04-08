@@ -1,0 +1,47 @@
+import {
+  Box,
+  Folder,
+  Briefcase,
+  BookOpen,
+  Code,
+  Heart,
+  Star,
+  Target,
+  Zap,
+  Globe,
+  Music,
+  Camera,
+  Coffee,
+  Home,
+  Layers,
+  FlaskConical,
+  DollarSign,
+  Dumbbell,
+  Rocket,
+  Palette,
+} from "lucide-react";
+import type { LucideIcon } from "lucide-react";
+
+export const ICON_MAP: Record<string, LucideIcon> = {
+  folder: Folder,
+  briefcase: Briefcase,
+  book: BookOpen,
+  code: Code,
+  heart: Heart,
+  star: Star,
+  target: Target,
+  zap: Zap,
+  globe: Globe,
+  music: Music,
+  camera: Camera,
+  coffee: Coffee,
+  home: Home,
+  layers: Layers,
+  flask: FlaskConical,
+  money: DollarSign,
+  gym: Dumbbell,
+  rocket: Rocket,
+  palette: Palette,
+};
+
+export const DEFAULT_ICON: LucideIcon = Box;

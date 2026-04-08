@@ -2,7 +2,13 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { LayoutDashboard, Settings, LogOut } from "lucide-react";
+import { useEffect, useMemo } from "react";
+import {
+  Inbox,
+  LayoutDashboard,
+  LogOut,
+  Settings,
+} from "lucide-react";
 import { useSystems } from "./systems.hooks";
 import { CreateSystemDialog } from "./CreateSystemDialog";
 import type { System } from "./systems.types";
@@ -17,21 +23,8 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { authClient } from "@/auth-client";
 import { useRouter } from "next/navigation";
-
-const COLOR_MAP: Record<string, string> = {
-  blue: "bg-blue-500",
-  red: "bg-red-500",
-  green: "bg-green-500",
-  yellow: "bg-yellow-500",
-  purple: "bg-purple-500",
-  pink: "bg-pink-500",
-  orange: "bg-orange-500",
-  cyan: "bg-cyan-500",
-  teal: "bg-teal-500",
-  gray: "bg-gray-500",
-  black: "bg-gray-900",
-  white: "bg-gray-200",
-};
+import { useSystemsTreeStore } from "./systems.store";
+import { SystemTreeItem } from "./SystemTreeItem";
 
 interface SystemsSidebarProps {
   userName?: string;
@@ -39,12 +32,16 @@ interface SystemsSidebarProps {
   userImage?: string | null;
 }
 
-export function SystemsSidebar({ userName, userEmail, userImage }: SystemsSidebarProps) {
+export function SystemsSidebar({
+  userName,
+  userEmail,
+  userImage,
+}: SystemsSidebarProps) {
   const pathname = usePathname();
   const router = useRouter();
   const { data: systems, isLoading } = useSystems();
+  const setExpanded = useSystemsTreeStore((s) => s.setExpanded);
 
-  // Get initials for avatar fallback
   const initials = userName
     ? userName
         .split(" ")
@@ -54,24 +51,47 @@ export function SystemsSidebar({ userName, userEmail, userImage }: SystemsSideba
         .slice(0, 2)
     : "?";
 
+  // Extract active system and folder from pathname
+  const activeSystemId = useMemo(() => {
+    const match = pathname.match(/^\/systems\/([^/]+)/);
+    return match?.[1] ?? null;
+  }, [pathname]);
+
+  const activeFolderId = useMemo(() => {
+    const match = pathname.match(/^\/systems\/[^/]+\/folders\/([^/]+)/);
+    return match?.[1] ?? null;
+  }, [pathname]);
+
+  // Auto-expand active system on navigation
+  useEffect(() => {
+    if (activeSystemId) setExpanded(activeSystemId, true);
+  }, [activeSystemId, setExpanded]);
+
   async function handleSignOut() {
     await authClient.signOut();
     router.push("/login");
   }
 
+  const inboxSystem = systems?.find((s: System) => s.isInbox);
+  const regularSystems = systems?.filter((s: System) => !s.isInbox) ?? [];
+
   return (
     <aside className="w-64 h-screen border-r border-sidebar-border bg-sidebar flex flex-col shrink-0">
       {/* Logo + User */}
       <div className="p-4 border-b border-sidebar-border space-y-3">
-        <Link href="/dashboard" className="font-bold text-lg tracking-tight text-sidebar-foreground">
+        <Link
+          href="/dashboard"
+          className="font-bold text-lg tracking-tight text-sidebar-foreground"
+        >
           Kino
         </Link>
 
-        {/* User avatar with dropdown */}
         <DropdownMenu>
           <DropdownMenuTrigger className="flex items-center gap-2.5 w-full rounded-md px-2 py-1.5 hover:bg-sidebar-accent transition-colors outline-none">
             <Avatar className="size-7">
-              {userImage && <AvatarImage src={userImage} alt={userName ?? "User"} />}
+              {userImage && (
+                <AvatarImage src={userImage} alt={userName ?? "User"} />
+              )}
               <AvatarFallback className="text-xs bg-primary text-primary-foreground">
                 {initials}
               </AvatarFallback>
@@ -127,13 +147,40 @@ export function SystemsSidebar({ userName, userEmail, userImage }: SystemsSideba
           <span>Dashboard</span>
         </Link>
 
+        <Link
+          href="/settings"
+          className={`flex items-center gap-2.5 px-3 py-2 rounded-md text-sm transition-colors ${
+            pathname === "/settings"
+              ? "bg-sidebar-accent text-sidebar-accent-foreground font-medium border-l-2 border-sidebar-primary"
+              : "text-muted-foreground hover:bg-sidebar-accent/50 hover:text-sidebar-foreground"
+          }`}
+        >
+          <Settings className="size-4 shrink-0" />
+          <span>Settings</span>
+        </Link>
+
         <div className="my-3 border-t border-sidebar-border" />
 
         <p className="px-3 py-1 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground/60">
           Systems
         </p>
 
-        {/* Systems list */}
+        {/* Inbox — always pinned at the top, visually distinct */}
+        {inboxSystem && (
+          <Link
+            href={`/systems/${inboxSystem.id}`}
+            className={`flex items-center gap-2.5 px-3 py-2 rounded-md text-sm transition-colors border ${
+              pathname === `/systems/${inboxSystem.id}`
+                ? "bg-sidebar-accent text-sidebar-accent-foreground font-medium border-l-2 border-sidebar-primary border-t-sidebar-border/50 border-r-sidebar-border/50 border-b-sidebar-border/50"
+                : "bg-sidebar-accent/20 border-sidebar-border/40 text-sidebar-foreground hover:bg-sidebar-accent/40"
+            }`}
+          >
+            <Inbox className="size-4 shrink-0 text-blue-500" />
+            <span className="truncate font-medium">{inboxSystem.name}</span>
+          </Link>
+        )}
+
+        {/* Regular systems as collapsible tree items */}
         {isLoading && (
           <div className="space-y-1 p-2">
             {[...Array(4)].map((_, i) => (
@@ -142,43 +189,18 @@ export function SystemsSidebar({ userName, userEmail, userImage }: SystemsSideba
           </div>
         )}
 
-        {systems?.map((system: System) => {
-          const isActive = pathname === `/systems/${system.id}`;
-          const dotColor = COLOR_MAP[system.color] ?? "bg-gray-400";
-
-          return (
-            <Link
-              key={system.id}
-              href={`/systems/${system.id}`}
-              className={`flex items-center gap-2.5 px-3 py-2 rounded-md text-sm transition-colors ${
-                isActive
-                  ? "bg-sidebar-accent text-sidebar-accent-foreground font-medium border-l-2 border-sidebar-primary"
-                  : "text-muted-foreground hover:bg-sidebar-accent/50 hover:text-sidebar-foreground"
-              }`}
-            >
-              <span className={`size-2 rounded-full shrink-0 ${dotColor}`} />
-              <span className="truncate">{system.name}</span>
-              {system.isInbox && (
-                <span className="ml-auto text-xs text-muted-foreground/60">Inbox</span>
-              )}
-            </Link>
-          );
-        })}
+        {regularSystems.map((system: System) => (
+          <SystemTreeItem
+            key={system.id}
+            system={system}
+            isActive={activeSystemId === system.id}
+            activeFolderId={activeFolderId ?? undefined}
+          />
+        ))}
       </nav>
 
       {/* Footer */}
-      <div className="p-3 border-t border-sidebar-border space-y-2">
-        <Link
-          href="/settings"
-          className={`flex items-center gap-2.5 px-3 py-2 rounded-md text-sm transition-colors ${
-            pathname === "/settings"
-              ? "bg-sidebar-accent text-sidebar-accent-foreground font-medium"
-              : "text-muted-foreground hover:bg-sidebar-accent/50 hover:text-sidebar-foreground"
-          }`}
-        >
-          <Settings className="size-4 shrink-0" />
-          <span>Settings</span>
-        </Link>
+      <div className="p-3 border-t border-sidebar-border">
         <CreateSystemDialog />
       </div>
     </aside>
