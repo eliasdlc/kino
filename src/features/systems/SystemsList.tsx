@@ -7,7 +7,7 @@ export function SystemsList() {
   const { data: systems, isLoading, isError } = useSystems();
 
   if (isLoading) return <div>Loading...</div>;
-  if (isError) return <div>Error: {isError}</div>;
+  if (isError) return <div>Error al cargar los sistemas. Intenta de nuevo.</div>;
 
 
   return (

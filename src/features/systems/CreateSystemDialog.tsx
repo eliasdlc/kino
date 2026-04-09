@@ -1,149 +1,145 @@
 'use client'
 
+import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Dialog, DialogTrigger, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
-import { useState } from "react";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { colorEnum, energyLevelEnum, frequencyEnum, templateTypeEnum } from "@/shared/db/schema";
-import { CreateSystemInput } from "./systems.types";
-import { useQueryClient } from "@tanstack/react-query";
+import type { CreateSystemInput } from "./systems.types";
+import { useCreateSystem } from "./systems.hooks";
 
 export function CreateSystemDialog() {
-    const queryClient = useQueryClient();
-
     const [open, setOpen] = useState(false);
     const [name, setName] = useState("");
     const [description, setDescription] = useState("");
-    const [color, setColor] = useState("blue");
-    const [icon] = useState("folder");
-    const [templateType, setTemplateType] = useState("custom");
-    const [energyIdeal, setEnergyIdeal] = useState("medium");
-    const [expectedFrequency, setExpectedFrequency] = useState("daily");
+    const [color, setColor] = useState<CreateSystemInput["color"]>("blue");
+    const [templateType, setTemplateType] = useState<CreateSystemInput["templateType"]>("custom");
+    const [energyIdeal, setEnergyIdeal] = useState<CreateSystemInput["energyIdeal"]>("medium");
+    const [expectedFrequency, setExpectedFrequency] = useState<CreateSystemInput["expectedFrequency"]>("daily");
     const [triggerContext, setTriggerContext] = useState("");
+    const [error, setError] = useState<string | null>(null);
 
+    const { mutate: createSystem, isPending } = useCreateSystem();
 
-
-    const handleCreateSystem = async () => {
-        const data: CreateSystemInput = {
-            name,
-            identityStatement: description,
-            color: color as CreateSystemInput["color"],
-            icon,
-            templateType: templateType as CreateSystemInput["templateType"],
-            energyIdeal: energyIdeal as CreateSystemInput["energyIdeal"],
-            expectedFrequency: expectedFrequency as CreateSystemInput["expectedFrequency"],
-            triggerContext,
-        }
-
-        const body = await fetch("/api/systems", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify(data),
-        })
-
-        if (!body.ok) {
-            throw new Error("Failed to create system");
-        }
-
-        const result = await body.json();
-        console.log(result);
-        queryClient.invalidateQueries({ queryKey: ["systems"] })
-        setOpen(false);
+    function resetForm() {
+        setName("");
+        setDescription("");
+        setColor("blue");
+        setTemplateType("custom");
+        setEnergyIdeal("medium");
+        setExpectedFrequency("daily");
+        setTriggerContext("");
+        setError(null);
     }
 
+    function handleCreateSystem() {
+        if (!name.trim()) return;
+
+        const data: CreateSystemInput = {
+            name: name.trim(),
+            identityStatement: description,
+            color,
+            icon: "folder",
+            templateType,
+            energyIdeal,
+            expectedFrequency,
+            triggerContext,
+        };
+
+        createSystem(data, {
+            onSuccess: () => {
+                resetForm();
+                setOpen(false);
+            },
+            onError: (err) => {
+                setError(err.message ?? "Error al crear el sistema");
+            },
+        });
+    }
 
     return (
-        <Dialog open={open} onOpenChange={setOpen}>
+        <Dialog open={open} onOpenChange={(val) => { setOpen(val); if (!val) resetForm(); }}>
             <DialogTrigger asChild>
                 <Button variant="outline" className="w-full">+ Nuevo sistema</Button>
             </DialogTrigger>
             <DialogContent>
                 <DialogHeader className="flex flex-col gap-4">
-                    <DialogTitle>Add System</DialogTitle>
-
+                    <DialogTitle>Nuevo sistema</DialogTitle>
                     <DialogDescription>
-                        Add a new system to help you organize your life.
+                        Crea un sistema para organizar tus tareas y hábitos.
                     </DialogDescription>
                 </DialogHeader>
 
-                <Label>Name</Label>
-                <Input placeholder="Name" value={name} onChange={(e) => setName(e.target.value)}></Input>
+                {error && (
+                    <p className="text-sm text-destructive">{error}</p>
+                )}
 
-                <Label>Description</Label>
-                <Input placeholder="Description" value={description} onChange={(e) => setDescription(e.target.value)}></Input>
+                <Label>Nombre</Label>
+                <Input placeholder="Nombre" value={name} onChange={(e) => setName(e.target.value)} />
+
+                <Label>Descripción</Label>
+                <Input placeholder="Descripción" value={description} onChange={(e) => setDescription(e.target.value)} />
 
                 <Label>Color</Label>
-                <Select value={color} onValueChange={setColor}>
+                <Select value={color} onValueChange={(val) => setColor(val as CreateSystemInput["color"])}>
                     <SelectTrigger>
                         <SelectValue placeholder="Color" />
                     </SelectTrigger>
                     <SelectContent>
-                        {colorEnum.enumValues.map((color) => (
-                            <SelectItem value={color} key={color}>
-                                {color}
-                            </SelectItem>
+                        {colorEnum.enumValues.map((c) => (
+                            <SelectItem value={c} key={c}>{c}</SelectItem>
                         ))}
                     </SelectContent>
                 </Select>
 
-                <Label>Icon</Label>
-
-
-                <Label>Template Type</Label>
-                <Select value={templateType} onValueChange={setTemplateType}>
+                <Label>Tipo de plantilla</Label>
+                <Select value={templateType} onValueChange={(val) => setTemplateType(val as CreateSystemInput["templateType"])}>
                     <SelectTrigger>
-                        <SelectValue placeholder="Template Type" />
+                        <SelectValue placeholder="Tipo de plantilla" />
                     </SelectTrigger>
                     <SelectContent>
-                        {templateTypeEnum.enumValues.map((templateType) => (
-                            <SelectItem value={templateType} key={templateType}>
-                                {templateType}
-                            </SelectItem>
+                        {templateTypeEnum.enumValues.map((t) => (
+                            <SelectItem value={t} key={t}>{t}</SelectItem>
                         ))}
                     </SelectContent>
                 </Select>
 
-                <Label>Energy Ideal</Label>
-                <Select value={energyIdeal} onValueChange={setEnergyIdeal}>
+                <Label>Nivel de energía ideal</Label>
+                <Select value={energyIdeal} onValueChange={(val) => setEnergyIdeal(val as CreateSystemInput["energyIdeal"])}>
                     <SelectTrigger>
-                        <SelectValue placeholder="Energy Ideal" />
+                        <SelectValue placeholder="Energía ideal" />
                     </SelectTrigger>
                     <SelectContent>
-                        {energyLevelEnum.enumValues.map((energyLevel) => (
-                            <SelectItem value={energyLevel} key={energyLevel}>
-                                {energyLevel}
-                            </SelectItem>
+                        {energyLevelEnum.enumValues.map((e) => (
+                            <SelectItem value={e} key={e}>{e}</SelectItem>
                         ))}
                     </SelectContent>
                 </Select>
 
-                <Label>Expected Frequency</Label>
-                <Select value={expectedFrequency} onValueChange={setExpectedFrequency}>
+                <Label>Frecuencia esperada</Label>
+                <Select value={expectedFrequency} onValueChange={(val) => setExpectedFrequency(val as CreateSystemInput["expectedFrequency"])}>
                     <SelectTrigger>
-                        <SelectValue placeholder="Expected Frequency" />
+                        <SelectValue placeholder="Frecuencia" />
                     </SelectTrigger>
                     <SelectContent>
-                        {frequencyEnum.enumValues.map((frequency) => (
-                            <SelectItem value={frequency} key={frequency}>
-                                {frequency}
-                            </SelectItem>
+                        {frequencyEnum.enumValues.map((f) => (
+                            <SelectItem value={f} key={f}>{f}</SelectItem>
                         ))}
                     </SelectContent>
                 </Select>
 
-                <Label>Trigger Context</Label>
-                <Input placeholder="Ex: When I wake up, When I go to bed, When I feel stressed." value={triggerContext} onChange={(e) => setTriggerContext(e.target.value)}></Input>
+                <Label>Contexto activador</Label>
+                <Input placeholder="Ej: Al levantarme, al sentirme estresado..." value={triggerContext} onChange={(e) => setTriggerContext(e.target.value)} />
 
                 <DialogFooter>
-                    <Button onClick={() => setOpen(false)}>Cancel</Button>
-                    <Button onClick={() => handleCreateSystem()}>Create</Button>
+                    <Button variant="outline" onClick={() => setOpen(false)} disabled={isPending}>Cancelar</Button>
+                    <Button onClick={handleCreateSystem} disabled={!name.trim() || isPending}>
+                        {isPending ? "Creando..." : "Crear"}
+                    </Button>
                 </DialogFooter>
             </DialogContent>
-
-
-
         </Dialog>
-    )
+    );
 }

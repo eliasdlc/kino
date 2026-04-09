@@ -62,18 +62,16 @@ export async function PATCH(
 
     return NextResponse.json(updatedSystem);
   } catch (error) {
-    if (error instanceof Error && error.message.includes("INBOX_PROTECTED")) {
+    if (error instanceof ForbiddenError) {
       return NextResponse.json(
         { code: "FORBIDDEN", message: error.message },
         { status: 403 }
       );
     }
-
-    console.error("Error en PATCH /system:", error);
-    return NextResponse.json(
-      { code: "INTERNAL_SERVER_ERROR", message: "An unexpected error occurred" },
-      { status: 500 }
-    );
+    if (error instanceof NotFoundError) {
+      return NextResponse.json({ code: "NOT_FOUND", message: "System not found" }, { status: 404 });
+    }
+    throw error;
   }
 }
 

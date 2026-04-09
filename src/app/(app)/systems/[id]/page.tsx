@@ -1,7 +1,7 @@
 import { auth } from "@/auth";
 import { getSystembyId } from "@/features/systems/systems.service";
 import { headers } from "next/headers";
-import { redirect } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 import { getTasksBySystem } from "@/features/tasks/tasks.service";
 import { TasksList } from "@/features/tasks/TasksList";
 import { PagesList } from "@/features/pages/PagesList";
@@ -15,6 +15,8 @@ export default async function SystemPage({ params }: { params: Promise<{ id: str
     if (!session) redirect("/login");
 
     const system = await getSystembyId(id, session.user.id);
+
+    if (!system) notFound();
 
     const tasks = await getTasksBySystem(id, session.user.id);
 

@@ -1,5 +1,5 @@
-import { useQuery } from "@tanstack/react-query";
-import { System } from "./systems.types";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import type { System, CreateSystemInput } from "./systems.types";
 
 export function useSystems() {
   return useQuery<System[]>({
@@ -10,4 +10,26 @@ export function useSystems() {
       return res.json();
     },
   });
-}   
+}
+
+export function useCreateSystem() {
+  const queryClient = useQueryClient();
+
+  return useMutation<System, Error, CreateSystemInput>({
+    mutationFn: async (data) => {
+      const res = await fetch("/api/systems", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(data),
+      });
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}));
+        throw new Error((body as { message?: string }).message ?? "Failed to create system");
+      }
+      return res.json() as Promise<System>;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["systems"] });
+    },
+  });
+}
