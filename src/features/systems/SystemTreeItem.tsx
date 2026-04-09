@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
+import { useRouter, usePathname } from "next/navigation";
 import {
   ChevronRight,
   Folder,
@@ -19,6 +20,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { useFolders, useCreateFolder } from "../folders/folders.hooks";
 import { useSystemsTreeStore } from "./systems.store";
+import { useDeleteSystem } from "./systems.hooks";
 import { ICON_MAP, DEFAULT_ICON } from "./system-icons";
 import type { System } from "./systems.types";
 
@@ -61,6 +63,18 @@ export function SystemTreeItem({
   const inputRef = useRef<HTMLInputElement>(null);
 
   const { mutateAsync: createFolder, isPending } = useCreateFolder(system.id);
+  const { mutate: deleteSystem } = useDeleteSystem();
+  const router = useRouter();
+  const pathname = usePathname();
+
+  function handleDelete() {
+    if (!window.confirm(`¿Eliminar el sistema "${system.name}"? Esta acción no se puede deshacer.`)) return;
+    deleteSystem(system.id, {
+      onSuccess: () => {
+        if (pathname.startsWith(`/systems/${system.id}`)) router.push("/systems");
+      },
+    });
+  }
 
   useEffect(() => {
     if (isCreating) inputRef.current?.focus();
@@ -142,7 +156,10 @@ export function SystemTreeItem({
               Renombrar
             </DropdownMenuItem>
             <DropdownMenuSeparator />
-            <DropdownMenuItem className="text-destructive focus:text-destructive">
+            <DropdownMenuItem
+              className="text-destructive focus:text-destructive"
+              onClick={handleDelete}
+            >
               <Trash2 className="size-4 mr-2" />
               Eliminar
             </DropdownMenuItem>

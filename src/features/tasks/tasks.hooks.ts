@@ -64,3 +64,17 @@ export function useToggleTask(systemId: string) {
     },
   });
 }
+
+export function useDeleteTask(systemId: string) {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (taskId: string) => {
+      const res = await fetch(`/api/tasks/${taskId}`, { method: "DELETE" });
+      if (!res.ok) throw new Error("Failed to delete task");
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["tasks", systemId] });
+    },
+  });
+}

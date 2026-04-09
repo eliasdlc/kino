@@ -1,7 +1,7 @@
 "use client";
 
 import { isBefore, parseISO, startOfToday } from "date-fns";
-import { BatteryLow, Minus, Zap } from "lucide-react";
+import { BatteryLow, Minus, Trash2, Zap } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
 import type { Task } from "./tasks.types";
@@ -9,6 +9,7 @@ import type { Task } from "./tasks.types";
 interface TaskCardProps {
   task: Task;
   onToggle: (taskId: string) => void;
+  onDelete: (taskId: string) => void;
 }
 
 const STATUS_VARIANT: Record<string, "default" | "secondary" | "outline" | "destructive"> = {
@@ -40,7 +41,7 @@ function formatTime(timeStr: unknown): string {
   return `${h}h ${m}m`;
 }
 
-export function TaskCard({ task, onToggle }: TaskCardProps) {
+export function TaskCard({ task, onToggle, onDelete }: TaskCardProps) {
   const isDone = task.status === "done";
   const isOverdue =
     task.dueDate !== null &&
@@ -50,7 +51,7 @@ export function TaskCard({ task, onToggle }: TaskCardProps) {
   return (
     <div
       className={cn(
-        "flex items-start gap-3 px-3 py-2.5 rounded-md border bg-card transition-all hover:shadow-sm",
+        "group flex items-start gap-3 px-3 py-2.5 rounded-md border bg-card transition-all hover:shadow-sm",
         isDone && "opacity-60"
       )}
     >
@@ -79,13 +80,25 @@ export function TaskCard({ task, onToggle }: TaskCardProps) {
           >
             {task.title}
           </span>
-          <span
-            className={cn(
-              "size-2 rounded-full shrink-0",
-              PRIORITY_DOT[task.priority] ?? "bg-slate-300"
-            )}
-            title={task.priority}
-          />
+          <div className="flex items-center gap-1.5 shrink-0">
+            <span
+              className={cn(
+                "size-2 rounded-full",
+                PRIORITY_DOT[task.priority] ?? "bg-slate-300"
+              )}
+              title={task.priority}
+            />
+            <button
+              type="button"
+              onClick={() => {
+                if (window.confirm(`¿Eliminar "${task.title}"?`)) onDelete(task.id);
+              }}
+              className="opacity-0 group-hover:opacity-100 transition-opacity text-muted-foreground hover:text-destructive"
+              aria-label="Eliminar tarea"
+            >
+              <Trash2 size={13} />
+            </button>
+          </div>
         </div>
 
         {/* Row 2: chips */}

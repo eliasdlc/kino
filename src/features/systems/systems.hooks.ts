@@ -33,3 +33,17 @@ export function useCreateSystem() {
     },
   });
 }
+
+export function useDeleteSystem() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (systemId: string) => {
+      const res = await fetch(`/api/systems/${systemId}`, { method: "DELETE" });
+      if (!res.ok) throw new Error("Failed to delete system");
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["systems"] });
+    },
+  });
+}

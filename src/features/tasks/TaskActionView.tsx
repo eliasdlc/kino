@@ -1,7 +1,7 @@
 "use client";
 
 import type { Task } from "./tasks.types";
-import { useTasks, useToggleTask } from "./tasks.hooks";
+import { useTasks, useToggleTask, useDeleteTask } from "./tasks.hooks";
 import { TaskCard } from "./TaskCard";
 
 interface TaskActionViewProps {
@@ -12,6 +12,7 @@ interface TaskActionViewProps {
 export function TaskActionView({ systemId, initialData }: TaskActionViewProps) {
     const { data: tasks } = useTasks(systemId, initialData);
     const { mutate: toggleTask } = useToggleTask(systemId);
+    const { mutate: deleteTask } = useDeleteTask(systemId);
 
     if (!tasks || tasks.length === 0) {
         return (
@@ -24,7 +25,7 @@ export function TaskActionView({ systemId, initialData }: TaskActionViewProps) {
     return (
         <div className="flex flex-col gap-1.5">
             {tasks.map((task) => (
-                <TaskCard key={task.id} task={task} onToggle={(id) => toggleTask(id)} />
+                <TaskCard key={task.id} task={task} onToggle={(id) => toggleTask(id)} onDelete={(id) => deleteTask(id)} />
             ))}
         </div>
     );

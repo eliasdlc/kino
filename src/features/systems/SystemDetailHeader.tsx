@@ -1,3 +1,6 @@
+"use client";
+
+import { useRouter } from "next/navigation";
 import { Badge } from "@/components/ui/badge";
 import {
   DropdownMenu,
@@ -8,6 +11,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Button } from "@/components/ui/button";
 import { MoreHorizontal, Pencil, Trash2, Power } from "lucide-react";
+import { useDeleteSystem } from "./systems.hooks";
 import type { System } from "./systems.types";
 
 const COLOR_ACCENT: Record<string, string> = {
@@ -50,8 +54,17 @@ interface SystemDetailHeaderProps {
  * Shows system name, identity statement, metadata badges, and stats.
  */
 export function SystemDetailHeader({ system, taskCount }: SystemDetailHeaderProps) {
+  const router = useRouter();
+  const { mutate: deleteSystem } = useDeleteSystem();
   const borderColor = COLOR_ACCENT[system.color] ?? "border-t-gray-400";
   const dotColor = COLOR_DOT[system.color] ?? "bg-gray-400";
+
+  function handleDelete() {
+    if (!window.confirm(`¿Eliminar el sistema "${system.name}"? Esta acción no se puede deshacer.`)) return;
+    deleteSystem(system.id, {
+      onSuccess: () => router.push("/systems"),
+    });
+  }
 
   return (
     <div
@@ -87,7 +100,11 @@ export function SystemDetailHeader({ system, taskCount }: SystemDetailHeaderProp
               {system.isActive ? "Deactivate" : "Activate"}
             </DropdownMenuItem>
             <DropdownMenuSeparator />
-            <DropdownMenuItem className="text-destructive focus:text-destructive flex items-center gap-2">
+            <DropdownMenuItem
+              className="text-destructive focus:text-destructive flex items-center gap-2"
+              onClick={handleDelete}
+              disabled={system.isInbox}
+            >
               <Trash2 className="size-4" />
               Delete system
             </DropdownMenuItem>
