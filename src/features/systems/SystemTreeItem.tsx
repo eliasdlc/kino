@@ -23,18 +23,18 @@ import { ICON_MAP, DEFAULT_ICON } from "./system-icons";
 import type { System } from "./systems.types";
 
 const COLOR_MAP: Record<string, string> = {
-  blue: "bg-blue-500",
-  red: "bg-red-500",
-  green: "bg-green-500",
-  yellow: "bg-yellow-500",
-  purple: "bg-purple-500",
-  pink: "bg-pink-500",
-  orange: "bg-orange-500",
-  cyan: "bg-cyan-500",
-  teal: "bg-teal-500",
-  gray: "bg-gray-500",
-  black: "bg-gray-900",
-  white: "bg-gray-200",
+  blue: "text-blue-500",
+  red: "text-red-500",
+  green: "text-green-500",
+  yellow: "text-yellow-500",
+  purple: "text-purple-500",
+  pink: "text-pink-500",
+  orange: "text-orange-500",
+  cyan: "text-cyan-500",
+  teal: "text-teal-500",
+  gray: "text-gray-500",
+  black: "text-gray-900",
+  white: "text-gray-200",
 };
 
 interface SystemTreeItemProps {
@@ -94,17 +94,16 @@ export function SystemTreeItem({
   }
 
   const Icon = ICON_MAP[system.icon] ?? DEFAULT_ICON;
-  const dotColor = COLOR_MAP[system.color] ?? "bg-gray-400";
+  const color = COLOR_MAP[system.color] ?? "text-gray-400";
 
   return (
     <div>
       {/* System row */}
       <div
-        className={`group flex items-center gap-1 px-1.5 py-1.5 rounded-md text-sm transition-colors ${
-          isActive
-            ? "bg-sidebar-accent text-sidebar-accent-foreground font-medium border-l-2 border-sidebar-primary"
-            : "text-muted-foreground hover:bg-sidebar-accent/50 hover:text-sidebar-foreground"
-        }`}
+        className={`group flex items-center gap-1 px-1.5 py-1.5 rounded-md text-sm transition-colors ${isActive
+          ? "bg-sidebar-accent text-sidebar-accent-foreground font-medium border-l-2 border-sidebar-primary"
+          : "text-muted-foreground hover:bg-sidebar-accent/50 hover:text-sidebar-foreground"
+          }`}
       >
         {/* Chevron */}
         <button
@@ -112,9 +111,8 @@ export function SystemTreeItem({
           className="p-0.5 rounded hover:bg-sidebar-accent shrink-0"
         >
           <ChevronRight
-            className={`size-3.5 transition-transform duration-150 ${
-              isExpanded ? "rotate-90" : ""
-            }`}
+            className={`size-3.5 transition-transform duration-150 ${isExpanded ? "rotate-90" : ""
+              }`}
           />
         </button>
 
@@ -123,8 +121,7 @@ export function SystemTreeItem({
           href={`/systems/${system.id}`}
           className="flex items-center gap-2 flex-1 min-w-0"
         >
-          <span className={`size-2 rounded-full shrink-0 ${dotColor}`} />
-          <Icon className="size-4 shrink-0 text-muted-foreground" />
+          <Icon className={`size-4 shrink-0 ${color}`} />
           <span className="truncate">{system.name}</span>
         </Link>
 
@@ -171,17 +168,13 @@ export function SystemTreeItem({
               <Link
                 key={folder.id}
                 href={`/systems/${system.id}/folders/${folder.id}`}
-                className={`flex items-center gap-2 px-2 py-1 rounded-md text-sm transition-colors ${
-                  activeFolderId === folder.id
-                    ? "bg-sidebar-accent text-sidebar-accent-foreground font-medium"
-                    : "text-muted-foreground hover:bg-sidebar-accent/50 hover:text-sidebar-foreground"
-                }`}
+                className={`flex items-center gap-2 px-2 py-1 rounded-md text-sm transition-colors ${activeFolderId === folder.id
+                  ? "bg-sidebar-accent text-sidebar-accent-foreground font-medium"
+                  : "text-muted-foreground hover:bg-sidebar-accent/50 hover:text-sidebar-foreground"
+                  }`}
               >
-                <Folder className="size-3.5 shrink-0" />
+                <Folder className={`size-3.5 shrink-0 ${color}`} />
                 <span className="truncate flex-1">{folder.name}</span>
-                <span
-                  className={`size-1.5 rounded-full shrink-0 ${COLOR_MAP[folder.color] ?? "bg-gray-400"}`}
-                />
               </Link>
             ))}
 

@@ -4,6 +4,8 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useMemo } from "react";
 import {
+  Box,
+  CircleCheckBig,
   Inbox,
   LayoutDashboard,
   LogOut,
@@ -44,11 +46,11 @@ export function SystemsSidebar({
 
   const initials = userName
     ? userName
-        .split(" ")
-        .map((n) => n[0])
-        .join("")
-        .toUpperCase()
-        .slice(0, 2)
+      .split(" ")
+      .map((n) => n[0])
+      .join("")
+      .toUpperCase()
+      .slice(0, 2)
     : "?";
 
   // Extract active system and folder from pathname
@@ -137,23 +139,43 @@ export function SystemsSidebar({
       <nav className="flex-1 overflow-y-auto p-2 space-y-0.5">
         <Link
           href="/dashboard"
-          className={`flex items-center gap-2.5 px-3 py-2 rounded-md text-sm transition-colors ${
-            pathname === "/dashboard"
-              ? "bg-sidebar-accent text-sidebar-accent-foreground font-medium border-l-2 border-sidebar-primary"
-              : "text-muted-foreground hover:bg-sidebar-accent/50 hover:text-sidebar-foreground"
-          }`}
+          className={`flex items-center gap-2.5 px-3 py-2 rounded-md text-sm transition-colors ${pathname === "/dashboard"
+            ? "bg-sidebar-accent text-sidebar-accent-foreground font-medium border-l-2 border-sidebar-primary"
+            : "text-muted-foreground hover:bg-sidebar-accent/50 hover:text-sidebar-foreground"
+            }`}
         >
           <LayoutDashboard className="size-4 shrink-0" />
           <span>Dashboard</span>
         </Link>
 
         <Link
+          href="/systems"
+          className={`flex items-center gap-2.5 px-3 py-2 rounded-md text-sm transition-colors ${pathname === "/systems"
+            ? "bg-sidebar-accent text-sidebar-accent-foreground font-medium border-l-2 border-sidebar-primary"
+            : "text-muted-foreground hover:bg-sidebar-accent/50 hover:text-sidebar-foreground"
+            }`}
+        >
+          <Box className="size-4 shrink-0" />
+          <span>Systems</span>
+        </Link>
+
+        <Link
+          href="/tasks"
+          className={`flex items-center gap-2.5 px-3 py-2 rounded-md text-sm transition-colors ${pathname === "/systems"
+            ? "bg-sidebar-accent text-sidebar-accent-foreground font-medium border-l-2 border-sidebar-primary"
+            : "text-muted-foreground hover:bg-sidebar-accent/50 hover:text-sidebar-foreground"
+            }`}
+        >
+          <CircleCheckBig className="size-4 shrink-0" />
+          <span>Tasks</span>
+        </Link>
+
+        <Link
           href="/settings"
-          className={`flex items-center gap-2.5 px-3 py-2 rounded-md text-sm transition-colors ${
-            pathname === "/settings"
-              ? "bg-sidebar-accent text-sidebar-accent-foreground font-medium border-l-2 border-sidebar-primary"
-              : "text-muted-foreground hover:bg-sidebar-accent/50 hover:text-sidebar-foreground"
-          }`}
+          className={`flex items-center gap-2.5 px-3 py-2 rounded-md text-sm transition-colors ${pathname === "/settings"
+            ? "bg-sidebar-accent text-sidebar-accent-foreground font-medium border-l-2 border-sidebar-primary"
+            : "text-muted-foreground hover:bg-sidebar-accent/50 hover:text-sidebar-foreground"
+            }`}
         >
           <Settings className="size-4 shrink-0" />
           <span>Settings</span>
@@ -169,11 +191,10 @@ export function SystemsSidebar({
         {inboxSystem && (
           <Link
             href={`/systems/${inboxSystem.id}`}
-            className={`flex items-center gap-2.5 px-3 py-2 rounded-md text-sm transition-colors border ${
-              pathname === `/systems/${inboxSystem.id}`
-                ? "bg-sidebar-accent text-sidebar-accent-foreground font-medium border-l-2 border-sidebar-primary border-t-sidebar-border/50 border-r-sidebar-border/50 border-b-sidebar-border/50"
-                : "bg-sidebar-accent/20 border-sidebar-border/40 text-sidebar-foreground hover:bg-sidebar-accent/40"
-            }`}
+            className={`flex items-center gap-2.5 px-3 py-2 rounded-md text-sm transition-colors border ${pathname === `/systems/${inboxSystem.id}`
+              ? "bg-sidebar-accent text-sidebar-accent-foreground font-medium border-l-2 border-sidebar-primary border-t-sidebar-border/50 border-r-sidebar-border/50 border-b-sidebar-border/50"
+              : "bg-sidebar-accent/20 border-sidebar-border/40 text-sidebar-foreground hover:bg-sidebar-accent/40"
+              }`}
           >
             <Inbox className="size-4 shrink-0 text-blue-500" />
             <span className="truncate font-medium">{inboxSystem.name}</span>

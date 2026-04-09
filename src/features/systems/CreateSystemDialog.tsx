@@ -1,145 +1,309 @@
 'use client'
 
 import { useState } from "react";
+import { ChevronDown, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Dialog, DialogTrigger, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { useQueryClient } from "@tanstack/react-query";
 import { colorEnum, energyLevelEnum, frequencyEnum, templateTypeEnum } from "@/shared/db/schema";
+import { ICON_MAP, DEFAULT_ICON } from "./system-icons";
 import type { CreateSystemInput } from "./systems.types";
-import { useCreateSystem } from "./systems.hooks";
+
+const COLOR_BG_MAP: Record<string, string> = {
+  blue: "bg-blue-500",
+  red: "bg-red-500",
+  green: "bg-green-500",
+  yellow: "bg-yellow-500",
+  purple: "bg-purple-500",
+  pink: "bg-pink-500",
+  orange: "bg-orange-500",
+  cyan: "bg-cyan-500",
+  teal: "bg-teal-500",
+  gray: "bg-gray-500",
+  black: "bg-gray-900",
+  white: "bg-gray-200",
+};
+
+const COLOR_TEXT_MAP: Record<string, string> = {
+  blue: "text-blue-500",
+  red: "text-red-500",
+  green: "text-green-500",
+  yellow: "text-yellow-500",
+  purple: "text-purple-500",
+  pink: "text-pink-500",
+  orange: "text-orange-500",
+  cyan: "text-cyan-500",
+  teal: "text-teal-500",
+  gray: "text-gray-500",
+  black: "text-gray-900",
+  white: "text-gray-200",
+};
+
+const COLOR_BG_SUBTLE_MAP: Record<string, string> = {
+  blue: "bg-blue-500/10",
+  red: "bg-red-500/10",
+  green: "bg-green-500/10",
+  yellow: "bg-yellow-500/10",
+  purple: "bg-purple-500/10",
+  pink: "bg-pink-500/10",
+  orange: "bg-orange-500/10",
+  cyan: "bg-cyan-500/10",
+  teal: "bg-teal-500/10",
+  gray: "bg-gray-500/10",
+  black: "bg-gray-900/10",
+  white: "bg-gray-200/10",
+};
+
+const ICON_KEYS = Object.keys(ICON_MAP);
+
+const DEFAULT_STATE = {
+  name: "",
+  identityStatement: "",
+  color: "blue",
+  icon: "folder",
+  templateType: "custom",
+  energyIdeal: "medium",
+  expectedFrequency: "weekly",
+  triggerContext: "",
+};
 
 export function CreateSystemDialog() {
-    const [open, setOpen] = useState(false);
-    const [name, setName] = useState("");
-    const [description, setDescription] = useState("");
-    const [color, setColor] = useState<CreateSystemInput["color"]>("blue");
-    const [templateType, setTemplateType] = useState<CreateSystemInput["templateType"]>("custom");
-    const [energyIdeal, setEnergyIdeal] = useState<CreateSystemInput["energyIdeal"]>("medium");
-    const [expectedFrequency, setExpectedFrequency] = useState<CreateSystemInput["expectedFrequency"]>("daily");
-    const [triggerContext, setTriggerContext] = useState("");
-    const [error, setError] = useState<string | null>(null);
+  const queryClient = useQueryClient();
+  const [open, setOpen] = useState(false);
+  const [showAdvanced, setShowAdvanced] = useState(false);
+  const [isPending, setIsPending] = useState(false);
 
-    const { mutate: createSystem, isPending } = useCreateSystem();
+  const [name, setName] = useState(DEFAULT_STATE.name);
+  const [identityStatement, setIdentityStatement] = useState(DEFAULT_STATE.identityStatement);
+  const [color, setColor] = useState(DEFAULT_STATE.color);
+  const [icon, setIcon] = useState(DEFAULT_STATE.icon);
+  const [templateType, setTemplateType] = useState(DEFAULT_STATE.templateType);
+  const [energyIdeal, setEnergyIdeal] = useState(DEFAULT_STATE.energyIdeal);
+  const [expectedFrequency, setExpectedFrequency] = useState(DEFAULT_STATE.expectedFrequency);
+  const [triggerContext, setTriggerContext] = useState(DEFAULT_STATE.triggerContext);
 
-    function resetForm() {
-        setName("");
-        setDescription("");
-        setColor("blue");
-        setTemplateType("custom");
-        setEnergyIdeal("medium");
-        setExpectedFrequency("daily");
-        setTriggerContext("");
-        setError(null);
+  function handleOpenChange(value: boolean) {
+    setOpen(value);
+    if (!value) {
+      setName(DEFAULT_STATE.name);
+      setIdentityStatement(DEFAULT_STATE.identityStatement);
+      setColor(DEFAULT_STATE.color);
+      setIcon(DEFAULT_STATE.icon);
+      setTemplateType(DEFAULT_STATE.templateType);
+      setEnergyIdeal(DEFAULT_STATE.energyIdeal);
+      setExpectedFrequency(DEFAULT_STATE.expectedFrequency);
+      setTriggerContext(DEFAULT_STATE.triggerContext);
+      setShowAdvanced(false);
     }
+  }
 
-    function handleCreateSystem() {
-        if (!name.trim()) return;
-
-        const data: CreateSystemInput = {
-            name: name.trim(),
-            identityStatement: description,
-            color,
-            icon: "folder",
-            templateType,
-            energyIdeal,
-            expectedFrequency,
-            triggerContext,
-        };
-
-        createSystem(data, {
-            onSuccess: () => {
-                resetForm();
-                setOpen(false);
-            },
-            onError: (err) => {
-                setError(err.message ?? "Error al crear el sistema");
-            },
-        });
+  async function handleCreateSystem() {
+    if (!name.trim() || isPending) return;
+    setIsPending(true);
+    try {
+      const data: CreateSystemInput = {
+        name: name.trim(),
+        identityStatement,
+        color: color as CreateSystemInput["color"],
+        icon,
+        templateType: templateType as CreateSystemInput["templateType"],
+        energyIdeal: energyIdeal as CreateSystemInput["energyIdeal"],
+        expectedFrequency,
+        triggerContext,
+      };
+      const res = await fetch("/api/systems", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(data),
+      });
+      if (!res.ok) throw new Error("Failed to create system");
+      await queryClient.invalidateQueries({ queryKey: ["systems"] });
+      handleOpenChange(false);
+    } finally {
+      setIsPending(false);
     }
+  }
 
-    return (
-        <Dialog open={open} onOpenChange={(val) => { setOpen(val); if (!val) resetForm(); }}>
-            <DialogTrigger asChild>
-                <Button variant="outline" className="w-full">+ Nuevo sistema</Button>
-            </DialogTrigger>
-            <DialogContent>
-                <DialogHeader className="flex flex-col gap-4">
-                    <DialogTitle>Nuevo sistema</DialogTitle>
-                    <DialogDescription>
-                        Crea un sistema para organizar tus tareas y hábitos.
-                    </DialogDescription>
-                </DialogHeader>
+  function handleKeyDown(e: React.KeyboardEvent<HTMLInputElement>) {
+    if (e.key === "Enter") handleCreateSystem();
+  }
 
-                {error && (
-                    <p className="text-sm text-destructive">{error}</p>
-                )}
+  const PreviewIcon = ICON_MAP[icon] ?? DEFAULT_ICON;
+  const bgSubtle = COLOR_BG_SUBTLE_MAP[color] ?? "bg-gray-500/10";
+  const textColor = COLOR_TEXT_MAP[color] ?? "text-gray-500";
 
-                <Label>Nombre</Label>
-                <Input placeholder="Nombre" value={name} onChange={(e) => setName(e.target.value)} />
+  return (
+    <Dialog open={open} onOpenChange={handleOpenChange}>
+      <DialogTrigger asChild>
+        <Button variant="outline" className="w-full">+ Nuevo sistema</Button>
+      </DialogTrigger>
+      <DialogContent className="sm:max-w-md">
+        <DialogHeader>
+          <DialogTitle>Crear sistema</DialogTitle>
+        </DialogHeader>
 
+        <div className="space-y-5">
+          {/* Preview */}
+          <div className={`flex items-center gap-3 p-3 rounded-lg ${bgSubtle} border border-border/50`}>
+            <div className={`p-2 rounded-md ${bgSubtle}`}>
+              <PreviewIcon className={`size-5 ${textColor}`} />
+            </div>
+            <span className={`text-sm font-medium ${name ? "text-foreground" : "text-muted-foreground"}`}>
+              {name || "Nombre del sistema"}
+            </span>
+          </div>
+
+          {/* Name */}
+          <div className="space-y-1.5">
+            <Label>Nombre</Label>
+            <Input
+              autoFocus
+              placeholder="Ej: Trabajo, Estudios, Salud..."
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              onKeyDown={handleKeyDown}
+            />
+          </div>
+
+          {/* Color picker */}
+          <div className="space-y-1.5">
+            <Label>Color</Label>
+            <div className="flex flex-wrap gap-2">
+              {colorEnum.enumValues.map((c) => (
+                <button
+                  key={c}
+                  onClick={() => setColor(c)}
+                  className={`size-6 rounded-full transition-all ${COLOR_BG_MAP[c] ?? "bg-gray-400"} ${
+                    color === c
+                      ? "ring-2 ring-offset-2 ring-offset-background ring-foreground scale-110"
+                      : "opacity-60 hover:opacity-100"
+                  }`}
+                  title={c}
+                />
+              ))}
+            </div>
+          </div>
+
+          {/* Icon picker */}
+          <div className="space-y-1.5">
+            <Label>Ícono</Label>
+            <div className="grid grid-cols-10 gap-1">
+              {ICON_KEYS.map((key) => {
+                const IconComponent = ICON_MAP[key];
+                return (
+                  <button
+                    key={key}
+                    onClick={() => setIcon(key)}
+                    className={`p-1.5 rounded-md transition-colors flex items-center justify-center ${
+                      icon === key
+                        ? `${bgSubtle} ${textColor}`
+                        : "text-muted-foreground hover:bg-accent hover:text-accent-foreground"
+                    }`}
+                    title={key}
+                  >
+                    <IconComponent className="size-4" />
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
+          {/* Advanced toggle */}
+          <button
+            onClick={() => setShowAdvanced(!showAdvanced)}
+            className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors"
+          >
+            <ChevronDown className={`size-3.5 transition-transform duration-150 ${showAdvanced ? "rotate-180" : ""}`} />
+            {showAdvanced ? "Menos opciones" : "Más opciones"}
+          </button>
+
+          {/* Advanced options */}
+          {showAdvanced && (
+            <div className="space-y-4 pt-1 border-t border-border">
+              <div className="space-y-1.5">
                 <Label>Descripción</Label>
-                <Input placeholder="Descripción" value={description} onChange={(e) => setDescription(e.target.value)} />
+                <Textarea
+                  placeholder="¿Para qué es este sistema? ¿Qué identidad representa?"
+                  value={identityStatement}
+                  onChange={(e) => setIdentityStatement(e.target.value)}
+                  rows={2}
+                  className="resize-none"
+                />
+              </div>
 
-                <Label>Color</Label>
-                <Select value={color} onValueChange={(val) => setColor(val as CreateSystemInput["color"])}>
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-1.5">
+                  <Label>Tipo</Label>
+                  <Select value={templateType} onValueChange={setTemplateType}>
                     <SelectTrigger>
-                        <SelectValue placeholder="Color" />
+                      <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
-                        {colorEnum.enumValues.map((c) => (
-                            <SelectItem value={c} key={c}>{c}</SelectItem>
+                      {templateTypeEnum.enumValues
+                        .filter((v) => v !== "inbox")
+                        .map((v) => (
+                          <SelectItem key={v} value={v}>{v}</SelectItem>
                         ))}
                     </SelectContent>
-                </Select>
+                  </Select>
+                </div>
 
-                <Label>Tipo de plantilla</Label>
-                <Select value={templateType} onValueChange={(val) => setTemplateType(val as CreateSystemInput["templateType"])}>
+                <div className="space-y-1.5">
+                  <Label>Energía</Label>
+                  <Select value={energyIdeal} onValueChange={setEnergyIdeal}>
                     <SelectTrigger>
-                        <SelectValue placeholder="Tipo de plantilla" />
+                      <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
-                        {templateTypeEnum.enumValues.map((t) => (
-                            <SelectItem value={t} key={t}>{t}</SelectItem>
-                        ))}
+                      {energyLevelEnum.enumValues.map((v) => (
+                        <SelectItem key={v} value={v}>{v}</SelectItem>
+                      ))}
                     </SelectContent>
-                </Select>
+                  </Select>
+                </div>
+              </div>
 
-                <Label>Nivel de energía ideal</Label>
-                <Select value={energyIdeal} onValueChange={(val) => setEnergyIdeal(val as CreateSystemInput["energyIdeal"])}>
-                    <SelectTrigger>
-                        <SelectValue placeholder="Energía ideal" />
-                    </SelectTrigger>
-                    <SelectContent>
-                        {energyLevelEnum.enumValues.map((e) => (
-                            <SelectItem value={e} key={e}>{e}</SelectItem>
-                        ))}
-                    </SelectContent>
-                </Select>
-
+              <div className="space-y-1.5">
                 <Label>Frecuencia esperada</Label>
-                <Select value={expectedFrequency} onValueChange={(val) => setExpectedFrequency(val as CreateSystemInput["expectedFrequency"])}>
-                    <SelectTrigger>
-                        <SelectValue placeholder="Frecuencia" />
-                    </SelectTrigger>
-                    <SelectContent>
-                        {frequencyEnum.enumValues.map((f) => (
-                            <SelectItem value={f} key={f}>{f}</SelectItem>
-                        ))}
-                    </SelectContent>
+                <Select value={expectedFrequency} onValueChange={setExpectedFrequency}>
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {frequencyEnum.enumValues.map((v) => (
+                      <SelectItem key={v} value={v}>{v}</SelectItem>
+                    ))}
+                  </SelectContent>
                 </Select>
+              </div>
 
-                <Label>Contexto activador</Label>
-                <Input placeholder="Ej: Al levantarme, al sentirme estresado..." value={triggerContext} onChange={(e) => setTriggerContext(e.target.value)} />
+              <div className="space-y-1.5">
+                <Label>Contexto de activación</Label>
+                <Input
+                  placeholder="Ej: Cuando llego a la oficina, al despertar..."
+                  value={triggerContext}
+                  onChange={(e) => setTriggerContext(e.target.value)}
+                />
+              </div>
+            </div>
+          )}
+        </div>
 
-                <DialogFooter>
-                    <Button variant="outline" onClick={() => setOpen(false)} disabled={isPending}>Cancelar</Button>
-                    <Button onClick={handleCreateSystem} disabled={!name.trim() || isPending}>
-                        {isPending ? "Creando..." : "Crear"}
-                    </Button>
-                </DialogFooter>
-            </DialogContent>
-        </Dialog>
-    );
+        {/* Footer */}
+        <div className="flex justify-end gap-2 pt-2">
+          <Button variant="ghost" onClick={() => handleOpenChange(false)} disabled={isPending}>
+            Cancelar
+          </Button>
+          <Button onClick={handleCreateSystem} disabled={!name.trim() || isPending}>
+            {isPending && <Loader2 className="size-4 animate-spin mr-2" />}
+            Crear sistema
+          </Button>
+        </div>
+      </DialogContent>
+    </Dialog>
+  );
 }
