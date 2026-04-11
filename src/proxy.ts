@@ -1,6 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getSessionCookie } from "better-auth/cookies";
 
+// NOTE: This rate limiter is in-memory and only effective within a single
+// Vercel Serverless instance. Parallel cold-starts each have their own map,
+// so it provides best-effort protection in development but NOT in production
+// at scale. A shared store (e.g. Vercel KV) is required for production-grade
+// rate limiting. Accepted trade-off given the $0/month constraint.
 const rateLimitMap = new Map<string, { count: number; lastReset: number }>();
 const RATE_LIMIT_WINDOW_MS = 60 * 1000;
 const MAX_REQUESTS_PER_WINDOW = 5;

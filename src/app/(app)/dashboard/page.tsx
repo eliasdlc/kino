@@ -14,24 +14,25 @@ export default async function DashboardPage() {
 
   const userId = session.user.id;
 
-  const [energyData] = await db
-    .select({ total: sql<number>`COALESCE(SUM(${tasks.energyPoints}), 0)` })
-    .from(tasks)
-    .where(and(eq(tasks.userId, userId), eq(tasks.status, "today"), isNull(tasks.deletedAt)));
-
-  const [settings] = await db
-    .select({ dailyEnergyLimit: userSettings.dailyEnergyLimit })
-    .from(userSettings)
-    .where(eq(userSettings.userId, userId));
+  const [[energyData], [settings], todayTasks] = await Promise.all([
+    db
+      .select({ total: sql<number>`COALESCE(SUM(${tasks.energyPoints}), 0)` })
+      .from(tasks)
+      .where(and(eq(tasks.userId, userId), eq(tasks.status, "today"), isNull(tasks.deletedAt))),
+    db
+      .select({ dailyEnergyLimit: userSettings.dailyEnergyLimit })
+      .from(userSettings)
+      .where(eq(userSettings.userId, userId)),
+    db
+      .select()
+      .from(tasks)
+      .where(and(eq(tasks.userId, userId), eq(tasks.status, "today"), isNull(tasks.deletedAt)))
+      .orderBy(tasks.sortIndex),
+  ]);
 
   const usedEnergy = energyData?.total ?? 0;
   const limit = settings?.dailyEnergyLimit ?? 50;
   const percentage = Math.round((usedEnergy / limit) * 100);
-
-  const todayTasks = await db.select()
-    .from(tasks)
-    .where(and(eq(tasks.userId, userId), eq(tasks.status, "today"), isNull(tasks.deletedAt)))
-    .orderBy(tasks.sortIndex);
 
   return (
     <div className="p-6 space-y-6 max-w-3xl">

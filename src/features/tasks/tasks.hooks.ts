@@ -1,6 +1,11 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import type { Task, CreateTaskInput } from "./tasks.types";
 
+interface ToggleTaskResult {
+  status: string;
+  xp_earned?: number;
+}
+
 export function useTasks(systemId: string, initialData: Task[]) {
   return useQuery<Task[]>({
     queryKey: ["tasks", systemId],
@@ -42,14 +47,14 @@ export function useCreateTask(systemId: string) {
 export function useToggleTask(systemId: string) {
   const queryClient = useQueryClient();
 
-  return useMutation<Task, Error, string>({
+  return useMutation<ToggleTaskResult, Error, string>({
     mutationFn: async (taskId) => {
       const res = await fetch(`/api/tasks/${taskId}/toggle`, { method: "POST" });
       if (!res.ok) {
         const body = await res.json().catch(() => ({}));
         throw new Error((body as { message?: string }).message ?? "Failed to toggle task");
       }
-      return res.json() as Promise<Task>;
+      return res.json() as Promise<ToggleTaskResult>;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["tasks", systemId] });

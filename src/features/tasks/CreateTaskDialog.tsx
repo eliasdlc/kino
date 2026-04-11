@@ -35,6 +35,7 @@ const DEFAULT_STATE = {
 export function CreateTaskDialog({ systemId, parentTaskId }: CreateTaskDialogProps) {
   const [open, setOpen] = useState(false);
   const [showMore, setShowMore] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   const [title, setTitle] = useState(DEFAULT_STATE.title);
   const [description, setDescription] = useState(DEFAULT_STATE.description);
@@ -59,6 +60,7 @@ export function CreateTaskDialog({ systemId, parentTaskId }: CreateTaskDialogPro
     setScheduledDate(DEFAULT_STATE.scheduledDate);
     setEstimatedMinutes(DEFAULT_STATE.estimatedMinutes);
     setShowMore(false);
+    setError(null);
   }
 
   function handleSubmit() {
@@ -78,10 +80,14 @@ export function CreateTaskDialog({ systemId, parentTaskId }: CreateTaskDialogPro
       ...(parentTaskId ? { parentTaskId } : {}),
     };
 
+    setError(null);
     createTask(data, {
       onSuccess: () => {
         resetForm();
         setOpen(false);
+      },
+      onError: (err) => {
+        setError(err.message ?? "Error al crear la tarea");
       },
     });
   }
@@ -98,6 +104,10 @@ export function CreateTaskDialog({ systemId, parentTaskId }: CreateTaskDialogPro
         </DialogHeader>
 
         <div className="flex flex-col gap-4 pt-1">
+          {error && (
+            <p className="text-sm text-destructive">{error}</p>
+          )}
+
           {/* ── campos esenciales ── */}
           <div className="space-y-2">
             <Label htmlFor="title">Título *</Label>

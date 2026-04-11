@@ -19,7 +19,7 @@ export async function createInboxForUser(userId: string) {
 
 export async function assertNotInbox(system: System) {
   if (system.isInbox) {
-    throw new Error("INBOX_PROTECTED: Cannot modify or delete the Inbox system");
+    throw new ForbiddenError("Cannot modify or delete the Inbox system");
   }
 }
 
@@ -78,8 +78,8 @@ export async function getSystembyId(id: string, userId: string) {
 export async function deactivateSystem(id: string, userId: string) {
   const [system] = await db.select().from(systems).where(and(eq(systems.id, id), eq(systems.userId, userId)));
 
-  if (!system) throw new NotFoundError('NOT_FOUND: System not found');
-  if (system.isInbox) throw new ForbiddenError('FORBIDDEN: Cannot deactivate Inbox');
+  if (!system) throw new NotFoundError("System not found");
+  if (system.isInbox) throw new ForbiddenError("Cannot deactivate Inbox");
 
   const [updated] = await db
     .update(systems)

@@ -23,9 +23,10 @@ export type SideEffect =
     | { type: "set_deleted_at"; value: Date }
     | { type: "grant_xp"; amount: number }
     | { type: "revert_xp"; amount: number }
-    | { type: "update_sort_index" }
-    | { type: "update_system_health" }
-    | { type: "generate_next_rrule_instance" };
+    // Planned — not yet implemented in tasks.service.ts:
+    | { type: "update_sort_index" }       // Phase 2: drag-and-drop reorder
+    | { type: "update_system_health" }    // Phase 2: system health recalculation
+    | { type: "generate_next_rrule_instance" }; // Phase 3: recurring tasks
 
 const TRANSITION_MAP: Record<TaskStatus, Partial<Record<TransitionAction, TaskStatus>>> = {
     backlog: {

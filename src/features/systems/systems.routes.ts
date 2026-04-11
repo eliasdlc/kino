@@ -42,7 +42,12 @@ export async function PATCH(
     if (!session) return NextResponse.json({ code: "UNAUTHORIZED", message: "Unauthorized" }, { status: 401 });
 
     const { id } = await params;
-    const body = await request.json();
+    let body: unknown;
+    try {
+      body = await request.json();
+    } catch {
+      return NextResponse.json({ code: "VALIDATION_ERROR", message: "Invalid JSON body" }, { status: 400 });
+    }
     const parsed = updateSystemSchema.safeParse(body);
     if (!parsed.success) {
       return NextResponse.json({ code: "VALIDATION_ERROR", message: "Invalid input", details: parsed.error.flatten() }, { status: 400 });
