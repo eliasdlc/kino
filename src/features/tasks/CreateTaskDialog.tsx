@@ -50,6 +50,10 @@ export function CreateTaskDialog({ systemId, parentTaskId }: CreateTaskDialogPro
   const [subtasks, setSubtasks] = useState<Array<{ id: string; title: string }>>([]);
 
   const { mutateAsync: createTask, isPending } = useCreateTask(systemId);
+  const durationDays =
+    dateRange.from && dateRange.to
+      ? Math.round((dateRange.to.getTime() - dateRange.from.getTime()) / 86400000)
+      : null;
 
   function resetForm() {
     setTitle(DEFAULT_STATE.title);
@@ -183,9 +187,9 @@ export function CreateTaskDialog({ systemId, parentTaskId }: CreateTaskDialogPro
           <div className="space-y-2">
             <Label>
               Start date *
-              {dateRange.from && dateRange.to && (
+              {durationDays !== null && (
                 <span className="ml-2 font-normal text-muted-foreground text-xs">
-                  {Math.round((dateRange.to.getTime() - dateRange.from.getTime()) / 86400000)} day{Math.round((dateRange.to.getTime() - dateRange.from.getTime()) / 86400000) !== 1 ? "s" : ""}
+                  {durationDays} day{durationDays !== 1 ? "s" : ""}
                 </span>
               )}
             </Label>
