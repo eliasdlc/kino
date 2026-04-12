@@ -100,7 +100,7 @@ export function SystemsSidebar({
             </Avatar>
             <div className="flex flex-col items-start min-w-0">
               <span className="text-sm font-medium truncate text-sidebar-foreground">
-                {userName ?? "Usuario"}
+                {userName ?? "User"}
               </span>
               {userEmail && (
                 <span className="text-[11px] text-muted-foreground truncate max-w-[160px]">

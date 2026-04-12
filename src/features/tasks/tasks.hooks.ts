@@ -65,6 +65,22 @@ export function useToggleTask(systemId: string) {
   });
 }
 
+export function useSubtasks(
+  taskId: string,
+  systemId: string,
+  options?: { enabled?: boolean }
+) {
+  return useQuery<Task[]>({
+    queryKey: ["tasks", systemId, "subtasks", taskId],
+    queryFn: async () => {
+      const res = await fetch(`/api/tasks/${taskId}/subtasks`);
+      if (!res.ok) throw new Error("Failed to fetch subtasks");
+      return res.json();
+    },
+    enabled: options?.enabled ?? true,
+  });
+}
+
 export function useDeleteTask(systemId: string) {
   const queryClient = useQueryClient();
 

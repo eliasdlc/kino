@@ -68,7 +68,7 @@ export function SystemTreeItem({
   const pathname = usePathname();
 
   function handleDelete() {
-    if (!window.confirm(`¿Eliminar el sistema "${system.name}"? Esta acción no se puede deshacer.`)) return;
+    if (!window.confirm(`Delete system "${system.name}"? This action cannot be undone.`)) return;
     deleteSystem(system.id, {
       onSuccess: () => {
         if (pathname.startsWith(`/systems/${system.id}`)) router.push("/systems");
@@ -149,11 +149,11 @@ export function SystemTreeItem({
           <DropdownMenuContent align="end" className="w-44">
             <DropdownMenuItem onClick={handleNewFolder}>
               <FolderPlus className="size-4 mr-2" />
-              Nueva carpeta
+              New folder
             </DropdownMenuItem>
             <DropdownMenuItem>
               <Pencil className="size-4 mr-2" />
-              Renombrar
+              Rename
             </DropdownMenuItem>
             <DropdownMenuSeparator />
             <DropdownMenuItem
@@ -161,7 +161,7 @@ export function SystemTreeItem({
               onClick={handleDelete}
             >
               <Trash2 className="size-4 mr-2" />
-              Eliminar
+              Delete
             </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
@@ -198,7 +198,7 @@ export function SystemTreeItem({
           {/* Empty state */}
           {!foldersLoading && (!folders || folders.length === 0) && !isCreating && (
             <p className="px-2 py-1 text-xs text-muted-foreground/60">
-              Sin carpetas
+              No folders
             </p>
           )}
 
@@ -215,7 +215,7 @@ export function SystemTreeItem({
                   if (isPending) return;
                   if (!newFolderName.trim()) setIsCreating(false);
                 }}
-                placeholder="Nombre de carpeta"
+                placeholder="Folder name"
                 className="flex-1 bg-transparent text-sm outline-none border-b border-sidebar-primary text-sidebar-foreground placeholder:text-muted-foreground/60"
               />
             </div>

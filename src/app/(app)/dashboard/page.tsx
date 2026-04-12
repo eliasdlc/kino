@@ -40,10 +40,10 @@ export default async function DashboardPage() {
       {/* Greeting */}
       <div>
         <h1 className="text-3xl font-bold tracking-tight">
-          Buenos días, {session.user.name}
+          Good morning, {session.user.name}
         </h1>
         <p className="text-muted-foreground mt-1">
-          {new Date().toLocaleDateString("es-ES", {
+          {new Date().toLocaleDateString("en-US", {
             weekday: "long",
             year: "numeric",
             month: "long",
@@ -55,7 +55,7 @@ export default async function DashboardPage() {
       {/* Energy card */}
       <div className="rounded-lg border bg-card p-6 space-y-4">
         <div className="space-y-2">
-          <h2 className="text-lg font-semibold">Energía de hoy</h2>
+          <h2 className="text-lg font-semibold">Today&apos;s energy</h2>
           <div className="flex items-baseline gap-2">
             <span className="text-4xl font-bold text-primary">{usedEnergy}</span>
             <span className="text-muted-foreground">/ {limit}</span>
@@ -64,17 +64,17 @@ export default async function DashboardPage() {
         <div className="space-y-2">
           <Progress value={percentage} className="h-2" />
           <p className="text-xs text-muted-foreground">
-            {percentage}% de tu energía diaria
+            {percentage}% of your daily energy
           </p>
         </div>
       </div>
 
       {/* Today's tasks */}
       <div className="rounded-lg border bg-card p-6 space-y-4">
-        <h2 className="text-lg font-semibold">Tareas de hoy</h2>
+        <h2 className="text-lg font-semibold">Today&apos;s tasks</h2>
         {todayTasks.length === 0 ? (
           <p className="text-sm text-muted-foreground py-4">
-            No hay tareas programadas para hoy. ¡Descansa o planifica el día!
+            No tasks scheduled for today. Rest or plan your day!
           </p>
         ) : (
           <ul className="space-y-1">
@@ -103,8 +103,8 @@ export default async function DashboardPage() {
       {/* Coming soon */}
       <div className="rounded-lg border bg-muted/30 p-6">
         <p className="text-sm text-muted-foreground">
-          💡 Esta es una vista simplificada. En futuras fases tendrás acceso a Smart View,
-          análisis de energía, brain dump, y mucho más.
+          💡 This is a simplified view. In future phases you&apos;ll have access to Smart View,
+          energy analytics, brain dump, and much more.
         </p>
       </div>
     </PageWrapper>

@@ -60,7 +60,7 @@ export function SystemDetailHeader({ system, taskCount }: SystemDetailHeaderProp
   const dotColor = COLOR_DOT[system.color] ?? "bg-gray-400";
 
   function handleDelete() {
-    if (!window.confirm(`¿Eliminar el sistema "${system.name}"? Esta acción no se puede deshacer.`)) return;
+    if (!window.confirm(`Delete system "${system.name}"? This action cannot be undone.`)) return;
     deleteSystem(system.id, {
       onSuccess: () => router.push("/systems"),
     });

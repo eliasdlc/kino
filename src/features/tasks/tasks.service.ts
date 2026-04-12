@@ -24,6 +24,7 @@ function deriveAction(currentStatus: TaskStatus, targetStatus: TaskStatus): Tran
     "backlog->done": "toggle_done",
     "week->today": "move_to_today",
     "week->backlog": "move_to_backlog",
+    "week->done": "toggle_done",
     "today->done": "toggle_done",
     "today->backlog": "move_to_backlog",
     "done->today": "undo_done",
@@ -36,6 +37,18 @@ export async function getTasksBySystem(systemId: string, userId: string) {
     .from(tasks)
     .where(and(
       eq(tasks.systemId, systemId),
+      eq(tasks.userId, userId),
+      isNull(tasks.deletedAt),
+      isNull(tasks.parentTaskId)
+    ))
+    .orderBy(tasks.sortIndex);
+}
+
+export async function getSubtasks(taskId: string, userId: string) {
+  return db.select()
+    .from(tasks)
+    .where(and(
+      eq(tasks.parentTaskId, taskId),
       eq(tasks.userId, userId),
       isNull(tasks.deletedAt)
     ))

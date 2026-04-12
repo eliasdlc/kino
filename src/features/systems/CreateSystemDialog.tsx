@@ -139,11 +139,11 @@ export function CreateSystemDialog() {
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
       <DialogTrigger asChild>
-        <Button variant="outline" className="w-full">+ Nuevo sistema</Button>
+        <Button variant="outline" className="w-full">+ New system</Button>
       </DialogTrigger>
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
-          <DialogTitle>Crear sistema</DialogTitle>
+          <DialogTitle>Create system</DialogTitle>
         </DialogHeader>
 
         <div className="space-y-5">
@@ -153,16 +153,16 @@ export function CreateSystemDialog() {
               <PreviewIcon className={`size-5 ${textColor}`} />
             </div>
             <span className={`text-sm font-medium ${name ? "text-foreground" : "text-muted-foreground"}`}>
-              {name || "Nombre del sistema"}
+              {name || "System name"}
             </span>
           </div>
 
           {/* Name */}
-          <div className="space-y-1.5">
-            <Label>Nombre</Label>
+          <div className="space-y-1.5 flex flex-col gap-2">
+            <Label>Name</Label>
             <Input
               autoFocus
-              placeholder="Ej: Trabajo, Estudios, Salud..."
+              placeholder="E.g. Work, Studies, Health..."
               value={name}
               onChange={(e) => setName(e.target.value)}
               onKeyDown={handleKeyDown}
@@ -170,9 +170,9 @@ export function CreateSystemDialog() {
           </div>
 
           {/* Color picker */}
-          <div className="space-y-1.5">
+          <div className="space-y-1.5 flex flex-col gap-2">
             <Label>Color</Label>
-            <div className="flex flex-wrap gap-2">
+            <div className="flex flex-wrap gap-3 justify-center">
               {colorEnum.enumValues.map((c) => (
                 <button
                   key={c}
@@ -189,8 +189,8 @@ export function CreateSystemDialog() {
           </div>
 
           {/* Icon picker */}
-          <div className="space-y-1.5">
-            <Label>Ícono</Label>
+          <div className="space-y-1.5 flex flex-col gap-2">
+            <Label>Icon</Label>
             <div className="grid grid-cols-10 gap-1">
               {ICON_KEYS.map((key) => {
                 const IconComponent = ICON_MAP[key];
@@ -218,16 +218,16 @@ export function CreateSystemDialog() {
             className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors"
           >
             <ChevronDown className={`size-3.5 transition-transform duration-150 ${showAdvanced ? "rotate-180" : ""}`} />
-            {showAdvanced ? "Menos opciones" : "Más opciones"}
+            {showAdvanced ? "Less options" : "More options"}
           </button>
 
           {/* Advanced options */}
           {showAdvanced && (
-            <div className="space-y-4 pt-1 border-t border-border">
-              <div className="space-y-1.5">
-                <Label>Descripción</Label>
+            <div className="space-y-4 pt-4 border-t border-border">
+              <div className="space-y-1.5 flex flex-col gap-2">
+                <Label>Description</Label>
                 <Textarea
-                  placeholder="¿Para qué es este sistema? ¿Qué identidad representa?"
+                  placeholder="What is this system for? What identity does it represent?"
                   value={identityStatement}
                   onChange={(e) => setIdentityStatement(e.target.value)}
                   rows={2}
@@ -236,8 +236,8 @@ export function CreateSystemDialog() {
               </div>
 
               <div className="grid grid-cols-2 gap-3">
-                <div className="space-y-1.5">
-                  <Label>Tipo</Label>
+                <div className="space-y-1.5 flex flex-col gap-2">
+                  <Label>Type</Label>
                   <Select value={templateType} onValueChange={setTemplateType}>
                     <SelectTrigger>
                       <SelectValue />
@@ -252,8 +252,8 @@ export function CreateSystemDialog() {
                   </Select>
                 </div>
 
-                <div className="space-y-1.5">
-                  <Label>Energía</Label>
+                <div className="space-y-1.5 flex flex-col gap-2">
+                  <Label>Energy</Label>
                   <Select value={energyIdeal} onValueChange={setEnergyIdeal}>
                     <SelectTrigger>
                       <SelectValue />
@@ -267,8 +267,8 @@ export function CreateSystemDialog() {
                 </div>
               </div>
 
-              <div className="space-y-1.5">
-                <Label>Frecuencia esperada</Label>
+              <div className="space-y-1.5 flex flex-col gap-2">
+                <Label>Expected frequency</Label>
                 <Select value={expectedFrequency} onValueChange={setExpectedFrequency}>
                   <SelectTrigger>
                     <SelectValue />
@@ -281,10 +281,10 @@ export function CreateSystemDialog() {
                 </Select>
               </div>
 
-              <div className="space-y-1.5">
-                <Label>Contexto de activación</Label>
+              <div className="space-y-1.5 flex flex-col gap-2">
+                <Label>Trigger context</Label>
                 <Input
-                  placeholder="Ej: Cuando llego a la oficina, al despertar..."
+                  placeholder="E.g. When I get to the office, when I wake up..."
                   value={triggerContext}
                   onChange={(e) => setTriggerContext(e.target.value)}
                 />
@@ -296,11 +296,11 @@ export function CreateSystemDialog() {
         {/* Footer */}
         <div className="flex justify-end gap-2 pt-2">
           <Button variant="ghost" onClick={() => handleOpenChange(false)} disabled={isPending}>
-            Cancelar
+            Cancel
           </Button>
           <Button onClick={handleCreateSystem} disabled={!name.trim() || isPending}>
             {isPending && <Loader2 className="size-4 animate-spin mr-2" />}
-            Crear sistema
+            Create system
           </Button>
         </div>
       </DialogContent>

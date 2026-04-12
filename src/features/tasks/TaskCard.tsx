@@ -1,13 +1,16 @@
 "use client";
 
+import { useState } from "react";
 import { isBefore, parseISO, startOfToday } from "date-fns";
-import { BatteryLow, Minus, Trash2, Zap } from "lucide-react";
+import { BatteryLow, ChevronDown, Minus, Trash2, Zap } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
 import type { Task } from "./tasks.types";
+import { SubtaskList } from "./SubtaskList";
 
 interface TaskCardProps {
   task: Task;
+  systemId: string;
   onToggle: (taskId: string) => void;
   onDelete: (taskId: string) => void;
 }
@@ -20,12 +23,6 @@ const STATUS_VARIANT: Record<string, "default" | "secondary" | "outline" | "dest
   archived: "outline",
 };
 
-const PRIORITY_DOT: Record<string, string> = {
-  critical: "bg-red-500",
-  high: "bg-orange-400",
-  medium: "bg-yellow-400",
-  low: "bg-slate-300",
-};
 
 function EnergyIcon({ level }: { level: string }) {
   if (level === "high") return <Zap size={12} />;
@@ -41,28 +38,36 @@ function formatTime(timeStr: unknown): string {
   return `${h}h ${m}m`;
 }
 
-export function TaskCard({ task, onToggle, onDelete }: TaskCardProps) {
+export function TaskCard({ task, systemId, onToggle, onDelete }: TaskCardProps) {
+  const [isExpanded, setIsExpanded] = useState(false);
   const isDone = task.status === "done";
+  const isArchived = task.status === "archived" ;
+  const isCritical = task.priority === "critical" && !isArchived && !isDone;
+  const isHigh = task.priority === "high" && !isArchived && !isDone;
   const isOverdue =
     task.dueDate !== null &&
-    !isDone &&
-    isBefore(parseISO(task.dueDate), startOfToday());
+    !isDone && !isArchived &&
+    isBefore(parseISO(task.dueDate), startOfToday()) && !isArchived;
 
   return (
     <div
       className={cn(
         "group flex items-start gap-3 px-3 py-2.5 rounded-md border bg-card transition-all hover:shadow-sm",
-        isDone && "opacity-60"
+        isDone && "opacity-60",
+        (isCritical ) && " ring-1 hover:ring-2 ring-red-500 bg-red-500/10 transition-all duration-300 ease-in-out",
+        (isHigh ) && " ring-1 hover:ring-2 ring-orange-400 bg-orange-400/10 transition-all duration-300 ease-in-out",
+        (isOverdue ) && " ring-1 hover:ring-2 ring-red-500 animate-pulse bg-red-500/10 transition-all duration-300 ease-in-out",
+        isArchived && "opacity-60"
       )}
     >
       {/* Toggle button */}
       <button
         type="button"
         onClick={() => onToggle(task.id)}
-        aria-label={isDone ? "Marcar como pendiente" : "Marcar como completado"}
+        aria-label={isDone ? "Mark as pending" : "Mark as completed"}
         className={cn(
           "mt-0.5 size-4 shrink-0 rounded-full border-2 transition-colors",
-          isDone
+          isDone || isArchived
             ? "border-green-500 bg-green-500"
             : "border-muted-foreground/40 hover:border-primary"
         )}
@@ -81,22 +86,26 @@ export function TaskCard({ task, onToggle, onDelete }: TaskCardProps) {
             {task.title}
           </span>
           <div className="flex items-center gap-1.5 shrink-0">
-            <span
-              className={cn(
-                "size-2 rounded-full",
-                PRIORITY_DOT[task.priority] ?? "bg-slate-300"
-              )}
-              title={task.priority}
-            />
+            <button
+              type="button"
+              onClick={() => setIsExpanded((v) => !v)}
+              className="opacity-0 group-hover:opacity-100 transition-opacity text-muted-foreground hover:text-foreground"
+              aria-label={isExpanded ? "Hide subtasks" : "Show subtasks"}
+            >
+              <ChevronDown
+                size={16}
+                className={cn("transition-transform", isExpanded && "rotate-180")}
+              />
+            </button>
             <button
               type="button"
               onClick={() => {
-                if (window.confirm(`¿Eliminar "${task.title}"?`)) onDelete(task.id);
+                if (window.confirm(`Delete "${task.title}"?`)) onDelete(task.id);
               }}
               className="opacity-0 group-hover:opacity-100 transition-opacity text-muted-foreground hover:text-destructive"
-              aria-label="Eliminar tarea"
+              aria-label="Delete task"
             >
-              <Trash2 size={13} />
+              <Trash2 size={16} />
             </button>
           </div>
         </div>
@@ -122,7 +131,7 @@ export function TaskCard({ task, onToggle, onDelete }: TaskCardProps) {
                 isOverdue ? "text-red-500 font-medium" : "text-muted-foreground"
               )}
             >
-              {isOverdue ? "Vencida: " : ""}
+              {isOverdue ? "Overdue: " : ""}
               {task.dueDate}
             </span>
           )}
@@ -134,6 +143,12 @@ export function TaskCard({ task, onToggle, onDelete }: TaskCardProps) {
             </span>
           )}
         </div>
+
+        {isExpanded && (
+          <div className="mt-2 pt-2 border-t">
+            <SubtaskList parentTaskId={task.id} systemId={systemId} />
+          </div>
+        )}
       </div>
     </div>
   );

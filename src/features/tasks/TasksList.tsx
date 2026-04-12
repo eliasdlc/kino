@@ -18,8 +18,7 @@ export function TasksList({ systemId, initialData }: TasksListProps) {
     <Tabs defaultValue="action" className="w-full flex flex-col gap-4">
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-4">
-          <CircleCheckBig className="size-8" />
-          <h2 className="text-3xl font-extrabold">Tareas</h2>
+          
           <TabsList>
             <TabsTrigger value="planning">Planning</TabsTrigger>
             <TabsTrigger value="action">Action</TabsTrigger>
@@ -29,11 +28,15 @@ export function TasksList({ systemId, initialData }: TasksListProps) {
         <CreateTaskDialog systemId={systemId} />
       </div>
 
-      <TabsContent value="planning"><TaskPlanningView /></TabsContent>
+      <TabsContent value="planning">
+        <TaskPlanningView systemId={systemId} initialData={initialData} />
+      </TabsContent>
       <TabsContent value="action">
         <TaskActionView systemId={systemId} initialData={initialData} />
       </TabsContent>
-      <TabsContent value="archive"><TaskArchiveView /></TabsContent>
+      <TabsContent value="archive">
+        <TaskArchiveView systemId={systemId} initialData={initialData} />
+        </TabsContent>
     </Tabs>
   );
 }

@@ -34,14 +34,14 @@ export function RegisterPage() {
     const { error } = await authClient.signUp.email({ name, email, password });
 
     if (error) {
-      setError(error.message ?? "Error al crear la cuenta");
+      setError(error.message ?? "Failed to create account");
       setLoading(false);
       return;
     }
 
     const setupRes = await fetch("/api/users/setup", { method: "POST" });
     if (!setupRes.ok) {
-      setError("Error al configurar la cuenta");
+      setError("Failed to set up account");
       setLoading(false);
       return;
     }
@@ -61,8 +61,8 @@ export function RegisterPage() {
     <Card className="w-full max-w-sm shadow-lg">
       <CardHeader className="text-center">
         <div className="text-2xl font-bold text-primary mb-1">Kino</div>
-        <CardTitle>Crear cuenta</CardTitle>
-        <CardDescription>Empieza a gestionar tu energía</CardDescription>
+        <CardTitle>Create account</CardTitle>
+        <CardDescription>Start managing your energy</CardDescription>
       </CardHeader>
       <form onSubmit={handleSubmit}>
         <CardContent className="space-y-4">
@@ -70,7 +70,7 @@ export function RegisterPage() {
             <p className="text-sm text-destructive bg-destructive/10 rounded-md p-2">{error}</p>
           )}
           <div className="space-y-2">
-            <Label htmlFor="name">Nombre</Label>
+            <Label htmlFor="name">Name</Label>
             <Input
               id="name"
               type="text"
@@ -92,7 +92,7 @@ export function RegisterPage() {
             />
           </div>
           <div className="space-y-2">
-            <Label htmlFor="password">Contraseña</Label>
+            <Label htmlFor="password">Password</Label>
             <Input
               id="password"
               type="password"
@@ -106,7 +106,7 @@ export function RegisterPage() {
         </CardContent>
         <CardFooter className="flex flex-col gap-3">
           <Button type="submit" className="w-full" disabled={loading || oauthLoading !== null}>
-            {loading ? "Creando cuenta..." : "Crear cuenta"}
+            {loading ? "Creating account..." : "Create account"}
           </Button>
 
           <div className="relative w-full">
@@ -115,7 +115,7 @@ export function RegisterPage() {
             </div>
             <div className="relative flex justify-center text-xs uppercase">
               <span className="bg-card px-2 text-muted-foreground">
-                O regístrate con
+                Or register with
               </span>
             </div>
           </div>
@@ -128,7 +128,7 @@ export function RegisterPage() {
             disabled={oauthLoading !== null || loading}
           >
             <GoogleIcon />
-            {oauthLoading === "google" ? "Redirigiendo..." : "Continuar con Google"}
+            {oauthLoading === "google" ? "Redirecting..." : "Continue with Google"}
           </Button>
 
           <Button
@@ -139,13 +139,13 @@ export function RegisterPage() {
             disabled={oauthLoading !== null || loading}
           >
             <GitHubIcon />
-            {oauthLoading === "github" ? "Redirigiendo..." : "Continuar con GitHub"}
+            {oauthLoading === "github" ? "Redirecting..." : "Continue with GitHub"}
           </Button>
 
           <p className="text-sm text-muted-foreground text-center">
-            ¿Ya tienes cuenta?{" "}
+            Already have an account?{" "}
             <Link href="/login" className="text-primary underline underline-offset-4 hover:text-primary/80">
-              Inicia sesión
+              Sign in
             </Link>
           </p>
         </CardFooter>

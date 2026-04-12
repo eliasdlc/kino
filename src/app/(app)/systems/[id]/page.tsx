@@ -21,7 +21,9 @@ export default async function SystemPage({ params }: { params: Promise<{ id: str
   return (
     <PageWrapper className="w-full">
       <SystemDetailHeader system={system} taskCount={tasks.length} />
+      
       <SystemDetailTabs systemId={id} initialTasks={tasks} />
+      
     </PageWrapper>
   );
 }

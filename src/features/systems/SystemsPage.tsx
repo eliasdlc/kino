@@ -16,6 +16,8 @@ export default function SystemsPage() {
         <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground" />
         <Input className="pl-9" placeholder="Search systems..." />
       </div>
+
+
       <SystemsList />
     </PageWrapper>
   );

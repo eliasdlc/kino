@@ -2,7 +2,7 @@ import { headers } from "next/headers";
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "../../../auth";
 import { createTaskSchema, moveTaskSchema, reorderTasksSchema, updateTaskSchema } from "./tasks.schemas";
-import { createTask, deleteTask, getTasksBySystem, moveTask, reorderTasks, toggleTask, updateTask } from "./tasks.service";
+import { createTask, deleteTask, getSubtasks, getTasksBySystem, moveTask, reorderTasks, toggleTask, updateTask } from "./tasks.service";
 import { NotFoundError, ValidationError } from "@/shared/utils/error";
 
 export async function GET(
@@ -133,6 +133,18 @@ export async function patchMove(
         }
         throw error;
     }
+}
+
+export async function getSubtasksRoute(
+    _request: NextRequest,
+    { params }: { params: Promise<{ id: string }> }
+) {
+    const session = await auth.api.getSession({ headers: await headers() });
+    if (!session) return NextResponse.json({ code: "UNAUTHORIZED", message: "Unauthorized" }, { status: 401 });
+
+    const { id: taskId } = await params;
+    const subtasks = await getSubtasks(taskId, session.user.id);
+    return NextResponse.json(subtasks);
 }
 
 export async function postReorder(request: NextRequest) {

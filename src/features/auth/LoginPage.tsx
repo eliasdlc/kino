@@ -33,7 +33,7 @@ export function LoginPage() {
         const { error } = await authClient.signIn.email({ email, password });
 
         if (error) {
-            setError(error.message ?? "Error al iniciar sesión");
+            setError(error.message ?? "Failed to sign in");
             setLoading(false);
             return;
         }
@@ -53,8 +53,8 @@ export function LoginPage() {
         <Card className="w-full max-w-sm shadow-lg">
             <CardHeader className="text-center">
                 <div className="text-2xl font-bold text-primary mb-1">Kino</div>
-                <CardTitle>Bienvenido de vuelta</CardTitle>
-                <CardDescription>Ingresa tu email y contraseña</CardDescription>
+                <CardTitle>Welcome back</CardTitle>
+                <CardDescription>Enter your email and password</CardDescription>
             </CardHeader>
             <form onSubmit={handleSubmit}>
                 <CardContent className="space-y-4">
@@ -73,7 +73,7 @@ export function LoginPage() {
                         />
                     </div>
                     <div className="space-y-2">
-                        <Label htmlFor="password">Contraseña</Label>
+                        <Label htmlFor="password">Password</Label>
                         <Input
                             id="password"
                             type="password"
@@ -86,7 +86,7 @@ export function LoginPage() {
                 </CardContent>
                 <CardFooter className="flex flex-col gap-3">
                     <Button type="submit" className="w-full" disabled={loading || oauthLoading !== null}>
-                        {loading ? "Ingresando..." : "Ingresar"}
+                        {loading ? "Signing in..." : "Sign in"}
                     </Button>
 
                     <div className="relative w-full">
@@ -95,7 +95,7 @@ export function LoginPage() {
                         </div>
                         <div className="relative flex justify-center text-xs uppercase">
                             <span className="bg-card px-2 text-muted-foreground">
-                                O continúa con
+                                Or continue with
                             </span>
                         </div>
                     </div>
@@ -108,7 +108,7 @@ export function LoginPage() {
                         disabled={oauthLoading !== null || loading}
                     >
                         <GoogleIcon />
-                        {oauthLoading === "google" ? "Redirigiendo..." : "Continuar con Google"}
+                        {oauthLoading === "google" ? "Redirecting..." : "Continue with Google"}
                     </Button>
 
                     <Button
@@ -119,13 +119,13 @@ export function LoginPage() {
                         disabled={oauthLoading !== null || loading}
                     >
                         <GitHubIcon />
-                        {oauthLoading === "github" ? "Redirigiendo..." : "Continuar con GitHub"}
+                        {oauthLoading === "github" ? "Redirecting..." : "Continue with GitHub"}
                     </Button>
 
                     <p className="text-sm text-muted-foreground text-center">
-                        ¿No tienes cuenta?{" "}
+                        Don&apos;t have an account?{" "}
                         <Link href="/register" className="text-primary underline underline-offset-4 hover:text-primary/80">
-                            Regístrate
+                            Register
                         </Link>
                     </p>
                 </CardFooter>
