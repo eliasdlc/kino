@@ -12,7 +12,7 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { Calendar } from "@/components/ui/calendar";
 import { Textarea } from "@/components/ui/textarea";
 import { Separator } from "@/components/ui/separator";
-import { taskPriorityEnum, taskStatusEnum, energyLevelEnum, taskTypeEnum } from "@/shared/db/schema";
+import { ENERGY_LEVEL_VALUES, TASK_PRIORITY_VALUES, TASK_STATUS_VALUES, TASK_TYPE_VALUES } from "@/shared/types/enums";
 import { CalendarRange, ChevronDown, ChevronUp, Plus, X } from "lucide-react";
 import type { CreateTaskInput } from "./tasks.types";
 import { useCreateTask } from "./tasks.hooks";
@@ -143,7 +143,7 @@ export function CreateTaskDialog({ systemId, parentTaskId }: CreateTaskDialogPro
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  {taskStatusEnum.enumValues.map((s) => (
+                  {TASK_STATUS_VALUES.map((s) => (
                     <SelectItem key={s} value={s}>{s}</SelectItem>
                   ))}
                 </SelectContent>
@@ -157,7 +157,7 @@ export function CreateTaskDialog({ systemId, parentTaskId }: CreateTaskDialogPro
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  {taskPriorityEnum.enumValues.map((p) => (
+                  {TASK_PRIORITY_VALUES.map((p) => (
                     <SelectItem key={p} value={p}>{p}</SelectItem>
                   ))}
                 </SelectContent>
@@ -171,7 +171,7 @@ export function CreateTaskDialog({ systemId, parentTaskId }: CreateTaskDialogPro
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  {energyLevelEnum.enumValues.map((e) => (
+                  {ENERGY_LEVEL_VALUES.map((e) => (
                     <SelectItem key={e} value={e}>{e}</SelectItem>
                   ))}
                 </SelectContent>
@@ -269,7 +269,7 @@ export function CreateTaskDialog({ systemId, parentTaskId }: CreateTaskDialogPro
                     <SelectValue placeholder="Select type..." />
                   </SelectTrigger>
                   <SelectContent>
-                    {taskTypeEnum.enumValues.map((t) => (
+                    {TASK_TYPE_VALUES.map((t) => (
                       <SelectItem key={t} value={t}>{t}</SelectItem>
                     ))}
                   </SelectContent>

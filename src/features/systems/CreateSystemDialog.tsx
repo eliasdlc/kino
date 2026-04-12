@@ -9,7 +9,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { useQueryClient } from "@tanstack/react-query";
-import { colorEnum, energyLevelEnum, frequencyEnum, templateTypeEnum } from "@/shared/db/schema";
+import { COLOR_VALUES, ENERGY_LEVEL_VALUES, FREQUENCY_VALUES, TEMPLATE_TYPE_VALUES } from "@/shared/types/enums";
 import { ICON_MAP, DEFAULT_ICON } from "./system-icons";
 import type { CreateSystemInput } from "./systems.types";
 
@@ -173,7 +173,7 @@ export function CreateSystemDialog() {
           <div className="space-y-1.5 flex flex-col gap-2">
             <Label>Color</Label>
             <div className="flex flex-wrap gap-3 justify-center">
-              {colorEnum.enumValues.map((c) => (
+              {COLOR_VALUES.map((c) => (
                 <button
                   key={c}
                   onClick={() => setColor(c)}
@@ -243,9 +243,7 @@ export function CreateSystemDialog() {
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
-                      {templateTypeEnum.enumValues
-                        .filter((v) => v !== "inbox")
-                        .map((v) => (
+                      {TEMPLATE_TYPE_VALUES.map((v) => (
                           <SelectItem key={v} value={v}>{v}</SelectItem>
                         ))}
                     </SelectContent>
@@ -259,7 +257,7 @@ export function CreateSystemDialog() {
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
-                      {energyLevelEnum.enumValues.map((v) => (
+                      {ENERGY_LEVEL_VALUES.map((v) => (
                         <SelectItem key={v} value={v}>{v}</SelectItem>
                       ))}
                     </SelectContent>
@@ -274,7 +272,7 @@ export function CreateSystemDialog() {
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    {frequencyEnum.enumValues.map((v) => (
+                    {FREQUENCY_VALUES.map((v) => (
                       <SelectItem key={v} value={v}>{v}</SelectItem>
                     ))}
                   </SelectContent>
