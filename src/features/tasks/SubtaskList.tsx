@@ -1,8 +1,10 @@
 "use client";
 
+import { useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { Trash2 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { useSubtasks, useToggleTask, useDeleteTask } from "./tasks.hooks";
 
 interface SubtaskListProps {
@@ -12,6 +14,7 @@ interface SubtaskListProps {
 
 export function SubtaskList({ parentTaskId, systemId }: SubtaskListProps) {
   const queryClient = useQueryClient();
+  const [deleteTarget, setDeleteTarget] = useState<{ id: string; title: string } | null>(null);
   const { data: subtasks, isLoading } = useSubtasks(parentTaskId, systemId, { enabled: true });
   const { mutate: toggleTask } = useToggleTask(systemId);
   const { mutate: deleteTask } = useDeleteTask(systemId);
@@ -61,13 +64,7 @@ export function SubtaskList({ parentTaskId, systemId }: SubtaskListProps) {
             </span>
             <button
               type="button"
-              onClick={() => {
-                if (window.confirm(`Delete "${subtask.title}"?`)) {
-                  deleteTask(subtask.id, {
-                    onSuccess: () => queryClient.invalidateQueries({ queryKey: subtaskQueryKey }),
-                  });
-                }
-              }}
+              onClick={() => setDeleteTarget({ id: subtask.id, title: subtask.title })}
               className="opacity-0 group-hover:opacity-100 transition-opacity text-muted-foreground hover:text-destructive"
               aria-label="Delete subtask"
             >
@@ -76,6 +73,21 @@ export function SubtaskList({ parentTaskId, systemId }: SubtaskListProps) {
           </div>
         );
       })}
+
+      <ConfirmDialog
+        open={deleteTarget !== null}
+        title="Delete subtask"
+        description={`"${deleteTarget?.title}" will be permanently deleted.`}
+        onConfirm={() => {
+          if (deleteTarget) {
+            deleteTask(deleteTarget.id, {
+              onSuccess: () => queryClient.invalidateQueries({ queryKey: subtaskQueryKey }),
+            });
+          }
+          setDeleteTarget(null);
+        }}
+        onCancel={() => setDeleteTarget(null)}
+      />
     </div>
   );
 }

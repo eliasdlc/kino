@@ -1,18 +1,42 @@
 import { db } from "@/shared/db";
-import { tasks, users, userSettings } from "@/shared/db/schema";
-import { and, eq, isNull, sql } from "drizzle-orm";
+import { tasks, users, userSettings, systems } from "@/shared/db/schema";
+import { and, eq, gte, isNull, sql } from "drizzle-orm";
 import { NotFoundError, ValidationError } from "@/shared/utils/error";
 import { validateTransition, type TaskStatus, type TransitionAction } from "./tasks.state-machine";
 import { Task, CreateTaskInput, UpdateTaskInput } from "./tasks.types";
 
+const ENERGY_POINTS: Record<string, number> = {
+  high: 5,
+  medium: 3,
+  low: 1,
+};
+
 async function getEnergyContext(userId: string) {
+  const todayStart = new Date();
+  todayStart.setHours(0, 0, 0, 0);
+
   const [settings] = await db
     .select({ dailyEnergyLimit: userSettings.dailyEnergyLimit })
     .from(userSettings)
     .where(eq(userSettings.userId, userId));
 
+  const doneTodayRows = await db
+    .select({ energyLevel: tasks.energyLevel })
+    .from(tasks)
+    .where(and(
+      eq(tasks.userId, userId),
+      eq(tasks.status, "done"),
+      gte(tasks.completedAt, todayStart),
+      isNull(tasks.deletedAt),
+    ));
+
+  const currentDayEnergyUsed = doneTodayRows.reduce(
+    (sum, row) => sum + (ENERGY_POINTS[row.energyLevel ?? "medium"] ?? 3),
+    0,
+  );
+
   return {
-    currentDayEnergyUsed: 0,
+    currentDayEnergyUsed,
     dailyEnergyLimit: settings?.dailyEnergyLimit ?? 50,
   };
 }
@@ -56,6 +80,13 @@ export async function getSubtasks(taskId: string, userId: string) {
 }
 
 export async function createTask(userId: string, data: CreateTaskInput) {
+  const [system] = await db
+    .select({ id: systems.id })
+    .from(systems)
+    .where(and(eq(systems.id, data.systemId), eq(systems.userId, userId)));
+
+  if (!system) throw new NotFoundError("System not found");
+
   const [task] = await db.insert(tasks)
     .values({ ...data, userId })
     .returning();
@@ -101,7 +132,7 @@ export async function toggleTask(taskId: string, userId: string): Promise<{ stat
   const result = validateTransition({
     currentStatus: current.status,
     action,
-    taskEnergyPoints: 3,
+    taskEnergyPoints: ENERGY_POINTS[current.energyLevel ?? "medium"] ?? 3,
     currentDayEnergyUsed: energyContext.currentDayEnergyUsed,
     dailyEnergyLimit: energyContext.dailyEnergyLimit,
     isRecurring: current.recurrenceRule !== null && current.recurrenceRule !== undefined,
@@ -180,7 +211,7 @@ export async function moveTask(taskId: string, newStatus: TaskStatus, userId: st
   const result = validateTransition({
     currentStatus: current.status,
     action,
-    taskEnergyPoints: 3,
+    taskEnergyPoints: ENERGY_POINTS[current.energyLevel ?? "medium"] ?? 3,
     currentDayEnergyUsed: energyContext.currentDayEnergyUsed,
     dailyEnergyLimit: energyContext.dailyEnergyLimit,
     isRecurring: current.recurrenceRule !== null && current.recurrenceRule !== undefined,

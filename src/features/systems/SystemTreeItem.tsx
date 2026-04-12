@@ -22,22 +22,9 @@ import { useFolders, useCreateFolder } from "../folders/folders.hooks";
 import { useSystemsTreeStore } from "./systems.store";
 import { useDeleteSystem } from "./systems.hooks";
 import { ICON_MAP, DEFAULT_ICON } from "./system-icons";
+import { getSystemColor } from "@/shared/utils/system-colors";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import type { System } from "./systems.types";
-
-const COLOR_MAP: Record<string, string> = {
-  blue: "text-blue-500",
-  red: "text-red-500",
-  green: "text-green-500",
-  yellow: "text-yellow-500",
-  purple: "text-purple-500",
-  pink: "text-pink-500",
-  orange: "text-orange-500",
-  cyan: "text-cyan-500",
-  teal: "text-teal-500",
-  gray: "text-gray-500",
-  black: "text-gray-900",
-  white: "text-gray-200",
-};
 
 interface SystemTreeItemProps {
   system: System;
@@ -60,6 +47,7 @@ export function SystemTreeItem({
 
   const [isCreating, setIsCreating] = useState(false);
   const [newFolderName, setNewFolderName] = useState("");
+  const [confirmDelete, setConfirmDelete] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
 
   const { mutateAsync: createFolder, isPending } = useCreateFolder(system.id);
@@ -67,8 +55,8 @@ export function SystemTreeItem({
   const router = useRouter();
   const pathname = usePathname();
 
-  function handleDelete() {
-    if (!window.confirm(`Delete system "${system.name}"? This action cannot be undone.`)) return;
+  function handleConfirmDelete() {
+    setConfirmDelete(false);
     deleteSystem(system.id, {
       onSuccess: () => {
         if (pathname.startsWith(`/systems/${system.id}`)) router.push("/systems");
@@ -108,7 +96,7 @@ export function SystemTreeItem({
   }
 
   const Icon = ICON_MAP[system.icon] ?? DEFAULT_ICON;
-  const color = COLOR_MAP[system.color] ?? "text-gray-400";
+  const color = getSystemColor(system.color).text;
 
   return (
     <div>
@@ -158,7 +146,7 @@ export function SystemTreeItem({
             <DropdownMenuSeparator />
             <DropdownMenuItem
               className="text-destructive focus:text-destructive"
-              onClick={handleDelete}
+              onClick={() => setConfirmDelete(true)}
             >
               <Trash2 className="size-4 mr-2" />
               Delete
@@ -222,6 +210,14 @@ export function SystemTreeItem({
           )}
         </div>
       )}
+
+      <ConfirmDialog
+        open={confirmDelete}
+        title="Delete system"
+        description={`"${system.name}" and all its content will be permanently deleted.`}
+        onConfirm={handleConfirmDelete}
+        onCancel={() => setConfirmDelete(false)}
+      />
     </div>
   );
 }

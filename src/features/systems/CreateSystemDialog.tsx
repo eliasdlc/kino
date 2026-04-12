@@ -9,54 +9,10 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { useQueryClient } from "@tanstack/react-query";
-import { colorEnum, energyLevelEnum, frequencyEnum, templateTypeEnum } from "@/shared/db/schema";
+import { COLOR_VALUES, ENERGY_LEVEL_VALUES, FREQUENCY_VALUES, TEMPLATE_TYPE_VALUES } from "@/shared/types/enums";
+import { getSystemColor } from "@/shared/utils/system-colors";
 import { ICON_MAP, DEFAULT_ICON } from "./system-icons";
 import type { CreateSystemInput } from "./systems.types";
-
-const COLOR_BG_MAP: Record<string, string> = {
-  blue: "bg-blue-500",
-  red: "bg-red-500",
-  green: "bg-green-500",
-  yellow: "bg-yellow-500",
-  purple: "bg-purple-500",
-  pink: "bg-pink-500",
-  orange: "bg-orange-500",
-  cyan: "bg-cyan-500",
-  teal: "bg-teal-500",
-  gray: "bg-gray-500",
-  black: "bg-gray-900",
-  white: "bg-gray-200",
-};
-
-const COLOR_TEXT_MAP: Record<string, string> = {
-  blue: "text-blue-500",
-  red: "text-red-500",
-  green: "text-green-500",
-  yellow: "text-yellow-500",
-  purple: "text-purple-500",
-  pink: "text-pink-500",
-  orange: "text-orange-500",
-  cyan: "text-cyan-500",
-  teal: "text-teal-500",
-  gray: "text-gray-500",
-  black: "text-gray-900",
-  white: "text-gray-200",
-};
-
-const COLOR_BG_SUBTLE_MAP: Record<string, string> = {
-  blue: "bg-blue-500/10",
-  red: "bg-red-500/10",
-  green: "bg-green-500/10",
-  yellow: "bg-yellow-500/10",
-  purple: "bg-purple-500/10",
-  pink: "bg-pink-500/10",
-  orange: "bg-orange-500/10",
-  cyan: "bg-cyan-500/10",
-  teal: "bg-teal-500/10",
-  gray: "bg-gray-500/10",
-  black: "bg-gray-900/10",
-  white: "bg-gray-200/10",
-};
 
 const ICON_KEYS = Object.keys(ICON_MAP);
 
@@ -133,8 +89,7 @@ export function CreateSystemDialog() {
   }
 
   const PreviewIcon = ICON_MAP[icon] ?? DEFAULT_ICON;
-  const bgSubtle = COLOR_BG_SUBTLE_MAP[color] ?? "bg-gray-500/10";
-  const textColor = COLOR_TEXT_MAP[color] ?? "text-gray-500";
+  const { bgSubtle, text: textColor } = getSystemColor(color);
 
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
@@ -173,11 +128,11 @@ export function CreateSystemDialog() {
           <div className="space-y-1.5 flex flex-col gap-2">
             <Label>Color</Label>
             <div className="flex flex-wrap gap-3 justify-center">
-              {colorEnum.enumValues.map((c) => (
+              {COLOR_VALUES.map((c) => (
                 <button
                   key={c}
                   onClick={() => setColor(c)}
-                  className={`size-6 rounded-full transition-all ${COLOR_BG_MAP[c] ?? "bg-gray-400"} ${
+                  className={`size-6 rounded-full transition-all ${getSystemColor(c).bg} ${
                     color === c
                       ? "ring-2 ring-offset-2 ring-offset-background ring-foreground scale-110"
                       : "opacity-60 hover:opacity-100"
@@ -243,9 +198,7 @@ export function CreateSystemDialog() {
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
-                      {templateTypeEnum.enumValues
-                        .filter((v) => v !== "inbox")
-                        .map((v) => (
+                      {TEMPLATE_TYPE_VALUES.map((v) => (
                           <SelectItem key={v} value={v}>{v}</SelectItem>
                         ))}
                     </SelectContent>
@@ -259,7 +212,7 @@ export function CreateSystemDialog() {
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
-                      {energyLevelEnum.enumValues.map((v) => (
+                      {ENERGY_LEVEL_VALUES.map((v) => (
                         <SelectItem key={v} value={v}>{v}</SelectItem>
                       ))}
                     </SelectContent>
@@ -274,7 +227,7 @@ export function CreateSystemDialog() {
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    {frequencyEnum.enumValues.map((v) => (
+                    {FREQUENCY_VALUES.map((v) => (
                       <SelectItem key={v} value={v}>{v}</SelectItem>
                     ))}
                   </SelectContent>
