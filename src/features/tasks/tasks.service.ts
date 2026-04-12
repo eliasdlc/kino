@@ -1,5 +1,5 @@
 import { db } from "@/shared/db";
-import { tasks, users, userSettings } from "@/shared/db/schema";
+import { tasks, users, userSettings, systems } from "@/shared/db/schema";
 import { and, eq, gte, isNull, sql } from "drizzle-orm";
 import { NotFoundError, ValidationError } from "@/shared/utils/error";
 import { validateTransition, type TaskStatus, type TransitionAction } from "./tasks.state-machine";
@@ -80,6 +80,13 @@ export async function getSubtasks(taskId: string, userId: string) {
 }
 
 export async function createTask(userId: string, data: CreateTaskInput) {
+  const [system] = await db
+    .select({ id: systems.id })
+    .from(systems)
+    .where(and(eq(systems.id, data.systemId), eq(systems.userId, userId)));
+
+  if (!system) throw new NotFoundError("System not found");
+
   const [task] = await db.insert(tasks)
     .values({ ...data, userId })
     .returning();

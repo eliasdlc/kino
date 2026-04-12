@@ -31,8 +31,15 @@ export async function POST(request: NextRequest) {
         }, { status: 400 });
     }
 
-    const task = await createTask(session.user.id, parsed.data);
-    return NextResponse.json(task, { status: 201 });
+    try {
+        const task = await createTask(session.user.id, parsed.data);
+        return NextResponse.json(task, { status: 201 });
+    } catch (error) {
+        if (error instanceof NotFoundError) {
+            return NextResponse.json({ code: "NOT_FOUND", message: "System not found" }, { status: 404 });
+        }
+        throw error;
+    }
 }
 
 export async function PATCH(
