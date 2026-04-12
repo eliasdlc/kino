@@ -100,8 +100,8 @@ export function CreateTaskDialog({ systemId, parentTaskId }: CreateTaskDialogPro
       }
       resetForm();
       setOpen(false);
-    } catch {
-      // errors handled by TanStack Query
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to create task");
     }
   }
 
