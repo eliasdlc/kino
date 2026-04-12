@@ -125,7 +125,7 @@ export async function toggleTask(taskId: string, userId: string): Promise<{ stat
   const result = validateTransition({
     currentStatus: current.status,
     action,
-    taskEnergyPoints: 3,
+    taskEnergyPoints: ENERGY_POINTS[current.energyLevel ?? "medium"] ?? 3,
     currentDayEnergyUsed: energyContext.currentDayEnergyUsed,
     dailyEnergyLimit: energyContext.dailyEnergyLimit,
     isRecurring: current.recurrenceRule !== null && current.recurrenceRule !== undefined,
@@ -204,7 +204,7 @@ export async function moveTask(taskId: string, newStatus: TaskStatus, userId: st
   const result = validateTransition({
     currentStatus: current.status,
     action,
-    taskEnergyPoints: 3,
+    taskEnergyPoints: ENERGY_POINTS[current.energyLevel ?? "medium"] ?? 3,
     currentDayEnergyUsed: energyContext.currentDayEnergyUsed,
     dailyEnergyLimit: energyContext.dailyEnergyLimit,
     isRecurring: current.recurrenceRule !== null && current.recurrenceRule !== undefined,
