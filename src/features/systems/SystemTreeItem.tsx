@@ -22,22 +22,8 @@ import { useFolders, useCreateFolder } from "../folders/folders.hooks";
 import { useSystemsTreeStore } from "./systems.store";
 import { useDeleteSystem } from "./systems.hooks";
 import { ICON_MAP, DEFAULT_ICON } from "./system-icons";
+import { getSystemColor } from "@/shared/utils/system-colors";
 import type { System } from "./systems.types";
-
-const COLOR_MAP: Record<string, string> = {
-  blue: "text-blue-500",
-  red: "text-red-500",
-  green: "text-green-500",
-  yellow: "text-yellow-500",
-  purple: "text-purple-500",
-  pink: "text-pink-500",
-  orange: "text-orange-500",
-  cyan: "text-cyan-500",
-  teal: "text-teal-500",
-  gray: "text-gray-500",
-  black: "text-gray-900",
-  white: "text-gray-200",
-};
 
 interface SystemTreeItemProps {
   system: System;
@@ -108,7 +94,7 @@ export function SystemTreeItem({
   }
 
   const Icon = ICON_MAP[system.icon] ?? DEFAULT_ICON;
-  const color = COLOR_MAP[system.color] ?? "text-gray-400";
+  const color = getSystemColor(system.color).text;
 
   return (
     <div>

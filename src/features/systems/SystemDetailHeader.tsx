@@ -12,37 +12,8 @@ import {
 import { Button } from "@/components/ui/button";
 import { MoreHorizontal, Pencil, Trash2, Power } from "lucide-react";
 import { useDeleteSystem } from "./systems.hooks";
+import { getSystemColor } from "@/shared/utils/system-colors";
 import type { System } from "./systems.types";
-
-const COLOR_ACCENT: Record<string, string> = {
-  blue: "border-t-blue-500",
-  red: "border-t-red-500",
-  green: "border-t-green-500",
-  yellow: "border-t-yellow-500",
-  purple: "border-t-purple-500",
-  pink: "border-t-pink-500",
-  orange: "border-t-orange-500",
-  teal: "border-t-teal-500",
-  gray: "border-t-gray-500",
-  black: "border-t-gray-900",
-  white: "border-t-gray-300",
-  cyan: "border-t-cyan-500",
-};
-
-const COLOR_DOT: Record<string, string> = {
-  blue: "bg-blue-500",
-  red: "bg-red-500",
-  green: "bg-green-500",
-  yellow: "bg-yellow-500",
-  purple: "bg-purple-500",
-  pink: "bg-pink-500",
-  orange: "bg-orange-500",
-  teal: "bg-teal-500",
-  gray: "bg-gray-500",
-  black: "bg-gray-900",
-  white: "bg-gray-300",
-  cyan: "bg-cyan-500",
-};
 
 interface SystemDetailHeaderProps {
   system: System;
@@ -56,8 +27,7 @@ interface SystemDetailHeaderProps {
 export function SystemDetailHeader({ system, taskCount }: SystemDetailHeaderProps) {
   const router = useRouter();
   const { mutate: deleteSystem } = useDeleteSystem();
-  const borderColor = COLOR_ACCENT[system.color] ?? "border-t-gray-400";
-  const dotColor = COLOR_DOT[system.color] ?? "bg-gray-400";
+  const { borderTop: borderColor, dot: dotColor } = getSystemColor(system.color);
 
   function handleDelete() {
     if (!window.confirm(`Delete system "${system.name}"? This action cannot be undone.`)) return;
