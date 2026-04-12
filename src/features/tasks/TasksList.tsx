@@ -2,7 +2,6 @@
 
 import type { Task } from "./tasks.types";
 import { CreateTaskDialog } from "./CreateTaskDialog";
-import { CircleCheckBig } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { TaskActionView } from "./TaskActionView";
 import { TaskPlanningView } from "./TaskPlanningView";
