@@ -38,6 +38,7 @@ const TRANSITION_MAP: Record<TaskStatus, Partial<Record<TransitionAction, TaskSt
     week: {
         move_to_today: "today",
         move_to_backlog: "backlog",
+        toggle_done: "done",
         soft_delete: "archived",
     },
     today: {
