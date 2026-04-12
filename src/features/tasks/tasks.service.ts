@@ -1,18 +1,42 @@
 import { db } from "@/shared/db";
 import { tasks, users, userSettings } from "@/shared/db/schema";
-import { and, eq, isNull, sql } from "drizzle-orm";
+import { and, eq, gte, isNull, sql } from "drizzle-orm";
 import { NotFoundError, ValidationError } from "@/shared/utils/error";
 import { validateTransition, type TaskStatus, type TransitionAction } from "./tasks.state-machine";
 import { Task, CreateTaskInput, UpdateTaskInput } from "./tasks.types";
 
+const ENERGY_POINTS: Record<string, number> = {
+  high: 5,
+  medium: 3,
+  low: 1,
+};
+
 async function getEnergyContext(userId: string) {
+  const todayStart = new Date();
+  todayStart.setHours(0, 0, 0, 0);
+
   const [settings] = await db
     .select({ dailyEnergyLimit: userSettings.dailyEnergyLimit })
     .from(userSettings)
     .where(eq(userSettings.userId, userId));
 
+  const doneTodayRows = await db
+    .select({ energyLevel: tasks.energyLevel })
+    .from(tasks)
+    .where(and(
+      eq(tasks.userId, userId),
+      eq(tasks.status, "done"),
+      gte(tasks.completedAt, todayStart),
+      isNull(tasks.deletedAt),
+    ));
+
+  const currentDayEnergyUsed = doneTodayRows.reduce(
+    (sum, row) => sum + (ENERGY_POINTS[row.energyLevel ?? "medium"] ?? 3),
+    0,
+  );
+
   return {
-    currentDayEnergyUsed: 0,
+    currentDayEnergyUsed,
     dailyEnergyLimit: settings?.dailyEnergyLimit ?? 50,
   };
 }
