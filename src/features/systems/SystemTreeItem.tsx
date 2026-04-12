@@ -23,6 +23,7 @@ import { useSystemsTreeStore } from "./systems.store";
 import { useDeleteSystem } from "./systems.hooks";
 import { ICON_MAP, DEFAULT_ICON } from "./system-icons";
 import { getSystemColor } from "@/shared/utils/system-colors";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import type { System } from "./systems.types";
 
 interface SystemTreeItemProps {
@@ -46,6 +47,7 @@ export function SystemTreeItem({
 
   const [isCreating, setIsCreating] = useState(false);
   const [newFolderName, setNewFolderName] = useState("");
+  const [confirmDelete, setConfirmDelete] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
 
   const { mutateAsync: createFolder, isPending } = useCreateFolder(system.id);
@@ -53,8 +55,8 @@ export function SystemTreeItem({
   const router = useRouter();
   const pathname = usePathname();
 
-  function handleDelete() {
-    if (!window.confirm(`Delete system "${system.name}"? This action cannot be undone.`)) return;
+  function handleConfirmDelete() {
+    setConfirmDelete(false);
     deleteSystem(system.id, {
       onSuccess: () => {
         if (pathname.startsWith(`/systems/${system.id}`)) router.push("/systems");
@@ -144,7 +146,7 @@ export function SystemTreeItem({
             <DropdownMenuSeparator />
             <DropdownMenuItem
               className="text-destructive focus:text-destructive"
-              onClick={handleDelete}
+              onClick={() => setConfirmDelete(true)}
             >
               <Trash2 className="size-4 mr-2" />
               Delete
@@ -208,6 +210,14 @@ export function SystemTreeItem({
           )}
         </div>
       )}
+
+      <ConfirmDialog
+        open={confirmDelete}
+        title="Delete system"
+        description={`"${system.name}" and all its content will be permanently deleted.`}
+        onConfirm={handleConfirmDelete}
+        onCancel={() => setConfirmDelete(false)}
+      />
     </div>
   );
 }

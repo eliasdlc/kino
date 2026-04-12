@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -13,6 +14,7 @@ import { Button } from "@/components/ui/button";
 import { MoreHorizontal, Pencil, Trash2, Power } from "lucide-react";
 import { useDeleteSystem } from "./systems.hooks";
 import { getSystemColor } from "@/shared/utils/system-colors";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import type { System } from "./systems.types";
 
 interface SystemDetailHeaderProps {
@@ -26,15 +28,9 @@ interface SystemDetailHeaderProps {
  */
 export function SystemDetailHeader({ system, taskCount }: SystemDetailHeaderProps) {
   const router = useRouter();
+  const [confirmDelete, setConfirmDelete] = useState(false);
   const { mutate: deleteSystem } = useDeleteSystem();
   const { borderTop: borderColor, dot: dotColor } = getSystemColor(system.color);
-
-  function handleDelete() {
-    if (!window.confirm(`Delete system "${system.name}"? This action cannot be undone.`)) return;
-    deleteSystem(system.id, {
-      onSuccess: () => router.push("/systems"),
-    });
-  }
 
   return (
     <div
@@ -72,7 +68,7 @@ export function SystemDetailHeader({ system, taskCount }: SystemDetailHeaderProp
             <DropdownMenuSeparator />
             <DropdownMenuItem
               className="text-destructive focus:text-destructive flex items-center gap-2"
-              onClick={handleDelete}
+              onClick={() => setConfirmDelete(true)}
               disabled={system.isInbox}
             >
               <Trash2 className="size-4" />
@@ -115,6 +111,19 @@ export function SystemDetailHeader({ system, taskCount }: SystemDetailHeaderProp
       <div className="flex items-center gap-4 pl-6 pt-2 border-t text-xs text-muted-foreground">
         <span>{taskCount} task{taskCount !== 1 ? "s" : ""}</span>
       </div>
+
+      <ConfirmDialog
+        open={confirmDelete}
+        title="Delete system"
+        description={`"${system.name}" and all its content will be permanently deleted. This action cannot be undone.`}
+        onConfirm={() => {
+          setConfirmDelete(false);
+          deleteSystem(system.id, {
+            onSuccess: () => router.push("/systems"),
+          });
+        }}
+        onCancel={() => setConfirmDelete(false)}
+      />
     </div>
   );
 }

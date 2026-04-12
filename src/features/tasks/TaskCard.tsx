@@ -5,6 +5,7 @@ import { isBefore, parseISO, startOfToday } from "date-fns";
 import { BatteryLow, ChevronDown, Minus, Trash2, Zap } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import type { Task } from "./tasks.types";
 import { SubtaskList } from "./SubtaskList";
 
@@ -40,6 +41,7 @@ function formatTime(timeStr: unknown): string {
 
 export function TaskCard({ task, systemId, onToggle, onDelete }: TaskCardProps) {
   const [isExpanded, setIsExpanded] = useState(false);
+  const [deleteTarget, setDeleteTarget] = useState<{ id: string; title: string } | null>(null);
   const isDone = task.status === "done";
   const isArchived = task.status === "archived" ;
   const isCritical = task.priority === "critical" && !isArchived && !isDone;
@@ -99,9 +101,7 @@ export function TaskCard({ task, systemId, onToggle, onDelete }: TaskCardProps) 
             </button>
             <button
               type="button"
-              onClick={() => {
-                if (window.confirm(`Delete "${task.title}"?`)) onDelete(task.id);
-              }}
+              onClick={() => setDeleteTarget({ id: task.id, title: task.title })}
               className="opacity-0 group-hover:opacity-100 transition-opacity text-muted-foreground hover:text-destructive"
               aria-label="Delete task"
             >
@@ -150,6 +150,17 @@ export function TaskCard({ task, systemId, onToggle, onDelete }: TaskCardProps) 
           </div>
         )}
       </div>
+
+      <ConfirmDialog
+        open={deleteTarget !== null}
+        title="Delete task"
+        description={`"${deleteTarget?.title}" will be permanently deleted.`}
+        onConfirm={() => {
+          if (deleteTarget) onDelete(deleteTarget.id);
+          setDeleteTarget(null);
+        }}
+        onCancel={() => setDeleteTarget(null)}
+      />
     </div>
   );
 }
