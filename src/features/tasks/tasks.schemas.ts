@@ -9,13 +9,16 @@ export const createTaskSchema = z.object({
   priority: z.enum(["critical", "high", "medium", "low"]).optional(),
   taskType: z.enum(["idea", "reminder", "project", "todo"]).optional(),
   dueDate: z.string().date().optional(),
-  scheduledDate: z.string().date().optional(),
+  startDate: z.string().date(),
   estimatedTime: z.string().time().optional(),
   parentTaskId: z.string().uuid().optional(),
   contextTagId: z.string().uuid().optional(),
 });
 
-export const updateTaskSchema = createTaskSchema.partial().omit({ systemId: true });
+export const updateTaskSchema = createTaskSchema
+  .partial()
+  .omit({ systemId: true })
+  .extend({ startDate: z.string().date().optional() });
 
 export const moveTaskSchema = z.object({
   status: z.enum(["backlog", "week", "today", "done", "archived"]),

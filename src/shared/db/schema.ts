@@ -395,7 +395,7 @@ export const tasks = pgTable(
     priority: taskPriorityEnum('priority').notNull().default('medium'),
     taskType: taskTypeEnum('task_type'),
     dueDate: date('due_date'),
-    scheduledDate: date('scheduled_date'),
+    startDate: date('start_date'),
     estimatedTime: time('estimated_time'),
     recurrenceRule: varchar('recurrence_rule', { length: 500 }),
     recurrenceParentId: uuid('recurrence_parent_id').references(
