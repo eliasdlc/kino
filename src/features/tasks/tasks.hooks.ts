@@ -38,9 +38,6 @@ export function useCreateTask(systemId: string) {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["tasks", systemId] });
     },
-    onError: () => {
-      queryClient.invalidateQueries({ queryKey: ["tasks", systemId] });
-    },
   });
 }
 
@@ -57,9 +54,6 @@ export function useToggleTask(systemId: string) {
       return res.json() as Promise<ToggleTaskResult>;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["tasks", systemId] });
-    },
-    onError: () => {
       queryClient.invalidateQueries({ queryKey: ["tasks", systemId] });
     },
   });

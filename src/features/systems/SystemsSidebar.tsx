@@ -161,7 +161,7 @@ export function SystemsSidebar({
 
         <Link
           href="/tasks"
-          className={`flex items-center gap-2.5 px-3 py-2 rounded-md text-sm transition-colors ${pathname === "/systems"
+          className={`flex items-center gap-2.5 px-3 py-2 rounded-md text-sm transition-colors ${pathname === "/tasks"
             ? "bg-sidebar-accent text-sidebar-accent-foreground font-medium border-l-2 border-sidebar-primary"
             : "text-muted-foreground hover:bg-sidebar-accent/50 hover:text-sidebar-foreground"
             }`}

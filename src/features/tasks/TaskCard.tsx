@@ -48,8 +48,9 @@ export function TaskCard({ task, systemId, onToggle, onDelete }: TaskCardProps) 
   const isHigh = task.priority === "high" && !isArchived && !isDone;
   const isOverdue =
     task.dueDate !== null &&
-    !isDone && !isArchived &&
-    isBefore(parseISO(task.dueDate), startOfToday()) && !isArchived;
+    !isDone &&
+    !isArchived &&
+    isBefore(parseISO(task.dueDate), startOfToday());
 
   return (
     <div
