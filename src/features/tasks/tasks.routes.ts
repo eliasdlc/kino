@@ -13,8 +13,12 @@ export async function GET(
     if (!session) return NextResponse.json({ code: "UNAUTHORIZED", message: "Unauthorized" }, { status: 401 });
 
     const { id: systemId } = await params;
-    const tasks = await getTasksBySystem(systemId, session.user.id);
-    return NextResponse.json(tasks);
+    try {
+        const tasks = await getTasksBySystem(systemId, session.user.id);
+        return NextResponse.json(tasks);
+    } catch {
+        return NextResponse.json({ code: "INTERNAL_ERROR", message: "Failed to fetch tasks" }, { status: 500 });
+    }
 }
 
 export async function POST(request: NextRequest) {
@@ -36,7 +40,7 @@ export async function POST(request: NextRequest) {
         return NextResponse.json(task, { status: 201 });
     } catch (error) {
         if (error instanceof NotFoundError) {
-            return NextResponse.json({ code: "NOT_FOUND", message: "System not found" }, { status: 404 });
+            return NextResponse.json({ code: "NOT_FOUND", message: error.message }, { status: 404 });
         }
         throw error;
     }
@@ -60,11 +64,13 @@ export async function PATCH(
         }, { status: 400 });
     }
 
-    const task = await updateTask(id, session.user.id, parsed.data);
-
-    if (!task) return NextResponse.json({ code: "NOT_FOUND", message: "Task not found" }, { status: 404 });
-
-    return NextResponse.json(task);
+    try {
+        const task = await updateTask(id, session.user.id, parsed.data);
+        if (!task) return NextResponse.json({ code: "NOT_FOUND", message: "Task not found" }, { status: 404 });
+        return NextResponse.json(task);
+    } catch {
+        return NextResponse.json({ code: "INTERNAL_ERROR", message: "Failed to update task" }, { status: 500 });
+    }
 }
 
 export async function DELETE(

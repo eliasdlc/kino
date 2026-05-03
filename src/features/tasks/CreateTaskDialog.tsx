@@ -80,9 +80,9 @@ export function CreateTaskDialog({ systemId, parentTaskId }: CreateTaskDialogPro
       title: title.trim(),
       status,
       priority,
+      energyLevel,
       startDate,
       ...(description ? { description } : {}),
-      ...(energyLevel !== "medium" ? { energyLevel } : {}),
       ...(taskType ? { taskType } : {}),
       ...(dueDate ? { dueDate } : {}),
       ...(estimatedTime ? { estimatedTime } : {}),
@@ -92,16 +92,19 @@ export function CreateTaskDialog({ systemId, parentTaskId }: CreateTaskDialogPro
     try {
       const parent = await createTask(data);
       const validSubtasks = subtasks.filter((s) => s.title.trim());
-      for (const s of validSubtasks) {
-        await createTask({
-          systemId,
-          title: s.title.trim(),
-          status: "backlog",
-          priority: "medium",
-          startDate,
-          parentTaskId: parent.id,
-        });
-      }
+      await Promise.all(
+        validSubtasks.map((s) =>
+          createTask({
+            systemId,
+            title: s.title.trim(),
+            status: "backlog",
+            priority: "medium",
+            energyLevel: "medium",
+            startDate,
+            parentTaskId: parent.id,
+          }),
+        ),
+      );
       resetForm();
       setOpen(false);
     } catch (err) {
@@ -340,7 +343,7 @@ export function CreateTaskDialog({ systemId, parentTaskId }: CreateTaskDialogPro
           {/* ── Submit ── */}
           <Button
             onClick={handleSubmit}
-            disabled={!title.trim() || isPending}
+            disabled={!title.trim() || !dateRange.from || isPending}
             className="w-full"
           >
             {isPending ? "Creating..." : "Create task"}

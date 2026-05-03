@@ -16,14 +16,7 @@ const ENERGY_LOCK_CLASS = 42;
 
 type DbTransaction = Parameters<Parameters<(typeof db)["transaction"]>[0]>[0];
 
-/**
- * Acquires a per-user advisory transaction lock, then reads the task, validates
- * the requested transition, applies side-effects, and persists the result —
- * all inside the caller's transaction.
- *
- * The advisory lock serializes concurrent energy-budget checks for the same
- * user, preventing two simultaneous toggles from both bypassing dailyEnergyLimit.
- */
+// Acquires a per-user advisory transaction lock, validates the transition, applies side-effects, and persists — all within the caller's transaction.
 async function applyTransition(
   tx: DbTransaction,
   taskId: string,
@@ -36,7 +29,7 @@ async function applyTransition(
   );
 
   const todayStart = new Date();
-  todayStart.setHours(0, 0, 0, 0);
+  todayStart.setUTCHours(0, 0, 0, 0);
 
   const [settings] = await tx
     .select({ dailyEnergyLimit: userSettings.dailyEnergyLimit })
@@ -217,22 +210,14 @@ export async function toggleTask(
   taskId: string,
   userId: string,
 ): Promise<{ status: string; xp_earned?: number }> {
-  let resultStatus = "";
-  let xpDelta = 0;
-
-  await db.transaction(async (tx) => {
-    const { updated, xpDelta: delta } = await applyTransition(
-      tx,
-      taskId,
-      userId,
-      (current) => (current.status === "done" ? "undo_done" : "toggle_done"),
-    );
-    resultStatus = updated.status;
-    xpDelta = delta;
-  });
+  const { updated, xpDelta } = await db.transaction((tx) =>
+    applyTransition(tx, taskId, userId, (current) =>
+      current.status === "done" ? "undo_done" : "toggle_done",
+    ),
+  );
 
   return {
-    status: resultStatus,
+    status: updated.status,
     xp_earned: xpDelta > 0 ? xpDelta : undefined,
   };
 }
@@ -249,19 +234,15 @@ export async function reorderTasks(userId: string, ids: string[]) {
 }
 
 export async function moveTask(taskId: string, newStatus: TaskStatus, userId: string): Promise<Task> {
-  let updatedTask: Task | null = null;
-
-  await db.transaction(async (tx) => {
-    const { updated } = await applyTransition(tx, taskId, userId, (current) => {
+  const { updated } = await db.transaction((tx) =>
+    applyTransition(tx, taskId, userId, (current) => {
       const action = deriveAction(current.status, newStatus);
       if (!action) {
         throw new ValidationError(`Cannot move task from '${current.status}' to '${newStatus}'`);
       }
       return action;
-    });
-    updatedTask = updated;
-  });
+    }),
+  );
 
-  if (!updatedTask) throw new NotFoundError("Task not found");
-  return updatedTask;
+  return updated;
 }
