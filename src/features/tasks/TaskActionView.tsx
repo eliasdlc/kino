@@ -24,6 +24,7 @@ interface TaskActionViewProps {
     systemId: string;
     initialData: Task[];
     folderId?: string;
+    folderInitialData?: Task[];
     onEdit?: (task: Task) => void;
     keyboardDisabled?: boolean;
 }
@@ -34,10 +35,10 @@ const ENERGY_COLUMNS: { id: EnergyDropId; label: string; description: string }[]
     { id: "low", label: "Low Energy", description: "Light tasks, easy to pick up." },
 ];
 
-export function TaskActionView({ systemId, initialData, folderId, onEdit, keyboardDisabled }: TaskActionViewProps) {
+export function TaskActionView({ systemId, initialData, folderId, folderInitialData, onEdit, keyboardDisabled }: TaskActionViewProps) {
     // Use folder-scoped or system-scoped tasks depending on context
     const systemQuery = useTasks(systemId, initialData);
-    const folderQuery = useFolderTasks(systemId, folderId ?? "");
+    const folderQuery = useFolderTasks(systemId, folderId ?? "", folderInitialData);
     const { data: tasks } = folderId ? folderQuery : systemQuery;
 
     const { mutate: toggleTask } = useToggleTask(systemId, folderId);

@@ -9,6 +9,7 @@ interface TaskBacklogViewProps {
     systemId: string;
     initialData: Task[];
     folderId?: string;
+    folderInitialData?: Task[];
     onEdit?: (task: Task) => void;
     keyboardDisabled?: boolean;
 }
@@ -17,10 +18,10 @@ interface TaskBacklogViewProps {
  * Backlog tab — shows tasks without a startDate (status = "backlog").
  * These are ideas / brain dumps that haven't been scheduled yet.
  */
-export function TaskBacklogView({ systemId, initialData, folderId, onEdit, keyboardDisabled }: TaskBacklogViewProps) {
+export function TaskBacklogView({ systemId, initialData, folderId, folderInitialData, onEdit, keyboardDisabled }: TaskBacklogViewProps) {
     // Use folder-scoped or system-scoped tasks depending on context
     const systemQuery = useTasks(systemId, initialData);
-    const folderQuery = useFolderTasks(systemId, folderId ?? "");
+    const folderQuery = useFolderTasks(systemId, folderId ?? "", folderInitialData);
     const { data: tasks = [] } = folderId ? folderQuery : systemQuery;
 
     const { mutate: toggleTask } = useToggleTask(systemId, folderId);

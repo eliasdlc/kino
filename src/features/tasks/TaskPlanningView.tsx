@@ -36,14 +36,15 @@ interface TaskPlanningViewProps {
   systemId: string;
   initialData: Task[];
   folderId?: string;
+  folderInitialData?: Task[];
   onEdit?: (task: Task) => void;
   keyboardDisabled?: boolean;
 }
 
-export function TaskPlanningView({ systemId, initialData, folderId, onEdit, keyboardDisabled }: TaskPlanningViewProps) {
+export function TaskPlanningView({ systemId, initialData, folderId, folderInitialData, onEdit, keyboardDisabled }: TaskPlanningViewProps) {
   // Use folder-scoped or system-scoped tasks depending on context
   const systemQuery = useTasks(systemId, initialData);
-  const folderQuery = useFolderTasks(systemId, folderId ?? "");
+  const folderQuery = useFolderTasks(systemId, folderId ?? "", folderInitialData);
   const { data: tasks = [] } = folderId ? folderQuery : systemQuery;
 
   const { mutate: toggleTask } = useToggleTask(systemId, folderId);

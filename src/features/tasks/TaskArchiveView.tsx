@@ -9,13 +9,14 @@ interface TaskArchiveViewProps {
     systemId: string;
     initialData: Task[];
     folderId?: string;
+    folderInitialData?: Task[];
     onEdit?: (task: Task) => void;
     keyboardDisabled?: boolean;
 }
-export function TaskArchiveView({ systemId, initialData, folderId, onEdit, keyboardDisabled }: TaskArchiveViewProps) {
+export function TaskArchiveView({ systemId, initialData, folderId, folderInitialData, onEdit, keyboardDisabled }: TaskArchiveViewProps) {
     // Use folder-scoped or system-scoped tasks depending on context
     const systemQuery = useTasks(systemId, initialData);
-    const folderQuery = useFolderTasks(systemId, folderId ?? "");
+    const folderQuery = useFolderTasks(systemId, folderId ?? "", folderInitialData);
     const { data: tasks = [] } = folderId ? folderQuery : systemQuery;
 
     const { mutate: toggleTask } = useToggleTask(systemId, folderId);

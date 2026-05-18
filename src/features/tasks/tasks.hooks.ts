@@ -25,7 +25,7 @@ export function useTasks(systemId: string, initialData: Task[]) {
   });
 }
 
-export function useFolderTasks(systemId: string, folderId: string) {
+export function useFolderTasks(systemId: string, folderId: string, initialData?: Task[]) {
   return useQuery<Task[]>({
     queryKey: taskKeys.folderTasks(systemId, folderId),
     queryFn: async () => {
@@ -34,6 +34,7 @@ export function useFolderTasks(systemId: string, folderId: string) {
       return res.json();
     },
     enabled: !!folderId,
+    ...(initialData !== undefined ? { initialData, initialDataUpdatedAt: 0 } : {}),
   });
 }
 
@@ -54,9 +55,15 @@ export function useCreateTask(systemId: string, folderId?: string) {
       return res.json() as Promise<Task>;
     },
     onMutate: async (data) => {
-      const qKey = folderId ? taskKeys.folderTasks(systemId, folderId) : taskKeys.bySystem(systemId);
-      await queryClient.cancelQueries({ queryKey: qKey });
-      const previous = queryClient.getQueryData<Task[]>(qKey);
+      // Always cancel bySystem — all 4 view components subscribe to this key
+      const systemQKey = taskKeys.bySystem(systemId);
+      await queryClient.cancelQueries({ queryKey: systemQKey });
+      const previousSystem = queryClient.getQueryData<Task[]>(systemQKey);
+
+      // If a folder is involved, also cancel folderTasks to prevent race overwrites
+      const folderQKey = folderId ? taskKeys.folderTasks(systemId, folderId) : null;
+      if (folderQKey) await queryClient.cancelQueries({ queryKey: folderQKey });
+      const previousFolder = folderQKey ? queryClient.getQueryData<Task[]>(folderQKey) : undefined;
 
       // Derive optimistic status from startDate (mirrors backend logic)
       const optimisticStatus = (() => {
@@ -98,24 +105,30 @@ export function useCreateTask(systemId: string, folderId?: string) {
         deletedAt: null,
       };
 
-      queryClient.setQueryData<Task[]>(qKey, (old = []) => [...old, optimisticTask]);
-      return { previous, qKey };
+      // Write to bySystem so all views immediately see the new task
+      queryClient.setQueryData<Task[]>(systemQKey, (old = []) => [...old, optimisticTask]);
+      // Also write to folderTasks for consistency in folder-scoped views
+      if (folderQKey) {
+        queryClient.setQueryData<Task[]>(folderQKey, (old = []) => [...old, optimisticTask]);
+      }
+
+      return { previousSystem, systemQKey, previousFolder, folderQKey };
     },
     onError: (_err, _vars, context) => {
-      const ctx = context as { previous?: Task[], qKey?: readonly unknown[] } | undefined;
-      if (ctx?.previous && ctx?.qKey) {
-        queryClient.setQueryData(ctx.qKey, ctx.previous);
+      const ctx = context as {
+        previousSystem?: Task[]; systemQKey?: readonly unknown[];
+        previousFolder?: Task[]; folderQKey?: readonly unknown[] | null;
+      } | undefined;
+      if (ctx?.previousSystem !== undefined && ctx?.systemQKey) {
+        queryClient.setQueryData(ctx.systemQKey, ctx.previousSystem);
+      }
+      if (ctx?.previousFolder !== undefined && ctx?.folderQKey) {
+        queryClient.setQueryData(ctx.folderQKey, ctx.previousFolder);
       }
     },
-    onSettled: (_data, _error, _vars, context) => {
-      const ctx = context as { qKey?: readonly unknown[] } | undefined;
-      if (ctx?.qKey) {
-        queryClient.invalidateQueries({ queryKey: ctx.qKey });
-      }
+    onSettled: () => {
+      // Invalidating bySystem also covers folderTasks via TanStack Query prefix matching
       queryClient.invalidateQueries({ queryKey: taskKeys.bySystem(systemId) });
-      if (folderId) {
-        queryClient.invalidateQueries({ queryKey: taskKeys.folderTasks(systemId, folderId) });
-      }
     },
   });
 }

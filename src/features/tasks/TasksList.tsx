@@ -15,9 +15,11 @@ interface TasksListProps {
   initialData: Task[];
   /** When set, tasks are scoped to this folder (folder detail view) */
   folderId?: string;
+  /** SSR-fetched folder tasks — seeds useFolderTasks immediately to avoid loading flash */
+  folderInitialData?: Task[];
 }
 
-export function TasksList({ systemId, initialData, folderId }: TasksListProps) {
+export function TasksList({ systemId, initialData, folderId, folderInitialData }: TasksListProps) {
   const [editTask, setEditTask] = useState<Task | null>(null);
 
   return (
@@ -34,16 +36,16 @@ export function TasksList({ systemId, initialData, folderId }: TasksListProps) {
         </div>
 
         <TabsContent value="backlog">
-          <TaskBacklogView systemId={systemId} initialData={initialData} folderId={folderId} onEdit={setEditTask} keyboardDisabled={editTask !== null} />
+          <TaskBacklogView systemId={systemId} initialData={initialData} folderId={folderId} folderInitialData={folderInitialData} onEdit={setEditTask} keyboardDisabled={editTask !== null} />
         </TabsContent>
         <TabsContent value="planning">
-          <TaskPlanningView systemId={systemId} initialData={initialData} folderId={folderId} onEdit={setEditTask} keyboardDisabled={editTask !== null} />
+          <TaskPlanningView systemId={systemId} initialData={initialData} folderId={folderId} folderInitialData={folderInitialData} onEdit={setEditTask} keyboardDisabled={editTask !== null} />
         </TabsContent>
         <TabsContent value="action">
-          <TaskActionView systemId={systemId} initialData={initialData} folderId={folderId} onEdit={setEditTask} keyboardDisabled={editTask !== null} />
+          <TaskActionView systemId={systemId} initialData={initialData} folderId={folderId} folderInitialData={folderInitialData} onEdit={setEditTask} keyboardDisabled={editTask !== null} />
         </TabsContent>
         <TabsContent value="archive">
-          <TaskArchiveView systemId={systemId} initialData={initialData} folderId={folderId} onEdit={setEditTask} keyboardDisabled={editTask !== null} />
+          <TaskArchiveView systemId={systemId} initialData={initialData} folderId={folderId} folderInitialData={folderInitialData} onEdit={setEditTask} keyboardDisabled={editTask !== null} />
         </TabsContent>
       </Tabs>
 

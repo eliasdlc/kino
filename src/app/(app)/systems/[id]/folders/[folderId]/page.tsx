@@ -1,8 +1,8 @@
 import { auth } from "@/auth";
 import { headers } from "next/headers";
 import { notFound, redirect } from "next/navigation";
-import Link from "next/link";
-import { ChevronRight, Files } from "lucide-react";
+import { Files } from "lucide-react";
+import { PageBreadcrumb } from "@/components/PageBreadcrumb";
 import {
   getFolderById,
   getFolderBreadcrumb,
@@ -45,32 +45,22 @@ export default async function FolderViewRoute({ params }: FolderViewRouteProps) 
   const folderPages = allPages.filter((p) => p.folderId === folderId);
   const hasDocContent = children.length > 0 || folderPages.length > 0;
 
+  const breadcrumbItems = [
+    { label: "Sistemas", href: "/systems" },
+    { label: system.name, href: `/systems/${systemId}` },
+    ...breadcrumb.map((crumb) => ({
+      label: crumb.name,
+      href: `/systems/${systemId}/folders/${crumb.id}`,
+    })),
+    { label: folder.name },
+  ];
+
   return (
-    <div className="w-full space-y-6 p-6">
-      {/* Breadcrumb */}
-      <nav className="flex items-center gap-1 text-sm text-muted-foreground flex-wrap">
-        <Link
-          href={`/systems/${systemId}`}
-          className="hover:text-foreground transition-colors"
-        >
-          {system.name}
-        </Link>
-        {breadcrumb.map((crumb) => (
-          <span key={crumb.id} className="flex items-center gap-1">
-            <ChevronRight className="size-3.5" />
-            <Link
-              href={`/systems/${systemId}/folders/${crumb.id}`}
-              className="hover:text-foreground transition-colors"
-            >
-              {crumb.name}
-            </Link>
-          </span>
-        ))}
-        <span className="flex items-center gap-1">
-          <ChevronRight className="size-3.5" />
-          <span className="text-foreground font-medium">{folder.name}</span>
-        </span>
-      </nav>
+    <div className="w-full">
+      <div className="sticky top-0 z-10 bg-background border-b px-6 py-2.5">
+        <PageBreadcrumb items={breadcrumbItems} />
+      </div>
+      <div className="p-6 space-y-6">
 
       {/* Toolbar */}
       <FolderViewToolbar systemId={systemId} folderId={folderId} />
@@ -110,8 +100,10 @@ export default async function FolderViewRoute({ params }: FolderViewRouteProps) 
         systemId={systemId}
         initialData={folderTasks}
         folderId={folderId}
+        folderInitialData={folderTasks}
       />
 
+      </div>
     </div>
   );
 }
