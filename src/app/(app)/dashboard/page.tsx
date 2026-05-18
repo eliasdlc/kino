@@ -3,7 +3,7 @@ import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { db } from "@/shared/db";
 import { tasks } from "@/shared/db/schema";
-import { and, eq, isNull } from "drizzle-orm";
+import { and, eq, isNull, sql } from "drizzle-orm";
 import { PageWrapper } from "@/components/PageWrapper";
 import Link from "next/link";
 import { ChevronRight } from "lucide-react";

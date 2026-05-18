@@ -110,7 +110,7 @@ export function TaskActionView({ systemId, initialData, folderId, folderInitialD
             <div className="flex flex-col items-center justify-center py-12 text-center space-y-2 border border-dashed rounded-lg bg-card mt-6">
                 <p className="text-sm font-medium">No tasks for today</p>
                 <p className="text-sm text-muted-foreground max-w-sm">
-                    You don't have any tasks scheduled. Go to the <strong>Planning</strong> tab to line up work for today or the upcoming week.
+                    You don&apos;t have any tasks scheduled. Go to the <strong>Planning</strong> tab to line up work for today or the upcoming week.
                 </p>
             </div>
         );

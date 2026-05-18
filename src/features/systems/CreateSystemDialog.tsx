@@ -81,8 +81,8 @@ export function CreateSystemDialog() {
       if (!res.ok) throw new Error("Failed to create system");
       await queryClient.invalidateQueries({ queryKey: ["systems"] });
       handleOpenChange(false);
-    } catch (e: any) {
-      setError(e.message || "An unexpected error occurred");
+    } catch (e) {
+      setError((e as Error).message || "An unexpected error occurred");
     } finally {
       setIsPending(false);
     }

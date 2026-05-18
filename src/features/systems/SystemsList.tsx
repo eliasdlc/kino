@@ -103,7 +103,7 @@ export function SystemsList() {
       {filteredSystems.length === 0 ? (
         <div className="rounded-lg border border-dashed p-12 text-center space-y-2">
           <p className="text-sm text-muted-foreground">
-            No systems found matching "{searchQuery}".
+            No systems found matching &quot;{searchQuery}&quot;.
           </p>
         </div>
       ) : (

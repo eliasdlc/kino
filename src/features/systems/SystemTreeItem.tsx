@@ -8,7 +8,6 @@ import {
   Folder,
   FolderPlus,
   MoreHorizontal,
-  Pencil,
   Trash2,
 } from "lucide-react";
 import {

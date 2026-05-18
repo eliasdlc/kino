@@ -1,8 +1,6 @@
 import { CreateSystemDialog } from "./CreateSystemDialog";
 import { SystemsList } from "./SystemsList";
 import { PageWrapper, PageHeader } from "@/components/PageWrapper";
-import { Input } from "@/components/ui/input";
-import { Search } from "lucide-react";
 
 export default function SystemsPage() {
   return (
