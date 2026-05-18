@@ -5,7 +5,6 @@ import { usePathname } from "next/navigation";
 import { useEffect, useMemo } from "react";
 import {
   Box,
-  CircleCheckBig,
   Inbox,
   LayoutDashboard,
   LogOut,
@@ -27,6 +26,8 @@ import { authClient } from "@/auth-client";
 import { useRouter } from "next/navigation";
 import { useSystemsTreeStore } from "./systems.store";
 import { SystemTreeItem } from "./SystemTreeItem";
+import { getSystemColor } from "@/shared/utils/system-colors";
+import { cn } from "@/lib/utils";
 
 interface SystemsSidebarProps {
   userName?: string;
@@ -140,7 +141,7 @@ export function SystemsSidebar({
         <Link
           href="/dashboard"
           className={`flex items-center gap-2.5 px-3 py-2 rounded-md text-sm transition-colors ${pathname === "/dashboard"
-            ? "bg-sidebar-accent text-sidebar-accent-foreground font-medium border-l-2 border-sidebar-primary"
+            ? "bg-sidebar-accent text-sidebar-accent-foreground font-medium"
             : "text-muted-foreground hover:bg-sidebar-accent/50 hover:text-sidebar-foreground"
             }`}
         >
@@ -148,10 +149,24 @@ export function SystemsSidebar({
           <span>Dashboard</span>
         </Link>
 
+        {/* Inbox — always pinned at the top, visually distinct */}
+        {inboxSystem && (
+          <Link
+            href={`/systems/${inboxSystem.id}`}
+            className={`flex items-center gap-2.5 px-3 py-2 rounded-md text-sm transition-colors border ${pathname === `/systems/${inboxSystem.id}`
+              ? "bg-sidebar-accent text-sidebar-accent-foreground font-medium border-sidebar-border/60"
+              : "bg-sidebar-accent/20 border-sidebar-border/40 text-sidebar-foreground hover:bg-sidebar-accent/40"
+              }`}
+          >
+            <Inbox className={cn("size-4 shrink-0", getSystemColor(inboxSystem.color).text)} />
+            <span className="truncate font-medium">{inboxSystem.name}</span>
+          </Link>
+        )}
+
         <Link
           href="/systems"
           className={`flex items-center gap-2.5 px-3 py-2 rounded-md text-sm transition-colors ${pathname === "/systems"
-            ? "bg-sidebar-accent text-sidebar-accent-foreground font-medium border-l-2 border-sidebar-primary"
+            ? "bg-sidebar-accent text-sidebar-accent-foreground font-medium"
             : "text-muted-foreground hover:bg-sidebar-accent/50 hover:text-sidebar-foreground"
             }`}
         >
@@ -173,7 +188,7 @@ export function SystemsSidebar({
         <Link
           href="/settings"
           className={`flex items-center gap-2.5 px-3 py-2 rounded-md text-sm transition-colors ${pathname === "/settings"
-            ? "bg-sidebar-accent text-sidebar-accent-foreground font-medium border-l-2 border-sidebar-primary"
+            ? "bg-sidebar-accent text-sidebar-accent-foreground font-medium"
             : "text-muted-foreground hover:bg-sidebar-accent/50 hover:text-sidebar-foreground"
             }`}
         >
@@ -187,19 +202,6 @@ export function SystemsSidebar({
           Systems
         </p>
 
-        {/* Inbox — always pinned at the top, visually distinct */}
-        {inboxSystem && (
-          <Link
-            href={`/systems/${inboxSystem.id}`}
-            className={`flex items-center gap-2.5 px-3 py-2 rounded-md text-sm transition-colors border ${pathname === `/systems/${inboxSystem.id}`
-              ? "bg-sidebar-accent text-sidebar-accent-foreground font-medium border-l-2 border-sidebar-primary border-t-sidebar-border/50 border-r-sidebar-border/50 border-b-sidebar-border/50"
-              : "bg-sidebar-accent/20 border-sidebar-border/40 text-sidebar-foreground hover:bg-sidebar-accent/40"
-              }`}
-          >
-            <Inbox className="size-4 shrink-0 text-blue-500" />
-            <span className="truncate font-medium">{inboxSystem.name}</span>
-          </Link>
-        )}
 
         {/* Regular systems as collapsible tree items */}
         {isLoading && (

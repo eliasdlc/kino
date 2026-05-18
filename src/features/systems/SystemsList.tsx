@@ -1,6 +1,7 @@
 "use client";
 
-import { useSystems } from "./systems.hooks";
+import { useState } from "react";
+import { useSystems, useDeleteSystem } from "./systems.hooks";
 import Link from "next/link";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -9,10 +10,14 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Button } from "@/components/ui/button";
 import { MoreHorizontal, Eye, Pencil, Trash2 } from "lucide-react";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
+import { EditSystemDialog } from "./EditSystemDialog";
+import type { System } from "./systems.types";
 
 const COLOR_BORDER: Record<string, string> = {
   blue: "border-t-blue-500",
@@ -45,6 +50,9 @@ function SystemCardSkeleton() {
 
 export function SystemsList() {
   const { data: systems, isLoading, isError } = useSystems();
+  const { mutate: deleteSystem } = useDeleteSystem();
+  const [editTarget, setEditTarget] = useState<System | null>(null);
+  const [deleteTarget, setDeleteTarget] = useState<System | null>(null);
 
   if (isLoading) {
     return (
@@ -77,70 +85,88 @@ export function SystemsList() {
   }
 
   return (
-    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-      {systems.map((system) => {
-        const borderColor = COLOR_BORDER[system.color] ?? "border-t-gray-400";
+    <>
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+        {systems.filter((s) => !s.isInbox).map((system) => {
+          const borderColor = COLOR_BORDER[system.color] ?? "border-t-gray-400";
+          return (
+            <Link key={system.id} href={`/systems/${system.id}`} className="group">
+              <Card
+                className={`border-t-4 ${borderColor} transition-all hover:shadow-md hover:-translate-y-0.5`}
+              >
+                <CardHeader className="pb-2">
+                  <div className="flex items-start justify-between">
+                    <CardTitle className="text-base group-hover:text-primary transition-colors">
+                      {system.name}
+                    </CardTitle>
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild onClick={(e) => e.preventDefault()}>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="size-7 opacity-0 group-hover:opacity-100 transition-opacity"
+                        >
+                          <MoreHorizontal className="size-4" />
+                        </Button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="end">
+                        <DropdownMenuItem asChild>
+                          <Link href={`/systems/${system.id}`} className="flex items-center gap-2">
+                            <Eye className="size-4" />
+                            View
+                          </Link>
+                        </DropdownMenuItem>
+                        <DropdownMenuItem
+                          className="flex items-center gap-2"
+                          onClick={(e) => { e.preventDefault(); setEditTarget(system); }}
+                        >
+                          <Pencil className="size-4" />
+                          Edit
+                        </DropdownMenuItem>
+                        <DropdownMenuSeparator />
+                        <DropdownMenuItem
+                          className="text-destructive focus:text-destructive flex items-center gap-2"
+                          onClick={(e) => { e.preventDefault(); setDeleteTarget(system); }}
+                        >
+                          <Trash2 className="size-4" />
+                          Delete
+                        </DropdownMenuItem>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
+                  </div>
+                </CardHeader>
+                <CardContent>
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <Badge variant="secondary" className="text-[11px]">
+                      {system.templateType}
+                    </Badge>
+                  </div>
+                </CardContent>
+              </Card>
+            </Link>
+          );
+        })}
+      </div>
 
-        return (
-          <Link key={system.id} href={`/systems/${system.id}`} className="group">
-            <Card
-              className={`border-t-4 ${borderColor} transition-all hover:shadow-md hover:-translate-y-0.5`}
-            >
-              <CardHeader className="pb-2">
-                <div className="flex items-start justify-between">
-                  <CardTitle className="text-base group-hover:text-primary transition-colors">
-                    {system.name}
-                  </CardTitle>
-                  <DropdownMenu>
-                    <DropdownMenuTrigger asChild onClick={(e) => e.preventDefault()}>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="size-7 opacity-0 group-hover:opacity-100 transition-opacity"
-                      >
-                        <MoreHorizontal className="size-4" />
-                      </Button>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent align="end">
-                      <DropdownMenuItem asChild>
-                        <Link href={`/systems/${system.id}`} className="flex items-center gap-2">
-                          <Eye className="size-4" />
-                          View
-                        </Link>
-                      </DropdownMenuItem>
-                      <DropdownMenuItem className="flex items-center gap-2">
-                        <Pencil className="size-4" />
-                        Edit
-                      </DropdownMenuItem>
-                      <DropdownMenuItem className="text-destructive focus:text-destructive flex items-center gap-2">
-                        <Trash2 className="size-4" />
-                        Delete
-                      </DropdownMenuItem>
-                    </DropdownMenuContent>
-                  </DropdownMenu>
-                </div>
-              </CardHeader>
-              <CardContent>
-                <div className="flex items-center gap-2 flex-wrap">
-                  <Badge variant="secondary" className="text-[11px]">
-                    {system.templateType}
-                  </Badge>
-                  {system.isInbox && (
-                    <Badge variant="outline" className="text-[11px]">
-                      Inbox
-                    </Badge>
-                  )}
-                  {!system.isActive && (
-                    <Badge variant="destructive" className="text-[11px]">
-                      Inactive
-                    </Badge>
-                  )}
-                </div>
-              </CardContent>
-            </Card>
-          </Link>
-        );
-      })}
-    </div>
+      {editTarget && (
+        <EditSystemDialog
+          system={editTarget}
+          open={editTarget !== null}
+          onOpenChange={(open) => { if (!open) setEditTarget(null); }}
+        />
+      )}
+
+      <ConfirmDialog
+        open={deleteTarget !== null}
+        title="Delete system"
+        description={`"${deleteTarget?.name}" and all its content will be permanently deleted. This action cannot be undone.`}
+        onConfirm={() => {
+          if (deleteTarget) deleteSystem(deleteTarget.id);
+          setDeleteTarget(null);
+        }}
+        onCancel={() => setDeleteTarget(null)}
+      />
+    </>
   );
 }
+

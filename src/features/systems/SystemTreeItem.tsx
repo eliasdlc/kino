@@ -24,6 +24,7 @@ import { useDeleteSystem } from "./systems.hooks";
 import { ICON_MAP, DEFAULT_ICON } from "./system-icons";
 import { getSystemColor } from "@/shared/utils/system-colors";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import type { System } from "./systems.types";
 
 interface SystemTreeItemProps {
@@ -108,15 +109,22 @@ export function SystemTreeItem({
           }`}
       >
         {/* Chevron */}
-        <button
-          onClick={() => toggle(system.id)}
-          className="p-0.5 rounded hover:bg-sidebar-accent shrink-0"
-        >
-          <ChevronRight
-            className={`size-3.5 transition-transform duration-150 ${isExpanded ? "rotate-90" : ""
-              }`}
-          />
-        </button>
+        <TooltipProvider>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <button
+                onClick={() => toggle(system.id)}
+                className="p-0.5 rounded hover:bg-sidebar-accent shrink-0"
+              >
+                <ChevronRight
+                  className={`size-3.5 transition-transform duration-150 ${isExpanded ? "rotate-90" : ""
+                    }`}
+                />
+              </button>
+            </TooltipTrigger>
+            <TooltipContent>{isExpanded ? "Collapse" : "Expand"}</TooltipContent>
+          </Tooltip>
+        </TooltipProvider>
 
         {/* System link */}
         <Link
@@ -129,11 +137,18 @@ export function SystemTreeItem({
 
         {/* Context menu */}
         <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <button className="opacity-0 group-hover:opacity-100 p-0.5 rounded hover:bg-sidebar-accent shrink-0 transition-opacity">
-              <MoreHorizontal className="size-3.5" />
-            </button>
-          </DropdownMenuTrigger>
+          <TooltipProvider>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <DropdownMenuTrigger asChild>
+                  <button className="opacity-0 group-hover:opacity-100 p-0.5 rounded hover:bg-sidebar-accent shrink-0 transition-opacity">
+                    <MoreHorizontal className="size-3.5" />
+                  </button>
+                </DropdownMenuTrigger>
+              </TooltipTrigger>
+              <TooltipContent>System options</TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
           <DropdownMenuContent align="end" className="w-44">
             <DropdownMenuItem onClick={handleNewFolder}>
               <FolderPlus className="size-4 mr-2" />

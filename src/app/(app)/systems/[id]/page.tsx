@@ -7,8 +7,15 @@ import { PageWrapper } from "@/components/PageWrapper";
 import { SystemDetailHeader } from "@/features/systems/SystemDetailHeader";
 import { SystemDetailTabs } from "@/features/systems/SystemDetailTabs";
 
-export default async function SystemPage({ params }: { params: Promise<{ id: string }> }) {
+export default async function SystemPage({
+  params,
+  searchParams,
+}: {
+  params: Promise<{ id: string }>;
+  searchParams: Promise<{ tab?: string }>;
+}) {
   const { id } = await params;
+  const { tab } = await searchParams;
   const session = await auth.api.getSession({ headers: await headers() });
 
   if (!session) redirect("/login");
@@ -22,7 +29,7 @@ export default async function SystemPage({ params }: { params: Promise<{ id: str
     <PageWrapper className="w-full">
       <SystemDetailHeader system={system} taskCount={tasks.length} />
       
-      <SystemDetailTabs systemId={id} initialTasks={tasks} />
+      <SystemDetailTabs systemId={id} initialTasks={tasks} defaultTab={tab === "docs" ? "docs" : "tasks"} />
       
     </PageWrapper>
   );

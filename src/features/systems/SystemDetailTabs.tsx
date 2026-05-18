@@ -8,15 +8,12 @@ import type { Task } from "@/features/tasks/tasks.types";
 interface SystemDetailTabsProps {
   systemId: string;
   initialTasks: Task[];
+  defaultTab?: "tasks" | "docs";
 }
 
-/**
- * Tabbed content for system detail view.
- * Avoids the long vertical scroll of all three sections stacked.
- */
-export function SystemDetailTabs({ systemId, initialTasks }: SystemDetailTabsProps) {
+export function SystemDetailTabs({ systemId, initialTasks, defaultTab = "tasks" }: SystemDetailTabsProps) {
   return (
-    <Tabs defaultValue="tasks" className="h-12 w-full">
+    <Tabs defaultValue={defaultTab} className="w-full">
       <TabsList className="w-full">
         <TabsTrigger value="tasks">Tasks</TabsTrigger>
         <TabsTrigger value="docs">Docs</TabsTrigger>

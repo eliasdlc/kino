@@ -2,10 +2,11 @@ import { auth } from "@/auth";
 import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { db } from "@/shared/db";
-import { tasks, userSettings } from "@/shared/db/schema";
-import { and, eq, isNull, sql } from "drizzle-orm";
-import { Progress } from "@/components/ui/progress";
+import { tasks } from "@/shared/db/schema";
+import { and, eq, isNull } from "drizzle-orm";
 import { PageWrapper } from "@/components/PageWrapper";
+import Link from "next/link";
+import { ChevronRight } from "lucide-react";
 
 export const metadata = { title: "Dashboard - Kino" };
 
@@ -15,32 +16,20 @@ export default async function DashboardPage() {
 
   const userId = session.user.id;
 
-  const [[energyData], [settings], todayTasks] = await Promise.all([
-    db
-      .select({ total: sql<number>`0` })
-      .from(tasks)
-      .where(and(eq(tasks.userId, userId), eq(tasks.status, "today"), isNull(tasks.deletedAt))),
-    db
-      .select({ dailyEnergyLimit: userSettings.dailyEnergyLimit })
-      .from(userSettings)
-      .where(eq(userSettings.userId, userId)),
-    db
-      .select()
-      .from(tasks)
-      .where(and(eq(tasks.userId, userId), eq(tasks.status, "today"), isNull(tasks.deletedAt)))
-      .orderBy(tasks.sortIndex),
-  ]);
+  const todayTasks = await db
+    .select()
+    .from(tasks)
+    .where(and(eq(tasks.userId, userId), eq(tasks.status, "today"), isNull(tasks.deletedAt)))
+    .orderBy(tasks.sortIndex);
 
-  const usedEnergy = energyData?.total ?? 0;
-  const limit = settings?.dailyEnergyLimit ?? 50;
-  const percentage = Math.min(Math.round((usedEnergy / limit) * 100), 100);
+  const doneTodayCount = todayTasks.filter((t) => t.status === "done").length;
 
   return (
     <PageWrapper>
       {/* Greeting */}
       <div>
         <h1 className="text-3xl font-bold tracking-tight">
-          Good morning, {session.user.name}
+          Hey, {session.user.name?.split(" ")[0]}
         </h1>
         <p className="text-muted-foreground mt-1">
           {new Date().toLocaleDateString("en-US", {
@@ -52,60 +41,55 @@ export default async function DashboardPage() {
         </p>
       </div>
 
-      {/* Energy card */}
-      <div className="rounded-lg border bg-card p-6 space-y-4">
-        <div className="space-y-2">
-          <h2 className="text-lg font-semibold">Today&apos;s energy</h2>
-          <div className="flex items-baseline gap-2">
-            <span className="text-4xl font-bold text-primary">{usedEnergy}</span>
-            <span className="text-muted-foreground">/ {limit}</span>
-          </div>
-        </div>
-        <div className="space-y-2">
-          <Progress value={percentage} className="h-2" />
-          <p className="text-xs text-muted-foreground">
-            {percentage}% of your daily energy
-          </p>
-        </div>
-      </div>
-
       {/* Today's tasks */}
       <div className="rounded-lg border bg-card p-6 space-y-4">
-        <h2 className="text-lg font-semibold">Today&apos;s tasks</h2>
+        <div className="flex items-center justify-between">
+          <h2 className="text-lg font-semibold">Today&apos;s tasks</h2>
+          {todayTasks.length > 0 && (
+            <span className="text-xs text-muted-foreground">
+              {doneTodayCount}/{todayTasks.length} done
+            </span>
+          )}
+        </div>
         {todayTasks.length === 0 ? (
           <p className="text-sm text-muted-foreground py-4">
-            No tasks scheduled for today. Rest or plan your day!
+            No tasks with status <strong>Today</strong> right now. Open a system and move tasks here.
           </p>
         ) : (
           <ul className="space-y-1">
             {todayTasks.map((task) => (
               <li
                 key={task.id}
-                className="flex items-start gap-3 p-3 rounded-md hover:bg-accent/50 transition-colors"
+                className="flex items-center gap-3 px-3 py-2 rounded-md hover:bg-accent/50 transition-colors"
               >
-                <div className="flex-1 min-w-0">
-                  <p className="text-sm font-medium truncate">{task.title}</p>
-                  {task.description && (
-                    <p className="text-xs text-muted-foreground line-clamp-2 mt-1">
-                      {task.description}
-                    </p>
-                  )}
-                </div>
-                <span className="text-xs font-medium whitespace-nowrap text-primary bg-primary/10 px-2 py-1 rounded">
-                  ⚡
-                </span>
+                <div
+                  className={`size-3 rounded-full shrink-0 border-2 ${
+                    task.status === "done"
+                      ? "bg-green-500 border-green-500"
+                      : "border-muted-foreground/40"
+                  }`}
+                />
+                <p className={`text-sm flex-1 truncate ${task.status === "done" ? "line-through text-muted-foreground" : ""}`}>
+                  {task.title}
+                </p>
               </li>
             ))}
           </ul>
         )}
       </div>
 
-      {/* Coming soon */}
-      <div className="rounded-lg border bg-muted/30 p-6">
-        <p className="text-sm text-muted-foreground">
-          💡 This is a simplified view. In future phases you&apos;ll have access to Smart View,
-          energy analytics, brain dump, and much more.
-        </p>
+      {/* Quick links */}
+      <div className="rounded-lg border bg-card p-6 space-y-3">
+        <h2 className="text-lg font-semibold">Quick access</h2>
+        <div className="space-y-1">
+          <Link
+            href="/systems"
+            className="flex items-center justify-between px-3 py-2.5 rounded-md hover:bg-accent/50 transition-colors text-sm"
+          >
+            <span>All systems</span>
+            <ChevronRight className="size-4 text-muted-foreground" />
+          </Link>
+        </div>
       </div>
     </PageWrapper>
   );

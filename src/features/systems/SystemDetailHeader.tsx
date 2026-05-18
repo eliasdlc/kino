@@ -11,10 +11,11 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Button } from "@/components/ui/button";
-import { MoreHorizontal, Pencil, Trash2, Power } from "lucide-react";
+import { MoreHorizontal, Pencil, Trash2 } from "lucide-react";
 import { useDeleteSystem } from "./systems.hooks";
 import { getSystemColor } from "@/shared/utils/system-colors";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
+import { EditSystemDialog } from "./EditSystemDialog";
 import type { System } from "./systems.types";
 
 interface SystemDetailHeaderProps {
@@ -22,23 +23,18 @@ interface SystemDetailHeaderProps {
   taskCount: number;
 }
 
-/**
- * Hero-style header for the system detail view.
- * Shows system name, identity statement, metadata badges, and stats.
- */
 export function SystemDetailHeader({ system, taskCount }: SystemDetailHeaderProps) {
   const router = useRouter();
   const [confirmDelete, setConfirmDelete] = useState(false);
+  const [editOpen, setEditOpen] = useState(false);
   const { mutate: deleteSystem } = useDeleteSystem();
-  const { borderTop: borderColor, dot: dotColor } = getSystemColor(system.color);
+  const { dot: dotColor } = getSystemColor(system.color);
 
   return (
-    <div
-      className={`rounded-lg border border-t-4 ${borderColor} bg-card p-6 space-y-4 w-full`}
-    >
+    <div className="rounded-lg border bg-card p-6 space-y-4 w-full">
       {/* Title row */}
-      <div className="flex items-start justify-between gap-4">
-        <div className="flex items-center gap-3 min-w-0">
+      <div className="flex items-start justify-between gap-4 min-w-0">
+        <div className="flex items-center gap-3 flex-1 min-w-0">
           <span className={`size-3 rounded-full shrink-0 ${dotColor}`} />
           <h1 className="text-2xl font-bold tracking-tight truncate">
             {system.name}
@@ -57,15 +53,16 @@ export function SystemDetailHeader({ system, taskCount }: SystemDetailHeaderProp
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end" className="w-40">
-            <DropdownMenuItem className="flex items-center gap-2">
-              <Pencil className="size-4" />
-              Edit system
-            </DropdownMenuItem>
-            <DropdownMenuItem className="flex items-center gap-2">
-              <Power className="size-4" />
-              {system.isActive ? "Deactivate" : "Activate"}
-            </DropdownMenuItem>
-            <DropdownMenuSeparator />
+            {!system.isInbox && (
+              <DropdownMenuItem
+                className="flex items-center gap-2"
+                onClick={() => setEditOpen(true)}
+              >
+                <Pencil className="size-4" />
+                Edit system
+              </DropdownMenuItem>
+            )}
+            {!system.isInbox && <DropdownMenuSeparator />}
             <DropdownMenuItem
               className="text-destructive focus:text-destructive flex items-center gap-2"
               onClick={() => setConfirmDelete(true)}
@@ -123,6 +120,12 @@ export function SystemDetailHeader({ system, taskCount }: SystemDetailHeaderProp
           });
         }}
         onCancel={() => setConfirmDelete(false)}
+      />
+
+      <EditSystemDialog
+        system={system}
+        open={editOpen}
+        onOpenChange={setEditOpen}
       />
     </div>
   );
