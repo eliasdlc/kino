@@ -2,9 +2,10 @@ import { auth } from "@/auth";
 import { headers } from "next/headers";
 import { notFound, redirect } from "next/navigation";
 import Link from "next/link";
-import { ChevronLeft } from "lucide-react";
 import { getPageById, getPagesBySystem } from "@/features/pages/pages.service";
 import { getSystembyId } from "@/features/systems/systems.service";
+import { getFolderById, getFolderBreadcrumb } from "@/features/folders/folders.service";
+import { PageBreadcrumb, type BreadcrumbItem } from "@/components/PageBreadcrumb";
 import { PageEditor } from "@/features/pages/PageEditor";
 import { LinkedTasksPanel } from "@/features/pages/LinkedTasksPanel";
 import { StickyNotesGrid } from "@/features/sticky-notes/StickyNotesGrid";
@@ -28,18 +29,36 @@ export default async function PageEditorRoute({ params }: PageEditorRouteProps) 
 
   if (!page || !system) notFound();
 
+  const folder = page.folderId
+    ? await getFolderById(page.folderId, session.user.id)
+    : null;
+  const folderAncestors =
+    folder ? await getFolderBreadcrumb(folder.path, session.user.id) : [];
+
+  const breadcrumbItems: BreadcrumbItem[] = [
+    { label: "Sistemas", href: "/systems" },
+    { label: system.name, href: `/systems/${systemId}` },
+    ...folderAncestors.map((crumb) => ({
+      label: crumb.name,
+      href: `/systems/${systemId}/folders/${crumb.id}`,
+    })),
+    ...(folder
+      ? [{ label: folder.name, href: `/systems/${systemId}/folders/${folder.id}` }]
+      : []),
+    { label: page.title ?? "Sin título" },
+  ];
+
   return (
-    <div className="flex h-[calc(100vh-4rem)] overflow-hidden">
+    <div className="flex h-screen overflow-hidden flex-col">
+      {/* Sticky breadcrumb */}
+      <div className="sticky top-0 z-10 bg-background border-b px-6 py-2.5 shrink-0">
+        <PageBreadcrumb items={breadcrumbItems} />
+      </div>
+      {/* Editor + sidebar */}
+      <div className="flex flex-1 overflow-hidden">
       {/* Main editor area */}
       <div className="flex-1 overflow-y-auto">
         <div className="max-w-3xl mx-auto px-6 py-8 space-y-8">
-          <Link
-            href={`/systems/${systemId}?tab=docs`}
-            className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground transition-colors"
-          >
-            <ChevronLeft className="size-4" />
-            {system.name}
-          </Link>
           <StickyNotesGrid pageId={pageId} />
           <PageEditor key={page.id} page={page} systemId={systemId} />
         </div>
@@ -89,6 +108,7 @@ export default async function PageEditorRoute({ params }: PageEditorRouteProps) 
 
           <LinkedTasksPanel pageId={pageId} systemId={systemId} />
         </div>
+      </div>
       </div>
     </div>
   );

@@ -4,6 +4,7 @@ import { headers } from "next/headers";
 import { notFound, redirect } from "next/navigation";
 import { getTasksBySystem } from "@/features/tasks/tasks.service";
 import { PageWrapper } from "@/components/PageWrapper";
+import { PageBreadcrumb } from "@/components/PageBreadcrumb";
 import { SystemDetailHeader } from "@/features/systems/SystemDetailHeader";
 import { SystemDetailTabs } from "@/features/systems/SystemDetailTabs";
 
@@ -26,11 +27,19 @@ export default async function SystemPage({
   if (!system) notFound();
 
   return (
-    <PageWrapper className="w-full">
-      <SystemDetailHeader system={system} taskCount={tasks.length} />
-      
-      <SystemDetailTabs systemId={id} initialTasks={tasks} defaultTab={tab === "docs" ? "docs" : "tasks"} />
-      
-    </PageWrapper>
+    <div className="w-full">
+      <div className="sticky top-0 z-10 bg-background border-b px-6 py-2.5">
+        <PageBreadcrumb
+          items={[
+            { label: "Sistemas", href: "/systems" },
+            { label: system.name },
+          ]}
+        />
+      </div>
+      <PageWrapper className="w-full">
+        <SystemDetailHeader system={system} taskCount={tasks.length} />
+        <SystemDetailTabs systemId={id} initialTasks={tasks} defaultTab={tab === "docs" ? "docs" : "tasks"} />
+      </PageWrapper>
+    </div>
   );
 }
