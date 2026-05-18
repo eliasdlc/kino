@@ -1,9 +1,10 @@
 import { db } from "@/shared/db";
-import { tasks, users, userSettings, systems } from "@/shared/db/schema";
+import { tasks, users, userSettings, systems, folders } from "@/shared/db/schema";
 import { and, eq, gte, isNull, sql } from "drizzle-orm";
 import { NotFoundError, ValidationError } from "@/shared/utils/error";
 import { validateTransition, type TaskStatus, type TransitionAction } from "./tasks.state-machine";
 import { Task, CreateTaskInput, UpdateTaskInput } from "./tasks.types";
+import { deriveStatusFromDate } from "./tasks.utils";
 
 const ENERGY_POINTS: Record<string, number> = {
   high: 5,
@@ -123,11 +124,19 @@ async function applyTransition(
 function deriveAction(currentStatus: TaskStatus, targetStatus: TaskStatus): TransitionAction | undefined {
   const map: Record<string, TransitionAction> = {
     "backlog->week": "move_to_week",
+    "backlog->tomorrow": "move_to_tomorrow",
     "backlog->today": "move_to_today",
     "backlog->done": "toggle_done",
     "week->today": "move_to_today",
+    "week->tomorrow": "move_to_tomorrow",
     "week->backlog": "move_to_backlog",
     "week->done": "toggle_done",
+    "tomorrow->today": "move_to_today",
+    "tomorrow->week": "move_to_week",
+    "tomorrow->backlog": "move_to_backlog",
+    "tomorrow->done": "toggle_done",
+    "today->tomorrow": "move_to_tomorrow",
+    "today->week": "move_to_week",
     "today->done": "toggle_done",
     "today->backlog": "move_to_backlog",
     "done->today": "undo_done",
@@ -158,6 +167,28 @@ export async function getSubtasks(taskId: string, userId: string) {
     .orderBy(tasks.sortIndex);
 }
 
+// Returns tasks directly assigned to a folder via folder_id.
+// folder_id is the single source of truth — page links don't affect placement.
+export async function getTasksByFolder(
+  folderId: string,
+  systemId: string,
+  userId: string,
+): Promise<Task[]> {
+  return db
+    .select()
+    .from(tasks)
+    .where(
+      and(
+        eq(tasks.folderId, folderId),
+        eq(tasks.systemId, systemId),
+        eq(tasks.userId, userId),
+        isNull(tasks.deletedAt),
+        isNull(tasks.parentTaskId),
+      ),
+    )
+    .orderBy(tasks.sortIndex);
+}
+
 export async function createTask(userId: string, data: CreateTaskInput) {
   const [system] = await db
     .select({ id: systems.id })
@@ -180,12 +211,84 @@ export async function createTask(userId: string, data: CreateTaskInput) {
     if (!parent) throw new NotFoundError("Parent task not found");
   }
 
-  const [task] = await db.insert(tasks).values({ ...data, userId }).returning();
+  if (data.folderId) {
+    const [folder] = await db
+      .select({ id: folders.id })
+      .from(folders)
+      .where(
+        and(
+          eq(folders.id, data.folderId),
+          eq(folders.systemId, data.systemId),
+          eq(folders.userId, userId),
+        ),
+      );
+    if (!folder) throw new ValidationError("Folder not found in this system");
+  }
+
+  const explicitTerminal = data.status === "done" || data.status === "archived";
+  const derivedStatus = explicitTerminal
+    ? data.status
+    : deriveStatusFromDate(data.startDate ?? null);
+
+  const [task] = await db
+    .insert(tasks)
+    .values({ ...data, status: derivedStatus, userId })
+    .returning();
 
   return task ?? null;
 }
 
 export async function updateTask(taskId: string, userId: string, data: UpdateTaskInput) {
+  // Validate folder↔system consistency when folder_id is being set
+  if (data.folderId) {
+    const [current] = await db
+      .select({ systemId: tasks.systemId })
+      .from(tasks)
+      .where(and(eq(tasks.id, taskId), eq(tasks.userId, userId), isNull(tasks.deletedAt)));
+
+    if (!current) throw new NotFoundError("Task not found");
+
+    const targetSystemId = data.systemId ?? current.systemId;
+
+    const [folder] = await db
+      .select({ id: folders.id })
+      .from(folders)
+      .where(
+        and(
+          eq(folders.id, data.folderId),
+          eq(folders.systemId, targetSystemId),
+          eq(folders.userId, userId),
+        ),
+      );
+
+    if (!folder) throw new ValidationError("Folder not found in this system");
+  }
+
+  // If system_id changes but folder_id isn't explicitly set, clear it
+  // to prevent orphaned folder references across systems
+  if (data.systemId && !data.folderId) {
+    const [current] = await db
+      .select({ folderId: tasks.folderId })
+      .from(tasks)
+      .where(and(eq(tasks.id, taskId), eq(tasks.userId, userId), isNull(tasks.deletedAt)));
+
+    if (current?.folderId) {
+      data = { ...data, folderId: null } as UpdateTaskInput;
+    }
+  }
+
+  // Auto-derive status when startDate changes and task is not in a terminal state
+  if (data.startDate !== undefined) {
+    const [current] = await db
+      .select({ status: tasks.status })
+      .from(tasks)
+      .where(and(eq(tasks.id, taskId), eq(tasks.userId, userId), isNull(tasks.deletedAt)));
+
+    if (current && !(["done", "archived"] as string[]).includes(current.status)) {
+      data = { ...data, status: deriveStatusFromDate(data.startDate) } as UpdateTaskInput;
+    }
+  }
+
   const [task] = await db
     .update(tasks)
     .set({ ...data, updatedAt: new Date() })
@@ -245,4 +348,58 @@ export async function moveTask(taskId: string, newStatus: TaskStatus, userId: st
   );
 
   return updated;
+}
+
+/**
+ * Daily reconciliation: recalculates scheduling statuses for all active tasks.
+ *
+ * Called via:
+ *  - Lazy Evaluation on user login (catches up stale statuses)
+ *  - Vercel Cron daily job (optional, ensures freshness)
+ *
+ * Uses batch SQL for efficiency — one UPDATE per status bucket.
+ */
+export async function reconcileTaskStatuses(userId: string): Promise<void> {
+  const today = sql`CURRENT_DATE`;
+  const tomorrow = sql`CURRENT_DATE + INTERVAL '1 day'`;
+
+  await db.transaction(async (tx) => {
+    // Tasks with start_date = today → status should be "today"
+    await tx.execute(
+      sql`UPDATE tasks SET status = 'today', updated_at = NOW()
+          WHERE user_id = ${userId} AND deleted_at IS NULL
+            AND status NOT IN ('done', 'archived')
+            AND start_date = ${today}
+            AND status != 'today'`
+    );
+
+    // Tasks with start_date = tomorrow → status should be "tomorrow"
+    await tx.execute(
+      sql`UPDATE tasks SET status = 'tomorrow', updated_at = NOW()
+          WHERE user_id = ${userId} AND deleted_at IS NULL
+            AND status NOT IN ('done', 'archived')
+            AND start_date = ${tomorrow}
+            AND status != 'tomorrow'`
+    );
+
+    // Tasks with start_date set but not today/tomorrow → status should be "week"
+    await tx.execute(
+      sql`UPDATE tasks SET status = 'week', updated_at = NOW()
+          WHERE user_id = ${userId} AND deleted_at IS NULL
+            AND status NOT IN ('done', 'archived')
+            AND start_date IS NOT NULL
+            AND start_date != ${today}
+            AND start_date != ${tomorrow}
+            AND status != 'week'`
+    );
+
+    // Tasks without start_date → status should be "backlog"
+    await tx.execute(
+      sql`UPDATE tasks SET status = 'backlog', updated_at = NOW()
+          WHERE user_id = ${userId} AND deleted_at IS NULL
+            AND status NOT IN ('done', 'archived')
+            AND start_date IS NULL
+            AND status != 'backlog'`
+    );
+  });
 }
