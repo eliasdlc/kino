@@ -2,9 +2,8 @@
 
 import { useState } from "react";
 import { differenceInCalendarDays, format, isBefore, parseISO, startOfToday } from "date-fns";
-import { BatteryLow, ChevronDown, Minus, Trash2, Zap } from "lucide-react";
+import { ChevronDown, Trash2 } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { Badge } from "@/components/ui/badge";
 import type { Task } from "./tasks.types";
 import { SubtaskList } from "./SubtaskList";
 import { useSubtasks } from "./tasks.hooks";
@@ -21,31 +20,53 @@ interface TaskCardProps {
   onEdit?: (task: Task) => void;
 }
 
-const STATUS_VARIANT: Record<string, "default" | "secondary" | "outline" | "destructive"> = {
-  backlog: "outline",
-  week: "secondary",
-  tomorrow: "secondary",
-  today: "default",
-  done: "secondary",
-  archived: "outline",
+const STATUS_BADGE: Record<string, string> = {
+  backlog:  "bg-white/[0.06] text-zinc-400",
+  week:     "bg-[rgba(99,102,241,0.18)] text-[#a5b4fc]",
+  today:    "bg-[rgba(16,185,129,0.18)] text-[#6ee7b7]",
+  tomorrow: "bg-[rgba(245,158,11,0.18)] text-[#fcd34d]",
+  done:     "bg-[rgba(62,207,114,0.14)] text-[#6ee7b7]",
+  archived: "bg-white/[0.05] text-zinc-600",
 };
 
-const PRIORITY_STYLES = {
-  critical: "ring-1 hover:ring-2 ring-red-500 bg-red-500/10 transition-all duration-300 ease-in-out",
-  high: "ring-1 hover:ring-2 ring-orange-400 bg-orange-400/10 transition-all duration-300 ease-in-out",
-  overdue: "ring-1 hover:ring-2 ring-red-500 bg-red-500/10 transition-all duration-300 ease-in-out",
-} as const;
+const TYPE_BADGE: Record<string, string> = {
+  todo:     "bg-white/[0.06] text-zinc-400",
+  idea:     "bg-[rgba(245,158,11,0.15)] text-[#fbbf24]",
+  reminder: "bg-[rgba(249,115,22,0.15)] text-[#fb923c]",
+  project:  "bg-[rgba(59,130,246,0.18)] text-[#93c5fd]",
+};
 
+function CalendarIcon() {
+  return (
+    <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="shrink-0">
+      <rect x="3" y="4" width="18" height="18" rx="2" />
+      <line x1="16" y1="2" x2="16" y2="6" />
+      <line x1="8" y1="2" x2="8" y2="6" />
+      <line x1="3" y1="10" x2="21" y2="10" />
+    </svg>
+  );
+}
 
-function EnergyIcon({ level }: { level: string }) {
-  if (level === "high") return <Zap size={12} />;
-  if (level === "low") return <BatteryLow size={12} />;
-  return <Minus size={12} />;
+function ClockIcon() {
+  return (
+    <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" className="shrink-0">
+      <circle cx="12" cy="12" r="10" />
+      <polyline points="12 6 12 12 16 14" />
+    </svg>
+  );
+}
+
+function CheckIcon() {
+  return (
+    <svg width="9" height="9" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+      <polyline points="2 6 5 9 10 3" />
+    </svg>
+  );
 }
 
 function formatTime(timeStr: unknown): string {
-  if (typeof timeStr !== 'string') return '';
-  const [h, m] = timeStr.split(':').map(Number);
+  if (typeof timeStr !== "string") return "";
+  const [h, m] = timeStr.split(":").map(Number);
   if (h === 0) return `${m}m`;
   if (m === 0) return `${h}h`;
   return `${h}h ${m}m`;
@@ -53,27 +74,45 @@ function formatTime(timeStr: unknown): string {
 
 function ReminderCountdown({ dueDate }: { dueDate: string }) {
   const days = differenceInCalendarDays(parseISO(dueDate), startOfToday());
-  let label: string;
-  let colorClass: string;
 
   if (days < 0) {
-    label = `Overdue by ${Math.abs(days)}d`;
-    colorClass = "text-red-500 font-medium";
-  } else if (days === 0) {
-    label = "Due today";
-    colorClass = "text-red-500 font-medium";
-  } else if (days === 1) {
-    label = "Due tomorrow";
-    colorClass = "text-amber-500 font-medium";
-  } else if (days <= 3) {
-    label = `In ${days} days`;
-    colorClass = "text-amber-500";
-  } else {
-    label = `In ${days} days`;
-    colorClass = "text-muted-foreground";
+    return (
+      <span className="inline-flex items-center gap-[3px] font-mono text-[10.5px] text-[#f87171] font-medium">
+        <ClockIcon />
+        overdue · {format(parseISO(dueDate), "MMM d")}
+      </span>
+    );
   }
-
-  return <span className={cn("text-[10px]", colorClass)}>{label}</span>;
+  if (days === 0) {
+    return (
+      <span className="inline-flex items-center gap-[3px] font-mono text-[10.5px] text-[#f87171] font-medium">
+        <ClockIcon />
+        due · today
+      </span>
+    );
+  }
+  if (days === 1) {
+    return (
+      <span className="inline-flex items-center gap-[3px] font-mono text-[10.5px] text-[#fbbf24]">
+        <CalendarIcon />
+        due · tomorrow
+      </span>
+    );
+  }
+  if (days <= 2) {
+    return (
+      <span className="inline-flex items-center gap-[3px] font-mono text-[10.5px] text-[#fbbf24]">
+        <CalendarIcon />
+        due · in {days} days
+      </span>
+    );
+  }
+  return (
+    <span className="inline-flex items-center gap-[3px] font-mono text-[10.5px] text-zinc-500">
+      <CalendarIcon />
+      due · {format(parseISO(dueDate), "MMM d")}
+    </span>
+  );
 }
 
 function SubtaskCount({ parentTaskId, systemId }: { parentTaskId: string; systemId: string }) {
@@ -81,7 +120,7 @@ function SubtaskCount({ parentTaskId, systemId }: { parentTaskId: string; system
   if (!subtasks || subtasks.length === 0) return null;
   const done = subtasks.filter((s) => s.status === "done").length;
   return (
-    <span className="text-[10px] text-muted-foreground">
+    <span className="font-mono text-[10px] text-zinc-500">
       {done}/{subtasks.length} subtasks
     </span>
   );
@@ -104,41 +143,54 @@ export function TaskCard({ task, systemId, isFocused, onToggle, onDelete, onEdit
   const typeConfig = getTaskTypeConfig(task.taskType);
   const TypeIcon = typeConfig.icon;
 
+  const showPriorityBadge = (isCritical || isHigh) && !isDone && !isArchived;
+
+  const dueDays = task.dueDate && !isOverdue
+    ? differenceInCalendarDays(parseISO(task.dueDate), startOfToday())
+    : null;
+  const isDueSoon = dueDays !== null && dueDays <= 2;
+
   return (
     <div
       className={cn(
-        "group flex items-start gap-3 px-3 py-2.5 rounded-md border bg-card transition-all hover:shadow-sm",
-        isDone && "opacity-60",
-        (isCritical) && PRIORITY_STYLES.critical,
-        (isHigh) && PRIORITY_STYLES.high,
-        (isOverdue) && PRIORITY_STYLES.overdue,
-        isArchived && "opacity-60",
-        isFocused && "ring-2 ring-primary border-transparent"
+        "group relative flex items-start gap-[10px] px-3 py-2.5 rounded-[10px] border transition-[border-color,background] duration-150",
+        !isCritical && !isHigh && !isFocused && "bg-[#1a1a1e] border-white/[0.07] hover:bg-[#1e1e23] hover:border-white/[0.13]",
+        isCritical && "bg-[rgba(188,38,38,0.13)] border-[rgba(220,50,50,0.35)] hover:border-[rgba(220,50,50,0.55)] hover:bg-[rgba(188,38,38,0.18)]",
+        isHigh && "bg-[rgba(180,90,20,0.13)] border-[rgba(230,115,30,0.35)] hover:border-[rgba(230,115,30,0.55)] hover:bg-[rgba(180,90,20,0.18)]",
+        isDone && "opacity-45",
+        isArchived && "opacity-35",
+        isFocused && "bg-[rgba(99,102,241,0.08)] border-[rgba(99,102,241,0.6)]"
       )}
     >
-      {/* Toggle button */}
+      {/* Toggle */}
       <button
         type="button"
         onClick={() => onToggle(task.id)}
         aria-label={isDone ? "Mark as pending" : "Mark as completed"}
         className={cn(
-          "mt-0.5 size-4 shrink-0 rounded-full border-2 transition-colors",
+          "mt-px size-[18px] shrink-0 rounded-full border-[1.5px] flex items-center justify-center transition-colors",
           isDone || isArchived
-            ? "border-green-500 bg-green-500"
-            : "border-muted-foreground/40 hover:border-primary"
+            ? "border-[#3ecf72] bg-[#3ecf72] text-[#0e0e10]"
+            : isCritical
+            ? "border-[rgba(220,80,80,0.5)] hover:border-[#e05555]"
+            : isHigh
+            ? "border-[rgba(230,115,30,0.5)] hover:border-[#e6731e]"
+            : "border-white/25 hover:border-white/50"
         )}
-      />
+      >
+        {(isDone || isArchived) && <CheckIcon />}
+      </button>
 
       {/* Content */}
       <div className="flex-1 min-w-0">
-        {/* Row 1: title + priority */}
-        <div className="flex items-center justify-between gap-2">
+        {/* Row 1: title + actions */}
+        <div className={cn("flex items-center justify-between gap-2 mb-[5px]", showPriorityBadge && "pr-12")}>
           <button
             type="button"
             onClick={() => onEdit?.(task)}
             className={cn(
-              "text-sm font-medium truncate text-left hover:underline underline-offset-2",
-              isDone && "line-through text-muted-foreground"
+              "text-[13.5px] font-normal text-zinc-200 truncate text-left leading-snug",
+              isDone && "line-through text-zinc-500"
             )}
           >
             {task.title}
@@ -147,93 +199,116 @@ export function TaskCard({ task, systemId, isFocused, onToggle, onDelete, onEdit
             <button
               type="button"
               onClick={() => setIsExpanded((v) => !v)}
-              className="opacity-0 group-hover:opacity-100 transition-opacity text-muted-foreground hover:text-foreground"
+              className="opacity-0 group-hover:opacity-100 transition-opacity text-zinc-500 hover:text-zinc-200"
               aria-label={isExpanded ? "Hide subtasks" : "Show subtasks"}
             >
-              <ChevronDown
-                size={16}
-                className={cn("transition-transform", isExpanded && "rotate-180")}
-              />
+              <ChevronDown size={15} className={cn("transition-transform", isExpanded && "rotate-180")} />
             </button>
             <button
               type="button"
               onClick={() => onDelete(task)}
-              className="opacity-0 group-hover:opacity-100 transition-opacity text-muted-foreground hover:text-destructive"
+              className="opacity-0 group-hover:opacity-100 transition-opacity text-zinc-500 hover:text-red-400"
               aria-label="Delete task"
             >
-              <Trash2 size={16} />
+              <Trash2 size={14} />
             </button>
           </div>
         </div>
 
-        {/* Row 2: chips */}
-        <div className="flex items-center gap-1.5 mt-1.5 flex-wrap">
-          {/* Task type badge (only when type is set) */}
+        {/* Row 2: meta chips */}
+        <div className="flex items-center gap-1.5 flex-wrap">
+          {/* Type badge */}
           {task.taskType && (
             <span className={cn(
-              "inline-flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded-full font-medium",
-              typeConfig.pillClass
+              "inline-flex items-center gap-[3px] text-[10px] font-medium px-1.5 py-[1.5px] rounded-[4px]",
+              TYPE_BADGE[task.taskType] ?? TYPE_BADGE.todo
             )}>
-              <TypeIcon size={10} />
+              <TypeIcon size={9} />
               {typeConfig.label}
             </span>
           )}
 
           {/* Status badge */}
-          <Badge variant={STATUS_VARIANT[task.status] ?? "outline"} className="text-[11px] px-1.5 py-0">
+          <span className={cn(
+            "font-mono text-[10px] font-medium px-1.5 py-[1.5px] rounded-[4px] tracking-[0.02em]",
+            STATUS_BADGE[task.status] ?? STATUS_BADGE.backlog
+          )}>
             {task.status}
-          </Badge>
-
-          {/* Energy chip (hidden for idea/reminder) */}
-          {!typeConfig.hideEnergyLevel && (
-            <span className="inline-flex items-center gap-0.5 text-[10px] text-muted-foreground">
-              <EnergyIcon level={task.energyLevel} />
-              {task.energyLevel}
-            </span>
-          )}
+          </span>
 
           {/* Folder chip */}
           {folder && (
-            <span className="inline-flex items-center gap-1 text-[10px] text-muted-foreground">
-              <span className={`size-1.5 rounded-full inline-block shrink-0 ${getSystemColor(folder.color).dot}`} />
-              {folder.name}
-            </span>
+            <>
+              <span className="text-[10px] text-zinc-700">·</span>
+              <span className="inline-flex items-center gap-1 text-[11px] text-zinc-500">
+                <span className={cn("size-1.5 rounded-full shrink-0", getSystemColor(folder.color).dot)} />
+                {folder.name}
+              </span>
+            </>
           )}
 
-          {/* Reminder: countdown instead of raw date */}
+          {/* Date chip */}
           {task.taskType === "reminder" && task.dueDate ? (
-            <ReminderCountdown dueDate={task.dueDate} />
+            <>
+              <span className="text-[10px] text-zinc-700">·</span>
+              <ReminderCountdown dueDate={task.dueDate} />
+            </>
           ) : task.dueDate ? (
-            <span
-              className={cn(
-                "text-[10px]",
-                isOverdue ? "text-red-500 font-medium" : "text-muted-foreground"
-              )}
-            >
-              {isOverdue ? "Overdue · " : "Due · "}
-              {format(parseISO(task.dueDate), "MMM d")}
-            </span>
+            <>
+              <span className="text-[10px] text-zinc-700">·</span>
+              <span className={cn(
+                "inline-flex items-center gap-[3px] font-mono text-[10.5px]",
+                isOverdue ? "text-[#f87171] font-medium" : isDueSoon ? "text-[#fbbf24]" : "text-zinc-500"
+              )}>
+                {isOverdue ? <ClockIcon /> : <CalendarIcon />}
+                {isOverdue ? "overdue" : "due"} · {format(parseISO(task.dueDate), "MMM d")}
+              </span>
+            </>
           ) : null}
 
-          {/* Project: subtask count */}
+          {/* Energy chip */}
+          {!typeConfig.hideEnergyLevel && (
+            <>
+              <span className="text-[10px] text-zinc-700">·</span>
+              <span className="font-mono text-[10px] text-zinc-600">{task.energyLevel}</span>
+            </>
+          )}
+
+          {/* Subtask count */}
           {task.taskType === "project" && (
-            <SubtaskCount parentTaskId={task.id} systemId={systemId} />
+            <>
+              <span className="text-[10px] text-zinc-700">·</span>
+              <SubtaskCount parentTaskId={task.id} systemId={systemId} />
+            </>
           )}
 
           {/* Estimated time */}
           {task.estimatedTime && (
-            <span className="text-[10px] text-muted-foreground">
-              {formatTime(task.estimatedTime)}
-            </span>
+            <>
+              <span className="text-[10px] text-zinc-700">·</span>
+              <span className="font-mono text-[10px] text-zinc-500">
+                {formatTime(task.estimatedTime)}
+              </span>
+            </>
           )}
         </div>
 
         {isExpanded && (
-          <div className="mt-2 pt-2 border-t">
+          <div className="mt-2 pt-2 border-t border-white/[0.06]">
             <SubtaskList parentTaskId={task.id} systemId={systemId} />
           </div>
         )}
       </div>
+
+      {/* Priority corner badge */}
+      {showPriorityBadge && (
+        <span className={cn(
+          "absolute top-2 right-2.5 font-mono text-[9px] font-semibold uppercase tracking-[0.06em] px-1 py-px rounded-[3px]",
+          isCritical ? "bg-[rgba(220,50,50,0.2)] text-[#f87171]" : "bg-[rgba(230,115,30,0.2)] text-[#fb923c]"
+        )}>
+          {isCritical ? "critical" : "high"}
+        </span>
+      )}
     </div>
   );
 }
