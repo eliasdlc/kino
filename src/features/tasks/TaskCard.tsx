@@ -1,28 +1,37 @@
 "use client";
 
 import { useState } from "react";
-import { isBefore, parseISO, startOfToday } from "date-fns";
+import { format, isBefore, parseISO, startOfToday } from "date-fns";
 import { BatteryLow, ChevronDown, Minus, Trash2, Zap } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
-import { ConfirmDialog } from "@/components/ui/confirm-dialog";
+
 import type { Task } from "./tasks.types";
 import { SubtaskList } from "./SubtaskList";
 
 interface TaskCardProps {
   task: Task;
   systemId: string;
+  isFocused?: boolean;
   onToggle: (taskId: string) => void;
-  onDelete: (taskId: string) => void;
+  onDelete: (task: Task) => void;
+  onEdit?: (task: Task) => void;
 }
 
 const STATUS_VARIANT: Record<string, "default" | "secondary" | "outline" | "destructive"> = {
   backlog: "outline",
   week: "secondary",
+  tomorrow: "secondary",
   today: "default",
   done: "secondary",
   archived: "outline",
 };
+
+const PRIORITY_STYLES = {
+  critical: "ring-1 hover:ring-2 ring-red-500 bg-red-500/10 transition-all duration-300 ease-in-out",
+  high: "ring-1 hover:ring-2 ring-orange-400 bg-orange-400/10 transition-all duration-300 ease-in-out",
+  overdue: "ring-1 hover:ring-2 ring-red-500 bg-red-500/10 transition-all duration-300 ease-in-out",
+} as const;
 
 
 function EnergyIcon({ level }: { level: string }) {
@@ -39,9 +48,8 @@ function formatTime(timeStr: unknown): string {
   return `${h}h ${m}m`;
 }
 
-export function TaskCard({ task, systemId, onToggle, onDelete }: TaskCardProps) {
+export function TaskCard({ task, systemId, isFocused, onToggle, onDelete, onEdit }: TaskCardProps) {
   const [isExpanded, setIsExpanded] = useState(false);
-  const [deleteTarget, setDeleteTarget] = useState<{ id: string; title: string } | null>(null);
   const isDone = task.status === "done";
   const isArchived = task.status === "archived" ;
   const isCritical = task.priority === "critical" && !isArchived && !isDone;
@@ -57,10 +65,11 @@ export function TaskCard({ task, systemId, onToggle, onDelete }: TaskCardProps) 
       className={cn(
         "group flex items-start gap-3 px-3 py-2.5 rounded-md border bg-card transition-all hover:shadow-sm",
         isDone && "opacity-60",
-        (isCritical ) && " ring-1 hover:ring-2 ring-red-500 bg-red-500/10 transition-all duration-300 ease-in-out",
-        (isHigh ) && " ring-1 hover:ring-2 ring-orange-400 bg-orange-400/10 transition-all duration-300 ease-in-out",
-        (isOverdue ) && " ring-1 hover:ring-2 ring-red-500 animate-pulse bg-red-500/10 transition-all duration-300 ease-in-out",
-        isArchived && "opacity-60"
+        (isCritical) && PRIORITY_STYLES.critical,
+        (isHigh) && PRIORITY_STYLES.high,
+        (isOverdue) && PRIORITY_STYLES.overdue,
+        isArchived && "opacity-60",
+        isFocused && "ring-2 ring-primary border-transparent"
       )}
     >
       {/* Toggle button */}
@@ -80,14 +89,16 @@ export function TaskCard({ task, systemId, onToggle, onDelete }: TaskCardProps) 
       <div className="flex-1 min-w-0">
         {/* Row 1: title + priority */}
         <div className="flex items-center justify-between gap-2">
-          <span
+          <button
+            type="button"
+            onClick={() => onEdit?.(task)}
             className={cn(
-              "text-sm font-medium truncate",
+              "text-sm font-medium truncate text-left hover:underline underline-offset-2",
               isDone && "line-through text-muted-foreground"
             )}
           >
             {task.title}
-          </span>
+          </button>
           <div className="flex items-center gap-1.5 shrink-0">
             <button
               type="button"
@@ -102,7 +113,7 @@ export function TaskCard({ task, systemId, onToggle, onDelete }: TaskCardProps) 
             </button>
             <button
               type="button"
-              onClick={() => setDeleteTarget({ id: task.id, title: task.title })}
+              onClick={() => onDelete(task)}
               className="opacity-0 group-hover:opacity-100 transition-opacity text-muted-foreground hover:text-destructive"
               aria-label="Delete task"
             >
@@ -114,7 +125,7 @@ export function TaskCard({ task, systemId, onToggle, onDelete }: TaskCardProps) 
         {/* Row 2: chips */}
         <div className="flex items-center gap-1.5 mt-1.5 flex-wrap">
           {/* Status badge */}
-          <Badge variant={STATUS_VARIANT[task.status] ?? "outline"} className="text-[10px] px-1.5 py-0">
+          <Badge variant={STATUS_VARIANT[task.status] ?? "outline"} className="text-[11px] px-1.5 py-0">
             {task.status}
           </Badge>
 
@@ -132,8 +143,8 @@ export function TaskCard({ task, systemId, onToggle, onDelete }: TaskCardProps) 
                 isOverdue ? "text-red-500 font-medium" : "text-muted-foreground"
               )}
             >
-              {isOverdue ? "Overdue: " : ""}
-              {task.dueDate}
+              {isOverdue ? "Overdue · " : "Due · "}
+              {format(parseISO(task.dueDate), "MMM d")}
             </span>
           )}
 
@@ -151,17 +162,6 @@ export function TaskCard({ task, systemId, onToggle, onDelete }: TaskCardProps) 
           </div>
         )}
       </div>
-
-      <ConfirmDialog
-        open={deleteTarget !== null}
-        title="Delete task"
-        description={`"${deleteTarget?.title}" will be permanently deleted.`}
-        onConfirm={() => {
-          if (deleteTarget) onDelete(deleteTarget.id);
-          setDeleteTarget(null);
-        }}
-        onCancel={() => setDeleteTarget(null)}
-      />
     </div>
   );
 }

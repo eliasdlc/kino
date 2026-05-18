@@ -1,66 +1,174 @@
 "use client";
 
+import { useState, useCallback } from "react";
+import {
+  DndContext,
+  PointerSensor,
+  KeyboardSensor,
+  useSensor,
+  useSensors,
+  type DragStartEvent,
+  type DragEndEvent,
+} from "@dnd-kit/core";
 import type { Task } from "./tasks.types";
-import { useTasks, useToggleTask, useDeleteTask } from "./tasks.hooks";
-import { TaskCard } from "./TaskCard";
+import type { TaskDragData, EnergyDropId } from "./dnd/dnd.types";
+import { useTasks, useFolderTasks, useToggleTask, useDeleteTask, useUpdateTask } from "./tasks.hooks";
+import { DraggableTaskCard } from "./dnd/DraggableTaskCard";
+import { DroppableColumn } from "./dnd/DroppableColumn";
+import { TaskDragOverlay } from "./dnd/TaskDragOverlay";
 import { Progress } from "@/components/ui/progress";
-import { Separator } from "@/components/ui/separator";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
+import { useTaskKeyboardNavigation } from "./useTaskKeyboardNavigation";
 
 interface TaskActionViewProps {
     systemId: string;
     initialData: Task[];
+    folderId?: string;
+    onEdit?: (task: Task) => void;
+    keyboardDisabled?: boolean;
 }
 
-export function TaskActionView({ systemId, initialData }: TaskActionViewProps) {
-    const { data: tasks } = useTasks(systemId, initialData);
-    const { mutate: toggleTask } = useToggleTask(systemId);
-    const { mutate: deleteTask } = useDeleteTask(systemId);
+const ENERGY_COLUMNS: { id: EnergyDropId; label: string; description: string }[] = [
+    { id: "high", label: "High Energy", description: "Tasks requiring high focus." },
+    { id: "medium", label: "Medium Energy", description: "Steady work, moderate focus." },
+    { id: "low", label: "Low Energy", description: "Light tasks, easy to pick up." },
+];
 
-    if (!tasks || tasks.length === 0) {
+export function TaskActionView({ systemId, initialData, folderId, onEdit, keyboardDisabled }: TaskActionViewProps) {
+    // Use folder-scoped or system-scoped tasks depending on context
+    const systemQuery = useTasks(systemId, initialData);
+    const folderQuery = useFolderTasks(systemId, folderId ?? "");
+    const { data: tasks } = folderId ? folderQuery : systemQuery;
+
+    const { mutate: toggleTask } = useToggleTask(systemId, folderId);
+    const { mutate: deleteTask } = useDeleteTask(systemId, folderId);
+    const { mutate: updateTask } = useUpdateTask(systemId);
+
+    const [activeTask, setActiveTask] = useState<Task | null>(null);
+
+    const sensors = useSensors(
+        useSensor(PointerSensor, {
+            activationConstraint: { distance: 8 },
+        }),
+        useSensor(KeyboardSensor)
+    );
+
+    const activeTasks = tasks?.filter(
+      (t) => t.status === "today" || t.status === "tomorrow" || t.status === "week"
+    ) ?? [];
+
+    const handleDragStart = useCallback((event: DragStartEvent) => {
+        const data = event.active.data.current as TaskDragData | undefined;
+        if (data?.task) {
+            setActiveTask(data.task);
+        }
+    }, []);
+
+    const handleDragEnd = useCallback(
+        (event: DragEndEvent) => {
+            setActiveTask(null);
+
+            const { active, over } = event;
+            if (!over) return;
+
+            const data = active.data.current as TaskDragData | undefined;
+            if (!data) return;
+
+            const targetEnergy = over.id as EnergyDropId;
+
+            // Same column — no-op
+            if (targetEnergy === data.sourceId) return;
+
+            updateTask({
+                taskId: data.task.id,
+                data: { energyLevel: targetEnergy },
+            });
+        },
+        [updateTask]
+    );
+
+    const handleDragCancel = useCallback(() => {
+        setActiveTask(null);
+    }, []);
+
+    const [deleteTarget, setDeleteTarget] = useState<Task | null>(null);
+
+    const { focusedTaskId } = useTaskKeyboardNavigation(activeTasks, {
+        onSelect: onEdit,
+        onToggle: toggleTask,
+        onDelete: setDeleteTarget,
+    }, {
+        enabled: !keyboardDisabled && deleteTarget === null
+    });
+
+    if (!tasks || activeTasks.length === 0) {
         return (
             <p className="text-sm text-muted-foreground py-6 text-center">
-                No tasks. Create one with the button above.
+                No active tasks. Move tasks to <strong>Week</strong> or <strong>Today</strong> to see them here.
             </p>
         );
     }
 
+    const doneCount = activeTasks.filter((t) => t.status === "done").length;
+
     return (
-        <div className="flex flex-col gap-4 w-full h-full">
-            <h2 className="text-2xl font-bold">Daily Progress</h2>
-            <Progress value={tasks.filter((task) => task.status === "done").length / tasks.length * 100} className="h-2" />
-            <div className="flex flex-rows gap-2.5 w-full h-full">
-                <div className="flex flex-col gap-1.5 w-full h-full">
-                    <h3>High Energy</h3>
-                    <p className="text-sm text-muted-foreground">Tasks that require a lot of energy to complete.</p>
-                    <div className="flex flex-col gap-1.5">
-                        {tasks.filter((task) => task.energyLevel === "high" && task.status !== "done" && task.status !== "archived").map((task) => (
-                            <TaskCard key={task.id} task={task} systemId={systemId} onToggle={(id) => toggleTask(id)} onDelete={(id) => deleteTask(id)} />
-                        ))}
-                    </div>
+        <DndContext
+            sensors={sensors}
+            onDragStart={handleDragStart}
+            onDragEnd={handleDragEnd}
+            onDragCancel={handleDragCancel}
+        >
+            <div className="flex flex-col gap-4 w-full h-full">
+                <h2 className="text-2xl font-bold">Daily Progress</h2>
+                <Progress value={doneCount / activeTasks.length * 100} className="h-2" />
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 w-full">
+                    {ENERGY_COLUMNS.map((column) => {
+                        const columnTasks = activeTasks.filter(
+                            (task) => task.energyLevel === column.id
+                        );
+
+                        return (
+                            <DroppableColumn
+                                key={column.id}
+                                id={column.id}
+                                className="flex flex-col gap-1.5 min-w-0"
+                            >
+                                <h3 className="font-medium text-sm">{column.label}</h3>
+                                <p className="text-xs text-muted-foreground">{column.description}</p>
+                                <div className="flex flex-col gap-1.5">
+                                    {columnTasks.map((task) => (
+                                        <DraggableTaskCard
+                                            key={task.id}
+                                            task={task}
+                                            systemId={systemId}
+                                            sourceType="energy"
+                                            sourceId={column.id}
+                                            isFocused={task.id === focusedTaskId}
+                                            onToggle={(id) => toggleTask(id)}
+                                            onDelete={() => setDeleteTarget(task)}
+                                            onEdit={onEdit}
+                                        />
+                                    ))}
+                                </div>
+                            </DroppableColumn>
+                        );
+                    })}
                 </div>
-                <Separator orientation="vertical" />
-                <div className="flex flex-col gap-1.5 w-full h-full">
-                    <h3>Medium Energy</h3>
-                    <p className="text-sm text-muted-foreground">Tasks that require a medium amount of energy to complete.</p>
-                    <div className="flex flex-col gap-1.5">
-                        {tasks.filter((task) => task.energyLevel === "medium" && task.status !== "done" && task.status !== "archived").map((task) => (
-                            <TaskCard key={task.id} task={task} systemId={systemId} onToggle={(id) => toggleTask(id)} onDelete={(id) => deleteTask(id)} />
-                        ))}
-                    </div>
-                </div>
-                <Separator orientation="vertical" className="self-stretch h-auto" />
-           
-                <div className="flex flex-col gap-1.5 w-full h-full">
-                    <h3>Low Energy</h3>
-                    <p className="text-sm text-muted-foreground">Tasks that require a low amount of energy to complete.</p>
-                    <div className="flex flex-col gap-1.5">
-                        {tasks.filter((task) => task.energyLevel === "low" && task.status !== "done" && task.status !== "archived").map((task) => (
-                            <TaskCard key={task.id} task={task} systemId={systemId} onToggle={(id) => toggleTask(id)} onDelete={(id) => deleteTask(id)} />
-                        ))}
-                    </div>
-                </div>
-                <Separator orientation="vertical" className="self-stretch h-auto" />
             </div>
-        </div>
+
+            {/* Floating drag preview */}
+            <TaskDragOverlay activeTask={activeTask} systemId={systemId} />
+
+            <ConfirmDialog
+              open={deleteTarget !== null}
+              title="Delete task"
+              description={`"${deleteTarget?.title}" will be permanently deleted.`}
+              onConfirm={() => {
+                if (deleteTarget) deleteTask(deleteTarget.id);
+                setDeleteTarget(null);
+              }}
+              onCancel={() => setDeleteTarget(null)}
+            />
+        </DndContext>
     );
 }

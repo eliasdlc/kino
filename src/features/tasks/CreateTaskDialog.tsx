@@ -12,7 +12,7 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { Calendar } from "@/components/ui/calendar";
 import { Textarea } from "@/components/ui/textarea";
 import { Separator } from "@/components/ui/separator";
-import { ENERGY_LEVEL_VALUES, TASK_PRIORITY_VALUES, TASK_STATUS_VALUES, TASK_TYPE_VALUES } from "@/shared/types/enums";
+import { ENERGY_LEVEL_VALUES, TASK_PRIORITY_VALUES, TASK_TYPE_VALUES } from "@/shared/types/enums";
 import { CalendarRange, ChevronDown, ChevronUp, Plus, X } from "lucide-react";
 import type { CreateTaskInput } from "./tasks.types";
 import { useCreateTask } from "./tasks.hooks";
@@ -20,28 +20,41 @@ import { useCreateTask } from "./tasks.hooks";
 interface CreateTaskDialogProps {
   systemId: string;
   parentTaskId?: string;
+  /** When set, new tasks are auto-assigned to this folder */
+  folderId?: string;
+  open?: boolean;
+  onOpenChange?: (open: boolean) => void;
 }
 
 const DEFAULT_STATE = {
   title: "",
   description: "",
   priority: "medium" as CreateTaskInput["priority"],
-  status: "backlog" as CreateTaskInput["status"],
   energyLevel: "medium" as CreateTaskInput["energyLevel"],
   taskType: undefined as CreateTaskInput["taskType"],
   estimatedTime: undefined as string | undefined,
-  dateRange: { from: undefined, to: undefined } as DateRange,
+  dateRange: { from: new Date(), to: undefined } as DateRange,
 };
 
-export function CreateTaskDialog({ systemId, parentTaskId }: CreateTaskDialogProps) {
-  const [open, setOpen] = useState(false);
+export function CreateTaskDialog({ systemId, parentTaskId, folderId, open: controlledOpen, onOpenChange: controlledOnOpenChange }: CreateTaskDialogProps) {
+  const [internalOpen, setInternalOpen] = useState(false);
+  const isControlled = controlledOpen !== undefined;
+  const open = isControlled ? controlledOpen : internalOpen;
+  
+  const setOpen = (newOpen: boolean) => {
+    if (isControlled && controlledOnOpenChange) {
+      controlledOnOpenChange(newOpen);
+    } else {
+      setInternalOpen(newOpen);
+    }
+  };
+
   const [showMore, setShowMore] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const [title, setTitle] = useState(DEFAULT_STATE.title);
   const [description, setDescription] = useState(DEFAULT_STATE.description);
   const [priority, setPriority] = useState(DEFAULT_STATE.priority);
-  const [status, setStatus] = useState(DEFAULT_STATE.status);
   const [energyLevel, setEnergyLevel] = useState(DEFAULT_STATE.energyLevel);
   const [taskType, setTaskType] = useState(DEFAULT_STATE.taskType);
   const [estimatedTime, setEstimatedTime] = useState(DEFAULT_STATE.estimatedTime);
@@ -49,7 +62,7 @@ export function CreateTaskDialog({ systemId, parentTaskId }: CreateTaskDialogPro
 
   const [subtasks, setSubtasks] = useState<Array<{ id: string; title: string }>>([]);
 
-  const { mutateAsync: createTask, isPending } = useCreateTask(systemId);
+  const { mutateAsync: createTask, isPending } = useCreateTask(systemId, folderId);
   const durationDays =
     dateRange.from && dateRange.to
       ? Math.round((dateRange.to.getTime() - dateRange.from.getTime()) / 86400000)
@@ -59,7 +72,6 @@ export function CreateTaskDialog({ systemId, parentTaskId }: CreateTaskDialogPro
     setTitle(DEFAULT_STATE.title);
     setDescription(DEFAULT_STATE.description);
     setPriority(DEFAULT_STATE.priority);
-    setStatus(DEFAULT_STATE.status);
     setEnergyLevel(DEFAULT_STATE.energyLevel);
     setTaskType(DEFAULT_STATE.taskType);
     setEstimatedTime(DEFAULT_STATE.estimatedTime);
@@ -70,15 +82,14 @@ export function CreateTaskDialog({ systemId, parentTaskId }: CreateTaskDialogPro
   }
 
   async function handleSubmit() {
-    if (!title.trim() || !dateRange.from) return;
+    if (!title.trim()) return;
 
-    const startDate = dateRange.from.toISOString().split("T")[0];
-    const dueDate = dateRange.to?.toISOString().split("T")[0];
+    const startDate = dateRange.from ? format(dateRange.from, "yyyy-MM-dd") : undefined;
+    const dueDate = dateRange.to ? format(dateRange.to, "yyyy-MM-dd") : undefined;
 
     const data: CreateTaskInput = {
       systemId,
       title: title.trim(),
-      status,
       priority,
       energyLevel,
       startDate,
@@ -87,6 +98,7 @@ export function CreateTaskDialog({ systemId, parentTaskId }: CreateTaskDialogPro
       ...(dueDate ? { dueDate } : {}),
       ...(estimatedTime ? { estimatedTime } : {}),
       ...(parentTaskId ? { parentTaskId } : {}),
+      ...(folderId ? { folderId } : {}),
     };
 
     try {
@@ -114,9 +126,11 @@ export function CreateTaskDialog({ systemId, parentTaskId }: CreateTaskDialogPro
 
   return (
     <Dialog open={open} onOpenChange={(val) => { setOpen(val); if (!val) resetForm(); }}>
-      <DialogTrigger asChild>
-        <Button variant="outline" className="w-fit">New task</Button>
-      </DialogTrigger>
+      {!isControlled && (
+        <DialogTrigger asChild>
+          <Button variant="outline" className="w-fit">New task</Button>
+        </DialogTrigger>
+      )}
 
       <DialogContent className="max-h-[90vh] overflow-y-auto">
         <DialogHeader>
@@ -142,21 +156,7 @@ export function CreateTaskDialog({ systemId, parentTaskId }: CreateTaskDialogPro
             />
           </div>
 
-          <div className="grid grid-cols-3 gap-3">
-            <div className="space-y-2">
-              <Label>Status</Label>
-              <Select value={status} onValueChange={(val) => setStatus(val as CreateTaskInput["status"])}>
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {TASK_STATUS_VALUES.map((s) => (
-                    <SelectItem key={s} value={s}>{s}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-
+          <div className="grid grid-cols-2 gap-3">
             <div className="space-y-2">
               <Label>Priority</Label>
               <Select value={priority} onValueChange={(val) => setPriority(val as CreateTaskInput["priority"])}>
@@ -189,7 +189,12 @@ export function CreateTaskDialog({ systemId, parentTaskId }: CreateTaskDialogPro
           {/* ── Date range ── */}
           <div className="space-y-2">
             <Label>
-              Start date *
+              Start date
+              {!dateRange.from && (
+                <span className="ml-2 font-normal text-muted-foreground text-xs">
+                  (none → backlog)
+                </span>
+              )}
               {durationDays !== null && (
                 <span className="ml-2 font-normal text-muted-foreground text-xs">
                   {durationDays} day{durationDays !== 1 ? "s" : ""}

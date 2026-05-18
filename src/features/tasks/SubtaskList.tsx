@@ -5,7 +5,9 @@ import { useQueryClient } from "@tanstack/react-query";
 import { Trash2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
-import { useSubtasks, useToggleTask, useDeleteTask } from "./tasks.hooks";
+import { useSubtasks, useToggleTask, useDeleteTask, taskKeys } from "./tasks.hooks";
+import { Skeleton } from "@/components/ui/skeleton";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 
 interface SubtaskListProps {
   parentTaskId: string;
@@ -19,10 +21,15 @@ export function SubtaskList({ parentTaskId, systemId }: SubtaskListProps) {
   const { mutate: toggleTask } = useToggleTask(systemId);
   const { mutate: deleteTask } = useDeleteTask(systemId);
 
-  const subtaskQueryKey = ["tasks", systemId, "subtasks", parentTaskId];
+  const subtaskQueryKey = taskKeys.subtasks(parentTaskId);
 
   if (isLoading) {
-    return <p className="text-xs text-muted-foreground pl-4 py-1">Loading...</p>;
+    return (
+      <div className="flex flex-col gap-1.5 pl-4 py-1 ml-2">
+        <Skeleton className="h-4 w-[80%]" />
+        <Skeleton className="h-4 w-[60%]" />
+      </div>
+    );
   }
 
   if (!subtasks || subtasks.length === 0) {
@@ -62,14 +69,21 @@ export function SubtaskList({ parentTaskId, systemId }: SubtaskListProps) {
             >
               {subtask.title}
             </span>
-            <button
-              type="button"
-              onClick={() => setDeleteTarget({ id: subtask.id, title: subtask.title })}
-              className="opacity-0 group-hover:opacity-100 transition-opacity text-muted-foreground hover:text-destructive"
-              aria-label="Delete subtask"
-            >
-              <Trash2 size={11} />
-            </button>
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <button
+                    type="button"
+                    onClick={() => setDeleteTarget({ id: subtask.id, title: subtask.title })}
+                    className="opacity-0 group-hover:opacity-100 transition-opacity text-muted-foreground hover:text-destructive"
+                    aria-label="Delete subtask"
+                  >
+                    <Trash2 size={14} />
+                  </button>
+                </TooltipTrigger>
+                <TooltipContent>Delete subtask</TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
           </div>
         );
       })}

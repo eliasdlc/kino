@@ -1,5 +1,5 @@
-import TasksPage from "@/features/tasks/TasksPage";
+import { redirect } from "next/navigation";
 
 export default function Page() {
-    return <TasksPage />;
+  redirect("/systems");
 }
