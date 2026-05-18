@@ -56,7 +56,7 @@ export async function createSystem(userId: string, input: CreateSystemInput) {
   return created ?? null;
 }
 export async function updateSystem(id: string, userId: string, update: UpdateSystemInput) {
-  const [updated] = await db.update(systems).set(update).where(and(eq(systems.id, id), eq(systems.userId, userId))).returning();
+  const [updated] = await db.update(systems).set({ ...update, updatedAt: new Date() }).where(and(eq(systems.id, id), eq(systems.userId, userId))).returning();
 
   return updated ?? null;
 }
