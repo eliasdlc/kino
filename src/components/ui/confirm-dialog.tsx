@@ -38,7 +38,7 @@ export function ConfirmDialog({
           <Button variant="outline" onClick={onCancel}>
             Cancel
           </Button>
-          <Button variant="destructive" onClick={onConfirm}>
+          <Button variant="destructive" onClick={onConfirm} autoFocus>
             {confirmLabel}
           </Button>
         </DialogFooter>
