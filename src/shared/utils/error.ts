@@ -1,6 +1,8 @@
 export class AppError extends Error {
     constructor(public code: string, message: string) {
         super(message);
+        // Preserve class name for checks like `err.name === "NotFoundError"`
+        this.name = this.constructor.name;
     }
 }
 
