@@ -22,20 +22,13 @@ export function useFolders(systemId: string, options?: { enabled?: boolean }) {
   });
 }
 
-export function useFolderChildren(folderId: string, systemId: string) {
-  const qc = useQueryClient();
+export function useFolderChildren(folderId: string, _systemId: string) {
   return useQuery<FolderListItem[]>({
     queryKey: folderKeys.children(folderId),
     queryFn: async () => {
-      // Children come from the system folders list — filter client-side
-      // to avoid an extra API route for a simple parentId filter
-      const cached = qc.getQueryData<FolderListItem[]>(folderKeys.bySystem(systemId));
-      if (cached) return cached.filter((f) => f.parentId === folderId);
-
-      const res = await fetch(`/api/systems/${systemId}/folders`);
-      if (!res.ok) throw new Error("Failed to fetch folders");
-      const all: FolderListItem[] = await res.json();
-      return all.filter((f) => f.parentId === folderId);
+      const res = await fetch(`/api/folders/${folderId}/children`);
+      if (!res.ok) throw new Error("Failed to fetch folder children");
+      return res.json();
     },
     staleTime: 30_000,
   });
