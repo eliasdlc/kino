@@ -26,12 +26,13 @@ import { Separator } from "@/components/ui/separator";
 import {
   ENERGY_LEVEL_VALUES,
   TASK_PRIORITY_VALUES,
-  TASK_STATUS_VALUES,
 } from "@/shared/types/enums";
+import type { TaskTypeValue } from "@/shared/types/enums";
 import { SubtaskList } from "./SubtaskList";
 import { useUpdateTask } from "./tasks.hooks";
 import { useFolders } from "@/features/folders/folders.hooks";
 import { getSystemColor } from "@/shared/utils/system-colors";
+import { TaskTypePicker } from "./TaskTypePicker";
 import type { Task } from "./tasks.types";
 
 interface TaskDetailSheetProps {
@@ -53,9 +54,9 @@ function TaskDetailForm({ task, systemId, onClose }: TaskDetailFormProps) {
 
   const [title, setTitle] = useState(task.title);
   const [description, setDescription] = useState(task.description ?? "");
-  const [status, setStatus] = useState<Task["status"]>(task.status);
   const [priority, setPriority] = useState<Task["priority"]>(task.priority);
   const [energyLevel, setEnergyLevel] = useState<Task["energyLevel"]>(task.energyLevel);
+  const [taskType, setTaskType] = useState<TaskTypeValue | undefined>(task.taskType ?? undefined);
   const [dueDate, setDueDate] = useState<Date | undefined>(
     task.dueDate ? parseISO(task.dueDate) : undefined
   );
@@ -66,15 +67,17 @@ function TaskDetailForm({ task, systemId, onClose }: TaskDetailFormProps) {
 
   function handleSave() {
     if (!title.trim()) return;
+    // Status is intentionally excluded — it should only change via
+    // toggle/move endpoints that enforce the state machine and XP rules.
     updateTask(
       {
         taskId: task.id,
         data: {
           title: title.trim(),
           description: description || undefined,
-          status,
           priority,
           energyLevel,
+          taskType: taskType ?? null,
           dueDate: dueDate ? format(dueDate, "yyyy-MM-dd") : undefined,
           startDate: startDate ? format(startDate, "yyyy-MM-dd") : undefined,
           folderId: selectedFolderId !== "none" ? selectedFolderId : null,
@@ -97,6 +100,11 @@ function TaskDetailForm({ task, systemId, onClose }: TaskDetailFormProps) {
       </div>
 
       <div className="space-y-1.5">
+        <Label>Type</Label>
+        <TaskTypePicker value={taskType} onChange={setTaskType} />
+      </div>
+
+      <div className="space-y-1.5">
         <Label htmlFor="task-desc">Description</Label>
         <Textarea
           id="task-desc"
@@ -107,21 +115,7 @@ function TaskDetailForm({ task, systemId, onClose }: TaskDetailFormProps) {
         />
       </div>
 
-      <div className="grid grid-cols-3 gap-3">
-        <div className="space-y-1.5">
-          <Label>Status</Label>
-          <Select value={status} onValueChange={(v) => setStatus(v as Task["status"])}>
-            <SelectTrigger>
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              {TASK_STATUS_VALUES.map((s) => (
-                <SelectItem key={s} value={s}>{s}</SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
-
+      <div className="grid grid-cols-2 gap-3">
         <div className="space-y-1.5">
           <Label>Priority</Label>
           <Select value={priority} onValueChange={(v) => setPriority(v as Task["priority"])}>

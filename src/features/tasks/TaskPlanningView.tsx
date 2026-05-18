@@ -11,7 +11,7 @@ import {
   parseISO,
   startOfWeek,
 } from "date-fns";
-import { es } from "date-fns/locale";
+
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import {
   DndContext,
@@ -80,9 +80,9 @@ export function TaskPlanningView({ systemId, initialData, folderId, folderInitia
     const sameMonth =
       start.getMonth() === end.getMonth() && start.getFullYear() === end.getFullYear();
     if (sameMonth) {
-      return format(start, "LLLL yyyy", { locale: es });
+      return format(start, "LLLL yyyy");
     }
-    return `${format(start, "LLLL", { locale: es })} – ${format(end, "LLLL yyyy", { locale: es })}`;
+    return `${format(start, "LLLL")} – ${format(end, "LLLL yyyy")}`;
   }, [weekDates]);
 
   const visibleTasks = useMemo(() => {
@@ -139,6 +139,7 @@ export function TaskPlanningView({ systemId, initialData, folderId, folderInitia
 
   return (
     <DndContext
+      id="task-planning-dnd"
       sensors={sensors}
       onDragStart={handleDragStart}
       onDragEnd={handleDragEnd}
@@ -160,7 +161,7 @@ export function TaskPlanningView({ systemId, initialData, folderId, folderInitia
             <h2 className="text-2xl font-bold capitalize">
               {monthHeading}
               <span className="text-base font-normal text-muted-foreground ml-2">
-                — Semana {weekNumber}
+                — Week {weekNumber}
               </span>
             </h2>
             <Button
@@ -180,7 +181,7 @@ export function TaskPlanningView({ systemId, initialData, folderId, folderInitia
               size="sm"
               onClick={() => setWeekOffset(0)}
             >
-              Hoy
+              This week
             </Button>
           )}
         </div>
@@ -260,8 +261,9 @@ export function TaskPlanningView({ systemId, initialData, folderId, folderInitia
 
       <ConfirmDialog
         open={deleteTarget !== null}
-        title="Delete task"
-        description={`"${deleteTarget?.title}" will be permanently deleted.`}
+        title="Move to trash"
+        description={`"${deleteTarget?.title}" will be moved to the trash.`}
+        confirmLabel="Move to trash"
         onConfirm={() => {
           if (deleteTarget) deleteTask(deleteTarget.id);
           setDeleteTarget(null);

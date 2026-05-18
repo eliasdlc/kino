@@ -24,6 +24,8 @@ export const updateTaskSchema = createTaskSchema
     startDate: z.string().date().nullable().optional(),
     // Allow null to explicitly clear folder assignment (e.g., on system change)
     folderId: z.string().uuid().nullable().optional(),
+    // Allow null to explicitly clear task type
+    taskType: z.enum(["idea", "reminder", "project", "todo"]).nullable().optional(),
     // Allow system changes (validated in service layer for folder consistency)
     systemId: z.string().uuid().optional(),
   });

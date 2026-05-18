@@ -1,6 +1,6 @@
 import { db } from "@/shared/db";
 import { tasks, users, userSettings, systems, folders } from "@/shared/db/schema";
-import { and, eq, gte, isNull, sql } from "drizzle-orm";
+import { and, eq, isNull, sql } from "drizzle-orm";
 import { NotFoundError, ValidationError } from "@/shared/utils/error";
 import { validateTransition, type TaskStatus, type TransitionAction } from "./tasks.state-machine";
 import { Task, CreateTaskInput, UpdateTaskInput } from "./tasks.types";
@@ -29,13 +29,17 @@ async function applyTransition(
     sql`SELECT pg_advisory_xact_lock(${ENERGY_LOCK_CLASS}, hashtext(${userId}))`,
   );
 
-  const todayStart = new Date();
-  todayStart.setUTCHours(0, 0, 0, 0);
-
-  const [settings] = await tx
-    .select({ dailyEnergyLimit: userSettings.dailyEnergyLimit })
+  const [settingsRow] = await tx
+    .select({
+      dailyEnergyLimit: userSettings.dailyEnergyLimit,
+      timezone: users.timezone,
+    })
     .from(userSettings)
+    .innerJoin(users, eq(users.id, userSettings.userId))
     .where(eq(userSettings.userId, userId));
+
+  // Compute "today" boundary in the user's timezone, not UTC
+  const tz = settingsRow?.timezone ?? "UTC";
 
   const [current] = await tx
     .select()
@@ -44,6 +48,7 @@ async function applyTransition(
 
   if (!current) throw new NotFoundError("Task not found");
 
+  // Use timezone-aware SQL to count tasks completed "today" in user's local time
   const doneTodayRows = await tx
     .select({ energyLevel: tasks.energyLevel })
     .from(tasks)
@@ -51,7 +56,7 @@ async function applyTransition(
       and(
         eq(tasks.userId, userId),
         eq(tasks.status, "done"),
-        gte(tasks.completedAt, todayStart),
+        sql`${tasks.completedAt} >= (NOW() AT TIME ZONE ${tz})::date::timestamptz`,
         isNull(tasks.deletedAt),
       ),
     );
@@ -68,7 +73,7 @@ async function applyTransition(
     action,
     taskEnergyPoints: ENERGY_POINTS[current.energyLevel ?? "medium"] ?? 3,
     currentDayEnergyUsed,
-    dailyEnergyLimit: settings?.dailyEnergyLimit ?? 50,
+    dailyEnergyLimit: settingsRow?.dailyEnergyLimit ?? 50,
     isRecurring: current.recurrenceRule !== null && current.recurrenceRule !== undefined,
   });
 
@@ -226,9 +231,12 @@ export async function createTask(userId: string, data: CreateTaskInput) {
   }
 
   const explicitTerminal = data.status === "done" || data.status === "archived";
+  // Ideas are always backlog — they are captures, not scheduled work
   const derivedStatus = explicitTerminal
     ? data.status
-    : deriveStatusFromDate(data.startDate ?? null);
+    : data.taskType === "idea"
+      ? "backlog"
+      : deriveStatusFromDate(data.startDate ?? null);
 
   const [task] = await db
     .insert(tasks)
@@ -239,17 +247,32 @@ export async function createTask(userId: string, data: CreateTaskInput) {
 }
 
 export async function updateTask(taskId: string, userId: string, data: UpdateTaskInput) {
+  // Fetch current task state once — avoid multiple queries for the same row
+  const [current] = await db
+    .select({
+      systemId: tasks.systemId,
+      folderId: tasks.folderId,
+      status: tasks.status,
+      taskType: tasks.taskType,
+    })
+    .from(tasks)
+    .where(and(eq(tasks.id, taskId), eq(tasks.userId, userId), isNull(tasks.deletedAt)));
+
+  if (!current) throw new NotFoundError("Task not found");
+
+  // Validate new system exists and belongs to user
+  if (data.systemId && data.systemId !== current.systemId) {
+    const [system] = await db
+      .select({ id: systems.id })
+      .from(systems)
+      .where(and(eq(systems.id, data.systemId), eq(systems.userId, userId)));
+    if (!system) throw new NotFoundError("System not found");
+  }
+
+  const targetSystemId = data.systemId ?? current.systemId;
+
   // Validate folder↔system consistency when folder_id is being set
   if (data.folderId) {
-    const [current] = await db
-      .select({ systemId: tasks.systemId })
-      .from(tasks)
-      .where(and(eq(tasks.id, taskId), eq(tasks.userId, userId), isNull(tasks.deletedAt)));
-
-    if (!current) throw new NotFoundError("Task not found");
-
-    const targetSystemId = data.systemId ?? current.systemId;
-
     const [folder] = await db
       .select({ id: folders.id })
       .from(folders)
@@ -264,28 +287,25 @@ export async function updateTask(taskId: string, userId: string, data: UpdateTas
     if (!folder) throw new ValidationError("Folder not found in this system");
   }
 
-  // If system_id changes but folder_id isn't explicitly set, clear it
-  // to prevent orphaned folder references across systems
-  if (data.systemId && !data.folderId) {
-    const [current] = await db
-      .select({ folderId: tasks.folderId })
-      .from(tasks)
-      .where(and(eq(tasks.id, taskId), eq(tasks.userId, userId), isNull(tasks.deletedAt)));
-
-    if (current?.folderId) {
+  // If system_id changes but folder_id isn't explicitly provided in the payload,
+  // clear it to prevent orphaned folder references across systems.
+  // Use `"folderId" in data` to distinguish "not provided" from "explicitly null".
+  if (data.systemId && data.systemId !== current.systemId && !("folderId" in data)) {
+    if (current.folderId) {
       data = { ...data, folderId: null } as UpdateTaskInput;
     }
   }
 
-  // Auto-derive status when startDate changes and task is not in a terminal state
-  if (data.startDate !== undefined) {
-    const [current] = await db
-      .select({ status: tasks.status })
-      .from(tasks)
-      .where(and(eq(tasks.id, taskId), eq(tasks.userId, userId), isNull(tasks.deletedAt)));
-
-    if (current && !(["done", "archived"] as string[]).includes(current.status)) {
-      data = { ...data, status: deriveStatusFromDate(data.startDate) } as UpdateTaskInput;
+  // Auto-derive status when startDate or taskType changes (skip for terminal tasks)
+  if (data.startDate !== undefined || data.taskType !== undefined) {
+    if (!(["done", "archived"] as string[]).includes(current.status)) {
+      const effectiveType = data.taskType ?? current.taskType;
+      if (effectiveType === "idea") {
+        // Changing to idea forces backlog
+        data = { ...data, status: "backlog" } as UpdateTaskInput;
+      } else if (data.startDate !== undefined) {
+        data = { ...data, status: deriveStatusFromDate(data.startDate) } as UpdateTaskInput;
+      }
     }
   }
 
@@ -360,15 +380,27 @@ export async function moveTask(taskId: string, newStatus: TaskStatus, userId: st
  * Uses batch SQL for efficiency — one UPDATE per status bucket.
  */
 export async function reconcileTaskStatuses(userId: string): Promise<void> {
-  const today = sql`CURRENT_DATE`;
-  const tomorrow = sql`CURRENT_DATE + INTERVAL '1 day'`;
+  // DATE columns store logical dates in the user's timezone (per SADD convention).
+  // CURRENT_DATE uses the DB server timezone (UTC), which is wrong at timezone boundaries.
+  const [userRow] = await db
+    .select({ timezone: users.timezone })
+    .from(users)
+    .where(eq(users.id, userId));
+
+  const tz = userRow?.timezone ?? "UTC";
+  const today = sql`(NOW() AT TIME ZONE ${tz})::date`;
+  const tomorrow = sql`((NOW() AT TIME ZONE ${tz})::date + INTERVAL '1 day')::date`;
 
   await db.transaction(async (tx) => {
+    // Ideas are always backlog — exclude from date-driven status updates
+    const notIdea = sql`(task_type IS NULL OR task_type != 'idea')`;
+
     // Tasks with start_date = today → status should be "today"
     await tx.execute(
       sql`UPDATE tasks SET status = 'today', updated_at = NOW()
           WHERE user_id = ${userId} AND deleted_at IS NULL
             AND status NOT IN ('done', 'archived')
+            AND ${notIdea}
             AND start_date = ${today}
             AND status != 'today'`
     );
@@ -378,6 +410,7 @@ export async function reconcileTaskStatuses(userId: string): Promise<void> {
       sql`UPDATE tasks SET status = 'tomorrow', updated_at = NOW()
           WHERE user_id = ${userId} AND deleted_at IS NULL
             AND status NOT IN ('done', 'archived')
+            AND ${notIdea}
             AND start_date = ${tomorrow}
             AND status != 'tomorrow'`
     );
@@ -387,17 +420,19 @@ export async function reconcileTaskStatuses(userId: string): Promise<void> {
       sql`UPDATE tasks SET status = 'week', updated_at = NOW()
           WHERE user_id = ${userId} AND deleted_at IS NULL
             AND status NOT IN ('done', 'archived')
+            AND ${notIdea}
             AND start_date IS NOT NULL
             AND start_date != ${today}
             AND start_date != ${tomorrow}
             AND status != 'week'`
     );
 
-    // Tasks without start_date → status should be "backlog"
+    // Tasks without start_date (and not ideas) → status should be "backlog"
     await tx.execute(
       sql`UPDATE tasks SET status = 'backlog', updated_at = NOW()
           WHERE user_id = ${userId} AND deleted_at IS NULL
             AND status NOT IN ('done', 'archived')
+            AND ${notIdea}
             AND start_date IS NULL
             AND status != 'backlog'`
     );

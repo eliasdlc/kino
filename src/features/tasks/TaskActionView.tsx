@@ -54,9 +54,12 @@ export function TaskActionView({ systemId, initialData, folderId, folderInitialD
         useSensor(KeyboardSensor)
     );
 
-    const activeTasks = tasks?.filter(
-      (t) => t.status === "today" || t.status === "tomorrow" || t.status === "week"
+    // Include "done" alongside active statuses to compute progress correctly
+    const actionableTasks = tasks?.filter(
+      (t) => t.status === "today" || t.status === "tomorrow" || t.status === "week" || t.status === "done"
     ) ?? [];
+    // Only show non-done tasks in the energy columns
+    const activeTasks = actionableTasks.filter((t) => t.status !== "done");
 
     const handleDragStart = useCallback((event: DragStartEvent) => {
         const data = event.active.data.current as TaskDragData | undefined;
@@ -104,16 +107,21 @@ export function TaskActionView({ systemId, initialData, folderId, folderInitialD
 
     if (!tasks || activeTasks.length === 0) {
         return (
-            <p className="text-sm text-muted-foreground py-6 text-center">
-                No active tasks. Move tasks to <strong>Week</strong> or <strong>Today</strong> to see them here.
-            </p>
+            <div className="flex flex-col items-center justify-center py-12 text-center space-y-2 border border-dashed rounded-lg bg-card mt-6">
+                <p className="text-sm font-medium">No tasks for today</p>
+                <p className="text-sm text-muted-foreground max-w-sm">
+                    You don't have any tasks scheduled. Go to the <strong>Planning</strong> tab to line up work for today or the upcoming week.
+                </p>
+            </div>
         );
     }
 
-    const doneCount = activeTasks.filter((t) => t.status === "done").length;
+    const doneCount = actionableTasks.filter((t) => t.status === "done").length;
+    const progressPercent = actionableTasks.length > 0 ? (doneCount / actionableTasks.length) * 100 : 0;
 
     return (
         <DndContext
+            id="task-action-dnd"
             sensors={sensors}
             onDragStart={handleDragStart}
             onDragEnd={handleDragEnd}
@@ -121,7 +129,7 @@ export function TaskActionView({ systemId, initialData, folderId, folderInitialD
         >
             <div className="flex flex-col gap-4 w-full h-full">
                 <h2 className="text-2xl font-bold">Daily Progress</h2>
-                <Progress value={doneCount / activeTasks.length * 100} className="h-2" />
+                <Progress value={progressPercent} className="h-2" />
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 w-full">
                     {ENERGY_COLUMNS.map((column) => {
                         const columnTasks = activeTasks.filter(
@@ -162,8 +170,9 @@ export function TaskActionView({ systemId, initialData, folderId, folderInitialD
 
             <ConfirmDialog
               open={deleteTarget !== null}
-              title="Delete task"
-              description={`"${deleteTarget?.title}" will be permanently deleted.`}
+              title="Move to trash"
+              description={`"${deleteTarget?.title}" will be moved to the trash.`}
+              confirmLabel="Move to trash"
               onConfirm={() => {
                 if (deleteTarget) deleteTask(deleteTarget.id);
                 setDeleteTarget(null);

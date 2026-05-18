@@ -68,8 +68,14 @@ export async function PATCH(
         const task = await updateTask(id, session.user.id, parsed.data);
         if (!task) return NextResponse.json({ code: "NOT_FOUND", message: "Task not found" }, { status: 404 });
         return NextResponse.json(task);
-    } catch {
-        return NextResponse.json({ code: "INTERNAL_ERROR", message: "Failed to update task" }, { status: 500 });
+    } catch (error) {
+        if (error instanceof NotFoundError) {
+            return NextResponse.json({ code: "NOT_FOUND", message: error.message }, { status: 404 });
+        }
+        if (error instanceof ValidationError) {
+            return NextResponse.json({ code: "VALIDATION_ERROR", message: error.message }, { status: 422 });
+        }
+        throw error;
     }
 }
 

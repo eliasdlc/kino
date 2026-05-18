@@ -12,12 +12,14 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { Calendar } from "@/components/ui/calendar";
 import { Textarea } from "@/components/ui/textarea";
 import { Separator } from "@/components/ui/separator";
-import { ENERGY_LEVEL_VALUES, TASK_PRIORITY_VALUES, TASK_TYPE_VALUES } from "@/shared/types/enums";
-import { CalendarRange, ChevronDown, ChevronUp, Plus, X } from "lucide-react";
+import { ENERGY_LEVEL_VALUES, TASK_PRIORITY_VALUES } from "@/shared/types/enums";
+import { Bell, CalendarIcon, CalendarRange, ChevronDown, ChevronUp, Plus, X } from "lucide-react";
 import type { CreateTaskInput } from "./tasks.types";
 import { useCreateTask } from "./tasks.hooks";
 import { useFolders } from "@/features/folders/folders.hooks";
 import { getSystemColor } from "@/shared/utils/system-colors";
+import { TaskTypePicker } from "./TaskTypePicker";
+import { getTaskTypeConfig } from "./task-type-config";
 
 interface CreateTaskDialogProps {
   systemId: string;
@@ -28,21 +30,11 @@ interface CreateTaskDialogProps {
   onOpenChange?: (open: boolean) => void;
 }
 
-const DEFAULT_STATE = {
-  title: "",
-  description: "",
-  priority: "medium" as CreateTaskInput["priority"],
-  energyLevel: "medium" as CreateTaskInput["energyLevel"],
-  taskType: undefined as CreateTaskInput["taskType"],
-  estimatedTime: undefined as string | undefined,
-  dateRange: { from: new Date(), to: undefined } as DateRange,
-};
-
 export function CreateTaskDialog({ systemId, parentTaskId, folderId, open: controlledOpen, onOpenChange: controlledOnOpenChange }: CreateTaskDialogProps) {
   const [internalOpen, setInternalOpen] = useState(false);
   const isControlled = controlledOpen !== undefined;
   const open = isControlled ? controlledOpen : internalOpen;
-  
+
   const setOpen = (newOpen: boolean) => {
     if (isControlled && controlledOnOpenChange) {
       controlledOnOpenChange(newOpen);
@@ -54,50 +46,62 @@ export function CreateTaskDialog({ systemId, parentTaskId, folderId, open: contr
   const [showMore, setShowMore] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const [title, setTitle] = useState(DEFAULT_STATE.title);
-  const [description, setDescription] = useState(DEFAULT_STATE.description);
-  const [priority, setPriority] = useState(DEFAULT_STATE.priority);
-  const [energyLevel, setEnergyLevel] = useState(DEFAULT_STATE.energyLevel);
-  const [taskType, setTaskType] = useState(DEFAULT_STATE.taskType);
-  const [estimatedTime, setEstimatedTime] = useState(DEFAULT_STATE.estimatedTime);
+  const [title, setTitle] = useState("");
+  const [description, setDescription] = useState("");
+  const [priority, setPriority] = useState<CreateTaskInput["priority"]>("medium");
+  const [energyLevel, setEnergyLevel] = useState<CreateTaskInput["energyLevel"]>("medium");
+  const [taskType, setTaskType] = useState<CreateTaskInput["taskType"]>(undefined);
+  const [estimatedTime, setEstimatedTime] = useState<string | undefined>(undefined);
   const [dateRange, setDateRange] = useState<DateRange>({ from: new Date(), to: undefined });
+  // Reminder-specific: single due date
+  const [reminderDueDate, setReminderDueDate] = useState<Date | undefined>(undefined);
 
   const [subtasks, setSubtasks] = useState<Array<{ id: string; title: string }>>([]);
   const [selectedFolderId, setSelectedFolderId] = useState<string>(folderId ?? "none");
 
+  const typeConfig = getTaskTypeConfig(taskType);
   const { data: folders = [] } = useFolders(systemId);
   const { mutateAsync: createTask, isPending } = useCreateTask(systemId, selectedFolderId !== "none" ? selectedFolderId : undefined);
+
   const durationDays =
     dateRange.from && dateRange.to
       ? Math.round((dateRange.to.getTime() - dateRange.from.getTime()) / 86400000)
       : null;
 
   function resetForm() {
-    setTitle(DEFAULT_STATE.title);
-    setDescription(DEFAULT_STATE.description);
-    setPriority(DEFAULT_STATE.priority);
-    setEnergyLevel(DEFAULT_STATE.energyLevel);
-    setTaskType(DEFAULT_STATE.taskType);
-    setEstimatedTime(DEFAULT_STATE.estimatedTime);
+    setTitle("");
+    setDescription("");
+    setPriority("medium");
+    setEnergyLevel("medium");
+    setTaskType(undefined);
+    setEstimatedTime(undefined);
     setDateRange({ from: new Date(), to: undefined });
+    setReminderDueDate(undefined);
     setSubtasks([]);
     setSelectedFolderId(folderId ?? "none");
     setShowMore(false);
     setError(null);
   }
 
-  async function handleSubmit() {
-    if (!title.trim()) return;
+  const isSubmitDisabled =
+    !title.trim() ||
+    isPending ||
+    (typeConfig.requireDueDate && !reminderDueDate);
 
-    const startDate = dateRange.from ? format(dateRange.from, "yyyy-MM-dd") : undefined;
-    const dueDate = dateRange.to ? format(dateRange.to, "yyyy-MM-dd") : undefined;
+  async function handleSubmit() {
+    if (isSubmitDisabled) return;
+
+    const startDate = typeConfig.hideDatePicker ? undefined : (dateRange.from ? format(dateRange.from, "yyyy-MM-dd") : undefined);
+    const dueDate = typeConfig.requireDueDate
+      ? (reminderDueDate ? format(reminderDueDate, "yyyy-MM-dd") : undefined)
+      : (dateRange.to ? format(dateRange.to, "yyyy-MM-dd") : undefined);
 
     const data: CreateTaskInput = {
       systemId,
       title: title.trim(),
       priority,
       energyLevel,
-      startDate,
+      ...(startDate ? { startDate } : {}),
       ...(description ? { description } : {}),
       ...(taskType ? { taskType } : {}),
       ...(dueDate ? { dueDate } : {}),
@@ -117,7 +121,7 @@ export function CreateTaskDialog({ systemId, parentTaskId, folderId, open: contr
             status: "backlog",
             priority: "medium",
             energyLevel: "medium",
-            startDate,
+            ...(startDate ? { startDate } : {}),
             parentTaskId: parent.id,
           }),
         ),
@@ -147,13 +151,24 @@ export function CreateTaskDialog({ systemId, parentTaskId, folderId, open: contr
             <p className="text-sm text-destructive">{error}</p>
           )}
 
-          {/* ── essential fields ── */}
+          {/* ── Type picker (first, sets context for everything else) ── */}
+          <div className="space-y-2">
+            <Label>Type</Label>
+            <TaskTypePicker value={taskType} onChange={setTaskType} />
+          </div>
+
+          {/* ── Title ── */}
           <div className="space-y-2">
             <Label htmlFor="title">Title *</Label>
             <Input
               id="title"
               autoFocus
-              placeholder="What needs to be done?"
+              placeholder={
+                taskType === "idea" ? "Describe your idea..." :
+                taskType === "reminder" ? "What do you need to remember?" :
+                taskType === "project" ? "Project name..." :
+                "What needs to be done?"
+              }
               value={title}
               onChange={(e) => setTitle(e.target.value)}
               onKeyDown={(e) => { if (e.key === "Enter") handleSubmit(); }}
@@ -161,7 +176,8 @@ export function CreateTaskDialog({ systemId, parentTaskId, folderId, open: contr
             />
           </div>
 
-          <div className="grid grid-cols-2 gap-3">
+          {/* ── Priority + Energy (energy hidden for idea/reminder) ── */}
+          <div className={typeConfig.hideEnergyLevel ? "" : "grid grid-cols-2 gap-3"}>
             <div className="space-y-2">
               <Label>Priority</Label>
               <Select value={priority} onValueChange={(val) => setPriority(val as CreateTaskInput["priority"])}>
@@ -176,19 +192,21 @@ export function CreateTaskDialog({ systemId, parentTaskId, folderId, open: contr
               </Select>
             </div>
 
-            <div className="space-y-2">
-              <Label>Energy</Label>
-              <Select value={energyLevel} onValueChange={(val) => setEnergyLevel(val as CreateTaskInput["energyLevel"])}>
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {ENERGY_LEVEL_VALUES.map((e) => (
-                    <SelectItem key={e} value={e}>{e}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
+            {!typeConfig.hideEnergyLevel && (
+              <div className="space-y-2">
+                <Label>Energy</Label>
+                <Select value={energyLevel} onValueChange={(val) => setEnergyLevel(val as CreateTaskInput["energyLevel"])}>
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {ENERGY_LEVEL_VALUES.map((e) => (
+                      <SelectItem key={e} value={e}>{e}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
           </div>
 
           {/* ── Folder assignment ── */}
@@ -216,63 +234,103 @@ export function CreateTaskDialog({ systemId, parentTaskId, folderId, open: contr
             </div>
           )}
 
-          {/* ── Date range ── */}
-          <div className="space-y-2">
-            <Label>
-              Start date
-              {!dateRange.from && (
-                <span className="ml-2 font-normal text-muted-foreground text-xs">
-                  (none → backlog)
-                </span>
-              )}
-              {durationDays !== null && (
-                <span className="ml-2 font-normal text-muted-foreground text-xs">
-                  {durationDays} day{durationDays !== 1 ? "s" : ""}
-                </span>
-              )}
-            </Label>
-            <Popover>
-              <PopoverTrigger asChild>
-                <Button
-                  variant="outline"
-                  className="w-full justify-start gap-2 text-sm font-normal"
-                >
-                  <CalendarRange size={14} className="shrink-0 text-muted-foreground" />
-                  {dateRange.from ? (
-                    dateRange.to ? (
-                      <span>{format(dateRange.from, "MMM d")} → {format(dateRange.to, "MMM d, yyyy")}</span>
-                    ) : (
-                      <span>{format(dateRange.from, "MMM d, yyyy")} <span className="text-muted-foreground">→ no end date</span></span>
-                    )
-                  ) : (
-                    <span className="text-muted-foreground">Select start date</span>
+          {/* ── Reminder: single due date (required) ── */}
+          {typeConfig.requireDueDate && (
+            <div className="space-y-2">
+              <Label className="flex items-center gap-1.5">
+                <Bell size={12} className="text-orange-500" />
+                Due date *
+              </Label>
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button
+                    variant="outline"
+                    className="w-full justify-start gap-2 text-sm font-normal"
+                  >
+                    <CalendarIcon size={14} className="shrink-0 text-muted-foreground" />
+                    {reminderDueDate
+                      ? format(reminderDueDate, "MMM d, yyyy")
+                      : <span className="text-muted-foreground">Select deadline</span>
+                    }
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-auto p-0" align="start">
+                  <Calendar
+                    mode="single"
+                    selected={reminderDueDate}
+                    onSelect={setReminderDueDate}
+                  />
+                  {reminderDueDate && (
+                    <div className="p-2 border-t">
+                      <Button variant="ghost" size="sm" className="w-full" onClick={() => setReminderDueDate(undefined)}>
+                        Clear
+                      </Button>
+                    </div>
                   )}
-                </Button>
-              </PopoverTrigger>
-              <PopoverContent className="w-auto p-0" align="start">
-                <Calendar
-                  mode="range"
-                  selected={dateRange}
-                  onSelect={(range) => setDateRange(range ?? DEFAULT_STATE.dateRange)}
-                  numberOfMonths={1}
-                />
-                {(dateRange.from || dateRange.to) && (
-                  <div className="p-2 border-t">
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      className="w-full"
-                      onClick={() => setDateRange(DEFAULT_STATE.dateRange)}
-                    >
-                      Clear dates
-                    </Button>
-                  </div>
-                )}
-              </PopoverContent>
-            </Popover>
-          </div>
+                </PopoverContent>
+              </Popover>
+            </div>
+          )}
 
-          {/* ── Toggle ── */}
+          {/* ── Date range (todo / project — not idea, not reminder) ── */}
+          {!typeConfig.hideDatePicker && !typeConfig.requireDueDate && (
+            <div className="space-y-2">
+              <Label>
+                Start date
+                {!dateRange.from && (
+                  <span className="ml-2 font-normal text-muted-foreground text-xs">
+                    (none → backlog)
+                  </span>
+                )}
+                {durationDays !== null && (
+                  <span className="ml-2 font-normal text-muted-foreground text-xs">
+                    {durationDays} day{durationDays !== 1 ? "s" : ""}
+                  </span>
+                )}
+              </Label>
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button
+                    variant="outline"
+                    className="w-full justify-start gap-2 text-sm font-normal"
+                  >
+                    <CalendarRange size={14} className="shrink-0 text-muted-foreground" />
+                    {dateRange.from ? (
+                      dateRange.to ? (
+                        <span>{format(dateRange.from, "MMM d")} → {format(dateRange.to, "MMM d, yyyy")}</span>
+                      ) : (
+                        <span>{format(dateRange.from, "MMM d, yyyy")} <span className="text-muted-foreground">→ no end date</span></span>
+                      )
+                    ) : (
+                      <span className="text-muted-foreground">Select start date</span>
+                    )}
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-auto p-0" align="start">
+                  <Calendar
+                    mode="range"
+                    selected={dateRange}
+                    onSelect={(range) => setDateRange(range ?? { from: new Date(), to: undefined })}
+                    numberOfMonths={1}
+                  />
+                  {(dateRange.from || dateRange.to) && (
+                    <div className="p-2 border-t">
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="w-full"
+                        onClick={() => setDateRange({ from: undefined, to: undefined })}
+                      >
+                        Clear dates
+                      </Button>
+                    </div>
+                  )}
+                </PopoverContent>
+              </Popover>
+            </div>
+          )}
+
+          {/* ── More options toggle ── */}
           <div>
             <Separator />
             <Button
@@ -290,7 +348,7 @@ export function CreateTaskDialog({ systemId, parentTaskId, folderId, open: contr
             </Button>
           </div>
 
-          {/* ── advanced fields ── */}
+          {/* ── Advanced fields ── */}
           {showMore && (
             <div className="flex flex-col gap-4">
               <div className="space-y-2">
@@ -304,30 +362,18 @@ export function CreateTaskDialog({ systemId, parentTaskId, folderId, open: contr
                 />
               </div>
 
-              <div className="space-y-2">
-                <Label>Task type</Label>
-                <Select value={taskType ?? ""} onValueChange={(val) => setTaskType(val as CreateTaskInput["taskType"])}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select type..." />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {TASK_TYPE_VALUES.map((t) => (
-                      <SelectItem key={t} value={t}>{t}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="estimatedTime">Estimated time (HH:MM:SS)</Label>
-                <Input
-                  id="estimatedTime"
-                  type="time"
-                  placeholder="00:00:00"
-                  value={estimatedTime ?? ""}
-                  onChange={(e) => setEstimatedTime(e.target.value || undefined)}
-                />
-              </div>
+              {!typeConfig.hideEnergyLevel && (
+                <div className="space-y-2">
+                  <Label htmlFor="estimatedTime">Estimated time (HH:MM:SS)</Label>
+                  <Input
+                    id="estimatedTime"
+                    type="time"
+                    placeholder="00:00:00"
+                    value={estimatedTime ?? ""}
+                    onChange={(e) => setEstimatedTime(e.target.value || undefined)}
+                  />
+                </div>
+              )}
             </div>
           )}
 
@@ -378,7 +424,7 @@ export function CreateTaskDialog({ systemId, parentTaskId, folderId, open: contr
           {/* ── Submit ── */}
           <Button
             onClick={handleSubmit}
-            disabled={!title.trim() || !dateRange.from || isPending}
+            disabled={isSubmitDisabled}
             className="w-full"
           >
             {isPending ? "Creating..." : "Create task"}
