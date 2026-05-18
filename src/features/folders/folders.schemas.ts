@@ -12,4 +12,10 @@ export const createFolderSchema = z.object({
   parentId: z.string().uuid().optional(),
 });
 
+export const updateFolderSchema = z.object({
+  name: z.string().min(1).max(255).optional(),
+  color: z.enum(colorValues).optional(),
+});
+
 export type CreateFolderInput = z.infer<typeof createFolderSchema>;
+export type UpdateFolderInput = z.infer<typeof updateFolderSchema>;

@@ -1,48 +1,64 @@
 "use client";
 
-import { Files } from "lucide-react";
-import { useFolders } from "@/features/folders/folders.hooks";
+import { useState } from "react";
+import { useRouter } from "next/navigation";
+import { Files, Loader2 } from "lucide-react";
+import { useFolders, useCreateFolder } from "@/features/folders/folders.hooks";
+import { usePages } from "@/features/pages/pages.hooks";
+import { CreatePageDialog } from "@/features/pages/CreatePageDialog";
 import { DocsToolbar } from "./DocsToolbar";
 import { FolderCard } from "./FolderCard";
 import { PageCard } from "./PageCard";
-import type { PageListItem } from "./docs.types";
-
-// TODO(pages-types): Cambiar el import de arriba por:
-// import type { PageListItem } from "@/features/pages/pages.types";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Skeleton } from "@/components/ui/skeleton";
 
 interface DocsViewProps {
   systemId: string;
 }
 
 export function DocsView({ systemId }: DocsViewProps) {
-  const { data: folders = [], isLoading } = useFolders(systemId);
+  const router = useRouter();
+  const { data: folders = [], isLoading: foldersLoading } = useFolders(systemId);
+  const { data: pages = [], isLoading: pagesLoading } = usePages(systemId);
+  const { mutate: createFolder, isPending: creatingFolder } = useCreateFolder(systemId);
 
-  // TODO(pages-hook): Reemplazar estas dos líneas por:
-  // const { data: pages = [], isLoading: pagesLoading } = usePages(systemId);
-  // Requiere crear src/features/pages/pages.hooks.ts con usePages(systemId).
-  // Recordar también ajustar: isLoading → foldersLoading || pagesLoading
-  const pages: PageListItem[] = [];
+  const [folderDialogOpen, setFolderDialogOpen] = useState(false);
+  const [pageDialogOpen, setPageDialogOpen] = useState(false);
+  const [folderName, setFolderName] = useState("");
 
-  // TODO(create-folder): Agregar estado y handler para el dialog de carpeta:
-  // const [folderDialogOpen, setFolderDialogOpen] = useState(false)
-  // Luego pasar onNewFolder={() => setFolderDialogOpen(true)} a DocsToolbar
-  // y renderizar <CreateFolderDialog open={folderDialogOpen} onOpenChange={setFolderDialogOpen} systemId={systemId} />
+  const isLoading = foldersLoading || pagesLoading;
+  const rootPages = pages.filter((p) => !p.folderId);
+  const isEmpty = !isLoading && folders.length === 0 && rootPages.length === 0;
 
-  // TODO(create-page): Agregar estado y handler para el dialog de página:
-  // const [pageDialogOpen, setPageDialogOpen] = useState(false)
-  // Luego pasar onNewPage={() => setPageDialogOpen(true)} a DocsToolbar
-  // y renderizar <CreatePageDialog open={pageDialogOpen} onOpenChange={setPageDialogOpen} systemId={systemId} />
-
-  const isEmpty = !isLoading && folders.length === 0 && pages.length === 0;
+  function handleCreateFolder() {
+    if (!folderName.trim()) return;
+    createFolder({ name: folderName.trim() }, {
+      onSuccess: () => {
+        setFolderName("");
+        setFolderDialogOpen(false);
+      },
+    });
+  }
 
   return (
     <div className="w-full space-y-4">
-      <DocsToolbar />
+      <DocsToolbar
+        onNewFolder={() => setFolderDialogOpen(true)}
+        onNewPage={() => setPageDialogOpen(true)}
+      />
 
       {isLoading && (
         <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
           {Array.from({ length: 6 }).map((_, i) => (
-            <div key={i} className="h-20 rounded-lg border bg-muted animate-pulse" />
+            <Skeleton key={i} className="h-20 rounded-lg w-full" />
           ))}
         </div>
       )}
@@ -51,7 +67,7 @@ export function DocsView({ systemId }: DocsViewProps) {
         <div className="rounded-lg border border-dashed p-10 text-center space-y-2">
           <Files className="size-8 text-muted-foreground/40 mx-auto" />
           <p className="text-sm text-muted-foreground">
-            No documents. Create a folder or page to get started.
+            No documents yet. Create a folder or page to get started.
           </p>
         </div>
       )}
@@ -59,17 +75,56 @@ export function DocsView({ systemId }: DocsViewProps) {
       {!isLoading && !isEmpty && (
         <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
           {folders.map((folder) => (
-            // TODO(folder-navigation): Pasar onClick={() => router.push(`/systems/${systemId}/folders/${folder.id}`)}
-            // o convertir FolderCard en un Link cuando exista la ruta de carpeta
-            <FolderCard key={folder.id} folder={folder} />
+            <FolderCard
+              key={folder.id}
+              folder={folder}
+              systemId={systemId}
+              onClick={() => router.push(`/systems/${systemId}/folders/${folder.id}`)}
+            />
           ))}
-          {pages.map((page) => (
-            // TODO(page-editor): Pasar onClick={() => router.push(`/systems/${systemId}/pages/${page.id}`)}
-            // o convertir PageCard en un Link cuando exista la ruta de editor
-            <PageCard key={page.id} page={page} />
+          {rootPages.map((page) => (
+            <PageCard
+              key={page.id}
+              page={page}
+              href={`/systems/${systemId}/pages/${page.id}`}
+            />
           ))}
         </div>
       )}
+
+      {/* Create folder dialog */}
+      <Dialog open={folderDialogOpen} onOpenChange={setFolderDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>New folder</DialogTitle>
+          </DialogHeader>
+          <div className="flex flex-col gap-4 pt-1">
+            <div className="space-y-1.5">
+              <Label htmlFor="folder-name">Name</Label>
+              <Input
+                id="folder-name"
+                autoFocus
+                placeholder="Folder name"
+                value={folderName}
+                onChange={(e) => setFolderName(e.target.value)}
+                onKeyDown={(e) => { if (e.key === "Enter") handleCreateFolder(); }}
+                maxLength={255}
+              />
+            </div>
+            <Button onClick={handleCreateFolder} disabled={!folderName.trim() || creatingFolder}>
+              {creatingFolder && <Loader2 className="size-4 animate-spin mr-2" />}
+              {creatingFolder ? "Creating..." : "Create folder"}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Create page dialog — controlled */}
+      <CreatePageDialog
+        systemId={systemId}
+        open={pageDialogOpen}
+        onOpenChange={setPageDialogOpen}
+      />
     </div>
   );
 }

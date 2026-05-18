@@ -1,8 +1,11 @@
 import { headers } from "next/headers";
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/auth";
-import { createFolderSchema } from "@/features/folders/folders.schemas";
-import { createFolder, getFoldersBySystem } from "@/features/folders/folders.service";
+import { createStickyNoteSchema } from "@/features/sticky-notes/sticky-notes.schemas";
+import {
+  getStickyNotesByFolder,
+  createStickyNote,
+} from "@/features/sticky-notes/sticky-notes.service";
 
 export async function GET(
   _req: NextRequest,
@@ -11,9 +14,9 @@ export async function GET(
   const session = await auth.api.getSession({ headers: await headers() });
   if (!session) return NextResponse.json({ code: "UNAUTHORIZED", message: "Unauthorized" }, { status: 401 });
 
-  const { id: systemId } = await params;
-  const list = await getFoldersBySystem(systemId, session.user.id);
-  return NextResponse.json(list);
+  const { id: folderId } = await params;
+  const notes = await getStickyNotesByFolder(folderId, session.user.id);
+  return NextResponse.json(notes);
 }
 
 export async function POST(
@@ -23,9 +26,9 @@ export async function POST(
   const session = await auth.api.getSession({ headers: await headers() });
   if (!session) return NextResponse.json({ code: "UNAUTHORIZED", message: "Unauthorized" }, { status: 401 });
 
-  const { id: systemId } = await params;
+  const { id: folderId } = await params;
   const body = await request.json();
-  const parsed = createFolderSchema.safeParse({ ...body, systemId });
+  const parsed = createStickyNoteSchema.omit({ pageId: true }).safeParse(body);
 
   if (!parsed.success) {
     return NextResponse.json(
@@ -34,11 +37,6 @@ export async function POST(
     );
   }
 
-  try {
-    const folder = await createFolder(session.user.id, parsed.data);
-    return NextResponse.json(folder, { status: 201 });
-  } catch (error) {
-    console.error("POST /api/systems/[id]/folders error:", error);
-    return NextResponse.json({ code: "INTERNAL_SERVER_ERROR", message: "Unexpected error" }, { status: 500 });
-  }
+  const note = await createStickyNote(session.user.id, { ...parsed.data, folderId });
+  return NextResponse.json(note, { status: 201 });
 }
