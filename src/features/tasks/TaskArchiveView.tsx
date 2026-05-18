@@ -39,9 +39,12 @@ export function TaskArchiveView({ systemId, initialData, folderId, folderInitial
             <h2 className="text-2xl font-bold">Archived Tasks</h2>
             <div className="flex flex-col gap-2.5 w-full h-full overflow-y-auto">
                 {archivedTasks.length === 0 ? (
-                    <p className="text-sm text-muted-foreground py-6 text-center">
-                        No archived tasks.
-                    </p>
+                    <div className="flex flex-col items-center justify-center py-10 text-center space-y-2 border border-dashed rounded-lg bg-card">
+                        <p className="text-sm font-medium">Nothing here yet</p>
+                        <p className="text-sm text-muted-foreground">
+                            Tasks that are completed will appear here for your reference.
+                        </p>
+                    </div>
                 ) : (
                     archivedTasks.map((task) => (
                         <TaskCard 
@@ -59,8 +62,9 @@ export function TaskArchiveView({ systemId, initialData, folderId, folderInitial
 
             <ConfirmDialog
               open={deleteTarget !== null}
-              title="Delete task"
-              description={`"${deleteTarget?.title}" will be permanently deleted.`}
+              title="Move to trash"
+              description={`"${deleteTarget?.title}" will be moved to the trash.`}
+              confirmLabel="Move to trash"
               onConfirm={() => {
                 if (deleteTarget) deleteTask(deleteTarget.id);
                 setDeleteTarget(null);

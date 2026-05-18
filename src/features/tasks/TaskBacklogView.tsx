@@ -48,9 +48,12 @@ export function TaskBacklogView({ systemId, initialData, folderId, folderInitial
                 </p>
             </div>
             {backlogTasks.length === 0 ? (
-                <p className="text-sm text-muted-foreground py-6 text-center">
-                    No backlog tasks. All your tasks have dates assigned.
-                </p>
+                <div className="flex flex-col items-center justify-center py-10 text-center space-y-2 border border-dashed rounded-lg bg-card">
+                    <p className="text-sm font-medium">All caught up!</p>
+                    <p className="text-sm text-muted-foreground">
+                        Your backlog is completely empty. Everything is scheduled or done.
+                    </p>
+                </div>
             ) : (
                 <div className="flex flex-col gap-2.5 w-full">
                     {backlogTasks.map((task) => (
@@ -69,8 +72,9 @@ export function TaskBacklogView({ systemId, initialData, folderId, folderInitial
 
             <ConfirmDialog
               open={deleteTarget !== null}
-              title="Delete task"
-              description={`"${deleteTarget?.title}" will be permanently deleted.`}
+              title="Move to trash"
+              description={`"${deleteTarget?.title}" will be moved to the trash.`}
+              confirmLabel="Move to trash"
               onConfirm={() => {
                 if (deleteTarget) deleteTask(deleteTarget.id);
                 setDeleteTarget(null);

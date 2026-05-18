@@ -90,8 +90,9 @@ export function SubtaskList({ parentTaskId, systemId }: SubtaskListProps) {
 
       <ConfirmDialog
         open={deleteTarget !== null}
-        title="Delete subtask"
-        description={`"${deleteTarget?.title}" will be permanently deleted.`}
+        title="Move to trash"
+        description={`"${deleteTarget?.title}" will be moved to the trash.`}
+        confirmLabel="Move to trash"
         onConfirm={() => {
           if (deleteTarget) {
             deleteTask(deleteTarget.id, {

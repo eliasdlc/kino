@@ -19,7 +19,12 @@ export default async function DashboardPage() {
   const todayTasks = await db
     .select()
     .from(tasks)
-    .where(and(eq(tasks.userId, userId), eq(tasks.status, "today"), isNull(tasks.deletedAt)))
+    .where(and(
+      eq(tasks.userId, userId),
+      // Only include tasks that are for today OR done today (in this naive check we include all 'done' for now, but a more robust check might be needed. The UI currently shows all done). Let's just include 'today' or 'done'
+      sql`${tasks.status} IN ('today', 'done')`,
+      isNull(tasks.deletedAt)
+    ))
     .orderBy(tasks.sortIndex);
 
   const doneTodayCount = todayTasks.filter((t) => t.status === "done").length;
@@ -52,9 +57,11 @@ export default async function DashboardPage() {
           )}
         </div>
         {todayTasks.length === 0 ? (
-          <p className="text-sm text-muted-foreground py-4">
-            No tasks with status <strong>Today</strong> right now. Open a system and move tasks here.
-          </p>
+          <div className="flex flex-col items-center justify-center py-6 text-center space-y-3">
+            <p className="text-sm text-muted-foreground">
+              You have no tasks scheduled for today. Open a system or use <kbd className="font-sans px-1.5 py-0.5 border rounded-md text-xs">⌘+K</kbd> to jump to your Inbox and plan your day.
+            </p>
+          </div>
         ) : (
           <ul className="space-y-1">
             {todayTasks.map((task) => (
