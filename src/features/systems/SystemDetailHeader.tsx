@@ -62,15 +62,18 @@ export function SystemDetailHeader({ system, taskCount }: SystemDetailHeaderProp
                 Edit system
               </DropdownMenuItem>
             )}
-            {!system.isInbox && <DropdownMenuSeparator />}
-            <DropdownMenuItem
-              className="text-destructive focus:text-destructive flex items-center gap-2"
-              onClick={() => setConfirmDelete(true)}
-              disabled={system.isInbox}
-            >
-              <Trash2 className="size-4" />
-              Delete system
-            </DropdownMenuItem>
+            {!system.isInbox && (
+              <>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem
+                  className="text-destructive focus:text-destructive flex items-center gap-2"
+                  onClick={() => setConfirmDelete(true)}
+                >
+                  <Trash2 className="size-4" />
+                  Delete system
+                </DropdownMenuItem>
+              </>
+            )}
           </DropdownMenuContent>
         </DropdownMenu>
       </div>

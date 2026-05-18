@@ -181,6 +181,13 @@ function TaskDetailForm({ task, systemId, onClose }: TaskDetailFormProps) {
             </PopoverTrigger>
             <PopoverContent className="w-auto p-0" align="start">
               <Calendar mode="single" selected={startDate} onSelect={setStartDate} />
+              {startDate && (
+                <div className="p-2 border-t">
+                  <Button variant="ghost" size="sm" className="w-full" onClick={() => setStartDate(undefined)}>
+                    Clear
+                  </Button>
+                </div>
+              )}
             </PopoverContent>
           </Popover>
         </div>
