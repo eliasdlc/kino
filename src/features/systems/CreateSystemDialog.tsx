@@ -1,7 +1,7 @@
 'use client'
 
 import { useState } from "react";
-import { ChevronDown, Loader2 } from "lucide-react";
+import { ChevronDown, Loader2, Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -32,6 +32,7 @@ export function CreateSystemDialog() {
   const [open, setOpen] = useState(false);
   const [showAdvanced, setShowAdvanced] = useState(false);
   const [isPending, setIsPending] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   const [name, setName] = useState(DEFAULT_STATE.name);
   const [identityStatement, setIdentityStatement] = useState(DEFAULT_STATE.identityStatement);
@@ -54,6 +55,7 @@ export function CreateSystemDialog() {
       setExpectedFrequency(DEFAULT_STATE.expectedFrequency);
       setTriggerContext(DEFAULT_STATE.triggerContext);
       setShowAdvanced(false);
+      setError(null);
     }
   }
 
@@ -79,6 +81,8 @@ export function CreateSystemDialog() {
       if (!res.ok) throw new Error("Failed to create system");
       await queryClient.invalidateQueries({ queryKey: ["systems"] });
       handleOpenChange(false);
+    } catch (e: any) {
+      setError(e.message || "An unexpected error occurred");
     } finally {
       setIsPending(false);
     }
@@ -94,7 +98,10 @@ export function CreateSystemDialog() {
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
       <DialogTrigger asChild>
-        <Button variant="outline" className="w-full">+ New system</Button>
+        <Button variant="outline" className="w-full">
+          <Plus className="size-4 mr-1.5" />
+          New system
+        </Button>
       </DialogTrigger>
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
@@ -243,6 +250,10 @@ export function CreateSystemDialog() {
                 />
               </div>
             </div>
+          )}
+
+          {error && (
+            <p className="text-sm text-destructive font-medium">{error}</p>
           )}
         </div>
 

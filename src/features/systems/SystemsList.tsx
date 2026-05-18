@@ -14,7 +14,8 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Button } from "@/components/ui/button";
-import { MoreHorizontal, Eye, Pencil, Trash2 } from "lucide-react";
+import { Input } from "@/components/ui/input";
+import { MoreHorizontal, Eye, Pencil, Trash2, Search } from "lucide-react";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { EditSystemDialog } from "./EditSystemDialog";
 import type { System } from "./systems.types";
@@ -53,6 +54,7 @@ export function SystemsList() {
   const { mutate: deleteSystem } = useDeleteSystem();
   const [editTarget, setEditTarget] = useState<System | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<System | null>(null);
+  const [searchQuery, setSearchQuery] = useState("");
 
   if (isLoading) {
     return (
@@ -84,11 +86,30 @@ export function SystemsList() {
     );
   }
 
+  const filteredSystems = systems.filter(s => !s.isInbox && s.name.toLowerCase().includes(searchQuery.toLowerCase()));
+
   return (
-    <>
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-        {systems.filter((s) => !s.isInbox).map((system) => {
-          const borderColor = COLOR_BORDER[system.color] ?? "border-t-gray-400";
+    <div className="space-y-4">
+      <div className="relative max-w-sm">
+        <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground" />
+        <Input 
+          className="pl-9" 
+          placeholder="Search systems..." 
+          value={searchQuery}
+          onChange={(e) => setSearchQuery(e.target.value)}
+        />
+      </div>
+
+      {filteredSystems.length === 0 ? (
+        <div className="rounded-lg border border-dashed p-12 text-center space-y-2">
+          <p className="text-sm text-muted-foreground">
+            No systems found matching "{searchQuery}".
+          </p>
+        </div>
+      ) : (
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+          {filteredSystems.map((system) => {
+            const borderColor = COLOR_BORDER[system.color] ?? "border-t-gray-400";
           return (
             <Link key={system.id} href={`/systems/${system.id}`} className="group">
               <Card
@@ -147,6 +168,7 @@ export function SystemsList() {
           );
         })}
       </div>
+      )}
 
       {editTarget && (
         <EditSystemDialog
@@ -166,7 +188,7 @@ export function SystemsList() {
         }}
         onCancel={() => setDeleteTarget(null)}
       />
-    </>
+    </div>
   );
 }
 
