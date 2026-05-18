@@ -154,10 +154,6 @@ export function SystemTreeItem({
               <FolderPlus className="size-4 mr-2" />
               New folder
             </DropdownMenuItem>
-            <DropdownMenuItem>
-              <Pencil className="size-4 mr-2" />
-              Rename
-            </DropdownMenuItem>
             <DropdownMenuSeparator />
             <DropdownMenuItem
               className="text-destructive focus:text-destructive"

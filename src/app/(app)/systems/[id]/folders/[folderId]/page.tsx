@@ -46,7 +46,7 @@ export default async function FolderViewRoute({ params }: FolderViewRouteProps) 
   const hasDocContent = children.length > 0 || folderPages.length > 0;
 
   const breadcrumbItems = [
-    { label: "Sistemas", href: "/systems" },
+    { label: "Systems", href: "/systems" },
     { label: system.name, href: `/systems/${systemId}` },
     ...breadcrumb.map((crumb) => ({
       label: crumb.name,

@@ -31,7 +31,7 @@ export default async function SystemPage({
       <div className="sticky top-0 z-10 bg-background border-b px-6 py-2.5">
         <PageBreadcrumb
           items={[
-            { label: "Sistemas", href: "/systems" },
+            { label: "Systems", href: "/systems" },
             { label: system.name },
           ]}
         />

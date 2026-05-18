@@ -73,7 +73,7 @@ export function GlobalCommandPalette() {
         )}
         <CommandSeparator />
         <CommandGroup heading="Settings">
-          <CommandItem onSelect={() => runCommand(() => router.push("/settings/shortcuts"))}>
+          <CommandItem onSelect={() => runCommand(() => router.push("/settings"))}>
             <Settings className="mr-2 h-4 w-4" />
             <span>Keyboard Shortcuts</span>
           </CommandItem>
