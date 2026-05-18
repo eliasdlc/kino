@@ -7,6 +7,7 @@ interface SystemsTreeState {
   expanded: Record<string, boolean>;
   toggle: (id: string) => void;
   setExpanded: (id: string, value: boolean) => void;
+  setOnlyExpanded: (id: string) => void;
 }
 
 export const useSystemsTreeStore = create<SystemsTreeState>()(
@@ -17,6 +18,8 @@ export const useSystemsTreeStore = create<SystemsTreeState>()(
         set((s) => ({ expanded: { ...s.expanded, [id]: !s.expanded[id] } })),
       setExpanded: (id, value) =>
         set((s) => ({ expanded: { ...s.expanded, [id]: value } })),
+      setOnlyExpanded: (id) =>
+        set(() => ({ expanded: { [id]: true } })),
     }),
     {
       name: "kino-systems-tree",

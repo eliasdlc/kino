@@ -43,7 +43,7 @@ export function SystemsSidebar({
   const pathname = usePathname();
   const router = useRouter();
   const { data: systems, isLoading } = useSystems();
-  const setExpanded = useSystemsTreeStore((s) => s.setExpanded);
+  const setOnlyExpanded = useSystemsTreeStore((s) => s.setOnlyExpanded);
 
   const initials = userName
     ? userName
@@ -65,10 +65,10 @@ export function SystemsSidebar({
     return match?.[1] ?? null;
   }, [pathname]);
 
-  // Auto-expand active system on navigation
+  // Auto-expand active system on navigation and close others
   useEffect(() => {
-    if (activeSystemId) setExpanded(activeSystemId, true);
-  }, [activeSystemId, setExpanded]);
+    if (activeSystemId) setOnlyExpanded(activeSystemId);
+  }, [activeSystemId, setOnlyExpanded]);
 
   async function handleSignOut() {
     await authClient.signOut();
