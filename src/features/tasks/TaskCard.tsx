@@ -5,9 +5,10 @@ import { format, isBefore, parseISO, startOfToday } from "date-fns";
 import { BatteryLow, ChevronDown, Minus, Trash2, Zap } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
-
 import type { Task } from "./tasks.types";
 import { SubtaskList } from "./SubtaskList";
+import { useFolders } from "@/features/folders/folders.hooks";
+import { getSystemColor } from "@/shared/utils/system-colors";
 
 interface TaskCardProps {
   task: Task;
@@ -59,6 +60,9 @@ export function TaskCard({ task, systemId, isFocused, onToggle, onDelete, onEdit
     !isDone &&
     !isArchived &&
     isBefore(parseISO(task.dueDate), startOfToday());
+
+  const { data: folders } = useFolders(systemId);
+  const folder = task.folderId ? folders?.find((f) => f.id === task.folderId) : null;
 
   return (
     <div
@@ -134,6 +138,14 @@ export function TaskCard({ task, systemId, isFocused, onToggle, onDelete, onEdit
             <EnergyIcon level={task.energyLevel} />
             {task.energyLevel}
           </span>
+
+          {/* Folder chip */}
+          {folder && (
+            <span className="inline-flex items-center gap-1 text-[10px] text-muted-foreground">
+              <span className={`size-1.5 rounded-full inline-block shrink-0 ${getSystemColor(folder.color).dot}`} />
+              {folder.name}
+            </span>
+          )}
 
           {/* Due date */}
           {task.dueDate && (

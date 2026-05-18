@@ -30,6 +30,8 @@ import {
 } from "@/shared/types/enums";
 import { SubtaskList } from "./SubtaskList";
 import { useUpdateTask } from "./tasks.hooks";
+import { useFolders } from "@/features/folders/folders.hooks";
+import { getSystemColor } from "@/shared/utils/system-colors";
 import type { Task } from "./tasks.types";
 
 interface TaskDetailSheetProps {
@@ -47,6 +49,7 @@ interface TaskDetailFormProps {
 
 function TaskDetailForm({ task, systemId, onClose }: TaskDetailFormProps) {
   const { mutate: updateTask, isPending } = useUpdateTask(systemId);
+  const { data: folders = [] } = useFolders(systemId);
 
   const [title, setTitle] = useState(task.title);
   const [description, setDescription] = useState(task.description ?? "");
@@ -59,6 +62,7 @@ function TaskDetailForm({ task, systemId, onClose }: TaskDetailFormProps) {
   const [startDate, setStartDate] = useState<Date | undefined>(
     task.startDate ? parseISO(task.startDate) : undefined
   );
+  const [selectedFolderId, setSelectedFolderId] = useState<string>(task.folderId ?? "none");
 
   function handleSave() {
     if (!title.trim()) return;
@@ -73,6 +77,7 @@ function TaskDetailForm({ task, systemId, onClose }: TaskDetailFormProps) {
           energyLevel,
           dueDate: dueDate ? format(dueDate, "yyyy-MM-dd") : undefined,
           startDate: startDate ? format(startDate, "yyyy-MM-dd") : undefined,
+          folderId: selectedFolderId !== "none" ? selectedFolderId : null,
         },
       },
       { onSuccess: onClose }
@@ -145,6 +150,30 @@ function TaskDetailForm({ task, systemId, onClose }: TaskDetailFormProps) {
           </Select>
         </div>
       </div>
+
+      {folders.length > 0 && (
+        <div className="space-y-1.5">
+          <Label>Assign to</Label>
+          <Select value={selectedFolderId} onValueChange={setSelectedFolderId}>
+            <SelectTrigger>
+              <SelectValue placeholder="No folder" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="none">
+                <span className="text-muted-foreground">No folder</span>
+              </SelectItem>
+              {folders.map((folder) => (
+                <SelectItem key={folder.id} value={folder.id}>
+                  <span className="flex items-center gap-2">
+                    <span className={`size-2 rounded-full inline-block ${getSystemColor(folder.color).dot}`} />
+                    {folder.name}
+                  </span>
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+      )}
 
       <div className="grid grid-cols-2 gap-3">
         <div className="space-y-1.5">

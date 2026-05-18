@@ -16,6 +16,8 @@ import { ENERGY_LEVEL_VALUES, TASK_PRIORITY_VALUES, TASK_TYPE_VALUES } from "@/s
 import { CalendarRange, ChevronDown, ChevronUp, Plus, X } from "lucide-react";
 import type { CreateTaskInput } from "./tasks.types";
 import { useCreateTask } from "./tasks.hooks";
+import { useFolders } from "@/features/folders/folders.hooks";
+import { getSystemColor } from "@/shared/utils/system-colors";
 
 interface CreateTaskDialogProps {
   systemId: string;
@@ -61,8 +63,10 @@ export function CreateTaskDialog({ systemId, parentTaskId, folderId, open: contr
   const [dateRange, setDateRange] = useState<DateRange>({ from: new Date(), to: undefined });
 
   const [subtasks, setSubtasks] = useState<Array<{ id: string; title: string }>>([]);
+  const [selectedFolderId, setSelectedFolderId] = useState<string>(folderId ?? "none");
 
-  const { mutateAsync: createTask, isPending } = useCreateTask(systemId, folderId);
+  const { data: folders = [] } = useFolders(systemId);
+  const { mutateAsync: createTask, isPending } = useCreateTask(systemId, selectedFolderId !== "none" ? selectedFolderId : undefined);
   const durationDays =
     dateRange.from && dateRange.to
       ? Math.round((dateRange.to.getTime() - dateRange.from.getTime()) / 86400000)
@@ -77,6 +81,7 @@ export function CreateTaskDialog({ systemId, parentTaskId, folderId, open: contr
     setEstimatedTime(DEFAULT_STATE.estimatedTime);
     setDateRange({ from: new Date(), to: undefined });
     setSubtasks([]);
+    setSelectedFolderId(folderId ?? "none");
     setShowMore(false);
     setError(null);
   }
@@ -98,7 +103,7 @@ export function CreateTaskDialog({ systemId, parentTaskId, folderId, open: contr
       ...(dueDate ? { dueDate } : {}),
       ...(estimatedTime ? { estimatedTime } : {}),
       ...(parentTaskId ? { parentTaskId } : {}),
-      ...(folderId ? { folderId } : {}),
+      ...(selectedFolderId !== "none" ? { folderId: selectedFolderId } : {}),
     };
 
     try {
@@ -185,6 +190,31 @@ export function CreateTaskDialog({ systemId, parentTaskId, folderId, open: contr
               </Select>
             </div>
           </div>
+
+          {/* ── Folder assignment ── */}
+          {folders.length > 0 && (
+            <div className="space-y-2">
+              <Label>Assign to</Label>
+              <Select value={selectedFolderId} onValueChange={setSelectedFolderId}>
+                <SelectTrigger>
+                  <SelectValue placeholder="No folder" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="none">
+                    <span className="text-muted-foreground">No folder</span>
+                  </SelectItem>
+                  {folders.map((folder) => (
+                    <SelectItem key={folder.id} value={folder.id}>
+                      <span className="flex items-center gap-2">
+                        <span className={`size-2 rounded-full inline-block ${getSystemColor(folder.color).dot}`} />
+                        {folder.name}
+                      </span>
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          )}
 
           {/* ── Date range ── */}
           <div className="space-y-2">

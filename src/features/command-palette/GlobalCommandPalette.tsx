@@ -12,13 +12,18 @@ import {
   CommandSeparator,
 } from "@/components/ui/command";
 import { useHotkey } from "@/shared/hooks/useHotkey";
-import { Inbox, LayoutDashboard, Settings, Layers, Focus } from "lucide-react";
+import { useSystems } from "@/features/systems/systems.hooks";
+import { Inbox, LayoutDashboard, Settings, Layers } from "lucide-react";
+import { getSystemColor } from "@/shared/utils/system-colors";
 
 export function GlobalCommandPalette() {
   const [open, setOpen] = React.useState(false);
   const router = useRouter();
+  const { data: systems } = useSystems();
 
-  // Command Palette global toggle
+  const inboxSystem = systems?.find((s) => s.isInbox);
+  const regularSystems = systems?.filter((s) => !s.isInbox) ?? [];
+
   useHotkey(["mod+k"], (e) => {
     e.preventDefault();
     setOpen((open) => !open);
@@ -35,23 +40,37 @@ export function GlobalCommandPalette() {
       <CommandList>
         <CommandEmpty>No results found.</CommandEmpty>
         <CommandGroup heading="Navigation">
-          <CommandItem onSelect={() => runCommand(() => router.push("/inbox"))}>
-            <Inbox className="mr-2 h-4 w-4" />
-            <span>Inbox</span>
-          </CommandItem>
+          {inboxSystem && (
+            <CommandItem onSelect={() => runCommand(() => router.push(`/systems/${inboxSystem.id}`))}>
+              <Inbox className={`mr-2 h-4 w-4 ${getSystemColor(inboxSystem.color).text}`} />
+              <span>{inboxSystem.name}</span>
+            </CommandItem>
+          )}
           <CommandItem onSelect={() => runCommand(() => router.push("/dashboard"))}>
             <LayoutDashboard className="mr-2 h-4 w-4" />
             <span>Dashboard</span>
           </CommandItem>
           <CommandItem onSelect={() => runCommand(() => router.push("/systems"))}>
             <Layers className="mr-2 h-4 w-4" />
-            <span>Systems</span>
-          </CommandItem>
-          <CommandItem onSelect={() => runCommand(() => router.push("/focus"))}>
-            <Focus className="mr-2 h-4 w-4" />
-            <span>Focus Mode</span>
+            <span>All Systems</span>
           </CommandItem>
         </CommandGroup>
+        {regularSystems.length > 0 && (
+          <>
+            <CommandSeparator />
+            <CommandGroup heading="Systems">
+              {regularSystems.map((system) => (
+                <CommandItem
+                  key={system.id}
+                  onSelect={() => runCommand(() => router.push(`/systems/${system.id}`))}
+                >
+                  <span className={`mr-2 size-3 rounded-full inline-block ${getSystemColor(system.color).dot}`} />
+                  <span>{system.name}</span>
+                </CommandItem>
+              ))}
+            </CommandGroup>
+          </>
+        )}
         <CommandSeparator />
         <CommandGroup heading="Settings">
           <CommandItem onSelect={() => runCommand(() => router.push("/settings/shortcuts"))}>

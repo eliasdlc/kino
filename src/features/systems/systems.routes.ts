@@ -2,14 +2,15 @@ import { headers } from "next/headers";
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "../../../auth";
 import { createSystemSchema, reorderSystemsSchema, updateSystemSchema } from "./systems.schemas";
-import { createSystem, deactivateSystem, getUsersSystems, reorderSystem, updateSystem, assertNotInbox, getSystembyId } from "./systems.service";
+import { createSystem, createInboxForUser, deactivateSystem, getUsersSystems, reorderSystem, updateSystem, assertNotInbox, getSystembyId } from "./systems.service";
 import { ForbiddenError, NotFoundError } from "@/shared/utils/error";
 
 export async function GET() {
   const session = await auth.api.getSession({ headers: await headers() });
   if (!session) return NextResponse.json({ code: "UNAUTHORIZED", message: "Unauthorized" }, { status: 401 });
 
-  const userSystems = await getUsersSystems(session.user.id)
+  await createInboxForUser(session.user.id);
+  const userSystems = await getUsersSystems(session.user.id);
   return NextResponse.json(userSystems);
 }
 
