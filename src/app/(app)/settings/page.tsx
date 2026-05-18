@@ -13,11 +13,27 @@ import { useThemeStore } from "@/components/ThemeProvider";
 import { Separator } from "@/components/ui/separator";
 import { Monitor, Moon, Sun } from "lucide-react";
 
+import { Kbd } from "@/components/ui/kbd";
+
 const THEME_OPTIONS = [
   { value: "system", label: "System", icon: Monitor },
   { value: "light", label: "Light", icon: Sun },
   { value: "dark", label: "Dark", icon: Moon },
 ] as const;
+
+function ShortcutRow({ label, description, keys }: { label: string; description: string; keys: React.ReactNode }) {
+  return (
+    <div className="flex items-center justify-between py-3 border-b last:border-0">
+      <div className="space-y-0.5">
+        <p className="text-sm font-medium">{label}</p>
+        <p className="text-xs text-muted-foreground">{description}</p>
+      </div>
+      <div className="flex items-center gap-1.5 shrink-0">
+        {keys}
+      </div>
+    </div>
+  );
+}
 
 export default function SettingsPage() {
   const mode = useThemeStore((s) => s.mode);
@@ -32,7 +48,7 @@ export default function SettingsPage() {
 
       <Separator />
 
-      <div className="space-y-6">
+      <div className="space-y-8 pb-10">
         {/* Appearance */}
         <div className="space-y-4">
           <div>
@@ -67,6 +83,59 @@ export default function SettingsPage() {
                 ))}
               </SelectContent>
             </Select>
+          </div>
+        </div>
+
+        {/* Keyboard Shortcuts */}
+        <div className="space-y-4">
+          <div>
+            <h2 className="text-lg font-semibold">Keyboard Shortcuts</h2>
+            <p className="text-sm text-muted-foreground">
+              Work faster with keyboard navigation.
+            </p>
+          </div>
+
+          <div className="rounded-lg border px-4 flex flex-col">
+            <ShortcutRow 
+              label="Command Palette" 
+              description="Open the quick action menu" 
+              keys={<><Kbd>⌘</Kbd><Kbd>K</Kbd></>} 
+            />
+            <ShortcutRow 
+              label="Quick Add Task" 
+              description="Instantly add a task to your Inbox from anywhere" 
+              keys={<><Kbd>⌘</Kbd><Kbd>I</Kbd></>} 
+            />
+            <ShortcutRow 
+              label="Go to Inbox" 
+              description="Navigate to the Inbox system" 
+              keys={<><Kbd>G</Kbd><span className="text-xs text-muted-foreground mx-0.5">then</span><Kbd>I</Kbd></>} 
+            />
+            <ShortcutRow 
+              label="Go to Systems" 
+              description="Navigate to all systems overview" 
+              keys={<><Kbd>G</Kbd><span className="text-xs text-muted-foreground mx-0.5">then</span><Kbd>S</Kbd></>} 
+            />
+            <ShortcutRow 
+              label="Navigate List" 
+              description="Move up and down tasks" 
+              keys={<><Kbd>J</Kbd><span className="text-xs text-muted-foreground mx-0.5">/</span><Kbd>K</Kbd></>} 
+            />
+            <ShortcutRow 
+              label="Complete Task" 
+              description="Mark selected task as done" 
+              keys={<><Kbd>Space</Kbd><span className="text-xs text-muted-foreground mx-0.5">or</span><Kbd>E</Kbd></>} 
+            />
+            <ShortcutRow 
+              label="Edit Task" 
+              description="Open selected task details" 
+              keys={<Kbd>Enter</Kbd>} 
+            />
+            <ShortcutRow 
+              label="Delete Task" 
+              description="Open delete confirmation for selected task" 
+              keys={<Kbd>Backspace</Kbd>} 
+            />
           </div>
         </div>
 

@@ -4,6 +4,10 @@ import { auth } from "@/auth";
 import { Providers } from "./providers";
 import { SystemsSidebar } from "@/features/systems/SystemsSidebar";
 
+import { GlobalCommandPalette } from "@/features/command-palette/GlobalCommandPalette";
+import { GlobalQuickAddDialog } from "@/features/tasks/GlobalQuickAddDialog";
+import { GlobalNavigationShortcuts } from "@/features/command-palette/GlobalNavigationShortcuts";
+
 export default async function AppLayout({
   children,
 }: {
@@ -25,6 +29,9 @@ export default async function AppLayout({
           {children}
         </main>
       </div>
+      <GlobalCommandPalette />
+      <GlobalQuickAddDialog />
+      <GlobalNavigationShortcuts />
     </Providers>
   );
 }
