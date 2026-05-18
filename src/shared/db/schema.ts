@@ -15,6 +15,7 @@ import {
   time,
   pgEnum,
   uniqueIndex,
+  primaryKey,
   index,
   check,
 } from 'drizzle-orm/pg-core';
@@ -70,6 +71,7 @@ export const energyLevelEnum = pgEnum('energy_level', [
 export const taskStatusEnum = pgEnum('task_status', [
   'backlog',
   'week',
+  'tomorrow',
   'today',
   'done',
   'archived',
@@ -390,7 +392,7 @@ export const tasks = pgTable(
     }),
     title: varchar('title', { length: 500 }).notNull(),
     description: text('description'),
-    status: taskStatusEnum('status').notNull().default('backlog'),
+    status: taskStatusEnum('status').notNull().default('today'),
     energyLevel: energyLevelEnum('energy_level').notNull().default('medium'),
     priority: taskPriorityEnum('priority').notNull().default('medium'),
     taskType: taskTypeEnum('task_type'),
@@ -402,6 +404,9 @@ export const tasks = pgTable(
       (): AnyPgColumn => tasks.id,
       { onDelete: 'set null' },
     ),
+    folderId: uuid('folder_id').references(() => folders.id, {
+      onDelete: 'set null',
+    }),
     contextTagId: uuid('context_tag_id').references(() => contextTags.id, {
       onDelete: 'set null',
     }),
@@ -436,6 +441,11 @@ export const tasks = pgTable(
     index('idx_tasks_parent')
       .on(table.parentTaskId)
       .where(sql`${table.parentTaskId} IS NOT NULL`),
+    index('idx_tasks_folder')
+      .on(table.folderId)
+      .where(
+        sql`${table.folderId} IS NOT NULL AND ${table.deletedAt} IS NULL`,
+      ),
   ],
 );
 
@@ -510,6 +520,26 @@ export const pages = pgTable(
     index('idx_pages_system')
       .on(table.systemId)
       .where(sql`${table.systemId} IS NOT NULL`),
+  ],
+);
+
+// ── task_page_links ──
+// Many-to-many: a task can reference N pages and a page can reference N tasks.
+
+export const taskPageLinks = pgTable(
+  'task_page_links',
+  {
+    taskId: uuid('task_id')
+      .notNull()
+      .references(() => tasks.id, { onDelete: 'cascade' }),
+    pageId: uuid('page_id')
+      .notNull()
+      .references(() => pages.id, { onDelete: 'cascade' }),
+  },
+  (table) => [
+    primaryKey({ columns: [table.taskId, table.pageId] }),
+    index('idx_task_page_links_task').on(table.taskId),
+    index('idx_task_page_links_page').on(table.pageId),
   ],
 );
 
