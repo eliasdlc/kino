@@ -145,13 +145,14 @@ export async function linkTaskToPage(
     .where(and(eq(pages.id, pageId), eq(pages.userId, userId), isNull(pages.deletedAt)));
 
   if (!page) throw new NotFoundError("Page not found");
+  if (!page.systemId) throw new ForbiddenError("Cannot link tasks to a page with no system");
 
   const [task] = await db.select({ id: tasks.id })
     .from(tasks)
     .where(and(
       eq(tasks.id, taskId),
       eq(tasks.userId, userId),
-      eq(tasks.systemId, page.systemId!),
+      eq(tasks.systemId, page.systemId),
       isNull(tasks.deletedAt)
     ));
 
@@ -176,7 +177,7 @@ export async function unlinkTaskFromPage(
     .from(pages)
     .where(and(eq(pages.id, pageId), eq(pages.userId, userId), isNull(pages.deletedAt)));
 
-  if (!page) throw new Error("Page not found");
+  if (!page) throw new NotFoundError("Page not found");
 
   await db
     .delete(taskPageLinks)

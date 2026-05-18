@@ -2,6 +2,7 @@ import { headers } from "next/headers";
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "../../../auth";
 import { createPageSchema, updatePageSchema, linkTaskSchema } from "./pages.schemas";
+import { NotFoundError, ForbiddenError } from "@/shared/utils/error";
 import {
   getPagesBySystem,
   createPage,
@@ -140,10 +141,13 @@ export async function linkPageTask(
     }
     return new NextResponse(null, { status: 204 });
   } catch (err: unknown) {
-    if (err instanceof Error && err.name === "ForbiddenError") {
+    if (err instanceof ForbiddenError) {
       return NextResponse.json({ code: "FORBIDDEN", message: err.message }, { status: 403 });
     }
-    return NextResponse.json({ code: "NOT_FOUND", message: "Page or Task not found" }, { status: 404 });
+    if (err instanceof NotFoundError) {
+      return NextResponse.json({ code: "NOT_FOUND", message: err.message }, { status: 404 });
+    }
+    throw err;
   }
 }
 
