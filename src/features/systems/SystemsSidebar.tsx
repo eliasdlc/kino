@@ -5,6 +5,7 @@ import { usePathname } from "next/navigation";
 import { useEffect, useMemo } from "react";
 import {
   Box,
+  CircleCheckBig,
   Inbox,
   LayoutDashboard,
   LogOut,

@@ -11,7 +11,7 @@ const mockTasks: Task[] = [
 ];
 
 describe("useTaskKeyboardNavigation", () => {
-  let handlers: any;
+  let handlers: Parameters<typeof useTaskKeyboardNavigation>[1];
 
   beforeEach(() => {
     handlers = {

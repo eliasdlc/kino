@@ -84,5 +84,5 @@ export function useHotkey(
 
     document.addEventListener('keydown', handleKeyDown);
     return () => document.removeEventListener('keydown', handleKeyDown);
-  }, [keyCombos, preventDefault, stopPropagation, enableInInputs]);
+  }, [keyCombos, preventDefault, stopPropagation, enableInInputs, enabled]);
 }

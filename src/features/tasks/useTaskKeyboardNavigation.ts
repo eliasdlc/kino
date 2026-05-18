@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { useHotkey } from "@/shared/hooks/useHotkey";
 import type { Task } from "./tasks.types";
 
@@ -16,12 +16,8 @@ export function useTaskKeyboardNavigation(
   const [focusedIndex, setFocusedIndex] = useState<number>(-1);
   const enabled = options?.enabled ?? true;
 
-  // Reset focus if tasks array shrinks below focused index
-  useEffect(() => {
-    if (focusedIndex >= tasks.length) {
-      setFocusedIndex(tasks.length - 1);
-    }
-  }, [tasks.length, focusedIndex]);
+  // Clamp on read — avoids setState-in-effect and unnecessary re-renders
+  const safeIndex = focusedIndex >= tasks.length ? tasks.length - 1 : focusedIndex;
 
   useHotkey(["j", "ArrowDown"], (e) => {
     e.preventDefault();
@@ -34,28 +30,28 @@ export function useTaskKeyboardNavigation(
   }, { enabled });
 
   useHotkey(["enter"], (e) => {
-    if (focusedIndex >= 0 && tasks[focusedIndex]) {
+    if (safeIndex >= 0 && tasks[safeIndex]) {
       e.preventDefault();
-      handlers.onSelect?.(tasks[focusedIndex]);
+      handlers.onSelect?.(tasks[safeIndex]);
     }
   }, { enabled });
 
   useHotkey([" ", "e"], (e) => {
-    if (focusedIndex >= 0 && tasks[focusedIndex]) {
+    if (safeIndex >= 0 && tasks[safeIndex]) {
       e.preventDefault();
-      handlers.onToggle?.(tasks[focusedIndex].id);
+      handlers.onToggle?.(tasks[safeIndex].id);
     }
   }, { enabled });
 
   useHotkey(["backspace", "delete"], (e) => {
-    if (focusedIndex >= 0 && tasks[focusedIndex]) {
+    if (safeIndex >= 0 && tasks[safeIndex]) {
       e.preventDefault();
-      handlers.onDelete?.(tasks[focusedIndex]);
+      handlers.onDelete?.(tasks[safeIndex]);
     }
   }, { enabled });
 
-  return { 
-    focusedTaskId: tasks[focusedIndex]?.id ?? null,
-    setFocusedIndex
+  return {
+    focusedTaskId: tasks[safeIndex]?.id ?? null,
+    setFocusedIndex,
   };
 }
