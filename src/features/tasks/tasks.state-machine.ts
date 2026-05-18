@@ -1,5 +1,5 @@
-export type TaskStatus = "backlog" | "week" | "today" | "done" | "archived";
-export type TransitionAction = "move_to_week" | "move_to_today" | "move_to_backlog" | "toggle_done" | "undo_done" | "soft_delete";
+export type TaskStatus = "backlog" | "week" | "tomorrow" | "today" | "done" | "archived";
+export type TransitionAction = "move_to_week" | "move_to_today" | "move_to_tomorrow" | "move_to_backlog" | "toggle_done" | "undo_done" | "soft_delete";
 
 export interface TransitionContext {
     currentStatus: TaskStatus;
@@ -31,17 +31,28 @@ export type SideEffect =
 const TRANSITION_MAP: Record<TaskStatus, Partial<Record<TransitionAction, TaskStatus>>> = {
     backlog: {
         move_to_week: "week",
+        move_to_tomorrow: "tomorrow",
         move_to_today: "today",
         toggle_done: "done",
         soft_delete: "archived",
     },
     week: {
         move_to_today: "today",
+        move_to_tomorrow: "tomorrow",
+        move_to_backlog: "backlog",
+        toggle_done: "done",
+        soft_delete: "archived",
+    },
+    tomorrow: {
+        move_to_today: "today",
+        move_to_week: "week",
         move_to_backlog: "backlog",
         toggle_done: "done",
         soft_delete: "archived",
     },
     today: {
+        move_to_tomorrow: "tomorrow",
+        move_to_week: "week",
         toggle_done: "done",
         move_to_backlog: "backlog",
         soft_delete: "archived",
@@ -89,6 +100,7 @@ function buildSideEffects(action: TransitionAction, taskEnergyPoints: number): S
     switch (action) {
         case "move_to_week":
         case "move_to_today":
+        case "move_to_tomorrow":
         case "move_to_backlog":
             return [{ type: "update_sort_index" }, { type: "update_system_health" }];
 
