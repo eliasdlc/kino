@@ -30,12 +30,14 @@ interface SystemTreeItemProps {
   system: System;
   isActive: boolean;
   activeFolderId?: string;
+  collapsed?: boolean;
 }
 
 export function SystemTreeItem({
   system,
   isActive,
   activeFolderId,
+  collapsed,
 }: SystemTreeItemProps) {
   const isExpanded = useSystemsTreeStore((s) => s.expanded[system.id] ?? false);
   const toggle = useSystemsTreeStore((s) => s.toggle);
@@ -97,6 +99,25 @@ export function SystemTreeItem({
 
   const Icon = ICON_MAP[system.icon] ?? DEFAULT_ICON;
   const color = getSystemColor(system.color).text;
+
+  if (collapsed) {
+    return (
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <Link
+            href={`/systems/${system.id}`}
+            className={`flex justify-center p-2 rounded-md transition-colors ${isActive
+              ? "bg-sidebar-accent text-sidebar-accent-foreground"
+              : "text-muted-foreground hover:bg-sidebar-accent/50 hover:text-sidebar-foreground"
+              }`}
+          >
+            <Icon className={`size-4 shrink-0 ${color}`} />
+          </Link>
+        </TooltipTrigger>
+        <TooltipContent side="right">{system.name}</TooltipContent>
+      </Tooltip>
+    );
+  }
 
   return (
     <div>

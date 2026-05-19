@@ -27,7 +27,7 @@ const DEFAULT_STATE = {
   triggerContext: "",
 };
 
-export function CreateSystemDialog() {
+export function CreateSystemDialog({ collapsed }: { collapsed?: boolean }) {
   const queryClient = useQueryClient();
   const [open, setOpen] = useState(false);
   const [showAdvanced, setShowAdvanced] = useState(false);
@@ -99,8 +99,8 @@ export function CreateSystemDialog() {
     <Dialog open={open} onOpenChange={handleOpenChange}>
       <DialogTrigger asChild>
         <Button variant="outline" className="w-full">
-          <Plus className="size-4 mr-1.5" />
-          New system
+          <Plus className="size-4 shrink-0" />
+          {!collapsed && <span className="ml-1.5">New system</span>}
         </Button>
       </DialogTrigger>
       <DialogContent className="sm:max-w-md">
