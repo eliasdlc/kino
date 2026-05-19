@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { format, parseISO } from "date-fns";
 import { CalendarIcon } from "lucide-react";
 import {
@@ -64,11 +64,46 @@ function TaskDetailForm({ task, systemId, onClose }: TaskDetailFormProps) {
     task.startDate ? parseISO(task.startDate) : undefined
   );
   const [selectedFolderId, setSelectedFolderId] = useState<string>(task.folderId ?? "none");
+  const [saveStatus, setSaveStatus] = useState<"idle" | "saved">("idle");
+
+  const isMountedRef = useRef(false);
+  const updateTaskRef = useRef(updateTask);
+  updateTaskRef.current = updateTask;
+
+  useEffect(() => {
+    if (!isMountedRef.current) {
+      isMountedRef.current = true;
+      return;
+    }
+    if (!title.trim()) return;
+
+    setSaveStatus("idle");
+    const timer = setTimeout(() => {
+      updateTaskRef.current(
+        {
+          taskId: task.id,
+          data: {
+            title: title.trim(),
+            description: description || undefined,
+            priority,
+            energyLevel,
+            taskType: taskType ?? null,
+            dueDate: dueDate ? format(dueDate, "yyyy-MM-dd") : undefined,
+            startDate: startDate ? format(startDate, "yyyy-MM-dd") : undefined,
+            folderId: selectedFolderId !== "none" ? selectedFolderId : null,
+          },
+        },
+        { onSuccess: () => setSaveStatus("saved") }
+      );
+    }, 1500);
+
+    return () => clearTimeout(timer);
+  // task.id is stable for the lifetime of this form instance (key={task.id} in parent)
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [title, description, priority, energyLevel, taskType, dueDate, startDate, selectedFolderId]);
 
   function handleSave() {
     if (!title.trim()) return;
-    // Status is intentionally excluded — it should only change via
-    // toggle/move endpoints that enforce the state machine and XP rules.
     updateTask(
       {
         taskId: task.id,
@@ -96,6 +131,7 @@ function TaskDetailForm({ task, systemId, onClose }: TaskDetailFormProps) {
           value={title}
           onChange={(e) => setTitle(e.target.value)}
           maxLength={500}
+          autoFocus
         />
       </div>
 
@@ -222,9 +258,18 @@ function TaskDetailForm({ task, systemId, onClose }: TaskDetailFormProps) {
         <SubtaskList parentTaskId={task.id} systemId={systemId} />
       </div>
 
-      <Button onClick={handleSave} disabled={!title.trim() || isPending} className="mt-auto">
-        {isPending ? "Saving..." : "Save changes"}
-      </Button>
+      <div className="mt-auto flex items-center justify-between gap-3">
+        {saveStatus === "saved" && (
+          <span className="text-xs text-muted-foreground">Saved</span>
+        )}
+        <Button
+          onClick={handleSave}
+          disabled={!title.trim() || isPending}
+          className="ml-auto"
+        >
+          {isPending ? "Saving..." : "Save & close"}
+        </Button>
+      </div>
     </div>
   );
 }
