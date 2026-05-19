@@ -113,11 +113,11 @@ export function SystemsList() {
           return (
             <Link key={system.id} href={`/systems/${system.id}`} className="group">
               <Card
-                className={`border-t-4 ${borderColor} transition-all hover:shadow-md hover:-translate-y-0.5`}
+                className={`border-t-4 ${borderColor} motion-safe:transition-all hover:shadow-md motion-safe:hover:-translate-y-0.5`}
               >
                 <CardHeader className="pb-2">
                   <div className="flex items-start justify-between">
-                    <CardTitle className="text-base group-hover:text-primary transition-colors">
+                    <CardTitle className="text-base group-hover:text-primary motion-safe:transition-colors">
                       {system.name}
                     </CardTitle>
                     <DropdownMenu>
@@ -125,7 +125,7 @@ export function SystemsList() {
                         <Button
                           variant="ghost"
                           size="icon"
-                          className="size-7 opacity-0 group-hover:opacity-100 transition-opacity"
+                          className="size-7 opacity-0 group-hover:opacity-100 motion-safe:transition-opacity"
                         >
                           <MoreHorizontal className="size-4" />
                         </Button>
@@ -158,7 +158,7 @@ export function SystemsList() {
                 </CardHeader>
                 <CardContent>
                   <div className="flex items-center gap-2 flex-wrap">
-                    <Badge variant="secondary" className="text-[11px]">
+                    <Badge variant="secondary" className="text-xs">
                       {system.templateType}
                     </Badge>
                   </div>
