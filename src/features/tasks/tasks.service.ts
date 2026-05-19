@@ -329,6 +329,17 @@ export async function deleteTask(taskId: string, userId: string) {
   return task;
 }
 
+export async function restoreTask(taskId: string, userId: string) {
+  const [task] = await db
+    .update(tasks)
+    .set({ deletedAt: null })
+    .where(and(eq(tasks.id, taskId), eq(tasks.userId, userId)))
+    .returning();
+
+  if (!task) throw new NotFoundError("Task not found");
+  return task;
+}
+
 export async function toggleTask(
   taskId: string,
   userId: string,

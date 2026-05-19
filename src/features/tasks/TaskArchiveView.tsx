@@ -1,6 +1,6 @@
 import { useState } from "react";
 import type { Task } from "./tasks.types";
-import { useDeleteTask, useTasks, useFolderTasks, useToggleTask } from "./tasks.hooks";
+import { useDeleteTaskWithUndo, useTasks, useFolderTasks, useToggleTask } from "./tasks.hooks";
 import { TaskCard } from "./TaskCard";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { useTaskKeyboardNavigation } from "./useTaskKeyboardNavigation";
@@ -20,7 +20,7 @@ export function TaskArchiveView({ systemId, initialData, folderId, folderInitial
     const { data: tasks = [] } = folderId ? folderQuery : systemQuery;
 
     const { mutate: toggleTask } = useToggleTask(systemId, folderId);
-    const { mutate: deleteTask } = useDeleteTask(systemId, folderId);
+    const { mutate: deleteTask } = useDeleteTaskWithUndo(systemId, folderId);
     
     const archivedTasks = tasks.filter((task) => task.status === "done" || task.status === "archived");
 

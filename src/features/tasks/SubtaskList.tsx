@@ -5,7 +5,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import { Trash2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
-import { useSubtasks, useToggleTask, useDeleteTask, taskKeys } from "./tasks.hooks";
+import { useSubtasks, useToggleTask, useDeleteTaskWithUndo, taskKeys } from "./tasks.hooks";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 
@@ -19,7 +19,7 @@ export function SubtaskList({ parentTaskId, systemId }: SubtaskListProps) {
   const [deleteTarget, setDeleteTarget] = useState<{ id: string; title: string } | null>(null);
   const { data: subtasks, isLoading } = useSubtasks(parentTaskId, systemId, { enabled: true });
   const { mutate: toggleTask } = useToggleTask(systemId);
-  const { mutate: deleteTask } = useDeleteTask(systemId);
+  const { mutate: deleteTask } = useDeleteTaskWithUndo(systemId);
 
   const subtaskQueryKey = taskKeys.subtasks(parentTaskId);
 

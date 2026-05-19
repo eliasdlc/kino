@@ -12,7 +12,7 @@ import {
 } from "@dnd-kit/core";
 import type { Task } from "./tasks.types";
 import type { TaskDragData, EnergyDropId } from "./dnd/dnd.types";
-import { useTasks, useFolderTasks, useToggleTask, useDeleteTask, useUpdateTask } from "./tasks.hooks";
+import { useTasks, useFolderTasks, useToggleTask, useDeleteTaskWithUndo, useUpdateTask } from "./tasks.hooks";
 import { DraggableTaskCard } from "./dnd/DraggableTaskCard";
 import { DroppableColumn } from "./dnd/DroppableColumn";
 import { TaskDragOverlay } from "./dnd/TaskDragOverlay";
@@ -42,7 +42,7 @@ export function TaskActionView({ systemId, initialData, folderId, folderInitialD
     const { data: tasks } = folderId ? folderQuery : systemQuery;
 
     const { mutate: toggleTask } = useToggleTask(systemId, folderId);
-    const { mutate: deleteTask } = useDeleteTask(systemId, folderId);
+    const { mutate: deleteTask } = useDeleteTaskWithUndo(systemId, folderId);
     const { mutate: updateTask } = useUpdateTask(systemId);
 
     const [activeTask, setActiveTask] = useState<Task | null>(null);

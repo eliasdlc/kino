@@ -10,6 +10,9 @@ import {
   isToday,
   parseISO,
   startOfWeek,
+  differenceInCalendarDays,
+  isBefore,
+  isAfter,
 } from "date-fns";
 
 import { ChevronLeft, ChevronRight } from "lucide-react";
@@ -27,10 +30,11 @@ import { DraggableTaskCard } from "./dnd/DraggableTaskCard";
 import { DroppableColumn } from "./dnd/DroppableColumn";
 import { TaskDragOverlay } from "./dnd/TaskDragOverlay";
 import type { TaskDragData } from "./dnd/dnd.types";
-import { useTasks, useFolderTasks, useToggleTask, useDeleteTask, useUpdateTask } from "./tasks.hooks";
+import { useTasks, useFolderTasks, useToggleTask, useDeleteTaskWithUndo, useUpdateTask } from "./tasks.hooks";
 import type { Task } from "./tasks.types";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { useTaskKeyboardNavigation } from "./useTaskKeyboardNavigation";
+import { MultiDayTaskBar } from "./MultiDayTaskBar";
 
 interface TaskPlanningViewProps {
   systemId: string;
@@ -48,7 +52,7 @@ export function TaskPlanningView({ systemId, initialData, folderId, folderInitia
   const { data: tasks = [] } = folderId ? folderQuery : systemQuery;
 
   const { mutate: toggleTask } = useToggleTask(systemId, folderId);
-  const { mutate: deleteTask } = useDeleteTask(systemId, folderId);
+  const { mutate: deleteTask } = useDeleteTaskWithUndo(systemId, folderId);
   const { mutate: updateTask } = useUpdateTask(systemId);
 
   // Track the currently dragged task for the DragOverlay
@@ -87,11 +91,38 @@ export function TaskPlanningView({ systemId, initialData, folderId, folderInitia
 
   const visibleTasks = useMemo(() => {
     return tasks.filter((task) => {
-      if (!task.startDate || task.status === "done" || task.status === "archived") return false;
-      const date = parseISO(task.startDate);
-      return weekDates.some((wd) => isSameDay(wd, date));
+      if (task.status === "done" || task.status === "archived") return false;
+
+      // Multi-day task: has startDate and dueDate, and they are different
+      if (task.startDate && task.dueDate && task.startDate !== task.dueDate) {
+        const start = parseISO(task.startDate);
+        const due = parseISO(task.dueDate);
+        const weekStart = weekDates[0]!;
+        const weekEnd = weekDates[6]!;
+        // Intersects visible week if it starts before/on weekEnd AND ends after/on weekStart
+        return !isAfter(start, weekEnd) && !isBefore(due, weekStart);
+      }
+
+      // Single-day task
+      if (task.startDate) {
+        const date = parseISO(task.startDate);
+        return weekDates.some((wd) => isSameDay(wd, date));
+      }
+      return false;
     });
   }, [tasks, weekDates]);
+
+  const multiDayTasks = useMemo(() => {
+    return visibleTasks.filter(
+      (t) => t.startDate && t.dueDate && t.startDate !== t.dueDate
+    );
+  }, [visibleTasks]);
+
+  const singleDayTasks = useMemo(() => {
+    return visibleTasks.filter(
+      (t) => !t.startDate || !t.dueDate || t.startDate === t.dueDate
+    );
+  }, [visibleTasks]);
 
   const [deleteTarget, setDeleteTarget] = useState<Task | null>(null);
 
@@ -186,16 +217,42 @@ export function TaskPlanningView({ systemId, initialData, folderId, folderInitia
           )}
         </div>
 
-        <div className="flex flex-row gap-2 w-full h-full overflow-x-auto">
+        {/* Multi-Day Tasks Header */}
+        {multiDayTasks.length > 0 && (
+          <div className="grid grid-cols-7 gap-2 w-full pt-1 pb-3 border-b border-border">
+            {multiDayTasks.map((task) => {
+              const start = parseISO(task.startDate!);
+              const due = parseISO(task.dueDate!);
+              const weekStart = weekDates[0]!;
+              const weekEnd = weekDates[6]!;
+
+              const effectiveStart = isBefore(start, weekStart) ? weekStart : start;
+              const effectiveDue = isAfter(due, weekEnd) ? weekEnd : due;
+
+              const startCol = differenceInCalendarDays(effectiveStart, weekStart) + 1;
+              const span = differenceInCalendarDays(effectiveDue, effectiveStart) + 1;
+
+              return (
+                <MultiDayTaskBar
+                  key={task.id}
+                  task={task}
+                  onEdit={onEdit}
+                  startCol={startCol}
+                  span={span}
+                />
+              );
+            })}
+          </div>
+        )}
+
+        <div className="flex flex-row gap-2 w-full min-h-[calc(100vh-16rem)]">
           {weekDates.map((dayDate) => {
             const today = isToday(dayDate);
             const dayISO = format(dayDate, "yyyy-MM-dd");
-            const dayTasks = tasks.filter(
+            const dayTasks = singleDayTasks.filter(
               (task) =>
                 task.startDate &&
-                isSameDay(parseISO(task.startDate), dayDate) &&
-                task.status !== "done" &&
-                task.status !== "archived"
+                isSameDay(parseISO(task.startDate), dayDate)
             );
 
             return (

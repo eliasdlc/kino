@@ -1,4 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { toast } from "sonner";
 import type { Task, CreateTaskInput } from "./tasks.types";
 
 interface ToggleTaskResult {
@@ -114,7 +115,23 @@ export function useCreateTask(systemId: string, folderId?: string) {
 
       return { previousSystem, systemQKey, previousFolder, folderQKey };
     },
-    onError: (_err, _vars, context) => {
+    onSuccess: (newTask) => {
+      // Replace the optimistic placeholder (userId="optimistic") with the real task
+      queryClient.setQueryData<Task[]>(taskKeys.bySystem(systemId), (old = []) => {
+        const withoutOptimistic = old.filter((t) => t.userId !== "optimistic");
+        return [...withoutOptimistic, newTask];
+      });
+
+      const statusLabel: Record<string, string> = {
+        today: "Action tab",
+        tomorrow: "Action tab",
+        week: "Action tab",
+        backlog: "Backlog tab",
+      };
+      const where = statusLabel[newTask.status] ?? "the list";
+      toast.success(`"${newTask.title}" added → ${where}`);
+    },
+    onError: (err, _vars, context) => {
       const ctx = context as {
         previousSystem?: Task[]; systemQKey?: readonly unknown[];
         previousFolder?: Task[]; folderQKey?: readonly unknown[] | null;
@@ -125,6 +142,7 @@ export function useCreateTask(systemId: string, folderId?: string) {
       if (ctx?.previousFolder !== undefined && ctx?.folderQKey) {
         queryClient.setQueryData(ctx.folderQKey, ctx.previousFolder);
       }
+      toast.error(err.message ?? "Failed to create task");
     },
     onSettled: () => {
       // Invalidating bySystem also covers folderTasks via TanStack Query prefix matching
@@ -215,6 +233,82 @@ export function useDeleteTask(systemId: string, folderId?: string) {
       if (context?.qKey) {
         queryClient.invalidateQueries({ queryKey: context.qKey });
       }
+      queryClient.invalidateQueries({ queryKey: taskKeys.bySystem(systemId) });
+      if (folderId) {
+        queryClient.invalidateQueries({ queryKey: taskKeys.folderTasks(systemId, folderId) });
+      }
+    },
+  });
+}
+
+export function useDeleteTaskWithUndo(systemId: string, folderId?: string) {
+  const queryClient = useQueryClient();
+
+  const { mutate: restore } = useMutation({
+    mutationFn: async (taskId: string) => {
+      const res = await fetch(`/api/tasks/${taskId}/restore`, { method: "POST" });
+      if (!res.ok) throw new Error("Failed to restore task");
+      return res.json() as Promise<Task>;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: taskKeys.bySystem(systemId) });
+      if (folderId) {
+        queryClient.invalidateQueries({ queryKey: taskKeys.folderTasks(systemId, folderId) });
+      }
+    },
+  });
+
+  return useMutation({
+    mutationFn: async (taskId: string) => {
+      const res = await fetch(`/api/tasks/${taskId}`, { method: "DELETE" });
+      if (!res.ok) throw new Error("Failed to delete task");
+    },
+    onMutate: async (taskId) => {
+      const qKey = folderId ? taskKeys.folderTasks(systemId, folderId) : taskKeys.bySystem(systemId);
+      await queryClient.cancelQueries({ queryKey: qKey });
+      const previous = queryClient.getQueryData<Task[]>(qKey);
+      const deletedTask = previous?.find((t) => t.id === taskId);
+      queryClient.setQueryData<Task[]>(qKey, (old = []) => old.filter((t) => t.id !== taskId));
+      return { previous, qKey, deletedTask };
+    },
+    onSuccess: (_data, taskId, context) => {
+      const title = context?.deletedTask?.title ?? "Task";
+      toast(`"${title}" moved to trash`, {
+        action: {
+          label: "Undo",
+          onClick: () => restore(taskId),
+        },
+        duration: 5000,
+      });
+    },
+    onError: (_err, _vars, context) => {
+      if (context?.previous) {
+        queryClient.setQueryData(context.qKey, context.previous);
+      }
+      toast.error("Failed to delete task");
+    },
+    onSettled: (_data, _error, _vars, context) => {
+      if (context?.qKey) {
+        queryClient.invalidateQueries({ queryKey: context.qKey });
+      }
+      queryClient.invalidateQueries({ queryKey: taskKeys.bySystem(systemId) });
+      if (folderId) {
+        queryClient.invalidateQueries({ queryKey: taskKeys.folderTasks(systemId, folderId) });
+      }
+    },
+  });
+}
+
+export function useRestoreTask(systemId: string, folderId?: string) {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (taskId: string) => {
+      const res = await fetch(`/api/tasks/${taskId}/restore`, { method: "POST" });
+      if (!res.ok) throw new Error("Failed to restore task");
+      return res.json() as Promise<Task>;
+    },
+    onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: taskKeys.bySystem(systemId) });
       if (folderId) {
         queryClient.invalidateQueries({ queryKey: taskKeys.folderTasks(systemId, folderId) });

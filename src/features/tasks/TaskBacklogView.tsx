@@ -1,6 +1,6 @@
 import { useState } from "react";
 import type { Task } from "./tasks.types";
-import { useTasks, useFolderTasks, useToggleTask, useDeleteTask } from "./tasks.hooks";
+import { useTasks, useFolderTasks, useToggleTask, useDeleteTaskWithUndo } from "./tasks.hooks";
 import { TaskCard } from "./TaskCard";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { useTaskKeyboardNavigation } from "./useTaskKeyboardNavigation";
@@ -25,7 +25,7 @@ export function TaskBacklogView({ systemId, initialData, folderId, folderInitial
     const { data: tasks = [] } = folderId ? folderQuery : systemQuery;
 
     const { mutate: toggleTask } = useToggleTask(systemId, folderId);
-    const { mutate: deleteTask } = useDeleteTask(systemId, folderId);
+    const { mutate: deleteTask } = useDeleteTaskWithUndo(systemId, folderId);
 
     const backlogTasks = tasks.filter((t) => t.status === "backlog");
 
