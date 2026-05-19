@@ -28,9 +28,11 @@ interface CreateTaskDialogProps {
   folderId?: string;
   open?: boolean;
   onOpenChange?: (open: boolean) => void;
+  /** Optional slot rendered at the top of the dialog (e.g. a system selector) */
+  header?: React.ReactNode;
 }
 
-export function CreateTaskDialog({ systemId, parentTaskId, folderId, open: controlledOpen, onOpenChange: controlledOnOpenChange }: CreateTaskDialogProps) {
+export function CreateTaskDialog({ systemId, parentTaskId, folderId, open: controlledOpen, onOpenChange: controlledOnOpenChange, header }: CreateTaskDialogProps) {
   const [internalOpen, setInternalOpen] = useState(false);
   const isControlled = controlledOpen !== undefined;
   const open = isControlled ? controlledOpen : internalOpen;
@@ -58,6 +60,13 @@ export function CreateTaskDialog({ systemId, parentTaskId, folderId, open: contr
 
   const [subtasks, setSubtasks] = useState<Array<{ id: string; title: string }>>([]);
   const [selectedFolderId, setSelectedFolderId] = useState<string>(folderId ?? "none");
+
+  // Reset folder when the target system changes (derived state pattern — runs during render, not in an effect)
+  const [prevSystemId, setPrevSystemId] = useState(systemId);
+  if (prevSystemId !== systemId) {
+    setPrevSystemId(systemId);
+    setSelectedFolderId("none");
+  }
 
   const typeConfig = getTaskTypeConfig(taskType);
   const { data: folders = [] } = useFolders(systemId);
@@ -147,6 +156,9 @@ export function CreateTaskDialog({ systemId, parentTaskId, folderId, open: contr
         </DialogHeader>
 
         <div className="flex flex-col gap-4 pt-1">
+          {/* ── Injected header slot (e.g. system selector from GlobalQuickAddDialog) ── */}
+          {header}
+
           {error && (
             <p className="text-sm text-destructive">{error}</p>
           )}
