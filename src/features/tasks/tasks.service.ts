@@ -164,6 +164,20 @@ export async function getTasksBySystem(systemId: string, userId: string) {
     .orderBy(tasks.sortIndex);
 }
 
+export async function getTaskById(taskId: string, userId: string): Promise<Task | null> {
+  const [task] = await db
+    .select()
+    .from(tasks)
+    .where(
+      and(
+        eq(tasks.id, taskId),
+        eq(tasks.userId, userId),
+        isNull(tasks.deletedAt),
+      ),
+    );
+  return (task as Task) ?? null;
+}
+
 export async function getSubtasks(taskId: string, userId: string) {
   return db
     .select()

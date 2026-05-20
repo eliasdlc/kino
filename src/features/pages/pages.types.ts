@@ -13,5 +13,7 @@ export type PageDetail = Page & {
 
 export type LinkedTask = Pick<
   typeof tasks.$inferSelect,
-  "id" | "title" | "status" | "priority" | "energyLevel" | "dueDate"
+  | "id" | "title" | "status" | "priority" | "energyLevel" | "dueDate"
+  | "startDate" | "description" | "taskType" | "estimatedTime"
+  | "folderId" | "systemId" | "parentTaskId"
 >;

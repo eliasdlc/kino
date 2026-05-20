@@ -51,6 +51,13 @@ export async function getPageById(
       priority: tasks.priority,
       energyLevel: tasks.energyLevel,
       dueDate: tasks.dueDate,
+      startDate: tasks.startDate,
+      description: tasks.description,
+      taskType: tasks.taskType,
+      estimatedTime: tasks.estimatedTime,
+      folderId: tasks.folderId,
+      systemId: tasks.systemId,
+      parentTaskId: tasks.parentTaskId,
     })
     .from(taskPageLinks)
     .innerJoin(tasks, eq(taskPageLinks.taskId, tasks.id))
@@ -203,6 +210,13 @@ export async function getLinkedTasks(
       priority: tasks.priority,
       energyLevel: tasks.energyLevel,
       dueDate: tasks.dueDate,
+      startDate: tasks.startDate,
+      description: tasks.description,
+      taskType: tasks.taskType,
+      estimatedTime: tasks.estimatedTime,
+      folderId: tasks.folderId,
+      systemId: tasks.systemId,
+      parentTaskId: tasks.parentTaskId,
     })
     .from(taskPageLinks)
     .innerJoin(tasks, eq(taskPageLinks.taskId, tasks.id))

@@ -2,7 +2,7 @@ import { headers } from "next/headers";
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "../../../auth";
 import { createTaskSchema, moveTaskSchema, reorderTasksSchema, updateTaskSchema } from "./tasks.schemas";
-import { createTask, deleteTask, getSubtasks, getTasksBySystem, moveTask, reorderTasks, restoreTask, toggleTask, updateTask } from "./tasks.service";
+import { createTask, deleteTask, getSubtasks, getTaskById, getTasksBySystem, moveTask, reorderTasks, restoreTask, toggleTask, updateTask } from "./tasks.service";
 import { NotFoundError, ValidationError } from "@/shared/utils/error";
 
 export async function GET(
@@ -18,6 +18,24 @@ export async function GET(
         return NextResponse.json(tasks);
     } catch {
         return NextResponse.json({ code: "INTERNAL_ERROR", message: "Failed to fetch tasks" }, { status: 500 });
+    }
+}
+
+// GET /api/tasks/:id — fetch a single task by ID
+export async function getById(
+    _request: NextRequest,
+    { params }: { params: Promise<{ id: string }> }
+) {
+    const session = await auth.api.getSession({ headers: await headers() });
+    if (!session) return NextResponse.json({ code: "UNAUTHORIZED", message: "Unauthorized" }, { status: 401 });
+
+    const { id: taskId } = await params;
+    try {
+        const task = await getTaskById(taskId, session.user.id);
+        if (!task) return NextResponse.json({ code: "NOT_FOUND", message: "Task not found" }, { status: 404 });
+        return NextResponse.json(task);
+    } catch {
+        return NextResponse.json({ code: "INTERNAL_ERROR", message: "Failed to fetch task" }, { status: 500 });
     }
 }
 
