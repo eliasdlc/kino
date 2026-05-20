@@ -106,12 +106,12 @@ export function SystemTreeItem({
         <TooltipTrigger asChild>
           <Link
             href={`/systems/${system.id}`}
-            className={`flex justify-center p-2 rounded-md transition-colors ${isActive
+            className={`flex justify-center p-2.5 rounded-md transition-colors ${isActive
               ? "bg-sidebar-accent text-sidebar-accent-foreground"
               : "text-muted-foreground hover:bg-sidebar-accent/50 hover:text-sidebar-foreground"
               }`}
           >
-            <Icon className={`size-4 shrink-0 ${color}`} />
+            <Icon className={`size-5 shrink-0 ${color}`} />
           </Link>
         </TooltipTrigger>
         <TooltipContent side="right">{system.name}</TooltipContent>
@@ -123,7 +123,7 @@ export function SystemTreeItem({
     <div>
       {/* System row */}
       <div
-        className={`group flex items-center gap-1 px-1.5 py-1.5 rounded-md text-sm transition-colors ${isActive
+        className={`group flex items-center gap-1.5 px-2 py-2 rounded-md text-sm transition-colors ${isActive
           ? "bg-sidebar-accent text-sidebar-accent-foreground font-medium border-l-2 border-sidebar-primary"
           : "text-muted-foreground hover:bg-sidebar-accent/50 hover:text-sidebar-foreground"
           }`}
@@ -137,7 +137,7 @@ export function SystemTreeItem({
                 className="p-0.5 rounded hover:bg-sidebar-accent shrink-0"
               >
                 <ChevronRight
-                  className={`size-3.5 transition-transform duration-150 ${isExpanded ? "rotate-90" : ""
+                  className={`size-4 transition-transform duration-150 ${isExpanded ? "rotate-90" : ""
                     }`}
                 />
               </button>
@@ -151,7 +151,7 @@ export function SystemTreeItem({
           href={`/systems/${system.id}`}
           className="flex items-center gap-2 flex-1 min-w-0"
         >
-          <Icon className={`size-4 shrink-0 ${color}`} />
+          <Icon className={`size-5 shrink-0 ${color}`} />
           <span className="truncate">{system.name}</span>
         </Link>
 
@@ -162,7 +162,7 @@ export function SystemTreeItem({
               <TooltipTrigger asChild>
                 <DropdownMenuTrigger asChild>
                   <button className="opacity-0 group-hover:opacity-100 p-0.5 rounded hover:bg-sidebar-accent shrink-0 transition-opacity">
-                    <MoreHorizontal className="size-3.5" />
+                    <MoreHorizontal className="size-4" />
                   </button>
                 </DropdownMenuTrigger>
               </TooltipTrigger>
@@ -171,7 +171,7 @@ export function SystemTreeItem({
           </TooltipProvider>
           <DropdownMenuContent align="end" className="w-44">
             <DropdownMenuItem onClick={handleNewFolder}>
-              <FolderPlus className="size-4 mr-2" />
+              <FolderPlus className="size-5 mr-2" />
               New folder
             </DropdownMenuItem>
             <DropdownMenuSeparator />
@@ -179,7 +179,7 @@ export function SystemTreeItem({
               className="text-destructive focus:text-destructive"
               onClick={() => setConfirmDelete(true)}
             >
-              <Trash2 className="size-4 mr-2" />
+              <Trash2 className="size-5 mr-2" />
               Delete
             </DropdownMenuItem>
           </DropdownMenuContent>
@@ -204,12 +204,12 @@ export function SystemTreeItem({
               <Link
                 key={folder.id}
                 href={`/systems/${system.id}/folders/${folder.id}`}
-                className={`flex items-center gap-2 px-2 py-1 rounded-md text-sm transition-colors ${activeFolderId === folder.id
+                className={`flex items-center gap-2 px-2.5 py-1.5 rounded-md text-sm transition-colors ${activeFolderId === folder.id
                   ? "bg-sidebar-accent text-sidebar-accent-foreground font-medium"
                   : "text-muted-foreground hover:bg-sidebar-accent/50 hover:text-sidebar-foreground"
                   }`}
               >
-                <Folder className={`size-3.5 shrink-0 ${color}`} />
+                <Folder className={`size-4 shrink-0 ${color}`} />
                 <span className="truncate flex-1">{folder.name}</span>
               </Link>
             ))}
@@ -224,7 +224,7 @@ export function SystemTreeItem({
           {/* Inline folder creation input */}
           {isCreating && (
             <div className="flex items-center gap-2 px-2 py-1">
-              <Folder className="size-3.5 shrink-0 text-muted-foreground" />
+              <Folder className="size-4 shrink-0 text-muted-foreground" />
               <input
                 ref={inputRef}
                 value={newFolderName}

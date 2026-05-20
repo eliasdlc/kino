@@ -110,9 +110,9 @@ export function SystemsSidebar({
               )}
             >
               {collapsed ? (
-                <PanelLeftOpen className="size-4" />
+                <PanelLeftOpen className="size-5" />
               ) : (
-                <PanelLeftClose className="size-4" />
+                <PanelLeftClose className="size-5" />
               )}
             </button>
           </div>
@@ -124,7 +124,7 @@ export function SystemsSidebar({
                 collapsed ? "justify-center" : "gap-2.5"
               )}
             >
-              <Avatar className="size-7 shrink-0">
+              <Avatar className="size-8 shrink-0">
                 {userImage && (
                   <AvatarImage src={userImage} alt={userName ?? "User"} />
                 )}
@@ -178,14 +178,14 @@ export function SystemsSidebar({
               <Link
                 href="/dashboard"
                 className={cn(
-                  "flex items-center px-3 py-2 rounded-md text-sm motion-safe:transition-colors",
+                  "flex items-center px-3 py-2.5 rounded-md text-sm motion-safe:transition-colors",
                   collapsed ? "justify-center" : "gap-2.5",
                   pathname === "/dashboard"
                     ? "bg-sidebar-accent text-sidebar-accent-foreground font-medium"
                     : "text-muted-foreground hover:bg-sidebar-accent/50 hover:text-sidebar-foreground"
                 )}
               >
-                <LayoutDashboard className="size-4 shrink-0" />
+                <LayoutDashboard className="size-5 shrink-0" />
                 {!collapsed && <span>Dashboard</span>}
               </Link>
             </TooltipTrigger>
@@ -199,14 +199,14 @@ export function SystemsSidebar({
                 <Link
                   href={`/systems/${inboxSystem.id}`}
                   className={cn(
-                    "flex items-center px-3 py-2 rounded-md text-sm transition-colors border",
+                    "flex items-center px-3 py-2.5 rounded-md text-sm transition-colors border",
                     collapsed ? "justify-center" : "gap-2.5",
                     pathname === `/systems/${inboxSystem.id}`
                       ? "bg-sidebar-accent text-sidebar-accent-foreground font-medium border-sidebar-border/60"
                       : "bg-sidebar-accent/20 border-sidebar-border/40 text-sidebar-foreground hover:bg-sidebar-accent/40"
                   )}
                 >
-                  <Inbox className={cn("size-4 shrink-0", getSystemColor(inboxSystem.color).text)} />
+                  <Inbox className={cn("size-5 shrink-0", getSystemColor(inboxSystem.color).text)} />
                   {!collapsed && <span className="truncate font-medium">{inboxSystem.name}</span>}
                 </Link>
               </TooltipTrigger>
@@ -219,14 +219,14 @@ export function SystemsSidebar({
               <Link
                 href="/systems"
                 className={cn(
-                  "flex items-center px-3 py-2 rounded-md text-sm motion-safe:transition-colors",
+                  "flex items-center px-3 py-2.5 rounded-md text-sm motion-safe:transition-colors",
                   collapsed ? "justify-center" : "gap-2.5",
                   pathname === "/systems"
                     ? "bg-sidebar-accent text-sidebar-accent-foreground font-medium"
                     : "text-muted-foreground hover:bg-sidebar-accent/50 hover:text-sidebar-foreground"
                 )}
               >
-                <Box className="size-4 shrink-0" />
+                <Box className="size-5 shrink-0" />
                 {!collapsed && <span>Systems</span>}
               </Link>
             </TooltipTrigger>
@@ -238,14 +238,14 @@ export function SystemsSidebar({
               <Link
                 href="/settings"
                 className={cn(
-                  "flex items-center px-3 py-2 rounded-md text-sm motion-safe:transition-colors",
+                  "flex items-center px-3 py-2.5 rounded-md text-sm motion-safe:transition-colors",
                   collapsed ? "justify-center" : "gap-2.5",
                   pathname === "/settings"
                     ? "bg-sidebar-accent text-sidebar-accent-foreground font-medium"
                     : "text-muted-foreground hover:bg-sidebar-accent/50 hover:text-sidebar-foreground"
                 )}
               >
-                <Settings className="size-4 shrink-0" />
+                <Settings className="size-5 shrink-0" />
                 {!collapsed && <span>Settings</span>}
               </Link>
             </TooltipTrigger>
@@ -264,7 +264,7 @@ export function SystemsSidebar({
           {isLoading && (
             <div className="space-y-1 p-2">
               {[...Array(4)].map((_, i) => (
-                <div key={i} className="h-8 rounded-md bg-muted motion-safe:animate-pulse" />
+                <div key={i} className="h-10 rounded-md bg-muted motion-safe:animate-pulse" />
               ))}
             </div>
           )}
