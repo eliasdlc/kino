@@ -49,13 +49,13 @@ export function TaskBacklogView({ systemId, initialData, folderId, folderInitial
             </div>
             {backlogTasks.length === 0 ? (
                 <div className="flex flex-col items-center justify-center py-10 text-center space-y-2 border border-dashed rounded-lg bg-card">
-                    <p className="text-sm font-medium">All caught up!</p>
+                    <p className="text-base font-medium">All caught up!</p>
                     <p className="text-sm text-muted-foreground">
                         Your backlog is completely empty. Everything is scheduled or done.
                     </p>
                 </div>
             ) : (
-                <div className="flex flex-col gap-2.5 w-full">
+                <div className="flex flex-col gap-3 w-full">
                     {backlogTasks.map((task) => (
                         <TaskCard
                             key={task.id}

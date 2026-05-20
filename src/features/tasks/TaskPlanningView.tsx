@@ -187,7 +187,7 @@ export function TaskPlanningView({ systemId, initialData, folderId, folderInitia
               onClick={() => setWeekOffset((v) => v - 1)}
               aria-label="Previous week"
             >
-              <ChevronLeft className="size-4" />
+              <ChevronLeft className="size-5" />
             </Button>
             <h2 className="text-2xl font-bold capitalize">
               {monthHeading}
@@ -202,7 +202,7 @@ export function TaskPlanningView({ systemId, initialData, folderId, folderInitia
               onClick={() => setWeekOffset((v) => v + 1)}
               aria-label="Next week"
             >
-              <ChevronRight className="size-4" />
+              <ChevronRight className="size-5" />
             </Button>
           </div>
 
@@ -259,7 +259,7 @@ export function TaskPlanningView({ systemId, initialData, folderId, folderInitia
               <DroppableColumn
                 key={dayISO}
                 id={dayISO}
-                className={`flex flex-col gap-1.5 flex-1 min-w-0 p-2 ${
+                className={`flex flex-col gap-2 flex-1 min-w-0 p-2 ${
                   today ? "bg-primary/5 ring-1 ring-primary/20" : ""
                 }`}
               >
@@ -286,7 +286,7 @@ export function TaskPlanningView({ systemId, initialData, folderId, folderInitia
                 </div>
 
                 {/* Tasks */}
-                <div className="flex flex-col gap-1.5">
+                <div className="flex flex-col gap-2">
                   {dayTasks.length === 0 ? (
                     <div className="flex justify-center py-3 opacity-30">
                       <span className="text-xs text-muted-foreground">—</span>

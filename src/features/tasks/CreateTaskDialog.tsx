@@ -250,7 +250,7 @@ export function CreateTaskDialog({ systemId, parentTaskId, folderId, open: contr
           {typeConfig.requireDueDate && (
             <div className="space-y-2">
               <Label className="flex items-center gap-1.5">
-                <Bell size={12} className="text-orange-500" />
+                <Bell size={16} className="text-orange-500" />
                 Due date *
               </Label>
               <Popover>
@@ -259,7 +259,7 @@ export function CreateTaskDialog({ systemId, parentTaskId, folderId, open: contr
                     variant="outline"
                     className="w-full justify-start gap-2 text-sm font-normal"
                   >
-                    <CalendarIcon size={14} className="shrink-0 text-muted-foreground" />
+                    <CalendarIcon size={16} className="shrink-0 text-muted-foreground" />
                     {reminderDueDate
                       ? format(reminderDueDate, "MMM d, yyyy")
                       : <span className="text-muted-foreground">Select deadline</span>
@@ -306,7 +306,7 @@ export function CreateTaskDialog({ systemId, parentTaskId, folderId, open: contr
                     variant="outline"
                     className="w-full justify-start gap-2 text-sm font-normal"
                   >
-                    <CalendarRange size={14} className="shrink-0 text-muted-foreground" />
+                    <CalendarRange size={16} className="shrink-0 text-muted-foreground" />
                     {dateRange.from ? (
                       dateRange.to ? (
                         <span>{format(dateRange.from, "MMM d")} → {format(dateRange.to, "MMM d, yyyy")}</span>
@@ -353,9 +353,9 @@ export function CreateTaskDialog({ systemId, parentTaskId, folderId, open: contr
               onClick={() => setShowMore((v) => !v)}
             >
               {showMore ? (
-                <><ChevronUp size={14} className="mr-1" />Less options</>
+                <><ChevronUp size={16} className="mr-1" />Less options</>
               ) : (
-                <><ChevronDown size={14} className="mr-1" />More options</>
+                <><ChevronDown size={16} className="mr-1" />More options</>
               )}
             </Button>
           </div>
@@ -397,12 +397,12 @@ export function CreateTaskDialog({ systemId, parentTaskId, folderId, open: contr
                 type="button"
                 variant="ghost"
                 size="sm"
-                className="h-7 text-xs text-muted-foreground"
+                className="h-8 text-sm text-muted-foreground"
                 onClick={() =>
                   setSubtasks((prev) => [...prev, { id: crypto.randomUUID(), title: "" }])
                 }
               >
-                <Plus size={12} className="mr-1" />
+                <Plus size={14} className="mr-1" />
                 Add subtask
               </Button>
             </div>
@@ -427,7 +427,7 @@ export function CreateTaskDialog({ systemId, parentTaskId, folderId, open: contr
                   onClick={() => setSubtasks((prev) => prev.filter((_, i) => i !== index))}
                   aria-label="Delete subtask"
                 >
-                  <X size={13} />
+                  <X size={16} />
                 </Button>
               </div>
             ))}

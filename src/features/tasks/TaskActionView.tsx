@@ -108,7 +108,7 @@ export function TaskActionView({ systemId, initialData, folderId, folderInitialD
     if (!tasks || activeTasks.length === 0) {
         return (
             <div className="flex flex-col items-center justify-center py-12 text-center space-y-2 border border-dashed rounded-lg bg-card mt-6">
-                <p className="text-sm font-medium">No tasks for today</p>
+                <p className="text-base font-medium">No tasks for today</p>
                 <p className="text-sm text-muted-foreground max-w-sm">
                     You don&apos;t have any tasks scheduled. Go to the <strong>Planning</strong> tab to line up work for today or the upcoming week.
                 </p>
@@ -140,11 +140,11 @@ export function TaskActionView({ systemId, initialData, folderId, folderInitialD
                             <DroppableColumn
                                 key={column.id}
                                 id={column.id}
-                                className="flex flex-col gap-1.5 min-w-0"
+                                className="flex flex-col gap-2 min-w-0"
                             >
-                                <h3 className="font-medium text-sm">{column.label}</h3>
-                                <p className="text-xs text-muted-foreground">{column.description}</p>
-                                <div className="flex flex-col gap-1.5">
+                                <h3 className="font-semibold text-base">{column.label}</h3>
+                                <p className="text-sm text-muted-foreground">{column.description}</p>
+                                <div className="flex flex-col gap-2">
                                     {columnTasks.map((task) => (
                                         <DraggableTaskCard
                                             key={task.id}

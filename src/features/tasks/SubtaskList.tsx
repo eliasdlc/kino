@@ -37,14 +37,14 @@ export function SubtaskList({ parentTaskId, systemId }: SubtaskListProps) {
   }
 
   return (
-    <div className="flex flex-col gap-0.5">
+    <div className="flex flex-col gap-1">
       {subtasks.map((subtask) => {
         const isDone = subtask.status === "done";
 
         return (
           <div
             key={subtask.id}
-            className="group flex items-center gap-2 pl-4 py-1 border-l ml-2"
+            className="group flex items-center gap-2.5 pl-4 py-1.5 border-l ml-2"
           >
             <button
               type="button"
@@ -55,7 +55,7 @@ export function SubtaskList({ parentTaskId, systemId }: SubtaskListProps) {
               }
               aria-label={isDone ? "Mark as pending" : "Mark as completed"}
               className={cn(
-                "size-3 shrink-0 rounded-full border-2 transition-colors",
+                "size-4 shrink-0 rounded-full border-2 transition-colors",
                 isDone
                   ? "border-green-500 bg-green-500"
                   : "border-muted-foreground/40 hover:border-primary"
@@ -63,7 +63,7 @@ export function SubtaskList({ parentTaskId, systemId }: SubtaskListProps) {
             />
             <span
               className={cn(
-                "text-xs flex-1 truncate",
+                "text-sm flex-1 truncate",
                 isDone && "line-through text-muted-foreground"
               )}
             >
@@ -78,7 +78,7 @@ export function SubtaskList({ parentTaskId, systemId }: SubtaskListProps) {
                     className="opacity-0 group-hover:opacity-100 transition-opacity text-muted-foreground hover:text-destructive"
                     aria-label="Delete subtask"
                   >
-                    <Trash2 size={14} />
+                    <Trash2 size={16} />
                   </button>
                 </TooltipTrigger>
                 <TooltipContent>Delete subtask</TooltipContent>

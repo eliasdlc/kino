@@ -211,7 +211,7 @@ function TaskDetailForm({ task, systemId, onClose }: TaskDetailFormProps) {
           <Popover>
             <PopoverTrigger asChild>
               <Button variant="outline" className="w-full justify-start gap-2 text-sm font-normal">
-                <CalendarIcon size={14} className="text-muted-foreground" />
+                <CalendarIcon size={16} className="text-muted-foreground" />
                 {startDate ? format(startDate, "MMM d, yyyy") : <span className="text-muted-foreground">Pick date</span>}
               </Button>
             </PopoverTrigger>
@@ -233,7 +233,7 @@ function TaskDetailForm({ task, systemId, onClose }: TaskDetailFormProps) {
           <Popover>
             <PopoverTrigger asChild>
               <Button variant="outline" className="w-full justify-start gap-2 text-sm font-normal">
-                <CalendarIcon size={14} className="text-muted-foreground" />
+                <CalendarIcon size={16} className="text-muted-foreground" />
                 {dueDate ? format(dueDate, "MMM d, yyyy") : <span className="text-muted-foreground">Pick date</span>}
               </Button>
             </PopoverTrigger>
@@ -260,7 +260,7 @@ function TaskDetailForm({ task, systemId, onClose }: TaskDetailFormProps) {
 
       <div className="mt-auto flex items-center justify-between gap-3">
         {saveStatus === "saved" && (
-          <span className="text-xs text-muted-foreground">Saved</span>
+          <span className="text-sm text-muted-foreground">Saved</span>
         )}
         <Button
           onClick={handleSave}
