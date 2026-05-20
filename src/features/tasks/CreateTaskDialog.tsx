@@ -14,7 +14,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Separator } from "@/components/ui/separator";
 import { ENERGY_LEVEL_VALUES, TASK_PRIORITY_VALUES } from "@/shared/types/enums";
 import { Bell, CalendarIcon, CalendarRange, ChevronDown, ChevronUp, Plus, X } from "lucide-react";
-import type { CreateTaskInput } from "./tasks.types";
+import type { CreateTaskInput, Task } from "./tasks.types";
 import { useCreateTask } from "./tasks.hooks";
 import { useFolders } from "@/features/folders/folders.hooks";
 import { getSystemColor } from "@/shared/utils/system-colors";
@@ -30,9 +30,11 @@ interface CreateTaskDialogProps {
   onOpenChange?: (open: boolean) => void;
   /** Optional slot rendered at the top of the dialog (e.g. a system selector) */
   header?: React.ReactNode;
+  /** Called after the task is successfully created — useful for auto-linking */
+  onTaskCreated?: (task: Task) => void;
 }
 
-export function CreateTaskDialog({ systemId, parentTaskId, folderId, open: controlledOpen, onOpenChange: controlledOnOpenChange, header }: CreateTaskDialogProps) {
+export function CreateTaskDialog({ systemId, parentTaskId, folderId, open: controlledOpen, onOpenChange: controlledOnOpenChange, header, onTaskCreated }: CreateTaskDialogProps) {
   const [internalOpen, setInternalOpen] = useState(false);
   const isControlled = controlledOpen !== undefined;
   const open = isControlled ? controlledOpen : internalOpen;
@@ -136,6 +138,7 @@ export function CreateTaskDialog({ systemId, parentTaskId, folderId, open: contr
         ),
       );
       resetForm();
+      onTaskCreated?.(parent);
       setOpen(false);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to create task");
