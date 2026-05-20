@@ -48,11 +48,37 @@ export default function FolderLoading() {
           <Skeleton className="h-10 w-[120px] rounded-md bg-white/10" />
         </div>
 
-        {/* Task cards */}
-        <div className="space-y-2">
-          {[1, 2, 3].map((i) => (
-            <TaskCardSkeleton key={i} />
-          ))}
+        {/* Action View Loading State */}
+        <div className="flex flex-col gap-4 w-full h-full">
+          {/* Daily Progress Section */}
+          <div className="space-y-3">
+            <Skeleton className="h-7 w-48 rounded bg-white/10" />
+            <Skeleton className="h-2 w-full rounded-full bg-white/5" />
+          </div>
+
+          {/* Energy Columns Grid */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 w-full pt-2">
+            {[
+              { label: "High Energy", desc: "Tasks requiring high focus." },
+              { label: "Medium Energy", desc: "Steady work, moderate focus." },
+              { label: "Low Energy", desc: "Light tasks, easy to pick up." },
+            ].map((col, idx) => (
+              <div key={col.label} className="flex flex-col gap-2 min-w-0">
+                <div className="space-y-1 mb-2 select-none">
+                  <div className="font-semibold text-base text-transparent bg-white/10 rounded w-max">
+                    {col.label}
+                  </div>
+                  <div className="text-sm text-transparent bg-white/5 rounded w-max">
+                    {col.desc}
+                  </div>
+                </div>
+                <div className="flex flex-col gap-2">
+                  <TaskCardSkeleton />
+                  {idx === 0 && <TaskCardSkeleton />}
+                </div>
+              </div>
+            ))}
+          </div>
         </div>
       </div>
     </div>
