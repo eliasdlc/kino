@@ -1,13 +1,14 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
-import { Trash2 } from "lucide-react";
+import { Plus, Trash2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
-import { useSubtasks, useToggleTask, useDeleteTaskWithUndo, taskKeys } from "./tasks.hooks";
+import { useSubtasks, useToggleTask, useDeleteTaskWithUndo, useCreateTask, taskKeys } from "./tasks.hooks";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import { Input } from "@/components/ui/input";
 
 interface SubtaskListProps {
   parentTaskId: string;
@@ -17,11 +18,25 @@ interface SubtaskListProps {
 export function SubtaskList({ parentTaskId, systemId }: SubtaskListProps) {
   const queryClient = useQueryClient();
   const [deleteTarget, setDeleteTarget] = useState<{ id: string; title: string } | null>(null);
+  const [newTitle, setNewTitle] = useState("");
+  const inputRef = useRef<HTMLInputElement>(null);
   const { data: subtasks, isLoading } = useSubtasks(parentTaskId, systemId, { enabled: true });
   const { mutate: toggleTask } = useToggleTask(systemId);
   const { mutate: deleteTask } = useDeleteTaskWithUndo(systemId);
+  const { mutate: createTask } = useCreateTask(systemId);
 
   const subtaskQueryKey = taskKeys.subtasks(parentTaskId);
+
+  function handleAddSubtask() {
+    const title = newTitle.trim();
+    if (!title) return;
+    setNewTitle("");
+    inputRef.current?.focus();
+    createTask(
+      { title, parentTaskId, systemId },
+      { onSuccess: () => queryClient.invalidateQueries({ queryKey: subtaskQueryKey }) }
+    );
+  }
 
   if (isLoading) {
     return (
@@ -32,8 +47,31 @@ export function SubtaskList({ parentTaskId, systemId }: SubtaskListProps) {
     );
   }
 
+  const addInput = (
+    <div className="flex items-center gap-2 mt-1 pl-4 ml-2">
+      <Plus size={14} className="shrink-0 text-muted-foreground" />
+      <Input
+        ref={inputRef}
+        value={newTitle}
+        onChange={(e) => setNewTitle(e.target.value)}
+        onKeyDown={(e) => {
+          e.stopPropagation();
+          if (e.key === "Enter") handleAddSubtask();
+          if (e.key === "Escape") setNewTitle("");
+        }}
+        placeholder="Add subtask..."
+
+        className="h-7 p-2 text-sm border-none shadow-none focus-visible:ring-0 bg-transparent"
+      />
+    </div>
+  );
+
   if (!subtasks || subtasks.length === 0) {
-    return <p className="text-xs text-muted-foreground pl-4 py-1">No subtasks.</p>;
+    return (
+      <div className="flex flex-col gap-1">
+        {addInput}
+      </div>
+    );
   }
 
   return (
@@ -87,6 +125,8 @@ export function SubtaskList({ parentTaskId, systemId }: SubtaskListProps) {
           </div>
         );
       })}
+
+      {addInput}
 
       <ConfirmDialog
         open={deleteTarget !== null}

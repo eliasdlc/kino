@@ -277,17 +277,19 @@ function TaskDetailForm({ task, systemId, onClose }: TaskDetailFormProps) {
 export function TaskDetailSheet({ task, systemId, open, onOpenChange }: TaskDetailSheetProps) {
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
-      <SheetContent className="w-full sm:max-w-lg overflow-y-auto flex flex-col gap-6">
-        <SheetHeader>
+      <SheetContent className="w-full sm:max-w-lg overflow-y-auto flex flex-col">
+        <SheetHeader className="px-6 pt-6 pb-0">
           <SheetTitle>Edit task</SheetTitle>
         </SheetHeader>
         {task && (
-          <TaskDetailForm
-            key={task.id}
-            task={task}
-            systemId={systemId}
-            onClose={() => onOpenChange(false)}
-          />
+          <div className="flex-1 px-6 pb-6 pt-4">
+            <TaskDetailForm
+              key={task.id}
+              task={task}
+              systemId={systemId}
+              onClose={() => onOpenChange(false)}
+            />
+          </div>
         )}
       </SheetContent>
     </Sheet>
