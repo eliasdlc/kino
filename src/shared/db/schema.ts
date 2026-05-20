@@ -156,6 +156,18 @@ export const colorEnum = pgEnum('color', [
   'white',
 ]);
 
+export const chronotypeEnum = pgEnum('chronotype', [
+  'morning',
+  'intermediate',
+  'evening',
+]);
+
+export const sleepQualityEnum = pgEnum('sleep_quality', [
+  'good',
+  'partial',
+  'poor',
+]);
+
 // ============================================================================
 // Tables
 // ============================================================================
@@ -769,3 +781,48 @@ export const defaultContextTags = pgTable('default_context_tags', {
   title: varchar('title', { length: 24 }).notNull(),
   color: colorEnum('color').notNull().default('blue'),
 });
+
+// ── user_energy_profile ──
+
+export const userEnergyProfile = pgTable('user_energy_profile', {
+  userId: uuid('user_id')
+    .primaryKey()
+    .references(() => users.id, { onDelete: 'cascade' }),
+  chronotype: chronotypeEnum('chronotype').notNull().default('intermediate'),
+  sleepTypicalHours: smallint('sleep_typical_hours').notNull().default(7),
+  availableHoursPerDay: smallint('available_hours_per_day').notNull().default(8),
+  energyFloor: smallint('energy_floor').notNull().default(20),
+  rechargePresets: text('recharge_presets').notNull().default('[]'),
+  createdAt: timestamp('created_at', { withTimezone: true })
+    .notNull()
+    .defaultNow(),
+  updatedAt: timestamp('updated_at', { withTimezone: true })
+    .notNull()
+    .defaultNow(),
+});
+
+// ── energy_checkins ──
+
+export const energyCheckins = pgTable(
+  'energy_checkins',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    userId: uuid('user_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    date: date('date').notNull(),
+    currentLevel: smallint('current_level').notNull(),
+    sleepQuality: sleepQualityEnum('sleep_quality').notNull(),
+    createdAt: timestamp('created_at', { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (table) => [
+    check(
+      'checkin_level_range',
+      sql`${table.currentLevel} BETWEEN 1 AND 100`,
+    ),
+    uniqueIndex('uq_checkin_user_date').on(table.userId, table.date),
+    index('idx_checkin_user').on(table.userId, table.date),
+  ],
+);
