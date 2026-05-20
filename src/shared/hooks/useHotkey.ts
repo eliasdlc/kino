@@ -43,6 +43,10 @@ export function useHotkey(
         ) {
           return;
         }
+        // Ignore if focus is anywhere inside a dialog/sheet/popover
+        if (target.closest('[role="dialog"]')) {
+          return;
+        }
       }
 
       const combos = Array.isArray(keyCombos) ? keyCombos : [keyCombos];

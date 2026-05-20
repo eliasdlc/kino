@@ -67,7 +67,7 @@ export function TaskPlanningView({ systemId, initialData, folderId, folderInitia
       // 8px activation distance prevents accidental drags on click
       activationConstraint: { distance: 8 },
     }),
-    useSensor(KeyboardSensor)
+    useSensor(KeyboardSensor, keyboardDisabled ? { keyboardCodes: { start: [], cancel: [], end: [] } } : {})
   );
 
   const weekDates = useMemo(() => {

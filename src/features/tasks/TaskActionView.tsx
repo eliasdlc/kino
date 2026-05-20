@@ -51,7 +51,7 @@ export function TaskActionView({ systemId, initialData, folderId, folderInitialD
         useSensor(PointerSensor, {
             activationConstraint: { distance: 8 },
         }),
-        useSensor(KeyboardSensor)
+        useSensor(KeyboardSensor, keyboardDisabled ? { keyboardCodes: { start: [], cancel: [], end: [] } } : {})
     );
 
     // Include "done" alongside active statuses to compute progress correctly
