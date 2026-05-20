@@ -51,12 +51,20 @@ export function DraggableTaskCard({
     ? { transform: CSS.Translate.toString(transform) }
     : undefined;
 
+  // Only activate keyboard drag when the card itself is focused, not a child element
+  // (buttons, subtask inputs, delete dialogs, etc. all bubble keydown through the React tree)
+  const handleKeyDown: React.KeyboardEventHandler = (e) => {
+    if (e.target !== e.currentTarget) return;
+    listeners?.onKeyDown?.(e as unknown as KeyboardEvent);
+  };
+
   return (
     <div
       ref={setNodeRef}
       style={style}
-      {...listeners}
       {...attributes}
+      {...listeners}
+      onKeyDown={handleKeyDown}
       className={cn(
         "touch-none", // Prevents scroll jank on mobile during drag
         isDragging && "opacity-40 border-dashed pointer-events-none"
