@@ -10,6 +10,7 @@ import {
   boolean,
   integer,
   smallint,
+  doublePrecision,
   timestamp,
   date,
   time,
@@ -824,5 +825,29 @@ export const energyCheckins = pgTable(
     ),
     uniqueIndex('uq_checkin_user_date').on(table.userId, table.date),
     index('idx_checkin_user').on(table.userId, table.date),
+  ],
+);
+
+// ── behavior_snapshots ──
+
+export const behaviorSnapshots = pgTable(
+  'behavior_snapshots',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    userId: uuid('user_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    date: date('date').notNull(),
+    tasksCreated: smallint('tasks_created').notNull().default(0),
+    tasksCompleted: smallint('tasks_completed').notNull().default(0),
+    tasksOverdue: smallint('tasks_overdue').notNull().default(0),
+    criticalCount: smallint('critical_count').notNull().default(0),
+    activeCount: smallint('active_count').notNull().default(0),
+    completionRate: doublePrecision('completion_rate').notNull().default(0),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    uniqueIndex('uq_snapshot_user_date').on(table.userId, table.date),
+    index('idx_snapshot_user').on(table.userId, table.date),
   ],
 );
