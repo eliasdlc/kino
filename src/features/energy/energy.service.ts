@@ -7,7 +7,9 @@ import {
   getPlanCandidateTasks,
   getUserEnergyProfile,
 } from './energy.queries';
-import { buildBudgetPlan } from './energy.planner';
+import { buildBudgetPlan, buildEnergyPlan } from './energy.planner';
+import type { EnergyPlanResult } from './energy.planner';
+import type { Chronotype, SleepQuality } from './energy.utils';
 import type { CreateCheckinInput } from './energy.schemas';
 
 function getTodayDate(timezone: string): string {
@@ -52,4 +54,51 @@ export async function getTodayPlan(userId: string) {
   const today = new Date(getTodayDate(timezone));
   const plan = buildBudgetPlan(candidateTasks, profile.availableHoursPerDay, today);
   return { plan, noProfile: false };
+}
+
+export interface TodayEnergyPlanResult {
+  energyPlan: EnergyPlanResult | null;
+  noProfile: boolean;
+  hasCheckin: boolean;
+  checkin: { currentLevel: number; sleepQuality: SleepQuality } | null;
+  chronotype: Chronotype | null;
+}
+
+export async function getTodayEnergyPlan(userId: string): Promise<TodayEnergyPlanResult> {
+  const profile = await getUserEnergyProfile(userId);
+  if (!profile) {
+    return { energyPlan: null, noProfile: true, hasCheckin: false, checkin: null, chronotype: null };
+  }
+
+  const timezone = await getUserTimezone(userId);
+  const todayStr = getTodayDate(timezone);
+
+  const [candidateTasks, checkinRow] = await Promise.all([
+    getPlanCandidateTasks(userId),
+    getCheckinByDate(userId, todayStr),
+  ]);
+
+  const today = new Date(todayStr);
+  const checkin = checkinRow
+    ? { currentLevel: checkinRow.currentLevel, sleepQuality: checkinRow.sleepQuality as SleepQuality }
+    : null;
+
+  const energyPlan = checkin
+    ? buildEnergyPlan({
+        tasks: candidateTasks,
+        availableHoursPerDay: profile.availableHoursPerDay,
+        chronotype: profile.chronotype as Chronotype,
+        sleepQuality: checkin.sleepQuality,
+        energyFloor: profile.energyFloor,
+        today,
+      })
+    : null;
+
+  return {
+    energyPlan,
+    noProfile: false,
+    hasCheckin: checkin !== null,
+    checkin,
+    chronotype: profile.chronotype as Chronotype,
+  };
 }

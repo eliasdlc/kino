@@ -1,9 +1,158 @@
-import { computeImportance } from './energy.utils';
+import {
+  computeImportance,
+  computeEffectiveEnergy,
+  computeCapacity,
+  type Chronotype,
+  type SleepQuality,
+  CHRONOTYPE_CURVES,
+} from './energy.utils';
 import type { Task } from '@/features/tasks/tasks.types';
 
 export interface PlanItem {
   task: Task;
   startsHere: boolean;
+}
+
+// ── Planificador consciente de energía ─────────────────────────────────────
+
+export type TaskEnergyDemand = 'high' | 'medium' | 'low';
+
+// Energía efectiva mínima requerida por nivel de demanda.
+// Solo las tareas 'high' se difieren si no se alcanza el umbral; medium/low se colocan igual.
+const ENERGY_THRESHOLDS: Record<TaskEnergyDemand, number> = {
+  high: 60,
+  medium: 35,
+  low: 20,
+};
+
+const BREAK_MINUTES = 10;
+const BREAK_THRESHOLD_MINUTES = 90;
+
+export interface EnergyPlanItem {
+  task: Task;
+  /** Minuto absoluto desde medianoche en que comienza la tarea */
+  scheduledStartMinute: number;
+  /** Energía efectiva calculada al momento de colocar la tarea */
+  effectiveEnergyAtStart: number;
+  startsHere: boolean;
+  /** El planner insertó un descanso justo antes de esta tarea */
+  breakBefore: boolean;
+}
+
+export interface EnergyPlanResult {
+  items: EnergyPlanItem[];
+  /** Capacidad proyectada por hora (24 valores, índice = hora 0–23) */
+  projectedCurve: readonly number[];
+  totalBreakMinutes: number;
+  /** Tareas que no se pudieron ubicar (energía insuficiente o presupuesto agotado) */
+  deferred: Task[];
+}
+
+export interface EnergyPlanOptions {
+  tasks: Task[];
+  availableHoursPerDay: number;
+  chronotype: Chronotype;
+  sleepQuality: SleepQuality;
+  energyFloor: number;
+  /** Hora de inicio del bloque de trabajo (0–23, default 9) */
+  startHour?: number;
+  today: Date;
+}
+
+/**
+ * Construye un plan de trabajo consciente de energía.
+ * Coloca tareas high en picos circadianos, inserta descansos cada ~90 min y
+ * difiere las tareas high que no alcanzan el umbral de energía.
+ */
+export function buildEnergyPlan(options: EnergyPlanOptions): EnergyPlanResult {
+  const {
+    tasks,
+    availableHoursPerDay,
+    chronotype,
+    sleepQuality,
+    energyFloor,
+    startHour = 9,
+    today,
+  } = options;
+
+  const budgetMinutes = availableHoursPerDay * 60;
+
+  // Curva proyectada para todo el día (usada por la UI)
+  const projectedCurve = CHRONOTYPE_CURVES[chronotype].map((_, h) =>
+    computeCapacity(h, chronotype, sleepQuality),
+  ) as unknown as readonly number[];
+
+  const candidates = tasks.filter(
+    (t) =>
+      t.taskType !== 'idea' &&
+      t.deletedAt === null &&
+      (t.status === 'today' || t.status === 'tomorrow' || t.status === 'week'),
+  );
+
+  const sorted = [...candidates].sort(
+    (a, b) => computeImportance(b, today) - computeImportance(a, today),
+  );
+
+  const items: EnergyPlanItem[] = [];
+  const deferred: Task[] = [];
+
+  let currentMinute = startHour * 60;
+  let continuousWorkMinutes = 0;
+  let usedMinutes = 0;
+  let totalBreakMinutes = 0;
+
+  for (const task of sorted) {
+    const taskMinutes = estimatedMinutes(task.estimatedTime);
+
+    // Insertar descanso si se superó el umbral de trabajo continuo
+    let breakBefore = false;
+    if (continuousWorkMinutes >= BREAK_THRESHOLD_MINUTES) {
+      if (usedMinutes + BREAK_MINUTES <= budgetMinutes) {
+        currentMinute += BREAK_MINUTES;
+        usedMinutes += BREAK_MINUTES;
+        totalBreakMinutes += BREAK_MINUTES;
+        continuousWorkMinutes = 0;
+        breakBefore = true;
+      }
+    }
+
+    // Presupuesto agotado
+    if (usedMinutes + taskMinutes > budgetMinutes) {
+      deferred.push(task);
+      continue;
+    }
+
+    const currentHour = Math.min(23, Math.floor(currentMinute / 60));
+    const effectiveEnergy = computeEffectiveEnergy(
+      currentHour,
+      continuousWorkMinutes,
+      chronotype,
+      sleepQuality,
+      energyFloor,
+    );
+
+    const demand = (task.energyLevel ?? 'medium') as TaskEnergyDemand;
+
+    // Solo las tareas 'high' se difieren por energía insuficiente
+    if (demand === 'high' && effectiveEnergy < ENERGY_THRESHOLDS.high) {
+      deferred.push(task);
+      continue; // no avanzar el reloj — la ranura sigue libre para la siguiente tarea
+    }
+
+    items.push({
+      task,
+      scheduledStartMinute: currentMinute,
+      effectiveEnergyAtStart: effectiveEnergy,
+      startsHere: items.length === 0,
+      breakBefore,
+    });
+
+    currentMinute += taskMinutes;
+    usedMinutes += taskMinutes;
+    continuousWorkMinutes += taskMinutes;
+  }
+
+  return { items, projectedCurve, totalBreakMinutes, deferred };
 }
 
 const DEFAULT_TASK_MINUTES = 30;
