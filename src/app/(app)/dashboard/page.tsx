@@ -8,9 +8,10 @@ import { PageWrapper } from "@/components/PageWrapper";
 import Link from "next/link";
 import { ChevronRight, Zap, Flame, Minus } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { getTodayEnergyPlan } from "@/features/energy/energy.service";
+import { getTodayEnergyPlan, getTodayAdvisor } from "@/features/energy/energy.service";
 import { DailyPlanCard } from "@/features/dashboard/DailyPlanCard";
 import { EnergyBatteryCard } from "@/features/dashboard/EnergyBatteryCard";
+import { AdvisorCard } from "@/features/dashboard/AdvisorCard";
 
 export const metadata = { title: "Dashboard - Kino" };
 
@@ -38,7 +39,7 @@ export default async function DashboardPage() {
 
   const userId = session.user.id;
 
-  const [todayTasksRaw, userSystems, dailyPlan] = await Promise.all([
+  const [todayTasksRaw, userSystems, dailyPlan, topPattern] = await Promise.all([
     db
       .select()
       .from(tasks)
@@ -54,6 +55,7 @@ export default async function DashboardPage() {
       .from(systems)
       .where(eq(systems.userId, userId)),
     getTodayEnergyPlan(userId),
+    getTodayAdvisor(userId),
   ]);
 
   const doneTasks = todayTasksRaw.filter((t) => t.status === "done");
@@ -173,6 +175,9 @@ export default async function DashboardPage() {
           </ul>
         )}
       </div>
+
+      {/* Advisor */}
+      <AdvisorCard pattern={topPattern} />
 
       {/* Energy Battery */}
       <EnergyBatteryCard

@@ -16,6 +16,8 @@ import { buildBudgetPlan, buildEnergyPlan } from './energy.planner';
 import type { EnergyPlanResult } from './energy.planner';
 import type { Chronotype, SleepQuality } from './energy.utils';
 import type { CreateCheckinInput } from './energy.schemas';
+import { detectTopPattern } from './energy.advisor';
+import type { AdvisorPattern } from './energy.advisor';
 
 function getTodayDate(timezone: string): string {
   return new Intl.DateTimeFormat('en-CA', {
@@ -105,6 +107,16 @@ export async function getWeeklyTrends(userId: string): Promise<WeeklyTrend> {
 }
 
 // ── Advisor ────────────────────────────────────────────────────────────────
+
+export async function getTodayAdvisor(userId: string): Promise<AdvisorPattern | null> {
+  const profile = await getUserEnergyProfile(userId);
+  if (!profile) return null;
+  await ensureYesterdaySnapshot(userId);
+  const recent = await getRecentSnapshots(userId, 7);
+  if (recent.length === 0) return null;
+  const [today, ...rest] = recent;
+  return detectTopPattern(today!, rest, profile.availableHoursPerDay);
+}
 
 export async function getTodayEnergyPlan(userId: string): Promise<TodayEnergyPlanResult> {
   const profile = await getUserEnergyProfile(userId);
