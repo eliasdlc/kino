@@ -1,11 +1,12 @@
-import { Zap, ArrowRight, Clock, AlertCircle } from 'lucide-react';
+import { Zap, ArrowRight, Clock, AlertCircle, Coffee } from 'lucide-react';
 import Link from 'next/link';
 import { cn } from '@/lib/utils';
-import type { PlanItem } from '@/features/energy/energy.planner';
+import type { PlanItem, EnergyPlanItem } from '@/features/energy/energy.planner';
 
 interface Props {
   plan: PlanItem[];
   noProfile: boolean;
+  energyItems?: EnergyPlanItem[];
 }
 
 function estimatedLabel(estimatedTime: string | null | undefined): string {
@@ -30,7 +31,62 @@ const ENERGY_LABEL: Record<string, string> = {
   low: 'Baja',
 };
 
-export function DailyPlanCard({ plan, noProfile }: Props) {
+function EnergyPlanRow({ item }: { item: EnergyPlanItem }) {
+  const { task, startsHere, breakBefore, effectiveEnergyAtStart } = item;
+  return (
+    <>
+      {breakBefore && (
+        <div className="flex items-center gap-2 px-5 py-2 bg-muted/30 text-xs text-muted-foreground">
+          <Coffee className="w-3 h-3" />
+          <span>Descanso recomendado</span>
+        </div>
+      )}
+      <div
+        className={cn(
+          'flex items-center gap-3 px-5 py-3',
+          startsHere && 'bg-primary/5',
+        )}
+      >
+        <div className="shrink-0">
+          {startsHere ? (
+            <Zap className="w-4 h-4 text-primary" />
+          ) : (
+            <ArrowRight className="w-4 h-4 text-muted-foreground/40" />
+          )}
+        </div>
+
+        <div className="flex-1 min-w-0">
+          {startsHere && (
+            <p className="text-xs text-primary font-semibold mb-0.5">↗ Empieza aquí</p>
+          )}
+          <p className="text-sm font-medium truncate">{task.title}</p>
+        </div>
+
+        <div className="flex items-center gap-2 shrink-0">
+          <span
+            className={cn(
+              'text-xs px-2 py-0.5 rounded-full font-medium',
+              ENERGY_PILL[task.energyLevel] ?? ENERGY_PILL.medium,
+            )}
+          >
+            {ENERGY_LABEL[task.energyLevel] ?? task.energyLevel}
+          </span>
+          <span className="text-xs tabular-nums text-muted-foreground" title="Energía al inicio">
+            {Math.round(effectiveEnergyAtStart)}
+          </span>
+          <span className="flex items-center gap-1 text-xs text-muted-foreground">
+            <Clock className="w-3 h-3" />
+            {estimatedLabel(task.estimatedTime)}
+          </span>
+        </div>
+      </div>
+    </>
+  );
+}
+
+export function DailyPlanCard({ plan, noProfile, energyItems }: Props) {
+  // Si hay plan consciente de energía, usarlo; si no, el plan de presupuesto.
+  const useEnergyPlan = energyItems !== undefined && energyItems.length > 0;
   if (noProfile) {
     return (
       <div className="rounded-xl border bg-card p-5 flex items-start gap-4">
@@ -48,7 +104,9 @@ export function DailyPlanCard({ plan, noProfile }: Props) {
     );
   }
 
-  if (plan.length === 0) {
+  const isEmpty = useEnergyPlan ? energyItems!.length === 0 : plan.length === 0;
+
+  if (isEmpty) {
     return (
       <div className="rounded-xl border bg-card p-5">
         <p className="text-sm font-medium mb-1">Plan de hoy</p>
@@ -64,50 +122,58 @@ export function DailyPlanCard({ plan, noProfile }: Props) {
       <div className="px-5 py-4 border-b flex items-center justify-between">
         <div>
           <p className="font-semibold text-sm">Plan de hoy</p>
-          <p className="text-xs text-muted-foreground">{plan.length} tarea{plan.length > 1 ? 's' : ''} ordenadas por importancia</p>
+          <p className="text-xs text-muted-foreground">
+            {useEnergyPlan
+              ? `${energyItems!.length} tarea${energyItems!.length > 1 ? 's' : ''} ordenadas por energía`
+              : `${plan.length} tarea${plan.length > 1 ? 's' : ''} ordenadas por importancia`}
+          </p>
         </div>
       </div>
 
       <div className="divide-y">
-        {plan.map(({ task, startsHere }) => (
-          <div
-            key={task.id}
-            className={cn(
-              'flex items-center gap-3 px-5 py-3',
-              startsHere && 'bg-primary/5',
-            )}
-          >
-            <div className="shrink-0">
-              {startsHere ? (
-                <Zap className="w-4 h-4 text-primary" />
-              ) : (
-                <ArrowRight className="w-4 h-4 text-muted-foreground/40" />
-              )}
-            </div>
-
-            <div className="flex-1 min-w-0">
-              {startsHere && (
-                <p className="text-xs text-primary font-semibold mb-0.5">↗ Empieza aquí</p>
-              )}
-              <p className="text-sm font-medium truncate">{task.title}</p>
-            </div>
-
-            <div className="flex items-center gap-2 shrink-0">
-              <span
+        {useEnergyPlan
+          ? energyItems!.map((item) => (
+              <EnergyPlanRow key={item.task.id} item={item} />
+            ))
+          : plan.map(({ task, startsHere }) => (
+              <div
+                key={task.id}
                 className={cn(
-                  'text-xs px-2 py-0.5 rounded-full font-medium',
-                  ENERGY_PILL[task.energyLevel] ?? ENERGY_PILL.medium,
+                  'flex items-center gap-3 px-5 py-3',
+                  startsHere && 'bg-primary/5',
                 )}
               >
-                {ENERGY_LABEL[task.energyLevel] ?? task.energyLevel}
-              </span>
-              <span className="flex items-center gap-1 text-xs text-muted-foreground">
-                <Clock className="w-3 h-3" />
-                {estimatedLabel(task.estimatedTime)}
-              </span>
-            </div>
-          </div>
-        ))}
+                <div className="shrink-0">
+                  {startsHere ? (
+                    <Zap className="w-4 h-4 text-primary" />
+                  ) : (
+                    <ArrowRight className="w-4 h-4 text-muted-foreground/40" />
+                  )}
+                </div>
+
+                <div className="flex-1 min-w-0">
+                  {startsHere && (
+                    <p className="text-xs text-primary font-semibold mb-0.5">↗ Empieza aquí</p>
+                  )}
+                  <p className="text-sm font-medium truncate">{task.title}</p>
+                </div>
+
+                <div className="flex items-center gap-2 shrink-0">
+                  <span
+                    className={cn(
+                      'text-xs px-2 py-0.5 rounded-full font-medium',
+                      ENERGY_PILL[task.energyLevel] ?? ENERGY_PILL.medium,
+                    )}
+                  >
+                    {ENERGY_LABEL[task.energyLevel] ?? task.energyLevel}
+                  </span>
+                  <span className="flex items-center gap-1 text-xs text-muted-foreground">
+                    <Clock className="w-3 h-3" />
+                    {estimatedLabel(task.estimatedTime)}
+                  </span>
+                </div>
+              </div>
+            ))}
       </div>
     </div>
   );

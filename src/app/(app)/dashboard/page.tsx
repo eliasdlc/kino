@@ -8,8 +8,9 @@ import { PageWrapper } from "@/components/PageWrapper";
 import Link from "next/link";
 import { ChevronRight, Zap, Flame, Minus } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { getTodayPlan } from "@/features/energy/energy.service";
+import { getTodayEnergyPlan } from "@/features/energy/energy.service";
 import { DailyPlanCard } from "@/features/dashboard/DailyPlanCard";
+import { EnergyBatteryCard } from "@/features/dashboard/EnergyBatteryCard";
 
 export const metadata = { title: "Dashboard - Kino" };
 
@@ -52,7 +53,7 @@ export default async function DashboardPage() {
       .select({ id: systems.id, name: systems.name })
       .from(systems)
       .where(eq(systems.userId, userId)),
-    getTodayPlan(userId),
+    getTodayEnergyPlan(userId),
   ]);
 
   const doneTasks = todayTasksRaw.filter((t) => t.status === "done");
@@ -173,8 +174,19 @@ export default async function DashboardPage() {
         )}
       </div>
 
+      {/* Energy Battery */}
+      <EnergyBatteryCard
+        initialCheckin={dailyPlan.checkin}
+        projectedCurve={dailyPlan.energyPlan?.projectedCurve ?? null}
+        chronotype={dailyPlan.chronotype}
+      />
+
       {/* Daily Plan */}
-      <DailyPlanCard plan={dailyPlan.plan} noProfile={dailyPlan.noProfile} />
+      <DailyPlanCard
+        plan={[]}
+        noProfile={dailyPlan.noProfile}
+        energyItems={dailyPlan.energyPlan?.items}
+      />
 
       {/* Quick links */}
       <div className="rounded-lg border bg-card p-6 space-y-3">
