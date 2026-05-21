@@ -8,10 +8,11 @@ import { PageWrapper } from "@/components/PageWrapper";
 import Link from "next/link";
 import { ChevronRight, Zap, Flame, Minus } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { getTodayEnergyPlan, getTodayAdvisor } from "@/features/energy/energy.service";
+import { getTodayEnergyPlan, getTodayAdvisor, getWeeklyTrends } from "@/features/energy/energy.service";
 import { DailyPlanCard } from "@/features/dashboard/DailyPlanCard";
 import { EnergyBatteryCard } from "@/features/dashboard/EnergyBatteryCard";
 import { AdvisorCard } from "@/features/dashboard/AdvisorCard";
+import { WeeklyTrendsCard } from "@/features/dashboard/WeeklyTrendsCard";
 
 export const metadata = { title: "Dashboard - Kino" };
 
@@ -39,7 +40,7 @@ export default async function DashboardPage() {
 
   const userId = session.user.id;
 
-  const [todayTasksRaw, userSystems, dailyPlan, topPattern] = await Promise.all([
+  const [todayTasksRaw, userSystems, dailyPlan, topPattern, weeklyTrends] = await Promise.all([
     db
       .select()
       .from(tasks)
@@ -56,6 +57,7 @@ export default async function DashboardPage() {
       .where(eq(systems.userId, userId)),
     getTodayEnergyPlan(userId),
     getTodayAdvisor(userId),
+    getWeeklyTrends(userId),
   ]);
 
   const doneTasks = todayTasksRaw.filter((t) => t.status === "done");
@@ -185,6 +187,9 @@ export default async function DashboardPage() {
         projectedCurve={dailyPlan.energyPlan?.projectedCurve ?? null}
         chronotype={dailyPlan.chronotype}
       />
+
+      {/* Weekly Trends */}
+      <WeeklyTrendsCard trends={weeklyTrends} />
 
       {/* Daily Plan */}
       <DailyPlanCard
