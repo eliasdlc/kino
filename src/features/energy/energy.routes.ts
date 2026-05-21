@@ -2,7 +2,7 @@ import { headers } from 'next/headers';
 import { NextRequest, NextResponse } from 'next/server';
 import { auth } from '@/auth';
 import { createCheckinSchema } from './energy.schemas';
-import { createTodayCheckin, getTodayCheckin } from './energy.service';
+import { createTodayCheckin, getTodayCheckin, getTodayPlan } from './energy.service';
 
 export async function createCheckinRoute(request: NextRequest) {
   const session = await auth.api.getSession({ headers: await headers() });
@@ -42,6 +42,23 @@ export async function getTodayCheckinRoute() {
   } catch {
     return NextResponse.json(
       { code: 'INTERNAL_ERROR', message: 'Failed to fetch check-in' },
+      { status: 500 },
+    );
+  }
+}
+
+export async function getTodayPlanRoute() {
+  const session = await auth.api.getSession({ headers: await headers() });
+  if (!session) {
+    return NextResponse.json({ code: 'UNAUTHORIZED', message: 'Unauthorized' }, { status: 401 });
+  }
+
+  try {
+    const result = await getTodayPlan(session.user.id);
+    return NextResponse.json(result);
+  } catch {
+    return NextResponse.json(
+      { code: 'INTERNAL_ERROR', message: 'Failed to generate plan' },
       { status: 500 },
     );
   }

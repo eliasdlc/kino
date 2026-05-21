@@ -1,7 +1,13 @@
 import { eq } from 'drizzle-orm';
 import { db } from '@/shared/db';
 import { users } from '@/shared/db/schema';
-import { upsertCheckin, getCheckinByDate } from './energy.queries';
+import {
+  upsertCheckin,
+  getCheckinByDate,
+  getPlanCandidateTasks,
+  getUserEnergyProfile,
+} from './energy.queries';
+import { buildBudgetPlan } from './energy.planner';
 import type { CreateCheckinInput } from './energy.schemas';
 
 function getTodayDate(timezone: string): string {
@@ -32,4 +38,18 @@ export async function getTodayCheckin(userId: string) {
   const timezone = await getUserTimezone(userId);
   const today = getTodayDate(timezone);
   return getCheckinByDate(userId, today);
+}
+
+export async function getTodayPlan(userId: string) {
+  const profile = await getUserEnergyProfile(userId);
+  if (!profile) return { plan: [], noProfile: true };
+
+  const [candidateTasks, timezone] = await Promise.all([
+    getPlanCandidateTasks(userId),
+    getUserTimezone(userId),
+  ]);
+
+  const today = new Date(getTodayDate(timezone));
+  const plan = buildBudgetPlan(candidateTasks, profile.availableHoursPerDay, today);
+  return { plan, noProfile: false };
 }

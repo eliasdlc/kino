@@ -8,6 +8,8 @@ import { PageWrapper } from "@/components/PageWrapper";
 import Link from "next/link";
 import { ChevronRight, Zap, Flame, Minus } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { getTodayPlan } from "@/features/energy/energy.service";
+import { DailyPlanCard } from "@/features/dashboard/DailyPlanCard";
 
 export const metadata = { title: "Dashboard - Kino" };
 
@@ -35,7 +37,7 @@ export default async function DashboardPage() {
 
   const userId = session.user.id;
 
-  const [todayTasksRaw, userSystems] = await Promise.all([
+  const [todayTasksRaw, userSystems, dailyPlan] = await Promise.all([
     db
       .select()
       .from(tasks)
@@ -50,6 +52,7 @@ export default async function DashboardPage() {
       .select({ id: systems.id, name: systems.name })
       .from(systems)
       .where(eq(systems.userId, userId)),
+    getTodayPlan(userId),
   ]);
 
   const doneTasks = todayTasksRaw.filter((t) => t.status === "done");
@@ -169,6 +172,9 @@ export default async function DashboardPage() {
           </ul>
         )}
       </div>
+
+      {/* Daily Plan */}
+      <DailyPlanCard plan={dailyPlan.plan} noProfile={dailyPlan.noProfile} />
 
       {/* Quick links */}
       <div className="rounded-lg border bg-card p-6 space-y-3">
