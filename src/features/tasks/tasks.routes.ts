@@ -1,8 +1,8 @@
 import { headers } from "next/headers";
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "../../../auth";
-import { createTaskSchema, moveTaskSchema, reorderTasksSchema, updateTaskSchema } from "./tasks.schemas";
-import { createTask, deleteTask, getSubtasks, getTaskById, getTasksBySystem, moveTask, reorderTasks, restoreTask, toggleTask, updateTask } from "./tasks.service";
+import { bulkMoveSchema, bulkUpdateSchema, createTaskSchema, moveTaskSchema, reorderTasksSchema, updateTaskSchema } from "./tasks.schemas";
+import { bulkMoveTasks, bulkUpdateTasks, createTask, deleteTask, getSubtasks, getTaskById, getTasksBySystem, moveTask, reorderTasks, restoreTask, toggleTask, updateTask } from "./tasks.service";
 import { NotFoundError, ValidationError } from "@/shared/utils/error";
 
 export async function GET(
@@ -202,6 +202,52 @@ export async function postRestore(
         }
         throw error;
     }
+}
+
+export async function postBulkMove(request: NextRequest) {
+    const session = await auth.api.getSession({ headers: await headers() });
+    if (!session) return NextResponse.json({ code: "UNAUTHORIZED", message: "Unauthorized" }, { status: 401 });
+
+    const body = await request.json();
+    const parsed = bulkMoveSchema.safeParse(body);
+    if (!parsed.success) {
+        return NextResponse.json({
+            code: "VALIDATION_ERROR",
+            message: "Invalid input",
+            details: parsed.error.flatten()
+        }, { status: 400 });
+    }
+
+    try {
+        await bulkMoveTasks(parsed.data.taskIds, parsed.data.status, session.user.id);
+        return new NextResponse(null, { status: 204 });
+    } catch (error) {
+        if (error instanceof NotFoundError) {
+            return NextResponse.json({ code: "NOT_FOUND", message: "One or more tasks not found" }, { status: 404 });
+        }
+        if (error instanceof ValidationError) {
+            return NextResponse.json({ code: "VALIDATION_ERROR", message: error.message }, { status: 422 });
+        }
+        throw error;
+    }
+}
+
+export async function patchBulkUpdate(request: NextRequest) {
+    const session = await auth.api.getSession({ headers: await headers() });
+    if (!session) return NextResponse.json({ code: "UNAUTHORIZED", message: "Unauthorized" }, { status: 401 });
+
+    const body = await request.json();
+    const parsed = bulkUpdateSchema.safeParse(body);
+    if (!parsed.success) {
+        return NextResponse.json({
+            code: "VALIDATION_ERROR",
+            message: "Invalid input",
+            details: parsed.error.flatten()
+        }, { status: 400 });
+    }
+
+    await bulkUpdateTasks(parsed.data.taskIds, { priority: parsed.data.priority }, session.user.id);
+    return new NextResponse(null, { status: 204 });
 }
 
 export async function postReorder(request: NextRequest) {

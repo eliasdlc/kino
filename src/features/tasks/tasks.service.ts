@@ -381,6 +381,35 @@ export async function reorderTasks(userId: string, ids: string[]) {
   });
 }
 
+export async function bulkMoveTasks(taskIds: string[], status: TaskStatus, userId: string): Promise<void> {
+  await db.transaction(async (tx) => {
+    for (const taskId of taskIds) {
+      await applyTransition(tx, taskId, userId, (current) => {
+        const action = deriveAction(current.status, status);
+        if (!action) {
+          throw new ValidationError(`Cannot move task from '${current.status}' to '${status}'`);
+        }
+        return action;
+      });
+    }
+  });
+}
+
+export async function bulkUpdateTasks(
+  taskIds: string[],
+  data: Pick<UpdateTaskInput, "priority">,
+  userId: string,
+): Promise<void> {
+  await db.transaction(async (tx) => {
+    for (const taskId of taskIds) {
+      await tx
+        .update(tasks)
+        .set({ ...(data.priority !== undefined ? { priority: data.priority } : {}), updatedAt: new Date() })
+        .where(and(eq(tasks.id, taskId), eq(tasks.userId, userId), isNull(tasks.deletedAt)));
+    }
+  });
+}
+
 export async function moveTask(taskId: string, newStatus: TaskStatus, userId: string): Promise<Task> {
   const { updated } = await db.transaction((tx) =>
     applyTransition(tx, taskId, userId, (current) => {

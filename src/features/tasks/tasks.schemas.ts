@@ -37,3 +37,13 @@ export const moveTaskSchema = z.object({
 export const reorderTasksSchema = z.object({
   ids: z.array(z.string().uuid()).min(1),
 });
+
+export const bulkMoveSchema = z.object({
+  taskIds: z.array(z.string().uuid()).min(1).max(50),
+  status: z.enum(["backlog", "week", "tomorrow", "today", "done", "archived"]),
+});
+
+export const bulkUpdateSchema = z.object({
+  taskIds: z.array(z.string().uuid()).min(1).max(50),
+  priority: z.enum(["critical", "high", "medium", "low"]).optional(),
+});
