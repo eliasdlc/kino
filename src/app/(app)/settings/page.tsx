@@ -11,7 +11,9 @@ import {
 } from "@/components/ui/select";
 import { useThemeStore } from "@/components/ThemeProvider";
 import { Separator } from "@/components/ui/separator";
-import { Monitor, Moon, Sun } from "lucide-react";
+import { Bell, BellOff, Monitor, Moon, Sun } from "lucide-react";
+import { Switch } from "@/components/ui/switch";
+import { usePushNotifications } from "@/features/notifications/notifications.hooks";
 
 import { Kbd } from "@/components/ui/kbd";
 
@@ -38,6 +40,7 @@ function ShortcutRow({ label, description, keys }: { label: string; description:
 export default function SettingsPage() {
   const mode = useThemeStore((s) => s.mode);
   const setMode = useThemeStore((s) => s.setMode);
+  const { status, subscribe, unsubscribe } = usePushNotifications();
 
   return (
     <PageWrapper>
@@ -139,10 +142,48 @@ export default function SettingsPage() {
           </div>
         </div>
 
+        {/* Notifications */}
+        <div className="space-y-4">
+          <div>
+            <h2 className="text-lg font-semibold">Notifications</h2>
+            <p className="text-sm text-muted-foreground">
+              Receive alerts when Kino detects overload or low energy.
+            </p>
+          </div>
+
+          <div className="flex items-center justify-between rounded-lg border p-4">
+            <div className="flex items-center gap-3">
+              {status === 'subscribed'
+                ? <Bell className="size-4 text-emerald-500" />
+                : <BellOff className="size-4 text-muted-foreground" />}
+              <div className="space-y-0.5">
+                <Label className="text-sm font-medium">Push notifications</Label>
+                <p className="text-xs text-muted-foreground">
+                  {status === 'subscribed'   && 'Active — browser alerts enabled'}
+                  {status === 'denied'       && 'Blocked — enable in browser settings'}
+                  {status === 'unsupported'  && 'Not supported in this browser'}
+                  {(status === 'idle' || status === 'loading') && 'Inactive'}
+                </p>
+              </div>
+            </div>
+            <Switch
+              checked={status === 'subscribed'}
+              disabled={status === 'loading' || status === 'denied' || status === 'unsupported'}
+              onCheckedChange={(checked) => (checked ? subscribe() : unsubscribe())}
+            />
+          </div>
+
+          {status === 'denied' && (
+            <p className="text-xs text-amber-600 dark:text-amber-400 px-1">
+              You blocked notifications. Go to your browser&apos;s site permissions to re-enable them for this site.
+            </p>
+          )}
+        </div>
+
         {/* Future settings sections */}
         <div className="rounded-lg border p-4 bg-muted/30">
           <p className="text-sm text-muted-foreground">
-            More settings coming soon: daily energy limit, notifications, peak energy hours, and more.
+            More settings coming soon: daily energy limit, peak energy hours, and more.
           </p>
         </div>
       </div>
