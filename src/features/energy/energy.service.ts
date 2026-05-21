@@ -18,6 +18,7 @@ import type { Chronotype, SleepQuality } from './energy.utils';
 import type { CreateCheckinInput } from './energy.schemas';
 import { detectTopPattern } from './energy.advisor';
 import type { AdvisorPattern } from './energy.advisor';
+import { computeEffectiveEnergy } from './energy.utils';
 
 function getTodayDate(timezone: string): string {
   return new Intl.DateTimeFormat('en-CA', {
@@ -116,6 +117,46 @@ export async function getTodayAdvisor(userId: string): Promise<AdvisorPattern | 
   if (recent.length === 0) return null;
   const [today, ...rest] = recent;
   return detectTopPattern(today!, rest, profile.availableHoursPerDay);
+}
+
+// ── Level 1 push triggers ──────────────────────────────────────────────────
+
+export interface Level1Result {
+  overloadToday: boolean;
+  thresholdCrossing: boolean;
+}
+
+export async function checkLevel1Triggers(userId: string): Promise<Level1Result> {
+  const none = { overloadToday: false, thresholdCrossing: false };
+
+  const profile = await getUserEnergyProfile(userId);
+  if (!profile) return none;
+
+  const timezone = await getUserTimezone(userId);
+  const todayStr = getTodayDate(timezone);
+
+  const [checkinRow, snapshot] = await Promise.all([
+    getCheckinByDate(userId, todayStr),
+    getSnapshotByDate(userId, todayStr),
+  ]);
+
+  if (!checkinRow || !snapshot) return none;
+
+  const overloadToday =
+    snapshot.activeCount > profile.availableHoursPerDay * 2 ||
+    snapshot.criticalCount > 5;
+
+  const currentHour = new Date().getHours();
+  const effectiveEnergy = computeEffectiveEnergy(
+    currentHour,
+    0,
+    profile.chronotype as Chronotype,
+    checkinRow.sleepQuality as SleepQuality,
+    profile.energyFloor,
+  );
+  const thresholdCrossing = effectiveEnergy < 30;
+
+  return { overloadToday, thresholdCrossing };
 }
 
 export async function getTodayEnergyPlan(userId: string): Promise<TodayEnergyPlanResult> {
