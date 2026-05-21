@@ -6,6 +6,11 @@ import {
   getCheckinByDate,
   getPlanCandidateTasks,
   getUserEnergyProfile,
+  getSnapshotByDate,
+  getRecentSnapshots,
+  getRecentCheckins,
+  countSnapshotMetrics,
+  upsertBehaviorSnapshot,
 } from './energy.queries';
 import { buildBudgetPlan, buildEnergyPlan } from './energy.planner';
 import type { EnergyPlanResult } from './energy.planner';
@@ -63,6 +68,43 @@ export interface TodayEnergyPlanResult {
   checkin: { currentLevel: number; sleepQuality: SleepQuality } | null;
   chronotype: Chronotype | null;
 }
+
+// ── Behavior snapshots ─────────────────────────────────────────────────────
+
+export async function computeAndSaveBehaviorSnapshot(userId: string, date: string): Promise<void> {
+  const timezone = await getUserTimezone(userId);
+  const metrics = await countSnapshotMetrics(userId, date, timezone);
+  await upsertBehaviorSnapshot(userId, date, metrics);
+}
+
+export async function ensureYesterdaySnapshot(userId: string): Promise<void> {
+  const timezone = await getUserTimezone(userId);
+  const yesterday = new Intl.DateTimeFormat('en-CA', {
+    timeZone: timezone,
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  }).format(new Date(Date.now() - 86_400_000));
+  const existing = await getSnapshotByDate(userId, yesterday);
+  if (!existing) {
+    await computeAndSaveBehaviorSnapshot(userId, yesterday);
+  }
+}
+
+export interface WeeklyTrend {
+  snapshots: Awaited<ReturnType<typeof getRecentSnapshots>>;
+  checkins: Awaited<ReturnType<typeof getRecentCheckins>>;
+}
+
+export async function getWeeklyTrends(userId: string): Promise<WeeklyTrend> {
+  const [snapshots, checkins] = await Promise.all([
+    getRecentSnapshots(userId, 7),
+    getRecentCheckins(userId, 7),
+  ]);
+  return { snapshots, checkins };
+}
+
+// ── Advisor ────────────────────────────────────────────────────────────────
 
 export async function getTodayEnergyPlan(userId: string): Promise<TodayEnergyPlanResult> {
   const profile = await getUserEnergyProfile(userId);
