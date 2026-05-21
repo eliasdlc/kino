@@ -1,6 +1,8 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import type { Task, CreateTaskInput } from "./tasks.types";
+import type { AdvisorBulkAction } from "@/features/energy/energy.service";
 
 interface ToggleTaskResult {
   status: string;
@@ -313,6 +315,46 @@ export function useRestoreTask(systemId: string, folderId?: string) {
       if (folderId) {
         queryClient.invalidateQueries({ queryKey: taskKeys.folderTasks(systemId, folderId) });
       }
+    },
+  });
+}
+
+export function useAdvisorAction() {
+  const router = useRouter();
+
+  return useMutation<void, Error, { taskIds: string[]; bulkAction: AdvisorBulkAction; actionLabel: string }>({
+    mutationFn: async ({ taskIds, bulkAction }) => {
+      if (bulkAction === 'none' || taskIds.length === 0) return;
+
+      if (bulkAction === 'move-tomorrow') {
+        const res = await fetch('/api/tasks/bulk-move', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ taskIds, status: 'tomorrow' }),
+        });
+        if (!res.ok) throw new Error('No se pudo mover las tareas');
+      } else if (bulkAction === 'move-today') {
+        const res = await fetch('/api/tasks/bulk-move', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ taskIds, status: 'today' }),
+        });
+        if (!res.ok) throw new Error('No se pudo mover la tarea');
+      } else if (bulkAction === 'lower-priority') {
+        const res = await fetch('/api/tasks/bulk-update', {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ taskIds, priority: 'high' }),
+        });
+        if (!res.ok) throw new Error('No se pudo actualizar la prioridad');
+      }
+    },
+    onSuccess: (_data, { actionLabel }) => {
+      toast.success(actionLabel);
+      router.refresh();
+    },
+    onError: (err) => {
+      toast.error(err.message ?? 'Error al ejecutar la acción');
     },
   });
 }
