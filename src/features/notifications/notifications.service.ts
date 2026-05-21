@@ -1,11 +1,13 @@
 import webpush from 'web-push';
 import { getPushSubscriptions, deletePushSubscription } from './notifications.queries';
 
-webpush.setVapidDetails(
-  process.env.VAPID_SUBJECT ?? 'mailto:admin@kino.app',
-  process.env.VAPID_PUBLIC_KEY ?? '',
-  process.env.VAPID_PRIVATE_KEY ?? '',
-);
+if (process.env.VAPID_PUBLIC_KEY && process.env.VAPID_PRIVATE_KEY) {
+  webpush.setVapidDetails(
+    process.env.VAPID_SUBJECT ?? 'mailto:admin@kino.app',
+    process.env.VAPID_PUBLIC_KEY,
+    process.env.VAPID_PRIVATE_KEY,
+  );
+}
 
 export interface PushPayload {
   title: string;
