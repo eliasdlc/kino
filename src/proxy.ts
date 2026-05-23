@@ -50,7 +50,8 @@ export async function proxy(request: NextRequest) {
   const isPublicRoute =
     pathname.startsWith("/login") ||
     pathname.startsWith("/register") ||
-    pathname.startsWith("/api/auth");
+    pathname.startsWith("/api/auth") ||
+    pathname.startsWith("/api/cron/");
 
   if (!isPublicRoute) {
     const sessionCookie = getSessionCookie(request);

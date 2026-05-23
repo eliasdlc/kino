@@ -4,32 +4,18 @@ import { redirect } from "next/navigation";
 import { db } from "@/shared/db";
 import { tasks, systems } from "@/shared/db/schema";
 import { and, eq, isNull, sql } from "drizzle-orm";
-import { PageWrapper } from "@/components/PageWrapper";
-import Link from "next/link";
-import { ChevronRight, Zap, Flame, Minus } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { getTodayPlan } from "@/features/energy/energy.service";
-import { DailyPlanCard } from "@/features/dashboard/DailyPlanCard";
+import { getTodayEnergyPlan, getTodayAdvisor, getWeeklyTrends } from "@/features/energy/energy.service";
+import { TodayPlanCard } from "@/features/dashboard/TodayPlanCard";
+import { EnergyBatteryCard } from "@/features/dashboard/EnergyBatteryCard";
+import { AdvisorCard } from "@/features/dashboard/AdvisorCard";
+import { WeeklyTrendsCard } from "@/features/dashboard/WeeklyTrendsCard";
+import { QuickAccessCard } from "@/features/dashboard/QuickAccessCard";
 
 export const metadata = { title: "Dashboard - Kino" };
 
 const PRIORITY_ORDER: Record<string, number> = { critical: 0, high: 1, medium: 2, low: 3 };
 const ENERGY_ORDER: Record<string, number> = { high: 0, medium: 1, low: 2 };
-
-function EnergyDot({ level }: { level: string }) {
-  return (
-    <span className={cn(
-      "inline-flex size-1.5 rounded-full shrink-0",
-      level === "high" ? "bg-amber-400" : level === "medium" ? "bg-sky-400" : "bg-zinc-500"
-    )} />
-  );
-}
-
-function PriorityIcon({ priority }: { priority: string }) {
-  if (priority === "critical") return <Flame size={12} className="text-red-400 shrink-0" />;
-  if (priority === "high") return <Zap size={12} className="text-orange-400 shrink-0" />;
-  return <Minus size={12} className="text-zinc-600 shrink-0" />;
-}
 
 export default async function DashboardPage() {
   const session = await auth.api.getSession({ headers: await headers() });
@@ -37,7 +23,7 @@ export default async function DashboardPage() {
 
   const userId = session.user.id;
 
-  const [todayTasksRaw, userSystems, dailyPlan] = await Promise.all([
+  const [todayTasksRaw, userSystems, dailyPlan, topPattern, weeklyTrends] = await Promise.all([
     db
       .select()
       .from(tasks)
@@ -49,10 +35,12 @@ export default async function DashboardPage() {
       ))
       .orderBy(tasks.sortIndex),
     db
-      .select({ id: systems.id, name: systems.name })
+      .select({ id: systems.id, name: systems.name, color: systems.color, icon: systems.icon })
       .from(systems)
       .where(eq(systems.userId, userId)),
-    getTodayPlan(userId),
+    getTodayEnergyPlan(userId),
+    getTodayAdvisor(userId),
+    getWeeklyTrends(userId),
   ]);
 
   const doneTasks = todayTasksRaw.filter((t) => t.status === "done");
@@ -66,26 +54,26 @@ export default async function DashboardPage() {
 
   const totalToday = todayTasksRaw.length;
   const doneCount = doneTasks.length;
-  const progressPct = totalToday > 0 ? Math.round((doneCount / totalToday) * 100) : 0;
 
   const firstName = session.user.name?.split(" ")[0] ?? "there";
-
   const greeting = (() => {
     const h = new Date().getHours();
-    if (h < 12) return "Good morning";
-    if (h < 17) return "Good afternoon";
-    return "Good evening";
+    if (h < 12) return "Buenos días";
+    if (h < 17) return "Buenas tardes";
+    return "Buenas noches";
   })();
 
+  const hasWeeklyData = weeklyTrends.snapshots.length > 0 || weeklyTrends.checkins.length > 0;
+
   return (
-    <PageWrapper>
-      {/* Greeting */}
+    <div className="p-6 space-y-4 max-w-7xl mx-auto">
+      {/* Header */}
       <div>
-        <h1 className="text-3xl font-bold tracking-tight">
+        <h1 className="text-2xl font-bold tracking-tight">
           {greeting}, {firstName}
         </h1>
-        <p className="text-muted-foreground mt-1">
-          {new Date().toLocaleDateString("en-US", {
+        <p className="text-sm text-muted-foreground mt-0.5">
+          {new Date().toLocaleDateString("es-ES", {
             weekday: "long",
             year: "numeric",
             month: "long",
@@ -94,111 +82,44 @@ export default async function DashboardPage() {
         </p>
       </div>
 
-      {/* Smart View — what to do now */}
-      <div className="rounded-lg border bg-card p-6 space-y-4">
-        <div className="flex items-center justify-between">
-          <div>
-            <h2 className="text-lg font-semibold">Today</h2>
-            {totalToday > 0 && (
-              <p className="text-xs text-muted-foreground mt-0.5">
-                {doneCount} of {totalToday} done
-              </p>
-            )}
-          </div>
-          {totalToday > 0 && (
-            <span className="text-sm font-mono font-medium text-muted-foreground">
-              {progressPct}%
-            </span>
+      {/* Bento grid */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+
+        {/* ── Plan de hoy — celda grande (2 cols, toda la altura izquierda) ── */}
+        <div className="lg:col-span-2 lg:row-span-2 min-h-[420px]">
+          <TodayPlanCard
+            pendingTasks={pendingTasks}
+            doneCount={doneCount}
+            totalToday={totalToday}
+            noProfile={dailyPlan.noProfile}
+            energyItems={dailyPlan.energyPlan?.items}
+          />
+        </div>
+
+        {/* ── Columna derecha — apila Energía + Consejero ── */}
+        <div className="flex flex-col gap-4">
+          <EnergyBatteryCard
+            initialCheckin={dailyPlan.checkin}
+            projectedCurve={dailyPlan.energyPlan?.projectedCurve ?? null}
+            chronotype={dailyPlan.chronotype}
+          />
+          {topPattern && (
+            <AdvisorCard
+              pattern={topPattern}
+              actionTaskIds={topPattern.actionTaskIds}
+              actionLabel={topPattern.actionLabel}
+              bulkAction={topPattern.bulkAction}
+            />
           )}
         </div>
 
-        {/* Progress bar */}
-        {totalToday > 0 && (
-          <div className="h-1.5 w-full rounded-full bg-muted overflow-hidden">
-            <div
-              className="h-full bg-emerald-500 rounded-full motion-safe:transition-all motion-safe:duration-500"
-              style={{ width: `${progressPct}%` }}
-            />
-          </div>
-        )}
+        {/* ── Fila inferior ── */}
+        {hasWeeklyData && <WeeklyTrendsCard trends={weeklyTrends} />}
 
-        {pendingTasks.length === 0 && doneCount === 0 ? (
-          <div className="flex flex-col items-center justify-center py-6 text-center space-y-3">
-            <p className="text-sm text-muted-foreground">
-              No tasks scheduled for today.{" "}
-              <Link href="/systems" className="underline underline-offset-2 hover:text-foreground">
-                Open a system
-              </Link>{" "}
-              or press <kbd className="font-sans px-1.5 py-0.5 border rounded-md text-xs">⌘+K</kbd> to jump to Inbox.
-            </p>
-          </div>
-        ) : pendingTasks.length === 0 ? (
-          <div className="flex flex-col items-center justify-center py-4 text-center space-y-1">
-            <p className="text-sm font-medium text-emerald-500">All done for today!</p>
-            <p className="text-xs text-muted-foreground">{doneCount} task{doneCount !== 1 ? "s" : ""} completed.</p>
-          </div>
-        ) : (
-          <ul className="space-y-1.5">
-            {pendingTasks.map((task, i) => (
-              <li
-                key={task.id}
-                className={cn(
-                  "flex items-center gap-3 px-3 py-2.5 rounded-lg border",
-                  i === 0
-                    ? "border-emerald-500/30 bg-emerald-500/5"
-                    : "border-transparent hover:bg-accent/40 motion-safe:transition-colors"
-                )}
-              >
-                <PriorityIcon priority={task.priority} />
-                <p className="text-sm flex-1 truncate">{task.title}</p>
-                <EnergyDot level={task.energyLevel} />
-                {i === 0 && (
-                  <span className="text-[10px] font-mono font-semibold uppercase tracking-widest text-emerald-500 shrink-0">
-                    start here
-                  </span>
-                )}
-              </li>
-            ))}
-
-            {/* Completed tasks — collapsed summary */}
-            {doneCount > 0 && (
-              <li className="flex items-center gap-3 px-3 py-2 rounded-lg opacity-50">
-                <span className="size-3 rounded-full bg-emerald-500/50 border border-emerald-500/70 shrink-0" />
-                <p className="text-xs text-muted-foreground">
-                  {doneCount} task{doneCount !== 1 ? "s" : ""} completed today
-                </p>
-              </li>
-            )}
-          </ul>
-        )}
-      </div>
-
-      {/* Daily Plan */}
-      <DailyPlanCard plan={dailyPlan.plan} noProfile={dailyPlan.noProfile} />
-
-      {/* Quick links */}
-      <div className="rounded-lg border bg-card p-6 space-y-3">
-        <h2 className="text-lg font-semibold">Quick access</h2>
-        <div className="space-y-1">
-          {userSystems.slice(0, 5).map((system) => (
-            <Link
-              key={system.id}
-              href={`/systems/${system.id}`}
-              className="flex items-center justify-between px-3 py-2.5 rounded-md hover:bg-accent/50 motion-safe:transition-colors text-sm"
-            >
-              <span>{system.name}</span>
-              <ChevronRight className="size-4 text-muted-foreground" />
-            </Link>
-          ))}
-          <Link
-            href="/systems"
-            className="flex items-center justify-between px-3 py-2.5 rounded-md hover:bg-accent/50 motion-safe:transition-colors text-sm text-muted-foreground"
-          >
-            <span>All systems</span>
-            <ChevronRight className="size-4 text-muted-foreground" />
-          </Link>
+        <div className={cn(hasWeeklyData ? "lg:col-span-2" : "lg:col-span-3")}>
+          <QuickAccessCard systems={userSystems} />
         </div>
       </div>
-    </PageWrapper>
+    </div>
   );
 }
