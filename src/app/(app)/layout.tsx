@@ -1,6 +1,9 @@
 import { headers } from "next/headers";
 import { redirect } from "next/navigation";
+import { eq } from "drizzle-orm";
 import { auth } from "@/auth";
+import { db } from "@/shared/db";
+import { users } from "@/shared/db/schema";
 import { Providers } from "./providers";
 import { SystemsSidebar } from "@/features/systems/SystemsSidebar";
 
@@ -16,6 +19,14 @@ export default async function AppLayout({
   const session = await auth.api.getSession({ headers: await headers() });
 
   if (!session) redirect("/login");
+
+  const [user] = await db
+    .select({ onboardingCompleted: users.onboardingCompleted })
+    .from(users)
+    .where(eq(users.id, session.user.id))
+    .limit(1);
+
+  if (!user?.onboardingCompleted) redirect("/onboarding");
 
   return (
     <Providers>
