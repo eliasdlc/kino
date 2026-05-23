@@ -1,6 +1,6 @@
 # PLAN — Planificador Diario Consciente de Energía
 
-> Estado: **Crawl ✅ completado** — Walk en curso.
+> Estado: **Crawl ✅ · Walk ✅ · Run ✅ — todas las fases completadas.**
 > Última actualización: 2026-05-20.
 > **Este documento es autocontenido**: asume que el lector (humano o IA) no presenció la
 > conversación de diseño. El historial completo de cómo se llegó aquí está en `DISCOVERY.md`.
@@ -256,15 +256,37 @@ Cada capa se envía y gana confianza antes de la siguiente.
 - `feat(energy)`: planificador greedy solo-presupuesto + 9 unit tests
 - `feat(dashboard)`: tarjeta "Plan de hoy" con lazy-eval al entrar
 
-### Walk — realismo de energía ← **SIGUIENTE**
-- Curva por cronotipo + `factor_sueño`.
-- Simulación de batería (`capacidad − fatiga_continua`) + descansos insertados.
-- Celda "Check-in + batería" con curva proyectada vs real.
+### ~~Walk~~ ✅ — realismo de energía (completado 2026-05-20)
+- ~~Curva por cronotipo + `factor_sueño`.~~
+- ~~Simulación de batería (`capacidad − fatiga_continua`) + descansos insertados.~~
+- ~~Celda "Check-in + batería" con curva proyectada vs real.~~
 
-### Run — inteligencia
-- `behavior_snapshots` + inferencia + consejero (catálogo + triage).
-- Cron + push (Nivel 1).
-- Tendencias e insights en el dashboard.
+**Commits entregados:**
+- `feat(energy)`: `computeCapacity` con curvas de cronotipo y factor sueño
+- `test(energy)`: unit tests para `computeCapacity`, `computeFatigue`, `computeEffectiveEnergy`
+- `feat(energy)`: `buildEnergyPlan` con scheduling consciente de energía + `getTodayEnergyPlan`
+- `feat(dashboard)`: `EnergyBatteryCard` con curva proyectada y formulario de check-in
+
+### ~~Run~~ ✅ — inteligencia (completado 2026-05-20)
+- ~~`behavior_snapshots` + inferencia + consejero (catálogo + triage).~~
+- ~~Cron + push (Nivel 1).~~
+- ~~Tendencias e insights en el dashboard.~~
+
+**Commits entregados:**
+- `feat(energy)`: tabla `behavior_snapshots` en schema
+- `feat(energy)`: queries y rollup service de snapshots (`computeAndSaveBehaviorSnapshot`, `ensureYesterdaySnapshot`)
+- `feat(energy)`: catálogo de patrones y ranking del consejero (funciones puras)
+- `test(energy)`: 12 unit tests de detección de patrones
+- `feat(dashboard)`: `AdvisorCard` + `getTodayAdvisor` (Nivel 2 ambiental)
+- `feat(dashboard)`: `WeeklyTrendsCard` con 7 días de completado y energía
+- `feat(scheduler)`: cron diario `/api/cron/daily-snapshot` + `vercel.json`
+- `feat(notifications)`: Web Push service + `/api/push/subscribe`
+- `feat(energy)`: triggers Nivel 1 (sobrecarga + umbral) integrados en el cron
+
+**Pendiente para producción:**
+- Generar VAPID keys: `npx web-push generate-vapid-keys`
+- Añadir `VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY`, `CRON_SECRET` a env vars de Vercel
+- UI de suscripción push (botón "Activar notificaciones" en dashboard o ajustes)
 
 ---
 
