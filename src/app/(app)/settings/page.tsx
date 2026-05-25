@@ -14,6 +14,7 @@ import { Separator } from "@/components/ui/separator";
 import { Bell, BellOff, Monitor, Moon, Sun } from "lucide-react";
 import { Switch } from "@/components/ui/switch";
 import { usePushNotifications } from "@/features/notifications/notifications.hooks";
+import { ApiKeysSection } from "@/features/api-keys/ApiKeysSection";
 
 import { Kbd } from "@/components/ui/kbd";
 
@@ -179,6 +180,9 @@ export default function SettingsPage() {
             </p>
           )}
         </div>
+
+        {/* API Keys */}
+        <ApiKeysSection />
 
         {/* Future settings sections */}
         <div className="rounded-lg border p-4 bg-muted/30">
