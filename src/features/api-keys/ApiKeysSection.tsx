@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Copy, Check, Trash2, Plus, Key } from "lucide-react";
+import { Copy, Check, Trash2, Plus, Key, Terminal } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -20,7 +20,7 @@ import {
   type CreatedApiKey,
 } from "./api-keys.hooks";
 
-function CopyButton({ text }: { text: string }) {
+function CopyButton({ text, className }: { text: string; className?: string }) {
   const [copied, setCopied] = useState(false);
 
   async function handleCopy() {
@@ -30,39 +30,74 @@ function CopyButton({ text }: { text: string }) {
   }
 
   return (
-    <Button variant="ghost" size="icon" className="size-7 shrink-0" onClick={handleCopy}>
+    <Button variant="ghost" size="icon" className={className ?? "size-7 shrink-0"} onClick={handleCopy}>
       {copied ? <Check className="size-3.5 text-emerald-500" /> : <Copy className="size-3.5" />}
     </Button>
   );
 }
 
+function mcpConfig(token: string) {
+  return `{
+  "mcpServers": {
+    "kino": {
+      "command": "node",
+      "args": ["</ruta/al/repo>/packages/mcp/dist/index.js"],
+      "env": {
+        "KINO_API_KEY": "${token}",
+        "KINO_BASE_URL": "https://kino.app"
+      }
+    }
+  }
+}`;
+}
+
+const MCP_CONFIG_TEMPLATE = mcpConfig("sk-kino-...");
+
+const MCP_TOOLS = [
+  { name: "get_user_context", desc: "Snapshot completo: sistemas, tareas de hoy, energía y patrón activo" },
+  { name: "suggest_next_action", desc: "Tareas rankeadas por importancia según tu energía actual" },
+  { name: "classify_task", desc: "Sugiere a qué sistema y prioridad pertenece una tarea nueva" },
+  { name: "detect_patterns", desc: "Detecta sobrecarga, abandono o desorganización en tu flujo" },
+  { name: "get_energy_distribution", desc: "Cuánta energía has gastado por sistema esta semana" },
+  { name: "find_stale_systems", desc: "Sistemas sin actividad reciente que podrían estar abandonados" },
+  { name: "generate_subtasks", desc: "Descompone una tarea compleja en pasos accionables con IA" },
+  { name: "create_task / bulk_create_tasks", desc: "Crea tareas directamente desde la conversación" },
+];
+
 function NewKeyReveal({ created, onClose }: { created: CreatedApiKey; onClose: () => void }) {
+  const config = mcpConfig(created.token);
+
   return (
     <Dialog open onOpenChange={(open) => !open && onClose()}>
-      <DialogContent className="max-w-md">
+      <DialogContent className="max-w-lg">
         <DialogHeader>
           <DialogTitle>API key created</DialogTitle>
         </DialogHeader>
-        <div className="space-y-3">
-          <p className="text-sm text-muted-foreground">
-            Copy this key now — it won&apos;t be shown again.
-          </p>
-          <div className="flex items-center gap-2 rounded-md border bg-muted/50 px-3 py-2">
-            <code className="flex-1 text-xs break-all font-mono">{created.token}</code>
-            <CopyButton text={created.token} />
+        <div className="space-y-4">
+          <div className="space-y-2">
+            <p className="text-sm text-muted-foreground">
+              Copy this key now — it won&apos;t be shown again.
+            </p>
+            <div className="flex items-center gap-2 rounded-md border bg-muted/50 px-3 py-2">
+              <code className="flex-1 text-xs break-all font-mono">{created.token}</code>
+              <CopyButton text={created.token} />
+            </div>
           </div>
-          <div className="rounded-md border bg-muted/30 p-3 space-y-1.5 text-xs text-muted-foreground">
-            <p className="font-medium text-foreground">Connect to Claude Code</p>
-            <p>Add to <code className="font-mono">~/.claude.json</code> under your project&apos;s mcpServers:</p>
-            <pre className="bg-muted rounded p-2 overflow-x-auto text-[11px]">{`"env": {
-  "KINO_API_KEY": "${created.token}",
-  "KINO_BASE_URL": "https://your-kino-url.app"
-}`}</pre>
+
+          <div className="rounded-md border bg-muted/30 p-3 space-y-2">
+            <p className="text-xs font-medium">Conectar con Claude Code</p>
+            <p className="text-xs text-muted-foreground">
+              Añade esto a <code className="font-mono">~/.claude.json</code> bajo <code className="font-mono">mcpServers</code>. Reemplaza la ruta con la ubicación real del repo.
+            </p>
+            <div className="relative">
+              <pre className="bg-muted rounded-md p-3 overflow-x-auto text-[11px] font-mono pr-8">{config}</pre>
+              <CopyButton text={config} className="absolute top-1.5 right-1.5 size-7 bg-background/80 hover:bg-background" />
+            </div>
           </div>
         </div>
         <DialogFooter>
           <DialogClose asChild>
-            <Button onClick={onClose}>Done</Button>
+            <Button onClick={onClose}>Listo</Button>
           </DialogClose>
         </DialogFooter>
       </DialogContent>
@@ -117,6 +152,64 @@ function CreateKeyDialog({ onClose }: { onClose: () => void }) {
         </form>
       </DialogContent>
     </Dialog>
+  );
+}
+
+function ClaudeCodeGuide() {
+  return (
+    <div className="rounded-lg border bg-muted/20 p-4 space-y-4">
+      <div className="flex items-center gap-2">
+        <Terminal className="size-4 text-muted-foreground shrink-0" />
+        <div>
+          <p className="text-sm font-medium">Conectar con Claude Code</p>
+          <p className="text-xs text-muted-foreground">
+            Permite que Claude gestione tus tareas, sistemas y energía directamente desde la conversación.
+          </p>
+        </div>
+      </div>
+
+      <ol className="space-y-3 text-sm">
+        <li className="flex gap-3">
+          <span className="flex size-5 shrink-0 items-center justify-center rounded-full bg-muted text-xs font-medium text-muted-foreground mt-0.5">1</span>
+          <span className="text-muted-foreground">
+            Crea una API key con el botón <span className="font-medium text-foreground">New key</span> de arriba y cópiala.
+          </span>
+        </li>
+        <li className="flex gap-3">
+          <span className="flex size-5 shrink-0 items-center justify-center rounded-full bg-muted text-xs font-medium text-muted-foreground mt-0.5">2</span>
+          <div className="space-y-2 flex-1 min-w-0">
+            <span className="text-muted-foreground">
+              Añade esta configuración a <code className="font-mono text-xs text-foreground">~/.claude.json</code>. Reemplaza la ruta con la ubicación real del repo en tu máquina.
+            </span>
+            <div className="relative">
+              <pre className="rounded-md bg-muted p-3 text-[11px] font-mono overflow-x-auto pr-8">{MCP_CONFIG_TEMPLATE}</pre>
+              <CopyButton
+                text={MCP_CONFIG_TEMPLATE}
+                className="absolute top-1.5 right-1.5 size-7 bg-background/80 hover:bg-background"
+              />
+            </div>
+          </div>
+        </li>
+        <li className="flex gap-3">
+          <span className="flex size-5 shrink-0 items-center justify-center rounded-full bg-muted text-xs font-medium text-muted-foreground mt-0.5">3</span>
+          <span className="text-muted-foreground">
+            Reinicia Claude Code. Las tools de Kino aparecen automáticamente en la conversación.
+          </span>
+        </li>
+      </ol>
+
+      <div className="space-y-2 pt-1 border-t">
+        <p className="text-xs font-medium text-muted-foreground">Tools disponibles</p>
+        <div className="grid gap-1.5">
+          {MCP_TOOLS.map((tool) => (
+            <div key={tool.name} className="flex gap-2 text-xs">
+              <code className="shrink-0 font-mono text-foreground/80">{tool.name}</code>
+              <span className="text-muted-foreground">— {tool.desc}</span>
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
   );
 }
 
@@ -181,6 +274,8 @@ export function ApiKeysSection() {
           </div>
         ))}
       </div>
+
+      <ClaudeCodeGuide />
     </div>
   );
 }
