@@ -17,6 +17,7 @@ export function useTodayCheckin() {
       const data = (await res.json()) as { currentLevel: number; sleepQuality: string } | null;
       return data;
     },
+    refetchInterval: 5_000,
   });
 }
 
