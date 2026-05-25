@@ -1,6 +1,6 @@
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { z } from 'zod';
-import { kinoFetch } from '../client.js';
+import { kinoFetch } from '../../client.js';
 
 const energyLevel = z
   .enum(['high', 'medium', 'low'])
@@ -12,7 +12,7 @@ const taskStatus = z
   .optional()
   .describe('Estado de la tarea');
 
-export function registerTaskTools(server: McpServer) {
+export function registerTaskCrudTools(server: McpServer) {
   server.tool(
     'list_tasks',
     'Lista tareas del usuario en Kino con filtros opcionales',
