@@ -1,1 +1,1 @@
-export { POST } from "@/features/tasks/tasks.routes";
+export { POST, listTasks as GET } from "@/features/tasks/tasks.routes";

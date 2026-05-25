@@ -25,6 +25,7 @@ export function useTasks(systemId: string, initialData: Task[]) {
     },
     initialData,
     initialDataUpdatedAt: 0,
+    refetchInterval: 5_000,
   });
 }
 
@@ -37,6 +38,7 @@ export function useFolderTasks(systemId: string, folderId: string, initialData?:
       return res.json();
     },
     enabled: !!folderId,
+    refetchInterval: 5_000,
     ...(initialData !== undefined ? { initialData, initialDataUpdatedAt: 0 } : {}),
   });
 }
@@ -206,6 +208,7 @@ export function useSubtasks(
       return res.json();
     },
     enabled: options?.enabled ?? true,
+    refetchInterval: 5_000,
   });
 }
 
