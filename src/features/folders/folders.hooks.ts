@@ -18,11 +18,11 @@ export function useFolders(systemId: string, options?: { enabled?: boolean }) {
       return res.json();
     },
     enabled: options?.enabled ?? true,
-    staleTime: 60_000,
+    refetchInterval: 5_000,
   });
 }
 
-export function useFolderChildren(folderId: string, _systemId: string) {
+export function useFolderChildren(folderId: string) {
   return useQuery<FolderListItem[]>({
     queryKey: folderKeys.children(folderId),
     queryFn: async () => {
@@ -30,7 +30,7 @@ export function useFolderChildren(folderId: string, _systemId: string) {
       if (!res.ok) throw new Error("Failed to fetch folder children");
       return res.json();
     },
-    staleTime: 30_000,
+    refetchInterval: 5_000,
   });
 }
 

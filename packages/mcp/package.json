@@ -1,0 +1,38 @@
+{
+  "name": "@kino/mcp",
+  "type": "module",
+  "version": "1.0.0",
+  "description": "Kino MCP server — connect Claude Code to your tasks, systems, and energy data",
+  "main": "./dist/index.js",
+  "bin": {
+    "kino-mcp": "./dist/index.js"
+  },
+  "files": [
+    "dist"
+  ],
+  "engines": {
+    "node": ">=18"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsx src/index.ts",
+    "prepublishOnly": "tsc"
+  },
+  "keywords": ["mcp", "kino", "productivity", "claude"],
+  "author": "",
+  "license": "ISC",
+  "packageManager": "pnpm@10.33.4",
+  "dependencies": {
+    "@anthropic-ai/sdk": "^0.56.0",
+    "@modelcontextprotocol/sdk": "^1.29.0",
+    "zod": "^4.3.6"
+  },
+  "devDependencies": {
+    "@types/node": "^20.19.37",
+    "tsx": "^4.22.3",
+    "typescript": "^5.9.3"
+  }
+}

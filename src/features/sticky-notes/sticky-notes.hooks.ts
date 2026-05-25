@@ -17,6 +17,7 @@ export function useStickyNotesByPage(pageId: string) {
       if (!res.ok) throw new Error("Failed to fetch sticky notes");
       return res.json();
     },
+    refetchInterval: 5_000,
   });
 }
 
@@ -28,6 +29,7 @@ export function useStickyNotesByFolder(folderId: string) {
       if (!res.ok) throw new Error("Failed to fetch sticky notes");
       return res.json();
     },
+    refetchInterval: 5_000,
   });
 }
 

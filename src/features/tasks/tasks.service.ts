@@ -4,6 +4,8 @@ import { and, eq, isNull, sql } from "drizzle-orm";
 import { NotFoundError, ValidationError } from "@/shared/utils/error";
 import { validateTransition, type TaskStatus, type TransitionAction } from "./tasks.state-machine";
 import { Task, CreateTaskInput, UpdateTaskInput } from "./tasks.types";
+import type { z } from "zod";
+import type { listTasksQuerySchema } from "./tasks.schemas";
 import { deriveStatusFromDate } from "./tasks.utils";
 
 const ENERGY_POINTS: Record<string, number> = {
@@ -491,4 +493,33 @@ export async function reconcileTaskStatuses(userId: string): Promise<void> {
             AND status != 'backlog'`
     );
   });
+}
+
+export async function queryTasks(
+  userId: string,
+  filters: z.infer<typeof listTasksQuerySchema>,
+) {
+  const conditions = [
+    eq(tasks.userId, userId),
+    isNull(tasks.deletedAt),
+    isNull(tasks.parentTaskId),
+  ];
+
+  if (filters.systemId) conditions.push(eq(tasks.systemId, filters.systemId));
+  if (filters.energyLevel) conditions.push(eq(tasks.energyLevel, filters.energyLevel));
+  if (filters.status) conditions.push(eq(tasks.status, filters.status));
+
+  return db.select().from(tasks).where(and(...conditions)).orderBy(tasks.sortIndex);
+}
+
+export async function bulkCreateTasks(
+  userId: string,
+  items: CreateTaskInput[],
+): Promise<Task[]> {
+  const results: Task[] = [];
+  for (const item of items) {
+    const task = await createTask(userId, item);
+    results.push(task);
+  }
+  return results;
 }

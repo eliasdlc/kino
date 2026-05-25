@@ -1,9 +1,10 @@
 import { headers } from "next/headers";
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "../../../auth";
-import { bulkMoveSchema, bulkUpdateSchema, createTaskSchema, moveTaskSchema, reorderTasksSchema, updateTaskSchema } from "./tasks.schemas";
-import { bulkMoveTasks, bulkUpdateTasks, createTask, deleteTask, getSubtasks, getTaskById, getTasksBySystem, moveTask, reorderTasks, restoreTask, toggleTask, updateTask } from "./tasks.service";
+import { bulkMoveSchema, bulkUpdateSchema, bulkCreateTaskSchema, listTasksQuerySchema, createTaskSchema, moveTaskSchema, reorderTasksSchema, updateTaskSchema } from "./tasks.schemas";
+import { bulkMoveTasks, bulkUpdateTasks, bulkCreateTasks, queryTasks, createTask, deleteTask, getSubtasks, getTaskById, getTasksBySystem, moveTask, reorderTasks, restoreTask, toggleTask, updateTask } from "./tasks.service";
 import { NotFoundError, ValidationError } from "@/shared/utils/error";
+import { getAuthContext } from "@/shared/utils/auth-context";
 
 export async function GET(
     _request: NextRequest,
@@ -39,9 +40,41 @@ export async function getById(
     }
 }
 
+export async function listTasks(request: NextRequest) {
+    const ctx = await getAuthContext(request);
+    if (!ctx) return NextResponse.json({ code: "UNAUTHORIZED", message: "Unauthorized" }, { status: 401 });
+
+    const { searchParams } = new URL(request.url);
+    const parsed = listTasksQuerySchema.safeParse({
+        systemId: searchParams.get("systemId") ?? undefined,
+        energyLevel: searchParams.get("energyLevel") ?? undefined,
+        status: searchParams.get("status") ?? undefined,
+    });
+    if (!parsed.success) {
+        return NextResponse.json({ code: "VALIDATION_ERROR", message: "Invalid query params", details: parsed.error.flatten() }, { status: 400 });
+    }
+
+    const result = await queryTasks(ctx.userId, parsed.data);
+    return NextResponse.json(result);
+}
+
+export async function postBulkCreate(request: NextRequest) {
+    const ctx = await getAuthContext(request);
+    if (!ctx) return NextResponse.json({ code: "UNAUTHORIZED", message: "Unauthorized" }, { status: 401 });
+
+    const body = await request.json();
+    const parsed = bulkCreateTaskSchema.safeParse(body);
+    if (!parsed.success) {
+        return NextResponse.json({ code: "VALIDATION_ERROR", message: "Invalid input", details: parsed.error.flatten() }, { status: 400 });
+    }
+
+    const created = await bulkCreateTasks(ctx.userId, parsed.data.tasks);
+    return NextResponse.json(created, { status: 201 });
+}
+
 export async function POST(request: NextRequest) {
-    const session = await auth.api.getSession({ headers: await headers() });
-    if (!session) return NextResponse.json({ code: "UNAUTHORIZED", message: "Unauthorized" }, { status: 401 });
+    const ctx = await getAuthContext(request);
+    if (!ctx) return NextResponse.json({ code: "UNAUTHORIZED", message: "Unauthorized" }, { status: 401 });
 
     const body = await request.json();
     const parsed = createTaskSchema.safeParse(body);
@@ -54,7 +87,7 @@ export async function POST(request: NextRequest) {
     }
 
     try {
-        const task = await createTask(session.user.id, parsed.data);
+        const task = await createTask(ctx.userId, parsed.data);
         return NextResponse.json(task, { status: 201 });
     } catch (error) {
         if (error instanceof NotFoundError) {
@@ -68,8 +101,8 @@ export async function PATCH(
     request: NextRequest,
     { params }: { params: Promise<{ id: string }> }
 ) {
-    const session = await auth.api.getSession({ headers: await headers() });
-    if (!session) return NextResponse.json({ code: "UNAUTHORIZED", message: "Unauthorized" }, { status: 401 });
+    const ctx = await getAuthContext(request);
+    if (!ctx) return NextResponse.json({ code: "UNAUTHORIZED", message: "Unauthorized" }, { status: 401 });
 
     const { id } = await params;
     const body = await request.json();
@@ -83,7 +116,7 @@ export async function PATCH(
     }
 
     try {
-        const task = await updateTask(id, session.user.id, parsed.data);
+        const task = await updateTask(id, ctx.userId, parsed.data);
         if (!task) return NextResponse.json({ code: "NOT_FOUND", message: "Task not found" }, { status: 404 });
         return NextResponse.json(task);
     } catch (error) {
@@ -98,16 +131,16 @@ export async function PATCH(
 }
 
 export async function DELETE(
-    _request: NextRequest,
+    request: NextRequest,
     { params }: { params: Promise<{ id: string }> }
 ) {
-    const session = await auth.api.getSession({ headers: await headers() });
-    if (!session) return NextResponse.json({ code: "UNAUTHORIZED", message: "Unauthorized" }, { status: 401 });
+    const ctx = await getAuthContext(request);
+    if (!ctx) return NextResponse.json({ code: "UNAUTHORIZED", message: "Unauthorized" }, { status: 401 });
 
     const { id } = await params;
 
     try {
-        await deleteTask(id, session.user.id);
+        await deleteTask(id, ctx.userId);
         return new NextResponse(null, { status: 204 });
     } catch (error) {
         if (error instanceof NotFoundError) {
@@ -118,16 +151,16 @@ export async function DELETE(
 }
 
 export async function postToggle(
-    _request: NextRequest,
+    request: NextRequest,
     { params }: { params: Promise<{ id: string }> }
 ) {
-    const session = await auth.api.getSession({ headers: await headers() });
-    if (!session) return NextResponse.json({ code: "UNAUTHORIZED", message: "Unauthorized" }, { status: 401 });
+    const ctx = await getAuthContext(request);
+    if (!ctx) return NextResponse.json({ code: "UNAUTHORIZED", message: "Unauthorized" }, { status: 401 });
 
     const { id } = await params;
 
     try {
-        const result = await toggleTask(id, session.user.id);
+        const result = await toggleTask(id, ctx.userId);
         return NextResponse.json(result);
     } catch (error) {
         if (error instanceof NotFoundError) {
@@ -144,8 +177,8 @@ export async function patchMove(
     request: NextRequest,
     { params }: { params: Promise<{ id: string }> }
 ) {
-    const session = await auth.api.getSession({ headers: await headers() });
-    if (!session) return NextResponse.json({ code: "UNAUTHORIZED", message: "Unauthorized" }, { status: 401 });
+    const ctx = await getAuthContext(request);
+    if (!ctx) return NextResponse.json({ code: "UNAUTHORIZED", message: "Unauthorized" }, { status: 401 });
 
     const { id } = await params;
     const body = await request.json();
@@ -159,7 +192,7 @@ export async function patchMove(
     }
 
     try {
-        const task = await moveTask(id, parsed.data.status, session.user.id);
+        const task = await moveTask(id, parsed.data.status, ctx.userId);
         return NextResponse.json(task);
     } catch (error) {
         if (error instanceof NotFoundError) {
