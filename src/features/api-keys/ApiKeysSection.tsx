@@ -41,7 +41,7 @@ function mcpConfig(token: string) {
   "mcpServers": {
     "kino": {
       "command": "npx",
-      "args": ["-y", "@kino/mcp"],
+      "args": ["-y", "@kino-app/mcp"],
       "env": {
         "KINO_API_KEY": "${token}",
         "KINO_BASE_URL": "https://usekino.dev"
