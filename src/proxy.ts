@@ -55,8 +55,9 @@ export async function proxy(request: NextRequest) {
 
   if (!isPublicRoute) {
     const sessionCookie = getSessionCookie(request);
+    const hasApiKey = request.headers.get("authorization")?.startsWith("Bearer sk-kino-");
 
-    if (!sessionCookie) {
+    if (!sessionCookie && !hasApiKey) {
       // Las llamadas AJAX a /api/* deben recibir 401, no un redirect HTML
       if (pathname.startsWith("/api/")) {
         return NextResponse.json(
