@@ -3,6 +3,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { auth } from "../../../auth";
 import { createPageSchema, updatePageSchema, linkTaskSchema } from "./pages.schemas";
 import { NotFoundError, ForbiddenError } from "@/shared/utils/error";
+import { getAuthContext } from "@/shared/utils/auth-context";
 import {
   getPagesBySystem,
   createPage,
@@ -166,4 +167,34 @@ export async function unlinkPageTask(
   } catch {
     return NextResponse.json({ code: "NOT_FOUND", message: "Page not found" }, { status: 404 });
   }
+}
+
+// GET /api/pages?systemId= — MCP-accessible
+export async function listPagesForMcp(request: NextRequest) {
+  const ctx = await getAuthContext(request);
+  if (!ctx) return NextResponse.json({ code: "UNAUTHORIZED", message: "Unauthorized" }, { status: 401 });
+
+  const { searchParams } = new URL(request.url);
+  const systemId = searchParams.get("systemId");
+  if (!systemId) {
+    return NextResponse.json({ code: "VALIDATION_ERROR", message: "systemId is required" }, { status: 400 });
+  }
+
+  const list = await getPagesBySystem(systemId, ctx.userId);
+  return NextResponse.json(list);
+}
+
+// POST /api/pages — MCP-accessible
+export async function createPageDirect(request: NextRequest) {
+  const ctx = await getAuthContext(request);
+  if (!ctx) return NextResponse.json({ code: "UNAUTHORIZED", message: "Unauthorized" }, { status: 401 });
+
+  const body = await request.json();
+  const parsed = createPageSchema.safeParse(body);
+  if (!parsed.success) {
+    return NextResponse.json({ code: "VALIDATION_ERROR", message: "Invalid input", details: parsed.error.flatten() }, { status: 400 });
+  }
+
+  const page = await createPage(ctx.userId, parsed.data);
+  return NextResponse.json(page, { status: 201 });
 }

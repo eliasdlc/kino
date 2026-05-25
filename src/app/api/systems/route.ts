@@ -1,1 +1,1 @@
-export { GET, POST } from "@/features/systems/systems.routes";
+export { listSystemsMcp as GET, createSystemMcp as POST } from "@/features/systems/systems.routes";

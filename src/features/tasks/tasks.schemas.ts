@@ -47,3 +47,13 @@ export const bulkUpdateSchema = z.object({
   taskIds: z.array(z.string().uuid()).min(1).max(50),
   priority: z.enum(["critical", "high", "medium", "low"]).optional(),
 });
+
+export const bulkCreateTaskSchema = z.object({
+  tasks: z.array(createTaskSchema).min(1).max(50),
+});
+
+export const listTasksQuerySchema = z.object({
+  systemId: z.string().uuid().optional(),
+  energyLevel: z.enum(["high", "medium", "low"]).optional(),
+  status: z.enum(["backlog", "week", "tomorrow", "today", "done", "archived"]).optional(),
+});

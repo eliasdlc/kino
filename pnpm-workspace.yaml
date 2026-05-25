@@ -1,0 +1,6 @@
+# pnpm-workspace.yaml
+packages:
+  # All packages in subdirs of packages/
+  - "packages/*"
+  # Specifically include a project in the root sub-folder
+  - "!**/test/**"

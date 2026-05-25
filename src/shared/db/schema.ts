@@ -851,3 +851,22 @@ export const behaviorSnapshots = pgTable(
     index('idx_snapshot_user').on(table.userId, table.date),
   ],
 );
+
+// api_keys
+
+export const api_keys = pgTable(
+  'api_keys',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    userId: uuid('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
+    name: varchar('name', { length: 100 }).notNull(),
+    keyHash: varchar('key_hash', { length: 64 }).notNull().unique(),
+    keyPrefix: varchar('key_prefix', { length: 14 }).notNull(),
+    lastUsedAt: timestamp('last_used_at', { withTimezone: true }),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    index('idx_api_keys_user').on(table.userId),
+    index('idx_api_keys_hash').on(table.keyHash),
+  ],
+);
