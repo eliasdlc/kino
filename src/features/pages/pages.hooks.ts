@@ -18,7 +18,7 @@ export function usePages(systemId: string) {
       if (!res.ok) throw new Error("Failed to fetch pages");
       return res.json();
     },
-    staleTime: 30_000,
+    refetchInterval: 5_000,
   });
 }
 
@@ -30,7 +30,7 @@ export function usePage(pageId: string) {
       if (!res.ok) throw new Error("Failed to fetch page");
       return res.json();
     },
-    staleTime: 10_000,
+    refetchInterval: 5_000,
   });
 }
 
@@ -42,6 +42,7 @@ export function useLinkedTasks(pageId: string) {
       if (!res.ok) throw new Error("Failed to fetch linked tasks");
       return res.json();
     },
+    refetchInterval: 5_000,
   });
 }
 
