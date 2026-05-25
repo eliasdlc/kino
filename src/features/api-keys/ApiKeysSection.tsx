@@ -40,11 +40,11 @@ function mcpConfig(token: string) {
   return `{
   "mcpServers": {
     "kino": {
-      "command": "node",
-      "args": ["</ruta/al/repo>/packages/mcp/dist/index.js"],
+      "command": "npx",
+      "args": ["-y", "@kino/mcp"],
       "env": {
         "KINO_API_KEY": "${token}",
-        "KINO_BASE_URL": "https://kino.app"
+        "KINO_BASE_URL": "https://usekino.dev"
       }
     }
   }
