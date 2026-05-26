@@ -1,6 +1,32 @@
 import { db } from '@/shared/db';
 import { api_keys } from '@/shared/db/schema';
-import { and, eq } from 'drizzle-orm';
+import { and, eq, sql } from 'drizzle-orm';
+
+export async function deleteApiKeysByName(userId: string, name: string) {
+  await db
+    .delete(api_keys)
+    .where(and(eq(api_keys.userId, userId), eq(api_keys.name, name)));
+}
+
+export async function findRecentApiKeyByName(
+  userId: string,
+  name: string,
+  withinSeconds: number,
+): Promise<boolean> {
+  const cutoff = new Date(Date.now() - withinSeconds * 1000);
+  const [row] = await db
+    .select({ id: api_keys.id })
+    .from(api_keys)
+    .where(
+      and(
+        eq(api_keys.userId, userId),
+        eq(api_keys.name, name),
+        sql`${api_keys.createdAt} > ${cutoff.toISOString()}`,
+      ),
+    )
+    .limit(1);
+  return !!row;
+}
 
 export async function insertApiKey(values: {
   userId: string;

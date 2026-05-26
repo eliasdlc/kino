@@ -1,4 +1,4 @@
-const BASE_URL = process.env.KINO_BASE_URL ?? 'https://kino.app';
+const BASE_URL = process.env.KINO_BASE_URL ?? 'https://usekino.dev';
 const API_KEY = process.env.KINO_API_KEY!;
 
 export async function kinoFetch<T = unknown>(
