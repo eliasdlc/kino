@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { headers } from 'next/headers';
 import { auth } from '@/auth';
-import { generateApiKey } from '@/features/api-keys/api-keys.service';
+import { generateApiKeyReplacing } from '@/features/api-keys/api-keys.service';
 
 export async function GET(request: NextRequest) {
   const { searchParams, origin } = new URL(request.url);
@@ -22,7 +22,14 @@ export async function GET(request: NextRequest) {
     return NextResponse.redirect(`${origin}/login?next=${next}`);
   }
 
-  const { token } = await generateApiKey(session.user.id, 'Claude Code (CLI)');
+  const result = await generateApiKeyReplacing(session.user.id, 'Claude Code (CLI)');
 
-  return NextResponse.redirect(`http://localhost:${port}/callback?token=${token}`);
+  if ('rateLimited' in result) {
+    return NextResponse.json(
+      { code: 'RATE_LIMITED', message: 'Too many requests. Try again in a minute.' },
+      { status: 429 },
+    );
+  }
+
+  return NextResponse.redirect(`http://localhost:${port}/callback?token=${result.token}`);
 }

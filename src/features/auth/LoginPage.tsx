@@ -20,7 +20,8 @@ import { GoogleIcon, GitHubIcon } from "@/shared/components/OAuthIcons";
 export function LoginPage() {
     const router = useRouter();
     const searchParams = useSearchParams();
-    const next = searchParams.get("next") ?? "/dashboard";
+    const rawNext = searchParams.get("next") ?? "";
+    const next = rawNext.startsWith("/") ? rawNext : "/dashboard";
     const [email, setEmail] = useState("");
     const [password, setPassword] = useState("");
     const [error, setError] = useState<string | null>(null);
