@@ -41,7 +41,7 @@ function mcpConfig(token: string) {
   "mcpServers": {
     "kino": {
       "command": "npx",
-      "args": ["-y", "@kino/mcp"],
+      "args": ["-y", "@kino-app/mcp"],
       "env": {
         "KINO_API_KEY": "${token}",
         "KINO_BASE_URL": "https://usekino.dev"
@@ -50,8 +50,6 @@ function mcpConfig(token: string) {
   }
 }`;
 }
-
-const MCP_CONFIG_TEMPLATE = mcpConfig("sk-kino-...");
 
 const MCP_TOOLS = [
   { name: "get_user_context", desc: "Snapshot completo: sistemas, tareas de hoy, energía y patrón activo" },
@@ -85,9 +83,9 @@ function NewKeyReveal({ created, onClose }: { created: CreatedApiKey; onClose: (
           </div>
 
           <div className="rounded-md border bg-muted/30 p-3 space-y-2">
-            <p className="text-xs font-medium">Conectar con Claude Code</p>
+            <p className="text-xs font-medium">MCP config (manual)</p>
             <p className="text-xs text-muted-foreground">
-              Añade esto a <code className="font-mono">~/.claude.json</code> bajo <code className="font-mono">mcpServers</code>. Reemplaza la ruta con la ubicación real del repo.
+              Si prefieres configurar manualmente, añade esto a <code className="font-mono">~/.claude.json</code> bajo <code className="font-mono">mcpServers</code>.
             </p>
             <div className="relative">
               <pre className="bg-muted rounded-md p-3 overflow-x-auto text-[11px] font-mono pr-8">{config}</pre>
@@ -155,6 +153,8 @@ function CreateKeyDialog({ onClose }: { onClose: () => void }) {
   );
 }
 
+const SETUP_COMMAND = 'npx @kino-app/mcp setup';
+
 function ClaudeCodeGuide() {
   return (
     <div className="rounded-lg border bg-muted/20 p-4 space-y-4">
@@ -171,29 +171,29 @@ function ClaudeCodeGuide() {
       <ol className="space-y-3 text-sm">
         <li className="flex gap-3">
           <span className="flex size-5 shrink-0 items-center justify-center rounded-full bg-muted text-xs font-medium text-muted-foreground mt-0.5">1</span>
-          <span className="text-muted-foreground">
-            Crea una API key con el botón <span className="font-medium text-foreground">New key</span> de arriba y cópiala.
-          </span>
-        </li>
-        <li className="flex gap-3">
-          <span className="flex size-5 shrink-0 items-center justify-center rounded-full bg-muted text-xs font-medium text-muted-foreground mt-0.5">2</span>
           <div className="space-y-2 flex-1 min-w-0">
             <span className="text-muted-foreground">
-              Añade esta configuración a <code className="font-mono text-xs text-foreground">~/.claude.json</code>. Reemplaza la ruta con la ubicación real del repo en tu máquina.
+              Ejecuta este comando en tu terminal:
             </span>
             <div className="relative">
-              <pre className="rounded-md bg-muted p-3 text-[11px] font-mono overflow-x-auto pr-8">{MCP_CONFIG_TEMPLATE}</pre>
+              <pre className="rounded-md bg-muted p-3 text-[11px] font-mono overflow-x-auto pr-8">{SETUP_COMMAND}</pre>
               <CopyButton
-                text={MCP_CONFIG_TEMPLATE}
+                text={SETUP_COMMAND}
                 className="absolute top-1.5 right-1.5 size-7 bg-background/80 hover:bg-background"
               />
             </div>
           </div>
         </li>
         <li className="flex gap-3">
+          <span className="flex size-5 shrink-0 items-center justify-center rounded-full bg-muted text-xs font-medium text-muted-foreground mt-0.5">2</span>
+          <span className="text-muted-foreground">
+            Se abrirá el browser automáticamente. Inicia sesión si aún no lo has hecho.
+          </span>
+        </li>
+        <li className="flex gap-3">
           <span className="flex size-5 shrink-0 items-center justify-center rounded-full bg-muted text-xs font-medium text-muted-foreground mt-0.5">3</span>
           <span className="text-muted-foreground">
-            Reinicia Claude Code. Las tools de Kino aparecen automáticamente en la conversación.
+            Reinicia Claude Code. Las tools de Kino aparecen automáticamente.
           </span>
         </li>
       </ol>
