@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { authClient } from "@/shared/lib/auth-client";
 import { Button } from "@/components/ui/button";
@@ -19,6 +19,8 @@ import { GoogleIcon, GitHubIcon } from "@/shared/components/OAuthIcons";
 
 export function LoginPage() {
     const router = useRouter();
+    const searchParams = useSearchParams();
+    const next = searchParams.get("next") ?? "/dashboard";
     const [email, setEmail] = useState("");
     const [password, setPassword] = useState("");
     const [error, setError] = useState<string | null>(null);
@@ -38,14 +40,14 @@ export function LoginPage() {
             return;
         }
 
-        router.push("/dashboard");
+        router.push(next);
     }
 
     async function handleOAuth(provider: "google" | "github") {
         setOauthLoading(provider);
         await authClient.signIn.social({
             provider,
-            callbackURL: "/dashboard",
+            callbackURL: next,
         });
     }
 
