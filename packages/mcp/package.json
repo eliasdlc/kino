@@ -1,7 +1,7 @@
 {
   "name": "@kino-app/mcp",
   "type": "module",
-  "version": "2.1.0",
+  "version": "2.1.1",
   "description": "Kino MCP server — connect Claude Code to your tasks, systems, and energy data",
   "main": "./dist/index.js",
   "bin": {
@@ -21,7 +21,12 @@
     "dev": "tsx src/index.ts",
     "prepublishOnly": "tsc"
   },
-  "keywords": ["mcp", "kino", "productivity", "claude"],
+  "keywords": [
+    "mcp",
+    "kino",
+    "productivity",
+    "claude"
+  ],
   "author": "",
   "license": "ISC",
   "packageManager": "pnpm@10.33.4",
