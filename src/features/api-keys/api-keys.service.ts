@@ -5,10 +5,22 @@ import {
   touchApiKey,
   selectApiKeysByUser,
   deleteApiKeyById,
+  deleteApiKeysByName,
+  findRecentApiKeyByName,
 } from './api-keys.queries';
 
 function hashToken(token: string): string {
   return createHash('sha256').update(token).digest('hex');
+}
+
+export async function generateApiKeyReplacing(
+  userId: string,
+  name: string,
+): Promise<{ token: string } | { rateLimited: true }> {
+  const tooSoon = await findRecentApiKeyByName(userId, name, 60);
+  if (tooSoon) return { rateLimited: true };
+  await deleteApiKeysByName(userId, name);
+  return generateApiKey(userId, name);
 }
 
 export async function generateApiKey(userId: string, name: string) {
