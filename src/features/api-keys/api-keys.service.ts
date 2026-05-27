@@ -17,7 +17,7 @@ export async function generateApiKeyReplacing(
   userId: string,
   name: string,
 ): Promise<{ token: string } | { rateLimited: true }> {
-  const tooSoon = await findRecentApiKeyByName(userId, name, 60);
+  const tooSoon = await findRecentApiKeyByName(userId, name, 10);
   if (tooSoon) return { rateLimited: true };
   await deleteApiKeysByName(userId, name);
   return generateApiKey(userId, name);

@@ -4,7 +4,7 @@ import { readFileSync, writeFileSync } from 'fs';
 import { homedir } from 'os';
 import { join } from 'path';
 
-const BASE_URL = process.env.KINO_BASE_URL ?? 'https://usekino.dev';
+const BASE_URL = process.env.KINO_BASE_URL ?? 'https://www.usekino.dev';
 const TIMEOUT_MS = 5 * 60 * 1000;
 
 function openBrowser(url: string) {
