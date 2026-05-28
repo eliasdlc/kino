@@ -67,14 +67,12 @@ export function registerTaskCrudTools(server: McpServer) {
       dueDate: z.string().date().optional().describe('Fecha límite en formato YYYY-MM-DD'),
       priority: z
         .enum(['critical', 'high', 'medium', 'low'])
-        .optional()
         .describe('Prioridad de la tarea'),
       parentTaskId: z.string().uuid().optional().describe('UUID de la tarea padre (para crear subtareas)'),
       folderId: z.string().uuid().optional().describe('UUID de la carpeta destino'),
       taskType: z
         .enum(['idea', 'reminder', 'project', 'todo'])
-        .optional()
-        .describe('Tipo de tarea'),
+        .describe('Tipo de tarea '),
       estimatedTime: z
         .string()
         .optional()

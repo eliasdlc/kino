@@ -17,3 +17,7 @@ export type LinkedTask = Pick<
   | "startDate" | "description" | "taskType" | "estimatedTime"
   | "folderId" | "systemId" | "parentTaskId"
 >;
+
+// updatePage returns content so the client cache stays consistent
+// after a PATCH (no stale gap until the next refetch).
+export type PageMutationResult = PageListItem & Pick<Page, "content">;

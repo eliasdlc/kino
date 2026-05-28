@@ -1,6 +1,7 @@
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { z } from 'zod';
 import { kinoFetch } from '../../client.js';
+import { markdownToHtml } from '../../utils/markdown.js';
 
 export function registerPageCrudTools(server: McpServer) {
   server.tool(
@@ -20,13 +21,17 @@ export function registerPageCrudTools(server: McpServer) {
     'Crea una página markdown en un sistema de Kino',
     {
       title: z.string().max(500).optional().describe('Título de la página'),
+      content: z.string().optional().describe('Contenido en markdown (se convierte a HTML al guardar para que el editor lo renderice correctamente)'),
       systemId: z.string().uuid().describe('UUID del sistema al que pertenece'),
       folderId: z.string().uuid().optional().describe('UUID de la carpeta (opcional)'),
     },
-    async (data) => {
+    async ({ content, ...rest }) => {
+      const payload = content !== undefined
+        ? { ...rest, content: markdownToHtml(content) }
+        : rest;
       const page = await kinoFetch('/api/pages', {
         method: 'POST',
-        body: JSON.stringify(data),
+        body: JSON.stringify(payload),
       });
       return { content: [{ type: 'text', text: JSON.stringify(page, null, 2) }] };
     },
@@ -50,14 +55,17 @@ export function registerPageCrudTools(server: McpServer) {
     {
       pageId: z.string().uuid().describe('UUID de la página a actualizar'),
       title: z.string().max(500).nullable().optional().describe('Nuevo título (null para borrar)'),
-      content: z.string().nullable().optional().describe('Contenido completo en markdown (null para borrar)'),
+      content: z.string().nullable().optional().describe('Contenido completo en markdown (null para borrar; se convierte a HTML al guardar para que el editor lo renderice correctamente)'),
       folderId: z.string().uuid().nullable().optional().describe('UUID de la carpeta destino (null para quitar de carpeta)'),
       isPinned: z.boolean().optional().describe('Fijar o desfijar la página'),
     },
-    async ({ pageId, ...data }) => {
+    async ({ pageId, content, ...rest }) => {
+      const payload = content !== undefined
+        ? { ...rest, content: markdownToHtml(content) }
+        : rest;
       const updated = await kinoFetch(`/api/pages/${pageId}`, {
         method: 'PATCH',
-        body: JSON.stringify(data),
+        body: JSON.stringify(payload),
       });
       return { content: [{ type: 'text', text: JSON.stringify(updated, null, 2) }] };
     },

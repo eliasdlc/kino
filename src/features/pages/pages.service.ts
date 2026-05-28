@@ -3,7 +3,7 @@ import { pages, tasks, taskPageLinks, folders } from "@/shared/db/schema";
 import { and, eq, isNull } from "drizzle-orm";
 import { NotFoundError, ForbiddenError } from "@/shared/utils/error";
 import type { CreatePageInput, UpdatePageInput } from "./pages.schemas";
-import type { PageDetail, PageListItem, LinkedTask } from "./pages.types";
+import type { PageDetail, PageListItem, LinkedTask, PageMutationResult } from "./pages.types";
 
 export async function getPagesBySystem(
   systemId: string,
@@ -88,6 +88,7 @@ export async function createPage(
       systemId: input.systemId,
       folderId: input.folderId ?? null,
       title: input.title ?? null,
+      content: input.content ?? null,
     })
     .returning({
       id: pages.id,
@@ -106,7 +107,7 @@ export async function updatePage(
   pageId: string,
   userId: string,
   data: UpdatePageInput
-): Promise<PageListItem | null> {
+): Promise<PageMutationResult | null> {
   const [updated] = await db
     .update(pages)
     .set({ ...data, updatedAt: new Date() })
@@ -119,6 +120,7 @@ export async function updatePage(
       folderId: pages.folderId,
       systemId: pages.systemId,
       isPinned: pages.isPinned,
+      content: pages.content,
       createdAt: pages.createdAt,
       updatedAt: pages.updatedAt,
     });

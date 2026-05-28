@@ -4,6 +4,7 @@ export const createPageSchema = z.object({
   systemId: z.string().uuid(),
   folderId: z.string().uuid().optional(),
   title: z.string().max(500).optional(),
+  content: z.string().nullable().optional(),
 });
 
 export const updatePageSchema = z.object({
