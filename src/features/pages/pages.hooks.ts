@@ -1,7 +1,7 @@
 "use client";
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import type { PageListItem, PageDetail, LinkedTask } from "./pages.types";
+import type { PageListItem, PageDetail, LinkedTask, PageMutationResult } from "./pages.types";
 import type { CreatePageInput, UpdatePageInput } from "./pages.schemas";
 
 export const pageKeys = {
@@ -71,7 +71,7 @@ export function useCreatePage(systemId: string) {
 export function useUpdatePage(pageId: string, systemId?: string) {
   const qc = useQueryClient();
 
-  return useMutation<PageListItem, Error, UpdatePageInput>({
+  return useMutation<PageMutationResult, Error, UpdatePageInput>({
     mutationFn: async (data) => {
       const res = await fetch(`/api/pages/${pageId}`, {
         method: "PATCH",
