@@ -24,15 +24,15 @@ export async function GET(
 
 // GET /api/tasks/:id — fetch a single task by ID
 export async function getById(
-    _request: NextRequest,
+    request: NextRequest,
     { params }: { params: Promise<{ id: string }> }
 ) {
-    const session = await auth.api.getSession({ headers: await headers() });
-    if (!session) return NextResponse.json({ code: "UNAUTHORIZED", message: "Unauthorized" }, { status: 401 });
+    const ctx = await getAuthContext(request);
+    if (!ctx) return NextResponse.json({ code: "UNAUTHORIZED", message: "Unauthorized" }, { status: 401 });
 
     const { id: taskId } = await params;
     try {
-        const task = await getTaskById(taskId, session.user.id);
+        const task = await getTaskById(taskId, ctx.userId);
         if (!task) return NextResponse.json({ code: "NOT_FOUND", message: "Task not found" }, { status: 404 });
         return NextResponse.json(task);
     } catch {
@@ -206,14 +206,14 @@ export async function patchMove(
 }
 
 export async function getSubtasksRoute(
-    _request: NextRequest,
+    request: NextRequest,
     { params }: { params: Promise<{ id: string }> }
 ) {
-    const session = await auth.api.getSession({ headers: await headers() });
-    if (!session) return NextResponse.json({ code: "UNAUTHORIZED", message: "Unauthorized" }, { status: 401 });
+    const ctx = await getAuthContext(request);
+    if (!ctx) return NextResponse.json({ code: "UNAUTHORIZED", message: "Unauthorized" }, { status: 401 });
 
     const { id: taskId } = await params;
-    const subtasks = await getSubtasks(taskId, session.user.id);
+    const subtasks = await getSubtasks(taskId, ctx.userId);
     return NextResponse.json(subtasks);
 }
 

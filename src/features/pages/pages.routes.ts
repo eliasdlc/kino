@@ -56,14 +56,14 @@ export async function createSystemPage(
 
 // GET/PATCH/DELETE /api/pages/[id]
 export async function getPage(
-  _req: NextRequest,
+  request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const session = await getSession();
-  if (!session) return NextResponse.json({ code: "UNAUTHORIZED", message: "Unauthorized" }, { status: 401 });
+  const ctx = await getAuthContext(request);
+  if (!ctx) return NextResponse.json({ code: "UNAUTHORIZED", message: "Unauthorized" }, { status: 401 });
 
   const { id } = await params;
-  const page = await getPageById(id, session.user.id);
+  const page = await getPageById(id, ctx.userId);
   if (!page) return NextResponse.json({ code: "NOT_FOUND", message: "Page not found" }, { status: 404 });
   return NextResponse.json(page);
 }
@@ -72,8 +72,8 @@ export async function patchPage(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const session = await getSession();
-  if (!session) return NextResponse.json({ code: "UNAUTHORIZED", message: "Unauthorized" }, { status: 401 });
+  const ctx = await getAuthContext(request);
+  if (!ctx) return NextResponse.json({ code: "UNAUTHORIZED", message: "Unauthorized" }, { status: 401 });
 
   const { id } = await params;
   const body = await request.json();
@@ -86,20 +86,20 @@ export async function patchPage(
     );
   }
 
-  const updated = await updatePage(id, session.user.id, parsed.data);
+  const updated = await updatePage(id, ctx.userId, parsed.data);
   if (!updated) return NextResponse.json({ code: "NOT_FOUND", message: "Page not found" }, { status: 404 });
   return NextResponse.json(updated);
 }
 
 export async function removePage(
-  _req: NextRequest,
+  request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const session = await getSession();
-  if (!session) return NextResponse.json({ code: "UNAUTHORIZED", message: "Unauthorized" }, { status: 401 });
+  const ctx = await getAuthContext(request);
+  if (!ctx) return NextResponse.json({ code: "UNAUTHORIZED", message: "Unauthorized" }, { status: 401 });
 
   const { id } = await params;
-  const ok = await deletePage(id, session.user.id);
+  const ok = await deletePage(id, ctx.userId);
   if (!ok) return NextResponse.json({ code: "NOT_FOUND", message: "Page not found" }, { status: 404 });
   return new NextResponse(null, { status: 204 });
 }

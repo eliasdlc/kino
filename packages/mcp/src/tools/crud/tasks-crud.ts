@@ -32,6 +32,30 @@ export function registerTaskCrudTools(server: McpServer) {
   );
 
   server.tool(
+    'get_task',
+    'Obtiene el detalle completo de una tarea por su ID',
+    {
+      taskId: z.string().uuid().describe('UUID de la tarea'),
+    },
+    async ({ taskId }) => {
+      const task = await kinoFetch(`/api/tasks/${taskId}`);
+      return { content: [{ type: 'text', text: JSON.stringify(task, null, 2) }] };
+    },
+  );
+
+  server.tool(
+    'get_subtasks',
+    'Lista las subtareas de una tarea padre',
+    {
+      taskId: z.string().uuid().describe('UUID de la tarea padre'),
+    },
+    async ({ taskId }) => {
+      const subtasks = await kinoFetch(`/api/tasks/${taskId}/subtasks`);
+      return { content: [{ type: 'text', text: JSON.stringify(subtasks, null, 2) }] };
+    },
+  );
+
+  server.tool(
     'create_task',
     'Crea una tarea en Kino',
     {
@@ -45,6 +69,17 @@ export function registerTaskCrudTools(server: McpServer) {
         .enum(['critical', 'high', 'medium', 'low'])
         .optional()
         .describe('Prioridad de la tarea'),
+      parentTaskId: z.string().uuid().optional().describe('UUID de la tarea padre (para crear subtareas)'),
+      folderId: z.string().uuid().optional().describe('UUID de la carpeta destino'),
+      taskType: z
+        .enum(['idea', 'reminder', 'project', 'todo'])
+        .optional()
+        .describe('Tipo de tarea'),
+      estimatedTime: z
+        .string()
+        .optional()
+        .describe('Tiempo estimado en formato HH:MM:SS (ej: 01:30:00)'),
+      startDate: z.string().date().optional().describe('Fecha de inicio en formato YYYY-MM-DD'),
     },
     async (data) => {
       const task = await kinoFetch('/api/tasks', {
@@ -93,8 +128,12 @@ export function registerTaskCrudTools(server: McpServer) {
       description: z.string().optional(),
       energyLevel: energyLevel,
       status: taskStatus,
-      dueDate: z.string().date().optional(),
+      dueDate: z.string().date().nullable().optional(),
       priority: z.enum(['critical', 'high', 'medium', 'low']).optional(),
+      folderId: z.string().uuid().nullable().optional().describe('UUID de carpeta (null para quitar)'),
+      taskType: z.enum(['idea', 'reminder', 'project', 'todo']).nullable().optional(),
+      estimatedTime: z.string().nullable().optional().describe('Tiempo estimado HH:MM:SS'),
+      startDate: z.string().date().nullable().optional(),
     },
     async ({ taskId, ...data }) => {
       const task = await kinoFetch(`/api/tasks/${taskId}`, {

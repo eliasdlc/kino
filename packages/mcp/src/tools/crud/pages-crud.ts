@@ -31,4 +31,47 @@ export function registerPageCrudTools(server: McpServer) {
       return { content: [{ type: 'text', text: JSON.stringify(page, null, 2) }] };
     },
   );
+
+  server.tool(
+    'get_page',
+    'Obtiene el contenido completo de una página (título, markdown, tasks vinculados)',
+    {
+      pageId: z.string().uuid().describe('UUID de la página'),
+    },
+    async ({ pageId }) => {
+      const page = await kinoFetch(`/api/pages/${pageId}`);
+      return { content: [{ type: 'text', text: JSON.stringify(page, null, 2) }] };
+    },
+  );
+
+  server.tool(
+    'update_page',
+    'Actualiza una página de Kino: título, contenido markdown, carpeta o estado de pin',
+    {
+      pageId: z.string().uuid().describe('UUID de la página a actualizar'),
+      title: z.string().max(500).nullable().optional().describe('Nuevo título (null para borrar)'),
+      content: z.string().nullable().optional().describe('Contenido completo en markdown (null para borrar)'),
+      folderId: z.string().uuid().nullable().optional().describe('UUID de la carpeta destino (null para quitar de carpeta)'),
+      isPinned: z.boolean().optional().describe('Fijar o desfijar la página'),
+    },
+    async ({ pageId, ...data }) => {
+      const updated = await kinoFetch(`/api/pages/${pageId}`, {
+        method: 'PATCH',
+        body: JSON.stringify(data),
+      });
+      return { content: [{ type: 'text', text: JSON.stringify(updated, null, 2) }] };
+    },
+  );
+
+  server.tool(
+    'delete_page',
+    'Elimina (soft-delete) una página de Kino',
+    {
+      pageId: z.string().uuid().describe('UUID de la página a eliminar'),
+    },
+    async ({ pageId }) => {
+      await kinoFetch(`/api/pages/${pageId}`, { method: 'DELETE' });
+      return { content: [{ type: 'text', text: JSON.stringify({ success: true, pageId }) }] };
+    },
+  );
 }

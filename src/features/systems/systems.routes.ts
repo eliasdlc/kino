@@ -40,8 +40,8 @@ export async function PATCH(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const session = await auth.api.getSession({ headers: await headers() });
-    if (!session) return NextResponse.json({ code: "UNAUTHORIZED", message: "Unauthorized" }, { status: 401 });
+    const ctx = await getAuthContext(request);
+    if (!ctx) return NextResponse.json({ code: "UNAUTHORIZED", message: "Unauthorized" }, { status: 401 });
 
     const { id } = await params;
     let body: unknown;
@@ -55,7 +55,7 @@ export async function PATCH(
       return NextResponse.json({ code: "VALIDATION_ERROR", message: "Invalid input", details: parsed.error.flatten() }, { status: 400 });
     }
 
-    const currentSystem = await getSystembyId(id, session.user.id);
+    const currentSystem = await getSystembyId(id, ctx.userId);
 
     if (!currentSystem) {
       return NextResponse.json({ code: "NOT_FOUND", message: "System not found" }, { status: 404 });
@@ -63,7 +63,7 @@ export async function PATCH(
 
     await assertNotInbox(currentSystem);
 
-    const updatedSystem = await updateSystem(id, session.user.id, parsed.data);
+    const updatedSystem = await updateSystem(id, ctx.userId, parsed.data);
 
     if (!updatedSystem) return NextResponse.json({ code: "NOT_FOUND", message: "System not found" }, { status: 404 });
 
@@ -83,16 +83,16 @@ export async function PATCH(
 }
 
 export async function DELETE(
-  _req: unknown,
+  request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const session = await auth.api.getSession({ headers: await headers() });
-  if (!session) return NextResponse.json({ code: "UNAUTHORIZED", message: "Unauthorized" }, { status: 401 });
+  const ctx = await getAuthContext(request);
+  if (!ctx) return NextResponse.json({ code: "UNAUTHORIZED", message: "Unauthorized" }, { status: 401 });
 
   const { id } = await params;
 
   try {
-    await deactivateSystem(id, session.user.id);
+    await deactivateSystem(id, ctx.userId);
     return new NextResponse(null, { status: 204 });
   } catch (error) {
     if (error instanceof NotFoundError) {
