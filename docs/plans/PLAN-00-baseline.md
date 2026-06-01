@@ -28,7 +28,8 @@ PLAN-04 (focus timer) ──────┐
                              ├──► PLAN-02 (analytics híbrido)
 schema.ts learned_curve ────┘    (time_logs enriquecen analytics)
 
-PLAN-01 (sistemas activos)  ──► comparte getSuggestedTasks con PLAN-04
+PLAN-01 (sistemas activos)  ──► añade recommendSystemNow; PLAN-04 puede reutilizarlo (no bloqueante)
+PLAN-04 usa getSuggestedTasks, que YA existe (no lo aporta PLAN-01)
 PLAN-05 (sticky notes) ─────►  autónomo (más fácil)
 PLAN-03 (sync) ─────────────►  autónomo, decisión de diseño aparte
 ```
@@ -40,7 +41,7 @@ Justificación:
 - **02** primero: cosecha lo que ya existe en backend (una card UI conecta todo). Impacto/esfuerzo óptimo.
 - **05** segundo: autónomo, pequeño, aclara confusión de producto real.
 - **01**: depende de que el energy check-in esté estable (ya lo está), no de los otros planes.
-- **04**: el timer ya existe (commiteado). Lo que falta es la capa de sugerencia, que reutiliza `getSuggestedTasks` de 01.
+- **04**: el timer ya existe (commiteado). Lo que falta es la capa de sugerencia, que reutiliza `getSuggestedTasks` — función que YA existe en `insights.service.ts:127` (no la introduce PLAN-01). Por eso 04 no depende técnicamente de 01; el orden es solo para reutilizar `recommendSystemNow` si ya está hecho.
 - **06**: motor de recurrencia desde cero. Largo. Bloqueante para la inteligencia de patrones.
 - **03**: independiente pero el más complejo. Requiere diseño de sincronización separado.
 
@@ -50,12 +51,12 @@ Justificación:
 
 | Función/módulo | Planes que lo usan | Dónde vive |
 |---|---|---|
-| `getSuggestedTasks(userId, energyLevel?)` | PLAN-01, PLAN-04 | `src/features/insights/insights.service.ts:125` |
-| `getEnergyDistribution(userId, days)` | PLAN-02 | `src/features/insights/insights.service.ts:99` |
-| `getSystemColor(color)` | Todos los de UI | `src/shared/utils/system-colors.ts` — ya simplificado |
-| `useTimerStore` | PLAN-04 | `src/features/tasks/timer.store.ts` |
+| `getSuggestedTasks(userId, energyLevel?)` | PLAN-01, PLAN-04 | `src/features/insights/insights.service.ts:127` |
+| `getEnergyDistribution(userId, days)` | PLAN-02 | `src/features/insights/insights.service.ts:100` |
+| `getSystemColor(color)` | Todos los de UI | `src/shared/utils/system-colors.ts:18` — ya simplificado |
+| `useTimerStore` | PLAN-04 | `src/features/tasks/timer.store.ts:22` |
 | `queryEnergyBySystem` | PLAN-02 | `src/features/insights/insights.queries.ts:18` |
-| `buildEnergyPlan` | PLAN-04 | `src/features/energy/energy.planner.ts` |
+| `buildEnergyPlan` | PLAN-04 | `src/features/energy/energy.planner.ts:69` |
 
 **Regla:** si un plan necesita crear un helper que ya existe en el servicio de otra slice, importa desde `shared/` o expone vía la interfaz pública del slice. No copia código.
 
@@ -134,7 +135,7 @@ Cuando un plan expone algo en UI que ya existe como herramienta MCP, ambos deben
 | `detect_patterns` | `getTopPattern` | PLAN-01 |
 | `suggest_next_action` | `getSuggestedTasks` | PLAN-01, PLAN-04 |
 | `find_stale_systems` | `getStaleSystems` | PLAN-01 |
-| `generate_subtasks` | (decompose.ts MCP) | PLAN-06 capa 2 |
+| `generate_subtasks` | **excepción**: LLM en `decompose.ts:121` (Anthropic), no comparte service con la UI (la UI usa heurística determinista, $0/mes) | PLAN-06 capa 2 |
 | `classify_task` | `classifyTask` | PLAN-05 |
 
 ---
@@ -150,7 +151,7 @@ a4e925bb  refactor(ui): simplificar getSystemColor para devolver token Tailwind 
 038b4cfa  chore(workspace): allow builds for native deps en pnpm
 ```
 
-Working tree: **limpio**. Migrations pendientes: `learned_curve` y `learning_alpha` en `userEnergyProfile` — correr `pnpm db:push` antes de ejecutar PLAN-04.
+Working tree: **limpio**. Las columnas `learned_curve` y `learning_alpha` en `userEnergyProfile` ya existen en `schema.ts:797-798` y tienen migración generada (`drizzle/0005_nebulous_frog_thor.sql`); el dashboard ya las consume (`LearningInsightCard`). Antes de ejecutar PLAN-04, asegurarse de que la migración 0005 está aplicada en la DB de desarrollo (`pnpm db:push` o el flujo de migraciones). No es una migración pendiente de crear.
 
 ---
 

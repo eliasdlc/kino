@@ -11,10 +11,10 @@
 
 ### Lo que existe hoy
 
-`src/features/sync/` está **vacío**. No hay código. Lo que existe en AGENTS.md como "sync adapters Premium" es arquitectura planeada, no construida.
+`src/features/sync/` contiene solo subdirectorios placeholder por proveedor (`google-calendar/`, `ical/`, `jira/`, `notion/`, `slack/`, `teams/`), **todos sin ningún archivo** (0 archivos en total). No hay código. Lo que AGENTS.md describe como `sync-*/` "sync adapters Premium" es arquitectura planeada; la estructura real es `sync/{provider}/`. Este plan implementa el adapter `ical`, así que sus archivos van bajo `src/features/sync/ical/`.
 
 El schema sí tiene:
-- `tasks.external_source` (varchar 255) — para marcar el origen externo de una tarea importada.
+- `tasks.external_source` (`varchar(255)`, `schema.ts:426`) — para marcar el origen externo de una tarea importada.
 - No hay tabla de conexiones OAuth, no hay tabla de sync state.
 
 ### El feedback y su alcance real
@@ -83,28 +83,33 @@ Dependencia: `ical.js` (listada en AGENTS.md, no instalada aún).
 
 ```bash
 pnpm add ical.js
-pnpm add -D @types/ical.js  # si existe
 ```
+`ical.js` (v2) incluye sus propios tipos TypeScript — no instalar `@types/ical.js`. Verificar con `pnpm typecheck` tras el primer import.
 
-Parser: `ICAL.parse(icsString)` → componente raíz → iterar `VEVENT`s.
+Parser: `ICAL.parse(icsString)` → `new ICAL.Component(jcal)` → iterar `getAllSubcomponents('vevent')`.
 
 Por cada VEVENT:
 1. Extraer `SUMMARY` (título), `DTSTART` (fecha inicio), `DTEND` (fecha fin, opcional), `UID` (identificador único), `DESCRIPTION` (descripción, opcional), `RRULE` (si el evento es recurrente).
-2. Convertir `DTSTART` a UTC (`ICAL.Time.fromJSDate(date, true).toJSDate()`).
+2. Convertir `DTSTART` a UTC (mismo método que el gotcha de §4.3: `time.convertToZone(ICAL.Timezone.utcTimezone).toJSDate()`).
 3. Filtrar: solo eventos desde `now` hasta `now + 30 días`.
-4. Crear/actualizar tarea con `external_source = "${icsUrl}::${uid}"`.
+4. Crear/actualizar tarea con `external_source` como clave de dedup.
+
+> **Gotcha de longitud (`varchar(255)`):** `external_source` es `varchar(255)`. NO usar `"${icsUrl}::${uid}"` — una URL secreta de Google Calendar ya ronda los 100+ chars y, sumada al UID, puede exceder 255 y truncarse (rompiendo la dedup) o fallar el INSERT. Usar como `external_source` un identificador estable y corto que combine la conexión y el UID del evento, p.ej. `"ics:${connectionId}:${uid}"` (el `connectionId` es un UUID de 36 chars; deja margen para el UID). La `ics_url` real vive solo en `calendar_connections`, no se replica por tarea (también mejora seguridad: no se expone la URL secreta en cada tarea).
 
 ### Upsert de tareas importadas
 
-`external_source` actúa como clave de deduplicación:
+`external_source` actúa como clave de deduplicación, **por usuario**:
 ```sql
-INSERT INTO tasks (external_source, title, ...)
-ON CONFLICT DO NOTHING  -- si ya existe con ese external_source, no hacer nada
--- O actualizar si el título cambió:
-ON CONFLICT (external_source) DO UPDATE SET title = EXCLUDED.title, due_date = EXCLUDED.due_date
+INSERT INTO tasks (user_id, external_source, title, ...)
+-- dedup por (user_id, external_source): dos usuarios pueden importar el mismo
+-- calendario público y NO deben colisionar.
+ON CONFLICT (user_id, external_source) DO UPDATE
+  SET title = EXCLUDED.title, due_date = EXCLUDED.due_date
 ```
 
-Drizzle soporta `onConflictDoUpdate` con índice único. Requiere añadir `uniqueIndex` sobre `external_source` **parcial** (solo cuando no es null).
+Drizzle soporta `onConflictDoUpdate` con `target` = índice único. Requiere añadir `uniqueIndex` **parcial** sobre `(user_id, external_source)` (solo cuando `external_source IS NOT NULL`), NO sobre `external_source` solo — si fuera solo `external_source`, el import de un usuario sobre un calendario público pisaría las tareas de otro usuario.
+
+> Para que `ON CONFLICT (user_id, external_source)` funcione, el `target` del índice debe ser exactamente esas dos columnas y el índice parcial debe coincidir con el predicado del upsert. Verificar que Drizzle genera el índice parcial con `.where(sql`...`)`.
 
 **Cuidado con el límite de 10s**: si el .ics tiene cientos de eventos, el INSERT en loop puede exceder el timeout. Solución: procesar en batch (insertar de 20 en 20) y limitar el rango de fechas.
 
@@ -116,7 +121,13 @@ Si la URL .ics es privada (Google Calendar privado), la URL ya incluye un token 
 
 ### Cron re-import
 
-El scheduler diario (`scheduler.service.ts`) puede re-importar calendarios activos. Añadir `importActiveCalendars()` al `runDailySnapshotForActiveUsers`. Límite: solo calendarios de usuarios activos (que hicieron check-in hoy) para no exceder 10s.
+El scheduler diario (`scheduler.service.ts:25` `runDailySnapshotForActiveUsers`) ya itera sobre los usuarios activos del día con `Promise.all` y `MAX_USERS_PER_RUN = 50` (`scheduler.service.ts:7`). Se puede añadir `importActiveCalendars(userId)` dentro de ese loop.
+
+> **Riesgo de 10s — importante.** El snapshot actual es solo trabajo de DB. Añadir un `fetch` HTTP externo + parse de .ics por usuario (potencialmente varios calendarios por usuario) dentro del mismo `Promise.all` de hasta 50 usuarios puede exceder fácilmente el límite de 10s de Vercel Free (una sola URL .ics lenta ya consume el timeout de fetch). Opciones a decidir:
+> - **A**: NO meter el re-import en `runDailySnapshotForActiveUsers`; crear un cron separado (`/api/cron/sync-calendars`) con su propio `CRON_SECRET`, que procese un batch pequeño de conexiones por ejecución (cursor/paginación por `last_synced_at`).
+> - **B**: dejar el re-import solo como acción manual (`POST /api/sync/calendars/[id]/sync`) y no automatizarlo por cron en esta fase.
+>
+> **Recomendación:** Opción A (cron dedicado y paginado) para no acoplar el sync al snapshot ni arriesgar el timeout. Decisión del desarrollador.
 
 ---
 
@@ -126,12 +137,14 @@ El scheduler diario (`scheduler.service.ts`) puede re-importar calendarios activ
 
 Nueva tabla `calendarConnections` con los campos de la sección 3.
 
-Añadir `uniqueIndex` parcial sobre `tasks.external_source`:
+Añadir `uniqueIndex` parcial sobre `(tasks.userId, tasks.externalSource)` (NO solo sobre `external_source` — ver §3):
 ```typescript
-uniqueIndex('uq_tasks_external_source')
-  .on(table.externalSource)
+uniqueIndex('uq_tasks_user_external_source')
+  .on(table.userId, table.externalSource)
   .where(sql`${table.externalSource} IS NOT NULL`)
 ```
+
+> **Pre-requisito de migración:** este índice parcial requiere que NO existan ya filas duplicadas `(user_id, external_source)` con `external_source` no nulo. Como hoy ninguna tarea tiene `external_source` poblado, la migración es segura. El índice parcial debe escribirse con `sql` template en Drizzle (gotcha conocido).
 
 Migración: `pnpm db:generate` → revisar SQL → `pnpm db:push`.
 
@@ -141,7 +154,7 @@ Migración: `pnpm db:generate` → revisar SQL → `pnpm db:push`.
 pnpm add ical.js
 ```
 
-### 4.3 Service — `src/features/sync/ics-parser.ts` (nuevo)
+### 4.3 Service — `src/features/sync/ical/ics-parser.ts` (nuevo)
 
 Función pura `parseIcsToEvents(icsString: string, fromDate: Date, toDate: Date): ParsedEvent[]`.
 
@@ -162,7 +175,7 @@ Esta función es **completamente pura** (sin efectos) y testeable. El filtrado d
 
 **Gotcha**: un VEVENT recurrente en .ics tiene un solo VEVENT con RRULE. Para este plan, importar solo la primera ocurrencia futura — no expandir la serie completa (performance + complejidad). Si PLAN-06 Capa 1 está completo, se puede setear `recurrenceRule` en la tarea importada.
 
-### 4.4 Service — `src/features/sync/sync.service.ts` (nuevo)
+### 4.4 Service — `src/features/sync/ical/sync.service.ts` (nuevo)
 
 ```typescript
 export async function importCalendar(userId: string, connectionId: string): Promise<{ imported: number; updated: number; errors: number }>
@@ -177,7 +190,7 @@ export async function importActiveCalendars(userId: string): Promise<void>  // p
 4. Upsert en batch de 20 tareas (evitar timeout).
 5. Actualizar `last_synced_at` en `calendarConnections`.
 
-### 4.5 Routes — `src/features/sync/sync.routes.ts` (nuevo)
+### 4.5 Routes — `src/features/sync/ical/sync.routes.ts` (nuevo)
 
 ```
 POST /api/sync/calendars          → crear conexión (name, ics_url, system_id)
@@ -194,7 +207,7 @@ src/app/api/sync/calendars/[id]/route.ts  → DELETE
 src/app/api/sync/calendars/[id]/sync/route.ts → POST
 ```
 
-### 4.7 UI — `src/features/sync/CalendarConnectionForm.tsx` (nuevo)
+### 4.7 UI — `src/features/sync/ical/CalendarConnectionForm.tsx` (nuevo)
 
 Formulario para añadir conexión:
 - Campo: nombre del calendario.
@@ -204,7 +217,7 @@ Formulario para añadir conexión:
 
 Nota importante en UI: "Kino importa tu calendario en modo lectura. Los cambios que hagas en Kino no se reflejan en tu calendario externo."
 
-### 4.8 UI — `src/features/sync/CalendarConnectionsList.tsx` (nuevo)
+### 4.8 UI — `src/features/sync/ical/CalendarConnectionsList.tsx` (nuevo)
 
 Lista de conexiones activas: nombre, last_synced_at, botón "Sincronizar", botón "Eliminar".
 
@@ -212,9 +225,12 @@ Lista de conexiones activas: nombre, last_synced_at, botón "Sincronizar", botó
 
 Añadir sección "Calendarios" con `CalendarConnectionForm` + `CalendarConnectionsList`.
 
-### 4.10 Scheduler — `src/features/scheduler/scheduler.service.ts`
+### 4.10 Scheduler / Cron — `src/features/scheduler/scheduler.service.ts`
 
-Añadir `importActiveCalendars(userId)` al loop de usuarios activos. Ejecutar solo si el usuario tiene conexiones activas (query previa para verificar).
+Según la decisión de §3 (recomendado: cron dedicado). Si se elige acoplar al snapshot, añadir `importActiveCalendars(userId)` dentro del `Promise.all` de `runDailySnapshotForActiveUsers` (`scheduler.service.ts:28-51`), ejecutando solo si el usuario tiene conexiones activas. Si se elige el cron dedicado, crear `src/app/api/cron/sync-calendars/route.ts` que:
+- verifique el header `Authorization: Bearer ${CRON_SECRET}` igual que `src/app/api/cron/daily-snapshot/route.ts:7` (gotcha conocido: sin esto cualquiera dispara el endpoint),
+- procese un batch acotado de conexiones por ejecución (orden por `last_synced_at` ascendente),
+- respete el límite de 10s.
 
 ### 4.11 Zod validation
 
@@ -235,35 +251,36 @@ Validación adicional: verificar que la URL responde con Content-Type correcto e
 
 ### Commit 1 — `chore(deps): instalar ical.js para parsing de calendarios`
 
-### Commit 2 — `feat(schema): tabla calendar_connections + unique index en tasks.external_source`
+### Commit 2 — `feat(schema): tabla calendar_connections + unique index parcial (user_id, external_source)`
 Archivos: `src/shared/db/schema.ts`
 Post-commit: `pnpm db:generate` → revisar SQL → `pnpm db:push`
 
 ### Commit 3 — `feat(sync): parser .ics puro con filtrado por rango de fechas`
-Archivos: `src/features/sync/ics-parser.ts` (nuevo)
+Archivos: `src/features/sync/ical/ics-parser.ts` (nuevo)
 Incluye tests unitarios para el parser.
 
 ### Commit 4 — `feat(sync): sync.service — importCalendar con upsert en batch`
-Archivos: `src/features/sync/sync.service.ts` (nuevo)
+Archivos: `src/features/sync/ical/sync.service.ts` (nuevo)
 
 ### Commit 5 — `feat(sync): rutas CRUD de calendar_connections + sync manual`
 Archivos:
-- `src/features/sync/sync.routes.ts` (nuevo)
+- `src/features/sync/ical/sync.routes.ts` (nuevo)
 - `src/app/api/sync/calendars/route.ts` (nuevo)
 - `src/app/api/sync/calendars/[id]/route.ts` (nuevo)
 - `src/app/api/sync/calendars/[id]/sync/route.ts` (nuevo)
 
 ### Commit 6 — `feat(sync): CalendarConnectionForm y CalendarConnectionsList`
 Archivos:
-- `src/features/sync/CalendarConnectionForm.tsx` (nuevo)
-- `src/features/sync/CalendarConnectionsList.tsx` (nuevo)
-- `src/features/sync/sync.hooks.ts` (nuevo — hooks TanStack Query)
+- `src/features/sync/ical/CalendarConnectionForm.tsx` (nuevo)
+- `src/features/sync/ical/CalendarConnectionsList.tsx` (nuevo)
+- `src/features/sync/ical/sync.hooks.ts` (nuevo — hooks TanStack Query)
 
 ### Commit 7 — `feat(sync): sección Calendarios en Settings`
 Archivos: ajustar la página de settings existente.
 
-### Commit 8 — `feat(scheduler): importar calendarios activos en cron diario`
-Archivos: `src/features/scheduler/scheduler.service.ts`
+### Commit 8 — `feat(sync): cron dedicado de re-import paginado` (o acoplar al snapshot, según decisión §3)
+Archivos (opción recomendada A): `src/app/api/cron/sync-calendars/route.ts` (nuevo, con guard `CRON_SECRET` como `daily-snapshot/route.ts`) + `src/features/sync/ical/sync.service.ts` (función de batch).
+Alternativa B (acoplado): `src/features/scheduler/scheduler.service.ts`.
 
 Verificar: `pnpm typecheck && pnpm lint && pnpm build && pnpm test`
 
@@ -312,4 +329,4 @@ parseIcsToEvents:
 - **`ical.js` y timezones flotantes**: algunos calendarios usan `DTSTART;VALUE=DATE` (fecha sin hora). Tratar como `00:00:00 UTC` de ese día.
 - **URL .ics de Google Calendar privado**: la URL incluye un token único (larga). Si el usuario la comparte o si Kino la expone, el calendario queda expuesto. Nunca devolver la `ics_url` al cliente — solo el `name` y `last_synced_at`.
 - **Vercel cron + fetch externo**: el cron diario hace fetch a URLs externas. En entorno de desarrollo (localhost), las URLs de Google Calendar no resolverán. Usar variables de entorno para deshabilitar el re-import en dev.
-- **Premium gate**: si el sync es feature premium, el `POST /api/sync/calendars` necesita subscription guard. Definir con Elías antes de implementar.
+- **Premium gate**: AGENTS.md describe el sync como Premium, pero **hoy no existe infraestructura de suscripción**: no hay feature `billing/` (el directorio no existe), no hay columnas de `subscription`/`tier`/`premium` en `schema.ts`, ni guard reutilizable. Por tanto, en esta fase NO se puede añadir un subscription guard real. Decisión con Elías: (a) implementar sync sin gate por ahora y añadir el guard cuando exista billing, o (b) bloquear el plan hasta que exista la capa de suscripción. El checklist §7 marca el guard como condicional por esto.

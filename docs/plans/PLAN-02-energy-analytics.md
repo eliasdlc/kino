@@ -14,9 +14,9 @@
 | Capa | Archivo | Estado |
 |---|---|---|
 | Query | `insights.queries.ts:18` — `queryEnergyBySystem` | Funciona, solo puntos estimados |
-| Service | `insights.service.ts:99` — `getEnergyDistribution` | Funciona |
-| Route | expuesta como `/api/insights/energy-distribution?days=N` | Funciona |
-| MCP | `packages/mcp/src/tools/intelligence/analyze.ts:17` — `get_energy_distribution` | Funciona |
+| Service | `insights.service.ts:100` — `getEnergyDistribution` | Funciona |
+| Route | `insights.routes.ts:34` — `getEnergyDistributionRoute` (`/api/insights/energy-distribution?days=N`) | Funciona |
+| MCP | `packages/mcp/src/tools/intelligence/analyze.ts:15` — `get_energy_distribution` | Funciona |
 | **UI** | **No existe ningún componente que lo renderice** | **FALTA** |
 
 ### El problema de las dos métricas
@@ -46,17 +46,17 @@ Un sistema marcado `energyIdeal: low` que consume el 40% del tiempo = está dren
 ## 3. Decisiones de diseño
 
 ### Métrica de energía (híbrido)
-- **Primaria**: `SUM(time_logs.duration_minutes)` por sistema. Cero si no hay logs.
-- **Secundaria**: puntos estimados (`high=5, medium=3, low=1`) de tareas `completedAt IS NOT NULL`.
-- **Porcentaje**: calculado sobre minutos si `totalMinutes > 0`, sobre puntos si no.
-- **UI**: muestra tiempo en `Xh Ym` cuando hay datos, `~N pts` cuando es estimado. El usuario sabe qué está viendo.
+- **Primaria (UI)**: `SUM(time_logs.duration_minutes)` por sistema (`minutesSpent`). Cero si no hay logs.
+- **Secundaria (existente)**: puntos estimados (`high=5, medium=3, low=1`) de tareas `completedAt IS NOT NULL` (`energySpent`).
+- **Porcentaje**: el campo existente `percentage` se mantiene sobre puntos (`energySpent`) por backwards-compatibility con el MCP. Para el % por tiempo real la UI usa un campo **nuevo** `percentageByMinutes` (sobre `totalMinutes`), sin redefinir el existente.
+- **UI**: cuando `hasTimeLogs`, muestra tiempo en `Xh Ym` y usa `percentageByMinutes`; si no, muestra `~N pts` y usa `percentage`. El usuario sabe qué está viendo.
 
 ### "Drena vs. energiza"
 ```
 energyGap = energyIdeal (numérico) − uso relativo (%)
 
 energyIdeal:  high=3, medium=2, low=1
-uso relativo: porcentaje del total del período
+uso relativo: porcentaje del total del período. Conceptualmente "drena vs energiza" mide tiempo REAL, así que cuando `hasTimeLogs` conviene alimentar `computeDrainSignal` con `percentageByMinutes`; si no hay logs, con `percentage` (puntos). La función es pura y agnóstica: recibe el porcentaje ya elegido.
 
 Si gap > +30% → "subutilizado" (gris)
 Si gap ∈ [-20%, +30%] → "equilibrado" (verde)
@@ -64,6 +64,8 @@ Si gap < -20% → "drenando" (ámbar/rojo)
 ```
 
 Esta función es pura y vive en el service. No toca el schema.
+
+> **Decisión del desarrollador (escala de la fórmula):** tal como está escrita, `energyGap = energyIdeal − uso%` mezcla escalas (`energyIdeal` ∈ {1,2,3} vs `uso%` ∈ [0,100]), por lo que `gap` siempre será negativo y los umbrales `+30%/-20%` no calzan. Hay que normalizar antes de comparar: p.ej. mapear `energyIdeal` a un % esperado (low≈11%, medium≈22%, high≈33% — o el reparto que se decida) y comparar `usoReal% − esperado%`. Definir el mapeo concreto al implementar; los tests de §6 deben fijarse contra el mapeo elegido.
 
 ### Estructura del componente
 `EnergyDistributionCard` es un Client Component (necesita selector de período con estado). Recibe datos iniciales SSR; al cambiar período hace fetch al endpoint vía TanStack Query.
@@ -74,44 +76,62 @@ Esta función es pura y vive en el service. No toca el schema.
 
 ### 4.1 Query — `src/features/insights/insights.queries.ts`
 
-Extender `queryEnergyBySystem` para hacer `LEFT JOIN time_logs`:
+> **El campo existente se llama `energySpent`, NO `energyPoints`** (ver `insights.queries.ts:14` y `insights.service.ts:106`). El MCP serializa la respuesta completa con `JSON.stringify` (`analyze.ts:30`), así que renombrar ese campo rompería al consumidor. Mantener `energySpent` y solo AÑADIR campos nuevos.
+
+Shape de resultado (campos nuevos añadidos, `energySpent` se conserva):
 
 ```typescript
-// Nuevo shape de resultado
+// Shape de resultado actualizado
 export interface SystemEnergyRow {
   systemId: string;
   systemName: string;
+  systemColor: string;            // nuevo: systems.color (colorEnum, NO hex) — para los puntos de la UI
   energyIdeal: string | null;     // nuevo: de systems.energy_ideal
-  energyPoints: number;           // existente: puntos estimados
+  energySpent: number;            // existente: puntos estimados (SIN renombrar)
   minutesSpent: number;           // nuevo: SUM(time_logs.duration_minutes)
   tasksCompleted: number;
 }
 ```
 
-La query agrega `systems.energy_ideal` y hace `LEFT JOIN time_logs ON time_logs.system_id = systems.id AND time_logs.user_id = $userId AND time_logs.started_at >= $fromDate`. El `SUM(time_logs.duration_minutes)` va en el SELECT.
+**Gotcha crítico — fan-out / producto cartesiano.** `queryEnergyBySystem` parte `FROM tasks INNER JOIN systems` y agrupa por sistema. Si se añade un `LEFT JOIN time_logs ON system_id` directamente sobre esa misma query, dentro de cada `GROUP BY system` se produce el producto cartesiano de N tasks × M time_logs, lo que **infla** `SUM(energySpent)`, `SUM(duration_minutes)` y `COUNT(*)`. NO hacer un solo JOIN combinado.
 
-**Cuidado:** `time_logs.started_at` es el filtro correcto (no `tasks.completed_at`) para no mezclar períodos. El JOIN es sobre `time_logs` directamente al sistema, no pasando por tasks — porque el timer ya guarda `system_id`.
+**Corrección (opción recomendada): dos agregaciones separadas, mergeadas en el service.**
+- Mantener `queryEnergyBySystem` tal cual (tasks completadas → `energySpent`, `tasksCompleted`), añadiendo solo `systems.energyIdeal` al SELECT y al `groupBy`.
+- Añadir una nueva query `queryMinutesBySystem(userId, fromDate)` que agregue `time_logs` por su cuenta: `SELECT system_id, SUM(duration_minutes)::int AS minutesSpent FROM time_logs WHERE user_id = $userId AND started_at >= $fromDate GROUP BY system_id`. Una fila por sistema, sin fan-out.
+- El service mergea ambos resultados por `systemId` (`Map<string, ...>`), uniendo sistemas que aparecen en una u otra fuente.
+
+**Alternativa (un solo statement): subquery agregada.** Pre-agregar `time_logs` en una subquery (`SELECT system_id, SUM(duration_minutes) ... GROUP BY system_id`) que devuelve **una fila por sistema**, y recién entonces hacer `LEFT JOIN` de esa subquery contra la query de tasks. Evita el fan-out porque la subquery ya colapsó los time_logs. Más compacto pero más difícil de leer en Drizzle; requiere `sql` para la subquery.
+
+> Decisión del desarrollador: las dos agregaciones separadas (recomendada) son más legibles y testeables; la subquery ahorra un round-trip. Ambas son correctas — elegir según preferencia.
+
+**Cuidado:** `time_logs.started_at` es el filtro correcto (no `tasks.completed_at`) para no mezclar períodos. La agregación de minutos es sobre `time_logs` directamente al sistema, no pasando por tasks — porque el timer ya guarda `system_id` (`timer.store.ts:8,27`).
 
 ### 4.2 Service — `src/features/insights/insights.service.ts`
 
 `getEnergyDistribution` actualizado:
 
 ```typescript
-// Shape nuevo de retorno
+// Shape de retorno actualizado (backwards-compatible: solo añade campos)
 {
   period: "7d",
-  hasTimeLogs: boolean,        // true si algún sistema tiene minutesSpent > 0
-  total: number,               // total minutos o total puntos según hasTimeLogs
+  total: number,               // existente: total puntos estimados (SIN cambiar semántica)
+  hasTimeLogs: boolean,        // nuevo: true si algún sistema tiene minutesSpent > 0
+  totalMinutes: number,        // nuevo: SUM de minutesSpent de todos los sistemas
   systems: [{
     systemId, systemName,
-    minutesSpent,              // 0 si no hay time_logs
-    energyPoints,
-    percentage,                // sobre minutos o puntos según hasTimeLogs
-    energyIdeal,               // "high" | "medium" | "low" | null
-    drainSignal: "draining" | "balanced" | "underused" | null
+    systemColor,               // nuevo: colorEnum para los puntos de la UI
+    energySpent,               // existente (NO renombrar — lo lee el MCP)
+    tasksCompleted,            // existente
+    percentage,                // existente: sobre energySpent (NO redefinir)
+    percentageByMinutes,       // nuevo: sobre totalMinutes (0 si no hay logs)
+    minutesSpent,              // nuevo: 0 si no hay time_logs
+    energyIdeal,               // nuevo: "high" | "medium" | "low" | null
+    drainSignal: "draining" | "balanced" | "underused" | null  // nuevo
   }]
 }
 ```
+
+> **Backwards-compatibility:** `energySpent`, `tasksCompleted`, `total` y `percentage` se conservan con su semántica actual. Para no romper al MCP, `percentage` sigue calculándose sobre puntos (`energySpent`). Si la UI quiere mostrar el % por tiempo real, añadir un campo NUEVO `percentageByMinutes` en lugar de redefinir `percentage`.
 
 Nueva función pura `computeDrainSignal(energyIdeal, percentage)` → `DrainSignal`. Recibe el `energyIdeal` del sistema y el porcentaje de uso. Devuelve la señal según la fórmula de la sección 3.
 
@@ -158,20 +178,21 @@ Añadir `getEnergyDistribution(userId, 7)` al `Promise.all` del server component
 
 ### 4.7 MCP parity
 
-El tool `get_energy_distribution` en `packages/mcp/src/tools/intelligence/analyze.ts` llama al mismo endpoint. Con el shape nuevo (backwards-compatible), automáticamente recibe los campos adicionales. **No requiere cambios en MCP.**
+El tool `get_energy_distribution` en `packages/mcp/src/tools/intelligence/analyze.ts:15` llama al mismo endpoint y serializa la respuesta completa con `JSON.stringify(distribution, null, 2)` (`analyze.ts:30`). Como **NO se renombra ni elimina ningún campo existente** (`energySpent`, `tasksCompleted`, `total`, `percentage` intactos) y solo se AÑADEN campos (`minutesSpent`, `energyIdeal`, `drainSignal`, `hasTimeLogs`, `totalMinutes`, `percentageByMinutes`), el cambio es realmente backwards-compatible: el MCP recibe los campos extra sin romperse. **No requiere cambios en MCP.**
+
+> Esto solo se cumple si §4.1 y §4.2 respetan la regla de "solo añadir". Si en algún momento se renombrara `energySpent`, este tool se rompería y habría que actualizarlo.
 
 ---
 
 ## 5. Plan de commits
 
-### Commit 1 — `feat(insights): agregar tiempo real de time_logs a queryEnergyBySystem`
+### Commit 1 — `feat(insights): agregar agregación de minutos de time_logs por sistema`
 Archivos: `src/features/insights/insights.queries.ts`
 
 Cambios:
-- Añadir `LEFT JOIN time_logs` a la query existente.
-- Agregar `systems.energy_ideal` al SELECT.
-- Nuevo campo `minutesSpent` en el resultado.
-- Actualizar `SystemEnergyRow` interface.
+- Añadir `systems.energyIdeal` y `systems.color` al SELECT y al `groupBy` de `queryEnergyBySystem`; añadir `energyIdeal` y `systemColor` a `SystemEnergyRow` (mantener `energySpent`, NO renombrar).
+- Crear `queryMinutesBySystem(userId, fromDate)`: agrega `SUM(duration_minutes)` por `system_id` directamente sobre `time_logs` (una fila por sistema, sin fan-out). Filtra `time_logs.userId = userId` y `time_logs.startedAt >= fromDate`.
+- **NO** añadir un `LEFT JOIN time_logs` a `queryEnergyBySystem` — produciría producto cartesiano N tasks × M time_logs e inflaría `energySpent`/`tasksCompleted` (ver §4.1).
 
 Verificar: `pnpm typecheck`
 
@@ -179,8 +200,8 @@ Verificar: `pnpm typecheck`
 Archivos: `src/features/insights/insights.service.ts`
 
 Cambios:
-- `getEnergyDistribution` usa los nuevos campos de la query.
-- Lógica de `hasTimeLogs` y selección de métrica para `percentage`.
+- `getEnergyDistribution` llama a `queryEnergyBySystem` y `queryMinutesBySystem` y mergea por `systemId` (`Map`), incluyendo sistemas que solo aparezcan en una de las dos fuentes.
+- Calcular `hasTimeLogs`, `totalMinutes` y el nuevo `percentageByMinutes` (sin redefinir `percentage`, que sigue sobre `energySpent`).
 - Nueva función pura `computeDrainSignal`.
 - Campo `drainSignal` en cada sistema del resultado.
 
@@ -243,7 +264,7 @@ computeDrainSignal:
 ## 7. Checklist de seguridad
 
 - [ ] `userId` de sesión en el endpoint (ya validado en `getAuthContext`)
-- [ ] Zod en el param `days` (ya existe, rango 1-90)
+- [ ] Validación del param `days` (la route ya lo clampa a 1-90 con `parseInt` + guard en `insights.routes.ts:37-38`; no usa Zod aquí, es validación manual de un único query param numérico)
 - [ ] Query filtra `tasks.userId = userId` y `time_logs.userId = userId`
 - [ ] No expone datos de otros usuarios
 - [ ] Respuesta de error normalizada
@@ -252,8 +273,10 @@ computeDrainSignal:
 
 ## 8. Riesgos y gotchas
 
-- **LEFT JOIN time_logs puede devolver NULL en `minutesSpent`**: castear a `0` con `COALESCE`.
-- **El JOIN time_logs usa `system_id` directamente** (no a través de tasks). Verificar que el timer store guarda el `systemId` correcto — sí lo hace (`timer.store.ts:27`).
+- **Fan-out**: NO combinar tasks y time_logs en un solo JOIN agregado (producto cartesiano). Usar dos agregaciones separadas mergeadas en el service, o subquery pre-agregada (§4.1).
+- **Sistemas sin time_logs**: al mergear por `systemId`, un sistema presente solo en `queryEnergyBySystem` debe quedar con `minutesSpent = 0` (default en el merge, no `null`).
+- **La agregación de minutos usa `system_id` directamente** (no a través de tasks). El timer store guarda el `systemId` correcto — sí lo hace (`timer.store.ts:8,27`).
 - **Período de time_logs vs. período de tasks**: ambos usan `fromDate` como cutoff pero en columnas distintas (`time_logs.started_at` vs. `tasks.completed_at`). Es correcto — mide actividad dentro del período.
-- **Tailwind color dinámico**: las barras usan el color del sistema. Usar `getSystemColor(system.color)` — ya safelisteado en `globals.css`.
+- **El color del sistema NO está en el resultado actual**: `queryEnergyBySystem` selecciona solo `systemId`, `systemName` (`insights.queries.ts:23-27`), no `systems.color`. La card muestra puntos de color por sistema, así que hay que **añadir `systems.color` al SELECT** (es `colorEnum`, NO hex — gotcha conocido) y propagarlo por el merge del service hasta el resultado.
+- **Tailwind color dinámico**: `getSystemColor(color)` devuelve un TOKEN (p.ej. `"red-500"`), no una clase completa — componer como `bg-${token}` / `bg-${token}/10` (`system-colors.ts:18`). Las clases `bg-{color}-500`, `bg-{color}-500/10` y `text-{color}-500` ya están safelisteadas con `@source inline(...)` en `globals.css:8-10`.
 - **Bento grid en mobile**: la card nueva en la fila inferior puede necesitar `col-span-full` en mobile. Verificar en viewport < 1024px.

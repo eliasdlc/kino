@@ -15,8 +15,8 @@ Las sticky notes tienen schema, CRUD completo, y UI de grilla. Lo que no tienen 
 
 | Aspecto | Estado actual | Problema |
 |---|---|---|
-| Schema | `stickyNotes` con `pageId`, `folderId`, `title`, `content`, `color` | No tiene `systemId` ni `taskId` — no puede convertirse en tarea directamente |
-| UI | `StickyNoteCard.tsx`, `StickyNotesGrid.tsx` | Sin acción "→ tarea" |
+| Schema | `stickyNotes` con `pageId`, `folderId`, `title`, `content`, `color` (CHECK XOR `sticky_note_location`: SIEMPRE exactamente uno de `pageId`/`folderId`) | No tiene `systemId` ni `taskId` — no puede convertirse en tarea directamente |
+| UI | `StickyNoteCard.tsx` (delete inline con botón `X`, NO hay DropdownMenu), `StickyNotesGrid.tsx` | Sin acción "→ tarea" |
 | Service | `sticky-notes.service.ts` | CRUD puro, sin integración con tasks |
 | Rol en el producto | Sin definir | El usuario no sabe qué son |
 
@@ -31,7 +31,7 @@ Esto convierte las stickies en el *front-end* del embudo de energía, no en un c
 
 ### Por qué no añadir `systemId` al schema
 
-Añadir `system_id` requeriría migración y complicaría la captura rápida (un campo extra obligatorio anula la "sin fricción"). La conversión a tarea ya puede inferir el sistema: si la nota está en una página dentro de un sistema, usar ese sistema. Si no, Inbox.
+Añadir `system_id` requeriría migración y complicaría la captura rápida (un campo extra obligatorio anula la "sin fricción"). La conversión a tarea ya puede inferir el sistema: toda nota cuelga de una página o una carpeta (CHECK XOR), y esas tienen `system_id` (nullable). Si el `system_id` de la página/carpeta resuelta es null, cae a Inbox.
 
 ---
 
@@ -39,7 +39,7 @@ Añadir `system_id` requeriría migración y complicaría la captura rápida (un
 
 - [ ] `StickyNoteCard` tiene botón "Convertir en tarea" (ícono o texto pequeño).
 - [ ] Al convertir: se crea una tarea en el Inbox del usuario con `title = nota.title`, `description = nota.content`.
-- [ ] Si la nota está en una página con `systemId` inferible, usar ese sistema. Si no, Inbox.
+- [ ] Inferir el sistema desde la página/carpeta de la nota; si la página/carpeta no tiene `systemId` (ambos son nullable), usar Inbox.
 - [ ] Tras crear la tarea, la nota se elimina (soft-delete no aplica a stickies — no tienen `deleted_at`).
 - [ ] La acción es optimista: la nota desaparece de UI inmediatamente, rollback si falla.
 - [ ] `StickyNoteCard` tiene botón "Archivar" (ya existe como delete — solo confirmar que el UX es claro).
@@ -53,12 +53,12 @@ Añadir `system_id` requeriría migración y complicaría la captura rápida (un
 ### Inferencia del sistema al convertir
 
 ```
-si nota.pageId → buscar la página → buscar su system_id → usar ese sistema
-si nota.folderId → buscar la carpeta → buscar su system_id → usar ese sistema
-si nada → usar Inbox del usuario (is_inbox = true)
+toda nota tiene EXACTAMENTE uno de pageId/folderId (CHECK XOR sticky_note_location)
+si nota.pageId → buscar la página → si page.systemId != null → usar ese sistema, si no → Inbox
+si nota.folderId → buscar la carpeta → si folder.systemId != null → usar ese sistema, si no → Inbox
 ```
 
-Esto no requiere schema nuevo. Solo una función de inferencia en el service.
+`pages.systemId` y `folders.systemId` son nullable, por eso el fallback a Inbox aplica cuando la página/carpeta no pertenece a ningún sistema. No existe el caso "nota sin pageId ni folderId" (lo impide el CHECK). Esto no requiere schema nuevo. Solo una función de inferencia en el service.
 
 ### Flujo de conversión (API)
 
@@ -70,13 +70,13 @@ Alternativamente, hacerlo en un solo endpoint que haga ambas cosas atómicamente
 
 ### UX del botón
 
-En `StickyNoteCard`, en el hover o menú de contexto (ya existe DropdownMenu):
-```
-⟶ Convertir en tarea
-🗑 Eliminar
-```
+`StickyNoteCard` hoy NO tiene DropdownMenu: solo un botón `X` inline para eliminar (`StickyNoteCard.tsx:80-82`) y un Dialog de edición al hacer click. Hay dos opciones:
+- **Opción A**: añadir un segundo botón inline "→ tarea" junto al `X` (mínimo, consistente con el patrón actual).
+- **Opción B**: introducir un `DropdownMenu` (componente shadcn no usado aquí todavía) que agrupe "Convertir en tarea" / "Eliminar".
 
-No hace falta confirm dialog para "convertir" — es reversible (la tarea se puede borrar). El "Eliminar" directo sí puede tener confirm si el contenido es largo.
+**Decisión: Opción A** — menor superficie de cambio y coherente con el control existente. (Si se prefiere agrupar acciones, Opción B requiere importar el componente `DropdownMenu`.)
+
+No hace falta confirm dialog para "convertir" — es reversible (la tarea se puede borrar). El "Eliminar" directo ya existe sin confirm.
 
 ---
 
@@ -89,13 +89,14 @@ Nueva función `convertToTask(userId, noteId)`:
 ```typescript
 async function convertToTask(userId: string, noteId: string): Promise<Task> {
   // 1. Buscar la nota (verificar que pertenece al userId)
-  // 2. Inferir systemId (pageId → página → sistema, folderId → carpeta → sistema, else Inbox)
+  // 2. Inferir systemId: resolver page/folder (uno de los dos por CHECK XOR);
+  //    usar su systemId si != null, si no → Inbox del usuario
   // 3. Transacción: INSERT task + DELETE sticky_note
   // 4. Devolver la tarea creada
 }
 ```
 
-La inferencia usa queries a `pages` y `folders` (ya importados en el slice). El Inbox se obtiene con `db.select().from(systems).where(eq(systems.isInbox, true)).and(eq(systems.userId, userId))`.
+La inferencia usa queries a `pages` y `folders` (ya importados en el slice). El Inbox se obtiene con `db.select().from(systems).where(and(eq(systems.userId, userId), eq(systems.isInbox, true)))` (las condiciones van combinadas con `and(...)` dentro de un único `.where()`; Drizzle no expone `.and()` encadenado).
 
 **Importante:** el `userId` en el `INSERT` de la tarea viene de la sesión, no del body ni de la nota. La nota solo provee `title`, `content`, `systemId` inferido.
 
@@ -105,18 +106,23 @@ No requiere schema nuevo para la conversión (no hay input del cliente — solo 
 
 ### 4.3 Route — `src/features/sticky-notes/sticky-notes.routes.ts`
 
-Nueva función `convertToTaskRoute(request, params)`:
+Nuevo handler `POST` (siguiendo el patrón de `PATCH`/`DELETE` en este archivo, que usan `params: Promise<{ id: string }>` de Next.js 16):
 
 ```typescript
 // POST /api/sticky-notes/[id]/convert-to-task
-// Sin body. userId de sesión. noteId de params.
+// export async function POST(
+//   request: NextRequest,
+//   { params }: { params: Promise<{ id: string }> },
+// )
+// Sin body. userId de sesión. noteId = await params.id.
 // Responde: 201 + Task creada
 ```
 
 ### 4.4 API Route — `src/app/api/sticky-notes/[id]/convert-to-task/route.ts` (nuevo)
 
+Re-exporta el handler desde el slice (igual que `[id]/route.ts` hace `export { PATCH, DELETE } from ...`):
 ```typescript
-export const POST = convertToTaskRoute;
+export { POST } from "@/features/sticky-notes/sticky-notes.routes";
 ```
 
 ### 4.5 Hook — `src/features/sticky-notes/sticky-notes.hooks.ts`
@@ -134,15 +140,18 @@ La invalidación de tasks usa el `systemId` inferido que devuelve el servidor en
 
 ### 4.6 UI — `src/features/sticky-notes/StickyNoteCard.tsx`
 
-Añadir al DropdownMenu (ya existe):
+Hoy hay un botón `X` inline para eliminar (`StickyNoteCard.tsx:80-82`). Añadir un botón "→ tarea" inline junto a él (Opción A de §3):
 ```tsx
-<DropdownMenuItem onClick={() => convertToTask(note.id)}>
+<button
+  onClick={(e) => { e.stopPropagation(); convertToTask(note.id); }}
+  disabled={isConverting}
+  aria-label="Convertir en tarea"
+>
   <ArrowRight className="size-4" />
-  Convertir en tarea
-</DropdownMenuItem>
+</button>
 ```
 
-Estado de loading mientras la mutación está en curso (deshabilitar el item).
+Estado de loading mientras la mutación está en curso (deshabilitar el botón). (Si se eligiera la Opción B, sería un `DropdownMenuItem`, pero eso requiere importar `DropdownMenu`, que esta card no usa actualmente.)
 
 ### 4.7 UI — `src/features/sticky-notes/StickyNotesGrid.tsx`
 
@@ -192,7 +201,7 @@ Archivos:
 - `src/features/sticky-notes/StickyNotesGrid.tsx`
 
 Cambios:
-- Item en DropdownMenu con loading state.
+- Botón inline "→ tarea" con loading state (junto al botón `X` de eliminar).
 - Texto de contexto en la grilla.
 
 Verificar: `pnpm typecheck && pnpm lint && pnpm build && pnpm test`
@@ -204,11 +213,12 @@ Verificar: `pnpm typecheck && pnpm lint && pnpm build && pnpm test`
 ### Unitarios — `src/features/sticky-notes/sticky-notes.service.test.ts` (nuevo)
 ```
 convertToTask:
-  ✓ nota con pageId → tarea en sistema de la página
-  ✓ nota con folderId → tarea en sistema de la carpeta
-  ✓ nota sin pageId ni folderId → tarea en Inbox
+  ✓ nota con pageId cuya página tiene systemId → tarea en ese sistema
+  ✓ nota con folderId cuya carpeta tiene systemId → tarea en ese sistema
+  ✓ nota cuya página/carpeta tiene systemId null → tarea en Inbox
   ✓ nota de otro userId → error 403
   ✓ nota inexistente → error 404
+  (no se testea "sin pageId ni folderId": lo impide el CHECK XOR sticky_note_location)
 ```
 
 ### Integración (manual)

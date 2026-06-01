@@ -15,14 +15,14 @@ Los sistemas tienen 4 campos con datos semánticos ricos que hoy son solo texto/
 
 | Campo | Schema | Usado en lógica | Mostrado en UI |
 |---|---|---|---|
-| `identityStatement` | `varchar(500)` | Solo en `classifyTask` (MCP) | Badge de texto en `SystemDetailHeader` |
+| `identityStatement` | `varchar(500)` | En `classifyTask` (service, vía `/api/insights/classify` y tool MCP `classify_task`) | Texto (cita) en `SystemDetailHeader:82` |
 | `energyIdeal` | `energyLevelEnum` | No | Badge en `SystemDetailHeader` |
 | `triggerContext` | `varchar(255)` | No | Texto en `SystemDetailHeader` |
 | `expectedFrequency` | `varchar(20)` | No | Badge en `SystemDetailHeader` |
 
 El feedback "¿cuál sistema deberías tocar ahora?" no tiene respuesta en UI. Existe:
-- `getStaleSystems` → `queryInactiveSystems` — detecta sistemas abandonados. Solo en MCP.
-- `getSuggestedTasks(userId, energyLevel?)` — sugiere tareas. Solo en MCP.
+- `getStaleSystems` → `queryInactiveSystems` — detecta sistemas abandonados. Expuesto vía `/api/insights/stale-systems` y consumido por el tool MCP `find_stale_systems`, pero NO renderizado en la UI.
+- `getSuggestedTasks(userId, energyLevel?)` — sugiere tareas. Expuesto vía `/api/insights/suggest` y consumido por el tool MCP `suggest_next_action`, pero NO renderizado en la UI.
 - El check-in diario da `currentLevel` (energía ahora). No se cruza con `energyIdeal`.
 
 ### El gap específico
@@ -48,7 +48,7 @@ No existe `recommendSystemNow(userId)`: una función que cruce la energía actua
 ### Algoritmo de `recommendSystemNow`
 
 Inputs disponibles:
-- `energyCheckins.currentLevel` (0–100) de hoy — si no hay check-in, no hay recomendación.
+- `energyCheckins.currentLevel` (`smallint`, rango 1–100 por CHECK `current_level BETWEEN 1 AND 100`, ver `schema.ts:826`) de hoy — si no hay check-in, no hay recomendación.
 - `systems.energyIdeal` por sistema.
 - `queryInactiveSystems(userId, thresholdDays=3)` — sistemas sin actividad reciente.
 - Conteo de tareas pendientes por sistema (`status IN ('today','week','tomorrow')`).

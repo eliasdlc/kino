@@ -2,7 +2,7 @@
 
 > Prioridad: 4
 > Rama: `feat/plan-04-focus-suggest`
-> Depende de: PLAN-01 completo (reutiliza `recommendSystemNow` y `getSuggestedTasks`)
+> Depende de: nada bloqueante. Usa `getSuggestedTasks` (que YA existe en `insights.service.ts:127`, no requiere PLAN-01). Si PLAN-01 ya está hecho, puede además reutilizar `recommendSystemNow`, pero no es prerequisito.
 > Desbloquea: ninguno (pero enriquece PLAN-02 al generar más time_logs)
 
 ---
@@ -31,7 +31,7 @@
 
 - `getSuggestedTasks(userId, energyLevel)` viene de `insights.service.ts` (PLAN-01 lo expande con `recommendSystemNow`, pero `getSuggestedTasks` ya existe y se puede usar ahora).
 - Los `time_logs` generados por el timer alimentan el analytics híbrido de PLAN-02.
-- `pnpm db:push` necesario si no se corrió después del commit de `feat(energy)` (nuevas columnas en `userEnergyProfile`).
+- Las columnas `learned_curve`/`learning_alpha` de `userEnergyProfile` (commit `feat(energy)`) ya están en `schema.ts:797-798` con migración `0005_nebulous_frog_thor.sql`. Asegurarse de que esa migración está aplicada en la DB de desarrollo antes de empezar; no hay que crear migración nueva en este plan.
 
 ---
 
