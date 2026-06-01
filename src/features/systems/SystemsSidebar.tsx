@@ -7,6 +7,7 @@ import {
   Box,
   Inbox,
   LayoutDashboard,
+  List,
   LogOut,
   PanelLeftClose,
   PanelLeftOpen,
@@ -231,6 +232,25 @@ export function SystemsSidebar({
               </Link>
             </TooltipTrigger>
             {collapsed && <TooltipContent side="right">Systems</TooltipContent>}
+          </Tooltip>
+
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Link
+                href="/tasks"
+                className={cn(
+                  "flex items-center px-3 py-2.5 rounded-md text-sm motion-safe:transition-colors",
+                  collapsed ? "justify-center" : "gap-2.5",
+                  pathname === "/tasks"
+                    ? "bg-sidebar-accent text-sidebar-accent-foreground font-medium"
+                    : "text-muted-foreground hover:bg-sidebar-accent/50 hover:text-sidebar-foreground"
+                )}
+              >
+                <List className="size-5 shrink-0" />
+                {!collapsed && <span>Tasks</span>}
+              </Link>
+            </TooltipTrigger>
+            {collapsed && <TooltipContent side="right">Tasks</TooltipContent>}
           </Tooltip>
 
           <Tooltip>
