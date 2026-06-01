@@ -1,11 +1,11 @@
 import { db } from "@/shared/db";
-import { tasks, users, userSettings, systems, folders } from "@/shared/db/schema";
+import { tasks, users, userSettings, systems, folders, timeLogs } from "@/shared/db/schema";
 import { and, eq, isNull, sql } from "drizzle-orm";
 import { NotFoundError, ValidationError } from "@/shared/utils/error";
 import { validateTransition, type TaskStatus, type TransitionAction } from "./tasks.state-machine";
 import { Task, CreateTaskInput, UpdateTaskInput } from "./tasks.types";
 import type { z } from "zod";
-import type { listTasksQuerySchema } from "./tasks.schemas";
+import type { listTasksQuerySchema, CreateTimeLogInput } from "./tasks.schemas";
 import { deriveStatusFromDate } from "./tasks.utils";
 
 const ENERGY_POINTS: Record<string, number> = {
@@ -522,4 +522,28 @@ export async function bulkCreateTasks(
     results.push(task);
   }
   return results;
+}
+
+export async function createTimeLog(
+  taskId: string,
+  userId: string,
+  data: CreateTimeLogInput,
+): Promise<void> {
+  const [task] = await db
+    .select({ id: tasks.id })
+    .from(tasks)
+    .where(and(eq(tasks.id, taskId), eq(tasks.userId, userId)))
+    .limit(1);
+
+  if (!task) throw new NotFoundError('Task not found');
+
+  await db.insert(timeLogs).values({
+    userId,
+    taskId,
+    systemId: data.systemId,
+    startedAt: new Date(data.startedAt),
+    endedAt: new Date(data.endedAt),
+    durationMinutes: data.durationMinutes,
+    source: data.source,
+  });
 }

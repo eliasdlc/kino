@@ -1,8 +1,8 @@
 import { headers } from "next/headers";
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "../../../auth";
-import { bulkMoveSchema, bulkUpdateSchema, bulkCreateTaskSchema, listTasksQuerySchema, createTaskSchema, moveTaskSchema, reorderTasksSchema, updateTaskSchema } from "./tasks.schemas";
-import { bulkMoveTasks, bulkUpdateTasks, bulkCreateTasks, queryTasks, createTask, deleteTask, getSubtasks, getTaskById, getTasksBySystem, moveTask, reorderTasks, restoreTask, toggleTask, updateTask } from "./tasks.service";
+import { bulkMoveSchema, bulkUpdateSchema, bulkCreateTaskSchema, listTasksQuerySchema, createTaskSchema, moveTaskSchema, reorderTasksSchema, updateTaskSchema, createTimeLogSchema } from "./tasks.schemas";
+import { bulkMoveTasks, bulkUpdateTasks, bulkCreateTasks, queryTasks, createTask, deleteTask, getSubtasks, getTaskById, getTasksBySystem, moveTask, reorderTasks, restoreTask, toggleTask, updateTask, createTimeLog } from "./tasks.service";
 import { NotFoundError, ValidationError } from "@/shared/utils/error";
 import { getAuthContext } from "@/shared/utils/auth-context";
 
@@ -299,4 +299,32 @@ export async function postReorder(request: NextRequest) {
 
     await reorderTasks(session.user.id, parsed.data.ids);
     return new NextResponse(null, { status: 204 });
+}
+export async function postTimeLog(
+    request: NextRequest,
+    { params }: { params: Promise<{ id: string }> },
+) {
+    const session = await auth.api.getSession({ headers: await headers() });
+    if (!session) return NextResponse.json({ code: "UNAUTHORIZED", message: "Unauthorized" }, { status: 401 });
+
+    const { id: taskId } = await params;
+    const body = await request.json();
+    const parsed = createTimeLogSchema.safeParse(body);
+    if (!parsed.success) {
+        return NextResponse.json({
+            code: "VALIDATION_ERROR",
+            message: "Invalid input",
+            details: parsed.error.flatten()
+        }, { status: 400 });
+    }
+
+    try {
+        await createTimeLog(taskId, session.user.id, parsed.data);
+        return new NextResponse(null, { status: 201 });
+    } catch (error) {
+        if (error instanceof NotFoundError) {
+            return NextResponse.json({ code: "NOT_FOUND", message: error.message }, { status: 404 });
+        }
+        throw error;
+    }
 }

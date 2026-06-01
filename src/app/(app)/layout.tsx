@@ -10,6 +10,7 @@ import { SystemsSidebar } from "@/features/systems/SystemsSidebar";
 import { GlobalCommandPalette } from "@/features/command-palette/GlobalCommandPalette";
 import { GlobalQuickAddDialog } from "@/features/tasks/GlobalQuickAddDialog";
 import { GlobalNavigationShortcuts } from "@/features/command-palette/GlobalNavigationShortcuts";
+import { FocusTimerWidget } from "@/features/tasks/FocusTimerWidget";
 
 export default async function AppLayout({
   children,
@@ -43,6 +44,7 @@ export default async function AppLayout({
       <GlobalCommandPalette />
       <GlobalQuickAddDialog />
       <GlobalNavigationShortcuts />
+      <FocusTimerWidget />
     </Providers>
   );
 }

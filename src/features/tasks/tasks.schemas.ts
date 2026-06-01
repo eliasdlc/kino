@@ -57,3 +57,13 @@ export const listTasksQuerySchema = z.object({
   energyLevel: z.enum(["high", "medium", "low"]).optional(),
   status: z.enum(["backlog", "week", "tomorrow", "today", "done", "archived"]).optional(),
 });
+
+export const createTimeLogSchema = z.object({
+  systemId: z.string().uuid(),
+  startedAt: z.string().datetime(),
+  endedAt: z.string().datetime(),
+  durationMinutes: z.number().int().min(0),
+  source: z.enum(['timer', 'manual', 'pomodoro']).default('timer'),
+});
+
+export type CreateTimeLogInput = z.infer<typeof createTimeLogSchema>;

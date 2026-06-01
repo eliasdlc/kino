@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { format, parseISO } from "date-fns";
-import { CalendarIcon } from "lucide-react";
+import { CalendarIcon, Timer } from "lucide-react";
 import {
   Sheet,
   SheetContent,
@@ -10,6 +10,7 @@ import {
   SheetTitle,
 } from "@/components/ui/sheet";
 import { Button } from "@/components/ui/button";
+import { cn } from "@/lib/utils";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
@@ -34,6 +35,7 @@ import { useFolders } from "@/features/folders/folders.hooks";
 import { getSystemColor } from "@/shared/utils/system-colors";
 import { TaskTypePicker } from "./TaskTypePicker";
 import type { Task } from "./tasks.types";
+import { useTimerStore } from "./timer.store";
 
 interface TaskDetailSheetProps {
   task: Task | null;
@@ -51,6 +53,12 @@ interface TaskDetailFormProps {
 function TaskDetailForm({ task, systemId, onClose }: TaskDetailFormProps) {
   const { mutate: updateTask, isPending } = useUpdateTask(systemId);
   const { data: folders = [] } = useFolders(systemId);
+
+  const startTimer = useTimerStore((s) => s.startTimer);
+  const activeTimer = useTimerStore((s) => s.active);
+  const isThisRunning = activeTimer?.taskId === task.id;
+  const anotherRunning = activeTimer !== null && !isThisRunning;
+  const isDone = task.status === "done" || task.status === "archived";
 
   const [title, setTitle] = useState(task.title);
   const [description, setDescription] = useState(task.description ?? "");
@@ -195,7 +203,7 @@ function TaskDetailForm({ task, systemId, onClose }: TaskDetailFormProps) {
               {folders.map((folder) => (
                 <SelectItem key={folder.id} value={folder.id}>
                   <span className="flex items-center gap-2">
-                    <span className={`size-2 rounded-full inline-block ${getSystemColor(folder.color).dot}`} />
+                    <span className={`size-2 rounded-full inline-block bg-${getSystemColor(folder.color)}`} />
                     {folder.name}
                   </span>
                 </SelectItem>
@@ -259,6 +267,21 @@ function TaskDetailForm({ task, systemId, onClose }: TaskDetailFormProps) {
       </div>
 
       <div className="mt-auto flex items-center justify-between gap-3">
+        {!isDone && (
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => !anotherRunning && startTimer(task.id, systemId, task.title)}
+            disabled={anotherRunning}
+            className={cn(
+              "gap-1.5",
+              isThisRunning && "border-amber-500/50 text-amber-400",
+            )}
+          >
+            <Timer size={14} className={cn(isThisRunning && "animate-pulse")} />
+            {isThisRunning ? "En foco" : "Iniciar foco"}
+          </Button>
+        )}
         {saveStatus === "saved" && (
           <span className="text-sm text-muted-foreground">Saved</span>
         )}

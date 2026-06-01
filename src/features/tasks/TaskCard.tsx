@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { differenceInCalendarDays, format, isBefore, parseISO, startOfToday } from "date-fns";
-import { ChevronDown, Trash2 } from "lucide-react";
+import { ChevronDown, Trash2, Timer } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { Task } from "./tasks.types";
 import { SubtaskList } from "./SubtaskList";
@@ -10,6 +10,7 @@ import { useSubtasks } from "./tasks.hooks";
 import { useFolders } from "@/features/folders/folders.hooks";
 import { getSystemColor } from "@/shared/utils/system-colors";
 import { getTaskTypeConfig } from "./task-type-config";
+import { useTimerStore } from "./timer.store";
 
 interface TaskCardProps {
   task: Task;
@@ -137,6 +138,11 @@ export function TaskCard({ task, systemId, isFocused, onToggle, onDelete, onEdit
   const [isExpanded, setIsExpanded] = useState(false);
   const [completing, setCompleting] = useState(false);
 
+  const startTimer = useTimerStore((s) => s.startTimer);
+  const activeTimer = useTimerStore((s) => s.active);
+  const isThisRunning = activeTimer?.taskId === task.id;
+  const anotherRunning = activeTimer !== null && !isThisRunning;
+
   const isDone = task.status === "done";
   const isArchived = task.status === "archived";
   const isCritical = task.priority === "critical" && !isArchived && !isDone;
@@ -215,6 +221,24 @@ export function TaskCard({ task, systemId, isFocused, onToggle, onDelete, onEdit
             {task.title}
           </button>
           <div className="flex items-center gap-1.5 shrink-0">
+            {!isDone && !isArchived && (
+              <button
+                type="button"
+                onClick={() => !anotherRunning && startTimer(task.id, systemId, task.title)}
+                disabled={anotherRunning}
+                className={cn(
+                  "opacity-0 group-hover:opacity-100 motion-safe:transition-opacity",
+                  isThisRunning
+                    ? "text-amber-400 opacity-100"
+                    : anotherRunning
+                      ? "text-zinc-700 cursor-not-allowed"
+                      : "text-zinc-500 hover:text-amber-400",
+                )}
+                aria-label={isThisRunning ? "Timer en curso" : "Iniciar foco"}
+              >
+                <Timer size={16} className={cn(isThisRunning && "animate-pulse")} />
+              </button>
+            )}
             <button
               type="button"
               onClick={() => setIsExpanded((v) => !v)}
@@ -292,7 +316,7 @@ export function TaskCard({ task, systemId, isFocused, onToggle, onDelete, onEdit
               <>
                 <span className="text-xs text-zinc-700">·</span>
                 <span className="inline-flex items-center gap-1 text-sm text-zinc-500">
-                  <span className={cn("size-1.5 rounded-full shrink-0", getSystemColor(folder.color).dot)} />
+                  <span className={cn("size-1.5 rounded-full shrink-0", `bg-${getSystemColor(folder.color)}`)} />
                   {folder.name}
                 </span>
               </>
