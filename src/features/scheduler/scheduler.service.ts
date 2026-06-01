@@ -1,7 +1,7 @@
 import { db } from '@/shared/db';
 import { energyCheckins } from '@/shared/db/schema';
 import { eq, sql } from 'drizzle-orm';
-import { ensureYesterdaySnapshot, checkLevel1Triggers } from '@/features/energy/energy.service';
+import { ensureYesterdaySnapshot, checkLevel1Triggers, calibrateLearnedCurve } from '@/features/energy/energy.service';
 import { sendPushToUser } from '@/features/notifications/notifications.service';
 
 const MAX_USERS_PER_RUN = 50;
@@ -28,6 +28,7 @@ export async function runDailySnapshotForActiveUsers(): Promise<{ processed: num
   await Promise.all(
     userIds.map(async (userId) => {
       await ensureYesterdaySnapshot(userId);
+      await calibrateLearnedCurve(userId);
 
       const triggers = await checkLevel1Triggers(userId);
 

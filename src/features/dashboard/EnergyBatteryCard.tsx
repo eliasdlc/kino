@@ -1,18 +1,22 @@
 'use client';
 
 import { useState } from 'react';
-import { Battery, Moon } from 'lucide-react';
+import { Battery, Moon, Clock } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
 import { Slider } from '@/components/ui/slider';
 import { cn } from '@/lib/utils';
 import { useTodayCheckin, useCreateCheckin } from '@/features/energy/energy.hooks';
 import type { Chronotype } from '@/features/energy/energy.utils';
+import type { EnergyPlanItem } from '@/features/energy/energy.planner';
+import type { Task } from '@/features/tasks/tasks.types';
 
 interface EnergyBatteryCardProps {
   initialCheckin: { currentLevel: number; sleepQuality: string } | null;
   projectedCurve: readonly number[] | null;
   chronotype: Chronotype | null;
+  scheduledItems?: EnergyPlanItem[];
+  deferredTasks?: Task[];
 }
 
 const SLEEP_LABELS: Record<string, string> = {
@@ -27,6 +31,12 @@ const SLEEP_COLORS: Record<string, string> = {
   poor: 'bg-red-500/15 text-red-500 dark:text-red-400 ring-red-500/30',
 };
 
+const TASK_DOT_COLORS: Record<string, string> = {
+  high: 'bg-amber-500',
+  medium: 'bg-sky-400',
+  low: 'bg-zinc-400',
+};
+
 function levelColor(level: number): string {
   if (level >= 70) return 'text-emerald-500';
   if (level >= 40) return 'text-amber-400';
@@ -39,10 +49,23 @@ function progressColor(level: number): string {
   return '[&>div]:bg-red-400';
 }
 
+function buildTaskDotMap(items: EnergyPlanItem[]): Map<number, EnergyPlanItem[]> {
+  const map = new Map<number, EnergyPlanItem[]>();
+  for (const item of items) {
+    const hour = Math.min(23, Math.floor(item.scheduledStartMinute / 60));
+    const existing = map.get(hour) ?? [];
+    existing.push(item);
+    map.set(hour, existing);
+  }
+  return map;
+}
+
 export function EnergyBatteryCard({
   initialCheckin,
   projectedCurve,
   chronotype,
+  scheduledItems = [],
+  deferredTasks = [],
 }: EnergyBatteryCardProps) {
   const { data: liveCheckin } = useTodayCheckin();
   const { mutate: createCheckin, isPending } = useCreateCheckin();
@@ -51,10 +74,9 @@ export function EnergyBatteryCard({
   const [level, setLevel] = useState(70);
   const [sleep, setSleep] = useState<'good' | 'partial' | 'poor'>('good');
 
-  // Preferir datos en vivo; si no, usar los del servidor (SSR)
   const checkin = liveCheckin !== undefined ? liveCheckin : initialCheckin;
-
   const currentHour = new Date().getHours();
+  const taskDotMap = buildTaskDotMap(scheduledItems);
 
   function handleSubmit() {
     createCheckin(
@@ -85,30 +107,51 @@ export function EnergyBatteryCard({
       </div>
 
       <div className="px-5 py-4 space-y-4">
-        {/* Sparkline — curva proyectada de capacidad */}
+        {/* Forecast — curva de capacidad + bloques de tareas */}
         {projectedCurve && (
           <div className="space-y-1">
-            <p className="text-xs text-muted-foreground">Capacidad proyectada</p>
-            <div className="flex items-end gap-[2px] h-12 w-full">
+            <p className="text-xs text-muted-foreground">
+              {scheduledItems.length > 0 ? 'Plan · capacidad y tareas' : 'Capacidad proyectada'}
+            </p>
+            <div className="relative flex items-end gap-[2px] h-14 w-full">
               {projectedCurve.map((val, h) => {
                 const isCurrent = h === currentHour;
                 const isPast = h < currentHour;
+                const dots = taskDotMap.get(h) ?? [];
                 return (
-                  <div
-                    key={h}
-                    className="flex-1 rounded-sm transition-all"
-                    style={{ height: `${Math.max(4, val)}%` }}
-                    title={`${h}:00 — ${Math.round(val)}`}
-                  >
+                  <div key={h} className="relative flex-1 flex flex-col items-center justify-end h-full">
+                    {/* Task dots — positioned at top of each column */}
+                    {dots.length > 0 && (
+                      <div className="absolute top-0 flex flex-col items-center gap-[1px] z-10">
+                        {dots.slice(0, 3).map((item, i) => (
+                          <div
+                            key={i}
+                            title={item.task.title}
+                            className={cn(
+                              'w-1.5 h-1.5 rounded-full',
+                              TASK_DOT_COLORS[item.task.energyLevel ?? 'medium'],
+                            )}
+                          />
+                        ))}
+                        {dots.length > 3 && (
+                          <div className="text-[8px] text-muted-foreground/60 leading-none">
+                            +{dots.length - 3}
+                          </div>
+                        )}
+                      </div>
+                    )}
+                    {/* Capacity bar */}
                     <div
                       className={cn(
-                        'w-full h-full rounded-sm',
+                        'w-full rounded-sm',
                         isCurrent
                           ? 'bg-amber-400'
                           : isPast
                             ? 'bg-muted-foreground/20'
                             : 'bg-sky-400/40',
                       )}
+                      style={{ height: `${Math.max(4, (val / 100) * 52)}px` }}
+                      title={`${h}:00 — ${Math.round(val)}`}
                     />
                   </div>
                 );
@@ -214,6 +257,29 @@ export function EnergyBatteryCard({
                 Cancelar
               </Button>
             </div>
+          </div>
+        )}
+
+        {/* Tareas diferidas por energía insuficiente */}
+        {deferredTasks.length > 0 && !showForm && (
+          <div className="space-y-1.5 pt-1 border-t">
+            <div className="flex items-center gap-1.5">
+              <Clock className="w-3 h-3 text-muted-foreground/60" />
+              <p className="text-xs text-muted-foreground">
+                Diferidas ({deferredTasks.length})
+              </p>
+            </div>
+            {deferredTasks.slice(0, 3).map((task) => (
+              <div key={task.id} className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                <span className="size-1.5 rounded-full bg-muted-foreground/30 shrink-0" />
+                <span className="truncate">{task.title}</span>
+              </div>
+            ))}
+            {deferredTasks.length > 3 && (
+              <p className="text-xs text-muted-foreground/50">
+                y {deferredTasks.length - 3} más
+              </p>
+            )}
           </div>
         )}
       </div>

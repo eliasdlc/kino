@@ -57,6 +57,8 @@ export interface EnergyPlanOptions {
   /** Hora de inicio del bloque de trabajo (0–23, default 9) */
   startHour?: number;
   today: Date;
+  /** Curva aprendida del usuario (24 valores). Si está presente y tiene longitud 24, reemplaza la curva teórica del cronotipo. */
+  learnedCurve?: readonly number[];
 }
 
 /**
@@ -73,13 +75,19 @@ export function buildEnergyPlan(options: EnergyPlanOptions): EnergyPlanResult {
     energyFloor,
     startHour = 9,
     today,
+    learnedCurve,
   } = options;
 
   const budgetMinutes = availableHoursPerDay * 60;
 
+  const baseCurve: readonly number[] =
+    learnedCurve && learnedCurve.length === 24
+      ? learnedCurve
+      : CHRONOTYPE_CURVES[chronotype];
+
   // Curva proyectada para todo el día (usada por la UI)
-  const projectedCurve = CHRONOTYPE_CURVES[chronotype].map((_, h) =>
-    computeCapacity(h, chronotype, sleepQuality),
+  const projectedCurve = baseCurve.map((_, h) =>
+    computeCapacity(h, chronotype, sleepQuality, baseCurve),
   ) as unknown as readonly number[];
 
   const candidates = tasks.filter(
@@ -129,6 +137,7 @@ export function buildEnergyPlan(options: EnergyPlanOptions): EnergyPlanResult {
       chronotype,
       sleepQuality,
       energyFloor,
+      baseCurve,
     );
 
     const demand = (task.energyLevel ?? 'medium') as TaskEnergyDemand;

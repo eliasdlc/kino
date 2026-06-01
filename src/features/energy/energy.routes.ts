@@ -2,7 +2,7 @@ import { headers } from 'next/headers';
 import { NextRequest, NextResponse } from 'next/server';
 import { auth } from '@/auth';
 import { createCheckinSchema } from './energy.schemas';
-import { createTodayCheckin, getTodayCheckin, getTodayPlan } from './energy.service';
+import { createTodayCheckin, getTodayCheckin, getTodayEnergyPlan } from './energy.service';
 
 export async function createCheckinRoute(request: NextRequest) {
   const session = await auth.api.getSession({ headers: await headers() });
@@ -54,7 +54,7 @@ export async function getTodayPlanRoute() {
   }
 
   try {
-    const result = await getTodayPlan(session.user.id);
+    const result = await getTodayEnergyPlan(session.user.id);
     return NextResponse.json(result);
   } catch {
     return NextResponse.json(

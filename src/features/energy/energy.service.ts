@@ -11,6 +11,10 @@ import {
   getRecentCheckins,
   countSnapshotMetrics,
   upsertBehaviorSnapshot,
+  getCompletedTasksLast90Days,
+  getStartedTimeLogsLast90Days,
+  saveLearnedCurve,
+  getLearnedCurve,
 } from './energy.queries';
 import { buildBudgetPlan, buildEnergyPlan } from './energy.planner';
 import type { EnergyPlanResult } from './energy.planner';
@@ -18,7 +22,7 @@ import type { Chronotype, SleepQuality } from './energy.utils';
 import type { CreateCheckinInput } from './energy.schemas';
 import { detectTopPattern } from './energy.advisor';
 import type { AdvisorPattern } from './energy.advisor';
-import { computeEffectiveEnergy, computeImportance } from './energy.utils';
+import { computeEffectiveEnergy, computeImportance, CHRONOTYPE_CURVES } from './energy.utils';
 
 function getTodayDate(timezone: string): string {
   return new Intl.DateTimeFormat('en-CA', {
@@ -70,6 +74,8 @@ export interface TodayEnergyPlanResult {
   hasCheckin: boolean;
   checkin: { currentLevel: number; sleepQuality: SleepQuality } | null;
   chronotype: Chronotype | null;
+  learnedCurve: number[] | null;
+  learningAlpha: number;
 }
 
 // ── Behavior snapshots ─────────────────────────────────────────────────────
@@ -92,6 +98,49 @@ export async function ensureYesterdaySnapshot(userId: string): Promise<void> {
   if (!existing) {
     await computeAndSaveBehaviorSnapshot(userId, yesterday);
   }
+}
+
+const ENERGY_WEIGHTS: Record<string, number> = { high: 3, medium: 2, low: 1 };
+
+export async function calibrateLearnedCurve(userId: string): Promise<void> {
+  const timezone = await getUserTimezone(userId);
+
+  const [completedTasks, timerLogs, profile] = await Promise.all([
+    getCompletedTasksLast90Days(userId, timezone),
+    getStartedTimeLogsLast90Days(userId, timezone),
+    getUserEnergyProfile(userId),
+  ]);
+
+  if (!profile) return;
+
+  const N = completedTasks.length + timerLogs.length;
+  if (N === 0) return;
+
+  const rawBuckets = new Array<number>(24).fill(0);
+
+  for (const { completedHour, energyLevel } of completedTasks) {
+    const h = Math.max(0, Math.min(23, completedHour));
+    rawBuckets[h] += ENERGY_WEIGHTS[energyLevel] ?? 1;
+  }
+  for (const { startedHour, energyLevel } of timerLogs) {
+    const h = Math.max(0, Math.min(23, startedHour));
+    rawBuckets[h] += (ENERGY_WEIGHTS[energyLevel] ?? 1) * 1.5; // timer es señal más limpia
+  }
+
+  const maxBucket = Math.max(...rawBuckets);
+  if (maxBucket === 0) return;
+
+  const empiricalCurve = rawBuckets.map((v) => Math.round((v / maxBucket) * 100 * 10) / 10);
+
+  const alpha = Math.min(N / 100, 0.85);
+  const theoreticalCurve = CHRONOTYPE_CURVES[profile.chronotype as Chronotype];
+
+  const learnedCurve = theoreticalCurve.map((theoretical, h) => {
+    const empirical = empiricalCurve[h] ?? 0;
+    return Math.round(((1 - alpha) * theoretical + alpha * empirical) * 10) / 10;
+  });
+
+  await saveLearnedCurve(userId, learnedCurve, alpha);
 }
 
 export interface WeeklyTrend {
@@ -231,21 +280,24 @@ export async function checkLevel1Triggers(userId: string): Promise<Level1Result>
 export async function getTodayEnergyPlan(userId: string): Promise<TodayEnergyPlanResult> {
   const profile = await getUserEnergyProfile(userId);
   if (!profile) {
-    return { energyPlan: null, noProfile: true, hasCheckin: false, checkin: null, chronotype: null };
+    return { energyPlan: null, noProfile: true, hasCheckin: false, checkin: null, chronotype: null, learnedCurve: null, learningAlpha: 0 };
   }
 
   const timezone = await getUserTimezone(userId);
   const todayStr = getTodayDate(timezone);
 
-  const [candidateTasks, checkinRow] = await Promise.all([
+  const [candidateTasks, checkinRow, learned] = await Promise.all([
     getPlanCandidateTasks(userId),
     getCheckinByDate(userId, todayStr),
+    getLearnedCurve(userId),
   ]);
 
   const today = new Date(todayStr);
   const checkin = checkinRow
     ? { currentLevel: checkinRow.currentLevel, sleepQuality: checkinRow.sleepQuality as SleepQuality }
     : null;
+
+  const learnedCurve = learned?.curve && learned.curve.length === 24 ? learned.curve : null;
 
   const energyPlan = checkin
     ? buildEnergyPlan({
@@ -255,6 +307,7 @@ export async function getTodayEnergyPlan(userId: string): Promise<TodayEnergyPla
         sleepQuality: checkin.sleepQuality,
         energyFloor: profile.energyFloor,
         today,
+        learnedCurve: learnedCurve ?? undefined,
       })
     : null;
 
@@ -264,5 +317,7 @@ export async function getTodayEnergyPlan(userId: string): Promise<TodayEnergyPla
     hasCheckin: checkin !== null,
     checkin,
     chronotype: profile.chronotype as Chronotype,
+    learnedCurve,
+    learningAlpha: learned?.alpha ?? 0,
   };
 }

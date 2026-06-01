@@ -794,6 +794,8 @@ export const userEnergyProfile = pgTable('user_energy_profile', {
   availableHoursPerDay: smallint('available_hours_per_day').notNull().default(8),
   energyFloor: smallint('energy_floor').notNull().default(20),
   rechargePresets: text('recharge_presets').notNull().default('[]'),
+  learnedCurve: text('learned_curve').notNull().default('[]'),
+  learningAlpha: doublePrecision('learning_alpha').notNull().default(0),
   createdAt: timestamp('created_at', { withTimezone: true })
     .notNull()
     .defaultNow(),

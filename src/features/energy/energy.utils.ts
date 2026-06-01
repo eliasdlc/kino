@@ -38,8 +38,9 @@ export function computeCapacity(
   hour: number,
   chronotype: Chronotype,
   sleepQuality: SleepQuality,
+  overrideCurve?: readonly number[],
 ): number {
-  const curve = CHRONOTYPE_CURVES[chronotype];
+  const curve = overrideCurve ?? CHRONOTYPE_CURVES[chronotype];
   const base = curve[Math.max(0, Math.min(23, Math.floor(hour)))] ?? 0;
   return base * SLEEP_FACTOR[sleepQuality];
 }
@@ -82,8 +83,9 @@ export function computeEffectiveEnergy(
   chronotype: Chronotype,
   sleepQuality: SleepQuality,
   energyFloor = 20,
+  overrideCurve?: readonly number[],
 ): number {
-  const capacity = computeCapacity(hour, chronotype, sleepQuality);
+  const capacity = computeCapacity(hour, chronotype, sleepQuality, overrideCurve);
   const fatigue = computeFatigue(continuousWorkMinutes);
   return Math.max(energyFloor, capacity - fatigue);
 }

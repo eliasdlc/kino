@@ -1,6 +1,6 @@
-import { and, desc, eq, inArray, isNull, lt, notInArray, sql } from 'drizzle-orm';
+import { and, desc, eq, gte, inArray, isNotNull, isNull, lt, notInArray, sql } from 'drizzle-orm';
 import { db } from '@/shared/db';
-import { behaviorSnapshots, energyCheckins, tasks, userEnergyProfile } from '@/shared/db/schema';
+import { behaviorSnapshots, energyCheckins, tasks, timeLogs, userEnergyProfile } from '@/shared/db/schema';
 import type { CreateCheckinInput } from './energy.schemas';
 
 // ── behavior_snapshots ─────────────────────────────────────────────────────
@@ -174,4 +174,95 @@ export async function getUserEnergyProfile(userId: string) {
     .where(eq(userEnergyProfile.userId, userId))
     .limit(1);
   return row ?? null;
+}
+
+// ── Calibración de curva aprendida ─────────────────────────────────────────
+
+export async function getCompletedTasksLast90Days(
+  userId: string,
+  timezone: string,
+): Promise<Array<{ completedHour: number; energyLevel: string }>> {
+  const cutoff = new Date();
+  cutoff.setDate(cutoff.getDate() - 90);
+
+  const rows = await db
+    .select({
+      completedHour: sql<number>`EXTRACT(HOUR FROM ${tasks.completedAt} AT TIME ZONE ${timezone})::int`,
+      energyLevel: tasks.energyLevel,
+    })
+    .from(tasks)
+    .where(
+      and(
+        eq(tasks.userId, userId),
+        isNotNull(tasks.completedAt),
+        isNull(tasks.deletedAt),
+        gte(tasks.completedAt, cutoff),
+      ),
+    );
+
+  return rows as Array<{ completedHour: number; energyLevel: string }>;
+}
+
+export async function getStartedTimeLogsLast90Days(
+  userId: string,
+  timezone: string,
+): Promise<Array<{ startedHour: number; energyLevel: string }>> {
+  const cutoff = new Date();
+  cutoff.setDate(cutoff.getDate() - 90);
+
+  const rows = await db
+    .select({
+      startedHour: sql<number>`EXTRACT(HOUR FROM ${timeLogs.startedAt} AT TIME ZONE ${timezone})::int`,
+      energyLevel: tasks.energyLevel,
+    })
+    .from(timeLogs)
+    .innerJoin(tasks, eq(timeLogs.taskId, tasks.id))
+    .where(
+      and(
+        eq(timeLogs.userId, userId),
+        eq(timeLogs.source, 'timer'),
+        gte(timeLogs.startedAt, cutoff),
+      ),
+    );
+
+  return rows as Array<{ startedHour: number; energyLevel: string }>;
+}
+
+export async function saveLearnedCurve(
+  userId: string,
+  curve: number[],
+  alpha: number,
+): Promise<void> {
+  await db
+    .update(userEnergyProfile)
+    .set({
+      learnedCurve: JSON.stringify(curve),
+      learningAlpha: alpha,
+      updatedAt: new Date(),
+    })
+    .where(eq(userEnergyProfile.userId, userId));
+}
+
+export async function getLearnedCurve(
+  userId: string,
+): Promise<{ curve: number[]; alpha: number } | null> {
+  const [row] = await db
+    .select({ learnedCurve: userEnergyProfile.learnedCurve, learningAlpha: userEnergyProfile.learningAlpha })
+    .from(userEnergyProfile)
+    .where(eq(userEnergyProfile.userId, userId))
+    .limit(1);
+
+  if (!row) return null;
+
+  let curve: number[] = [];
+  try {
+    const parsed = JSON.parse(row.learnedCurve) as unknown;
+    if (Array.isArray(parsed) && parsed.length === 24) {
+      curve = parsed as number[];
+    }
+  } catch {
+    // malformed JSON — treat as cold-start
+  }
+
+  return { curve, alpha: row.learningAlpha };
 }

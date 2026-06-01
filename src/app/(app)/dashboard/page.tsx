@@ -11,6 +11,7 @@ import { EnergyBatteryCard } from "@/features/dashboard/EnergyBatteryCard";
 import { AdvisorCard } from "@/features/dashboard/AdvisorCard";
 import { WeeklyTrendsCard } from "@/features/dashboard/WeeklyTrendsCard";
 import { QuickAccessCard } from "@/features/dashboard/QuickAccessCard";
+import { LearningInsightCard } from "@/features/dashboard/LearningInsightCard";
 
 export const metadata = { title: "Dashboard - Kino" };
 
@@ -102,6 +103,8 @@ export default async function DashboardPage() {
             initialCheckin={dailyPlan.checkin}
             projectedCurve={dailyPlan.energyPlan?.projectedCurve ?? null}
             chronotype={dailyPlan.chronotype}
+            scheduledItems={dailyPlan.energyPlan?.items}
+            deferredTasks={dailyPlan.energyPlan?.deferred}
           />
           {topPattern && (
             <AdvisorCard
@@ -109,6 +112,13 @@ export default async function DashboardPage() {
               actionTaskIds={topPattern.actionTaskIds}
               actionLabel={topPattern.actionLabel}
               bulkAction={topPattern.bulkAction}
+            />
+          )}
+          {dailyPlan.learningAlpha >= 0.3 && (
+            <LearningInsightCard
+              learnedCurve={dailyPlan.learnedCurve}
+              learningAlpha={dailyPlan.learningAlpha}
+              chronotype={dailyPlan.chronotype}
             />
           )}
         </div>
