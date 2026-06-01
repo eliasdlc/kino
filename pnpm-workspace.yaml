@@ -4,3 +4,8 @@ packages:
   - "packages/*"
   # Specifically include a project in the root sub-folder
   - "!**/test/**"
+allowBuilds:
+  esbuild: true
+  msw: true
+  sharp: true
+  unrs-resolver: true
