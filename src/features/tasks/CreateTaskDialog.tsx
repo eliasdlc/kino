@@ -239,7 +239,7 @@ export function CreateTaskDialog({ systemId, parentTaskId, folderId, open: contr
                   {folders.map((folder) => (
                     <SelectItem key={folder.id} value={folder.id}>
                       <span className="flex items-center gap-2">
-                        <span className={`size-2 rounded-full inline-block ${getSystemColor(folder.color).dot}`} />
+                        <span className={`size-2 rounded-full inline-block bg-${getSystemColor(folder.color)}`} />
                         {folder.name}
                       </span>
                     </SelectItem>

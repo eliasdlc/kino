@@ -98,7 +98,7 @@ export function SystemTreeItem({
   }
 
   const Icon = ICON_MAP[system.icon] ?? DEFAULT_ICON;
-  const color = getSystemColor(system.color).text;
+  const cls = getSystemColor(system.color);
 
   if (collapsed) {
     return (
@@ -111,7 +111,7 @@ export function SystemTreeItem({
               : "text-muted-foreground hover:bg-sidebar-accent/50 hover:text-sidebar-foreground"
               }`}
           >
-            <Icon className={`size-5 shrink-0 ${color}`} />
+            <Icon className={`size-5 shrink-0 text-${cls}`} />
           </Link>
         </TooltipTrigger>
         <TooltipContent side="right">{system.name}</TooltipContent>
@@ -124,7 +124,7 @@ export function SystemTreeItem({
       {/* System row */}
       <div
         className={`group flex items-center gap-1.5 px-2 py-2 rounded-md text-sm transition-colors ${isActive
-          ? "bg-sidebar-accent text-sidebar-accent-foreground font-medium border-l-2 border-sidebar-primary"
+          ? `bg-${cls}/10 text-sidebar-accent-foreground font-medium border-l-2 border-${cls}`
           : "text-muted-foreground hover:bg-sidebar-accent/50 hover:text-sidebar-foreground"
           }`}
       >
@@ -151,7 +151,7 @@ export function SystemTreeItem({
           href={`/systems/${system.id}`}
           className="flex items-center gap-2 flex-1 min-w-0"
         >
-          <Icon className={`size-5 shrink-0 ${color}`} />
+          <Icon className={`size-5 shrink-0 text-${cls}`} />
           <span className="truncate">{system.name}</span>
         </Link>
 
@@ -209,7 +209,7 @@ export function SystemTreeItem({
                   : "text-muted-foreground hover:bg-sidebar-accent/50 hover:text-sidebar-foreground"
                   }`}
               >
-                <Folder className={`size-4 shrink-0 ${color}`} />
+                <Folder className={`size-4 shrink-0 text-${cls}`} />
                 <span className="truncate flex-1">{folder.name}</span>
               </Link>
             ))}

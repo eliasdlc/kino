@@ -42,7 +42,7 @@ export function GlobalCommandPalette() {
         <CommandGroup heading="Navigation">
           {inboxSystem && (
             <CommandItem onSelect={() => runCommand(() => router.push(`/systems/${inboxSystem.id}`))}>
-              <Inbox className={`mr-2 h-4 w-4 ${getSystemColor(inboxSystem.color).text}`} />
+              <Inbox className={`mr-2 h-4 w-4 text-${getSystemColor(inboxSystem.color)}`} />
               <span>{inboxSystem.name}</span>
             </CommandItem>
           )}
@@ -64,7 +64,7 @@ export function GlobalCommandPalette() {
                   key={system.id}
                   onSelect={() => runCommand(() => router.push(`/systems/${system.id}`))}
                 >
-                  <span className={`mr-2 size-3 rounded-full inline-block ${getSystemColor(system.color).dot}`} />
+                  <span className={`mr-2 size-3 rounded-full inline-block bg-${getSystemColor(system.color)}`} />
                   <span>{system.name}</span>
                 </CommandItem>
               ))}

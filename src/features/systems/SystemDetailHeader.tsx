@@ -28,14 +28,14 @@ export function SystemDetailHeader({ system, taskCount }: SystemDetailHeaderProp
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [editOpen, setEditOpen] = useState(false);
   const { mutate: deleteSystem } = useDeleteSystem();
-  const { dot: dotColor } = getSystemColor(system.color);
+  const cls = getSystemColor(system.color);
 
   return (
     <div className="rounded-lg border bg-card p-6 space-y-4 w-full">
       {/* Title row */}
       <div className="flex items-start justify-between gap-4 min-w-0">
         <div className="flex items-center gap-3 flex-1 min-w-0">
-          <span className={`size-3 rounded-full shrink-0 ${dotColor}`} />
+          <span className={`size-3 rounded-full shrink-0 bg-${cls}`} />
           <h1 className="text-2xl font-bold tracking-tight truncate">
             {system.name}
           </h1>

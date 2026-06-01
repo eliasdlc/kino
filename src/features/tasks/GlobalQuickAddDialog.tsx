@@ -56,7 +56,7 @@ export function GlobalQuickAddDialog() {
               {regularSystems.map((s) => (
                 <SelectItem key={s.id} value={s.id}>
                   <span className="flex items-center gap-2">
-                    <span className={`size-2 rounded-full inline-block ${getSystemColor(s.color).dot}`} />
+                    <span className={`size-2 rounded-full inline-block bg-${getSystemColor(s.color)}`} />
                     {s.name}
                   </span>
                 </SelectItem>

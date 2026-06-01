@@ -34,7 +34,7 @@ interface FolderCardProps {
 }
 
 export function FolderCard({ folder, systemId, onClick, href }: FolderCardProps) {
-  const colorClass = getSystemColor(folder.color).text;
+  const cls = getSystemColor(folder.color);
   const { mutate: updateFolder, isPending: isUpdating } = useUpdateFolder(systemId);
   const { mutate: deleteFolder } = useDeleteFolder(systemId);
 
@@ -62,7 +62,7 @@ export function FolderCard({ folder, systemId, onClick, href }: FolderCardProps)
             className="flex flex-col items-start gap-2 w-full text-left focus-visible:outline-none"
             aria-label={`Open folder ${folder.name}`}
           >
-            <Folder className={`size-7 ${colorClass}`} />
+            <Folder className={`size-7 text-${cls}`} />
             <span className="text-sm font-medium truncate w-full leading-tight pr-6">
               {folder.name}
             </span>
@@ -74,7 +74,7 @@ export function FolderCard({ folder, systemId, onClick, href }: FolderCardProps)
             className="flex flex-col items-start gap-2 w-full text-left focus-visible:outline-none"
             aria-label={`Open folder ${folder.name}`}
           >
-            <Folder className={`size-7 ${colorClass}`} />
+            <Folder className={`size-7 text-${cls}`} />
             <span className="text-sm font-medium truncate w-full leading-tight pr-6">
               {folder.name}
             </span>

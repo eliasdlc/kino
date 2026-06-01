@@ -206,7 +206,7 @@ export function SystemsSidebar({
                       : "bg-sidebar-accent/20 border-sidebar-border/40 text-sidebar-foreground hover:bg-sidebar-accent/40"
                   )}
                 >
-                  <Inbox className={cn("size-5 shrink-0", getSystemColor(inboxSystem.color).text)} />
+                  <Inbox className={cn("size-5 shrink-0", `text-${getSystemColor(inboxSystem.color)}`)} />
                   {!collapsed && <span className="truncate font-medium">{inboxSystem.name}</span>}
                 </Link>
               </TooltipTrigger>

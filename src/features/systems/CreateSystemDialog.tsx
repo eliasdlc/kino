@@ -93,7 +93,7 @@ export function CreateSystemDialog({ collapsed }: { collapsed?: boolean }) {
   }
 
   const PreviewIcon = ICON_MAP[icon] ?? DEFAULT_ICON;
-  const { bgSubtle, text: textColor } = getSystemColor(color);
+  const cls = getSystemColor(color);
 
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
@@ -110,9 +110,9 @@ export function CreateSystemDialog({ collapsed }: { collapsed?: boolean }) {
 
         <div className="space-y-5">
           {/* Preview */}
-          <div className={`flex items-center gap-3 p-3 rounded-lg ${bgSubtle} border border-border/50`}>
-            <div className={`p-2 rounded-md ${bgSubtle}`}>
-              <PreviewIcon className={`size-5 ${textColor}`} />
+          <div className={`flex items-center gap-3 p-3 rounded-lg bg-${cls}/10 border border-border/50`}>
+            <div className={`p-2 rounded-md bg-${cls}/10`}>
+              <PreviewIcon className={`size-5 text-${cls}`} />
             </div>
             <span className={`text-sm font-medium ${name ? "text-foreground" : "text-muted-foreground"}`}>
               {name || "System name"}
@@ -139,7 +139,7 @@ export function CreateSystemDialog({ collapsed }: { collapsed?: boolean }) {
                 <button
                   key={c}
                   onClick={() => setColor(c)}
-                  className={`size-6 rounded-full transition-all ${getSystemColor(c).bg} ${
+                  className={`size-6 rounded-full transition-all bg-${getSystemColor(c)} ${
                     color === c
                       ? "ring-2 ring-offset-2 ring-offset-background ring-foreground scale-110"
                       : "opacity-60 hover:opacity-100"
@@ -162,7 +162,7 @@ export function CreateSystemDialog({ collapsed }: { collapsed?: boolean }) {
                     onClick={() => setIcon(key)}
                     className={`p-1.5 rounded-md transition-colors flex items-center justify-center ${
                       icon === key
-                        ? `${bgSubtle} ${textColor}`
+                        ? `bg-${cls}/10 text-${cls}`
                         : "text-muted-foreground hover:bg-accent hover:text-accent-foreground"
                     }`}
                     title={key}
