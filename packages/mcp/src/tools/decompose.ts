@@ -106,14 +106,18 @@ export function registerDecomposeTools(server: McpServer) {
         };
       }
 
-      const tasks = await kinoFetch<Task[]>(`/api/tasks?status=today`);
-      const task = Array.isArray(tasks) ? tasks.find((t) => t.id === taskId) : null;
+      let task: Task | null = null;
+      try {
+        task = await kinoFetch<Task>(`/api/tasks/${taskId}`);
+      } catch {
+        task = null;
+      }
 
       if (!task) {
         return {
           content: [{
             type: 'text',
-            text: JSON.stringify({ error: `Task ${taskId} not found in active tasks.` }),
+            text: JSON.stringify({ error: `Task ${taskId} not found.` }),
           }],
         };
       }
@@ -154,7 +158,7 @@ Return ONLY a JSON array of objects with this shape (no markdown, no explanation
             parentTitle: task.title,
             systemId: task.systemId,
             subtasks,
-            note: 'Use bulk_create_tasks to create these as subtasks (set parentTaskId).',
+            note: `Use bulk_create_tasks with parentTaskId="${taskId}" and systemId="${task.systemId}" on each item to create these as subtasks.`,
           }, null, 2),
         }],
       };

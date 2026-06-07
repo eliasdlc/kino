@@ -39,11 +39,11 @@ const SUCCESS_HTML = `<!DOCTYPE html>
 <head><meta charset="utf-8"><title>Kino connected</title>
 <style>
   body { font-family: system-ui, sans-serif; display: flex; align-items: center;
-         justify-content: center; min-height: 100vh; margin: 0; background: #f9fafb; }
-  .card { background: white; border-radius: 12px; padding: 40px 48px;
+         justify-content: center; min-height: 100vh; margin: 0; background: #1c1c1c; }
+  .card { background: black; border-radius: 12px; padding: 40px 48px;
           box-shadow: 0 4px 24px rgba(0,0,0,.08); text-align: center; max-width: 400px; }
-  h1 { margin: 0 0 8px; font-size: 1.5rem; }
-  p { margin: 0; color: #6b7280; }
+  h1 { margin: 0 0 8px; font-size: 1.5rem; color: ffffff; }
+  p { margin: 0; color: #1f1f1f; }
 </style>
 </head>
 <body>

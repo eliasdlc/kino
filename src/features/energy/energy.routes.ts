@@ -1,12 +1,11 @@
-import { headers } from 'next/headers';
 import { NextRequest, NextResponse } from 'next/server';
-import { auth } from '@/auth';
+import { getAuthContext } from '@/shared/utils/auth-context';
 import { createCheckinSchema } from './energy.schemas';
 import { createTodayCheckin, getTodayCheckin, getTodayEnergyPlan } from './energy.service';
 
 export async function createCheckinRoute(request: NextRequest) {
-  const session = await auth.api.getSession({ headers: await headers() });
-  if (!session) {
+  const ctx = await getAuthContext(request);
+  if (!ctx) {
     return NextResponse.json({ code: 'UNAUTHORIZED', message: 'Unauthorized' }, { status: 401 });
   }
 
@@ -20,7 +19,7 @@ export async function createCheckinRoute(request: NextRequest) {
   }
 
   try {
-    const checkin = await createTodayCheckin(session.user.id, parsed.data);
+    const checkin = await createTodayCheckin(ctx.userId, parsed.data);
     return NextResponse.json(checkin, { status: 201 });
   } catch {
     return NextResponse.json(
@@ -30,14 +29,14 @@ export async function createCheckinRoute(request: NextRequest) {
   }
 }
 
-export async function getTodayCheckinRoute() {
-  const session = await auth.api.getSession({ headers: await headers() });
-  if (!session) {
+export async function getTodayCheckinRoute(request: NextRequest) {
+  const ctx = await getAuthContext(request);
+  if (!ctx) {
     return NextResponse.json({ code: 'UNAUTHORIZED', message: 'Unauthorized' }, { status: 401 });
   }
 
   try {
-    const checkin = await getTodayCheckin(session.user.id);
+    const checkin = await getTodayCheckin(ctx.userId);
     return NextResponse.json(checkin);
   } catch {
     return NextResponse.json(
@@ -47,14 +46,14 @@ export async function getTodayCheckinRoute() {
   }
 }
 
-export async function getTodayPlanRoute() {
-  const session = await auth.api.getSession({ headers: await headers() });
-  if (!session) {
+export async function getTodayPlanRoute(request: NextRequest) {
+  const ctx = await getAuthContext(request);
+  if (!ctx) {
     return NextResponse.json({ code: 'UNAUTHORIZED', message: 'Unauthorized' }, { status: 401 });
   }
 
   try {
-    const result = await getTodayEnergyPlan(session.user.id);
+    const result = await getTodayEnergyPlan(ctx.userId);
     return NextResponse.json(result);
   } catch {
     return NextResponse.json(

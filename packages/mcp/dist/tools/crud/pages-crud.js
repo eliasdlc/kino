@@ -51,4 +51,27 @@ export function registerPageCrudTools(server) {
         await kinoFetch(`/api/pages/${pageId}`, { method: 'DELETE' });
         return { content: [{ type: 'text', text: JSON.stringify({ success: true, pageId }) }] };
     });
+    server.tool('list_page_tasks', 'Lista las tareas vinculadas a una página de Kino', {
+        pageId: z.string().uuid().describe('UUID de la página'),
+    }, async ({ pageId }) => {
+        const tasks = await kinoFetch(`/api/pages/${pageId}/tasks`);
+        return { content: [{ type: 'text', text: JSON.stringify(tasks, null, 2) }] };
+    });
+    server.tool('link_task_to_page', 'Vincula una tarea existente a una página de Kino (relación de referencia, no cambia la ubicación de la tarea)', {
+        pageId: z.string().uuid().describe('UUID de la página'),
+        taskId: z.string().uuid().describe('UUID de la tarea a vincular'),
+    }, async ({ pageId, taskId }) => {
+        await kinoFetch(`/api/pages/${pageId}/tasks`, {
+            method: 'POST',
+            body: JSON.stringify({ taskId }),
+        });
+        return { content: [{ type: 'text', text: JSON.stringify({ success: true, pageId, taskId }) }] };
+    });
+    server.tool('unlink_task_from_page', 'Desvincula una tarea de una página de Kino (no elimina la tarea)', {
+        pageId: z.string().uuid().describe('UUID de la página'),
+        taskId: z.string().uuid().describe('UUID de la tarea a desvincular'),
+    }, async ({ pageId, taskId }) => {
+        await kinoFetch(`/api/pages/${pageId}/tasks/${taskId}`, { method: 'DELETE' });
+        return { content: [{ type: 'text', text: JSON.stringify({ success: true, pageId, taskId }) }] };
+    });
 }

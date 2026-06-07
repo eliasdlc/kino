@@ -1,23 +1,21 @@
-import { headers } from "next/headers";
 import { NextRequest, NextResponse } from "next/server";
-import { auth } from "../../../auth";
 import { createSystemSchema, reorderSystemsSchema, updateSystemSchema } from "./systems.schemas";
 import { createSystem, createInboxForUser, deactivateSystem, getUsersSystems, reorderSystem, updateSystem, assertNotInbox, getSystembyId } from "./systems.service";
 import { ForbiddenError, NotFoundError } from "@/shared/utils/error";
 import { getAuthContext } from "@/shared/utils/auth-context";
 
-export async function GET() {
-  const session = await auth.api.getSession({ headers: await headers() });
-  if (!session) return NextResponse.json({ code: "UNAUTHORIZED", message: "Unauthorized" }, { status: 401 });
+export async function GET(request: NextRequest) {
+  const ctx = await getAuthContext(request);
+  if (!ctx) return NextResponse.json({ code: "UNAUTHORIZED", message: "Unauthorized" }, { status: 401 });
 
-  await createInboxForUser(session.user.id);
-  const userSystems = await getUsersSystems(session.user.id);
+  await createInboxForUser(ctx.userId);
+  const userSystems = await getUsersSystems(ctx.userId);
   return NextResponse.json(userSystems);
 }
 
 export async function POST(request: NextRequest) {
-  const session = await auth.api.getSession({ headers: await headers() });
-  if (!session) return NextResponse.json({ code: "UNAUTHORIZED", message: "Unauthorized" }, { status: 401 });
+  const ctx = await getAuthContext(request);
+  if (!ctx) return NextResponse.json({ code: "UNAUTHORIZED", message: "Unauthorized" }, { status: 401 });
 
   const body = await request.json();
   const parsed = createSystemSchema.safeParse(body);
@@ -29,8 +27,7 @@ export async function POST(request: NextRequest) {
     }, { status: 400 });
   }
 
-  const userId = session.user.id;
-  const system = await createSystem(userId, parsed.data);
+  const system = await createSystem(ctx.userId, parsed.data);
 
   return NextResponse.json(system, { status: 201 });
 }
@@ -106,8 +103,8 @@ export async function DELETE(
 }
 
 export async function postReorder(request: NextRequest) {
-  const session = await auth.api.getSession({ headers: await headers() });
-  if (!session) return NextResponse.json({ code: "UNAUTHORIZED", message: "Unauthorized" }, { status: 401 });
+  const ctx = await getAuthContext(request);
+  if (!ctx) return NextResponse.json({ code: "UNAUTHORIZED", message: "Unauthorized" }, { status: 401 });
 
   const body = await request.json();
   const parsed = reorderSystemsSchema.safeParse(body);
@@ -119,31 +116,6 @@ export async function postReorder(request: NextRequest) {
     }, { status: 400 });
   }
 
-  await reorderSystem(session.user.id, parsed.data.systemIds);
+  await reorderSystem(ctx.userId, parsed.data.systemIds);
   return new NextResponse(null, { status: 204 });
-}
-
-// GET /api/systems — MCP-accessible (supports both session and API key auth)
-export async function listSystemsMcp(request: NextRequest) {
-  const ctx = await getAuthContext(request);
-  if (!ctx) return NextResponse.json({ code: "UNAUTHORIZED", message: "Unauthorized" }, { status: 401 });
-
-  await createInboxForUser(ctx.userId);
-  const userSystems = await getUsersSystems(ctx.userId);
-  return NextResponse.json(userSystems);
-}
-
-// POST /api/systems — MCP-accessible
-export async function createSystemMcp(request: NextRequest) {
-  const ctx = await getAuthContext(request);
-  if (!ctx) return NextResponse.json({ code: "UNAUTHORIZED", message: "Unauthorized" }, { status: 401 });
-
-  const body = await request.json();
-  const parsed = createSystemSchema.safeParse(body);
-  if (!parsed.success) {
-    return NextResponse.json({ code: "VALIDATION_ERROR", message: "Invalid input", details: parsed.error.flatten() }, { status: 400 });
-  }
-
-  const system = await createSystem(ctx.userId, parsed.data);
-  return NextResponse.json(system, { status: 201 });
 }

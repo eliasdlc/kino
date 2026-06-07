@@ -1,6 +1,5 @@
-import { headers } from "next/headers";
 import { NextRequest, NextResponse } from "next/server";
-import { auth } from "@/auth";
+import { getAuthContext } from "@/shared/utils/auth-context";
 import { createStickyNoteSchema } from "@/features/sticky-notes/sticky-notes.schemas";
 import {
   getStickyNotesByFolder,
@@ -8,14 +7,14 @@ import {
 } from "@/features/sticky-notes/sticky-notes.service";
 
 export async function GET(
-  _req: NextRequest,
+  request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const session = await auth.api.getSession({ headers: await headers() });
-  if (!session) return NextResponse.json({ code: "UNAUTHORIZED", message: "Unauthorized" }, { status: 401 });
+  const ctx = await getAuthContext(request);
+  if (!ctx) return NextResponse.json({ code: "UNAUTHORIZED", message: "Unauthorized" }, { status: 401 });
 
   const { id: folderId } = await params;
-  const notes = await getStickyNotesByFolder(folderId, session.user.id);
+  const notes = await getStickyNotesByFolder(folderId, ctx.userId);
   return NextResponse.json(notes);
 }
 
@@ -23,8 +22,8 @@ export async function POST(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const session = await auth.api.getSession({ headers: await headers() });
-  if (!session) return NextResponse.json({ code: "UNAUTHORIZED", message: "Unauthorized" }, { status: 401 });
+  const ctx = await getAuthContext(request);
+  if (!ctx) return NextResponse.json({ code: "UNAUTHORIZED", message: "Unauthorized" }, { status: 401 });
 
   const { id: folderId } = await params;
   const body = await request.json();
@@ -37,6 +36,6 @@ export async function POST(
     );
   }
 
-  const note = await createStickyNote(session.user.id, { ...parsed.data, folderId });
+  const note = await createStickyNote(ctx.userId, { ...parsed.data, folderId });
   return NextResponse.json(note, { status: 201 });
 }

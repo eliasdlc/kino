@@ -1,18 +1,17 @@
-import { headers } from "next/headers";
 import { NextRequest, NextResponse } from "next/server";
-import { auth } from "@/auth";
+import { getAuthContext } from "@/shared/utils/auth-context";
 import { createFolderSchema } from "@/features/folders/folders.schemas";
 import { createFolder, getFoldersBySystem } from "@/features/folders/folders.service";
 
 export async function GET(
-  _req: NextRequest,
+  request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const session = await auth.api.getSession({ headers: await headers() });
-  if (!session) return NextResponse.json({ code: "UNAUTHORIZED", message: "Unauthorized" }, { status: 401 });
+  const ctx = await getAuthContext(request);
+  if (!ctx) return NextResponse.json({ code: "UNAUTHORIZED", message: "Unauthorized" }, { status: 401 });
 
   const { id: systemId } = await params;
-  const list = await getFoldersBySystem(systemId, session.user.id);
+  const list = await getFoldersBySystem(systemId, ctx.userId);
   return NextResponse.json(list);
 }
 
@@ -20,8 +19,8 @@ export async function POST(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const session = await auth.api.getSession({ headers: await headers() });
-  if (!session) return NextResponse.json({ code: "UNAUTHORIZED", message: "Unauthorized" }, { status: 401 });
+  const ctx = await getAuthContext(request);
+  if (!ctx) return NextResponse.json({ code: "UNAUTHORIZED", message: "Unauthorized" }, { status: 401 });
 
   const { id: systemId } = await params;
   const body = await request.json();
@@ -35,7 +34,7 @@ export async function POST(
   }
 
   try {
-    const folder = await createFolder(session.user.id, parsed.data);
+    const folder = await createFolder(ctx.userId, parsed.data);
     return NextResponse.json(folder, { status: 201 });
   } catch (error) {
     console.error("POST /api/systems/[id]/folders error:", error);

@@ -82,12 +82,14 @@ export function registerTaskCrudTools(server: McpServer) {
         ),
       priority: z
         .enum(['critical', 'high', 'medium', 'low'])
-        .describe('Prioridad de la tarea'),
+        .optional()
+        .describe('Prioridad de la tarea (por defecto "medium" si se omite)'),
       parentTaskId: z.string().uuid().optional().describe('UUID de la tarea padre (para crear subtareas)'),
       folderId: z.string().uuid().optional().describe('UUID de la carpeta destino'),
       taskType: z
         .enum(['idea', 'reminder', 'project', 'todo'])
-        .describe('Tipo de tarea. Las "idea" siempre van a backlog.'),
+        .optional()
+        .describe('Tipo de tarea. Las "idea" siempre van a backlog. Por defecto "todo" si se omite.'),
       estimatedTime: z
         .string()
         .optional()
@@ -114,7 +116,11 @@ export function registerTaskCrudTools(server: McpServer) {
 
   server.tool(
     'bulk_create_tasks',
-    'Crea múltiples tareas en Kino en una sola operación (máximo 50)',
+    [
+      'Crea múltiples tareas en Kino en una sola operación (máximo 50).',
+      'Para crear SUBTAREAS de una tarea padre, define parentTaskId en cada item',
+      '(todas pueden apuntar al mismo padre). Útil tras generate_subtasks.',
+    ].join(' '),
     {
       tasks: z
         .array(
@@ -126,6 +132,15 @@ export function registerTaskCrudTools(server: McpServer) {
             status: z.enum(['backlog', 'week', 'tomorrow', 'today']).optional(),
             dueDate: z.string().date().optional(),
             priority: z.enum(['critical', 'high', 'medium', 'low']).optional(),
+            parentTaskId: z
+              .string()
+              .uuid()
+              .optional()
+              .describe('UUID de la tarea padre — conviértela en subtarea'),
+            folderId: z.string().uuid().optional().describe('UUID de la carpeta destino'),
+            taskType: z.enum(['idea', 'reminder', 'project', 'todo']).optional(),
+            estimatedTime: z.string().optional().describe('Tiempo estimado HH:MM:SS'),
+            startDate: z.string().date().optional().describe('Fecha de inicio YYYY-MM-DD'),
           }),
         )
         .min(1)

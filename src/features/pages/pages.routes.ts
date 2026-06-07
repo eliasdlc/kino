@@ -1,6 +1,4 @@
-import { headers } from "next/headers";
 import { NextRequest, NextResponse } from "next/server";
-import { auth } from "../../../auth";
 import { createPageSchema, updatePageSchema, linkTaskSchema } from "./pages.schemas";
 import { NotFoundError, ForbiddenError } from "@/shared/utils/error";
 import { getAuthContext } from "@/shared/utils/auth-context";
@@ -15,20 +13,16 @@ import {
   getLinkedTasks,
 } from "./pages.service";
 
-async function getSession() {
-  return auth.api.getSession({ headers: await headers() });
-}
-
 // GET/POST /api/systems/[id]/pages
 export async function getSystemPages(
-  _req: NextRequest,
+  request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const session = await getSession();
-  if (!session) return NextResponse.json({ code: "UNAUTHORIZED", message: "Unauthorized" }, { status: 401 });
+  const ctx = await getAuthContext(request);
+  if (!ctx) return NextResponse.json({ code: "UNAUTHORIZED", message: "Unauthorized" }, { status: 401 });
 
   const { id: systemId } = await params;
-  const list = await getPagesBySystem(systemId, session.user.id);
+  const list = await getPagesBySystem(systemId, ctx.userId);
   return NextResponse.json(list);
 }
 
@@ -36,8 +30,8 @@ export async function createSystemPage(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const session = await getSession();
-  if (!session) return NextResponse.json({ code: "UNAUTHORIZED", message: "Unauthorized" }, { status: 401 });
+  const ctx = await getAuthContext(request);
+  if (!ctx) return NextResponse.json({ code: "UNAUTHORIZED", message: "Unauthorized" }, { status: 401 });
 
   const { id: systemId } = await params;
   const body = await request.json();
@@ -50,7 +44,7 @@ export async function createSystemPage(
     );
   }
 
-  const page = await createPage(session.user.id, parsed.data);
+  const page = await createPage(ctx.userId, parsed.data);
   return NextResponse.json(page, { status: 201 });
 }
 
@@ -106,14 +100,14 @@ export async function removePage(
 
 // GET/POST /api/pages/[id]/tasks  (linked tasks)
 export async function getPageTasks(
-  _req: NextRequest,
+  request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const session = await getSession();
-  if (!session) return NextResponse.json({ code: "UNAUTHORIZED", message: "Unauthorized" }, { status: 401 });
+  const ctx = await getAuthContext(request);
+  if (!ctx) return NextResponse.json({ code: "UNAUTHORIZED", message: "Unauthorized" }, { status: 401 });
 
   const { id } = await params;
-  const linked = await getLinkedTasks(id, session.user.id);
+  const linked = await getLinkedTasks(id, ctx.userId);
   return NextResponse.json(linked);
 }
 
@@ -121,8 +115,8 @@ export async function linkPageTask(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const session = await getSession();
-  if (!session) return NextResponse.json({ code: "UNAUTHORIZED", message: "Unauthorized" }, { status: 401 });
+  const ctx = await getAuthContext(request);
+  if (!ctx) return NextResponse.json({ code: "UNAUTHORIZED", message: "Unauthorized" }, { status: 401 });
 
   const { id } = await params;
   const body = await request.json();
@@ -136,7 +130,7 @@ export async function linkPageTask(
   }
 
   try {
-    const newlyLinked = await linkTaskToPage(id, parsed.data.taskId, session.user.id);
+    const newlyLinked = await linkTaskToPage(id, parsed.data.taskId, ctx.userId);
     if (!newlyLinked) {
       return NextResponse.json({ code: "CONFLICT", message: "Task is already linked to this page" }, { status: 409 });
     }
@@ -154,15 +148,15 @@ export async function linkPageTask(
 
 // DELETE /api/pages/[id]/tasks/[taskId]
 export async function unlinkPageTask(
-  _req: NextRequest,
+  request: NextRequest,
   { params }: { params: Promise<{ id: string; taskId: string }> }
 ) {
-  const session = await getSession();
-  if (!session) return NextResponse.json({ code: "UNAUTHORIZED", message: "Unauthorized" }, { status: 401 });
+  const ctx = await getAuthContext(request);
+  if (!ctx) return NextResponse.json({ code: "UNAUTHORIZED", message: "Unauthorized" }, { status: 401 });
 
   const { id, taskId } = await params;
   try {
-    await unlinkTaskFromPage(id, taskId, session.user.id);
+    await unlinkTaskFromPage(id, taskId, ctx.userId);
     return new NextResponse(null, { status: 204 });
   } catch {
     return NextResponse.json({ code: "NOT_FOUND", message: "Page not found" }, { status: 404 });

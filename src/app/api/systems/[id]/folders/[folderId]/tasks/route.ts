@@ -1,14 +1,13 @@
-import { headers } from "next/headers";
 import { NextRequest, NextResponse } from "next/server";
-import { auth } from "@/auth";
+import { getAuthContext } from "@/shared/utils/auth-context";
 import { getTasksByFolder } from "@/features/tasks/tasks.service";
 
 export async function GET(
-  _request: NextRequest,
+  request: NextRequest,
   { params }: { params: Promise<{ id: string; folderId: string }> }
 ) {
-  const session = await auth.api.getSession({ headers: await headers() });
-  if (!session) {
+  const ctx = await getAuthContext(request);
+  if (!ctx) {
     return NextResponse.json(
       { code: "UNAUTHORIZED", message: "Unauthorized" },
       { status: 401 }
@@ -16,6 +15,6 @@ export async function GET(
   }
 
   const { id: systemId, folderId } = await params;
-  const tasks = await getTasksByFolder(folderId, systemId, session.user.id);
+  const tasks = await getTasksByFolder(folderId, systemId, ctx.userId);
   return NextResponse.json(tasks);
 }

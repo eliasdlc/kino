@@ -1,21 +1,19 @@
-import { headers } from "next/headers";
 import { NextRequest, NextResponse } from "next/server";
-import { auth } from "../../../auth";
 import { bulkMoveSchema, bulkUpdateSchema, bulkCreateTaskSchema, listTasksQuerySchema, createTaskSchema, moveTaskSchema, reorderTasksSchema, updateTaskSchema, createTimeLogSchema } from "./tasks.schemas";
 import { bulkMoveTasks, bulkUpdateTasks, bulkCreateTasks, queryTasks, createTask, deleteTask, getSubtasks, getTaskById, getTasksBySystem, moveTask, reorderTasks, restoreTask, toggleTask, updateTask, createTimeLog } from "./tasks.service";
 import { NotFoundError, ValidationError } from "@/shared/utils/error";
 import { getAuthContext } from "@/shared/utils/auth-context";
 
 export async function GET(
-    _request: NextRequest,
+    request: NextRequest,
     { params }: { params: Promise<{ id: string }> }
 ) {
-    const session = await auth.api.getSession({ headers: await headers() });
-    if (!session) return NextResponse.json({ code: "UNAUTHORIZED", message: "Unauthorized" }, { status: 401 });
+    const ctx = await getAuthContext(request);
+    if (!ctx) return NextResponse.json({ code: "UNAUTHORIZED", message: "Unauthorized" }, { status: 401 });
 
     const { id: systemId } = await params;
     try {
-        const tasks = await getTasksBySystem(systemId, session.user.id);
+        const tasks = await getTasksBySystem(systemId, ctx.userId);
         return NextResponse.json(tasks);
     } catch {
         return NextResponse.json({ code: "INTERNAL_ERROR", message: "Failed to fetch tasks" }, { status: 500 });
@@ -218,16 +216,16 @@ export async function getSubtasksRoute(
 }
 
 export async function postRestore(
-    _request: NextRequest,
+    request: NextRequest,
     { params }: { params: Promise<{ id: string }> }
 ) {
-    const session = await auth.api.getSession({ headers: await headers() });
-    if (!session) return NextResponse.json({ code: "UNAUTHORIZED", message: "Unauthorized" }, { status: 401 });
+    const ctx = await getAuthContext(request);
+    if (!ctx) return NextResponse.json({ code: "UNAUTHORIZED", message: "Unauthorized" }, { status: 401 });
 
     const { id } = await params;
 
     try {
-        const task = await restoreTask(id, session.user.id);
+        const task = await restoreTask(id, ctx.userId);
         return NextResponse.json(task);
     } catch (error) {
         if (error instanceof NotFoundError) {
@@ -238,8 +236,8 @@ export async function postRestore(
 }
 
 export async function postBulkMove(request: NextRequest) {
-    const session = await auth.api.getSession({ headers: await headers() });
-    if (!session) return NextResponse.json({ code: "UNAUTHORIZED", message: "Unauthorized" }, { status: 401 });
+    const ctx = await getAuthContext(request);
+    if (!ctx) return NextResponse.json({ code: "UNAUTHORIZED", message: "Unauthorized" }, { status: 401 });
 
     const body = await request.json();
     const parsed = bulkMoveSchema.safeParse(body);
@@ -252,7 +250,7 @@ export async function postBulkMove(request: NextRequest) {
     }
 
     try {
-        await bulkMoveTasks(parsed.data.taskIds, parsed.data.status, session.user.id);
+        await bulkMoveTasks(parsed.data.taskIds, parsed.data.status, ctx.userId);
         return new NextResponse(null, { status: 204 });
     } catch (error) {
         if (error instanceof NotFoundError) {
@@ -266,8 +264,8 @@ export async function postBulkMove(request: NextRequest) {
 }
 
 export async function patchBulkUpdate(request: NextRequest) {
-    const session = await auth.api.getSession({ headers: await headers() });
-    if (!session) return NextResponse.json({ code: "UNAUTHORIZED", message: "Unauthorized" }, { status: 401 });
+    const ctx = await getAuthContext(request);
+    if (!ctx) return NextResponse.json({ code: "UNAUTHORIZED", message: "Unauthorized" }, { status: 401 });
 
     const body = await request.json();
     const parsed = bulkUpdateSchema.safeParse(body);
@@ -279,13 +277,13 @@ export async function patchBulkUpdate(request: NextRequest) {
         }, { status: 400 });
     }
 
-    await bulkUpdateTasks(parsed.data.taskIds, { priority: parsed.data.priority }, session.user.id);
+    await bulkUpdateTasks(parsed.data.taskIds, { priority: parsed.data.priority }, ctx.userId);
     return new NextResponse(null, { status: 204 });
 }
 
 export async function postReorder(request: NextRequest) {
-    const session = await auth.api.getSession({ headers: await headers() });
-    if (!session) return NextResponse.json({ code: "UNAUTHORIZED", message: "Unauthorized" }, { status: 401 });
+    const ctx = await getAuthContext(request);
+    if (!ctx) return NextResponse.json({ code: "UNAUTHORIZED", message: "Unauthorized" }, { status: 401 });
 
     const body = await request.json();
     const parsed = reorderTasksSchema.safeParse(body);
@@ -297,15 +295,15 @@ export async function postReorder(request: NextRequest) {
         }, { status: 400 });
     }
 
-    await reorderTasks(session.user.id, parsed.data.ids);
+    await reorderTasks(ctx.userId, parsed.data.ids);
     return new NextResponse(null, { status: 204 });
 }
 export async function postTimeLog(
     request: NextRequest,
     { params }: { params: Promise<{ id: string }> },
 ) {
-    const session = await auth.api.getSession({ headers: await headers() });
-    if (!session) return NextResponse.json({ code: "UNAUTHORIZED", message: "Unauthorized" }, { status: 401 });
+    const ctx = await getAuthContext(request);
+    if (!ctx) return NextResponse.json({ code: "UNAUTHORIZED", message: "Unauthorized" }, { status: 401 });
 
     const { id: taskId } = await params;
     const body = await request.json();
@@ -319,7 +317,7 @@ export async function postTimeLog(
     }
 
     try {
-        await createTimeLog(taskId, session.user.id, parsed.data);
+        await createTimeLog(taskId, ctx.userId, parsed.data);
         return new NextResponse(null, { status: 201 });
     } catch (error) {
         if (error instanceof NotFoundError) {

@@ -5,6 +5,6 @@ export function POST(request: NextRequest) {
   return createCheckinRoute(request);
 }
 
-export function GET() {
-  return getTodayCheckinRoute();
+export function GET(request: NextRequest) {
+  return getTodayCheckinRoute(request);
 }
