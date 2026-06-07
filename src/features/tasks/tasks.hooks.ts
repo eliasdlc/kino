@@ -104,6 +104,8 @@ export function useCreateTask(systemId: string, folderId?: string) {
         recurrenceParentId: null,
         externalSource: null,
         sortIndex: 0,
+        notifiedBeforeDay: false,
+        notifiedDueDay: false,
         createdAt: new Date(),
         updatedAt: new Date(),
         completedAt: null,

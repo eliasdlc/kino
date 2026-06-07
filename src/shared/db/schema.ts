@@ -425,6 +425,8 @@ export const tasks = pgTable(
     }),
     externalSource: varchar('external_source', { length: 255 }),
     sortIndex: integer('sort_index').notNull().default(0),
+    notifiedBeforeDay: boolean('notified_before_day').notNull().default(false),
+    notifiedDueDay: boolean('notified_due_day').notNull().default(false),
     completedAt: timestamp('completed_at', { withTimezone: true }),
     deletedAt: timestamp('deleted_at', { withTimezone: true }),
     createdAt: timestamp('created_at', { withTimezone: true })
