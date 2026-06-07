@@ -31,12 +31,12 @@ export function SystemDetailHeader({ system, taskCount }: SystemDetailHeaderProp
   const cls = getSystemColor(system.color);
 
   return (
-    <div className="rounded-lg border bg-card p-6 space-y-4 w-full">
+    <div className="rounded-lg border bg-card p-4 md:p-6 space-y-3 md:space-y-4 w-full">
       {/* Title row */}
-      <div className="flex items-start justify-between gap-4 min-w-0">
+      <div className="flex items-start justify-between gap-3 min-w-0">
         <div className="flex items-center gap-3 flex-1 min-w-0">
           <span className={`size-3 rounded-full shrink-0 bg-${cls}`} />
-          <h1 className="text-2xl font-bold tracking-tight truncate">
+          <h1 className="text-xl md:text-2xl font-bold tracking-tight truncate">
             {system.name}
           </h1>
           {system.isInbox && (
@@ -48,7 +48,7 @@ export function SystemDetailHeader({ system, taskCount }: SystemDetailHeaderProp
         </div>
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
-            <Button variant="outline" size="icon" className="shrink-0">
+            <Button variant="outline" size="icon" className="shrink-0 size-9">
               <MoreHorizontal className="size-4" />
             </Button>
           </DropdownMenuTrigger>

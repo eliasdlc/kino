@@ -148,7 +148,7 @@ export default function SettingsPage() {
           <div>
             <h2 className="text-lg font-semibold">Notifications</h2>
             <p className="text-sm text-muted-foreground">
-              Receive alerts when Kino detects overload or low energy.
+              Recordatorios de tareas y alertas de energía directamente en tu dispositivo.
             </p>
           </div>
 
@@ -160,10 +160,10 @@ export default function SettingsPage() {
               <div className="space-y-0.5">
                 <Label className="text-sm font-medium">Push notifications</Label>
                 <p className="text-xs text-muted-foreground">
-                  {status === 'subscribed'   && 'Active — browser alerts enabled'}
-                  {status === 'denied'       && 'Blocked — enable in browser settings'}
-                  {status === 'unsupported'  && 'Not supported in this browser'}
-                  {(status === 'idle' || status === 'loading') && 'Inactive'}
+                  {status === 'subscribed'   && 'Activas — recibirás alertas en este dispositivo'}
+                  {status === 'denied'       && 'Bloqueadas — actívalas en los permisos del navegador'}
+                  {status === 'unsupported'  && 'No soportado en este navegador'}
+                  {(status === 'idle' || status === 'loading') && 'Inactivas'}
                 </p>
               </div>
             </div>
@@ -174,9 +174,17 @@ export default function SettingsPage() {
             />
           </div>
 
+          {status === 'subscribed' && (
+            <ul className="text-xs text-muted-foreground space-y-1 px-1 list-disc list-inside">
+              <li>Recordatorio el día antes de que venza una tarea</li>
+              <li>Recordatorio el día que vence la tarea</li>
+              <li>Alertas de sobrecarga y energía baja</li>
+            </ul>
+          )}
+
           {status === 'denied' && (
             <p className="text-xs text-amber-600 dark:text-amber-400 px-1">
-              You blocked notifications. Go to your browser&apos;s site permissions to re-enable them for this site.
+              Bloqueaste las notificaciones. Ve a los permisos del sitio en tu navegador para reactivarlas.
             </p>
           )}
         </div>

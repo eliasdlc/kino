@@ -11,17 +11,13 @@ interface PageHeaderProps {
   actions?: React.ReactNode;
 }
 
-/**
- * Consistent page header with title, optional description, and action buttons.
- * Used at the top of every page inside PageWrapper.
- */
 export function PageHeader({ title, description, actions }: PageHeaderProps) {
   return (
-    <div className="flex items-start justify-between gap-4">
-      <div className="space-y-1">
-        <h1 className="text-3xl font-bold tracking-tight">{title}</h1>
+    <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+      <div className="space-y-1 min-w-0">
+        <h1 className="text-2xl sm:text-3xl font-bold tracking-tight">{title}</h1>
         {description && (
-          <p className="text-base text-muted-foreground">{description}</p>
+          <p className="text-sm sm:text-base text-muted-foreground">{description}</p>
         )}
       </div>
       {actions && <div className="flex items-center gap-2 shrink-0">{actions}</div>}
@@ -29,13 +25,9 @@ export function PageHeader({ title, description, actions }: PageHeaderProps) {
   );
 }
 
-/**
- * Shared layout wrapper for all page content.
- * Ensures consistent padding, max-width, and vertical spacing.
- */
 export function PageWrapper({ children, className }: PageWrapperProps) {
   return (
-    <div className={cn("p-6 w-full space-y-6", className)}>
+    <div className={cn("p-4 md:p-6 w-full space-y-4 md:space-y-6", className)}>
       {children}
     </div>
   );

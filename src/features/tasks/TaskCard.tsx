@@ -185,13 +185,14 @@ export function TaskCard({ task, systemId, isFocused, onToggle, onDelete, onEdit
         isFocused && "bg-[rgba(99,102,241,0.08)] border-[rgba(99,102,241,0.6)]"
       )}
     >
-      {/* Toggle */}
+      {/* Toggle — relative + after: expands hit area to ~44px on mobile without changing layout */}
       <button
         type="button"
         onClick={handleToggle}
         aria-label={isDone ? "Mark as pending" : "Mark as completed"}
         className={cn(
-          "mt-0.5 size-6 shrink-0 rounded-full border-2 flex items-center justify-center",
+          "relative mt-0.5 size-6 shrink-0 rounded-full border-2 flex items-center justify-center",
+          "after:absolute after:inset-[-10px] after:content-['']",
           "motion-safe:transition-[colors,transform,box-shadow] motion-safe:duration-200",
           completing && "motion-safe:scale-125 motion-safe:shadow-[0_0_0_5px_rgba(62,207,114,0.2)]",
           isDone || isArchived

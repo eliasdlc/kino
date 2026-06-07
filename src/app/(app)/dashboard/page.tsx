@@ -12,6 +12,7 @@ import { AdvisorCard } from "@/features/dashboard/AdvisorCard";
 import { WeeklyTrendsCard } from "@/features/dashboard/WeeklyTrendsCard";
 import { QuickAccessCard } from "@/features/dashboard/QuickAccessCard";
 import { LearningInsightCard } from "@/features/dashboard/LearningInsightCard";
+import { NotificationPromptCard } from "@/features/dashboard/NotificationPromptCard";
 
 export const metadata = { title: "Dashboard - Kino" };
 
@@ -67,7 +68,7 @@ export default async function DashboardPage() {
   const hasWeeklyData = weeklyTrends.snapshots.length > 0 || weeklyTrends.checkins.length > 0;
 
   return (
-    <div className="p-6 space-y-4 max-w-7xl mx-auto">
+    <div className="p-4 md:p-6 space-y-4 max-w-7xl mx-auto">
       {/* Header */}
       <div>
         <h1 className="text-2xl font-bold tracking-tight">
@@ -82,6 +83,9 @@ export default async function DashboardPage() {
           })}
         </p>
       </div>
+
+      {/* Push notification prompt — only shows if not subscribed/dismissed */}
+      <NotificationPromptCard />
 
       {/* Bento grid */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
