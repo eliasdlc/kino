@@ -25,13 +25,15 @@ export function TasksList({ systemId, initialData, folderId, folderInitialData }
   return (
     <>
       <Tabs defaultValue="action" className="w-full flex flex-col gap-4">
-        <div className="flex items-center justify-between">
-          <TabsList>
-            <TabsTrigger value="backlog">Backlog</TabsTrigger>
-            <TabsTrigger value="planning">Planning</TabsTrigger>
-            <TabsTrigger value="action">Action</TabsTrigger>
-            <TabsTrigger value="archive">Archive</TabsTrigger>
-          </TabsList>
+        <div className="flex items-center gap-2">
+          <div className="overflow-x-auto flex-1 min-w-0">
+            <TabsList className="w-max">
+              <TabsTrigger value="backlog">Backlog</TabsTrigger>
+              <TabsTrigger value="planning">Planning</TabsTrigger>
+              <TabsTrigger value="action">Action</TabsTrigger>
+              <TabsTrigger value="archive">Archive</TabsTrigger>
+            </TabsList>
+          </div>
           <CreateTaskDialog systemId={systemId} folderId={folderId} />
         </div>
 

@@ -191,7 +191,7 @@ async function resolveAdvisorAction(
       .where(and(
         eq(tasks.userId, userId),
         lt(tasks.dueDate, today.toISOString().slice(0, 10)),
-        notInArray(tasks.status, ['done', 'archived']),
+        notInArray(tasks.status, ['done', 'archived', 'today']),
         isNull(tasks.deletedAt),
         isNull(tasks.parentTaskId),
       ))

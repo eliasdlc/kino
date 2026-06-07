@@ -308,7 +308,9 @@ export function SystemsSidebar({
       <Sheet open={openMobile} onOpenChange={setOpenMobile}>
         <SheetContent side="left" className="p-0 w-72 bg-sidebar flex flex-col">
           <SheetTitle className="sr-only">Menú de navegación</SheetTitle>
-          {sidebarContent}
+          <TooltipProvider delayDuration={0}>
+            {sidebarContent}
+          </TooltipProvider>
         </SheetContent>
       </Sheet>
     );

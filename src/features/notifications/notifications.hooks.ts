@@ -1,13 +1,13 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 
 type PushStatus = 'idle' | 'loading' | 'subscribed' | 'denied' | 'unsupported';
 
 export function usePushNotifications() {
   const [status, setStatus] = useState<PushStatus>('idle');
 
-  useEffect(() => {
+  const checkSubscription = useCallback(async () => {
     if (!('serviceWorker' in navigator) || !('PushManager' in window)) {
       setStatus('unsupported');
       return;
@@ -16,22 +16,31 @@ export function usePushNotifications() {
       setStatus('denied');
       return;
     }
-    navigator.serviceWorker.ready
-      .then((reg) => reg.pushManager.getSubscription())
-      .then((sub) => setStatus(sub ? 'subscribed' : 'idle'))
-      .catch(() => setStatus('idle'));
+    try {
+      const reg = await navigator.serviceWorker.ready;
+      const sub = await reg.pushManager.getSubscription();
+      setStatus(sub ? 'subscribed' : 'idle');
+    } catch {
+      setStatus('idle');
+    }
   }, []);
+
+  useEffect(() => {
+    checkSubscription();
+  }, [checkSubscription]);
 
   async function subscribe() {
     setStatus('loading');
     try {
       const reg = await navigator.serviceWorker.register('/kino-sw.js');
+      await navigator.serviceWorker.ready;
       const permission = await Notification.requestPermission();
       if (permission !== 'granted') {
         setStatus('denied');
         return;
       }
-      const sub = await reg.pushManager.subscribe({
+      const existing = await reg.pushManager.getSubscription();
+      const sub = existing ?? await reg.pushManager.subscribe({
         userVisibleOnly: true,
         applicationServerKey: urlBase64ToUint8Array(
           process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY!
@@ -48,7 +57,7 @@ export function usePushNotifications() {
       });
       setStatus('subscribed');
     } catch {
-      setStatus('idle');
+      await checkSubscription();
     }
   }
 
@@ -56,7 +65,14 @@ export function usePushNotifications() {
     try {
       const reg = await navigator.serviceWorker.ready;
       const sub = await reg.pushManager.getSubscription();
-      await sub?.unsubscribe();
+      if (sub) {
+        await fetch('/api/push/unsubscribe', {
+          method: 'DELETE',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ endpoint: sub.endpoint }),
+        });
+        await sub.unsubscribe();
+      }
     } finally {
       setStatus('idle');
     }
