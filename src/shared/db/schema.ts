@@ -157,6 +157,8 @@ export const colorEnum = pgEnum('color', [
   'white',
 ]);
 
+export const reminderSourceEnum = pgEnum('reminder_source', ['auto', 'user']);
+
 export const chronotypeEnum = pgEnum('chronotype', [
   'morning',
   'intermediate',
@@ -427,6 +429,8 @@ export const tasks = pgTable(
     sortIndex: integer('sort_index').notNull().default(0),
     notifiedBeforeDay: boolean('notified_before_day').notNull().default(false),
     notifiedDueDay: boolean('notified_due_day').notNull().default(false),
+    reminderCount: integer('reminder_count').notNull().default(0),
+    lastRemindedAt: timestamp('last_reminded_at', { withTimezone: true }),
     completedAt: timestamp('completed_at', { withTimezone: true }),
     deletedAt: timestamp('deleted_at', { withTimezone: true }),
     createdAt: timestamp('created_at', { withTimezone: true })
@@ -774,6 +778,33 @@ export const pushSubscriptions = pgTable(
       .defaultNow(),
   },
   (table) => [index('idx_push_user').on(table.userId)],
+);
+
+// ── task_reminders ──
+
+export const taskReminders = pgTable(
+  'task_reminders',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    taskId: uuid('task_id')
+      .notNull()
+      .references(() => tasks.id, { onDelete: 'cascade' }),
+    userId: uuid('user_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    remindAt: timestamp('remind_at', { withTimezone: true }).notNull(),
+    sentAt: timestamp('sent_at', { withTimezone: true }),
+    label: varchar('label', { length: 255 }),
+    source: reminderSourceEnum('source').notNull().default('user'),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    index('idx_task_reminders_pending')
+      .on(table.remindAt)
+      .where(sql`${table.sentAt} IS NULL`),
+    index('idx_task_reminders_task').on(table.taskId),
+    index('idx_task_reminders_user').on(table.userId),
+  ],
 );
 
 // ── default_context_tags (seed/reference table) ──

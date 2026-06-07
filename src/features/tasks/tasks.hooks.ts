@@ -106,6 +106,8 @@ export function useCreateTask(systemId: string, folderId?: string) {
         sortIndex: 0,
         notifiedBeforeDay: false,
         notifiedDueDay: false,
+        reminderCount: 0,
+        lastRemindedAt: null,
         createdAt: new Date(),
         updatedAt: new Date(),
         completedAt: null,
@@ -360,6 +362,70 @@ export function useAdvisorAction() {
     },
     onError: (err) => {
       toast.error(err.message ?? 'Error al ejecutar la acción');
+    },
+  });
+}
+
+export interface TaskReminder {
+  id: string;
+  taskId: string;
+  userId: string;
+  remindAt: string;
+  sentAt: string | null;
+  label: string | null;
+  source: 'auto' | 'user';
+  createdAt: string;
+}
+
+export const reminderKeys = {
+  byTask: (taskId: string) => ['task-reminders', taskId] as const,
+};
+
+export function useTaskReminders(taskId: string) {
+  return useQuery<TaskReminder[]>({
+    queryKey: reminderKeys.byTask(taskId),
+    queryFn: async () => {
+      const res = await fetch(`/api/push/reminders?taskId=${taskId}`);
+      if (!res.ok) throw new Error('Failed to fetch reminders');
+      return res.json() as Promise<TaskReminder[]>;
+    },
+    staleTime: 30_000,
+  });
+}
+
+export function useCreateTaskReminder(taskId: string) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (data: { remindAt: string; label?: string }) => {
+      const res = await fetch('/api/push/reminders', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ taskId, ...data }),
+      });
+      if (!res.ok) throw new Error('Failed to create reminder');
+      return res.json() as Promise<TaskReminder>;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: reminderKeys.byTask(taskId) });
+    },
+    onError: () => {
+      toast.error('Error al crear el recordatorio');
+    },
+  });
+}
+
+export function useDeleteTaskReminder(taskId: string) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (reminderId: string) => {
+      const res = await fetch(`/api/push/reminders/${reminderId}`, { method: 'DELETE' });
+      if (!res.ok) throw new Error('Failed to delete reminder');
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: reminderKeys.byTask(taskId) });
+    },
+    onError: () => {
+      toast.error('Error al eliminar el recordatorio');
     },
   });
 }

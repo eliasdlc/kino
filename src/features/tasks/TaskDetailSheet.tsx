@@ -30,6 +30,7 @@ import {
 } from "@/shared/types/enums";
 import type { TaskTypeValue } from "@/shared/types/enums";
 import { SubtaskList } from "./SubtaskList";
+import { TaskRemindersSection } from "./TaskRemindersSection";
 import { useUpdateTask } from "./tasks.hooks";
 import { useFolders } from "@/features/folders/folders.hooks";
 import { getSystemColor } from "@/shared/utils/system-colors";
@@ -265,6 +266,8 @@ function TaskDetailForm({ task, systemId, onClose }: TaskDetailFormProps) {
         <Label>Subtasks</Label>
         <SubtaskList parentTaskId={task.id} systemId={systemId} />
       </div>
+
+      <TaskRemindersSection task={task} />
 
       <div className="mt-auto flex items-center justify-between gap-3">
         {!isDone && (

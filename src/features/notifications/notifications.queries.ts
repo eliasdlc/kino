@@ -1,6 +1,6 @@
 import { eq, and, isNull, inArray } from 'drizzle-orm';
 import { db } from '@/shared/db';
-import { pushSubscriptions, tasks } from '@/shared/db/schema';
+import { pushSubscriptions, tasks, taskReminders } from '@/shared/db/schema';
 import { sql } from 'drizzle-orm';
 
 export async function getPushSubscriptions(userId: string) {
@@ -31,7 +31,6 @@ export async function deletePushSubscription(endpoint: string) {
     .where(eq(pushSubscriptions.endpoint, endpoint));
 }
 
-// Returns unique user IDs that have at least one push subscription
 export async function getUserIdsWithPushSubscriptions(): Promise<string[]> {
   const rows = await db
     .selectDistinct({ userId: pushSubscriptions.userId })
@@ -39,7 +38,6 @@ export async function getUserIdsWithPushSubscriptions(): Promise<string[]> {
   return rows.map((r) => r.userId);
 }
 
-// Tasks due today (in UTC date terms) that haven't sent the due-day reminder
 export async function getTasksDueTodayUnnotified(userIds: string[]) {
   if (userIds.length === 0) return [];
   return db
@@ -55,7 +53,6 @@ export async function getTasksDueTodayUnnotified(userIds: string[]) {
     );
 }
 
-// Tasks due tomorrow (in UTC date terms) that haven't sent the before-day reminder
 export async function getTasksDueTomorrowUnnotified(userIds: string[]) {
   if (userIds.length === 0) return [];
   return db
@@ -85,4 +82,136 @@ export async function markTasksNotifiedBeforeDay(taskIds: string[]) {
     .update(tasks)
     .set({ notifiedBeforeDay: true })
     .where(inArray(tasks.id, taskIds));
+}
+
+export interface PendingReminder {
+  id: string;
+  taskId: string;
+  userId: string;
+  label: string | null;
+  taskTitle: string;
+}
+
+export async function getPendingReminders(): Promise<PendingReminder[]> {
+  const rows = await db.execute<{
+    id: string;
+    task_id: string;
+    user_id: string;
+    label: string | null;
+    task_title: string;
+  }>(sql`
+    SELECT tr.id, tr.task_id, tr.user_id, tr.label, t.title AS task_title
+    FROM task_reminders tr
+    INNER JOIN tasks t ON t.id = tr.task_id
+    WHERE tr.remind_at <= NOW()
+      AND tr.sent_at IS NULL
+      AND t.completed_at IS NULL
+      AND t.deleted_at IS NULL
+      AND EXISTS (SELECT 1 FROM push_subscriptions ps WHERE ps.user_id = tr.user_id)
+  `);
+  return [...rows].map((r) => ({
+    id: r.id,
+    taskId: r.task_id,
+    userId: r.user_id,
+    label: r.label,
+    taskTitle: r.task_title,
+  }));
+}
+
+export async function markRemindersSent(ids: string[]) {
+  if (ids.length === 0) return;
+  await db
+    .update(taskReminders)
+    .set({ sentAt: new Date() })
+    .where(inArray(taskReminders.id, ids));
+}
+
+export interface EscalationTask {
+  id: string;
+  userId: string;
+  title: string;
+  priority: string;
+  reminderCount: number;
+}
+
+export async function getTasksForEscalation(): Promise<EscalationTask[]> {
+  const rows = await db.execute<{
+    id: string;
+    user_id: string;
+    title: string;
+    priority: string;
+    reminder_count: number;
+  }>(sql`
+    SELECT t.id, t.user_id, t.title, t.priority, t.reminder_count
+    FROM tasks t
+    WHERE t.notified_due_day = true
+      AND t.completed_at IS NULL
+      AND t.deleted_at IS NULL
+      AND t.due_date IS NOT NULL
+      AND t.due_date <= CURRENT_DATE
+      AND t.reminder_count < CASE t.priority
+        WHEN 'critical' THEN 14
+        WHEN 'high' THEN 7
+        WHEN 'medium' THEN 4
+        WHEN 'low' THEN 2
+        ELSE 0
+      END
+      AND (
+        t.last_reminded_at IS NULL
+        OR t.last_reminded_at < NOW() - CASE t.priority
+          WHEN 'critical' THEN INTERVAL '6 hours'
+          WHEN 'high' THEN INTERVAL '6 hours'
+          WHEN 'medium' THEN INTERVAL '48 hours'
+          WHEN 'low' THEN INTERVAL '72 hours'
+          ELSE INTERVAL '999 days'
+        END
+      )
+      AND EXISTS (SELECT 1 FROM push_subscriptions ps WHERE ps.user_id = t.user_id)
+  `);
+  return [...rows].map((r) => ({
+    id: r.id,
+    userId: r.user_id,
+    title: r.title,
+    priority: r.priority,
+    reminderCount: r.reminder_count,
+  }));
+}
+
+export async function updateTaskEscalation(taskIds: string[]) {
+  if (taskIds.length === 0) return;
+  await db.execute(sql`
+    UPDATE tasks
+    SET reminder_count = reminder_count + 1,
+        last_reminded_at = NOW()
+    WHERE id = ANY(${sql.raw(`ARRAY[${taskIds.map((id) => `'${id}'`).join(',')}]::uuid[]`)})
+  `);
+}
+
+export async function getTaskRemindersForTask(taskId: string, userId: string) {
+  return db
+    .select()
+    .from(taskReminders)
+    .where(and(eq(taskReminders.taskId, taskId), eq(taskReminders.userId, userId)))
+    .orderBy(taskReminders.remindAt);
+}
+
+export async function createTaskReminder(data: {
+  taskId: string;
+  userId: string;
+  remindAt: Date;
+  label?: string;
+}) {
+  const [row] = await db
+    .insert(taskReminders)
+    .values({ ...data, source: 'user' })
+    .returning();
+  return row;
+}
+
+export async function deleteTaskReminder(reminderId: string, userId: string) {
+  const [row] = await db
+    .delete(taskReminders)
+    .where(and(eq(taskReminders.id, reminderId), eq(taskReminders.userId, userId), isNull(taskReminders.sentAt)))
+    .returning();
+  return row ?? null;
 }

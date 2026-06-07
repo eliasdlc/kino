@@ -7,6 +7,10 @@ import {
   getTasksDueTomorrowUnnotified,
   markTasksNotifiedDueDay,
   markTasksNotifiedBeforeDay,
+  getPendingReminders,
+  markRemindersSent,
+  getTasksForEscalation,
+  updateTaskEscalation,
 } from './notifications.queries';
 
 if (process.env.VAPID_PUBLIC_KEY && process.env.VAPID_PRIVATE_KEY) {
@@ -23,24 +27,29 @@ export interface PushPayload {
   url?: string;
 }
 
-/**
- * Envía una notificación push a todos los endpoints del usuario.
- * Si un endpoint devuelve 410 (Gone), se elimina de la base de datos.
- */
 export async function sendTaskReminders(): Promise<{ notified: number }> {
   if (!process.env.VAPID_PUBLIC_KEY || !process.env.VAPID_PRIVATE_KEY) {
     return { notified: 0 };
   }
 
+  const [standard, custom, escalation] = await Promise.all([
+    sendStandardReminders(),
+    sendPendingReminders(),
+    sendEscalationReminders(),
+  ]);
+
+  return { notified: standard + custom + escalation };
+}
+
+async function sendStandardReminders(): Promise<number> {
   const userIds = await getUserIdsWithPushSubscriptions();
-  if (userIds.length === 0) return { notified: 0 };
+  if (userIds.length === 0) return 0;
 
   const [todayTasks, tomorrowTasks] = await Promise.all([
     getTasksDueTodayUnnotified(userIds),
     getTasksDueTomorrowUnnotified(userIds),
   ]);
 
-  // Group by userId
   const byUser = new Map<string, { today: string[]; tomorrow: string[] }>();
   for (const t of todayTasks) {
     const entry = byUser.get(t.userId) ?? { today: [], tomorrow: [] };
@@ -58,10 +67,9 @@ export async function sendTaskReminders(): Promise<{ notified: number }> {
   await Promise.allSettled(
     [...byUser.entries()].map(async ([userId, { today, tomorrow }]) => {
       if (today.length > 0) {
-        const body =
-          today.length === 1
-            ? today[0]
-            : `${today[0]} y ${today.length - 1} tarea${today.length - 1 > 1 ? 's' : ''} más`;
+        const body = today.length === 1
+          ? today[0]
+          : `${today[0]} y ${today.length - 1} tarea${today.length - 1 > 1 ? 's' : ''} más`;
         await sendPushToUser(userId, {
           title: `Kino · Vence hoy${today.length > 1 ? ` (${today.length})` : ''}`,
           body,
@@ -71,10 +79,9 @@ export async function sendTaskReminders(): Promise<{ notified: number }> {
       }
 
       if (tomorrow.length > 0) {
-        const body =
-          tomorrow.length === 1
-            ? tomorrow[0]
-            : `${tomorrow[0]} y ${tomorrow.length - 1} tarea${tomorrow.length - 1 > 1 ? 's' : ''} más`;
+        const body = tomorrow.length === 1
+          ? tomorrow[0]
+          : `${tomorrow[0]} y ${tomorrow.length - 1} tarea${tomorrow.length - 1 > 1 ? 's' : ''} más`;
         await sendPushToUser(userId, {
           title: `Kino · Vence mañana${tomorrow.length > 1 ? ` (${tomorrow.length})` : ''}`,
           body,
@@ -85,7 +92,6 @@ export async function sendTaskReminders(): Promise<{ notified: number }> {
     }),
   );
 
-  // Mark as notified after sending to avoid duplicates
   const todayIds = todayTasks.map((t) => t.id);
   const tomorrowIds = tomorrowTasks.map((t) => t.id);
   await Promise.all([
@@ -93,7 +99,52 @@ export async function sendTaskReminders(): Promise<{ notified: number }> {
     markTasksNotifiedBeforeDay(tomorrowIds),
   ]);
 
-  return { notified };
+  return notified;
+}
+
+async function sendPendingReminders(): Promise<number> {
+  const pending = await getPendingReminders();
+  if (pending.length === 0) return 0;
+
+  await Promise.allSettled(
+    pending.map(({ userId, taskTitle, label }) =>
+      sendPushToUser(userId, {
+        title: label ? `Kino · ${label}` : 'Kino · Recordatorio',
+        body: taskTitle,
+        url: '/tasks',
+      }),
+    ),
+  );
+
+  await markRemindersSent(pending.map((r) => r.id));
+
+  return pending.length;
+}
+
+async function sendEscalationReminders(): Promise<number> {
+  const tasks = await getTasksForEscalation();
+  if (tasks.length === 0) return 0;
+
+  const PRIORITY_LABEL: Record<string, string> = {
+    critical: '🔴 Crítico',
+    high: '🟠 Alta prioridad',
+    medium: 'Pendiente',
+    low: 'Pendiente',
+  };
+
+  await Promise.allSettled(
+    tasks.map(({ userId, title, priority }) =>
+      sendPushToUser(userId, {
+        title: `Kino · ${PRIORITY_LABEL[priority] ?? 'Pendiente'} — sin completar`,
+        body: title,
+        url: '/tasks',
+      }),
+    ),
+  );
+
+  await updateTaskEscalation(tasks.map((t) => t.id));
+
+  return tasks.length;
 }
 
 export async function sendPushToUser(userId: string, payload: PushPayload): Promise<void> {
@@ -112,7 +163,6 @@ export async function sendPushToUser(userId: string, payload: PushPayload): Prom
           serialized,
         );
       } catch (err) {
-        // Suscripción expirada o inválida → limpiar
         if (err instanceof Error && 'statusCode' in err && (err as { statusCode: number }).statusCode === 410) {
           await deletePushSubscription(sub.endpoint);
         }

@@ -1,5 +1,5 @@
 import { db } from "@/shared/db";
-import { tasks, users, userSettings, systems, folders, timeLogs } from "@/shared/db/schema";
+import { tasks, users, userSettings, systems, folders, timeLogs, taskReminders } from "@/shared/db/schema";
 import { and, eq, isNull, sql } from "drizzle-orm";
 import { NotFoundError, ValidationError } from "@/shared/utils/error";
 import { validateTransition, type TaskStatus, type TransitionAction } from "./tasks.state-machine";
@@ -151,6 +151,41 @@ function deriveAction(currentStatus: TaskStatus, targetStatus: TaskStatus): Tran
   return map[`${currentStatus}->${targetStatus}`];
 }
 
+const AUTO_REMINDER_OFFSETS: Record<string, number[]> = {
+  critical: [7, 3],
+  high: [3],
+};
+
+async function syncAutoReminders(taskId: string, userId: string, dueDate: string, priority: string) {
+  await db.delete(taskReminders).where(
+    and(eq(taskReminders.taskId, taskId), eq(taskReminders.source, 'auto'), isNull(taskReminders.sentAt)),
+  );
+
+  const offsets = AUTO_REMINDER_OFFSETS[priority];
+  if (!offsets) return;
+
+  const dueTs = new Date(dueDate + 'T09:00:00Z');
+  const now = new Date();
+
+  const toInsert = offsets
+    .map((days) => {
+      const remindAt = new Date(dueTs.getTime() - days * 86_400_000);
+      const label = days === 7 ? '7 días antes' : days === 3 ? '3 días antes' : `${days} días antes`;
+      return { taskId, userId, remindAt, label, source: 'auto' as const };
+    })
+    .filter(({ remindAt }) => remindAt > now);
+
+  if (toInsert.length > 0) {
+    await db.insert(taskReminders).values(toInsert);
+  }
+}
+
+async function clearAutoReminders(taskId: string) {
+  await db.delete(taskReminders).where(
+    and(eq(taskReminders.taskId, taskId), eq(taskReminders.source, 'auto'), isNull(taskReminders.sentAt)),
+  );
+}
+
 export async function getTasksBySystem(systemId: string, userId: string) {
   return db
     .select()
@@ -263,6 +298,10 @@ export async function createTask(userId: string, data: CreateTaskInput) {
     .values({ ...data, status: derivedStatus, userId })
     .returning();
 
+  if (task?.dueDate && task.priority in AUTO_REMINDER_OFFSETS) {
+    await syncAutoReminders(task.id, userId, task.dueDate, task.priority);
+  }
+
   return task ?? null;
 }
 
@@ -330,7 +369,7 @@ export async function updateTask(taskId: string, userId: string, data: UpdateTas
   }
 
   const reminderReset = data.dueDate !== undefined
-    ? { notifiedBeforeDay: false, notifiedDueDay: false }
+    ? { notifiedBeforeDay: false, notifiedDueDay: false, reminderCount: 0, lastRemindedAt: null }
     : {};
 
   const [task] = await db
@@ -338,6 +377,14 @@ export async function updateTask(taskId: string, userId: string, data: UpdateTas
     .set({ ...data, ...reminderReset, updatedAt: new Date() })
     .where(and(eq(tasks.id, taskId), eq(tasks.userId, userId), isNull(tasks.deletedAt)))
     .returning();
+
+  if (task && (data.dueDate !== undefined || data.priority !== undefined)) {
+    if (task.dueDate && task.priority in AUTO_REMINDER_OFFSETS) {
+      await syncAutoReminders(task.id, userId, task.dueDate, task.priority);
+    } else {
+      await clearAutoReminders(task.id);
+    }
+  }
 
   return task ?? null;
 }

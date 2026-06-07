@@ -28,6 +28,8 @@ function makeTask(overrides: Partial<Task> = {}): Task {
     sortIndex: 0,
     notifiedBeforeDay: false,
     notifiedDueDay: false,
+    reminderCount: 0,
+    lastRemindedAt: null,
     completedAt: null,
     deletedAt: null,
     createdAt: TODAY,
