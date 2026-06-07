@@ -6,6 +6,10 @@ import { db } from "@/shared/db";
 import { users } from "@/shared/db/schema";
 import { Providers } from "./providers";
 import { SystemsSidebar } from "@/features/systems/SystemsSidebar";
+import { SidebarProvider } from "@/components/ui/sidebar";
+import { MobileHeader } from "@/components/MobileHeader";
+import { BottomNav } from "@/components/BottomNav";
+import { InstallPrompt } from "@/components/InstallPrompt";
 
 import { GlobalCommandPalette } from "@/features/command-palette/GlobalCommandPalette";
 import { GlobalQuickAddDialog } from "@/features/tasks/GlobalQuickAddDialog";
@@ -31,20 +35,27 @@ export default async function AppLayout({
 
   return (
     <Providers>
-      <div className="flex h-screen">
-        <SystemsSidebar
-          userName={session.user.name}
-          userEmail={session.user.email}
-          userImage={session.user.image}
-        />
-        <main className="flex-1 overflow-y-auto bg-background">
-          {children}
-        </main>
-      </div>
+      <SidebarProvider>
+        <div className="flex h-screen w-full overflow-hidden">
+          <SystemsSidebar
+            userName={session.user.name}
+            userEmail={session.user.email}
+            userImage={session.user.image}
+          />
+          <div className="flex flex-col flex-1 min-w-0 overflow-hidden">
+            <MobileHeader />
+            <main className="flex-1 overflow-y-auto bg-background pb-16 md:pb-0">
+              {children}
+            </main>
+            <BottomNav />
+          </div>
+        </div>
+      </SidebarProvider>
       <GlobalCommandPalette />
       <GlobalQuickAddDialog />
       <GlobalNavigationShortcuts />
       <FocusTimerWidget />
+      <InstallPrompt />
     </Providers>
   );
 }

@@ -31,6 +31,7 @@ interface SystemTreeItemProps {
   isActive: boolean;
   activeFolderId?: string;
   collapsed?: boolean;
+  onNavigate?: () => void;
 }
 
 export function SystemTreeItem({
@@ -38,6 +39,7 @@ export function SystemTreeItem({
   isActive,
   activeFolderId,
   collapsed,
+  onNavigate,
 }: SystemTreeItemProps) {
   const isExpanded = useSystemsTreeStore((s) => s.expanded[system.id] ?? false);
   const toggle = useSystemsTreeStore((s) => s.toggle);
@@ -149,6 +151,7 @@ export function SystemTreeItem({
         {/* System link */}
         <Link
           href={`/systems/${system.id}`}
+          onClick={onNavigate}
           className="flex items-center gap-2 flex-1 min-w-0"
         >
           <Icon className={`size-5 shrink-0 text-${cls}`} />

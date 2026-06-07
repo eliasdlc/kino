@@ -14,9 +14,10 @@ import {
 } from "@/components/ui/select";
 import { getSystemColor } from "@/shared/utils/system-colors";
 import { CreateTaskDialog } from "./CreateTaskDialog";
+import { useQuickAddStore } from "./quick-add.store";
 
 export function GlobalQuickAddDialog() {
-  const [open, setOpen] = useState(false);
+  const { open, setOpen } = useQuickAddStore();
   const [selectedSystemId, setSelectedSystemId] = useState<string | null>(null);
   const { data: systems } = useSystems();
 
