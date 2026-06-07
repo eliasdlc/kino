@@ -10,7 +10,9 @@ const energyLevel = z
 const taskStatus = z
   .enum(['backlog', 'week', 'tomorrow', 'today', 'done', 'archived'])
   .optional()
-  .describe('Estado de la tarea');
+  .describe(
+    'Estado de la tarea. Si no se especifica startDate ni status, usa "week" para que la tarea aparezca en la Action View (hoy + 7 días). Usa "backlog" solo para ideas o trabajo sin fecha definida.',
+  );
 
 export function registerTaskCrudTools(server: McpServer) {
   server.tool(
@@ -57,14 +59,27 @@ export function registerTaskCrudTools(server: McpServer) {
 
   server.tool(
     'create_task',
-    'Crea una tarea en Kino',
+    [
+      'Crea una tarea en Kino.',
+      'REGLA DE STATUS: Si no se especifica startDate ni status, usa status="week" para que la tarea',
+      'aparezca en la Action View (vista principal). Solo usa status="backlog" para ideas o trabajo',
+      'sin fecha. Si tienes una fecha de inicio, pásala en startDate y el status se derivará automáticamente.',
+      'RECORDATORIOS: Si la tarea tiene dueDate, Kino enviará notificaciones push automáticamente',
+      '(día anterior y día del vencimiento), siempre que el usuario tenga push habilitado.',
+    ].join(' '),
     {
       title: z.string().min(1).max(500).describe('Título de la tarea'),
       systemId: z.string().uuid().describe('UUID del sistema al que pertenece la tarea'),
       description: z.string().optional().describe('Descripción detallada de la tarea'),
       energyLevel: energyLevel,
       status: taskStatus,
-      dueDate: z.string().date().optional().describe('Fecha límite en formato YYYY-MM-DD'),
+      dueDate: z
+        .string()
+        .date()
+        .optional()
+        .describe(
+          'Fecha límite en formato YYYY-MM-DD. Si se define, el usuario recibirá recordatorios push automáticos.',
+        ),
       priority: z
         .enum(['critical', 'high', 'medium', 'low'])
         .describe('Prioridad de la tarea'),
@@ -72,17 +87,26 @@ export function registerTaskCrudTools(server: McpServer) {
       folderId: z.string().uuid().optional().describe('UUID de la carpeta destino'),
       taskType: z
         .enum(['idea', 'reminder', 'project', 'todo'])
-        .describe('Tipo de tarea '),
+        .describe('Tipo de tarea. Las "idea" siempre van a backlog.'),
       estimatedTime: z
         .string()
         .optional()
         .describe('Tiempo estimado en formato HH:MM:SS (ej: 01:30:00)'),
-      startDate: z.string().date().optional().describe('Fecha de inicio en formato YYYY-MM-DD'),
+      startDate: z
+        .string()
+        .date()
+        .optional()
+        .describe('Fecha de inicio en formato YYYY-MM-DD. Determina el status automáticamente.'),
     },
     async (data) => {
+      // Default to "week" so tasks appear in the Action View, not buried in backlog
+      const payload = {
+        ...data,
+        status: data.status ?? (data.taskType === 'idea' ? 'backlog' : 'week'),
+      };
       const task = await kinoFetch('/api/tasks', {
         method: 'POST',
-        body: JSON.stringify(data),
+        body: JSON.stringify(payload),
       });
       return { content: [{ type: 'text', text: JSON.stringify(task, null, 2) }] };
     },

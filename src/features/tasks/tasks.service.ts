@@ -248,11 +248,15 @@ export async function createTask(userId: string, data: CreateTaskInput) {
 
   const explicitTerminal = data.status === "done" || data.status === "archived";
   // Ideas are always backlog — they are captures, not scheduled work
+  // When startDate is given, derive status from date (authoritative).
+  // When startDate is absent, respect an explicit status or fall back to backlog.
   const derivedStatus = explicitTerminal
     ? data.status
     : data.taskType === "idea"
       ? "backlog"
-      : deriveStatusFromDate(data.startDate ?? null);
+      : data.startDate
+        ? deriveStatusFromDate(data.startDate)
+        : (data.status ?? "backlog");
 
   const [task] = await db
     .insert(tasks)
@@ -325,9 +329,13 @@ export async function updateTask(taskId: string, userId: string, data: UpdateTas
     }
   }
 
+  const reminderReset = data.dueDate !== undefined
+    ? { notifiedBeforeDay: false, notifiedDueDay: false }
+    : {};
+
   const [task] = await db
     .update(tasks)
-    .set({ ...data, updatedAt: new Date() })
+    .set({ ...data, ...reminderReset, updatedAt: new Date() })
     .where(and(eq(tasks.id, taskId), eq(tasks.userId, userId), isNull(tasks.deletedAt)))
     .returning();
 
