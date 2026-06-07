@@ -1,21 +1,42 @@
 {
-    "name": "Kino - Energy Management App",
+    "name": "Kino - Energy Management",
     "short_name": "Kino",
-    "description": "Energy Management App",
-    "start_url": "/",
+    "description": "Gestión de productividad basada en energía cognitiva",
+    "start_url": "/dashboard",
+    "scope": "/",
     "display": "standalone",
-    "background_color": "#ffffff",
-    "theme_color": "#000000",
+    "orientation": "portrait",
+    "background_color": "#09090b",
+    "theme_color": "#09090b",
+    "categories": ["productivity", "lifestyle"],
     "icons": [
         {
             "src": "/icons/icon-192x192.png",
             "sizes": "192x192",
-            "type": "image/png"
+            "type": "image/png",
+            "purpose": "any"
         },
         {
             "src": "/icons/icon-512x512.png",
             "sizes": "512x512",
-            "type": "image/png"
+            "type": "image/png",
+            "purpose": "any maskable"
+        }
+    ],
+    "shortcuts": [
+        {
+            "name": "Nueva tarea",
+            "short_name": "Tarea",
+            "description": "Crear una tarea rápida",
+            "url": "/dashboard?action=new-task",
+            "icons": [{ "src": "/icons/icon-192x192.png", "sizes": "192x192" }]
+        },
+        {
+            "name": "Mis tareas",
+            "short_name": "Tareas",
+            "description": "Ver todas las tareas pendientes",
+            "url": "/tasks",
+            "icons": [{ "src": "/icons/icon-192x192.png", "sizes": "192x192" }]
         }
     ]
 }
