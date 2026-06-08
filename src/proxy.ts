@@ -58,9 +58,14 @@ export async function proxy(request: NextRequest) {
 
   if (!isPublicRoute) {
     const sessionCookie = getSessionCookie(request);
-    const hasApiKey = request.headers.get("authorization")?.startsWith("Bearer sk-kino-");
+    // Any Bearer token (personal API key `sk-kino-` or an OAuth 2.1 access token
+    // from the web MCP connector) is validated downstream by getAuthContext.
+    // The middleware only gates fully-unauthenticated browser traffic.
+    const hasBearer = request.headers
+      .get("authorization")
+      ?.startsWith("Bearer ");
 
-    if (!sessionCookie && !hasApiKey) {
+    if (!sessionCookie && !hasBearer) {
       // Las llamadas AJAX a /api/* deben recibir 401, no un redirect HTML
       if (pathname.startsWith("/api/")) {
         return NextResponse.json(
