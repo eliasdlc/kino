@@ -1,8 +1,8 @@
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { z } from 'zod';
-import { kinoFetch } from '../../client.js';
+import type { KinoFetch } from '../../client.js';
 
-export function registerSystemCrudTools(server: McpServer) {
+export function registerSystemCrudTools(server: McpServer, kinoFetch: KinoFetch) {
   server.tool(
     'list_systems',
     'Lista todos los sistemas del usuario en Kino (proyectos, áreas, etc.)',

@@ -1,9 +1,9 @@
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { z } from 'zod';
-import { kinoFetch } from '../../client.js';
+import type { KinoFetch } from '../../client.js';
 import { markdownToHtml } from '../../utils/markdown.js';
 
-export function registerPageCrudTools(server: McpServer) {
+export function registerPageCrudTools(server: McpServer, kinoFetch: KinoFetch) {
   server.tool(
     'list_pages',
     'Lista las páginas (notas markdown) de un sistema en Kino',

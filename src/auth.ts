@@ -1,30 +1,6 @@
-import { betterAuth } from "better-auth";
-import { drizzleAdapter } from "better-auth/adapters/drizzle";
-import { db } from "@/shared/db";
-import { users, sessions, accounts, verifications } from "@/shared/db/schema";
-
-export const auth = betterAuth({
-    database: drizzleAdapter(db, {
-        provider: "pg",
-        schema: {
-            user: users,
-            session: sessions,
-            account: accounts,
-            verification: verifications,
-        },
-    }),
-    emailAndPassword: {
-        enabled: true,
-    },
-    socialProviders: {
-        google: {
-            clientId: process.env.GOOGLE_CLIENT_ID!,
-            clientSecret: process.env.GOOGLE_CLIENT_SECRET!,
-        },
-        github: {
-            clientId: process.env.GITHUB_CLIENT_ID!,
-            clientSecret: process.env.GITHUB_CLIENT_SECRET!,
-        },
-    },
-    trustedOrigins: [process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000"],
-});
+// Single source of truth: re-export the root Better Auth instance (which is the
+// one mounted by /api/auth/[...all]). Keeping this alias avoids touching the
+// many `@/auth` importers while ensuring every consumer — getSession, the OAuth
+// resource client, and the .well-known routes — uses the same plugin-enabled
+// instance.
+export { auth } from "../auth";

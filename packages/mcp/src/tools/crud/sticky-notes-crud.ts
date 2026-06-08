@@ -1,13 +1,13 @@
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { z } from 'zod';
-import { kinoFetch } from '../../client.js';
+import type { KinoFetch } from '../../client.js';
 
 const color = z
   .enum(['red', 'blue', 'pink', 'purple', 'green', 'orange', 'yellow', 'teal', 'gray', 'black', 'white'])
   .optional()
   .describe('Color de la nota');
 
-export function registerStickyNoteCrudTools(server: McpServer) {
+export function registerStickyNoteCrudTools(server: McpServer, kinoFetch: KinoFetch) {
   server.tool(
     'list_sticky_notes',
     'Lista las notas adhesivas (sticky notes) de una carpeta o de una página en Kino. Debes indicar folderId O pageId.',

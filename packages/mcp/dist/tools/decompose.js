@@ -1,6 +1,5 @@
 import { z } from 'zod';
 import Anthropic from '@anthropic-ai/sdk';
-import { kinoFetch } from '../client.js';
 const ENERGY_KEYWORDS = {
     high: [
         'analiz', 'design', 'diseñ', 'archi', 'investig', 'research', 'develop', 'desarroll',
@@ -40,7 +39,7 @@ function estimateTime(text) {
     }
     return '00:30:00';
 }
-export function registerDecomposeTools(server) {
+export function registerDecomposeTools(server, kinoFetch) {
     server.tool('estimate_task', 'Estimates the energy level and time required for a task based on keyword analysis of its title and description.', {
         title: z.string().min(1).max(500).describe('Task title'),
         description: z.string().optional().describe('Task description for more accurate estimation'),

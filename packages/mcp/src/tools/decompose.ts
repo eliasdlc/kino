@@ -1,7 +1,7 @@
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { z } from 'zod';
 import Anthropic from '@anthropic-ai/sdk';
-import { kinoFetch } from '../client.js';
+import type { KinoFetch } from '../client.js';
 
 const ENERGY_KEYWORDS: Record<string, string[]> = {
   high: [
@@ -52,7 +52,7 @@ type Task = {
   energyLevel?: string | null;
 };
 
-export function registerDecomposeTools(server: McpServer) {
+export function registerDecomposeTools(server: McpServer, kinoFetch: KinoFetch) {
   server.tool(
     'estimate_task',
     'Estimates the energy level and time required for a task based on keyword analysis of its title and description.',

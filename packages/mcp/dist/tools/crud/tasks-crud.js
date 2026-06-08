@@ -1,5 +1,4 @@
 import { z } from 'zod';
-import { kinoFetch } from '../../client.js';
 const energyLevel = z
     .enum(['high', 'medium', 'low'])
     .optional()
@@ -8,7 +7,7 @@ const taskStatus = z
     .enum(['backlog', 'week', 'tomorrow', 'today', 'done', 'archived'])
     .optional()
     .describe('Estado de la tarea. Si no se especifica startDate ni status, usa "week" para que la tarea aparezca en la Action View (hoy + 7 días). Usa "backlog" solo para ideas o trabajo sin fecha definida.');
-export function registerTaskCrudTools(server) {
+export function registerTaskCrudTools(server, kinoFetch) {
     server.tool('list_tasks', 'Lista tareas del usuario en Kino con filtros opcionales', {
         systemId: z.string().uuid().optional().describe('Filtrar por sistema (UUID)'),
         energyLevel: energyLevel,

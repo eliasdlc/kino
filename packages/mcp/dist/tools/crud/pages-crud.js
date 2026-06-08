@@ -1,7 +1,6 @@
 import { z } from 'zod';
-import { kinoFetch } from '../../client.js';
 import { markdownToHtml } from '../../utils/markdown.js';
-export function registerPageCrudTools(server) {
+export function registerPageCrudTools(server, kinoFetch) {
     server.tool('list_pages', 'Lista las páginas (notas markdown) de un sistema en Kino', {
         systemId: z.string().uuid().describe('UUID del sistema'),
     }, async ({ systemId }) => {

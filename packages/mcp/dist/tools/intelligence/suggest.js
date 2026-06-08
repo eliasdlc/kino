@@ -1,6 +1,5 @@
 import { z } from 'zod';
-import { kinoFetch } from '../../client.js';
-export function registerSuggestTools(server) {
+export function registerSuggestTools(server, kinoFetch) {
     server.tool('suggest_next_action', 'Returns the top N tasks the user should work on next, ranked by importance score (priority + urgency + age). Optionally filter by energy level to match current capacity.', {
         energyLevel: z
             .enum(['high', 'medium', 'low'])

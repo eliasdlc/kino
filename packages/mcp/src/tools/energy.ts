@@ -1,8 +1,8 @@
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { z } from 'zod';
-import { kinoFetch } from '../client.js';
+import type { KinoFetch } from '../client.js';
 
-export function registerEnergyTools(server: McpServer) {
+export function registerEnergyTools(server: McpServer, kinoFetch: KinoFetch) {
   server.tool(
     'get_energy_checkin',
     'Obtiene el check-in de energía del usuario para hoy (nivel actual y calidad de sueño), si ya lo registró.',

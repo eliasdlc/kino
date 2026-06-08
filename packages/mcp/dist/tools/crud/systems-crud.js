@@ -1,6 +1,5 @@
 import { z } from 'zod';
-import { kinoFetch } from '../../client.js';
-export function registerSystemCrudTools(server) {
+export function registerSystemCrudTools(server, kinoFetch) {
     server.tool('list_systems', 'Lista todos los sistemas del usuario en Kino (proyectos, áreas, etc.)', {}, async () => {
         const systems = await kinoFetch('/api/systems');
         return { content: [{ type: 'text', text: JSON.stringify(systems, null, 2) }] };

@@ -1,10 +1,9 @@
 import { z } from 'zod';
-import { kinoFetch } from '../../client.js';
 const color = z
     .enum(['red', 'blue', 'pink', 'purple', 'green', 'orange', 'yellow', 'teal', 'gray', 'black', 'white'])
     .optional()
     .describe('Color de la nota');
-export function registerStickyNoteCrudTools(server) {
+export function registerStickyNoteCrudTools(server, kinoFetch) {
     server.tool('list_sticky_notes', 'Lista las notas adhesivas (sticky notes) de una carpeta o de una página en Kino. Debes indicar folderId O pageId.', {
         folderId: z.string().uuid().optional().describe('UUID de la carpeta'),
         pageId: z.string().uuid().optional().describe('UUID de la página'),

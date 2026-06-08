@@ -1,13 +1,13 @@
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { z } from 'zod';
-import { kinoFetch } from '../../client.js';
+import type { KinoFetch } from '../../client.js';
 
 const color = z
   .enum(['red', 'blue', 'pink', 'purple', 'green', 'orange', 'yellow', 'teal', 'gray', 'black', 'white'])
   .optional()
   .describe('Color de la carpeta');
 
-export function registerFolderCrudTools(server: McpServer) {
+export function registerFolderCrudTools(server: McpServer, kinoFetch: KinoFetch) {
   server.tool(
     'list_folders',
     'Lista las carpetas de un sistema en Kino (jerarquía de organización de tareas y páginas)',

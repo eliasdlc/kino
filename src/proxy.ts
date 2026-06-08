@@ -51,7 +51,10 @@ export async function proxy(request: NextRequest) {
     pathname.startsWith("/login") ||
     pathname.startsWith("/register") ||
     pathname.startsWith("/api/auth") ||
-    pathname.startsWith("/api/cron/");
+    pathname.startsWith("/api/cron/") ||
+    // The remote MCP connector authenticates itself via OAuth 2.1 inside the
+    // route (withMcpAuth), so it must bypass the session-cookie gate here.
+    pathname.startsWith("/api/mcp");
 
   if (!isPublicRoute) {
     const sessionCookie = getSessionCookie(request);

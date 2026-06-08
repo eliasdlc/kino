@@ -1,6 +1,5 @@
 import { z } from 'zod';
-import { kinoFetch } from '../client.js';
-export function registerEnergyTools(server) {
+export function registerEnergyTools(server, kinoFetch) {
     server.tool('get_energy_checkin', 'Obtiene el check-in de energía del usuario para hoy (nivel actual y calidad de sueño), si ya lo registró.', {}, async () => {
         const checkin = await kinoFetch('/api/energy/checkin');
         return { content: [{ type: 'text', text: JSON.stringify(checkin, null, 2) }] };

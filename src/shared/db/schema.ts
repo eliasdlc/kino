@@ -14,6 +14,7 @@ import {
   timestamp,
   date,
   time,
+  jsonb,
   pgEnum,
   uniqueIndex,
   primaryKey,
@@ -329,6 +330,161 @@ export const verifications = pgTable(
   },
   (table) => [
     index('idx_verifications_identifier').on(table.identifier),
+  ],
+);
+
+// ── jwks (Better Auth — jwt plugin) ──
+// Signing keys for OAuth/OIDC access tokens. Better Auth manages this table.
+
+export const jwks = pgTable('jwks', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  publicKey: text('public_key').notNull(),
+  privateKey: text('private_key').notNull(),
+  createdAt: timestamp('created_at', { withTimezone: true })
+    .notNull()
+    .defaultNow(),
+  expiresAt: timestamp('expires_at', { withTimezone: true }),
+});
+
+// ── oauth_clients (Better Auth — oauth-provider plugin) ──
+// OAuth 2.1 clients (model "oauthClient"). Includes dynamically-registered
+// public clients such as Claude's MCP connector. Better Auth manages this table.
+
+export const oauthClients = pgTable(
+  'oauth_clients',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    clientId: varchar('client_id', { length: 255 }).notNull().unique(),
+    clientSecret: text('client_secret'),
+    disabled: boolean('disabled').default(false),
+    skipConsent: boolean('skip_consent'),
+    enableEndSession: boolean('enable_end_session'),
+    subjectType: varchar('subject_type', { length: 50 }),
+    scopes: jsonb('scopes'),
+    userId: uuid('user_id').references(() => users.id, {
+      onDelete: 'cascade',
+    }),
+    name: varchar('name', { length: 255 }),
+    uri: text('uri'),
+    icon: text('icon'),
+    contacts: jsonb('contacts'),
+    tos: text('tos'),
+    policy: text('policy'),
+    softwareId: varchar('software_id', { length: 255 }),
+    softwareVersion: varchar('software_version', { length: 100 }),
+    softwareStatement: text('software_statement'),
+    redirectUris: jsonb('redirect_uris').notNull(),
+    postLogoutRedirectUris: jsonb('post_logout_redirect_uris'),
+    tokenEndpointAuthMethod: varchar('token_endpoint_auth_method', {
+      length: 50,
+    }),
+    grantTypes: jsonb('grant_types'),
+    responseTypes: jsonb('response_types'),
+    public: boolean('public'),
+    type: varchar('type', { length: 50 }),
+    requirePKCE: boolean('require_pkce'),
+    referenceId: varchar('reference_id', { length: 255 }),
+    metadata: jsonb('metadata'),
+    createdAt: timestamp('created_at', { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+    updatedAt: timestamp('updated_at', { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (table) => [index('idx_oauth_clients_user').on(table.userId)],
+);
+
+// ── oauth_refresh_tokens (Better Auth — oauth-provider plugin) ──
+
+export const oauthRefreshTokens = pgTable(
+  'oauth_refresh_tokens',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    token: text('token').notNull().unique(),
+    clientId: varchar('client_id', { length: 255 })
+      .notNull()
+      .references(() => oauthClients.clientId, { onDelete: 'cascade' }),
+    sessionId: uuid('session_id').references(() => sessions.id, {
+      onDelete: 'set null',
+    }),
+    userId: uuid('user_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    referenceId: varchar('reference_id', { length: 255 }),
+    scopes: jsonb('scopes').notNull(),
+    authTime: timestamp('auth_time', { withTimezone: true }),
+    revoked: timestamp('revoked', { withTimezone: true }),
+    expiresAt: timestamp('expires_at', { withTimezone: true }).notNull(),
+    createdAt: timestamp('created_at', { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (table) => [
+    index('idx_oauth_refresh_client').on(table.clientId),
+    index('idx_oauth_refresh_session').on(table.sessionId),
+    index('idx_oauth_refresh_user').on(table.userId),
+  ],
+);
+
+// ── oauth_access_tokens (Better Auth — oauth-provider plugin) ──
+
+export const oauthAccessTokens = pgTable(
+  'oauth_access_tokens',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    token: text('token').notNull().unique(),
+    clientId: varchar('client_id', { length: 255 })
+      .notNull()
+      .references(() => oauthClients.clientId, { onDelete: 'cascade' }),
+    sessionId: uuid('session_id').references(() => sessions.id, {
+      onDelete: 'set null',
+    }),
+    userId: uuid('user_id').references(() => users.id, {
+      onDelete: 'cascade',
+    }),
+    referenceId: varchar('reference_id', { length: 255 }),
+    refreshId: uuid('refresh_id').references(() => oauthRefreshTokens.id, {
+      onDelete: 'cascade',
+    }),
+    scopes: jsonb('scopes').notNull(),
+    expiresAt: timestamp('expires_at', { withTimezone: true }).notNull(),
+    createdAt: timestamp('created_at', { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (table) => [
+    index('idx_oauth_access_client').on(table.clientId),
+    index('idx_oauth_access_session').on(table.sessionId),
+    index('idx_oauth_access_user').on(table.userId),
+    index('idx_oauth_access_refresh').on(table.refreshId),
+  ],
+);
+
+// ── oauth_consents (Better Auth — oauth-provider plugin) ──
+
+export const oauthConsents = pgTable(
+  'oauth_consents',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    clientId: varchar('client_id', { length: 255 })
+      .notNull()
+      .references(() => oauthClients.clientId, { onDelete: 'cascade' }),
+    userId: uuid('user_id').references(() => users.id, {
+      onDelete: 'cascade',
+    }),
+    referenceId: varchar('reference_id', { length: 255 }),
+    scopes: jsonb('scopes').notNull(),
+    createdAt: timestamp('created_at', { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+    updatedAt: timestamp('updated_at', { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (table) => [
+    index('idx_oauth_consents_client').on(table.clientId),
+    index('idx_oauth_consents_user').on(table.userId),
   ],
 );
 

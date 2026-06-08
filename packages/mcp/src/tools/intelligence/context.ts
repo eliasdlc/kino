@@ -1,7 +1,7 @@
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
-import { kinoFetch } from '../../client.js';
+import type { KinoFetch } from '../../client.js';
 
-export function registerContextTools(server: McpServer) {
+export function registerContextTools(server: McpServer, kinoFetch: KinoFetch) {
   server.tool(
     'get_user_context',
     'Returns a full snapshot of the user\'s Kino state: systems, today\'s tasks, current energy level, and the top behavioral pattern detected. Use this as a first call before reasoning about tasks.',

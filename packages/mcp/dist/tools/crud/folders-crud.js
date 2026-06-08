@@ -1,10 +1,9 @@
 import { z } from 'zod';
-import { kinoFetch } from '../../client.js';
 const color = z
     .enum(['red', 'blue', 'pink', 'purple', 'green', 'orange', 'yellow', 'teal', 'gray', 'black', 'white'])
     .optional()
     .describe('Color de la carpeta');
-export function registerFolderCrudTools(server) {
+export function registerFolderCrudTools(server, kinoFetch) {
     server.tool('list_folders', 'Lista las carpetas de un sistema en Kino (jerarquía de organización de tareas y páginas)', {
         systemId: z.string().uuid().describe('UUID del sistema'),
     }, async ({ systemId }) => {

@@ -1,6 +1,6 @@
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { z } from 'zod';
-import { kinoFetch } from '../../client.js';
+import type { KinoFetch } from '../../client.js';
 
 const energyLevel = z
   .enum(['high', 'medium', 'low'])
@@ -14,7 +14,7 @@ const taskStatus = z
     'Estado de la tarea. Si no se especifica startDate ni status, usa "week" para que la tarea aparezca en la Action View (hoy + 7 días). Usa "backlog" solo para ideas o trabajo sin fecha definida.',
   );
 
-export function registerTaskCrudTools(server: McpServer) {
+export function registerTaskCrudTools(server: McpServer, kinoFetch: KinoFetch) {
   server.tool(
     'list_tasks',
     'Lista tareas del usuario en Kino con filtros opcionales',

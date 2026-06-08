@@ -1,8 +1,8 @@
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { z } from 'zod';
-import { kinoFetch } from '../../client.js';
+import type { KinoFetch } from '../../client.js';
 
-export function registerClassifyTools(server: McpServer) {
+export function registerClassifyTools(server: McpServer, kinoFetch: KinoFetch) {
   server.tool(
     'classify_task',
     'Suggests the best system and priority for a task based on its title and description. Uses keyword matching against the user\'s systems. Confidence can be "high", "medium", or "low".',

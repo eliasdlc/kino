@@ -1,8 +1,8 @@
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { z } from 'zod';
-import { kinoFetch } from '../../client.js';
+import type { KinoFetch } from '../../client.js';
 
-export function registerSuggestTools(server: McpServer) {
+export function registerSuggestTools(server: McpServer, kinoFetch: KinoFetch) {
   server.tool(
     'suggest_next_action',
     'Returns the top N tasks the user should work on next, ranked by importance score (priority + urgency + age). Optionally filter by energy level to match current capacity.',

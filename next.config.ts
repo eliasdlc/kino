@@ -16,6 +16,8 @@ const nextConfig: NextConfig = {
 
   },
   reactStrictMode: true,
+  // Workspace package shipping ESM tool definitions reused by the /api/mcp route.
+  transpilePackages: ["@kino-app/mcp"],
 };
 
 export default withPWA(nextConfig);

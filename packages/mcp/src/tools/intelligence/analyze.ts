@@ -1,8 +1,8 @@
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { z } from 'zod';
-import { kinoFetch } from '../../client.js';
+import type { KinoFetch } from '../../client.js';
 
-export function registerAnalyzeTools(server: McpServer) {
+export function registerAnalyzeTools(server: McpServer, kinoFetch: KinoFetch) {
   server.tool(
     'detect_patterns',
     'Analyzes recent behavior and returns the most urgent productivity pattern detected (overload, abandonment, disorganization, or underuse) along with a suggested corrective action.',

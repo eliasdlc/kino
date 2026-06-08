@@ -1,8 +1,8 @@
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { z } from 'zod';
-import { kinoFetch } from '../../client.js';
+import type { KinoFetch } from '../../client.js';
 
-export function registerTaskBulkTools(server: McpServer) {
+export function registerTaskBulkTools(server: McpServer, kinoFetch: KinoFetch) {
   server.tool(
     'bulk_move_tasks',
     'Mueve múltiples tareas al mismo estado en una sola operación (máximo 50)',
