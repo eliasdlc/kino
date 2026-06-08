@@ -1,0 +1,21 @@
+name: Task reminders
+
+# Vercel Hobby only allows one cron run per day, so the every-6h reminder job
+# runs from GitHub Actions (free) instead, hitting the same authenticated route.
+on:
+  schedule:
+    - cron: "0 */6 * * *" # every 6 hours (UTC)
+  workflow_dispatch: {} # allow manual runs for testing
+
+jobs:
+  trigger:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Call task-reminders endpoint
+        run: |
+          code=$(curl -s -o /tmp/body -w "%{http_code}" \
+            -H "Authorization: Bearer ${{ secrets.CRON_SECRET }}" \
+            "https://www.usekino.dev/api/cron/task-reminders")
+          echo "HTTP $code"
+          cat /tmp/body
+          test "$code" = "200"
