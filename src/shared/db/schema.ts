@@ -172,6 +172,18 @@ export const sleepQualityEnum = pgEnum('sleep_quality', [
   'poor',
 ]);
 
+export const checkinSlotEnum = pgEnum('checkin_slot', [
+  'morning',
+  'afternoon',
+  'evening',
+]);
+
+export const predictionAccuracyEnum = pgEnum('prediction_accuracy', [
+  'accurate',
+  'partial',
+  'inaccurate',
+]);
+
 // ============================================================================
 // Tables
 // ============================================================================
@@ -546,6 +558,26 @@ export const contextTags = pgTable(
   (table) => [index('idx_tags_user').on(table.userId)],
 );
 
+// ── system_status_definitions ──
+// Valid task statuses per system_type. Seeded with defaults; custom systems
+// may add user-defined rows (Phase 4.5).
+
+export const systemStatusDefinitions = pgTable(
+  'system_status_definitions',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    systemType: templateTypeEnum('system_type').notNull(),
+    statusName: varchar('status_name', { length: 50 }).notNull(),
+    label: varchar('label', { length: 100 }).notNull(),
+    position: smallint('position').notNull(),
+    emoji: varchar('emoji', { length: 10 }),
+  },
+  (table) => [
+    uniqueIndex('uq_system_status').on(table.systemType, table.statusName),
+    index('idx_system_status_type').on(table.systemType),
+  ],
+);
+
 // ── tasks ──
 
 export const tasks = pgTable(
@@ -563,7 +595,7 @@ export const tasks = pgTable(
     }),
     title: varchar('title', { length: 500 }).notNull(),
     description: text('description'),
-    status: taskStatusEnum('status').notNull().default('today'),
+    status: varchar('status', { length: 50 }).notNull().default('today'),
     energyLevel: energyLevelEnum('energy_level').notNull().default('medium'),
     priority: taskPriorityEnum('priority').notNull().default('medium'),
     taskType: taskTypeEnum('task_type'),
@@ -583,6 +615,7 @@ export const tasks = pgTable(
     }),
     externalSource: varchar('external_source', { length: 255 }),
     sortIndex: integer('sort_index').notNull().default(0),
+    inTodayPlan: boolean('in_today_plan').notNull().default(false),
     notifiedBeforeDay: boolean('notified_before_day').notNull().default(false),
     notifiedDueDay: boolean('notified_due_day').notNull().default(false),
     reminderCount: integer('reminder_count').notNull().default(0),
@@ -1003,8 +1036,10 @@ export const energyCheckins = pgTable(
       .notNull()
       .references(() => users.id, { onDelete: 'cascade' }),
     date: date('date').notNull(),
+    slot: checkinSlotEnum('slot').notNull().default('morning'),
     currentLevel: smallint('current_level').notNull(),
     sleepQuality: sleepQualityEnum('sleep_quality').notNull(),
+    predictionAccuracy: predictionAccuracyEnum('prediction_accuracy'),
     createdAt: timestamp('created_at', { withTimezone: true })
       .notNull()
       .defaultNow(),
@@ -1014,7 +1049,7 @@ export const energyCheckins = pgTable(
       'checkin_level_range',
       sql`${table.currentLevel} BETWEEN 1 AND 100`,
     ),
-    uniqueIndex('uq_checkin_user_date').on(table.userId, table.date),
+    uniqueIndex('uq_checkin_slot').on(table.userId, table.date, table.slot),
     index('idx_checkin_user').on(table.userId, table.date),
   ],
 );
