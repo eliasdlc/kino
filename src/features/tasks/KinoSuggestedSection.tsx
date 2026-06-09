@@ -3,10 +3,12 @@
 import { useRef, useEffect, useState } from 'react';
 import { Sparkles, RefreshCw, CalendarPlus, AlertCircle } from 'lucide-react';
 import { useQueryClient } from '@tanstack/react-query';
+import { isToday, isTomorrow } from 'date-fns';
 import { cn } from '@/lib/utils';
 import { useSuggestedTasks, useAddToTodayPlan, useToggleTodayTask, suggestedTasksKey, type SuggestedTask } from './tasks.hooks';
 import { TaskDetailSheet } from './TaskDetailSheet';
 import type { Task } from './tasks.types';
+import { parseDueDate } from './tasks.utils';
 
 const PRIORITY_BADGE: Record<string, string> = {
   critical: 'bg-red-500/15 text-red-400 ring-red-500/25',
@@ -27,11 +29,9 @@ function todayKey() {
 
 function dueDateLabel(dueDate: string | null): string {
   if (!dueDate) return '';
-  const today = new Date().toISOString().slice(0, 10);
-  const tomorrow = new Date(Date.now() + 86_400_000).toISOString().slice(0, 10);
-  if (dueDate === today) return 'hoy';
-  if (dueDate === tomorrow) return 'mañana';
-  const d = new Date(dueDate + 'T00:00:00');
+  const d = parseDueDate(dueDate);
+  if (isToday(d)) return 'hoy';
+  if (isTomorrow(d)) return 'mañana';
   return d.toLocaleDateString('es', { day: 'numeric', month: 'short' });
 }
 

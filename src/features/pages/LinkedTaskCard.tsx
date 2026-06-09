@@ -1,7 +1,8 @@
 "use client";
 
 import { cn } from "@/lib/utils";
-import { format, parseISO, differenceInCalendarDays } from "date-fns";
+import { format, differenceInCalendarDays } from "date-fns";
+import { parseDueDate } from "@/features/tasks/tasks.utils";
 import { Pencil, X } from "lucide-react";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { getTaskTypeConfig } from "@/features/tasks/task-type-config";
@@ -40,8 +41,8 @@ export function LinkedTaskCard({ task, onToggle, onEdit, onUnlink }: LinkedTaskC
   // Due date urgency
   const dueInfo = (() => {
     if (!task.dueDate) return null;
-    const days = differenceInCalendarDays(parseISO(task.dueDate), new Date());
-    const label = format(parseISO(task.dueDate), "MMM d");
+    const days = differenceInCalendarDays(parseDueDate(task.dueDate), new Date());
+    const label = format(parseDueDate(task.dueDate), "MMM d");
     if (days < 0) return { label: `Overdue · ${label}`, color: "text-red-400" };
     if (days === 0) return { label: `Today · ${label}`, color: "text-red-400" };
     if (days === 1) return { label: `Tomorrow · ${label}`, color: "text-amber-400" };

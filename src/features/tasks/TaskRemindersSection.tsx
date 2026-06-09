@@ -9,6 +9,7 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
 import type { Task } from './tasks.types';
+import { parseDueDate } from './tasks.utils';
 import { useTaskReminders, useCreateTaskReminder, useDeleteTaskReminder } from './tasks.hooks';
 
 interface Props {
@@ -33,7 +34,7 @@ export function TaskRemindersSection({ task }: Props) {
 
   function handlePreset(days: number, label: string) {
     if (!task.dueDate) return;
-    const remindAt = subDays(parseISO(task.dueDate), days);
+    const remindAt = subDays(parseDueDate(task.dueDate), days);
     remindAt.setUTCHours(9, 0, 0, 0);
     createReminder({ remindAt: remindAt.toISOString(), label }, { onSuccess: () => setOpen(false) });
   }

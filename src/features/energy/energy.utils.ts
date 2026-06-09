@@ -1,4 +1,5 @@
-import { differenceInCalendarDays, parseISO } from 'date-fns';
+import { differenceInCalendarDays } from 'date-fns';
+import { parseDueDate } from '@/features/tasks/tasks.utils';
 import type { Task } from '@/features/tasks/tasks.types';
 
 // ── Cronotipos y calidad de sueño ──────────────────────────────────────────
@@ -99,7 +100,7 @@ const PRIORITY_SCORE: Record<string, number> = {
 
 function urgencyScore(dueDate: string | null | undefined, today: Date): number {
   if (!dueDate) return 0;
-  const due = parseISO(dueDate);
+  const due = parseDueDate(dueDate);
   const daysDiff = differenceInCalendarDays(due, today);
   if (daysDiff < 0) return 100;
   if (daysDiff === 0) return 80;

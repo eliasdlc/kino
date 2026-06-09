@@ -1,4 +1,5 @@
-import { parseISO, differenceInCalendarDays, startOfToday } from 'date-fns';
+import { differenceInCalendarDays, startOfToday } from 'date-fns';
+import { parseDueDate } from '@/features/tasks/tasks.utils';
 import type { Task } from '@/features/tasks/tasks.types';
 
 // ── Types ──────────────────────────────────────────────────────────────────
@@ -82,7 +83,7 @@ export function applyFilters(tasks: Task[], f: TaskFilters): Task[] {
     if (f.energy.length && !f.energy.includes(t.energyLevel ?? '')) return false;
     if (f.type.length && !f.type.includes(t.taskType ?? '')) return false;
     if (f.dateRange) {
-      const due = t.dueDate ? parseISO(t.dueDate) : null;
+      const due = t.dueDate ? parseDueDate(t.dueDate) : null;
       if (f.dateRange === 'no-date' && due !== null) return false;
       if (f.dateRange === 'has-date' && due === null) return false;
       if (f.dateRange === 'overdue') {
