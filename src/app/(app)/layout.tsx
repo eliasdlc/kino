@@ -14,7 +14,9 @@ import { InstallPrompt } from "@/components/InstallPrompt";
 import { GlobalCommandPalette } from "@/features/command-palette/GlobalCommandPalette";
 import { GlobalQuickAddDialog } from "@/features/tasks/GlobalQuickAddDialog";
 import { GlobalNavigationShortcuts } from "@/features/command-palette/GlobalNavigationShortcuts";
+import { FocusTimerProvider } from "@/features/tasks/FocusTimerProvider";
 import { FocusTimerWidget } from "@/features/tasks/FocusTimerWidget";
+import { FocusTimerModeDialog } from "@/features/tasks/FocusTimerModeDialog";
 
 export default async function AppLayout({
   children,
@@ -35,27 +37,30 @@ export default async function AppLayout({
 
   return (
     <Providers>
-      <SidebarProvider>
-        <div className="flex h-screen w-full overflow-hidden">
-          <SystemsSidebar
-            userName={session.user.name}
-            userEmail={session.user.email}
-            userImage={session.user.image}
-          />
-          <div className="flex flex-col flex-1 min-w-0 overflow-hidden">
-            <MobileHeader />
-            <main className="flex-1 overflow-y-auto bg-background pb-16 md:pb-0">
-              {children}
-            </main>
-            <BottomNav />
+      <FocusTimerProvider>
+        <SidebarProvider>
+          <div className="flex h-screen w-full overflow-hidden">
+            <SystemsSidebar
+              userName={session.user.name}
+              userEmail={session.user.email}
+              userImage={session.user.image}
+            />
+            <div className="flex flex-col flex-1 min-w-0 overflow-hidden">
+              <MobileHeader />
+              <main className="flex-1 overflow-y-auto bg-background pb-16 md:pb-0">
+                {children}
+              </main>
+              <BottomNav />
+            </div>
           </div>
-        </div>
-      </SidebarProvider>
-      <GlobalCommandPalette />
-      <GlobalQuickAddDialog />
-      <GlobalNavigationShortcuts />
-      <FocusTimerWidget />
-      <InstallPrompt />
+        </SidebarProvider>
+        <GlobalCommandPalette />
+        <GlobalQuickAddDialog />
+        <GlobalNavigationShortcuts />
+        <FocusTimerWidget />
+        <FocusTimerModeDialog />
+        <InstallPrompt />
+      </FocusTimerProvider>
     </Providers>
   );
 }

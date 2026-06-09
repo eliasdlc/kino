@@ -192,6 +192,8 @@ Dashboard          → Tu plan comprometido para hoy. Lo que YA decidiste hacer.
 
 **No tocar**: `schema.ts` (será refactorizado en Fase 0.5).
 
+> **Commit**: `docs(repo): honestidad del repo — features reales vs roadmap (fase 0)`
+
 ---
 
 ### Fase 0.5 — Arquitectura de system_type
@@ -225,6 +227,8 @@ Problema: si `academic` necesita `'studying' | 'draft' | 'submitted' | 'feedback
 - Backfill: si existen systems, asignarles un `type` por defecto (p. ej. `'personal'`).
 - `tasks.status` existentes se mapean al nuevo enum: `'backlog' → 'backlog'`, etc.
 
+> **Commit**: `feat(schema): tasks.status a VARCHAR + system_status_definitions (fase 0.5.1)`
+
 #### 0.5.2 SYSTEM_TYPE_CONFIG — centralizar identidad de cada tipo
 
 Crear archivo `lib/system-types.ts` con la configuración completa de cada tipo:
@@ -248,6 +252,8 @@ export const SYSTEM_TYPE_CONFIG = {
 - View de sistema: qué layout usar depende de type.
 - Advisor: mensajes templates según type.
 
+> **Commit**: `feat(system-types): SYSTEM_TYPE_CONFIG centralizado (fase 0.5.2)`
+
 #### 0.5.3 Providers y utilities
 
 - `<SystemTypeProvider>`: proporciona `SYSTEM_TYPE_CONFIG` globalmente.
@@ -256,6 +262,8 @@ export const SYSTEM_TYPE_CONFIG = {
 - `getRequiredFieldsFor(systemType)`: retorna array de campos obligatorios.
 - Validador Zod discriminado por `systemType`.
 
+> **Commit**: `feat(system-types): SystemTypeProvider + utilities (fase 0.5.3)`
+
 #### 0.5.4 Migrations de datos
 
 Si hay systems existentes sin `type`:
@@ -263,6 +271,8 @@ Si hay systems existentes sin `type`:
 - O: UI de bienvenida pide al usuario elegir el type de cada sistema.
 
 **No tocar funcionalidad existente en esta fase** — solo infraestructura.
+
+> **Commit**: `feat(schema): migración datos system_type default personal (fase 0.5.4)`
 
 ---
 
@@ -304,6 +314,8 @@ Establecer el layout fijo antes de tocar ninguna card:
 - **Proporciones**: panel principal (Plan de hoy) ~60% del área útil vertical. Panel derecho: energía 55% superior, advisor 45% inferior. Fila inferior fija en ~180px. Usar `clamp()` para que no se rompa en 1024px.
 - `EnergyAdvisorBanner` (Fase 1.5) se extrae y coloca en el panel derecho superior.
 
+> **Commit**: `feat(dashboard): layout sin scroll CSS Grid 100dvh (fase 1.1)`
+
 ---
 
 #### 1.2 "Plan de hoy" → Quest interactivo
@@ -336,6 +348,8 @@ Establecer el layout fijo antes de tocar ninguna card:
 - `energy.planner.ts` genera `energyPlan.items` con slots. Añadir campo `breakAfterItem?: boolean` calculado cuando la curva cae >15 puntos entre slots consecutivos.
 - UI: separador visual entre tareas con el texto *"Pausa sugerida aquí (tu energía baja a las 15h)"*, no texto fijo genérico.
 
+> **Commit**: `feat(dashboard): plan de hoy interactivo — quest mode + acciones inline (fase 1.2)`
+
 ---
 
 #### 1.3 Módulo de energía — gráfica legible + multi-checkin + feedback
@@ -361,6 +375,8 @@ Establecer el layout fijo antes de tocar ninguna card:
 
 **Cambios de schema** (ver Decisión técnica 8 — migración triple, misma PR).
 
+> **Commit**: `feat(energy): gráfica Recharts + multi-checkin + feedback predicción (fase 1.3)`
+
 ---
 
 #### 1.4 "Kino te conoce" y "Últimos 7 días" — datos accionables
@@ -381,6 +397,8 @@ Establecer el layout fijo antes de tocar ninguna card:
 
 **Ambas secciones van colapsadas si hay tareas pendientes en el plan.** El plan tiene prioridad visual.
 
+> **Commit**: `feat(dashboard): insights y tendencias semanales accionables (fase 1.4)`
+
 ---
 
 #### 1.5 EnergyAdvisorBanner — componente reutilizable
@@ -392,6 +410,8 @@ Establecer el layout fijo antes de tocar ninguna card:
 - Aparece en: dashboard (panel derecho), `/systems/[id]` (encima de tabs), `/tasks` (encima de la lista).
 - En `TaskActionView`: resaltar con ring/badge la columna activa (High/Medium/Low) según `projectedCurve` + hora actual.
 - **Nota de ejecución**: este componente (1.5) debe estar completo antes de iniciar Fase 2, ya que `/tasks` lo consume.
+
+> **Commit**: `feat(dashboard): EnergyAdvisorBanner reutilizable + integración completa (fase 1.5)`
 
 ---
 
@@ -447,6 +467,8 @@ Al entrar a `/tasks` por primera vez en el día, Kino genera automáticamente un
 - El usuario puede agregar/quitar tareas de este plan de hoy (mismas tareas con `dueDate = CURRENT_DATE` que el dashboard).
 - Es la misma data que el Dashboard Plan de hoy — son dos vistas del mismo plan, no dos planes distintos.
 
+> **Commit**: `feat(tasks): Smart Daily Focus — plan sugerido Kino + quest mode (fase 2.1)`
+
 ---
 
 #### 2.2 Lista completa con filtros y legibilidad
@@ -478,6 +500,8 @@ Toggle lista/grid/board en el header (iconos). El grid usa altura mínima de 2 l
 - Contador: *"42 tareas · 3 filtros activos"*.
 - Tareas vencidas: borde izquierdo rojo + badge, no solo texto rojo.
 - Al completar desde esta vista: animación de salida suave (no desaparece instantáneamente).
+
+> **Commit**: `feat(tasks): lista con filtros dinámicos y legibilidad (fase 2.2)`
 
 ---
 
@@ -535,6 +559,8 @@ Los campos de una tarea tienen 3 momentos naturales:
 - `entrepreneurial`: `energy = high`, `priority = critical`, `type = 'task'`
 - `personal`: `energy = flexible`, `type = 'task'`
 
+> **Commit**: `feat(tasks): CreateTaskDialog progresivo 3 pasos + react-hook-form (fase 3.1)`
+
 ---
 
 #### 3.2 EstimatedTime — pill selector
@@ -553,6 +579,8 @@ Reemplaza el `<input type="number">`:
 - En TaskCard y en la lista: si tiene estimación, muestra `~30m` junto al timer.
 - El valor es el que usa el Pomodoro para el countdown.
 
+> **Commit**: `feat(tasks): EstimatedTimePicker pill selector (fase 3.2)`
+
 ---
 
 #### 3.3 task_type con comportamiento real
@@ -569,9 +597,11 @@ Reemplaza el `<input type="number">`:
 
 **Schema**: sin columnas nuevas. El `taskTypeEnum` ya existe. Cambios en `tasks.service.ts` y `TaskCard.tsx`.
 
+> **Commit**: `feat(tasks): task_type con comportamiento real — tipos, iconos, service (fase 3.3)`
+
 ---
 
-### Fase 4 — Vistas dinámicas por system_type (reemplaza el funnel global)
+### Fase 4 — Vistas dinámicas por system_type (reemplaza el funnel global) ⚡ EN PROGRESO
 
 **Depende de**: Fase 0.5.
 **Ataca**: A2 (system_type sin efecto), A4, A5 — funnel genérico que no sirve a nadie.
@@ -596,7 +626,7 @@ Reemplaza el `<input type="number">`:
 
 ---
 
-#### 4.1 SystemAcademicView — Timeline de entregas
+#### ✅ 4.1 SystemAcademicView — Timeline de entregas
 
 **Vista principal**: Calendario semanal horizontal (similar a Google Calendar).
 
@@ -620,9 +650,11 @@ Reemplaza el `<input type="number">`:
 - Sin tareas: *"Importa tu syllabus o agrega entregas manualmente. → Crear tarea"*
 - Sin entregas esta semana: *"Semana libre — momento para adelantar o descansar."*
 
+> **Commit**: `feat(systems): SystemAcademicView — timeline de entregas (fase 4.1)`
+
 ---
 
-#### 4.2 SystemProfessionalView — Kanban de proyectos
+#### ✅ 4.2 SystemProfessionalView — Kanban de proyectos
 
 **Vista principal**: Kanban con columnas = estados (`backlog | planned | in-progress | blocked | review | done`).
 
@@ -646,9 +678,11 @@ Reemplaza el `<input type="number">`:
 - Sin tareas en `in-progress`: *"¿Hoy qué priorizas? Arrastra desde Planned."*
 - Sin tareas en `blocked`: *"Sin bloqueadores — flujo limpio."*
 
+> **Commit**: `feat(systems): SystemProfessionalView — kanban de proyectos (fase 4.2)`
+
 ---
 
-#### 4.3 SystemEntrepreneurialView — Progress hacia milestones
+#### ✅ 4.3 SystemEntrepreneurialView — Progress hacia milestones
 
 **Vista principal**: Milestones como filas. Tareas como sub-items dentro de cada milestone.
 
@@ -675,9 +709,11 @@ Reemplaza el `<input type="number">`:
 - Sin milestones: *"Crea el primer milestone de tu startup. → Nuevo milestone"*
 - Milestone sin tareas: *"Ninguna tarea aún. → Agregar."*
 
+> **Commit**: `feat(systems): SystemEntrepreneurialView — milestones y progreso (fase 4.3)`
+
 ---
 
-#### 4.4 SystemPersonalView — Lista flexible + recurrencia
+#### ✅ 4.4 SystemPersonalView — Lista flexible + recurrencia
 
 **Vista principal**: Lista simple (no kanban, no timeline). Agrupable por prioridad/energía/fecha.
 
@@ -702,9 +738,11 @@ Reemplaza el `<input type="number">`:
 - Sin tareas: *"Empieza tu día. → Crear tarea rápida"*
 - Todas completadas: *"¡Hiciste todo! Celebra."* + confeti.
 
+> **Commit**: `feat(systems): SystemPersonalView — lista flexible + recurrencia (fase 4.4)`
+
 ---
 
-#### 4.5 SystemCustomView — Configurador y lienzo del usuario
+#### ✅ 4.5 SystemCustomView — Configurador y lienzo del usuario (skeleton)
 
 **Para `system_type = 'custom'`**: el usuario define todo.
 
@@ -727,9 +765,11 @@ Vista: List
 **Empty states**:
 - Sin estados: *"Define los estados de tu sistema primero."* → link a settings.
 
+> **Commit**: `feat(systems): SystemCustomView — configurador de sistemas custom (fase 4.5)`
+
 ---
 
-#### 4.6 Validaciones de coherencia (todas las vistas)
+#### ✅ 4.6 Validaciones de coherencia (todas las vistas)
 
 > **🔧** `DECISIONS.md` §4.6 — Zod `.superRefine()` con reglas específicas por type.
 
@@ -748,9 +788,11 @@ Vista: List
 - `dueDate = hoy` con `startDate > hoy` → warning en TaskDetailSheet.
 - Tarea `paused` >30 días → nudge: *"¿Cancelamos esta?"*
 
+> **Commit**: `feat(tasks): validaciones coherencia por system_type (fase 4.6)`
+
 ---
 
-#### 4.7 TaskCard adaptativo
+#### ✅ 4.7 TaskCard adaptativo
 
 **Un solo componente** `<TaskCard>` que cambia por `system.type`:
 
@@ -774,9 +816,11 @@ Reutiliza:
 - Campos visibles
 - Botones de acción (algunos types no muestran "snooze", otros sí)
 
+> **Commit**: `feat(tasks): TaskCard adaptativo por system_type (fase 4.7)`
+
 ---
 
-#### 4.8 Migraciones de datos (Fase 4)
+#### ✅ 4.8 Migraciones de datos (Fase 4)
 
 **Cambio de status enum (Fase 0.5, pero completado aquí)**:
 - Migración SQL: cambiar tipo de `tasks.status` a VARCHAR en todas las vistas.
@@ -787,9 +831,11 @@ Reutiliza:
 - Script: asigna `type = 'personal'` a todos (default).
 - UI de bienvenida: pide al usuario elegir el type real de cada sistema la próxima vez que lo abre.
 
+> **Commit**: `feat(schema): migraciones datos status + system_type (fase 4.8)`
+
 ---
 
-### Fase 5 — Timer: Pomodoro real integrado con energía
+### ✅ Fase 5 — Timer: Pomodoro real integrado con energía
 
 **Depende de**: Fases 3-4 estabilizadas.
 **Ataca**: C7, A8.
@@ -834,6 +880,8 @@ Toast persistente (no desaparece solo, no bloquea el flujo):
 - Hora del día de las sesiones → refuerza o corrige el cronotipo detectado.
 - Resultado acumulativo: con ~2 semanas de uso, la curva predicha converge a la real sin que el usuario haga nada extra.
 
+> **Commit**: `feat(timer): Pomodoro real — auto-stop + audio + session recap energía (fase 5.1)`
+
 ---
 
 #### 5.2 Visibilidad de tiempo acumulado
@@ -843,6 +891,8 @@ Toast persistente (no desaparece solo, no bloquea el flujo):
 - `TaskDetailSheet` → sección "Tiempo registrado": suma de `timeLogs` de esa tarea → *"3h 20min en total · 4 sesiones"*.
 - `/systems/[id]` → panel colapsable "Tiempo esta semana": top 5 tareas por tiempo + sparkline de `systemHealth`.
 - Settings/Perfil → curva de energía aprendida vs. genérica + patrones detectados. **Nota**: `getTopPattern` hoy es un alias de `getTodayAdvisor` — requiere implementar una query real que cruce `timeLogs` + `energyCheckins` para detectar franjas horarias de mayor productividad. Implementar como parte de esta fase.
+
+> **Commit**: `feat(timer): visibilidad tiempo acumulado + sparkline por sistema (fase 5.2)`
 
 ---
 
@@ -869,6 +919,8 @@ Toast persistente (no desaparece solo, no bloquea el flujo):
 - `systems.service.ts`: añadir `getSystemHealthIndicator(systemId)` usando `systemHealth` + `expectedFrequency`.
 - `trigger_context` y `description`: mostrarlos en `SystemDetailHeader` como texto colapsable (visibles para el usuario, no solo metadatos para MCP).
 - Sin columnas nuevas.
+
+> **Commit**: `feat(systems): system_type con comportamiento real — scheduling + advisor (fase 6.1)`
 
 ---
 

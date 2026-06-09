@@ -1,6 +1,6 @@
 import { db } from "@/shared/db";
 import { tasks, users, userSettings, systems, folders, timeLogs, taskReminders } from "@/shared/db/schema";
-import { and, eq, isNull, sql } from "drizzle-orm";
+import { and, eq, isNull, sql, sum, count } from "drizzle-orm";
 import { NotFoundError, ValidationError } from "@/shared/utils/error";
 import { validateTransition, type TaskStatus, type TransitionAction } from "./tasks.state-machine";
 import { Task, CreateTaskInput, UpdateTaskInput } from "./tasks.types";
@@ -366,12 +366,12 @@ export async function updateTask(taskId: string, userId: string, data: UpdateTas
     }
   }
 
-  // Auto-derive status when startDate or taskType changes (skip for terminal tasks)
-  if (data.startDate !== undefined || data.taskType !== undefined) {
-    if (!(["done", "archived"] as string[]).includes(current.status)) {
+  // Auto-derive status when startDate or taskType changes (skip when status is explicit or task is terminal)
+  const hasExplicitStatus = data.status !== undefined;
+  if (!hasExplicitStatus && (data.startDate !== undefined || data.taskType !== undefined)) {
+    if (!["done", "archived"].includes(current.status)) {
       const effectiveType = data.taskType ?? current.taskType;
       if (effectiveType === "idea") {
-        // Changing to idea forces backlog
         data = { ...data, status: "backlog" } as UpdateTaskInput;
       } else if (data.startDate !== undefined) {
         data = { ...data, status: deriveStatusFromDate(data.startDate) } as UpdateTaskInput;
@@ -588,6 +588,23 @@ export async function bulkCreateTasks(
     results.push(task);
   }
   return results;
+}
+
+export async function getTimeLogSummary(
+  taskId: string,
+  userId: string,
+): Promise<{ totalMinutes: number; sessionCount: number }> {
+  const [row] = await db
+    .select({
+      totalMinutes: sum(timeLogs.durationMinutes),
+      sessionCount: count(timeLogs.id),
+    })
+    .from(timeLogs)
+    .where(and(eq(timeLogs.taskId, taskId), eq(timeLogs.userId, userId)));
+  return {
+    totalMinutes: Number(row?.totalMinutes ?? 0),
+    sessionCount: Number(row?.sessionCount ?? 0),
+  };
 }
 
 export async function createTimeLog(

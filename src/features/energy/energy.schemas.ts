@@ -5,7 +5,7 @@ export type CheckinSlot = (typeof CHECKIN_SLOTS)[number];
 
 export const createCheckinSchema = z.object({
   currentLevel: z.number().int().min(1).max(100),
-  sleepQuality: z.enum(['good', 'partial', 'poor']),
+  sleepQuality: z.enum(['good', 'partial', 'poor']).default('partial'),
   slot: z.enum(CHECKIN_SLOTS).optional(),
 });
 

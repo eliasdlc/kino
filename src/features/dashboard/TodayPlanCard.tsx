@@ -9,7 +9,7 @@ import {
   useMoveToTomorrow,
   useRemoveFromPlan,
 } from '@/features/tasks/tasks.hooks';
-import { useTimerStore } from '@/features/tasks/timer.store';
+import { useFocusTimer } from '@/features/tasks/FocusTimerProvider';
 import { PlanTaskRow } from './PlanTaskRow';
 import type { EnergyPlanItem } from '@/features/energy/energy.planner';
 
@@ -55,7 +55,7 @@ export function TodayPlanCard({ noProfile, energyItems }: TodayPlanCardProps) {
   const { mutate: toggle } = useToggleTodayTask();
   const { mutate: moveToTomorrow } = useMoveToTomorrow();
   const { mutate: removeFromPlan } = useRemoveFromPlan();
-  const startTimer = useTimerStore((s) => s.startTimer);
+  const { openModeDialog } = useFocusTimer();
 
   const [showConfetti, setShowConfetti] = useState(false);
 
@@ -194,7 +194,7 @@ export function TodayPlanCard({ noProfile, energyItems }: TodayPlanCardProps) {
                   onComplete={() => handleComplete(task.id)}
                   onMoveToTomorrow={() => moveToTomorrow({ taskId: task.id, tomorrow: tomorrowKey() })}
                   onRemove={() => removeFromPlan({ taskId: task.id })}
-                  onStartTimer={() => startTimer(task.id, task.systemId, task.title)}
+                  onStartTimer={() => openModeDialog({ id: task.id, title: task.title, systemId: task.systemId })}
                 />
               </div>
             ))}

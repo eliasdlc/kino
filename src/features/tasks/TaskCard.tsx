@@ -4,17 +4,21 @@ import { useState } from "react";
 import { differenceInCalendarDays, format, isBefore, parseISO, startOfToday } from "date-fns";
 import { ChevronDown, Trash2, Timer } from "lucide-react";
 import { cn } from "@/lib/utils";
-import type { Task } from "./tasks.types";
+import type { Task, TaskMetadata } from "./tasks.types";
 import { SubtaskList } from "./SubtaskList";
 import { useSubtasks } from "./tasks.hooks";
 import { useFolders } from "@/features/folders/folders.hooks";
 import { getSystemColor } from "@/shared/utils/system-colors";
 import { getTaskTypeConfig } from "./task-type-config";
-import { useTimerStore } from "./timer.store";
+import { useFocusTimer } from "./FocusTimerProvider";
+import type { SystemType } from "@/shared/lib/system-types";
 
 interface TaskCardProps {
   task: Task;
   systemId: string;
+  systemType?: SystemType;
+  /** When true, shows drag cursor (actual DnD is handled by parent via useDraggable) */
+  draggable?: boolean;
   isFocused?: boolean;
   onToggle: (taskId: string) => void;
   onDelete: (task: Task) => void;
@@ -138,14 +142,13 @@ function SubtaskProgress({ parentTaskId, systemId }: { parentTaskId: string; sys
   );
 }
 
-export function TaskCard({ task, systemId, isFocused, onToggle, onDelete, onEdit }: TaskCardProps) {
+export function TaskCard({ task, systemId, systemType, draggable, isFocused, onToggle, onDelete, onEdit }: TaskCardProps) {
   const [isExpanded, setIsExpanded] = useState(false);
   const [completing, setCompleting] = useState(false);
 
-  const startTimer = useTimerStore((s) => s.startTimer);
-  const activeTimer = useTimerStore((s) => s.active);
-  const isThisRunning = activeTimer?.taskId === task.id;
-  const anotherRunning = activeTimer !== null && !isThisRunning;
+  const { state: timerState, openModeDialog } = useFocusTimer();
+  const isThisRunning = timerState.taskId === task.id && timerState.phase !== 'idle';
+  const anotherRunning = timerState.phase !== 'idle' && !isThisRunning;
 
   const isDone = task.status === "done";
   const isArchived = task.status === "archived";
@@ -186,7 +189,8 @@ export function TaskCard({ task, systemId, isFocused, onToggle, onDelete, onEdit
         isHigh && "bg-[rgba(180,90,20,0.13)] border-[rgba(230,115,30,0.35)] hover:border-[rgba(230,115,30,0.55)] hover:bg-[rgba(180,90,20,0.18)]",
         isDone && "opacity-45",
         isArchived && "opacity-35",
-        isFocused && "bg-[rgba(99,102,241,0.08)] border-[rgba(99,102,241,0.6)]"
+        isFocused && "bg-[rgba(99,102,241,0.08)] border-[rgba(99,102,241,0.6)]",
+        draggable && "cursor-grab active:cursor-grabbing"
       )}
     >
       {/* Toggle — relative + after: expands hit area to ~44px on mobile without changing layout */}
@@ -229,12 +233,20 @@ export function TaskCard({ task, systemId, isFocused, onToggle, onDelete, onEdit
             {!isDone && !isArchived && (
               <button
                 type="button"
-                onClick={() => !anotherRunning && startTimer(task.id, systemId, task.title)}
+                onClick={() => !anotherRunning && openModeDialog({
+                  id: task.id,
+                  title: task.title,
+                  systemId,
+                  estimatedDuration: task.estimatedTime
+                    ? (() => { const [h, m] = task.estimatedTime!.split(':').map(Number); return h * 60 + m; })()
+                    : null,
+                })}
                 disabled={anotherRunning}
                 className={cn(
-                  "opacity-0 group-hover:opacity-100 motion-safe:transition-opacity",
+                  // Always visible on mobile, hover-only on desktop
+                  "md:opacity-0 md:group-hover:opacity-100 motion-safe:transition-opacity",
                   isThisRunning
-                    ? "text-amber-400 opacity-100"
+                    ? "text-amber-400 md:opacity-100"
                     : anotherRunning
                       ? "text-zinc-700 cursor-not-allowed"
                       : "text-zinc-500 hover:text-amber-400",
@@ -344,7 +356,38 @@ export function TaskCard({ task, systemId, isFocused, onToggle, onDelete, onEdit
                 </span>
               </>
             )}
+
+            {/* System-type metadata chips (4.7) */}
+            {systemType && task.metadata && (() => {
+              const m = task.metadata as TaskMetadata;
+              if (systemType === "academic" && m.course) return (
+                <>
+                  <span className="text-xs text-zinc-700">·</span>
+                  <span className="text-sm text-zinc-500">{m.course}</span>
+                </>
+              );
+              if (systemType === "professional" && (m.assignee || m.project)) return (
+                <>
+                  {m.project && <><span className="text-xs text-zinc-700">·</span><span className="text-sm text-zinc-500">{m.project}</span></>}
+                  {m.assignee && <><span className="text-xs text-zinc-700">·</span><span className="text-sm text-zinc-500">{m.assignee}</span></>}
+                </>
+              );
+              if (systemType === "entrepreneurial" && m.milestone) return (
+                <>
+                  <span className="text-xs text-zinc-700">·</span>
+                  <span className="text-sm text-zinc-500">{m.milestone}</span>
+                </>
+              );
+              return null;
+            })()}
           </span>
+
+          {/* Personal 'why' — always visible as subtitle */}
+          {systemType === "personal" && (task.metadata as TaskMetadata | null)?.why && (
+            <p className="text-xs text-zinc-600 mt-0.5 truncate">
+              {(task.metadata as TaskMetadata).why}
+            </p>
+          )}
         </div>
 
         {isExpanded && (

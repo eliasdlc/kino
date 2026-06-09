@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { bulkMoveSchema, bulkUpdateSchema, bulkCreateTaskSchema, listTasksQuerySchema, createTaskSchema, moveTaskSchema, reorderTasksSchema, updateTaskSchema, createTimeLogSchema } from "./tasks.schemas";
-import { bulkMoveTasks, bulkUpdateTasks, bulkCreateTasks, queryTasks, createTask, deleteTask, getSubtasks, getTaskById, getTasksBySystem, moveTask, reorderTasks, restoreTask, toggleTask, updateTask, createTimeLog } from "./tasks.service";
+import { bulkMoveTasks, bulkUpdateTasks, bulkCreateTasks, queryTasks, createTask, deleteTask, getSubtasks, getTaskById, getTasksBySystem, moveTask, reorderTasks, restoreTask, toggleTask, updateTask, createTimeLog, getTimeLogSummary } from "./tasks.service";
 import { NotFoundError, ValidationError } from "@/shared/utils/error";
 import { getAuthContext } from "@/shared/utils/auth-context";
 
@@ -190,7 +190,7 @@ export async function patchMove(
     }
 
     try {
-        const task = await moveTask(id, parsed.data.status, ctx.userId);
+        const task = await moveTask(id, parsed.data.status as import("./tasks.state-machine").TaskStatus, ctx.userId);
         return NextResponse.json(task);
     } catch (error) {
         if (error instanceof NotFoundError) {
@@ -250,7 +250,7 @@ export async function postBulkMove(request: NextRequest) {
     }
 
     try {
-        await bulkMoveTasks(parsed.data.taskIds, parsed.data.status, ctx.userId);
+        await bulkMoveTasks(parsed.data.taskIds, parsed.data.status as import("./tasks.state-machine").TaskStatus, ctx.userId);
         return new NextResponse(null, { status: 204 });
     } catch (error) {
         if (error instanceof NotFoundError) {
@@ -298,6 +298,22 @@ export async function postReorder(request: NextRequest) {
     await reorderTasks(ctx.userId, parsed.data.ids);
     return new NextResponse(null, { status: 204 });
 }
+export async function getTimeLogSummaryRoute(
+    request: NextRequest,
+    { params }: { params: Promise<{ id: string }> },
+) {
+    const ctx = await getAuthContext(request);
+    if (!ctx) return NextResponse.json({ code: "UNAUTHORIZED", message: "Unauthorized" }, { status: 401 });
+
+    const { id: taskId } = await params;
+    try {
+        const summary = await getTimeLogSummary(taskId, ctx.userId);
+        return NextResponse.json(summary);
+    } catch {
+        return NextResponse.json({ code: "INTERNAL_ERROR", message: "Failed to fetch time logs" }, { status: 500 });
+    }
+}
+
 export async function postTimeLog(
     request: NextRequest,
     { params }: { params: Promise<{ id: string }> },

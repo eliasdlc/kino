@@ -36,13 +36,41 @@ import { useFolders } from "@/features/folders/folders.hooks";
 import { getSystemColor } from "@/shared/utils/system-colors";
 import { TaskTypePicker } from "./TaskTypePicker";
 import type { Task } from "./tasks.types";
-import { useTimerStore } from "./timer.store";
+import { useFocusTimer } from "./FocusTimerProvider";
+import { useQuery } from "@tanstack/react-query";
 
 interface TaskDetailSheetProps {
   task: Task | null;
   systemId: string;
   open: boolean;
   onOpenChange: (open: boolean) => void;
+}
+
+function formatDuration(minutes: number): string {
+  if (minutes < 60) return `${minutes} min`;
+  const h = Math.floor(minutes / 60);
+  const m = minutes % 60;
+  return m > 0 ? `${h}h ${m}min` : `${h}h`;
+}
+
+function TimeLoggedSection({ taskId }: { taskId: string }) {
+  const { data } = useQuery<{ totalMinutes: number; sessionCount: number }>({
+    queryKey: ['time-logs', taskId],
+    queryFn: () => fetch(`/api/tasks/${taskId}/time-logs`).then((r) => r.json()),
+    staleTime: 5 * 60_000,
+  });
+
+  if (!data || data.sessionCount === 0) return null;
+
+  return (
+    <div className="mt-4 pt-4 border-t">
+      <p className="text-xs text-muted-foreground mb-1">Tiempo registrado</p>
+      <p className="text-sm font-medium">
+        {formatDuration(data.totalMinutes)}
+        <span className="text-muted-foreground font-normal"> · {data.sessionCount} sesión{data.sessionCount !== 1 ? 'es' : ''}</span>
+      </p>
+    </div>
+  );
 }
 
 interface TaskDetailFormProps {
@@ -55,10 +83,9 @@ function TaskDetailForm({ task, systemId, onClose }: TaskDetailFormProps) {
   const { mutate: updateTask, isPending } = useUpdateTask(systemId);
   const { data: folders = [] } = useFolders(systemId);
 
-  const startTimer = useTimerStore((s) => s.startTimer);
-  const activeTimer = useTimerStore((s) => s.active);
-  const isThisRunning = activeTimer?.taskId === task.id;
-  const anotherRunning = activeTimer !== null && !isThisRunning;
+  const { state: timerState, openModeDialog } = useFocusTimer();
+  const isThisRunning = timerState.taskId === task.id && timerState.phase !== 'idle';
+  const anotherRunning = timerState.phase !== 'idle' && !isThisRunning;
   const isDone = task.status === "done" || task.status === "archived";
 
   const [title, setTitle] = useState(task.title);
@@ -273,12 +300,14 @@ function TaskDetailForm({ task, systemId, onClose }: TaskDetailFormProps) {
 
       <TaskRemindersSection task={task} />
 
+      <TimeLoggedSection taskId={task.id} />
+
       <div className="mt-auto flex items-center justify-between gap-3">
         {!isDone && (
           <Button
             variant="outline"
             size="sm"
-            onClick={() => !anotherRunning && startTimer(task.id, systemId, task.title)}
+            onClick={() => !anotherRunning && openModeDialog({ id: task.id, title: task.title, systemId })}
             disabled={anotherRunning}
             className={cn(
               "gap-1.5",
