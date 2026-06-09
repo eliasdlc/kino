@@ -46,6 +46,7 @@ export function OnboardingWizard() {
           availableHoursPerDay: availableHours,
           rechargePresets,
           firstSystemName: systemName,
+          timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
         }),
       });
       if (!res.ok) throw new Error('Failed');

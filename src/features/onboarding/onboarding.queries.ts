@@ -25,9 +25,13 @@ export async function getEnergyProfile(userId: string) {
   return profile ?? null;
 }
 
-export async function markOnboardingComplete(userId: string) {
+export async function markOnboardingComplete(userId: string, timezone?: string) {
   await db
     .update(users)
-    .set({ onboardingCompleted: true, updatedAt: new Date() })
+    .set({
+      onboardingCompleted: true,
+      ...(timezone ? { timezone } : {}),
+      updatedAt: new Date(),
+    })
     .where(eq(users.id, userId));
 }

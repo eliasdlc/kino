@@ -11,6 +11,8 @@ export const setupProfileSchema = z.object({
   availableHoursPerDay: z.number().int().min(1).max(16),
   rechargePresets: z.array(rechargePresetSchema).max(8).default([]),
   firstSystemName: z.string().min(1).max(100),
+  // IANA timezone capturada en el cliente (Intl). Ancla el cálculo de "hoy".
+  timezone: z.string().min(1).max(50).optional(),
 });
 
 export type SetupProfileInput = z.infer<typeof setupProfileSchema>;

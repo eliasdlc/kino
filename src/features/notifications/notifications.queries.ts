@@ -1,6 +1,6 @@
 import { eq, and, isNull, inArray } from 'drizzle-orm';
 import { db } from '@/shared/db';
-import { pushSubscriptions, tasks, taskReminders } from '@/shared/db/schema';
+import { pushSubscriptions, tasks, taskReminders, users } from '@/shared/db/schema';
 import { sql } from 'drizzle-orm';
 
 export async function getPushSubscriptions(userId: string) {
@@ -40,13 +40,16 @@ export async function getUserIdsWithPushSubscriptions(): Promise<string[]> {
 
 export async function getTasksDueTodayUnnotified(userIds: string[]) {
   if (userIds.length === 0) return [];
+  // Compara el día calendario en la tz del usuario, no en UTC: un dueDate
+  // timestamptz con hora (lo que guarda el autosave) cae en el día correcto.
   return db
     .select({ id: tasks.id, userId: tasks.userId, title: tasks.title })
     .from(tasks)
+    .innerJoin(users, eq(tasks.userId, users.id))
     .where(
       and(
         inArray(tasks.userId, userIds),
-        sql`${tasks.dueDate} = CURRENT_DATE`,
+        sql`(${tasks.dueDate} AT TIME ZONE ${users.timezone})::date = (NOW() AT TIME ZONE ${users.timezone})::date`,
         eq(tasks.notifiedDueDay, false),
         isNull(tasks.deletedAt),
       ),
@@ -58,10 +61,11 @@ export async function getTasksDueTomorrowUnnotified(userIds: string[]) {
   return db
     .select({ id: tasks.id, userId: tasks.userId, title: tasks.title })
     .from(tasks)
+    .innerJoin(users, eq(tasks.userId, users.id))
     .where(
       and(
         inArray(tasks.userId, userIds),
-        sql`${tasks.dueDate} = CURRENT_DATE + INTERVAL '1 day'`,
+        sql`(${tasks.dueDate} AT TIME ZONE ${users.timezone})::date = (NOW() AT TIME ZONE ${users.timezone})::date + 1`,
         eq(tasks.notifiedBeforeDay, false),
         isNull(tasks.deletedAt),
       ),
@@ -144,11 +148,12 @@ export async function getTasksForEscalation(): Promise<EscalationTask[]> {
   }>(sql`
     SELECT t.id, t.user_id, t.title, t.priority, t.reminder_count
     FROM tasks t
+    INNER JOIN users u ON u.id = t.user_id
     WHERE t.notified_due_day = true
       AND t.completed_at IS NULL
       AND t.deleted_at IS NULL
       AND t.due_date IS NOT NULL
-      AND t.due_date <= CURRENT_DATE
+      AND (t.due_date AT TIME ZONE u.timezone)::date <= (NOW() AT TIME ZONE u.timezone)::date
       AND t.reminder_count < CASE t.priority
         WHEN 'critical' THEN 14
         WHEN 'high' THEN 7

@@ -1,11 +1,19 @@
-import { isToday, isTomorrow, parseISO } from "date-fns";
-
 /**
  * Scheduling statuses that are auto-derived from startDate.
  * "done" and "archived" are intentionally excluded — those are
  * explicit user actions that should never be overwritten by date logic.
  */
 export type ScheduleStatus = "backlog" | "today" | "tomorrow" | "week";
+
+/** Día calendario (yyyy-MM-dd) de `d` en la timezone dada. */
+function calendarDateInTz(d: Date, timezone: string): string {
+  return new Intl.DateTimeFormat("en-CA", {
+    timeZone: timezone,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).format(d);
+}
 
 /**
  * Derives the scheduling status from a task's startDate.
@@ -14,15 +22,25 @@ export type ScheduleStatus = "backlog" | "today" | "tomorrow" | "week";
  *   - Storing the status allows fast indexed queries (no runtime computation).
  *   - Deriving on write keeps status in sync with date changes.
  *   - A daily reconciliation job catches stale statuses (e.g. yesterday's "today").
+ *
+ * `timezone` define qué cuenta como "hoy"/"mañana": comparar el día calendario
+ * del usuario, no el reloj UTC del server (Vercel) — si no, crear una tarea
+ * "para hoy" después de las 20:00 hora local la derivaba a `week`.
  */
-export function deriveStatusFromDate(startDate: string | null | undefined): ScheduleStatus {
+export function deriveStatusFromDate(
+  startDate: string | null | undefined,
+  timezone: string = "UTC",
+): ScheduleStatus {
   if (!startDate) return "backlog";
 
-  // parseISO handles "yyyy-MM-dd" strings, interpreted as local midnight
-  const date = parseISO(startDate);
+  // startDate es un DATE lógico ("yyyy-MM-dd"); comparamos por string de fecha.
+  const day = startDate.slice(0, 10);
+  const now = new Date();
+  const today = calendarDateInTz(now, timezone);
+  const tomorrow = calendarDateInTz(new Date(now.getTime() + 86_400_000), timezone);
 
-  if (isToday(date)) return "today";
-  if (isTomorrow(date)) return "tomorrow";
+  if (day === today) return "today";
+  if (day === tomorrow) return "tomorrow";
   return "week";
 }
 

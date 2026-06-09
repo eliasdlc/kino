@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { bulkMoveSchema, bulkUpdateSchema, bulkCreateTaskSchema, listTasksQuerySchema, createTaskSchema, moveTaskSchema, reorderTasksSchema, updateTaskSchema, createTimeLogSchema } from "./tasks.schemas";
-import { bulkMoveTasks, bulkUpdateTasks, bulkCreateTasks, queryTasks, createTask, deleteTask, getSubtasks, getTaskById, getTasksBySystem, moveTask, reorderTasks, restoreTask, toggleTask, updateTask, createTimeLog, getTimeLogSummary } from "./tasks.service";
+import { bulkMoveTasks, bulkUpdateTasks, bulkCreateTasks, queryTasks, createTask, deleteTask, getSubtasks, getTaskById, getTasksBySystem, moveTask, reorderTasks, restoreTask, toggleTask, updateTask, createTimeLog, getTimeLogSummary, ensureTodayPlanRolled } from "./tasks.service";
 import { NotFoundError, ValidationError } from "@/shared/utils/error";
 import { getAuthContext } from "@/shared/utils/auth-context";
 
@@ -13,6 +13,8 @@ export async function GET(
 
     const { id: systemId } = await params;
     try {
+        // Rollover + reconcile diario lazy (gated 1×/día) antes de leer.
+        await ensureTodayPlanRolled(ctx.userId);
         const tasks = await getTasksBySystem(systemId, ctx.userId);
         return NextResponse.json(tasks);
     } catch {
@@ -52,6 +54,8 @@ export async function listTasks(request: NextRequest) {
         return NextResponse.json({ code: "VALIDATION_ERROR", message: "Invalid query params", details: parsed.error.flatten() }, { status: 400 });
     }
 
+    // Rollover + reconcile diario lazy (gated 1×/día) antes de leer.
+    await ensureTodayPlanRolled(ctx.userId);
     const result = await queryTasks(ctx.userId, parsed.data);
     return NextResponse.json(result);
 }

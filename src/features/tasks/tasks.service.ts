@@ -1,6 +1,6 @@
 import { db } from "@/shared/db";
 import { tasks, users, userSettings, systems, folders, timeLogs, taskReminders } from "@/shared/db/schema";
-import { and, eq, isNull, sql, sum, count } from "drizzle-orm";
+import { and, eq, isNull, sql, sum, count, type SQL } from "drizzle-orm";
 import { NotFoundError, ValidationError } from "@/shared/utils/error";
 import { validateTransition, type TaskStatus, type TransitionAction } from "./tasks.state-machine";
 import { Task, CreateTaskInput, UpdateTaskInput } from "./tasks.types";
@@ -20,6 +20,16 @@ const ENERGY_LOCK_CLASS = 42;
 const ROLLOVER_LOCK_CLASS = 43;
 
 type DbTransaction = Parameters<Parameters<(typeof db)["transaction"]>[0]>[0];
+
+/** Timezone del usuario (default UTC) — para derivar status "hoy/mañana". */
+async function getUserTimezone(userId: string): Promise<string> {
+  const [row] = await db
+    .select({ timezone: users.timezone })
+    .from(users)
+    .where(eq(users.id, userId))
+    .limit(1);
+  return row?.timezone ?? "UTC";
+}
 
 // Acquires a per-user advisory transaction lock, validates the transition, applies side-effects, and persists — all within the caller's transaction.
 async function applyTransition(
@@ -302,7 +312,7 @@ export async function createTask(userId: string, data: CreateTaskInput) {
     : data.taskType === "idea"
       ? "backlog"
       : data.startDate
-        ? deriveStatusFromDate(data.startDate)
+        ? deriveStatusFromDate(data.startDate, await getUserTimezone(userId))
         : (data.status ?? "backlog");
 
   const [task] = await db
@@ -386,7 +396,8 @@ export async function updateTask(taskId: string, userId: string, data: UpdateTas
       if (effectiveType === "idea") {
         data = { ...data, status: "backlog" } as UpdateTaskInput;
       } else if (data.startDate !== undefined) {
-        data = { ...data, status: deriveStatusFromDate(data.startDate) } as UpdateTaskInput;
+        const tz = await getUserTimezone(userId);
+        data = { ...data, status: deriveStatusFromDate(data.startDate, tz) } as UpdateTaskInput;
       }
     }
   }
@@ -522,6 +533,7 @@ export async function ensureTodayPlanRolled(userId: string): Promise<void> {
     .where(eq(users.id, userId));
   const tz = userRow?.timezone ?? "UTC";
   const today = sql`(NOW() AT TIME ZONE ${tz})::date`;
+  const tomorrow = sql`((NOW() AT TIME ZONE ${tz})::date + INTERVAL '1 day')::date`;
 
   await db.transaction(async (tx) => {
     // Serializa rollovers concurrentes del mismo usuario.
@@ -538,6 +550,10 @@ export async function ensureTodayPlanRolled(userId: string): Promise<void> {
 
     // Sin fila de settings (pre-onboarding) o ya rolleado hoy → nada que hacer.
     if (!row || !row.stale) return;
+
+    // 0. Reconcilia los status de scheduling (tomorrow→today, today de ayer→…)
+    //    ANTES de repoblar el plan, para que ambos vean el mismo día.
+    await reconcileStatusesInTx(tx, userId, today, tomorrow);
 
     // 1. Limpia el plan del día anterior.
     await tx.execute(
@@ -583,52 +599,65 @@ export async function reconcileTaskStatuses(userId: string): Promise<void> {
   const today = sql`(NOW() AT TIME ZONE ${tz})::date`;
   const tomorrow = sql`((NOW() AT TIME ZONE ${tz})::date + INTERVAL '1 day')::date`;
 
-  await db.transaction(async (tx) => {
-    // Ideas are always backlog — exclude from date-driven status updates
-    const notIdea = sql`(task_type IS NULL OR task_type != 'idea')`;
+  await db.transaction((tx) => reconcileStatusesInTx(tx, userId, today, tomorrow));
+}
 
-    // Tasks with start_date = today → status should be "today"
-    await tx.execute(
-      sql`UPDATE tasks SET status = 'today', updated_at = NOW()
-          WHERE user_id = ${userId} AND deleted_at IS NULL
-            AND status NOT IN ('done', 'archived')
-            AND ${notIdea}
-            AND start_date = ${today}
-            AND status != 'today'`
-    );
+/**
+ * Núcleo de la reconciliación: recoloca el status de scheduling de cada tarea
+ * activa según su start_date, en la transacción dada. Compartido por
+ * reconcileTaskStatuses (tx propia) y ensureTodayPlanRolled (misma tx que el
+ * rollover, para que reconcile y repoblado vean el mismo día).
+ */
+async function reconcileStatusesInTx(
+  tx: DbTransaction,
+  userId: string,
+  today: SQL,
+  tomorrow: SQL,
+): Promise<void> {
+  // Ideas are always backlog — exclude from date-driven status updates
+  const notIdea = sql`(task_type IS NULL OR task_type != 'idea')`;
 
-    // Tasks with start_date = tomorrow → status should be "tomorrow"
-    await tx.execute(
-      sql`UPDATE tasks SET status = 'tomorrow', updated_at = NOW()
-          WHERE user_id = ${userId} AND deleted_at IS NULL
-            AND status NOT IN ('done', 'archived')
-            AND ${notIdea}
-            AND start_date = ${tomorrow}
-            AND status != 'tomorrow'`
-    );
+  // Tasks with start_date = today → status should be "today"
+  await tx.execute(
+    sql`UPDATE tasks SET status = 'today', updated_at = NOW()
+        WHERE user_id = ${userId} AND deleted_at IS NULL
+          AND status NOT IN ('done', 'archived')
+          AND ${notIdea}
+          AND start_date = ${today}
+          AND status != 'today'`
+  );
 
-    // Tasks with start_date set but not today/tomorrow → status should be "week"
-    await tx.execute(
-      sql`UPDATE tasks SET status = 'week', updated_at = NOW()
-          WHERE user_id = ${userId} AND deleted_at IS NULL
-            AND status NOT IN ('done', 'archived')
-            AND ${notIdea}
-            AND start_date IS NOT NULL
-            AND start_date != ${today}
-            AND start_date != ${tomorrow}
-            AND status != 'week'`
-    );
+  // Tasks with start_date = tomorrow → status should be "tomorrow"
+  await tx.execute(
+    sql`UPDATE tasks SET status = 'tomorrow', updated_at = NOW()
+        WHERE user_id = ${userId} AND deleted_at IS NULL
+          AND status NOT IN ('done', 'archived')
+          AND ${notIdea}
+          AND start_date = ${tomorrow}
+          AND status != 'tomorrow'`
+  );
 
-    // Tasks without start_date (and not ideas) → status should be "backlog"
-    await tx.execute(
-      sql`UPDATE tasks SET status = 'backlog', updated_at = NOW()
-          WHERE user_id = ${userId} AND deleted_at IS NULL
-            AND status NOT IN ('done', 'archived')
-            AND ${notIdea}
-            AND start_date IS NULL
-            AND status != 'backlog'`
-    );
-  });
+  // Tasks with start_date set but not today/tomorrow → status should be "week"
+  await tx.execute(
+    sql`UPDATE tasks SET status = 'week', updated_at = NOW()
+        WHERE user_id = ${userId} AND deleted_at IS NULL
+          AND status NOT IN ('done', 'archived')
+          AND ${notIdea}
+          AND start_date IS NOT NULL
+          AND start_date != ${today}
+          AND start_date != ${tomorrow}
+          AND status != 'week'`
+  );
+
+  // Tasks without start_date (and not ideas) → status should be "backlog"
+  await tx.execute(
+    sql`UPDATE tasks SET status = 'backlog', updated_at = NOW()
+        WHERE user_id = ${userId} AND deleted_at IS NULL
+          AND status NOT IN ('done', 'archived')
+          AND ${notIdea}
+          AND start_date IS NULL
+          AND status != 'backlog'`
+  );
 }
 
 export async function queryTasks(

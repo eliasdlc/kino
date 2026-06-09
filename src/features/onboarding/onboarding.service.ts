@@ -15,5 +15,5 @@ export async function completeOnboarding(
     color: 'blue',
     icon: 'folder',
   });
-  await markOnboardingComplete(userId);
+  await markOnboardingComplete(userId, input.timezone);
 }
