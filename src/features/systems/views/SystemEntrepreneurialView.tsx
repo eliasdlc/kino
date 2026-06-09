@@ -1,12 +1,12 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useTasks, useToggleTask, useDeleteTask } from "@/features/tasks/tasks.hooks";
-import { useFolders } from "@/features/folders/folders.hooks";
+import { useFolders, useCreateFolder } from "@/features/folders/folders.hooks";
 import { TaskCard } from "@/features/tasks/TaskCard";
 import { TaskDetailSheet } from "@/features/tasks/TaskDetailSheet";
 import { CreateTaskDialog } from "@/features/tasks/CreateTaskDialog";
-import { ChevronDown, Target } from "lucide-react";
+import { ChevronDown, Plus, Target } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { Task } from "@/features/tasks/tasks.types";
 import type { SystemViewProps } from "./SystemDetailView";
@@ -30,7 +30,6 @@ function MilestoneAccordion({
   label,
   tasks,
   systemId,
-  kpi,
   onToggle,
   onDelete,
   onEdit,
@@ -38,7 +37,6 @@ function MilestoneAccordion({
   label: string;
   tasks: Task[];
   systemId: string;
-  kpi?: string;
   onToggle: (taskId: string) => void;
   onDelete: (task: Task) => void;
   onEdit: (task: Task) => void;
@@ -55,14 +53,7 @@ function MilestoneAccordion({
       >
         <Target size={16} className="shrink-0 text-primary" />
         <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-2">
-            <span className="font-semibold truncate">{label}</span>
-            {kpi && (
-              <span className="text-xs text-muted-foreground bg-background border rounded-full px-2 py-0.5 shrink-0">
-                KPI: {kpi}
-              </span>
-            )}
-          </div>
+          <span className="font-semibold truncate">{label}</span>
           <ProgressBar done={done} total={tasks.length} />
         </div>
         <ChevronDown
@@ -96,6 +87,70 @@ function MilestoneAccordion({
   );
 }
 
+function NewMilestoneControl({ systemId }: { systemId: string }) {
+  const [isCreating, setIsCreating] = useState(false);
+  const [name, setName] = useState("");
+  const inputRef = useRef<HTMLInputElement>(null);
+  const { mutateAsync: createFolder, isPending } = useCreateFolder(systemId);
+
+  useEffect(() => {
+    if (isCreating) inputRef.current?.focus();
+  }, [isCreating]);
+
+  async function handleCreate() {
+    const trimmed = name.trim();
+    if (!trimmed) {
+      setIsCreating(false);
+      return;
+    }
+    try {
+      await createFolder({ name: trimmed });
+    } finally {
+      setName("");
+      setIsCreating(false);
+    }
+  }
+
+  function handleKeyDown(e: React.KeyboardEvent<HTMLInputElement>) {
+    if (e.key === "Enter") handleCreate();
+    if (e.key === "Escape") {
+      setIsCreating(false);
+      setName("");
+    }
+  }
+
+  if (isCreating) {
+    return (
+      <div className="flex items-center gap-2 rounded-md border border-primary/50 px-3 py-2">
+        <Target size={16} className="shrink-0 text-primary" />
+        <input
+          ref={inputRef}
+          value={name}
+          onChange={(e) => setName(e.target.value)}
+          onKeyDown={handleKeyDown}
+          onBlur={() => {
+            if (isPending) return;
+            if (!name.trim()) setIsCreating(false);
+          }}
+          placeholder="Nombre del milestone"
+          className="flex-1 bg-transparent text-sm outline-none placeholder:text-muted-foreground/60"
+        />
+      </div>
+    );
+  }
+
+  return (
+    <button
+      type="button"
+      onClick={() => setIsCreating(true)}
+      className="flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors"
+    >
+      <Plus size={15} className="shrink-0" />
+      Nuevo milestone
+    </button>
+  );
+}
+
 export function SystemEntrepreneurialView({ system, initialTasks }: SystemViewProps) {
   const { data: allTasks = [] } = useTasks(system.id, initialTasks);
   const { data: folders = [] } = useFolders(system.id);
@@ -114,12 +169,8 @@ export function SystemEntrepreneurialView({ system, initialTasks }: SystemViewPr
 
   return (
     <div className="space-y-4">
-      <div className="flex items-center justify-between">
-        {folders.length === 0 && (
-          <p className="text-sm text-muted-foreground">
-            Crea el primer milestone de tu startup. → Nuevo milestone
-          </p>
-        )}
+      <div className="flex items-center justify-between gap-3">
+        <NewMilestoneControl systemId={system.id} />
         <div className="ml-auto">
           <CreateTaskDialog systemId={system.id} />
         </div>
@@ -129,14 +180,12 @@ export function SystemEntrepreneurialView({ system, initialTasks }: SystemViewPr
       <div className="space-y-3">
         {folders.map((folder) => {
           const folderTasks = activeTasks.filter((t) => t.folderId === folder.id);
-          const kpi = (folder as { description?: string }).description ?? undefined;
           return (
             <MilestoneAccordion
               key={folder.id}
               label={folder.name}
               tasks={folderTasks}
               systemId={system.id}
-              kpi={kpi}
               onToggle={handleToggle}
               onDelete={(t) => deleteTask(t.id)}
               onEdit={setEditTask}
@@ -158,7 +207,7 @@ export function SystemEntrepreneurialView({ system, initialTasks }: SystemViewPr
 
         {folders.length === 0 && noMilestoneTasks.length === 0 && (
           <div className="py-12 text-center text-muted-foreground text-sm">
-            Crea una carpeta como milestone y agrega tareas para visualizar el progreso.
+            Crea un milestone para tu startup y agrega tareas para visualizar el progreso.
           </div>
         )}
       </div>
