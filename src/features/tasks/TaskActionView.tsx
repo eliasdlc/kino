@@ -13,6 +13,7 @@ import {
 import type { Task } from "./tasks.types";
 import type { TaskDragData } from "./dnd/dnd.types";
 import { useTasks, useFolderTasks, useToggleTask, useDeleteTaskWithUndo, useUpdateTask } from "./tasks.hooks";
+import { useFolders } from "@/features/folders/folders.hooks";
 import { DraggableTaskCard } from "./dnd/DraggableTaskCard";
 import { DroppableColumn } from "./dnd/DroppableColumn";
 import { TaskDragOverlay } from "./dnd/TaskDragOverlay";
@@ -27,15 +28,19 @@ interface TaskActionViewProps {
     folderInitialData?: Task[];
     onEdit?: (task: Task) => void;
     keyboardDisabled?: boolean;
+    defaultGroupBy?: ActionGroupBy;
 }
 
-type ActionGroupBy = "energy" | "priority";
+type ActionGroupBy = "energy" | "priority" | "project";
 
 interface ColumnDef {
     id: string;
     label: string;
     description: string;
 }
+
+/** Columna sentinel para tareas sin folder/proyecto. */
+const NO_PROJECT = "sin-proyecto";
 
 const ENERGY_COLUMNS: ColumnDef[] = [
     { id: "high", label: "High Energy", description: "Tasks requiring high focus." },
@@ -52,10 +57,12 @@ const PRIORITY_COLUMNS: ColumnDef[] = [
 
 /** Campo de la tarea que define en qué columna cae, según el agrupamiento. */
 function taskGroupKey(task: Task, groupBy: ActionGroupBy): string {
-    return groupBy === "energy" ? task.energyLevel ?? "medium" : task.priority ?? "medium";
+    if (groupBy === "energy") return task.energyLevel ?? "medium";
+    if (groupBy === "priority") return task.priority ?? "medium";
+    return task.folderId ?? NO_PROJECT;
 }
 
-export function TaskActionView({ systemId, initialData, folderId, folderInitialData, onEdit, keyboardDisabled }: TaskActionViewProps) {
+export function TaskActionView({ systemId, initialData, folderId, folderInitialData, onEdit, keyboardDisabled, defaultGroupBy = "energy" }: TaskActionViewProps) {
     // Use folder-scoped or system-scoped tasks depending on context
     const systemQuery = useTasks(systemId, initialData);
     const folderQuery = useFolderTasks(systemId, folderId ?? "", folderInitialData);
@@ -64,11 +71,19 @@ export function TaskActionView({ systemId, initialData, folderId, folderInitialD
     const { mutate: toggleTask } = useToggleTask(systemId, folderId);
     const { mutate: deleteTask } = useDeleteTaskWithUndo(systemId, folderId);
     const { mutate: updateTask } = useUpdateTask(systemId);
+    const { data: folders = [] } = useFolders(systemId);
 
-    const [groupBy, setGroupBy] = useState<ActionGroupBy>("energy");
+    const [groupBy, setGroupBy] = useState<ActionGroupBy>(defaultGroupBy);
     const [activeTask, setActiveTask] = useState<Task | null>(null);
 
-    const columns = groupBy === "energy" ? ENERGY_COLUMNS : PRIORITY_COLUMNS;
+    const projectColumns: ColumnDef[] = [
+        ...folders.map((f) => ({ id: f.id, label: f.name, description: "" })),
+        { id: NO_PROJECT, label: "Sin proyecto", description: "Tareas sin folder asignado." },
+    ];
+    const columns =
+        groupBy === "energy" ? ENERGY_COLUMNS
+        : groupBy === "priority" ? PRIORITY_COLUMNS
+        : projectColumns;
 
     const sensors = useSensors(
         useSensor(PointerSensor, {
@@ -110,6 +125,8 @@ export function TaskActionView({ systemId, initialData, folderId, folderInitialD
                 taskId: data.task.id,
                 data: data.sourceType === "priority"
                     ? { priority: targetId as Task["priority"] }
+                    : data.sourceType === "project"
+                    ? { folderId: targetId === NO_PROJECT ? null : targetId }
                     : { energyLevel: targetId as Task["energyLevel"] },
             });
         },
@@ -162,10 +179,11 @@ export function TaskActionView({ systemId, initialData, folderId, folderInitialD
                     >
                         <option value="energy">By energy</option>
                         <option value="priority">By priority</option>
+                        <option value="project">By project</option>
                     </select>
                 </div>
                 <Progress value={progressPercent} className="h-2" />
-                <div className={`grid grid-cols-1 sm:grid-cols-2 ${groupBy === "priority" ? "lg:grid-cols-4" : "lg:grid-cols-3"} gap-3 w-full`}>
+                <div className={`grid grid-cols-1 sm:grid-cols-2 ${groupBy === "priority" || groupBy === "project" ? "lg:grid-cols-4" : "lg:grid-cols-3"} gap-3 w-full`}>
                     {columns.map((column) => {
                         const columnTasks = activeTasks.filter(
                             (task) => taskGroupKey(task, groupBy) === column.id
@@ -178,7 +196,9 @@ export function TaskActionView({ systemId, initialData, folderId, folderInitialD
                                 className="flex flex-col gap-2 min-w-0"
                             >
                                 <h3 className="font-semibold text-base">{column.label}</h3>
-                                <p className="text-sm text-muted-foreground">{column.description}</p>
+                                {column.description && (
+                                    <p className="text-sm text-muted-foreground">{column.description}</p>
+                                )}
                                 <div className="flex flex-col gap-2">
                                     {columnTasks.map((task) => (
                                         <DraggableTaskCard
