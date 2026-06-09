@@ -608,7 +608,9 @@ export const tasks = pgTable(
     energyLevel: energyLevelEnum('energy_level').notNull().default('medium'),
     priority: taskPriorityEnum('priority').notNull().default('medium'),
     taskType: taskTypeEnum('task_type'),
-    dueDate: date('due_date'),
+    // Timestamp con hora (PLAN-07 fase 3): las entregas pueden tener hora.
+    // mode:'string' → el cliente recibe/envía strings; parsear con parseDueDate.
+    dueDate: timestamp('due_date', { withTimezone: true, mode: 'string' }),
     startDate: date('start_date'),
     estimatedTime: time('estimated_time'),
     recurrenceRule: varchar('recurrence_rule', { length: 500 }),
