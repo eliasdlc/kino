@@ -133,6 +133,40 @@ function TaskDetailForm({ task, systemId, onClose }: TaskDetailFormProps) {
   const updateTaskRef = useRef(updateTask);
   updateTaskRef.current = updateTask;
 
+  /**
+   * Solo los campos que cambiaron respecto al `task` original. Un único builder
+   * usado por autosave y "Save & close":
+   *  - dueDate siempre como ISO (conserva hora; antes el botón truncaba a día).
+   *  - limpiar una fecha existente manda `null` (antes omitía → DB nunca limpiaba).
+   *  - no incluir dueDate cuando no cambió evita el reset de recordatorios/flags
+   *    en cada tecla.
+   */
+  function buildDirtyData(): import("./tasks.types").UpdateTaskInput {
+    const data: import("./tasks.types").UpdateTaskInput = {};
+
+    const trimmedTitle = title.trim();
+    if (trimmedTitle !== task.title) data.title = trimmedTitle;
+    if (description !== (task.description ?? "")) data.description = description || undefined;
+    if (priority !== task.priority) data.priority = priority;
+    if (energyLevel !== task.energyLevel) data.energyLevel = energyLevel;
+
+    const curType = taskType ?? null;
+    if (curType !== (task.taskType ?? null)) data.taskType = curType;
+
+    const curDue = dueDate ? dueDate.toISOString() : null;
+    const origDue = task.dueDate ? parseDueDate(task.dueDate).toISOString() : null;
+    if (curDue !== origDue) data.dueDate = curDue;
+
+    const curStart = startDate ? format(startDate, "yyyy-MM-dd") : null;
+    const origStart = task.startDate ? String(task.startDate).slice(0, 10) : null;
+    if (curStart !== origStart) data.startDate = curStart;
+
+    const curFolder = selectedFolderId !== "none" ? selectedFolderId : null;
+    if (curFolder !== (task.folderId ?? null)) data.folderId = curFolder;
+
+    return data;
+  }
+
   useEffect(() => {
     if (!isMountedRef.current) {
       isMountedRef.current = true;
@@ -142,20 +176,10 @@ function TaskDetailForm({ task, systemId, onClose }: TaskDetailFormProps) {
 
     setSaveStatus("idle");
     const timer = setTimeout(() => {
+      const data = buildDirtyData();
+      if (Object.keys(data).length === 0) return;
       updateTaskRef.current(
-        {
-          taskId: task.id,
-          data: {
-            title: title.trim(),
-            description: description || undefined,
-            priority,
-            energyLevel,
-            taskType: taskType ?? null,
-            dueDate: dueDate ? dueDate.toISOString() : undefined,
-            startDate: startDate ? format(startDate, "yyyy-MM-dd") : undefined,
-            folderId: selectedFolderId !== "none" ? selectedFolderId : null,
-          },
-        },
+        { taskId: task.id, data },
         { onSuccess: () => setSaveStatus("saved") }
       );
     }, 1500);
@@ -167,22 +191,12 @@ function TaskDetailForm({ task, systemId, onClose }: TaskDetailFormProps) {
 
   function handleSave() {
     if (!title.trim()) return;
-    updateTask(
-      {
-        taskId: task.id,
-        data: {
-          title: title.trim(),
-          description: description || undefined,
-          priority,
-          energyLevel,
-          taskType: taskType ?? null,
-          dueDate: dueDate ? format(dueDate, "yyyy-MM-dd") : undefined,
-          startDate: startDate ? format(startDate, "yyyy-MM-dd") : undefined,
-          folderId: selectedFolderId !== "none" ? selectedFolderId : null,
-        },
-      },
-      { onSuccess: onClose }
-    );
+    const data = buildDirtyData();
+    if (Object.keys(data).length === 0) {
+      onClose();
+      return;
+    }
+    updateTask({ taskId: task.id, data }, { onSuccess: onClose });
   }
 
   return (

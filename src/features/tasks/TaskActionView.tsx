@@ -150,9 +150,9 @@ export function TaskActionView({ systemId, initialData, folderId, folderInitialD
     if (!tasks || activeTasks.length === 0) {
         return (
             <div className="flex flex-col items-center justify-center py-12 text-center space-y-2 border border-dashed rounded-lg bg-card mt-6">
-                <p className="text-base font-medium">No tasks for today</p>
+                <p className="text-base font-medium">No hay tareas en tu semana</p>
                 <p className="text-sm text-muted-foreground max-w-sm">
-                    You don&apos;t have any tasks scheduled. Go to the <strong>Planning</strong> tab to line up work for today or the upcoming week.
+                    No tienes trabajo programado. Ve a la pestaña <strong>Planning</strong> para organizar tareas de hoy o de la semana.
                 </p>
             </div>
         );
@@ -171,7 +171,7 @@ export function TaskActionView({ systemId, initialData, folderId, folderInitialD
         >
             <div className="flex flex-col gap-4 w-full h-full">
                 <div className="flex items-center justify-between gap-2 flex-wrap">
-                    <h2 className="text-2xl font-bold">Daily Progress</h2>
+                    <h2 className="text-2xl font-bold">Progreso de la semana</h2>
                     <select
                         value={groupBy}
                         onChange={(e) => setGroupBy(e.target.value as ActionGroupBy)}

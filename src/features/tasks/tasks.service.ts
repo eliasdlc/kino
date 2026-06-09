@@ -346,6 +346,7 @@ export async function updateTask(taskId: string, userId: string, data: UpdateTas
       folderId: tasks.folderId,
       status: tasks.status,
       taskType: tasks.taskType,
+      dueDate: tasks.dueDate,
     })
     .from(tasks)
     .where(and(eq(tasks.id, taskId), eq(tasks.userId, userId), isNull(tasks.deletedAt)));
@@ -402,7 +403,14 @@ export async function updateTask(taskId: string, userId: string, data: UpdateTas
     }
   }
 
-  const reminderReset = data.dueDate !== undefined
+  // Resetear flags/recordatorios SOLO si el dueDate realmente cambió de valor,
+  // no cada vez que el payload lo incluye (el autosave ya manda solo dirty, pero
+  // este guard protege ante cualquier caller). Normalizamos a ISO para comparar.
+  const curDueIso = current.dueDate ? new Date(current.dueDate).toISOString() : null;
+  const newDueIso = data.dueDate ? new Date(data.dueDate).toISOString() : null;
+  const dueChanged = data.dueDate !== undefined && newDueIso !== curDueIso;
+
+  const reminderReset = dueChanged
     ? { notifiedBeforeDay: false, notifiedDueDay: false, reminderCount: 0, lastRemindedAt: null }
     : {};
 
@@ -412,7 +420,7 @@ export async function updateTask(taskId: string, userId: string, data: UpdateTas
     .where(and(eq(tasks.id, taskId), eq(tasks.userId, userId), isNull(tasks.deletedAt)))
     .returning();
 
-  if (task && (data.dueDate !== undefined || data.priority !== undefined)) {
+  if (task && (dueChanged || data.priority !== undefined)) {
     if (task.dueDate && task.priority in AUTO_REMINDER_OFFSETS) {
       await syncAutoReminders(task.id, userId, task.dueDate, task.priority);
     } else {

@@ -9,11 +9,12 @@ import {
   applyFilters, SORTERS, groupTasks,
   type TaskFilters,
 } from '@/lib/taskFilters';
-import { useAllTasks, useToggleTodayTask } from './tasks.hooks';
+import { useAllTasks, useToggleTodayTask, useDeleteAnyTaskWithUndo } from './tasks.hooks';
 import { TaskListRow } from './TaskListRow';
 import { TaskFilterPanel } from './TaskFilterPanel';
 import { TaskDetailSheet } from './TaskDetailSheet';
 import { TaskCard } from './TaskCard';
+import { ConfirmDialog } from '@/components/ui/confirm-dialog';
 import type { Task } from './tasks.types';
 
 interface SystemInfo {
@@ -44,10 +45,12 @@ export function AllTasksList({ systems }: AllTasksListProps) {
   const searchParams = useSearchParams();
   const { data: tasks = [], isLoading } = useAllTasks();
   const { mutate: toggleTask } = useToggleTodayTask();
+  const { mutate: deleteTask } = useDeleteAnyTaskWithUndo();
 
   const filters = useMemo(() => parseFiltersFromParams(searchParams), [searchParams]);
   const [showFilters, setShowFilters] = useState(false);
   const [selectedTask, setSelectedTask] = useState<Task | null>(null);
+  const [deleteTarget, setDeleteTarget] = useState<Task | null>(null);
 
   const systemMap = useMemo(
     () => new Map(systems.map((s) => [s.id, s])),
@@ -99,7 +102,7 @@ export function AllTasksList({ systems }: AllTasksListProps) {
               task={t}
               systemId={t.systemId}
               onToggle={(id) => toggleTask({ taskId: id })}
-              onDelete={() => {}}
+              onDelete={() => setDeleteTarget(t)}
               onEdit={setSelectedTask}
             />
           ))}
@@ -249,6 +252,18 @@ export function AllTasksList({ systems }: AllTasksListProps) {
           onOpenChange={(open) => { if (!open) setSelectedTask(null); }}
         />
       )}
+
+      <ConfirmDialog
+        open={deleteTarget !== null}
+        title="Mover a la papelera"
+        description={`"${deleteTarget?.title}" se moverá a la papelera.`}
+        confirmLabel="Mover a la papelera"
+        onConfirm={() => {
+          if (deleteTarget) deleteTask(deleteTarget.id);
+          setDeleteTarget(null);
+        }}
+        onCancel={() => setDeleteTarget(null)}
+      />
     </>
   );
 }

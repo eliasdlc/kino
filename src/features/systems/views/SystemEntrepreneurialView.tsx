@@ -1,12 +1,13 @@
 "use client";
 
 import { useState } from "react";
-import { useTasks, useToggleTask, useDeleteTask } from "@/features/tasks/tasks.hooks";
+import { useTasks, useToggleTask, useDeleteTaskWithUndo } from "@/features/tasks/tasks.hooks";
 import { useFolders } from "@/features/folders/folders.hooks";
 import { NewFolderInline } from "@/features/folders/NewFolderInline";
 import { TaskCard } from "@/features/tasks/TaskCard";
 import { TaskDetailSheet } from "@/features/tasks/TaskDetailSheet";
 import { CreateTaskDialog } from "@/features/tasks/CreateTaskDialog";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { ChevronDown, Target } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { Task } from "@/features/tasks/tasks.types";
@@ -92,9 +93,10 @@ export function SystemEntrepreneurialView({ system, initialTasks }: SystemViewPr
   const { data: allTasks = [] } = useTasks(system.id, initialTasks);
   const { data: folders = [] } = useFolders(system.id);
   const { mutate: toggleTask } = useToggleTask(system.id);
-  const { mutate: deleteTask } = useDeleteTask(system.id);
+  const { mutate: deleteTask } = useDeleteTaskWithUndo(system.id);
 
   const [editTask, setEditTask] = useState<Task | null>(null);
+  const [deleteTarget, setDeleteTarget] = useState<Task | null>(null);
 
   const activeTasks = allTasks.filter((t) => !t.deletedAt);
 
@@ -129,7 +131,7 @@ export function SystemEntrepreneurialView({ system, initialTasks }: SystemViewPr
               tasks={folderTasks}
               systemId={system.id}
               onToggle={handleToggle}
-              onDelete={(t) => deleteTask(t.id)}
+              onDelete={(t) => setDeleteTarget(t)}
               onEdit={setEditTask}
             />
           );
@@ -159,6 +161,18 @@ export function SystemEntrepreneurialView({ system, initialTasks }: SystemViewPr
         systemId={system.id}
         open={editTask !== null}
         onOpenChange={(open) => { if (!open) setEditTask(null); }}
+      />
+
+      <ConfirmDialog
+        open={deleteTarget !== null}
+        title="Mover a la papelera"
+        description={`"${deleteTarget?.title}" se moverá a la papelera.`}
+        confirmLabel="Mover a la papelera"
+        onConfirm={() => {
+          if (deleteTarget) deleteTask(deleteTarget.id);
+          setDeleteTarget(null);
+        }}
+        onCancel={() => setDeleteTarget(null)}
       />
     </div>
   );

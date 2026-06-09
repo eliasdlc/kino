@@ -321,6 +321,51 @@ export function useDeleteTaskWithUndo(systemId: string, folderId?: string) {
   });
 }
 
+/**
+ * Borrado con undo no ligado a un sistema — para la vista global /tasks, donde
+ * cada tarea tiene su propio systemId. Optimista sobre la lista global e
+ * invalida todo el prefijo ['tasks'] al asentar.
+ */
+export function useDeleteAnyTaskWithUndo() {
+  const queryClient = useQueryClient();
+
+  const { mutate: restore } = useMutation({
+    mutationFn: async (taskId: string) => {
+      const res = await fetch(`/api/tasks/${taskId}/restore`, { method: "POST" });
+      if (!res.ok) throw new Error("Failed to restore task");
+      return res.json() as Promise<Task>;
+    },
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["tasks"] }),
+  });
+
+  return useMutation<void, Error, string, { previous?: Task[]; deletedTask?: Task }>({
+    mutationFn: async (taskId: string) => {
+      const res = await fetch(`/api/tasks/${taskId}`, { method: "DELETE" });
+      if (!res.ok) throw new Error("Failed to delete task");
+    },
+    onMutate: async (taskId) => {
+      const qKey = allTasksKey();
+      await queryClient.cancelQueries({ queryKey: qKey });
+      const previous = queryClient.getQueryData<Task[]>(qKey);
+      const deletedTask = previous?.find((t) => t.id === taskId);
+      queryClient.setQueryData<Task[]>(qKey, (old = []) => old.filter((t) => t.id !== taskId));
+      return { previous, deletedTask };
+    },
+    onSuccess: (_data, taskId, context) => {
+      const title = context?.deletedTask?.title ?? "Tarea";
+      toast(`"${title}" movida a la papelera`, {
+        action: { label: "Deshacer", onClick: () => restore(taskId) },
+        duration: 5000,
+      });
+    },
+    onError: (_err, _vars, context) => {
+      if (context?.previous) queryClient.setQueryData(allTasksKey(), context.previous);
+      toast.error("No se pudo borrar la tarea");
+    },
+    onSettled: () => queryClient.invalidateQueries({ queryKey: ["tasks"] }),
+  });
+}
+
 export function useRestoreTask() {
   const queryClient = useQueryClient();
 
@@ -531,10 +576,13 @@ export function useMoveToTomorrow() {
   const queryClient = useQueryClient();
   return useMutation<unknown, Error, { taskId: string; tomorrow: string }>({
     mutationFn: async ({ taskId, tomorrow }) => {
+      // Mover en la PROGRAMACIÓN (startDate), no en la fecha límite. El service
+      // deriva status 'tomorrow' desde startDate; inTodayPlan explícito lo saca
+      // del plan de hoy. Nunca tocamos dueDate (es el deadline del usuario).
       const res = await fetch(`/api/tasks/${taskId}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ dueDate: tomorrow, inTodayPlan: false }),
+        body: JSON.stringify({ startDate: tomorrow, inTodayPlan: false }),
       });
       if (!res.ok) throw new Error('Failed to move task');
       return res.json();
