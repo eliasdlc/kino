@@ -189,3 +189,43 @@
 .tiptap-editor .ProseMirror em {
   @apply italic;
 }
+
+/* ── Confetti burst (TodayPlanCard — DECISIONS.md §1.2) ──────────────────── */
+@keyframes confetti-fly {
+  0%   { transform: translate(-50%, -50%) rotate(0deg) scale(1); opacity: 1; }
+  100% {
+    transform:
+      translate(
+        calc(-50% + cos(var(--angle)) * 60px),
+        calc(-50% + sin(var(--angle)) * 60px)
+      )
+      rotate(360deg)
+      scale(0);
+    opacity: 0;
+  }
+}
+
+/* ── Dashboard fixed-height grid (DECISIONS.md §1.1) ──────────────────────── */
+.dashboard-grid {
+  display: grid;
+  height: 100%;
+  grid-template-columns: minmax(0, 1.6fr) minmax(280px, 1fr);
+  grid-template-rows: minmax(0, 1fr) clamp(140px, 18vh, 200px);
+  grid-template-areas: "plan side" "bottom bottom";
+  gap: clamp(0.75rem, 1.5vw, 1.25rem);
+}
+
+/* Gotcha: each scrollable child needs min-h/min-w: 0 or the container overflows */
+.dashboard-plan  { grid-area: plan;   min-height: 0; }
+.dashboard-side  { grid-area: side;   min-height: 0; }
+.dashboard-bottom { grid-area: bottom; min-height: 0; }
+
+@media (max-width: 767px) {
+  .dashboard-grid {
+    grid-template-columns: 1fr;
+    grid-template-rows: auto;
+    grid-template-areas: "plan" "side" "bottom";
+    height: auto;
+    overflow-y: visible;
+  }
+}
