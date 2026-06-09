@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, type ReactNode } from "react";
+import { useState, useEffect, useRef, type ReactNode } from "react";
 import { differenceInCalendarDays, startOfToday } from "date-fns";
 import { useTasks, useToggleTask, useDeleteTaskWithUndo } from "./tasks.hooks";
 import { TaskCard } from "./TaskCard";
@@ -12,6 +12,8 @@ interface TaskWeekFocusViewProps {
   systemId: string;
   initialData: Task[];
   onEdit?: (task: Task) => void;
+  /** Tarea a resaltar al entrar (ej. tras un click desde el calendario). */
+  highlight?: { id: string; nonce: number } | null;
 }
 
 /** Tope duro de Kino: nunca más de 3 cosas "para hoy". */
@@ -52,12 +54,24 @@ function Section({
  * con un runway simple (días hasta la entrega), no un calendario. Hoy se limita
  * a 3; lo demás tiene tiempo. La línea de arriba da la certeza emocional.
  */
-export function TaskWeekFocusView({ systemId, initialData, onEdit }: TaskWeekFocusViewProps) {
+export function TaskWeekFocusView({ systemId, initialData, onEdit, highlight }: TaskWeekFocusViewProps) {
   const { data: allTasks = [] } = useTasks(systemId, initialData);
   const { mutate: toggleTask } = useToggleTask(systemId);
   const { mutate: deleteTask } = useDeleteTaskWithUndo(systemId);
 
   const [deleteTarget, setDeleteTarget] = useState<Task | null>(null);
+
+  // Resaltado temporal: hace scroll a la tarea y la marca por ~1s.
+  const [highlightedId, setHighlightedId] = useState<string | null>(null);
+  const rowRefs = useRef<Map<string, HTMLDivElement>>(new Map());
+
+  useEffect(() => {
+    if (!highlight) return;
+    setHighlightedId(highlight.id);
+    rowRefs.current.get(highlight.id)?.scrollIntoView({ behavior: "smooth", block: "center" });
+    const t = setTimeout(() => setHighlightedId(null), 1000);
+    return () => clearTimeout(t);
+  }, [highlight]);
 
   const today = startOfToday();
   const active = allTasks.filter((t) => !t.deletedAt && t.status !== "done" && t.status !== "archived");
@@ -96,15 +110,23 @@ export function TaskWeekFocusView({ systemId, initialData, onEdit }: TaskWeekFoc
 
   function renderTask(task: Task) {
     return (
-      <TaskCard
+      <div
         key={task.id}
-        task={task}
-        systemId={systemId}
-        systemType="academic"
-        onToggle={(id) => toggleTask(id)}
-        onDelete={() => setDeleteTarget(task)}
-        onEdit={onEdit}
-      />
+        ref={(el) => {
+          if (el) rowRefs.current.set(task.id, el);
+          else rowRefs.current.delete(task.id);
+        }}
+      >
+        <TaskCard
+          task={task}
+          systemId={systemId}
+          systemType="academic"
+          isFocused={task.id === highlightedId}
+          onToggle={(id) => toggleTask(id)}
+          onDelete={() => setDeleteTarget(task)}
+          onEdit={onEdit}
+        />
+      </div>
     );
   }
 

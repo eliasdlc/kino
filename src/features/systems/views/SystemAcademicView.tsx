@@ -18,10 +18,17 @@ import type { SystemViewProps } from "./SystemDetailView";
  */
 export function SystemAcademicView({ system, initialTasks }: SystemViewProps) {
   const [editTask, setEditTask] = useState<Task | null>(null);
+  const [tab, setTab] = useState("esta-semana");
+  const [highlight, setHighlight] = useState<{ id: string; nonce: number } | null>(null);
+
+  function goToAction(taskId?: string) {
+    setTab("esta-semana");
+    if (taskId) setHighlight({ id: taskId, nonce: Date.now() });
+  }
 
   return (
     <>
-      <Tabs defaultValue="esta-semana" className="w-full flex flex-col gap-4">
+      <Tabs value={tab} onValueChange={setTab} className="w-full flex flex-col gap-4">
         <div className="flex items-center gap-2">
           <div className="overflow-x-auto flex-1 min-w-0">
             <TabsList className="w-max">
@@ -35,10 +42,10 @@ export function SystemAcademicView({ system, initialTasks }: SystemViewProps) {
         </div>
 
         <TabsContent value="esta-semana">
-          <TaskWeekFocusView systemId={system.id} initialData={initialTasks} onEdit={setEditTask} />
+          <TaskWeekFocusView systemId={system.id} initialData={initialTasks} onEdit={setEditTask} highlight={highlight} />
         </TabsContent>
         <TabsContent value="calendar">
-          <TaskCalendarView systemId={system.id} initialData={initialTasks} onEdit={setEditTask} />
+          <TaskCalendarView systemId={system.id} initialData={initialTasks} onNavigateToAction={goToAction} />
         </TabsContent>
         <TabsContent value="planning">
           <TaskPlanningView systemId={system.id} initialData={initialTasks} onEdit={setEditTask} keyboardDisabled={editTask !== null} />
