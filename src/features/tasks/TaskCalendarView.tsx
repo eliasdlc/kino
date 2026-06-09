@@ -14,56 +14,78 @@ import {
   type DragStartEvent,
   type DragEndEvent,
 } from "@dnd-kit/core";
-import { addWeeks, startOfWeek, endOfWeek, format, isWithinInterval, startOfToday } from "date-fns";
+import {
+  addMonths,
+  startOfMonth,
+  endOfMonth,
+  startOfWeek,
+  endOfWeek,
+  eachDayOfInterval,
+  format,
+  isSameMonth,
+  isToday,
+  startOfToday,
+} from "date-fns";
 import { es } from "date-fns/locale";
+import { ChevronLeft, ChevronRight } from "lucide-react";
+import { Button } from "@/components/ui/button";
 import { useTasks, useUpdateTask } from "./tasks.hooks";
 import { DroppableColumn } from "./dnd/DroppableColumn";
 import { parseDueDate } from "./tasks.utils";
-import { SYSTEM_TYPE_CONFIG } from "@/shared/lib/system-types";
 import { cn } from "@/lib/utils";
 import type { Task } from "./tasks.types";
 
 interface TaskCalendarViewProps {
   systemId: string;
   initialData: Task[];
-  onEdit?: (task: Task) => void;
+  /** Click en una tarea → la action view del system (en academic, "Esta Semana").
+   *  Pasa el taskId para resaltarla allí; sin id (ej. "+N más") solo navega. */
+  onNavigateToAction?: (taskId?: string) => void;
 }
 
-const WEEKS_AHEAD = 24;
+const WEEKDAYS = ["lun", "mar", "mié", "jue", "vie", "sáb", "dom"];
+const MAX_CHIPS_PER_DAY = 3;
 
-function isoWeekId(date: Date): string {
-  return format(startOfWeek(date, { weekStartsOn: 1 }), "yyyy-MM-dd");
+function dayId(date: Date): string {
+  return format(date, "yyyy-MM-dd");
 }
 
-function DraggableChip({ task, onEdit }: { task: Task; onEdit?: (t: Task) => void }) {
+function TaskChip({
+  task,
+  onClick,
+}: {
+  task: Task;
+  onClick?: () => void;
+}) {
   const { attributes, listeners, setNodeRef, isDragging } = useDraggable({ id: task.id });
-  const course = (task.metadata as { course?: string } | null)?.course;
   return (
     <div
       ref={setNodeRef}
       {...listeners}
       {...attributes}
+      onClick={onClick}
       className={cn(
-        "px-3 py-2 rounded-lg bg-muted border border-border cursor-grab active:cursor-grabbing text-sm",
+        "px-1.5 py-1 rounded-md bg-background border border-border text-xs leading-tight",
+        "cursor-pointer hover:border-primary/50 transition-colors truncate",
         isDragging && "opacity-30"
       )}
-      onClick={() => onEdit?.(task)}
+      title={task.title}
     >
-      <span className="font-medium truncate block">{task.title}</span>
-      {course && <span className="text-xs text-muted-foreground">{course}</span>}
+      {task.title}
     </div>
   );
 }
 
 /**
- * CalendarTab — timeline semanal de entregas (zoom-out). Arrastra una tarea
- * sin fecha a una semana para asignarle dueDate. No es la vista por defecto
- * de Academic; el foco diario vive en EstaSemana.
+ * CalendarTab — grid de mes (zoom-out). Arrastra una tarea sin fecha a un día
+ * para asignarle dueDate; el click en una tarea lleva a la action view, donde
+ * realmente se actúa. No es la vista por defecto de Academic.
  */
-export function TaskCalendarView({ systemId, initialData, onEdit }: TaskCalendarViewProps) {
+export function TaskCalendarView({ systemId, initialData, onNavigateToAction }: TaskCalendarViewProps) {
   const { data: allTasks = [] } = useTasks(systemId, initialData);
   const { mutate: updateDueDate } = useUpdateTask(systemId);
 
+  const [month, setMonth] = useState(startOfToday());
   const [draggingTask, setDraggingTask] = useState<Task | null>(null);
 
   const sensors = useSensors(
@@ -73,21 +95,21 @@ export function TaskCalendarView({ systemId, initialData, onEdit }: TaskCalendar
   );
 
   const activeTasks = allTasks.filter((t) => !t.deletedAt && t.status !== "done");
-  const withDate = activeTasks.filter((t) => !!t.dueDate);
   const withoutDate = activeTasks.filter((t) => !t.dueDate);
 
-  const today = startOfToday();
-  const weeks = Array.from({ length: WEEKS_AHEAD }, (_, i) => {
-    const monday = startOfWeek(addWeeks(today, i), { weekStartsOn: 1 });
-    const sunday = endOfWeek(monday, { weekStartsOn: 1 });
-    const id = isoWeekId(monday);
-    const weekTasks = withDate.filter((t) =>
-      isWithinInterval(parseDueDate(t.dueDate!), { start: monday, end: sunday })
-    );
-    return { id, monday, sunday, tasks: weekTasks };
-  });
+  // Tareas con fecha indexadas por día (yyyy-MM-dd).
+  const byDay = new Map<string, Task[]>();
+  for (const t of activeTasks) {
+    if (!t.dueDate) continue;
+    const key = dayId(parseDueDate(t.dueDate));
+    const bucket = byDay.get(key);
+    if (bucket) bucket.push(t);
+    else byDay.set(key, [t]);
+  }
 
-  const statuses = SYSTEM_TYPE_CONFIG.academic.statuses;
+  const gridStart = startOfWeek(startOfMonth(month), { weekStartsOn: 1 });
+  const gridEnd = endOfWeek(endOfMonth(month), { weekStartsOn: 1 });
+  const days = eachDayOfInterval({ start: gridStart, end: gridEnd });
 
   function handleDragStart({ active }: DragStartEvent) {
     setDraggingTask(activeTasks.find((t) => t.id === active.id) ?? null);
@@ -100,94 +122,126 @@ export function TaskCalendarView({ systemId, initialData, onEdit }: TaskCalendar
   }
 
   return (
-    <div className="space-y-4">
-      <p className="text-sm text-muted-foreground">
-        {withDate.length} con fecha · {withoutDate.length} sin fecha
-      </p>
-
-      <DndContext
-        sensors={sensors}
-        collisionDetection={closestCenter}
-        onDragStart={handleDragStart}
-        onDragEnd={handleDragEnd}
-      >
-        <div className="flex gap-4">
-          {/* Panel sin fecha */}
-          <div className="w-48 shrink-0">
-            <h3 className="text-xs font-semibold uppercase tracking-widest text-muted-foreground mb-2 px-1">
-              Sin fecha
-            </h3>
-            <div className="space-y-1.5">
-              {withoutDate.length === 0 ? (
-                <p className="text-xs text-muted-foreground/50 text-center py-4">
-                  Todas las tareas tienen fecha ✓
-                </p>
-              ) : (
-                withoutDate.map((task) => (
-                  <DraggableChip key={task.id} task={task} onEdit={onEdit} />
-                ))
-              )}
-            </div>
-          </div>
-
-          {/* Timeline horizontal */}
-          <div className="flex-1 overflow-x-auto">
-            <div className="flex gap-3 min-w-max pb-2">
-              {weeks.map((week) => (
-                <DroppableColumn
-                  key={week.id}
-                  id={week.id}
-                  className="w-48 shrink-0 rounded-xl border bg-muted/30 p-3 flex flex-col gap-2"
-                >
-                  <div className="text-xs">
-                    <span className="font-semibold text-foreground">
-                      {format(week.monday, "MMM d", { locale: es })}
-                    </span>
-                    <span className="text-muted-foreground"> — {format(week.sunday, "d")}</span>
-                  </div>
-
-                  <div className="space-y-1.5 min-h-[40px]">
-                    {week.tasks.map((task) => {
-                      const statusDef = statuses.find((s) => s.name === task.status);
-                      const course = (task.metadata as { course?: string } | null)?.course;
-                      return (
-                        <div
-                          key={task.id}
-                          className="px-2.5 py-2 rounded-lg bg-background border border-border cursor-pointer text-sm hover:border-primary/50 transition-colors"
-                          onClick={() => onEdit?.(task)}
-                        >
-                          <span className="font-medium block truncate">{task.title}</span>
-                          <div className="flex items-center gap-1.5 mt-0.5">
-                            {statusDef && (
-                              <span className="text-xs text-muted-foreground">
-                                {statusDef.emoji ?? ""} {statusDef.label}
-                              </span>
-                            )}
-                            {course && (
-                              <span className="text-xs text-muted-foreground/60 truncate">· {course}</span>
-                            )}
-                          </div>
-                        </div>
-                      );
-                    })}
-                    {week.tasks.length === 0 && (
-                      <p className="text-xs text-muted-foreground/30 text-center py-2">—</p>
-                    )}
-                  </div>
-                </DroppableColumn>
-              ))}
-            </div>
+    <DndContext
+      sensors={sensors}
+      collisionDetection={closestCenter}
+      onDragStart={handleDragStart}
+      onDragEnd={handleDragEnd}
+    >
+      <div className="flex gap-4">
+        {/* Panel sin fecha — origen de arrastre */}
+        <div className="w-44 shrink-0">
+          <h3 className="text-xs font-semibold uppercase tracking-widest text-muted-foreground mb-2 px-1">
+            Sin fecha
+          </h3>
+          <div className="space-y-1.5">
+            {withoutDate.length === 0 ? (
+              <p className="text-xs text-muted-foreground/50 text-center py-4">
+                Todas tienen fecha ✓
+              </p>
+            ) : (
+              withoutDate.map((task) => (
+                <TaskChip key={task.id} task={task} onClick={() => onNavigateToAction?.(task.id)} />
+              ))
+            )}
           </div>
         </div>
 
-        <DragOverlay>
-          {draggingTask && (
-            <div className="opacity-90 rotate-1 shadow-xl w-48 px-3 py-2 rounded-lg bg-muted border border-border text-sm font-medium">
-              {draggingTask.title}
+        {/* Calendario de mes */}
+        <div className="flex-1 min-w-0">
+          {/* Cabecera con navegación */}
+          <div className="flex items-center justify-between mb-3">
+            <h2 className="text-sm font-semibold capitalize">
+              {format(month, "MMMM yyyy", { locale: es })}
+            </h2>
+            <div className="flex items-center gap-1">
+              <Button variant="ghost" size="sm" onClick={() => setMonth(startOfToday())}>
+                Hoy
+              </Button>
+              <Button
+                variant="ghost"
+                size="icon"
+                className="size-8"
+                onClick={() => setMonth((m) => addMonths(m, -1))}
+              >
+                <ChevronLeft className="size-4" />
+              </Button>
+              <Button
+                variant="ghost"
+                size="icon"
+                className="size-8"
+                onClick={() => setMonth((m) => addMonths(m, 1))}
+              >
+                <ChevronRight className="size-4" />
+              </Button>
             </div>
-          )}
-        </DragOverlay>
-      </DndContext>
-    </div>
+          </div>
+
+          {/* Encabezado de días de la semana */}
+          <div className="grid grid-cols-7 mb-1">
+            {WEEKDAYS.map((d) => (
+              <div
+                key={d}
+                className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground text-center pb-1"
+              >
+                {d}
+              </div>
+            ))}
+          </div>
+
+          {/* Grid de días */}
+          <div className="grid grid-cols-7 gap-1 auto-rows-fr">
+            {days.map((day) => {
+              const inMonth = isSameMonth(day, month);
+              const tasks = byDay.get(dayId(day)) ?? [];
+              const visible = tasks.slice(0, MAX_CHIPS_PER_DAY);
+              const overflow = tasks.length - visible.length;
+              return (
+                <DroppableColumn
+                  key={day.toISOString()}
+                  id={dayId(day)}
+                  className={cn(
+                    "min-h-[88px] rounded-lg border p-1.5 flex flex-col gap-1",
+                    inMonth ? "bg-muted/20" : "bg-transparent opacity-40",
+                    isToday(day) && "ring-1 ring-primary/40"
+                  )}
+                >
+                  <span
+                    className={cn(
+                      "text-xs font-medium px-0.5",
+                      isToday(day) ? "text-primary" : "text-muted-foreground"
+                    )}
+                  >
+                    {format(day, "d")}
+                  </span>
+                  <div className="space-y-1 overflow-hidden">
+                    {visible.map((task) => (
+                      <TaskChip key={task.id} task={task} onClick={() => onNavigateToAction?.(task.id)} />
+                    ))}
+                    {overflow > 0 && (
+                      <button
+                        type="button"
+                        onClick={() => onNavigateToAction?.()}
+                        className="text-[11px] text-muted-foreground hover:text-foreground px-0.5"
+                      >
+                        +{overflow} más
+                      </button>
+                    )}
+                  </div>
+                </DroppableColumn>
+              );
+            })}
+          </div>
+        </div>
+      </div>
+
+      <DragOverlay>
+        {draggingTask && (
+          <div className="opacity-90 rotate-1 shadow-xl max-w-44 px-2 py-1 rounded-md bg-background border border-border text-xs font-medium truncate">
+            {draggingTask.title}
+          </div>
+        )}
+      </DragOverlay>
+    </DndContext>
   );
 }
