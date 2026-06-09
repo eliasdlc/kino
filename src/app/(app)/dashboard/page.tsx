@@ -1,23 +1,14 @@
 import { auth } from "@/auth";
 import { headers } from "next/headers";
 import { redirect } from "next/navigation";
-import { db } from "@/shared/db";
-import { tasks, systems } from "@/shared/db/schema";
-import { and, eq, isNull, sql } from "drizzle-orm";
-import { cn } from "@/lib/utils";
 import { getTodayEnergyPlan, getTodayAdvisor, getWeeklyTrends } from "@/features/energy/energy.service";
 import { TodayPlanCard } from "@/features/dashboard/TodayPlanCard";
 import { EnergyBatteryCard } from "@/features/dashboard/EnergyBatteryCard";
 import { AdvisorCard } from "@/features/dashboard/AdvisorCard";
-import { WeeklyTrendsCard } from "@/features/dashboard/WeeklyTrendsCard";
-import { QuickAccessCard } from "@/features/dashboard/QuickAccessCard";
-import { LearningInsightCard } from "@/features/dashboard/LearningInsightCard";
 import { NotificationPromptCard } from "@/features/dashboard/NotificationPromptCard";
+import { DashboardBottomRow } from "@/features/dashboard/DashboardBottomRow";
 
 export const metadata = { title: "Dashboard - Kino" };
-
-const PRIORITY_ORDER: Record<string, number> = { critical: 0, high: 1, medium: 2, low: 3 };
-const ENERGY_ORDER: Record<string, number> = { high: 0, medium: 1, low: 2 };
 
 export default async function DashboardPage() {
   const session = await auth.api.getSession({ headers: await headers() });
@@ -25,86 +16,29 @@ export default async function DashboardPage() {
 
   const userId = session.user.id;
 
-  const [todayTasksRaw, userSystems, dailyPlan, topPattern, weeklyTrends] = await Promise.all([
-    db
-      .select()
-      .from(tasks)
-      .where(and(
-        eq(tasks.userId, userId),
-        sql`${tasks.status} IN ('today', 'done')`,
-        isNull(tasks.deletedAt),
-        isNull(tasks.parentTaskId),
-      ))
-      .orderBy(tasks.sortIndex),
-    db
-      .select({ id: systems.id, name: systems.name, color: systems.color, icon: systems.icon })
-      .from(systems)
-      .where(eq(systems.userId, userId)),
+  const [dailyPlan, topPattern, weeklyTrends] = await Promise.all([
     getTodayEnergyPlan(userId),
     getTodayAdvisor(userId),
     getWeeklyTrends(userId),
   ]);
 
-  const doneTasks = todayTasksRaw.filter((t) => t.status === "done");
-  const pendingTasks = todayTasksRaw
-    .filter((t) => t.status === "today")
-    .sort((a, b) => {
-      const pDiff = (PRIORITY_ORDER[a.priority] ?? 2) - (PRIORITY_ORDER[b.priority] ?? 2);
-      if (pDiff !== 0) return pDiff;
-      return (ENERGY_ORDER[a.energyLevel] ?? 1) - (ENERGY_ORDER[b.energyLevel] ?? 1);
-    });
-
-  const totalToday = todayTasksRaw.length;
-  const doneCount = doneTasks.length;
-
-  const firstName = session.user.name?.split(" ")[0] ?? "there";
-  const greeting = (() => {
-    const h = new Date().getHours();
-    if (h < 12) return "Buenos días";
-    if (h < 17) return "Buenas tardes";
-    return "Buenas noches";
-  })();
-
-  const hasWeeklyData = weeklyTrends.snapshots.length > 0 || weeklyTrends.checkins.length > 0;
-
   return (
-    <div className="p-4 md:p-6 space-y-4 max-w-7xl mx-auto">
-      {/* Header */}
-      <div>
-        <h1 className="text-2xl font-bold tracking-tight">
-          {greeting}, {firstName}
-        </h1>
-        <p className="text-sm text-muted-foreground mt-0.5">
-          {new Date().toLocaleDateString("es-ES", {
-            weekday: "long",
-            year: "numeric",
-            month: "long",
-            day: "numeric",
-          })}
-        </p>
-      </div>
-
-      {/* Push notification prompt — only shows if not subscribed/dismissed */}
+    <div className="h-full overflow-hidden p-3 md:p-4">
       <NotificationPromptCard />
 
-      {/* Bento grid */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-
-        {/* ── Plan de hoy — celda grande (2 cols, toda la altura izquierda) ── */}
-        <div className="lg:col-span-2 lg:row-span-2 min-h-[420px]">
+      <div className="dashboard-grid h-full">
+        {/* ── Plan de hoy — client component, fetches its own tasks ── */}
+        <div className="dashboard-plan overflow-hidden">
           <TodayPlanCard
-            pendingTasks={pendingTasks}
-            doneCount={doneCount}
-            totalToday={totalToday}
             noProfile={dailyPlan.noProfile}
             energyItems={dailyPlan.energyPlan?.items}
           />
         </div>
 
-        {/* ── Columna derecha — apila Energía + Consejero ── */}
-        <div className="flex flex-col gap-4">
+        {/* ── Panel derecho: Energía + Advisor ── */}
+        <div className="dashboard-side flex flex-col gap-3 overflow-y-auto">
           <EnergyBatteryCard
-            initialCheckin={dailyPlan.checkin}
+            initialCheckins={dailyPlan.checkins}
             projectedCurve={dailyPlan.energyPlan?.projectedCurve ?? null}
             chronotype={dailyPlan.chronotype}
             scheduledItems={dailyPlan.energyPlan?.items}
@@ -118,20 +52,16 @@ export default async function DashboardPage() {
               bulkAction={topPattern.bulkAction}
             />
           )}
-          {dailyPlan.learningAlpha >= 0.3 && (
-            <LearningInsightCard
-              learnedCurve={dailyPlan.learnedCurve}
-              learningAlpha={dailyPlan.learningAlpha}
-              chronotype={dailyPlan.chronotype}
-            />
-          )}
         </div>
 
         {/* ── Fila inferior ── */}
-        {hasWeeklyData && <WeeklyTrendsCard trends={weeklyTrends} />}
-
-        <div className={cn(hasWeeklyData ? "lg:col-span-2" : "lg:col-span-3")}>
-          <QuickAccessCard systems={userSystems} />
+        <div className="dashboard-bottom">
+          <DashboardBottomRow
+            weeklyTrends={weeklyTrends}
+            learnedCurve={dailyPlan.learnedCurve}
+            learningAlpha={dailyPlan.learningAlpha}
+            chronotype={dailyPlan.chronotype}
+          />
         </div>
       </div>
     </div>
