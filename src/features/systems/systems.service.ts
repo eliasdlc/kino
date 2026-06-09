@@ -1,8 +1,9 @@
 import { db } from "@/shared/db";
-import { CreateSystemInput, System, UpdateSystemInput } from "./systems.types"
-import { systems, systemHealth } from "@/shared/db/schema";
-import { and, desc, eq, max } from "drizzle-orm";
+import { CreateSystemInput, System, SystemWithSignals, UpdateSystemInput } from "./systems.types"
+import { systems, systemHealth, tasks } from "@/shared/db/schema";
+import { and, desc, eq, max, sql } from "drizzle-orm";
 import { ForbiddenError, NotFoundError } from "@/shared/utils/error";
+import { deriveStale } from "./systems.signals";
 
 export async function createInboxForUser(userId: string) {
 
@@ -23,8 +24,8 @@ export async function assertNotInbox(system: System) {
   }
 }
 
-export async function getUsersSystems(userId: string) {
-  return db.select()
+export async function getUsersSystems(userId: string): Promise<SystemWithSignals[]> {
+  const userSystems = await db.select()
     .from(systems)
     .where(
       and(
@@ -33,6 +34,36 @@ export async function getUsersSystems(userId: string) {
       )
     ).orderBy(systems.sortOrder);
 
+  // Una pasada agregada por sistema: última tarea completada + nº de activas.
+  const stats = await db
+    .select({
+      systemId: tasks.systemId,
+      lastCompletedAt: sql<string | null>`MAX(${tasks.completedAt}) FILTER (WHERE ${tasks.deletedAt} IS NULL)`,
+      activeCount: sql<number>`COUNT(*) FILTER (WHERE ${tasks.deletedAt} IS NULL AND ${tasks.status} NOT IN ('done', 'archived'))`,
+    })
+    .from(tasks)
+    .where(eq(tasks.userId, userId))
+    .groupBy(tasks.systemId);
+
+  const statsBySystem = new Map(stats.map((s) => [s.systemId, s]));
+  const now = Date.now();
+
+  return userSystems.map((system) => {
+    const s = statsBySystem.get(system.id);
+    const lastAt = s?.lastCompletedAt ? new Date(s.lastCompletedAt) : null;
+    const daysSinceLastActivity = lastAt
+      ? Math.floor((now - lastAt.getTime()) / 86_400_000)
+      : null;
+    const stale = system.isInbox
+      ? false
+      : deriveStale({
+          expectedFrequency: system.expectedFrequency,
+          activeTaskCount: Number(s?.activeCount ?? 0),
+          daysSinceLastActivity,
+          daysSinceCreated: Math.floor((now - system.createdAt.getTime()) / 86_400_000),
+        });
+    return { ...system, stale, daysSinceLastActivity };
+  });
 }
 export async function createSystem(userId: string, input: CreateSystemInput) {
   const [{ maxOrder }] = await db

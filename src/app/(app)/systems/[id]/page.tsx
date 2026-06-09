@@ -6,6 +6,7 @@ import { getTasksBySystem } from "@/features/tasks/tasks.service";
 import { PageWrapper } from "@/components/PageWrapper";
 import { PageBreadcrumb } from "@/components/PageBreadcrumb";
 import { SystemDetailHeader } from "@/features/systems/SystemDetailHeader";
+import { computeSystemSignals } from "@/features/systems/systems.signals";
 import { SystemDetailView } from "@/features/systems/views/SystemDetailView";
 import { DocsView } from "@/features/docs/DocsView";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -28,6 +29,8 @@ export default async function SystemPage({
 
   if (!system) notFound();
 
+  const signals = computeSystemSignals(system, tasks);
+
   return (
     <div className="w-full">
       <div className="sticky top-14 md:top-0 z-10 bg-background border-b px-4 md:px-6 py-2.5">
@@ -39,7 +42,7 @@ export default async function SystemPage({
         />
       </div>
       <PageWrapper className="w-full">
-        <SystemDetailHeader system={system} taskCount={tasks.length} />
+        <SystemDetailHeader system={system} signals={signals} />
 
         <Tabs defaultValue={tab === "docs" ? "docs" : "tasks"} className="w-full mt-4">
           <TabsList>

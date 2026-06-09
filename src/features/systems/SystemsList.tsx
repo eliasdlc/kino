@@ -15,7 +15,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { MoreHorizontal, Eye, Pencil, Trash2, Search } from "lucide-react";
+import { MoreHorizontal, Eye, Pencil, Trash2, Search, AlertTriangle } from "lucide-react";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { EditSystemDialog } from "./EditSystemDialog";
 import type { System } from "./systems.types";
@@ -113,7 +113,7 @@ export function SystemsList() {
           return (
             <Link key={system.id} href={`/systems/${system.id}`} className="group">
               <Card
-                className={`border-t-4 ${borderColor} motion-safe:transition-all hover:shadow-md motion-safe:hover:-translate-y-0.5`}
+                className={`border-t-4 ${borderColor} motion-safe:transition-all hover:shadow-md motion-safe:hover:-translate-y-0.5 ${system.stale ? "ring-1 ring-amber-500/40" : ""}`}
               >
                 <CardHeader className="pb-2">
                   <div className="flex items-start justify-between">
@@ -161,6 +161,15 @@ export function SystemsList() {
                     <Badge variant="secondary" className="text-xs">
                       {system.templateType}
                     </Badge>
+                    {system.stale && (
+                      <Badge
+                        variant="outline"
+                        className="text-xs gap-1 border-amber-500/40 text-amber-600 dark:text-amber-500"
+                      >
+                        <AlertTriangle className="size-3" />
+                        Stale
+                      </Badge>
+                    )}
                   </div>
                 </CardContent>
               </Card>

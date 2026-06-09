@@ -1,11 +1,11 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import type { System, CreateSystemInput, UpdateSystemInput } from "./systems.types";
+import type { System, SystemWithSignals, CreateSystemInput, UpdateSystemInput } from "./systems.types";
 import { folderKeys } from "@/features/folders/folders.hooks";
 import { pageKeys } from "@/features/pages/pages.hooks";
 import { taskKeys } from "@/features/tasks/tasks.hooks";
 
 export function useSystems() {
-  return useQuery<System[]>({
+  return useQuery<SystemWithSignals[]>({
     queryKey: ["systems"],
     queryFn: async () => {
       const res = await fetch("/api/systems");

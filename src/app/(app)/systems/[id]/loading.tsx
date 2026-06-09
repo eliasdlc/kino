@@ -1,6 +1,6 @@
 import { Skeleton } from "@/components/ui/skeleton";
 import { PageWrapper } from "@/components/PageWrapper";
-import { BreadcrumbSkeleton, CardSkeleton, TaskCardSkeleton } from "@/components/skeletons";
+import { BreadcrumbSkeleton, TaskCardSkeleton } from "@/components/skeletons";
 
 export default function SystemLoading() {
   return (
@@ -11,29 +11,30 @@ export default function SystemLoading() {
       </div>
 
       <PageWrapper className="w-full">
-        {/* System header card — mirrors SystemDetailHeader */}
-        <CardSkeleton>
+        {/* System header — mirrors SystemDetailHeader (tinted card, collapsible) */}
+        <div className="rounded-lg bg-muted/30 px-4 py-3 w-full space-y-2.5">
           {/* Title row */}
           <div className="flex items-start justify-between gap-4">
             <div className="flex items-center gap-3 flex-1">
+              <Skeleton className="size-4 rounded shrink-0" />
               <Skeleton className="size-3 rounded-full shrink-0" />
               <Skeleton className="h-7 w-48 rounded" />
             </div>
-            <Skeleton className="size-10 rounded-md shrink-0" />
+            <Skeleton className="size-9 rounded-md shrink-0" />
           </div>
           {/* Identity statement */}
-          <Skeleton className="h-4 w-3/5 rounded ml-6" />
+          <Skeleton className="h-4 w-3/5 rounded ml-7" />
           {/* Metadata badges */}
-          <div className="flex items-center gap-2 pl-6">
+          <div className="flex items-center gap-2 pl-7">
             <Skeleton className="h-5 w-16 rounded-full" />
             <Skeleton className="h-5 w-14 rounded-full" />
             <Skeleton className="h-5 w-20 rounded-full" />
           </div>
           {/* Stats row */}
-          <div className="flex items-center gap-4 pl-6 pt-2 border-t">
+          <div className="flex items-center gap-4 pl-7">
             <Skeleton className="h-3 w-16 rounded" />
           </div>
-        </CardSkeleton>
+        </div>
 
         {/* SystemDetailTabs container */}
         <div className="bg-white/[0.04] p-1 rounded-lg flex items-center h-10 w-full select-none mb-4">
