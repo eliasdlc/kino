@@ -1,8 +1,10 @@
 'use client';
 
+import { isBefore, isToday, startOfToday } from 'date-fns';
 import { cn } from '@/lib/utils';
 import { AlertCircle } from 'lucide-react';
 import type { Task } from './tasks.types';
+import { parseDueDate } from './tasks.utils';
 
 interface SystemInfo {
   id: string;
@@ -46,10 +48,9 @@ const ENERGY_DOT: Record<string, string> = {
 
 function dueDateLabel(dueDate: string | null): { label: string; overdue: boolean } {
   if (!dueDate) return { label: '', overdue: false };
-  const today = new Date().toISOString().slice(0, 10);
-  const overdue = dueDate < today;
-  if (dueDate === today) return { label: 'hoy', overdue: false };
-  const d = new Date(dueDate + 'T00:00:00');
+  const d = parseDueDate(dueDate);
+  const overdue = isBefore(d, startOfToday());
+  if (isToday(d)) return { label: 'hoy', overdue: false };
   return {
     label: d.toLocaleDateString('es', { day: 'numeric', month: 'short' }),
     overdue,

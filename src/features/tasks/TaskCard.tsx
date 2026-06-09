@@ -1,7 +1,8 @@
 "use client";
 
 import { useState } from "react";
-import { differenceInCalendarDays, format, isBefore, parseISO, startOfToday } from "date-fns";
+import { differenceInCalendarDays, format, isBefore, startOfToday } from "date-fns";
+import { parseDueDate } from "./tasks.utils";
 import { ChevronDown, Trash2, Timer } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { Task, TaskMetadata } from "./tasks.types";
@@ -82,13 +83,13 @@ function formatTime(timeStr: unknown): string {
 }
 
 function ReminderCountdown({ dueDate }: { dueDate: string }) {
-  const days = differenceInCalendarDays(parseISO(dueDate), startOfToday());
+  const days = differenceInCalendarDays(parseDueDate(dueDate), startOfToday());
 
   if (days < 0) {
     return (
       <span className="inline-flex items-center gap-1 font-mono text-sm text-[#f87171] font-medium">
         <ClockIcon />
-        overdue · {format(parseISO(dueDate), "MMM d")}
+        overdue · {format(parseDueDate(dueDate), "MMM d")}
       </span>
     );
   }
@@ -96,7 +97,7 @@ function ReminderCountdown({ dueDate }: { dueDate: string }) {
     return (
       <span className="inline-flex items-center gap-1 font-mono text-sm text-[#f87171] font-medium">
         <ClockIcon />
-        due · today · {format(parseISO(dueDate), "MMM d")}
+        due · today · {format(parseDueDate(dueDate), "MMM d")}
       </span>
     );
   }
@@ -104,7 +105,7 @@ function ReminderCountdown({ dueDate }: { dueDate: string }) {
     return (
       <span className="inline-flex items-center gap-1 font-mono text-sm text-[#fbbf24]">
         <CalendarIcon />
-        due · tomorrow · {format(parseISO(dueDate), "MMM d")}
+        due · tomorrow · {format(parseDueDate(dueDate), "MMM d")}
       </span>
     );
   }
@@ -112,14 +113,14 @@ function ReminderCountdown({ dueDate }: { dueDate: string }) {
     return (
       <span className="inline-flex items-center gap-1 font-mono text-sm text-[#fbbf24]">
         <CalendarIcon />
-        {format(parseISO(dueDate), "MMM d")} · in {days} days
+        {format(parseDueDate(dueDate), "MMM d")} · in {days} days
       </span>
     );
   }
   return (
     <span className="inline-flex items-center gap-[3px] font-mono text-xs text-zinc-500">
       <CalendarIcon />
-      due · {format(parseISO(dueDate), "MMM d")}
+      due · {format(parseDueDate(dueDate), "MMM d")}
     </span>
   );
 }
@@ -158,7 +159,7 @@ export function TaskCard({ task, systemId, systemType, draggable, isFocused, onT
     !!task.dueDate &&
     !isDone &&
     !isArchived &&
-    isBefore(parseISO(task.dueDate), startOfToday());
+    isBefore(parseDueDate(task.dueDate), startOfToday());
 
   const { data: folders } = useFolders(systemId);
   const folder = task.folderId ? folders?.find((f) => f.id === task.folderId) : null;
@@ -168,7 +169,7 @@ export function TaskCard({ task, systemId, systemType, draggable, isFocused, onT
   const showPriorityBadge = (isCritical || isHigh) && !isDone && !isArchived;
 
   const dueDays = task.dueDate && !isOverdue
-    ? differenceInCalendarDays(parseISO(task.dueDate), startOfToday())
+    ? differenceInCalendarDays(parseDueDate(task.dueDate), startOfToday())
     : null;
   const isDueSoon = dueDays !== null && dueDays <= 2;
 
@@ -310,7 +311,7 @@ export function TaskCard({ task, systemId, systemType, draggable, isFocused, onT
                 isOverdue ? "text-[#f87171] font-medium" : isDueSoon ? "text-[#fbbf24]" : "text-zinc-500"
               )}>
                 {isOverdue ? <ClockIcon /> : <CalendarIcon />}
-                {isOverdue ? "overdue" : "due"} · {format(parseISO(task.dueDate), "MMM d")}
+                {isOverdue ? "overdue" : "due"} · {format(parseDueDate(task.dueDate), "MMM d")}
               </span>
             </>
           ) : null}

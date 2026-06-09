@@ -32,9 +32,15 @@ import { TaskDragOverlay } from "./dnd/TaskDragOverlay";
 import type { TaskDragData } from "./dnd/dnd.types";
 import { useTasks, useFolderTasks, useToggleTask, useDeleteTaskWithUndo, useUpdateTask } from "./tasks.hooks";
 import type { Task } from "./tasks.types";
+import { parseDueDate } from "./tasks.utils";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { useTaskKeyboardNavigation } from "./useTaskKeyboardNavigation";
 import { MultiDayTaskBar } from "./MultiDayTaskBar";
+
+/** startDate ("yyyy-MM-dd") vs día calendario de dueDate (timestamptz). */
+function sameDueDay(startDate: string, dueDate: string): boolean {
+  return format(parseDueDate(dueDate), "yyyy-MM-dd") === startDate;
+}
 
 interface TaskPlanningViewProps {
   systemId: string;
@@ -94,9 +100,9 @@ export function TaskPlanningView({ systemId, initialData, folderId, folderInitia
       if (task.status === "done" || task.status === "archived") return false;
 
       // Multi-day task: has startDate and dueDate, and they are different
-      if (task.startDate && task.dueDate && task.startDate !== task.dueDate) {
+      if (task.startDate && task.dueDate && !sameDueDay(task.startDate, task.dueDate)) {
         const start = parseISO(task.startDate);
-        const due = parseISO(task.dueDate);
+        const due = parseDueDate(task.dueDate);
         const weekStart = weekDates[0]!;
         const weekEnd = weekDates[6]!;
         // Intersects visible week if it starts before/on weekEnd AND ends after/on weekStart
@@ -114,13 +120,13 @@ export function TaskPlanningView({ systemId, initialData, folderId, folderInitia
 
   const multiDayTasks = useMemo(() => {
     return visibleTasks.filter(
-      (t) => t.startDate && t.dueDate && t.startDate !== t.dueDate
+      (t) => t.startDate && t.dueDate && !sameDueDay(t.startDate, t.dueDate)
     );
   }, [visibleTasks]);
 
   const singleDayTasks = useMemo(() => {
     return visibleTasks.filter(
-      (t) => !t.startDate || !t.dueDate || t.startDate === t.dueDate
+      (t) => !t.startDate || !t.dueDate || sameDueDay(t.startDate, t.dueDate)
     );
   }, [visibleTasks]);
 
@@ -222,7 +228,7 @@ export function TaskPlanningView({ systemId, initialData, folderId, folderInitia
           <div className="grid grid-cols-7 gap-2 w-full pt-1 pb-3 border-b border-border">
             {multiDayTasks.map((task) => {
               const start = parseISO(task.startDate!);
-              const due = parseISO(task.dueDate!);
+              const due = parseDueDate(task.dueDate!);
               const weekStart = weekDates[0]!;
               const weekEnd = weekDates[6]!;
 

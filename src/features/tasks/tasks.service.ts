@@ -175,7 +175,8 @@ async function syncAutoReminders(taskId: string, userId: string, dueDate: string
   const offsets = AUTO_REMINDER_OFFSETS[priority];
   if (!offsets) return;
 
-  const dueTs = new Date(dueDate + 'T09:00:00Z');
+  // dueDate ya es timestamptz (fase 3); puede traer hora propia.
+  const dueTs = new Date(dueDate);
   const now = new Date();
 
   const toInsert = offsets
@@ -318,7 +319,7 @@ export async function createTask(userId: string, data: CreateTaskInput) {
     await db.insert(taskReminders).values({
       taskId: task.id,
       userId,
-      remindAt: new Date(task.dueDate + 'T09:00:00Z'),
+      remindAt: new Date(task.dueDate),
       label: 'Recordatorio',
       source: 'auto',
     });

@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { format, parseISO } from "date-fns";
+import { parseDueDate } from "./tasks.utils";
 import { CalendarIcon, Timer } from "lucide-react";
 import {
   Sheet,
@@ -73,6 +74,28 @@ function TimeLoggedSection({ taskId }: { taskId: string }) {
   );
 }
 
+/** true si dueDate tiene hora significativa (no medianoche local). */
+function hasDueTime(d: Date): boolean {
+  return d.getHours() !== 0 || d.getMinutes() !== 0;
+}
+
+/** Cambia el día conservando la hora previa (Calendar devuelve medianoche). */
+function withDay(prev: Date | undefined, day: Date | undefined): Date | undefined {
+  if (!day) return undefined;
+  const next = new Date(day);
+  if (prev) next.setHours(prev.getHours(), prev.getMinutes(), 0, 0);
+  return next;
+}
+
+/** Aplica una hora "HH:mm" al Date actual. */
+function withTime(prev: Date | undefined, value: string): Date | undefined {
+  if (!prev || !value) return prev;
+  const [h, m] = value.split(":").map(Number);
+  const next = new Date(prev);
+  next.setHours(h ?? 0, m ?? 0, 0, 0);
+  return next;
+}
+
 interface TaskDetailFormProps {
   task: Task;
   systemId: string;
@@ -98,7 +121,7 @@ function TaskDetailForm({ task, systemId, onClose }: TaskDetailFormProps) {
       : undefined
   );
   const [dueDate, setDueDate] = useState<Date | undefined>(
-    task.dueDate ? parseISO(task.dueDate) : undefined
+    task.dueDate ? parseDueDate(task.dueDate) : undefined
   );
   const [startDate, setStartDate] = useState<Date | undefined>(
     task.startDate ? parseISO(task.startDate) : undefined
@@ -128,7 +151,7 @@ function TaskDetailForm({ task, systemId, onClose }: TaskDetailFormProps) {
             priority,
             energyLevel,
             taskType: taskType ?? null,
-            dueDate: dueDate ? format(dueDate, "yyyy-MM-dd") : undefined,
+            dueDate: dueDate ? dueDate.toISOString() : undefined,
             startDate: startDate ? format(startDate, "yyyy-MM-dd") : undefined,
             folderId: selectedFolderId !== "none" ? selectedFolderId : null,
           },
@@ -274,13 +297,30 @@ function TaskDetailForm({ task, systemId, onClose }: TaskDetailFormProps) {
             <PopoverTrigger asChild>
               <Button variant="outline" className="w-full justify-start gap-2 text-sm font-normal">
                 <CalendarIcon size={16} className="text-muted-foreground" />
-                {dueDate ? format(dueDate, "MMM d, yyyy") : <span className="text-muted-foreground">Pick date</span>}
+                {dueDate ? (
+                  <>
+                    {format(dueDate, "MMM d, yyyy")}
+                    {hasDueTime(dueDate) && <span className="text-muted-foreground">· {format(dueDate, "HH:mm")}</span>}
+                  </>
+                ) : (
+                  <span className="text-muted-foreground">Pick date</span>
+                )}
               </Button>
             </PopoverTrigger>
             <PopoverContent className="w-auto p-0" align="start">
-              <Calendar mode="single" selected={dueDate} onSelect={setDueDate} />
+              <Calendar mode="single" selected={dueDate} onSelect={(day) => setDueDate((prev) => withDay(prev, day))} />
               {dueDate && (
-                <div className="p-2 border-t">
+                <div className="p-2 border-t space-y-2">
+                  <div className="flex items-center gap-2">
+                    <Label htmlFor="due-time" className="text-xs text-muted-foreground shrink-0">Hora</Label>
+                    <Input
+                      id="due-time"
+                      type="time"
+                      value={format(dueDate, "HH:mm")}
+                      onChange={(e) => setDueDate((prev) => withTime(prev, e.target.value))}
+                      className="h-8"
+                    />
+                  </div>
                   <Button variant="ghost" size="sm" className="w-full" onClick={() => setDueDate(undefined)}>
                     Clear
                   </Button>
