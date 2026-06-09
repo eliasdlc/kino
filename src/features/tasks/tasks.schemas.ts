@@ -2,6 +2,17 @@ import { z } from 'zod';
 
 const STATUS = z.string().min(1).max(50);
 
+// dueDate es timestamptz (fase 3): acepta "yyyy-MM-dd" o ISO datetime.
+const DUE_DATE = z.string().refine((s) => !Number.isNaN(Date.parse(s)), {
+  message: 'Invalid due date',
+});
+
+// Compara solo la parte de fecha (yyyy-MM-dd) de due vs start, robusto ante
+// dueDate con hora y startDate sin ella.
+function dueBeforeStart(dueDate: string, startDate: string): boolean {
+  return dueDate.slice(0, 10) < startDate.slice(0, 10);
+}
+
 export const createTaskSchema = z.object({
   systemId: z.string().uuid(),
   title: z.string().min(1).max(500),
@@ -10,7 +21,7 @@ export const createTaskSchema = z.object({
   energyLevel: z.enum(["high", "medium", "low"]).optional(),
   priority: z.enum(["critical", "high", "medium", "low"]).optional(),
   taskType: z.enum(["task", "idea", "event", "reminder", "habit"]).optional(),
-  dueDate: z.string().date().optional(),
+  dueDate: DUE_DATE.optional(),
   startDate: z.string().date().optional(),
   estimatedTime: z.string().time().optional(),
   parentTaskId: z.string().uuid().optional(),
@@ -24,7 +35,7 @@ export const createTaskSchema = z.object({
   if (data.taskType === 'reminder' && !data.dueDate) {
     ctx.addIssue({ code: 'custom', path: ['dueDate'], message: 'Reminders require a due date' });
   }
-  if (data.startDate && data.dueDate && data.dueDate < data.startDate) {
+  if (data.startDate && data.dueDate && dueBeforeStart(data.dueDate, data.startDate)) {
     ctx.addIssue({ code: 'custom', path: ['dueDate'], message: 'Due date cannot be before start date' });
   }
 });
@@ -36,7 +47,7 @@ export const updateTaskSchema = z.object({
   energyLevel: z.enum(["high", "medium", "low"]).optional(),
   priority: z.enum(["critical", "high", "medium", "low"]).optional(),
   taskType: z.enum(["task", "idea", "event", "reminder", "habit"]).nullable().optional(),
-  dueDate: z.string().date().optional().nullable(),
+  dueDate: DUE_DATE.optional().nullable(),
   startDate: z.string().date().optional().nullable(),
   estimatedTime: z.string().time().optional(),
   parentTaskId: z.string().uuid().optional(),
@@ -52,7 +63,7 @@ export const updateTaskSchema = z.object({
   if (data.taskType === 'reminder' && data.dueDate === null) {
     ctx.addIssue({ code: 'custom', path: ['dueDate'], message: 'Reminders require a due date' });
   }
-  if (data.startDate && data.dueDate && data.dueDate < data.startDate) {
+  if (data.startDate && data.dueDate && dueBeforeStart(data.dueDate, data.startDate)) {
     ctx.addIssue({ code: 'custom', path: ['dueDate'], message: 'Due date cannot be before start date' });
   }
 });
