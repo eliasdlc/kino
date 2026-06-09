@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter, usePathname } from "next/navigation";
+import { useQuery } from "@tanstack/react-query";
 import {
   ChevronRight,
   Folder,
@@ -25,6 +26,7 @@ import { getSystemColor } from "@/shared/utils/system-colors";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import type { System } from "./systems.types";
+import { SYSTEM_TYPE_CONFIG, type SystemType } from "@/shared/lib/system-types";
 
 interface SystemTreeItemProps {
   system: System;
@@ -99,8 +101,16 @@ export function SystemTreeItem({
     setIsCreating(true);
   }
 
-  const Icon = ICON_MAP[system.icon] ?? DEFAULT_ICON;
+  const typeConfig = SYSTEM_TYPE_CONFIG[(system.templateType ?? 'custom') as SystemType];
+  const Icon = ICON_MAP[system.icon ?? ''] ?? typeConfig?.icon ?? DEFAULT_ICON;
   const cls = getSystemColor(system.color);
+
+  const { data: healthData } = useQuery<{ stale: boolean; daysSinceActivity: number | null }>({
+    queryKey: ['system-health', system.id],
+    queryFn: () => fetch(`/api/systems/${system.id}/health`).then((r) => r.json()),
+    staleTime: 5 * 60_000,
+  });
+  const isStale = healthData?.stale ?? false;
 
   if (collapsed) {
     return (
@@ -155,7 +165,19 @@ export function SystemTreeItem({
           className="flex items-center gap-2 flex-1 min-w-0"
         >
           <Icon className={`size-5 shrink-0 text-${cls}`} />
-          <span className="truncate">{system.name}</span>
+          <span className="truncate flex-1">{system.name}</span>
+          {isStale && (
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <span className="size-2 rounded-full bg-amber-500/80 shrink-0 inline-block" />
+              </TooltipTrigger>
+              <TooltipContent side="right">
+                {healthData?.daysSinceActivity != null
+                  ? `Sin actividad hace ${healthData.daysSinceActivity} días`
+                  : 'Sin actividad reciente'}
+              </TooltipContent>
+            </Tooltip>
+          )}
         </Link>
 
         {/* Context menu */}

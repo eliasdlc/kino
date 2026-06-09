@@ -896,7 +896,7 @@ Toast persistente (no desaparece solo, no bloquea el flujo):
 
 ---
 
-### Fase 6 — Inteligencia contextual: system_type
+### ✅ Fase 6 — Inteligencia contextual: system_type
 
 **Depende de**: Fase 4 (funnel estable).
 **Ataca**: A2 — `system_type` es decorativo.

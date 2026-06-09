@@ -11,12 +11,14 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Button } from "@/components/ui/button";
-import { MoreHorizontal, Pencil, Trash2 } from "lucide-react";
+import { ChevronDown, MoreHorizontal, Pencil, Trash2 } from "lucide-react";
 import { useDeleteSystem } from "./systems.hooks";
 import { getSystemColor } from "@/shared/utils/system-colors";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { EditSystemDialog } from "./EditSystemDialog";
 import type { System } from "./systems.types";
+import { SYSTEM_TYPE_CONFIG, type SystemType } from "@/shared/lib/system-types";
+import { cn } from "@/lib/utils";
 
 interface SystemDetailHeaderProps {
   system: System;
@@ -27,8 +29,11 @@ export function SystemDetailHeader({ system, taskCount }: SystemDetailHeaderProp
   const router = useRouter();
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [editOpen, setEditOpen] = useState(false);
+  const [triggerOpen, setTriggerOpen] = useState(false);
   const { mutate: deleteSystem } = useDeleteSystem();
   const cls = getSystemColor(system.color);
+  const typeConfig = SYSTEM_TYPE_CONFIG[(system.templateType ?? 'custom') as SystemType];
+  const TypeIcon = typeConfig.icon;
 
   return (
     <div className="rounded-lg border bg-card p-4 md:p-6 space-y-3 md:space-y-4 w-full">
@@ -85,11 +90,12 @@ export function SystemDetailHeader({ system, taskCount }: SystemDetailHeaderProp
         </p>
       )}
 
-      {/* Metadata badges */}
+      {/* Type + metadata badges */}
       <div className="flex items-center gap-2 flex-wrap pl-6">
-        {system.templateType && (
-          <Badge variant="secondary">{system.templateType}</Badge>
-        )}
+        <Badge variant="secondary" className="flex items-center gap-1.5">
+          <TypeIcon className="size-3" />
+          {typeConfig.label}
+        </Badge>
         {system.energyIdeal && (
           <Badge variant="secondary">{system.energyIdeal}</Badge>
         )}
@@ -98,12 +104,21 @@ export function SystemDetailHeader({ system, taskCount }: SystemDetailHeaderProp
         )}
       </div>
 
-      {/* Trigger context */}
+      {/* Trigger context — collapsible */}
       {system.triggerContext && (
         <div className="pl-6">
-          <p className="text-xs text-muted-foreground">
-            <span className="font-medium">Trigger:</span> {system.triggerContext}
-          </p>
+          <button
+            onClick={() => setTriggerOpen((v) => !v)}
+            className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors"
+          >
+            <ChevronDown className={cn("size-3 transition-transform", triggerOpen && "rotate-180")} />
+            <span className="font-medium">Contexto de activación</span>
+          </button>
+          {triggerOpen && (
+            <p className="mt-1 text-xs text-muted-foreground leading-relaxed">
+              {system.triggerContext}
+            </p>
+          )}
         </div>
       )}
 

@@ -25,6 +25,8 @@ export type SystemStatusDef = {
   emoji?: string;
 };
 
+export type SchedulingPreference = 'lowSlot' | 'peak' | 'highMedium';
+
 export type SystemTypeConfig = {
   icon: LucideIcon;
   emoji: string;
@@ -33,7 +35,11 @@ export type SystemTypeConfig = {
   statuses: SystemStatusDef[];
   extraFields: string[];
   energyDefault: 'low' | 'medium' | 'high' | 'flexible' | null;
+  /** Preferred energy band for scheduling tasks from this system type. */
+  schedulingPreference: SchedulingPreference;
   advisorTemplate: string;
+  /** Stale advisor template: interpolates {nombre} and {n}. */
+  staleTemplate: string;
   focusMinutes: number | null;
 };
 
@@ -53,7 +59,9 @@ export const SYSTEM_TYPE_CONFIG: Record<SystemType, SystemTypeConfig> = {
     ],
     extraFields: ['course', 'professor', 'syllabus', 'collaborators'],
     energyDefault: 'medium',
-    advisorTemplate: 'Próxima entrega en {days} días — ¿cuándo empiezas?',
+    schedulingPreference: 'highMedium',
+    advisorTemplate: 'Energía media — ideal para avanzar en {nombre}.',
+    staleTemplate: '{n} días desde última tarea en {nombre}.',
     focusMinutes: 90,
   },
   professional: {
@@ -71,7 +79,9 @@ export const SYSTEM_TYPE_CONFIG: Record<SystemType, SystemTypeConfig> = {
     ],
     extraFields: ['project', 'assignee', 'dependencies', 'reviewer'],
     energyDefault: 'high',
-    advisorTemplate: '{n} tareas bloqueando a otros — crítico hoy.',
+    schedulingPreference: 'highMedium',
+    advisorTemplate: '{nombre} lleva {n} días sin actividad — estás en tu ventana de alta energía.',
+    staleTemplate: '{n} días desde última tarea en {nombre}.',
     focusMinutes: 25,
   },
   entrepreneurial: {
@@ -89,7 +99,9 @@ export const SYSTEM_TYPE_CONFIG: Record<SystemType, SystemTypeConfig> = {
     ],
     extraFields: ['milestone', 'kpi', 'hypothesis', 'learnings'],
     energyDefault: 'high',
-    advisorTemplate: 'Velocidad esta semana: {n} — {comparison} que semana anterior.',
+    schedulingPreference: 'peak',
+    advisorTemplate: '{nombre} espera hace {n} días. Ahora estás en pico — ¿saltás?',
+    staleTemplate: '{n} días desde última tarea en {nombre}.',
     focusMinutes: 25,
   },
   personal: {
@@ -106,7 +118,9 @@ export const SYSTEM_TYPE_CONFIG: Record<SystemType, SystemTypeConfig> = {
     ],
     extraFields: ['why', 'recurrence', 'reflection'],
     energyDefault: 'flexible',
-    advisorTemplate: 'Buen ritmo — {n} tareas esta semana.',
+    schedulingPreference: 'lowSlot',
+    advisorTemplate: 'Momentos de baja energía son perfectos para {nombre}.',
+    staleTemplate: '{n} días desde última tarea en {nombre}.',
     focusMinutes: null,
   },
   custom: {
@@ -117,7 +131,9 @@ export const SYSTEM_TYPE_CONFIG: Record<SystemType, SystemTypeConfig> = {
     statuses: [],
     extraFields: [],
     energyDefault: null,
+    schedulingPreference: 'highMedium',
     advisorTemplate: 'Tu sistema, tus reglas.',
+    staleTemplate: '{n} días desde última tarea en {nombre}.',
     focusMinutes: null,
   },
   inbox: {
@@ -132,7 +148,9 @@ export const SYSTEM_TYPE_CONFIG: Record<SystemType, SystemTypeConfig> = {
     ],
     extraFields: [],
     energyDefault: null,
+    schedulingPreference: 'lowSlot',
     advisorTemplate: 'Tienes {n} items sin procesar.',
+    staleTemplate: '{n} días desde última tarea en {nombre}.',
     focusMinutes: null,
   },
 };

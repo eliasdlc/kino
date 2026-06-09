@@ -27,6 +27,9 @@ import { TaskTypePicker } from "./TaskTypePicker";
 import { getTaskTypeConfig } from "./task-type-config";
 import { EstimatedTimePicker, minutesToTimeString } from "./EstimatedTimePicker";
 import { useIsMobile } from "@/hooks/use-mobile";
+import { useQueryClient } from "@tanstack/react-query";
+import { SYSTEM_TYPE_CONFIG, type SystemType } from "@/shared/lib/system-types";
+import type { System } from "@/features/systems/systems.types";
 
 const formSchema = z.object({
   title: z.string().min(1, "El título es requerido").max(500),
@@ -79,6 +82,14 @@ export function CreateTaskDialog({
 
   const { data: folders = [] } = useFolders(systemId);
   const { mutateAsync: createTask, isPending } = useCreateTask(systemId);
+  const queryClient = useQueryClient();
+
+  // Derive energy default from system type (zero-cost: reads from cache)
+  const cachedSystems = queryClient.getQueryData<System[]>(['systems']);
+  const systemTemplateType = cachedSystems?.find((s) => s.id === systemId)?.templateType as SystemType | undefined;
+  const rawEnergyDefault = systemTemplateType ? SYSTEM_TYPE_CONFIG[systemTemplateType]?.energyDefault : null;
+  const energyDefault: 'high' | 'medium' | 'low' =
+    rawEnergyDefault === 'high' ? 'high' : rawEnergyDefault === 'low' ? 'low' : 'medium';
 
   const form = useForm<FormValues>({
     resolver: zodResolver(formSchema),
@@ -86,7 +97,7 @@ export function CreateTaskDialog({
       title: '',
       taskType: null,
       priority: 'medium',
-      energyLevel: 'medium',
+      energyLevel: energyDefault,
       startDate: null,
       dueDate: null,
       estimatedMinutes: null,
