@@ -44,15 +44,10 @@ export async function getEnergyDistributionRoute(request: NextRequest) {
 export async function getSuggestRoute(request: NextRequest) {
   const ctx = await getAuthContext(request);
   if (!ctx) return NextResponse.json({ code: 'UNAUTHORIZED', message: 'Unauthorized' }, { status: 401 });
-  const { searchParams } = new URL(request.url);
-  const rawEnergy = searchParams.get('energyLevel');
-  const rawLimit = parseInt(searchParams.get('limit') ?? '3', 10);
-  const energyLevel = ['high', 'medium', 'low'].includes(rawEnergy ?? '')
-    ? (rawEnergy as 'high' | 'medium' | 'low')
-    : undefined;
-  const limit = isNaN(rawLimit) || rawLimit < 1 || rawLimit > 10 ? 3 : rawLimit;
+  const rawLimit = parseInt(new URL(request.url).searchParams.get('limit') ?? '10', 10);
+  const limit = isNaN(rawLimit) || rawLimit < 1 || rawLimit > 10 ? 10 : rawLimit;
   try {
-    return NextResponse.json(await getSuggestedTasks(ctx.userId, energyLevel, limit));
+    return NextResponse.json(await getSuggestedTasks(ctx.userId, limit));
   } catch (e) { return handleError(e); }
 }
 

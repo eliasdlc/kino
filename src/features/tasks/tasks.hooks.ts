@@ -543,6 +543,35 @@ export function useMoveToTomorrow() {
   });
 }
 
+export function useAddToTodayPlan() {
+  const queryClient = useQueryClient();
+  return useMutation<unknown, Error, { taskId: string }>({
+    mutationFn: async ({ taskId }) => {
+      const res = await fetch(`/api/tasks/${taskId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ inTodayPlan: true }),
+      });
+      if (!res.ok) throw new Error('Failed to update task');
+      return res.json();
+    },
+    onMutate: async ({ taskId }) => {
+      await queryClient.cancelQueries({ queryKey: taskKeys.todayPlan() });
+      const previous = queryClient.getQueryData<Task[]>(taskKeys.todayPlan());
+      return { previous, taskId };
+    },
+    onError: (_err, _vars, ctx) => {
+      const c = ctx as { previous?: Task[] } | undefined;
+      if (c?.previous) queryClient.setQueryData(taskKeys.todayPlan(), c.previous);
+      toast.error('No se pudo agregar al plan.');
+    },
+    onSettled: () => {
+      queryClient.invalidateQueries({ queryKey: taskKeys.todayPlan() });
+      queryClient.invalidateQueries({ queryKey: ['tasks', 'all'] });
+    },
+  });
+}
+
 export function useRemoveFromPlan() {
   const queryClient = useQueryClient();
   return useMutation<unknown, Error, { taskId: string }>({
@@ -569,5 +598,38 @@ export function useRemoveFromPlan() {
       toast.error('No se pudo quitar del plan. Intenta de nuevo.');
     },
     onSettled: () => queryClient.invalidateQueries({ queryKey: taskKeys.todayPlan() }),
+  });
+}
+
+// ── Fase 2: tareas globales y sugeridas ──────────────────────────────────
+
+export const allTasksKey = () => ['tasks', 'all'] as const;
+
+export function useAllTasks() {
+  return useQuery<Task[]>({
+    queryKey: allTasksKey(),
+    queryFn: async () => {
+      const res = await fetch('/api/tasks');
+      if (!res.ok) throw new Error('Failed to fetch tasks');
+      return res.json() as Promise<Task[]>;
+    },
+    staleTime: 30_000,
+  });
+}
+
+export type SuggestedTask = Task & { importanceScore: number; why: string; energyBand: string };
+
+export const suggestedTasksKey = () => ['suggested-tasks'] as const;
+
+export function useSuggestedTasks() {
+  return useQuery<SuggestedTask[]>({
+    queryKey: suggestedTasksKey(),
+    queryFn: async () => {
+      const res = await fetch('/api/insights/suggest?limit=10');
+      if (!res.ok) throw new Error('Failed to fetch suggestions');
+      return res.json() as Promise<SuggestedTask[]>;
+    },
+    staleTime: 60_000,
+    refetchOnWindowFocus: false,
   });
 }

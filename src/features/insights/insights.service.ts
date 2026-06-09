@@ -2,10 +2,10 @@ import { and, eq, inArray, isNull } from 'drizzle-orm';
 import { db } from '@/shared/db';
 import { tasks, users } from '@/shared/db/schema';
 import { getUsersSystems } from '@/features/systems/systems.service';
-import { getTodayCheckin, getTodayAdvisor } from '@/features/energy/energy.service';
-import { computeImportance } from '@/features/energy/energy.utils';
+import { getTodayCheckin, getTodayAdvisor, getTodayEnergyPlan } from '@/features/energy/energy.service';
 import { queryEnergyBySystem, queryInactiveSystems } from './insights.queries';
 import type { Task } from '@/features/tasks/tasks.types';
+import type { CheckinSlot } from '@/features/energy/energy.schemas';
 
 function getTodayDate(timezone: string): string {
   return new Intl.DateTimeFormat('en-CA', {
@@ -122,61 +122,111 @@ export async function getEnergyDistribution(userId: string, days = 7) {
 
 // ── Suggest ────────────────────────────────────────────────────────────────
 
-type EnergyLevel = 'high' | 'medium' | 'low';
+type EnergyBand = 'high' | 'medium' | 'low';
 
-export async function getSuggestedTasks(
-  userId: string,
-  energyLevel?: EnergyLevel,
-  limit = 3,
-) {
-  const all = await db
-    .select()
-    .from(tasks)
-    .where(
+function getSlotForHour(hour: number): CheckinSlot {
+  if (hour >= 6 && hour < 12) return 'morning';
+  if (hour >= 12 && hour < 18) return 'afternoon';
+  return 'evening';
+}
+
+function levelToband(level: number): EnergyBand {
+  if (level >= 65) return 'high';
+  if (level >= 35) return 'medium';
+  return 'low';
+}
+
+function scoreTask(task: Task, energyBand: EnergyBand, today: Date): number {
+  const PRIORITY_WEIGHT: Record<string, number> = { critical: 400, high: 300, medium: 200, low: 100 };
+
+  const daysUntilDue = task.dueDate
+    ? Math.ceil((new Date(task.dueDate).getTime() - today.getTime()) / 86_400_000)
+    : null;
+
+  const overdue = daysUntilDue !== null && daysUntilDue < 0 ? 1000 : 0;
+  const priority = PRIORITY_WEIGHT[task.priority ?? 'medium'] ?? 200;
+  const dueSoon = daysUntilDue === null ? 0 : daysUntilDue <= 2 ? 150 : daysUntilDue <= 7 ? 75 : 0;
+
+  const taskEnergy = task.energyLevel ?? 'medium';
+  const isMatch = taskEnergy === energyBand;
+  const isAdjacent =
+    (taskEnergy === 'high' && energyBand === 'medium') ||
+    (taskEnergy === 'medium' && energyBand !== 'medium') ||
+    (taskEnergy === 'low' && energyBand === 'medium');
+  const energyMatch = isMatch ? 120 : isAdjacent ? 60 : 0;
+
+  const daysSinceCreated = Math.ceil(
+    (today.getTime() - new Date(task.createdAt).getTime()) / 86_400_000,
+  );
+  const ageBonus = Math.min(Math.max(0, daysSinceCreated), 14) * 4;
+
+  return overdue + priority + dueSoon + energyMatch + ageBonus;
+}
+
+function buildWhy(task: Task, today: Date): string {
+  const reasons: string[] = [];
+  if (task.priority === 'critical') reasons.push('prioridad crítica');
+  else if (task.priority === 'high') reasons.push('prioridad alta');
+  if (task.dueDate) {
+    const daysLeft = Math.ceil((new Date(task.dueDate).getTime() - today.getTime()) / 86_400_000);
+    if (daysLeft < 0) reasons.push('vencida');
+    else if (daysLeft === 0) reasons.push('vence hoy');
+    else if (daysLeft === 1) reasons.push('vence mañana');
+    else if (daysLeft <= 7) reasons.push(`vence en ${daysLeft} días`);
+  }
+  if (task.status === 'today') reasons.push('planeada para hoy');
+  return reasons.length > 0 ? reasons.join(', ') : 'mayor importancia relativa';
+}
+
+export async function getSuggestedTasks(userId: string, limit = 10) {
+  const [allTasks, planResult] = await Promise.all([
+    db.select().from(tasks).where(
       and(
         eq(tasks.userId, userId),
+        // TODO Fase 4: cambiar a inArray(tasks.status, ['action'])
         inArray(tasks.status, ['today', 'tomorrow', 'week']),
         isNull(tasks.deletedAt),
         isNull(tasks.parentTaskId),
       ),
-    );
+    ),
+    getTodayEnergyPlan(userId),
+  ]);
 
   const today = new Date();
+  const currentHour = today.getHours();
+  const currentSlot = getSlotForHour(currentHour);
 
-  const candidates = (energyLevel
-    ? all.filter((t) => t.energyLevel === energyLevel)
-    : all) as Task[];
+  // Determinar banda de energía actual
+  let energyBand: EnergyBand = 'medium';
+  const slotCheckin = planResult.checkins.find((c) => c.slot === currentSlot);
+  if (slotCheckin) {
+    energyBand = levelToband(slotCheckin.currentLevel);
+  } else if (planResult.energyPlan?.projectedCurve) {
+    const projected = planResult.energyPlan.projectedCurve[currentHour] ?? 50;
+    energyBand = levelToband(projected);
+  }
 
-  const ranked = [...candidates]
-    .sort((a, b) => computeImportance(b, today) - computeImportance(a, today))
+  // Excluir ideas (no entran al plan del día)
+  const candidates = (allTasks as Task[]).filter((t) => t.taskType !== 'idea');
+
+  const scored = candidates
+    .map((t) => ({ task: t, score: scoreTask(t, energyBand, today) }))
+    .sort((a, b) => {
+      if (b.score !== a.score) return b.score - a.score;
+      // desempate estable: dueDate asc, luego createdAt asc
+      if (a.task.dueDate && b.task.dueDate) return a.task.dueDate.localeCompare(b.task.dueDate);
+      if (a.task.dueDate) return -1;
+      if (b.task.dueDate) return 1;
+      return new Date(a.task.createdAt).getTime() - new Date(b.task.createdAt).getTime();
+    })
     .slice(0, limit);
 
-  return ranked.map((t) => {
-    const score = computeImportance(t, today);
-    const reasons: string[] = [];
-    if (t.priority === 'critical') reasons.push('prioridad crítica');
-    else if (t.priority === 'high') reasons.push('prioridad alta');
-    if (t.dueDate) {
-      const daysLeft = Math.ceil(
-        (new Date(t.dueDate).getTime() - today.getTime()) / 86_400_000,
-      );
-      if (daysLeft < 0) reasons.push('vencida');
-      else if (daysLeft === 0) reasons.push('vence hoy');
-      else if (daysLeft === 1) reasons.push('vence mañana');
-    }
-    if (t.status === 'today') reasons.push('planeada para hoy');
-    return {
-      id: t.id,
-      title: t.title,
-      systemId: t.systemId,
-      energyLevel: t.energyLevel,
-      priority: t.priority,
-      status: t.status,
-      dueDate: t.dueDate,
-      importanceScore: Math.round(score),
-      why: reasons.length > 0 ? reasons.join(', ') : 'mayor importancia relativa',
-    };
-  });
+  return scored.map(({ task: t, score }) => ({
+    ...t,
+    importanceScore: Math.round(score),
+    why: buildWhy(t, today),
+    energyBand,
+  }));
 }
 
 // ── Classify ────────────────────────────────────────────────────────────────
