@@ -6,7 +6,9 @@ import { getTasksBySystem } from "@/features/tasks/tasks.service";
 import { PageWrapper } from "@/components/PageWrapper";
 import { PageBreadcrumb } from "@/components/PageBreadcrumb";
 import { SystemDetailHeader } from "@/features/systems/SystemDetailHeader";
-import { SystemDetailTabs } from "@/features/systems/SystemDetailTabs";
+import { SystemDetailView } from "@/features/systems/views/SystemDetailView";
+import { DocsView } from "@/features/docs/DocsView";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 export default async function SystemPage({
   params,
@@ -38,7 +40,21 @@ export default async function SystemPage({
       </div>
       <PageWrapper className="w-full">
         <SystemDetailHeader system={system} taskCount={tasks.length} />
-        <SystemDetailTabs systemId={id} initialTasks={tasks} defaultTab={tab === "docs" ? "docs" : "tasks"} />
+
+        <Tabs defaultValue={tab === "docs" ? "docs" : "tasks"} className="w-full mt-4">
+          <TabsList>
+            <TabsTrigger value="tasks">Tareas</TabsTrigger>
+            <TabsTrigger value="docs">Docs</TabsTrigger>
+          </TabsList>
+
+          <TabsContent value="tasks" className="mt-4">
+            <SystemDetailView system={system} initialTasks={tasks} />
+          </TabsContent>
+
+          <TabsContent value="docs" className="mt-4">
+            <DocsView systemId={id} />
+          </TabsContent>
+        </Tabs>
       </PageWrapper>
     </div>
   );

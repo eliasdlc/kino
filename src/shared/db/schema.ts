@@ -619,6 +619,7 @@ export const tasks = pgTable(
     }),
     externalSource: varchar('external_source', { length: 255 }),
     sortIndex: integer('sort_index').notNull().default(0),
+    metadata: jsonb('metadata').$type<Record<string, unknown> | null>(),
     inTodayPlan: boolean('in_today_plan').notNull().default(false),
     notifiedBeforeDay: boolean('notified_before_day').notNull().default(false),
     notifiedDueDay: boolean('notified_due_day').notNull().default(false),

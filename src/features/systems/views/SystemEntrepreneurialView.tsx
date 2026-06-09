@@ -1,0 +1,174 @@
+"use client";
+
+import { useState } from "react";
+import { useTasks, useToggleTask, useDeleteTask } from "@/features/tasks/tasks.hooks";
+import { useFolders } from "@/features/folders/folders.hooks";
+import { TaskCard } from "@/features/tasks/TaskCard";
+import { TaskDetailSheet } from "@/features/tasks/TaskDetailSheet";
+import { CreateTaskDialog } from "@/features/tasks/CreateTaskDialog";
+import { ChevronDown, Target } from "lucide-react";
+import { cn } from "@/lib/utils";
+import type { Task } from "@/features/tasks/tasks.types";
+import type { SystemViewProps } from "./SystemDetailView";
+
+function ProgressBar({ done, total }: { done: number; total: number }) {
+  const pct = total > 0 ? Math.round((done / total) * 100) : 0;
+  return (
+    <div className="flex items-center gap-2">
+      <div className="flex-1 h-1.5 rounded-full bg-muted overflow-hidden">
+        <div
+          className="h-full bg-primary rounded-full transition-all duration-500"
+          style={{ width: `${pct}%` }}
+        />
+      </div>
+      <span className="text-xs text-muted-foreground font-mono shrink-0">{done}/{total}</span>
+    </div>
+  );
+}
+
+function MilestoneAccordion({
+  label,
+  tasks,
+  systemId,
+  kpi,
+  onToggle,
+  onDelete,
+  onEdit,
+}: {
+  label: string;
+  tasks: Task[];
+  systemId: string;
+  kpi?: string;
+  onToggle: (taskId: string) => void;
+  onDelete: (task: Task) => void;
+  onEdit: (task: Task) => void;
+}) {
+  const [open, setOpen] = useState(true);
+  const done = tasks.filter((t) => t.status === "done").length;
+
+  return (
+    <div className="rounded-xl border bg-muted/20">
+      <button
+        type="button"
+        onClick={() => setOpen((v) => !v)}
+        className="w-full flex items-center gap-3 p-4 text-left"
+      >
+        <Target size={16} className="shrink-0 text-primary" />
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center gap-2">
+            <span className="font-semibold truncate">{label}</span>
+            {kpi && (
+              <span className="text-xs text-muted-foreground bg-background border rounded-full px-2 py-0.5 shrink-0">
+                KPI: {kpi}
+              </span>
+            )}
+          </div>
+          <ProgressBar done={done} total={tasks.length} />
+        </div>
+        <ChevronDown
+          size={16}
+          className={cn("shrink-0 text-muted-foreground transition-transform", open && "rotate-180")}
+        />
+      </button>
+
+      {open && (
+        <div className="px-4 pb-4 space-y-2 border-t border-border/50 pt-3">
+          {tasks.length === 0 ? (
+            <p className="text-xs text-muted-foreground text-center py-3">
+              Ninguna tarea aún. → Agregar.
+            </p>
+          ) : (
+            tasks.map((task) => (
+              <TaskCard
+                key={task.id}
+                task={task}
+                systemId={systemId}
+                systemType="entrepreneurial"
+                onToggle={onToggle}
+                onDelete={onDelete}
+                onEdit={onEdit}
+              />
+            ))
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+export function SystemEntrepreneurialView({ system, initialTasks }: SystemViewProps) {
+  const { data: allTasks = [] } = useTasks(system.id, initialTasks);
+  const { data: folders = [] } = useFolders(system.id);
+  const { mutate: toggleTask } = useToggleTask(system.id);
+  const { mutate: deleteTask } = useDeleteTask(system.id);
+
+  const [editTask, setEditTask] = useState<Task | null>(null);
+
+  const activeTasks = allTasks.filter((t) => !t.deletedAt);
+
+  function handleToggle(taskId: string) {
+    toggleTask(taskId);
+  }
+
+  const noMilestoneTasks = activeTasks.filter((t) => !t.folderId);
+
+  return (
+    <div className="space-y-4">
+      <div className="flex items-center justify-between">
+        {folders.length === 0 && (
+          <p className="text-sm text-muted-foreground">
+            Crea el primer milestone de tu startup. → Nuevo milestone
+          </p>
+        )}
+        <div className="ml-auto">
+          <CreateTaskDialog systemId={system.id} />
+        </div>
+      </div>
+
+      {/* Milestones (folders) */}
+      <div className="space-y-3">
+        {folders.map((folder) => {
+          const folderTasks = activeTasks.filter((t) => t.folderId === folder.id);
+          const kpi = (folder as { description?: string }).description ?? undefined;
+          return (
+            <MilestoneAccordion
+              key={folder.id}
+              label={folder.name}
+              tasks={folderTasks}
+              systemId={system.id}
+              kpi={kpi}
+              onToggle={handleToggle}
+              onDelete={(t) => deleteTask(t.id)}
+              onEdit={setEditTask}
+            />
+          );
+        })}
+
+        {/* Tasks without a milestone */}
+        {noMilestoneTasks.length > 0 && (
+          <MilestoneAccordion
+            label="Sin milestone"
+            tasks={noMilestoneTasks}
+            systemId={system.id}
+            onToggle={handleToggle}
+            onDelete={(t) => deleteTask(t.id)}
+            onEdit={setEditTask}
+          />
+        )}
+
+        {folders.length === 0 && noMilestoneTasks.length === 0 && (
+          <div className="py-12 text-center text-muted-foreground text-sm">
+            Crea una carpeta como milestone y agrega tareas para visualizar el progreso.
+          </div>
+        )}
+      </div>
+
+      <TaskDetailSheet
+        task={editTask}
+        systemId={system.id}
+        open={editTask !== null}
+        onOpenChange={(open) => { if (!open) setEditTask(null); }}
+      />
+    </div>
+  );
+}

@@ -601,7 +601,7 @@ Reemplaza el `<input type="number">`:
 
 ---
 
-### Fase 4 — Vistas dinámicas por system_type (reemplaza el funnel global) ⚡ EN PROGRESO
+### ✅ Fase 4 — Vistas dinámicas por system_type (reemplaza el funnel global)
 
 **Depende de**: Fase 0.5.
 **Ataca**: A2 (system_type sin efecto), A4, A5 — funnel genérico que no sirve a nadie.

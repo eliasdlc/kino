@@ -105,6 +105,7 @@ export function useCreateTask(systemId: string, folderId?: string) {
         recurrenceParentId: null,
         externalSource: null,
         sortIndex: 0,
+        metadata: null,
         inTodayPlan: false,
         notifiedBeforeDay: false,
         notifiedDueDay: false,

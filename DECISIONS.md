@@ -291,36 +291,98 @@ export const TASK_TYPE_CONFIG: Record<TaskType, {
 
 ---
 
-## Fase 4 — Funnel
+## Fase 4 — Vistas dinámicas por system_type
 
-### 4.1 / 4.2 Microcopy y empty states
+`SystemDetailView.tsx` es el router que decide qué view renderizar. `/systems/[id]/page.tsx` lo consume directamente en lugar de `SystemDetailTabs`.
 
-- Textos exactos ya en PLAN → constantes en `lib/copy/funnel.ts`. Sin lógica.
+### Router
 
-### 4.3 Planning DnD — @dnd-kit exacto
+```ts
+// src/features/systems/views/SystemDetailView.tsx
+const VIEW_MAP: Record<SystemType, ComponentType<SystemViewProps>> = {
+  academic:       SystemAcademicView,
+  professional:   SystemProfessionalView,
+  entrepreneurial:SystemEntrepreneurialView,
+  personal:       SystemPersonalView,
+  custom:         SystemCustomView,
+  inbox:          SystemPersonalView, // inbox usa lista simple
+};
+```
 
-- `@dnd-kit/core` (ya en proyecto, PLAN). **No** instalar otra lib de DnD.
-- Estructura: `<DndContext sensors={[Pointer, Keyboard]} collisionDetection={closestCenter}>`.
-  - Panel izquierdo: `useDraggable` por chip (tareas sin `startDate`).
-  - Días: `useDroppable` por columna (id = `YYYY-MM-DD`).
-  - `onDragEnd`: `over.id` es el día → `PATCH startDate = over.id` (optimistic, patrón 0.2). La tarea sale del panel izquierdo en el cache optimista.
-- A11y / sin-mouse: `KeyboardSensor` + el fallback de click → `[Hoy][Mañana][Esta semana][Elegir día]` (PLAN). Ambos caminos llaman la **misma** mutación.
-- **Mobile**: sin DndContext (PLAN). Click chip → bottom sheet con los 4 botones → misma mutación. El calendario se comprime a 3 días con scroll-x.
-- `DragOverlay` para el chip mientras se arrastra (evita el bug de layout shift de dnd-kit).
+**Props compartidas** (`SystemViewProps`):
+```ts
+interface SystemViewProps {
+  system: System;
+  initialTasks: Task[];
+}
+```
 
-### 4.4 Backlog staging
+Cada view importa `useTasks(system.id, initialTasks)` + `useUpdateTask(system.id)` internamente. No se pasan tasks como prop porque cada view puede filtrarlas distinto.
 
-- "→ Esta semana": `startDate = lunes de la semana actual` (helper `mondayOfThisWeek(tz)` en `dateKeys.ts`). Optimistic.
-- Agrupar por sistema: `GROUPERS.system` (reusar el de 2.2, no duplicar).
-- Badge de volumen: `if (backlog.length > 10)` → banner con link a Planning. Umbral fijo = 10.
+### 4.1 Academic Timeline
 
-### 4.5 Validaciones de coherencia
+- Panel izquierdo: tareas sin `dueDate`. Drag → `DroppableColumn` con id = ISO semana (`YYYY-[W]WW`). `onDragEnd` → `PATCH dueDate = lunes de esa semana` (optimistic, patrón §0.2).
+- Timeline horizontal scrolleable: columnas = semanas desde hoy hasta +6 meses. Cada columna muestra tareas cuyo `dueDate` cae esa semana.
+- Estados válidos = `SYSTEM_TYPE_CONFIG.academic.statuses`. Badge de estado en cada card.
+- Mobile: sin `DndContext`. Tap en task → popover `[Asignar semana]` → picker de semana → misma mutación.
 
-- **Todas** como `.superRefine()` en el schema Zod compartido (cliente + backend):
-  - `dueDate < startDate` → error (bloquea).
-  - `type='event'` sin `startDate` → error.
-  - `type='reminder'` sin `dueDate` → error.
-- `dueDate=hoy` con `startDate>hoy` → **warning, no error**. El warning NO va en el schema (Zod es pass/fail). Va como check separado `getCoherenceWarnings(task): Warning[]` que el TaskDetailSheet pinta. No auto-corrige (PLAN decisión 5).
+### 4.2 Professional Kanban
+
+- Columnas = `SYSTEM_TYPE_CONFIG.professional.statuses` (backlog|planned|in-progress|blocked|review|done).
+- `DraggableTaskCard` existente + `DroppableColumn` existente. `onDragEnd` → `PATCH status = columna.id` (optimistic).
+- Banner de bloqueadores: si hay ≥1 tarea con `status = 'blocked'`, banner en top de la vista.
+- Mobile: columna única con selector de estado en el header. Un botón por estado = scrollable horizontal de tabs.
+
+### 4.3 Entrepreneurial Milestones
+
+- **Milestones = Folders del sistema** (ya existen, no nuevo schema). Cada folder = un milestone.
+- Vista: acordeón de folders. Dentro de cada folder, lista de tasks con sus estados.
+- Progress bar por folder: `done / total` tasks.
+- Tarea sin folder → sección "Sin milestone" al fondo.
+- Estado via `metadata.hypothesis` (opcional) si existe.
+
+### 4.4 Personal List
+
+- Lista flat con filtros rápidos en header: `[Activos] [Ideas] [Pausados] [Todos]`.
+- "Activo" = status `active`. "Idea" = status `idea`. "Pausado" = status `paused`.
+- Agrupación por energía o prioridad via selector desplegable.
+- Animación de salida al completar (misma que Fase 2.2).
+
+### 4.5 Custom View — Configurador
+
+- Skeleton: muestra la lista de tasks genérica + un banner `"Sistema custom — configura estados y vista en Ajustes."`.
+- Settings tab (colapsable): listar `system.templateType = 'custom'` → permite editar nombre, icono. Estados custom en roadmap (4.5 avanzado = Fase 6).
+
+### 4.6 Validaciones de coherencia
+
+- **Errores** (Zod `.superRefine()` en `updateTaskSchema` y `createTaskSchema`):
+  - `dueDate < startDate` → error.
+  - `taskType='event'` sin `startDate` → error.
+  - `taskType='reminder'` sin `dueDate` → error.
+- **Warnings** (fuera de Zod, helper `getCoherenceWarnings(task): CoherenceWarning[]`):
+  - `dueDate=hoy` con `startDate>hoy` → warning.
+  - `status='paused'` con `dueDate` vencida → warning.
+  - Consumido solo por `TaskDetailSheet` (pintado visual, no bloquea guardado).
+
+### 4.7 TaskCard adaptativo
+
+- Agregar prop `systemType?: SystemType` (opcional, backwards-compatible).
+- Cuando está presente, mostrar chips de `task.metadata` relevantes:
+  - academic → `metadata.course`, `metadata.professor`
+  - professional → `metadata.assignee`, `metadata.project`
+  - entrepreneurial → badge de `metadata.milestone`
+  - personal → `metadata.why` como subtítulo gris
+- Chips aparecen en la fila secundaria (misma posición que folder/energy actuales).
+
+### 4.8 Migration — metadata jsonb
+
+- `ALTER TABLE tasks ADD COLUMN metadata JSONB;` (nullable, sin default).
+- Drizzle schema: `metadata: jsonb('metadata').$type<TaskMetadata>()`.
+- `TaskMetadata` type centralizado en `tasks.types.ts`.
+- Status backfill (Decisión técnica 9 del PLAN): `week → action`, `today → action`, `tomorrow → action`, `archived → done` — solo para tasks de sistemas con `templateType = 'personal'` o `'custom'`. Systems con type específico conservan sus statuses actuales.
+- `tasks.schemas.ts`: status cambia de `z.enum([...])` a `z.string().min(1).max(50)` para soportar statuses dinámicos.
+
+**Gotcha DnD en 4.1/4.2**: `useDraggable` necesita un `id` único globalmente dentro del `DndContext`. Usar `task.id` como draggable id y `statusName` (kanban) o ISO-week (timeline) como droppable id. El `DndContext` vive en el view component, no en el root.
 
 ---
 
