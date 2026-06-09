@@ -31,9 +31,13 @@ const STATUS_BADGE: Record<string, string> = {
 };
 
 const TYPE_BADGE: Record<string, string> = {
-  todo:     "bg-white/[0.06] text-zinc-400",
+  task:     "bg-white/[0.06] text-zinc-400",
   idea:     "bg-[rgba(245,158,11,0.15)] text-[#fbbf24]",
+  event:    "bg-[rgba(14,165,233,0.15)] text-[#7dd3fc]",
   reminder: "bg-[rgba(249,115,22,0.15)] text-[#fb923c]",
+  habit:    "bg-[rgba(168,85,247,0.15)] text-[#d8b4fe]",
+  // legacy
+  todo:     "bg-white/[0.06] text-zinc-400",
   project:  "bg-[rgba(59,130,246,0.18)] text-[#93c5fd]",
 };
 
@@ -324,7 +328,7 @@ export function TaskCard({ task, systemId, isFocused, onToggle, onDelete, onEdit
             )}
 
             {/* Energy chip */}
-            {!typeConfig.hideEnergyLevel && (
+            {!typeConfig.hideEnergyAndPriority && (
               <>
                 <span className="text-xs text-zinc-700">·</span>
                 <span className="font-mono text-sm text-zinc-600">{task.energyLevel}</span>

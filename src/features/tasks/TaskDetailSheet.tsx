@@ -65,7 +65,11 @@ function TaskDetailForm({ task, systemId, onClose }: TaskDetailFormProps) {
   const [description, setDescription] = useState(task.description ?? "");
   const [priority, setPriority] = useState<Task["priority"]>(task.priority);
   const [energyLevel, setEnergyLevel] = useState<Task["energyLevel"]>(task.energyLevel);
-  const [taskType, setTaskType] = useState<TaskTypeValue | undefined>(task.taskType ?? undefined);
+  const [taskType, setTaskType] = useState<TaskTypeValue | undefined>(
+    (task.taskType && ['task', 'idea', 'event', 'reminder', 'habit'].includes(task.taskType))
+      ? (task.taskType as TaskTypeValue)
+      : undefined
+  );
   const [dueDate, setDueDate] = useState<Date | undefined>(
     task.dueDate ? parseISO(task.dueDate) : undefined
   );

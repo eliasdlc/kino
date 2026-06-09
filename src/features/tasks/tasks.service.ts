@@ -302,6 +302,17 @@ export async function createTask(userId: string, data: CreateTaskInput) {
     await syncAutoReminders(task.id, userId, task.dueDate, task.priority);
   }
 
+  // reminder type: create a taskReminder at the exact dueDate
+  if (task?.taskType === 'reminder' && task.dueDate) {
+    await db.insert(taskReminders).values({
+      taskId: task.id,
+      userId,
+      remindAt: new Date(task.dueDate + 'T09:00:00Z'),
+      label: 'Recordatorio',
+      source: 'auto',
+    });
+  }
+
   return task ?? null;
 }
 

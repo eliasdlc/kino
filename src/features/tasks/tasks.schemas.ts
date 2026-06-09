@@ -7,7 +7,7 @@ export const createTaskSchema = z.object({
   status: z.enum(["backlog", "week", "tomorrow", "today", "done", "archived"]).optional(),
   energyLevel: z.enum(["high", "medium", "low"]).optional(),
   priority: z.enum(["critical", "high", "medium", "low"]).optional(),
-  taskType: z.enum(["idea", "reminder", "project", "todo"]).optional(),
+  taskType: z.enum(["task", "idea", "event", "reminder", "habit"]).optional(),
   dueDate: z.string().date().optional(),
   startDate: z.string().date().optional(),
   estimatedTime: z.string().time().optional(),
@@ -25,7 +25,7 @@ export const updateTaskSchema = createTaskSchema
     // Allow null to explicitly clear folder assignment (e.g., on system change)
     folderId: z.string().uuid().nullable().optional(),
     // Allow null to explicitly clear task type
-    taskType: z.enum(["idea", "reminder", "project", "todo"]).nullable().optional(),
+    taskType: z.enum(["task", "idea", "event", "reminder", "habit"]).nullable().optional(),
     // Allow system changes (validated in service layer for folder consistency)
     systemId: z.string().uuid().optional(),
     inTodayPlan: z.boolean().optional(),

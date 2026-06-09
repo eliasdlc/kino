@@ -130,7 +130,7 @@ export function KinoSuggestedSection() {
   const queryClient = useQueryClient();
 
   // 1×/día: marca como cargado cuando llegan datos; Regenerar limpia la marca
-  const cacheRef = useRef<{ dateKey: string }>({ dateKey: '' });
+  const cacheRef = useRef<{ dateKey: string; loaded?: boolean }>({ dateKey: '' });
   useEffect(() => {
     if (suggestions.length > 0) {
       cacheRef.current = { dateKey: todayKey() };
