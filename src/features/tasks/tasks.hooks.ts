@@ -13,6 +13,7 @@ export const taskKeys = {
   bySystem: (systemId: string) => ["tasks", "system", systemId] as const,
   subtasks: (taskId: string) => ["tasks", "subtasks", taskId] as const,
   folderTasks: (systemId: string, folderId: string) => ["tasks", "system", systemId, "folder", folderId] as const,
+  todayPlan: () => ["tasks", "today-plan"] as const,
 };
 
 export function useTasks(systemId: string, initialData: Task[]) {
@@ -104,6 +105,7 @@ export function useCreateTask(systemId: string, folderId?: string) {
         recurrenceParentId: null,
         externalSource: null,
         sortIndex: 0,
+        inTodayPlan: false,
         notifiedBeforeDay: false,
         notifiedDueDay: false,
         reminderCount: 0,
@@ -465,5 +467,107 @@ export function useUpdateTask(systemId: string) {
       // Invalidate linked tasks so any panel showing this task updates
       queryClient.invalidateQueries({ queryKey: ["pages", "tasks"] });
     },
+  });
+}
+
+// ── Today plan hooks ──────────────────────────────────────────────────────────
+
+export function useTodayPlanTasks() {
+  return useQuery<Task[]>({
+    queryKey: taskKeys.todayPlan(),
+    queryFn: async () => {
+      const res = await fetch('/api/tasks/today-plan');
+      if (!res.ok) throw new Error('Failed to fetch today plan');
+      return res.json();
+    },
+    staleTime: 30_000,
+    refetchOnWindowFocus: true,
+  });
+}
+
+export function useToggleTodayTask() {
+  const queryClient = useQueryClient();
+  return useMutation<{ status: string }, Error, { taskId: string }>({
+    mutationFn: async ({ taskId }) => {
+      const res = await fetch(`/api/tasks/${taskId}/toggle`, { method: 'POST' });
+      if (!res.ok) throw new Error('Failed to toggle task');
+      return res.json();
+    },
+    onMutate: async ({ taskId }) => {
+      await queryClient.cancelQueries({ queryKey: taskKeys.todayPlan() });
+      const previous = queryClient.getQueryData<Task[]>(taskKeys.todayPlan());
+      queryClient.setQueryData<Task[]>(taskKeys.todayPlan(), (old = []) =>
+        old.map((t) =>
+          t.id === taskId
+            ? { ...t, status: t.status === 'done' ? 'today' : 'done', completedAt: t.status === 'done' ? null : new Date() }
+            : t,
+        ),
+      );
+      return { previous };
+    },
+    onError: (_err, _vars, ctx) => {
+      const c = ctx as { previous?: Task[] } | undefined;
+      if (c?.previous) queryClient.setQueryData(taskKeys.todayPlan(), c.previous);
+      toast.error('No se pudo guardar. Intenta de nuevo.');
+    },
+    onSettled: () => queryClient.invalidateQueries({ queryKey: taskKeys.todayPlan() }),
+  });
+}
+
+export function useMoveToTomorrow() {
+  const queryClient = useQueryClient();
+  return useMutation<unknown, Error, { taskId: string; tomorrow: string }>({
+    mutationFn: async ({ taskId, tomorrow }) => {
+      const res = await fetch(`/api/tasks/${taskId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ dueDate: tomorrow, inTodayPlan: false }),
+      });
+      if (!res.ok) throw new Error('Failed to move task');
+      return res.json();
+    },
+    onMutate: async ({ taskId }) => {
+      await queryClient.cancelQueries({ queryKey: taskKeys.todayPlan() });
+      const previous = queryClient.getQueryData<Task[]>(taskKeys.todayPlan());
+      queryClient.setQueryData<Task[]>(taskKeys.todayPlan(), (old = []) =>
+        old.filter((t) => t.id !== taskId),
+      );
+      return { previous };
+    },
+    onError: (_err, _vars, ctx) => {
+      const c = ctx as { previous?: Task[] } | undefined;
+      if (c?.previous) queryClient.setQueryData(taskKeys.todayPlan(), c.previous);
+      toast.error('No se pudo mover. Intenta de nuevo.');
+    },
+    onSettled: () => queryClient.invalidateQueries({ queryKey: taskKeys.todayPlan() }),
+  });
+}
+
+export function useRemoveFromPlan() {
+  const queryClient = useQueryClient();
+  return useMutation<unknown, Error, { taskId: string }>({
+    mutationFn: async ({ taskId }) => {
+      const res = await fetch(`/api/tasks/${taskId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ inTodayPlan: false }),
+      });
+      if (!res.ok) throw new Error('Failed to update task');
+      return res.json();
+    },
+    onMutate: async ({ taskId }) => {
+      await queryClient.cancelQueries({ queryKey: taskKeys.todayPlan() });
+      const previous = queryClient.getQueryData<Task[]>(taskKeys.todayPlan());
+      queryClient.setQueryData<Task[]>(taskKeys.todayPlan(), (old = []) =>
+        old.filter((t) => t.id !== taskId),
+      );
+      return { previous };
+    },
+    onError: (_err, _vars, ctx) => {
+      const c = ctx as { previous?: Task[] } | undefined;
+      if (c?.previous) queryClient.setQueryData(taskKeys.todayPlan(), c.previous);
+      toast.error('No se pudo quitar del plan. Intenta de nuevo.');
+    },
+    onSettled: () => queryClient.invalidateQueries({ queryKey: taskKeys.todayPlan() }),
   });
 }

@@ -71,7 +71,7 @@ async function applyTransition(
   const action = getAction(current as Task);
 
   const transition = validateTransition({
-    currentStatus: current.status,
+    currentStatus: current.status as TaskStatus,
     action,
     taskEnergyPoints: ENERGY_POINTS[current.energyLevel ?? "medium"] ?? 3,
     currentDayEnergyUsed,
@@ -442,7 +442,7 @@ export async function bulkMoveTasks(taskIds: string[], status: TaskStatus, userI
   await db.transaction(async (tx) => {
     for (const taskId of taskIds) {
       await applyTransition(tx, taskId, userId, (current) => {
-        const action = deriveAction(current.status, status);
+        const action = deriveAction(current.status as TaskStatus, status);
         if (!action) {
           throw new ValidationError(`Cannot move task from '${current.status}' to '${status}'`);
         }
@@ -470,7 +470,7 @@ export async function bulkUpdateTasks(
 export async function moveTask(taskId: string, newStatus: TaskStatus, userId: string): Promise<Task> {
   const { updated } = await db.transaction((tx) =>
     applyTransition(tx, taskId, userId, (current) => {
-      const action = deriveAction(current.status, newStatus);
+      const action = deriveAction(current.status as TaskStatus, newStatus);
       if (!action) {
         throw new ValidationError(`Cannot move task from '${current.status}' to '${newStatus}'`);
       }

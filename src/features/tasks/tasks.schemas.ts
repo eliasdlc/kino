@@ -28,6 +28,7 @@ export const updateTaskSchema = createTaskSchema
     taskType: z.enum(["idea", "reminder", "project", "todo"]).nullable().optional(),
     // Allow system changes (validated in service layer for folder consistency)
     systemId: z.string().uuid().optional(),
+    inTodayPlan: z.boolean().optional(),
   });
 
 export const moveTaskSchema = z.object({
