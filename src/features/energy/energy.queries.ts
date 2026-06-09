@@ -1,7 +1,7 @@
-import { and, desc, eq, gte, inArray, isNotNull, isNull, lt, notInArray, sql } from 'drizzle-orm';
+import { and, asc, desc, eq, gte, inArray, isNotNull, isNull, lt, notInArray, sql } from 'drizzle-orm';
 import { db } from '@/shared/db';
 import { behaviorSnapshots, energyCheckins, tasks, timeLogs, userEnergyProfile } from '@/shared/db/schema';
-import type { CreateCheckinInput } from './energy.schemas';
+import type { CheckinSlot, CreateCheckinInput } from './energy.schemas';
 
 // ── behavior_snapshots ─────────────────────────────────────────────────────
 
@@ -125,17 +125,18 @@ export async function countSnapshotMetrics(userId: string, date: string, timezon
   return { tasksCreated, tasksCompleted, tasksOverdue, criticalCount, activeCount, completionRate };
 }
 
-export async function upsertCheckin(userId: string, date: string, input: CreateCheckinInput) {
+export async function upsertCheckin(userId: string, date: string, slot: CheckinSlot, input: Omit<CreateCheckinInput, 'slot'>) {
   const [row] = await db
     .insert(energyCheckins)
     .values({
       userId,
       date,
+      slot,
       currentLevel: input.currentLevel,
       sleepQuality: input.sleepQuality,
     })
     .onConflictDoUpdate({
-      target: [energyCheckins.userId, energyCheckins.date],
+      target: [energyCheckins.userId, energyCheckins.date, energyCheckins.slot],
       set: {
         currentLevel: input.currentLevel,
         sleepQuality: input.sleepQuality,
@@ -150,7 +151,36 @@ export async function getCheckinByDate(userId: string, date: string) {
     .select()
     .from(energyCheckins)
     .where(and(eq(energyCheckins.userId, userId), eq(energyCheckins.date, date)))
+    .orderBy(desc(energyCheckins.createdAt))
     .limit(1);
+  return row ?? null;
+}
+
+export async function getCheckinsForDate(userId: string, date: string) {
+  return db
+    .select()
+    .from(energyCheckins)
+    .where(and(eq(energyCheckins.userId, userId), eq(energyCheckins.date, date)))
+    .orderBy(asc(energyCheckins.createdAt));
+}
+
+export async function updateCheckinAccuracy(
+  userId: string,
+  date: string,
+  slot: CheckinSlot,
+  accuracy: 'accurate' | 'partial' | 'inaccurate',
+) {
+  const [row] = await db
+    .update(energyCheckins)
+    .set({ predictionAccuracy: accuracy })
+    .where(
+      and(
+        eq(energyCheckins.userId, userId),
+        eq(energyCheckins.date, date),
+        eq(energyCheckins.slot, slot),
+      ),
+    )
+    .returning();
   return row ?? null;
 }
 

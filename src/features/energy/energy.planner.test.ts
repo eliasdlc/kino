@@ -26,6 +26,7 @@ function makeTask(overrides: Partial<Task> = {}): Task {
     contextTagId: null,
     externalSource: null,
     sortIndex: 0,
+    inTodayPlan: false,
     notifiedBeforeDay: false,
     notifiedDueDay: false,
     reminderCount: 0,

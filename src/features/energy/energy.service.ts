@@ -4,6 +4,8 @@ import { tasks, users } from '@/shared/db/schema';
 import {
   upsertCheckin,
   getCheckinByDate,
+  getCheckinsForDate,
+  updateCheckinAccuracy,
   getPlanCandidateTasks,
   getUserEnergyProfile,
   getSnapshotByDate,
@@ -19,10 +21,23 @@ import {
 import { buildBudgetPlan, buildEnergyPlan } from './energy.planner';
 import type { EnergyPlanResult } from './energy.planner';
 import type { Chronotype, SleepQuality } from './energy.utils';
-import type { CreateCheckinInput } from './energy.schemas';
+import type { CheckinSlot, CreateCheckinInput, UpdateAccuracyInput } from './energy.schemas';
 import { detectTopPattern } from './energy.advisor';
 import type { AdvisorPattern } from './energy.advisor';
 import { computeEffectiveEnergy, computeImportance, CHRONOTYPE_CURVES } from './energy.utils';
+
+function getSlotForHour(hour: number): CheckinSlot {
+  if (hour >= 6 && hour < 12) return 'morning';
+  if (hour >= 12 && hour < 18) return 'afternoon';
+  return 'evening';
+}
+
+function getCurrentHourInTz(timezone: string): number {
+  return parseInt(
+    new Intl.DateTimeFormat('en-US', { timeZone: timezone, hour: 'numeric', hour12: false }).format(new Date()),
+    10,
+  );
+}
 
 function getTodayDate(timezone: string): string {
   return new Intl.DateTimeFormat('en-CA', {
@@ -45,13 +60,27 @@ async function getUserTimezone(userId: string): Promise<string> {
 export async function createTodayCheckin(userId: string, input: CreateCheckinInput) {
   const timezone = await getUserTimezone(userId);
   const today = getTodayDate(timezone);
-  return upsertCheckin(userId, today, input);
+  const slot = input.slot ?? getSlotForHour(getCurrentHourInTz(timezone));
+  return upsertCheckin(userId, today, slot, input);
 }
 
 export async function getTodayCheckin(userId: string) {
   const timezone = await getUserTimezone(userId);
   const today = getTodayDate(timezone);
   return getCheckinByDate(userId, today);
+}
+
+export async function getTodayCheckins(userId: string) {
+  const timezone = await getUserTimezone(userId);
+  const today = getTodayDate(timezone);
+  return getCheckinsForDate(userId, today);
+}
+
+export async function updatePredictionAccuracy(userId: string, input: UpdateAccuracyInput) {
+  const timezone = await getUserTimezone(userId);
+  const today = getTodayDate(timezone);
+  const slot = input.slot ?? getSlotForHour(getCurrentHourInTz(timezone));
+  return updateCheckinAccuracy(userId, today, slot, input.accuracy);
 }
 
 export async function getTodayPlan(userId: string) {
@@ -68,11 +97,21 @@ export async function getTodayPlan(userId: string) {
   return { plan, noProfile: false };
 }
 
+export interface TodayCheckinRow {
+  id: string;
+  slot: CheckinSlot;
+  currentLevel: number;
+  sleepQuality: SleepQuality;
+  predictionAccuracy: 'accurate' | 'partial' | 'inaccurate' | null;
+  createdAt: Date;
+}
+
 export interface TodayEnergyPlanResult {
   energyPlan: EnergyPlanResult | null;
   noProfile: boolean;
   hasCheckin: boolean;
   checkin: { currentLevel: number; sleepQuality: SleepQuality } | null;
+  checkins: TodayCheckinRow[];
   chronotype: Chronotype | null;
   learnedCurve: number[] | null;
   learningAlpha: number;
@@ -280,15 +319,16 @@ export async function checkLevel1Triggers(userId: string): Promise<Level1Result>
 export async function getTodayEnergyPlan(userId: string): Promise<TodayEnergyPlanResult> {
   const profile = await getUserEnergyProfile(userId);
   if (!profile) {
-    return { energyPlan: null, noProfile: true, hasCheckin: false, checkin: null, chronotype: null, learnedCurve: null, learningAlpha: 0 };
+    return { energyPlan: null, noProfile: true, hasCheckin: false, checkin: null, checkins: [], chronotype: null, learnedCurve: null, learningAlpha: 0 };
   }
 
   const timezone = await getUserTimezone(userId);
   const todayStr = getTodayDate(timezone);
 
-  const [candidateTasks, checkinRow, learned] = await Promise.all([
+  const [candidateTasks, checkinRow, allCheckins, learned] = await Promise.all([
     getPlanCandidateTasks(userId),
     getCheckinByDate(userId, todayStr),
+    getCheckinsForDate(userId, todayStr),
     getLearnedCurve(userId),
   ]);
 
@@ -311,11 +351,21 @@ export async function getTodayEnergyPlan(userId: string): Promise<TodayEnergyPla
       })
     : null;
 
+  const checkins: TodayCheckinRow[] = allCheckins.map((c) => ({
+    id: c.id,
+    slot: c.slot as CheckinSlot,
+    currentLevel: c.currentLevel,
+    sleepQuality: c.sleepQuality as SleepQuality,
+    predictionAccuracy: c.predictionAccuracy as 'accurate' | 'partial' | 'inaccurate' | null,
+    createdAt: c.createdAt,
+  }));
+
   return {
     energyPlan,
     noProfile: false,
     hasCheckin: checkin !== null,
     checkin,
+    checkins,
     chronotype: profile.chronotype as Chronotype,
     learnedCurve,
     learningAlpha: learned?.alpha ?? 0,
