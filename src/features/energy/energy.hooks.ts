@@ -1,7 +1,7 @@
 'use client';
 
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import type { CreateCheckinInput, UpdateAccuracyInput } from './energy.schemas';
+import type { CreateCheckinClientInput, UpdateAccuracyInput } from './energy.schemas';
 import type { AdvisorWithAction } from './energy.service';
 import type { TodayCheckinRow } from './energy.service';
 
@@ -38,7 +38,7 @@ export function useEnergyAdvisor() {
 
 export function useCreateCheckin() {
   const queryClient = useQueryClient();
-  return useMutation<unknown, Error, CreateCheckinInput>({
+  return useMutation<unknown, Error, CreateCheckinClientInput>({
     mutationFn: async (data) => {
       const res = await fetch('/api/energy/checkin', {
         method: 'POST',

@@ -16,6 +16,8 @@ const ENERGY_POINTS: Record<string, number> = {
 
 // Advisory lock class — namespaces energy locks from other advisory locks in the app.
 const ENERGY_LOCK_CLASS = 42;
+// Advisory lock class — serializa el rollover diario del plan por usuario.
+const ROLLOVER_LOCK_CLASS = 43;
 
 type DbTransaction = Parameters<Parameters<(typeof db)["transaction"]>[0]>[0];
 
@@ -87,6 +89,15 @@ async function applyTransition(
     status: transition.newStatus,
     updatedAt: new Date(),
   };
+
+  // Membresía del plan de hoy, desacoplada del status (modelo PLAN-07 Fase 1):
+  // entrar a 'today' la une al plan; salir a un status de planificación la saca;
+  // completar ('done') la conserva → sigue visible (tachada) hasta el rollover.
+  if (transition.newStatus === "today") {
+    updates.inTodayPlan = true;
+  } else if (transition.newStatus !== "done") {
+    updates.inTodayPlan = false;
+  }
 
   let xpDelta = 0;
 
@@ -295,7 +306,7 @@ export async function createTask(userId: string, data: CreateTaskInput) {
 
   const [task] = await db
     .insert(tasks)
-    .values({ ...data, status: derivedStatus, userId })
+    .values({ ...data, status: derivedStatus, inTodayPlan: derivedStatus === "today", userId })
     .returning();
 
   if (task?.dueDate && task.priority in AUTO_REMINDER_OFFSETS) {
@@ -490,6 +501,64 @@ export async function moveTask(taskId: string, newStatus: TaskStatus, userId: st
   );
 
   return updated;
+}
+
+/**
+ * Rollover diario del plan de hoy (lazy, al leer el plan).
+ *
+ * El plan de hoy es "lo que me comprometí a hacer hoy" y se resetea cada día.
+ * Como no hay cron de rollover, esto corre al leer /today-plan: si la marca
+ * `today_plan_date` es de un día anterior (o null), en una sola transacción:
+ *   1. limpia in_today_plan de la jornada anterior,
+ *   2. repuebla con las tareas activas cuyo start_date es hoy,
+ *   3. actualiza la marca a hoy.
+ * Idempotente dentro del mismo día (no toca nada si ya se rolleó).
+ */
+export async function ensureTodayPlanRolled(userId: string): Promise<void> {
+  const [userRow] = await db
+    .select({ timezone: users.timezone })
+    .from(users)
+    .where(eq(users.id, userId));
+  const tz = userRow?.timezone ?? "UTC";
+  const today = sql`(NOW() AT TIME ZONE ${tz})::date`;
+
+  await db.transaction(async (tx) => {
+    // Serializa rollovers concurrentes del mismo usuario.
+    await tx.execute(
+      sql`SELECT pg_advisory_xact_lock(${ROLLOVER_LOCK_CLASS}, hashtext(${userId}))`,
+    );
+
+    const [row] = await tx
+      .select({
+        stale: sql<boolean>`(${userSettings.todayPlanDate} IS NULL OR ${userSettings.todayPlanDate} < ${today})`,
+      })
+      .from(userSettings)
+      .where(eq(userSettings.userId, userId));
+
+    // Sin fila de settings (pre-onboarding) o ya rolleado hoy → nada que hacer.
+    if (!row || !row.stale) return;
+
+    // 1. Limpia el plan del día anterior.
+    await tx.execute(
+      sql`UPDATE tasks SET in_today_plan = false, updated_at = NOW()
+          WHERE user_id = ${userId} AND in_today_plan = true`,
+    );
+
+    // 2. Repuebla con tareas activas programadas para hoy (start_date = hoy).
+    await tx.execute(
+      sql`UPDATE tasks SET in_today_plan = true, updated_at = NOW()
+          WHERE user_id = ${userId} AND deleted_at IS NULL
+            AND parent_task_id IS NULL
+            AND status NOT IN ('done', 'archived')
+            AND start_date = ${today}`,
+    );
+
+    // 3. Marca el plan como rolleado hoy.
+    await tx.execute(
+      sql`UPDATE user_settings SET today_plan_date = ${today}, updated_at = NOW()
+          WHERE user_id = ${userId}`,
+    );
+  });
 }
 
 /**

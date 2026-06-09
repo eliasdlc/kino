@@ -135,8 +135,13 @@ export function EnergyBatteryCard({
   const chartData = projectedCurve ? buildChartData(projectedCurve, checkins) : null;
 
   function handleSubmit() {
+    // El sueño solo aplica al slot de la mañana; tarde/noche no lo preguntan.
     createCheckin(
-      { currentLevel: level, sleepQuality: sleep, slot: selectedSlot },
+      {
+        currentLevel: level,
+        slot: selectedSlot,
+        ...(selectedSlot === 'morning' ? { sleepQuality: sleep } : {}),
+      },
       { onSuccess: () => setShowForm(false) },
     );
   }
@@ -263,15 +268,17 @@ export function EnergyBatteryCard({
                 {SLOT_LABELS[selectedSlot]} · nivel
               </span>
               <div className="flex items-center gap-2">
-                <span
-                  className={cn(
-                    'text-xs px-2 py-0.5 rounded-full font-medium ring-1',
-                    SLEEP_COLORS[slotCheckin.sleepQuality] ?? SLEEP_COLORS.good,
-                  )}
-                >
-                  <Moon className="inline w-3 h-3 mr-1" />
-                  {SLEEP_LABELS[slotCheckin.sleepQuality] ?? slotCheckin.sleepQuality}
-                </span>
+                {selectedSlot === 'morning' && (
+                  <span
+                    className={cn(
+                      'text-xs px-2 py-0.5 rounded-full font-medium ring-1',
+                      SLEEP_COLORS[slotCheckin.sleepQuality] ?? SLEEP_COLORS.good,
+                    )}
+                  >
+                    <Moon className="inline w-3 h-3 mr-1" />
+                    {SLEEP_LABELS[slotCheckin.sleepQuality] ?? slotCheckin.sleepQuality}
+                  </span>
+                )}
                 <span className={cn('text-lg font-bold tabular-nums', levelColor(slotCheckin.currentLevel))}>
                   {slotCheckin.currentLevel}
                 </span>
@@ -358,6 +365,7 @@ export function EnergyBatteryCard({
               />
             </div>
 
+            {selectedSlot === 'morning' && (
             <div className="space-y-2">
               <p className="text-xs text-muted-foreground">¿Cómo dormiste?</p>
               <div className="flex gap-2">
@@ -377,6 +385,7 @@ export function EnergyBatteryCard({
                 ))}
               </div>
             </div>
+            )}
 
             <div className="flex gap-2">
               <Button size="sm" onClick={handleSubmit} disabled={isPending} className="flex-1">

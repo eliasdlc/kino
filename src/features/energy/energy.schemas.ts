@@ -15,4 +15,7 @@ export const updateCheckinAccuracySchema = z.object({
 });
 
 export type CreateCheckinInput = z.infer<typeof createCheckinSchema>;
+// Tipo de entrada del cliente: sleepQuality es opcional (solo se envía en la mañana).
+// El backend rellena el default 'partial' al parsear para slots sin sueño.
+export type CreateCheckinClientInput = z.input<typeof createCheckinSchema>;
 export type UpdateAccuracyInput = z.infer<typeof updateCheckinAccuracySchema>;

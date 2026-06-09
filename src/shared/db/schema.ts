@@ -241,6 +241,9 @@ export const userSettings = pgTable('user_settings', {
   weeklyReviewDay: weekdayEnum('weekly_review_day').notNull().default('sun'),
   brainDumpDefaultSystem: uuid('brain_dump_default_system'),
   dailyResetTime: time('daily_reset_time').notNull().default('00:00'),
+  // Día (en tz del usuario) en que se hizo el último rollover del plan de hoy.
+  // Lo usa ensureTodayPlanRolled para limpiar/repoblar in_today_plan una vez por día.
+  todayPlanDate: date('today_plan_date'),
   dailyEnergyLimit: smallint('daily_energy_limit').notNull().default(50),
   focusTimeoutHours: smallint('focus_timeout_hours').notNull().default(3),
   theme: uiThemeEnum('theme').notNull().default('system'),

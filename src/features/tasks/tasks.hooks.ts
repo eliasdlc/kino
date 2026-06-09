@@ -189,15 +189,10 @@ export function useToggleTask(systemId: string, folderId?: string) {
         queryClient.setQueryData(ctx.qKey, ctx.previous);
       }
     },
-    onSettled: (_data, _error, _vars, context) => {
-      const ctx = context as { qKey?: readonly unknown[] } | undefined;
-      if (ctx?.qKey) {
-        queryClient.invalidateQueries({ queryKey: ctx.qKey });
-      }
-      queryClient.invalidateQueries({ queryKey: taskKeys.bySystem(systemId) });
-      if (folderId) {
-        queryClient.invalidateQueries({ queryKey: taskKeys.folderTasks(systemId, folderId) });
-      }
+    // Invalida el prefijo completo ['tasks'] → system, folder, today-plan y all
+    // refetchan, dejando consistentes las tres vistas tras completar.
+    onSettled: () => {
+      queryClient.invalidateQueries({ queryKey: ['tasks'] });
     },
   });
 }
@@ -494,11 +489,13 @@ export function useToggleTodayTask() {
       if (!res.ok) throw new Error('Failed to toggle task');
       return res.json();
     },
+    // Optimista sobre TODAS las queries de tareas (today-plan, all, system…) por
+    // prefijo, para que la vista visible reaccione sin importar de cuál lea.
     onMutate: async ({ taskId }) => {
-      await queryClient.cancelQueries({ queryKey: taskKeys.todayPlan() });
-      const previous = queryClient.getQueryData<Task[]>(taskKeys.todayPlan());
-      queryClient.setQueryData<Task[]>(taskKeys.todayPlan(), (old = []) =>
-        old.map((t) =>
+      await queryClient.cancelQueries({ queryKey: ['tasks'] });
+      const previous = queryClient.getQueriesData<Task[]>({ queryKey: ['tasks'] });
+      queryClient.setQueriesData<Task[]>({ queryKey: ['tasks'] }, (old) =>
+        old?.map((t) =>
           t.id === taskId
             ? { ...t, status: t.status === 'done' ? 'today' : 'done', completedAt: t.status === 'done' ? null : new Date() }
             : t,
@@ -507,11 +504,11 @@ export function useToggleTodayTask() {
       return { previous };
     },
     onError: (_err, _vars, ctx) => {
-      const c = ctx as { previous?: Task[] } | undefined;
-      if (c?.previous) queryClient.setQueryData(taskKeys.todayPlan(), c.previous);
+      const c = ctx as { previous?: [readonly unknown[], Task[] | undefined][] } | undefined;
+      c?.previous?.forEach(([key, data]) => queryClient.setQueryData(key, data));
       toast.error('No se pudo guardar. Intenta de nuevo.');
     },
-    onSettled: () => queryClient.invalidateQueries({ queryKey: taskKeys.todayPlan() }),
+    onSettled: () => queryClient.invalidateQueries({ queryKey: ['tasks'] }),
   });
 }
 
