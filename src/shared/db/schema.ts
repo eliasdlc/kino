@@ -23,6 +23,7 @@ import {
 } from 'drizzle-orm/pg-core';
 import { sql } from 'drizzle-orm';
 import { customType } from 'drizzle-orm/pg-core';
+import type { SystemMetadata } from '@/shared/lib/system-types';
 
 // ============================================================================
 // Custom Types
@@ -528,6 +529,7 @@ export const systems = pgTable(
     isInbox: boolean('is_inbox').notNull().default(false),
     expectedFrequency: varchar('expected_frequency', { length: 20 }),
     triggerContext: varchar('trigger_context', { length: 255 }),
+    metadata: jsonb('metadata').$type<SystemMetadata | null>(),
     sortOrder: integer('sort_order').notNull().default(0),
     createdAt: timestamp('created_at', { withTimezone: true })
       .notNull()

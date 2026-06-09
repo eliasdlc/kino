@@ -11,7 +11,7 @@ import {
   type DragEndEvent,
 } from "@dnd-kit/core";
 import type { Task } from "./tasks.types";
-import type { TaskDragData, EnergyDropId } from "./dnd/dnd.types";
+import type { TaskDragData } from "./dnd/dnd.types";
 import { useTasks, useFolderTasks, useToggleTask, useDeleteTaskWithUndo, useUpdateTask } from "./tasks.hooks";
 import { DraggableTaskCard } from "./dnd/DraggableTaskCard";
 import { DroppableColumn } from "./dnd/DroppableColumn";
@@ -29,11 +29,31 @@ interface TaskActionViewProps {
     keyboardDisabled?: boolean;
 }
 
-const ENERGY_COLUMNS: { id: EnergyDropId; label: string; description: string }[] = [
+type ActionGroupBy = "energy" | "priority";
+
+interface ColumnDef {
+    id: string;
+    label: string;
+    description: string;
+}
+
+const ENERGY_COLUMNS: ColumnDef[] = [
     { id: "high", label: "High Energy", description: "Tasks requiring high focus." },
     { id: "medium", label: "Medium Energy", description: "Steady work, moderate focus." },
     { id: "low", label: "Low Energy", description: "Light tasks, easy to pick up." },
 ];
+
+const PRIORITY_COLUMNS: ColumnDef[] = [
+    { id: "critical", label: "Critical", description: "Drop everything." },
+    { id: "high", label: "High", description: "Do these soon." },
+    { id: "medium", label: "Medium", description: "Normal priority." },
+    { id: "low", label: "Low", description: "Whenever there's room." },
+];
+
+/** Campo de la tarea que define en qué columna cae, según el agrupamiento. */
+function taskGroupKey(task: Task, groupBy: ActionGroupBy): string {
+    return groupBy === "energy" ? task.energyLevel ?? "medium" : task.priority ?? "medium";
+}
 
 export function TaskActionView({ systemId, initialData, folderId, folderInitialData, onEdit, keyboardDisabled }: TaskActionViewProps) {
     // Use folder-scoped or system-scoped tasks depending on context
@@ -45,7 +65,10 @@ export function TaskActionView({ systemId, initialData, folderId, folderInitialD
     const { mutate: deleteTask } = useDeleteTaskWithUndo(systemId, folderId);
     const { mutate: updateTask } = useUpdateTask(systemId);
 
+    const [groupBy, setGroupBy] = useState<ActionGroupBy>("energy");
     const [activeTask, setActiveTask] = useState<Task | null>(null);
+
+    const columns = groupBy === "energy" ? ENERGY_COLUMNS : PRIORITY_COLUMNS;
 
     const sensors = useSensors(
         useSensor(PointerSensor, {
@@ -58,7 +81,7 @@ export function TaskActionView({ systemId, initialData, folderId, folderInitialD
     const actionableTasks = tasks?.filter(
       (t) => t.status === "today" || t.status === "tomorrow" || t.status === "week" || t.status === "done"
     ) ?? [];
-    // Only show non-done tasks in the energy columns
+    // Only show non-done tasks in the columns
     const activeTasks = actionableTasks.filter((t) => t.status !== "done");
 
     const handleDragStart = useCallback((event: DragStartEvent) => {
@@ -78,14 +101,16 @@ export function TaskActionView({ systemId, initialData, folderId, folderInitialD
             const data = active.data.current as TaskDragData | undefined;
             if (!data) return;
 
-            const targetEnergy = over.id as EnergyDropId;
+            const targetId = over.id as string;
 
             // Same column — no-op
-            if (targetEnergy === data.sourceId) return;
+            if (targetId === data.sourceId) return;
 
             updateTask({
                 taskId: data.task.id,
-                data: { energyLevel: targetEnergy },
+                data: data.sourceType === "priority"
+                    ? { priority: targetId as Task["priority"] }
+                    : { energyLevel: targetId as Task["energyLevel"] },
             });
         },
         [updateTask]
@@ -128,12 +153,22 @@ export function TaskActionView({ systemId, initialData, folderId, folderInitialD
             onDragCancel={handleDragCancel}
         >
             <div className="flex flex-col gap-4 w-full h-full">
-                <h2 className="text-2xl font-bold">Daily Progress</h2>
+                <div className="flex items-center justify-between gap-2 flex-wrap">
+                    <h2 className="text-2xl font-bold">Daily Progress</h2>
+                    <select
+                        value={groupBy}
+                        onChange={(e) => setGroupBy(e.target.value as ActionGroupBy)}
+                        className="text-sm bg-muted border-0 rounded-md px-2 py-1 text-muted-foreground"
+                    >
+                        <option value="energy">By energy</option>
+                        <option value="priority">By priority</option>
+                    </select>
+                </div>
                 <Progress value={progressPercent} className="h-2" />
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 w-full">
-                    {ENERGY_COLUMNS.map((column) => {
+                <div className={`grid grid-cols-1 sm:grid-cols-2 ${groupBy === "priority" ? "lg:grid-cols-4" : "lg:grid-cols-3"} gap-3 w-full`}>
+                    {columns.map((column) => {
                         const columnTasks = activeTasks.filter(
-                            (task) => task.energyLevel === column.id
+                            (task) => taskGroupKey(task, groupBy) === column.id
                         );
 
                         return (
@@ -150,7 +185,7 @@ export function TaskActionView({ systemId, initialData, folderId, folderInitialD
                                             key={task.id}
                                             task={task}
                                             systemId={systemId}
-                                            sourceType="energy"
+                                            sourceType={groupBy}
                                             sourceId={column.id}
                                             isFocused={task.id === focusedTaskId}
                                             onToggle={(id) => toggleTask(id)}

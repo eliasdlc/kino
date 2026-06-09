@@ -1,13 +1,12 @@
 "use client";
 
-import type { ComponentType } from "react";
 import type { System } from "@/features/systems/systems.types";
 import type { Task } from "@/features/tasks/tasks.types";
-import type { SystemType } from "@/shared/lib/system-types";
+import { SYSTEM_TYPE_CONFIG, type SystemType } from "@/shared/lib/system-types";
+import { TasksList } from "@/features/tasks/TasksList";
 import { SystemAcademicView } from "./SystemAcademicView";
 import { SystemProfessionalView } from "./SystemProfessionalView";
 import { SystemEntrepreneurialView } from "./SystemEntrepreneurialView";
-import { SystemPersonalView } from "./SystemPersonalView";
 import { SystemCustomView } from "./SystemCustomView";
 
 export interface SystemViewProps {
@@ -15,17 +14,35 @@ export interface SystemViewProps {
   initialTasks: Task[];
 }
 
-const VIEW_MAP: Record<SystemType, ComponentType<SystemViewProps>> = {
-  academic: SystemAcademicView,
-  professional: SystemProfessionalView,
-  entrepreneurial: SystemEntrepreneurialView,
-  personal: SystemPersonalView,
-  custom: SystemCustomView,
-  inbox: SystemPersonalView,
-};
-
+/**
+ * Routes a system to its view. inbox/personal montan el funnel universal
+ * componible desde su preset; custom deja al usuario elegir tabs; los demás
+ * tipos conservan su vista dedicada hasta la Fase 3.
+ */
 export function SystemDetailView({ system, initialTasks }: SystemViewProps) {
   const systemType = (system.templateType ?? "custom") as SystemType;
-  const View = VIEW_MAP[systemType] ?? SystemPersonalView;
-  return <View system={system} initialTasks={initialTasks} />;
+
+  if (systemType === "academic") {
+    return <SystemAcademicView system={system} initialTasks={initialTasks} />;
+  }
+  if (systemType === "professional") {
+    return <SystemProfessionalView system={system} initialTasks={initialTasks} />;
+  }
+  if (systemType === "entrepreneurial") {
+    return <SystemEntrepreneurialView system={system} initialTasks={initialTasks} />;
+  }
+  if (systemType === "custom") {
+    return <SystemCustomView system={system} initialTasks={initialTasks} />;
+  }
+
+  // inbox + personal → funnel universal desde el preset
+  const config = SYSTEM_TYPE_CONFIG[systemType] ?? SYSTEM_TYPE_CONFIG.personal;
+  return (
+    <TasksList
+      systemId={system.id}
+      initialData={initialTasks}
+      visibleTabs={config.tabs}
+      defaultTab={config.defaultTab}
+    />
+  );
 }

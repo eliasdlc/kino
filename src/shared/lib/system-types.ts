@@ -18,6 +18,17 @@ export type SystemType =
 
 export type SystemViewType = 'timeline' | 'kanban' | 'progress' | 'list' | 'custom';
 
+/** Módulos de tab del funnel universal (base reutilizable). */
+export type SystemTabId = 'backlog' | 'planning' | 'action' | 'archive';
+
+/** Configuración por-sistema persistida en systems.metadata (JSON). */
+export interface SystemMetadata {
+  /** Tabs visibles elegidos por el usuario (solo Custom). */
+  tabs?: SystemTabId[];
+  /** Tab que se abre por defecto (override del preset). */
+  defaultTab?: SystemTabId;
+}
+
 export type SystemStatusDef = {
   name: string;
   label: string;
@@ -41,6 +52,10 @@ export type SystemTypeConfig = {
   /** Stale advisor template: interpolates {nombre} and {n}. */
   staleTemplate: string;
   focusMinutes: number | null;
+  /** Tabs del funnel universal que monta este tipo, en orden. */
+  tabs: SystemTabId[];
+  /** Tab abierto al entrar al sistema (el "headspace"). */
+  defaultTab: SystemTabId;
 };
 
 export const SYSTEM_TYPE_CONFIG: Record<SystemType, SystemTypeConfig> = {
@@ -63,6 +78,8 @@ export const SYSTEM_TYPE_CONFIG: Record<SystemType, SystemTypeConfig> = {
     advisorTemplate: 'Energía media — ideal para avanzar en {nombre}.',
     staleTemplate: '{n} días desde última tarea en {nombre}.',
     focusMinutes: 90,
+    tabs: ['action', 'backlog', 'planning', 'archive'],
+    defaultTab: 'action',
   },
   professional: {
     icon: Briefcase,
@@ -83,6 +100,8 @@ export const SYSTEM_TYPE_CONFIG: Record<SystemType, SystemTypeConfig> = {
     advisorTemplate: '{nombre} lleva {n} días sin actividad — estás en tu ventana de alta energía.',
     staleTemplate: '{n} días desde última tarea en {nombre}.',
     focusMinutes: 25,
+    tabs: ['action', 'backlog', 'planning', 'archive'],
+    defaultTab: 'action',
   },
   entrepreneurial: {
     icon: Rocket,
@@ -103,6 +122,8 @@ export const SYSTEM_TYPE_CONFIG: Record<SystemType, SystemTypeConfig> = {
     advisorTemplate: '{nombre} espera hace {n} días. Ahora estás en pico — ¿saltás?',
     staleTemplate: '{n} días desde última tarea en {nombre}.',
     focusMinutes: 25,
+    tabs: ['action', 'backlog', 'planning', 'archive'],
+    defaultTab: 'action',
   },
   personal: {
     icon: Star,
@@ -122,6 +143,8 @@ export const SYSTEM_TYPE_CONFIG: Record<SystemType, SystemTypeConfig> = {
     advisorTemplate: 'Momentos de baja energía son perfectos para {nombre}.',
     staleTemplate: '{n} días desde última tarea en {nombre}.',
     focusMinutes: null,
+    tabs: ['action', 'backlog', 'planning', 'archive'],
+    defaultTab: 'action',
   },
   custom: {
     icon: Settings,
@@ -135,6 +158,8 @@ export const SYSTEM_TYPE_CONFIG: Record<SystemType, SystemTypeConfig> = {
     advisorTemplate: 'Tu sistema, tus reglas.',
     staleTemplate: '{n} días desde última tarea en {nombre}.',
     focusMinutes: null,
+    tabs: ['action', 'backlog', 'planning', 'archive'],
+    defaultTab: 'action',
   },
   inbox: {
     icon: Inbox,
@@ -152,5 +177,7 @@ export const SYSTEM_TYPE_CONFIG: Record<SystemType, SystemTypeConfig> = {
     advisorTemplate: 'Tienes {n} items sin procesar.',
     staleTemplate: '{n} días desde última tarea en {nombre}.',
     focusMinutes: null,
+    tabs: ['action', 'backlog', 'planning', 'archive'],
+    defaultTab: 'action',
   },
 };

@@ -3,9 +3,9 @@ import type { Task } from "../tasks.types";
 /**
  * Discriminated union for drag source context.
  * "day" = Planning View column, "unscheduled" = Planning View no-date column,
- * "energy" = Action View energy column.
+ * "energy" / "priority" = Action View columns (grouped by energy or priority).
  */
-export type DragSourceType = "day" | "unscheduled" | "energy";
+export type DragSourceType = "day" | "unscheduled" | "energy" | "priority";
 
 /**
  * Payload attached to every draggable task.

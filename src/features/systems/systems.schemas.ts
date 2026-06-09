@@ -11,7 +11,16 @@ export const createSystemSchema = z.object({
   triggerContext: z.string().max(255).optional(),
 });
 
-export const updateSystemSchema = createSystemSchema.partial();
+const systemTabIdSchema = z.enum(["backlog", "planning", "action", "archive"]);
+
+export const systemMetadataSchema = z.object({
+  tabs: z.array(systemTabIdSchema).optional(),
+  defaultTab: systemTabIdSchema.optional(),
+});
+
+export const updateSystemSchema = createSystemSchema.partial().extend({
+  metadata: systemMetadataSchema.nullable().optional(),
+});
 
 export const reorderSystemsSchema = z.object({
   systemIds: z.array(z.string().uuid()),
