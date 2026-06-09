@@ -1,6 +1,6 @@
 import { db } from "@/shared/db";
 import { tasks, users, userSettings, systems, folders, timeLogs, taskReminders } from "@/shared/db/schema";
-import { and, eq, isNull, sql, sum, count, type SQL } from "drizzle-orm";
+import { and, eq, isNull, isNotNull, sql, sum, count, type SQL } from "drizzle-orm";
 import { NotFoundError, ValidationError } from "@/shared/utils/error";
 import { validateTransition, type TaskStatus, type TransitionAction } from "./tasks.state-machine";
 import { Task, CreateTaskInput, UpdateTaskInput } from "./tasks.types";
@@ -666,7 +666,7 @@ export async function queryTasks(
 ) {
   const conditions = [
     eq(tasks.userId, userId),
-    isNull(tasks.deletedAt),
+    filters.deleted ? isNotNull(tasks.deletedAt) : isNull(tasks.deletedAt),
     isNull(tasks.parentTaskId),
   ];
 

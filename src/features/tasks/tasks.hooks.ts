@@ -14,7 +14,21 @@ export const taskKeys = {
   subtasks: (taskId: string) => ["tasks", "subtasks", taskId] as const,
   folderTasks: (systemId: string, folderId: string) => ["tasks", "system", systemId, "folder", folderId] as const,
   todayPlan: () => ["tasks", "today-plan"] as const,
+  trash: (systemId: string) => ["tasks", "trash", systemId] as const,
 };
+
+/** Tareas en la papelera (deleted_at IS NOT NULL) de un sistema. */
+export function useTrashedTasks(systemId: string, enabled = true) {
+  return useQuery<Task[]>({
+    queryKey: taskKeys.trash(systemId),
+    queryFn: async () => {
+      const res = await fetch(`/api/tasks?systemId=${systemId}&deleted=true`);
+      if (!res.ok) throw new Error("Failed to fetch trashed tasks");
+      return res.json();
+    },
+    enabled,
+  });
+}
 
 export function useTasks(systemId: string, initialData: Task[]) {
   return useQuery<Task[]>({
@@ -183,11 +197,12 @@ export function useToggleTask(systemId: string, folderId?: string) {
       );
       return { previous, qKey };
     },
-    onError: (_err, _vars, context) => {
+    onError: (err, _vars, context) => {
       const ctx = context as { previous?: Task[], qKey?: readonly unknown[] } | undefined;
       if (ctx?.previous && ctx?.qKey) {
         queryClient.setQueryData(ctx.qKey, ctx.previous);
       }
+      toast.error(err.message ?? "No se pudo actualizar la tarea");
     },
     // Invalida el prefijo completo ['tasks'] → system, folder, today-plan y all
     // refetchan, dejando consistentes las tres vistas tras completar.
@@ -306,21 +321,21 @@ export function useDeleteTaskWithUndo(systemId: string, folderId?: string) {
   });
 }
 
-export function useRestoreTask(systemId: string, folderId?: string) {
+export function useRestoreTask() {
   const queryClient = useQueryClient();
 
-  return useMutation({
+  return useMutation<Task, Error, string>({
     mutationFn: async (taskId: string) => {
       const res = await fetch(`/api/tasks/${taskId}/restore`, { method: "POST" });
       if (!res.ok) throw new Error("Failed to restore task");
       return res.json() as Promise<Task>;
     },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: taskKeys.bySystem(systemId) });
-      if (folderId) {
-        queryClient.invalidateQueries({ queryKey: taskKeys.folderTasks(systemId, folderId) });
-      }
+    onSuccess: (task) => {
+      toast.success(`"${task.title}" restaurada`);
+      // Refresca papelera y todas las vistas de tareas.
+      queryClient.invalidateQueries({ queryKey: ["tasks"] });
     },
+    onError: () => toast.error("No se pudo restaurar la tarea"),
   });
 }
 

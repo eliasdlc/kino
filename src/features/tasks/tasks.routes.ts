@@ -49,6 +49,7 @@ export async function listTasks(request: NextRequest) {
         systemId: searchParams.get("systemId") ?? undefined,
         energyLevel: searchParams.get("energyLevel") ?? undefined,
         status: searchParams.get("status") ?? undefined,
+        deleted: searchParams.get("deleted") === "true" ? true : undefined,
     });
     if (!parsed.success) {
         return NextResponse.json({ code: "VALIDATION_ERROR", message: "Invalid query params", details: parsed.error.flatten() }, { status: 400 });

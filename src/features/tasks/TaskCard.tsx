@@ -174,7 +174,10 @@ export function TaskCard({ task, systemId, systemType, draggable, isFocused, onT
   const isDueSoon = dueDays !== null && dueDays <= 2;
 
   function handleToggle() {
-    if (!isDone && !isArchived) {
+    // Las tareas archivadas son terminales: la máquina de estados solo permite
+    // borrarlas, no togglear. No disparamos onToggle para evitar el revert mudo.
+    if (isArchived) return;
+    if (!isDone) {
       setCompleting(true);
       setTimeout(() => setCompleting(false), 550);
     }
@@ -198,9 +201,11 @@ export function TaskCard({ task, systemId, systemType, draggable, isFocused, onT
       <button
         type="button"
         onClick={handleToggle}
+        disabled={isArchived}
         aria-label={isDone ? "Mark as pending" : "Mark as completed"}
         className={cn(
           "relative mt-0.5 size-6 shrink-0 rounded-full border-2 flex items-center justify-center",
+          isArchived && "cursor-default",
           "after:absolute after:inset-[-10px] after:content-['']",
           "motion-safe:transition-[colors,transform,box-shadow] motion-safe:duration-200",
           completing && "motion-safe:scale-125 motion-safe:shadow-[0_0_0_5px_rgba(62,207,114,0.2)]",

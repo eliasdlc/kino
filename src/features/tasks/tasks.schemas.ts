@@ -1,6 +1,8 @@
 import { z } from 'zod';
 
-const STATUS = z.string().min(1).max(50);
+/** Único set de status válido: la máquina de estados global (scheduling). */
+export const TASK_STATUSES = ['backlog', 'week', 'tomorrow', 'today', 'done', 'archived'] as const;
+const STATUS = z.enum(TASK_STATUSES);
 
 // dueDate es timestamptz (fase 3): acepta "yyyy-MM-dd" o ISO datetime.
 const DUE_DATE = z.string().refine((s) => !Number.isNaN(Date.parse(s)), {
@@ -94,6 +96,8 @@ export const listTasksQuerySchema = z.object({
   systemId: z.string().uuid().optional(),
   energyLevel: z.enum(["high", "medium", "low"]).optional(),
   status: STATUS.optional(),
+  // Cuando es true, lista la papelera (deleted_at IS NOT NULL) en vez de activas.
+  deleted: z.boolean().optional(),
 });
 
 export const createTimeLogSchema = z.object({

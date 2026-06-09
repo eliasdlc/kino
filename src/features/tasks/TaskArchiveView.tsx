@@ -2,6 +2,7 @@ import { useState } from "react";
 import type { Task } from "./tasks.types";
 import { useDeleteTaskWithUndo, useTasks, useFolderTasks, useToggleTask } from "./tasks.hooks";
 import { TaskCard } from "./TaskCard";
+import { TaskTrashSection } from "./TaskTrashSection";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { useTaskKeyboardNavigation } from "./useTaskKeyboardNavigation";
 
@@ -59,6 +60,9 @@ export function TaskArchiveView({ systemId, initialData, folderId, folderInitial
                     ))
                 )}
             </div>
+
+            {/* Papelera: tareas borradas (deletedAt) — restaurables */}
+            <TaskTrashSection systemId={systemId} />
 
             <ConfirmDialog
               open={deleteTarget !== null}
