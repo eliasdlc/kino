@@ -6,7 +6,23 @@ import { getPageById, getPagesBySystem } from "@/features/pages/pages.service";
 import { getSystembyId } from "@/features/systems/systems.service";
 import { getFolderById, getFolderBreadcrumb } from "@/features/folders/folders.service";
 import { PageBreadcrumb, type BreadcrumbItem } from "@/components/PageBreadcrumb";
-import { PageEditor } from "@/features/pages/PageEditor";
+import dynamic from "next/dynamic";
+
+const PageEditor = dynamic(
+  () => import("@/features/pages/PageEditor").then((m) => m.PageEditor),
+  {
+    loading: () => (
+      <div className="flex flex-col gap-4 h-full animate-pulse">
+        <div className="h-10 w-2/3 bg-muted rounded" />
+        <div className="flex-1 space-y-3">
+          <div className="h-4 w-full bg-muted rounded" />
+          <div className="h-4 w-5/6 bg-muted rounded" />
+          <div className="h-4 w-4/6 bg-muted rounded" />
+        </div>
+      </div>
+    ),
+  },
+);
 import { LinkedTasksPanel } from "@/features/pages/LinkedTasksPanel";
 import { StickyNotesGrid } from "@/features/sticky-notes/StickyNotesGrid";
 import { Separator } from "@/components/ui/separator";

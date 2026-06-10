@@ -4,18 +4,15 @@ import { toast } from "sonner";
 import type { Task, CreateTaskInput } from "./tasks.types";
 import type { AdvisorBulkAction } from "@/features/energy/energy.service";
 
+// Re-export query keys from the shared module (no React deps) so existing
+// consumers that `import { taskKeys } from './tasks.hooks'` keep working.
+export { taskKeys, allTasksKey, suggestedTasksKey, reminderKeys } from "./tasks.keys";
+import { taskKeys, allTasksKey, suggestedTasksKey, reminderKeys } from "./tasks.keys";
+
 interface ToggleTaskResult {
   status: string;
   xp_earned?: number;
 }
-
-export const taskKeys = {
-  bySystem: (systemId: string) => ["tasks", "system", systemId] as const,
-  subtasks: (taskId: string) => ["tasks", "subtasks", taskId] as const,
-  folderTasks: (systemId: string, folderId: string) => ["tasks", "system", systemId, "folder", folderId] as const,
-  todayPlan: () => ["tasks", "today-plan"] as const,
-  trash: (systemId: string) => ["tasks", "trash", systemId] as const,
-};
 
 /** Tareas en la papelera (deleted_at IS NOT NULL) de un sistema. */
 export function useTrashedTasks(systemId: string, enabled = true) {
@@ -452,9 +449,7 @@ export interface TaskReminder {
   createdAt: string;
 }
 
-export const reminderKeys = {
-  byTask: (taskId: string) => ['task-reminders', taskId] as const,
-};
+
 
 export function useTaskReminders(taskId: string) {
   return useQuery<TaskReminder[]>({
@@ -684,7 +679,7 @@ export function useRemoveFromPlan() {
 
 // ── Fase 2: tareas globales y sugeridas ──────────────────────────────────
 
-export const allTasksKey = () => ['tasks', 'all'] as const;
+
 
 export function useAllTasks() {
   return useQuery<Task[]>({
@@ -700,7 +695,7 @@ export function useAllTasks() {
 
 export type SuggestedTask = Task & { importanceScore: number; why: string; energyBand: string };
 
-export const suggestedTasksKey = () => ['suggested-tasks'] as const;
+
 
 export function useSuggestedTasks() {
   return useQuery<SuggestedTask[]>({

@@ -3,7 +3,28 @@ import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { getTodayEnergyPlan, getTodayAdvisor, getWeeklyTrends } from "@/features/energy/energy.service";
 import { TodayPlanCard } from "@/features/dashboard/TodayPlanCard";
-import { EnergyBatteryCard } from "@/features/dashboard/EnergyBatteryCard";
+import dynamic from "next/dynamic";
+
+const EnergyBatteryCard = dynamic(
+  () => import("@/features/dashboard/EnergyBatteryCard").then((m) => m.EnergyBatteryCard),
+  {
+    loading: () => (
+      <div className="rounded-xl border bg-card overflow-hidden animate-pulse">
+        <div className="px-5 py-4 border-b">
+          <div className="h-4 w-32 bg-muted rounded" />
+        </div>
+        <div className="px-5 py-4 space-y-3">
+          <div className="h-[72px] w-full bg-muted rounded" />
+          <div className="flex gap-1.5">
+            <div className="flex-1 h-7 bg-muted rounded-md" />
+            <div className="flex-1 h-7 bg-muted rounded-md" />
+            <div className="flex-1 h-7 bg-muted rounded-md" />
+          </div>
+        </div>
+      </div>
+    ),
+  },
+);
 import { AdvisorCard } from "@/features/dashboard/AdvisorCard";
 import { NotificationPromptCard } from "@/features/dashboard/NotificationPromptCard";
 import { DashboardBottomRow } from "@/features/dashboard/DashboardBottomRow";
