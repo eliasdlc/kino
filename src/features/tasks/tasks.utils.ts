@@ -33,8 +33,12 @@ export function deriveStatusFromDate(
 ): ScheduleStatus {
   if (!startDate) return "backlog";
 
-  // startDate es un DATE lógico ("yyyy-MM-dd"); comparamos por string de fecha.
-  const day = startDate.slice(0, 10);
+  // startDate puede llegar como día lógico ("yyyy-MM-dd") o como ISO con hora
+  // (timestamptz). Para el día pelado lo usamos tal cual; para un instante,
+  // calculamos su día calendario en la tz del usuario.
+  const day = startDate.length <= 10
+    ? startDate.slice(0, 10)
+    : calendarDateInTz(new Date(startDate), timezone);
   const now = new Date();
   const today = calendarDateInTz(now, timezone);
   const tomorrow = calendarDateInTz(new Date(now.getTime() + 86_400_000), timezone);
@@ -58,4 +62,18 @@ export function parseDueDate(value: string): Date {
 export function dueDateHasTime(value: string): boolean {
   const d = parseDueDate(value);
   return d.getHours() !== 0 || d.getMinutes() !== 0;
+}
+
+/**
+ * Convierte un día "yyyy-MM-dd" (+ hora "HH:mm" opcional) a un ISO en la
+ * medianoche/hora LOCAL del navegador. startDate y dueDate son timestamptz:
+ * enviar el día pelado los guarda a medianoche UTC y al releerlos en tz
+ * negativas caen al día anterior. Construir el instante en hora local y
+ * serializar con toISOString() round-trips correcto (display via parseDueDate).
+ */
+export function dayToLocalISO(day: string, time?: string | null): string {
+  const [y, m, d] = day.slice(0, 10).split("-").map(Number);
+  // time vacío/ausente → medianoche. (`||` cubre "" además de null/undefined.)
+  const [hh, mm] = (time || "00:00").split(":").map(Number);
+  return new Date(y!, (m ?? 1) - 1, d ?? 1, hh ?? 0, mm ?? 0).toISOString();
 }

@@ -15,15 +15,18 @@ import {
   type DragEndEvent,
 } from "@dnd-kit/core";
 import {
+  addDays,
   addMonths,
   startOfMonth,
   endOfMonth,
   startOfWeek,
   endOfWeek,
   eachDayOfInterval,
+  differenceInCalendarDays,
   format,
   isSameMonth,
   isToday,
+  parseISO,
   startOfToday,
 } from "date-fns";
 import { es } from "date-fns/locale";
@@ -31,7 +34,7 @@ import { ChevronLeft, ChevronRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useTasks, useUpdateTask } from "./tasks.hooks";
 import { DroppableColumn } from "./dnd/DroppableColumn";
-import { parseDueDate } from "./tasks.utils";
+import { parseDueDate, dayToLocalISO } from "./tasks.utils";
 import { cn } from "@/lib/utils";
 import type { Task } from "./tasks.types";
 
@@ -118,7 +121,29 @@ export function TaskCalendarView({ systemId, initialData, onNavigateToAction }: 
   function handleDragEnd({ active, over }: DragEndEvent) {
     setDraggingTask(null);
     if (!over) return;
-    updateDueDate({ taskId: active.id as string, data: { dueDate: over.id as string } });
+    const newDay = over.id as string; // yyyy-MM-dd
+    const task = activeTasks.find((t) => t.id === active.id);
+    if (!task) return;
+
+    // Sin fecha previa (panel "Sin fecha") → asignar ese día a medianoche local.
+    if (!task.dueDate) {
+      updateDueDate({ taskId: task.id, data: { dueDate: dayToLocalISO(newDay) } });
+      return;
+    }
+
+    const oldDueDay = format(parseDueDate(task.dueDate), "yyyy-MM-dd");
+    if (oldDueDay === newDay) return;
+    const delta = differenceInCalendarDays(parseISO(newDay), parseISO(oldDueDay));
+
+    // Desplazar el/los instante(s) el mismo delta de días: preserva la hora y,
+    // si hay rango (inicio + fin), preserva la duración en vez de colapsarla.
+    const newDue = addDays(parseDueDate(task.dueDate), delta).toISOString();
+    if (task.startDate) {
+      const newStart = addDays(parseDueDate(task.startDate), delta).toISOString();
+      updateDueDate({ taskId: task.id, data: { startDate: newStart, dueDate: newDue } });
+      return;
+    }
+    updateDueDate({ taskId: task.id, data: { dueDate: newDue } });
   }
 
   return (

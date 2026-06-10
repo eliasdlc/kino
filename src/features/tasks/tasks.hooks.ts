@@ -87,10 +87,14 @@ export function useCreateTask(systemId: string, folderId?: string) {
       if (folderQKey) await queryClient.cancelQueries({ queryKey: folderQKey });
       const previousFolder = folderQKey ? queryClient.getQueryData<Task[]>(folderQKey) : undefined;
 
-      // Derive optimistic status from startDate (mirrors backend logic)
+      // Derive optimistic status from startDate (mirrors backend logic).
+      // startDate puede ser "yyyy-MM-dd" o ISO con hora (timestamptz).
       const optimisticStatus = (() => {
         if (!data.startDate) return "backlog" as const;
-        const d = new Date(data.startDate + "T00:00:00");
+        const sd = data.startDate.length <= 10
+          ? new Date(data.startDate + "T00:00:00")
+          : new Date(data.startDate);
+        const d = new Date(sd.getFullYear(), sd.getMonth(), sd.getDate());
         const now = new Date();
         const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
         const tomorrow = new Date(today);

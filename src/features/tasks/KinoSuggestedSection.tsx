@@ -141,7 +141,20 @@ export function KinoSuggestedSection() {
   }
 
   function handleComplete(taskId: string) {
-    complete({ taskId });
+    // Las sugerencias viven en ['suggested-tasks'], fuera del prefijo ['tasks']
+    // que toca useToggleTodayTask. Sin esta actualización optimista local el
+    // toggle ocurre en el server pero la fila nunca refleja el cambio.
+    const key = suggestedTasksKey();
+    const previous = queryClient.getQueryData<SuggestedTask[]>(key);
+    queryClient.setQueryData<SuggestedTask[]>(key, (old) =>
+      old?.map((t) =>
+        t.id === taskId ? { ...t, status: t.status === 'done' ? 'today' : 'done' } : t,
+      ),
+    );
+    complete(
+      { taskId },
+      { onError: () => { if (previous) queryClient.setQueryData(key, previous); } },
+    );
   }
 
   function handleRegenerate() {

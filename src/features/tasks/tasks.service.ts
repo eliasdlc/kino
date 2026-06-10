@@ -561,7 +561,7 @@ export async function ensureTodayPlanRolled(userId: string): Promise<void> {
 
     // 0. Reconcilia los status de scheduling (tomorrow→today, today de ayer→…)
     //    ANTES de repoblar el plan, para que ambos vean el mismo día.
-    await reconcileStatusesInTx(tx, userId, today, tomorrow);
+    await reconcileStatusesInTx(tx, userId, today, tomorrow, tz);
 
     // 1. Limpia el plan del día anterior.
     await tx.execute(
@@ -569,13 +569,14 @@ export async function ensureTodayPlanRolled(userId: string): Promise<void> {
           WHERE user_id = ${userId} AND in_today_plan = true`,
     );
 
-    // 2. Repuebla con tareas activas programadas para hoy (start_date = hoy).
+    // 2. Repuebla con tareas activas programadas para hoy (start_date = hoy,
+    //    comparando el día calendario en la tz del usuario; start_date es timestamptz).
     await tx.execute(
       sql`UPDATE tasks SET in_today_plan = true, updated_at = NOW()
           WHERE user_id = ${userId} AND deleted_at IS NULL
             AND parent_task_id IS NULL
             AND status NOT IN ('done', 'archived')
-            AND start_date = ${today}`,
+            AND (start_date AT TIME ZONE ${tz})::date = ${today}`,
     );
 
     // 3. Marca el plan como rolleado hoy.
@@ -607,7 +608,7 @@ export async function reconcileTaskStatuses(userId: string): Promise<void> {
   const today = sql`(NOW() AT TIME ZONE ${tz})::date`;
   const tomorrow = sql`((NOW() AT TIME ZONE ${tz})::date + INTERVAL '1 day')::date`;
 
-  await db.transaction((tx) => reconcileStatusesInTx(tx, userId, today, tomorrow));
+  await db.transaction((tx) => reconcileStatusesInTx(tx, userId, today, tomorrow, tz));
 }
 
 /**
@@ -621,9 +622,12 @@ async function reconcileStatusesInTx(
   userId: string,
   today: SQL,
   tomorrow: SQL,
+  tz: string,
 ): Promise<void> {
   // Ideas are always backlog — exclude from date-driven status updates
   const notIdea = sql`(task_type IS NULL OR task_type != 'idea')`;
+  // start_date es timestamptz: comparamos su día calendario en la tz del usuario.
+  const startDay = sql`(start_date AT TIME ZONE ${tz})::date`;
 
   // Tasks with start_date = today → status should be "today"
   await tx.execute(
@@ -631,7 +635,7 @@ async function reconcileStatusesInTx(
         WHERE user_id = ${userId} AND deleted_at IS NULL
           AND status NOT IN ('done', 'archived')
           AND ${notIdea}
-          AND start_date = ${today}
+          AND ${startDay} = ${today}
           AND status != 'today'`
   );
 
@@ -641,7 +645,7 @@ async function reconcileStatusesInTx(
         WHERE user_id = ${userId} AND deleted_at IS NULL
           AND status NOT IN ('done', 'archived')
           AND ${notIdea}
-          AND start_date = ${tomorrow}
+          AND ${startDay} = ${tomorrow}
           AND status != 'tomorrow'`
   );
 
@@ -652,8 +656,8 @@ async function reconcileStatusesInTx(
           AND status NOT IN ('done', 'archived')
           AND ${notIdea}
           AND start_date IS NOT NULL
-          AND start_date != ${today}
-          AND start_date != ${tomorrow}
+          AND ${startDay} != ${today}
+          AND ${startDay} != ${tomorrow}
           AND status != 'week'`
   );
 

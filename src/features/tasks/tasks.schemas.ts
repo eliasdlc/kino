@@ -4,9 +4,12 @@ import { z } from 'zod';
 export const TASK_STATUSES = ['backlog', 'week', 'tomorrow', 'today', 'done', 'archived'] as const;
 const STATUS = z.enum(TASK_STATUSES);
 
-// dueDate es timestamptz (fase 3): acepta "yyyy-MM-dd" o ISO datetime.
+// dueDate y startDate son timestamptz: aceptan "yyyy-MM-dd" o ISO datetime.
 const DUE_DATE = z.string().refine((s) => !Number.isNaN(Date.parse(s)), {
   message: 'Invalid due date',
+});
+const START_DATE = z.string().refine((s) => !Number.isNaN(Date.parse(s)), {
+  message: 'Invalid start date',
 });
 
 // Compara solo la parte de fecha (yyyy-MM-dd) de due vs start, robusto ante
@@ -24,7 +27,7 @@ export const createTaskSchema = z.object({
   priority: z.enum(["critical", "high", "medium", "low"]).optional(),
   taskType: z.enum(["task", "idea", "event", "reminder"]).optional(),
   dueDate: DUE_DATE.optional(),
-  startDate: z.string().date().optional(),
+  startDate: START_DATE.optional(),
   estimatedTime: z.string().time().optional(),
   parentTaskId: z.string().uuid().optional(),
   contextTagId: z.string().uuid().optional(),
@@ -50,7 +53,7 @@ export const updateTaskSchema = z.object({
   priority: z.enum(["critical", "high", "medium", "low"]).optional(),
   taskType: z.enum(["task", "idea", "event", "reminder"]).nullable().optional(),
   dueDate: DUE_DATE.optional().nullable(),
-  startDate: z.string().date().optional().nullable(),
+  startDate: START_DATE.optional().nullable(),
   estimatedTime: z.string().time().optional(),
   parentTaskId: z.string().uuid().optional(),
   contextTagId: z.string().uuid().optional(),

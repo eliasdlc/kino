@@ -610,7 +610,9 @@ export const tasks = pgTable(
     // Timestamp con hora (PLAN-07 fase 3): las entregas pueden tener hora.
     // mode:'string' → el cliente recibe/envía strings; parsear con parseDueDate.
     dueDate: timestamp('due_date', { withTimezone: true, mode: 'string' }),
-    startDate: date('start_date'),
+    // timestamptz (mode:'string') igual que dueDate: la fecha de inicio puede
+    // tener hora opcional. Parsear con parseDueDate; "sin hora" = medianoche local.
+    startDate: timestamp('start_date', { withTimezone: true, mode: 'string' }),
     estimatedTime: time('estimated_time'),
     recurrenceRule: varchar('recurrence_rule', { length: 500 }),
     recurrenceParentId: uuid('recurrence_parent_id').references(

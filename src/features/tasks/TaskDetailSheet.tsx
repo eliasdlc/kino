@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { format, parseISO } from "date-fns";
+import { format } from "date-fns";
 import { parseDueDate } from "./tasks.utils";
 import { CalendarIcon, Timer } from "lucide-react";
 import {
@@ -137,7 +137,7 @@ function TaskDetailForm({ task, systemId, onClose }: TaskDetailFormProps) {
     task.dueDate ? parseDueDate(task.dueDate) : undefined
   );
   const [startDate, setStartDate] = useState<Date | undefined>(
-    task.startDate ? parseISO(task.startDate) : undefined
+    task.startDate ? parseDueDate(task.startDate) : undefined
   );
   const [selectedFolderId, setSelectedFolderId] = useState<string>(task.folderId ?? "none");
   const [saveStatus, setSaveStatus] = useState<"idle" | "saved">("idle");
@@ -170,8 +170,9 @@ function TaskDetailForm({ task, systemId, onClose }: TaskDetailFormProps) {
     const origDue = task.dueDate ? parseDueDate(task.dueDate).toISOString() : null;
     if (curDue !== origDue) data.dueDate = curDue;
 
-    const curStart = startDate ? format(startDate, "yyyy-MM-dd") : null;
-    const origStart = task.startDate ? String(task.startDate).slice(0, 10) : null;
+    // startDate como ISO (conserva hora), igual que dueDate.
+    const curStart = startDate ? startDate.toISOString() : null;
+    const origStart = task.startDate ? parseDueDate(task.startDate).toISOString() : null;
     if (curStart !== origStart) data.startDate = curStart;
 
     const curFolder = selectedFolderId !== "none" ? selectedFolderId : null;
@@ -300,15 +301,32 @@ function TaskDetailForm({ task, systemId, onClose }: TaskDetailFormProps) {
           <Label>Fecha de inicio</Label>
           <Popover>
             <PopoverTrigger asChild>
-              <Button variant="outline" className="w-full justify-start gap-2 text-sm font-normal">
-                <CalendarIcon size={16} className="text-muted-foreground" />
-                {startDate ? format(startDate, "MMM d, yyyy") : <span className="text-muted-foreground">Elegir fecha</span>}
+              <Button variant="outline" className="w-full min-w-0 justify-start gap-2 text-sm font-normal">
+                <CalendarIcon size={16} className="shrink-0 text-muted-foreground" />
+                {startDate ? (
+                  <span className="truncate">
+                    {format(startDate, "MMM d, yyyy")}
+                    {hasDueTime(startDate) && <span className="text-muted-foreground"> · {format(startDate, "HH:mm")}</span>}
+                  </span>
+                ) : (
+                  <span className="truncate text-muted-foreground">Elegir fecha</span>
+                )}
               </Button>
             </PopoverTrigger>
             <PopoverContent className="w-auto p-0" align="start">
-              <Calendar mode="single" selected={startDate} onSelect={setStartDate} />
+              <Calendar mode="single" selected={startDate} onSelect={(day) => setStartDate((prev) => withDay(prev, day))} />
               {startDate && (
-                <div className="p-2 border-t">
+                <div className="p-2 border-t space-y-2">
+                  <div className="flex items-center gap-2">
+                    <Label htmlFor="start-time" className="text-xs text-muted-foreground shrink-0">Hora</Label>
+                    <Input
+                      id="start-time"
+                      type="time"
+                      value={format(startDate, "HH:mm")}
+                      onChange={(e) => setStartDate((prev) => withTime(prev, e.target.value))}
+                      className="h-8"
+                    />
+                  </div>
                   <Button variant="ghost" size="sm" className="w-full" onClick={() => setStartDate(undefined)}>
                     Limpiar
                   </Button>
@@ -322,15 +340,15 @@ function TaskDetailForm({ task, systemId, onClose }: TaskDetailFormProps) {
           <Label>Fecha de vencimiento</Label>
           <Popover>
             <PopoverTrigger asChild>
-              <Button variant="outline" className="w-full justify-start gap-2 text-sm font-normal">
-                <CalendarIcon size={16} className="text-muted-foreground" />
+              <Button variant="outline" className="w-full min-w-0 justify-start gap-2 text-sm font-normal">
+                <CalendarIcon size={16} className="shrink-0 text-muted-foreground" />
                 {dueDate ? (
-                  <>
+                  <span className="truncate">
                     {format(dueDate, "MMM d, yyyy")}
-                    {hasDueTime(dueDate) && <span className="text-muted-foreground">· {format(dueDate, "HH:mm")}</span>}
-                  </>
+                    {hasDueTime(dueDate) && <span className="text-muted-foreground"> · {format(dueDate, "HH:mm")}</span>}
+                  </span>
                 ) : (
-                  <span className="text-muted-foreground">Elegir fecha</span>
+                  <span className="truncate text-muted-foreground">Elegir fecha</span>
                 )}
               </Button>
             </PopoverTrigger>

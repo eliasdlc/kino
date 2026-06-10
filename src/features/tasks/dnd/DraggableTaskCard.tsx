@@ -4,6 +4,7 @@ import { useDraggable } from "@dnd-kit/core";
 import { CSS } from "@dnd-kit/utilities";
 import { cn } from "@/lib/utils";
 import { TaskCard } from "../TaskCard";
+import { PlanningTaskCard } from "../PlanningTaskCard";
 import type { Task } from "../tasks.types";
 import type { TaskDragData, DragSourceType } from "./dnd.types";
 
@@ -13,6 +14,8 @@ interface DraggableTaskCardProps {
   sourceType: DragSourceType;
   sourceId: string;
   isFocused?: boolean;
+  /** Renderiza la variante compacta (columnas estrechas de Planificación). */
+  compact?: boolean;
   onToggle: (taskId: string) => void;
   onDelete: (task: Task) => void;
   onEdit?: (task: Task) => void;
@@ -29,6 +32,7 @@ export function DraggableTaskCard({
   sourceType,
   sourceId,
   isFocused,
+  compact,
   onToggle,
   onDelete,
   onEdit,
@@ -70,14 +74,24 @@ export function DraggableTaskCard({
         isDragging && "opacity-40 border-dashed pointer-events-none"
       )}
     >
-      <TaskCard
-        task={task}
-        systemId={systemId}
-        isFocused={isFocused}
-        onToggle={onToggle}
-        onDelete={onDelete}
-        onEdit={onEdit}
-      />
+      {compact ? (
+        <PlanningTaskCard
+          task={task}
+          isFocused={isFocused}
+          onToggle={onToggle}
+          onDelete={onDelete}
+          onEdit={onEdit}
+        />
+      ) : (
+        <TaskCard
+          task={task}
+          systemId={systemId}
+          isFocused={isFocused}
+          onToggle={onToggle}
+          onDelete={onDelete}
+          onEdit={onEdit}
+        />
+      )}
     </div>
   );
 }

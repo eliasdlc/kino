@@ -1,5 +1,5 @@
 import React from "react";
-import { format, parseISO } from "date-fns";
+import { format } from "date-fns";
 import type { Task } from "./tasks.types";
 import { parseDueDate } from "./tasks.utils";
 import { cn } from "@/lib/utils";
@@ -44,7 +44,7 @@ export function MultiDayTaskBar({ task, onEdit, startCol, span, className, ...pr
       </div>
       <div className="shrink-0 text-[10px] opacity-70">
         {task.startDate && task.dueDate && (
-          `${format(parseISO(task.startDate), "MMM d")} - ${format(parseDueDate(task.dueDate), "MMM d")}`
+          `${format(parseDueDate(task.startDate), "MMM d")} - ${format(parseDueDate(task.dueDate), "MMM d")}`
         )}
       </div>
     </div>

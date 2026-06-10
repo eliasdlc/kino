@@ -25,6 +25,7 @@ import { useFolders } from "@/features/folders/folders.hooks";
 import { getSystemColor } from "@/shared/utils/system-colors";
 import { TaskTypePicker } from "./TaskTypePicker";
 import { getTaskTypeConfig } from "./task-type-config";
+import { dayToLocalISO } from "./tasks.utils";
 import { EstimatedTimePicker, minutesToTimeString } from "./EstimatedTimePicker";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { useQueryClient } from "@tanstack/react-query";
@@ -38,6 +39,8 @@ const formSchema = z.object({
   energyLevel: z.enum(['high', 'medium', 'low']),
   startDate: z.string().date().nullable().optional(),
   dueDate: z.string().date().nullable().optional(),
+  startTime: z.string().optional(),
+  dueTime: z.string().optional(),
   estimatedMinutes: z.number().int().min(1).nullable().optional(),
   description: z.string().optional(),
   folderId: z.string().uuid().nullable().optional(),
@@ -100,6 +103,8 @@ export function CreateTaskDialog({
       energyLevel: energyDefault,
       startDate: null,
       dueDate: null,
+      startTime: '',
+      dueTime: '',
       estimatedMinutes: null,
       description: '',
       folderId: folderId ?? null,
@@ -136,8 +141,9 @@ export function CreateTaskDialog({
       priority: values.priority,
       energyLevel: typeConfig.hideEnergyAndPriority ? undefined : values.energyLevel,
       ...(values.taskType ? { taskType: values.taskType } : {}),
-      ...(values.startDate ? { startDate: values.startDate } : {}),
-      ...(values.dueDate ? { dueDate: values.dueDate } : {}),
+      // startDate/dueDate como ISO en hora local (medianoche si no hay hora).
+      ...(values.startDate ? { startDate: dayToLocalISO(values.startDate, values.startTime) } : {}),
+      ...(values.dueDate ? { dueDate: dayToLocalISO(values.dueDate, values.dueTime) } : {}),
       ...(values.estimatedMinutes ? { estimatedTime: minutesToTimeString(values.estimatedMinutes) } : {}),
       ...(values.description ? { description: values.description } : {}),
       ...(values.folderId ? { folderId: values.folderId } : {}),
@@ -339,6 +345,33 @@ export function CreateTaskDialog({
                   </PopoverContent>
                 </Popover>
               )}
+
+              {/* Horas opcionales (default sin hora) */}
+              <div className="grid grid-cols-2 gap-2 pt-1">
+                {taskType !== 'reminder' && (
+                  <div className="space-y-1">
+                    <Label htmlFor="start-time" className="text-xs text-muted-foreground">Hora inicio</Label>
+                    <Input
+                      id="start-time"
+                      type="time"
+                      disabled={!form.watch('startDate')}
+                      {...form.register('startTime')}
+                      className="h-9 text-sm"
+                    />
+                  </div>
+                )}
+                <div className={cn("space-y-1", taskType === 'reminder' && "col-span-2")}>
+                  <Label htmlFor="due-time" className="text-xs text-muted-foreground">Hora vencimiento</Label>
+                  <Input
+                    id="due-time"
+                    type="time"
+                    disabled={!form.watch('dueDate')}
+                    {...form.register('dueTime')}
+                    className="h-9 text-sm"
+                  />
+                </div>
+              </div>
+
               {form.formState.errors.startDate && (
                 <p className="text-xs text-destructive">{form.formState.errors.startDate.message}</p>
               )}

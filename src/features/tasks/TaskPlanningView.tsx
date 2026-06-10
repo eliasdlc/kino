@@ -8,7 +8,6 @@ import {
   getISOWeek,
   isSameDay,
   isToday,
-  parseISO,
   startOfWeek,
   differenceInCalendarDays,
   isBefore,
@@ -32,14 +31,14 @@ import { TaskDragOverlay } from "./dnd/TaskDragOverlay";
 import type { TaskDragData } from "./dnd/dnd.types";
 import { useTasks, useFolderTasks, useToggleTask, useDeleteTaskWithUndo, useUpdateTask } from "./tasks.hooks";
 import type { Task } from "./tasks.types";
-import { parseDueDate } from "./tasks.utils";
+import { parseDueDate, dayToLocalISO } from "./tasks.utils";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { useTaskKeyboardNavigation } from "./useTaskKeyboardNavigation";
 import { MultiDayTaskBar } from "./MultiDayTaskBar";
 
-/** startDate ("yyyy-MM-dd") vs día calendario de dueDate (timestamptz). */
+/** ¿startDate y dueDate caen el mismo día calendario? (ambos timestamptz). */
 function sameDueDay(startDate: string, dueDate: string): boolean {
-  return format(parseDueDate(dueDate), "yyyy-MM-dd") === startDate;
+  return format(parseDueDate(dueDate), "yyyy-MM-dd") === format(parseDueDate(startDate), "yyyy-MM-dd");
 }
 
 interface TaskPlanningViewProps {
@@ -101,7 +100,7 @@ export function TaskPlanningView({ systemId, initialData, folderId, folderInitia
 
       // Multi-day task: has startDate and dueDate, and they are different
       if (task.startDate && task.dueDate && !sameDueDay(task.startDate, task.dueDate)) {
-        const start = parseISO(task.startDate);
+        const start = parseDueDate(task.startDate);
         const due = parseDueDate(task.dueDate);
         const weekStart = weekDates[0]!;
         const weekEnd = weekDates[6]!;
@@ -111,7 +110,7 @@ export function TaskPlanningView({ systemId, initialData, folderId, folderInitia
 
       // Single-day task
       if (task.startDate) {
-        const date = parseISO(task.startDate);
+        const date = parseDueDate(task.startDate);
         return weekDates.some((wd) => isSameDay(wd, date));
       }
       return false;
@@ -162,9 +161,11 @@ export function TaskPlanningView({ systemId, initialData, folderId, folderInitia
       // Same column — no-op
       if (targetId === data.sourceId) return;
 
+      // startDate es timestamptz: enviar medianoche LOCAL (no el día pelado, que
+      // se guardaría a medianoche UTC y corre el día en tz negativas).
       updateTask({
         taskId: data.task.id,
-        data: { startDate: targetId },
+        data: { startDate: dayToLocalISO(targetId) },
       });
     },
     [updateTask]
@@ -227,7 +228,7 @@ export function TaskPlanningView({ systemId, initialData, folderId, folderInitia
         {multiDayTasks.length > 0 && (
           <div className="grid grid-cols-7 gap-2 w-full pt-1 pb-3 border-b border-border">
             {multiDayTasks.map((task) => {
-              const start = parseISO(task.startDate!);
+              const start = parseDueDate(task.startDate!);
               const due = parseDueDate(task.dueDate!);
               const weekStart = weekDates[0]!;
               const weekEnd = weekDates[6]!;
@@ -258,7 +259,7 @@ export function TaskPlanningView({ systemId, initialData, folderId, folderInitia
             const dayTasks = singleDayTasks.filter(
               (task) =>
                 task.startDate &&
-                isSameDay(parseISO(task.startDate), dayDate)
+                isSameDay(parseDueDate(task.startDate), dayDate)
             );
 
             return (
@@ -305,6 +306,7 @@ export function TaskPlanningView({ systemId, initialData, folderId, folderInitia
                         systemId={systemId}
                         sourceType="day"
                         sourceId={dayISO}
+                        compact
                         isFocused={task.id === focusedTaskId}
                         onToggle={(id) => toggleTask(id)}
                         onDelete={() => setDeleteTarget(task)}
