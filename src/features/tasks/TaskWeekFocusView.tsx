@@ -62,14 +62,17 @@ export function TaskWeekFocusView({ systemId, initialData, onEdit, highlight }: 
   const [deleteTarget, setDeleteTarget] = useState<Task | null>(null);
 
   // Resaltado temporal: hace scroll a la tarea y la marca por ~1s.
-  const [highlightedId, setHighlightedId] = useState<string | null>(null);
+  // Se deriva en render (no setState síncrono en effect): la tarea está
+  // resaltada mientras el nonce de su evento no haya sido "limpiado" por el
+  // timer. Se usa el nonce (único por evento) para re-resaltar la misma tarea.
+  const [clearedNonce, setClearedNonce] = useState<number | null>(null);
+  const highlightedId = highlight && highlight.nonce !== clearedNonce ? highlight.id : null;
   const rowRefs = useRef<Map<string, HTMLDivElement>>(new Map());
 
   useEffect(() => {
     if (!highlight) return;
-    setHighlightedId(highlight.id);
     rowRefs.current.get(highlight.id)?.scrollIntoView({ behavior: "smooth", block: "center" });
-    const t = setTimeout(() => setHighlightedId(null), 1000);
+    const t = setTimeout(() => setClearedNonce(highlight.nonce), 1000);
     return () => clearTimeout(t);
   }, [highlight]);
 
