@@ -7,7 +7,7 @@ export default function SystemsPage() {
     <PageWrapper>
       <PageHeader
         title="Sistemas"
-        description="Your identity-based productivity systems."
+        description="Tus sistemas de productividad basados en tu identidad."
         actions={<CreateSystemDialog />}
       />
 

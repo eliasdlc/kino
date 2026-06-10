@@ -16,7 +16,7 @@ export function FoldersList() {
       <div className="rounded-lg border border-dashed p-8 text-center space-y-2">
         <FolderOpen className="size-8 text-muted-foreground/40 mx-auto" />
         <p className="text-sm text-muted-foreground">
-          No folders yet. Create one to organize your pages.
+          Aún no hay carpetas. Crea una para organizar tus páginas.
         </p>
       </div>
     </div>

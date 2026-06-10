@@ -101,7 +101,7 @@ export function LinkedTasksPanel({ pageId, systemId }: LinkedTasksPanelProps) {
             <PopoverContent className="w-72 p-2" align="end">
               {available.length === 0 ? (
                 <p className="text-sm text-muted-foreground text-center py-3">
-                  No tasks available to link
+                  No hay tareas disponibles para vincular
                 </p>
               ) : (
                 <div className="flex flex-col gap-1 max-h-64 overflow-y-auto">

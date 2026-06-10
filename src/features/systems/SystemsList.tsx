@@ -80,7 +80,7 @@ export function SystemsList() {
     return (
       <div className="rounded-lg border border-dashed p-12 text-center space-y-2">
         <p className="text-sm text-muted-foreground">
-          No systems yet. Create your first one to get started.
+          Aún no tienes sistemas. Crea el primero para empezar.
         </p>
       </div>
     );

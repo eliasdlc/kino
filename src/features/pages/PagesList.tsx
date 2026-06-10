@@ -16,7 +16,7 @@ export function PagesList() {
       <div className="rounded-lg border border-dashed p-8 text-center space-y-2">
         <FileText className="size-8 text-muted-foreground/40 mx-auto" />
         <p className="text-sm text-muted-foreground">
-          No pages yet. Create one to start writing.
+          Aún no hay páginas. Crea una para empezar a escribir.
         </p>
       </div>
     </div>

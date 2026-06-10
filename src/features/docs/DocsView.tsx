@@ -67,7 +67,7 @@ export function DocsView({ systemId }: DocsViewProps) {
         <div className="rounded-lg border border-dashed p-10 text-center space-y-2">
           <Files className="size-8 text-muted-foreground/40 mx-auto" />
           <p className="text-sm text-muted-foreground">
-            No documents yet. Create a folder or page to get started.
+            Aún no hay documentos. Crea una carpeta o página para empezar.
           </p>
         </div>
       )}
