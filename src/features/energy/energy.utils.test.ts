@@ -7,7 +7,10 @@ import {
 } from './energy.utils';
 import type { Task } from '@/features/tasks/tasks.types';
 
-const TODAY = new Date('2026-05-20T12:00:00Z');
+// Medianoche UTC: parseDueDate('YYYY-MM-DD') también parsea a medianoche UTC,
+// así differenceInCalendarDays compara los mismos días en cualquier timezone
+// (con 12:00:00Z los dueDate date-only caían un día antes en zonas UTC-negativas).
+const TODAY = new Date('2026-05-20T00:00:00Z');
 
 function makeTask(overrides: Partial<Task> = {}): Task {
   return {

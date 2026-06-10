@@ -157,7 +157,7 @@ export function LinkedTasksPanel({ pageId, systemId }: LinkedTasksPanelProps) {
       {/* Empty state */}
       {!isLoading && visibleLinked.length === 0 && (
         <div className="flex flex-col items-center gap-2 py-6 text-center">
-          <p className="text-sm text-muted-foreground">No linked tasks yet.</p>
+          <p className="text-sm text-muted-foreground">Aún no hay tareas vinculadas.</p>
           <p className="text-xs text-muted-foreground/60">
             Link existing tasks or create new ones to track work related to this page.
           </p>

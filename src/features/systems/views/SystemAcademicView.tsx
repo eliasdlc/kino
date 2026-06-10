@@ -34,7 +34,7 @@ export function SystemAcademicView({ system, initialTasks }: SystemViewProps) {
             <TabsList className="w-max">
               <TabsTrigger value="esta-semana">Esta Semana</TabsTrigger>
               <TabsTrigger value="calendar">Calendario</TabsTrigger>
-              <TabsTrigger value="planning">Planning</TabsTrigger>
+              <TabsTrigger value="planning">Planificación</TabsTrigger>
               <TabsTrigger value="archive">Archivadas</TabsTrigger>
             </TabsList>
           </div>

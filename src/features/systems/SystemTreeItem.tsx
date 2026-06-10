@@ -154,7 +154,7 @@ export function SystemTreeItem({
                 />
               </button>
             </TooltipTrigger>
-            <TooltipContent>{isExpanded ? "Collapse" : "Expand"}</TooltipContent>
+            <TooltipContent>{isExpanded ? "Contraer" : "Expandir"}</TooltipContent>
           </Tooltip>
         </TooltipProvider>
 
@@ -191,7 +191,7 @@ export function SystemTreeItem({
                   </button>
                 </DropdownMenuTrigger>
               </TooltipTrigger>
-              <TooltipContent>System options</TooltipContent>
+              <TooltipContent>Opciones del sistema</TooltipContent>
             </Tooltip>
           </TooltipProvider>
           <DropdownMenuContent align="end" className="w-44">
@@ -259,7 +259,7 @@ export function SystemTreeItem({
                   if (isPending) return;
                   if (!newFolderName.trim()) setIsCreating(false);
                 }}
-                placeholder="Folder name"
+                placeholder="Nombre de la carpeta"
                 className="flex-1 bg-transparent text-sm outline-none border-b border-sidebar-primary text-sidebar-foreground placeholder:text-muted-foreground/60"
               />
             </div>
@@ -269,7 +269,7 @@ export function SystemTreeItem({
 
       <ConfirmDialog
         open={confirmDelete}
-        title="Delete system"
+        title="Eliminar sistema"
         description={`"${system.name}" and all its content will be permanently deleted.`}
         onConfirm={handleConfirmDelete}
         onCancel={() => setConfirmDelete(false)}

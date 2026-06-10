@@ -184,12 +184,12 @@ export async function getTasksForEscalation(): Promise<EscalationTask[]> {
 
 export async function updateTaskEscalation(taskIds: string[]) {
   if (taskIds.length === 0) return;
-  await db.execute(sql`
-    UPDATE tasks
-    SET reminder_count = reminder_count + 1,
-        last_reminded_at = NOW()
-    WHERE id = ANY(${sql.raw(`ARRAY[${taskIds.map((id) => `'${id}'`).join(',')}]::uuid[]`)})
-  `);
+  await db.update(tasks)
+    .set({
+      reminderCount: sql`${tasks.reminderCount} + 1`,
+      lastRemindedAt: sql`NOW()`,
+    })
+    .where(inArray(tasks.id, taskIds));
 }
 
 export async function getTaskRemindersForTask(taskId: string, userId: string) {

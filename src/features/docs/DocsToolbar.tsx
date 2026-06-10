@@ -17,11 +17,11 @@ export function DocsToolbar({ onNewFolder, onNewPage }: DocsToolbarProps) {
     <div className="flex items-center gap-2">
       <Button size="sm" variant="outline" className="gap-1.5" onClick={onNewFolder}>
         <FolderPlus className="size-3.5" />
-        New folder
+        Nueva carpeta
       </Button>
       <Button size="sm" variant="outline" className="gap-1.5" onClick={onNewPage}>
         <FilePlus className="size-3.5" />
-        New page
+        Nueva página
       </Button>
     </div>
   );

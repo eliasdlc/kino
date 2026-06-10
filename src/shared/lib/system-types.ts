@@ -21,6 +21,13 @@ export type SystemViewType = 'timeline' | 'kanban' | 'progress' | 'list' | 'cust
 /** Módulos de tab del funnel universal (base reutilizable). */
 export type SystemTabId = 'backlog' | 'planning' | 'action' | 'archive';
 
+export const SYSTEM_TAB_LABELS: Record<SystemTabId, string> = {
+  backlog: "Backlog",
+  planning: "Planificación",
+  action: "Acción",
+  archive: "Archivo",
+};
+
 /** Configuración por-sistema persistida en systems.metadata (JSON). */
 export interface SystemMetadata {
   /** Tabs visibles elegidos por el usuario (solo Custom). */

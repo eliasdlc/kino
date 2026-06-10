@@ -36,7 +36,7 @@ export function LoginPage() {
         const { error } = await authClient.signIn.email({ email, password });
 
         if (error) {
-            setError(error.message ?? "Failed to sign in");
+            setError(error.message ?? "No se pudo iniciar sesión");
             setLoading(false);
             return;
         }
@@ -56,8 +56,8 @@ export function LoginPage() {
         <Card className="w-full max-w-sm shadow-lg">
             <CardHeader className="text-center">
                 <div className="text-2xl font-bold text-primary mb-1">Kino</div>
-                <CardTitle>Welcome back</CardTitle>
-                <CardDescription>Enter your email and password</CardDescription>
+                <CardTitle>Bienvenido de nuevo</CardTitle>
+                <CardDescription>Ingresa tu correo y contraseña</CardDescription>
             </CardHeader>
             <form onSubmit={handleSubmit}>
                 <CardContent className="space-y-4">
@@ -65,7 +65,7 @@ export function LoginPage() {
                         <p className="text-sm text-destructive bg-destructive/10 rounded-md p-2">{error}</p>
                     )}
                     <div className="space-y-2">
-                        <Label htmlFor="email">Email</Label>
+                        <Label htmlFor="email">Correo</Label>
                         <Input
                             id="email"
                             type="email"
@@ -76,7 +76,7 @@ export function LoginPage() {
                         />
                     </div>
                     <div className="space-y-2">
-                        <Label htmlFor="password">Password</Label>
+                        <Label htmlFor="password">Contraseña</Label>
                         <Input
                             id="password"
                             type="password"
@@ -89,7 +89,7 @@ export function LoginPage() {
                 </CardContent>
                 <CardFooter className="flex flex-col gap-3">
                     <Button type="submit" className="w-full" disabled={loading || oauthLoading !== null}>
-                        {loading ? "Signing in..." : "Sign in"}
+                        {loading ? "Iniciando sesión..." : "Iniciar sesión"}
                     </Button>
 
                     <div className="relative w-full">
@@ -98,7 +98,7 @@ export function LoginPage() {
                         </div>
                         <div className="relative flex justify-center text-xs uppercase">
                             <span className="bg-card px-2 text-muted-foreground">
-                                Or continue with
+                                O continúa con
                             </span>
                         </div>
                     </div>
@@ -111,7 +111,7 @@ export function LoginPage() {
                         disabled={oauthLoading !== null || loading}
                     >
                         <GoogleIcon />
-                        {oauthLoading === "google" ? "Redirecting..." : "Continue with Google"}
+                        {oauthLoading === "google" ? "Redirigiendo..." : "Continuar con Google"}
                     </Button>
 
                     <Button
@@ -122,13 +122,13 @@ export function LoginPage() {
                         disabled={oauthLoading !== null || loading}
                     >
                         <GitHubIcon />
-                        {oauthLoading === "github" ? "Redirecting..." : "Continue with GitHub"}
+                        {oauthLoading === "github" ? "Redirigiendo..." : "Continuar con GitHub"}
                     </Button>
 
                     <p className="text-sm text-muted-foreground text-center">
-                        Don&apos;t have an account?{" "}
+                        ¿No tienes una cuenta?{" "}
                         <Link href="/register" className="text-primary underline underline-offset-4 hover:text-primary/80">
-                            Register
+                            Regístrate
                         </Link>
                     </p>
                 </CardFooter>

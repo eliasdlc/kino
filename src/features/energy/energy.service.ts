@@ -32,7 +32,7 @@ function getSlotForHour(hour: number): CheckinSlot {
   return 'evening';
 }
 
-function getCurrentHourInTz(timezone: string): number {
+export function getCurrentHourInTz(timezone: string): number {
   return parseInt(
     new Intl.DateTimeFormat('en-US', { timeZone: timezone, hour: 'numeric', hour12: false }).format(new Date()),
     10,
@@ -303,7 +303,7 @@ export async function checkLevel1Triggers(userId: string): Promise<Level1Result>
     snapshot.activeCount > profile.availableHoursPerDay * 2 ||
     snapshot.criticalCount > 5;
 
-  const currentHour = new Date().getHours();
+  const currentHour = getCurrentHourInTz(timezone);
   const effectiveEnergy = computeEffectiveEnergy(
     currentHour,
     0,

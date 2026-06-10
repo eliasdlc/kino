@@ -37,13 +37,13 @@ export function TaskArchiveView({ systemId, initialData, folderId, folderInitial
 
     return (
         <div className="flex flex-col gap-4 w-full h-full">
-            <h2 className="text-2xl font-bold">Archived Tasks</h2>
+            <h2 className="text-2xl font-bold">Tareas archivadas</h2>
             <div className="flex flex-col gap-2.5 w-full h-full overflow-y-auto">
                 {archivedTasks.length === 0 ? (
                     <div className="flex flex-col items-center justify-center py-10 text-center space-y-2 border border-dashed rounded-lg bg-card">
-                        <p className="text-sm font-medium">Nothing here yet</p>
+                        <p className="text-sm font-medium">Aún no hay nada aquí</p>
                         <p className="text-sm text-muted-foreground">
-                            Tasks that are completed will appear here for your reference.
+                            Las tareas completadas aparecerán aquí para tu referencia.
                         </p>
                     </div>
                 ) : (
@@ -66,9 +66,9 @@ export function TaskArchiveView({ systemId, initialData, folderId, folderInitial
 
             <ConfirmDialog
               open={deleteTarget !== null}
-              title="Move to trash"
-              description={`"${deleteTarget?.title}" will be moved to the trash.`}
-              confirmLabel="Move to trash"
+              title="Mover a la papelera"
+              description={`"${deleteTarget?.title}" se moverá a la papelera.`}
+              confirmLabel="Mover a la papelera"
               onConfirm={() => {
                 if (deleteTarget) deleteTask(deleteTarget.id);
                 setDeleteTarget(null);

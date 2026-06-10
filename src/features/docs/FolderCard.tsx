@@ -93,13 +93,13 @@ export function FolderCard({ folder, systemId, onClick, href }: FolderCardProps)
                       size="icon"
                       className="size-6"
                       onClick={(e) => e.stopPropagation()}
-                      aria-label="Folder options"
+                      aria-label="Opciones de carpeta"
                     >
                       <MoreHorizontal className="size-3.5" />
                     </Button>
                   </DropdownMenuTrigger>
                 </TooltipTrigger>
-                <TooltipContent>Folder options</TooltipContent>
+                <TooltipContent>Opciones de carpeta</TooltipContent>
               </Tooltip>
             </TooltipProvider>
             <DropdownMenuContent align="end" className="w-36">
@@ -134,11 +134,11 @@ export function FolderCard({ folder, systemId, onClick, href }: FolderCardProps)
       <Dialog open={renameOpen} onOpenChange={setRenameOpen}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Rename folder</DialogTitle>
+            <DialogTitle>Renombrar carpeta</DialogTitle>
           </DialogHeader>
           <div className="flex flex-col gap-4 pt-1">
             <div className="space-y-1.5">
-              <Label htmlFor="folder-rename">Name</Label>
+              <Label htmlFor="folder-rename">Nombre</Label>
               <Input
                 id="folder-rename"
                 autoFocus
@@ -150,7 +150,7 @@ export function FolderCard({ folder, systemId, onClick, href }: FolderCardProps)
             </div>
             <Button onClick={handleRename} disabled={!newName.trim() || isUpdating}>
               {isUpdating && <Loader2 className="size-4 animate-spin mr-2" />}
-              {isUpdating ? "Saving..." : "Save"}
+              {isUpdating ? "Guardando..." : "Guardar"}
             </Button>
           </div>
         </DialogContent>
@@ -159,7 +159,7 @@ export function FolderCard({ folder, systemId, onClick, href }: FolderCardProps)
       {/* Delete confirm */}
       <ConfirmDialog
         open={confirmDelete}
-        title="Delete folder"
+        title="Eliminar carpeta"
         description={`"${folder.name}" and all its contents will be permanently deleted.`}
         onConfirm={() => {
           setConfirmDelete(false);

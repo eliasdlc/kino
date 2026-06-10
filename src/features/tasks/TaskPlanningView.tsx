@@ -191,7 +191,7 @@ export function TaskPlanningView({ systemId, initialData, folderId, folderInitia
               size="icon"
               className="size-8"
               onClick={() => setWeekOffset((v) => v - 1)}
-              aria-label="Previous week"
+              aria-label="Semana anterior"
             >
               <ChevronLeft className="size-5" />
             </Button>
@@ -206,7 +206,7 @@ export function TaskPlanningView({ systemId, initialData, folderId, folderInitia
               size="icon"
               className="size-8"
               onClick={() => setWeekOffset((v) => v + 1)}
-              aria-label="Next week"
+              aria-label="Semana siguiente"
             >
               <ChevronRight className="size-5" />
             </Button>
@@ -324,9 +324,9 @@ export function TaskPlanningView({ systemId, initialData, folderId, folderInitia
 
       <ConfirmDialog
         open={deleteTarget !== null}
-        title="Move to trash"
-        description={`"${deleteTarget?.title}" will be moved to the trash.`}
-        confirmLabel="Move to trash"
+        title="Mover a la papelera"
+        description={`"${deleteTarget?.title}" se moverá a la papelera.`}
+        confirmLabel="Mover a la papelera"
         onConfirm={() => {
           if (deleteTarget) deleteTask(deleteTarget.id);
           setDeleteTarget(null);

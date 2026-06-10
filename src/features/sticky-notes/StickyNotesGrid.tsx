@@ -94,24 +94,24 @@ export function StickyNotesGrid(props: Props) {
       )}
 
       {!isLoading && notes.length === 0 && (
-        <p className="text-xs text-muted-foreground">No sticky notes yet.</p>
+        <p className="text-xs text-muted-foreground">Aún no hay notas.</p>
       )}
 
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>New sticky note</DialogTitle>
+            <DialogTitle>Nueva nota</DialogTitle>
           </DialogHeader>
           <div className="flex flex-col gap-4 pt-1">
             <Input
               autoFocus
-              placeholder="Title (optional)"
+              placeholder="Título (opcional)"
               value={title}
               onChange={(e) => setTitle(e.target.value)}
               maxLength={200}
             />
             <Textarea
-              placeholder="Write something..."
+              placeholder="Escribe algo..."
               value={content}
               onChange={(e) => setContent(e.target.value)}
               className="resize-none min-h-[100px]"
@@ -140,7 +140,7 @@ export function StickyNotesGrid(props: Props) {
 
             <Button onClick={handleCreate} disabled={isPending || (!title && !content)}>
               {isPending && <Loader2 className="size-4 animate-spin mr-2" />}
-              {isPending ? "Adding..." : "Add note"}
+              {isPending ? "Agregando..." : "Agregar nota"}
             </Button>
           </div>
         </DialogContent>

@@ -1,6 +1,6 @@
-import { Bell, CalendarCheck, CheckSquare, Lightbulb, RefreshCw, type LucideIcon } from "lucide-react";
+import { Bell, CalendarCheck, CheckSquare, Lightbulb, type LucideIcon } from "lucide-react";
 
-export type TaskTypeKey = 'task' | 'idea' | 'event' | 'reminder' | 'habit';
+export type TaskTypeKey = 'task' | 'idea' | 'event' | 'reminder';
 
 export type TaskTypeConfig = {
   label: string;
@@ -70,18 +70,6 @@ export const TASK_TYPE_CONFIG: Record<TaskTypeKey, TaskTypeConfig> = {
     showOverdueStyling: true,
     createsReminder: true,
     hideEnergyAndPriority: true,
-    hideDates: false,
-  },
-  habit: {
-    label: "Hábito",
-    icon: RefreshCw,
-    pillClass: "bg-purple-500/15 text-purple-700 dark:text-purple-400 hover:bg-purple-500/25",
-    iconClass: "text-purple-500",
-    forceStatus: false,
-    hiddenInStep2: [],
-    showOverdueStyling: false,
-    createsReminder: false,
-    hideEnergyAndPriority: false,
     hideDates: false,
   },
 };

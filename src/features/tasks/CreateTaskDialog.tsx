@@ -33,7 +33,7 @@ import type { System } from "@/features/systems/systems.types";
 
 const formSchema = z.object({
   title: z.string().min(1, "El título es requerido").max(500),
-  taskType: z.enum(['task', 'idea', 'event', 'reminder', 'habit']).nullable().optional(),
+  taskType: z.enum(['task', 'idea', 'event', 'reminder']).nullable().optional(),
   priority: z.enum(['critical', 'high', 'medium', 'low']),
   energyLevel: z.enum(['high', 'medium', 'low']),
   startDate: z.string().date().nullable().optional(),

@@ -66,7 +66,7 @@ export function EditSystemDialog({ system, open, onOpenChange }: EditSystemDialo
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
-          <DialogTitle>Edit system</DialogTitle>
+          <DialogTitle>Editar sistema</DialogTitle>
         </DialogHeader>
 
         <div className="space-y-5">
@@ -76,13 +76,13 @@ export function EditSystemDialog({ system, open, onOpenChange }: EditSystemDialo
               <PreviewIcon className={`size-5 text-${cls}`} />
             </div>
             <span className={`text-sm font-medium ${name ? "text-foreground" : "text-muted-foreground"}`}>
-              {name || "System name"}
+              {name || "Nombre del sistema"}
             </span>
           </div>
 
           {/* Name */}
           <div className="space-y-1.5">
-            <Label>Name</Label>
+            <Label>Nombre</Label>
             <Input
               autoFocus
               value={name}
@@ -114,7 +114,7 @@ export function EditSystemDialog({ system, open, onOpenChange }: EditSystemDialo
 
           {/* Icon picker */}
           <div className="space-y-1.5">
-            <Label>Icon</Label>
+            <Label>Ícono</Label>
             <div className="grid grid-cols-10 gap-1">
               {ICON_KEYS.map((key) => {
                 const IconComponent = ICON_MAP[key];
@@ -144,15 +144,15 @@ export function EditSystemDialog({ system, open, onOpenChange }: EditSystemDialo
             className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors"
           >
             <ChevronDown className={`size-3.5 transition-transform duration-150 ${showAdvanced ? "rotate-180" : ""}`} />
-            {showAdvanced ? "Less options" : "More options"}
+            {showAdvanced ? "Menos opciones" : "Más opciones"}
           </button>
 
           {showAdvanced && (
             <div className="space-y-4 pt-4 border-t border-border">
               <div className="space-y-1.5">
-                <Label>Description</Label>
+                <Label>Descripción</Label>
                 <Textarea
-                  placeholder="What is this system for?"
+                  placeholder="¿Para qué es este sistema?"
                   value={identityStatement}
                   onChange={(e) => setIdentityStatement(e.target.value)}
                   rows={2}
@@ -163,7 +163,7 @@ export function EditSystemDialog({ system, open, onOpenChange }: EditSystemDialo
 
               <div className="grid grid-cols-2 gap-3">
                 <div className="space-y-1.5">
-                  <Label>Type</Label>
+                  <Label>Tipo</Label>
                   <Select value={templateType} onValueChange={setTemplateType}>
                     <SelectTrigger>
                       <SelectValue />
@@ -177,7 +177,7 @@ export function EditSystemDialog({ system, open, onOpenChange }: EditSystemDialo
                 </div>
 
                 <div className="space-y-1.5">
-                  <Label>Energy</Label>
+                  <Label>Energía</Label>
                   <Select value={energyIdeal} onValueChange={setEnergyIdeal}>
                     <SelectTrigger>
                       <SelectValue />
@@ -192,7 +192,7 @@ export function EditSystemDialog({ system, open, onOpenChange }: EditSystemDialo
               </div>
 
               <div className="space-y-1.5">
-                <Label>Expected frequency</Label>
+                <Label>Frecuencia esperada</Label>
                 <Select value={expectedFrequency} onValueChange={setExpectedFrequency}>
                   <SelectTrigger>
                     <SelectValue />
@@ -206,7 +206,7 @@ export function EditSystemDialog({ system, open, onOpenChange }: EditSystemDialo
               </div>
 
               <div className="space-y-1.5">
-                <Label>Trigger context</Label>
+                <Label>Contexto disparador</Label>
                 <Input
                   placeholder="E.g. When I get to the office..."
                   value={triggerContext}

@@ -100,7 +100,7 @@ describe("validateTransition", () => {
             );
 
             expect(result.valid).toBe(false);
-            expect(result.error).toContain("Daily energy limit exceeded");
+            expect(result.error).toContain("Límite de energía diario excedido");
         });
 
         it("allows move_to_today when energy is exactly at limit", () => {
@@ -195,9 +195,6 @@ describe("validateTransition", () => {
                 type: "grant_xp",
                 amount: 5,
             });
-            expect(result.sideEffects).toContainEqual({
-                type: "update_system_health",
-            });
         });
 
         it("toggle_done from BACKLOG produces set_completed_at + grant_xp", () => {
@@ -276,7 +273,7 @@ describe("validateTransition", () => {
             expect(revertEffect?.type === "revert_xp" && revertEffect.amount).toBe(6);
         });
 
-        it("move actions produce update_sort_index + update_system_health", () => {
+        it("move actions produce no side effects", () => {
             const moveActions: Array<[TaskStatus, TransitionAction]> = [
                 ["backlog", "move_to_week"],
                 ["backlog", "move_to_today"],
@@ -294,12 +291,7 @@ describe("validateTransition", () => {
                 );
 
                 expect(result.valid).toBe(true);
-                expect(result.sideEffects).toContainEqual({
-                    type: "update_sort_index",
-                });
-                expect(result.sideEffects).toContainEqual({
-                    type: "update_system_health",
-                });
+                expect(result.sideEffects).toEqual([]);
             });
         });
     });

@@ -59,7 +59,7 @@ export function SubtaskList({ parentTaskId, systemId }: SubtaskListProps) {
           if (e.key === "Enter") handleAddSubtask();
           if (e.key === "Escape") setNewTitle("");
         }}
-        placeholder="Add subtask..."
+        placeholder="Agregar subtarea..."
 
         className="h-7 p-2 text-sm border-none shadow-none focus-visible:ring-0 bg-transparent"
       />
@@ -91,7 +91,7 @@ export function SubtaskList({ parentTaskId, systemId }: SubtaskListProps) {
                   onSuccess: () => queryClient.invalidateQueries({ queryKey: subtaskQueryKey }),
                 })
               }
-              aria-label={isDone ? "Mark as pending" : "Mark as completed"}
+              aria-label={isDone ? "Marcar como pendiente" : "Marcar como completada"}
               className={cn(
                 "size-4 shrink-0 rounded-full border-2 transition-colors",
                 isDone
@@ -114,12 +114,12 @@ export function SubtaskList({ parentTaskId, systemId }: SubtaskListProps) {
                     type="button"
                     onClick={() => setDeleteTarget({ id: subtask.id, title: subtask.title })}
                     className="opacity-0 group-hover:opacity-100 transition-opacity text-muted-foreground hover:text-destructive"
-                    aria-label="Delete subtask"
+                    aria-label="Eliminar subtarea"
                   >
                     <Trash2 size={16} />
                   </button>
                 </TooltipTrigger>
-                <TooltipContent>Delete subtask</TooltipContent>
+                <TooltipContent>Eliminar subtarea</TooltipContent>
               </Tooltip>
             </TooltipProvider>
           </div>
@@ -130,9 +130,9 @@ export function SubtaskList({ parentTaskId, systemId }: SubtaskListProps) {
 
       <ConfirmDialog
         open={deleteTarget !== null}
-        title="Move to trash"
-        description={`"${deleteTarget?.title}" will be moved to the trash.`}
-        confirmLabel="Move to trash"
+        title="Mover a la papelera"
+        description={`"${deleteTarget?.title}" se moverá a la papelera.`}
+        confirmLabel="Mover a la papelera"
         onConfirm={() => {
           if (deleteTarget) {
             deleteTask(deleteTarget.id, {

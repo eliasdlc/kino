@@ -140,7 +140,7 @@ export function SystemsSidebar({
           >
             <Avatar className="size-8 shrink-0">
               {userImage && (
-                <AvatarImage src={userImage} alt={userName ?? "User"} />
+                <AvatarImage src={userImage} alt={userName ?? "Usuario"} />
               )}
               <AvatarFallback className="text-xs bg-primary text-primary-foreground">
                 {initials}
@@ -149,7 +149,7 @@ export function SystemsSidebar({
             {!effectiveCollapsed && (
               <div className="flex flex-col items-start min-w-0">
                 <span className="text-sm font-medium truncate text-sidebar-foreground">
-                  {userName ?? "User"}
+                  {userName ?? "Usuario"}
                 </span>
                 {userEmail && (
                   <span className="text-xs text-muted-foreground truncate max-w-[160px]">
@@ -179,7 +179,7 @@ export function SystemsSidebar({
               className="text-destructive focus:text-destructive"
             >
               <LogOut className="size-4 mr-2" />
-              Sign out
+              Cerrar sesión
             </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
@@ -232,10 +232,10 @@ export function SystemsSidebar({
               className={navLinkClass(pathname === "/systems")}
             >
               <Box className="size-5 shrink-0" />
-              {!effectiveCollapsed && <span>Systems</span>}
+              {!effectiveCollapsed && <span>Sistemas</span>}
             </Link>
           </TooltipTrigger>
-          {effectiveCollapsed && <TooltipContent side="right">Systems</TooltipContent>}
+          {effectiveCollapsed && <TooltipContent side="right">Sistemas</TooltipContent>}
         </Tooltip>
 
         <Tooltip>
@@ -246,10 +246,10 @@ export function SystemsSidebar({
               className={navLinkClass(pathname === "/tasks")}
             >
               <List className="size-5 shrink-0" />
-              {!effectiveCollapsed && <span>Tasks</span>}
+              {!effectiveCollapsed && <span>Tareas</span>}
             </Link>
           </TooltipTrigger>
-          {effectiveCollapsed && <TooltipContent side="right">Tasks</TooltipContent>}
+          {effectiveCollapsed && <TooltipContent side="right">Tareas</TooltipContent>}
         </Tooltip>
 
         <Tooltip>
@@ -260,10 +260,10 @@ export function SystemsSidebar({
               className={navLinkClass(pathname === "/settings")}
             >
               <Settings className="size-5 shrink-0" />
-              {!effectiveCollapsed && <span>Settings</span>}
+              {!effectiveCollapsed && <span>Ajustes</span>}
             </Link>
           </TooltipTrigger>
-          {effectiveCollapsed && <TooltipContent side="right">Settings</TooltipContent>}
+          {effectiveCollapsed && <TooltipContent side="right">Ajustes</TooltipContent>}
         </Tooltip>
 
         <div className="my-3 border-t border-sidebar-border" />

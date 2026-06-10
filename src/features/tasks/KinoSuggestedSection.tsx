@@ -1,9 +1,9 @@
 'use client';
 
-import { useRef, useEffect, useState } from 'react';
+import { useState } from 'react';
 import { Sparkles, RefreshCw, CalendarPlus, AlertCircle } from 'lucide-react';
 import { useQueryClient } from '@tanstack/react-query';
-import { isToday, isTomorrow } from 'date-fns';
+import { isToday, isTomorrow, differenceInCalendarDays } from 'date-fns';
 import { cn } from '@/lib/utils';
 import { useSuggestedTasks, useAddToTodayPlan, useToggleTodayTask, suggestedTasksKey, type SuggestedTask } from './tasks.hooks';
 import { TaskDetailSheet } from './TaskDetailSheet';
@@ -23,9 +23,7 @@ const ENERGY_DOT: Record<string, string> = {
   high: 'bg-amber-400', medium: 'bg-sky-400', low: 'bg-zinc-400',
 };
 
-function todayKey() {
-  return new Date().toISOString().slice(0, 10);
-}
+
 
 function dueDateLabel(dueDate: string | null): string {
   if (!dueDate) return '';
@@ -93,7 +91,7 @@ function SuggestedRow({ task, addedIds, onAdd, onComplete, onOpen }: SuggestedRo
           </span>
         )}
         {task.dueDate && (
-          <span className={cn('text-[10px] text-muted-foreground', task.dueDate < new Date().toISOString().slice(0, 10) && 'text-red-400')}>
+          <span className={cn('text-[10px] text-muted-foreground', differenceInCalendarDays(parseDueDate(task.dueDate), new Date()) < 0 && 'text-red-400')}>
             {dueDateLabel(task.dueDate)}
           </span>
         )}
@@ -114,7 +112,7 @@ function SuggestedRow({ task, addedIds, onAdd, onComplete, onOpen }: SuggestedRo
           'shrink-0 p-1 rounded transition-colors',
           isAdded
             ? 'text-emerald-500 cursor-default'
-            : 'text-muted-foreground/40 hover:text-primary opacity-0 group-hover:opacity-100',
+            : 'text-muted-foreground/40 hover:text-primary md:opacity-0 md:group-hover:opacity-100',
         )}
       >
         <CalendarPlus className="w-3.5 h-3.5" />
@@ -128,14 +126,6 @@ export function KinoSuggestedSection() {
   const { mutate: addToPlan } = useAddToTodayPlan();
   const { mutate: complete } = useToggleTodayTask();
   const queryClient = useQueryClient();
-
-  // 1×/día: marca como cargado cuando llegan datos; Regenerar limpia la marca
-  const cacheRef = useRef<{ dateKey: string; loaded?: boolean }>({ dateKey: '' });
-  useEffect(() => {
-    if (suggestions.length > 0) {
-      cacheRef.current = { dateKey: todayKey() };
-    }
-  }, [suggestions.length]);
 
   const [addedIds, setAddedIds] = useState<Set<string>>(new Set());
   const [selectedTask, setSelectedTask] = useState<Task | null>(null);
@@ -155,7 +145,6 @@ export function KinoSuggestedSection() {
   }
 
   function handleRegenerate() {
-    cacheRef.current = { dateKey: todayKey(), loaded: false };
     void queryClient.invalidateQueries({ queryKey: suggestedTasksKey() });
   }
 

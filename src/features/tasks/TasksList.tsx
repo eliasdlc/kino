@@ -9,7 +9,7 @@ import { TaskBacklogView } from "./TaskBacklogView";
 import { TaskActionView } from "./TaskActionView";
 import { TaskPlanningView } from "./TaskPlanningView";
 import { TaskArchiveView } from "./TaskArchiveView";
-import type { SystemTabId } from "@/shared/lib/system-types";
+import { type SystemTabId, SYSTEM_TAB_LABELS } from "@/shared/lib/system-types";
 
 interface TasksListProps {
   systemId: string;
@@ -33,11 +33,11 @@ interface TabViewProps {
   keyboardDisabled?: boolean;
 }
 
-const TAB_META: Record<SystemTabId, { label: string; View: ComponentType<TabViewProps> }> = {
-  backlog: { label: "Backlog", View: TaskBacklogView },
-  planning: { label: "Planning", View: TaskPlanningView },
-  action: { label: "Action", View: TaskActionView },
-  archive: { label: "Archive", View: TaskArchiveView },
+const TAB_META: Record<SystemTabId, { View: ComponentType<TabViewProps> }> = {
+  backlog: { View: TaskBacklogView },
+  planning: { View: TaskPlanningView },
+  action: { View: TaskActionView },
+  archive: { View: TaskArchiveView },
 };
 
 const DEFAULT_TABS: SystemTabId[] = ["backlog", "planning", "action", "archive"];
@@ -63,7 +63,7 @@ export function TasksList({
             <TabsList className="w-max">
               {tabs.map((tab) => (
                 <TabsTrigger key={tab} value={tab}>
-                  {TAB_META[tab].label}
+                  {SYSTEM_TAB_LABELS[tab]}
                 </TabsTrigger>
               ))}
             </TabsList>

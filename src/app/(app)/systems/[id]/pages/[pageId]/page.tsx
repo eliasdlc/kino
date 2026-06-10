@@ -97,7 +97,7 @@ export default async function PageEditorRoute({ params }: PageEditorRouteProps) 
                         : "text-muted-foreground hover:text-foreground hover:bg-accent/50"
                     }`}
                   >
-                    {p.title ?? "Untitled"}
+                    {p.title ?? "Sin título"}
                   </Link>
                 ))}
               </div>

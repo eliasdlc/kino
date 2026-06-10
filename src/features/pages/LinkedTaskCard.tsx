@@ -65,7 +65,7 @@ export function LinkedTaskCard({ task, onToggle, onEdit, onUnlink }: LinkedTaskC
         <button
           type="button"
           onClick={onToggle}
-          aria-label={isDone ? "Mark as pending" : "Mark as completed"}
+          aria-label={isDone ? "Marcar como pendiente" : "Marcar como completada"}
           className={cn(
             "mt-0.5 size-5 shrink-0 rounded-full border-2 flex items-center justify-center transition-colors",
             isDone
@@ -101,12 +101,12 @@ export function LinkedTaskCard({ task, onToggle, onEdit, onUnlink }: LinkedTaskC
                   type="button"
                   onClick={onEdit}
                   className="opacity-0 group-hover:opacity-100 p-1 rounded hover:bg-white/10 text-zinc-500 hover:text-zinc-200 transition-all"
-                  aria-label="Edit task"
+                  aria-label="Editar tarea"
                 >
                   <Pencil className="size-3.5" />
                 </button>
               </TooltipTrigger>
-              <TooltipContent>Edit task</TooltipContent>
+              <TooltipContent>Editar tarea</TooltipContent>
             </Tooltip>
           </TooltipProvider>
           <TooltipProvider>
@@ -116,12 +116,12 @@ export function LinkedTaskCard({ task, onToggle, onEdit, onUnlink }: LinkedTaskC
                   type="button"
                   onClick={onUnlink}
                   className="opacity-0 group-hover:opacity-100 p-1 rounded hover:bg-white/10 text-zinc-500 hover:text-destructive transition-all"
-                  aria-label="Unlink task"
+                  aria-label="Desvincular tarea"
                 >
                   <X className="size-3.5" />
                 </button>
               </TooltipTrigger>
-              <TooltipContent>Unlink task</TooltipContent>
+              <TooltipContent>Desvincular tarea</TooltipContent>
             </Tooltip>
           </TooltipProvider>
         </div>

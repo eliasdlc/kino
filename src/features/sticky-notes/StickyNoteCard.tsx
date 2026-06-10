@@ -71,7 +71,7 @@ export function StickyNoteCard({ note, context }: StickyNoteCardProps) {
           </p>
         )}
         {!note.title && !note.content && (
-          <p className={cn("text-xs italic opacity-50", colors.text)}>Empty note</p>
+          <p className={cn("text-xs italic opacity-50", colors.text)}>Nota vacía</p>
         )}
 
         <TooltipProvider>
@@ -85,12 +85,12 @@ export function StickyNoteCard({ note, context }: StickyNoteCardProps) {
                   "opacity-0 group-hover:opacity-100 transition-opacity",
                   "hover:bg-black/10 dark:hover:bg-white/10"
                 )}
-                aria-label="Delete note"
+                aria-label="Eliminar nota"
               >
                 <X className={cn("size-3", colors.text)} />
               </button>
             </TooltipTrigger>
-            <TooltipContent>Delete note</TooltipContent>
+            <TooltipContent>Eliminar nota</TooltipContent>
           </Tooltip>
         </TooltipProvider>
       </div>
@@ -99,17 +99,17 @@ export function StickyNoteCard({ note, context }: StickyNoteCardProps) {
       <Dialog open={editOpen} onOpenChange={setEditOpen}>
         <DialogContent onClick={(e) => e.stopPropagation()}>
           <DialogHeader>
-            <DialogTitle>Edit note</DialogTitle>
+            <DialogTitle>Editar nota</DialogTitle>
           </DialogHeader>
           <div className="flex flex-col gap-4 pt-1">
             <Input
-              placeholder="Title (optional)"
+              placeholder="Título (opcional)"
               value={title}
               onChange={(e) => setTitle(e.target.value)}
               maxLength={200}
             />
             <Textarea
-              placeholder="Write something..."
+              placeholder="Escribe algo..."
               value={content}
               onChange={(e) => setContent(e.target.value)}
               className="resize-none min-h-[100px]"
@@ -138,7 +138,7 @@ export function StickyNoteCard({ note, context }: StickyNoteCardProps) {
 
             <Button onClick={handleSave} disabled={isUpdating}>
               {isUpdating && <Loader2 className="size-4 animate-spin mr-2" />}
-              {isUpdating ? "Saving..." : "Save"}
+              {isUpdating ? "Guardando..." : "Guardar"}
             </Button>
           </div>
         </DialogContent>

@@ -156,9 +156,9 @@ export function TaskWeekFocusView({ systemId, initialData, onEdit, highlight }: 
 
       <ConfirmDialog
         open={deleteTarget !== null}
-        title="Move to trash"
-        description={`"${deleteTarget?.title}" will be moved to the trash.`}
-        confirmLabel="Move to trash"
+        title="Mover a la papelera"
+        description={`"${deleteTarget?.title}" se moverá a la papelera.`}
+        confirmLabel="Mover a la papelera"
         onConfirm={() => {
           if (deleteTarget) deleteTask(deleteTarget.id);
           setDeleteTarget(null);

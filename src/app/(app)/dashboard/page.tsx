@@ -8,7 +8,7 @@ import { AdvisorCard } from "@/features/dashboard/AdvisorCard";
 import { NotificationPromptCard } from "@/features/dashboard/NotificationPromptCard";
 import { DashboardBottomRow } from "@/features/dashboard/DashboardBottomRow";
 
-export const metadata = { title: "Dashboard - Kino" };
+export const metadata = { title: "Inicio - Kino" };
 
 export default async function DashboardPage() {
   const session = await auth.api.getSession({ headers: await headers() });

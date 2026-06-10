@@ -40,8 +40,8 @@ const TYPE_BADGE: Record<string, string> = {
   idea:     "bg-[rgba(245,158,11,0.15)] text-[#fbbf24]",
   event:    "bg-[rgba(14,165,233,0.15)] text-[#7dd3fc]",
   reminder: "bg-[rgba(249,115,22,0.15)] text-[#fb923c]",
-  habit:    "bg-[rgba(168,85,247,0.15)] text-[#d8b4fe]",
   // legacy
+  habit:    "bg-[rgba(168,85,247,0.15)] text-[#d8b4fe]",
   todo:     "bg-white/[0.06] text-zinc-400",
   project:  "bg-[rgba(59,130,246,0.18)] text-[#93c5fd]",
 };
@@ -89,7 +89,7 @@ function ReminderCountdown({ dueDate }: { dueDate: string }) {
     return (
       <span className="inline-flex items-center gap-1 font-mono text-sm text-[#f87171] font-medium">
         <ClockIcon />
-        overdue · {format(parseDueDate(dueDate), "MMM d")}
+        vencida · {format(parseDueDate(dueDate), "MMM d")}
       </span>
     );
   }
@@ -97,7 +97,7 @@ function ReminderCountdown({ dueDate }: { dueDate: string }) {
     return (
       <span className="inline-flex items-center gap-1 font-mono text-sm text-[#f87171] font-medium">
         <ClockIcon />
-        due · today · {format(parseDueDate(dueDate), "MMM d")}
+        vence · hoy · {format(parseDueDate(dueDate), "MMM d")}
       </span>
     );
   }
@@ -105,7 +105,7 @@ function ReminderCountdown({ dueDate }: { dueDate: string }) {
     return (
       <span className="inline-flex items-center gap-1 font-mono text-sm text-[#fbbf24]">
         <CalendarIcon />
-        due · tomorrow · {format(parseDueDate(dueDate), "MMM d")}
+        vence · mañana · {format(parseDueDate(dueDate), "MMM d")}
       </span>
     );
   }
@@ -113,20 +113,20 @@ function ReminderCountdown({ dueDate }: { dueDate: string }) {
     return (
       <span className="inline-flex items-center gap-1 font-mono text-sm text-[#fbbf24]">
         <CalendarIcon />
-        {format(parseDueDate(dueDate), "MMM d")} · in {days} days
+        {format(parseDueDate(dueDate), "MMM d")} · en {days} días
       </span>
     );
   }
   return (
     <span className="inline-flex items-center gap-[3px] font-mono text-xs text-zinc-500">
       <CalendarIcon />
-      due · {format(parseDueDate(dueDate), "MMM d")}
+      vence · {format(parseDueDate(dueDate), "MMM d")}
     </span>
   );
 }
 
-function SubtaskProgress({ parentTaskId, systemId }: { parentTaskId: string; systemId: string }) {
-  const { data: subtasks } = useSubtasks(parentTaskId, systemId);
+function SubtaskProgress({ parentTaskId, systemId, isExpanded }: { parentTaskId: string; systemId: string; isExpanded: boolean }) {
+  const { data: subtasks } = useSubtasks(parentTaskId, systemId, { enabled: isExpanded });
   if (!subtasks || subtasks.length === 0) return null;
   const done = subtasks.filter((s) => s.status === "done").length;
   const pct = subtasks.length > 0 ? Math.round((done / subtasks.length) * 100) : 0;
@@ -202,7 +202,7 @@ export function TaskCard({ task, systemId, systemType, draggable, isFocused, onT
         type="button"
         onClick={handleToggle}
         disabled={isArchived}
-        aria-label={isDone ? "Mark as pending" : "Mark as completed"}
+        aria-label={isDone ? "Marcar como pendiente" : "Marcar como completada"}
         className={cn(
           "relative mt-0.5 size-6 shrink-0 rounded-full border-2 flex items-center justify-center",
           isArchived && "cursor-default",
@@ -265,16 +265,16 @@ export function TaskCard({ task, systemId, systemType, draggable, isFocused, onT
             <button
               type="button"
               onClick={() => setIsExpanded((v) => !v)}
-              className="opacity-0 group-hover:opacity-100 motion-safe:transition-opacity text-zinc-500 hover:text-zinc-200"
-              aria-label={isExpanded ? "Hide subtasks" : "Show subtasks"}
+              className="md:opacity-0 md:group-hover:opacity-100 motion-safe:transition-opacity text-zinc-500 hover:text-zinc-200"
+              aria-label={isExpanded ? "Ocultar subtareas" : "Mostrar subtareas"}
             >
               <ChevronDown size={18} className={cn("motion-safe:transition-transform", isExpanded && "rotate-180")} />
             </button>
             <button
               type="button"
               onClick={() => onDelete(task)}
-              className="opacity-0 group-hover:opacity-100 motion-safe:transition-opacity text-zinc-500 hover:text-red-400"
-              aria-label="Delete task"
+              className="md:opacity-0 md:group-hover:opacity-100 motion-safe:transition-opacity text-zinc-500 hover:text-red-400"
+              aria-label="Eliminar tarea"
             >
               <Trash2 size={16} />
             </button>
@@ -316,7 +316,7 @@ export function TaskCard({ task, systemId, systemType, draggable, isFocused, onT
                 isOverdue ? "text-[#f87171] font-medium" : isDueSoon ? "text-[#fbbf24]" : "text-zinc-500"
               )}>
                 {isOverdue ? <ClockIcon /> : <CalendarIcon />}
-                {isOverdue ? "overdue" : "due"} · {format(parseDueDate(task.dueDate), "MMM d")}
+                {isOverdue ? "vencida" : "vence"} · {format(parseDueDate(task.dueDate), "MMM d")}
               </span>
             </>
           ) : null}
@@ -325,7 +325,7 @@ export function TaskCard({ task, systemId, systemType, draggable, isFocused, onT
           {task.taskType === "project" && (
             <>
               <span className="text-xs text-zinc-700">·</span>
-              <SubtaskProgress parentTaskId={task.id} systemId={systemId} />
+              <SubtaskProgress parentTaskId={task.id} systemId={systemId} isExpanded={isExpanded} />
             </>
           )}
 

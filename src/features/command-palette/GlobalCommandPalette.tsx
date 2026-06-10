@@ -36,10 +36,10 @@ export function GlobalCommandPalette() {
 
   return (
     <CommandDialog open={open} onOpenChange={setOpen}>
-      <CommandInput placeholder="Type a command or search..." />
+      <CommandInput placeholder="Escribe un comando o busca..." />
       <CommandList>
-        <CommandEmpty>No results found.</CommandEmpty>
-        <CommandGroup heading="Navigation">
+        <CommandEmpty>Sin resultados.</CommandEmpty>
+        <CommandGroup heading="Navegación">
           {inboxSystem && (
             <CommandItem onSelect={() => runCommand(() => router.push(`/systems/${inboxSystem.id}`))}>
               <Inbox className={`mr-2 h-4 w-4 text-${getSystemColor(inboxSystem.color)}`} />
@@ -52,13 +52,13 @@ export function GlobalCommandPalette() {
           </CommandItem>
           <CommandItem onSelect={() => runCommand(() => router.push("/systems"))}>
             <Layers className="mr-2 h-4 w-4" />
-            <span>All Systems</span>
+            <span>Todos los sistemas</span>
           </CommandItem>
         </CommandGroup>
         {regularSystems.length > 0 && (
           <>
             <CommandSeparator />
-            <CommandGroup heading="Systems">
+            <CommandGroup heading="Sistemas">
               {regularSystems.map((system) => (
                 <CommandItem
                   key={system.id}
@@ -72,10 +72,10 @@ export function GlobalCommandPalette() {
           </>
         )}
         <CommandSeparator />
-        <CommandGroup heading="Settings">
+        <CommandGroup heading="Ajustes">
           <CommandItem onSelect={() => runCommand(() => router.push("/settings"))}>
             <Settings className="mr-2 h-4 w-4" />
-            <span>Keyboard Shortcuts</span>
+            <span>Atajos de teclado</span>
           </CommandItem>
         </CommandGroup>
       </CommandList>

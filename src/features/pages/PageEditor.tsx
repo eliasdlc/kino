@@ -35,7 +35,7 @@ export function PageEditor({ page, systemId }: PageEditorProps) {
     extensions: [
       StarterKit,
       Typography,
-      Placeholder.configure({ placeholder: "Start writing…" }),
+      Placeholder.configure({ placeholder: "Empieza a escribir…" }),
     ],
     content: page.content ?? "",
     editorProps: {
@@ -68,7 +68,7 @@ export function PageEditor({ page, systemId }: PageEditorProps) {
         type="text"
         value={title}
         onChange={handleTitleChange}
-        placeholder="Untitled"
+        placeholder="Sin título"
         className="w-full bg-transparent text-3xl font-bold placeholder:text-muted-foreground/40 focus:outline-none border-none p-0"
         maxLength={500}
       />

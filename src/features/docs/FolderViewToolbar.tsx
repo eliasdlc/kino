@@ -46,25 +46,25 @@ export function FolderViewToolbar({ systemId, folderId }: FolderViewToolbarProps
       <div className="flex items-center gap-2">
         <Button size="sm" variant="outline" className="gap-1.5" onClick={() => setFolderDialogOpen(true)}>
           <FolderPlus className="size-3.5" />
-          New subfolder
+          Nueva subcarpeta
         </Button>
         <Button size="sm" variant="outline" className="gap-1.5" onClick={() => setPageDialogOpen(true)}>
-          New page
+          Nueva página
         </Button>
       </div>
 
       <Dialog open={folderDialogOpen} onOpenChange={setFolderDialogOpen}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>New subfolder</DialogTitle>
+            <DialogTitle>Nueva subcarpeta</DialogTitle>
           </DialogHeader>
           <div className="flex flex-col gap-4 pt-1">
             <div className="space-y-1.5">
-              <Label htmlFor="subfolder-name">Name</Label>
+              <Label htmlFor="subfolder-name">Nombre</Label>
               <Input
                 id="subfolder-name"
                 autoFocus
-                placeholder="Subfolder name"
+                placeholder="Nombre de la subcarpeta"
                 value={folderName}
                 onChange={(e) => setFolderName(e.target.value)}
                 onKeyDown={(e) => { if (e.key === "Enter") handleCreateFolder(); }}
@@ -72,7 +72,7 @@ export function FolderViewToolbar({ systemId, folderId }: FolderViewToolbarProps
               />
             </div>
             <Button onClick={handleCreateFolder} disabled={!folderName.trim() || isPending}>
-              {isPending ? "Creating..." : "Create subfolder"}
+              {isPending ? "Creando..." : "Crear subcarpeta"}
             </Button>
           </div>
         </DialogContent>

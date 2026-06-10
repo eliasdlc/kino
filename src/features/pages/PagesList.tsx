@@ -5,7 +5,7 @@ export function PagesList() {
   return (
     <div className="w-full space-y-3">
       <div className="flex items-center justify-between">
-        <h2 className="text-lg font-semibold">Pages</h2>
+        <h2 className="text-lg font-semibold">Páginas</h2>
         <Button size="sm" variant="outline" className="gap-1.5">
           <Plus className="size-3.5" />
           New Page

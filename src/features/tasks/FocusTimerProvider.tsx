@@ -197,8 +197,40 @@ function RecapToast({ taskTitle, workedLabel, estimateMsg, onEnergy, onDismiss }
 
 // ── Provider ───────────────────────────────────────────────────────────────
 
+const LOCAL_STORAGE_KEY = 'kino-focus-timer';
+
+function initTimerState(): TimerState {
+  if (typeof window === 'undefined') return INITIAL;
+  const saved = localStorage.getItem(LOCAL_STORAGE_KEY);
+  if (!saved) return INITIAL;
+  try {
+    const parsed = JSON.parse(saved) as TimerState;
+    if (parsed.phase === 'working' && !parsed.expired && parsed.durationMs && parsed.startedAt) {
+        if (Date.now() - parsed.startedAt >= parsed.durationMs) {
+             if (parsed.mode === 'pomodoro') {
+                 parsed.phase = 'break';
+                 parsed.breakStartedAt = parsed.startedAt + parsed.durationMs;
+             } else {
+                 parsed.expired = true;
+             }
+        }
+    }
+    return parsed;
+  } catch {
+    return INITIAL;
+  }
+}
+
 export function FocusTimerProvider({ children }: { children: ReactNode }) {
-  const [state, dispatch] = useReducer(reducer, INITIAL);
+  const [state, dispatch] = useReducer(reducer, INITIAL, initTimerState);
+
+  useEffect(() => {
+    if (state.phase === 'idle') {
+      localStorage.removeItem(LOCAL_STORAGE_KEY);
+    } else {
+      localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(state));
+    }
+  }, [state]);
   const [pendingTask, setPendingTask] = useState<PendingTask | null>(null);
   const [showModeDialog, setShowModeDialog] = useState(false);
   const audioCtxRef = useRef<AudioContext | null>(null);
@@ -257,7 +289,7 @@ export function FocusTimerProvider({ children }: { children: ReactNode }) {
         ? fetch(`/api/tasks/${taskId}/time-log`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ systemId, startedAt, endedAt, durationMinutes: workedMinutes, source: 'pomodoro' }),
+            body: JSON.stringify({ systemId, startedAt, endedAt, durationMinutes: workedMinutes, source: state.mode === 'pomodoro' ? 'pomodoro' : 'timer' }),
           })
             .then(() => queryClient.invalidateQueries({ queryKey: ['time-logs', taskId] }))
             .catch(() => {})
@@ -280,7 +312,7 @@ export function FocusTimerProvider({ children }: { children: ReactNode }) {
               fetch('/api/energy/checkin', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ currentLevel: ENERGY_MAP[level], sleepQuality: 'partial' }),
+                body: JSON.stringify({ currentLevel: ENERGY_MAP[level] }),
               }).then(() => queryClient.invalidateQueries({ queryKey: ['energy'] })),
               logTime(),
             ]);

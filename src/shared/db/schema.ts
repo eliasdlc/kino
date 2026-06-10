@@ -110,14 +110,13 @@ export const questTypeEnum = pgEnum('quest_type', [
   'milestone',
   'recovery',
 ]);
-
 export const taskTypeEnum = pgEnum('task_type', [
   'task',
   'idea',
   'event',
   'reminder',
-  'habit',
   // legacy values — kept for DB compat, no longer offered in UI
+  'habit',
   'todo',
   'project',
 ]);

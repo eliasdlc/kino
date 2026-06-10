@@ -9,7 +9,6 @@ import { SystemDetailHeader } from "@/features/systems/SystemDetailHeader";
 import { computeSystemSignals } from "@/features/systems/systems.signals";
 import { SystemDetailView } from "@/features/systems/views/SystemDetailView";
 import { DocsView } from "@/features/docs/DocsView";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 export default async function SystemPage({
   params,
@@ -36,28 +35,21 @@ export default async function SystemPage({
       <div className="sticky top-14 md:top-0 z-10 bg-background border-b px-4 md:px-6 py-2.5">
         <PageBreadcrumb
           items={[
-            { label: "Systems", href: "/systems" },
+            { label: "Sistemas", href: "/systems" },
             { label: system.name },
           ]}
         />
       </div>
       <PageWrapper className="w-full">
-        <SystemDetailHeader system={system} signals={signals} />
+        <SystemDetailHeader system={system} signals={signals} currentTab={tab === "docs" ? "docs" : "tasks"} />
 
-        <Tabs defaultValue={tab === "docs" ? "docs" : "tasks"} className="w-full mt-4">
-          <TabsList>
-            <TabsTrigger value="tasks">Tareas</TabsTrigger>
-            <TabsTrigger value="docs">Docs</TabsTrigger>
-          </TabsList>
-
-          <TabsContent value="tasks" className="mt-4">
-            <SystemDetailView system={system} initialTasks={tasks} />
-          </TabsContent>
-
-          <TabsContent value="docs" className="mt-4">
+        <div className="mt-4">
+          {tab === "docs" ? (
             <DocsView systemId={id} />
-          </TabsContent>
-        </Tabs>
+          ) : (
+            <SystemDetailView system={system} initialTasks={tasks} />
+          )}
+        </div>
       </PageWrapper>
     </div>
   );

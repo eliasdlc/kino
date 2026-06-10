@@ -78,11 +78,11 @@ export function CreateSystemDialog({ collapsed }: { collapsed?: boolean }) {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(data),
       });
-      if (!res.ok) throw new Error("Failed to create system");
+      if (!res.ok) throw new Error("No se pudo crear el sistema");
       await queryClient.invalidateQueries({ queryKey: ["systems"] });
       handleOpenChange(false);
     } catch (e) {
-      setError((e as Error).message || "An unexpected error occurred");
+      setError((e as Error).message || "Ocurrió un error inesperado");
     } finally {
       setIsPending(false);
     }
@@ -100,12 +100,12 @@ export function CreateSystemDialog({ collapsed }: { collapsed?: boolean }) {
       <DialogTrigger asChild>
         <Button variant="outline" className="w-full">
           <Plus className="size-4 shrink-0" />
-          {!collapsed && <span className="ml-1.5">New system</span>}
+          {!collapsed && <span className="ml-1.5">Nuevo sistema</span>}
         </Button>
       </DialogTrigger>
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
-          <DialogTitle>Create system</DialogTitle>
+          <DialogTitle>Crear sistema</DialogTitle>
         </DialogHeader>
 
         <div className="space-y-5">
@@ -115,13 +115,13 @@ export function CreateSystemDialog({ collapsed }: { collapsed?: boolean }) {
               <PreviewIcon className={`size-5 text-${cls}`} />
             </div>
             <span className={`text-sm font-medium ${name ? "text-foreground" : "text-muted-foreground"}`}>
-              {name || "System name"}
+              {name || "Nombre del sistema"}
             </span>
           </div>
 
           {/* Name */}
           <div className="space-y-1.5 flex flex-col gap-2">
-            <Label>Name</Label>
+            <Label>Nombre</Label>
             <Input
               autoFocus
               placeholder="E.g. Work, Studies, Health..."
@@ -152,7 +152,7 @@ export function CreateSystemDialog({ collapsed }: { collapsed?: boolean }) {
 
           {/* Icon picker */}
           <div className="space-y-1.5 flex flex-col gap-2">
-            <Label>Icon</Label>
+            <Label>Ícono</Label>
             <div className="grid grid-cols-10 gap-1">
               {ICON_KEYS.map((key) => {
                 const IconComponent = ICON_MAP[key];
@@ -180,16 +180,16 @@ export function CreateSystemDialog({ collapsed }: { collapsed?: boolean }) {
             className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors"
           >
             <ChevronDown className={`size-3.5 transition-transform duration-150 ${showAdvanced ? "rotate-180" : ""}`} />
-            {showAdvanced ? "Less options" : "More options"}
+            {showAdvanced ? "Menos opciones" : "Más opciones"}
           </button>
 
           {/* Advanced options */}
           {showAdvanced && (
             <div className="space-y-4 pt-4 border-t border-border">
               <div className="space-y-1.5 flex flex-col gap-2">
-                <Label>Description</Label>
+                <Label>Descripción</Label>
                 <Textarea
-                  placeholder="What is this system for? What identity does it represent?"
+                  placeholder="¿Para qué es este sistema? ¿Qué identidad representa?"
                   value={identityStatement}
                   onChange={(e) => setIdentityStatement(e.target.value)}
                   rows={2}
@@ -199,7 +199,7 @@ export function CreateSystemDialog({ collapsed }: { collapsed?: boolean }) {
 
               <div className="grid grid-cols-2 gap-3">
                 <div className="space-y-1.5 flex flex-col gap-2">
-                  <Label>Type</Label>
+                  <Label>Tipo</Label>
                   <Select value={templateType} onValueChange={setTemplateType}>
                     <SelectTrigger>
                       <SelectValue />
@@ -213,7 +213,7 @@ export function CreateSystemDialog({ collapsed }: { collapsed?: boolean }) {
                 </div>
 
                 <div className="space-y-1.5 flex flex-col gap-2">
-                  <Label>Energy</Label>
+                  <Label>Energía</Label>
                   <Select value={energyIdeal} onValueChange={setEnergyIdeal}>
                     <SelectTrigger>
                       <SelectValue />
@@ -228,7 +228,7 @@ export function CreateSystemDialog({ collapsed }: { collapsed?: boolean }) {
               </div>
 
               <div className="space-y-1.5 flex flex-col gap-2">
-                <Label>Expected frequency</Label>
+                <Label>Frecuencia esperada</Label>
                 <Select value={expectedFrequency} onValueChange={setExpectedFrequency}>
                   <SelectTrigger>
                     <SelectValue />
@@ -242,7 +242,7 @@ export function CreateSystemDialog({ collapsed }: { collapsed?: boolean }) {
               </div>
 
               <div className="space-y-1.5 flex flex-col gap-2">
-                <Label>Trigger context</Label>
+                <Label>Contexto disparador</Label>
                 <Input
                   placeholder="E.g. When I get to the office, when I wake up..."
                   value={triggerContext}
@@ -260,11 +260,11 @@ export function CreateSystemDialog({ collapsed }: { collapsed?: boolean }) {
         {/* Footer */}
         <div className="flex justify-end gap-2 pt-2">
           <Button variant="ghost" onClick={() => handleOpenChange(false)} disabled={isPending}>
-            Cancel
+            Cancelar
           </Button>
           <Button onClick={handleCreateSystem} disabled={!name.trim() || isPending}>
             {isPending && <Loader2 className="size-4 animate-spin mr-2" />}
-            Create system
+            Crear sistema
           </Button>
         </div>
       </DialogContent>

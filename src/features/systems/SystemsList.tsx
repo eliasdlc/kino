@@ -189,7 +189,7 @@ export function SystemsList() {
 
       <ConfirmDialog
         open={deleteTarget !== null}
-        title="Delete system"
+        title="Eliminar sistema"
         description={`"${deleteTarget?.name}" and all its content will be permanently deleted. This action cannot be undone.`}
         onConfirm={() => {
           if (deleteTarget) deleteSystem(deleteTarget.id);

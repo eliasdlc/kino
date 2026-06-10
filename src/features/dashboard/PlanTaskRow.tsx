@@ -96,7 +96,7 @@ export function PlanTaskRow({
 
       {/* Actions — visible on hover (always visible on touch) */}
       {!isDone && (
-        <div className="flex items-center gap-1 shrink-0 opacity-0 group-hover:opacity-100 md:transition-opacity">
+        <div className="flex items-center gap-1 shrink-0 md:opacity-0 md:group-hover:opacity-100 md:transition-opacity">
           <button
             onClick={onStartTimer}
             className="p-1 rounded hover:bg-accent text-muted-foreground hover:text-foreground"

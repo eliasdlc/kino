@@ -19,6 +19,7 @@ import { getSystemColor } from "@/shared/utils/system-colors";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { EditSystemDialog } from "./EditSystemDialog";
 import type { System } from "./systems.types";
+import Link from "next/link";
 import { type SystemSignals, formatStaleAdvisor } from "./systems.signals";
 import { SYSTEM_TYPE_CONFIG, type SystemType } from "@/shared/lib/system-types";
 import { cn } from "@/lib/utils";
@@ -26,6 +27,7 @@ import { cn } from "@/lib/utils";
 interface SystemDetailHeaderProps {
   system: System;
   signals: SystemSignals;
+  currentTab?: "tasks" | "docs";
 }
 
 /** Texto legible de la última actividad relativa a hoy. */
@@ -54,7 +56,7 @@ function setHeaderOpen(value: boolean) {
   headerOpenListeners.forEach((l) => l());
 }
 
-export function SystemDetailHeader({ system, signals }: SystemDetailHeaderProps) {
+export function SystemDetailHeader({ system, signals, currentTab = "tasks" }: SystemDetailHeaderProps) {
   const router = useRouter();
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [editOpen, setEditOpen] = useState(false);
@@ -93,7 +95,7 @@ export function SystemDetailHeader({ system, signals }: SystemDetailHeaderProps)
             <Badge variant="outline" className="shrink-0">Inbox</Badge>
           )}
           {!system.isActive && (
-            <Badge variant="destructive" className="shrink-0">Inactive</Badge>
+            <Badge variant="destructive" className="shrink-0">Inactivo</Badge>
           )}
           {!system.isInbox && signals.stale && (
             <Badge
@@ -118,7 +120,7 @@ export function SystemDetailHeader({ system, signals }: SystemDetailHeaderProps)
                 onClick={() => setEditOpen(true)}
               >
                 <Pencil className="size-4" />
-                Edit system
+                Editar sistema
               </DropdownMenuItem>
             )}
             {!system.isInbox && (
@@ -129,7 +131,7 @@ export function SystemDetailHeader({ system, signals }: SystemDetailHeaderProps)
                   onClick={() => setConfirmDelete(true)}
                 >
                   <Trash2 className="size-4" />
-                  Delete system
+                  Eliminar sistema
                 </DropdownMenuItem>
               </>
             )}
@@ -199,10 +201,38 @@ export function SystemDetailHeader({ system, signals }: SystemDetailHeaderProps)
       </div>
       )}
 
+      {/* Tabs / Segmented Control */}
+      <div className="mt-4 flex items-center gap-1 border-b border-border/50 pb-0 w-full pl-0">
+        <Link
+          href={`/systems/${system.id}?tab=tasks`}
+          className={cn(
+            "px-4 py-2 text-sm font-medium transition-colors hover:text-foreground relative",
+            currentTab === "tasks" ? "text-foreground" : "text-muted-foreground"
+          )}
+        >
+          Tareas
+          {currentTab === "tasks" && (
+            <div className={`absolute bottom-0 left-0 right-0 h-0.5 bg-${cls} rounded-t-full`} />
+          )}
+        </Link>
+        <Link
+          href={`/systems/${system.id}?tab=docs`}
+          className={cn(
+            "px-4 py-2 text-sm font-medium transition-colors hover:text-foreground relative",
+            currentTab === "docs" ? "text-foreground" : "text-muted-foreground"
+          )}
+        >
+          Docs
+          {currentTab === "docs" && (
+            <div className={`absolute bottom-0 left-0 right-0 h-0.5 bg-${cls} rounded-t-full`} />
+          )}
+        </Link>
+      </div>
+
       <ConfirmDialog
         open={confirmDelete}
-        title="Delete system"
-        description={`"${system.name}" and all its content will be permanently deleted. This action cannot be undone.`}
+        title="Eliminar sistema"
+        description={`"${system.name}" y todo su contenido se eliminarán permanentemente. Esta acción no se puede deshacer.`}
         onConfirm={() => {
           setConfirmDelete(false);
           deleteSystem(system.id, {

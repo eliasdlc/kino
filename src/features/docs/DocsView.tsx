@@ -96,15 +96,15 @@ export function DocsView({ systemId }: DocsViewProps) {
       <Dialog open={folderDialogOpen} onOpenChange={setFolderDialogOpen}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>New folder</DialogTitle>
+            <DialogTitle>Nueva carpeta</DialogTitle>
           </DialogHeader>
           <div className="flex flex-col gap-4 pt-1">
             <div className="space-y-1.5">
-              <Label htmlFor="folder-name">Name</Label>
+              <Label htmlFor="folder-name">Nombre</Label>
               <Input
                 id="folder-name"
                 autoFocus
-                placeholder="Folder name"
+                placeholder="Nombre de la carpeta"
                 value={folderName}
                 onChange={(e) => setFolderName(e.target.value)}
                 onKeyDown={(e) => { if (e.key === "Enter") handleCreateFolder(); }}
@@ -113,7 +113,7 @@ export function DocsView({ systemId }: DocsViewProps) {
             </div>
             <Button onClick={handleCreateFolder} disabled={!folderName.trim() || creatingFolder}>
               {creatingFolder && <Loader2 className="size-4 animate-spin mr-2" />}
-              {creatingFolder ? "Creating..." : "Create folder"}
+              {creatingFolder ? "Creando..." : "Crear carpeta"}
             </Button>
           </div>
         </DialogContent>

@@ -15,17 +15,10 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { TasksList } from "@/features/tasks/TasksList";
 import { useUpdateSystem } from "../systems.hooks";
-import { SYSTEM_TYPE_CONFIG, type SystemTabId } from "@/shared/lib/system-types";
+import { SYSTEM_TYPE_CONFIG, type SystemTabId, SYSTEM_TAB_LABELS } from "@/shared/lib/system-types";
 import type { SystemViewProps } from "./SystemDetailView";
 
 const ALL_TABS = SYSTEM_TYPE_CONFIG.custom.tabs;
-
-const TAB_LABELS: Record<SystemTabId, string> = {
-  backlog: "Backlog",
-  planning: "Planning",
-  action: "Action",
-  archive: "Archive",
-};
 
 export function SystemCustomView({ system, initialTasks }: SystemViewProps) {
   const { mutate: updateSystem } = useUpdateSystem();
@@ -85,7 +78,7 @@ export function SystemCustomView({ system, initialTasks }: SystemViewProps) {
                 onSelect={(e) => e.preventDefault()}
                 disabled={tabs.includes(tab) && tabs.length === 1}
               >
-                {TAB_LABELS[tab]}
+                {SYSTEM_TAB_LABELS[tab]}
               </DropdownMenuCheckboxItem>
             ))}
             <DropdownMenuSeparator />
@@ -93,7 +86,7 @@ export function SystemCustomView({ system, initialTasks }: SystemViewProps) {
             <DropdownMenuRadioGroup value={defaultTab} onValueChange={(v) => changeDefault(v as SystemTabId)}>
               {tabs.map((tab) => (
                 <DropdownMenuRadioItem key={tab} value={tab} onSelect={(e) => e.preventDefault()}>
-                  {TAB_LABELS[tab]}
+                  {SYSTEM_TAB_LABELS[tab]}
                 </DropdownMenuRadioItem>
               ))}
             </DropdownMenuRadioGroup>

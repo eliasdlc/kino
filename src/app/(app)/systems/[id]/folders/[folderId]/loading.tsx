@@ -59,9 +59,9 @@ export default function FolderLoading() {
           {/* Energy Columns Grid */}
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 w-full pt-2">
             {[
-              { label: "High Energy", desc: "Tasks requiring high focus." },
-              { label: "Medium Energy", desc: "Steady work, moderate focus." },
-              { label: "Low Energy", desc: "Light tasks, easy to pick up." },
+              { label: "Energía alta", desc: "Tareas que requieren mucho foco." },
+              { label: "Energía media", desc: "Trabajo constante, foco moderado." },
+              { label: "Energía baja", desc: "Tareas ligeras, fáciles de retomar." },
             ].map((col, idx) => (
               <div key={col.label} className="flex flex-col gap-2 min-w-0">
                 <div className="space-y-1 mb-2 select-none">

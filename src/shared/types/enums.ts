@@ -21,7 +21,7 @@ export type TaskStatusValue = (typeof TASK_STATUS_VALUES)[number];
 export const TASK_PRIORITY_VALUES = ["critical", "high", "medium", "low"] as const;
 export type TaskPriorityValue = (typeof TASK_PRIORITY_VALUES)[number];
 
-export const TASK_TYPE_VALUES = ["task", "idea", "event", "reminder", "habit"] as const;
+export const TASK_TYPE_VALUES = ["task", "idea", "event", "reminder"] as const;
 export type TaskTypeValue = (typeof TASK_TYPE_VALUES)[number];
 
 export const TEMPLATE_TYPE_VALUES = [

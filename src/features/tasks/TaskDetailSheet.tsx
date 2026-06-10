@@ -47,6 +47,19 @@ interface TaskDetailSheetProps {
   onOpenChange: (open: boolean) => void;
 }
 
+const PRIORITY_LABELS: Record<string, string> = {
+  critical: "Crítica",
+  high: "Alta",
+  medium: "Media",
+  low: "Baja",
+};
+
+const ENERGY_LABELS: Record<string, string> = {
+  high: "Alta",
+  medium: "Media",
+  low: "Baja",
+};
+
 function formatDuration(minutes: number): string {
   if (minutes < 60) return `${minutes} min`;
   const h = Math.floor(minutes / 60);
@@ -116,7 +129,7 @@ function TaskDetailForm({ task, systemId, onClose }: TaskDetailFormProps) {
   const [priority, setPriority] = useState<Task["priority"]>(task.priority);
   const [energyLevel, setEnergyLevel] = useState<Task["energyLevel"]>(task.energyLevel);
   const [taskType, setTaskType] = useState<TaskTypeValue | undefined>(
-    (task.taskType && ['task', 'idea', 'event', 'reminder', 'habit'].includes(task.taskType))
+    (task.taskType && ['task', 'idea', 'event', 'reminder'].includes(task.taskType))
       ? (task.taskType as TaskTypeValue)
       : undefined
   );
@@ -135,7 +148,7 @@ function TaskDetailForm({ task, systemId, onClose }: TaskDetailFormProps) {
 
   /**
    * Solo los campos que cambiaron respecto al `task` original. Un único builder
-   * usado por autosave y "Save & close":
+   * usado por autosave y "Guardar y cerrar":
    *  - dueDate siempre como ISO (conserva hora; antes el botón truncaba a día).
    *  - limpiar una fecha existente manda `null` (antes omitía → DB nunca limpiaba).
    *  - no incluir dueDate cuando no cambió evita el reset de recordatorios/flags
@@ -202,7 +215,7 @@ function TaskDetailForm({ task, systemId, onClose }: TaskDetailFormProps) {
   return (
     <div className="flex flex-col gap-4 h-full">
       <div className="space-y-1.5">
-        <Label htmlFor="task-title">Title</Label>
+        <Label htmlFor="task-title">Título</Label>
         <Input
           id="task-title"
           value={title}
@@ -213,45 +226,45 @@ function TaskDetailForm({ task, systemId, onClose }: TaskDetailFormProps) {
       </div>
 
       <div className="space-y-1.5">
-        <Label>Type</Label>
+        <Label>Tipo</Label>
         <TaskTypePicker value={taskType} onChange={setTaskType} />
       </div>
 
       <div className="space-y-1.5">
-        <Label htmlFor="task-desc">Description</Label>
+        <Label htmlFor="task-desc">Descripción</Label>
         <Textarea
           id="task-desc"
           value={description}
           onChange={(e) => setDescription(e.target.value)}
-          placeholder="Optional notes..."
+          placeholder="Notas opcionales..."
           className="resize-none min-h-[80px]"
         />
       </div>
 
       <div className="grid grid-cols-2 gap-3">
         <div className="space-y-1.5">
-          <Label>Priority</Label>
+          <Label>Prioridad</Label>
           <Select value={priority} onValueChange={(v) => setPriority(v as Task["priority"])}>
             <SelectTrigger>
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
               {TASK_PRIORITY_VALUES.map((p) => (
-                <SelectItem key={p} value={p}>{p}</SelectItem>
+                <SelectItem key={p} value={p}>{PRIORITY_LABELS[p]}</SelectItem>
               ))}
             </SelectContent>
           </Select>
         </div>
 
         <div className="space-y-1.5">
-          <Label>Energy</Label>
+          <Label>Energía</Label>
           <Select value={energyLevel} onValueChange={(v) => setEnergyLevel(v as Task["energyLevel"])}>
             <SelectTrigger>
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
               {ENERGY_LEVEL_VALUES.map((e) => (
-                <SelectItem key={e} value={e}>{e}</SelectItem>
+                <SelectItem key={e} value={e}>{ENERGY_LABELS[e]}</SelectItem>
               ))}
             </SelectContent>
           </Select>
@@ -260,14 +273,14 @@ function TaskDetailForm({ task, systemId, onClose }: TaskDetailFormProps) {
 
       {folders.length > 0 && (
         <div className="space-y-1.5">
-          <Label>Assign to</Label>
+          <Label>Asignar a</Label>
           <Select value={selectedFolderId} onValueChange={setSelectedFolderId}>
             <SelectTrigger>
-              <SelectValue placeholder="No folder" />
+              <SelectValue placeholder="Sin carpeta" />
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="none">
-                <span className="text-muted-foreground">No folder</span>
+                <span className="text-muted-foreground">Sin carpeta</span>
               </SelectItem>
               {folders.map((folder) => (
                 <SelectItem key={folder.id} value={folder.id}>
@@ -284,12 +297,12 @@ function TaskDetailForm({ task, systemId, onClose }: TaskDetailFormProps) {
 
       <div className="grid grid-cols-2 gap-3">
         <div className="space-y-1.5">
-          <Label>Start date</Label>
+          <Label>Fecha de inicio</Label>
           <Popover>
             <PopoverTrigger asChild>
               <Button variant="outline" className="w-full justify-start gap-2 text-sm font-normal">
                 <CalendarIcon size={16} className="text-muted-foreground" />
-                {startDate ? format(startDate, "MMM d, yyyy") : <span className="text-muted-foreground">Pick date</span>}
+                {startDate ? format(startDate, "MMM d, yyyy") : <span className="text-muted-foreground">Elegir fecha</span>}
               </Button>
             </PopoverTrigger>
             <PopoverContent className="w-auto p-0" align="start">
@@ -297,7 +310,7 @@ function TaskDetailForm({ task, systemId, onClose }: TaskDetailFormProps) {
               {startDate && (
                 <div className="p-2 border-t">
                   <Button variant="ghost" size="sm" className="w-full" onClick={() => setStartDate(undefined)}>
-                    Clear
+                    Limpiar
                   </Button>
                 </div>
               )}
@@ -306,7 +319,7 @@ function TaskDetailForm({ task, systemId, onClose }: TaskDetailFormProps) {
         </div>
 
         <div className="space-y-1.5">
-          <Label>Due date</Label>
+          <Label>Fecha de vencimiento</Label>
           <Popover>
             <PopoverTrigger asChild>
               <Button variant="outline" className="w-full justify-start gap-2 text-sm font-normal">
@@ -317,7 +330,7 @@ function TaskDetailForm({ task, systemId, onClose }: TaskDetailFormProps) {
                     {hasDueTime(dueDate) && <span className="text-muted-foreground">· {format(dueDate, "HH:mm")}</span>}
                   </>
                 ) : (
-                  <span className="text-muted-foreground">Pick date</span>
+                  <span className="text-muted-foreground">Elegir fecha</span>
                 )}
               </Button>
             </PopoverTrigger>
@@ -336,7 +349,7 @@ function TaskDetailForm({ task, systemId, onClose }: TaskDetailFormProps) {
                     />
                   </div>
                   <Button variant="ghost" size="sm" className="w-full" onClick={() => setDueDate(undefined)}>
-                    Clear
+                    Limpiar
                   </Button>
                 </div>
               )}
@@ -348,7 +361,7 @@ function TaskDetailForm({ task, systemId, onClose }: TaskDetailFormProps) {
       <Separator />
 
       <div className="space-y-2">
-        <Label>Subtasks</Label>
+        <Label>Subtareas</Label>
         <SubtaskList parentTaskId={task.id} systemId={systemId} />
       </div>
 
@@ -373,14 +386,14 @@ function TaskDetailForm({ task, systemId, onClose }: TaskDetailFormProps) {
           </Button>
         )}
         {saveStatus === "saved" && (
-          <span className="text-sm text-muted-foreground">Saved</span>
+          <span className="text-sm text-muted-foreground">Guardado</span>
         )}
         <Button
           onClick={handleSave}
           disabled={!title.trim() || isPending}
           className="ml-auto"
         >
-          {isPending ? "Saving..." : "Save & close"}
+          {isPending ? "Guardando..." : "Guardar y cerrar"}
         </Button>
       </div>
     </div>
@@ -392,7 +405,7 @@ export function TaskDetailSheet({ task, systemId, open, onOpenChange }: TaskDeta
     <Sheet open={open} onOpenChange={onOpenChange}>
       <SheetContent className="w-full sm:max-w-lg overflow-y-auto flex flex-col">
         <SheetHeader className="px-6 pt-6 pb-0">
-          <SheetTitle>Edit task</SheetTitle>
+          <SheetTitle>Editar tarea</SheetTitle>
         </SheetHeader>
         {task && (
           <div className="flex-1 px-6 pb-6 pt-4">

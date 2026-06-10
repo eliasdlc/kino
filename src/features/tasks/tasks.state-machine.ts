@@ -22,11 +22,7 @@ export type SideEffect =
     | { type: "clear_completed_at" }
     | { type: "set_deleted_at"; value: Date }
     | { type: "grant_xp"; amount: number }
-    | { type: "revert_xp"; amount: number }
-    // Planned — not yet implemented in tasks.service.ts:
-    | { type: "update_sort_index" }       // Phase 2: drag-and-drop reorder
-    | { type: "update_system_health" }    // Phase 2: system health recalculation
-    | { type: "generate_next_rrule_instance" }; // Phase 3: recurring tasks
+    | { type: "revert_xp"; amount: number };
 
 const TRANSITION_MAP: Record<TaskStatus, Partial<Record<TransitionAction, TaskStatus>>> = {
     backlog: {
@@ -72,7 +68,7 @@ export function validateTransition(ctx: TransitionContext): TransitionResult {
     if (!allowedActions || !(ctx.action in allowedActions)) {
         return {
             valid: false,
-            error: `Cannot perform '${ctx.action}' on task in '${ctx.currentStatus}' status`,
+            error: `Transición no válida: de '${ctx.currentStatus}' vía '${ctx.action}'`,
         };
     }
 
@@ -81,7 +77,7 @@ export function validateTransition(ctx: TransitionContext): TransitionResult {
         if (totalEnergyWouldBe > ctx.dailyEnergyLimit) {
             return {
                 valid: false,
-                error: `Daily energy limit exceeded (would use ${totalEnergyWouldBe}, limit is ${ctx.dailyEnergyLimit})`,
+                error: `Límite de energía diario excedido (usaría ${totalEnergyWouldBe}, límite es ${ctx.dailyEnergyLimit})`,
             };
         }
     }
@@ -102,26 +98,26 @@ function buildSideEffects(action: TransitionAction, taskEnergyPoints: number): S
         case "move_to_today":
         case "move_to_tomorrow":
         case "move_to_backlog":
-            return [{ type: "update_sort_index" }, { type: "update_system_health" }];
+            return [];
 
         case "toggle_done":
             return [
                 { type: "set_completed_at", value: new Date() },
                 { type: "grant_xp", amount: taskEnergyPoints },
-                { type: "update_system_health" },
+
             ];
 
         case "undo_done":
             return [
                 { type: "clear_completed_at" },
                 { type: "revert_xp", amount: taskEnergyPoints },
-                { type: "update_system_health" },
+
             ];
 
         case "soft_delete":
             return [
                 { type: "set_deleted_at", value: new Date() },
-                { type: "update_system_health" },
+
             ];
 
         default:

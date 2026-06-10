@@ -43,16 +43,16 @@ interface ColumnDef {
 const NO_PROJECT = "sin-proyecto";
 
 const ENERGY_COLUMNS: ColumnDef[] = [
-    { id: "high", label: "High Energy", description: "Tasks requiring high focus." },
-    { id: "medium", label: "Medium Energy", description: "Steady work, moderate focus." },
-    { id: "low", label: "Low Energy", description: "Light tasks, easy to pick up." },
+    { id: "high", label: "Energía alta", description: "Tareas que requieren mucho foco." },
+    { id: "medium", label: "Energía media", description: "Trabajo constante, foco moderado." },
+    { id: "low", label: "Energía baja", description: "Tareas ligeras, fáciles de retomar." },
 ];
 
 const PRIORITY_COLUMNS: ColumnDef[] = [
-    { id: "critical", label: "Critical", description: "Drop everything." },
-    { id: "high", label: "High", description: "Do these soon." },
-    { id: "medium", label: "Medium", description: "Normal priority." },
-    { id: "low", label: "Low", description: "Whenever there's room." },
+    { id: "critical", label: "Crítica", description: "Deja todo lo demás." },
+    { id: "high", label: "Alta", description: "Hazlas pronto." },
+    { id: "medium", label: "Media", description: "Prioridad normal." },
+    { id: "low", label: "Baja", description: "Cuando haya espacio." },
 ];
 
 /** Campo de la tarea que define en qué columna cae, según el agrupamiento. */
@@ -152,7 +152,7 @@ export function TaskActionView({ systemId, initialData, folderId, folderInitialD
             <div className="flex flex-col items-center justify-center py-12 text-center space-y-2 border border-dashed rounded-lg bg-card mt-6">
                 <p className="text-base font-medium">No hay tareas en tu semana</p>
                 <p className="text-sm text-muted-foreground max-w-sm">
-                    No tienes trabajo programado. Ve a la pestaña <strong>Planning</strong> para organizar tareas de hoy o de la semana.
+                    No tienes trabajo programado. Ve a la pestaña <strong>Planificación</strong> para organizar tareas de hoy o de la semana.
                 </p>
             </div>
         );
@@ -177,9 +177,9 @@ export function TaskActionView({ systemId, initialData, folderId, folderInitialD
                         onChange={(e) => setGroupBy(e.target.value as ActionGroupBy)}
                         className="text-sm bg-muted border-0 rounded-md px-2 py-1 text-muted-foreground"
                     >
-                        <option value="energy">By energy</option>
-                        <option value="priority">By priority</option>
-                        <option value="project">By project</option>
+                        <option value="energy">Por energía</option>
+                        <option value="priority">Por prioridad</option>
+                        <option value="project">Por proyecto</option>
                     </select>
                 </div>
                 <Progress value={progressPercent} className="h-2" />
@@ -225,9 +225,9 @@ export function TaskActionView({ systemId, initialData, folderId, folderInitialD
 
             <ConfirmDialog
               open={deleteTarget !== null}
-              title="Move to trash"
-              description={`"${deleteTarget?.title}" will be moved to the trash.`}
-              confirmLabel="Move to trash"
+              title="Mover a la papelera"
+              description={`"${deleteTarget?.title}" se moverá a la papelera.`}
+              confirmLabel="Mover a la papelera"
               onConfirm={() => {
                 if (deleteTarget) deleteTask(deleteTarget.id);
                 setDeleteTarget(null);

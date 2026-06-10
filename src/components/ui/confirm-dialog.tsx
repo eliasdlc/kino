@@ -23,7 +23,7 @@ export function ConfirmDialog({
   open,
   title,
   description,
-  confirmLabel = "Delete",
+  confirmLabel = "Eliminar",
   onConfirm,
   onCancel,
 }: ConfirmDialogProps) {
@@ -36,7 +36,7 @@ export function ConfirmDialog({
         </DialogHeader>
         <DialogFooter>
           <Button variant="outline" onClick={onCancel}>
-            Cancel
+            Cancelar
           </Button>
           <Button variant="destructive" onClick={onConfirm} autoFocus>
             {confirmLabel}

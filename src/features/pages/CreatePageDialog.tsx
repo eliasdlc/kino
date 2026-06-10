@@ -54,22 +54,22 @@ export function CreatePageDialog({
           {trigger ?? (
             <Button size="sm" variant="outline" className="gap-1.5">
               <FilePlus className="size-3.5" />
-              New page
+              Nueva página
             </Button>
           )}
         </DialogTrigger>
       )}
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>New page</DialogTitle>
+          <DialogTitle>Nueva página</DialogTitle>
         </DialogHeader>
         <div className="flex flex-col gap-4 pt-1">
           <div className="space-y-1.5">
-            <Label htmlFor="page-title">Title (optional)</Label>
+            <Label htmlFor="page-title">Título (opcional)</Label>
             <Input
               id="page-title"
               autoFocus
-              placeholder="Untitled"
+              placeholder="Sin título"
               value={title}
               onChange={(e) => setTitle(e.target.value)}
               onKeyDown={(e) => { if (e.key === "Enter") handleCreate(); }}
@@ -78,7 +78,7 @@ export function CreatePageDialog({
           </div>
           <Button onClick={handleCreate} disabled={isPending}>
             {isPending && <Loader2 className="size-4 animate-spin mr-2" />}
-            {isPending ? "Creating..." : "Create page"}
+            {isPending ? "Creando..." : "Crear página"}
           </Button>
         </div>
       </DialogContent>

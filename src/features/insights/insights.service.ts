@@ -2,7 +2,7 @@ import { and, eq, inArray, isNull } from 'drizzle-orm';
 import { db } from '@/shared/db';
 import { tasks, users } from '@/shared/db/schema';
 import { getUsersSystems } from '@/features/systems/systems.service';
-import { getTodayCheckin, getTodayAdvisor, getTodayEnergyPlan } from '@/features/energy/energy.service';
+import { getTodayCheckin, getTodayAdvisor, getTodayEnergyPlan, getCurrentHourInTz } from '@/features/energy/energy.service';
 import { queryEnergyBySystem, queryInactiveSystems } from './insights.queries';
 import type { Task } from '@/features/tasks/tasks.types';
 import type { CheckinSlot } from '@/features/energy/energy.schemas';
@@ -193,7 +193,8 @@ export async function getSuggestedTasks(userId: string, limit = 10) {
   ]);
 
   const today = new Date();
-  const currentHour = today.getHours();
+  const timezone = await getUserTimezone(userId);
+  const currentHour = getCurrentHourInTz(timezone);
   const currentSlot = getSlotForHour(currentHour);
 
   // Determinar banda de energía actual

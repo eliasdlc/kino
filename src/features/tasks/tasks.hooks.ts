@@ -40,7 +40,8 @@ export function useTasks(systemId: string, initialData: Task[]) {
     },
     initialData,
     initialDataUpdatedAt: 0,
-    refetchInterval: 5_000,
+    refetchOnWindowFocus: true,
+    staleTime: 30_000,
   });
 }
 
@@ -53,7 +54,8 @@ export function useFolderTasks(systemId: string, folderId: string, initialData?:
       return res.json();
     },
     enabled: !!folderId,
-    refetchInterval: 5_000,
+    refetchOnWindowFocus: true,
+    staleTime: 30_000,
     ...(initialData !== undefined ? { initialData, initialDataUpdatedAt: 0 } : {}),
   });
 }
@@ -147,14 +149,18 @@ export function useCreateTask(systemId: string, folderId?: string) {
         return [...withoutOptimistic, newTask];
       });
 
+      // Mensaje neutro con el destino real (sirve desde QuickAdd global o desde
+      // un sistema): no asume que haya un "Action tab" en pantalla.
       const statusLabel: Record<string, string> = {
-        today: "Action tab",
-        tomorrow: "Action tab",
-        week: "Action tab",
-        backlog: "Backlog tab",
+        today: "Hoy",
+        tomorrow: "Mañana",
+        week: "Esta semana",
+        backlog: "Backlog",
+        done: "Completadas",
+        archived: "Archivadas",
       };
-      const where = statusLabel[newTask.status] ?? "the list";
-      toast.success(`"${newTask.title}" added → ${where}`);
+      const where = statusLabel[newTask.status] ?? "tu lista";
+      toast.success(`"${newTask.title}" creada · ${where}`);
     },
     onError: (err, _vars, context) => {
       const ctx = context as {
@@ -225,7 +231,8 @@ export function useSubtasks(
       return res.json();
     },
     enabled: options?.enabled ?? true,
-    refetchInterval: 5_000,
+    refetchOnWindowFocus: true,
+    staleTime: 30_000,
   });
 }
 
@@ -294,10 +301,10 @@ export function useDeleteTaskWithUndo(systemId: string, folderId?: string) {
       return { previous, qKey, deletedTask };
     },
     onSuccess: (_data, taskId, context) => {
-      const title = context?.deletedTask?.title ?? "Task";
-      toast(`"${title}" moved to trash`, {
+      const title = context?.deletedTask?.title ?? "Tarea";
+      toast(`"${title}" movida a la papelera`, {
         action: {
-          label: "Undo",
+          label: "Deshacer",
           onClick: () => restore(taskId),
         },
         duration: 5000,
@@ -397,14 +404,20 @@ export function useAdvisorAction() {
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ taskIds, status: 'tomorrow' }),
         });
-        if (!res.ok) throw new Error('No se pudo mover las tareas');
+        if (!res.ok) {
+          const errData = await res.json().catch(() => ({}));
+          throw new Error(errData.message || 'No se pudo mover las tareas');
+        }
       } else if (bulkAction === 'move-today') {
         const res = await fetch('/api/tasks/bulk-move', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ taskIds, status: 'today' }),
         });
-        if (!res.ok) throw new Error('No se pudo mover la tarea');
+        if (!res.ok) {
+          const errData = await res.json().catch(() => ({}));
+          throw new Error(errData.message || 'No se pudo mover la tarea');
+        }
       } else if (bulkAction === 'lower-priority') {
         const res = await fetch('/api/tasks/bulk-update', {
           method: 'PATCH',
@@ -584,7 +597,10 @@ export function useMoveToTomorrow() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ startDate: tomorrow, inTodayPlan: false }),
       });
-      if (!res.ok) throw new Error('Failed to move task');
+      if (!res.ok) {
+        const errorData = await res.json().catch(() => ({}));
+        throw new Error(errorData.error || errorData.message || 'Error al procesar la solicitud');
+      }
       return res.json();
     },
     onMutate: async ({ taskId }) => {
@@ -690,7 +706,8 @@ export function useSuggestedTasks() {
       if (!res.ok) throw new Error('Failed to fetch suggestions');
       return res.json() as Promise<SuggestedTask[]>;
     },
-    staleTime: 60_000,
+    staleTime: Infinity,
+    gcTime: Infinity,
     refetchOnWindowFocus: false,
   });
 }

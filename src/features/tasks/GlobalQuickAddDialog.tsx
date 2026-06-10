@@ -42,7 +42,7 @@ export function GlobalQuickAddDialog() {
       }}
       header={
         <div className="space-y-1.5">
-          <Label>System</Label>
+          <Label>Sistema</Label>
           <Select value={targetSystemId} onValueChange={setSelectedSystemId}>
             <SelectTrigger>
               <SelectValue />

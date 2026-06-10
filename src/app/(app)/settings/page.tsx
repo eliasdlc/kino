@@ -15,13 +15,14 @@ import { Bell, BellOff, Monitor, Moon, Sun } from "lucide-react";
 import { Switch } from "@/components/ui/switch";
 import { usePushNotifications } from "@/features/notifications/notifications.hooks";
 import { ApiKeysSection } from "@/features/api-keys/ApiKeysSection";
+import { EnergyLimitSection } from "@/features/settings/EnergyLimitSection";
 
 import { Kbd } from "@/components/ui/kbd";
 
 const THEME_OPTIONS = [
-  { value: "system", label: "System", icon: Monitor },
-  { value: "light", label: "Light", icon: Sun },
-  { value: "dark", label: "Dark", icon: Moon },
+  { value: "system", label: "Sistema", icon: Monitor },
+  { value: "light", label: "Claro", icon: Sun },
+  { value: "dark", label: "Oscuro", icon: Moon },
 ] as const;
 
 function ShortcutRow({ label, description, keys }: { label: string; description: string; keys: React.ReactNode }) {
@@ -46,8 +47,8 @@ export default function SettingsPage() {
   return (
     <PageWrapper>
       <PageHeader
-        title="Settings"
-        description="Manage your account preferences and appearance."
+        title="Ajustes"
+        description="Administra las preferencias de tu cuenta y la apariencia."
       />
 
       <Separator />
@@ -56,17 +57,17 @@ export default function SettingsPage() {
         {/* Appearance */}
         <div className="space-y-4">
           <div>
-            <h2 className="text-lg font-semibold">Appearance</h2>
+            <h2 className="text-lg font-semibold">Apariencia</h2>
             <p className="text-sm text-muted-foreground">
-              Customize how Kino looks on your device.
+              Personaliza cómo se ve Kino en tu dispositivo.
             </p>
           </div>
 
           <div className="flex items-center justify-between rounded-lg border p-4">
             <div className="space-y-0.5">
-              <Label className="text-sm font-medium">Theme</Label>
+              <Label className="text-sm font-medium">Tema</Label>
               <p className="text-xs text-muted-foreground">
-                Select your preferred color scheme.
+                Elige tu esquema de color preferido.
               </p>
             </div>
             <Select
@@ -93,51 +94,51 @@ export default function SettingsPage() {
         {/* Keyboard Shortcuts */}
         <div className="space-y-4">
           <div>
-            <h2 className="text-lg font-semibold">Keyboard Shortcuts</h2>
+            <h2 className="text-lg font-semibold">Atajos de teclado</h2>
             <p className="text-sm text-muted-foreground">
-              Work faster with keyboard navigation.
+              Trabaja más rápido con el teclado.
             </p>
           </div>
 
           <div className="rounded-lg border px-4 flex flex-col">
             <ShortcutRow 
-              label="Command Palette" 
-              description="Open the quick action menu" 
+              label="Paleta de comandos" 
+              description="Abre el menú de acciones rápidas" 
               keys={<><Kbd>⌘</Kbd><Kbd>K</Kbd></>} 
             />
             <ShortcutRow 
-              label="Quick Add Task" 
-              description="Instantly add a task to your Inbox from anywhere" 
+              label="Agregar tarea rápida" 
+              description="Agrega una tarea a tu Inbox al instante desde cualquier lugar" 
               keys={<><Kbd>⌘</Kbd><Kbd>I</Kbd></>} 
             />
             <ShortcutRow 
-              label="Go to Inbox" 
-              description="Navigate to the Inbox system" 
-              keys={<><Kbd>G</Kbd><span className="text-xs text-muted-foreground mx-0.5">then</span><Kbd>I</Kbd></>} 
+              label="Ir a Inbox" 
+              description="Navega al sistema Inbox" 
+              keys={<><Kbd>G</Kbd><span className="text-xs text-muted-foreground mx-0.5">luego</span><Kbd>I</Kbd></>} 
             />
             <ShortcutRow 
-              label="Go to Systems" 
-              description="Navigate to all systems overview" 
-              keys={<><Kbd>G</Kbd><span className="text-xs text-muted-foreground mx-0.5">then</span><Kbd>S</Kbd></>} 
+              label="Ir a Sistemas" 
+              description="Navega a la vista de todos los sistemas" 
+              keys={<><Kbd>G</Kbd><span className="text-xs text-muted-foreground mx-0.5">luego</span><Kbd>S</Kbd></>} 
             />
             <ShortcutRow 
-              label="Navigate List" 
-              description="Move up and down tasks" 
+              label="Navegar lista" 
+              description="Sube y baja entre tareas" 
               keys={<><Kbd>J</Kbd><span className="text-xs text-muted-foreground mx-0.5">/</span><Kbd>K</Kbd></>} 
             />
             <ShortcutRow 
-              label="Complete Task" 
-              description="Mark selected task as done" 
-              keys={<><Kbd>Space</Kbd><span className="text-xs text-muted-foreground mx-0.5">or</span><Kbd>E</Kbd></>} 
+              label="Completar tarea" 
+              description="Marca la tarea seleccionada como completada" 
+              keys={<><Kbd>Space</Kbd><span className="text-xs text-muted-foreground mx-0.5">o</span><Kbd>E</Kbd></>} 
             />
             <ShortcutRow 
-              label="Edit Task" 
-              description="Open selected task details" 
+              label="Editar tarea" 
+              description="Abre el detalle de la tarea seleccionada" 
               keys={<Kbd>Enter</Kbd>} 
             />
             <ShortcutRow 
-              label="Delete Task" 
-              description="Open delete confirmation for selected task" 
+              label="Eliminar tarea" 
+              description="Abre la confirmación de borrado de la tarea seleccionada" 
               keys={<Kbd>Backspace</Kbd>} 
             />
           </div>
@@ -146,7 +147,7 @@ export default function SettingsPage() {
         {/* Notifications */}
         <div className="space-y-4">
           <div>
-            <h2 className="text-lg font-semibold">Notifications</h2>
+            <h2 className="text-lg font-semibold">Notificaciones</h2>
             <p className="text-sm text-muted-foreground">
               Recordatorios de tareas y alertas de energía directamente en tu dispositivo.
             </p>
@@ -158,7 +159,7 @@ export default function SettingsPage() {
                 ? <Bell className="size-4 text-emerald-500" />
                 : <BellOff className="size-4 text-muted-foreground" />}
               <div className="space-y-0.5">
-                <Label className="text-sm font-medium">Push notifications</Label>
+                <Label className="text-sm font-medium">Notificaciones push</Label>
                 <p className="text-xs text-muted-foreground">
                   {status === 'subscribed'   && 'Activas — recibirás alertas en este dispositivo'}
                   {status === 'denied'       && 'Bloqueadas — actívalas en los permisos del navegador'}
@@ -189,15 +190,11 @@ export default function SettingsPage() {
           )}
         </div>
 
+        {/* Energía */}
+        <EnergyLimitSection />
+
         {/* API Keys */}
         <ApiKeysSection />
-
-        {/* Future settings sections */}
-        <div className="rounded-lg border p-4 bg-muted/30">
-          <p className="text-sm text-muted-foreground">
-            More settings coming soon: daily energy limit, peak energy hours, and more.
-          </p>
-        </div>
       </div>
     </PageWrapper>
   );

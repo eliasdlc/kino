@@ -139,7 +139,7 @@ export async function upsertCheckin(userId: string, date: string, slot: CheckinS
       target: [energyCheckins.userId, energyCheckins.date, energyCheckins.slot],
       set: {
         currentLevel: input.currentLevel,
-        sleepQuality: input.sleepQuality,
+        ...(input.sleepQuality !== undefined && { sleepQuality: input.sleepQuality }),
       },
     })
     .returning();

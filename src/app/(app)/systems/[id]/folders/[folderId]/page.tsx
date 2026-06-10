@@ -46,7 +46,7 @@ export default async function FolderViewRoute({ params }: FolderViewRouteProps) 
   const hasDocContent = children.length > 0 || folderPages.length > 0;
 
   const breadcrumbItems = [
-    { label: "Systems", href: "/systems" },
+    { label: "Sistemas", href: "/systems" },
     { label: system.name, href: `/systems/${systemId}` },
     ...breadcrumb.map((crumb) => ({
       label: crumb.name,
@@ -98,7 +98,7 @@ export default async function FolderViewRoute({ params }: FolderViewRouteProps) 
       {/* Tasks assigned to this folder */}
       <TasksList
         systemId={systemId}
-        initialData={folderTasks}
+        initialData={[]}
         folderId={folderId}
         folderInitialData={folderTasks}
       />
