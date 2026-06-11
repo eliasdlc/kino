@@ -10,11 +10,11 @@ import { DocsToolbar } from "./DocsToolbar";
 import { FolderCard } from "./FolderCard";
 import { PageCard } from "./PageCard";
 import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
+  ResponsiveDialog,
+  ResponsiveDialogContent,
+  ResponsiveDialogHeader,
+  ResponsiveDialogTitle,
+} from "@/components/ui/responsive-dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -93,11 +93,11 @@ export function DocsView({ systemId }: DocsViewProps) {
       )}
 
       {/* Create folder dialog */}
-      <Dialog open={folderDialogOpen} onOpenChange={setFolderDialogOpen}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Nueva carpeta</DialogTitle>
-          </DialogHeader>
+      <ResponsiveDialog open={folderDialogOpen} onOpenChange={setFolderDialogOpen}>
+        <ResponsiveDialogContent>
+          <ResponsiveDialogHeader>
+            <ResponsiveDialogTitle>Nueva carpeta</ResponsiveDialogTitle>
+          </ResponsiveDialogHeader>
           <div className="flex flex-col gap-4 pt-1">
             <div className="space-y-1.5">
               <Label htmlFor="folder-name">Nombre</Label>
@@ -116,8 +116,8 @@ export function DocsView({ systemId }: DocsViewProps) {
               {creatingFolder ? "Creando..." : "Crear carpeta"}
             </Button>
           </div>
-        </DialogContent>
-      </Dialog>
+        </ResponsiveDialogContent>
+      </ResponsiveDialog>
 
       {/* Create page dialog — controlled */}
       <CreatePageDialog

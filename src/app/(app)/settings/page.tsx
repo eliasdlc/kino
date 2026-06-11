@@ -63,7 +63,7 @@ export default function SettingsPage() {
             </p>
           </div>
 
-          <div className="flex items-center justify-between rounded-lg border p-4">
+          <div className="flex items-center justify-between gap-4 rounded-lg border p-4">
             <div className="space-y-0.5">
               <Label className="text-sm font-medium">Tema</Label>
               <p className="text-xs text-muted-foreground">
@@ -91,8 +91,8 @@ export default function SettingsPage() {
           </div>
         </div>
 
-        {/* Keyboard Shortcuts */}
-        <div className="space-y-4">
+        {/* Keyboard Shortcuts — sin sentido en touch */}
+        <div className="hidden md:block space-y-4">
           <div>
             <h2 className="text-lg font-semibold">Atajos de teclado</h2>
             <p className="text-sm text-muted-foreground">
@@ -153,7 +153,7 @@ export default function SettingsPage() {
             </p>
           </div>
 
-          <div className="flex items-center justify-between rounded-lg border p-4">
+          <div className="flex items-center justify-between gap-4 rounded-lg border p-4">
             <div className="flex items-center gap-3">
               {status === 'subscribed'
                 ? <Bell className="size-4 text-emerald-500" />

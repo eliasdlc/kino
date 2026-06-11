@@ -7,7 +7,13 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import {
+  ResponsiveDialog,
+  ResponsiveDialogContent,
+  ResponsiveDialogHeader,
+  ResponsiveDialogTitle,
+  ResponsiveDialogTrigger,
+} from "@/components/ui/responsive-dialog";
 import { useQueryClient } from "@tanstack/react-query";
 import { COLOR_VALUES, ENERGY_LEVEL_VALUES, FREQUENCY_VALUES, TEMPLATE_TYPE_VALUES } from "@/shared/types/enums";
 import { getSystemColor } from "@/shared/utils/system-colors";
@@ -96,17 +102,17 @@ export function CreateSystemDialog({ collapsed }: { collapsed?: boolean }) {
   const cls = getSystemColor(color);
 
   return (
-    <Dialog open={open} onOpenChange={handleOpenChange}>
-      <DialogTrigger asChild>
+    <ResponsiveDialog open={open} onOpenChange={handleOpenChange}>
+      <ResponsiveDialogTrigger asChild>
         <Button variant="outline" className="w-full">
           <Plus className="size-4 shrink-0" />
           {!collapsed && <span className="ml-1.5">Nuevo sistema</span>}
         </Button>
-      </DialogTrigger>
-      <DialogContent className="sm:max-w-md">
-        <DialogHeader>
-          <DialogTitle>Crear sistema</DialogTitle>
-        </DialogHeader>
+      </ResponsiveDialogTrigger>
+      <ResponsiveDialogContent className="sm:max-w-md">
+        <ResponsiveDialogHeader>
+          <ResponsiveDialogTitle>Crear sistema</ResponsiveDialogTitle>
+        </ResponsiveDialogHeader>
 
         <div className="space-y-5">
           {/* Preview */}
@@ -267,7 +273,7 @@ export function CreateSystemDialog({ collapsed }: { collapsed?: boolean }) {
             Crear sistema
           </Button>
         </div>
-      </DialogContent>
-    </Dialog>
+      </ResponsiveDialogContent>
+    </ResponsiveDialog>
   );
 }

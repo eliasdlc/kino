@@ -3,11 +3,11 @@
 import { useState } from 'react';
 import { Timer, Clock, Infinity as InfinityIcon } from 'lucide-react';
 import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-} from '@/components/ui/dialog';
+  ResponsiveDialog,
+  ResponsiveDialogContent,
+  ResponsiveDialogHeader,
+  ResponsiveDialogTitle,
+} from '@/components/ui/responsive-dialog';
 import { Button } from '@/components/ui/button';
 import { EstimatedTimePicker } from './EstimatedTimePicker';
 import { useFocusTimer, type TimerMode } from './FocusTimerProvider';
@@ -67,22 +67,22 @@ export function FocusTimerModeDialog() {
   const effectiveEstimate = pendingTask?.estimatedDuration ?? localEstimate;
 
   return (
-    <Dialog
+    <ResponsiveDialog
       open={showModeDialog}
       onOpenChange={(open) => {
         if (!open) handleClose();
       }}
     >
-      <DialogContent className="sm:max-w-sm">
-        <DialogHeader>
-          <DialogTitle className="text-base truncate">
+      <ResponsiveDialogContent className="sm:max-w-sm">
+        <ResponsiveDialogHeader>
+          <ResponsiveDialogTitle className="text-base truncate">
             {isRunning
               ? 'Ya hay un timer activo'
               : pendingTask
               ? `Enfocarme en "${pendingTask.title}"`
               : 'Iniciar foco'}
-          </DialogTitle>
-        </DialogHeader>
+          </ResponsiveDialogTitle>
+        </ResponsiveDialogHeader>
 
         {isRunning ? (
           <div className="flex flex-col gap-3">
@@ -147,7 +147,7 @@ export function FocusTimerModeDialog() {
             ))}
           </div>
         )}
-      </DialogContent>
-    </Dialog>
+      </ResponsiveDialogContent>
+    </ResponsiveDialog>
   );
 }

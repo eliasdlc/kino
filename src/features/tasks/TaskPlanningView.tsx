@@ -35,6 +35,8 @@ import { parseDueDate, dayToLocalISO } from "./tasks.utils";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { useTaskKeyboardNavigation } from "./useTaskKeyboardNavigation";
 import { MultiDayTaskBar } from "./MultiDayTaskBar";
+import { TaskPlanningMobileView } from "./TaskPlanningMobileView";
+import { useIsMobile } from "@/hooks/use-mobile";
 
 /** ¿startDate y dueDate caen el mismo día calendario? (ambos timestamptz). */
 function sameDueDay(startDate: string, dueDate: string): boolean {
@@ -174,6 +176,45 @@ export function TaskPlanningView({ systemId, initialData, folderId, folderInitia
   const handleDragCancel = useCallback(() => {
     setActiveTask(null);
   }, []);
+
+  const isMobile = useIsMobile();
+
+  // En mobile el drag & drop de 7 columnas no funciona: vista de un día a la
+  // vez, mover de día vía menú en vez de arrastrar.
+  if (isMobile) {
+    return (
+      <>
+        <TaskPlanningMobileView
+          weekDates={weekDates}
+          weekOffset={weekOffset}
+          monthHeading={monthHeading}
+          weekNumber={weekNumber}
+          singleDayTasks={singleDayTasks}
+          multiDayTasks={multiDayTasks}
+          onPrevWeek={() => setWeekOffset((v) => v - 1)}
+          onNextWeek={() => setWeekOffset((v) => v + 1)}
+          onResetWeek={() => setWeekOffset(0)}
+          onToggle={(id) => toggleTask(id)}
+          onDelete={setDeleteTarget}
+          onEdit={onEdit}
+          onMoveToDay={(taskId, dayISO) =>
+            updateTask({ taskId, data: { startDate: dayToLocalISO(dayISO) } })
+          }
+        />
+        <ConfirmDialog
+          open={deleteTarget !== null}
+          title="Mover a la papelera"
+          description={`"${deleteTarget?.title}" se moverá a la papelera.`}
+          confirmLabel="Mover a la papelera"
+          onConfirm={() => {
+            if (deleteTarget) deleteTask(deleteTarget.id);
+            setDeleteTarget(null);
+          }}
+          onCancel={() => setDeleteTarget(null)}
+        />
+      </>
+    );
+  }
 
   return (
     <DndContext

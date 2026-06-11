@@ -4,11 +4,11 @@ import { useState } from "react";
 import { Plus, StickyNote, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
+  ResponsiveDialog,
+  ResponsiveDialogContent,
+  ResponsiveDialogHeader,
+  ResponsiveDialogTitle,
+} from "@/components/ui/responsive-dialog";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -97,11 +97,11 @@ export function StickyNotesGrid(props: Props) {
         <p className="text-xs text-muted-foreground">Aún no hay notas.</p>
       )}
 
-      <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Nueva nota</DialogTitle>
-          </DialogHeader>
+      <ResponsiveDialog open={dialogOpen} onOpenChange={setDialogOpen}>
+        <ResponsiveDialogContent>
+          <ResponsiveDialogHeader>
+            <ResponsiveDialogTitle>Nueva nota</ResponsiveDialogTitle>
+          </ResponsiveDialogHeader>
           <div className="flex flex-col gap-4 pt-1">
             <Input
               autoFocus
@@ -143,8 +143,8 @@ export function StickyNotesGrid(props: Props) {
               {isPending ? "Agregando..." : "Agregar nota"}
             </Button>
           </div>
-        </DialogContent>
-      </Dialog>
+        </ResponsiveDialogContent>
+      </ResponsiveDialog>
     </div>
   );
 }

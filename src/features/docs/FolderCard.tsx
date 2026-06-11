@@ -13,11 +13,11 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
+  ResponsiveDialog,
+  ResponsiveDialogContent,
+  ResponsiveDialogHeader,
+  ResponsiveDialogTitle,
+} from "@/components/ui/responsive-dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -131,11 +131,11 @@ export function FolderCard({ folder, systemId, onClick, href }: FolderCardProps)
       </div>
 
       {/* Rename dialog */}
-      <Dialog open={renameOpen} onOpenChange={setRenameOpen}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Renombrar carpeta</DialogTitle>
-          </DialogHeader>
+      <ResponsiveDialog open={renameOpen} onOpenChange={setRenameOpen}>
+        <ResponsiveDialogContent>
+          <ResponsiveDialogHeader>
+            <ResponsiveDialogTitle>Renombrar carpeta</ResponsiveDialogTitle>
+          </ResponsiveDialogHeader>
           <div className="flex flex-col gap-4 pt-1">
             <div className="space-y-1.5">
               <Label htmlFor="folder-rename">Nombre</Label>
@@ -153,8 +153,8 @@ export function FolderCard({ folder, systemId, onClick, href }: FolderCardProps)
               {isUpdating ? "Guardando..." : "Guardar"}
             </Button>
           </div>
-        </DialogContent>
-      </Dialog>
+        </ResponsiveDialogContent>
+      </ResponsiveDialog>
 
       {/* Delete confirm */}
       <ConfirmDialog

@@ -7,8 +7,12 @@ import { z } from "zod";
 import { format } from "date-fns";
 import type { DateRange } from "react-day-picker";
 import { Button } from "@/components/ui/button";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
+import {
+  ResponsiveDialog,
+  ResponsiveDialogContent,
+  ResponsiveDialogHeader,
+  ResponsiveDialogTitle,
+} from "@/components/ui/responsive-dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -27,7 +31,6 @@ import { TaskTypePicker } from "./TaskTypePicker";
 import { getTaskTypeConfig } from "./task-type-config";
 import { dayToLocalISO } from "./tasks.utils";
 import { EstimatedTimePicker, minutesToTimeString } from "./EstimatedTimePicker";
-import { useIsMobile } from "@/hooks/use-mobile";
 import { useQueryClient } from "@tanstack/react-query";
 import { SYSTEM_TYPE_CONFIG, type SystemType } from "@/shared/lib/system-types";
 import type { System } from "@/features/systems/systems.types";
@@ -68,7 +71,6 @@ export function CreateTaskDialog({
   systemId, parentTaskId, folderId, open: controlledOpen,
   onOpenChange: controlledOnOpenChange, header, onTaskCreated,
 }: CreateTaskDialogProps) {
-  const isMobile = useIsMobile();
   const [internalOpen, setInternalOpen] = useState(false);
   const isControlled = controlledOpen !== undefined;
   const open = isControlled ? controlledOpen : internalOpen;
@@ -499,33 +501,17 @@ export function CreateTaskDialog({
     </form>
   );
 
-  if (isMobile) {
-    return (
-      <Sheet open={open} onOpenChange={handleClose}>
-        {!isControlled && (
-          <Button variant="outline" className="w-fit" onClick={() => setOpen(true)}>Nueva tarea</Button>
-        )}
-        <SheetContent side="bottom" className="max-h-[90vh] overflow-y-auto rounded-t-2xl px-6 pb-8 gap-0">
-          <SheetHeader className="px-0 pb-2">
-            <SheetTitle>Nueva tarea</SheetTitle>
-          </SheetHeader>
-          {formContent}
-        </SheetContent>
-      </Sheet>
-    );
-  }
-
   return (
-    <Dialog open={open} onOpenChange={handleClose}>
+    <ResponsiveDialog open={open} onOpenChange={handleClose}>
       {!isControlled && (
         <Button variant="outline" className="w-fit" onClick={() => setOpen(true)}>Nueva tarea</Button>
       )}
-      <DialogContent className="max-h-[90vh] overflow-y-auto">
-        <DialogHeader>
-          <DialogTitle>Nueva tarea</DialogTitle>
-        </DialogHeader>
+      <ResponsiveDialogContent className="max-h-[90vh] overflow-y-auto">
+        <ResponsiveDialogHeader>
+          <ResponsiveDialogTitle>Nueva tarea</ResponsiveDialogTitle>
+        </ResponsiveDialogHeader>
         {formContent}
-      </DialogContent>
-    </Dialog>
+      </ResponsiveDialogContent>
+    </ResponsiveDialog>
   );
 }

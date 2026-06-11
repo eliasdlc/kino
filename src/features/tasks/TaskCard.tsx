@@ -332,7 +332,7 @@ export function TaskCard({ task, systemId, systemType, draggable, isFocused, onT
           {/* Secondary chips — visible on hover to reduce noise */}
           <span className={cn(
             "inline-flex items-center gap-1.5 flex-wrap",
-            "opacity-0 group-hover:opacity-100 motion-safe:transition-opacity motion-safe:duration-150"
+            "md:opacity-0 md:group-hover:opacity-100 motion-safe:transition-opacity motion-safe:duration-150"
           )}>
             {/* Folder chip */}
             {folder && (

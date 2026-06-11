@@ -7,7 +7,12 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import {
+  ResponsiveDialog,
+  ResponsiveDialogContent,
+  ResponsiveDialogHeader,
+  ResponsiveDialogTitle,
+} from "@/components/ui/responsive-dialog";
 import { COLOR_VALUES, ENERGY_LEVEL_VALUES, FREQUENCY_VALUES, TEMPLATE_TYPE_VALUES } from "@/shared/types/enums";
 import { getSystemColor } from "@/shared/utils/system-colors";
 import { ICON_MAP, DEFAULT_ICON } from "./system-icons";
@@ -63,11 +68,11 @@ export function EditSystemDialog({ system, open, onOpenChange }: EditSystemDialo
   const cls = getSystemColor(color);
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-md">
-        <DialogHeader>
-          <DialogTitle>Editar sistema</DialogTitle>
-        </DialogHeader>
+    <ResponsiveDialog open={open} onOpenChange={onOpenChange}>
+      <ResponsiveDialogContent className="sm:max-w-md">
+        <ResponsiveDialogHeader>
+          <ResponsiveDialogTitle>Editar sistema</ResponsiveDialogTitle>
+        </ResponsiveDialogHeader>
 
         <div className="space-y-5">
           {/* Preview */}
@@ -227,7 +232,7 @@ export function EditSystemDialog({ system, open, onOpenChange }: EditSystemDialo
             Save changes
           </Button>
         </div>
-      </DialogContent>
-    </Dialog>
+      </ResponsiveDialogContent>
+    </ResponsiveDialog>
   );
 }

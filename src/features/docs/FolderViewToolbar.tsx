@@ -5,11 +5,11 @@ import { useRouter } from "next/navigation";
 import { FolderPlus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
+  ResponsiveDialog,
+  ResponsiveDialogContent,
+  ResponsiveDialogHeader,
+  ResponsiveDialogTitle,
+} from "@/components/ui/responsive-dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useCreateFolder } from "@/features/folders/folders.hooks";
@@ -53,11 +53,11 @@ export function FolderViewToolbar({ systemId, folderId }: FolderViewToolbarProps
         </Button>
       </div>
 
-      <Dialog open={folderDialogOpen} onOpenChange={setFolderDialogOpen}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Nueva subcarpeta</DialogTitle>
-          </DialogHeader>
+      <ResponsiveDialog open={folderDialogOpen} onOpenChange={setFolderDialogOpen}>
+        <ResponsiveDialogContent>
+          <ResponsiveDialogHeader>
+            <ResponsiveDialogTitle>Nueva subcarpeta</ResponsiveDialogTitle>
+          </ResponsiveDialogHeader>
           <div className="flex flex-col gap-4 pt-1">
             <div className="space-y-1.5">
               <Label htmlFor="subfolder-name">Nombre</Label>
@@ -75,8 +75,8 @@ export function FolderViewToolbar({ systemId, folderId }: FolderViewToolbarProps
               {isPending ? "Creando..." : "Crear subcarpeta"}
             </Button>
           </div>
-        </DialogContent>
-      </Dialog>
+        </ResponsiveDialogContent>
+      </ResponsiveDialog>
 
       <CreatePageDialog
         systemId={systemId}

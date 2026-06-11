@@ -4,11 +4,11 @@ import { useState } from "react";
 import { X, Loader2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
+  ResponsiveDialog,
+  ResponsiveDialogContent,
+  ResponsiveDialogHeader,
+  ResponsiveDialogTitle,
+} from "@/components/ui/responsive-dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -96,11 +96,11 @@ export function StickyNoteCard({ note, context }: StickyNoteCardProps) {
       </div>
 
       {/* Edit dialog */}
-      <Dialog open={editOpen} onOpenChange={setEditOpen}>
-        <DialogContent onClick={(e) => e.stopPropagation()}>
-          <DialogHeader>
-            <DialogTitle>Editar nota</DialogTitle>
-          </DialogHeader>
+      <ResponsiveDialog open={editOpen} onOpenChange={setEditOpen}>
+        <ResponsiveDialogContent onClick={(e) => e.stopPropagation()}>
+          <ResponsiveDialogHeader>
+            <ResponsiveDialogTitle>Editar nota</ResponsiveDialogTitle>
+          </ResponsiveDialogHeader>
           <div className="flex flex-col gap-4 pt-1">
             <Input
               placeholder="Título (opcional)"
@@ -141,8 +141,8 @@ export function StickyNoteCard({ note, context }: StickyNoteCardProps) {
               {isUpdating ? "Guardando..." : "Guardar"}
             </Button>
           </div>
-        </DialogContent>
-      </Dialog>
+        </ResponsiveDialogContent>
+      </ResponsiveDialog>
 
     </>
   );

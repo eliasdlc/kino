@@ -37,6 +37,8 @@ import { DroppableColumn } from "./dnd/DroppableColumn";
 import { parseDueDate, dayToLocalISO } from "./tasks.utils";
 import { cn } from "@/lib/utils";
 import type { Task } from "./tasks.types";
+import { TaskCalendarMobileView } from "./TaskCalendarMobileView";
+import { useIsMobile } from "@/hooks/use-mobile";
 
 interface TaskCalendarViewProps {
   systemId: string;
@@ -113,6 +115,23 @@ export function TaskCalendarView({ systemId, initialData, onNavigateToAction }: 
   const gridStart = startOfWeek(startOfMonth(month), { weekStartsOn: 1 });
   const gridEnd = endOfWeek(endOfMonth(month), { weekStartsOn: 1 });
   const days = eachDayOfInterval({ start: gridStart, end: gridEnd });
+
+  const isMobile = useIsMobile();
+
+  // En mobile los chips de texto no entran en celdas de ~45px: grid con dots
+  // + agenda del día seleccionado, sin drag & drop.
+  if (isMobile) {
+    return (
+      <TaskCalendarMobileView
+        month={month}
+        onMonthChange={setMonth}
+        days={days}
+        byDay={byDay}
+        withoutDate={withoutDate}
+        onNavigateToAction={onNavigateToAction}
+      />
+    );
+  }
 
   function handleDragStart({ active }: DragStartEvent) {
     setDraggingTask(activeTasks.find((t) => t.id === active.id) ?? null);

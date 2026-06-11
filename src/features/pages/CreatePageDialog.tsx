@@ -4,12 +4,12 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from "@/components/ui/dialog";
+  ResponsiveDialog,
+  ResponsiveDialogContent,
+  ResponsiveDialogHeader,
+  ResponsiveDialogTitle,
+  ResponsiveDialogTrigger,
+} from "@/components/ui/responsive-dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { FilePlus, Loader2 } from "lucide-react";
@@ -48,21 +48,21 @@ export function CreatePageDialog({
   }
 
   return (
-    <Dialog open={open} onOpenChange={setOpen}>
+    <ResponsiveDialog open={open} onOpenChange={setOpen}>
       {!isControlled && (
-        <DialogTrigger asChild>
+        <ResponsiveDialogTrigger asChild>
           {trigger ?? (
             <Button size="sm" variant="outline" className="gap-1.5">
               <FilePlus className="size-3.5" />
               Nueva página
             </Button>
           )}
-        </DialogTrigger>
+        </ResponsiveDialogTrigger>
       )}
-      <DialogContent>
-        <DialogHeader>
-          <DialogTitle>Nueva página</DialogTitle>
-        </DialogHeader>
+      <ResponsiveDialogContent>
+        <ResponsiveDialogHeader>
+          <ResponsiveDialogTitle>Nueva página</ResponsiveDialogTitle>
+        </ResponsiveDialogHeader>
         <div className="flex flex-col gap-4 pt-1">
           <div className="space-y-1.5">
             <Label htmlFor="page-title">Título (opcional)</Label>
@@ -81,7 +81,7 @@ export function CreatePageDialog({
             {isPending ? "Creando..." : "Crear página"}
           </Button>
         </div>
-      </DialogContent>
-    </Dialog>
+      </ResponsiveDialogContent>
+    </ResponsiveDialog>
   );
 }

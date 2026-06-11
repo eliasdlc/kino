@@ -113,7 +113,7 @@ export function SubtaskList({ parentTaskId, systemId }: SubtaskListProps) {
                   <button
                     type="button"
                     onClick={() => setDeleteTarget({ id: subtask.id, title: subtask.title })}
-                    className="opacity-0 group-hover:opacity-100 transition-opacity text-muted-foreground hover:text-destructive"
+                    className="md:opacity-0 md:group-hover:opacity-100 transition-opacity text-muted-foreground hover:text-destructive"
                     aria-label="Eliminar subtarea"
                   >
                     <Trash2 size={16} />

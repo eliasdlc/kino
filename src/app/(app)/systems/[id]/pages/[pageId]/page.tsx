@@ -65,16 +65,16 @@ export default async function PageEditorRoute({ params }: PageEditorRouteProps) 
   ];
 
   return (
-    <div className="flex h-screen overflow-hidden flex-col">
+    <div className="flex h-full overflow-hidden flex-col">
       {/* Sticky breadcrumb */}
-      <div className="sticky top-0 z-10 bg-background border-b px-6 py-2.5 shrink-0">
+      <div className="sticky top-0 z-10 bg-background border-b px-4 md:px-6 py-2.5 shrink-0">
         <PageBreadcrumb items={breadcrumbItems} />
       </div>
       {/* Editor + sidebar */}
       <div className="flex flex-1 overflow-hidden">
       {/* Main editor area */}
       <div className="flex-1 overflow-y-auto">
-        <div className="max-w-3xl mx-auto px-6 py-8 space-y-8">
+        <div className="max-w-3xl mx-auto px-4 py-6 md:px-6 md:py-8 space-y-8">
           <StickyNotesGrid pageId={pageId} />
           <PageEditor key={page.id} page={page} systemId={systemId} />
         </div>
