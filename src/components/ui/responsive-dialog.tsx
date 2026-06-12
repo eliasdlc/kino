@@ -36,7 +36,10 @@ interface ResponsiveDialogRootProps {
 
 function ResponsiveDialog(props: ResponsiveDialogRootProps) {
   const isMobile = useIsMobile()
-  if (isMobile) return <Drawer {...props} />
+  // repositionInputs de vaul descarta el drawer cuando el teclado se cierra
+  // (p. ej. al avanzar de step en un form multi-paso); el navegador ya
+  // gestiona el teclado bien con max-h en dvh.
+  if (isMobile) return <Drawer repositionInputs={false} {...props} />
   return <Dialog {...props} />
 }
 
