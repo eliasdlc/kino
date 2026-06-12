@@ -16,6 +16,7 @@ import { Switch } from "@/components/ui/switch";
 import { usePushNotifications } from "@/features/notifications/notifications.hooks";
 import { ApiKeysSection } from "@/features/api-keys/ApiKeysSection";
 import { EnergyLimitSection } from "@/features/settings/EnergyLimitSection";
+import { TimezoneSection } from "@/features/settings/TimezoneSection";
 
 import { Kbd } from "@/components/ui/kbd";
 
@@ -189,6 +190,9 @@ export default function SettingsPage() {
             </p>
           )}
         </div>
+
+        {/* Zona horaria */}
+        <TimezoneSection />
 
         {/* Energía */}
         <EnergyLimitSection />
