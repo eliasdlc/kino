@@ -2,13 +2,7 @@ import { Button } from "@/components/ui/button";
 import { FolderPlus, FilePlus } from "lucide-react";
 
 interface DocsToolbarProps {
-  // TODO(create-folder): Conectar con CreateFolderDialog.
-  // En DocsView, agregar: const [folderDialogOpen, setFolderDialogOpen] = useState(false)
-  // y pasar onNewFolder={() => setFolderDialogOpen(true)}
   onNewFolder?: () => void;
-  // TODO(create-page): Conectar con CreatePageDialog.
-  // En DocsView, agregar: const [pageDialogOpen, setPageDialogOpen] = useState(false)
-  // y pasar onNewPage={() => setPageDialogOpen(true)}
   onNewPage?: () => void;
 }
 
