@@ -19,7 +19,7 @@ export function OnboardingWizard() {
   const router = useRouter();
   const [step, setStep] = useState(0);
   const [isLoading, setIsLoading] = useState(false);
-
+  const [error, setError] = useState<string | null>(null);
   const [chronotype, setChronotype] = useState<Chronotype>('intermediate');
   const [sleepHours, setSleepHours] = useState(7);
   const [rechargePresets, setRechargePresets] = useState<RechargePreset[]>([]);
@@ -53,6 +53,7 @@ export function OnboardingWizard() {
       router.push('/dashboard');
     } catch {
       setIsLoading(false);
+      setError('Algo salió mal, intenta de nuevo.');
     }
   }
 
@@ -64,6 +65,10 @@ export function OnboardingWizard() {
         <div className="px-6 pt-6">
           <Progress value={progress} className="h-1.5" />
         </div>
+      )}
+
+      {error && (
+        <p className="px-6 pt-4 text-center text-sm text-destructive">{error}</p>
       )}
 
       <div className="flex-1 flex items-center justify-center p-6">

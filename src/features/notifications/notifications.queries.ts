@@ -51,6 +51,8 @@ export async function getTasksDueTodayUnnotified(userIds: string[]) {
         inArray(tasks.userId, userIds),
         sql`(${tasks.dueDate} AT TIME ZONE ${users.timezone})::date = (NOW() AT TIME ZONE ${users.timezone})::date`,
         eq(tasks.notifiedDueDay, false),
+        isNull(tasks.completedAt),
+        sql`${tasks.status} NOT IN ('done', 'archived')`,
         isNull(tasks.deletedAt),
       ),
     );
@@ -67,6 +69,8 @@ export async function getTasksDueTomorrowUnnotified(userIds: string[]) {
         inArray(tasks.userId, userIds),
         sql`(${tasks.dueDate} AT TIME ZONE ${users.timezone})::date = (NOW() AT TIME ZONE ${users.timezone})::date + 1`,
         eq(tasks.notifiedBeforeDay, false),
+        isNull(tasks.completedAt),
+        sql`${tasks.status} NOT IN ('done', 'archived')`,
         isNull(tasks.deletedAt),
       ),
     );
@@ -110,6 +114,7 @@ export async function getPendingReminders(): Promise<PendingReminder[]> {
     WHERE tr.remind_at <= NOW()
       AND tr.sent_at IS NULL
       AND t.completed_at IS NULL
+      AND t.status NOT IN ('done', 'archived')
       AND t.deleted_at IS NULL
       AND EXISTS (SELECT 1 FROM push_subscriptions ps WHERE ps.user_id = tr.user_id)
   `);
@@ -151,6 +156,7 @@ export async function getTasksForEscalation(): Promise<EscalationTask[]> {
     INNER JOIN users u ON u.id = t.user_id
     WHERE t.notified_due_day = true
       AND t.completed_at IS NULL
+      AND t.status NOT IN ('done', 'archived')
       AND t.deleted_at IS NULL
       AND t.due_date IS NOT NULL
       AND (t.due_date AT TIME ZONE u.timezone)::date <= (NOW() AT TIME ZONE u.timezone)::date

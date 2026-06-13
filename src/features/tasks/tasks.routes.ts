@@ -3,6 +3,7 @@ import { bulkMoveSchema, bulkUpdateSchema, bulkCreateTaskSchema, listTasksQueryS
 import { bulkMoveTasks, bulkUpdateTasks, bulkCreateTasks, queryTasks, createTask, deleteTask, getSubtasks, getTaskById, getTasksBySystem, moveTask, reorderTasks, restoreTask, toggleTask, updateTask, createTimeLog, getTimeLogSummary, ensureTodayPlanRolled } from "./tasks.service";
 import { NotFoundError, ValidationError } from "@/shared/utils/error";
 import { getAuthContext } from "@/shared/utils/auth-context";
+import { getSystembyId } from "@/features/systems/systems.service";
 
 export async function GET(
     request: NextRequest,
@@ -15,6 +16,9 @@ export async function GET(
     try {
         // Rollover + reconcile diario lazy (gated 1×/día) antes de leer.
         await ensureTodayPlanRolled(ctx.userId);
+        const system = await getSystembyId(systemId, ctx.userId);
+        if (!system) return NextResponse.json({ code: 'NOT_FOUND'}, { status: 404 });
+
         const tasks = await getTasksBySystem(systemId, ctx.userId);
         return NextResponse.json(tasks);
     } catch {

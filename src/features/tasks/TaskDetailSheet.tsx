@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { useIsMobile } from "@/hooks/use-mobile";
 import { format } from "date-fns";
 import { parseDueDate } from "./tasks.utils";
 import { CalendarIcon, Timer } from "lucide-react";
@@ -116,6 +117,7 @@ interface TaskDetailFormProps {
 }
 
 function TaskDetailForm({ task, systemId, onClose }: TaskDetailFormProps) {
+  const isMobile = useIsMobile();
   const { mutate: updateTask, isPending } = useUpdateTask(systemId);
   const { data: folders = [] } = useFolders(systemId);
 
@@ -222,7 +224,9 @@ function TaskDetailForm({ task, systemId, onClose }: TaskDetailFormProps) {
           value={title}
           onChange={(e) => setTitle(e.target.value)}
           maxLength={500}
-          autoFocus
+          // En mobile el autofocus abre el teclado al entrar a *ver* la
+          // tarea y tapa media pantalla; solo tiene sentido con teclado físico.
+          autoFocus={!isMobile}
         />
       </div>
 

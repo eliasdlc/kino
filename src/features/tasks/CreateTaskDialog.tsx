@@ -5,6 +5,7 @@ import { useForm, Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { format } from "date-fns";
+import { es } from "date-fns/locale";
 import type { DateRange } from "react-day-picker";
 import { Button } from "@/components/ui/button";
 import {
@@ -30,6 +31,7 @@ import { getSystemColor } from "@/shared/utils/system-colors";
 import { TaskTypePicker } from "./TaskTypePicker";
 import { getTaskTypeConfig } from "./task-type-config";
 import { dayToLocalISO } from "./tasks.utils";
+import { parseQuickDate } from "./quick-date-parse";
 import { EstimatedTimePicker, minutesToTimeString } from "./EstimatedTimePicker";
 import { useQueryClient } from "@tanstack/react-query";
 import { SYSTEM_TYPE_CONFIG, type SystemType } from "@/shared/lib/system-types";
@@ -116,7 +118,23 @@ export function CreateTaskDialog({
   const taskType = form.watch('taskType');
   const typeConfig = getTaskTypeConfig(taskType);
 
+  // Fechas en lenguaje natural escritas en el título ("pagar luz mañana a las 5").
+  const [nlIgnored, setNlIgnored] = useState(false);
+  const nlParsed = nlIgnored ? null : parseQuickDate(form.watch('title'));
+
+  function applyNlParse() {
+    if (!nlParsed) return;
+    if (form.getValues('startDate') || form.getValues('dueDate')) return;
+    if (nlParsed.title) form.setValue('title', nlParsed.title);
+    const day = new Date(nlParsed.dueDate + 'T00:00:00');
+    form.setValue('startDate', nlParsed.dueDate);
+    form.setValue('dueDate', nlParsed.dueDate);
+    if (nlParsed.dueTime) form.setValue('dueTime', nlParsed.dueTime);
+    setDateRange({ from: day, to: day });
+  }
+
   async function nextStep() {
+    if (step === 1) applyNlParse();
     const ok = await form.trigger(STEP_FIELDS[step]);
     if (ok && step < 3) setStep((s) => (s + 1) as 1 | 2 | 3);
   }
@@ -126,6 +144,10 @@ export function CreateTaskDialog({
   }
 
   async function onSubmit(values: FormValues) {
+    if (step === 1 && nlParsed && !values.startDate && !values.dueDate) {
+      applyNlParse();
+      values = form.getValues();
+    }
     if (values.taskType === 'event' && !values.startDate) {
       form.setError('startDate', { message: 'Los eventos requieren fecha de inicio' });
       setStep(2);
@@ -155,7 +177,7 @@ export function CreateTaskDialog({
     try {
       const parent = await createTask(payload);
       const validSubtasks = subtasks.filter((s) => s.title.trim());
-      await Promise.all(
+      await Promise.allSettled(
         validSubtasks.map((s) =>
           createTask({
             systemId,
@@ -182,6 +204,7 @@ export function CreateTaskDialog({
       setSubtasks([]);
       setDateRange({ from: undefined, to: undefined });
       setSubmitError(null);
+      setNlIgnored(false);
     }
   }
 
@@ -218,6 +241,23 @@ export function CreateTaskDialog({
             />
             {form.formState.errors.title && (
               <p className="text-xs text-destructive">{form.formState.errors.title.message}</p>
+            )}
+            {nlParsed && (
+              <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                <CalendarRange size={12} className="shrink-0" />
+                <span>
+                  Se programará: {format(new Date(nlParsed.dueDate + 'T00:00:00'), 'EEE d MMM', { locale: es })}
+                  {nlParsed.dueTime ? ` · ${nlParsed.dueTime}` : ''}
+                </span>
+                <button
+                  type="button"
+                  aria-label="Ignorar fecha detectada"
+                  onClick={() => setNlIgnored(true)}
+                  className="rounded p-0.5 hover:bg-accent"
+                >
+                  <X size={12} />
+                </button>
+              </div>
             )}
           </div>
         </div>
