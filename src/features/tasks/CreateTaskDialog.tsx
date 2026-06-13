@@ -544,7 +544,10 @@ export function CreateTaskDialog({
   return (
     <ResponsiveDialog open={open} onOpenChange={handleClose}>
       {!isControlled && (
-        <Button variant="outline" className="w-fit" onClick={() => setOpen(true)}>Nueva tarea</Button>
+        <Button variant="outline" className="w-fit shrink-0 max-md:px-2.5" onClick={() => setOpen(true)}>
+          <Plus className="size-4 md:hidden" />
+          <span className="hidden md:inline">Nueva tarea</span>
+        </Button>
       )}
       <ResponsiveDialogContent className="max-h-[90vh] overflow-y-auto">
         <ResponsiveDialogHeader>

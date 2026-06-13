@@ -2,50 +2,17 @@
 
 import { useState } from "react";
 import { useSystems, useDeleteSystem } from "./systems.hooks";
-import Link from "next/link";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
-import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { MoreHorizontal, Eye, Pencil, Trash2, Search, AlertTriangle } from "lucide-react";
+import { Search } from "lucide-react";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { EditSystemDialog } from "./EditSystemDialog";
+import { SystemCard } from "./SystemCard";
 import type { System } from "./systems.types";
-
-const COLOR_BORDER: Record<string, string> = {
-  blue: "border-t-blue-500",
-  red: "border-t-red-500",
-  green: "border-t-green-500",
-  yellow: "border-t-yellow-500",
-  purple: "border-t-purple-500",
-  pink: "border-t-pink-500",
-  orange: "border-t-orange-500",
-  teal: "border-t-teal-500",
-  gray: "border-t-gray-500",
-  black: "border-t-gray-900",
-  white: "border-t-gray-300",
-  cyan: "border-t-cyan-500",
-};
 
 function SystemCardSkeleton() {
   return (
-    <Card className="border-t-4 border-t-muted">
-      <CardHeader className="pb-2">
-        <Skeleton className="h-5 w-2/3" />
-      </CardHeader>
-      <CardContent className="space-y-2">
-        <Skeleton className="h-4 w-1/2" />
-        <Skeleton className="h-4 w-1/3" />
-      </CardContent>
-    </Card>
+    <Skeleton className="mx-auto aspect-square w-full max-w-[260px] rounded-[28px]" />
   );
 }
 
@@ -58,7 +25,7 @@ export function SystemsList() {
 
   if (isLoading) {
     return (
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
         {[...Array(6)].map((_, i) => (
           <SystemCardSkeleton key={i} />
         ))}
@@ -86,15 +53,17 @@ export function SystemsList() {
     );
   }
 
-  const filteredSystems = systems.filter(s => !s.isInbox && s.name.toLowerCase().includes(searchQuery.toLowerCase()));
+  const filteredSystems = systems.filter(
+    (s) => !s.isInbox && s.name.toLowerCase().includes(searchQuery.toLowerCase())
+  );
 
   return (
     <div className="space-y-4">
       <div className="relative max-w-sm">
         <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground" />
-        <Input 
-          className="pl-9" 
-          placeholder="Search systems..." 
+        <Input
+          className="pl-9"
+          placeholder="Search systems..."
           value={searchQuery}
           onChange={(e) => setSearchQuery(e.target.value)}
         />
@@ -107,76 +76,16 @@ export function SystemsList() {
           </p>
         </div>
       ) : (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-          {filteredSystems.map((system) => {
-            const borderColor = COLOR_BORDER[system.color] ?? "border-t-gray-400";
-          return (
-            <Link key={system.id} href={`/systems/${system.id}`} className="group">
-              <Card
-                className={`border-t-4 ${borderColor} motion-safe:transition-all hover:shadow-md motion-safe:hover:-translate-y-0.5 ${system.stale ? "ring-1 ring-amber-500/40" : ""}`}
-              >
-                <CardHeader className="pb-2">
-                  <div className="flex items-start justify-between">
-                    <CardTitle className="text-base group-hover:text-primary motion-safe:transition-colors">
-                      {system.name}
-                    </CardTitle>
-                    <DropdownMenu>
-                      <DropdownMenuTrigger asChild onClick={(e) => e.preventDefault()}>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="size-7 opacity-0 group-hover:opacity-100 motion-safe:transition-opacity"
-                        >
-                          <MoreHorizontal className="size-4" />
-                        </Button>
-                      </DropdownMenuTrigger>
-                      <DropdownMenuContent align="end">
-                        <DropdownMenuItem asChild>
-                          <Link href={`/systems/${system.id}`} className="flex items-center gap-2">
-                            <Eye className="size-4" />
-                            View
-                          </Link>
-                        </DropdownMenuItem>
-                        <DropdownMenuItem
-                          className="flex items-center gap-2"
-                          onClick={(e) => { e.preventDefault(); setEditTarget(system); }}
-                        >
-                          <Pencil className="size-4" />
-                          Edit
-                        </DropdownMenuItem>
-                        <DropdownMenuSeparator />
-                        <DropdownMenuItem
-                          className="text-destructive focus:text-destructive flex items-center gap-2"
-                          onClick={(e) => { e.preventDefault(); setDeleteTarget(system); }}
-                        >
-                          <Trash2 className="size-4" />
-                          Delete
-                        </DropdownMenuItem>
-                      </DropdownMenuContent>
-                    </DropdownMenu>
-                  </div>
-                </CardHeader>
-                <CardContent>
-                  <div className="flex items-center gap-2 flex-wrap">
-                    <Badge variant="secondary" className="text-xs">
-                      {system.templateType}
-                    </Badge>
-                    {system.stale && (
-                      <Badge
-                        variant="outline"
-                        className="text-xs gap-1 border-amber-500/40 text-amber-600 dark:text-amber-500"
-                      >
-                        <AlertTriangle className="size-3" />
-                        Stale
-                      </Badge>
-                    )}
-                  </div>
-                </CardContent>
-              </Card>
-            </Link>
-          );
-        })}
-      </div>
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
+          {filteredSystems.map((system) => (
+            <SystemCard
+              key={system.id}
+              system={system}
+              onEdit={() => setEditTarget(system)}
+              onDelete={() => setDeleteTarget(system)}
+            />
+          ))}
+        </div>
       )}
 
       {editTarget && (
@@ -200,4 +109,3 @@ export function SystemsList() {
     </div>
   );
 }
-

@@ -44,7 +44,7 @@ export default async function DashboardPage() {
   ]);
 
   return (
-    <div className="h-full overflow-hidden p-3 md:p-4">
+    <div className="md:h-full md:overflow-hidden p-3 md:p-4">
       <NotificationPromptCard />
 
       <div className="dashboard-grid h-full">

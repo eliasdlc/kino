@@ -8,6 +8,7 @@ export type System = typeof systems.$inferSelect;
 export type SystemWithSignals = System & {
   stale: boolean;
   daysSinceLastActivity: number | null;
+  activeTaskCount: number;
 };
 
 export type CreateSystemInput = z.infer<typeof createSystemSchema>;

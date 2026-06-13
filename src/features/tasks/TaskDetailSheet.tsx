@@ -6,11 +6,11 @@ import { format } from "date-fns";
 import { parseDueDate } from "./tasks.utils";
 import { CalendarIcon, Timer } from "lucide-react";
 import {
-  Sheet,
-  SheetContent,
-  SheetHeader,
-  SheetTitle,
-} from "@/components/ui/sheet";
+  ResponsiveDialog,
+  ResponsiveDialogContent,
+  ResponsiveDialogHeader,
+  ResponsiveDialogTitle,
+} from "@/components/ui/responsive-dialog";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { Input } from "@/components/ui/input";
@@ -424,22 +424,20 @@ function TaskDetailForm({ task, systemId, onClose }: TaskDetailFormProps) {
 
 export function TaskDetailSheet({ task, systemId, open, onOpenChange }: TaskDetailSheetProps) {
   return (
-    <Sheet open={open} onOpenChange={onOpenChange}>
-      <SheetContent className="w-full sm:max-w-lg overflow-y-auto flex flex-col">
-        <SheetHeader className="px-6 pt-6 pb-0">
-          <SheetTitle>Editar tarea</SheetTitle>
-        </SheetHeader>
+    <ResponsiveDialog open={open} onOpenChange={onOpenChange}>
+      <ResponsiveDialogContent className="sm:max-w-lg max-h-[90vh] overflow-y-auto">
+        <ResponsiveDialogHeader>
+          <ResponsiveDialogTitle>Editar tarea</ResponsiveDialogTitle>
+        </ResponsiveDialogHeader>
         {task && (
-          <div className="flex-1 px-6 pb-6 pt-4">
-            <TaskDetailForm
-              key={task.id}
-              task={task}
-              systemId={systemId}
-              onClose={() => onOpenChange(false)}
-            />
-          </div>
+          <TaskDetailForm
+            key={task.id}
+            task={task}
+            systemId={systemId}
+            onClose={() => onOpenChange(false)}
+          />
         )}
-      </SheetContent>
-    </Sheet>
+      </ResponsiveDialogContent>
+    </ResponsiveDialog>
   );
 }

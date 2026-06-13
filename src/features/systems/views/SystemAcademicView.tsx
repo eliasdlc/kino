@@ -30,14 +30,24 @@ export function SystemAcademicView({ system, initialTasks }: SystemViewProps) {
     <>
       <Tabs value={tab} onValueChange={setTab} className="w-full flex flex-col gap-4">
         <div className="flex items-center gap-2">
-          <div className="overflow-x-auto flex-1 min-w-0">
-            <TabsList className="w-max">
-              <TabsTrigger value="esta-semana">Esta Semana</TabsTrigger>
-              <TabsTrigger value="calendar">Calendario</TabsTrigger>
-              <TabsTrigger value="planning">Planificación</TabsTrigger>
-              <TabsTrigger value="archive">Archivadas</TabsTrigger>
-            </TabsList>
-          </div>
+          <TabsList className="flex-1 min-w-0 md:flex-none md:w-max">
+            <TabsTrigger value="esta-semana" className="min-w-0 px-2 text-xs md:px-3 md:text-sm">
+              <span className="md:hidden">Semana</span>
+              <span className="hidden md:inline">Esta Semana</span>
+            </TabsTrigger>
+            <TabsTrigger value="calendar" className="min-w-0 px-2 text-xs md:px-3 md:text-sm">
+              <span className="md:hidden">Cal</span>
+              <span className="hidden md:inline">Calendario</span>
+            </TabsTrigger>
+            <TabsTrigger value="planning" className="min-w-0 px-2 text-xs md:px-3 md:text-sm">
+              <span className="md:hidden">Plan</span>
+              <span className="hidden md:inline">Planificación</span>
+            </TabsTrigger>
+            <TabsTrigger value="archive" className="min-w-0 px-2 text-xs md:px-3 md:text-sm">
+              <span className="md:hidden">Archivo</span>
+              <span className="hidden md:inline">Archivadas</span>
+            </TabsTrigger>
+          </TabsList>
           <CreateTaskDialog systemId={system.id} />
         </div>
 

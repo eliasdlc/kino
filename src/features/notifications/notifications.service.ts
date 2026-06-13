@@ -71,7 +71,7 @@ async function sendStandardReminders(): Promise<number> {
           ? today[0]
           : `${today[0]} y ${today.length - 1} tarea${today.length - 1 > 1 ? 's' : ''} más`;
         await sendPushToUser(userId, {
-          title: `Kino · Vence hoy${today.length > 1 ? ` (${today.length})` : ''}`,
+          title: `Vence hoy${today.length > 1 ? ` · ${today.length}` : ''}`,
           body,
           url: '/tasks',
         });
@@ -83,7 +83,7 @@ async function sendStandardReminders(): Promise<number> {
           ? tomorrow[0]
           : `${tomorrow[0]} y ${tomorrow.length - 1} tarea${tomorrow.length - 1 > 1 ? 's' : ''} más`;
         await sendPushToUser(userId, {
-          title: `Kino · Vence mañana${tomorrow.length > 1 ? ` (${tomorrow.length})` : ''}`,
+          title: `Vence mañana${tomorrow.length > 1 ? ` · ${tomorrow.length}` : ''}`,
           body,
           url: '/tasks',
         });
@@ -109,7 +109,7 @@ async function sendPendingReminders(): Promise<number> {
   await Promise.allSettled(
     pending.map(({ userId, taskTitle, label }) =>
       sendPushToUser(userId, {
-        title: label ? `Kino · ${label}` : 'Kino · Recordatorio',
+        title: label ?? 'Recordatorio',
         body: taskTitle,
         url: '/tasks',
       }),
@@ -135,7 +135,7 @@ async function sendEscalationReminders(): Promise<number> {
   await Promise.allSettled(
     tasks.map(({ userId, title, priority }) =>
       sendPushToUser(userId, {
-        title: `Kino · ${PRIORITY_LABEL[priority] ?? 'Pendiente'} — sin completar`,
+        title: `${PRIORITY_LABEL[priority] ?? 'Pendiente'} · sin completar`,
         body: title,
         url: '/tasks',
       }),

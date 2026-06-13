@@ -2,7 +2,7 @@
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import type { CreateFolderInput, UpdateFolderInput } from "./folders.schemas";
-import type { FolderListItem } from "./folders.types";
+import type { FolderListItem, FolderWithCounts } from "./folders.types";
 
 export const folderKeys = {
   bySystem: (systemId: string) => ["folders", systemId] as const,
@@ -10,7 +10,7 @@ export const folderKeys = {
 };
 
 export function useFolders(systemId: string, options?: { enabled?: boolean }) {
-  return useQuery<FolderListItem[]>({
+  return useQuery<FolderWithCounts[]>({
     queryKey: folderKeys.bySystem(systemId),
     queryFn: async () => {
       const res = await fetch(`/api/systems/${systemId}/folders`);
@@ -23,7 +23,7 @@ export function useFolders(systemId: string, options?: { enabled?: boolean }) {
 }
 
 export function useFolderChildren(folderId: string) {
-  return useQuery<FolderListItem[]>({
+  return useQuery<FolderWithCounts[]>({
     queryKey: folderKeys.children(folderId),
     queryFn: async () => {
       const res = await fetch(`/api/folders/${folderId}/children`);
@@ -74,14 +74,14 @@ export function useUpdateFolder(systemId: string) {
     },
     onMutate: async ({ folderId, data }) => {
       await qc.cancelQueries({ queryKey: folderKeys.bySystem(systemId) });
-      const previous = qc.getQueryData<FolderListItem[]>(folderKeys.bySystem(systemId));
-      qc.setQueryData<FolderListItem[]>(folderKeys.bySystem(systemId), (old = []) =>
+      const previous = qc.getQueryData<FolderWithCounts[]>(folderKeys.bySystem(systemId));
+      qc.setQueryData<FolderWithCounts[]>(folderKeys.bySystem(systemId), (old = []) =>
         old.map((f) => (f.id === folderId ? { ...f, ...data } : f))
       );
       return { previous };
     },
     onError: (_err, _vars, context) => {
-      const ctx = context as { previous?: FolderListItem[] } | undefined;
+      const ctx = context as { previous?: FolderWithCounts[] } | undefined;
       if (ctx?.previous) qc.setQueryData(folderKeys.bySystem(systemId), ctx.previous);
     },
     onSettled: () => {
@@ -100,14 +100,14 @@ export function useDeleteFolder(systemId: string) {
     },
     onMutate: async (folderId) => {
       await qc.cancelQueries({ queryKey: folderKeys.bySystem(systemId) });
-      const previous = qc.getQueryData<FolderListItem[]>(folderKeys.bySystem(systemId));
-      qc.setQueryData<FolderListItem[]>(folderKeys.bySystem(systemId), (old = []) =>
+      const previous = qc.getQueryData<FolderWithCounts[]>(folderKeys.bySystem(systemId));
+      qc.setQueryData<FolderWithCounts[]>(folderKeys.bySystem(systemId), (old = []) =>
         old.filter((f) => f.id !== folderId)
       );
       return { previous };
     },
     onError: (_err, _vars, context) => {
-      const ctx = context as { previous?: FolderListItem[] } | undefined;
+      const ctx = context as { previous?: FolderWithCounts[] } | undefined;
       if (ctx?.previous) qc.setQueryData(folderKeys.bySystem(systemId), ctx.previous);
     },
     onSettled: () => {

@@ -50,6 +50,7 @@ export async function getUsersSystems(userId: string): Promise<SystemWithSignals
 
   return userSystems.map((system) => {
     const s = statsBySystem.get(system.id);
+    const activeTaskCount = Number(s?.activeCount ?? 0);
     const lastAt = s?.lastCompletedAt ? new Date(s.lastCompletedAt) : null;
     const daysSinceLastActivity = lastAt
       ? Math.floor((now - lastAt.getTime()) / 86_400_000)
@@ -58,11 +59,11 @@ export async function getUsersSystems(userId: string): Promise<SystemWithSignals
       ? false
       : deriveStale({
           expectedFrequency: system.expectedFrequency,
-          activeTaskCount: Number(s?.activeCount ?? 0),
+          activeTaskCount,
           daysSinceLastActivity,
           daysSinceCreated: Math.floor((now - system.createdAt.getTime()) / 86_400_000),
         });
-    return { ...system, stale, daysSinceLastActivity };
+    return { ...system, stale, daysSinceLastActivity, activeTaskCount };
   });
 }
 export async function createSystem(userId: string, input: CreateSystemInput) {

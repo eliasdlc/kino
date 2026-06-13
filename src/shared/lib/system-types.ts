@@ -28,6 +28,14 @@ export const SYSTEM_TAB_LABELS: Record<SystemTabId, string> = {
   archive: "Archivo",
 };
 
+/** Etiquetas cortas para mobile: caben 4 tabs en una fila sin scroll. */
+export const SYSTEM_TAB_SHORT_LABELS: Record<SystemTabId, string> = {
+  backlog: "Backlog",
+  planning: "Plan",
+  action: "Acción",
+  archive: "Archivo",
+};
+
 /** Configuración por-sistema persistida en systems.metadata (JSON). */
 export interface SystemMetadata {
   /** Tabs visibles elegidos por el usuario (solo Custom). */

@@ -187,7 +187,7 @@ export function TaskCard({ task, systemId, systemType, draggable, isFocused, onT
   return (
     <div
       className={cn(
-        "group relative flex items-start gap-3.5 px-4 py-3.5 rounded-xl border motion-safe:transition-[border-color,background] motion-safe:duration-150",
+        "group relative flex items-start gap-3 px-3.5 py-3 md:gap-3.5 md:px-4 md:py-3.5 rounded-xl border motion-safe:transition-[border-color,background] motion-safe:duration-150",
         !isCritical && !isHigh && !isFocused && "bg-[#1a1a1e] border-white/[0.07] hover:bg-[#1e1e23] hover:border-white/[0.13]",
         isCritical && "bg-[rgba(188,38,38,0.13)] border-[rgba(220,50,50,0.35)] hover:border-[rgba(220,50,50,0.55)] hover:bg-[rgba(188,38,38,0.18)]",
         isHigh && "bg-[rgba(180,90,20,0.13)] border-[rgba(230,115,30,0.35)] hover:border-[rgba(230,115,30,0.55)] hover:bg-[rgba(180,90,20,0.18)]",
@@ -229,7 +229,7 @@ export function TaskCard({ task, systemId, systemType, draggable, isFocused, onT
             type="button"
             onClick={() => onEdit?.(task)}
             className={cn(
-              "text-base font-normal text-zinc-200 truncate text-left leading-snug",
+              "text-sm md:text-base font-normal text-zinc-200 truncate text-left leading-snug",
               isDone && "line-through text-zinc-500"
             )}
           >
@@ -286,7 +286,7 @@ export function TaskCard({ task, systemId, systemType, draggable, isFocused, onT
           {/* Type badge */}
           {task.taskType && (
             <span className={cn(
-              "inline-flex items-center gap-1 text-sm font-medium px-2 py-0.5 rounded-md",
+              "inline-flex items-center gap-1 text-xs md:text-sm font-medium px-2 py-0.5 rounded-md",
               TYPE_BADGE[task.taskType] ?? TYPE_BADGE.todo
             )}>
               <TypeIcon size={13} />
@@ -296,7 +296,7 @@ export function TaskCard({ task, systemId, systemType, draggable, isFocused, onT
 
           {/* Status badge */}
           <span className={cn(
-            "font-mono text-sm font-medium px-2 py-0.5 rounded-md tracking-[0.02em]",
+            "font-mono text-xs md:text-sm font-medium px-2 py-0.5 rounded-md tracking-[0.02em]",
             STATUS_BADGE[task.status] ?? STATUS_BADGE.backlog
           )}>
             {task.status}
@@ -312,7 +312,7 @@ export function TaskCard({ task, systemId, systemType, draggable, isFocused, onT
             <>
               <span className="text-sm text-zinc-700">·</span>
               <span className={cn(
-                "inline-flex items-center gap-1 font-mono text-sm",
+                "inline-flex items-center gap-1 font-mono text-xs md:text-sm",
                 isOverdue ? "text-[#f87171] font-medium" : isDueSoon ? "text-[#fbbf24]" : "text-zinc-500"
               )}>
                 {isOverdue ? <ClockIcon /> : <CalendarIcon />}

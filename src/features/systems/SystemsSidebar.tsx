@@ -103,39 +103,13 @@ export function SystemsSidebar({
   const sidebarContent = (
     <>
       {/* Logo + User */}
-      <div className="p-4 border-b border-sidebar-border space-y-3">
-        <div className="flex items-center">
-          {!effectiveCollapsed && (
-            <Link
-              href="/dashboard"
-              className="font-bold text-lg tracking-tight text-sidebar-foreground"
-              onClick={() => isMobile && setOpenMobile(false)}
-            >
-              Kino
-            </Link>
-          )}
-          {!isMobile && (
-            <button
-              onClick={toggleSidebar}
-              className={cn(
-                "p-1 rounded-md hover:bg-sidebar-accent text-muted-foreground motion-safe:transition-colors",
-                effectiveCollapsed ? "mx-auto" : "ml-auto"
-              )}
-            >
-              {effectiveCollapsed ? (
-                <PanelLeftOpen className="size-5" />
-              ) : (
-                <PanelLeftClose className="size-5" />
-              )}
-            </button>
-          )}
-        </div>
-
+      <div className="p-2 border-b border-sidebar-border ">
+        <div className={cn("flex items-center gap-1", effectiveCollapsed ? "flex-col justify-center" : "")}>
         <DropdownMenu>
           <DropdownMenuTrigger
             className={cn(
-              "flex items-center w-full rounded-md px-2 py-1.5 hover:bg-sidebar-accent motion-safe:transition-colors outline-none",
-              effectiveCollapsed ? "justify-center" : "gap-2.5"
+              "flex items-center rounded-md px-2 py-1.5 hover:bg-sidebar-accent motion-safe:transition-colors outline-none",
+              effectiveCollapsed ? "justify-center" : "gap-2.5 flex-1 min-w-0"
             )}
           >
             <Avatar className="size-8 shrink-0">
@@ -151,11 +125,6 @@ export function SystemsSidebar({
                 <span className="text-sm font-medium truncate text-sidebar-foreground">
                   {userName ?? "Usuario"}
                 </span>
-                {userEmail && (
-                  <span className="text-xs text-muted-foreground truncate max-w-[160px]">
-                    {userEmail}
-                  </span>
-                )}
               </div>
             )}
           </DropdownMenuTrigger>
@@ -183,6 +152,23 @@ export function SystemsSidebar({
             </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
+
+        {!isMobile && (
+          <button
+            onClick={toggleSidebar}
+            className={cn(
+              "p-1 rounded-md hover:bg-sidebar-accent text-muted-foreground motion-safe:transition-colors shrink-0",
+              effectiveCollapsed && "order-first"
+            )}
+          >
+            {effectiveCollapsed ? (
+              <PanelLeftOpen className="size-5" />
+            ) : (
+              <PanelLeftClose className="size-5" />
+            )}
+          </button>
+        )}
+        </div>
       </div>
 
       {/* Navigation */}
