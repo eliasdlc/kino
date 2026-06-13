@@ -54,6 +54,9 @@ export function GlobalNavigationShortcuts() {
       } else if (key === "d") {
         router.push("/dashboard");
         handled = true;
+      } else if (key === "t") {
+        router.push("/tasks");
+        handled = true;
       }
 
       if (handled) {

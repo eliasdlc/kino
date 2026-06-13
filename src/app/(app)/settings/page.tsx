@@ -117,10 +117,20 @@ export default function SettingsPage() {
               description="Navega al sistema Inbox" 
               keys={<><Kbd>G</Kbd><span className="text-xs text-muted-foreground mx-0.5">luego</span><Kbd>I</Kbd></>} 
             />
-            <ShortcutRow 
-              label="Ir a Sistemas" 
-              description="Navega a la vista de todos los sistemas" 
-              keys={<><Kbd>G</Kbd><span className="text-xs text-muted-foreground mx-0.5">luego</span><Kbd>S</Kbd></>} 
+            <ShortcutRow
+              label="Ir a Sistemas"
+              description="Navega a la vista de todos los sistemas"
+              keys={<><Kbd>G</Kbd><span className="text-xs text-muted-foreground mx-0.5">luego</span><Kbd>S</Kbd></>}
+            />
+            <ShortcutRow
+              label="Ir a Tareas"
+              description="Navega a la vista global de tareas"
+              keys={<><Kbd>G</Kbd><span className="text-xs text-muted-foreground mx-0.5">luego</span><Kbd>T</Kbd></>}
+            />
+            <ShortcutRow
+              label="Ir a Dashboard"
+              description="Navega al dashboard"
+              keys={<><Kbd>G</Kbd><span className="text-xs text-muted-foreground mx-0.5">luego</span><Kbd>D</Kbd></>}
             />
             <ShortcutRow 
               label="Navegar lista" 
