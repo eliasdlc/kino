@@ -1,11 +1,14 @@
-import { format, parseISO } from 'date-fns';
-import { es } from 'date-fns/locale';
+import { parseISO } from 'date-fns';
 import { cn } from '@/lib/utils';
 import type { WeeklyTrend } from '@/features/energy/energy.service';
 
 interface Props {
   trends: WeeklyTrend;
 }
+
+// Inicial del día en español por getDay() (0=domingo). X = miércoles, para no
+// repetir "M" con martes.
+const WEEKDAY_LETTERS = ['D', 'L', 'M', 'X', 'J', 'V', 'S'] as const;
 
 // Construye un mapa date→valor para acceso rápido
 function toMap<T extends { date: string }>(rows: T[]): Map<string, T> {
@@ -30,7 +33,7 @@ export function WeeklyTrendsCard({ trends }: Props) {
 
   const days = dates.map((date) => ({
     date,
-    label: format(parseISO(date), 'EEEEE', { locale: es }).toUpperCase(),
+    label: WEEKDAY_LETTERS[parseISO(date).getDay()],
     snapshot: snapshotMap.get(date) ?? null,
     checkin: checkinMap.get(date) ?? null,
   }));
