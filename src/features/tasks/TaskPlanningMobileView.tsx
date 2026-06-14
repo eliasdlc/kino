@@ -17,7 +17,7 @@ import { cn } from "@/lib/utils";
 import { PlanningTaskCard } from "./PlanningTaskCard";
 import { MultiDayTaskBar } from "./MultiDayTaskBar";
 import type { Task } from "./tasks.types";
-import { parseDueDate } from "./tasks.utils";
+import { parseDueDate, parseTaskDay } from "./tasks.utils";
 
 interface TaskPlanningMobileViewProps {
   weekDates: Date[];
@@ -61,9 +61,10 @@ export function TaskPlanningMobileView({
   const selectedDate = weekDates[selectedIndex]!;
   const selectedISO = format(selectedDate, "yyyy-MM-dd");
 
-  const dayTasks = singleDayTasks.filter(
-    (t) => t.startDate && isSameDay(parseDueDate(t.startDate), selectedDate)
-  );
+  const dayTasks = singleDayTasks.filter((t) => {
+    const anchor = t.startDate ?? t.dueDate;
+    return anchor != null && isSameDay(parseTaskDay(anchor), selectedDate);
+  });
   const dayMultiTasks = multiDayTasks.filter((t) =>
     isWithinInterval(selectedDate, {
       start: startOfDay(parseDueDate(t.startDate!)),
@@ -72,9 +73,10 @@ export function TaskPlanningMobileView({
   );
 
   function hasTasks(date: Date) {
-    return singleDayTasks.some(
-      (t) => t.startDate && isSameDay(parseDueDate(t.startDate), date)
-    );
+    return singleDayTasks.some((t) => {
+      const anchor = t.startDate ?? t.dueDate;
+      return anchor != null && isSameDay(parseTaskDay(anchor), date);
+    });
   }
 
   return (

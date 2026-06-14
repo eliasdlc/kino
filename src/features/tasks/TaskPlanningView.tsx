@@ -31,7 +31,7 @@ import { TaskDragOverlay } from "./dnd/TaskDragOverlay";
 import type { TaskDragData } from "./dnd/dnd.types";
 import { useTasks, useFolderTasks, useToggleTask, useDeleteTaskWithUndo, useUpdateTask } from "./tasks.hooks";
 import type { Task } from "./tasks.types";
-import { parseDueDate, dayToLocalISO } from "./tasks.utils";
+import { parseDueDate, parseTaskDay, dayToLocalISO } from "./tasks.utils";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { useTaskKeyboardNavigation } from "./useTaskKeyboardNavigation";
 import { MultiDayTaskBar } from "./MultiDayTaskBar";
@@ -110,9 +110,11 @@ export function TaskPlanningView({ systemId, initialData, folderId, folderInitia
         return !isAfter(start, weekEnd) && !isBefore(due, weekStart);
       }
 
-      // Single-day task
-      if (task.startDate) {
-        const date = parseDueDate(task.startDate);
+      // Single-day: se ancla en startDate (cuándo se trabaja) o, si solo hay
+      // fecha límite, en dueDate — así un deadline sin programar igual aparece.
+      const anchor = task.startDate ?? task.dueDate;
+      if (anchor) {
+        const date = parseTaskDay(anchor);
         return weekDates.some((wd) => isSameDay(wd, date));
       }
       return false;
@@ -297,11 +299,10 @@ export function TaskPlanningView({ systemId, initialData, folderId, folderInitia
           {weekDates.map((dayDate) => {
             const today = isToday(dayDate);
             const dayISO = format(dayDate, "yyyy-MM-dd");
-            const dayTasks = singleDayTasks.filter(
-              (task) =>
-                task.startDate &&
-                isSameDay(parseDueDate(task.startDate), dayDate)
-            );
+            const dayTasks = singleDayTasks.filter((task) => {
+              const anchor = task.startDate ?? task.dueDate;
+              return anchor != null && isSameDay(parseTaskDay(anchor), dayDate);
+            });
 
             return (
               <DroppableColumn
