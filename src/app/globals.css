@@ -205,12 +205,18 @@
   }
 }
 
+/* ── Halo "respirando" del número de energía (EnergyTodayCard) ────────────── */
+@keyframes breath {
+  0%, 100% { opacity: 0.45; transform: scale(0.94); }
+  50%      { opacity: 1;    transform: scale(1.06); }
+}
+
 /* ── Dashboard fixed-height grid (DECISIONS.md §1.1) ──────────────────────── */
 .dashboard-grid {
   display: grid;
   height: 100%;
   grid-template-columns: minmax(0, 1.6fr) minmax(280px, 1fr);
-  grid-template-rows: minmax(0, 1fr) clamp(140px, 18vh, 200px);
+  grid-template-rows: minmax(0, 1fr) clamp(168px, 21vh, 220px);
   grid-template-areas: "plan side" "bottom bottom";
   gap: clamp(0.75rem, 1.5vw, 1.25rem);
 }
