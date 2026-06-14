@@ -2,7 +2,12 @@ import { db } from "@/shared/db";
 import { folders } from "@/shared/db/schema";
 import { and, eq, isNull, sql } from "drizzle-orm";
 import type { CreateFolderInput, UpdateFolderInput } from "./folders.schemas";
-import type { BreadcrumbItem, FolderDetail, FolderListItem } from "./folders.types";
+import type {
+  BreadcrumbItem,
+  FolderDetail,
+  FolderListItem,
+  FolderWithCounts,
+} from "./folders.types";
 
 const FOLDER_LIST_COLUMNS = {
   id: folders.id,
@@ -13,12 +18,22 @@ const FOLDER_LIST_COLUMNS = {
   systemId: folders.systemId,
 } as const;
 
+// Correlated subqueries for the direct contents of each folder (subfolders + pages).
+// NOTE: `folders.id` is written as literal SQL, not `${folders.id}`. In a single-table
+// select Drizzle renders the column unqualified (`"id"`), which inside the subquery
+// resolves to the inner table's own id (pages.id / sub.id) instead of the outer row —
+// making every count 0. Qualifying it as `folders.id` correlates to the outer row.
+const FOLDER_COUNT_COLUMNS = {
+  subfolderCount: sql<number>`(SELECT COUNT(*)::int FROM folders sub WHERE sub.parent_id = folders.id)`,
+  pageCount: sql<number>`(SELECT COUNT(*)::int FROM pages WHERE pages.folder_id = folders.id AND pages.deleted_at IS NULL)`,
+} as const;
+
 export async function getFoldersBySystem(
   systemId: string,
   userId: string
-): Promise<FolderListItem[]> {
+): Promise<FolderWithCounts[]> {
   return db
-    .select(FOLDER_LIST_COLUMNS)
+    .select({ ...FOLDER_LIST_COLUMNS, ...FOLDER_COUNT_COLUMNS })
     .from(folders)
     .where(
       and(
@@ -53,9 +68,9 @@ export async function getFolderById(
 export async function getFolderChildren(
   folderId: string,
   userId: string
-): Promise<FolderListItem[]> {
+): Promise<FolderWithCounts[]> {
   return db
-    .select(FOLDER_LIST_COLUMNS)
+    .select({ ...FOLDER_LIST_COLUMNS, ...FOLDER_COUNT_COLUMNS })
     .from(folders)
     .where(and(eq(folders.parentId, folderId), eq(folders.userId, userId)))
     .orderBy(folders.sortIndex);

@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from "react";
+import { useState, type ReactNode } from "react";
 import { ChevronDown, Loader2, Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -33,7 +33,13 @@ const DEFAULT_STATE = {
   triggerContext: "",
 };
 
-export function CreateSystemDialog({ collapsed }: { collapsed?: boolean }) {
+export function CreateSystemDialog({
+  collapsed,
+  trigger,
+}: {
+  collapsed?: boolean;
+  trigger?: ReactNode;
+}) {
   const queryClient = useQueryClient();
   const [open, setOpen] = useState(false);
   const [showAdvanced, setShowAdvanced] = useState(false);
@@ -104,10 +110,12 @@ export function CreateSystemDialog({ collapsed }: { collapsed?: boolean }) {
   return (
     <ResponsiveDialog open={open} onOpenChange={handleOpenChange}>
       <ResponsiveDialogTrigger asChild>
-        <Button variant="outline" className="w-full">
-          <Plus className="size-4 shrink-0" />
-          {!collapsed && <span className="ml-1.5">Nuevo sistema</span>}
-        </Button>
+        {trigger ?? (
+          <Button variant="outline" className="w-full">
+            <Plus className="size-4 shrink-0" />
+            {!collapsed && <span className="ml-1.5">Nuevo sistema</span>}
+          </Button>
+        )}
       </ResponsiveDialogTrigger>
       <ResponsiveDialogContent className="sm:max-w-md">
         <ResponsiveDialogHeader>

@@ -1083,6 +1083,8 @@ export const behaviorSnapshots = pgTable(
     criticalCount: smallint('critical_count').notNull().default(0),
     activeCount: smallint('active_count').notNull().default(0),
     completionRate: doublePrecision('completion_rate').notNull().default(0),
+    // Alpha de personalización vigente al cerrar el día → histórico para la tendencia.
+    learningAlpha: doublePrecision('learning_alpha').notNull().default(0),
     updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
   },
   (table) => [

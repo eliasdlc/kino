@@ -43,8 +43,10 @@ function MilestoneAccordion({
   onDelete: (task: Task) => void;
   onEdit: (task: Task) => void;
 }) {
-  const [open, setOpen] = useState(true);
   const done = tasks.filter((t) => t.status === "done").length;
+  // Un milestone 100% completado arranca colapsado para reducir ruido.
+  const isComplete = tasks.length > 0 && done === tasks.length;
+  const [open, setOpen] = useState(!isComplete);
 
   return (
     <div className="rounded-xl border bg-muted/20">

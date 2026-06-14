@@ -9,7 +9,7 @@ import { TaskBacklogView } from "./TaskBacklogView";
 import { TaskActionView } from "./TaskActionView";
 import { TaskPlanningView } from "./TaskPlanningView";
 import { TaskArchiveView } from "./TaskArchiveView";
-import { type SystemTabId, SYSTEM_TAB_LABELS } from "@/shared/lib/system-types";
+import { type SystemTabId, SYSTEM_TAB_LABELS, SYSTEM_TAB_SHORT_LABELS } from "@/shared/lib/system-types";
 
 interface TasksListProps {
   systemId: string;
@@ -59,15 +59,14 @@ export function TasksList({
     <>
       <Tabs defaultValue={initialTab} className="w-full flex flex-col gap-4">
         <div className="flex items-center gap-2">
-          <div className="overflow-x-auto flex-1 min-w-0">
-            <TabsList className="w-max">
-              {tabs.map((tab) => (
-                <TabsTrigger key={tab} value={tab}>
-                  {SYSTEM_TAB_LABELS[tab]}
-                </TabsTrigger>
-              ))}
-            </TabsList>
-          </div>
+          <TabsList className="flex-1 min-w-0 md:flex-none md:w-max">
+            {tabs.map((tab) => (
+              <TabsTrigger key={tab} value={tab} className="min-w-0 px-2 text-xs md:px-3 md:text-sm">
+                <span className="md:hidden">{SYSTEM_TAB_SHORT_LABELS[tab]}</span>
+                <span className="hidden md:inline">{SYSTEM_TAB_LABELS[tab]}</span>
+              </TabsTrigger>
+            ))}
+          </TabsList>
           <CreateTaskDialog systemId={systemId} folderId={folderId} />
         </div>
 

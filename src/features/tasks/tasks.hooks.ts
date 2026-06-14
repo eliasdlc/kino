@@ -174,7 +174,7 @@ export function useCreateTask(systemId: string, folderId?: string) {
       if (ctx?.previousFolder !== undefined && ctx?.folderQKey) {
         queryClient.setQueryData(ctx.folderQKey, ctx.previousFolder);
       }
-      toast.error(err.message ?? "Failed to create task");
+      toast.error(err.message ?? "No se pudo crear la tarea");
     },
     onSettled: () => {
       // Invalidating bySystem also covers folderTasks via TanStack Query prefix matching
@@ -315,7 +315,7 @@ export function useDeleteTaskWithUndo(systemId: string, folderId?: string) {
       if (context?.previous) {
         queryClient.setQueryData(context.qKey, context.previous);
       }
-      toast.error("Failed to delete task");
+      toast.error("No se pudo mover a la papelera");
     },
     onSettled: (_data, _error, _vars, context) => {
       if (context?.qKey) {

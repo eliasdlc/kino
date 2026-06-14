@@ -15,11 +15,14 @@ import {
 import { useHotkey } from "@/shared/hooks/useHotkey";
 import { useSystems } from "@/features/systems/systems.hooks";
 import { useQuickAddStore } from "@/features/tasks/quick-add.store";
+import { useCommandPaletteStore } from "./command-palette.store";
 import { Inbox, LayoutDashboard, List, Plus, Settings, Layers } from "lucide-react";
 import { getSystemColor } from "@/shared/utils/system-colors";
 
 export function GlobalCommandPalette() {
-  const [open, setOpen] = React.useState(false);
+  const open = useCommandPaletteStore((s) => s.open);
+  const setOpen = useCommandPaletteStore((s) => s.setOpen);
+  const toggle = useCommandPaletteStore((s) => s.toggle);
   const router = useRouter();
   const { data: systems } = useSystems();
   const setQuickAddOpen = useQuickAddStore((s) => s.setOpen);
@@ -29,13 +32,13 @@ export function GlobalCommandPalette() {
 
   useHotkey(["mod+k"], (e) => {
     e.preventDefault();
-    setOpen((open) => !open);
+    toggle();
   });
 
   const runCommand = React.useCallback((command: () => void) => {
     setOpen(false);
     command();
-  }, []);
+  }, [setOpen]);
 
   return (
     <CommandDialog open={open} onOpenChange={setOpen}>
