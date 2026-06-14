@@ -58,6 +58,29 @@ export function parseDueDate(value: string): Date {
   return new Date(value);
 }
 
+/**
+ * Día calendario (Date a medianoche LOCAL) de un start/dueDate, para ubicar la
+ * tarea en un grid de días.
+ *
+ * start/dueDate son timestamptz. La app guarda el día pelado como medianoche
+ * LOCAL (ver dayToLocalISO), pero datos importados (MCP, seeds) pueden venir como
+ * medianoche UTC. Convertir esos a local en tz negativas los corre al día
+ * anterior. Heurística: un instante exactamente a medianoche UTC representa ese
+ * día UTC (día pelado, sin hora); cualquier otro instante usa su día local.
+ */
+export function parseTaskDay(value: string): Date {
+  const d = parseDueDate(value);
+  if (
+    d.getUTCHours() === 0 &&
+    d.getUTCMinutes() === 0 &&
+    d.getUTCSeconds() === 0 &&
+    d.getUTCMilliseconds() === 0
+  ) {
+    return new Date(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate());
+  }
+  return d;
+}
+
 /** true si el dueDate tiene una hora significativa (no medianoche). */
 export function dueDateHasTime(value: string): boolean {
   const d = parseDueDate(value);
