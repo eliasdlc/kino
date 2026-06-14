@@ -12,6 +12,7 @@ export interface SnapshotData {
   criticalCount: number;
   activeCount: number;
   completionRate: number;
+  learningAlpha: number;
 }
 
 export async function upsertBehaviorSnapshot(userId: string, date: string, data: SnapshotData) {
@@ -256,6 +257,63 @@ export async function getStartedTimeLogsLast90Days(
     );
 
   return rows as Array<{ startedHour: number; energyLevel: string }>;
+}
+
+export interface CheckinSignalRow {
+  hour: number;
+  currentLevel: number;
+  slot: CheckinSlot;
+  predictionAccuracy: 'accurate' | 'partial' | 'inaccurate' | null;
+}
+
+export async function getCheckinsLast90Days(
+  userId: string,
+  timezone: string,
+): Promise<CheckinSignalRow[]> {
+  const cutoff = new Date();
+  cutoff.setDate(cutoff.getDate() - 90);
+
+  const rows = await db
+    .select({
+      hour: sql<number>`EXTRACT(HOUR FROM ${energyCheckins.createdAt} AT TIME ZONE ${timezone})::int`,
+      currentLevel: energyCheckins.currentLevel,
+      slot: energyCheckins.slot,
+      predictionAccuracy: energyCheckins.predictionAccuracy,
+    })
+    .from(energyCheckins)
+    .where(
+      and(
+        eq(energyCheckins.userId, userId),
+        gte(energyCheckins.createdAt, cutoff),
+      ),
+    );
+
+  return rows as CheckinSignalRow[];
+}
+
+export interface CheckinInsightRow {
+  date: string;
+  predictionAccuracy: 'accurate' | 'partial' | 'inaccurate' | null;
+}
+
+/** Check-ins de los últimos N días (fecha + precisión) para correlación y accuracy. */
+export async function getRecentCheckinInsight(
+  userId: string,
+  sinceDays: number,
+): Promise<CheckinInsightRow[]> {
+  const cutoff = new Date();
+  cutoff.setDate(cutoff.getDate() - sinceDays);
+  const cutoffStr = cutoff.toISOString().slice(0, 10);
+
+  const rows = await db
+    .select({
+      date: energyCheckins.date,
+      predictionAccuracy: energyCheckins.predictionAccuracy,
+    })
+    .from(energyCheckins)
+    .where(and(eq(energyCheckins.userId, userId), gte(energyCheckins.date, cutoffStr)));
+
+  return rows as CheckinInsightRow[];
 }
 
 export async function saveLearnedCurve(

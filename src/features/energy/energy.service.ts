@@ -15,6 +15,8 @@ import {
   upsertBehaviorSnapshot,
   getCompletedTasksLast90Days,
   getStartedTimeLogsLast90Days,
+  getCheckinsLast90Days,
+  getRecentCheckinInsight,
   saveLearnedCurve,
   getLearnedCurve,
 } from './energy.queries';
@@ -24,7 +26,17 @@ import type { Chronotype, SleepQuality } from './energy.utils';
 import type { CheckinSlot, CreateCheckinInput, UpdateAccuracyInput } from './energy.schemas';
 import { detectTopPattern } from './energy.advisor';
 import type { AdvisorPattern } from './energy.advisor';
-import { computeEffectiveEnergy, computeImportance, CHRONOTYPE_CURVES } from './energy.utils';
+import {
+  computeEffectiveEnergy,
+  computeImportance,
+  computeCapacity,
+  computeLearnedCurve,
+  emptyAccuracyBySlot,
+  findPeakRange,
+  buildPeakAdvice,
+  CHRONOTYPE_CURVES,
+  type PeakAdviceTone,
+} from './energy.utils';
 
 function getSlotForHour(hour: number): CheckinSlot {
   if (hour >= 6 && hour < 12) return 'morning';
@@ -115,14 +127,22 @@ export interface TodayEnergyPlanResult {
   chronotype: Chronotype | null;
   learnedCurve: number[] | null;
   learningAlpha: number;
+  /** Curva proyectada para display (24 valores), disponible siempre (con o sin check-in). */
+  projectedCurve: number[];
 }
 
 // ── Behavior snapshots ─────────────────────────────────────────────────────
 
 export async function computeAndSaveBehaviorSnapshot(userId: string, date: string): Promise<void> {
   const timezone = await getUserTimezone(userId);
-  const metrics = await countSnapshotMetrics(userId, date, timezone);
-  await upsertBehaviorSnapshot(userId, date, metrics);
+  const [metrics, profile] = await Promise.all([
+    countSnapshotMetrics(userId, date, timezone),
+    getUserEnergyProfile(userId),
+  ]);
+  await upsertBehaviorSnapshot(userId, date, {
+    ...metrics,
+    learningAlpha: profile?.learningAlpha ?? 0,
+  });
 }
 
 export async function ensureYesterdaySnapshot(userId: string): Promise<void> {
@@ -141,45 +161,47 @@ export async function ensureYesterdaySnapshot(userId: string): Promise<void> {
 
 const ENERGY_WEIGHTS: Record<string, number> = { high: 3, medium: 2, low: 1 };
 
+const clampHour = (h: number) => Math.max(0, Math.min(23, h));
+
 export async function calibrateLearnedCurve(userId: string): Promise<void> {
   const timezone = await getUserTimezone(userId);
 
-  const [completedTasks, timerLogs, profile] = await Promise.all([
+  const [completedTasks, timerLogs, checkins, profile] = await Promise.all([
     getCompletedTasksLast90Days(userId, timezone),
     getStartedTimeLogsLast90Days(userId, timezone),
+    getCheckinsLast90Days(userId, timezone),
     getUserEnergyProfile(userId),
   ]);
 
   if (!profile) return;
 
-  const N = completedTasks.length + timerLogs.length;
-  if (N === 0) return;
-
-  const rawBuckets = new Array<number>(24).fill(0);
-
+  const activityWeight = new Array<number>(24).fill(0);
   for (const { completedHour, energyLevel } of completedTasks) {
-    const h = Math.max(0, Math.min(23, completedHour));
-    rawBuckets[h] += ENERGY_WEIGHTS[energyLevel] ?? 1;
+    activityWeight[clampHour(completedHour)] += ENERGY_WEIGHTS[energyLevel] ?? 1;
   }
   for (const { startedHour, energyLevel } of timerLogs) {
-    const h = Math.max(0, Math.min(23, startedHour));
-    rawBuckets[h] += (ENERGY_WEIGHTS[energyLevel] ?? 1) * 1.5; // timer es señal más limpia
+    activityWeight[clampHour(startedHour)] += (ENERGY_WEIGHTS[energyLevel] ?? 1) * 1.5; // timer es señal más limpia
   }
 
-  const maxBucket = Math.max(...rawBuckets);
-  if (maxBucket === 0) return;
+  const checkinLevelSum = new Array<number>(24).fill(0);
+  const checkinCount = new Array<number>(24).fill(0);
+  const accuracyBySlot = emptyAccuracyBySlot();
+  for (const { hour, currentLevel, slot, predictionAccuracy } of checkins) {
+    const h = clampHour(hour);
+    checkinLevelSum[h] += currentLevel;
+    checkinCount[h] += 1;
+    if (predictionAccuracy) accuracyBySlot[slot][predictionAccuracy] += 1;
+  }
 
-  const empiricalCurve = rawBuckets.map((v) => Math.round((v / maxBucket) * 100 * 10) / 10);
-
-  const alpha = Math.min(N / 100, 0.85);
-  const theoreticalCurve = CHRONOTYPE_CURVES[profile.chronotype as Chronotype];
-
-  const learnedCurve = theoreticalCurve.map((theoretical, h) => {
-    const empirical = empiricalCurve[h] ?? 0;
-    return Math.round(((1 - alpha) * theoretical + alpha * empirical) * 10) / 10;
+  const result = computeLearnedCurve(profile.chronotype as Chronotype, {
+    activityWeight,
+    checkinLevelSum,
+    checkinCount,
+    accuracyBySlot,
   });
+  if (!result) return;
 
-  await saveLearnedCurve(userId, learnedCurve, alpha);
+  await saveLearnedCurve(userId, result.curve, result.alpha);
 }
 
 export interface WeeklyTrend {
@@ -193,6 +215,106 @@ export async function getWeeklyTrends(userId: string): Promise<WeeklyTrend> {
     getRecentCheckins(userId, 7),
   ]);
   return { snapshots, checkins };
+}
+
+// ── "Kino te conoce" ─────────────────────────────────────────────────────────
+
+export interface LearningInsight {
+  hasCurve: boolean;
+  peak: { start: number; end: number } | null;
+  advice: { text: string; tone: PeakAdviceTone };
+  personalizationPct: number;
+  trend: 'up' | 'flat' | 'down';
+  trendDelta: number;
+  /** % de personalización por día (cronológico, hasta 7 puntos) para el sparkline */
+  sparkline: number[];
+  /** Veces más tareas en días con check-in (null si <14 días de historial) */
+  correlationFactor: number | null;
+  /** Precisión de la predicción según tu feedback (null si aún no hay) */
+  accuracy: { rate: number; sample: number } | null;
+  chronotype: Chronotype | null;
+}
+
+export async function getLearningInsight(userId: string): Promise<LearningInsight> {
+  const base: LearningInsight = {
+    hasCurve: false,
+    peak: null,
+    advice: { text: '', tone: 'after' },
+    personalizationPct: 0,
+    trend: 'flat',
+    trendDelta: 0,
+    sparkline: [],
+    correlationFactor: null,
+    accuracy: null,
+    chronotype: null,
+  };
+
+  const profile = await getUserEnergyProfile(userId);
+  if (!profile) return base;
+
+  const timezone = await getUserTimezone(userId);
+  const [learned, snapshots, checkinRows] = await Promise.all([
+    getLearnedCurve(userId),
+    getRecentSnapshots(userId, 30),
+    getRecentCheckinInsight(userId, 30),
+  ]);
+
+  const chronotype = profile.chronotype as Chronotype;
+  const curve = learned?.curve && learned.curve.length === 24 ? learned.curve : null;
+  const peak = curve ? findPeakRange(curve) : null;
+  const advice = buildPeakAdvice(peak, getCurrentHourInTz(timezone));
+
+  const personalizationPct = Math.round((learned?.alpha ?? 0) * 100);
+
+  // Tendencia + sparkline desde el histórico de alpha en snapshots.
+  const sparkline = [...snapshots]
+    .reverse()
+    .slice(-7)
+    .map((s) => Math.round(s.learningAlpha * 100));
+  const pastPct = sparkline.length > 0 ? sparkline[0]! : personalizationPct;
+  const trendDelta = personalizationPct - pastPct;
+  const trend = trendDelta > 1 ? 'up' : trendDelta < -1 ? 'down' : 'flat';
+
+  // Correlación: tareas completadas en días con check-in vs sin (guard 14 días).
+  const checkinDates = new Set(checkinRows.map((r) => r.date));
+  const withCheckin = snapshots.filter((s) => checkinDates.has(s.date));
+  const withoutCheckin = snapshots.filter((s) => !checkinDates.has(s.date));
+  const historyDays = snapshots.filter(
+    (s) => s.tasksCompleted > 0 || checkinDates.has(s.date),
+  ).length;
+
+  let correlationFactor: number | null = null;
+  if (historyDays >= 14 && withCheckin.length > 0 && withoutCheckin.length > 0) {
+    const avg = (rows: typeof snapshots) =>
+      rows.reduce((sum, r) => sum + r.tasksCompleted, 0) / rows.length;
+    const avgWith = avg(withCheckin);
+    const avgWithout = avg(withoutCheckin);
+    if (avgWithout > 0 && avgWith > avgWithout) {
+      correlationFactor = Math.round((avgWith / avgWithout) * 10) / 10;
+    }
+  }
+
+  // Precisión de la predicción desde el feedback del usuario.
+  const acc = { accurate: 0, partial: 0, inaccurate: 0 };
+  for (const r of checkinRows) if (r.predictionAccuracy) acc[r.predictionAccuracy] += 1;
+  const sample = acc.accurate + acc.partial + acc.inaccurate;
+  const accuracy =
+    sample > 0
+      ? { rate: Math.round(((acc.accurate + 0.5 * acc.partial) / sample) * 100), sample }
+      : null;
+
+  return {
+    hasCurve: curve !== null,
+    peak,
+    advice,
+    personalizationPct,
+    trend,
+    trendDelta,
+    sparkline,
+    correlationFactor,
+    accuracy,
+    chronotype,
+  };
 }
 
 // ── Advisor ────────────────────────────────────────────────────────────────
@@ -319,7 +441,7 @@ export async function checkLevel1Triggers(userId: string): Promise<Level1Result>
 export async function getTodayEnergyPlan(userId: string): Promise<TodayEnergyPlanResult> {
   const profile = await getUserEnergyProfile(userId);
   if (!profile) {
-    return { energyPlan: null, noProfile: true, hasCheckin: false, checkin: null, checkins: [], chronotype: null, learnedCurve: null, learningAlpha: 0 };
+    return { energyPlan: null, noProfile: true, hasCheckin: false, checkin: null, checkins: [], chronotype: null, learnedCurve: null, learningAlpha: 0, projectedCurve: [] };
   }
 
   const timezone = await getUserTimezone(userId);
@@ -338,6 +460,14 @@ export async function getTodayEnergyPlan(userId: string): Promise<TodayEnergyPla
     : null;
 
   const learnedCurve = learned?.curve && learned.curve.length === 24 ? learned.curve : null;
+
+  // Curva de display siempre disponible: si hay check-in del día, refleja su sueño;
+  // si no, asume sueño 'partial'. Usa la curva aprendida cuando existe.
+  const baseCurve = learnedCurve ?? CHRONOTYPE_CURVES[profile.chronotype as Chronotype];
+  const displaySleep = checkin?.sleepQuality ?? 'partial';
+  const projectedCurve = baseCurve.map((_, h) =>
+    Math.round(computeCapacity(h, profile.chronotype as Chronotype, displaySleep, baseCurve)),
+  );
 
   const energyPlan = checkin
     ? buildEnergyPlan({
@@ -369,5 +499,6 @@ export async function getTodayEnergyPlan(userId: string): Promise<TodayEnergyPla
     chronotype: profile.chronotype as Chronotype,
     learnedCurve,
     learningAlpha: learned?.alpha ?? 0,
+    projectedCurve,
   };
 }

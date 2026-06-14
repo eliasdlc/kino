@@ -4,8 +4,23 @@ import {
   computeCapacity,
   computeFatigue,
   computeEffectiveEnergy,
+  slotForHour,
+  findPeakRange,
+  computeLearnedCurve,
+  emptyAccuracyBySlot,
+  CHRONOTYPE_CURVES,
+  type CalibrationSignals,
 } from './energy.utils';
 import type { Task } from '@/features/tasks/tasks.types';
+
+function emptySignals(): CalibrationSignals {
+  return {
+    activityWeight: new Array<number>(24).fill(0),
+    checkinLevelSum: new Array<number>(24).fill(0),
+    checkinCount: new Array<number>(24).fill(0),
+    accuracyBySlot: emptyAccuracyBySlot(),
+  };
+}
 
 // Medianoche UTC: parseDueDate('YYYY-MM-DD') también parsea a medianoche UTC,
 // así differenceInCalendarDays compara los mismos días en cualquier timezone
@@ -205,5 +220,94 @@ describe('computeEffectiveEnergy', () => {
   it('long day (200 min continuous) still stays at or above floor', () => {
     const result = computeEffectiveEnergy(22, 200, 'morning', 'poor');
     expect(result).toBeGreaterThanOrEqual(20);
+  });
+});
+
+describe('slotForHour', () => {
+  it('maps work hours to slots', () => {
+    expect(slotForHour(8)).toBe('morning');
+    expect(slotForHour(6)).toBe('morning');
+    expect(slotForHour(12)).toBe('afternoon');
+    expect(slotForHour(17)).toBe('afternoon');
+    expect(slotForHour(18)).toBe('evening');
+    expect(slotForHour(23)).toBe('evening');
+  });
+
+  it('treats the early hours (0–5) as evening', () => {
+    expect(slotForHour(0)).toBe('evening');
+    expect(slotForHour(5)).toBe('evening');
+  });
+
+  it('clamps out-of-range hours by wrapping', () => {
+    expect(slotForHour(25)).toBe(slotForHour(1));
+    expect(() => slotForHour(-3)).not.toThrow();
+  });
+});
+
+describe('findPeakRange', () => {
+  it('finds the morning peak for the morning chronotype', () => {
+    const { start, end } = findPeakRange(CHRONOTYPE_CURVES.morning);
+    expect(start).toBeGreaterThanOrEqual(8);
+    expect(start).toBeLessThanOrEqual(10);
+    expect(end).toBe(start + 2);
+  });
+
+  it('finds the evening peak for the evening chronotype', () => {
+    const { start } = findPeakRange(CHRONOTYPE_CURVES.evening);
+    expect(start).toBeGreaterThanOrEqual(14);
+    expect(start).toBeLessThanOrEqual(20);
+  });
+});
+
+describe('computeLearnedCurve', () => {
+  it('returns null with no signals (cold start)', () => {
+    expect(computeLearnedCurve('morning', emptySignals())).toBeNull();
+  });
+
+  it('global alpha scales with data volume and caps at 0.85', () => {
+    const small = emptySignals();
+    small.activityWeight[10] = 20;
+    const big = emptySignals();
+    big.activityWeight[10] = 500;
+
+    const a = computeLearnedCurve('intermediate', small)!;
+    const b = computeLearnedCurve('intermediate', big)!;
+    expect(a.alpha).toBeCloseTo(0.2);
+    expect(b.alpha).toBe(0.85);
+  });
+
+  it('learns per slot: a slot with no data stays theoretical', () => {
+    const s = emptySignals();
+    s.activityWeight[20] = 60; // solo evening
+    const { curve, slotAlphas } = computeLearnedCurve('evening', s)!;
+    expect(slotAlphas.evening).toBeGreaterThan(0.5);
+    expect(slotAlphas.morning).toBe(0);
+    // hora 8 (morning) sin datos → idéntica a la teórica
+    expect(curve[8]).toBe(CHRONOTYPE_CURVES.evening[8]);
+    // hora 20 (evening) con actividad fuerte → por encima de la teórica
+    expect(curve[20]!).toBeGreaterThan(CHRONOTYPE_CURVES.evening[20]!);
+  });
+
+  it('check-ins anchor the curve to the reported level', () => {
+    const s = emptySignals();
+    s.checkinCount[9] = 2;
+    s.checkinLevelSum[9] = 180; // promedio 90 en la mañana
+    const { curve } = computeLearnedCurve('evening', s)!;
+    // evening teórico a las 9h es bajo (~30); un check-in alto debe subirlo
+    expect(curve[9]!).toBeGreaterThan(CHRONOTYPE_CURVES.evening[9]!);
+  });
+
+  it('inaccurate feedback pushes the slot toward real data', () => {
+    const base = emptySignals();
+    base.activityWeight[20] = 12;
+    const withFeedback = emptySignals();
+    withFeedback.activityWeight[20] = 12;
+    withFeedback.accuracyBySlot.evening.inaccurate = 10;
+
+    const a = computeLearnedCurve('evening', base)!;
+    const b = computeLearnedCurve('evening', withFeedback)!;
+    expect(b.slotAlphas.evening).toBeGreaterThan(a.slotAlphas.evening);
+    // mayor alpha → más cerca del dato empírico (más alto que la teórica)
+    expect(b.curve[20]!).toBeGreaterThan(a.curve[20]!);
   });
 });
