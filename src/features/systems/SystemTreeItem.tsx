@@ -3,12 +3,13 @@
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter, usePathname } from "next/navigation";
-import { useQuery } from "@tanstack/react-query";
 import {
   ChevronRight,
   Folder,
   FolderPlus,
   MoreHorizontal,
+  Pin,
+  PinOff,
   Trash2,
 } from "lucide-react";
 import {
@@ -25,14 +26,15 @@ import { ICON_MAP, DEFAULT_ICON } from "./system-icons";
 import { getSystemColor } from "@/shared/utils/system-colors";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
-import type { System } from "./systems.types";
+import type { SystemWithSignals } from "./systems.types";
 import { SYSTEM_TYPE_CONFIG, type SystemType } from "@/shared/lib/system-types";
 
 interface SystemTreeItemProps {
-  system: System;
+  system: SystemWithSignals;
   isActive: boolean;
   activeFolderId?: string;
   collapsed?: boolean;
+  isPinned?: boolean;
   onNavigate?: () => void;
 }
 
@@ -41,11 +43,13 @@ export function SystemTreeItem({
   isActive,
   activeFolderId,
   collapsed,
+  isPinned,
   onNavigate,
 }: SystemTreeItemProps) {
   const isExpanded = useSystemsTreeStore((s) => s.expanded[system.id] ?? false);
   const toggle = useSystemsTreeStore((s) => s.toggle);
   const setExpanded = useSystemsTreeStore((s) => s.setExpanded);
+  const togglePin = useSystemsTreeStore((s) => s.togglePin);
 
   const { data: folders, isLoading: foldersLoading } = useFolders(system.id, {
     enabled: isExpanded,
@@ -104,13 +108,7 @@ export function SystemTreeItem({
   const typeConfig = SYSTEM_TYPE_CONFIG[(system.templateType ?? 'custom') as SystemType];
   const Icon = ICON_MAP[system.icon ?? ''] ?? typeConfig?.icon ?? DEFAULT_ICON;
   const cls = getSystemColor(system.color);
-
-  const { data: healthData } = useQuery<{ stale: boolean; daysSinceActivity: number | null }>({
-    queryKey: ['system-health', system.id],
-    queryFn: () => fetch(`/api/systems/${system.id}/health`).then((r) => r.json()),
-    staleTime: 5 * 60_000,
-  });
-  const isStale = healthData?.stale ?? false;
+  const isStale = system.stale;
 
   if (collapsed) {
     return (
@@ -118,12 +116,15 @@ export function SystemTreeItem({
         <TooltipTrigger asChild>
           <Link
             href={`/systems/${system.id}`}
-            className={`flex justify-center p-2.5 rounded-md transition-colors ${isActive
+            className={`relative flex justify-center p-2.5 rounded-lg transition-colors ${isActive
               ? "bg-sidebar-accent text-sidebar-accent-foreground"
               : "text-muted-foreground hover:bg-sidebar-accent/50 hover:text-sidebar-foreground"
               }`}
           >
             <Icon className={`size-5 shrink-0 text-${cls}`} />
+            {isStale && (
+              <span className="absolute right-1 top-1 size-2 rounded-full bg-amber-500/80 ring-2 ring-sidebar" />
+            )}
           </Link>
         </TooltipTrigger>
         <TooltipContent side="right">{system.name}</TooltipContent>
@@ -135,28 +136,24 @@ export function SystemTreeItem({
     <div>
       {/* System row */}
       <div
-        className={`group flex items-center gap-1.5 px-2 py-2 rounded-md text-sm transition-colors ${isActive
-          ? `bg-${cls}/10 text-sidebar-accent-foreground font-medium border-l-2 border-${cls}`
+        className={`group relative flex items-center gap-1.5 px-2 py-2 rounded-lg text-sm transition-colors ${isActive
+          ? "bg-sidebar-accent text-sidebar-foreground font-medium"
           : "text-muted-foreground hover:bg-sidebar-accent/50 hover:text-sidebar-foreground"
           }`}
       >
+        {isActive && (
+          <span className={`absolute left-0 top-1/2 -translate-y-1/2 h-5 w-1 rounded-r-full bg-${cls}`} />
+        )}
         {/* Chevron */}
-        <TooltipProvider>
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <button
-                onClick={() => toggle(system.id)}
-                className="p-0.5 rounded hover:bg-sidebar-accent shrink-0"
-              >
-                <ChevronRight
-                  className={`size-4 transition-transform duration-150 ${isExpanded ? "rotate-90" : ""
-                    }`}
-                />
-              </button>
-            </TooltipTrigger>
-            <TooltipContent>{isExpanded ? "Contraer" : "Expandir"}</TooltipContent>
-          </Tooltip>
-        </TooltipProvider>
+        <button
+          onClick={() => toggle(system.id)}
+          aria-label={isExpanded ? "Contraer" : "Expandir"}
+          className="p-0.5 rounded hover:bg-sidebar-accent shrink-0"
+        >
+          <ChevronRight
+            className={`size-4 transition-transform duration-150 ${isExpanded ? "rotate-90" : ""}`}
+          />
+        </button>
 
         {/* System link */}
         <Link
@@ -166,14 +163,17 @@ export function SystemTreeItem({
         >
           <Icon className={`size-5 shrink-0 text-${cls}`} />
           <span className="truncate flex-1">{system.name}</span>
+          {isPinned && (
+            <Pin className="size-3 shrink-0 text-muted-foreground/60 group-hover:hidden" />
+          )}
           {isStale && (
             <Tooltip>
               <TooltipTrigger asChild>
                 <span className="size-2 rounded-full bg-amber-500/80 shrink-0 inline-block" />
               </TooltipTrigger>
               <TooltipContent side="right">
-                {healthData?.daysSinceActivity != null
-                  ? `Sin actividad hace ${healthData.daysSinceActivity} días`
+                {system.daysSinceLastActivity != null
+                  ? `Sin actividad hace ${system.daysSinceLastActivity} días`
                   : 'Sin actividad reciente'}
               </TooltipContent>
             </Tooltip>
@@ -195,9 +195,22 @@ export function SystemTreeItem({
             </Tooltip>
           </TooltipProvider>
           <DropdownMenuContent align="end" className="w-44">
+            <DropdownMenuItem onClick={() => togglePin(system.id)}>
+              {isPinned ? (
+                <>
+                  <PinOff className="size-5 mr-2" />
+                  Desfijar
+                </>
+              ) : (
+                <>
+                  <Pin className="size-5 mr-2" />
+                  Fijar
+                </>
+              )}
+            </DropdownMenuItem>
             <DropdownMenuItem onClick={handleNewFolder}>
               <FolderPlus className="size-5 mr-2" />
-              New folder
+              Nueva carpeta
             </DropdownMenuItem>
             <DropdownMenuSeparator />
             <DropdownMenuItem
@@ -205,7 +218,7 @@ export function SystemTreeItem({
               onClick={() => setConfirmDelete(true)}
             >
               <Trash2 className="size-5 mr-2" />
-              Delete
+              Eliminar
             </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
@@ -242,7 +255,7 @@ export function SystemTreeItem({
           {/* Empty state */}
           {!foldersLoading && (!folders || folders.length === 0) && !isCreating && (
             <p className="px-2 py-1 text-xs text-muted-foreground/60">
-              No folders
+              Sin carpetas
             </p>
           )}
 
@@ -270,7 +283,7 @@ export function SystemTreeItem({
       <ConfirmDialog
         open={confirmDelete}
         title="Eliminar sistema"
-        description={`"${system.name}" and all its content will be permanently deleted.`}
+        description={`"${system.name}" y todo su contenido se eliminarán permanentemente.`}
         onConfirm={handleConfirmDelete}
         onCancel={() => setConfirmDelete(false)}
       />
