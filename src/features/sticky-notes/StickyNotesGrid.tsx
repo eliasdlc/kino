@@ -1,150 +1,210 @@
 "use client";
 
 import { useState } from "react";
-import { Plus, StickyNote, Loader2 } from "lucide-react";
+import { Plus, StickyNote } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import {
-  ResponsiveDialog,
-  ResponsiveDialogContent,
-  ResponsiveDialogHeader,
-  ResponsiveDialogTitle,
-} from "@/components/ui/responsive-dialog";
-import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea";
 import { Skeleton } from "@/components/ui/skeleton";
+import {
+  DndContext,
+  type DragEndEvent,
+  DragOverlay,
+  PointerSensor,
+  TouchSensor,
+  useSensor,
+  useSensors,
+} from "@dnd-kit/core";
+import { useDraggable, useDroppable } from "@dnd-kit/core";
 import { cn } from "@/lib/utils";
 import {
   useStickyNotesByPage,
   useStickyNotesByFolder,
-  useCreateStickyNoteForPage,
-  useCreateStickyNoteForFolder,
+  useUpdateStickyNote,
 } from "./sticky-notes.hooks";
 import { StickyNoteCard } from "./StickyNoteCard";
-import { STICKY_NOTE_COLORS, COLOR_PICKER_OPTIONS } from "./sticky-note-colors";
+import { StickyNoteStack } from "./StickyNoteStack";
+import { StickyNoteCreator } from "./StickyNoteCreator";
+import type { StickyNoteItem } from "./sticky-notes.types";
 
 type Props =
   | { pageId: string; folderId?: never }
   | { folderId: string; pageId?: never };
 
+/** Groups notes by stackId, returning ordered groups (ungrouped notes = group of 1) */
+function groupNotes(notes: StickyNoteItem[]): StickyNoteItem[][] {
+  const stacks = new Map<string, StickyNoteItem[]>();
+  const singles: StickyNoteItem[] = [];
+
+  for (const note of notes) {
+    if (note.stackId) {
+      const bucket = stacks.get(note.stackId) ?? [];
+      bucket.push(note);
+      stacks.set(note.stackId, bucket);
+    } else {
+      singles.push(note);
+    }
+  }
+
+  const result: StickyNoteItem[][] = [];
+  for (const note of singles) result.push([note]);
+  for (const group of stacks.values()) result.push(group);
+  return result;
+}
+
+function DraggableNote({
+  note,
+  context,
+  activeId,
+}: {
+  note: StickyNoteItem;
+  context: { pageId?: string; folderId?: string };
+  activeId: string | null;
+}) {
+  const { attributes, listeners, setNodeRef, isDragging } = useDraggable({ id: note.id });
+  const { setNodeRef: setDropRef, isOver } = useDroppable({ id: note.id });
+
+  const setRef = (el: HTMLElement | null) => {
+    setNodeRef(el);
+    setDropRef(el);
+  };
+
+  // Subtle deterministic tilt so the board feels like real sticky notes.
+  const hash = note.id.charCodeAt(0) + note.id.charCodeAt(note.id.length - 1);
+  const tilt = (hash % 5) - 2; // -2..2
+
+  return (
+    <div
+      ref={setRef}
+      {...listeners}
+      {...attributes}
+      style={{ transform: isDragging ? undefined : `rotate(${tilt}deg)` }}
+      className={cn(
+        "touch-none transition-transform",
+        isDragging && "opacity-40",
+        isOver && activeId !== note.id && "ring-2 ring-primary/60 rounded-lg scale-105"
+      )}
+    >
+      <StickyNoteCard note={note} context={context} />
+    </div>
+  );
+}
+
 export function StickyNotesGrid(props: Props) {
   const isPage = "pageId" in props && !!props.pageId;
   const context = isPage
-    ? { pageId: props.pageId }
-    : { folderId: props.folderId };
+    ? { pageId: props.pageId as string }
+    : { folderId: props.folderId as string };
 
-  const pageQuery = useStickyNotesByPage(isPage ? props.pageId! : "");
-  const folderQuery = useStickyNotesByFolder(!isPage ? props.folderId! : "");
-  const { data: notes = [], isLoading } = isPage ? pageQuery : folderQuery;
+  const pageQuery = useStickyNotesByPage(isPage ? (props.pageId as string) : "");
+  const folderQuery = useStickyNotesByFolder(!isPage ? (props.folderId as string) : "");
+  const { data: allNotes = [], isLoading } = isPage ? pageQuery : folderQuery;
+  const { mutate: updateNote } = useUpdateStickyNote(context);
 
-  const createForPage = useCreateStickyNoteForPage(isPage ? props.pageId! : "");
-  const createForFolder = useCreateStickyNoteForFolder(!isPage ? props.folderId! : "");
-  const { mutate: createNote, isPending } = isPage ? createForPage : createForFolder;
+  // Non-margin notes always visible; margin notes shown only on mobile (md:hidden)
+  const notes = allNotes.filter((n) => !n.positionSide);
+  const marginNotes = allNotes.filter((n) => !!n.positionSide);
+  const groups = groupNotes(notes);
 
-  const [dialogOpen, setDialogOpen] = useState(false);
-  const [title, setTitle] = useState("");
-  const [content, setContent] = useState("");
-  const [color, setColor] = useState<string>("yellow");
+  const [creatorOpen, setCreatorOpen] = useState(false);
+  const [activeId, setActiveId] = useState<string | null>(null);
+  const activeNote = allNotes.find((n) => n.id === activeId);
 
-  function handleCreate() {
-    createNote(
-      { title: title || undefined, content: content || undefined, color: color as never },
-      {
-        onSuccess: () => {
-          setDialogOpen(false);
-          setTitle("");
-          setContent("");
-          setColor("yellow");
-        },
-      }
-    );
+  const sensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 8 } }),
+    useSensor(TouchSensor, { activationConstraint: { delay: 200, tolerance: 5 } })
+  );
+
+  function handleDragEnd(event: DragEndEvent) {
+    setActiveId(null);
+    const { active, over } = event;
+    if (!over || active.id === over.id) return;
+
+    const draggedNote = allNotes.find((n) => n.id === active.id);
+    const targetNote = allNotes.find((n) => n.id === over.id);
+    if (!draggedNote || !targetNote) return;
+
+    // Assign both to a shared stackId (use target's existing stackId or target's own id)
+    const stackId = targetNote.stackId ?? targetNote.id;
+    updateNote({ noteId: draggedNote.id, data: { stackId } });
+    if (!targetNote.stackId) {
+      updateNote({ noteId: targetNote.id, data: { stackId } });
+    }
   }
 
   return (
-    <div className="space-y-3">
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-1.5 text-sm font-medium text-muted-foreground">
-          <StickyNote className="size-4" />
-          Sticky notes
+    <>
+      <div className="space-y-3">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-1.5 text-sm font-medium text-muted-foreground">
+            <StickyNote className="size-4" />
+            Sticky notes
+          </div>
+          <Button
+            variant="ghost"
+            size="sm"
+            className="h-7 gap-1 text-xs text-muted-foreground"
+            onClick={() => setCreatorOpen(true)}
+          >
+            <Plus className="size-3" />
+            Add
+          </Button>
         </div>
-        <Button
-          variant="ghost"
-          size="sm"
-          className="h-7 gap-1 text-xs text-muted-foreground"
-          onClick={() => setDialogOpen(true)}
-        >
-          <Plus className="size-3" />
-          Add
-        </Button>
+
+        {isLoading && (
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
+            {[1, 2, 3].map((i) => (
+              <Skeleton key={i} className="h-20 w-full rounded-2xl" />
+            ))}
+          </div>
+        )}
+
+        {!isLoading && (groups.length > 0 || marginNotes.length > 0) && (
+          <DndContext
+            sensors={sensors}
+            onDragStart={(e) => setActiveId(String(e.active.id))}
+            onDragEnd={handleDragEnd}
+            onDragCancel={() => setActiveId(null)}
+          >
+            <div className="[columns:2] sm:[columns:3] lg:[columns:4] [column-gap:0.75rem]">
+              {groups.map((group) => (
+                <div key={group[0]!.stackId ?? group[0]!.id} className="break-inside-avoid mb-3">
+                  {group.length === 1 ? (
+                    <DraggableNote
+                      note={group[0]!}
+                      context={context}
+                      activeId={activeId}
+                    />
+                  ) : (
+                    <StickyNoteStack notes={group} context={context} />
+                  )}
+                </div>
+              ))}
+              {marginNotes.map((note) => (
+                <div key={note.id} className="break-inside-avoid mb-3 md:hidden">
+                  <DraggableNote note={note} context={context} activeId={activeId} />
+                </div>
+              ))}
+            </div>
+            <DragOverlay>
+              {activeNote && (
+                <div className="opacity-90 rotate-3 scale-105">
+                  <StickyNoteCard note={activeNote} context={context} />
+                </div>
+              )}
+            </DragOverlay>
+          </DndContext>
+        )}
+
+        {!isLoading && groups.length === 0 && marginNotes.length === 0 && (
+          <p className="text-xs text-muted-foreground">Aún no hay notas.</p>
+        )}
       </div>
 
-      {isLoading && (
-        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-2">
-          {[1, 2, 3].map((i) => (
-            <Skeleton key={i} className="h-20 w-full rounded-lg" />
-          ))}
-        </div>
+      {creatorOpen && (
+        <StickyNoteCreator
+          context={context}
+          onClose={() => setCreatorOpen(false)}
+        />
       )}
-
-      {!isLoading && notes.length > 0 && (
-        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-2">
-          {notes.map((note) => (
-            <StickyNoteCard key={note.id} note={note} context={context} />
-          ))}
-        </div>
-      )}
-
-      {!isLoading && notes.length === 0 && (
-        <p className="text-xs text-muted-foreground">Aún no hay notas.</p>
-      )}
-
-      <ResponsiveDialog open={dialogOpen} onOpenChange={setDialogOpen}>
-        <ResponsiveDialogContent>
-          <ResponsiveDialogHeader>
-            <ResponsiveDialogTitle>Nueva nota</ResponsiveDialogTitle>
-          </ResponsiveDialogHeader>
-          <div className="flex flex-col gap-4 pt-1">
-            <Input
-              autoFocus
-              placeholder="Título (opcional)"
-              value={title}
-              onChange={(e) => setTitle(e.target.value)}
-              maxLength={200}
-            />
-            <Textarea
-              placeholder="Escribe algo..."
-              value={content}
-              onChange={(e) => setContent(e.target.value)}
-              className="resize-none min-h-[100px]"
-              maxLength={500}
-            />
-
-            {/* Color picker */}
-            <div className="flex flex-wrap gap-2">
-              {COLOR_PICKER_OPTIONS.map((c) => {
-                const cls = STICKY_NOTE_COLORS[c]!;
-                return (
-                  <button
-                    key={c}
-                    type="button"
-                    onClick={() => setColor(c)}
-                    aria-label={c}
-                    className={cn(
-                      "size-6 rounded-full border-2 transition-transform hover:scale-110",
-                      cls.bg,
-                      color === c ? "border-foreground scale-110" : "border-transparent"
-                    )}
-                  />
-                );
-              })}
-            </div>
-
-            <Button onClick={handleCreate} disabled={isPending || (!title && !content)}>
-              {isPending && <Loader2 className="size-4 animate-spin mr-2" />}
-              {isPending ? "Agregando..." : "Agregar nota"}
-            </Button>
-          </div>
-        </ResponsiveDialogContent>
-      </ResponsiveDialog>
-    </div>
+    </>
   );
 }

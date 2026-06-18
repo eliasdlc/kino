@@ -4,7 +4,7 @@ import { useState } from "react";
 import { useTasks, useToggleTask, useDeleteTaskWithUndo } from "@/features/tasks/tasks.hooks";
 import { useFolders } from "@/features/folders/folders.hooks";
 import { NewFolderInline } from "@/features/folders/NewFolderInline";
-import { TaskCard } from "@/features/tasks/TaskCard";
+import { DefaultTaskCard } from "@/features/tasks/cards/DefaultTaskCard";
 import { TaskDetailSheet } from "@/features/tasks/TaskDetailSheet";
 import { CreateTaskDialog } from "@/features/tasks/CreateTaskDialog";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
@@ -74,7 +74,7 @@ function MilestoneAccordion({
             </p>
           ) : (
             tasks.map((task) => (
-              <TaskCard
+              <DefaultTaskCard
                 key={task.id}
                 task={task}
                 systemId={systemId}

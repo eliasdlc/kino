@@ -11,9 +11,9 @@ import {
 import { getSystembyId } from "@/features/systems/systems.service";
 import { getPagesBySystem } from "@/features/pages/pages.service";
 import { getTasksByFolder } from "@/features/tasks/tasks.service";
-import { FolderCard } from "@/features/docs/FolderCard";
-import { PageCard } from "@/features/docs/PageCard";
-import { FolderViewToolbar } from "@/features/docs/FolderViewToolbar";
+import { FolderCard } from "@/features/notebooks/FolderCard";
+import { NotebookCard } from "@/features/notebooks/NotebookCard";
+import { FolderViewToolbar } from "@/features/notebooks/FolderViewToolbar";
 
 import { TasksList } from "@/features/tasks/TasksList";
 import { Separator } from "@/components/ui/separator";
@@ -70,26 +70,35 @@ export default async function FolderViewRoute({ params }: FolderViewRouteProps) 
         <div className="rounded-lg border border-dashed p-10 text-center space-y-2">
           <Files className="size-8 text-muted-foreground/40 mx-auto" />
           <p className="text-sm text-muted-foreground">
-            This folder is empty. Create a subfolder or page to get started.
+            Esta carpeta está vacía. Crea una subcarpeta o notebook para empezar.
           </p>
         </div>
       ) : (
-        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
-          {children.map((child) => (
-            <FolderCard
-              key={child.id}
-              folder={child}
-              systemId={systemId}
-              href={`/systems/${systemId}/folders/${child.id}`}
-            />
-          ))}
-          {folderPages.map((page) => (
-            <PageCard
-              key={page.id}
-              page={page}
-              href={`/systems/${systemId}/pages/${page.id}`}
-            />
-          ))}
+        <div className="space-y-6">
+          {children.length > 0 && (
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+              {children.map((child) => (
+                <FolderCard
+                  key={child.id}
+                  folder={child}
+                  systemId={systemId}
+                  href={`/systems/${systemId}/folders/${child.id}`}
+                />
+              ))}
+            </div>
+          )}
+          {folderPages.length > 0 && (
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+              {folderPages.map((page) => (
+                <NotebookCard
+                  key={page.id}
+                  page={page}
+                  systemId={systemId}
+                  href={`/systems/${systemId}/pages/${page.id}`}
+                />
+              ))}
+            </div>
+          )}
         </div>
       )}
 

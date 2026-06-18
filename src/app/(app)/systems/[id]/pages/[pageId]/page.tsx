@@ -1,31 +1,12 @@
 import { auth } from "@/auth";
 import { headers } from "next/headers";
 import { notFound, redirect } from "next/navigation";
-import Link from "next/link";
-import { getPageById, getPagesBySystem } from "@/features/pages/pages.service";
+import { getPageById, getPagesBySystem, getSubPages } from "@/features/pages/pages.service";
 import { getSystembyId } from "@/features/systems/systems.service";
 import { getFolderById, getFolderBreadcrumb } from "@/features/folders/folders.service";
-import { PageBreadcrumb, type BreadcrumbItem } from "@/components/PageBreadcrumb";
-import dynamic from "next/dynamic";
-
-const PageEditor = dynamic(
-  () => import("@/features/pages/PageEditor").then((m) => m.PageEditor),
-  {
-    loading: () => (
-      <div className="flex flex-col gap-4 h-full animate-pulse">
-        <div className="h-10 w-2/3 bg-muted rounded" />
-        <div className="flex-1 space-y-3">
-          <div className="h-4 w-full bg-muted rounded" />
-          <div className="h-4 w-5/6 bg-muted rounded" />
-          <div className="h-4 w-4/6 bg-muted rounded" />
-        </div>
-      </div>
-    ),
-  },
-);
-import { LinkedTasksPanel } from "@/features/pages/LinkedTasksPanel";
-import { StickyNotesGrid } from "@/features/sticky-notes/StickyNotesGrid";
-import { Separator } from "@/components/ui/separator";
+import type { BreadcrumbItem } from "@/components/PageBreadcrumb";
+import { NotebookEditorLayout } from "@/features/pages/NotebookEditorLayout";
+import type { PageListItem } from "@/features/pages/pages.types";
 
 interface PageEditorRouteProps {
   params: Promise<{ id: string; pageId: string }>;
@@ -51,6 +32,17 @@ export default async function PageEditorRoute({ params }: PageEditorRouteProps) 
   const folderAncestors =
     folder ? await getFolderBreadcrumb(folder.path, session.user.id) : [];
 
+  // Determine root notebook and pre-fetch sub-pages
+  const isSubPage = !!page.parentPageId;
+  const rootPageId = isSubPage ? page.parentPageId! : pageId;
+
+  const parentNotebookData = isSubPage
+    ? (allPages.find((p) => p.id === page.parentPageId) ?? null)
+    : null;
+  const initialSubPages = await getSubPages(rootPageId, session.user.id);
+
+  const parentNotebook = parentNotebookData as PageListItem | null;
+
   const breadcrumbItems: BreadcrumbItem[] = [
     { label: "Sistemas", href: "/systems" },
     { label: system.name, href: `/systems/${systemId}` },
@@ -61,71 +53,21 @@ export default async function PageEditorRoute({ params }: PageEditorRouteProps) 
     ...(folder
       ? [{ label: folder.name, href: `/systems/${systemId}/folders/${folder.id}` }]
       : []),
+    ...(isSubPage && parentNotebook
+      ? [{ label: parentNotebook.title ?? "Sin título", href: `/systems/${systemId}/pages/${parentNotebook.id}` }]
+      : []),
     { label: page.title ?? "Sin título" },
   ];
 
   return (
-    <div className="flex h-full overflow-hidden flex-col">
-      {/* Sticky breadcrumb */}
-      <div className="sticky top-0 z-10 bg-background border-b px-4 md:px-6 py-2.5 shrink-0">
-        <PageBreadcrumb items={breadcrumbItems} />
-      </div>
-      {/* Editor + sidebar */}
-      <div className="flex flex-1 overflow-hidden">
-      {/* Main editor area */}
-      <div className="flex-1 overflow-y-auto">
-        <div className="max-w-3xl mx-auto px-4 py-6 md:px-6 md:py-8 space-y-8">
-          <StickyNotesGrid pageId={pageId} />
-          <PageEditor key={page.id} page={page} systemId={systemId} />
-        </div>
-      </div>
-
-      {/* Right sidebar */}
-      <div className="hidden md:block w-72 border-l bg-card/50 overflow-y-auto">
-        <div className="p-4 space-y-4">
-          <div>
-            <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider mb-3">
-              Page info
-            </p>
-            <div className="space-y-1 text-xs text-muted-foreground">
-              <p>System: {system.name}</p>
-              {page.updatedAt && (
-                <p>Updated: {new Date(page.updatedAt).toLocaleDateString()}</p>
-              )}
-            </div>
-          </div>
-
-          <Separator />
-
-          {allPages.length > 1 && (
-            <div>
-              <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider mb-2">
-                Pages
-              </p>
-              <div className="space-y-0.5">
-                {allPages.map((p) => (
-                  <Link
-                    key={p.id}
-                    href={`/systems/${systemId}/pages/${p.id}`}
-                    className={`block px-2 py-1.5 rounded text-xs transition-colors truncate ${
-                      p.id === pageId
-                        ? "bg-accent text-accent-foreground font-medium"
-                        : "text-muted-foreground hover:text-foreground hover:bg-accent/50"
-                    }`}
-                  >
-                    {p.title ?? "Sin título"}
-                  </Link>
-                ))}
-              </div>
-            </div>
-          )}
-
-          <Separator />
-
-          <LinkedTasksPanel pageId={pageId} systemId={systemId} />
-        </div>
-      </div>
-      </div>
-    </div>
+    <NotebookEditorLayout
+      page={page}
+      systemId={systemId}
+      systemName={system.name}
+      allPages={allPages}
+      breadcrumbItems={breadcrumbItems}
+      parentNotebook={parentNotebook}
+      initialSubPages={initialSubPages}
+    />
   );
 }

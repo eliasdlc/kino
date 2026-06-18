@@ -1,6 +1,7 @@
 import { describe, it, expect } from "vitest";
 import {
     validateTransition,
+    deriveBoardBridgeAction,
     type TransitionContext,
     type TaskStatus,
     type TransitionAction,
@@ -294,5 +295,36 @@ describe("validateTransition", () => {
                 expect(result.sideEffects).toEqual([]);
             });
         });
+    });
+});
+
+describe("deriveBoardBridgeAction (puente board ↔ scheduling)", () => {
+    it("entrar a la columna terminal (done) completa la tarea", () => {
+        expect(deriveBoardBridgeAction("today", "in_progress", "done")).toBe("toggle_done");
+        expect(deriveBoardBridgeAction("backlog", "review", "done")).toBe("toggle_done");
+        expect(deriveBoardBridgeAction("week", null, "done")).toBe("toggle_done");
+    });
+
+    it("salir de la columna terminal reabre una tarea ya completada", () => {
+        expect(deriveBoardBridgeAction("done", "done", "in_progress")).toBe("undo_done");
+        expect(deriveBoardBridgeAction("done", "done", "todo")).toBe("undo_done");
+    });
+
+    it("moverse entre columnas no terminales no toca el scheduling", () => {
+        expect(deriveBoardBridgeAction("today", "todo", "in_progress")).toBeNull();
+        expect(deriveBoardBridgeAction("week", "in_progress", "review")).toBeNull();
+        expect(deriveBoardBridgeAction("backlog", null, "todo")).toBeNull();
+    });
+
+    it("no re-completa si ya está done y sigue en la columna terminal", () => {
+        expect(deriveBoardBridgeAction("done", "done", "done")).toBeNull();
+    });
+
+    it("entrar a terminal cuando ya está done (estado inconsistente) no re-dispara", () => {
+        expect(deriveBoardBridgeAction("done", "review", "done")).toBeNull();
+    });
+
+    it("salir de terminal sin estar done no dispara undo", () => {
+        expect(deriveBoardBridgeAction("today", "done", "in_progress")).toBeNull();
     });
 });

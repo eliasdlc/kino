@@ -6,7 +6,7 @@ import { CreateTaskDialog } from "./CreateTaskDialog";
 import { TaskDetailSheet } from "./TaskDetailSheet";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { TaskBacklogView } from "./TaskBacklogView";
-import { TaskActionView } from "./TaskActionView";
+import { TaskKanbanView } from "./TaskKanbanView";
 import { TaskPlanningView } from "./TaskPlanningView";
 import { TaskArchiveView } from "./TaskArchiveView";
 import { type SystemTabId, SYSTEM_TAB_LABELS, SYSTEM_TAB_SHORT_LABELS } from "@/shared/lib/system-types";
@@ -36,7 +36,7 @@ interface TabViewProps {
 const TAB_META: Record<SystemTabId, { View: ComponentType<TabViewProps> }> = {
   backlog: { View: TaskBacklogView },
   planning: { View: TaskPlanningView },
-  action: { View: TaskActionView },
+  action: { View: TaskKanbanView },
   archive: { View: TaskArchiveView },
 };
 

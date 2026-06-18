@@ -9,7 +9,7 @@ export type TaskMetadata = {
   professor?: string;
   syllabus?: string;
   collaborators?: string[];
-  // professional
+  // project
   project?: string;
   assignee?: string;
   dependencies?: string[];

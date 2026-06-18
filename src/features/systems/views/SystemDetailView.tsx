@@ -5,7 +5,7 @@ import type { Task } from "@/features/tasks/tasks.types";
 import { SYSTEM_TYPE_CONFIG, type SystemType } from "@/shared/lib/system-types";
 import { TasksList } from "@/features/tasks/TasksList";
 import { SystemAcademicView } from "./SystemAcademicView";
-import { SystemProfessionalView } from "./SystemProfessionalView";
+import { SystemProjectView } from "./SystemProjectView";
 import { SystemEntrepreneurialView } from "./SystemEntrepreneurialView";
 import { SystemCustomView } from "./SystemCustomView";
 
@@ -25,8 +25,8 @@ export function SystemDetailView({ system, initialTasks }: SystemViewProps) {
   if (systemType === "academic") {
     return <SystemAcademicView system={system} initialTasks={initialTasks} />;
   }
-  if (systemType === "professional") {
-    return <SystemProfessionalView system={system} initialTasks={initialTasks} />;
+  if (systemType === "project") {
+    return <SystemProjectView system={system} initialTasks={initialTasks} />;
   }
   if (systemType === "entrepreneurial") {
     return <SystemEntrepreneurialView system={system} initialTasks={initialTasks} />;

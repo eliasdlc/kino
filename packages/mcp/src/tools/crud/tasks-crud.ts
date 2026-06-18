@@ -87,7 +87,7 @@ export function registerTaskCrudTools(server: McpServer, kinoFetch: KinoFetch) {
       parentTaskId: z.string().uuid().optional().describe('UUID de la tarea padre (para crear subtareas)'),
       folderId: z.string().uuid().optional().describe('UUID de la carpeta destino'),
       taskType: z
-        .enum(['idea', 'reminder', 'project', 'todo'])
+        .enum(['idea', 'reminder', 'project', 'todo', 'epic'])
         .optional()
         .describe('Tipo de tarea. Las "idea" siempre van a backlog. Por defecto "todo" si se omite.'),
       estimatedTime: z
@@ -99,6 +99,11 @@ export function registerTaskCrudTools(server: McpServer, kinoFetch: KinoFetch) {
         .date()
         .optional()
         .describe('Fecha de inicio en formato YYYY-MM-DD. Determina el status automáticamente.'),
+      sprintId: z.string().uuid().optional().describe('UUID del sprint (systemType "project")'),
+      boardStatus: z
+        .string()
+        .optional()
+        .describe('Columna inicial del board (systemType "project"): todo, in_progress, review, done'),
     },
     async (data) => {
       // Default to "week" so tasks appear in the Action View, not buried in backlog
@@ -138,9 +143,11 @@ export function registerTaskCrudTools(server: McpServer, kinoFetch: KinoFetch) {
               .optional()
               .describe('UUID de la tarea padre — conviértela en subtarea'),
             folderId: z.string().uuid().optional().describe('UUID de la carpeta destino'),
-            taskType: z.enum(['idea', 'reminder', 'project', 'todo']).optional(),
+            taskType: z.enum(['idea', 'reminder', 'project', 'todo', 'epic']).optional(),
             estimatedTime: z.string().optional().describe('Tiempo estimado HH:MM:SS'),
             startDate: z.string().date().optional().describe('Fecha de inicio YYYY-MM-DD'),
+            sprintId: z.string().uuid().optional().describe('UUID del sprint (systemType "project")'),
+            boardStatus: z.string().optional().describe('Columna del board (todo, in_progress, review, done)'),
           }),
         )
         .min(1)
@@ -168,9 +175,10 @@ export function registerTaskCrudTools(server: McpServer, kinoFetch: KinoFetch) {
       dueDate: z.string().date().nullable().optional(),
       priority: z.enum(['critical', 'high', 'medium', 'low']).optional(),
       folderId: z.string().uuid().nullable().optional().describe('UUID de carpeta (null para quitar)'),
-      taskType: z.enum(['idea', 'reminder', 'project', 'todo']).nullable().optional(),
+      taskType: z.enum(['idea', 'reminder', 'project', 'todo', 'epic']).nullable().optional(),
       estimatedTime: z.string().nullable().optional().describe('Tiempo estimado HH:MM:SS'),
       startDate: z.string().date().nullable().optional(),
+      sprintId: z.string().uuid().nullable().optional().describe('UUID del sprint (null para quitar)'),
     },
     async ({ taskId, ...data }) => {
       const task = await kinoFetch(`/api/tasks/${taskId}`, {
@@ -220,6 +228,26 @@ export function registerTaskCrudTools(server: McpServer, kinoFetch: KinoFetch) {
       const task = await kinoFetch(`/api/tasks/${taskId}/move`, {
         method: 'PATCH',
         body: JSON.stringify({ status }),
+      });
+      return { content: [{ type: 'text', text: JSON.stringify(task, null, 2) }] };
+    },
+  );
+
+  server.tool(
+    'move_task_board',
+    [
+      'Mueve una tarjeta a otra columna del board kanban (systemType "project").',
+      'Columnas por defecto: todo, in_progress, review, done. Mover a la columna terminal',
+      '(done) completa la tarea automáticamente; sacarla de done la reabre.',
+    ].join(' '),
+    {
+      taskId: z.string().uuid().describe('UUID de la tarea'),
+      boardStatus: z.string().describe('Columna destino (ej: todo, in_progress, review, done)'),
+    },
+    async ({ taskId, boardStatus }) => {
+      const task = await kinoFetch(`/api/tasks/${taskId}/board`, {
+        method: 'PATCH',
+        body: JSON.stringify({ boardStatus }),
       });
       return { content: [{ type: 'text', text: JSON.stringify(task, null, 2) }] };
     },

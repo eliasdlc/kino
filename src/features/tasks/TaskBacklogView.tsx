@@ -1,7 +1,7 @@
 import { useState } from "react";
 import type { Task } from "./tasks.types";
 import { useTasks, useFolderTasks, useToggleTask, useDeleteTaskWithUndo } from "./tasks.hooks";
-import { TaskCard } from "./TaskCard";
+import { DefaultTaskCard } from "./cards/DefaultTaskCard";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { useTaskKeyboardNavigation } from "./useTaskKeyboardNavigation";
 
@@ -57,7 +57,7 @@ export function TaskBacklogView({ systemId, initialData, folderId, folderInitial
             ) : (
                 <div className="flex flex-col gap-3 w-full">
                     {backlogTasks.map((task) => (
-                        <TaskCard
+                        <DefaultTaskCard
                             key={task.id}
                             task={task}
                             systemId={systemId}

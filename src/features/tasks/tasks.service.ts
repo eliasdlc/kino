@@ -1,8 +1,8 @@
 import { db } from "@/shared/db";
-import { tasks, users, userSettings, systems, folders, timeLogs, taskReminders } from "@/shared/db/schema";
+import { tasks, users, userSettings, systems, folders, sprints, systemStatusDefinitions, timeLogs, taskReminders } from "@/shared/db/schema";
 import { and, eq, isNull, isNotNull, sql, sum, count, type SQL } from "drizzle-orm";
 import { NotFoundError, ValidationError } from "@/shared/utils/error";
-import { validateTransition, type TaskStatus, type TransitionAction } from "./tasks.state-machine";
+import { validateTransition, deriveBoardBridgeAction, type TaskStatus, type TransitionAction } from "./tasks.state-machine";
 import { Task, CreateTaskInput, UpdateTaskInput } from "./tasks.types";
 import type { z } from "zod";
 import type { listTasksQuerySchema, CreateTimeLogInput } from "./tasks.schemas";
@@ -303,6 +303,20 @@ export async function createTask(userId: string, data: CreateTaskInput) {
     if (!folder) throw new ValidationError("Folder not found in this system");
   }
 
+  if (data.sprintId) {
+    const [sprint] = await db
+      .select({ id: sprints.id })
+      .from(sprints)
+      .where(
+        and(
+          eq(sprints.id, data.sprintId),
+          eq(sprints.systemId, data.systemId),
+          eq(sprints.userId, userId),
+        ),
+      );
+    if (!sprint) throw new ValidationError("Sprint not found in this system");
+  }
+
   const explicitTerminal = data.status === "done" || data.status === "archived";
   // Ideas are always backlog — they are captures, not scheduled work
   // When startDate is given, derive status from date (authoritative).
@@ -317,7 +331,13 @@ export async function createTask(userId: string, data: CreateTaskInput) {
 
   const [task] = await db
     .insert(tasks)
-    .values({ ...data, status: derivedStatus, inTodayPlan: derivedStatus === "today", userId })
+    .values({
+      ...data,
+      status: derivedStatus,
+      inTodayPlan: derivedStatus === "today",
+      ...(data.boardStatus ? { boardStatusChangedAt: new Date() } : {}),
+      userId,
+    })
     .returning();
 
   if (task?.dueDate && task.priority in AUTO_REMINDER_OFFSETS) {
@@ -378,6 +398,20 @@ export async function updateTask(taskId: string, userId: string, data: UpdateTas
       );
 
     if (!folder) throw new ValidationError("Folder not found in this system");
+  }
+
+  if (data.sprintId) {
+    const [sprint] = await db
+      .select({ id: sprints.id })
+      .from(sprints)
+      .where(
+        and(
+          eq(sprints.id, data.sprintId),
+          eq(sprints.systemId, targetSystemId),
+          eq(sprints.userId, userId),
+        ),
+      );
+    if (!sprint) throw new ValidationError("Sprint not found in this system");
   }
 
   // If system_id changes but folder_id isn't explicitly provided in the payload,
@@ -521,6 +555,60 @@ export async function moveTask(taskId: string, newStatus: TaskStatus, userId: st
   );
 
   return updated;
+}
+
+/**
+ * Mueve una tarjeta de columna del board (eje workflow del systemType `project`).
+ * Valida que la columna exista para el tipo de sistema, actualiza board_status +
+ * su timestamp, y aplica el puente con scheduling cuando entra/sale de la columna
+ * terminal (done), reusando la state machine (completedAt + XP).
+ */
+export async function moveTaskBoard(taskId: string, boardStatus: string, userId: string): Promise<Task> {
+  return db.transaction(async (tx) => {
+    const [current] = await tx
+      .select({
+        status: tasks.status,
+        boardStatus: tasks.boardStatus,
+        systemId: tasks.systemId,
+      })
+      .from(tasks)
+      .where(and(eq(tasks.id, taskId), eq(tasks.userId, userId), isNull(tasks.deletedAt)));
+    if (!current) throw new NotFoundError("Task not found");
+
+    // La columna debe estar definida para el tipo del sistema (solo `project` las tiene).
+    const [col] = await tx
+      .select({ statusName: systemStatusDefinitions.statusName })
+      .from(systemStatusDefinitions)
+      .innerJoin(systems, eq(systems.templateType, systemStatusDefinitions.systemType))
+      .where(
+        and(
+          eq(systems.id, current.systemId),
+          eq(systemStatusDefinitions.statusName, boardStatus),
+        ),
+      );
+    if (!col) throw new ValidationError(`Invalid board column '${boardStatus}' for this system`);
+
+    await tx
+      .update(tasks)
+      .set({ boardStatus, boardStatusChangedAt: new Date(), updatedAt: new Date() })
+      .where(and(eq(tasks.id, taskId), eq(tasks.userId, userId), isNull(tasks.deletedAt)));
+
+    // Puente con scheduling: la columna terminal completa/descompleta la tarea.
+    const bridge = deriveBoardBridgeAction(
+      current.status as TaskStatus,
+      current.boardStatus,
+      boardStatus,
+    );
+    if (bridge) {
+      await applyTransition(tx, taskId, userId, () => bridge);
+    }
+
+    const [updated] = await tx
+      .select()
+      .from(tasks)
+      .where(and(eq(tasks.id, taskId), eq(tasks.userId, userId)));
+    return updated as Task;
+  });
 }
 
 /**

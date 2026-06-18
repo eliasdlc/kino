@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useRef, useState, useSyncExternalStore } from 'react';
-import { Battery, Moon, Clock } from 'lucide-react';
+import { Battery, Moon } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import {
@@ -99,7 +99,6 @@ export function EnergyTodayCard({
   initialCheckins,
   projectedCurve,
   chronotype,
-  deferredTasks = [],
 }: EnergyTodayCardProps) {
   const { data: liveCheckins } = useTodayCheckins();
   const { mutate: createCheckin, isPending } = useCreateCheckin();
@@ -290,11 +289,6 @@ export function EnergyTodayCard({
             {/* CTA sin check-in del slot actual */}
             {!currentSlotCheckin && (
               <div className="space-y-2">
-                <p className="text-xs text-muted-foreground">
-                  {hasAnyCheckin
-                    ? `Sin registro para la ${SLOT_LABELS[currentSlot].toLowerCase()} — registra cómo vas ahora.`
-                    : 'Registra tu energía para que Kino mida tu día real y afine la predicción.'}
-                </p>
                 <Button size="sm" onClick={() => { setSelectedSlot(currentSlot); setShowForm(true); }}>
                   Registrar energía · {SLOT_LABELS[currentSlot]}
                 </Button>
@@ -324,24 +318,6 @@ export function EnergyTodayCard({
               </div>
             )}
 
-            {/* Tareas diferidas */}
-            {deferredTasks.length > 0 && (
-              <div className="space-y-1.5 pt-1 border-t">
-                <div className="flex items-center gap-1.5">
-                  <Clock className="w-3 h-3 text-muted-foreground/60" />
-                  <p className="text-xs text-muted-foreground">Diferidas ({deferredTasks.length})</p>
-                </div>
-                {deferredTasks.slice(0, 2).map((task) => (
-                  <div key={task.id} className="flex items-center gap-1.5 text-xs text-muted-foreground">
-                    <span className="size-1.5 rounded-full bg-muted-foreground/30 shrink-0" />
-                    <span className="truncate">{task.title}</span>
-                  </div>
-                ))}
-                {deferredTasks.length > 2 && (
-                  <p className="text-xs text-muted-foreground/50">y {deferredTasks.length - 2} más</p>
-                )}
-              </div>
-            )}
           </>
         )}
       </div>

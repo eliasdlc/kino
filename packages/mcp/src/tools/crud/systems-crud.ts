@@ -25,7 +25,7 @@ export function registerSystemCrudTools(server: McpServer, kinoFetch: KinoFetch)
       icon: z.string().optional().describe('Emoji o ícono para el sistema'),
       identityStatement: z.string().max(500).optional().describe('Propósito del sistema (ej: "Gestiono mis proyectos freelance")'),
       templateType: z
-        .enum(['academic', 'professional', 'entrepreneurial', 'personal', 'custom'])
+        .enum(['academic', 'project', 'entrepreneurial', 'personal', 'custom'])
         .optional()
         .describe('Tipo de plantilla del sistema'),
       energyIdeal: z.enum(['high', 'medium', 'low']).optional().describe('Nivel de energía ideal para trabajar en este sistema'),
@@ -51,7 +51,7 @@ export function registerSystemCrudTools(server: McpServer, kinoFetch: KinoFetch)
       icon: z.string().max(50).optional(),
       identityStatement: z.string().max(500).optional().describe('Propósito del sistema'),
       templateType: z
-        .enum(['academic', 'professional', 'entrepreneurial', 'personal', 'custom'])
+        .enum(['academic', 'project', 'entrepreneurial', 'personal', 'custom'])
         .optional(),
       energyIdeal: z.enum(['high', 'medium', 'low']).optional(),
       expectedFrequency: z.string().max(20).optional().describe('Frecuencia esperada de uso (ej: "diario", "semanal")'),

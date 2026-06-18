@@ -1,6 +1,6 @@
 import { Skeleton } from "@/components/ui/skeleton";
 import { PageWrapper } from "@/components/PageWrapper";
-import { BreadcrumbSkeleton, TaskCardSkeleton } from "@/components/skeletons";
+import { BreadcrumbSkeleton, TaskCardSkeleton } from "@/components/Skeletons";
 
 export default function SystemLoading() {
   return (

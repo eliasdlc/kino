@@ -1,5 +1,5 @@
 import {
-  Briefcase,
+  FolderKanban,
   GraduationCap,
   Inbox,
   Rocket,
@@ -10,7 +10,7 @@ import {
 
 export type SystemType =
   | 'academic'
-  | 'professional'
+  | 'project'
   | 'entrepreneurial'
   | 'personal'
   | 'custom'
@@ -65,6 +65,20 @@ export type SystemTypeConfig = {
   defaultTab: SystemTabId;
 };
 
+/**
+ * Columnas por defecto del board kanban del systemType `project`.
+ * Reflejan el seed de `system_status_definitions` (migración 0009). La columna
+ * terminal (`done`) sincroniza con el `status` de scheduling vía el puente.
+ */
+export const PROJECT_BOARD_COLUMNS = [
+  { id: 'todo', label: 'Por hacer' },
+  { id: 'in_progress', label: 'En progreso' },
+  { id: 'review', label: 'En review' },
+  { id: 'done', label: 'Hecho' },
+] as const;
+
+export const PROJECT_BOARD_TERMINAL = 'done';
+
 export const SYSTEM_TYPE_CONFIG: Record<SystemType, SystemTypeConfig> = {
   academic: {
     icon: GraduationCap,
@@ -80,12 +94,12 @@ export const SYSTEM_TYPE_CONFIG: Record<SystemType, SystemTypeConfig> = {
     tabs: ['action', 'backlog', 'planning', 'archive'],
     defaultTab: 'action',
   },
-  professional: {
-    icon: Briefcase,
-    emoji: '💼',
-    label: 'Profesional',
+  project: {
+    icon: FolderKanban,
+    emoji: '🗂️',
+    label: 'Proyecto',
     view: 'kanban',
-    extraFields: ['project', 'assignee', 'dependencies', 'reviewer'],
+    extraFields: ['sprint', 'category', 'epic'],
     energyDefault: 'high',
     schedulingPreference: 'highMedium',
     advisorTemplate: '{nombre} lleva {n} días sin actividad — estás en tu ventana de alta energía.',

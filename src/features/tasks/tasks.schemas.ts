@@ -25,13 +25,15 @@ export const createTaskSchema = z.object({
   status: STATUS.optional(),
   energyLevel: z.enum(["high", "medium", "low"]).optional(),
   priority: z.enum(["critical", "high", "medium", "low"]).optional(),
-  taskType: z.enum(["task", "idea", "event", "reminder"]).optional(),
+  taskType: z.enum(["task", "idea", "event", "reminder", "epic"]).optional(),
   dueDate: DUE_DATE.optional(),
   startDate: START_DATE.optional(),
   estimatedTime: z.string().time().optional(),
   parentTaskId: z.string().uuid().optional(),
   contextTagId: z.string().uuid().optional(),
   folderId: z.string().uuid().optional(),
+  sprintId: z.string().uuid().optional(),
+  boardStatus: z.string().max(50).optional(),
   metadata: z.record(z.string(), z.unknown()).optional(),
 }).superRefine((data, ctx) => {
   if (data.taskType === 'event' && !data.startDate) {
@@ -51,13 +53,14 @@ export const updateTaskSchema = z.object({
   status: STATUS.optional(),
   energyLevel: z.enum(["high", "medium", "low"]).optional(),
   priority: z.enum(["critical", "high", "medium", "low"]).optional(),
-  taskType: z.enum(["task", "idea", "event", "reminder"]).nullable().optional(),
+  taskType: z.enum(["task", "idea", "event", "reminder", "epic"]).nullable().optional(),
   dueDate: DUE_DATE.optional().nullable(),
   startDate: START_DATE.optional().nullable(),
   estimatedTime: z.string().time().optional(),
   parentTaskId: z.string().uuid().optional(),
-  contextTagId: z.string().uuid().optional(),
+  contextTagId: z.string().uuid().nullable().optional(),
   folderId: z.string().uuid().nullable().optional(),
+  sprintId: z.string().uuid().nullable().optional(),
   systemId: z.string().uuid().optional(),
   inTodayPlan: z.boolean().optional(),
   metadata: z.record(z.string(), z.unknown()).optional().nullable(),
@@ -75,6 +78,11 @@ export const updateTaskSchema = z.object({
 
 export const moveTaskSchema = z.object({
   status: STATUS,
+});
+
+/** Mover una tarjeta de columna del board (eje workflow, no scheduling). */
+export const moveBoardSchema = z.object({
+  boardStatus: z.string().min(1).max(50),
 });
 
 export const reorderTasksSchema = z.object({

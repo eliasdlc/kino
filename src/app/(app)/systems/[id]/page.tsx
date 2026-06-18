@@ -8,7 +8,7 @@ import { PageBreadcrumb } from "@/components/PageBreadcrumb";
 import { SystemDetailHeader } from "@/features/systems/SystemDetailHeader";
 import { computeSystemSignals } from "@/features/systems/systems.signals";
 import { SystemDetailView } from "@/features/systems/views/SystemDetailView";
-import { DocsView } from "@/features/docs/DocsView";
+import { NotebooksView } from "@/features/notebooks/NotebooksView";
 
 export default async function SystemPage({
   params,
@@ -45,7 +45,7 @@ export default async function SystemPage({
 
         <div className="mt-4">
           {tab === "docs" ? (
-            <DocsView systemId={id} />
+            <NotebooksView systemId={id} />
           ) : (
             <SystemDetailView system={system} initialTasks={tasks} />
           )}

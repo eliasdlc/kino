@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef, type ReactNode } from "react";
 import { differenceInCalendarDays, startOfToday } from "date-fns";
 import { useTasks, useToggleTask, useDeleteTaskWithUndo } from "./tasks.hooks";
-import { TaskCard } from "./TaskCard";
+import { DefaultTaskCard } from "./cards/DefaultTaskCard";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { parseDueDate } from "./tasks.utils";
 import type { Task } from "./tasks.types";
@@ -120,7 +120,7 @@ export function TaskWeekFocusView({ systemId, initialData, onEdit, highlight }: 
           else rowRefs.current.delete(task.id);
         }}
       >
-        <TaskCard
+        <DefaultTaskCard
           task={task}
           systemId={systemId}
           systemType="academic"

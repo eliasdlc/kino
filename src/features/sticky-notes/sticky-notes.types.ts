@@ -4,5 +4,7 @@ export type StickyNote = typeof stickyNotes.$inferSelect;
 
 export type StickyNoteItem = Pick<
   StickyNote,
-  "id" | "title" | "content" | "color" | "sortIndex" | "pageId" | "folderId"
+  | "id" | "title" | "content" | "color" | "sortIndex"
+  | "pageId" | "folderId"
+  | "positionSide" | "positionY" | "positionX" | "anchorId" | "stackId" | "textAnchor"
 >;

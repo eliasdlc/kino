@@ -3,6 +3,7 @@ import { z } from "zod";
 export const createPageSchema = z.object({
   systemId: z.string().uuid(),
   folderId: z.string().uuid().optional(),
+  parentPageId: z.string().uuid().optional(),
   title: z.string().max(500).optional(),
   content: z.string().nullable().optional(),
 });

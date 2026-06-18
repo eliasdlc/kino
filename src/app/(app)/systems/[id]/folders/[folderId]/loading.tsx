@@ -1,5 +1,5 @@
 import { Skeleton } from "@/components/ui/skeleton";
-import { BreadcrumbSkeleton, TaskCardSkeleton } from "@/components/skeletons";
+import { BreadcrumbSkeleton, TaskCardSkeleton } from "@/components/Skeletons";
 
 export default function FolderLoading() {
   return (

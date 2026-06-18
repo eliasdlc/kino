@@ -1,0 +1,202 @@
+"use client";
+
+import { useState } from "react";
+import { useRouter } from "next/navigation";
+import { Files, FolderOpen, Loader2 } from "lucide-react";
+import { useFolders, useCreateFolder } from "@/features/folders/folders.hooks";
+import { usePages } from "@/features/pages/pages.hooks";
+import { useTags } from "@/features/tags/tags.hooks";
+import { CreateNotebookDialog } from "@/features/pages/CreateNotebookDialog";
+import { NotebooksToolbar } from "./NotebooksToolbar";
+import { FolderCard } from "./FolderCard";
+import { NotebookCard } from "./NotebookCard";
+import {
+  ResponsiveDialog,
+  ResponsiveDialogContent,
+  ResponsiveDialogHeader,
+  ResponsiveDialogTitle,
+} from "@/components/ui/responsive-dialog";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Skeleton } from "@/components/ui/skeleton";
+import { cn } from "@/lib/utils";
+
+const TAG_DOT: Record<string, string> = {
+  red: "bg-red-500", blue: "bg-blue-500", pink: "bg-pink-500",
+  purple: "bg-purple-500", green: "bg-green-500", orange: "bg-orange-500",
+  yellow: "bg-yellow-500", teal: "bg-teal-500", gray: "bg-zinc-500",
+  black: "bg-zinc-900", white: "bg-white border border-border",
+};
+
+interface NotebooksViewProps {
+  systemId: string;
+}
+
+export function NotebooksView({ systemId }: NotebooksViewProps) {
+  const router = useRouter();
+  const { data: folders = [], isLoading: foldersLoading } = useFolders(systemId);
+  const { data: pages = [], isLoading: pagesLoading } = usePages(systemId);
+  const { mutate: createFolder, isPending: creatingFolder } = useCreateFolder(systemId);
+  const { data: allTags = [] } = useTags(systemId);
+
+  const [folderDialogOpen, setFolderDialogOpen] = useState(false);
+  const [pageDialogOpen, setPageDialogOpen] = useState(false);
+  const [folderName, setFolderName] = useState("");
+  const [activeTagIds, setActiveTagIds] = useState<Set<string>>(new Set());
+
+  const isLoading = foldersLoading || pagesLoading;
+  const allRootPages = pages.filter((p) => !p.folderId && !p.parentPageId);
+  const rootPages = activeTagIds.size === 0
+    ? allRootPages
+    : allRootPages.filter((p) => p.tags.some((t) => activeTagIds.has(t.id)));
+  const isEmpty = !isLoading && folders.length === 0 && allRootPages.length === 0;
+
+  function toggleTag(tagId: string) {
+    setActiveTagIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(tagId)) next.delete(tagId);
+      else next.add(tagId);
+      return next;
+    });
+  }
+
+  function handleCreateFolder() {
+    if (!folderName.trim()) return;
+    createFolder(
+      { name: folderName.trim() },
+      {
+        onSuccess: () => {
+          setFolderName("");
+          setFolderDialogOpen(false);
+        },
+      }
+    );
+  }
+
+  return (
+    <div className="w-full space-y-6">
+      <NotebooksToolbar
+        onNewFolder={() => setFolderDialogOpen(true)}
+        onNewPage={() => setPageDialogOpen(true)}
+      />
+
+      {!isLoading && allTags.length > 0 && (
+        <div className="flex flex-wrap gap-2">
+          {allTags.map((tag) => {
+            const active = activeTagIds.has(tag.id);
+            return (
+              <button
+                key={tag.id}
+                type="button"
+                onClick={() => toggleTag(tag.id)}
+                className={cn(
+                  "inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium border transition-all",
+                  active
+                    ? "bg-muted border-foreground/30 text-foreground"
+                    : "bg-transparent border-border text-muted-foreground hover:border-muted-foreground/50"
+                )}
+              >
+                <span className={cn("h-2 w-2 rounded-full shrink-0", TAG_DOT[tag.color] ?? "bg-zinc-500")} />
+                {tag.title}
+              </button>
+            );
+          })}
+        </div>
+      )}
+
+      {isLoading && (
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+          {Array.from({ length: 8 }).map((_, i) => (
+            <Skeleton key={i} className="aspect-square rounded-2xl w-full" />
+          ))}
+        </div>
+      )}
+
+      {!isLoading && isEmpty && (
+        <div className="rounded-lg border border-dashed p-10 text-center space-y-2">
+          <Files className="size-8 text-muted-foreground/40 mx-auto" />
+          <p className="text-sm text-muted-foreground">
+            Aún no hay notebooks. Crea una carpeta o notebook para empezar.
+          </p>
+        </div>
+      )}
+
+      {!isLoading && folders.length > 0 && (
+        <section className="space-y-3">
+          <p className="text-xs font-semibold uppercase tracking-widest text-muted-foreground flex items-center gap-1.5">
+            <FolderOpen className="size-3.5" />
+            Carpetas
+          </p>
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+            {folders.map((folder) => (
+              <FolderCard
+                key={folder.id}
+                folder={folder}
+                systemId={systemId}
+                onClick={() => router.push(`/systems/${systemId}/folders/${folder.id}`)}
+              />
+            ))}
+          </div>
+        </section>
+      )}
+
+      {!isLoading && rootPages.length > 0 && (
+        <section className="space-y-3">
+          {folders.length > 0 && (
+            <p className="text-xs font-semibold uppercase tracking-widest text-muted-foreground">
+              Notebooks
+            </p>
+          )}
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+            {rootPages.map((page) => (
+              <NotebookCard
+                key={page.id}
+                page={page}
+                systemId={systemId}
+                href={`/systems/${systemId}/pages/${page.id}`}
+              />
+            ))}
+          </div>
+        </section>
+      )}
+
+      <ResponsiveDialog open={folderDialogOpen} onOpenChange={setFolderDialogOpen}>
+        <ResponsiveDialogContent>
+          <ResponsiveDialogHeader>
+            <ResponsiveDialogTitle>Nueva carpeta</ResponsiveDialogTitle>
+          </ResponsiveDialogHeader>
+          <div className="flex flex-col gap-4 pt-1">
+            <div className="space-y-1.5">
+              <Label htmlFor="folder-name">Nombre</Label>
+              <Input
+                id="folder-name"
+                autoFocus
+                placeholder="Nombre de la carpeta"
+                value={folderName}
+                onChange={(e) => setFolderName(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") handleCreateFolder();
+                }}
+                maxLength={255}
+              />
+            </div>
+            <Button
+              onClick={handleCreateFolder}
+              disabled={!folderName.trim() || creatingFolder}
+            >
+              {creatingFolder && <Loader2 className="size-4 animate-spin mr-2" />}
+              {creatingFolder ? "Creando..." : "Crear carpeta"}
+            </Button>
+          </div>
+        </ResponsiveDialogContent>
+      </ResponsiveDialog>
+
+      <CreateNotebookDialog
+        systemId={systemId}
+        open={pageDialogOpen}
+        onOpenChange={setPageDialogOpen}
+      />
+    </div>
+  );
+}
