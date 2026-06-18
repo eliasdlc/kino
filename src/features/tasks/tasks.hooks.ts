@@ -107,6 +107,8 @@ export function useCreateTask(systemId: string, folderId?: string) {
         title: data.title,
         description: data.description ?? null,
         status: optimisticStatus,
+        boardStatus: null,
+        boardStatusChangedAt: null,
         priority: (data.priority as Task["priority"]) ?? "medium",
         energyLevel: (data.energyLevel as Task["energyLevel"]) ?? "medium",
         taskType: (data.taskType as Task["taskType"]) ?? null,
@@ -116,11 +118,13 @@ export function useCreateTask(systemId: string, folderId?: string) {
         parentTaskId: data.parentTaskId ?? null,
         contextTagId: data.contextTagId ?? null,
         folderId: data.folderId ?? null,
+        sprintId: null,
         systemId,
         userId: "optimistic",
         recurrenceRule: null,
         recurrenceParentId: null,
         externalSource: null,
+        externalId: null,
         sortIndex: 0,
         metadata: null,
         inTodayPlan: false,
@@ -534,6 +538,55 @@ export function useUpdateTask(systemId: string) {
       queryClient.invalidateQueries({ queryKey: taskKeys.bySystem(systemId) });
       // Invalidate linked tasks so any panel showing this task updates
       queryClient.invalidateQueries({ queryKey: ["pages", "tasks"] });
+    },
+  });
+}
+
+/** Mueve una tarjeta de columna del board (systemType `project`). Optimista:
+ * refleja la nueva columna y, si entra/sale de la terminal, el done de scheduling. */
+export function useMoveTaskBoard(systemId: string) {
+  const queryClient = useQueryClient();
+
+  return useMutation<Task, Error, { taskId: string; boardStatus: string }>({
+    mutationFn: async ({ taskId, boardStatus }) => {
+      const res = await fetch(`/api/tasks/${taskId}/board`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ boardStatus }),
+      });
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}));
+        throw new Error((body as { message?: string }).message ?? "Failed to move task");
+      }
+      return res.json() as Promise<Task>;
+    },
+    onMutate: async ({ taskId, boardStatus }) => {
+      // No awaited — update the cache synchronously so the card appears in
+      // the target column before React re-renders after drag end, avoiding the snap-back flash.
+      queryClient.cancelQueries({ queryKey: taskKeys.bySystem(systemId) });
+      const previous = queryClient.getQueryData<Task[]>(taskKeys.bySystem(systemId));
+      queryClient.setQueryData<Task[]>(taskKeys.bySystem(systemId), (old = []) =>
+        old.map((t) => {
+          if (t.id !== taskId) return t;
+          const enteringDone = boardStatus === "done" && t.status !== "done";
+          const leavingDone = boardStatus !== "done" && t.boardStatus === "done" && t.status === "done";
+          return {
+            ...t,
+            boardStatus,
+            boardStatusChangedAt: new Date(),
+            ...(enteringDone ? { status: "done", completedAt: new Date() } : {}),
+            ...(leavingDone ? { status: "today", completedAt: null } : {}),
+          } as Task;
+        }),
+      );
+      return { previous };
+    },
+    onError: (_err, _vars, context) => {
+      const ctx = context as { previous?: Task[] } | undefined;
+      if (ctx?.previous) queryClient.setQueryData(taskKeys.bySystem(systemId), ctx.previous);
+    },
+    onSettled: () => {
+      queryClient.invalidateQueries({ queryKey: ["tasks"] });
     },
   });
 }

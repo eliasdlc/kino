@@ -124,3 +124,30 @@ function buildSideEffects(action: TransitionAction, taskEnergyPoints: number): S
             return [];
     }
 }
+
+/**
+ * Puente board ↔ scheduling (systemType `project`).
+ *
+ * El board kanban tiene su propio eje (columna de workflow), independiente del
+ * `status` de scheduling. La ÚNICA columna que sincroniza con el scheduling es la
+ * terminal (por convención, status_name='done'): mover una tarjeta ahí la completa
+ * y sacarla de ahí la des-completa. El resto de columnas no tocan el scheduling.
+ *
+ * Devuelve la acción de scheduling a aplicar (vía `validateTransition`), o null si
+ * el movimiento de columna no impacta el scheduling. Función pura → testeable.
+ */
+export function deriveBoardBridgeAction(
+    scheduleStatus: TaskStatus,
+    prevBoardStatus: string | null,
+    nextBoardStatus: string,
+    terminalColumn = "done",
+): Extract<TransitionAction, "toggle_done" | "undo_done"> | null {
+    const entersTerminal =
+        nextBoardStatus === terminalColumn && prevBoardStatus !== terminalColumn;
+    const leavesTerminal =
+        prevBoardStatus === terminalColumn && nextBoardStatus !== terminalColumn;
+
+    if (entersTerminal && scheduleStatus !== "done") return "toggle_done";
+    if (leavesTerminal && scheduleStatus === "done") return "undo_done";
+    return null;
+}

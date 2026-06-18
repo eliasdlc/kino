@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
-import { bulkMoveSchema, bulkUpdateSchema, bulkCreateTaskSchema, listTasksQuerySchema, createTaskSchema, moveTaskSchema, reorderTasksSchema, updateTaskSchema, createTimeLogSchema } from "./tasks.schemas";
-import { bulkMoveTasks, bulkUpdateTasks, bulkCreateTasks, queryTasks, createTask, deleteTask, getSubtasks, getTaskById, getTasksBySystem, moveTask, reorderTasks, restoreTask, toggleTask, updateTask, createTimeLog, getTimeLogSummary, ensureTodayPlanRolled } from "./tasks.service";
+import { bulkMoveSchema, bulkUpdateSchema, bulkCreateTaskSchema, listTasksQuerySchema, createTaskSchema, moveTaskSchema, moveBoardSchema, reorderTasksSchema, updateTaskSchema, createTimeLogSchema } from "./tasks.schemas";
+import { bulkMoveTasks, bulkUpdateTasks, bulkCreateTasks, queryTasks, createTask, deleteTask, getSubtasks, getTaskById, getTasksBySystem, moveTask, moveTaskBoard, reorderTasks, restoreTask, toggleTask, updateTask, createTimeLog, getTimeLogSummary, ensureTodayPlanRolled } from "./tasks.service";
 import { NotFoundError, ValidationError } from "@/shared/utils/error";
 import { getAuthContext } from "@/shared/utils/auth-context";
 import { getSystembyId } from "@/features/systems/systems.service";
@@ -200,6 +200,38 @@ export async function patchMove(
 
     try {
         const task = await moveTask(id, parsed.data.status as import("./tasks.state-machine").TaskStatus, ctx.userId);
+        return NextResponse.json(task);
+    } catch (error) {
+        if (error instanceof NotFoundError) {
+            return NextResponse.json({ code: "NOT_FOUND", message: "Task not found" }, { status: 404 });
+        }
+        if (error instanceof ValidationError) {
+            return NextResponse.json({ code: "VALIDATION_ERROR", message: error.message }, { status: 422 });
+        }
+        throw error;
+    }
+}
+
+export async function patchBoardMove(
+    request: NextRequest,
+    { params }: { params: Promise<{ id: string }> }
+) {
+    const ctx = await getAuthContext(request);
+    if (!ctx) return NextResponse.json({ code: "UNAUTHORIZED", message: "Unauthorized" }, { status: 401 });
+
+    const { id } = await params;
+    const body = await request.json();
+    const parsed = moveBoardSchema.safeParse(body);
+    if (!parsed.success) {
+        return NextResponse.json({
+            code: "VALIDATION_ERROR",
+            message: "Invalid input",
+            details: parsed.error.flatten()
+        }, { status: 400 });
+    }
+
+    try {
+        const task = await moveTaskBoard(id, parsed.data.boardStatus, ctx.userId);
         return NextResponse.json(task);
     } catch (error) {
         if (error instanceof NotFoundError) {
