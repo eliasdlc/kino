@@ -19,6 +19,13 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import {
+  ContextMenu,
+  ContextMenuContent,
+  ContextMenuItem,
+  ContextMenuSeparator,
+  ContextMenuTrigger,
+} from "@/components/ui/context-menu";
 import { Button } from "@/components/ui/button";
 import type { SystemWithSignals } from "./systems.types";
 
@@ -37,6 +44,9 @@ export function SystemCard({ system, onEdit, onDelete }: SystemCardProps) {
   const count = system.activeTaskCount;
 
   return (
+    <ContextMenu>
+      <ContextMenuTrigger asChild>
+        <div>
     <PhysicalCard
       href={`/systems/${system.id}`}
       ariaLabel={`Abrir sistema ${system.name}`}
@@ -133,5 +143,22 @@ export function SystemCard({ system, onEdit, onDelete }: SystemCardProps) {
         </div>
       </div>
     </PhysicalCard>
+        </div>
+      </ContextMenuTrigger>
+      <ContextMenuContent className="w-36">
+        <ContextMenuItem asChild>
+          <Link href={`/systems/${system.id}`} className="flex items-center gap-2">
+            <Eye className="size-4" /> View
+          </Link>
+        </ContextMenuItem>
+        <ContextMenuItem className="gap-2" onSelect={onEdit}>
+          <Pencil className="size-3.5" /> Edit
+        </ContextMenuItem>
+        <ContextMenuSeparator />
+        <ContextMenuItem variant="destructive" className="gap-2" onSelect={onDelete}>
+          <Trash2 className="size-3.5" /> Delete
+        </ContextMenuItem>
+      </ContextMenuContent>
+    </ContextMenu>
   );
 }

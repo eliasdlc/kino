@@ -1,6 +1,6 @@
 import { db } from "@/shared/db";
 import { CreateSystemInput, System, SystemWithSignals, UpdateSystemInput } from "./systems.types"
-import { systems, systemHealth, tasks } from "@/shared/db/schema";
+import { systems, systemHealth, tasks, contextTags } from "@/shared/db/schema";
 import { and, desc, eq, max, sql } from "drizzle-orm";
 import { ForbiddenError, NotFoundError } from "@/shared/utils/error";
 import { deriveStale } from "./systems.signals";
@@ -84,6 +84,15 @@ export async function createSystem(userId: string, input: CreateSystemInput) {
     triggerContext: input.triggerContext ?? "",
     sortOrder: (maxOrder ?? -1) + 1,
   }).returning();
+
+  // Sistemas `project` nacen con categorías por defecto (bug/feature/chore).
+  if (created && created.templateType === "project") {
+    await db.insert(contextTags).values([
+      { userId, systemId: created.id, title: "Bug", color: "red", isDefault: true },
+      { userId, systemId: created.id, title: "Feature", color: "blue", isDefault: true },
+      { userId, systemId: created.id, title: "Chore", color: "gray", isDefault: true },
+    ]);
+  }
 
   return created ?? null;
 }

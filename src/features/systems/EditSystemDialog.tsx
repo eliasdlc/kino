@@ -34,7 +34,7 @@ export function EditSystemDialog({ system, open, onOpenChange }: EditSystemDialo
   const [identityStatement, setIdentityStatement] = useState(system.identityStatement ?? "");
   const [color, setColor] = useState(system.color);
   const [icon, setIcon] = useState(system.icon ?? "folder");
-  const validTemplateTypes = ["academic", "professional", "entrepreneurial", "personal", "custom"] as const;
+  const validTemplateTypes = ["academic", "project", "entrepreneurial", "personal", "custom"] as const;
   const initialTemplateType = validTemplateTypes.includes(system.templateType as typeof validTemplateTypes[number])
     ? system.templateType!
     : "custom";
@@ -54,7 +54,7 @@ export function EditSystemDialog({ system, open, onOpenChange }: EditSystemDialo
           identityStatement,
           color: color as System["color"],
           icon,
-          templateType: templateType as "academic" | "professional" | "entrepreneurial" | "personal" | "custom",
+          templateType: templateType as "academic" | "project" | "entrepreneurial" | "personal" | "custom",
           energyIdeal: energyIdeal as "high" | "medium" | "low",
           expectedFrequency,
           triggerContext,
