@@ -49,7 +49,7 @@ export function WeeklyTrendsCard({ trends }: Props) {
   return (
     <div className="px-4 py-3 space-y-4">
       {/* Barras de completado */}
-      <div className="space-y-1">
+      <div className="space-y-4">
         <p className="text-xs text-muted-foreground">Tasa de completado</p>
         <div className="flex items-end gap-1 h-10">
           {days.map(({ date, label, snapshot }) => {
