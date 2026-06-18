@@ -1,20 +1,24 @@
 "use client";
 
-import { useState } from "react";
-import { X, Loader2 } from "lucide-react";
-import { cn } from "@/lib/utils";
-import {
-  ResponsiveDialog,
-  ResponsiveDialogContent,
-  ResponsiveDialogHeader,
-  ResponsiveDialogTitle,
-} from "@/components/ui/responsive-dialog";
+import { useEffect, useRef, useState } from "react";
+import { X, Loader2, MoreHorizontal, PanelLeft, PanelRight, PinOff, Pencil, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea";
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import {
+  ContextMenu,
+  ContextMenuContent,
+  ContextMenuItem,
+  ContextMenuSeparator,
+  ContextMenuTrigger,
+} from "@/components/ui/context-menu";
 import { useUpdateStickyNote, useDeleteStickyNote } from "./sticky-notes.hooks";
-import { STICKY_NOTE_COLORS, COLOR_PICKER_OPTIONS } from "./sticky-note-colors";
+import { STICKY_NOTE_COLORS, COLOR_PICKER_OPTIONS, paperStyle } from "./sticky-note-colors";
 import type { StickyNoteItem } from "./sticky-notes.types";
 
 interface StickyNoteCardProps {
@@ -22,102 +26,74 @@ interface StickyNoteCardProps {
   context: { pageId?: string; folderId?: string };
 }
 
-export function StickyNoteCard({ note, context }: StickyNoteCardProps) {
-  const { mutate: updateNote, isPending: isUpdating } = useUpdateStickyNote(context);
-  const { mutate: deleteNote } = useDeleteStickyNote(context);
-
-  const [editOpen, setEditOpen] = useState(false);
+function EditOverlay({
+  note,
+  context,
+  onClose,
+}: {
+  note: StickyNoteItem;
+  context: { pageId?: string; folderId?: string };
+  onClose: () => void;
+}) {
+  const { mutate: updateNote, isPending } = useUpdateStickyNote(context);
   const [title, setTitle] = useState(note.title ?? "");
   const [content, setContent] = useState(note.content ?? "");
   const [color, setColor] = useState(note.color);
+  const backdropRef = useRef<HTMLDivElement>(null);
+  const colors = STICKY_NOTE_COLORS[color] ?? STICKY_NOTE_COLORS.yellow!;
 
-  const colors = STICKY_NOTE_COLORS[note.color] ?? STICKY_NOTE_COLORS.yellow!;
-
-  function handleOpenEdit() {
-    setTitle(note.title ?? "");
-    setContent(note.content ?? "");
-    setColor(note.color);
-    setEditOpen(true);
-  }
+  useEffect(() => {
+    function onKey(e: KeyboardEvent) {
+      if (e.key === "Escape") onClose();
+    }
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [onClose]);
 
   function handleSave() {
     updateNote(
-      { noteId: note.id, data: { title: title || null, content: content || null, color } },
-      { onSuccess: () => setEditOpen(false) }
+      { noteId: note.id, data: { title: title || null, content: content || null, color: color as never } },
+      { onSuccess: onClose }
     );
   }
 
   return (
-    <>
-      <div
-        className={cn(
-          "group relative flex flex-col gap-2 rounded-lg border p-3 cursor-pointer transition-shadow hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
-          colors.bg,
-          colors.border
-        )}
-        onClick={handleOpenEdit}
-        role="button"
-        tabIndex={0}
-        onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") handleOpenEdit(); }}
-      >
-        {note.title && (
-          <p className={cn("text-xs font-semibold leading-tight line-clamp-2", colors.text)}>
-            {note.title}
-          </p>
-        )}
-        {note.content && (
-          <p className={cn("text-xs leading-snug line-clamp-4", colors.text, "opacity-80")}>
-            {note.content}
-          </p>
-        )}
-        {!note.title && !note.content && (
-          <p className={cn("text-xs italic opacity-50", colors.text)}>Nota vacía</p>
-        )}
+    <div
+      ref={backdropRef}
+      className="fixed inset-0 z-50 flex flex-col items-center justify-end sm:justify-center p-0 sm:p-4 bg-black/70 backdrop-blur-sm"
+      onClick={(e) => { if (e.target === backdropRef.current) onClose(); }}
+    >
+      <div className="w-full max-w-[400px] flex flex-col items-center gap-4 px-4 sm:px-0 pb-4 sm:pb-0">
+        {/* Square Post-it */}
+        <div
+          className="w-[90%] aspect-square rounded-lg p-6 flex flex-col gap-1.5"
+          style={{ ...paperStyle(colors.hex), transform: "rotate(-1.5deg)", color: colors.textHex }}
+        >
+          <input
+            autoFocus
+            type="text"
+            placeholder="Título..."
+            value={title}
+            onChange={(e) => setTitle(e.target.value)}
+            maxLength={200}
+            className="bg-transparent outline-none text-lg font-semibold placeholder:opacity-30 w-full"
+            style={{ color: colors.textHex }}
+          />
+          <textarea
+            placeholder="Escribe aquí..."
+            value={content}
+            onChange={(e) => setContent(e.target.value)}
+            maxLength={500}
+            className="bg-transparent outline-none resize-none flex-1 placeholder:opacity-30 w-full text-sm leading-relaxed"
+            style={{ color: colors.textHex }}
+          />
+        </div>
 
-        <TooltipProvider>
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <button
-                type="button"
-                onClick={(e) => { e.stopPropagation(); deleteNote(note.id); }}
-                className={cn(
-                  "absolute top-1.5 right-1.5 size-5 rounded flex items-center justify-center",
-                  "opacity-0 group-hover:opacity-100 transition-opacity",
-                  "hover:bg-black/10 dark:hover:bg-white/10"
-                )}
-                aria-label="Eliminar nota"
-              >
-                <X className={cn("size-3", colors.text)} />
-              </button>
-            </TooltipTrigger>
-            <TooltipContent>Eliminar nota</TooltipContent>
-          </Tooltip>
-        </TooltipProvider>
-      </div>
-
-      {/* Edit dialog */}
-      <ResponsiveDialog open={editOpen} onOpenChange={setEditOpen}>
-        <ResponsiveDialogContent onClick={(e) => e.stopPropagation()}>
-          <ResponsiveDialogHeader>
-            <ResponsiveDialogTitle>Editar nota</ResponsiveDialogTitle>
-          </ResponsiveDialogHeader>
-          <div className="flex flex-col gap-4 pt-1">
-            <Input
-              placeholder="Título (opcional)"
-              value={title}
-              onChange={(e) => setTitle(e.target.value)}
-              maxLength={200}
-            />
-            <Textarea
-              placeholder="Escribe algo..."
-              value={content}
-              onChange={(e) => setContent(e.target.value)}
-              className="resize-none min-h-[100px]"
-              maxLength={500}
-            />
-
-            {/* Color picker */}
-            <div className="flex flex-wrap gap-2">
+        {/* Bottom panel */}
+        <div className="w-full bg-white dark:bg-card rounded-t-3xl sm:rounded-3xl p-5 space-y-4 shadow-2xl">
+          <div>
+            <p className="text-xs text-muted-foreground mb-3 font-semibold uppercase tracking-wider">Color</p>
+            <div className="flex gap-2.5 flex-wrap">
               {COLOR_PICKER_OPTIONS.map((c) => {
                 const cls = STICKY_NOTE_COLORS[c]!;
                 return (
@@ -126,24 +102,137 @@ export function StickyNoteCard({ note, context }: StickyNoteCardProps) {
                     type="button"
                     onClick={() => setColor(c as typeof color)}
                     aria-label={c}
-                    className={cn(
-                      "size-6 rounded-full border-2 transition-transform hover:scale-110",
-                      cls.bg,
-                      color === c ? "border-foreground scale-110" : "border-transparent"
-                    )}
+                    className="size-8 rounded-full transition-all"
+                    style={{
+                      backgroundColor: cls.hex,
+                      border: `3px solid ${color === c ? "#00000055" : "transparent"}`,
+                      transform: color === c ? "scale(1.18)" : "scale(1)",
+                    }}
                   />
                 );
               })}
             </div>
-
-            <Button onClick={handleSave} disabled={isUpdating}>
-              {isUpdating && <Loader2 className="size-4 animate-spin mr-2" />}
-              {isUpdating ? "Guardando..." : "Guardar"}
+          </div>
+          <div className="flex gap-2">
+            <Button variant="outline" className="flex-1" onClick={onClose} disabled={isPending}>
+              Cancelar
+            </Button>
+            <Button className="flex-1" onClick={handleSave} disabled={isPending}>
+              {isPending && <Loader2 className="size-4 animate-spin mr-2" />}
+              {isPending ? "Guardando..." : "Guardar"}
             </Button>
           </div>
-        </ResponsiveDialogContent>
-      </ResponsiveDialog>
+        </div>
+      </div>
+    </div>
+  );
+}
 
+export function StickyNoteCard({ note, context }: StickyNoteCardProps) {
+  const { mutate: deleteNote } = useDeleteStickyNote(context);
+  const { mutate: updateNote } = useUpdateStickyNote(context);
+  const [editOpen, setEditOpen] = useState(false);
+  const colors = STICKY_NOTE_COLORS[note.color] ?? STICKY_NOTE_COLORS.yellow!;
+
+  function pinToSide(side: "left" | "right" | null) {
+    updateNote({
+      noteId: note.id,
+      data: { positionSide: side, positionY: side ? 0.12 : null, positionX: side ? 0 : null },
+    });
+  }
+
+  return (
+    <>
+      <ContextMenu>
+        <ContextMenuTrigger asChild>
+          <div
+            className="group relative flex flex-col gap-1 cursor-pointer rounded-lg p-3.5 w-full min-h-[90px]"
+            style={{ ...paperStyle(colors.hex), color: colors.textHex }}
+            onClick={() => setEditOpen(true)}
+            role="button"
+            tabIndex={0}
+            onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") setEditOpen(true); }}
+          >
+            {note.title && (
+              <p className="font-semibold text-sm leading-tight break-words" style={{ color: colors.textHex }}>
+                {note.title}
+              </p>
+            )}
+            {note.content && (
+              <p
+                className="text-sm leading-snug whitespace-pre-wrap break-words"
+                style={{ color: colors.textHex, opacity: 0.88 }}
+              >
+                {note.content}
+              </p>
+            )}
+            {!note.title && !note.content && (
+              <p className="text-xs italic opacity-35" style={{ color: colors.textHex }}>Nota vacía</p>
+            )}
+
+            {/* Top-right controls */}
+            <div
+              className="absolute top-1.5 right-1.5 flex items-center gap-0.5 md:opacity-0 md:group-hover:opacity-100 transition-opacity"
+              onClick={(e) => e.stopPropagation()}
+            >
+              {context.pageId && (
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <button
+                      type="button"
+                      className="size-5 rounded flex items-center justify-center hover:bg-black/15"
+                      aria-label="Opciones de posición"
+                    >
+                      <MoreHorizontal className="size-3" style={{ color: colors.textHex }} />
+                    </button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end" className="w-44">
+                    {note.positionSide !== "left" && (
+                      <DropdownMenuItem className="gap-2 text-xs" onClick={() => pinToSide("left")}>
+                        <PanelLeft className="size-3" /> Margen izquierdo
+                      </DropdownMenuItem>
+                    )}
+                    {note.positionSide !== "right" && (
+                      <DropdownMenuItem className="gap-2 text-xs" onClick={() => pinToSide("right")}>
+                        <PanelRight className="size-3" /> Margen derecho
+                      </DropdownMenuItem>
+                    )}
+                    {note.positionSide && (
+                      <>
+                        <DropdownMenuSeparator />
+                        <DropdownMenuItem className="gap-2 text-xs" onClick={() => pinToSide(null)}>
+                          <PinOff className="size-3" /> Quitar del margen
+                        </DropdownMenuItem>
+                      </>
+                    )}
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              )}
+              <button
+                type="button"
+                onClick={() => deleteNote(note.id)}
+                className="size-5 rounded flex items-center justify-center hover:bg-black/15"
+                aria-label="Eliminar nota"
+              >
+                <X className="size-3" style={{ color: colors.textHex }} />
+              </button>
+            </div>
+          </div>
+        </ContextMenuTrigger>
+        <ContextMenuContent className="w-40">
+          <ContextMenuItem className="gap-2" onSelect={() => setEditOpen(true)}>
+            <Pencil className="size-3.5" /> Editar
+          </ContextMenuItem>
+          <ContextMenuSeparator />
+          <ContextMenuItem variant="destructive" className="gap-2" onSelect={() => deleteNote(note.id)}>
+            <Trash2 className="size-3.5" /> Eliminar
+          </ContextMenuItem>
+        </ContextMenuContent>
+      </ContextMenu>
+
+      {editOpen && (
+        <EditOverlay note={note} context={context} onClose={() => setEditOpen(false)} />
+      )}
     </>
   );
 }

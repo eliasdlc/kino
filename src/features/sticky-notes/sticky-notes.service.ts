@@ -12,6 +12,12 @@ const NOTE_COLUMNS = {
   sortIndex: stickyNotes.sortIndex,
   pageId: stickyNotes.pageId,
   folderId: stickyNotes.folderId,
+  positionSide: stickyNotes.positionSide,
+  positionY: stickyNotes.positionY,
+  positionX: stickyNotes.positionX,
+  anchorId: stickyNotes.anchorId,
+  stackId: stickyNotes.stackId,
+  textAnchor: stickyNotes.textAnchor,
 } as const;
 
 export async function getStickyNotesByPage(
@@ -47,6 +53,11 @@ export async function createStickyNote(
       title: input.title ?? null,
       content: input.content ?? null,
       color: input.color ?? "yellow",
+      textAnchor: input.textAnchor ?? null,
+      positionSide: input.positionSide ?? null,
+      positionY: input.positionY ?? null,
+      positionX: input.positionX ?? null,
+      anchorId: input.anchorId ?? null,
       pageId: "pageId" in input ? input.pageId : null,
       folderId: "folderId" in input ? input.folderId : null,
     })

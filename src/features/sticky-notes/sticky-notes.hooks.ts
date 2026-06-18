@@ -12,6 +12,7 @@ export const stickyNoteKeys = {
 export function useStickyNotesByPage(pageId: string) {
   return useQuery<StickyNoteItem[]>({
     queryKey: stickyNoteKeys.byPage(pageId),
+    enabled: !!pageId,
     queryFn: async () => {
       const res = await fetch(`/api/pages/${pageId}/sticky-notes`);
       if (!res.ok) throw new Error("Failed to fetch sticky notes");
@@ -24,6 +25,7 @@ export function useStickyNotesByPage(pageId: string) {
 export function useStickyNotesByFolder(folderId: string) {
   return useQuery<StickyNoteItem[]>({
     queryKey: stickyNoteKeys.byFolder(folderId),
+    enabled: !!folderId,
     queryFn: async () => {
       const res = await fetch(`/api/folders/${folderId}/sticky-notes`);
       if (!res.ok) throw new Error("Failed to fetch sticky notes");
