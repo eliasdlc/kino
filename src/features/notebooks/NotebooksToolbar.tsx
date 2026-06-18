@@ -1,12 +1,12 @@
 import { Button } from "@/components/ui/button";
 import { FolderPlus, FilePlus } from "lucide-react";
 
-interface DocsToolbarProps {
+interface NotebooksToolbarProps {
   onNewFolder?: () => void;
   onNewPage?: () => void;
 }
 
-export function DocsToolbar({ onNewFolder, onNewPage }: DocsToolbarProps) {
+export function NotebooksToolbar({ onNewFolder, onNewPage }: NotebooksToolbarProps) {
   return (
     <div className="flex items-center gap-2">
       <Button size="sm" variant="outline" className="gap-1.5" onClick={onNewFolder}>
@@ -15,7 +15,7 @@ export function DocsToolbar({ onNewFolder, onNewPage }: DocsToolbarProps) {
       </Button>
       <Button size="sm" variant="outline" className="gap-1.5" onClick={onNewPage}>
         <FilePlus className="size-3.5" />
-        Nueva página
+        Nuevo notebook
       </Button>
     </div>
   );

@@ -13,7 +13,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useCreateFolder } from "@/features/folders/folders.hooks";
-import { CreatePageDialog } from "@/features/pages/CreatePageDialog";
+import { CreateNotebookDialog } from "@/features/pages/CreateNotebookDialog";
 
 interface FolderViewToolbarProps {
   systemId: string;
@@ -49,7 +49,7 @@ export function FolderViewToolbar({ systemId, folderId }: FolderViewToolbarProps
           Nueva subcarpeta
         </Button>
         <Button size="sm" variant="outline" className="gap-1.5" onClick={() => setPageDialogOpen(true)}>
-          Nueva página
+          Nuevo notebook
         </Button>
       </div>
 
@@ -78,7 +78,7 @@ export function FolderViewToolbar({ systemId, folderId }: FolderViewToolbarProps
         </ResponsiveDialogContent>
       </ResponsiveDialog>
 
-      <CreatePageDialog
+      <CreateNotebookDialog
         systemId={systemId}
         folderId={folderId}
         open={pageDialogOpen}

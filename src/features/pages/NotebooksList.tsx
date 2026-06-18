@@ -1,7 +1,7 @@
 import { Button } from "@/components/ui/button";
 import { FileText, Plus } from "lucide-react";
 
-export function PagesList() {
+export function NotebooksList() {
   return (
     <div className="w-full space-y-3">
       <div className="flex items-center justify-between">

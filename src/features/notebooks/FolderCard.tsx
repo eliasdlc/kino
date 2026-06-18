@@ -13,6 +13,13 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import {
+  ContextMenu,
+  ContextMenuContent,
+  ContextMenuItem,
+  ContextMenuSeparator,
+  ContextMenuTrigger,
+} from "@/components/ui/context-menu";
+import {
   ResponsiveDialog,
   ResponsiveDialogContent,
   ResponsiveDialogHeader,
@@ -70,6 +77,9 @@ export function FolderCard({ folder, systemId, onClick, href }: FolderCardProps)
 
   return (
     <>
+      <ContextMenu>
+        <ContextMenuTrigger asChild>
+          <div>
       <PhysicalCard
         href={href}
         onClick={onClick}
@@ -140,7 +150,7 @@ export function FolderCard({ folder, systemId, onClick, href }: FolderCardProps)
                 <FolderClosed size={14} strokeWidth={2.2} />
                 <span className="text-xs font-medium tabular-nums">{folder.subfolderCount}</span>
               </span>
-              <span className="flex items-center gap-1" title={`${folder.pageCount} páginas`}>
+              <span className="flex items-center gap-1" title={`${folder.pageCount} notebooks`}>
                 <FileText size={14} strokeWidth={2.2} />
                 <span className="text-xs font-medium tabular-nums">{folder.pageCount}</span>
               </span>
@@ -148,6 +158,18 @@ export function FolderCard({ folder, systemId, onClick, href }: FolderCardProps)
           </div>
         </div>
       </PhysicalCard>
+          </div>
+        </ContextMenuTrigger>
+        <ContextMenuContent className="w-36">
+          <ContextMenuItem className="gap-2" onSelect={() => { setNewName(folder.name); setRenameOpen(true); }}>
+            <Pencil className="size-3.5" /> Rename
+          </ContextMenuItem>
+          <ContextMenuSeparator />
+          <ContextMenuItem variant="destructive" className="gap-2" onSelect={() => setConfirmDelete(true)}>
+            <Trash2 className="size-3.5" /> Delete
+          </ContextMenuItem>
+        </ContextMenuContent>
+      </ContextMenu>
 
       {/* Rename dialog */}
       <ResponsiveDialog open={renameOpen} onOpenChange={setRenameOpen}>

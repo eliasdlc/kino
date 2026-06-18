@@ -1,6 +1,6 @@
 import { Skeleton } from "@/components/ui/skeleton";
 import { Separator } from "@/components/ui/separator";
-import { BreadcrumbSkeleton } from "@/components/skeletons";
+import { BreadcrumbSkeleton } from "@/components/Skeletons";
 
 export default function PageEditorLoading() {
   return (

@@ -1,11 +1,16 @@
 import { pages, tasks } from "@/shared/db/schema";
+import type { ContextTagListItem } from "@/features/tags/tags.types";
 
 export type Page = typeof pages.$inferSelect;
 
 export type PageListItem = Pick<
   Page,
-  "id" | "title" | "folderId" | "systemId" | "isPinned" | "createdAt" | "updatedAt"
->;
+  "id" | "title" | "folderId" | "systemId" | "isPinned" | "parentPageId" | "createdAt" | "updatedAt"
+> & {
+  contentPreview: string | null;
+  tags: ContextTagListItem[];
+  subPageCount: number;
+};
 
 export type PageDetail = Page & {
   linkedTasks: LinkedTask[];

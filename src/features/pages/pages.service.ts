@@ -1,23 +1,41 @@
 import { db } from "@/shared/db";
-import { pages, tasks, taskPageLinks, folders } from "@/shared/db/schema";
-import { and, eq, isNull } from "drizzle-orm";
+import { pages, tasks, taskPageLinks, folders, pageTags, contextTags } from "@/shared/db/schema";
+import { and, eq, isNull, inArray, count } from "drizzle-orm";
 import { NotFoundError, ForbiddenError } from "@/shared/utils/error";
 import type { CreatePageInput, UpdatePageInput } from "./pages.schemas";
 import type { PageDetail, PageListItem, LinkedTask, PageMutationResult } from "./pages.types";
+import type { ContextTagListItem } from "@/features/tags/tags.types";
+
+function stripHtml(html: string | null | undefined): string | null {
+  if (!html) return null;
+  const text = html
+    .replace(/<\/?(p|li|h[1-6]|br)[^>]*>/gi, " ")
+    .replace(/<[^>]+>/g, "")
+    .replace(/&nbsp;/g, " ")
+    .replace(/&amp;/g, "&")
+    .replace(/&lt;/g, "<")
+    .replace(/&gt;/g, ">")
+    .replace(/\s+/g, " ")
+    .trim()
+    .slice(0, 300);
+  return text || null;
+}
 
 export async function getPagesBySystem(
   systemId: string,
   userId: string
 ): Promise<PageListItem[]> {
-  return db
+  const rows = await db
     .select({
       id: pages.id,
       title: pages.title,
       folderId: pages.folderId,
       systemId: pages.systemId,
       isPinned: pages.isPinned,
+      parentPageId: pages.parentPageId,
       createdAt: pages.createdAt,
       updatedAt: pages.updatedAt,
+      content: pages.content,
     })
     .from(pages)
     .where(
@@ -28,6 +46,88 @@ export async function getPagesBySystem(
       )
     )
     .orderBy(pages.updatedAt);
+
+  if (rows.length === 0) return [];
+
+  const pageIds = rows.map((r) => r.id);
+
+  const [tagRows, subPageCounts] = await Promise.all([
+    db
+      .select({
+        pageId: pageTags.pageId,
+        id: contextTags.id,
+        title: contextTags.title,
+        color: contextTags.color,
+        systemId: contextTags.systemId,
+        isDefault: contextTags.isDefault,
+      })
+      .from(pageTags)
+      .innerJoin(contextTags, eq(pageTags.tagId, contextTags.id))
+      .where(inArray(pageTags.pageId, pageIds)),
+    db
+      .select({ parentPageId: pages.parentPageId, count: count() })
+      .from(pages)
+      .where(
+        and(
+          inArray(pages.parentPageId, pageIds),
+          isNull(pages.deletedAt)
+        )
+      )
+      .groupBy(pages.parentPageId),
+  ]);
+
+  const tagsByPage = new Map<string, ContextTagListItem[]>();
+  for (const row of tagRows) {
+    const list = tagsByPage.get(row.pageId) ?? [];
+    list.push({ id: row.id, title: row.title, color: row.color, systemId: row.systemId, isDefault: row.isDefault });
+    tagsByPage.set(row.pageId, list);
+  }
+
+  const subCountByPage = new Map<string, number>();
+  for (const row of subPageCounts) {
+    if (row.parentPageId) subCountByPage.set(row.parentPageId, row.count);
+  }
+
+  return rows.map(({ content, ...rest }) => ({
+    ...rest,
+    contentPreview: stripHtml(content),
+    tags: tagsByPage.get(rest.id) ?? [],
+    subPageCount: subCountByPage.get(rest.id) ?? 0,
+  }));
+}
+
+export async function getSubPages(
+  parentPageId: string,
+  userId: string
+): Promise<PageListItem[]> {
+  const rows = await db
+    .select({
+      id: pages.id,
+      title: pages.title,
+      folderId: pages.folderId,
+      systemId: pages.systemId,
+      isPinned: pages.isPinned,
+      parentPageId: pages.parentPageId,
+      createdAt: pages.createdAt,
+      updatedAt: pages.updatedAt,
+      content: pages.content,
+    })
+    .from(pages)
+    .where(
+      and(
+        eq(pages.parentPageId, parentPageId),
+        eq(pages.userId, userId),
+        isNull(pages.deletedAt)
+      )
+    )
+    .orderBy(pages.createdAt);
+
+  return rows.map(({ content, ...rest }) => ({
+    ...rest,
+    contentPreview: stripHtml(content),
+    tags: [],
+    subPageCount: 0,
+  }));
 }
 
 export async function getPageById(
@@ -87,6 +187,7 @@ export async function createPage(
       userId,
       systemId: input.systemId,
       folderId: input.folderId ?? null,
+      parentPageId: input.parentPageId ?? null,
       title: input.title ?? null,
       content: input.content ?? null,
     })
@@ -96,11 +197,12 @@ export async function createPage(
       folderId: pages.folderId,
       systemId: pages.systemId,
       isPinned: pages.isPinned,
+      parentPageId: pages.parentPageId,
       createdAt: pages.createdAt,
       updatedAt: pages.updatedAt,
     });
 
-  return created!;
+  return { ...created!, contentPreview: null, tags: [], subPageCount: 0 };
 }
 
 export async function updatePage(
@@ -120,12 +222,27 @@ export async function updatePage(
       folderId: pages.folderId,
       systemId: pages.systemId,
       isPinned: pages.isPinned,
+      parentPageId: pages.parentPageId,
       content: pages.content,
       createdAt: pages.createdAt,
       updatedAt: pages.updatedAt,
     });
 
-  return updated ?? null;
+  if (!updated) return null;
+
+  const existingTags = await db
+    .select({
+      id: contextTags.id,
+      title: contextTags.title,
+      color: contextTags.color,
+      systemId: contextTags.systemId,
+      isDefault: contextTags.isDefault,
+    })
+    .from(pageTags)
+    .innerJoin(contextTags, eq(pageTags.tagId, contextTags.id))
+    .where(eq(pageTags.pageId, pageId));
+
+  return { ...updated, contentPreview: stripHtml(updated.content), tags: existingTags, subPageCount: 0 };
 }
 
 export async function deletePage(
@@ -229,4 +346,65 @@ export async function getLinkedTasks(
         isNull(tasks.deletedAt)
       )
     );
+}
+
+// ── page tags ──
+
+export async function getPageTagsList(
+  pageId: string,
+  userId: string
+): Promise<ContextTagListItem[]> {
+  const [page] = await db
+    .select({ id: pages.id })
+    .from(pages)
+    .where(and(eq(pages.id, pageId), eq(pages.userId, userId), isNull(pages.deletedAt)));
+  if (!page) return [];
+
+  return db
+    .select({
+      id: contextTags.id,
+      title: contextTags.title,
+      color: contextTags.color,
+      systemId: contextTags.systemId,
+      isDefault: contextTags.isDefault,
+    })
+    .from(pageTags)
+    .innerJoin(contextTags, eq(pageTags.tagId, contextTags.id))
+    .where(eq(pageTags.pageId, pageId));
+}
+
+export async function addTagToPage(
+  pageId: string,
+  tagId: string,
+  userId: string
+): Promise<boolean> {
+  const [page] = await db
+    .select({ id: pages.id })
+    .from(pages)
+    .where(and(eq(pages.id, pageId), eq(pages.userId, userId), isNull(pages.deletedAt)));
+  if (!page) throw new NotFoundError("Page not found");
+
+  const inserted = await db
+    .insert(pageTags)
+    .values({ pageId, tagId })
+    .onConflictDoNothing()
+    .returning({ pageId: pageTags.pageId });
+
+  return inserted.length > 0;
+}
+
+export async function removeTagFromPage(
+  pageId: string,
+  tagId: string,
+  userId: string
+): Promise<void> {
+  const [page] = await db
+    .select({ id: pages.id })
+    .from(pages)
+    .where(and(eq(pages.id, pageId), eq(pages.userId, userId), isNull(pages.deletedAt)));
+  if (!page) throw new NotFoundError("Page not found");
+
+  await db
+    .delete(pageTags)
+    .where(and(eq(pageTags.pageId, pageId), eq(pageTags.tagId, tagId)));
 }

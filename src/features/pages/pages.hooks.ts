@@ -3,11 +3,14 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import type { PageListItem, PageDetail, LinkedTask, PageMutationResult } from "./pages.types";
 import type { CreatePageInput, UpdatePageInput } from "./pages.schemas";
+import type { ContextTagListItem } from "@/features/tags/tags.types";
 
 export const pageKeys = {
   bySystem: (systemId: string) => ["pages", "system", systemId] as const,
   detail: (pageId: string) => ["pages", "detail", pageId] as const,
   linkedTasks: (pageId: string) => ["pages", "tasks", pageId] as const,
+  tags: (pageId: string) => ["pages", "tags", pageId] as const,
+  subPages: (pageId: string) => ["pages", "subpages", pageId] as const,
 };
 
 export function usePages(systemId: string) {
@@ -141,6 +144,89 @@ export function useUnlinkTask(pageId: string) {
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: pageKeys.linkedTasks(pageId) });
       qc.invalidateQueries({ queryKey: pageKeys.detail(pageId) });
+    },
+  });
+}
+
+export function usePageTags(pageId: string) {
+  return useQuery<ContextTagListItem[]>({
+    queryKey: pageKeys.tags(pageId),
+    queryFn: async () => {
+      const res = await fetch(`/api/pages/${pageId}/tags`);
+      if (!res.ok) throw new Error("Failed to fetch page tags");
+      return res.json();
+    },
+    staleTime: 30_000,
+  });
+}
+
+export function useAddPageTag(pageId: string, systemId: string) {
+  const qc = useQueryClient();
+  return useMutation<void, Error, string>({
+    mutationFn: async (tagId) => {
+      const res = await fetch(`/api/pages/${pageId}/tags`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ tagId }),
+      });
+      if (!res.ok) throw new Error("Failed to add tag");
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: pageKeys.tags(pageId) });
+      qc.invalidateQueries({ queryKey: pageKeys.bySystem(systemId) });
+    },
+  });
+}
+
+export function useSubPages(parentPageId: string) {
+  return useQuery<PageListItem[]>({
+    queryKey: pageKeys.subPages(parentPageId),
+    queryFn: async () => {
+      const res = await fetch(`/api/pages/${parentPageId}/subpages`);
+      if (!res.ok) throw new Error("Failed to fetch sub-pages");
+      return res.json();
+    },
+    staleTime: 10_000,
+  });
+}
+
+export function useCreateSubPage(parentPageId: string, systemId: string) {
+  const qc = useQueryClient();
+  return useMutation<PageListItem, Error, { title?: string }>({
+    mutationFn: async (data) => {
+      const res = await fetch(`/api/pages/${parentPageId}/subpages`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ systemId }),
+      });
+      if (!res.ok) throw new Error("Failed to create sub-page");
+      const page = await res.json() as PageListItem;
+      if (data.title) {
+        await fetch(`/api/pages/${page.id}`, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ title: data.title }),
+        });
+      }
+      return page;
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: pageKeys.subPages(parentPageId) });
+      qc.invalidateQueries({ queryKey: pageKeys.bySystem(systemId) });
+    },
+  });
+}
+
+export function useRemovePageTag(pageId: string, systemId: string) {
+  const qc = useQueryClient();
+  return useMutation<void, Error, string>({
+    mutationFn: async (tagId) => {
+      const res = await fetch(`/api/pages/${pageId}/tags/${tagId}`, { method: "DELETE" });
+      if (!res.ok) throw new Error("Failed to remove tag");
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: pageKeys.tags(pageId) });
+      qc.invalidateQueries({ queryKey: pageKeys.bySystem(systemId) });
     },
   });
 }

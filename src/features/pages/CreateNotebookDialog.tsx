@@ -15,7 +15,7 @@ import { Label } from "@/components/ui/label";
 import { FilePlus, Loader2 } from "lucide-react";
 import { useCreatePage } from "./pages.hooks";
 
-interface CreatePageDialogProps {
+interface CreateNotebookDialogProps {
   systemId: string;
   folderId?: string;
   trigger?: React.ReactNode;
@@ -23,13 +23,13 @@ interface CreatePageDialogProps {
   onOpenChange?: (open: boolean) => void;
 }
 
-export function CreatePageDialog({
+export function CreateNotebookDialog({
   systemId,
   folderId,
   trigger,
   open: controlledOpen,
   onOpenChange: controlledOnOpenChange,
-}: CreatePageDialogProps) {
+}: CreateNotebookDialogProps) {
   const router = useRouter();
   const [uncontrolledOpen, setUncontrolledOpen] = useState(false);
   const [title, setTitle] = useState("");
@@ -54,14 +54,14 @@ export function CreatePageDialog({
           {trigger ?? (
             <Button size="sm" variant="outline" className="gap-1.5">
               <FilePlus className="size-3.5" />
-              Nueva página
+              Nuevo notebook
             </Button>
           )}
         </ResponsiveDialogTrigger>
       )}
       <ResponsiveDialogContent>
         <ResponsiveDialogHeader>
-          <ResponsiveDialogTitle>Nueva página</ResponsiveDialogTitle>
+          <ResponsiveDialogTitle>Nuevo notebook</ResponsiveDialogTitle>
         </ResponsiveDialogHeader>
         <div className="flex flex-col gap-4 pt-1">
           <div className="space-y-1.5">
@@ -78,7 +78,7 @@ export function CreatePageDialog({
           </div>
           <Button onClick={handleCreate} disabled={isPending}>
             {isPending && <Loader2 className="size-4 animate-spin mr-2" />}
-            {isPending ? "Creando..." : "Crear página"}
+            {isPending ? "Creando..." : "Crear notebook"}
           </Button>
         </div>
       </ResponsiveDialogContent>
