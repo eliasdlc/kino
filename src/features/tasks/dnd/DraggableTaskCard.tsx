@@ -3,9 +3,10 @@
 import { useDraggable } from "@dnd-kit/core";
 import { CSS } from "@dnd-kit/utilities";
 import { cn } from "@/lib/utils";
-import { TaskCard } from "../TaskCard";
+import { TaskCardFor } from "../cards/TaskCardFor";
 import { PlanningTaskCard } from "../PlanningTaskCard";
 import type { Task } from "../tasks.types";
+import type { SystemType } from "@/shared/lib/system-types";
 import type { TaskDragData, DragSourceType } from "./dnd.types";
 
 interface DraggableTaskCardProps {
@@ -13,6 +14,8 @@ interface DraggableTaskCardProps {
   systemId: string;
   sourceType: DragSourceType;
   sourceId: string;
+  /** Elige el layout de card por tipo de sistema (default: fila genérica). */
+  systemType?: SystemType;
   isFocused?: boolean;
   /** Renderiza la variante compacta (columnas estrechas de Planificación). */
   compact?: boolean;
@@ -31,6 +34,7 @@ export function DraggableTaskCard({
   systemId,
   sourceType,
   sourceId,
+  systemType,
   isFocused,
   compact,
   onToggle,
@@ -83,7 +87,8 @@ export function DraggableTaskCard({
           onEdit={onEdit}
         />
       ) : (
-        <TaskCard
+        <TaskCardFor
+          systemType={systemType}
           task={task}
           systemId={systemId}
           isFocused={isFocused}

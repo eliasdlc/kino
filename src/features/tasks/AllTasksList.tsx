@@ -13,7 +13,7 @@ import { useAllTasks, useToggleTodayTask, useDeleteAnyTaskWithUndo } from './tas
 import { TaskListRow } from './TaskListRow';
 import { TaskFilterPanel } from './TaskFilterPanel';
 import { TaskDetailSheet } from './TaskDetailSheet';
-import { TaskCard } from './TaskCard';
+import { DefaultTaskCard } from './cards/DefaultTaskCard';
 import { ConfirmDialog } from '@/components/ui/confirm-dialog';
 import type { Task } from './tasks.types';
 
@@ -97,7 +97,7 @@ export function AllTasksList({ systems }: AllTasksListProps) {
       return (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 px-4 py-3">
           {items.map((t) => (
-            <TaskCard
+            <DefaultTaskCard
               key={t.id}
               task={t}
               systemId={t.systemId}

@@ -1,29 +1,29 @@
 "use client";
 
-import { useState } from "react";
-import { differenceInCalendarDays, format, isBefore, startOfToday } from "date-fns";
-import { parseDueDate } from "./tasks.utils";
+import { differenceInCalendarDays, format, startOfToday } from "date-fns";
+import { parseDueDate } from "../tasks.utils";
 import { ChevronDown, Trash2, Timer } from "lucide-react";
 import { cn } from "@/lib/utils";
-import type { Task, TaskMetadata } from "./tasks.types";
-import { SubtaskList } from "./SubtaskList";
-import { useSubtasks } from "./tasks.hooks";
-import { useFolders } from "@/features/folders/folders.hooks";
+import type { Task, TaskMetadata } from "../tasks.types";
+import { SubtaskList } from "../SubtaskList";
+import { useSubtasks } from "../tasks.hooks";
 import { getSystemColor } from "@/shared/utils/system-colors";
-import { getTaskTypeConfig } from "./task-type-config";
-import { useFocusTimer } from "./FocusTimerProvider";
+import { useTaskCard, type TaskCardState } from "./useTaskCard";
+import type { TaskCardProps } from "./types";
 import type { SystemType } from "@/shared/lib/system-types";
+import {
+  ContextMenu,
+  ContextMenuContent,
+  ContextMenuItem,
+  ContextMenuSeparator,
+  ContextMenuTrigger,
+} from "@/components/ui/context-menu";
 
-interface TaskCardProps {
-  task: Task;
-  systemId: string;
+export type { TaskCardState };
+
+interface DefaultTaskCardProps extends TaskCardProps {
   systemType?: SystemType;
-  /** When true, shows drag cursor (actual DnD is handled by parent via useDraggable) */
-  draggable?: boolean;
-  isFocused?: boolean;
-  onToggle: (taskId: string) => void;
-  onDelete: (task: Task) => void;
-  onEdit?: (task: Task) => void;
+  renderMeta?: (state: TaskCardState) => React.ReactNode;
 }
 
 const STATUS_BADGE: Record<string, string> = {
@@ -40,7 +40,7 @@ const TYPE_BADGE: Record<string, string> = {
   idea:     "bg-[rgba(245,158,11,0.15)] text-[#fbbf24]",
   event:    "bg-[rgba(14,165,233,0.15)] text-[#7dd3fc]",
   reminder: "bg-[rgba(249,115,22,0.15)] text-[#fb923c]",
-  // legacy
+  epic:     "bg-[rgba(139,92,246,0.18)] text-[#c4b5fd]",
   habit:    "bg-[rgba(168,85,247,0.15)] text-[#d8b4fe]",
   todo:     "bg-white/[0.06] text-zinc-400",
   project:  "bg-[rgba(59,130,246,0.18)] text-[#93c5fd]",
@@ -143,48 +143,135 @@ function SubtaskProgress({ parentTaskId, systemId, isExpanded }: { parentTaskId:
   );
 }
 
-export function TaskCard({ task, systemId, systemType, draggable, isFocused, onToggle, onDelete, onEdit }: TaskCardProps) {
-  const [isExpanded, setIsExpanded] = useState(false);
-  const [completing, setCompleting] = useState(false);
+interface DefaultMetaProps {
+  task: Task;
+  state: TaskCardState;
+  systemType?: SystemType;
+  systemId: string;
+}
 
-  const { state: timerState, openModeDialog } = useFocusTimer();
-  const isThisRunning = timerState.taskId === task.id && timerState.phase !== 'idle';
-  const anotherRunning = timerState.phase !== 'idle' && !isThisRunning;
-
-  const isDone = task.status === "done";
-  const isArchived = task.status === "archived";
-  const isCritical = task.priority === "critical" && !isArchived && !isDone;
-  const isHigh = task.priority === "high" && !isArchived && !isDone;
-  const isOverdue =
-    !!task.dueDate &&
-    !isDone &&
-    !isArchived &&
-    isBefore(parseDueDate(task.dueDate), startOfToday());
-
-  const { data: folders } = useFolders(systemId);
-  const folder = task.folderId ? folders?.find((f) => f.id === task.folderId) : null;
-  const typeConfig = getTaskTypeConfig(task.taskType);
+function DefaultMeta({ task, state, systemType, systemId }: DefaultMetaProps) {
+  const { isOverdue, isDueSoon, folder, typeConfig, isExpanded } = state;
   const TypeIcon = typeConfig.icon;
 
-  const showPriorityBadge = (isCritical || isHigh) && !isDone && !isArchived;
+  return (
+    <div className="flex items-center gap-2 flex-wrap">
+      {task.taskType && (
+        <span className={cn(
+          "inline-flex items-center gap-1 text-xs md:text-sm font-medium px-2 py-0.5 rounded-md",
+          TYPE_BADGE[task.taskType] ?? TYPE_BADGE.todo
+        )}>
+          <TypeIcon size={13} />
+          {typeConfig.label}
+        </span>
+      )}
 
-  const dueDays = task.dueDate && !isOverdue
-    ? differenceInCalendarDays(parseDueDate(task.dueDate), startOfToday())
-    : null;
-  const isDueSoon = dueDays !== null && dueDays <= 2;
+      <span className={cn(
+        "font-mono text-xs md:text-sm font-medium px-2 py-0.5 rounded-md tracking-[0.02em]",
+        STATUS_BADGE[task.status] ?? STATUS_BADGE.backlog
+      )}>
+        {task.status}
+      </span>
 
-  function handleToggle() {
-    // Las tareas archivadas son terminales: la máquina de estados solo permite
-    // borrarlas, no togglear. No disparamos onToggle para evitar el revert mudo.
-    if (isArchived) return;
-    if (!isDone) {
-      setCompleting(true);
-      setTimeout(() => setCompleting(false), 550);
-    }
-    onToggle(task.id);
-  }
+      {task.taskType === "reminder" && task.dueDate ? (
+        <>
+          <span className="text-sm text-zinc-700">·</span>
+          <ReminderCountdown dueDate={task.dueDate} />
+        </>
+      ) : task.dueDate ? (
+        <>
+          <span className="text-sm text-zinc-700">·</span>
+          <span className={cn(
+            "inline-flex items-center gap-1 font-mono text-xs md:text-sm",
+            isOverdue ? "text-[#f87171] font-medium" : isDueSoon ? "text-[#fbbf24]" : "text-zinc-500"
+          )}>
+            {isOverdue ? <ClockIcon /> : <CalendarIcon />}
+            {isOverdue ? "vencida" : "vence"} · {format(parseDueDate(task.dueDate), "MMM d")}
+          </span>
+        </>
+      ) : null}
+
+      {task.taskType === "project" && (
+        <>
+          <span className="text-xs text-zinc-700">·</span>
+          <SubtaskProgress parentTaskId={task.id} systemId={systemId} isExpanded={isExpanded} />
+        </>
+      )}
+
+      <span className={cn(
+        "inline-flex items-center gap-1.5 flex-wrap",
+        "md:opacity-0 md:group-hover:opacity-100 motion-safe:transition-opacity motion-safe:duration-150"
+      )}>
+        {folder && (
+          <>
+            <span className="text-xs text-zinc-700">·</span>
+            <span className="inline-flex items-center gap-1 text-sm text-zinc-500">
+              <span className={cn("size-1.5 rounded-full shrink-0", `bg-${getSystemColor(folder.color)}`)} />
+              {folder.name}
+            </span>
+          </>
+        )}
+
+        {!typeConfig.hideEnergyAndPriority && (
+          <>
+            <span className="text-xs text-zinc-700">·</span>
+            <span className="font-mono text-sm text-zinc-600">{task.energyLevel}</span>
+          </>
+        )}
+
+        {task.estimatedTime && (
+          <>
+            <span className="text-xs text-zinc-700">·</span>
+            <span className="font-mono text-sm text-zinc-500">
+              {formatTime(task.estimatedTime)}
+            </span>
+          </>
+        )}
+
+        {systemType && task.metadata && (() => {
+          const m = task.metadata as TaskMetadata;
+          if (systemType === "academic" && m.course) return (
+            <>
+              <span className="text-xs text-zinc-700">·</span>
+              <span className="text-sm text-zinc-500">{m.course}</span>
+            </>
+          );
+          if (systemType === "project" && (m.assignee || m.project)) return (
+            <>
+              {m.project && <><span className="text-xs text-zinc-700">·</span><span className="text-sm text-zinc-500">{m.project}</span></>}
+              {m.assignee && <><span className="text-xs text-zinc-700">·</span><span className="text-sm text-zinc-500">{m.assignee}</span></>}
+            </>
+          );
+          if (systemType === "entrepreneurial" && m.milestone) return (
+            <>
+              <span className="text-xs text-zinc-700">·</span>
+              <span className="text-sm text-zinc-500">{m.milestone}</span>
+            </>
+          );
+          return null;
+        })()}
+      </span>
+
+      {systemType === "personal" && (task.metadata as TaskMetadata | null)?.why && (
+        <p className="text-xs text-zinc-600 mt-0.5 truncate">
+          {(task.metadata as TaskMetadata).why}
+        </p>
+      )}
+    </div>
+  );
+}
+
+export function DefaultTaskCard({ task, systemId, systemType, draggable, isFocused, onToggle, onDelete, onEdit, renderMeta }: DefaultTaskCardProps) {
+  const state = useTaskCard(task, systemId, onToggle);
+  const {
+    isDone, isArchived, isCritical, isHigh, completing,
+    isThisRunning, anotherRunning, isExpanded, setIsExpanded,
+    showPriorityBadge, handleToggle, openModeDialog,
+  } = state;
 
   return (
+    <ContextMenu>
+      <ContextMenuTrigger asChild>
     <div
       className={cn(
         "group relative flex items-start gap-3 px-3.5 py-3 md:gap-3.5 md:px-4 md:py-3.5 rounded-xl border motion-safe:transition-[border-color,background] motion-safe:duration-150",
@@ -197,7 +284,6 @@ export function TaskCard({ task, systemId, systemType, draggable, isFocused, onT
         draggable && "cursor-grab active:cursor-grabbing"
       )}
     >
-      {/* Toggle — relative + after: expands hit area to ~44px on mobile without changing layout */}
       <button
         type="button"
         onClick={handleToggle}
@@ -221,9 +307,7 @@ export function TaskCard({ task, systemId, systemType, draggable, isFocused, onT
         {(isDone || isArchived) && <CheckIcon />}
       </button>
 
-      {/* Content */}
       <div className="flex-1 min-w-0">
-        {/* Row 1: title + actions */}
         <div className={cn("flex items-center justify-between gap-2 mb-[5px]", showPriorityBadge && "pr-12")}>
           <button
             type="button"
@@ -249,7 +333,6 @@ export function TaskCard({ task, systemId, systemType, draggable, isFocused, onT
                 })}
                 disabled={anotherRunning}
                 className={cn(
-                  // Always visible on mobile, hover-only on desktop
                   "md:opacity-0 md:group-hover:opacity-100 motion-safe:transition-opacity",
                   isThisRunning
                     ? "text-amber-400 md:opacity-100"
@@ -281,120 +364,10 @@ export function TaskCard({ task, systemId, systemType, draggable, isFocused, onT
           </div>
         </div>
 
-        {/* Row 2: primary meta chips — always visible */}
-        <div className="flex items-center gap-2 flex-wrap">
-          {/* Type badge */}
-          {task.taskType && (
-            <span className={cn(
-              "inline-flex items-center gap-1 text-xs md:text-sm font-medium px-2 py-0.5 rounded-md",
-              TYPE_BADGE[task.taskType] ?? TYPE_BADGE.todo
-            )}>
-              <TypeIcon size={13} />
-              {typeConfig.label}
-            </span>
-          )}
-
-          {/* Status badge */}
-          <span className={cn(
-            "font-mono text-xs md:text-sm font-medium px-2 py-0.5 rounded-md tracking-[0.02em]",
-            STATUS_BADGE[task.status] ?? STATUS_BADGE.backlog
-          )}>
-            {task.status}
-          </span>
-
-          {/* Date chip — always visible (urgency signal) */}
-          {task.taskType === "reminder" && task.dueDate ? (
-            <>
-              <span className="text-sm text-zinc-700">·</span>
-              <ReminderCountdown dueDate={task.dueDate} />
-            </>
-          ) : task.dueDate ? (
-            <>
-              <span className="text-sm text-zinc-700">·</span>
-              <span className={cn(
-                "inline-flex items-center gap-1 font-mono text-xs md:text-sm",
-                isOverdue ? "text-[#f87171] font-medium" : isDueSoon ? "text-[#fbbf24]" : "text-zinc-500"
-              )}>
-                {isOverdue ? <ClockIcon /> : <CalendarIcon />}
-                {isOverdue ? "vencida" : "vence"} · {format(parseDueDate(task.dueDate), "MMM d")}
-              </span>
-            </>
-          ) : null}
-
-          {/* Subtask progress — always visible for projects */}
-          {task.taskType === "project" && (
-            <>
-              <span className="text-xs text-zinc-700">·</span>
-              <SubtaskProgress parentTaskId={task.id} systemId={systemId} isExpanded={isExpanded} />
-            </>
-          )}
-
-          {/* Secondary chips — visible on hover to reduce noise */}
-          <span className={cn(
-            "inline-flex items-center gap-1.5 flex-wrap",
-            "md:opacity-0 md:group-hover:opacity-100 motion-safe:transition-opacity motion-safe:duration-150"
-          )}>
-            {/* Folder chip */}
-            {folder && (
-              <>
-                <span className="text-xs text-zinc-700">·</span>
-                <span className="inline-flex items-center gap-1 text-sm text-zinc-500">
-                  <span className={cn("size-1.5 rounded-full shrink-0", `bg-${getSystemColor(folder.color)}`)} />
-                  {folder.name}
-                </span>
-              </>
-            )}
-
-            {/* Energy chip */}
-            {!typeConfig.hideEnergyAndPriority && (
-              <>
-                <span className="text-xs text-zinc-700">·</span>
-                <span className="font-mono text-sm text-zinc-600">{task.energyLevel}</span>
-              </>
-            )}
-
-            {/* Estimated time */}
-            {task.estimatedTime && (
-              <>
-                <span className="text-xs text-zinc-700">·</span>
-                <span className="font-mono text-sm text-zinc-500">
-                  {formatTime(task.estimatedTime)}
-                </span>
-              </>
-            )}
-
-            {/* System-type metadata chips (4.7) */}
-            {systemType && task.metadata && (() => {
-              const m = task.metadata as TaskMetadata;
-              if (systemType === "academic" && m.course) return (
-                <>
-                  <span className="text-xs text-zinc-700">·</span>
-                  <span className="text-sm text-zinc-500">{m.course}</span>
-                </>
-              );
-              if (systemType === "professional" && (m.assignee || m.project)) return (
-                <>
-                  {m.project && <><span className="text-xs text-zinc-700">·</span><span className="text-sm text-zinc-500">{m.project}</span></>}
-                  {m.assignee && <><span className="text-xs text-zinc-700">·</span><span className="text-sm text-zinc-500">{m.assignee}</span></>}
-                </>
-              );
-              if (systemType === "entrepreneurial" && m.milestone) return (
-                <>
-                  <span className="text-xs text-zinc-700">·</span>
-                  <span className="text-sm text-zinc-500">{m.milestone}</span>
-                </>
-              );
-              return null;
-            })()}
-          </span>
-
-          {/* Personal 'why' — always visible as subtitle */}
-          {systemType === "personal" && (task.metadata as TaskMetadata | null)?.why && (
-            <p className="text-xs text-zinc-600 mt-0.5 truncate">
-              {(task.metadata as TaskMetadata).why}
-            </p>
-          )}
-        </div>
+        {renderMeta
+          ? renderMeta(state)
+          : <DefaultMeta task={task} state={state} systemType={systemType} systemId={systemId} />
+        }
 
         {isExpanded && (
           <div className="mt-2 pt-2 border-t border-white/[0.06]">
@@ -403,7 +376,6 @@ export function TaskCard({ task, systemId, systemType, draggable, isFocused, onT
         )}
       </div>
 
-      {/* Priority corner badge */}
       {showPriorityBadge && (
         <span className={cn(
           "absolute top-2.5 right-3 font-mono text-xs font-semibold uppercase tracking-[0.06em] px-1.5 py-0.5 rounded",
@@ -413,5 +385,25 @@ export function TaskCard({ task, systemId, systemType, draggable, isFocused, onT
         </span>
       )}
     </div>
+      </ContextMenuTrigger>
+      <ContextMenuContent className="w-52">
+        {!isDone && !isArchived && (
+          <>
+            <ContextMenuItem
+              disabled={anotherRunning}
+              onSelect={() => openModeDialog({ id: task.id, title: task.title, systemId, estimatedDuration: task.estimatedTime ? (() => { const [h, m] = task.estimatedTime!.split(":").map(Number); return h * 60 + m; })() : null })}
+            >
+              <Timer className={cn("mr-2 size-4", isThisRunning && "text-amber-400")} />
+              {isThisRunning ? "Timer en curso" : "Iniciar foco"}
+            </ContextMenuItem>
+            <ContextMenuSeparator />
+          </>
+        )}
+        <ContextMenuItem variant="destructive" onSelect={() => onDelete(task)}>
+          <Trash2 className="mr-2 size-4" />
+          Eliminar
+        </ContextMenuItem>
+      </ContextMenuContent>
+    </ContextMenu>
   );
 }

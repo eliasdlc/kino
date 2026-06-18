@@ -21,17 +21,17 @@ import { Progress } from "@/components/ui/progress";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { useTaskKeyboardNavigation } from "./useTaskKeyboardNavigation";
 
-interface TaskActionViewProps {
+interface TaskKanbanViewProps {
     systemId: string;
     initialData: Task[];
     folderId?: string;
     folderInitialData?: Task[];
     onEdit?: (task: Task) => void;
     keyboardDisabled?: boolean;
-    defaultGroupBy?: ActionGroupBy;
+    defaultGroupBy?: KanbanGroupBy;
 }
 
-type ActionGroupBy = "energy" | "priority" | "project";
+type KanbanGroupBy = "energy" | "priority" | "project";
 
 interface ColumnDef {
     id: string;
@@ -56,13 +56,13 @@ const PRIORITY_COLUMNS: ColumnDef[] = [
 ];
 
 /** Campo de la tarea que define en qué columna cae, según el agrupamiento. */
-function taskGroupKey(task: Task, groupBy: ActionGroupBy): string {
+function taskGroupKey(task: Task, groupBy: KanbanGroupBy): string {
     if (groupBy === "energy") return task.energyLevel ?? "medium";
     if (groupBy === "priority") return task.priority ?? "medium";
     return task.folderId ?? NO_PROJECT;
 }
 
-export function TaskActionView({ systemId, initialData, folderId, folderInitialData, onEdit, keyboardDisabled, defaultGroupBy = "energy" }: TaskActionViewProps) {
+export function TaskKanbanView({ systemId, initialData, folderId, folderInitialData, onEdit, keyboardDisabled, defaultGroupBy = "energy" }: TaskKanbanViewProps) {
     // Use folder-scoped or system-scoped tasks depending on context
     const systemQuery = useTasks(systemId, initialData);
     const folderQuery = useFolderTasks(systemId, folderId ?? "", folderInitialData);
@@ -73,7 +73,7 @@ export function TaskActionView({ systemId, initialData, folderId, folderInitialD
     const { mutate: updateTask } = useUpdateTask(systemId);
     const { data: folders = [] } = useFolders(systemId);
 
-    const [groupBy, setGroupBy] = useState<ActionGroupBy>(defaultGroupBy);
+    const [groupBy, setGroupBy] = useState<KanbanGroupBy>(defaultGroupBy);
     const [activeTask, setActiveTask] = useState<Task | null>(null);
 
     const projectColumns: ColumnDef[] = [
@@ -174,7 +174,7 @@ export function TaskActionView({ systemId, initialData, folderId, folderInitialD
                     <h2 className="text-2xl font-bold">Progreso de la semana</h2>
                     <select
                         value={groupBy}
-                        onChange={(e) => setGroupBy(e.target.value as ActionGroupBy)}
+                        onChange={(e) => setGroupBy(e.target.value as KanbanGroupBy)}
                         className="text-sm bg-muted border-0 rounded-md px-2 py-1 text-muted-foreground"
                     >
                         <option value="energy">Por energía</option>

@@ -35,8 +35,10 @@ import { SubtaskList } from "./SubtaskList";
 import { TaskRemindersSection } from "./TaskRemindersSection";
 import { useUpdateTask } from "./tasks.hooks";
 import { useFolders } from "@/features/folders/folders.hooks";
+import { useSprints } from "@/features/sprints/sprints.hooks";
 import { getSystemColor } from "@/shared/utils/system-colors";
 import { TaskTypePicker } from "./TaskTypePicker";
+import { TagPicker } from "@/features/tags/TagPicker";
 import type { Task } from "./tasks.types";
 import { useFocusTimer } from "./FocusTimerProvider";
 import { useQuery } from "@tanstack/react-query";
@@ -120,6 +122,8 @@ function TaskDetailForm({ task, systemId, onClose }: TaskDetailFormProps) {
   const isMobile = useIsMobile();
   const { mutate: updateTask, isPending } = useUpdateTask(systemId);
   const { data: folders = [] } = useFolders(systemId);
+  const { data: sprints = [] } = useSprints(systemId);
+  const activeSprints = sprints.filter((s) => s.status === "active");
 
   const { state: timerState, openModeDialog } = useFocusTimer();
   const isThisRunning = timerState.taskId === task.id && timerState.phase !== 'idle';
@@ -131,7 +135,7 @@ function TaskDetailForm({ task, systemId, onClose }: TaskDetailFormProps) {
   const [priority, setPriority] = useState<Task["priority"]>(task.priority);
   const [energyLevel, setEnergyLevel] = useState<Task["energyLevel"]>(task.energyLevel);
   const [taskType, setTaskType] = useState<TaskTypeValue | undefined>(
-    (task.taskType && ['task', 'idea', 'event', 'reminder'].includes(task.taskType))
+    (task.taskType && ['task', 'idea', 'event', 'reminder', 'epic'].includes(task.taskType))
       ? (task.taskType as TaskTypeValue)
       : undefined
   );
@@ -142,6 +146,8 @@ function TaskDetailForm({ task, systemId, onClose }: TaskDetailFormProps) {
     task.startDate ? parseDueDate(task.startDate) : undefined
   );
   const [selectedFolderId, setSelectedFolderId] = useState<string>(task.folderId ?? "none");
+  const [sprintId, setSprintId] = useState<string>(task.sprintId ?? "none");
+  const [contextTagId, setContextTagId] = useState<string | null>(task.contextTagId ?? null);
   const [saveStatus, setSaveStatus] = useState<"idle" | "saved">("idle");
 
   const isMountedRef = useRef(false);
@@ -180,6 +186,11 @@ function TaskDetailForm({ task, systemId, onClose }: TaskDetailFormProps) {
     const curFolder = selectedFolderId !== "none" ? selectedFolderId : null;
     if (curFolder !== (task.folderId ?? null)) data.folderId = curFolder;
 
+    const curSprint = sprintId !== "none" ? sprintId : null;
+    if (curSprint !== (task.sprintId ?? null)) data.sprintId = curSprint;
+
+    if (contextTagId !== (task.contextTagId ?? null)) data.contextTagId = contextTagId;
+
     return data;
   }
 
@@ -203,7 +214,7 @@ function TaskDetailForm({ task, systemId, onClose }: TaskDetailFormProps) {
     return () => clearTimeout(timer);
   // task.id is stable for the lifetime of this form instance (key={task.id} in parent)
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [title, description, priority, energyLevel, taskType, dueDate, startDate, selectedFolderId]);
+  }, [title, description, priority, energyLevel, taskType, dueDate, startDate, selectedFolderId, sprintId, contextTagId]);
 
   function handleSave() {
     if (!title.trim()) return;
@@ -234,6 +245,9 @@ function TaskDetailForm({ task, systemId, onClose }: TaskDetailFormProps) {
         <Label>Tipo</Label>
         <TaskTypePicker value={taskType} onChange={setTaskType} />
       </div>
+
+      {/* Categoría (context_tag) — permite crear categorías inline. */}
+      <TagPicker systemId={systemId} value={contextTagId} onChange={setContextTagId} label="Categoría" allowCreate />
 
       <div className="space-y-1.5">
         <Label htmlFor="task-desc">Descripción</Label>
@@ -293,6 +307,27 @@ function TaskDetailForm({ task, systemId, onClose }: TaskDetailFormProps) {
                     <span className={`size-2 rounded-full inline-block bg-${getSystemColor(folder.color)}`} />
                     {folder.name}
                   </span>
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+      )}
+
+      {activeSprints.length > 0 && (
+        <div className="space-y-1.5">
+          <Label>Sprint</Label>
+          <Select value={sprintId} onValueChange={setSprintId}>
+            <SelectTrigger>
+              <SelectValue placeholder="Sin sprint" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="none">
+                <span className="text-muted-foreground">Sin sprint</span>
+              </SelectItem>
+              {activeSprints.map((sprint) => (
+                <SelectItem key={sprint.id} value={sprint.id}>
+                  {sprint.name}
                 </SelectItem>
               ))}
             </SelectContent>
