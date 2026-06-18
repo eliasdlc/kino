@@ -10,6 +10,7 @@ import {
   boolean,
   integer,
   smallint,
+  real,
   doublePrecision,
   timestamp,
   date,
@@ -58,7 +59,7 @@ export const profileTypeEnum = pgEnum('profile_type', [
 
 export const templateTypeEnum = pgEnum('template_type', [
   'academic',
-  'professional',
+  'project',
   'entrepreneurial',
   'personal',
   'custom',
@@ -115,6 +116,8 @@ export const taskTypeEnum = pgEnum('task_type', [
   'idea',
   'event',
   'reminder',
+  // epic: tarea multi-paso que se descompone en subtasks (parent_task_id).
+  'epic',
   // legacy values — kept for DB compat, no longer offered in UI
   'habit',
   'todo',
@@ -146,7 +149,13 @@ export const syncProviderEnum = pgEnum('sync_provider', [
   'microsoft_teams',
   'notion',
   'ical',
+  // github: aún sin sincronización activa; sembrado para enchufar la integración
+  // del systemType `project` sin re-migrar el enum (ver plan, sección GitHub-ready).
+  'github',
 ]);
+
+/** Estado de un sprint del systemType `project`. */
+export const sprintStatusEnum = pgEnum('sprint_status', ['active', 'completed']);
 
 export const colorEnum = pgEnum('color', [
   'red',
@@ -556,6 +565,10 @@ export const contextTags = pgTable(
     userId: uuid('user_id')
       .notNull()
       .references(() => users.id, { onDelete: 'cascade' }),
+    // null → tag global del usuario; con valor → tag específico de ese sistema.
+    systemId: uuid('system_id').references(() => systems.id, {
+      onDelete: 'cascade',
+    }),
     title: varchar('title', { length: 24 }).notNull(),
     color: colorEnum('color').notNull().default('blue'),
     isDefault: boolean('is_default').notNull().default(false),
@@ -563,7 +576,10 @@ export const contextTags = pgTable(
       .notNull()
       .defaultNow(),
   },
-  (table) => [index('idx_tags_user').on(table.userId)],
+  (table) => [
+    index('idx_tags_user').on(table.userId),
+    index('idx_tags_system').on(table.systemId),
+  ],
 );
 
 // ── system_status_definitions ──
@@ -604,6 +620,13 @@ export const tasks = pgTable(
     title: varchar('title', { length: 500 }).notNull(),
     description: text('description'),
     status: varchar('status', { length: 50 }).notNull().default('today'),
+    // Segundo eje (solo systemType `project`): columna del board kanban. null en
+    // sistemas que no son project. Separado de `status` (scheduling) a propósito —
+    // ver migración 0006 y el plan. La columna terminal sincroniza con status='done'.
+    boardStatus: varchar('board_status', { length: 50 }),
+    boardStatusChangedAt: timestamp('board_status_changed_at', {
+      withTimezone: true,
+    }),
     energyLevel: energyLevelEnum('energy_level').notNull().default('medium'),
     priority: taskPriorityEnum('priority').notNull().default('medium'),
     taskType: taskTypeEnum('task_type'),
@@ -625,7 +648,12 @@ export const tasks = pgTable(
     contextTagId: uuid('context_tag_id').references(() => contextTags.id, {
       onDelete: 'set null',
     }),
+    sprintId: uuid('sprint_id').references(() => sprints.id, {
+      onDelete: 'set null',
+    }),
     externalSource: varchar('external_source', { length: 255 }),
+    // github-ready: id del recurso externo (ej. issue) para mapeo idempotente.
+    externalId: varchar('external_id', { length: 255 }),
     sortIndex: integer('sort_index').notNull().default(0),
     metadata: jsonb('metadata').$type<Record<string, unknown> | null>(),
     inTodayPlan: boolean('in_today_plan').notNull().default(false),
@@ -667,6 +695,54 @@ export const tasks = pgTable(
       .where(
         sql`${table.folderId} IS NOT NULL AND ${table.deletedAt} IS NULL`,
       ),
+    index('idx_tasks_board')
+      .on(table.systemId, table.boardStatus)
+      .where(
+        sql`${table.boardStatus} IS NOT NULL AND ${table.deletedAt} IS NULL`,
+      ),
+    index('idx_tasks_sprint')
+      .on(table.sprintId)
+      .where(sql`${table.sprintId} IS NOT NULL`),
+    uniqueIndex('uq_tasks_external')
+      .on(table.externalSource, table.externalId)
+      .where(sql`${table.externalId} IS NOT NULL`),
+  ],
+);
+
+// ── sprints ──
+// Iteraciones time-boxed del systemType `project`. Una tarea se asocia a un sprint
+// vía tasks.sprint_id. Al cerrarse (status='completed') el sprint se archiva y sus
+// tarjetas quedan agrupadas bajo él en la vista de archivadas.
+
+export const sprints = pgTable(
+  'sprints',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    userId: uuid('user_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    systemId: uuid('system_id')
+      .notNull()
+      .references(() => systems.id, { onDelete: 'cascade' }),
+    name: varchar('name', { length: 255 }).notNull(),
+    goal: varchar('goal', { length: 500 }),
+    startDate: timestamp('start_date', { withTimezone: true }),
+    endDate: timestamp('end_date', { withTimezone: true }),
+    status: sprintStatusEnum('status').notNull().default('active'),
+    completedAt: timestamp('completed_at', { withTimezone: true }),
+    sortOrder: integer('sort_order').notNull().default(0),
+    // github-ready: mapeo a milestone/iteration externo.
+    externalId: varchar('external_id', { length: 255 }),
+    createdAt: timestamp('created_at', { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+    updatedAt: timestamp('updated_at', { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (table) => [
+    index('idx_sprints_system').on(table.systemId, table.status),
+    index('idx_sprints_user').on(table.userId),
   ],
 );
 
@@ -720,6 +796,9 @@ export const pages = pgTable(
     systemId: uuid('system_id').references(() => systems.id, {
       onDelete: 'set null',
     }),
+    parentPageId: uuid('parent_page_id').references((): AnyPgColumn => pages.id, {
+      onDelete: 'cascade',
+    }),
     title: varchar('title', { length: 500 }),
     content: text('content'),
     isPinned: boolean('is_pinned').notNull().default(false),
@@ -741,6 +820,9 @@ export const pages = pgTable(
     index('idx_pages_system')
       .on(table.systemId)
       .where(sql`${table.systemId} IS NOT NULL`),
+    index('idx_pages_parent')
+      .on(table.parentPageId)
+      .where(sql`${table.parentPageId} IS NOT NULL`),
   ],
 );
 
@@ -764,6 +846,26 @@ export const taskPageLinks = pgTable(
   ],
 );
 
+// ── page_tags ──
+// Many-to-many: a notebook can have multiple context_tags.
+
+export const pageTags = pgTable(
+  'page_tags',
+  {
+    pageId: uuid('page_id')
+      .notNull()
+      .references(() => pages.id, { onDelete: 'cascade' }),
+    tagId: uuid('tag_id')
+      .notNull()
+      .references(() => contextTags.id, { onDelete: 'cascade' }),
+  },
+  (table) => [
+    primaryKey({ columns: [table.pageId, table.tagId] }),
+    index('idx_page_tags_page').on(table.pageId),
+    index('idx_page_tags_tag').on(table.tagId),
+  ],
+);
+
 // ── sticky_notes ──
 
 export const stickyNotes = pgTable(
@@ -783,6 +885,18 @@ export const stickyNotes = pgTable(
     content: varchar('content', { length: 500 }),
     color: colorEnum('color').notNull().default('yellow'),
     sortIndex: integer('sort_index').notNull().default(0),
+    // Margin positioning: 'left' | 'right' | null (null = inline grid)
+    positionSide: varchar('position_side', { length: 10 }),
+    // Vertical position as fraction [0,1] of content height (null = unpositioned)
+    positionY: real('position_y'),
+    // Horizontal offset as fraction [0,1] of gutter width
+    positionX: real('position_x'),
+    // ProseMirror anchor mark id; non-null = anchored to text, null = free
+    anchorId: varchar('anchor_id', { length: 36 }),
+    // Stack grouping: all notes with same stackId form a visual stack
+    stackId: uuid('stack_id'),
+    // Excerpt of text selected when note was created from editor selection
+    textAnchor: text('text_anchor'),
     createdAt: timestamp('created_at', { withTimezone: true })
       .notNull()
       .defaultNow(),
