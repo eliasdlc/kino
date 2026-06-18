@@ -48,6 +48,8 @@ export async function proxy(request: NextRequest) {
   }
 
   const isPublicRoute =
+    pathname === "/" ||
+    pathname.startsWith("/docs") ||
     pathname.startsWith("/login") ||
     pathname.startsWith("/register") ||
     pathname.startsWith("/api/auth") ||
