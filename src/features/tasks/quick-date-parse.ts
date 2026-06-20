@@ -89,13 +89,13 @@ function parsePriority(
 }
 
 function parseSystem(rest: string): { systemHint: string; rest: string } | null {
-  const match = rest.match(/#(\w+)/);
+  const match = rest.match(/@(\w+)/);
   if (!match) return null;
   return { systemHint: match[1], rest: rest.replace(match[0], " ") };
 }
 
 function parseTag(rest: string): { tagHint: string; rest: string } | null {
-  const match = rest.match(/@(\w+)/);
+  const match = rest.match(/#(\w+)/);
   if (!match) return null;
   return { tagHint: match[1], rest: rest.replace(match[0], " ") };
 }

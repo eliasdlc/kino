@@ -335,7 +335,7 @@ export function CreateTaskDialog({
                 )}
                 {showSystemChip && (
                   <span className="flex items-center gap-1">
-                    #{rawNlParsed!.systemHint}
+                    @{rawNlParsed!.systemHint}
                     <button
                       type="button"
                       aria-label="Ignorar sistema detectado"
@@ -348,7 +348,7 @@ export function CreateTaskDialog({
                 )}
                 {showTagChip && (
                   <span className="flex items-center gap-1">
-                    @{rawNlParsed!.tagHint}
+                    #{rawNlParsed!.tagHint}
                     <button
                       type="button"
                       aria-label="Ignorar etiqueta detectada"

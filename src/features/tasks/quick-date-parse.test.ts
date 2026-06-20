@@ -99,15 +99,15 @@ describe("parseQuickInput", () => {
     expect(parseQuickInput("revisar importante", NOW)).toMatchObject({ priority: "high", title: "revisar" });
   });
 
-  it("sistema (#nombre)", () => {
-    expect(parseQuickInput("leer paper #estudio", NOW)).toMatchObject({
+  it("sistema (@nombre)", () => {
+    expect(parseQuickInput("leer paper @estudio", NOW)).toMatchObject({
       systemHint: "estudio",
       title: "leer paper",
     });
   });
 
-  it("etiqueta (@tag)", () => {
-    expect(parseQuickInput("llamar banco @casa", NOW)).toMatchObject({
+  it("etiqueta (#tag)", () => {
+    expect(parseQuickInput("llamar banco #casa", NOW)).toMatchObject({
       tagHint: "casa",
       title: "llamar banco",
     });
@@ -135,7 +135,7 @@ describe("parseQuickInput", () => {
   });
 
   it("todos los campos juntos", () => {
-    const result = parseQuickInput("informe #trabajo !2 mañana 1h", NOW);
+    const result = parseQuickInput("informe @trabajo !2 mañana 1h", NOW);
     expect(result).toMatchObject({
       dueDate: "2026-06-13",
       priority: "high",
