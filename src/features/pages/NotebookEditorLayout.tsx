@@ -74,11 +74,10 @@ function SubPagesSidebar({
         {/* Root notebook link */}
         <Link
           href={`/systems/${systemId}/pages/${rootPageId}`}
-          className={`block px-2 py-1.5 rounded-md text-sm font-semibold transition-colors truncate ${
-            currentPageId === rootPageId
-              ? "bg-accent text-accent-foreground"
-              : "text-foreground hover:bg-accent/50"
-          }`}
+          className={`block px-2 py-1.5 rounded-md text-sm font-semibold transition-colors truncate ${currentPageId === rootPageId
+            ? "bg-accent text-accent-foreground"
+            : "text-foreground hover:bg-accent/50"
+            }`}
         >
           Portada
         </Link>
@@ -89,11 +88,10 @@ function SubPagesSidebar({
               <Link
                 key={sp.id}
                 href={`/systems/${systemId}/pages/${sp.id}`}
-                className={`block px-2 py-1.5 rounded-md text-xs transition-colors truncate ${
-                  currentPageId === sp.id
-                    ? "bg-accent text-accent-foreground font-medium"
-                    : "text-muted-foreground hover:text-foreground hover:bg-accent/50"
-                }`}
+                className={`block px-2 py-1.5 rounded-md text-xs transition-colors truncate ${currentPageId === sp.id
+                  ? "bg-accent text-accent-foreground font-medium"
+                  : "text-muted-foreground hover:text-foreground hover:bg-accent/50"
+                  }`}
               >
                 {sp.title ?? "Sin título"}
               </Link>
@@ -185,7 +183,7 @@ export function NotebookEditorLayout({
 
       {/* Floating right panel */}
       <Sheet open={rightOpen} onOpenChange={setRightOpen}>
-        <SheetContent side="right" className="w-72 p-0 flex flex-col gap-0">
+        <SheetContent side="right" className="!w-70 !h-[95%] !my-auto rounded-2xl shadow-2xl p-0 flex flex-col gap-0">
           <SheetTitle className="sr-only">Panel del cuaderno</SheetTitle>
 
           <SubPagesSidebar

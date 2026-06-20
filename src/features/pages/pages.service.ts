@@ -384,6 +384,12 @@ export async function addTagToPage(
     .where(and(eq(pages.id, pageId), eq(pages.userId, userId), isNull(pages.deletedAt)));
   if (!page) throw new NotFoundError("Page not found");
 
+  const [tag] = await db
+    .select({ id: contextTags.id })
+    .from(contextTags)
+    .where(and(eq(contextTags.id, tagId), eq(contextTags.userId, userId)));
+  if (!tag) throw new NotFoundError("Tag not found");
+
   const inserted = await db
     .insert(pageTags)
     .values({ pageId, tagId })
