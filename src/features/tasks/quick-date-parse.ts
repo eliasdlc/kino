@@ -1,11 +1,5 @@
 import { addDays, format } from "date-fns";
 
-/**
- * Parser de fechas en lenguaje natural (español) para la captura rápida.
- * Detecta tokens tipo "hoy", "mañana", "pasado mañana", días de la semana
- * y horas ("a las 5", "5:30pm"), los quita del título y devuelve el día/hora
- * listos para el form (yyyy-MM-dd / HH:mm, en hora local del dispositivo).
- */
 export interface ParsedQuickDate {
   /** Título sin los tokens de fecha (puede quedar vacío). */
   title: string;
@@ -19,7 +13,7 @@ export interface ParsedQuickInput {
   title: string;
   dueDate?: string;
   dueTime?: string;
-  priority?: string;
+  priority?: "critical" | "high" | "medium" | "low";
   systemHint?: string;
   tagHint?: string;
   estimatedMinutes?: number;
@@ -43,8 +37,8 @@ const TIME_PREFIXED_RE = /\ba\s+las?\s+(\d{1,2})(?::(\d{2}))?\s*(am|pm)?\b/i;
 // "5pm", "5:30 am" — sin "a las" exigimos am/pm para no comerse números sueltos.
 const TIME_MERIDIEM_RE = /\b(\d{1,2})(?::(\d{2}))?\s*(am|pm)\b/i;
 
-function stripAccents(s: string): string {
-  return s.normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+export function stripAccents(s: string): string {
+  return s.normalize("NFD").replace(/[̀-ͯ]/g, "");
 }
 
 function resolveHour(raw: number, meridiem: string | undefined, prefixed: boolean): number | null {
@@ -54,6 +48,81 @@ function resolveHour(raw: number, meridiem: string | undefined, prefixed: boolea
   if (prefixed) return raw >= 1 && raw <= 7 ? raw + 12 : raw;
   return null;
 }
+
+// ── Sub-parsers ────────────────────────────────────────────────────────────────
+
+function parsePriority(
+  rest: string,
+): { priority: "critical" | "high" | "medium" | "low"; rest: string } | null {
+  const tokenMatch = rest.match(/(!1|!2|!3|!4)\b/);
+  if (tokenMatch) {
+    const map: Record<string, "critical" | "high" | "medium" | "low"> = {
+      "!1": "critical",
+      "!2": "high",
+      "!3": "medium",
+      "!4": "low",
+    };
+    return { priority: map[tokenMatch[1]], rest: rest.replace(tokenMatch[0], " ") };
+  }
+
+  const normalized = stripAccents(rest).toLowerCase();
+  const candidates: Array<[string, "critical" | "high" | "medium" | "low"]> = [
+    ["urgente", "critical"],
+    ["urgent", "critical"],
+    ["importante", "high"],
+    ["important", "high"],
+    ["algun dia", "low"],
+    ["someday", "low"],
+  ];
+
+  for (const [word, priority] of candidates) {
+    const idx = normalized.indexOf(word);
+    if (idx === -1) continue;
+    const before = idx === 0 || !/\w/.test(normalized[idx - 1]);
+    const after = idx + word.length >= normalized.length || !/\w/.test(normalized[idx + word.length]);
+    if (before && after) {
+      return { priority, rest: rest.slice(0, idx) + " " + rest.slice(idx + word.length) };
+    }
+  }
+
+  return null;
+}
+
+function parseSystem(rest: string): { systemHint: string; rest: string } | null {
+  const match = rest.match(/#(\w+)/);
+  if (!match) return null;
+  return { systemHint: match[1], rest: rest.replace(match[0], " ") };
+}
+
+function parseTag(rest: string): { tagHint: string; rest: string } | null {
+  const match = rest.match(/@(\w+)/);
+  if (!match) return null;
+  return { tagHint: match[1], rest: rest.replace(match[0], " ") };
+}
+
+function parseDuration(rest: string): { estimatedMinutes: number; rest: string } | null {
+  // "1h30", "1h30min", "1h 30min" — horas + minutos
+  const combined = rest.match(/\b(\d+)\s*h(?:oras?)?\s*(\d{1,3})\s*(?:min(?:utos?)?)?\b/i);
+  if (combined) {
+    return {
+      estimatedMinutes: parseInt(combined[1]) * 60 + parseInt(combined[2]),
+      rest: rest.replace(combined[0], " "),
+    };
+  }
+  // "1h", "2h"
+  const hoursOnly = rest.match(/\b(\d+)\s*h(?:oras?)?\b/i);
+  if (hoursOnly) {
+    return { estimatedMinutes: parseInt(hoursOnly[1]) * 60, rest: rest.replace(hoursOnly[0], " ") };
+  }
+  // "30min", "30m"
+  const minsOnly = rest.match(/\b(\d+)\s*(?:min(?:utos?)?|m)\b/i);
+  if (minsOnly) {
+    return { estimatedMinutes: parseInt(minsOnly[1]), rest: rest.replace(minsOnly[0], " ") };
+  }
+  return null;
+}
+
+// ── Orquestadores ──────────────────────────────────────────────────────────────
 
 export function parseQuickDate(input: string, now: Date = new Date()): ParsedQuickDate | null {
   let rest = input;
@@ -107,4 +176,50 @@ export function parseQuickDate(input: string, now: Date = new Date()): ParsedQui
   const title = rest.replace(/\s{2,}/g, " ").replace(/[\s,.\-–]+$/g, "").trim();
 
   return { title, dueDate: format(day, "yyyy-MM-dd"), dueTime };
+}
+
+export function parseQuickInput(input: string, now: Date = new Date()): ParsedQuickInput | null {
+  const dateResult = parseQuickDate(input, now);
+  let rest = dateResult ? dateResult.title : input;
+
+  const result: ParsedQuickInput = { title: input };
+  let anyMatch = false;
+
+  if (dateResult) {
+    result.dueDate = dateResult.dueDate;
+    result.dueTime = dateResult.dueTime;
+    anyMatch = true;
+  }
+
+  const priorityResult = parsePriority(rest);
+  if (priorityResult) {
+    result.priority = priorityResult.priority;
+    rest = priorityResult.rest;
+    anyMatch = true;
+  }
+
+  const systemResult = parseSystem(rest);
+  if (systemResult) {
+    result.systemHint = systemResult.systemHint;
+    rest = systemResult.rest;
+    anyMatch = true;
+  }
+
+  const tagResult = parseTag(rest);
+  if (tagResult) {
+    result.tagHint = tagResult.tagHint;
+    rest = tagResult.rest;
+    anyMatch = true;
+  }
+
+  const durationResult = parseDuration(rest);
+  if (durationResult) {
+    result.estimatedMinutes = durationResult.estimatedMinutes;
+    rest = durationResult.rest;
+    anyMatch = true;
+  }
+
+  result.title = rest.replace(/\s{2,}/g, " ").replace(/[\s,.\-–]+$/g, "").trim();
+
+  return anyMatch ? result : null;
 }
