@@ -51,6 +51,16 @@ export function AllTasksList({ systems }: AllTasksListProps) {
   const [showFilters, setShowFilters] = useState(false);
   const [selectedTask, setSelectedTask] = useState<Task | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<Task | null>(null);
+  const [selectedTaskIds, setSelectedTaskIds] = useState<Set<string>>(new Set());
+
+  const toggleSelection = useCallback((taskId: string) => {
+    setSelectedTaskIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(taskId)) next.delete(taskId);
+      else next.add(taskId);
+      return next;
+    });
+  }, []);
 
   const systemMap = useMemo(
     () => new Map(systems.map((s) => [s.id, s])),
@@ -104,6 +114,8 @@ export function AllTasksList({ systems }: AllTasksListProps) {
               onToggle={(id) => toggleTask({ taskId: id })}
               onDelete={() => setDeleteTarget(t)}
               onEdit={setSelectedTask}
+              isSelected={selectedTaskIds.has(t.id)}
+              onSelectionToggle={toggleSelection}
             />
           ))}
         </div>
@@ -118,6 +130,8 @@ export function AllTasksList({ systems }: AllTasksListProps) {
             systemMap={systemMap}
             onToggle={(id) => toggleTask({ taskId: id })}
             onOpen={setSelectedTask}
+            isSelected={selectedTaskIds.has(t.id)}
+            onSelectionToggle={toggleSelection}
           />
         ))}
       </div>
@@ -162,6 +176,11 @@ export function AllTasksList({ systems }: AllTasksListProps) {
               {filtered.length}
               {filterCount > 0 && ` · ${filterCount} filtro${filterCount > 1 ? 's' : ''}`}
             </span>
+            {selectedTaskIds.size > 0 && (
+              <span className="text-xs font-medium text-primary bg-primary/10 px-2 py-0.5 rounded-full">
+                {selectedTaskIds.size} seleccionada{selectedTaskIds.size !== 1 ? 's' : ''}
+              </span>
+            )}
           </div>
 
           <div className="flex items-center gap-1.5">
