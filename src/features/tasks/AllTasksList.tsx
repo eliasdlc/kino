@@ -17,6 +17,7 @@ import { DefaultTaskCard } from './cards/DefaultTaskCard';
 import { ConfirmDialog } from '@/components/ui/confirm-dialog';
 import { useTaskKeyboardNavigation } from './useTaskKeyboardNavigation';
 import { useHotkey } from '@/shared/hooks/useHotkey';
+import { BulkActionBar } from './BulkActionBar';
 import type { Task } from './tasks.types';
 
 interface SystemInfo {
@@ -263,6 +264,9 @@ export function AllTasksList({ systems }: AllTasksListProps) {
             <TaskFilterPanel filters={filters} systems={systems} onChange={handleFiltersChange} />
           </div>
         )}
+
+        {/* Bulk action bar */}
+        <BulkActionBar selectedIds={selectedTaskIds} onClear={clearSelection} />
 
         {/* Task list */}
         {isLoading ? (
