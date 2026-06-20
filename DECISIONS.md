@@ -470,3 +470,19 @@ Estas 4 cosas dependen del estado real del `package.json`/schema. Verificar y se
 4. **Columna de timezone del usuario** en profile → si existe, usarla en `dateKeys`; si no, fallback `America/Santo_Domingo` y dejar `// TODO: tz por usuario` (0.6).
 
 Todo lo demás está decidido aquí o en PLAN.md. Si Claude Code encuentra una decisión de implementación no cubierta, el default es: **el patrón global de la sección 0 manda.**
+
+---
+
+## Rumbo 02 — Inteligencia visible (KIN-14 a KIN-22)
+
+**R02-1 · CoachPanel vive en el bottom row del dashboard, no en ruta nueva.**
+`/(app)/today` descartada — añadir navegación nueva para una sola feature no se justifica. El panel vive como primer card en `DashboardBottomRow`. Alternativa rechazada: ruta propia con layout dedicado.
+
+**R02-2 · CoachPanel usa tabs (Sugerencia / Energía / Sistemas) en lugar de scroll vertical de 4 slots.**
+El bottom row tiene altura fija `clamp(168px, 26vh, 220px)`. Cuatro slots apilados no caben sin scroll agresivo; los tabs usan bien el espacio disponible y mantienen el contenido accesible con un solo clic. Alternativa rechazada: slots apilados en acordeón.
+
+**R02-3 · Slot de Pattern omitido del CoachPanel — `AdvisorCard` ya lo cubre (KIN-22).**
+`AdvisorCard` en la columna derecha del dashboard ya expone `topPattern` con acción bulk y dismiss. Duplicarlo en CoachPanel viola la regla "una sola superficie". La inteligencia nueva que exponemos es la que tenía 0 consumidores: sugerencias, distribución de energía, sistemas dormidos. Alternativa rechazada: 4 slots con Pattern redundante.
+
+**R02-4 · `insights.hooks.ts` define sus tipos inline (no importa de `insights.queries.ts`).**
+`insights.queries.ts` importa módulos server-only (`drizzle-orm`, `@/shared/db`). Aunque `import type` es seguro en tiempo de compilación, la colocación semántica correcta es definir los tipos del contrato HTTP en el módulo de hooks del cliente. Alternativa rechazada: `import type { StaleSystemRow } from './insights.queries'`.

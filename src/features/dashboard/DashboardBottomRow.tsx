@@ -2,6 +2,7 @@
 
 import { WeeklyTrendsCard } from './WeeklyTrendsCard';
 import { LearningInsightCard } from './LearningInsightCard';
+import { CoachPanel } from '@/features/insights/CoachPanel';
 import { useTodayPlanTasks } from '@/features/tasks/tasks.hooks';
 import type { WeeklyTrend, LearningInsight } from '@/features/energy/energy.service';
 
@@ -26,6 +27,11 @@ export function DashboardBottomRow({ weeklyTrends, insight }: Props) {
 
   return (
     <div className="flex flex-col md:flex-row gap-3 md:h-full md:min-h-0">
+
+      {/* Coach — sugerencias, energía por sistema, sistemas dormidos */}
+      <BottomCard title="Coach">
+        <CoachPanel />
+      </BottomCard>
 
       {/* Kino te conoce */}
       {insight.chronotype && (
