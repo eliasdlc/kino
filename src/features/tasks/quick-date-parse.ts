@@ -68,7 +68,6 @@ function parsePriority(
   const normalized = stripAccents(rest).toLowerCase();
   const candidates: Array<[string, "critical" | "high" | "medium" | "low"]> = [
     // Critical — EN
-    ["fatal", "critical"],
     ["emergency", "critical"],
     ["panic", "critical"],
     ["crash", "critical"],
@@ -77,7 +76,6 @@ function parsePriority(
     ["urgent", "critical"],
     ["breach", "critical"],
     ["severe", "critical"],
-    ["down", "critical"],
     // Critical — ES
     ["critico", "critical"],
     ["emergencia", "critical"],
@@ -90,15 +88,12 @@ function parsePriority(
     ["failure", "high"],
     ["denied", "high"],
     ["error", "high"],
-    ["fail", "high"],
     ["alert", "high"],
-    ["major", "high"],
     // High — ES
     ["excepcion", "high"],
     ["denegado", "high"],
     ["fallo", "high"],
     ["alerta", "high"],
-    ["mayor", "high"],
     // Medium — EN (longer variants first)
     ["warning", "medium"],
     ["timeout", "medium"],
@@ -106,15 +101,12 @@ function parsePriority(
     ["anomaly", "medium"],
     ["retry", "medium"],
     ["issue", "medium"],
-    ["warn", "medium"],
-    ["slow", "medium"],
     // Medium — ES
     ["advertencia", "medium"],
     ["reintento", "medium"],
     ["anomalia", "medium"],
     ["retraso", "medium"],
     ["problema", "medium"],
-    ["lento", "medium"],
     // Low — EN
     ["routine", "low"],
     ["trivial", "low"],
@@ -123,7 +115,6 @@ function parsePriority(
     ["debug", "low"],
     ["trace", "low"],
     ["info", "low"],
-    ["ok", "low"],
     // Low — ES
     ["rutina", "low"],
     ["exito", "low"],
