@@ -18,7 +18,7 @@ import { cn } from "@/lib/utils";
 import {
   useStickyNotesByPage,
   useStickyNotesByFolder,
-  useUpdateStickyNote,
+  useStackStickyNotes,
 } from "./sticky-notes.hooks";
 import { StickyNoteCard } from "./StickyNoteCard";
 import { StickyNoteStack } from "./StickyNoteStack";
@@ -97,7 +97,7 @@ export function StickyNotesGrid(props: Props) {
   const pageQuery = useStickyNotesByPage(isPage ? (props.pageId as string) : "");
   const folderQuery = useStickyNotesByFolder(!isPage ? (props.folderId as string) : "");
   const { data: allNotes = [], isLoading } = isPage ? pageQuery : folderQuery;
-  const { mutate: updateNote } = useUpdateStickyNote(context);
+  const { mutate: stackNotes } = useStackStickyNotes(context);
 
   // Non-margin notes always visible; margin notes shown only on mobile (md:hidden)
   const notes = allNotes.filter((n) => !n.positionSide);
@@ -122,12 +122,7 @@ export function StickyNotesGrid(props: Props) {
     const targetNote = allNotes.find((n) => n.id === over.id);
     if (!draggedNote || !targetNote) return;
 
-    // Assign both to a shared stackId (use target's existing stackId or target's own id)
-    const stackId = targetNote.stackId ?? targetNote.id;
-    updateNote({ noteId: draggedNote.id, data: { stackId } });
-    if (!targetNote.stackId) {
-      updateNote({ noteId: targetNote.id, data: { stackId } });
-    }
+    stackNotes({ draggedId: draggedNote.id, targetId: targetNote.id });
   }
 
   return (

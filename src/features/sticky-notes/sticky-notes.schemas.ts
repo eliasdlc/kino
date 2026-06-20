@@ -30,5 +30,11 @@ export const updateStickyNoteSchema = z.object({
   textAnchor: z.string().nullable().optional(),
 });
 
+export const stackStickyNotesSchema = z.object({
+  draggedId: z.string().uuid(),
+  targetId: z.string().uuid(),
+});
+
 export type CreateStickyNoteInput = z.infer<typeof createStickyNoteSchema>;
 export type UpdateStickyNoteInput = z.infer<typeof updateStickyNoteSchema>;
+export type StackStickyNotesInput = z.infer<typeof stackStickyNotesSchema>;
