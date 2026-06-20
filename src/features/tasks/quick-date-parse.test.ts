@@ -96,7 +96,7 @@ describe("parseQuickInput", () => {
 
   it("prioridad por palabras clave", () => {
     expect(parseQuickInput("llamar urgente", NOW)).toMatchObject({ priority: "critical", title: "llamar" });
-    expect(parseQuickInput("revisar importante", NOW)).toMatchObject({ priority: "high", title: "revisar" });
+    expect(parseQuickInput("revisar fallo", NOW)).toMatchObject({ priority: "high", title: "revisar" });
   });
 
   it("sistema (@nombre)", () => {
