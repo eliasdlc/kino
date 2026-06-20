@@ -15,6 +15,8 @@ import { TaskFilterPanel } from './TaskFilterPanel';
 import { TaskDetailSheet } from './TaskDetailSheet';
 import { DefaultTaskCard } from './cards/DefaultTaskCard';
 import { ConfirmDialog } from '@/components/ui/confirm-dialog';
+import { useTaskKeyboardNavigation } from './useTaskKeyboardNavigation';
+import { useHotkey } from '@/shared/hooks/useHotkey';
 import type { Task } from './tasks.types';
 
 interface SystemInfo {
@@ -62,6 +64,8 @@ export function AllTasksList({ systems }: AllTasksListProps) {
     });
   }, []);
 
+  const clearSelection = useCallback(() => setSelectedTaskIds(new Set()), []);
+
   const systemMap = useMemo(
     () => new Map(systems.map((s) => [s.id, s])),
     [systems],
@@ -102,6 +106,17 @@ export function AllTasksList({ systems }: AllTasksListProps) {
   });
   const filterCount = countActiveFilters(filters);
 
+  // Keyboard navigation — j/k move focus, x toggles selection, shift+j/k range-select
+  const { focusedTaskId } = useTaskKeyboardNavigation(filtered, {
+    onSelect: setSelectedTask,
+    onSelectionToggle: toggleSelection,
+  }, {
+    enabled: !selectedTask && !deleteTarget,
+  });
+
+  // esc clears selection (only when something is selected, avoids conflicting with other esc handlers)
+  useHotkey('escape', clearSelection, { enabled: selectedTaskIds.size > 0 });
+
   function renderRows(items: Task[]) {
     if (filters.view === 'grid') {
       return (
@@ -111,6 +126,7 @@ export function AllTasksList({ systems }: AllTasksListProps) {
               key={t.id}
               task={t}
               systemId={t.systemId}
+              isFocused={t.id === focusedTaskId}
               onToggle={(id) => toggleTask({ taskId: id })}
               onDelete={() => setDeleteTarget(t)}
               onEdit={setSelectedTask}
@@ -128,6 +144,7 @@ export function AllTasksList({ systems }: AllTasksListProps) {
             key={t.id}
             task={t}
             systemMap={systemMap}
+            isFocused={t.id === focusedTaskId}
             onToggle={(id) => toggleTask({ taskId: id })}
             onOpen={setSelectedTask}
             isSelected={selectedTaskIds.has(t.id)}

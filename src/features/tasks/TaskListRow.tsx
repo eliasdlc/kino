@@ -17,6 +17,7 @@ interface TaskListRowProps {
   systemMap: Map<string, SystemInfo>;
   onToggle: (taskId: string) => void;
   onOpen: (task: Task) => void;
+  isFocused?: boolean;
   isSelected?: boolean;
   onSelectionToggle?: (taskId: string) => void;
 }
@@ -59,7 +60,7 @@ function dueDateLabel(dueDate: string | null): { label: string; overdue: boolean
   };
 }
 
-export function TaskListRow({ task, systemMap, onToggle, onOpen, isSelected, onSelectionToggle }: TaskListRowProps) {
+export function TaskListRow({ task, systemMap, onToggle, onOpen, isFocused, isSelected, onSelectionToggle }: TaskListRowProps) {
   const isDone = task.status === 'done';
   const system = systemMap.get(task.systemId);
   const { label: dateLabel, overdue } = dueDateLabel(task.dueDate);
@@ -71,6 +72,8 @@ export function TaskListRow({ task, systemMap, onToggle, onOpen, isSelected, onS
         overdue && 'border-l-2 border-red-500/60',
         isDone && 'opacity-50',
         isSelected && 'bg-primary/5',
+        isFocused && !isSelected && 'bg-accent/40',
+        isFocused && 'ring-1 ring-inset ring-primary/30',
       )}
     >
       {/* Selection checkbox */}

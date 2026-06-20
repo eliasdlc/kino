@@ -8,6 +8,7 @@ export function useTaskKeyboardNavigation(
     onSelect?: (task: Task) => void;
     onToggle?: (taskId: string) => void;
     onDelete?: (task: Task) => void;
+    onSelectionToggle?: (taskId: string) => void;
   },
   options?: {
     enabled?: boolean;
@@ -49,6 +50,36 @@ export function useTaskKeyboardNavigation(
       handlers.onDelete?.(tasks[safeIndex]);
     }
   }, { enabled });
+
+  const selectionEnabled = enabled && !!handlers.onSelectionToggle;
+
+  // x = toggle selection on focused task
+  useHotkey("x", (e) => {
+    if (safeIndex >= 0 && tasks[safeIndex]) {
+      e.preventDefault();
+      handlers.onSelectionToggle!(tasks[safeIndex].id);
+    }
+  }, { enabled: selectionEnabled });
+
+  // shift+j = move focus down and add target to selection
+  useHotkey("shift+j", (e) => {
+    if (safeIndex < tasks.length - 1) {
+      e.preventDefault();
+      const nextIndex = safeIndex < 0 ? 0 : safeIndex + 1;
+      handlers.onSelectionToggle!(tasks[nextIndex].id);
+      setFocusedIndex(nextIndex);
+    }
+  }, { enabled: selectionEnabled });
+
+  // shift+k = move focus up and add target to selection
+  useHotkey("shift+k", (e) => {
+    if (safeIndex > 0) {
+      e.preventDefault();
+      const prevIndex = safeIndex - 1;
+      handlers.onSelectionToggle!(tasks[prevIndex].id);
+      setFocusedIndex(prevIndex);
+    }
+  }, { enabled: selectionEnabled });
 
   return {
     focusedTaskId: tasks[safeIndex]?.id ?? null,
