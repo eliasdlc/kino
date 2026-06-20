@@ -18,7 +18,7 @@ export function useFolders(systemId: string, options?: { enabled?: boolean }) {
       return res.json();
     },
     enabled: options?.enabled ?? true,
-    refetchInterval: 5_000,
+    refetchOnWindowFocus: true,
   });
 }
 
@@ -30,7 +30,7 @@ export function useFolderChildren(folderId: string) {
       if (!res.ok) throw new Error("Failed to fetch folder children");
       return res.json();
     },
-    refetchInterval: 5_000,
+    refetchOnWindowFocus: true,
   });
 }
 

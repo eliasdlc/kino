@@ -18,7 +18,7 @@ export function useStickyNotesByPage(pageId: string) {
       if (!res.ok) throw new Error("Failed to fetch sticky notes");
       return res.json();
     },
-    refetchInterval: 5_000,
+    refetchOnWindowFocus: true,
   });
 }
 
@@ -31,7 +31,7 @@ export function useStickyNotesByFolder(folderId: string) {
       if (!res.ok) throw new Error("Failed to fetch sticky notes");
       return res.json();
     },
-    refetchInterval: 5_000,
+    refetchOnWindowFocus: true,
   });
 }
 
@@ -102,6 +102,47 @@ export function useUpdateStickyNote(context: { pageId?: string; folderId?: strin
       if (ctx?.previous && ctx.key) {
         qc.setQueryData(ctx.key, ctx.previous);
       }
+    },
+    onSettled: () => {
+      if (context.pageId) qc.invalidateQueries({ queryKey: stickyNoteKeys.byPage(context.pageId) });
+      if (context.folderId) qc.invalidateQueries({ queryKey: stickyNoteKeys.byFolder(context.folderId) });
+    },
+  });
+}
+
+export function useStackStickyNotes(context: { pageId?: string; folderId?: string }) {
+  const qc = useQueryClient();
+  return useMutation<{ dragged: StickyNoteItem; target: StickyNoteItem }, Error, { draggedId: string; targetId: string }>({
+    mutationFn: async ({ draggedId, targetId }) => {
+      const res = await fetch("/api/sticky-notes/stack", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ draggedId, targetId }),
+      });
+      if (!res.ok) throw new Error("Failed to stack sticky notes");
+      return res.json();
+    },
+    onMutate: async ({ draggedId, targetId }) => {
+      const key = context.pageId
+        ? stickyNoteKeys.byPage(context.pageId)
+        : stickyNoteKeys.byFolder(context.folderId!);
+      await qc.cancelQueries({ queryKey: key });
+      const previous = qc.getQueryData<StickyNoteItem[]>(key);
+      qc.setQueryData<StickyNoteItem[]>(key, (old = []) => {
+        const target = old.find((n) => n.id === targetId);
+        if (!target) return old;
+        const stackId = target.stackId ?? target.id;
+        return old.map((n) => {
+          if (n.id === draggedId) return { ...n, stackId };
+          if (n.id === targetId && !target.stackId) return { ...n, stackId };
+          return n;
+        });
+      });
+      return { previous, key };
+    },
+    onError: (_err, _vars, ctx) => {
+      const c = ctx as { previous?: StickyNoteItem[]; key?: readonly string[] } | undefined;
+      if (c?.previous && c.key) qc.setQueryData(c.key, c.previous);
     },
     onSettled: () => {
       if (context.pageId) qc.invalidateQueries({ queryKey: stickyNoteKeys.byPage(context.pageId) });

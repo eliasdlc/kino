@@ -21,7 +21,7 @@ export function usePages(systemId: string) {
       if (!res.ok) throw new Error("Failed to fetch pages");
       return res.json();
     },
-    refetchInterval: 5_000,
+    refetchOnWindowFocus: true,
   });
 }
 
@@ -33,7 +33,7 @@ export function usePage(pageId: string) {
       if (!res.ok) throw new Error("Failed to fetch page");
       return res.json();
     },
-    refetchInterval: 5_000,
+    refetchOnWindowFocus: true,
   });
 }
 
@@ -45,7 +45,7 @@ export function useLinkedTasks(pageId: string) {
       if (!res.ok) throw new Error("Failed to fetch linked tasks");
       return res.json();
     },
-    refetchInterval: 5_000,
+    refetchOnWindowFocus: true,
   });
 }
 

@@ -16,7 +16,7 @@ export function useSprints(systemId: string, options?: { enabled?: boolean }) {
       if (!res.ok) throw new Error("Failed to fetch sprints");
       return res.json();
     },
-    refetchInterval: 10_000,
+    refetchOnWindowFocus: true,
     enabled: options?.enabled ?? true,
   });
 }

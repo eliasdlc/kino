@@ -12,7 +12,7 @@ export function useSystems() {
       if (!res.ok) throw new Error("Failed to fetch systems");
       return res.json();
     },
-    refetchInterval: 5_000,
+    refetchOnWindowFocus: true,
   });
 }
 
