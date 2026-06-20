@@ -15,6 +15,16 @@ export interface ParsedQuickDate {
   dueTime?: string;
 }
 
+export interface ParsedQuickInput {
+  title: string;
+  dueDate?: string;
+  dueTime?: string;
+  priority?: string;
+  systemHint?: string;
+  tagHint?: string;
+  estimatedMinutes?: number;
+}
+
 const WEEKDAY_RE =
   /\b(?:el\s+)?(lunes|martes|mi[ée]rcoles|jueves|viernes|s[áa]bado|domingo)\b/i;
 

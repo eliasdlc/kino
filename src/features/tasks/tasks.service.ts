@@ -781,12 +781,8 @@ export async function bulkCreateTasks(
   userId: string,
   items: CreateTaskInput[],
 ): Promise<Task[]> {
-  const results: Task[] = [];
-  for (const item of items) {
-    const task = await createTask(userId, item);
-    results.push(task);
-  }
-  return results;
+  const settled = await Promise.all(items.map((item) => createTask(userId, item)));
+  return settled.filter((t): t is Task => t !== null);
 }
 
 export async function getTimeLogSummary(

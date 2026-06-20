@@ -561,9 +561,7 @@ export function useMoveTaskBoard(systemId: string) {
       return res.json() as Promise<Task>;
     },
     onMutate: async ({ taskId, boardStatus }) => {
-      // No awaited — update the cache synchronously so the card appears in
-      // the target column before React re-renders after drag end, avoiding the snap-back flash.
-      queryClient.cancelQueries({ queryKey: taskKeys.bySystem(systemId) });
+      await queryClient.cancelQueries({ queryKey: taskKeys.bySystem(systemId) });
       const previous = queryClient.getQueryData<Task[]>(taskKeys.bySystem(systemId));
       queryClient.setQueryData<Task[]>(taskKeys.bySystem(systemId), (old = []) =>
         old.map((t) => {
