@@ -1,6 +1,7 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useState } from "react";
+import dynamic from "next/dynamic";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { PanelRight, Plus, Loader2 } from "lucide-react";
@@ -8,17 +9,29 @@ import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 import { Sheet, SheetContent, SheetTitle } from "@/components/ui/sheet";
 import { PageBreadcrumb } from "@/components/PageBreadcrumb";
-import { NotebookEditor } from "./NotebookEditor";
-import { EditorProvider } from "./EditorContext";
 import { LinkedTasksPanel } from "./LinkedTasksPanel";
 import { NotebookTagPicker } from "./NotebookTagPicker";
 import { EditorShortcutsHelp } from "./EditorShortcutsHelp";
-import { StickyNotesGrid } from "@/features/sticky-notes/StickyNotesGrid";
-import { MarginNotesLayer } from "@/features/sticky-notes/MarginNotesLayer";
-import { useStickyNotesByPage } from "@/features/sticky-notes/sticky-notes.hooks";
 import { useSubPages, useCreateSubPage } from "./pages.hooks";
 import type { BreadcrumbItem } from "@/components/PageBreadcrumb";
 import type { PageDetail, PageListItem } from "./pages.types";
+
+// The Tiptap surface (StarterKit + table + suggestion + list, plus image in
+// Sprint 3) is loaded client-side on demand so it stays out of the route's
+// initial JS bundle (KIN-73).
+const NotebookEditorSurface = dynamic(() => import("./NotebookEditorSurface"), {
+  ssr: false,
+  loading: () => (
+    <div className="flex-1 overflow-y-auto">
+      <div className="max-w-3xl mx-auto px-4 py-6 md:px-6 md:py-8 space-y-3">
+        <div className="h-7 w-1/3 animate-pulse rounded bg-muted" />
+        <div className="h-4 w-full animate-pulse rounded bg-muted/70" />
+        <div className="h-4 w-5/6 animate-pulse rounded bg-muted/70" />
+        <div className="h-4 w-2/3 animate-pulse rounded bg-muted/70" />
+      </div>
+    </div>
+  ),
+});
 
 interface NotebookEditorLayoutProps {
   page: PageDetail;
@@ -141,13 +154,8 @@ export function NotebookEditorLayout({
   initialSubPages,
 }: NotebookEditorLayoutProps) {
   const [rightOpen, setRightOpen] = useState(false);
-  const contentRef = useRef<HTMLDivElement>(null);
 
   const rootPageId = parentNotebook?.id ?? page.id;
-
-  const { data: allNotes = [] } = useStickyNotesByPage(page.id);
-  const marginNotes = allNotes.filter((n) => n.positionSide);
-  const pageContext = { pageId: page.id };
 
   return (
     <div className="flex h-full overflow-hidden flex-col">
@@ -169,17 +177,7 @@ export function NotebookEditorLayout({
 
       <div className="flex flex-1 overflow-hidden">
         {/* Main editor — centered content with free-floating margin notes overlay */}
-        <EditorProvider key={page.id} initialContent={page.content ?? ""}>
-          <div className="flex-1 overflow-y-auto">
-            <div ref={contentRef} className="relative min-h-full">
-              <div className="max-w-3xl mx-auto px-4 py-6 md:px-6 md:py-8 space-y-8">
-                <StickyNotesGrid pageId={page.id} />
-                <NotebookEditor page={page} systemId={systemId} pageId={page.id} />
-              </div>
-              <MarginNotesLayer notes={marginNotes} context={pageContext} containerRef={contentRef} />
-            </div>
-          </div>
-        </EditorProvider>
+        <NotebookEditorSurface page={page} systemId={systemId} />
       </div>
 
       {/* Floating right panel */}
