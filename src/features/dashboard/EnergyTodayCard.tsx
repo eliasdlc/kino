@@ -163,6 +163,7 @@ export function EnergyTodayCard({
       <div className="px-5 py-3.5 space-y-3.5">
         {showForm ? (
           <EnergyCheckinForm
+            defaultLevel={Math.max(1, predictedValue || 70)}
             initialSlot={currentSlot}
             isPending={isPending}
             onSubmit={handleSubmit}
