@@ -486,3 +486,16 @@ El bottom row tiene altura fija `clamp(168px, 26vh, 220px)`. Cuatro slots apilad
 
 **R02-4 · `insights.hooks.ts` define sus tipos inline (no importa de `insights.queries.ts`).**
 `insights.queries.ts` importa módulos server-only (`drizzle-orm`, `@/shared/db`). Aunque `import type` es seguro en tiempo de compilación, la colocación semántica correcta es definir los tipos del contrato HTTP en el módulo de hooks del cliente. Alternativa rechazada: `import type { StaleSystemRow } from './insights.queries'`.
+
+---
+
+## Rumbo 05 — Optimistic UI generalizado (KIN-41 a KIN-49)
+
+**R05-1 · Patrón optimista canónico = helper `useOptimisticListMutation` para una sola lista; inline documentado para multi-key.**
+El patrón (cancel → snapshot → setQueryData → onError restore → onSettled invalidate) estaba copiado en cada mutación de tasks. Se extrae a `src/shared/hooks/useOptimisticListMutation.ts`, que cubre el caso común: **una única query key** transformada por un `updater` puro. Las mutaciones multi-key (crear toca `bySystem` + `folderTasks`; los bulk escriben sobre todo el prefijo `['tasks']`; calendar lee de una cache y escribe en otra) **se quedan con el patrón inline**: forzarlas al helper lo volvería abstracto/confuso. La doc del patrón vive en el comentario de cabecera del helper (fuente de verdad). Alternativa rechazada: un helper genérico que aceptara N keys + lectura cruzada de caches.
+
+**R05-2 · El helper reenvía la firma de 4/5 args de TanStack Query v5.**
+En `@tanstack/react-query@5.96`, `onError`/`onSettled` reciben el resultado de `onMutate` como 3er arg y un `context` extra (cliente, meta) como último. El helper aplica el rollback con ese resultado y reenvía todos los args a los callbacks del consumidor, que corren **después** del comportamiento por defecto (rollback + invalidate), para que un `onError` propio solo tenga que hacer el toast y un `onSettled` propio pueda añadir invalidaciones extra (p.ej. `useUpdateTask` invalida `['pages','tasks']`).
+
+**R05-3 · `invalidateKey` separado de `queryKey`.**
+La invalidación de `onSettled` puede apuntar a un prefijo más amplio que la lista optimista: `useToggleTask`/`useMoveTaskBoard` invalidan `['tasks']` (reconcilian today-plan, all, system, folder), mientras `useDeleteTask` invalida `bySystem` (prefijo que ya cubre `folderTasks`). Por defecto `invalidateKey` = `queryKey`.
