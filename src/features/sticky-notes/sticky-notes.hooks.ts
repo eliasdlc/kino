@@ -1,8 +1,32 @@
 "use client";
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useOptimisticListMutation } from "@/shared/hooks/useOptimisticListMutation";
 import type { StickyNoteItem } from "./sticky-notes.types";
 import type { UpdateStickyNoteInput, CreateStickyNoteInput } from "./sticky-notes.schemas";
+
+/** Nota optimista provisional: aparece al instante; el invalidate de onSettled
+ *  la reconcilia con la fila real del server. */
+function makeOptimisticStickyNote(
+  data: Omit<CreateStickyNoteInput, "pageId" | "folderId">,
+  scope: { pageId?: string; folderId?: string },
+): StickyNoteItem {
+  return {
+    id: crypto.randomUUID(),
+    title: data.title ?? null,
+    content: data.content ?? null,
+    color: data.color ?? "yellow",
+    sortIndex: 0,
+    pageId: scope.pageId ?? null,
+    folderId: scope.folderId ?? null,
+    positionSide: data.positionSide ?? null,
+    positionY: data.positionY ?? null,
+    positionX: data.positionX ?? null,
+    anchorId: data.anchorId ?? null,
+    stackId: null,
+    textAnchor: data.textAnchor ?? null,
+  };
+}
 
 export const stickyNoteKeys = {
   byPage: (pageId: string) => ["sticky-notes", "page", pageId] as const,
@@ -39,8 +63,7 @@ type CreateForPage = Omit<CreateStickyNoteInput, "pageId" | "folderId">;
 type CreateForFolder = Omit<CreateStickyNoteInput, "pageId" | "folderId">;
 
 export function useCreateStickyNoteForPage(pageId: string) {
-  const qc = useQueryClient();
-  return useMutation<StickyNoteItem, Error, CreateForPage>({
+  return useOptimisticListMutation<StickyNoteItem, Error, CreateForPage, StickyNoteItem>({
     mutationFn: async (data) => {
       const res = await fetch(`/api/pages/${pageId}/sticky-notes`, {
         method: "POST",
@@ -50,15 +73,13 @@ export function useCreateStickyNoteForPage(pageId: string) {
       if (!res.ok) throw new Error("Failed to create sticky note");
       return res.json();
     },
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: stickyNoteKeys.byPage(pageId) });
-    },
+    queryKey: stickyNoteKeys.byPage(pageId),
+    updater: (notes, data) => [...notes, makeOptimisticStickyNote(data, { pageId })],
   });
 }
 
 export function useCreateStickyNoteForFolder(folderId: string) {
-  const qc = useQueryClient();
-  return useMutation<StickyNoteItem, Error, CreateForFolder>({
+  return useOptimisticListMutation<StickyNoteItem, Error, CreateForFolder, StickyNoteItem>({
     mutationFn: async (data) => {
       const res = await fetch(`/api/folders/${folderId}/sticky-notes`, {
         method: "POST",
@@ -68,9 +89,8 @@ export function useCreateStickyNoteForFolder(folderId: string) {
       if (!res.ok) throw new Error("Failed to create sticky note");
       return res.json();
     },
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: stickyNoteKeys.byFolder(folderId) });
-    },
+    queryKey: stickyNoteKeys.byFolder(folderId),
+    updater: (notes, data) => [...notes, makeOptimisticStickyNote(data, { folderId })],
   });
 }
 
