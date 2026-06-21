@@ -102,6 +102,26 @@ describe("useOptimisticListMutation", () => {
     expect(spy).toHaveBeenCalledWith({ queryKey: ["items", "wide"] });
   });
 
+  it("invalidates exactly the optimistic queryKey when no invalidateKey is given (KIN-49 invariant)", async () => {
+    const spy = vi.spyOn(client, "invalidateQueries");
+    const { result } = renderHook(
+      () =>
+        useOptimisticListMutation<Item, Error, Item, Item>({
+          mutationFn: async (item) => item,
+          queryKey: KEY,
+          updater: (items, item) => [...items, item],
+        }),
+      { wrapper: makeWrapper(client) },
+    );
+
+    result.current.mutate({ id: "2", label: "b" });
+
+    await waitFor(() => expect(result.current.isSuccess).toBe(true));
+    // La key invalidada es exactamente la key escrita optimistamente: el estado
+    // optimista no puede quedar huérfano sin reconciliarse.
+    expect(spy).toHaveBeenCalledWith({ queryKey: KEY });
+  });
+
   it("resolves a dynamic queryKey from the variables", async () => {
     const SCOPED = ["items", "scope-2"] as const;
     client.setQueryData<Item[]>(SCOPED, [{ id: "x", label: "x" }]);
