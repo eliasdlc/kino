@@ -499,3 +499,19 @@ En `@tanstack/react-query@5.96`, `onError`/`onSettled` reciben el resultado de `
 
 **R05-3 · `invalidateKey` separado de `queryKey`.**
 La invalidación de `onSettled` puede apuntar a un prefijo más amplio que la lista optimista: `useToggleTask`/`useMoveTaskBoard` invalidan `['tasks']` (reconcilian today-plan, all, system, folder), mientras `useDeleteTask` invalida `bySystem` (prefijo que ya cubre `folderTasks`). Por defecto `invalidateKey` = `queryKey`.
+
+**R05-4 · Auditoría de mutaciones sin optimismo (KIN-42) — lista priorizada.**
+Auditadas todas las `useMutation` por feature. Ya optimistas (con `onMutate`): todo `tasks.hooks.ts`, `sticky-notes` update/stack(drag)/delete, `folders` update/delete. **Sin optimismo (solo invalidan)** — a optimizar, ordenadas por latencia percibida:
+
+| # | Feature (Sprint) | Mutación | Acción que se siente lenta |
+|---|---|---|---|
+| 1 | sticky-notes (KIN-43) | `useCreateStickyNoteForPage` / `useCreateStickyNoteForFolder` | crear nota (debería aparecer al instante) |
+| 2 | pages (KIN-44) | `useUpdatePage` | pin / rename inline |
+| 3 | pages (KIN-44) | `useCreatePage` / `useCreateSubPage` | crear cuaderno |
+| 4 | pages (KIN-44) | `useDeletePage` | borrar cuaderno |
+| 5 | folders (KIN-45) | `useCreateFolder` | crear carpeta en el árbol |
+| 6 | systems (KIN-46) | `useUpdateSystem` | renombrar / editar sistema |
+| 7 | systems (KIN-46) | `useDeleteSystem` | archivar / borrar sistema |
+| 8 | sprints (KIN-47) | `useCreateSprint` / `useUpdateSprint` / `useCloseSprint` / `useDeleteSprint` | acciones de sprint |
+
+Fuera de alcance (no tocar): autosave de contenido de página (ya es debounce), link/unlink de tareas y tags de página (acción secundaria, baja frecuencia). Las multi-key (`useCreateStickyNote*` tocan una sola lista → sí helper; `pages`/`folders` create tocan una sola lista `bySystem` → helper).
