@@ -33,6 +33,7 @@ import { parseDueDate, dueDateHasTime, parseTaskDay, dayToLocalISO } from "@/fea
 import { useIsMobile } from "@/hooks/use-mobile";
 import { GlobalCalendarMobileView } from "./GlobalCalendarMobileView";
 import type { TaskDragData } from "@/features/tasks/dnd/dnd.types";
+import { useTodayEnergyPlan } from "@/features/energy/energy.hooks";
 
 const ROW_HEIGHT = 56; // px per hour
 const START_HOUR = 6;
@@ -61,6 +62,33 @@ function minutesToTimeString(minutes: number): string {
   const h = Math.floor(minutes / 60);
   const m = minutes % 60;
   return `${h.toString().padStart(2, "0")}:${m.toString().padStart(2, "0")}`;
+}
+
+/** Energy level 0–100 → bg color class for overlay */
+function energyBgClass(capacity: number): string {
+  if (capacity >= 60) return "bg-emerald-500/8";
+  if (capacity >= 30) return "bg-amber-500/8";
+  return "bg-rose-500/8";
+}
+
+/** Pick the best unoccupied hour for a task's energyLevel from projectedCurve */
+function suggestHour(
+  energyLevel: string,
+  curve: number[],
+  occupiedHours: Set<number>,
+): number | null {
+  let bestHour: number | null = null;
+  let bestScore = -Infinity;
+  for (let h = START_HOUR; h <= END_HOUR; h++) {
+    if (occupiedHours.has(h)) continue;
+    const cap = curve[h] ?? 0;
+    const score =
+      energyLevel === "high" ? cap
+      : energyLevel === "low" ? -cap
+      : -(Math.abs(cap - 50)); // medium → closest to 50%
+    if (score > bestScore) { bestScore = score; bestHour = h; }
+  }
+  return bestHour;
 }
 
 /** Preferred placement date: timed startDate > dueDate > startDate (no time) */
@@ -98,17 +126,18 @@ function AllDayCell({ day, tasks }: { day: Date; tasks: Task[] }) {
   );
 }
 
-function DroppableSlot({ id, hour, style }: { id: string; hour: number; style?: React.CSSProperties }) {
+function DroppableSlot({ id, hour, energyCapacity }: { id: string; hour: number; energyCapacity?: number }) {
   const { setNodeRef, isOver } = useDroppable({ id });
   return (
     <div
       ref={setNodeRef}
       className={cn(
         "absolute w-full border-t border-border/40 transition-colors",
-        isOver && "bg-primary/10",
+        isOver && "bg-primary/15",
         hour % 2 === 0 ? "border-border/40" : "border-border/20",
+        energyCapacity !== undefined && !isOver && energyBgClass(energyCapacity),
       )}
-      style={{ top: (hour - START_HOUR) * ROW_HEIGHT, height: ROW_HEIGHT, ...style }}
+      style={{ top: (hour - START_HOUR) * ROW_HEIGHT, height: ROW_HEIGHT }}
     />
   );
 }
@@ -163,7 +192,15 @@ function TaskBlock({ task, overrideDuration, onResizeStart }: TaskBlockProps) {
   );
 }
 
-function UnscheduledChip({ task }: { task: Task }) {
+function UnscheduledChip({
+  task,
+  suggestedHour,
+  onAcceptSuggestion,
+}: {
+  task: Task;
+  suggestedHour: number | null;
+  onAcceptSuggestion: (task: Task, hour: number) => void;
+}) {
   const dragData: TaskDragData = { task, sourceType: "unscheduled", sourceId: "unscheduled" };
   const { attributes, listeners, setNodeRef, isDragging } = useDraggable({
     id: `unscheduled:${task.id}`,
@@ -171,17 +208,31 @@ function UnscheduledChip({ task }: { task: Task }) {
   });
   return (
     <div
-      ref={setNodeRef}
-      {...attributes}
-      {...listeners}
       className={cn(
-        "px-2 py-1 rounded border text-xs truncate cursor-grab active:cursor-grabbing select-none",
+        "rounded border text-xs select-none",
         PRIORITY_CHIP[task.priority ?? "medium"],
         isDragging && "opacity-30",
       )}
-      title={task.title}
     >
-      {task.title}
+      <div
+        ref={setNodeRef}
+        {...attributes}
+        {...listeners}
+        className="px-2 py-1 truncate cursor-grab active:cursor-grabbing"
+        title={task.title}
+      >
+        {task.title}
+      </div>
+      {suggestedHour !== null && (
+        <button
+          type="button"
+          className="w-full text-left px-2 pb-1 text-[10px] text-primary/80 hover:text-primary flex items-center gap-1 leading-tight"
+          onClick={() => onAcceptSuggestion(task, suggestedHour)}
+        >
+          <span>Kino sugiere {format(new Date(2000, 0, 1, suggestedHour), "HH:mm")}</span>
+          <span className="text-primary/50">→</span>
+        </button>
+      )}
     </div>
   );
 }
@@ -209,6 +260,8 @@ export function GlobalCalendarView() {
   const { data: calendarTasks = [] } = useCalendarTasks(from, to);
   const { data: allTasks = [] } = useAllTasks();
   const { mutate: updateTask } = useUpdateCalendarTask(from, to);
+  const { data: energyPlan } = useTodayEnergyPlan();
+  const projectedCurve = energyPlan?.projectedCurve ?? [];
 
   const unscheduledTasks = useMemo(
     () =>
@@ -222,6 +275,25 @@ export function GlobalCalendarView() {
       ),
     [allTasks],
   );
+
+  // Hours already occupied in the selected day (for suggestion avoidance)
+  const occupiedHoursForSelectedDay = useMemo(() => {
+    const set = new Set<number>();
+    const key = dayKey(selectedDay);
+    for (const task of calendarTasks) {
+      const dateVal = getPlacementDate(task);
+      if (!dateVal || !dueDateHasTime(dateVal)) continue;
+      const d = parseDueDate(dateVal);
+      if (dayKey(d) === key) set.add(d.getHours());
+    }
+    return set;
+  }, [calendarTasks, selectedDay]);
+
+  function handleAcceptSuggestion(task: Task, hour: number) {
+    const date = dayKey(selectedDay);
+    const newDate = dayToLocalISO(date, `${hour.toString().padStart(2, "0")}:00`);
+    updateTask({ taskId: task.id, data: { startDate: newDate } });
+  }
 
   const byDayAllDay = useMemo(() => {
     const map = new Map<string, Task[]>();
@@ -365,7 +437,18 @@ export function GlobalCalendarView() {
                 Nada pendiente
               </p>
             ) : (
-              unscheduledTasks.map((task) => <UnscheduledChip key={task.id} task={task} />)
+              unscheduledTasks.map((task) => (
+                <UnscheduledChip
+                  key={task.id}
+                  task={task}
+                  suggestedHour={
+                    projectedCurve.length === 24
+                      ? suggestHour(task.energyLevel ?? "medium", projectedCurve, occupiedHoursForSelectedDay)
+                      : null
+                  }
+                  onAcceptSuggestion={handleAcceptSuggestion}
+                />
+              ))
             )}
           </div>
         </div>
@@ -510,12 +593,17 @@ export function GlobalCalendarView() {
                       )}
                       style={{ height: TOTAL_HEIGHT }}
                     >
-                      {/* Droppable slots for each hour */}
+                      {/* Droppable slots for each hour (energy overlay only in day view) */}
                       {HOURS.map((hour) => (
                         <DroppableSlot
                           key={hour}
                           id={`slot:${dayKey(day)}:${hour}`}
                           hour={hour}
+                          energyCapacity={
+                            view === "day" && projectedCurve.length === 24
+                              ? (projectedCurve[hour] ?? undefined)
+                              : undefined
+                          }
                         />
                       ))}
 
