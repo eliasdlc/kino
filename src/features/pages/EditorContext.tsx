@@ -6,6 +6,7 @@ import type { Editor } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
 import Placeholder from "@tiptap/extension-placeholder";
 import Typography from "@tiptap/extension-typography";
+import { Table, TableRow, TableHeader, TableCell } from "@tiptap/extension-table";
 import { StickyAnchorMark } from "@/features/sticky-notes/sticky-anchor.extension";
 
 const EditorContext = createContext<Editor | null>(null);
@@ -26,6 +27,10 @@ export function EditorProvider({
       StarterKit,
       Typography,
       Placeholder.configure({ placeholder: "Empieza a escribir…" }),
+      Table.configure({ resizable: true }),
+      TableRow,
+      TableHeader,
+      TableCell,
       StickyAnchorMark,
     ],
     content: initialContent,
