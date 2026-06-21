@@ -5,6 +5,19 @@ import { cn } from '@/lib/utils';
 import { AlertCircle, Check } from 'lucide-react';
 import type { Task } from './tasks.types';
 import { parseDueDate } from './tasks.utils';
+import { useSubtasks } from './tasks.hooks';
+
+// KIN-80: compact subtask count for the global list view
+function SubtaskCount({ taskId, systemId }: { taskId: string; systemId: string }) {
+  const { data: subtasks } = useSubtasks(taskId, systemId);
+  if (!subtasks || subtasks.length === 0) return null;
+  const done = subtasks.filter((s) => s.status === 'done').length;
+  return (
+    <span className="text-[10px] font-mono text-zinc-600">
+      {done}/{subtasks.length}
+    </span>
+  );
+}
 
 interface SystemInfo {
   id: string;
@@ -138,6 +151,9 @@ export function TaskListRow({ task, systemMap, onToggle, onOpen, isFocused, isSe
             {system.name}
           </span>
         )}
+
+        {/* Subtask count (KIN-80) */}
+        <SubtaskCount taskId={task.id} systemId={task.systemId} />
 
         {/* Energy */}
         {task.energyLevel && (

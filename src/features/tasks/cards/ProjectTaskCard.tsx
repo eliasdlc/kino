@@ -1,7 +1,8 @@
 "use client";
 
+import { useState } from "react";
 import { format } from "date-fns";
-import { Clock, Flag, Hourglass, MoreHorizontal, Timer, Trash2 } from "lucide-react";
+import { ChevronDown, Clock, Flag, Hourglass, MoreHorizontal, Timer, Trash2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import {
   ContextMenu,
@@ -25,6 +26,7 @@ import { parseDueDate } from "../tasks.utils";
 import { useTaskCard } from "./useTaskCard";
 import { TaskTags } from "./parts/TaskTags";
 import { SubtaskProgressBars } from "./parts/SubtaskProgressBars";
+import { SubtaskList } from "../SubtaskList";
 import type { TaskCardProps } from "./types";
 
 function formatEstimate(value: string | null): string | null {
@@ -56,6 +58,7 @@ interface ProjectTaskCardProps extends TaskCardProps {
 }
 
 export function ProjectTaskCard({ task, systemId, onToggle, onDelete, onEdit, showSprint, onMoveColumn }: ProjectTaskCardProps) {
+  const [isExpanded, setIsExpanded] = useState(false);
   const state = useTaskCard(task, systemId, onToggle);
   const { isDone, isArchived, isOverdue, dueDays, timerState, openModeDialog } = state;
 
@@ -186,9 +189,25 @@ export function ProjectTaskCard({ task, systemId, onToggle, onDelete, onEdit, sh
             </div>
           )}
 
+          {/* KIN-81: progress + expand toggle to show subtasks inline */}
           <div className="flex items-center justify-between mt-1">
             <SubtaskProgressBars taskId={task.id} systemId={systemId} />
+            <button
+              type="button"
+              onPointerDown={(e) => e.stopPropagation()}
+              onClick={(e) => { e.stopPropagation(); setIsExpanded((v) => !v); }}
+              aria-label={isExpanded ? "Ocultar subtareas" : "Mostrar subtareas"}
+              className="text-zinc-600 hover:text-zinc-300 transition-colors"
+            >
+              <ChevronDown size={14} className={cn("transition-transform", isExpanded && "rotate-180")} />
+            </button>
           </div>
+
+          {isExpanded && (
+            <div className="mt-2 pt-2 border-t border-white/[0.06]">
+              <SubtaskList parentTaskId={task.id} systemId={systemId} />
+            </div>
+          )}
         </div>
       </ContextMenuTrigger>
 

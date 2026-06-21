@@ -6,6 +6,19 @@ import { cn } from "@/lib/utils";
 import type { Task } from "./tasks.types";
 import { parseDueDate } from "./tasks.utils";
 import { getTaskTypeConfig } from "./task-type-config";
+import { useSubtasks } from "./tasks.hooks";
+
+// KIN-80: compact subtask count for the planning card
+function SubtaskCount({ taskId, systemId }: { taskId: string; systemId: string }) {
+  const { data: subtasks } = useSubtasks(taskId, systemId);
+  if (!subtasks || subtasks.length === 0) return null;
+  const done = subtasks.filter((s) => s.status === "done").length;
+  return (
+    <span className="font-mono text-[10px] text-zinc-600">
+      {done}/{subtasks.length}
+    </span>
+  );
+}
 
 interface PlanningTaskCardProps {
   task: Task;
@@ -101,7 +114,7 @@ export function PlanningTaskCard({ task, isFocused, onToggle, onDelete, onEdit }
         </button>
       </div>
 
-      {/* Meta: tipo (eventos) + fecha */}
+      {/* Meta: tipo (eventos) + fecha + subtask count (KIN-80) */}
       {(isEvent || task.dueDate) && (
         <div className="mt-1 flex items-center gap-1.5 pl-5 flex-wrap">
           {isEvent && (
@@ -120,6 +133,13 @@ export function PlanningTaskCard({ task, isFocused, onToggle, onDelete, onEdit }
               {isOverdue ? "vencida" : "vence"} · {format(parseDueDate(task.dueDate), "MMM d")}
             </span>
           )}
+          <SubtaskCount taskId={task.id} systemId={task.systemId} />
+        </div>
+      )}
+      {/* Show subtask count even when there's no date/event meta */}
+      {!isEvent && !task.dueDate && (
+        <div className="mt-0.5 pl-5">
+          <SubtaskCount taskId={task.id} systemId={task.systemId} />
         </div>
       )}
     </div>

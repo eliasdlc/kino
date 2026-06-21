@@ -128,21 +128,26 @@ function ReminderCountdown({ dueDate }: { dueDate: string }) {
   );
 }
 
-function SubtaskProgress({ parentTaskId, systemId, isExpanded }: { parentTaskId: string; systemId: string; isExpanded: boolean }) {
-  const { data: subtasks } = useSubtasks(parentTaskId, systemId, { enabled: isExpanded });
+// KIN-77: always fetch subtasks so progress is visible without expanding the card.
+// Returns null (no dot) when there are no subtasks, so non-parent tasks pay zero render cost.
+function SubtaskProgress({ parentTaskId, systemId }: { parentTaskId: string; systemId: string }) {
+  const { data: subtasks } = useSubtasks(parentTaskId, systemId);
   if (!subtasks || subtasks.length === 0) return null;
   const done = subtasks.filter((s) => s.status === "done").length;
-  const pct = subtasks.length > 0 ? Math.round((done / subtasks.length) * 100) : 0;
+  const pct = Math.round((done / subtasks.length) * 100);
   return (
-    <span className="inline-flex items-center gap-1.5 font-mono text-sm text-zinc-500">
-      <span className="inline-flex h-1 w-12 rounded-full bg-zinc-700/80 overflow-hidden">
-        <span
-          className="h-full bg-[#3ecf72] rounded-full motion-safe:transition-all motion-safe:duration-300"
-          style={{ width: `${pct}%` }}
-        />
+    <>
+      <span className="text-xs text-zinc-700">·</span>
+      <span className="inline-flex items-center gap-1.5 font-mono text-sm text-zinc-500">
+        <span className="inline-flex h-1 w-12 rounded-full bg-zinc-700/80 overflow-hidden">
+          <span
+            className="h-full bg-[#3ecf72] rounded-full motion-safe:transition-all motion-safe:duration-300"
+            style={{ width: `${pct}%` }}
+          />
+        </span>
+        {done}/{subtasks.length}
       </span>
-      {done}/{subtasks.length}
-    </span>
+    </>
   );
 }
 
@@ -154,7 +159,7 @@ interface DefaultMetaProps {
 }
 
 function DefaultMeta({ task, state, systemType, systemId }: DefaultMetaProps) {
-  const { isOverdue, isDueSoon, folder, typeConfig, isExpanded } = state;
+  const { isOverdue, isDueSoon, folder, typeConfig } = state;
   const TypeIcon = typeConfig.icon;
 
   return (
@@ -194,12 +199,8 @@ function DefaultMeta({ task, state, systemType, systemId }: DefaultMetaProps) {
         </>
       ) : null}
 
-      {task.taskType === "project" && (
-        <>
-          <span className="text-xs text-zinc-700">·</span>
-          <SubtaskProgress parentTaskId={task.id} systemId={systemId} isExpanded={isExpanded} />
-        </>
-      )}
+      {/* KIN-77: show for all task types, not just project */}
+      <SubtaskProgress parentTaskId={task.id} systemId={systemId} />
 
       <span className={cn(
         "inline-flex items-center gap-1.5 flex-wrap",

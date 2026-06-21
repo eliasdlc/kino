@@ -487,6 +487,8 @@ export async function restoreTask(taskId: string, userId: string) {
   return task;
 }
 
+// KIN-78: completar la madre NO cascadea a las hijas. Cada subtarea mantiene su estado.
+// El usuario puede completar una madre con subtareas pendientes; las hijas no se tocan.
 export async function toggleTask(
   taskId: string,
   userId: string,
@@ -659,6 +661,8 @@ export async function ensureTodayPlanRolled(userId: string): Promise<void> {
 
     // 2. Repuebla con tareas activas programadas para hoy (start_date = hoy,
     //    comparando el día calendario en la tz del usuario; start_date es timestamptz).
+    //    KIN-79: parent_task_id IS NULL excluye subtareas del plan del día intencionalmente.
+    //    Las subtareas son visibles únicamente a través de su tarea madre.
     await tx.execute(
       sql`UPDATE tasks SET in_today_plan = true, updated_at = NOW()
           WHERE user_id = ${userId} AND deleted_at IS NULL
