@@ -18,6 +18,7 @@ import { ConfirmDialog } from '@/components/ui/confirm-dialog';
 import { useTaskKeyboardNavigation } from './useTaskKeyboardNavigation';
 import { useHotkey } from '@/shared/hooks/useHotkey';
 import { BulkActionBar } from './BulkActionBar';
+import { CascadeInboxMode } from './CascadeInboxMode';
 import type { Task } from './tasks.types';
 
 interface SystemInfo {
@@ -55,6 +56,7 @@ export function AllTasksList({ systems }: AllTasksListProps) {
   const [selectedTask, setSelectedTask] = useState<Task | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<Task | null>(null);
   const [selectedTaskIds, setSelectedTaskIds] = useState<Set<string>>(new Set());
+  const [cascadeOpen, setCascadeOpen] = useState(false);
 
   const toggleSelection = useCallback((taskId: string) => {
     setSelectedTaskIds((prev) => {
@@ -266,7 +268,11 @@ export function AllTasksList({ systems }: AllTasksListProps) {
         )}
 
         {/* Bulk action bar */}
-        <BulkActionBar selectedIds={selectedTaskIds} onClear={clearSelection} />
+        <BulkActionBar
+          selectedIds={selectedTaskIds}
+          onClear={clearSelection}
+          onVaciar={selectedTaskIds.size > 0 ? () => setCascadeOpen(true) : undefined}
+        />
 
         {/* Task list */}
         {isLoading ? (
@@ -303,6 +309,15 @@ export function AllTasksList({ systems }: AllTasksListProps) {
           setDeleteTarget(null);
         }}
         onCancel={() => setDeleteTarget(null)}
+      />
+
+      <CascadeInboxMode
+        tasks={filtered.filter((t) => selectedTaskIds.has(t.id))}
+        open={cascadeOpen}
+        onOpenChange={(open) => {
+          setCascadeOpen(open);
+          if (!open) clearSelection();
+        }}
       />
     </>
   );

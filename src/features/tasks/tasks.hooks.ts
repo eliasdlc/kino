@@ -442,6 +442,127 @@ export function useAdvisorAction() {
   });
 }
 
+type BulkMoveCtx = {
+  previous: [readonly unknown[], Task[] | undefined][];
+  previousStates: { id: string; status: string }[];
+};
+
+export function useBulkMove() {
+  const queryClient = useQueryClient();
+
+  return useMutation<void, Error, { taskIds: string[]; status: string }, BulkMoveCtx>({
+    mutationFn: async ({ taskIds, status }) => {
+      const res = await fetch('/api/tasks/bulk-move', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ taskIds, status }),
+      });
+      if (!res.ok) throw new Error('No se pudo mover las tareas');
+    },
+    onMutate: async ({ taskIds, status }) => {
+      await queryClient.cancelQueries({ queryKey: ['tasks'] });
+      const previous = queryClient.getQueriesData<Task[]>({ queryKey: ['tasks'] });
+      const allTasks = queryClient.getQueryData<Task[]>(allTasksKey()) ?? [];
+      const previousStates = taskIds.map((id) => ({
+        id,
+        status: allTasks.find((t) => t.id === id)?.status ?? 'backlog',
+      }));
+      queryClient.setQueriesData<Task[]>({ queryKey: ['tasks'] }, (old) =>
+        old?.map((t) => (taskIds.includes(t.id) ? { ...t, status } : t))
+      );
+      return { previous, previousStates };
+    },
+    onSuccess: (_data, { taskIds }, context) => {
+      const n = taskIds.length;
+      const { previousStates } = context;
+      toast.success(`${n} tarea${n !== 1 ? 's' : ''} movida${n !== 1 ? 's' : ''}`, {
+        duration: 7000,
+        action: {
+          label: 'Deshacer',
+          onClick: async () => {
+            await Promise.all(
+              previousStates.map(({ id, status }) =>
+                fetch(`/api/tasks/${id}`, {
+                  method: 'PATCH',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({ status }),
+                })
+              )
+            );
+            queryClient.invalidateQueries({ queryKey: ['tasks'] });
+          },
+        },
+      });
+    },
+    onError: (_err, _vars, context) => {
+      context?.previous.forEach(([key, data]) => queryClient.setQueryData(key, data));
+      toast.error('No se pudo mover las tareas');
+    },
+    onSettled: () => queryClient.invalidateQueries({ queryKey: ['tasks'] }),
+  });
+}
+
+type BulkUpdateCtx = {
+  previous: [readonly unknown[], Task[] | undefined][];
+  previousStates: { id: string; priority: string | null }[];
+};
+
+export function useBulkUpdate() {
+  const queryClient = useQueryClient();
+
+  return useMutation<void, Error, { taskIds: string[]; priority: string }, BulkUpdateCtx>({
+    mutationFn: async ({ taskIds, priority }) => {
+      const res = await fetch('/api/tasks/bulk-update', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ taskIds, priority }),
+      });
+      if (!res.ok) throw new Error('No se pudo actualizar la prioridad');
+    },
+    onMutate: async ({ taskIds, priority }) => {
+      await queryClient.cancelQueries({ queryKey: ['tasks'] });
+      const previous = queryClient.getQueriesData<Task[]>({ queryKey: ['tasks'] });
+      const allTasks = queryClient.getQueryData<Task[]>(allTasksKey()) ?? [];
+      const previousStates = taskIds.map((id) => ({
+        id,
+        priority: allTasks.find((t) => t.id === id)?.priority ?? null,
+      }));
+      queryClient.setQueriesData<Task[]>({ queryKey: ['tasks'] }, (old) =>
+        old?.map((t) => (taskIds.includes(t.id) ? { ...t, priority: priority as Task['priority'] } : t))
+      );
+      return { previous, previousStates };
+    },
+    onSuccess: (_data, _vars, context) => {
+      const { previousStates } = context;
+      toast.success('Prioridad actualizada', {
+        duration: 7000,
+        action: {
+          label: 'Deshacer',
+          onClick: async () => {
+            await Promise.all(
+              previousStates
+                .filter(({ priority }) => priority !== null)
+                .map(({ id, priority }) =>
+                  fetch(`/api/tasks/${id}`, {
+                    method: 'PATCH',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ priority }),
+                  })
+                )
+            );
+            queryClient.invalidateQueries({ queryKey: ['tasks'] });
+          },
+        },
+      });
+    },
+    onError: (_err, _vars, context) => {
+      context?.previous.forEach(([key, data]) => queryClient.setQueryData(key, data));
+      toast.error('No se pudo actualizar la prioridad');
+    },
+    onSettled: () => queryClient.invalidateQueries({ queryKey: ['tasks'] }),
+  });
+}
+
 export interface TaskReminder {
   id: string;
   taskId: string;

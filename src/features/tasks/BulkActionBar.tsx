@@ -1,19 +1,18 @@
 "use client";
 
-import { useQueryClient } from "@tanstack/react-query";
-import { toast } from "sonner";
-import { ChevronDown, Check, Trash2, X } from "lucide-react";
+import { ChevronDown, Check, Trash2, X, ListChecks } from "lucide-react";
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { allTasksKey } from "./tasks.keys";
+import { useBulkMove, useBulkUpdate } from "./tasks.hooks";
 
 interface BulkActionBarProps {
   selectedIds: Set<string>;
   onClear: () => void;
+  onVaciar?: () => void;
 }
 
 const DATE_OPTIONS = [
@@ -29,45 +28,25 @@ const PRIORITY_OPTIONS = [
   { value: "low", label: "Baja" },
 ] as const;
 
-const ACTION_BTN =
+const BTN =
   "inline-flex items-center gap-1.5 text-xs px-2.5 py-1 rounded-md border border-border hover:bg-accent/50 transition-colors";
 
-export function BulkActionBar({ selectedIds, onClear }: BulkActionBarProps) {
-  const queryClient = useQueryClient();
+export function BulkActionBar({ selectedIds, onClear, onVaciar }: BulkActionBarProps) {
   const ids = [...selectedIds];
   const count = ids.length;
 
+  const { mutate: bulkMove, isPending: movePending } = useBulkMove();
+  const { mutate: bulkUpdate, isPending: updatePending } = useBulkUpdate();
+  const isPending = movePending || updatePending;
+
   if (count === 0) return null;
 
-  async function bulkMove(status: string) {
-    const res = await fetch("/api/tasks/bulk-move", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ taskIds: ids, status }),
-    });
-    if (!res.ok) throw new Error("No se pudo mover las tareas");
-    await queryClient.invalidateQueries({ queryKey: allTasksKey() });
-    onClear();
+  function move(status: string) {
+    bulkMove({ taskIds: ids, status }, { onSuccess: onClear });
   }
 
-  async function bulkUpdate(priority: string) {
-    const res = await fetch("/api/tasks/bulk-update", {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ taskIds: ids, priority }),
-    });
-    if (!res.ok) throw new Error("No se pudo actualizar la prioridad");
-    await queryClient.invalidateQueries({ queryKey: allTasksKey() });
-    onClear();
-  }
-
-  async function run(fn: () => Promise<void>, successMsg: string) {
-    try {
-      await fn();
-      toast.success(successMsg);
-    } catch {
-      toast.error("No se pudo completar la acción");
-    }
+  function update(priority: string) {
+    bulkUpdate({ taskIds: ids, priority }, { onSuccess: onClear });
   }
 
   return (
@@ -79,21 +58,13 @@ export function BulkActionBar({ selectedIds, onClear }: BulkActionBarProps) {
       {/* Fechar */}
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
-          <button className={ACTION_BTN}>
+          <button className={BTN} disabled={isPending}>
             Fechar <ChevronDown className="w-3 h-3" />
           </button>
         </DropdownMenuTrigger>
         <DropdownMenuContent align="start" className="w-36">
           {DATE_OPTIONS.map((opt) => (
-            <DropdownMenuItem
-              key={opt.value}
-              onSelect={() =>
-                run(
-                  () => bulkMove(opt.value),
-                  `${count} tarea${count !== 1 ? "s" : ""} → ${opt.label}`
-                )
-              }
-            >
+            <DropdownMenuItem key={opt.value} onSelect={() => move(opt.value)}>
               {opt.label}
             </DropdownMenuItem>
           ))}
@@ -103,21 +74,13 @@ export function BulkActionBar({ selectedIds, onClear }: BulkActionBarProps) {
       {/* Prioridad */}
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
-          <button className={ACTION_BTN}>
+          <button className={BTN} disabled={isPending}>
             Prioridad <ChevronDown className="w-3 h-3" />
           </button>
         </DropdownMenuTrigger>
         <DropdownMenuContent align="start" className="w-36">
           {PRIORITY_OPTIONS.map((opt) => (
-            <DropdownMenuItem
-              key={opt.value}
-              onSelect={() =>
-                run(
-                  () => bulkUpdate(opt.value),
-                  `Prioridad → ${opt.label}`
-                )
-              }
-            >
+            <DropdownMenuItem key={opt.value} onSelect={() => update(opt.value)}>
               {opt.label}
             </DropdownMenuItem>
           ))}
@@ -126,19 +89,27 @@ export function BulkActionBar({ selectedIds, onClear }: BulkActionBarProps) {
 
       {/* Completar */}
       <button
-        onClick={() =>
-          run(
-            () => bulkMove("done"),
-            `${count} tarea${count !== 1 ? "s" : ""} completada${count !== 1 ? "s" : ""}`
-          )
-        }
-        className="inline-flex items-center gap-1.5 text-xs px-2.5 py-1 rounded-md border border-border hover:bg-emerald-500/10 hover:border-emerald-500/40 hover:text-emerald-400 transition-colors"
+        onClick={() => move("done")}
+        disabled={isPending}
+        className="inline-flex items-center gap-1.5 text-xs px-2.5 py-1 rounded-md border border-border hover:bg-emerald-500/10 hover:border-emerald-500/40 hover:text-emerald-400 transition-colors disabled:opacity-40"
       >
         <Check className="w-3.5 h-3.5" />
         Completar
       </button>
 
-      {/* Eliminar — habilitado en KIN-26 cuando exista el endpoint de bulk-delete */}
+      {/* Vaciar (cascade mode) */}
+      {onVaciar && (
+        <button
+          onClick={onVaciar}
+          disabled={isPending}
+          className="inline-flex items-center gap-1.5 text-xs px-2.5 py-1 rounded-md border border-border hover:bg-accent/50 transition-colors disabled:opacity-40"
+        >
+          <ListChecks className="w-3.5 h-3.5" />
+          Vaciar
+        </button>
+      )}
+
+      {/* Eliminar — pending bulk-delete endpoint */}
       <button
         disabled
         title="Próximamente"
