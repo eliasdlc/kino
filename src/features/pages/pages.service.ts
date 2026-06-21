@@ -96,6 +96,22 @@ export async function getPagesBySystem(
   }));
 }
 
+export async function getPagesBySystemForExport(
+  systemId: string,
+  userId: string
+): Promise<Array<{ id: string; title: string | null; content: string | null; createdAt: Date; updatedAt: Date }>> {
+  return db
+    .select({
+      id: pages.id,
+      title: pages.title,
+      content: pages.content,
+      createdAt: pages.createdAt,
+      updatedAt: pages.updatedAt,
+    })
+    .from(pages)
+    .where(and(eq(pages.systemId, systemId), eq(pages.userId, userId), isNull(pages.deletedAt)));
+}
+
 export async function getSubPages(
   parentPageId: string,
   userId: string
