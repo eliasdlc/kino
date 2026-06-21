@@ -10,6 +10,7 @@ import { Table, TableRow, TableHeader, TableCell } from "@tiptap/extension-table
 import { TaskList, TaskItem } from "@tiptap/extension-list";
 import { StickyAnchorMark } from "@/features/sticky-notes/sticky-anchor.extension";
 import { SlashCommand } from "./slash-command.extension";
+import { cleanPastedHtml } from "./paste-clean";
 
 const EditorContext = createContext<Editor | null>(null);
 
@@ -41,6 +42,7 @@ export function EditorProvider({
     content: initialContent,
     editorProps: {
       attributes: { class: "focus:outline-none min-h-[60vh] text-sm leading-7" },
+      transformPastedHTML: (html) => cleanPastedHtml(html),
     },
   });
 
