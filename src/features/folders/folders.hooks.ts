@@ -1,6 +1,7 @@
 "use client";
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useOptimisticListMutation } from "@/shared/hooks/useOptimisticListMutation";
 import type { CreateFolderInput, UpdateFolderInput } from "./folders.schemas";
 import type { FolderListItem, FolderWithCounts } from "./folders.types";
 
@@ -35,10 +36,8 @@ export function useFolderChildren(folderId: string) {
 }
 
 export function useCreateFolder(systemId: string) {
-  const qc = useQueryClient();
-
-  return useMutation({
-    mutationFn: async (data: Omit<CreateFolderInput, "systemId">): Promise<FolderListItem> => {
+  return useOptimisticListMutation<FolderListItem, Error, Omit<CreateFolderInput, "systemId">, FolderWithCounts>({
+    mutationFn: async (data) => {
       const res = await fetch(`/api/systems/${systemId}/folders`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -50,9 +49,20 @@ export function useCreateFolder(systemId: string) {
       }
       return res.json();
     },
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: folderKeys.bySystem(systemId) });
-    },
+    queryKey: folderKeys.bySystem(systemId),
+    updater: (folders, data) => [
+      ...folders,
+      {
+        id: crypto.randomUUID(),
+        name: data.name,
+        color: data.color ?? "blue",
+        sortIndex: 0,
+        parentId: data.parentId ?? null,
+        systemId,
+        subfolderCount: 0,
+        pageCount: 0,
+      },
+    ],
   });
 }
 
