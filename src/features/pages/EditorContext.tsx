@@ -7,7 +7,9 @@ import StarterKit from "@tiptap/starter-kit";
 import Placeholder from "@tiptap/extension-placeholder";
 import Typography from "@tiptap/extension-typography";
 import { Table, TableRow, TableHeader, TableCell } from "@tiptap/extension-table";
+import { TaskList, TaskItem } from "@tiptap/extension-list";
 import { StickyAnchorMark } from "@/features/sticky-notes/sticky-anchor.extension";
+import { SlashCommand } from "./slash-command.extension";
 
 const EditorContext = createContext<Editor | null>(null);
 
@@ -31,6 +33,9 @@ export function EditorProvider({
       TableRow,
       TableHeader,
       TableCell,
+      TaskList,
+      TaskItem.configure({ nested: true }),
+      SlashCommand,
       StickyAnchorMark,
     ],
     content: initialContent,

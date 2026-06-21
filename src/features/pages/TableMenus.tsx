@@ -1,8 +1,8 @@
 "use client";
 
 import type { Editor } from "@tiptap/react";
-import { BubbleMenu, FloatingMenu } from "@tiptap/react/menus";
-import { Table as TableIcon, Trash2 } from "lucide-react";
+import { BubbleMenu } from "@tiptap/react/menus";
+import { Trash2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 const menuContainer =
@@ -11,55 +11,19 @@ const menuButton =
   "flex items-center gap-1 px-2 py-1 rounded text-xs font-medium transition-colors text-muted-foreground hover:text-foreground hover:bg-accent";
 
 /**
- * Editor menus for tables (KIN-65):
- * - FloatingMenu on an empty paragraph → insert a 3×3 table with header row.
- * - BubbleMenu while the cursor is inside a table → add/remove rows & columns,
- *   toggle header row, delete table.
- *
- * Insertion will also be reachable from the slash menu (Sprint 2); the floating
- * affordance keeps Sprint 1 self-contained.
+ * Contextual table toolbar (KIN-65): a BubbleMenu shown while the cursor is
+ * inside a table — add/remove rows & columns, toggle header row, delete table.
+ * Table insertion lives in the slash menu (KIN-67).
  */
 export function TableMenus({ editor }: { editor: Editor }) {
   return (
-    <>
-      <FloatingMenu
-        editor={editor}
-        pluginKey="insertMenu"
-        shouldShow={({ editor, state }) => {
-          const { $from, empty } = state.selection;
-          if (!empty) return false;
-          const node = $from.parent;
-          const isEmptyParagraph =
-            node.type.name === "paragraph" && node.content.size === 0;
-          return isEmptyParagraph && !editor.isActive("table");
-        }}
-      >
-        <div className={menuContainer}>
-          <button
-            type="button"
-            className={menuButton}
-            title="Insertar tabla"
-            onClick={() =>
-              editor
-                .chain()
-                .focus()
-                .insertTable({ rows: 3, cols: 3, withHeaderRow: true })
-                .run()
-            }
-          >
-            <TableIcon className="size-3" />
-            Tabla
-          </button>
-        </div>
-      </FloatingMenu>
-
-      <BubbleMenu
-        editor={editor}
-        pluginKey="tableMenu"
-        shouldShow={({ editor }) => editor.isActive("table")}
-        options={{ placement: "top" }}
-      >
-        <div className={menuContainer}>
+    <BubbleMenu
+      editor={editor}
+      pluginKey="tableMenu"
+      shouldShow={({ editor }) => editor.isActive("table")}
+      options={{ placement: "top" }}
+    >
+      <div className={menuContainer}>
           <button
             type="button"
             className={menuButton}
@@ -111,7 +75,6 @@ export function TableMenus({ editor }: { editor: Editor }) {
             <Trash2 className="size-3" />
           </button>
         </div>
-      </BubbleMenu>
-    </>
+    </BubbleMenu>
   );
 }

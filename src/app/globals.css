@@ -286,6 +286,29 @@
   cursor: col-resize;
 }
 
+/* ── Task lists in editor (slash menu → "Lista de tareas", KIN-67) ─────────── */
+.tiptap-editor .ProseMirror ul[data-type="taskList"] {
+  list-style: none;
+  padding-left: 0.25rem;
+  margin: 0.25rem 0;
+}
+.tiptap-editor .ProseMirror ul[data-type="taskList"] li {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.5rem;
+}
+.tiptap-editor .ProseMirror ul[data-type="taskList"] li > label {
+  margin-top: 0.35rem;
+  user-select: none;
+}
+.tiptap-editor .ProseMirror ul[data-type="taskList"] li > div {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+.tiptap-editor .ProseMirror ul[data-type="taskList"] input[type="checkbox"] {
+  @apply size-4 rounded border-border accent-primary cursor-pointer;
+}
+
 /* ── Sticky anchor mark in editor ─────────────────────────────────────────── */
 .sticky-anchor-mark {
   border-bottom: 1.5px dashed currentColor;
