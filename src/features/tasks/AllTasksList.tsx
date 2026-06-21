@@ -19,6 +19,7 @@ import { useTaskKeyboardNavigation } from './useTaskKeyboardNavigation';
 import { useHotkey } from '@/shared/hooks/useHotkey';
 import { BulkActionBar } from './BulkActionBar';
 import { CascadeInboxMode } from './CascadeInboxMode';
+import { OverdueGroup, getOverdueTasks } from './OverdueGroup';
 import type { Task } from './tasks.types';
 
 interface SystemInfo {
@@ -108,6 +109,8 @@ export function AllTasksList({ systems }: AllTasksListProps) {
     return Array.isArray(v) ? v.length > 0 : !!v && v !== 'priority' && v !== 'list';
   });
   const filterCount = countActiveFilters(filters);
+
+  const overdueTasks = useMemo(() => getOverdueTasks(tasks), [tasks]);
 
   // Keyboard navigation — j/k move focus, x toggles selection, shift+j/k range-select
   const { focusedTaskId } = useTaskKeyboardNavigation(filtered, {
@@ -265,6 +268,16 @@ export function AllTasksList({ systems }: AllTasksListProps) {
           <div className="p-4 border-b">
             <TaskFilterPanel filters={filters} systems={systems} onChange={handleFiltersChange} />
           </div>
+        )}
+
+        {/* Overdue group — KIN-29, 30, 31 */}
+        {selectedTaskIds.size === 0 && (
+          <OverdueGroup
+            tasks={overdueTasks}
+            systemMap={systemMap}
+            onOpen={setSelectedTask}
+            onToggle={(id) => toggleTask({ taskId: id })}
+          />
         )}
 
         {/* Bulk action bar */}
