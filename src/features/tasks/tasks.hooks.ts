@@ -883,6 +883,57 @@ export function useSuggestedTasks() {
   });
 }
 
+export function useUpdateCalendarTask(from: string, to: string) {
+  const queryClient = useQueryClient();
+
+  return useMutation<Task, Error, { taskId: string; data: Partial<Task> }>({
+    mutationFn: async ({ taskId, data }) => {
+      const res = await fetch(`/api/tasks/${taskId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(data),
+      });
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}));
+        throw new Error((body as { message?: string }).message ?? "Failed to update task");
+      }
+      return res.json() as Promise<Task>;
+    },
+    onMutate: async ({ taskId, data }) => {
+      const calKey = taskKeys.calendarTasks(from, to);
+      await queryClient.cancelQueries({ queryKey: calKey });
+      await queryClient.cancelQueries({ queryKey: allTasksKey() });
+
+      const previousCal = queryClient.getQueryData<Task[]>(calKey);
+      const previousAll = queryClient.getQueryData<Task[]>(allTasksKey());
+
+      queryClient.setQueryData<Task[]>(calKey, (old = []) => {
+        const exists = old.some((t) => t.id === taskId);
+        if (exists) return old.map((t) => (t.id === taskId ? { ...t, ...data } : t));
+        // Adding a previously unscheduled task — pull from allTasks cache
+        const allTasks = queryClient.getQueryData<Task[]>(allTasksKey()) ?? [];
+        const task = allTasks.find((t) => t.id === taskId);
+        if (task) return [...old, { ...task, ...data }];
+        return old;
+      });
+      queryClient.setQueryData<Task[]>(allTasksKey(), (old = []) =>
+        old.map((t) => (t.id === taskId ? { ...t, ...data } : t)),
+      );
+
+      return { previousCal, previousAll };
+    },
+    onError: (_err, _vars, context) => {
+      const ctx = context as { previousCal?: Task[]; previousAll?: Task[] } | undefined;
+      if (ctx?.previousCal !== undefined) queryClient.setQueryData(taskKeys.calendarTasks(from, to), ctx.previousCal);
+      if (ctx?.previousAll !== undefined) queryClient.setQueryData(allTasksKey(), ctx.previousAll);
+    },
+    onSettled: () => {
+      queryClient.invalidateQueries({ queryKey: ["tasks", "calendar"] });
+      queryClient.invalidateQueries({ queryKey: allTasksKey() });
+    },
+  });
+}
+
 export function useCalendarTasks(from: string, to: string) {
   return useQuery<Task[]>({
     queryKey: taskKeys.calendarTasks(from, to),

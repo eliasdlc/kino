@@ -5,7 +5,7 @@ import type { Task } from "../tasks.types";
  * "day" = Planning View column, "unscheduled" = Planning View no-date column,
  * "energy" / "priority" / "project" = Action View columns (grouped by energy, priority or folder/project).
  */
-export type DragSourceType = "day" | "unscheduled" | "energy" | "priority" | "project" | "board";
+export type DragSourceType = "day" | "unscheduled" | "energy" | "priority" | "project" | "board" | "calendar";
 
 /**
  * Payload attached to every draggable task.
