@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { format } from "date-fns";
 import { parseDueDate } from "./tasks.utils";
-import { CalendarIcon, Timer } from "lucide-react";
+import { CalendarIcon, Timer, Download } from "lucide-react";
 import {
   ResponsiveDialog,
   ResponsiveDialogContent,
@@ -445,13 +445,36 @@ function TaskDetailForm({ task, systemId, onClose }: TaskDetailFormProps) {
         {saveStatus === "saved" && (
           <span className="text-sm text-muted-foreground">Guardado</span>
         )}
-        <Button
-          onClick={handleSave}
-          disabled={!title.trim() || isPending}
-          className="ml-auto"
-        >
-          {isPending ? "Guardando..." : "Guardar y cerrar"}
-        </Button>
+        <div className="ml-auto flex items-center gap-2">
+          <Button
+            variant="ghost"
+            size="sm"
+            className="gap-1.5 text-muted-foreground"
+            onClick={async () => {
+              const subtasksRes = await fetch(`/api/tasks/${task.id}/subtasks`);
+              const subtasks = subtasksRes.ok ? await subtasksRes.json() : [];
+              const payload = { ...task, subtasks };
+              const blob = new Blob([JSON.stringify(payload, null, 2)], {
+                type: "application/json;charset=utf-8",
+              });
+              const url = URL.createObjectURL(blob);
+              const a = document.createElement("a");
+              a.href = url;
+              a.download = `${(task.title ?? "tarea").toLowerCase().replace(/[^a-z0-9]+/g, "-")}.json`;
+              a.click();
+              URL.revokeObjectURL(url);
+            }}
+          >
+            <Download size={14} />
+            JSON
+          </Button>
+          <Button
+            onClick={handleSave}
+            disabled={!title.trim() || isPending}
+          >
+            {isPending ? "Guardando..." : "Guardar y cerrar"}
+          </Button>
+        </div>
       </div>
     </div>
   );

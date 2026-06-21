@@ -25,7 +25,7 @@ import { useCreateTask } from "./tasks.hooks";
 import { useFolders } from "@/features/folders/folders.hooks";
 import { getTaskTypeConfig } from "./task-type-config";
 import { dayToLocalISO } from "./tasks.utils";
-import { parseQuickDate } from "./quick-date-parse";
+import { parseQuickInput, stripAccents } from "./quick-date-parse";
 import { minutesToTimeString } from "./EstimatedTimePicker";
 import { useQueryClient } from "@tanstack/react-query";
 import { SYSTEM_TYPE_CONFIG, type SystemType } from "@/shared/lib/system-types";
@@ -33,6 +33,7 @@ import type { System } from "@/features/systems/systems.types";
 import { useSprints } from "@/features/sprints/sprints.hooks";
 import { TaskPlanningFields } from "./TaskPlanningFields";
 import { getTaskDialogFields } from "./task-dialog-config";
+import { useTags } from "@/features/tags/tags.hooks";
 
 const formSchema = z.object({
   title: z.string().min(1, "El título es requerido").max(500),
@@ -57,6 +58,21 @@ const STEP_FIELDS: Record<1 | 2 | 3, (keyof FormValues)[]> = {
   2: ['priority', 'energyLevel'],
   3: [],
 };
+
+const PRIORITY_LABELS: Record<string, string> = {
+  critical: "Urgente",
+  high: "Alta",
+  medium: "Media",
+  low: "Baja",
+};
+
+function formatDuration(mins: number): string {
+  const h = Math.floor(mins / 60);
+  const m = mins % 60;
+  if (h > 0 && m > 0) return `${h}h ${m}min`;
+  if (h > 0) return `${h}h`;
+  return `${m}min`;
+}
 
 interface CreateTaskDialogProps {
   systemId: string;
@@ -85,9 +101,11 @@ export function CreateTaskDialog({
   const [subtasks, setSubtasks] = useState<Array<{ id: string; title: string }>>([]);
   const [dateRange, setDateRange] = useState<DateRange>({ from: undefined, to: undefined });
   const [submitError, setSubmitError] = useState<string | null>(null);
+  const [nlIgnoredFields, setNlIgnoredFields] = useState<Set<string>>(new Set());
 
   const { data: folders = [] } = useFolders(systemId);
   const { mutateAsync: createTask, isPending } = useCreateTask(systemId);
+  const { data: tags } = useTags(systemId);
   const queryClient = useQueryClient();
 
   // Derive energy default from system type (zero-cost: reads from cache)
@@ -122,19 +140,56 @@ export function CreateTaskDialog({
   const taskType = form.watch('taskType');
   const typeConfig = getTaskTypeConfig(taskType);
 
-  // Fechas en lenguaje natural escritas en el título ("pagar luz mañana a las 5").
-  const [nlIgnored, setNlIgnored] = useState(false);
-  const nlParsed = nlIgnored ? null : parseQuickDate(form.watch('title'));
+  // Parser reactivo en tiempo real — detecta tokens en el título mientras el usuario escribe.
+  const rawNlParsed = parseQuickInput(form.watch('title'));
+
+  const showDateChip = !!(rawNlParsed?.dueDate && !nlIgnoredFields.has('dueDate'));
+  const showPriorityChip = !!(rawNlParsed?.priority && !nlIgnoredFields.has('priority'));
+  const showSystemChip = !!(rawNlParsed?.systemHint && !nlIgnoredFields.has('systemHint'));
+  const showTagChip = !!(rawNlParsed?.tagHint && !nlIgnoredFields.has('tagHint'));
+  const showDurationChip = !!(rawNlParsed?.estimatedMinutes && !nlIgnoredFields.has('estimatedMinutes'));
+  const hasNlChips = showDateChip || showPriorityChip || showSystemChip || showTagChip || showDurationChip;
+
+  function dismissNlField(field: string) {
+    setNlIgnoredFields((prev) => new Set([...prev, field]));
+  }
 
   function applyNlParse() {
-    if (!nlParsed) return;
-    if (form.getValues('startDate') || form.getValues('dueDate')) return;
-    if (nlParsed.title) form.setValue('title', nlParsed.title);
-    const day = new Date(nlParsed.dueDate + 'T00:00:00');
-    form.setValue('startDate', nlParsed.dueDate);
-    form.setValue('dueDate', nlParsed.dueDate);
-    if (nlParsed.dueTime) form.setValue('dueTime', nlParsed.dueTime);
-    setDateRange({ from: day, to: day });
+    if (!rawNlParsed) return;
+
+    // Limpiar el título quitando todos los tokens detectados
+    form.setValue('title', rawNlParsed.title);
+
+    // Fecha/hora — solo aplicar si no hay fecha ya puesta (evita pisar edición manual en paso 2)
+    if (rawNlParsed.dueDate && !nlIgnoredFields.has('dueDate') &&
+        !form.getValues('startDate') && !form.getValues('dueDate')) {
+      const day = new Date(rawNlParsed.dueDate + 'T00:00:00');
+      form.setValue('startDate', rawNlParsed.dueDate);
+      form.setValue('dueDate', rawNlParsed.dueDate);
+      if (rawNlParsed.dueTime) form.setValue('dueTime', rawNlParsed.dueTime);
+      setDateRange({ from: day, to: day });
+    }
+
+    // Prioridad
+    if (rawNlParsed.priority && !nlIgnoredFields.has('priority')) {
+      form.setValue('priority', rawNlParsed.priority);
+    }
+
+    // Duración estimada
+    if (rawNlParsed.estimatedMinutes && !nlIgnoredFields.has('estimatedMinutes')) {
+      form.setValue('estimatedMinutes', rawNlParsed.estimatedMinutes);
+    }
+
+    // Etiqueta — resolver tagHint → contextTagId por nombre (insensible a mayúsculas/acentos)
+    if (rawNlParsed.tagHint && !nlIgnoredFields.has('tagHint') &&
+        !form.getValues('contextTagId') && tags) {
+      const norm = (s: string) => stripAccents(s).toLowerCase();
+      const matched = tags.find((t) => norm(t.title) === norm(rawNlParsed.tagHint!));
+      if (matched) form.setValue('contextTagId', matched.id);
+    }
+
+    // systemHint: se muestra en el chip como pista visual pero no cambia el sistema
+    // (el sistema lo controla el Select en el header de GlobalQuickAddDialog)
   }
 
   async function nextStep() {
@@ -148,7 +203,7 @@ export function CreateTaskDialog({
   }
 
   async function onSubmit(values: FormValues) {
-    if (step === 1 && nlParsed && !values.startDate && !values.dueDate) {
+    if (step === 1 && rawNlParsed) {
       applyNlParse();
       values = form.getValues();
     }
@@ -210,7 +265,7 @@ export function CreateTaskDialog({
       setSubtasks([]);
       setDateRange({ from: undefined, to: undefined });
       setSubmitError(null);
-      setNlIgnored(false);
+      setNlIgnoredFields(new Set());
     }
   }
 
@@ -248,21 +303,75 @@ export function CreateTaskDialog({
             {form.formState.errors.title && (
               <p className="text-xs text-destructive">{form.formState.errors.title.message}</p>
             )}
-            {nlParsed && (
-              <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
-                <CalendarRange size={12} className="shrink-0" />
-                <span>
-                  Se programará: {format(new Date(nlParsed.dueDate + 'T00:00:00'), 'EEE d MMM', { locale: es })}
-                  {nlParsed.dueTime ? ` · ${nlParsed.dueTime}` : ''}
-                </span>
-                <button
-                  type="button"
-                  aria-label="Ignorar fecha detectada"
-                  onClick={() => setNlIgnored(true)}
-                  className="rounded p-0.5 hover:bg-accent"
-                >
-                  <X size={12} />
-                </button>
+            {hasNlChips && (
+              <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted-foreground">
+                {showDateChip && (
+                  <span className="flex items-center gap-1">
+                    <CalendarRange size={12} className="shrink-0" />
+                    {format(new Date(rawNlParsed!.dueDate! + 'T00:00:00'), 'EEE d MMM', { locale: es })}
+                    {rawNlParsed!.dueTime ? ` · ${rawNlParsed!.dueTime}` : ''}
+                    <button
+                      type="button"
+                      aria-label="Ignorar fecha detectada"
+                      onClick={() => dismissNlField('dueDate')}
+                      className="rounded p-0.5 hover:bg-accent"
+                    >
+                      <X size={12} />
+                    </button>
+                  </span>
+                )}
+                {showPriorityChip && (
+                  <span className="flex items-center gap-1">
+                    {PRIORITY_LABELS[rawNlParsed!.priority!]}
+                    <button
+                      type="button"
+                      aria-label="Ignorar prioridad detectada"
+                      onClick={() => dismissNlField('priority')}
+                      className="rounded p-0.5 hover:bg-accent"
+                    >
+                      <X size={12} />
+                    </button>
+                  </span>
+                )}
+                {showSystemChip && (
+                  <span className="flex items-center gap-1">
+                    @{rawNlParsed!.systemHint}
+                    <button
+                      type="button"
+                      aria-label="Ignorar sistema detectado"
+                      onClick={() => dismissNlField('systemHint')}
+                      className="rounded p-0.5 hover:bg-accent"
+                    >
+                      <X size={12} />
+                    </button>
+                  </span>
+                )}
+                {showTagChip && (
+                  <span className="flex items-center gap-1">
+                    #{rawNlParsed!.tagHint}
+                    <button
+                      type="button"
+                      aria-label="Ignorar etiqueta detectada"
+                      onClick={() => dismissNlField('tagHint')}
+                      className="rounded p-0.5 hover:bg-accent"
+                    >
+                      <X size={12} />
+                    </button>
+                  </span>
+                )}
+                {showDurationChip && (
+                  <span className="flex items-center gap-1">
+                    {formatDuration(rawNlParsed!.estimatedMinutes!)}
+                    <button
+                      type="button"
+                      aria-label="Ignorar duración detectada"
+                      onClick={() => dismissNlField('estimatedMinutes')}
+                      className="rounded p-0.5 hover:bg-accent"
+                    >
+                      <X size={12} />
+                    </button>
+                  </span>
+                )}
               </div>
             )}
           </div>

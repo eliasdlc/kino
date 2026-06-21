@@ -15,6 +15,11 @@ import { TaskFilterPanel } from './TaskFilterPanel';
 import { TaskDetailSheet } from './TaskDetailSheet';
 import { DefaultTaskCard } from './cards/DefaultTaskCard';
 import { ConfirmDialog } from '@/components/ui/confirm-dialog';
+import { useTaskKeyboardNavigation } from './useTaskKeyboardNavigation';
+import { useHotkey } from '@/shared/hooks/useHotkey';
+import { BulkActionBar } from './BulkActionBar';
+import { CascadeInboxMode } from './CascadeInboxMode';
+import { OverdueGroup, getOverdueTasks } from './OverdueGroup';
 import type { Task } from './tasks.types';
 
 interface SystemInfo {
@@ -51,6 +56,19 @@ export function AllTasksList({ systems }: AllTasksListProps) {
   const [showFilters, setShowFilters] = useState(false);
   const [selectedTask, setSelectedTask] = useState<Task | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<Task | null>(null);
+  const [selectedTaskIds, setSelectedTaskIds] = useState<Set<string>>(new Set());
+  const [cascadeOpen, setCascadeOpen] = useState(false);
+
+  const toggleSelection = useCallback((taskId: string) => {
+    setSelectedTaskIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(taskId)) next.delete(taskId);
+      else next.add(taskId);
+      return next;
+    });
+  }, []);
+
+  const clearSelection = useCallback(() => setSelectedTaskIds(new Set()), []);
 
   const systemMap = useMemo(
     () => new Map(systems.map((s) => [s.id, s])),
@@ -92,6 +110,19 @@ export function AllTasksList({ systems }: AllTasksListProps) {
   });
   const filterCount = countActiveFilters(filters);
 
+  const overdueTasks = useMemo(() => getOverdueTasks(tasks), [tasks]);
+
+  // Keyboard navigation — j/k move focus, x toggles selection, shift+j/k range-select
+  const { focusedTaskId } = useTaskKeyboardNavigation(filtered, {
+    onSelect: setSelectedTask,
+    onSelectionToggle: toggleSelection,
+  }, {
+    enabled: !selectedTask && !deleteTarget,
+  });
+
+  // esc clears selection (only when something is selected, avoids conflicting with other esc handlers)
+  useHotkey('escape', clearSelection, { enabled: selectedTaskIds.size > 0 });
+
   function renderRows(items: Task[]) {
     if (filters.view === 'grid') {
       return (
@@ -101,9 +132,12 @@ export function AllTasksList({ systems }: AllTasksListProps) {
               key={t.id}
               task={t}
               systemId={t.systemId}
+              isFocused={t.id === focusedTaskId}
               onToggle={(id) => toggleTask({ taskId: id })}
               onDelete={() => setDeleteTarget(t)}
               onEdit={setSelectedTask}
+              isSelected={selectedTaskIds.has(t.id)}
+              onSelectionToggle={toggleSelection}
             />
           ))}
         </div>
@@ -116,8 +150,11 @@ export function AllTasksList({ systems }: AllTasksListProps) {
             key={t.id}
             task={t}
             systemMap={systemMap}
+            isFocused={t.id === focusedTaskId}
             onToggle={(id) => toggleTask({ taskId: id })}
             onOpen={setSelectedTask}
+            isSelected={selectedTaskIds.has(t.id)}
+            onSelectionToggle={toggleSelection}
           />
         ))}
       </div>
@@ -162,6 +199,11 @@ export function AllTasksList({ systems }: AllTasksListProps) {
               {filtered.length}
               {filterCount > 0 && ` · ${filterCount} filtro${filterCount > 1 ? 's' : ''}`}
             </span>
+            {selectedTaskIds.size > 0 && (
+              <span className="text-xs font-medium text-primary bg-primary/10 px-2 py-0.5 rounded-full">
+                {selectedTaskIds.size} seleccionada{selectedTaskIds.size !== 1 ? 's' : ''}
+              </span>
+            )}
           </div>
 
           <div className="flex items-center gap-1.5">
@@ -228,6 +270,23 @@ export function AllTasksList({ systems }: AllTasksListProps) {
           </div>
         )}
 
+        {/* Overdue group — KIN-29, 30, 31 */}
+        {selectedTaskIds.size === 0 && (
+          <OverdueGroup
+            tasks={overdueTasks}
+            systemMap={systemMap}
+            onOpen={setSelectedTask}
+            onToggle={(id) => toggleTask({ taskId: id })}
+          />
+        )}
+
+        {/* Bulk action bar */}
+        <BulkActionBar
+          selectedIds={selectedTaskIds}
+          onClear={clearSelection}
+          onVaciar={selectedTaskIds.size > 0 ? () => setCascadeOpen(true) : undefined}
+        />
+
         {/* Task list */}
         {isLoading ? (
           <div className="px-4 py-3 space-y-2">
@@ -263,6 +322,15 @@ export function AllTasksList({ systems }: AllTasksListProps) {
           setDeleteTarget(null);
         }}
         onCancel={() => setDeleteTarget(null)}
+      />
+
+      <CascadeInboxMode
+        tasks={filtered.filter((t) => selectedTaskIds.has(t.id))}
+        open={cascadeOpen}
+        onOpenChange={(open) => {
+          setCascadeOpen(open);
+          if (!open) clearSelection();
+        }}
       />
     </>
   );

@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { parseQuickDate } from "./quick-date-parse";
+import { parseQuickDate, parseQuickInput } from "./quick-date-parse";
 
 // Viernes 2026-06-12, 10:00 local.
 const NOW = new Date(2026, 5, 12, 10, 0, 0);
@@ -73,5 +73,75 @@ describe("parseQuickDate", () => {
   it("limpia el título sin dejar restos", () => {
     expect(parseQuickDate("mañana a las 5 Reunión equipo", NOW)?.title).toBe("Reunión equipo");
     expect(parseQuickDate("mañana", NOW)?.title).toBe("");
+  });
+});
+
+describe("parseQuickInput", () => {
+  it("devuelve null sin ningún token", () => {
+    expect(parseQuickInput("Comprar leche", NOW)).toBeNull();
+    expect(parseQuickInput("Revisar 3 informes", NOW)).toBeNull();
+  });
+
+  it("fecha sola funciona igual que parseQuickDate", () => {
+    const result = parseQuickInput("comprar pan mañana", NOW);
+    expect(result).toMatchObject({ dueDate: "2026-06-13", title: "comprar pan" });
+  });
+
+  it("prioridad !1..!4", () => {
+    expect(parseQuickInput("pagar luz !1", NOW)).toMatchObject({ priority: "critical", title: "pagar luz" });
+    expect(parseQuickInput("pagar luz !2", NOW)).toMatchObject({ priority: "high", title: "pagar luz" });
+    expect(parseQuickInput("pagar luz !3", NOW)).toMatchObject({ priority: "medium", title: "pagar luz" });
+    expect(parseQuickInput("pagar luz !4", NOW)).toMatchObject({ priority: "low", title: "pagar luz" });
+  });
+
+  it("prioridad por palabras clave", () => {
+    expect(parseQuickInput("llamar urgente", NOW)).toMatchObject({ priority: "critical", title: "llamar" });
+    expect(parseQuickInput("revisar fallo", NOW)).toMatchObject({ priority: "high", title: "revisar" });
+  });
+
+  it("sistema (@nombre)", () => {
+    expect(parseQuickInput("leer paper @estudio", NOW)).toMatchObject({
+      systemHint: "estudio",
+      title: "leer paper",
+    });
+  });
+
+  it("etiqueta (#tag)", () => {
+    expect(parseQuickInput("llamar banco #casa", NOW)).toMatchObject({
+      tagHint: "casa",
+      title: "llamar banco",
+    });
+  });
+
+  it("duración 30min", () => {
+    expect(parseQuickInput("revisar código 30min", NOW)).toMatchObject({
+      estimatedMinutes: 30,
+      title: "revisar código",
+    });
+  });
+
+  it("duración 1h", () => {
+    expect(parseQuickInput("deep work 1h", NOW)).toMatchObject({
+      estimatedMinutes: 60,
+      title: "deep work",
+    });
+  });
+
+  it("duración 1h30", () => {
+    expect(parseQuickInput("deep work 1h30", NOW)).toMatchObject({
+      estimatedMinutes: 90,
+      title: "deep work",
+    });
+  });
+
+  it("todos los campos juntos", () => {
+    const result = parseQuickInput("informe @trabajo !2 mañana 1h", NOW);
+    expect(result).toMatchObject({
+      dueDate: "2026-06-13",
+      priority: "high",
+      systemHint: "trabajo",
+      estimatedMinutes: 60,
+      title: "informe",
+    });
   });
 });

@@ -7,6 +7,7 @@ import { StickyNote } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useUpdatePage } from "./pages.hooks";
 import { useSharedEditor } from "./EditorContext";
+import { TableMenus } from "./TableMenus";
 import { StickyNoteCreator } from "@/features/sticky-notes/StickyNoteCreator";
 import type { PageDetail } from "./pages.types";
 
@@ -108,6 +109,7 @@ export function NotebookEditor({ page, systemId, pageId }: NotebookEditorProps) 
               </div>
             </BubbleMenu>
           )}
+          {editor && <TableMenus editor={editor} />}
           <EditorContent editor={editor} />
         </div>
       </div>

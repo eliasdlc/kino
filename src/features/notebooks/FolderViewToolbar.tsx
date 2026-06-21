@@ -13,7 +13,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useCreateFolder } from "@/features/folders/folders.hooks";
-import { CreateNotebookDialog } from "@/features/pages/CreateNotebookDialog";
+import { useCreatePage } from "@/features/pages/pages.hooks";
 
 interface FolderViewToolbarProps {
   systemId: string;
@@ -23,9 +23,9 @@ interface FolderViewToolbarProps {
 export function FolderViewToolbar({ systemId, folderId }: FolderViewToolbarProps) {
   const router = useRouter();
   const [folderDialogOpen, setFolderDialogOpen] = useState(false);
-  const [pageDialogOpen, setPageDialogOpen] = useState(false);
   const [folderName, setFolderName] = useState("");
   const { mutate: createFolder, isPending } = useCreateFolder(systemId);
+  const { mutateAsync: createPage } = useCreatePage(systemId);
 
   function handleCreateFolder() {
     if (!folderName.trim()) return;
@@ -41,6 +41,11 @@ export function FolderViewToolbar({ systemId, folderId }: FolderViewToolbarProps
     );
   }
 
+  async function handleCreateNotebook() {
+    const page = await createPage({ folderId });
+    router.push(`/systems/${systemId}/pages/${page.id}`);
+  }
+
   return (
     <>
       <div className="flex items-center gap-2">
@@ -48,7 +53,7 @@ export function FolderViewToolbar({ systemId, folderId }: FolderViewToolbarProps
           <FolderPlus className="size-3.5" />
           Nueva subcarpeta
         </Button>
-        <Button size="sm" variant="outline" className="gap-1.5" onClick={() => setPageDialogOpen(true)}>
+        <Button size="sm" variant="outline" className="gap-1.5" onClick={handleCreateNotebook}>
           Nuevo notebook
         </Button>
       </div>
@@ -77,13 +82,6 @@ export function FolderViewToolbar({ systemId, folderId }: FolderViewToolbarProps
           </div>
         </ResponsiveDialogContent>
       </ResponsiveDialog>
-
-      <CreateNotebookDialog
-        systemId={systemId}
-        folderId={folderId}
-        open={pageDialogOpen}
-        onOpenChange={setPageDialogOpen}
-      />
     </>
   );
 }

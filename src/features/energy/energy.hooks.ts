@@ -2,7 +2,7 @@
 
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import type { CreateCheckinClientInput, UpdateAccuracyInput } from './energy.schemas';
-import type { AdvisorWithAction } from './energy.service';
+import type { AdvisorWithAction, TodayEnergyPlanResult } from './energy.service';
 import type { TodayCheckinRow } from './energy.service';
 
 export const energyKeys = {
@@ -10,6 +10,19 @@ export const energyKeys = {
   plan: () => ['energy', 'plan', 'today'] as const,
   advisor: () => ['energy', 'advisor'] as const,
 };
+
+export function useTodayEnergyPlan() {
+  return useQuery<TodayEnergyPlanResult>({
+    queryKey: energyKeys.plan(),
+    queryFn: async () => {
+      const res = await fetch('/api/energy/plan/today');
+      if (!res.ok) throw new Error('Failed to fetch energy plan');
+      return res.json() as Promise<TodayEnergyPlanResult>;
+    },
+    staleTime: 5 * 60_000,
+    refetchOnWindowFocus: false,
+  });
+}
 
 export function useTodayCheckins() {
   return useQuery<TodayCheckinRow[]>({

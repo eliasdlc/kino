@@ -96,6 +96,22 @@ export async function getPagesBySystem(
   }));
 }
 
+export async function getPagesBySystemForExport(
+  systemId: string,
+  userId: string
+): Promise<Array<{ id: string; title: string | null; content: string | null; createdAt: Date; updatedAt: Date }>> {
+  return db
+    .select({
+      id: pages.id,
+      title: pages.title,
+      content: pages.content,
+      createdAt: pages.createdAt,
+      updatedAt: pages.updatedAt,
+    })
+    .from(pages)
+    .where(and(eq(pages.systemId, systemId), eq(pages.userId, userId), isNull(pages.deletedAt)));
+}
+
 export async function getSubPages(
   parentPageId: string,
   userId: string
@@ -383,6 +399,12 @@ export async function addTagToPage(
     .from(pages)
     .where(and(eq(pages.id, pageId), eq(pages.userId, userId), isNull(pages.deletedAt)));
   if (!page) throw new NotFoundError("Page not found");
+
+  const [tag] = await db
+    .select({ id: contextTags.id })
+    .from(contextTags)
+    .where(and(eq(contextTags.id, tagId), eq(contextTags.userId, userId)));
+  if (!tag) throw new NotFoundError("Tag not found");
 
   const inserted = await db
     .insert(pageTags)

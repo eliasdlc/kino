@@ -1,4 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useOptimisticListMutation } from "@/shared/hooks/useOptimisticListMutation";
 import type { System, SystemWithSignals, CreateSystemInput, UpdateSystemInput } from "./systems.types";
 import { folderKeys } from "@/features/folders/folders.hooks";
 import { pageKeys } from "@/features/pages/pages.hooks";
@@ -12,7 +13,7 @@ export function useSystems() {
       if (!res.ok) throw new Error("Failed to fetch systems");
       return res.json();
     },
-    refetchInterval: 5_000,
+    refetchOnWindowFocus: true,
   });
 }
 
@@ -39,9 +40,7 @@ export function useCreateSystem() {
 }
 
 export function useUpdateSystem() {
-  const queryClient = useQueryClient();
-
-  return useMutation<System, Error, { systemId: string; data: UpdateSystemInput }>({
+  return useOptimisticListMutation<System, Error, { systemId: string; data: UpdateSystemInput }, SystemWithSignals>({
     mutationFn: async ({ systemId, data }) => {
       const res = await fetch(`/api/systems/${systemId}`, {
         method: "PATCH",
@@ -54,22 +53,25 @@ export function useUpdateSystem() {
       }
       return res.json() as Promise<System>;
     },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["systems"] });
-    },
+    queryKey: ["systems"],
+    updater: (systems, { systemId, data }) =>
+      systems.map((s) => (s.id === systemId ? { ...s, ...data } : s)),
   });
 }
 
 export function useDeleteSystem() {
   const queryClient = useQueryClient();
 
-  return useMutation({
-    mutationFn: async (systemId: string) => {
+  return useOptimisticListMutation<void, Error, string, SystemWithSignals>({
+    mutationFn: async (systemId) => {
       const res = await fetch(`/api/systems/${systemId}`, { method: "DELETE" });
       if (!res.ok) throw new Error("Failed to delete system");
     },
-    onSuccess: (_, systemId) => {
-      queryClient.invalidateQueries({ queryKey: ["systems"] });
+    queryKey: ["systems"],
+    updater: (systems, systemId) => systems.filter((s) => s.id !== systemId),
+    // El helper invalida ['systems']; al borrar el sistema también purgamos sus
+    // tasks/pages/folders cacheadas.
+    onSettled: (_data, _error, systemId) => {
       queryClient.invalidateQueries({ queryKey: taskKeys.bySystem(systemId) });
       queryClient.invalidateQueries({ queryKey: pageKeys.bySystem(systemId) });
       queryClient.invalidateQueries({ queryKey: folderKeys.bySystem(systemId) });

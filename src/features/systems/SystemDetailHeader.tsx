@@ -13,7 +13,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Button } from "@/components/ui/button";
-import { AlertTriangle, ChevronDown, MoreHorizontal, Pencil, Trash2 } from "lucide-react";
+import { AlertTriangle, ChevronDown, Download, MoreHorizontal, Pencil, Trash2 } from "lucide-react";
 import { useDeleteSystem } from "./systems.hooks";
 import { getSystemColor } from "@/shared/utils/system-colors";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
@@ -113,7 +113,7 @@ export function SystemDetailHeader({ system, signals, currentTab = "tasks" }: Sy
               <MoreHorizontal className="size-4" />
             </Button>
           </DropdownMenuTrigger>
-          <DropdownMenuContent align="end" className="w-40">
+          <DropdownMenuContent align="end" className="w-44">
             {!system.isInbox && (
               <DropdownMenuItem
                 className="flex items-center gap-2"
@@ -123,6 +123,26 @@ export function SystemDetailHeader({ system, signals, currentTab = "tasks" }: Sy
                 Editar sistema
               </DropdownMenuItem>
             )}
+            <DropdownMenuItem
+              className="flex items-center gap-2"
+              onClick={async () => {
+                const res = await fetch(`/api/systems/${system.id}/export`);
+                if (!res.ok) return;
+                const data = await res.json();
+                const blob = new Blob([JSON.stringify(data, null, 2)], {
+                  type: "application/json;charset=utf-8",
+                });
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement("a");
+                a.href = url;
+                a.download = `${(system.name ?? "sistema").toLowerCase().replace(/[^a-z0-9]+/g, "-")}.json`;
+                a.click();
+                URL.revokeObjectURL(url);
+              }}
+            >
+              <Download className="size-4" />
+              Exportar JSON
+            </DropdownMenuItem>
             {!system.isInbox && (
               <>
                 <DropdownMenuSeparator />

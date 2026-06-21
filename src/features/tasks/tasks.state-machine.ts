@@ -57,9 +57,7 @@ const TRANSITION_MAP: Record<TaskStatus, Partial<Record<TransitionAction, TaskSt
         undo_done: "today",
         soft_delete: "archived",
     },
-    archived: {
-        soft_delete: "archived",
-    },
+    archived: {},
 };
 
 export function validateTransition(ctx: TransitionContext): TransitionResult {

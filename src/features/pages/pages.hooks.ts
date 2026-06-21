@@ -1,9 +1,30 @@
 "use client";
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useOptimisticListMutation } from "@/shared/hooks/useOptimisticListMutation";
 import type { PageListItem, PageDetail, LinkedTask, PageMutationResult } from "./pages.types";
 import type { CreatePageInput, UpdatePageInput } from "./pages.schemas";
 import type { ContextTagListItem } from "@/features/tags/tags.types";
+
+/** Página optimista provisional para la lista; el invalidate de onSettled la
+ *  reemplaza por la fila real del server. */
+function makeOptimisticPage(
+  fields: { systemId: string; folderId?: string | null; parentPageId?: string | null; title?: string | null },
+): PageListItem {
+  return {
+    id: crypto.randomUUID(),
+    title: fields.title ?? null,
+    folderId: fields.folderId ?? null,
+    systemId: fields.systemId,
+    isPinned: false,
+    parentPageId: fields.parentPageId ?? null,
+    createdAt: new Date(),
+    updatedAt: new Date(),
+    contentPreview: null,
+    tags: [],
+    subPageCount: 0,
+  };
+}
 
 export const pageKeys = {
   bySystem: (systemId: string) => ["pages", "system", systemId] as const,
@@ -21,7 +42,7 @@ export function usePages(systemId: string) {
       if (!res.ok) throw new Error("Failed to fetch pages");
       return res.json();
     },
-    refetchInterval: 5_000,
+    refetchOnWindowFocus: true,
   });
 }
 
@@ -33,7 +54,7 @@ export function usePage(pageId: string) {
       if (!res.ok) throw new Error("Failed to fetch page");
       return res.json();
     },
-    refetchInterval: 5_000,
+    refetchOnWindowFocus: true,
   });
 }
 
@@ -45,14 +66,12 @@ export function useLinkedTasks(pageId: string) {
       if (!res.ok) throw new Error("Failed to fetch linked tasks");
       return res.json();
     },
-    refetchInterval: 5_000,
+    refetchOnWindowFocus: true,
   });
 }
 
 export function useCreatePage(systemId: string) {
-  const qc = useQueryClient();
-
-  return useMutation<PageListItem, Error, Omit<CreatePageInput, "systemId">>({
+  return useOptimisticListMutation<PageListItem, Error, Omit<CreatePageInput, "systemId">, PageListItem>({
     mutationFn: async (data) => {
       const res = await fetch(`/api/systems/${systemId}/pages`, {
         method: "POST",
@@ -65,15 +84,19 @@ export function useCreatePage(systemId: string) {
       }
       return res.json();
     },
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: pageKeys.bySystem(systemId) });
-    },
+    queryKey: pageKeys.bySystem(systemId),
+    updater: (pages, data) => [
+      ...pages,
+      makeOptimisticPage({ systemId, folderId: data.folderId, parentPageId: data.parentPageId, title: data.title }),
+    ],
   });
 }
 
 export function useUpdatePage(pageId: string, systemId?: string) {
   const qc = useQueryClient();
 
+  // Multi-key: optimista sobre la lista (bySystem, donde se ve pin/rename al
+  // instante) + escribe el detalle en onSuccess. Por eso se queda inline.
   return useMutation<PageMutationResult, Error, UpdatePageInput>({
     mutationFn: async (data) => {
       const res = await fetch(`/api/pages/${pageId}`, {
@@ -87,30 +110,41 @@ export function useUpdatePage(pageId: string, systemId?: string) {
       }
       return res.json();
     },
+    onMutate: async (data) => {
+      if (!systemId) return {};
+      const listKey = pageKeys.bySystem(systemId);
+      await qc.cancelQueries({ queryKey: listKey });
+      const previousList = qc.getQueryData<PageListItem[]>(listKey);
+      qc.setQueryData<PageListItem[]>(listKey, (old = []) =>
+        old.map((p) => (p.id === pageId ? { ...p, ...data } : p)),
+      );
+      return { previousList, listKey };
+    },
     onSuccess: (updated) => {
       qc.setQueryData<PageDetail>(pageKeys.detail(pageId), (old) =>
         old ? { ...old, ...updated } : undefined
       );
-      if (systemId) {
-        qc.invalidateQueries({ queryKey: pageKeys.bySystem(systemId) });
-      }
+    },
+    onError: (_err, _vars, ctx) => {
+      const c = ctx as { previousList?: PageListItem[]; listKey?: readonly unknown[] } | undefined;
+      if (c?.previousList && c.listKey) qc.setQueryData(c.listKey, c.previousList);
+    },
+    onSettled: () => {
+      if (systemId) qc.invalidateQueries({ queryKey: pageKeys.bySystem(systemId) });
     },
   });
 }
 
 export function useDeletePage(systemId: string) {
-  const qc = useQueryClient();
-
-  return useMutation<void, Error, string>({
+  return useOptimisticListMutation<void, Error, string, PageListItem>({
     mutationFn: async (pageId) => {
       const res = await fetch(`/api/pages/${pageId}`, { method: "DELETE" });
       if (!res.ok) throw new Error("Failed to delete page");
     },
-    onSuccess: (_, pageId) => {
-      qc.invalidateQueries({ queryKey: pageKeys.bySystem(systemId) });
-      qc.invalidateQueries({ queryKey: pageKeys.linkedTasks(pageId) });
-      qc.invalidateQueries({ queryKey: pageKeys.detail(pageId) });
-    },
+    queryKey: pageKeys.bySystem(systemId),
+    updater: (pages, pageId) => pages.filter((p) => p.id !== pageId),
+    // Prefijo ['pages'] → reconcilia lista, detalle y linkedTasks de golpe.
+    invalidateKey: ["pages"],
   });
 }
 
@@ -191,8 +225,7 @@ export function useSubPages(parentPageId: string) {
 }
 
 export function useCreateSubPage(parentPageId: string, systemId: string) {
-  const qc = useQueryClient();
-  return useMutation<PageListItem, Error, { title?: string }>({
+  return useOptimisticListMutation<PageListItem, Error, { title?: string }, PageListItem>({
     mutationFn: async (data) => {
       const res = await fetch(`/api/pages/${parentPageId}/subpages`, {
         method: "POST",
@@ -210,10 +243,13 @@ export function useCreateSubPage(parentPageId: string, systemId: string) {
       }
       return page;
     },
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: pageKeys.subPages(parentPageId) });
-      qc.invalidateQueries({ queryKey: pageKeys.bySystem(systemId) });
-    },
+    queryKey: pageKeys.subPages(parentPageId),
+    updater: (subPages, data) => [
+      ...subPages,
+      makeOptimisticPage({ systemId, parentPageId, title: data.title }),
+    ],
+    // Prefijo ['pages'] → reconcilia subpáginas y la lista del sistema.
+    invalidateKey: ["pages"],
   });
 }
 

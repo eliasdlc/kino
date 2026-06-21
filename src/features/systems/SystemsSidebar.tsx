@@ -5,6 +5,7 @@ import { usePathname } from "next/navigation";
 import { useEffect, useMemo } from "react";
 import type { LucideIcon } from "lucide-react";
 import {
+  Calendar,
   Inbox,
   LayoutDashboard,
   ListTodo,
@@ -250,6 +251,15 @@ export function SystemsSidebar({
           active={pathname === "/tasks"}
           collapsed={effectiveCollapsed}
           badge={todayRemaining}
+          onNavigate={closeOnMobile}
+        />
+
+        <NavItem
+          href="/calendar"
+          icon={Calendar}
+          label="Calendario"
+          active={pathname === "/calendar"}
+          collapsed={effectiveCollapsed}
           onNavigate={closeOnMobile}
         />
 

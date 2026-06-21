@@ -11,7 +11,8 @@ import {
 } from "@/components/ui/select";
 import { useThemeStore } from "@/components/ThemeProvider";
 import { Separator } from "@/components/ui/separator";
-import { Bell, BellOff, Monitor, Moon, Sun } from "lucide-react";
+import { Bell, BellOff, Download, Monitor, Moon, Sun } from "lucide-react";
+import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 import { usePushNotifications } from "@/features/notifications/notifications.hooks";
 import { ApiKeysSection } from "@/features/api-keys/ApiKeysSection";
@@ -209,6 +210,44 @@ export default function SettingsPage() {
 
         {/* API Keys */}
         <ApiKeysSection />
+
+        {/* Datos y portabilidad */}
+        <div className="space-y-4">
+          <div>
+            <h2 className="text-lg font-semibold">Datos y portabilidad</h2>
+            <p className="text-sm text-muted-foreground">
+              Exporta todo tu workspace para tener una copia local o migrar a otra herramienta.
+            </p>
+          </div>
+
+          <div className="flex items-center justify-between gap-4 rounded-lg border p-4">
+            <div className="space-y-0.5">
+              <p className="text-sm font-medium">Exportar workspace completo</p>
+              <p className="text-xs text-muted-foreground">
+                Descarga un ZIP con todos tus sistemas, tareas, carpetas y cuadernos en Markdown y JSON.
+              </p>
+            </div>
+            <Button
+              variant="outline"
+              size="sm"
+              className="gap-2 shrink-0"
+              onClick={async () => {
+                const res = await fetch("/api/export/workspace");
+                if (!res.ok) return;
+                const blob = await res.blob();
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement("a");
+                a.href = url;
+                a.download = "kino-workspace.zip";
+                a.click();
+                URL.revokeObjectURL(url);
+              }}
+            >
+              <Download className="size-4" />
+              Exportar ZIP
+            </Button>
+          </div>
+        </div>
       </div>
     </PageWrapper>
   );

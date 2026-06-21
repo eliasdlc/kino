@@ -470,3 +470,68 @@ Estas 4 cosas dependen del estado real del `package.json`/schema. Verificar y se
 4. **Columna de timezone del usuario** en profile → si existe, usarla en `dateKeys`; si no, fallback `America/Santo_Domingo` y dejar `// TODO: tz por usuario` (0.6).
 
 Todo lo demás está decidido aquí o en PLAN.md. Si Claude Code encuentra una decisión de implementación no cubierta, el default es: **el patrón global de la sección 0 manda.**
+
+---
+
+## Rumbo 02 — Inteligencia visible (KIN-14 a KIN-22)
+
+**R02-1 · CoachPanel vive en el bottom row del dashboard, no en ruta nueva.**
+`/(app)/today` descartada — añadir navegación nueva para una sola feature no se justifica. El panel vive como primer card en `DashboardBottomRow`. Alternativa rechazada: ruta propia con layout dedicado.
+
+**R02-2 · CoachPanel usa tabs (Sugerencia / Energía / Sistemas) en lugar de scroll vertical de 4 slots.**
+El bottom row tiene altura fija `clamp(168px, 26vh, 220px)`. Cuatro slots apilados no caben sin scroll agresivo; los tabs usan bien el espacio disponible y mantienen el contenido accesible con un solo clic. Alternativa rechazada: slots apilados en acordeón.
+
+**R02-3 · Slot de Pattern omitido del CoachPanel — `AdvisorCard` ya lo cubre (KIN-22).**
+`AdvisorCard` en la columna derecha del dashboard ya expone `topPattern` con acción bulk y dismiss. Duplicarlo en CoachPanel viola la regla "una sola superficie". La inteligencia nueva que exponemos es la que tenía 0 consumidores: sugerencias, distribución de energía, sistemas dormidos. Alternativa rechazada: 4 slots con Pattern redundante.
+
+**R02-4 · `insights.hooks.ts` define sus tipos inline (no importa de `insights.queries.ts`).**
+`insights.queries.ts` importa módulos server-only (`drizzle-orm`, `@/shared/db`). Aunque `import type` es seguro en tiempo de compilación, la colocación semántica correcta es definir los tipos del contrato HTTP en el módulo de hooks del cliente. Alternativa rechazada: `import type { StaleSystemRow } from './insights.queries'`.
+
+---
+
+## Rumbo 05 — Optimistic UI generalizado (KIN-41 a KIN-49)
+
+**R05-1 · Patrón optimista canónico = helper `useOptimisticListMutation` para una sola lista; inline documentado para multi-key.**
+El patrón (cancel → snapshot → setQueryData → onError restore → onSettled invalidate) estaba copiado en cada mutación de tasks. Se extrae a `src/shared/hooks/useOptimisticListMutation.ts`, que cubre el caso común: **una única query key** transformada por un `updater` puro. Las mutaciones multi-key (crear toca `bySystem` + `folderTasks`; los bulk escriben sobre todo el prefijo `['tasks']`; calendar lee de una cache y escribe en otra) **se quedan con el patrón inline**: forzarlas al helper lo volvería abstracto/confuso. La doc del patrón vive en el comentario de cabecera del helper (fuente de verdad). Alternativa rechazada: un helper genérico que aceptara N keys + lectura cruzada de caches.
+
+**R05-2 · El helper reenvía la firma de 4/5 args de TanStack Query v5.**
+En `@tanstack/react-query@5.96`, `onError`/`onSettled` reciben el resultado de `onMutate` como 3er arg y un `context` extra (cliente, meta) como último. El helper aplica el rollback con ese resultado y reenvía todos los args a los callbacks del consumidor, que corren **después** del comportamiento por defecto (rollback + invalidate), para que un `onError` propio solo tenga que hacer el toast y un `onSettled` propio pueda añadir invalidaciones extra (p.ej. `useUpdateTask` invalida `['pages','tasks']`).
+
+**R05-3 · `invalidateKey` separado de `queryKey`.**
+La invalidación de `onSettled` puede apuntar a un prefijo más amplio que la lista optimista: `useToggleTask`/`useMoveTaskBoard` invalidan `['tasks']` (reconcilian today-plan, all, system, folder), mientras `useDeleteTask` invalida `bySystem` (prefijo que ya cubre `folderTasks`). Por defecto `invalidateKey` = `queryKey`.
+
+**R05-4 · Auditoría de mutaciones sin optimismo (KIN-42) — lista priorizada.**
+Auditadas todas las `useMutation` por feature. Ya optimistas (con `onMutate`): todo `tasks.hooks.ts`, `sticky-notes` update/stack(drag)/delete, `folders` update/delete. **Sin optimismo (solo invalidan)** — a optimizar, ordenadas por latencia percibida:
+
+| # | Feature (Sprint) | Mutación | Acción que se siente lenta |
+|---|---|---|---|
+| 1 | sticky-notes (KIN-43) | `useCreateStickyNoteForPage` / `useCreateStickyNoteForFolder` | crear nota (debería aparecer al instante) |
+| 2 | pages (KIN-44) | `useUpdatePage` | pin / rename inline |
+| 3 | pages (KIN-44) | `useCreatePage` / `useCreateSubPage` | crear cuaderno |
+| 4 | pages (KIN-44) | `useDeletePage` | borrar cuaderno |
+| 5 | folders (KIN-45) | `useCreateFolder` | crear carpeta en el árbol |
+| 6 | systems (KIN-46) | `useUpdateSystem` | renombrar / editar sistema |
+| 7 | systems (KIN-46) | `useDeleteSystem` | archivar / borrar sistema |
+| 8 | sprints (KIN-47) | `useCreateSprint` / `useUpdateSprint` / `useCloseSprint` / `useDeleteSprint` | acciones de sprint |
+
+Fuera de alcance (no tocar): autosave de contenido de página (ya es debounce), link/unlink de tareas y tags de página (acción secundaria, baja frecuencia). Las multi-key (`useCreateStickyNote*` tocan una sola lista → sí helper; `pages`/`folders` create tocan una sola lista `bySystem` → helper).
+
+**R05-5 · Garantía de rollback (KIN-48): test del helper + checklist de inline.**
+Como `useOptimisticListMutation` es la fuente única del patrón de una lista, su test (`useOptimisticListMutation.test.tsx`) cubre el rollback de **todas** las mutaciones que lo usan: optimista inmediato, restore exacto del snapshot en error (+ consumer `onError`), persistencia en éxito, `invalidateKey` de prefijo amplio, y `queryKey` dinámico por variables. Las mutaciones **inline multi-key** se verifican por checklist manual (forzar error de red en devtools → la UI revierte): `useCreateTask`, `useBulkMove`, `useBulkUpdate`, `useToggleTodayTask`, `useUpdateCalendarTask`, `useUpdatePage`. Todas ya tenían `onError` con restore del/los snapshot(s) desde antes de Rumbo 05 (salvo `useUpdatePage`, añadido en KIN-44).
+
+**R05-6 · Coherencia setQueryData ↔ invalidate (KIN-49): sin desajustes.**
+Auditadas todas las escrituras optimistas del repo: en cada una, la key invalidada en `onSettled` es **igual o un prefijo** de la key escrita optimistamente (TanStack invalida por prefijo), así que ningún estado optimista queda huérfano sin reconciliarse. Casos no triviales verificados: `useCreateTask` escribe `bySystem`+`folderTasks` e invalida `bySystem` (prefijo de folderTasks); `useDeleteTask` con folder escribe `folderTasks` e invalida `bySystem` (prefijo); `useUpdateCalendarTask` escribe `calendarTasks(from,to)`+`allTasks` e invalida `['tasks','calendar']` (prefijo) + `allTasks`; bulk/today usan `setQueriesData(['tasks'])` ↔ `invalidate(['tasks'])`. El helper blinda el invariante por defecto (`invalidateKey` = `queryKey`), cubierto por test. **Antipatrón prohibido:** escribir una key amplia e invalidar una más estrecha (la amplia nunca refetcha → estado stale).
+
+## Rumbo 08 — Editor completo (tablas + imágenes + slash/paste) (KIN-64 a KIN-73)
+
+**R08-1 · Tablas: un solo paquete `@tiptap/extension-table` (kit v3), no 4 sub-paquetes (KIN-64).**
+El ticket prescribía la receta v2 (`@tiptap/extension-table` + `-table-row` + `-table-cell` + `-table-header`). En Tiptap v3 el paquete `@tiptap/extension-table` ya re-exporta `Table`, `TableRow`, `TableHeader`, `TableCell` (named exports) y un `TableKit`; los sub-paquetes son deps muertas. Decisión: importar los cuatro named desde `@tiptap/extension-table` y **desinstalar** los 3 sub-paquetes. Se mantiene la forma `Table.configure({ resizable: true })` + row/header/cell que pide el ticket (no se usa `TableKit` para no cambiar la forma de config). Alternativa rechazada: dejar los 4 paquetes instalados (deps muertas, ruido en lockfile).
+
+**R08-2 · UX de tabla: BubbleMenu contextual + FloatingMenu de inserción, no toolbar fija (KIN-65).**
+El editor hoy es minimalista (solo un BubbleMenu de selección para sticky, sin toolbar persistente). Para no romper esa estética: los controles de tabla (fila/columna ±, header, borrar) viven en un **BubbleMenu** propio (`pluginKey="tableMenu"`, `shouldShow: editor.isActive('table')`), y la inserción en un **FloatingMenu** (`pluginKey="insertMenu"`) que aparece solo en párrafo vacío fuera de tabla. Ambos en `TableMenus.tsx`, montados junto al BubbleMenu de sticky en `NotebookEditor`. Alternativa rechazada: toolbar fija sobre el editor (cambio de layout mayor, contrario a la estética). **Nota para Sprint 2:** el slash menu (KIN-67) será la vía primaria de inserción; al llegar, reconsiderar si el FloatingMenu de inserción se mantiene o se retira para no duplicar affordances.
+
+**R08-4 · Lazy-load: split del editor entero con `next/dynamic({ ssr: false })`, no micro-split por extensión (KIN-73).**
+El editor se aísla en `NotebookEditorSurface.tsx` (default export) y el layout lo carga con `next/dynamic({ ssr: false, loading: <skeleton/> })`. Así toda la pila Tiptap pesada (StarterKit + table + suggestion + list, y la imagen del Sprint 3) cae en un chunk cliente diferido, fuera del JS inicial de la ruta; además evita el warning de hidratación SSR de Tiptap. **Alternativa rechazada:** micro-split de la extensión `table` con `import()` + recrear el editor cuando resuelve — frágil con el array de extensiones síncrono de `useEditor` (recrear pierde edits/cursor). Coste asumido: un skeleton breve al abrir un cuaderno. La imagen (Sprint 3) hereda el lazy-load por vivir tras esta frontera.
+
+**R08-3 · Slash menu: Suggestion + ReactRenderer con posicionado manual por `clientRect`; sin tippy/floating-ui directo (KIN-67).**
+El `/` se implementa con `@tiptap/suggestion` (default export `Suggestion`) en una `Extension` (`slash-command.extension.ts`) y un popover React (`SlashMenu.tsx`) montado vía `ReactRenderer`. Posicionado: `position: fixed` anclado al `clientRect()` del caret con flip simple (si no cabe abajo, arriba). **No** se añadió `tippy.js` (deprecado, no instalado) ni se importó `@floating-ui/dom` directamente (solo está como dep transitiva; importarlo sería acoplarse a un dep no declarado). Navegación por teclado vía `useImperativeHandle` (↑/↓/Enter), reset de highlight con patrón "ajustar estado en render" (`prevItems`) para no romper `react-hooks/set-state-in-effect`. **Consecuencia de R08-2:** retirado el FloatingMenu de inserción del Sprint 1; la tabla se inserta desde el slash menu (item "Tabla"). **Lista de tareas:** `TaskList`/`TaskItem` importados named desde el kit `@tiptap/extension-list` (mismo criterio que R08-1; StarterKit ya trae bullet/ordered/listItem, así que **no** se registra el kit entero para no duplicar nodos).

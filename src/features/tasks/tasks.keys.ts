@@ -13,6 +13,7 @@ export const taskKeys = {
     ["tasks", "system", systemId, "folder", folderId] as const,
   todayPlan: () => ["tasks", "today-plan"] as const,
   trash: (systemId: string) => ["tasks", "trash", systemId] as const,
+  calendarTasks: (from: string, to: string) => ["tasks", "calendar", from, to] as const,
 };
 
 export const allTasksKey = () => ["tasks", "all"] as const;

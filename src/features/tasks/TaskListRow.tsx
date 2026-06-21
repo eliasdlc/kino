@@ -2,9 +2,22 @@
 
 import { isBefore, isToday, startOfToday } from 'date-fns';
 import { cn } from '@/lib/utils';
-import { AlertCircle } from 'lucide-react';
+import { AlertCircle, Check } from 'lucide-react';
 import type { Task } from './tasks.types';
 import { parseDueDate } from './tasks.utils';
+import { useSubtasks } from './tasks.hooks';
+
+// KIN-80: compact subtask count for the global list view
+function SubtaskCount({ taskId, systemId }: { taskId: string; systemId: string }) {
+  const { data: subtasks } = useSubtasks(taskId, systemId);
+  if (!subtasks || subtasks.length === 0) return null;
+  const done = subtasks.filter((s) => s.status === 'done').length;
+  return (
+    <span className="text-[10px] font-mono text-zinc-600">
+      {done}/{subtasks.length}
+    </span>
+  );
+}
 
 interface SystemInfo {
   id: string;
@@ -17,6 +30,9 @@ interface TaskListRowProps {
   systemMap: Map<string, SystemInfo>;
   onToggle: (taskId: string) => void;
   onOpen: (task: Task) => void;
+  isFocused?: boolean;
+  isSelected?: boolean;
+  onSelectionToggle?: (taskId: string) => void;
 }
 
 const PRIORITY_BADGE: Record<string, string> = {
@@ -57,7 +73,7 @@ function dueDateLabel(dueDate: string | null): { label: string; overdue: boolean
   };
 }
 
-export function TaskListRow({ task, systemMap, onToggle, onOpen }: TaskListRowProps) {
+export function TaskListRow({ task, systemMap, onToggle, onOpen, isFocused, isSelected, onSelectionToggle }: TaskListRowProps) {
   const isDone = task.status === 'done';
   const system = systemMap.get(task.systemId);
   const { label: dateLabel, overdue } = dueDateLabel(task.dueDate);
@@ -68,9 +84,28 @@ export function TaskListRow({ task, systemMap, onToggle, onOpen }: TaskListRowPr
         'flex items-center gap-2 px-4 py-2 hover:bg-accent/30 transition-colors group',
         overdue && 'border-l-2 border-red-500/60',
         isDone && 'opacity-50',
+        isSelected && 'bg-primary/5',
+        isFocused && !isSelected && 'bg-accent/40',
+        isFocused && 'ring-1 ring-inset ring-primary/30',
       )}
     >
-      {/* Checkbox */}
+      {/* Selection checkbox */}
+      {onSelectionToggle && (
+        <button
+          onClick={(e) => { e.stopPropagation(); onSelectionToggle(task.id); }}
+          className={cn(
+            'w-4 h-4 rounded border shrink-0 transition-colors flex items-center justify-center',
+            isSelected
+              ? 'bg-primary border-primary text-primary-foreground'
+              : 'border-border md:opacity-0 md:group-hover:opacity-100 hover:border-primary',
+          )}
+          aria-label={isSelected ? 'Deseleccionar' : 'Seleccionar'}
+        >
+          {isSelected && <Check className="w-3 h-3" />}
+        </button>
+      )}
+
+      {/* Completion toggle */}
       <button
         onClick={() => onToggle(task.id)}
         className={cn(
@@ -116,6 +151,9 @@ export function TaskListRow({ task, systemMap, onToggle, onOpen }: TaskListRowPr
             {system.name}
           </span>
         )}
+
+        {/* Subtask count (KIN-80) */}
+        <SubtaskCount taskId={task.id} systemId={task.systemId} />
 
         {/* Energy */}
         {task.energyLevel && (

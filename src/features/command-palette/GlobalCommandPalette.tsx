@@ -16,7 +16,7 @@ import { useHotkey } from "@/shared/hooks/useHotkey";
 import { useSystems } from "@/features/systems/systems.hooks";
 import { useQuickAddStore } from "@/features/tasks/quick-add.store";
 import { useCommandPaletteStore } from "./command-palette.store";
-import { Inbox, LayoutDashboard, List, Plus, Settings, Layers } from "lucide-react";
+import { Calendar, Inbox, LayoutDashboard, List, Plus, Settings, Layers } from "lucide-react";
 import { getSystemColor } from "@/shared/utils/system-colors";
 
 export function GlobalCommandPalette() {
@@ -75,6 +75,11 @@ export function GlobalCommandPalette() {
             <List className="mr-2 h-4 w-4" />
             <span>Tareas</span>
             <CommandShortcut>G T</CommandShortcut>
+          </CommandItem>
+          <CommandItem onSelect={() => runCommand(() => router.push("/calendar"))}>
+            <Calendar className="mr-2 h-4 w-4" />
+            <span>Calendario</span>
+            <CommandShortcut>G C</CommandShortcut>
           </CommandItem>
         </CommandGroup>
         {regularSystems.length > 0 && (

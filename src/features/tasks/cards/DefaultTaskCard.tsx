@@ -18,12 +18,15 @@ import {
   ContextMenuSeparator,
   ContextMenuTrigger,
 } from "@/components/ui/context-menu";
+import { Check } from "lucide-react";
 
 export type { TaskCardState };
 
 interface DefaultTaskCardProps extends TaskCardProps {
   systemType?: SystemType;
   renderMeta?: (state: TaskCardState) => React.ReactNode;
+  isSelected?: boolean;
+  onSelectionToggle?: (taskId: string) => void;
 }
 
 const STATUS_BADGE: Record<string, string> = {
@@ -125,21 +128,26 @@ function ReminderCountdown({ dueDate }: { dueDate: string }) {
   );
 }
 
-function SubtaskProgress({ parentTaskId, systemId, isExpanded }: { parentTaskId: string; systemId: string; isExpanded: boolean }) {
-  const { data: subtasks } = useSubtasks(parentTaskId, systemId, { enabled: isExpanded });
+// KIN-77: always fetch subtasks so progress is visible without expanding the card.
+// Returns null (no dot) when there are no subtasks, so non-parent tasks pay zero render cost.
+function SubtaskProgress({ parentTaskId, systemId }: { parentTaskId: string; systemId: string }) {
+  const { data: subtasks } = useSubtasks(parentTaskId, systemId);
   if (!subtasks || subtasks.length === 0) return null;
   const done = subtasks.filter((s) => s.status === "done").length;
-  const pct = subtasks.length > 0 ? Math.round((done / subtasks.length) * 100) : 0;
+  const pct = Math.round((done / subtasks.length) * 100);
   return (
-    <span className="inline-flex items-center gap-1.5 font-mono text-sm text-zinc-500">
-      <span className="inline-flex h-1 w-12 rounded-full bg-zinc-700/80 overflow-hidden">
-        <span
-          className="h-full bg-[#3ecf72] rounded-full motion-safe:transition-all motion-safe:duration-300"
-          style={{ width: `${pct}%` }}
-        />
+    <>
+      <span className="text-xs text-zinc-700">·</span>
+      <span className="inline-flex items-center gap-1.5 font-mono text-sm text-zinc-500">
+        <span className="inline-flex h-1 w-12 rounded-full bg-zinc-700/80 overflow-hidden">
+          <span
+            className="h-full bg-[#3ecf72] rounded-full motion-safe:transition-all motion-safe:duration-300"
+            style={{ width: `${pct}%` }}
+          />
+        </span>
+        {done}/{subtasks.length}
       </span>
-      {done}/{subtasks.length}
-    </span>
+    </>
   );
 }
 
@@ -151,7 +159,7 @@ interface DefaultMetaProps {
 }
 
 function DefaultMeta({ task, state, systemType, systemId }: DefaultMetaProps) {
-  const { isOverdue, isDueSoon, folder, typeConfig, isExpanded } = state;
+  const { isOverdue, isDueSoon, folder, typeConfig } = state;
   const TypeIcon = typeConfig.icon;
 
   return (
@@ -191,12 +199,8 @@ function DefaultMeta({ task, state, systemType, systemId }: DefaultMetaProps) {
         </>
       ) : null}
 
-      {task.taskType === "project" && (
-        <>
-          <span className="text-xs text-zinc-700">·</span>
-          <SubtaskProgress parentTaskId={task.id} systemId={systemId} isExpanded={isExpanded} />
-        </>
-      )}
+      {/* KIN-77: show for all task types, not just project */}
+      <SubtaskProgress parentTaskId={task.id} systemId={systemId} />
 
       <span className={cn(
         "inline-flex items-center gap-1.5 flex-wrap",
@@ -261,7 +265,7 @@ function DefaultMeta({ task, state, systemType, systemId }: DefaultMetaProps) {
   );
 }
 
-export function DefaultTaskCard({ task, systemId, systemType, draggable, isFocused, onToggle, onDelete, onEdit, renderMeta }: DefaultTaskCardProps) {
+export function DefaultTaskCard({ task, systemId, systemType, draggable, isFocused, onToggle, onDelete, onEdit, renderMeta, isSelected, onSelectionToggle }: DefaultTaskCardProps) {
   const state = useTaskCard(task, systemId, onToggle);
   const {
     isDone, isArchived, isCritical, isHigh, completing,
@@ -275,15 +279,32 @@ export function DefaultTaskCard({ task, systemId, systemType, draggable, isFocus
     <div
       className={cn(
         "group relative flex items-start gap-3 px-3.5 py-3 md:gap-3.5 md:px-4 md:py-3.5 rounded-xl border motion-safe:transition-[border-color,background] motion-safe:duration-150",
-        !isCritical && !isHigh && !isFocused && "bg-[#1a1a1e] border-white/[0.07] hover:bg-[#1e1e23] hover:border-white/[0.13]",
+        !isCritical && !isHigh && !isFocused && !isSelected && "bg-[#1a1a1e] border-white/[0.07] hover:bg-[#1e1e23] hover:border-white/[0.13]",
         isCritical && "bg-[rgba(188,38,38,0.13)] border-[rgba(220,50,50,0.35)] hover:border-[rgba(220,50,50,0.55)] hover:bg-[rgba(188,38,38,0.18)]",
         isHigh && "bg-[rgba(180,90,20,0.13)] border-[rgba(230,115,30,0.35)] hover:border-[rgba(230,115,30,0.55)] hover:bg-[rgba(180,90,20,0.18)]",
         isDone && "opacity-45",
         isArchived && "opacity-35",
         isFocused && "bg-[rgba(99,102,241,0.08)] border-[rgba(99,102,241,0.6)]",
+        isSelected && !isCritical && !isHigh && "bg-primary/5 border-primary/40",
         draggable && "cursor-grab active:cursor-grabbing"
       )}
     >
+      {onSelectionToggle && (
+        <button
+          type="button"
+          onClick={(e) => { e.stopPropagation(); onSelectionToggle(task.id); }}
+          className={cn(
+            "mt-0.5 size-5 shrink-0 rounded border-2 flex items-center justify-center motion-safe:transition-[colors,opacity]",
+            isSelected
+              ? "border-primary bg-primary text-primary-foreground opacity-100"
+              : "border-white/25 bg-transparent md:opacity-0 md:group-hover:opacity-100 hover:border-primary/70",
+          )}
+          aria-label={isSelected ? "Deseleccionar" : "Seleccionar"}
+        >
+          {isSelected && <Check size={11} />}
+        </button>
+      )}
+
       <button
         type="button"
         onClick={handleToggle}

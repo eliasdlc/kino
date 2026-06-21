@@ -3,6 +3,7 @@ import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import type { Task, CreateTaskInput } from "./tasks.types";
 import type { AdvisorBulkAction } from "@/features/energy/energy.service";
+import { useOptimisticListMutation } from "@/shared/hooks/useOptimisticListMutation";
 
 // Re-export query keys from the shared module (no React deps) so existing
 // consumers that `import { taskKeys } from './tasks.hooks'` keep working.
@@ -57,6 +58,9 @@ export function useFolderTasks(systemId: string, folderId: string, initialData?:
   });
 }
 
+// Caso multi-key: toca `bySystem` y `folderTasks` a la vez, así que mantiene el
+// patrón optimista inline (ver `useOptimisticListMutation` para el caso de una
+// sola lista y la doc del patrón canónico).
 export function useCreateTask(systemId: string, folderId?: string) {
   const queryClient = useQueryClient();
 
@@ -188,9 +192,7 @@ export function useCreateTask(systemId: string, folderId?: string) {
 }
 
 export function useToggleTask(systemId: string, folderId?: string) {
-  const queryClient = useQueryClient();
-
-  return useMutation<ToggleTaskResult, Error, string>({
+  return useOptimisticListMutation<ToggleTaskResult, Error, string, Task>({
     mutationFn: async (taskId) => {
       const res = await fetch(`/api/tasks/${taskId}/toggle`, { method: "POST" });
       if (!res.ok) {
@@ -199,27 +201,13 @@ export function useToggleTask(systemId: string, folderId?: string) {
       }
       return res.json() as Promise<ToggleTaskResult>;
     },
-    onMutate: async (taskId) => {
-      const qKey = folderId ? taskKeys.folderTasks(systemId, folderId) : taskKeys.bySystem(systemId);
-      await queryClient.cancelQueries({ queryKey: qKey });
-      const previous = queryClient.getQueryData<Task[]>(qKey);
-      queryClient.setQueryData<Task[]>(qKey, (old = []) => 
-        old.map((t) => t.id === taskId ? { ...t, status: t.status === "done" ? "today" : "done" } : t)
-      );
-      return { previous, qKey };
-    },
-    onError: (err, _vars, context) => {
-      const ctx = context as { previous?: Task[], qKey?: readonly unknown[] } | undefined;
-      if (ctx?.previous && ctx?.qKey) {
-        queryClient.setQueryData(ctx.qKey, ctx.previous);
-      }
-      toast.error(err.message ?? "No se pudo actualizar la tarea");
-    },
+    queryKey: folderId ? taskKeys.folderTasks(systemId, folderId) : taskKeys.bySystem(systemId),
+    updater: (tasks, taskId) =>
+      tasks.map((t) => (t.id === taskId ? { ...t, status: t.status === "done" ? "today" : "done" } : t)),
     // Invalida el prefijo completo ['tasks'] → system, folder, today-plan y all
     // refetchan, dejando consistentes las tres vistas tras completar.
-    onSettled: () => {
-      queryClient.invalidateQueries({ queryKey: ['tasks'] });
-    },
+    invalidateKey: ["tasks"],
+    onError: (err) => toast.error(err.message ?? "No se pudo actualizar la tarea"),
   });
 }
 
@@ -242,36 +230,15 @@ export function useSubtasks(
 }
 
 export function useDeleteTask(systemId: string, folderId?: string) {
-  const queryClient = useQueryClient();
-
-  return useMutation({
-    mutationFn: async (taskId: string) => {
+  return useOptimisticListMutation<void, Error, string, Task>({
+    mutationFn: async (taskId) => {
       const res = await fetch(`/api/tasks/${taskId}`, { method: "DELETE" });
       if (!res.ok) throw new Error("Failed to delete task");
     },
-    onMutate: async (taskId) => {
-      const qKey = folderId ? taskKeys.folderTasks(systemId, folderId) : taskKeys.bySystem(systemId);
-      await queryClient.cancelQueries({ queryKey: qKey });
-      const previous = queryClient.getQueryData<Task[]>(qKey);
-      queryClient.setQueryData<Task[]>(qKey, (old = []) => 
-        old.filter((t) => t.id !== taskId)
-      );
-      return { previous, qKey };
-    },
-    onError: (_err, _vars, context) => {
-      if (context?.previous) {
-        queryClient.setQueryData(context.qKey, context.previous);
-      }
-    },
-    onSettled: (_data, _error, _vars, context) => {
-      if (context?.qKey) {
-        queryClient.invalidateQueries({ queryKey: context.qKey });
-      }
-      queryClient.invalidateQueries({ queryKey: taskKeys.bySystem(systemId) });
-      if (folderId) {
-        queryClient.invalidateQueries({ queryKey: taskKeys.folderTasks(systemId, folderId) });
-      }
-    },
+    queryKey: folderId ? taskKeys.folderTasks(systemId, folderId) : taskKeys.bySystem(systemId),
+    updater: (tasks, taskId) => tasks.filter((t) => t.id !== taskId),
+    // bySystem es prefijo de folderTasks → invalidarla cubre ambas vistas.
+    invalidateKey: taskKeys.bySystem(systemId),
   });
 }
 
@@ -442,6 +409,127 @@ export function useAdvisorAction() {
   });
 }
 
+type BulkMoveCtx = {
+  previous: [readonly unknown[], Task[] | undefined][];
+  previousStates: { id: string; status: string }[];
+};
+
+export function useBulkMove() {
+  const queryClient = useQueryClient();
+
+  return useMutation<void, Error, { taskIds: string[]; status: string }, BulkMoveCtx>({
+    mutationFn: async ({ taskIds, status }) => {
+      const res = await fetch('/api/tasks/bulk-move', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ taskIds, status }),
+      });
+      if (!res.ok) throw new Error('No se pudo mover las tareas');
+    },
+    onMutate: async ({ taskIds, status }) => {
+      await queryClient.cancelQueries({ queryKey: ['tasks'] });
+      const previous = queryClient.getQueriesData<Task[]>({ queryKey: ['tasks'] });
+      const allTasks = queryClient.getQueryData<Task[]>(allTasksKey()) ?? [];
+      const previousStates = taskIds.map((id) => ({
+        id,
+        status: allTasks.find((t) => t.id === id)?.status ?? 'backlog',
+      }));
+      queryClient.setQueriesData<Task[]>({ queryKey: ['tasks'] }, (old) =>
+        old?.map((t) => (taskIds.includes(t.id) ? { ...t, status } : t))
+      );
+      return { previous, previousStates };
+    },
+    onSuccess: (_data, { taskIds }, context) => {
+      const n = taskIds.length;
+      const { previousStates } = context;
+      toast.success(`${n} tarea${n !== 1 ? 's' : ''} movida${n !== 1 ? 's' : ''}`, {
+        duration: 7000,
+        action: {
+          label: 'Deshacer',
+          onClick: async () => {
+            await Promise.all(
+              previousStates.map(({ id, status }) =>
+                fetch(`/api/tasks/${id}`, {
+                  method: 'PATCH',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({ status }),
+                })
+              )
+            );
+            queryClient.invalidateQueries({ queryKey: ['tasks'] });
+          },
+        },
+      });
+    },
+    onError: (_err, _vars, context) => {
+      context?.previous.forEach(([key, data]) => queryClient.setQueryData(key, data));
+      toast.error('No se pudo mover las tareas');
+    },
+    onSettled: () => queryClient.invalidateQueries({ queryKey: ['tasks'] }),
+  });
+}
+
+type BulkUpdateCtx = {
+  previous: [readonly unknown[], Task[] | undefined][];
+  previousStates: { id: string; priority: string | null }[];
+};
+
+export function useBulkUpdate() {
+  const queryClient = useQueryClient();
+
+  return useMutation<void, Error, { taskIds: string[]; priority: string }, BulkUpdateCtx>({
+    mutationFn: async ({ taskIds, priority }) => {
+      const res = await fetch('/api/tasks/bulk-update', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ taskIds, priority }),
+      });
+      if (!res.ok) throw new Error('No se pudo actualizar la prioridad');
+    },
+    onMutate: async ({ taskIds, priority }) => {
+      await queryClient.cancelQueries({ queryKey: ['tasks'] });
+      const previous = queryClient.getQueriesData<Task[]>({ queryKey: ['tasks'] });
+      const allTasks = queryClient.getQueryData<Task[]>(allTasksKey()) ?? [];
+      const previousStates = taskIds.map((id) => ({
+        id,
+        priority: allTasks.find((t) => t.id === id)?.priority ?? null,
+      }));
+      queryClient.setQueriesData<Task[]>({ queryKey: ['tasks'] }, (old) =>
+        old?.map((t) => (taskIds.includes(t.id) ? { ...t, priority: priority as Task['priority'] } : t))
+      );
+      return { previous, previousStates };
+    },
+    onSuccess: (_data, _vars, context) => {
+      const { previousStates } = context;
+      toast.success('Prioridad actualizada', {
+        duration: 7000,
+        action: {
+          label: 'Deshacer',
+          onClick: async () => {
+            await Promise.all(
+              previousStates
+                .filter(({ priority }) => priority !== null)
+                .map(({ id, priority }) =>
+                  fetch(`/api/tasks/${id}`, {
+                    method: 'PATCH',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ priority }),
+                  })
+                )
+            );
+            queryClient.invalidateQueries({ queryKey: ['tasks'] });
+          },
+        },
+      });
+    },
+    onError: (_err, _vars, context) => {
+      context?.previous.forEach(([key, data]) => queryClient.setQueryData(key, data));
+      toast.error('No se pudo actualizar la prioridad');
+    },
+    onSettled: () => queryClient.invalidateQueries({ queryKey: ['tasks'] }),
+  });
+}
+
 export interface TaskReminder {
   id: string;
   taskId: string;
@@ -507,7 +595,12 @@ export function useDeleteTaskReminder(taskId: string) {
 export function useUpdateTask(systemId: string) {
   const queryClient = useQueryClient();
 
-  return useMutation<Task, Error, { taskId: string; data: Partial<Omit<Task, "id" | "userId" | "systemId" | "createdAt" | "updatedAt" | "deletedAt">> }>({
+  return useOptimisticListMutation<
+    Task,
+    Error,
+    { taskId: string; data: Partial<Omit<Task, "id" | "userId" | "systemId" | "createdAt" | "updatedAt" | "deletedAt">> },
+    Task
+  >({
     mutationFn: async ({ taskId, data }) => {
       const res = await fetch(`/api/tasks/${taskId}`, {
         method: "PATCH",
@@ -520,23 +613,12 @@ export function useUpdateTask(systemId: string) {
       }
       return res.json() as Promise<Task>;
     },
-    onMutate: async ({ taskId, data }) => {
-      await queryClient.cancelQueries({ queryKey: taskKeys.bySystem(systemId) });
-      const previous = queryClient.getQueryData<Task[]>(taskKeys.bySystem(systemId));
-      queryClient.setQueryData<Task[]>(taskKeys.bySystem(systemId), (old = []) =>
-        old.map((t) => (t.id === taskId ? { ...t, ...data } : t))
-      );
-      return { previous };
-    },
-    onError: (_err, _vars, context) => {
-      const ctx = context as { previous?: Task[] } | undefined;
-      if (ctx?.previous) {
-        queryClient.setQueryData(taskKeys.bySystem(systemId), ctx.previous);
-      }
-    },
+    queryKey: taskKeys.bySystem(systemId),
+    updater: (tasks, { taskId, data }) =>
+      tasks.map((t) => (t.id === taskId ? { ...t, ...data } : t)),
     onSettled: () => {
-      queryClient.invalidateQueries({ queryKey: taskKeys.bySystem(systemId) });
       // Invalidate linked tasks so any panel showing this task updates
+      // (la invalidación de bySystem la hace el helper por defecto).
       queryClient.invalidateQueries({ queryKey: ["pages", "tasks"] });
     },
   });
@@ -545,9 +627,7 @@ export function useUpdateTask(systemId: string) {
 /** Mueve una tarjeta de columna del board (systemType `project`). Optimista:
  * refleja la nueva columna y, si entra/sale de la terminal, el done de scheduling. */
 export function useMoveTaskBoard(systemId: string) {
-  const queryClient = useQueryClient();
-
-  return useMutation<Task, Error, { taskId: string; boardStatus: string }>({
+  return useOptimisticListMutation<Task, Error, { taskId: string; boardStatus: string }, Task>({
     mutationFn: async ({ taskId, boardStatus }) => {
       const res = await fetch(`/api/tasks/${taskId}/board`, {
         method: "PATCH",
@@ -560,34 +640,21 @@ export function useMoveTaskBoard(systemId: string) {
       }
       return res.json() as Promise<Task>;
     },
-    onMutate: async ({ taskId, boardStatus }) => {
-      // No awaited — update the cache synchronously so the card appears in
-      // the target column before React re-renders after drag end, avoiding the snap-back flash.
-      queryClient.cancelQueries({ queryKey: taskKeys.bySystem(systemId) });
-      const previous = queryClient.getQueryData<Task[]>(taskKeys.bySystem(systemId));
-      queryClient.setQueryData<Task[]>(taskKeys.bySystem(systemId), (old = []) =>
-        old.map((t) => {
-          if (t.id !== taskId) return t;
-          const enteringDone = boardStatus === "done" && t.status !== "done";
-          const leavingDone = boardStatus !== "done" && t.boardStatus === "done" && t.status === "done";
-          return {
-            ...t,
-            boardStatus,
-            boardStatusChangedAt: new Date(),
-            ...(enteringDone ? { status: "done", completedAt: new Date() } : {}),
-            ...(leavingDone ? { status: "today", completedAt: null } : {}),
-          } as Task;
-        }),
-      );
-      return { previous };
-    },
-    onError: (_err, _vars, context) => {
-      const ctx = context as { previous?: Task[] } | undefined;
-      if (ctx?.previous) queryClient.setQueryData(taskKeys.bySystem(systemId), ctx.previous);
-    },
-    onSettled: () => {
-      queryClient.invalidateQueries({ queryKey: ["tasks"] });
-    },
+    queryKey: taskKeys.bySystem(systemId),
+    updater: (tasks, { taskId, boardStatus }) =>
+      tasks.map((t) => {
+        if (t.id !== taskId) return t;
+        const enteringDone = boardStatus === "done" && t.status !== "done";
+        const leavingDone = boardStatus !== "done" && t.boardStatus === "done" && t.status === "done";
+        return {
+          ...t,
+          boardStatus,
+          boardStatusChangedAt: new Date(),
+          ...(enteringDone ? { status: "done", completedAt: new Date() } : {}),
+          ...(leavingDone ? { status: "today", completedAt: null } : {}),
+        } as Task;
+      }),
+    invalidateKey: ["tasks"],
   });
 }
 
@@ -638,8 +705,7 @@ export function useToggleTodayTask() {
 }
 
 export function useMoveToTomorrow() {
-  const queryClient = useQueryClient();
-  return useMutation<unknown, Error, { taskId: string; tomorrow: string }>({
+  return useOptimisticListMutation<unknown, Error, { taskId: string; tomorrow: string }, Task>({
     mutationFn: async ({ taskId, tomorrow }) => {
       // Mover en la PROGRAMACIÓN (startDate), no en la fecha límite. El service
       // deriva status 'tomorrow' desde startDate; inTodayPlan explícito lo saca
@@ -655,20 +721,9 @@ export function useMoveToTomorrow() {
       }
       return res.json();
     },
-    onMutate: async ({ taskId }) => {
-      await queryClient.cancelQueries({ queryKey: taskKeys.todayPlan() });
-      const previous = queryClient.getQueryData<Task[]>(taskKeys.todayPlan());
-      queryClient.setQueryData<Task[]>(taskKeys.todayPlan(), (old = []) =>
-        old.filter((t) => t.id !== taskId),
-      );
-      return { previous };
-    },
-    onError: (_err, _vars, ctx) => {
-      const c = ctx as { previous?: Task[] } | undefined;
-      if (c?.previous) queryClient.setQueryData(taskKeys.todayPlan(), c.previous);
-      toast.error('No se pudo mover. Intenta de nuevo.');
-    },
-    onSettled: () => queryClient.invalidateQueries({ queryKey: taskKeys.todayPlan() }),
+    queryKey: taskKeys.todayPlan(),
+    updater: (tasks, { taskId }) => tasks.filter((t) => t.id !== taskId),
+    onError: () => toast.error('No se pudo mover. Intenta de nuevo.'),
   });
 }
 
@@ -702,8 +757,7 @@ export function useAddToTodayPlan() {
 }
 
 export function useRemoveFromPlan() {
-  const queryClient = useQueryClient();
-  return useMutation<unknown, Error, { taskId: string }>({
+  return useOptimisticListMutation<unknown, Error, { taskId: string }, Task>({
     mutationFn: async ({ taskId }) => {
       const res = await fetch(`/api/tasks/${taskId}`, {
         method: 'PATCH',
@@ -713,20 +767,9 @@ export function useRemoveFromPlan() {
       if (!res.ok) throw new Error('Failed to update task');
       return res.json();
     },
-    onMutate: async ({ taskId }) => {
-      await queryClient.cancelQueries({ queryKey: taskKeys.todayPlan() });
-      const previous = queryClient.getQueryData<Task[]>(taskKeys.todayPlan());
-      queryClient.setQueryData<Task[]>(taskKeys.todayPlan(), (old = []) =>
-        old.filter((t) => t.id !== taskId),
-      );
-      return { previous };
-    },
-    onError: (_err, _vars, ctx) => {
-      const c = ctx as { previous?: Task[] } | undefined;
-      if (c?.previous) queryClient.setQueryData(taskKeys.todayPlan(), c.previous);
-      toast.error('No se pudo quitar del plan. Intenta de nuevo.');
-    },
-    onSettled: () => queryClient.invalidateQueries({ queryKey: taskKeys.todayPlan() }),
+    queryKey: taskKeys.todayPlan(),
+    updater: (tasks, { taskId }) => tasks.filter((t) => t.id !== taskId),
+    onError: () => toast.error('No se pudo quitar del plan. Intenta de nuevo.'),
   });
 }
 
@@ -761,5 +804,69 @@ export function useSuggestedTasks() {
     staleTime: Infinity,
     gcTime: Infinity,
     refetchOnWindowFocus: false,
+  });
+}
+
+export function useUpdateCalendarTask(from: string, to: string) {
+  const queryClient = useQueryClient();
+
+  return useMutation<Task, Error, { taskId: string; data: Partial<Task> }>({
+    mutationFn: async ({ taskId, data }) => {
+      const res = await fetch(`/api/tasks/${taskId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(data),
+      });
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}));
+        throw new Error((body as { message?: string }).message ?? "Failed to update task");
+      }
+      return res.json() as Promise<Task>;
+    },
+    onMutate: async ({ taskId, data }) => {
+      const calKey = taskKeys.calendarTasks(from, to);
+      await queryClient.cancelQueries({ queryKey: calKey });
+      await queryClient.cancelQueries({ queryKey: allTasksKey() });
+
+      const previousCal = queryClient.getQueryData<Task[]>(calKey);
+      const previousAll = queryClient.getQueryData<Task[]>(allTasksKey());
+
+      queryClient.setQueryData<Task[]>(calKey, (old = []) => {
+        const exists = old.some((t) => t.id === taskId);
+        if (exists) return old.map((t) => (t.id === taskId ? { ...t, ...data } : t));
+        // Adding a previously unscheduled task — pull from allTasks cache
+        const allTasks = queryClient.getQueryData<Task[]>(allTasksKey()) ?? [];
+        const task = allTasks.find((t) => t.id === taskId);
+        if (task) return [...old, { ...task, ...data }];
+        return old;
+      });
+      queryClient.setQueryData<Task[]>(allTasksKey(), (old = []) =>
+        old.map((t) => (t.id === taskId ? { ...t, ...data } : t)),
+      );
+
+      return { previousCal, previousAll };
+    },
+    onError: (_err, _vars, context) => {
+      const ctx = context as { previousCal?: Task[]; previousAll?: Task[] } | undefined;
+      if (ctx?.previousCal !== undefined) queryClient.setQueryData(taskKeys.calendarTasks(from, to), ctx.previousCal);
+      if (ctx?.previousAll !== undefined) queryClient.setQueryData(allTasksKey(), ctx.previousAll);
+    },
+    onSettled: () => {
+      queryClient.invalidateQueries({ queryKey: ["tasks", "calendar"] });
+      queryClient.invalidateQueries({ queryKey: allTasksKey() });
+    },
+  });
+}
+
+export function useCalendarTasks(from: string, to: string) {
+  return useQuery<Task[]>({
+    queryKey: taskKeys.calendarTasks(from, to),
+    queryFn: async () => {
+      const res = await fetch(`/api/tasks/calendar?from=${encodeURIComponent(from)}&to=${encodeURIComponent(to)}`);
+      if (!res.ok) throw new Error('Failed to fetch calendar tasks');
+      return res.json() as Promise<Task[]>;
+    },
+    staleTime: 30_000,
+    refetchOnWindowFocus: true,
   });
 }

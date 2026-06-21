@@ -1,23 +1,104 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useState } from "react";
+import dynamic from "next/dynamic";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { PanelRight, Plus, Loader2 } from "lucide-react";
+import { PanelRight, Plus, Loader2, Download } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 import { Sheet, SheetContent, SheetTitle } from "@/components/ui/sheet";
 import { PageBreadcrumb } from "@/components/PageBreadcrumb";
-import { NotebookEditor } from "./NotebookEditor";
-import { EditorProvider } from "./EditorContext";
 import { LinkedTasksPanel } from "./LinkedTasksPanel";
 import { NotebookTagPicker } from "./NotebookTagPicker";
-import { StickyNotesGrid } from "@/features/sticky-notes/StickyNotesGrid";
-import { MarginNotesLayer } from "@/features/sticky-notes/MarginNotesLayer";
-import { useStickyNotesByPage } from "@/features/sticky-notes/sticky-notes.hooks";
+import { EditorShortcutsHelp } from "./EditorShortcutsHelp";
 import { useSubPages, useCreateSubPage } from "./pages.hooks";
+import { htmlToMarkdown } from "./export/html-to-markdown";
 import type { BreadcrumbItem } from "@/components/PageBreadcrumb";
 import type { PageDetail, PageListItem } from "./pages.types";
+
+// The Tiptap surface (StarterKit + table + suggestion + list, plus image in
+// Sprint 3) is loaded client-side on demand so it stays out of the route's
+// initial JS bundle (KIN-73).
+const NotebookEditorSurface = dynamic(() => import("./NotebookEditorSurface"), {
+  ssr: false,
+  loading: () => (
+    <div className="flex-1 overflow-y-auto">
+      <div className="max-w-3xl mx-auto px-4 py-6 md:px-6 md:py-8 space-y-3">
+        <div className="h-7 w-1/3 animate-pulse rounded bg-muted" />
+        <div className="h-4 w-full animate-pulse rounded bg-muted/70" />
+        <div className="h-4 w-5/6 animate-pulse rounded bg-muted/70" />
+        <div className="h-4 w-2/3 animate-pulse rounded bg-muted/70" />
+      </div>
+    </div>
+  ),
+});
+
+function slugify(title: string): string {
+  return (title || "sin-titulo")
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "");
+}
+
+function downloadBlob(blob: Blob, filename: string) {
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = filename;
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+function ExportPanel({ page }: { page: PageDetail }) {
+  function exportMarkdown() {
+    const md = htmlToMarkdown(page.content ?? "");
+    const blob = new Blob([md], { type: "text/markdown;charset=utf-8" });
+    downloadBlob(blob, `${slugify(page.title ?? "")}.md`);
+  }
+
+  function exportJson() {
+    const payload = {
+      id: page.id,
+      title: page.title,
+      content: page.content,
+      createdAt: page.createdAt,
+      updatedAt: page.updatedAt,
+    };
+    const blob = new Blob([JSON.stringify(payload, null, 2)], {
+      type: "application/json;charset=utf-8",
+    });
+    downloadBlob(blob, `${slugify(page.title ?? "")}.json`);
+  }
+
+  return (
+    <div>
+      <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">
+        Exportar
+      </p>
+      <div className="flex flex-col gap-1">
+        <Button
+          variant="ghost"
+          size="sm"
+          className="justify-start gap-2 h-8 px-2 text-sm font-normal"
+          onClick={exportMarkdown}
+        >
+          <Download className="size-3.5 shrink-0" />
+          Markdown (.md)
+        </Button>
+        <Button
+          variant="ghost"
+          size="sm"
+          className="justify-start gap-2 h-8 px-2 text-sm font-normal"
+          onClick={exportJson}
+        >
+          <Download className="size-3.5 shrink-0" />
+          JSON (.json)
+        </Button>
+      </div>
+    </div>
+  );
+}
 
 interface NotebookEditorLayoutProps {
   page: PageDetail;
@@ -74,11 +155,10 @@ function SubPagesSidebar({
         {/* Root notebook link */}
         <Link
           href={`/systems/${systemId}/pages/${rootPageId}`}
-          className={`block px-2 py-1.5 rounded-md text-sm font-semibold transition-colors truncate ${
-            currentPageId === rootPageId
-              ? "bg-accent text-accent-foreground"
-              : "text-foreground hover:bg-accent/50"
-          }`}
+          className={`block px-2 py-1.5 rounded-md text-sm font-semibold transition-colors truncate ${currentPageId === rootPageId
+            ? "bg-accent text-accent-foreground"
+            : "text-foreground hover:bg-accent/50"
+            }`}
         >
           Portada
         </Link>
@@ -89,11 +169,10 @@ function SubPagesSidebar({
               <Link
                 key={sp.id}
                 href={`/systems/${systemId}/pages/${sp.id}`}
-                className={`block px-2 py-1.5 rounded-md text-xs transition-colors truncate ${
-                  currentPageId === sp.id
-                    ? "bg-accent text-accent-foreground font-medium"
-                    : "text-muted-foreground hover:text-foreground hover:bg-accent/50"
-                }`}
+                className={`block px-2 py-1.5 rounded-md text-xs transition-colors truncate ${currentPageId === sp.id
+                  ? "bg-accent text-accent-foreground font-medium"
+                  : "text-muted-foreground hover:text-foreground hover:bg-accent/50"
+                  }`}
               >
                 {sp.title ?? "Sin título"}
               </Link>
@@ -142,13 +221,8 @@ export function NotebookEditorLayout({
   initialSubPages,
 }: NotebookEditorLayoutProps) {
   const [rightOpen, setRightOpen] = useState(false);
-  const contentRef = useRef<HTMLDivElement>(null);
 
   const rootPageId = parentNotebook?.id ?? page.id;
-
-  const { data: allNotes = [] } = useStickyNotesByPage(page.id);
-  const marginNotes = allNotes.filter((n) => n.positionSide);
-  const pageContext = { pageId: page.id };
 
   return (
     <div className="flex h-full overflow-hidden flex-col">
@@ -170,22 +244,12 @@ export function NotebookEditorLayout({
 
       <div className="flex flex-1 overflow-hidden">
         {/* Main editor — centered content with free-floating margin notes overlay */}
-        <EditorProvider key={page.id} initialContent={page.content ?? ""}>
-          <div className="flex-1 overflow-y-auto">
-            <div ref={contentRef} className="relative min-h-full">
-              <div className="max-w-3xl mx-auto px-4 py-6 md:px-6 md:py-8 space-y-8">
-                <StickyNotesGrid pageId={page.id} />
-                <NotebookEditor page={page} systemId={systemId} pageId={page.id} />
-              </div>
-              <MarginNotesLayer notes={marginNotes} context={pageContext} containerRef={contentRef} />
-            </div>
-          </div>
-        </EditorProvider>
+        <NotebookEditorSurface page={page} systemId={systemId} />
       </div>
 
       {/* Floating right panel */}
       <Sheet open={rightOpen} onOpenChange={setRightOpen}>
-        <SheetContent side="right" className="w-72 p-0 flex flex-col gap-0">
+        <SheetContent side="right" className="!w-70 !h-[95%] !my-auto rounded-2xl shadow-2xl p-0 flex flex-col gap-0">
           <SheetTitle className="sr-only">Panel del cuaderno</SheetTitle>
 
           <SubPagesSidebar
@@ -209,6 +273,14 @@ export function NotebookEditorLayout({
             <Separator />
 
             <LinkedTasksPanel pageId={page.id} systemId={systemId} />
+
+            <Separator />
+
+            <ExportPanel page={page} />
+
+            <Separator />
+
+            <EditorShortcutsHelp />
           </div>
         </SheetContent>
       </Sheet>

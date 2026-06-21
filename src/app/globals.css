@@ -239,6 +239,76 @@
   50%      { transform: translateY(-10px); }
 }
 
+/* ── Tables in editor (Tiptap) ────────────────────────────────────────────── */
+/* Wrapper (`.tableWrapper`) scrolls horizontally so wide tables never break the
+   layout on small screens (KIN-66, project-mobile). */
+.tiptap-editor .ProseMirror .tableWrapper {
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  max-width: 100%;
+  margin: 0.75rem 0;
+}
+.tiptap-editor .ProseMirror table {
+  border-collapse: collapse;
+  table-layout: fixed;
+  width: 100%;
+  margin: 0;
+  overflow: hidden;
+}
+.tiptap-editor .ProseMirror td,
+.tiptap-editor .ProseMirror th {
+  @apply border border-border px-3 py-1.5 align-top;
+  position: relative;
+  min-width: 3rem;
+}
+.tiptap-editor .ProseMirror th {
+  @apply bg-muted/60 font-semibold text-left;
+}
+/* Selected cells while dragging across a table */
+.tiptap-editor .ProseMirror .selectedCell::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  @apply bg-primary/15 pointer-events-none;
+  z-index: 2;
+}
+/* Column resize handle (Table.configure({ resizable: true })) */
+.tiptap-editor .ProseMirror .column-resize-handle {
+  position: absolute;
+  right: -2px;
+  top: 0;
+  bottom: -2px;
+  width: 4px;
+  @apply bg-primary;
+  pointer-events: none;
+}
+.tiptap-editor .ProseMirror.resize-cursor {
+  cursor: col-resize;
+}
+
+/* ── Task lists in editor (slash menu → "Lista de tareas", KIN-67) ─────────── */
+.tiptap-editor .ProseMirror ul[data-type="taskList"] {
+  list-style: none;
+  padding-left: 0.25rem;
+  margin: 0.25rem 0;
+}
+.tiptap-editor .ProseMirror ul[data-type="taskList"] li {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.5rem;
+}
+.tiptap-editor .ProseMirror ul[data-type="taskList"] li > label {
+  margin-top: 0.35rem;
+  user-select: none;
+}
+.tiptap-editor .ProseMirror ul[data-type="taskList"] li > div {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+.tiptap-editor .ProseMirror ul[data-type="taskList"] input[type="checkbox"] {
+  @apply size-4 rounded border-border accent-primary cursor-pointer;
+}
+
 /* ── Sticky anchor mark in editor ─────────────────────────────────────────── */
 .sticky-anchor-mark {
   border-bottom: 1.5px dashed currentColor;

@@ -4,9 +4,8 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { Files, FolderOpen, Loader2 } from "lucide-react";
 import { useFolders, useCreateFolder } from "@/features/folders/folders.hooks";
-import { usePages } from "@/features/pages/pages.hooks";
+import { usePages, useCreatePage } from "@/features/pages/pages.hooks";
 import { useTags } from "@/features/tags/tags.hooks";
-import { CreateNotebookDialog } from "@/features/pages/CreateNotebookDialog";
 import { NotebooksToolbar } from "./NotebooksToolbar";
 import { FolderCard } from "./FolderCard";
 import { NotebookCard } from "./NotebookCard";
@@ -38,10 +37,10 @@ export function NotebooksView({ systemId }: NotebooksViewProps) {
   const { data: folders = [], isLoading: foldersLoading } = useFolders(systemId);
   const { data: pages = [], isLoading: pagesLoading } = usePages(systemId);
   const { mutate: createFolder, isPending: creatingFolder } = useCreateFolder(systemId);
+  const { mutateAsync: createPage } = useCreatePage(systemId);
   const { data: allTags = [] } = useTags(systemId);
 
   const [folderDialogOpen, setFolderDialogOpen] = useState(false);
-  const [pageDialogOpen, setPageDialogOpen] = useState(false);
   const [folderName, setFolderName] = useState("");
   const [activeTagIds, setActiveTagIds] = useState<Set<string>>(new Set());
 
@@ -74,11 +73,16 @@ export function NotebooksView({ systemId }: NotebooksViewProps) {
     );
   }
 
+  async function handleCreateNotebook() {
+    const page = await createPage({});
+    router.push(`/systems/${systemId}/pages/${page.id}`);
+  }
+
   return (
     <div className="w-full space-y-6">
       <NotebooksToolbar
         onNewFolder={() => setFolderDialogOpen(true)}
-        onNewPage={() => setPageDialogOpen(true)}
+        onNewPage={handleCreateNotebook}
       />
 
       {!isLoading && allTags.length > 0 && (
@@ -191,12 +195,6 @@ export function NotebooksView({ systemId }: NotebooksViewProps) {
           </div>
         </ResponsiveDialogContent>
       </ResponsiveDialog>
-
-      <CreateNotebookDialog
-        systemId={systemId}
-        open={pageDialogOpen}
-        onOpenChange={setPageDialogOpen}
-      />
     </div>
   );
 }

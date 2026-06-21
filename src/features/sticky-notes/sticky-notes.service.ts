@@ -80,6 +80,42 @@ export async function updateStickyNote(
   return updated ?? null;
 }
 
+export async function stackStickyNotes(
+  draggedId: string,
+  targetId: string,
+  userId: string
+): Promise<{ dragged: StickyNoteItem; target: StickyNoteItem } | null> {
+  return db.transaction(async (tx) => {
+    const [target] = await tx
+      .select(NOTE_COLUMNS)
+      .from(stickyNotes)
+      .where(and(eq(stickyNotes.id, targetId), eq(stickyNotes.userId, userId)));
+    if (!target) return null;
+
+    const stackId = target.stackId ?? target.id;
+
+    const [dragged] = await tx
+      .update(stickyNotes)
+      .set({ stackId, updatedAt: new Date() })
+      .where(and(eq(stickyNotes.id, draggedId), eq(stickyNotes.userId, userId)))
+      .returning(NOTE_COLUMNS);
+    if (!dragged) return null;
+
+    let updatedTarget = target;
+    if (!target.stackId) {
+      const [t] = await tx
+        .update(stickyNotes)
+        .set({ stackId, updatedAt: new Date() })
+        .where(and(eq(stickyNotes.id, targetId), eq(stickyNotes.userId, userId)))
+        .returning(NOTE_COLUMNS);
+      if (!t) return null;
+      updatedTarget = t;
+    }
+
+    return { dragged, target: updatedTarget };
+  });
+}
+
 export async function deleteStickyNote(
   noteId: string,
   userId: string
