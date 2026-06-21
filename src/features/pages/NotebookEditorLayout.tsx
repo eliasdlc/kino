@@ -12,6 +12,7 @@ import { NotebookEditor } from "./NotebookEditor";
 import { EditorProvider } from "./EditorContext";
 import { LinkedTasksPanel } from "./LinkedTasksPanel";
 import { NotebookTagPicker } from "./NotebookTagPicker";
+import { EditorShortcutsHelp } from "./EditorShortcutsHelp";
 import { StickyNotesGrid } from "@/features/sticky-notes/StickyNotesGrid";
 import { MarginNotesLayer } from "@/features/sticky-notes/MarginNotesLayer";
 import { useStickyNotesByPage } from "@/features/sticky-notes/sticky-notes.hooks";
@@ -207,6 +208,10 @@ export function NotebookEditorLayout({
             <Separator />
 
             <LinkedTasksPanel pageId={page.id} systemId={systemId} />
+
+            <Separator />
+
+            <EditorShortcutsHelp />
           </div>
         </SheetContent>
       </Sheet>

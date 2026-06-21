@@ -27,7 +27,10 @@ export function EditorProvider({
 }) {
   const editor = useEditor({
     extensions: [
-      StarterKit,
+      // Markdown input rules (`# `, `- `, `> `, ```, `**bold**`, …) ship enabled
+      // with StarterKit. Headings are capped at 1–3 to match the styled range
+      // (globals.css) and the slash menu, so `#### ` never makes an unstyled h4.
+      StarterKit.configure({ heading: { levels: [1, 2, 3] } }),
       Typography,
       Placeholder.configure({ placeholder: "Empieza a escribir…" }),
       Table.configure({ resizable: true }),
