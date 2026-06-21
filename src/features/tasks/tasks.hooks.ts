@@ -882,3 +882,16 @@ export function useSuggestedTasks() {
     refetchOnWindowFocus: false,
   });
 }
+
+export function useCalendarTasks(from: string, to: string) {
+  return useQuery<Task[]>({
+    queryKey: taskKeys.calendarTasks(from, to),
+    queryFn: async () => {
+      const res = await fetch(`/api/tasks/calendar?from=${encodeURIComponent(from)}&to=${encodeURIComponent(to)}`);
+      if (!res.ok) throw new Error('Failed to fetch calendar tasks');
+      return res.json() as Promise<Task[]>;
+    },
+    staleTime: 30_000,
+    refetchOnWindowFocus: true,
+  });
+}

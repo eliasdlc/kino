@@ -1,6 +1,6 @@
 import { db } from "@/shared/db";
 import { tasks, users, userSettings, systems, folders, sprints, systemStatusDefinitions, timeLogs, taskReminders } from "@/shared/db/schema";
-import { and, eq, isNull, isNotNull, sql, sum, count, type SQL } from "drizzle-orm";
+import { and, eq, isNull, isNotNull, sql, sum, count, or, gte, lte, type SQL } from "drizzle-orm";
 import { NotFoundError, ValidationError } from "@/shared/utils/error";
 import { validateTransition, deriveBoardBridgeAction, type TaskStatus, type TransitionAction } from "./tasks.state-machine";
 import { Task, CreateTaskInput, UpdateTaskInput } from "./tasks.types";
@@ -800,6 +800,23 @@ export async function getTimeLogSummary(
     totalMinutes: Number(row?.totalMinutes ?? 0),
     sessionCount: Number(row?.sessionCount ?? 0),
   };
+}
+
+export async function getScheduledTasks(userId: string, fromISO: string, toISO: string): Promise<Task[]> {
+  return db
+    .select()
+    .from(tasks)
+    .where(
+      and(
+        eq(tasks.userId, userId),
+        isNull(tasks.deletedAt),
+        or(
+          and(isNotNull(tasks.dueDate), gte(tasks.dueDate, fromISO), lte(tasks.dueDate, toISO)),
+          and(isNotNull(tasks.startDate), gte(tasks.startDate, fromISO), lte(tasks.startDate, toISO)),
+        ),
+      ),
+    )
+    .orderBy(tasks.dueDate);
 }
 
 export async function createTimeLog(

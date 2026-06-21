@@ -57,6 +57,9 @@ export function GlobalNavigationShortcuts() {
       } else if (key === "t") {
         router.push("/tasks");
         handled = true;
+      } else if (key === "c") {
+        router.push("/calendar");
+        handled = true;
       }
 
       if (handled) {
