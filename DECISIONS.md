@@ -515,3 +515,6 @@ Auditadas todas las `useMutation` por feature. Ya optimistas (con `onMutate`): t
 | 8 | sprints (KIN-47) | `useCreateSprint` / `useUpdateSprint` / `useCloseSprint` / `useDeleteSprint` | acciones de sprint |
 
 Fuera de alcance (no tocar): autosave de contenido de página (ya es debounce), link/unlink de tareas y tags de página (acción secundaria, baja frecuencia). Las multi-key (`useCreateStickyNote*` tocan una sola lista → sí helper; `pages`/`folders` create tocan una sola lista `bySystem` → helper).
+
+**R05-5 · Garantía de rollback (KIN-48): test del helper + checklist de inline.**
+Como `useOptimisticListMutation` es la fuente única del patrón de una lista, su test (`useOptimisticListMutation.test.tsx`) cubre el rollback de **todas** las mutaciones que lo usan: optimista inmediato, restore exacto del snapshot en error (+ consumer `onError`), persistencia en éxito, `invalidateKey` de prefijo amplio, y `queryKey` dinámico por variables. Las mutaciones **inline multi-key** se verifican por checklist manual (forzar error de red en devtools → la UI revierte): `useCreateTask`, `useBulkMove`, `useBulkUpdate`, `useToggleTodayTask`, `useUpdateCalendarTask`, `useUpdatePage`. Todas ya tenían `onError` con restore del/los snapshot(s) desde antes de Rumbo 05 (salvo `useUpdatePage`, añadido en KIN-44).
