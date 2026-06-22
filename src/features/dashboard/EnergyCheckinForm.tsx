@@ -15,15 +15,16 @@ export interface CheckinValues {
 }
 
 interface EnergyCheckinFormProps {
+  defaultLevel: number;
   initialSlot: CheckinSlot;
   isPending: boolean;
   onSubmit: (values: CheckinValues) => void;
   onCancel: () => void;
 }
 
-export function EnergyCheckinForm({ initialSlot, isPending, onSubmit, onCancel }: EnergyCheckinFormProps) {
+export function EnergyCheckinForm({ defaultLevel, initialSlot, isPending, onSubmit, onCancel }: EnergyCheckinFormProps) {
   const [slot, setSlot] = useState<CheckinSlot>(initialSlot);
-  const [level, setLevel] = useState(70);
+  const [level, setLevel] = useState(defaultLevel);
   const [sleep, setSleep] = useState<SleepQuality>('good');
 
   return (
