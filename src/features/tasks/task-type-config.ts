@@ -1,4 +1,4 @@
-import { Bell, CalendarCheck, CheckSquare, Layers, Lightbulb, type LucideIcon } from "lucide-react";
+import { Bell, CalendarCheck, CheckSquare, Layers, Lightbulb, GraduationCap, HelpCircle, PenTool, type LucideIcon } from "lucide-react";
 
 export type TaskTypeKey = 'task' | 'idea' | 'event' | 'reminder' | 'epic';
 
@@ -87,6 +87,42 @@ export const TASK_TYPE_CONFIG: Record<TaskTypeKey, TaskTypeConfig> = {
 };
 
 /** Fallback to 'task' config for unknown/legacy types (todo, project). */
-export function getTaskTypeConfig(type: string | null | undefined): TaskTypeConfig {
-  return TASK_TYPE_CONFIG[type as TaskTypeKey] ?? TASK_TYPE_CONFIG.task;
+export function getTaskTypeConfig(
+  type: string | null | undefined,
+  metadata?: Record<string, unknown> | null
+): TaskTypeConfig {
+  const baseConfig = TASK_TYPE_CONFIG[type as TaskTypeKey] ?? TASK_TYPE_CONFIG.task;
+
+  if (type === 'event' && metadata?.eventSubtype) {
+    const subtype = metadata.eventSubtype as string;
+    if (subtype === 'exam') {
+      return {
+        ...baseConfig,
+        label: "Examen",
+        icon: GraduationCap,
+        pillClass: "bg-red-500/15 text-red-700 dark:text-red-400 hover:bg-red-500/25",
+        iconClass: "text-red-500",
+      };
+    }
+    if (subtype === 'quiz') {
+      return {
+        ...baseConfig,
+        label: "Quiz",
+        icon: HelpCircle,
+        pillClass: "bg-orange-500/15 text-orange-700 dark:text-orange-400 hover:bg-orange-500/25",
+        iconClass: "text-orange-500",
+      };
+    }
+    if (subtype === 'practice') {
+      return {
+        ...baseConfig,
+        label: "Práctica",
+        icon: PenTool,
+        pillClass: "bg-emerald-500/15 text-emerald-700 dark:text-emerald-400 hover:bg-emerald-500/25",
+        iconClass: "text-emerald-500",
+      };
+    }
+  }
+
+  return baseConfig;
 }

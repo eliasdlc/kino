@@ -4,6 +4,7 @@ import { parseDueDate } from "../tasks.utils";
 import { useFolders } from "@/features/folders/folders.hooks";
 import { getTaskTypeConfig } from "../task-type-config";
 import { useFocusTimer } from "../FocusTimerProvider";
+import { toast } from "sonner";
 import type { Task } from "../tasks.types";
 import type { FolderWithCounts } from "@/features/folders/folders.types";
 
@@ -52,7 +53,7 @@ export function useTaskCard(
 
   const { data: folders } = useFolders(systemId);
   const folder = task.folderId ? folders?.find((f) => f.id === task.folderId) : undefined;
-  const typeConfig = getTaskTypeConfig(task.taskType);
+  const typeConfig = getTaskTypeConfig(task.taskType, task.metadata);
 
   const showPriorityBadge = (isCritical || isHigh) && !isDone && !isArchived;
 
@@ -62,8 +63,21 @@ export function useTaskCard(
       : null;
   const isDueSoon = dueDays !== null && dueDays <= 2;
 
+  const isExamOrQuiz =
+    task.taskType === "event" &&
+    ((task.metadata as Record<string, unknown>)?.eventSubtype === "exam" || (task.metadata as Record<string, unknown>)?.eventSubtype === "quiz");
+  
+  const isFutureEvent =
+    isExamOrQuiz && task.startDate && isBefore(new Date(), new Date(task.startDate));
+
   function handleToggle() {
     if (isArchived) return;
+    
+    if (!isDone && isFutureEvent) {
+      toast.error("No puedes completar este evento antes de que suceda.");
+      return;
+    }
+
     if (!isDone) {
       setCompleting(true);
       setTimeout(() => setCompleting(false), 550);

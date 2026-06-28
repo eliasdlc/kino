@@ -38,10 +38,13 @@ import { useFolders } from "@/features/folders/folders.hooks";
 import { useSprints } from "@/features/sprints/sprints.hooks";
 import { getSystemColor } from "@/shared/utils/system-colors";
 import { TaskTypePicker } from "./TaskTypePicker";
+import { TimePicker } from "@/components/ui/time-picker";
 import { TagPicker } from "@/features/tags/TagPicker";
 import type { Task } from "./tasks.types";
 import { useFocusTimer } from "./FocusTimerProvider";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import type { SystemType } from "@/shared/lib/system-types";
+import type { System } from "@/features/systems/systems.types";
 
 interface TaskDetailSheetProps {
   task: Task | null;
@@ -139,6 +142,7 @@ function TaskDetailForm({ task, systemId, onClose }: TaskDetailFormProps) {
       ? (task.taskType as TaskTypeValue)
       : undefined
   );
+  const [metadata, setMetadata] = useState<Record<string, unknown> | null>(task.metadata ?? null);
   const [dueDate, setDueDate] = useState<Date | undefined>(
     task.dueDate ? parseDueDate(task.dueDate) : undefined
   );
@@ -149,6 +153,10 @@ function TaskDetailForm({ task, systemId, onClose }: TaskDetailFormProps) {
   const [sprintId, setSprintId] = useState<string>(task.sprintId ?? "none");
   const [contextTagId, setContextTagId] = useState<string | null>(task.contextTagId ?? null);
   const [saveStatus, setSaveStatus] = useState<"idle" | "saved">("idle");
+
+  const queryClient = useQueryClient();
+  const cachedSystems = queryClient.getQueryData<System[]>(['systems']);
+  const systemTemplateType = cachedSystems?.find((s) => s.id === systemId)?.templateType as SystemType | undefined;
 
   const isMountedRef = useRef(false);
   const updateTaskRef = useRef(updateTask);
@@ -191,6 +199,10 @@ function TaskDetailForm({ task, systemId, onClose }: TaskDetailFormProps) {
 
     if (contextTagId !== (task.contextTagId ?? null)) data.contextTagId = contextTagId;
 
+    const curMetadataStr = metadata ? JSON.stringify(metadata) : null;
+    const origMetadataStr = task.metadata ? JSON.stringify(task.metadata) : null;
+    if (curMetadataStr !== origMetadataStr) data.metadata = metadata;
+
     return data;
   }
 
@@ -214,7 +226,7 @@ function TaskDetailForm({ task, systemId, onClose }: TaskDetailFormProps) {
     return () => clearTimeout(timer);
   // task.id is stable for the lifetime of this form instance (key={task.id} in parent)
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [title, description, priority, energyLevel, taskType, dueDate, startDate, selectedFolderId, sprintId, contextTagId]);
+  }, [title, description, priority, energyLevel, taskType, dueDate, startDate, selectedFolderId, sprintId, contextTagId, metadata]);
 
   function handleSave() {
     if (!title.trim()) return;
@@ -243,7 +255,22 @@ function TaskDetailForm({ task, systemId, onClose }: TaskDetailFormProps) {
 
       <div className="space-y-1.5">
         <Label>Tipo</Label>
-        <TaskTypePicker value={taskType} onChange={setTaskType} />
+        <TaskTypePicker
+          value={taskType}
+          metadata={metadata}
+          systemTemplateType={systemTemplateType}
+          onChange={(val, subtype) => {
+            setTaskType(val);
+            const currentMetadata = metadata || {};
+            if (subtype) {
+              setMetadata({ ...currentMetadata, eventSubtype: subtype });
+            } else {
+              const newMetadata = { ...currentMetadata };
+              delete newMetadata.eventSubtype;
+              setMetadata(Object.keys(newMetadata).length ? newMetadata : null);
+            }
+          }}
+        />
       </div>
 
       {/* Categoría (context_tag) — permite crear categorías inline. */}
@@ -358,11 +385,10 @@ function TaskDetailForm({ task, systemId, onClose }: TaskDetailFormProps) {
                 <div className="p-2 border-t space-y-2">
                   <div className="flex items-center gap-2">
                     <Label htmlFor="start-time" className="text-xs text-muted-foreground shrink-0">Hora</Label>
-                    <Input
+                    <TimePicker
                       id="start-time"
-                      type="time"
                       value={format(startDate, "HH:mm")}
-                      onChange={(e) => setStartDate((prev) => withTime(prev, e.target.value))}
+                      onChange={(val) => setStartDate((prev) => withTime(prev, val))}
                       className="h-8"
                     />
                   </div>
@@ -397,11 +423,10 @@ function TaskDetailForm({ task, systemId, onClose }: TaskDetailFormProps) {
                 <div className="p-2 border-t space-y-2">
                   <div className="flex items-center gap-2">
                     <Label htmlFor="due-time" className="text-xs text-muted-foreground shrink-0">Hora</Label>
-                    <Input
+                    <TimePicker
                       id="due-time"
-                      type="time"
                       value={format(dueDate, "HH:mm")}
-                      onChange={(e) => setDueDate((prev) => withTime(prev, e.target.value))}
+                      onChange={(val) => setDueDate((prev) => withTime(prev, val))}
                       className="h-8"
                     />
                   </div>
@@ -416,6 +441,33 @@ function TaskDetailForm({ task, systemId, onClose }: TaskDetailFormProps) {
       </div>
 
       <Separator />
+
+      {isDone && taskType === 'event' && ['exam', 'quiz', 'practice'].includes((metadata as Record<string, unknown>)?.eventSubtype as string) && (
+        <>
+          <div className="space-y-1.5 p-3 rounded-lg bg-emerald-500/10 border border-emerald-500/20">
+            <Label className="text-emerald-600 dark:text-emerald-400 font-medium">Calificación obtenida</Label>
+            <Input
+              type="number"
+              min={0}
+              max={100}
+              value={((metadata as Record<string, unknown>)?.grade as string | number) || ""}
+              onChange={(e) => {
+                const val = e.target.value;
+                const newMetadata: Record<string, unknown> = { ...(metadata as Record<string, unknown> | null) };
+                if (val === "") {
+                  delete newMetadata.grade;
+                } else {
+                  newMetadata.grade = Number(val);
+                }
+                setMetadata(Object.keys(newMetadata).length ? newMetadata : null);
+              }}
+              placeholder="Ej: 95"
+              className="w-full bg-background"
+            />
+          </div>
+          <Separator />
+        </>
+      )}
 
       <div className="space-y-2">
         <Label>Subtareas</Label>

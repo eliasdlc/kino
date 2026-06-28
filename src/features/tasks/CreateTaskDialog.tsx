@@ -18,8 +18,9 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Separator } from "@/components/ui/separator";
-import { CalendarRange, ChevronLeft, ChevronRight, Plus, X } from "lucide-react";
+import { CalendarRange, ChevronLeft, ChevronRight, Plus, X, Sparkles } from 'lucide-react';
 import { cn } from "@/lib/utils";
+import { Switch } from '@/components/ui/switch';
 import type { CreateTaskInput, Task } from "./tasks.types";
 import { useCreateTask } from "./tasks.hooks";
 import { useFolders } from "@/features/folders/folders.hooks";
@@ -37,7 +38,7 @@ import { useTags } from "@/features/tags/tags.hooks";
 
 const formSchema = z.object({
   title: z.string().min(1, "El título es requerido").max(500),
-  taskType: z.enum(['task', 'idea', 'event', 'reminder']).nullable().optional(),
+  taskType: z.enum(['task', 'idea', 'event', 'reminder', 'epic']).nullable().optional(),
   priority: z.enum(['critical', 'high', 'medium', 'low']),
   energyLevel: z.enum(['high', 'medium', 'low']),
   startDate: z.string().date().nullable().optional(),
@@ -49,6 +50,7 @@ const formSchema = z.object({
   folderId: z.string().uuid().nullable().optional(),
   contextTagId: z.string().uuid().nullable().optional(),
   sprintId: z.string().uuid().nullable().optional(),
+  metadata: z.record(z.string(), z.unknown()).nullable().optional(),
 });
 
 export type FormValues = z.infer<typeof formSchema>;
@@ -134,8 +136,11 @@ export function CreateTaskDialog({
       folderId: folderId ?? null,
       contextTagId: null,
       sprintId: null,
+      metadata: null,
     },
   });
+
+  const currentMetadata = form.watch('metadata') as Record<string, unknown> | null;
 
   const taskType = form.watch('taskType');
   const typeConfig = getTaskTypeConfig(taskType);
@@ -232,14 +237,53 @@ export function CreateTaskDialog({
       ...(values.folderId ? { folderId: values.folderId } : {}),
       ...(values.contextTagId ? { contextTagId: values.contextTagId } : {}),
       ...(values.sprintId ? { sprintId: values.sprintId } : {}),
+      ...(values.metadata ? { metadata: values.metadata } : {}),
       ...(parentTaskId ? { parentTaskId } : {}),
     };
 
     try {
       const parent = await createTask(payload);
+      
+      const studyTasks = [];
+      const meta = payload.metadata as Record<string, unknown> | undefined;
+      const isExamOrQuiz = meta?.eventSubtype === 'exam' || meta?.eventSubtype === 'quiz';
+      
+      if (isExamOrQuiz && meta?.generateStudyPlan && payload.startDate) {
+        const start = new Date(payload.startDate);
+        // Study Task 1: 5 days before
+        const d1 = new Date(start);
+        d1.setDate(d1.getDate() - 5);
+        studyTasks.push({
+            systemId,
+            title: `Repaso 1: ${payload.title}`,
+            status: 'backlog' as const,
+            priority: 'high' as const,
+            energyLevel: 'high' as const,
+            taskType: 'task' as const,
+            startDate: d1.toISOString(),
+            dueDate: d1.toISOString(),
+            parentTaskId: parent.id,
+        });
+
+        // Study Task 2: 2 days before
+        const d2 = new Date(start);
+        d2.setDate(d2.getDate() - 2);
+        studyTasks.push({
+            systemId,
+            title: `Repaso Final: ${payload.title}`,
+            status: 'backlog' as const,
+            priority: 'high' as const,
+            energyLevel: 'high' as const,
+            taskType: 'task' as const,
+            startDate: d2.toISOString(),
+            dueDate: d2.toISOString(),
+            parentTaskId: parent.id,
+        });
+      }
+
       const validSubtasks = subtasks.filter((s) => s.title.trim());
-      await Promise.allSettled(
-        validSubtasks.map((s) =>
+      await Promise.allSettled([
+        ...validSubtasks.map((s) =>
           createTask({
             systemId,
             title: s.title.trim(),
@@ -249,7 +293,8 @@ export function CreateTaskDialog({
             parentTaskId: parent.id,
           }),
         ),
-      );
+        ...studyTasks.map((t) => createTask(t))
+      ]);
       onTaskCreated?.(parent);
       handleClose(false);
     } catch (err) {
@@ -383,6 +428,7 @@ export function CreateTaskDialog({
         <TaskPlanningFields
           form={form}
           systemId={systemId}
+          systemTemplateType={systemTemplateType}
           fields={dialogFields}
           typeConfig={typeConfig}
           taskType={taskType}
@@ -397,13 +443,36 @@ export function CreateTaskDialog({
       {step === 3 && (
         <div className="flex flex-col gap-4">
           <div className="space-y-2">
-            <Label htmlFor="description">Notas</Label>
-            <Textarea
-              id="description"
-              placeholder="Detalles opcionales..."
-              {...form.register('description')}
-              className="min-h-[72px] resize-none"
-            />
+            {(() => {
+              const meta = currentMetadata;
+              const isExamOrQuiz = meta?.eventSubtype === 'exam' || meta?.eventSubtype === 'quiz';
+              return (
+                <>
+                  <Label htmlFor="description">{isExamOrQuiz ? 'Temario a estudiar' : 'Notas'}</Label>
+                  <Textarea
+                    id="description"
+                    placeholder={isExamOrQuiz ? "Temas principales..." : "Detalles opcionales..."}
+                    {...form.register('description')}
+                    className="min-h-[72px] resize-none"
+                  />
+                  {isExamOrQuiz && (
+                    <div className="flex items-center justify-between gap-2 p-3 mt-2 border rounded-lg bg-muted/20">
+                      <div className="space-y-0.5">
+                        <Label className="flex items-center gap-1.5"><Sparkles size={14} className="text-amber-500" /> Plan de Estudio</Label>
+                        <p className="text-[11px] text-muted-foreground">Auto-generar tareas de repaso antes de la fecha.</p>
+                      </div>
+                      <Switch
+                        checked={!!meta?.generateStudyPlan}
+                        onCheckedChange={(checked) => {
+                          const currentMetadata = (form.getValues('metadata') as Record<string, unknown>) || {};
+                          form.setValue('metadata', { ...currentMetadata, generateStudyPlan: checked });
+                        }}
+                      />
+                    </div>
+                  )}
+                </>
+              );
+            })()}
           </div>
 
           <Separator />

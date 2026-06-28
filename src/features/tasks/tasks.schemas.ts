@@ -18,6 +18,10 @@ function dueBeforeStart(dueDate: string, startDate: string): boolean {
   return dueDate.slice(0, 10) < startDate.slice(0, 10);
 }
 
+export const taskMetadataSchema = z.object({
+  eventSubtype: z.enum(['exam', 'quiz', 'practice']).optional(),
+}).catchall(z.unknown());
+
 export const createTaskSchema = z.object({
   systemId: z.string().uuid(),
   title: z.string().min(1).max(500),
@@ -34,7 +38,7 @@ export const createTaskSchema = z.object({
   folderId: z.string().uuid().optional(),
   sprintId: z.string().uuid().optional(),
   boardStatus: z.string().max(50).optional(),
-  metadata: z.record(z.string(), z.unknown()).optional(),
+  metadata: taskMetadataSchema.optional(),
 }).superRefine((data, ctx) => {
   if (data.taskType === 'event' && !data.startDate) {
     ctx.addIssue({ code: 'custom', path: ['startDate'], message: 'Events require a start date' });
@@ -63,7 +67,7 @@ export const updateTaskSchema = z.object({
   sprintId: z.string().uuid().nullable().optional(),
   systemId: z.string().uuid().optional(),
   inTodayPlan: z.boolean().optional(),
-  metadata: z.record(z.string(), z.unknown()).optional().nullable(),
+  metadata: taskMetadataSchema.optional().nullable(),
 }).superRefine((data, ctx) => {
   if (data.taskType === 'event' && data.startDate === null) {
     ctx.addIssue({ code: 'custom', path: ['startDate'], message: 'Events require a start date' });
