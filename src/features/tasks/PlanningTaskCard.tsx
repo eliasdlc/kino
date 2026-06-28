@@ -47,7 +47,7 @@ export function PlanningTaskCard({ task, isFocused, onToggle, onDelete, onEdit }
   const isCritical = task.priority === "critical" && !isDone && !isArchived;
   const isHigh = task.priority === "high" && !isDone && !isArchived;
   const isEvent = task.taskType === "event";
-  const typeConfig = getTaskTypeConfig(task.taskType);
+  const typeConfig = getTaskTypeConfig(task.taskType, task.metadata);
   const TypeIcon = typeConfig.icon;
 
   const isOverdue =
@@ -118,7 +118,7 @@ export function PlanningTaskCard({ task, isFocused, onToggle, onDelete, onEdit }
       {(isEvent || task.dueDate) && (
         <div className="mt-1 flex items-center gap-1.5 pl-5 flex-wrap">
           {isEvent && (
-            <span className="inline-flex items-center gap-1 text-[10px] font-medium text-[#7dd3fc]">
+            <span className={cn("inline-flex items-center gap-1 text-[10px] font-medium", typeConfig.iconClass)}>
               <TypeIcon size={11} />
               {typeConfig.label}
             </span>

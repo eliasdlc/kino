@@ -27,9 +27,9 @@ export function PriorityTag({ priority }: { priority: string | null }) {
   );
 }
 
-export function TaskTypeTag({ taskType }: { taskType: string | null }) {
+export function TaskTypeTag({ taskType, metadata }: { taskType: string | null, metadata?: Record<string, unknown> | null }) {
   if (!taskType) return null;
-  const config = getTaskTypeConfig(taskType);
+  const config = getTaskTypeConfig(taskType, metadata);
   return (
     <span className="inline-flex items-center px-2.5 py-1 rounded-md text-xs font-medium bg-[#222b40] text-[#6888d3]">
       {config.label}
@@ -48,11 +48,11 @@ export function EnergyTag({ energyLevel }: { energyLevel: string | null }) {
 
 /** Fila de tags del ticket: prioridad + tipo + energía. */
 export function TaskTags({ task }: { task: Task }) {
-  const config = getTaskTypeConfig(task.taskType);
+  const config = getTaskTypeConfig(task.taskType, task.metadata);
   return (
     <div className="flex items-center gap-2 flex-wrap">
       <PriorityTag priority={task.priority} />
-      <TaskTypeTag taskType={task.taskType} />
+      <TaskTypeTag taskType={task.taskType} metadata={task.metadata} />
       {!config.hideEnergyAndPriority && <EnergyTag energyLevel={task.energyLevel} />}
     </div>
   );

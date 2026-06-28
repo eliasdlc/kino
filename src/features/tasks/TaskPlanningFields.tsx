@@ -5,7 +5,6 @@ import { format } from "date-fns";
 import type { DateRange } from "react-day-picker";
 import { CalendarRange } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
@@ -18,6 +17,7 @@ import type { FolderWithCounts } from "@/features/folders/folders.types";
 import type { Sprint } from "@/features/sprints/sprints.types";
 import { EstimatedTimePicker } from "./EstimatedTimePicker";
 import { TaskTypePicker } from "./TaskTypePicker";
+import { TimePicker } from "@/components/ui/time-picker";
 import type { TaskTypeConfig } from "./task-type-config";
 import {
   isFieldHiddenByTaskType,
@@ -28,6 +28,7 @@ import type { FormValues } from "./CreateTaskDialog";
 interface TaskPlanningFieldsProps {
   form: UseFormReturn<FormValues>;
   systemId: string;
+  systemTemplateType?: string;
   /** Campos visibles para este systemType, ya ordenados por prioridad. */
   fields: TaskDialogFieldKey[];
   typeConfig: TaskTypeConfig;
@@ -45,7 +46,7 @@ interface TaskPlanningFieldsProps {
  * quedan contiguos.
  */
 export function TaskPlanningFields({
-  form, systemId, fields, typeConfig, taskType, folders, sprints, dateRange, setDateRange,
+  form, systemId, systemTemplateType, fields, typeConfig, taskType, folders, sprints, dateRange, setDateRange,
 }: TaskPlanningFieldsProps) {
   const activeSprints = sprints.filter((s) => s.status !== 'completed');
 
@@ -166,23 +167,35 @@ export function TaskPlanningFields({
               {taskType !== 'reminder' && (
                 <div className="space-y-1">
                   <Label htmlFor="start-time" className="text-xs text-muted-foreground">Hora inicio</Label>
-                  <Input
-                    id="start-time"
-                    type="time"
-                    disabled={!form.watch('startDate')}
-                    {...form.register('startTime')}
-                    className="h-9 text-sm"
+                  <Controller
+                    control={form.control}
+                    name="startTime"
+                    render={({ field }) => (
+                      <TimePicker
+                        id="start-time"
+                        value={field.value}
+                        onChange={field.onChange}
+                        disabled={!form.watch('startDate')}
+                        className="h-9 text-sm"
+                      />
+                    )}
                   />
                 </div>
               )}
               <div className={cn("space-y-1", taskType === 'reminder' && "col-span-2")}>
                 <Label htmlFor="due-time" className="text-xs text-muted-foreground">Hora vencimiento</Label>
-                <Input
-                  id="due-time"
-                  type="time"
-                  disabled={!form.watch('dueDate')}
-                  {...form.register('dueTime')}
-                  className="h-9 text-sm"
+                <Controller
+                  control={form.control}
+                  name="dueTime"
+                  render={({ field }) => (
+                    <TimePicker
+                      id="due-time"
+                      value={field.value}
+                      onChange={field.onChange}
+                      disabled={!form.watch('dueDate')}
+                      className="h-9 text-sm"
+                    />
+                  )}
                 />
               </div>
             </div>
@@ -311,15 +324,33 @@ export function TaskPlanningFields({
       {/* Type picker (siempre visible: gobierna el ocultado por tipo de tarea) */}
       <div className="space-y-2">
         <Label>Tipo</Label>
-        <Controller
-          control={form.control}
-          name="taskType"
-          render={({ field }) => (
-            <TaskTypePicker
-              value={field.value ?? undefined}
-              onChange={(val) => field.onChange(val ?? null)}
-            />
-          )}
+        <TaskTypePicker
+          value={form.watch('taskType') ?? undefined}
+          metadata={form.watch('metadata')}
+          systemTemplateType={systemTemplateType}
+          onChange={(val, subtype) => {
+            form.setValue('taskType', val ?? null, { shouldValidate: true });
+            
+            if (subtype === 'exam') {
+              form.setValue('priority', 'critical');
+              form.setValue('energyLevel', 'high');
+            } else if (subtype === 'quiz') {
+              form.setValue('priority', 'high');
+              form.setValue('energyLevel', 'medium');
+            } else if (subtype === 'practice') {
+              form.setValue('priority', 'medium');
+              form.setValue('energyLevel', 'medium');
+            }
+
+            const currentMetadata = (form.getValues('metadata') as Record<string, unknown>) || {};
+            if (subtype) {
+              form.setValue('metadata', { ...currentMetadata, eventSubtype: subtype });
+            } else {
+              const newMetadata = { ...currentMetadata };
+              delete newMetadata.eventSubtype;
+              form.setValue('metadata', Object.keys(newMetadata).length ? newMetadata : null);
+            }
+          }}
         />
       </div>
 
