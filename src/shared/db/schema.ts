@@ -106,11 +106,6 @@ export const timeSourceEnum = pgEnum('time_source', [
   'timer',
 ]);
 
-export const questTypeEnum = pgEnum('quest_type', [
-  'consistency',
-  'milestone',
-  'recovery',
-]);
 export const taskTypeEnum = pgEnum('task_type', [
   'task',
   'idea',
@@ -128,13 +123,6 @@ export const frequencyEnum = pgEnum('frequency', [
   'daily',
   'weekly',
   'monthly',
-]);
-
-export const itemTypeEnum = pgEnum('item_type', [
-  'freeze',
-  'theme',
-  'sticker',
-  'boost',
 ]);
 
 export const accountStatusEnum = pgEnum('account_status', [
@@ -216,13 +204,10 @@ export const users = pgTable(
     onboardingCompleted: boolean('onboarding_completed')
       .notNull()
       .default(false),
-    xpTotal: integer('xp_total').notNull().default(0),
-    coins: integer('coins').notNull().default(0),
     status: accountStatusEnum('status').notNull().default('active'),
     timezone: varchar('timezone', { length: 50 })
       .notNull()
       .default('America/Santo_Domingo'),
-    lastSyncDate: timestamp('last_sync_date', { withTimezone: true }),
     createdAt: timestamp('created_at', { withTimezone: true })
       .notNull()
       .defaultNow(),
@@ -245,10 +230,7 @@ export const userSettings = pgTable('user_settings', {
     .references(() => users.id, { onDelete: 'cascade' }),
   profileType: profileTypeEnum('profile_type'),
   onboardingVersion: integer('onboarding_version').notNull().default(1),
-  peakEnergyStart: time('peak_energy_start'),
-  peakEnergyEnd: time('peak_energy_end'),
   weeklyReviewDay: weekdayEnum('weekly_review_day').notNull().default('sun'),
-  brainDumpDefaultSystem: uuid('brain_dump_default_system'),
   dailyResetTime: time('daily_reset_time').notNull().default('00:00'),
   // Día (en tz del usuario) en que se hizo el último rollover del plan de hoy.
   // Lo usa ensureTodayPlanRolled para limpiar/repoblar in_today_plan una vez por día.
@@ -266,14 +248,6 @@ export const userSettings = pgTable('user_settings', {
     .notNull()
     .defaultNow(),
 });
-
-// NOTE: FK user_settings.brain_dump_default_system → systems.id
-// is deferred (added after systems table exists).
-// Drizzle does not support ALTER TABLE ADD CONSTRAINT declaratively.
-// Apply via raw migration:
-//   ALTER TABLE user_settings ADD CONSTRAINT fk_settings_braindump
-//     FOREIGN KEY (brain_dump_default_system) REFERENCES systems(id)
-//     ON DELETE SET NULL;
 
 // ── sessions (Better Auth) ──
 
@@ -977,78 +951,6 @@ export const systemHealth = pgTable(
     uniqueIndex('uq_system_health_day').on(table.systemId, table.date),
     index('idx_health_user').on(table.userId, table.date),
   ],
-);
-
-// ── energy_logs ──
-
-export const energyLogs = pgTable(
-  'energy_logs',
-  {
-    id: uuid('id').primaryKey().defaultRandom(),
-    userId: uuid('user_id')
-      .notNull()
-      .references(() => users.id, { onDelete: 'cascade' }),
-    energyValue: smallint('energy_value').notNull(),
-    createdAt: timestamp('created_at', { withTimezone: true })
-      .notNull()
-      .defaultNow(),
-  },
-  (table) => [
-    check(
-      'energy_value_range',
-      sql`${table.energyValue} BETWEEN 1 AND 100`,
-    ),
-    index('idx_energy_user').on(table.userId, table.createdAt),
-  ],
-);
-
-// ── quests ──
-
-export const quests = pgTable(
-  'quests',
-  {
-    id: uuid('id').primaryKey().defaultRandom(),
-    userId: uuid('user_id')
-      .notNull()
-      .references(() => users.id, { onDelete: 'cascade' }),
-    systemId: uuid('system_id').references(() => systems.id, {
-      onDelete: 'set null',
-    }),
-    title: varchar('title', { length: 255 }).notNull(),
-    description: text('description').notNull(),
-    questType: questTypeEnum('quest_type').notNull(),
-    frequency: frequencyEnum('frequency').notNull().default('daily'),
-    targetValue: integer('target_value').notNull(),
-    currentValue: integer('current_value').notNull().default(0),
-    expiresAt: date('expires_at').notNull(),
-    completedAt: timestamp('completed_at', { withTimezone: true }),
-    rewardXp: integer('reward_xp').notNull(),
-    rewardCoins: integer('reward_coins').notNull().default(0),
-    createdAt: timestamp('created_at', { withTimezone: true })
-      .notNull()
-      .defaultNow(),
-  },
-  (table) => [index('idx_quests_user').on(table.userId, table.expiresAt)],
-);
-
-// ── inventory_items ──
-
-export const inventoryItems = pgTable(
-  'inventory_items',
-  {
-    id: uuid('id').primaryKey().defaultRandom(),
-    userId: uuid('user_id')
-      .notNull()
-      .references(() => users.id, { onDelete: 'cascade' }),
-    itemType: itemTypeEnum('item_type').notNull(),
-    itemKey: varchar('item_key', { length: 100 }).notNull(),
-    quantity: integer('quantity').notNull().default(1),
-    coinCost: integer('coin_cost').notNull(),
-    acquiredAt: timestamp('acquired_at', { withTimezone: true })
-      .notNull()
-      .defaultNow(),
-  },
-  (table) => [index('idx_inventory_user').on(table.userId)],
 );
 
 // ── sync_connections ──
