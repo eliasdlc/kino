@@ -1,5 +1,5 @@
-export type TaskStatus = "backlog" | "week" | "tomorrow" | "today" | "done" | "archived";
-export type TransitionAction = "move_to_week" | "move_to_today" | "move_to_tomorrow" | "move_to_backlog" | "toggle_done" | "undo_done" | "soft_delete";
+export type TaskStatus = "backlog" | "week" | "tomorrow" | "today" | "done";
+export type TransitionAction = "move_to_week" | "move_to_today" | "move_to_tomorrow" | "move_to_backlog" | "toggle_done" | "undo_done";
 
 export interface TransitionContext {
     currentStatus: TaskStatus;
@@ -20,45 +20,55 @@ export interface TransitionResult {
 export type SideEffect =
     | { type: "set_completed_at"; value: Date }
     | { type: "clear_completed_at" }
-    | { type: "set_deleted_at"; value: Date }
     | { type: "grant_xp"; amount: number }
     | { type: "revert_xp"; amount: number };
 
+// Borrado y restauración NO viven aquí: son papelera (deletedAt) vía
+// deleteTask/restoreTask, un eje ortogonal al scheduling. Este mapa sólo
+// gobierna las transiciones de status.
 const TRANSITION_MAP: Record<TaskStatus, Partial<Record<TransitionAction, TaskStatus>>> = {
     backlog: {
         move_to_week: "week",
         move_to_tomorrow: "tomorrow",
         move_to_today: "today",
         toggle_done: "done",
-        soft_delete: "archived",
     },
     week: {
         move_to_today: "today",
         move_to_tomorrow: "tomorrow",
         move_to_backlog: "backlog",
         toggle_done: "done",
-        soft_delete: "archived",
     },
     tomorrow: {
         move_to_today: "today",
         move_to_week: "week",
         move_to_backlog: "backlog",
         toggle_done: "done",
-        soft_delete: "archived",
     },
     today: {
         move_to_tomorrow: "tomorrow",
         move_to_week: "week",
         toggle_done: "done",
         move_to_backlog: "backlog",
-        soft_delete: "archived",
     },
     done: {
         undo_done: "today",
-        soft_delete: "archived",
     },
-    archived: {},
 };
+
+/**
+ * Acción única que lleva de `from` a `to`, o null si no hay transición directa
+ * (incluye el caso no-op `from === to`). Fuente única: el TRANSITION_MAP. Antes
+ * había un mapa `from->to` duplicado a mano en el servicio que divergía y
+ * producía 422 fantasma en movimientos válidos.
+ */
+export function actionForTransition(from: TaskStatus, to: TaskStatus): TransitionAction | null {
+    if (from === to) return null;
+    for (const [action, target] of Object.entries(TRANSITION_MAP[from])) {
+        if (target === to) return action as TransitionAction;
+    }
+    return null;
+}
 
 export function validateTransition(ctx: TransitionContext): TransitionResult {
     const allowedActions = TRANSITION_MAP[ctx.currentStatus];
@@ -109,12 +119,6 @@ function buildSideEffects(action: TransitionAction, taskEnergyPoints: number): S
             return [
                 { type: "clear_completed_at" },
                 { type: "revert_xp", amount: taskEnergyPoints },
-
-            ];
-
-        case "soft_delete":
-            return [
-                { type: "set_deleted_at", value: new Date() },
 
             ];
 

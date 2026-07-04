@@ -2,7 +2,7 @@ import { db } from "@/shared/db";
 import { tasks, users, userSettings, systems, folders, sprints, systemStatusDefinitions, timeLogs, taskReminders, contextTags } from "@/shared/db/schema";
 import { and, eq, isNull, isNotNull, sql, sum, count, or, gte, lte, type SQL } from "drizzle-orm";
 import { NotFoundError, ValidationError } from "@/shared/utils/error";
-import { validateTransition, deriveBoardBridgeAction, type TaskStatus, type TransitionAction } from "./tasks.state-machine";
+import { validateTransition, deriveBoardBridgeAction, actionForTransition, type TaskStatus, type TransitionAction } from "./tasks.state-machine";
 import { Task, CreateTaskInput, UpdateTaskInput } from "./tasks.types";
 import type { z } from "zod";
 import type { listTasksQuerySchema, CreateTimeLogInput } from "./tasks.schemas";
@@ -37,7 +37,7 @@ async function applyTransition(
   tx: DbTransaction,
   taskId: string,
   userId: string,
-  getAction: (current: Task) => TransitionAction,
+  getAction: (current: Task) => TransitionAction | null,
 ): Promise<{ updated: Task; xpDelta: number }> {
   // Serialize concurrent energy operations per user via a transaction-scoped advisory lock.
   await tx.execute(
@@ -83,6 +83,12 @@ async function applyTransition(
 
   const action = getAction(current as Task);
 
+  // action null = no-op (p. ej. mover a la misma columna): no es error, se
+  // devuelve la tarea intacta. Esto elimina el 422 fantasma de bulk_move.
+  if (action === null) {
+    return { updated: current as Task, xpDelta: 0 };
+  }
+
   const transition = validateTransition({
     currentStatus: current.status as TaskStatus,
     action,
@@ -126,9 +132,6 @@ async function applyTransition(
       case "revert_xp":
         xpDelta = -effect.amount;
         break;
-      case "set_deleted_at":
-        updates.deletedAt = effect.value;
-        break;
     }
   }
 
@@ -148,29 +151,6 @@ async function applyTransition(
   }
 
   return { updated: updated as Task, xpDelta };
-}
-
-function deriveAction(currentStatus: TaskStatus, targetStatus: TaskStatus): TransitionAction | undefined {
-  const map: Record<string, TransitionAction> = {
-    "backlog->week": "move_to_week",
-    "backlog->tomorrow": "move_to_tomorrow",
-    "backlog->today": "move_to_today",
-    "backlog->done": "toggle_done",
-    "week->today": "move_to_today",
-    "week->tomorrow": "move_to_tomorrow",
-    "week->backlog": "move_to_backlog",
-    "week->done": "toggle_done",
-    "tomorrow->today": "move_to_today",
-    "tomorrow->week": "move_to_week",
-    "tomorrow->backlog": "move_to_backlog",
-    "tomorrow->done": "toggle_done",
-    "today->tomorrow": "move_to_tomorrow",
-    "today->week": "move_to_week",
-    "today->done": "toggle_done",
-    "today->backlog": "move_to_backlog",
-    "done->today": "undo_done",
-  };
-  return map[`${currentStatus}->${targetStatus}`];
 }
 
 const AUTO_REMINDER_OFFSETS: Record<string, number[]> = {
@@ -358,7 +338,7 @@ export async function createTask(userId: string, data: CreateTaskInput) {
     if (!sprint) throw new ValidationError("Sprint not found in this system");
   }
 
-  const explicitTerminal = data.status === "done" || data.status === "archived";
+  const explicitTerminal = data.status === "done";
   // Ideas are always backlog — they are captures, not scheduled work
   // When startDate is given, derive status from date (authoritative).
   // When startDate is absent, respect an explicit status or fall back to backlog.
@@ -477,7 +457,7 @@ export async function updateTask(taskId: string, userId: string, data: UpdateTas
   // Auto-derive status when startDate or taskType changes (skip when status is explicit or task is terminal)
   const hasExplicitStatus = data.status !== undefined;
   if (!hasExplicitStatus && (data.startDate !== undefined || data.taskType !== undefined)) {
-    if (!["done", "archived"].includes(current.status)) {
+    if (current.status !== "done") {
       const effectiveType = data.taskType ?? current.taskType;
       if (effectiveType === "idea") {
         data = { ...data, status: "backlog" } as UpdateTaskInput;
@@ -571,7 +551,8 @@ export async function bulkMoveTasks(taskIds: string[], status: TaskStatus, userI
   await db.transaction(async (tx) => {
     for (const taskId of taskIds) {
       await applyTransition(tx, taskId, userId, (current) => {
-        const action = deriveAction(current.status as TaskStatus, status);
+        if (current.status === status) return null; // ya está ahí: no-op
+        const action = actionForTransition(current.status as TaskStatus, status);
         if (!action) {
           throw new ValidationError(`Cannot move task from '${current.status}' to '${status}'`);
         }
@@ -599,7 +580,8 @@ export async function bulkUpdateTasks(
 export async function moveTask(taskId: string, newStatus: TaskStatus, userId: string): Promise<Task> {
   const { updated } = await db.transaction((tx) =>
     applyTransition(tx, taskId, userId, (current) => {
-      const action = deriveAction(current.status as TaskStatus, newStatus);
+      if (current.status === newStatus) return null; // ya está ahí: no-op
+      const action = actionForTransition(current.status as TaskStatus, newStatus);
       if (!action) {
         throw new ValidationError(`Cannot move task from '${current.status}' to '${newStatus}'`);
       }

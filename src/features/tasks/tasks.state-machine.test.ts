@@ -2,6 +2,7 @@ import { describe, it, expect } from "vitest";
 import {
     validateTransition,
     deriveBoardBridgeAction,
+    actionForTransition,
     type TransitionContext,
     type TaskStatus,
     type TransitionAction,
@@ -25,18 +26,13 @@ describe("validateTransition", () => {
             ["backlog", "move_to_week", "week"],
             ["backlog", "move_to_today", "today"],
             ["backlog", "toggle_done", "done"],
-            ["backlog", "soft_delete", "archived"],
             ["week", "move_to_today", "today"],
             ["week", "move_to_backlog", "backlog"],
             ["week", "toggle_done", "done"],
-            ["week", "soft_delete", "archived"],
             ["today", "toggle_done", "done"],
             ["today", "move_to_backlog", "backlog"],
             ["today", "move_to_week", "week"],
-            ["today", "soft_delete", "archived"],
             ["done", "undo_done", "today"],
-            ["done", "soft_delete", "archived"],
-            ["archived", "soft_delete", "archived"],
         ];
 
         validTransitions.forEach(([currentStatus, action, expectedNewStatus]) => {
@@ -66,11 +62,6 @@ describe("validateTransition", () => {
             ["week", "undo_done"],
             ["backlog", "move_to_backlog"],
             ["backlog", "undo_done"],
-            ["archived", "move_to_week"],
-            ["archived", "move_to_today"],
-            ["archived", "move_to_backlog"],
-            ["archived", "toggle_done"],
-            ["archived", "undo_done"],
         ];
 
         invalidTransitions.forEach(([currentStatus, action]) => {
@@ -233,21 +224,6 @@ describe("validateTransition", () => {
             });
         });
 
-        it("soft_delete produces set_deleted_at", () => {
-            const result = validateTransition(
-                makeCtx({
-                    currentStatus: "today",
-                    action: "soft_delete",
-                })
-            );
-
-            expect(result.valid).toBe(true);
-            expect(result.sideEffects).toContainEqual({
-                type: "set_deleted_at",
-                value: expect.any(Date),
-            });
-        });
-
         it("grant_xp amount equals taskEnergyPoints", () => {
             const result = validateTransition(
                 makeCtx({
@@ -326,5 +302,25 @@ describe("deriveBoardBridgeAction (puente board ↔ scheduling)", () => {
 
     it("salir de terminal sin estar done no dispara undo", () => {
         expect(deriveBoardBridgeAction("today", "done", "in_progress")).toBeNull();
+    });
+});
+
+describe("actionForTransition (reverse-lookup único del TRANSITION_MAP)", () => {
+    it("devuelve la acción que lleva de un status a otro", () => {
+        expect(actionForTransition("backlog", "today")).toBe("move_to_today");
+        expect(actionForTransition("today", "done")).toBe("toggle_done");
+        expect(actionForTransition("done", "today")).toBe("undo_done");
+        expect(actionForTransition("week", "backlog")).toBe("move_to_backlog");
+    });
+
+    it("mismo status es no-op (null), no un 422 fantasma", () => {
+        expect(actionForTransition("today", "today")).toBeNull();
+        expect(actionForTransition("backlog", "backlog")).toBeNull();
+        expect(actionForTransition("done", "done")).toBeNull();
+    });
+
+    it("una transición imposible devuelve null", () => {
+        // No se puede reabrir a backlog desde done directamente.
+        expect(actionForTransition("done", "backlog")).toBeNull();
     });
 });
