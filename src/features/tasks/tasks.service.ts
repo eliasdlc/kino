@@ -1,12 +1,12 @@
 import { db } from "@/shared/db";
-import { tasks, users, userSettings, systems, folders, sprints, systemStatusDefinitions, timeLogs, taskReminders } from "@/shared/db/schema";
+import { tasks, users, userSettings, systems, folders, sprints, systemStatusDefinitions, timeLogs, taskReminders, contextTags } from "@/shared/db/schema";
 import { and, eq, isNull, isNotNull, sql, sum, count, or, gte, lte, type SQL } from "drizzle-orm";
 import { NotFoundError, ValidationError } from "@/shared/utils/error";
 import { validateTransition, deriveBoardBridgeAction, type TaskStatus, type TransitionAction } from "./tasks.state-machine";
 import { Task, CreateTaskInput, UpdateTaskInput } from "./tasks.types";
 import type { z } from "zod";
 import type { listTasksQuerySchema, CreateTimeLogInput } from "./tasks.schemas";
-import { deriveStatusFromDate } from "./tasks.utils";
+import { deriveStatusFromDate, findParentViolation } from "./tasks.utils";
 import { sqlUserDay, sqlUserToday } from "@/shared/time";
 
 const ENERGY_POINTS: Record<string, number> = {
@@ -268,6 +268,42 @@ export async function getTasksByFolder(
     .orderBy(tasks.sortIndex);
 }
 
+/** Valida que un contextTagId entrante pertenezca al usuario. */
+async function assertContextTagOwnership(userId: string, contextTagId: string): Promise<void> {
+  const [tag] = await db
+    .select({ id: contextTags.id })
+    .from(contextTags)
+    .where(and(eq(contextTags.id, contextTagId), eq(contextTags.userId, userId)));
+  if (!tag) throw new ValidationError("Context tag not found");
+}
+
+/**
+ * Valida un parentTaskId entrante para `taskId`: debe existir, ser del usuario,
+ * no ser la propia tarea, y no crear un ciclo (que taskId sea ancestro del
+ * nuevo padre). Filtrar por userId en la query principal no basta: la FK entrante
+ * también tiene que pertenecer al usuario.
+ */
+async function assertValidParent(taskId: string, parentTaskId: string, userId: string): Promise<void> {
+  const [parent] = await db
+    .select({ id: tasks.id, parentTaskId: tasks.parentTaskId })
+    .from(tasks)
+    .where(and(eq(tasks.id, parentTaskId), eq(tasks.userId, userId), isNull(tasks.deletedAt)));
+  if (parentTaskId !== taskId && !parent) throw new ValidationError("Parent task not found");
+
+  const getParentOf = async (id: string): Promise<string | null> => {
+    if (id === parentTaskId) return parent?.parentTaskId ?? null;
+    const [next] = await db
+      .select({ parentTaskId: tasks.parentTaskId })
+      .from(tasks)
+      .where(and(eq(tasks.id, id), eq(tasks.userId, userId)));
+    return next?.parentTaskId ?? null;
+  };
+
+  const violation = await findParentViolation(taskId, parentTaskId, getParentOf);
+  if (violation === "self") throw new ValidationError("A task cannot be its own parent");
+  if (violation === "cycle") throw new ValidationError("Circular parent reference");
+}
+
 export async function createTask(userId: string, data: CreateTaskInput) {
   const [system] = await db
     .select({ id: systems.id })
@@ -288,6 +324,10 @@ export async function createTask(userId: string, data: CreateTaskInput) {
         ),
       );
     if (!parent) throw new NotFoundError("Parent task not found");
+  }
+
+  if (data.contextTagId) {
+    await assertContextTagOwnership(userId, data.contextTagId);
   }
 
   if (data.folderId) {
@@ -384,6 +424,16 @@ export async function updateTask(taskId: string, userId: string, data: UpdateTas
   }
 
   const targetSystemId = data.systemId ?? current.systemId;
+
+  // Ownership + ausencia de ciclos del nuevo padre (no basta filtrar por userId
+  // en el UPDATE: la FK entrante también debe ser del usuario).
+  if (data.parentTaskId) {
+    await assertValidParent(taskId, data.parentTaskId, userId);
+  }
+
+  if (data.contextTagId) {
+    await assertContextTagOwnership(userId, data.contextTagId);
+  }
 
   // Validate folder↔system consistency when folder_id is being set
   if (data.folderId) {
@@ -830,12 +880,18 @@ export async function createTimeLog(
   data: CreateTimeLogInput,
 ): Promise<void> {
   const [task] = await db
-    .select({ id: tasks.id })
+    .select({ id: tasks.id, systemId: tasks.systemId })
     .from(tasks)
     .where(and(eq(tasks.id, taskId), eq(tasks.userId, userId)))
     .limit(1);
 
   if (!task) throw new NotFoundError('Task not found');
+
+  // El systemId entrante debe coincidir con el de la tarea (que ya es del
+  // usuario): evita imputar tiempo a un sistema ajeno o inconsistente.
+  if (data.systemId !== task.systemId) {
+    throw new ValidationError('systemId does not match the task');
+  }
 
   await db.insert(timeLogs).values({
     userId,

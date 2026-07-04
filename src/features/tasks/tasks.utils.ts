@@ -8,6 +8,30 @@ import { calendarDayInTz } from "@/shared/time";
 export type ScheduleStatus = "backlog" | "today" | "tomorrow" | "week";
 
 /**
+ * Decide si asignar `parentTaskId` como padre de `taskId` es inválido:
+ * "self" si son la misma tarea, "cycle" si `taskId` ya es ancestro del nuevo
+ * padre (recorriendo la cadena de padres hacia arriba). Puro: recibe el lookup
+ * de padre (async, para poder consultar la DB en producción) y así es testeable
+ * sin base de datos.
+ */
+export async function findParentViolation(
+  taskId: string,
+  parentTaskId: string,
+  getParentOf: (id: string) => Promise<string | null>,
+): Promise<"self" | "cycle" | null> {
+  if (parentTaskId === taskId) return "self";
+  const seen = new Set<string>([parentTaskId]);
+  let cursor = await getParentOf(parentTaskId);
+  while (cursor) {
+    if (cursor === taskId) return "cycle";
+    if (seen.has(cursor)) break; // ciclo preexistente ajeno a este cambio
+    seen.add(cursor);
+    cursor = await getParentOf(cursor);
+  }
+  return null;
+}
+
+/**
  * Derives the scheduling status from a task's startDate.
  *
  * Why hybrid (stored + derived)?
