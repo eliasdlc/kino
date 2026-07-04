@@ -1,19 +1,11 @@
+import { calendarDayInTz } from "@/shared/time";
+
 /**
  * Scheduling statuses that are auto-derived from startDate.
  * "done" and "archived" are intentionally excluded — those are
  * explicit user actions that should never be overwritten by date logic.
  */
 export type ScheduleStatus = "backlog" | "today" | "tomorrow" | "week";
-
-/** Día calendario (yyyy-MM-dd) de `d` en la timezone dada. */
-function calendarDateInTz(d: Date, timezone: string): string {
-  return new Intl.DateTimeFormat("en-CA", {
-    timeZone: timezone,
-    year: "numeric",
-    month: "2-digit",
-    day: "2-digit",
-  }).format(d);
-}
 
 /**
  * Derives the scheduling status from a task's startDate.
@@ -38,10 +30,10 @@ export function deriveStatusFromDate(
   // calculamos su día calendario en la tz del usuario.
   const day = startDate.length <= 10
     ? startDate.slice(0, 10)
-    : calendarDateInTz(new Date(startDate), timezone);
+    : calendarDayInTz(new Date(startDate), timezone);
   const now = new Date();
-  const today = calendarDateInTz(now, timezone);
-  const tomorrow = calendarDateInTz(new Date(now.getTime() + 86_400_000), timezone);
+  const today = calendarDayInTz(now, timezone);
+  const tomorrow = calendarDayInTz(new Date(now.getTime() + 86_400_000), timezone);
 
   if (day === today) return "today";
   if (day === tomorrow) return "tomorrow";

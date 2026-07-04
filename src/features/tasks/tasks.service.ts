@@ -7,6 +7,7 @@ import { Task, CreateTaskInput, UpdateTaskInput } from "./tasks.types";
 import type { z } from "zod";
 import type { listTasksQuerySchema, CreateTimeLogInput } from "./tasks.schemas";
 import { deriveStatusFromDate } from "./tasks.utils";
+import { sqlUserDay, sqlUserToday } from "@/shared/time";
 
 const ENERGY_POINTS: Record<string, number> = {
   high: 5,
@@ -70,7 +71,7 @@ async function applyTransition(
       and(
         eq(tasks.userId, userId),
         eq(tasks.status, "done"),
-        sql`${tasks.completedAt} >= (NOW() AT TIME ZONE ${tz})::date::timestamptz`,
+        sql`${tasks.completedAt} >= ${sqlUserDay(tz)}`,
         isNull(tasks.deletedAt),
       ),
     );
@@ -630,8 +631,8 @@ export async function ensureTodayPlanRolled(userId: string): Promise<void> {
     .from(users)
     .where(eq(users.id, userId));
   const tz = userRow?.timezone ?? "UTC";
-  const today = sql`(NOW() AT TIME ZONE ${tz})::date`;
-  const tomorrow = sql`((NOW() AT TIME ZONE ${tz})::date + INTERVAL '1 day')::date`;
+  const today = sqlUserToday(tz);
+  const tomorrow = sql`(${sqlUserToday(tz)} + INTERVAL '1 day')::date`;
 
   await db.transaction(async (tx) => {
     // Serializa rollovers concurrentes del mismo usuario.
@@ -697,8 +698,8 @@ export async function reconcileTaskStatuses(userId: string): Promise<void> {
     .where(eq(users.id, userId));
 
   const tz = userRow?.timezone ?? "UTC";
-  const today = sql`(NOW() AT TIME ZONE ${tz})::date`;
-  const tomorrow = sql`((NOW() AT TIME ZONE ${tz})::date + INTERVAL '1 day')::date`;
+  const today = sqlUserToday(tz);
+  const tomorrow = sql`(${sqlUserToday(tz)} + INTERVAL '1 day')::date`;
 
   await db.transaction((tx) => reconcileStatusesInTx(tx, userId, today, tomorrow, tz));
 }
