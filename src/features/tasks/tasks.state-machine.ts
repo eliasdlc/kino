@@ -19,9 +19,7 @@ export interface TransitionResult {
 
 export type SideEffect =
     | { type: "set_completed_at"; value: Date }
-    | { type: "clear_completed_at" }
-    | { type: "grant_xp"; amount: number }
-    | { type: "revert_xp"; amount: number };
+    | { type: "clear_completed_at" };
 
 // Borrado y restauración NO viven aquí: son papelera (deletedAt) vía
 // deleteTask/restoreTask, un eje ortogonal al scheduling. Este mapa sólo
@@ -91,7 +89,7 @@ export function validateTransition(ctx: TransitionContext): TransitionResult {
     }
 
     const newStatus = allowedActions[ctx.action]!;
-    const sideEffects = buildSideEffects(ctx.action, ctx.taskEnergyPoints);
+    const sideEffects = buildSideEffects(ctx.action);
 
     return {
         valid: true,
@@ -100,7 +98,7 @@ export function validateTransition(ctx: TransitionContext): TransitionResult {
     };
 }
 
-function buildSideEffects(action: TransitionAction, taskEnergyPoints: number): SideEffect[] {
+function buildSideEffects(action: TransitionAction): SideEffect[] {
     switch (action) {
         case "move_to_week":
         case "move_to_today":
@@ -109,18 +107,10 @@ function buildSideEffects(action: TransitionAction, taskEnergyPoints: number): S
             return [];
 
         case "toggle_done":
-            return [
-                { type: "set_completed_at", value: new Date() },
-                { type: "grant_xp", amount: taskEnergyPoints },
-
-            ];
+            return [{ type: "set_completed_at", value: new Date() }];
 
         case "undo_done":
-            return [
-                { type: "clear_completed_at" },
-                { type: "revert_xp", amount: taskEnergyPoints },
-
-            ];
+            return [{ type: "clear_completed_at" }];
 
         default:
             return [];

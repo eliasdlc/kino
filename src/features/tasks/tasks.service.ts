@@ -38,7 +38,7 @@ async function applyTransition(
   taskId: string,
   userId: string,
   getAction: (current: Task) => TransitionAction | null,
-): Promise<{ updated: Task; xpDelta: number }> {
+): Promise<{ updated: Task }> {
   // Serialize concurrent energy operations per user via a transaction-scoped advisory lock.
   await tx.execute(
     sql`SELECT pg_advisory_xact_lock(${ENERGY_LOCK_CLASS}, hashtext(${userId}))`,
@@ -86,7 +86,7 @@ async function applyTransition(
   // action null = no-op (p. ej. mover a la misma columna): no es error, se
   // devuelve la tarea intacta. Esto elimina el 422 fantasma de bulk_move.
   if (action === null) {
-    return { updated: current as Task, xpDelta: 0 };
+    return { updated: current as Task };
   }
 
   const transition = validateTransition({
@@ -116,8 +116,6 @@ async function applyTransition(
     updates.inTodayPlan = false;
   }
 
-  let xpDelta = 0;
-
   for (const effect of transition.sideEffects ?? []) {
     switch (effect.type) {
       case "set_completed_at":
@@ -125,12 +123,6 @@ async function applyTransition(
         break;
       case "clear_completed_at":
         updates.completedAt = null;
-        break;
-      case "grant_xp":
-        xpDelta = effect.amount;
-        break;
-      case "revert_xp":
-        xpDelta = -effect.amount;
         break;
     }
   }
@@ -143,14 +135,7 @@ async function applyTransition(
 
   if (!updated) throw new NotFoundError("Task not found");
 
-  if (xpDelta !== 0) {
-    await tx
-      .update(users)
-      .set({ xpTotal: sql`${users.xpTotal} + ${xpDelta}` })
-      .where(eq(users.id, userId));
-  }
-
-  return { updated: updated as Task, xpDelta };
+  return { updated: updated as Task };
 }
 
 const AUTO_REMINDER_OFFSETS: Record<string, number[]> = {
@@ -523,17 +508,14 @@ export async function restoreTask(taskId: string, userId: string) {
 export async function toggleTask(
   taskId: string,
   userId: string,
-): Promise<{ status: string; xp_earned?: number }> {
-  const { updated, xpDelta } = await db.transaction((tx) =>
+): Promise<{ status: string }> {
+  const { updated } = await db.transaction((tx) =>
     applyTransition(tx, taskId, userId, (current) =>
       current.status === "done" ? "undo_done" : "toggle_done",
     ),
   );
 
-  return {
-    status: updated.status,
-    xp_earned: xpDelta > 0 ? xpDelta : undefined,
-  };
+  return { status: updated.status };
 }
 
 export async function reorderTasks(userId: string, ids: string[]) {

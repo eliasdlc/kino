@@ -169,7 +169,7 @@ describe("validateTransition", () => {
     });
 
     describe("side effects", () => {
-        it("toggle_done from TODAY produces set_completed_at + grant_xp", () => {
+        it("toggle_done from TODAY produces set_completed_at", () => {
             const result = validateTransition(
                 makeCtx({
                     currentStatus: "today",
@@ -183,13 +183,9 @@ describe("validateTransition", () => {
                 type: "set_completed_at",
                 value: expect.any(Date),
             });
-            expect(result.sideEffects).toContainEqual({
-                type: "grant_xp",
-                amount: 5,
-            });
         });
 
-        it("toggle_done from BACKLOG produces set_completed_at + grant_xp", () => {
+        it("toggle_done from BACKLOG produces set_completed_at", () => {
             const result = validateTransition(
                 makeCtx({
                     currentStatus: "backlog",
@@ -200,12 +196,12 @@ describe("validateTransition", () => {
 
             expect(result.valid).toBe(true);
             expect(result.sideEffects).toContainEqual({
-                type: "grant_xp",
-                amount: 7,
+                type: "set_completed_at",
+                value: expect.any(Date),
             });
         });
 
-        it("undo_done from DONE produces clear_completed_at + revert_xp", () => {
+        it("undo_done from DONE produces clear_completed_at", () => {
             const result = validateTransition(
                 makeCtx({
                     currentStatus: "done",
@@ -218,36 +214,6 @@ describe("validateTransition", () => {
             expect(result.sideEffects).toContainEqual({
                 type: "clear_completed_at",
             });
-            expect(result.sideEffects).toContainEqual({
-                type: "revert_xp",
-                amount: 4,
-            });
-        });
-
-        it("grant_xp amount equals taskEnergyPoints", () => {
-            const result = validateTransition(
-                makeCtx({
-                    currentStatus: "backlog",
-                    action: "toggle_done",
-                    taskEnergyPoints: 8,
-                })
-            );
-
-            const grantEffect = result.sideEffects?.find((e) => e.type === "grant_xp");
-            expect(grantEffect?.type === "grant_xp" && grantEffect.amount).toBe(8);
-        });
-
-        it("revert_xp amount equals taskEnergyPoints", () => {
-            const result = validateTransition(
-                makeCtx({
-                    currentStatus: "done",
-                    action: "undo_done",
-                    taskEnergyPoints: 6,
-                })
-            );
-
-            const revertEffect = result.sideEffects?.find((e) => e.type === "revert_xp");
-            expect(revertEffect?.type === "revert_xp" && revertEffect.amount).toBe(6);
         });
 
         it("move actions produce no side effects", () => {
