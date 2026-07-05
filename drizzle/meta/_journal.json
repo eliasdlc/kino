@@ -15,6 +15,13 @@
       "when": 1783184449614,
       "tag": "0001_grey_roulette",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1783286704527,
+      "tag": "0002_fixed_spirit",
+      "breakpoints": true
     }
   ]
 }

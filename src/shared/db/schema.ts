@@ -927,32 +927,6 @@ export const timeLogs = pgTable(
   ],
 );
 
-// ── system_health ──
-
-export const systemHealth = pgTable(
-  'system_health',
-  {
-    id: uuid('id').primaryKey().defaultRandom(),
-    userId: uuid('user_id')
-      .notNull()
-      .references(() => users.id, { onDelete: 'cascade' }),
-    systemId: uuid('system_id')
-      .notNull()
-      .references(() => systems.id, { onDelete: 'cascade' }),
-    date: date('date').notNull(),
-    wasActive: boolean('was_active').notNull().default(false),
-    tasksCompleted: integer('tasks_completed').notNull().default(0),
-    minutesLogged: integer('minutes_logged').notNull().default(0),
-    createdAt: timestamp('created_at', { withTimezone: true })
-      .notNull()
-      .defaultNow(),
-  },
-  (table) => [
-    uniqueIndex('uq_system_health_day').on(table.systemId, table.date),
-    index('idx_health_user').on(table.userId, table.date),
-  ],
-);
-
 // ── sync_connections ──
 
 export const syncConnections = pgTable(

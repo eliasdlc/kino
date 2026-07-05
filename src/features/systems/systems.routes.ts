@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createSystemSchema, reorderSystemsSchema, updateSystemSchema } from "./systems.schemas";
-import { createSystem, createInboxForUser, deactivateSystem, getUsersSystems, reorderSystem, updateSystem, assertNotInbox, getSystembyId, getSystemHealthIndicator } from "./systems.service";
+import { createSystem, createInboxForUser, deactivateSystem, getUsersSystems, reorderSystem, updateSystem, assertNotInbox, getSystembyId } from "./systems.service";
 import { ForbiddenError, NotFoundError } from "@/shared/utils/error";
 import { getAuthContext } from "@/shared/utils/auth-context";
 
@@ -118,16 +118,4 @@ export async function postReorder(request: NextRequest) {
 
   await reorderSystem(ctx.userId, parsed.data.systemIds);
   return new NextResponse(null, { status: 204 });
-}
-
-export async function getSystemHealthRoute(
-  request: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
-) {
-  const ctx = await getAuthContext(request);
-  if (!ctx) return NextResponse.json({ code: "UNAUTHORIZED", message: "Unauthorized" }, { status: 401 });
-
-  const { id } = await params;
-  const result = await getSystemHealthIndicator(id, ctx.userId);
-  return NextResponse.json(result);
 }
