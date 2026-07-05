@@ -22,9 +22,14 @@ const ROLLOVER_LOCK_CLASS = 43;
 
 type DbTransaction = Parameters<Parameters<(typeof db)["transaction"]>[0]>[0];
 
+// Un lector/escritor que puede ser el `db` global o una transacción: permite que
+// los helpers de creación corran dentro de la tx de createTask/bulkCreateTasks
+// (rollback total) sin duplicar su lógica, y sigan usables sueltos (default db).
+type Executor = typeof db | DbTransaction;
+
 /** Timezone del usuario (default UTC) — para derivar status "hoy/mañana". */
-async function getUserTimezone(userId: string): Promise<string> {
-  const [row] = await db
+async function getUserTimezone(userId: string, executor: Executor = db): Promise<string> {
+  const [row] = await executor
     .select({ timezone: users.timezone })
     .from(users)
     .where(eq(users.id, userId))
@@ -143,8 +148,8 @@ const AUTO_REMINDER_OFFSETS: Record<string, number[]> = {
   high: [3],
 };
 
-async function syncAutoReminders(taskId: string, userId: string, dueDate: string, priority: string) {
-  await db.delete(taskReminders).where(
+async function syncAutoReminders(taskId: string, userId: string, dueDate: string, priority: string, executor: Executor = db) {
+  await executor.delete(taskReminders).where(
     and(eq(taskReminders.taskId, taskId), eq(taskReminders.source, 'auto'), isNull(taskReminders.sentAt)),
   );
 
@@ -164,7 +169,7 @@ async function syncAutoReminders(taskId: string, userId: string, dueDate: string
     .filter(({ remindAt }) => remindAt > now);
 
   if (toInsert.length > 0) {
-    await db.insert(taskReminders).values(toInsert);
+    await executor.insert(taskReminders).values(toInsert);
   }
 }
 
@@ -234,8 +239,8 @@ export async function getTasksByFolder(
 }
 
 /** Valida que un contextTagId entrante pertenezca al usuario. */
-async function assertContextTagOwnership(userId: string, contextTagId: string): Promise<void> {
-  const [tag] = await db
+async function assertContextTagOwnership(userId: string, contextTagId: string, executor: Executor = db): Promise<void> {
+  const [tag] = await executor
     .select({ id: contextTags.id })
     .from(contextTags)
     .where(and(eq(contextTags.id, contextTagId), eq(contextTags.userId, userId)));
@@ -269,8 +274,14 @@ async function assertValidParent(taskId: string, parentTaskId: string, userId: s
   if (violation === "cycle") throw new ValidationError("Circular parent reference");
 }
 
-export async function createTask(userId: string, data: CreateTaskInput) {
-  const [system] = await db
+/**
+ * Crea una tarea y sus recordatorios asociados dentro de la transacción `tx`.
+ * La tarea, sus auto-recordatorios y el recordatorio de tipo `reminder` son una
+ * sola unidad atómica: o entran todos o ninguno. Nunca debe quedar una tarea sin
+ * el recordatorio que su dueDate/prioridad prometen.
+ */
+async function createTaskInTx(tx: DbTransaction, userId: string, data: CreateTaskInput): Promise<Task | null> {
+  const [system] = await tx
     .select({ id: systems.id })
     .from(systems)
     .where(and(eq(systems.id, data.systemId), eq(systems.userId, userId)));
@@ -278,7 +289,7 @@ export async function createTask(userId: string, data: CreateTaskInput) {
   if (!system) throw new NotFoundError("System not found");
 
   if (data.parentTaskId) {
-    const [parent] = await db
+    const [parent] = await tx
       .select({ id: tasks.id })
       .from(tasks)
       .where(
@@ -292,11 +303,11 @@ export async function createTask(userId: string, data: CreateTaskInput) {
   }
 
   if (data.contextTagId) {
-    await assertContextTagOwnership(userId, data.contextTagId);
+    await assertContextTagOwnership(userId, data.contextTagId, tx);
   }
 
   if (data.folderId) {
-    const [folder] = await db
+    const [folder] = await tx
       .select({ id: folders.id })
       .from(folders)
       .where(
@@ -310,7 +321,7 @@ export async function createTask(userId: string, data: CreateTaskInput) {
   }
 
   if (data.sprintId) {
-    const [sprint] = await db
+    const [sprint] = await tx
       .select({ id: sprints.id })
       .from(sprints)
       .where(
@@ -332,10 +343,10 @@ export async function createTask(userId: string, data: CreateTaskInput) {
     : data.taskType === "idea"
       ? "backlog"
       : data.startDate
-        ? deriveStatusFromDate(data.startDate, await getUserTimezone(userId))
+        ? deriveStatusFromDate(data.startDate, await getUserTimezone(userId, tx))
         : (data.status ?? "backlog");
 
-  const [task] = await db
+  const [task] = await tx
     .insert(tasks)
     .values({
       ...data,
@@ -347,12 +358,12 @@ export async function createTask(userId: string, data: CreateTaskInput) {
     .returning();
 
   if (task?.dueDate && task.priority in AUTO_REMINDER_OFFSETS) {
-    await syncAutoReminders(task.id, userId, task.dueDate, task.priority);
+    await syncAutoReminders(task.id, userId, task.dueDate, task.priority, tx);
   }
 
   // reminder type: create a taskReminder at the exact dueDate
   if (task?.taskType === 'reminder' && task.dueDate) {
-    await db.insert(taskReminders).values({
+    await tx.insert(taskReminders).values({
       taskId: task.id,
       userId,
       remindAt: new Date(task.dueDate),
@@ -362,6 +373,10 @@ export async function createTask(userId: string, data: CreateTaskInput) {
   }
 
   return task ?? null;
+}
+
+export async function createTask(userId: string, data: CreateTaskInput) {
+  return db.transaction((tx) => createTaskInTx(tx, userId, data));
 }
 
 export async function updateTask(taskId: string, userId: string, data: UpdateTaskInput) {
@@ -800,8 +815,18 @@ export async function bulkCreateTasks(
   userId: string,
   items: CreateTaskInput[],
 ): Promise<Task[]> {
-  const settled = await Promise.all(items.map((item) => createTask(userId, item)));
-  return settled.filter((t): t is Task => t !== null);
+  // Un solo `db.transaction` para todo el lote: si un item falla a mitad (ej.
+  // folder ajeno en la tarea 30 de 50), toda la operación revierte — no quedan
+  // tareas huérfanas a medio insertar. Secuencial a propósito: una transacción de
+  // postgres-js no admite queries concurrentes sobre la misma conexión.
+  return db.transaction(async (tx) => {
+    const created: Task[] = [];
+    for (const item of items) {
+      const task = await createTaskInTx(tx, userId, item);
+      if (task) created.push(task);
+    }
+    return created;
+  });
 }
 
 export async function getTimeLogSummary(
