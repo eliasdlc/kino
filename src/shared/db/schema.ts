@@ -593,7 +593,7 @@ export const tasks = pgTable(
     }),
     title: varchar('title', { length: 500 }).notNull(),
     description: text('description'),
-    status: varchar('status', { length: 50 }).notNull().default('today'),
+    status: varchar('status', { length: 50 }).notNull().default('backlog'),
     // Segundo eje (solo systemType `project`): columna del board kanban. null en
     // sistemas que no son project. Separado de `status` (scheduling) a propósito —
     // ver migración 0006 y el plan. La columna terminal sincroniza con status='done'.
@@ -645,6 +645,19 @@ export const tasks = pgTable(
       .defaultNow(),
   },
   (table) => [
+    // `status` es el eje de scheduling: set cerrado y universal (la state machine).
+    // Guard a nivel DB — el Zod ya lo valida, pero un INSERT por SQL directo o un
+    // tool MCP futuro no deben poder meter un status fuera de la máquina de estados.
+    check(
+      'tasks_status_valid',
+      sql`${table.status} IN ('backlog', 'week', 'tomorrow', 'today', 'done')`,
+    ),
+    // `board_status` es dinámico por systemType (system_status_definitions), así que
+    // no lleva set cerrado: sólo se exige que, cuando exista, no sea cadena vacía.
+    check(
+      'tasks_board_status_non_empty',
+      sql`${table.boardStatus} IS NULL OR length(${table.boardStatus}) > 0`,
+    ),
     index('idx_tasks_user_status')
       .on(table.userId, table.status)
       .where(sql`${table.deletedAt} IS NULL`),
