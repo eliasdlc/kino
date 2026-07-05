@@ -1,6 +1,6 @@
 import { db } from "@/shared/db";
 import { CreateSystemInput, System, SystemWithSignals, UpdateSystemInput } from "./systems.types"
-import { systems, tasks, contextTags } from "@/shared/db/schema";
+import { systems, tasks, contextTags, timeLogs } from "@/shared/db/schema";
 import { and, eq, max, sql } from "drizzle-orm";
 import { ForbiddenError, NotFoundError } from "@/shared/utils/error";
 import { deriveStale } from "./systems.signals";
@@ -45,15 +45,29 @@ export async function getUsersSystems(userId: string): Promise<SystemWithSignals
     .where(eq(tasks.userId, userId))
     .groupBy(tasks.systemId);
 
+  // El tiempo logueado también es actividad: un sistema donde hoy trabajaste
+  // (aunque no completaras nada) no está stale.
+  const logStats = await db
+    .select({
+      systemId: timeLogs.systemId,
+      lastLogAt: sql<string | null>`MAX(${timeLogs.createdAt})`,
+    })
+    .from(timeLogs)
+    .where(eq(timeLogs.userId, userId))
+    .groupBy(timeLogs.systemId);
+
   const statsBySystem = new Map(stats.map((s) => [s.systemId, s]));
+  const lastLogBySystem = new Map(logStats.map((l) => [l.systemId, l.lastLogAt]));
   const now = Date.now();
 
   return userSystems.map((system) => {
     const s = statsBySystem.get(system.id);
     const activeTaskCount = Number(s?.activeCount ?? 0);
-    const lastAt = s?.lastCompletedAt ? new Date(s.lastCompletedAt) : null;
-    const daysSinceLastActivity = lastAt
-      ? Math.floor((now - lastAt.getTime()) / 86_400_000)
+    const activityTimes = [s?.lastCompletedAt, lastLogBySystem.get(system.id)]
+      .filter((t): t is string => Boolean(t))
+      .map((t) => new Date(t).getTime());
+    const daysSinceLastActivity = activityTimes.length
+      ? Math.floor((now - Math.max(...activityTimes)) / 86_400_000)
       : null;
     const stale = system.isInbox
       ? false

@@ -32,7 +32,7 @@ export interface EnergyDistribution {
 export interface StaleSystem {
   systemId: string;
   systemName: string;
-  daysSinceLastTask: number;
+  daysSinceActivity: number;
 }
 
 export function useSuggestedTasks(limit = 10) {

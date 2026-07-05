@@ -17,7 +17,7 @@ export function registerAnalyzeTools(server, kinoFetch) {
         const distribution = await kinoFetch(`/api/insights/energy-distribution${params}`);
         return { content: [{ type: 'text', text: JSON.stringify(distribution, null, 2) }] };
     });
-    server.tool('find_stale_systems', 'Returns systems that have had no new tasks created in the last N days. Helps identify abandoned projects or areas.', {
+    server.tool('find_stale_systems', 'Returns systems with no activity (no task completed and no time logged) in the last N days. Helps identify abandoned projects or areas.', {
         days: z
             .number()
             .int()
