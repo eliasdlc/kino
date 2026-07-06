@@ -8,6 +8,7 @@ import { DefaultTaskCard } from "@/features/tasks/cards/DefaultTaskCard";
 import { TaskDetailSheet } from "@/features/tasks/TaskDetailSheet";
 import { CreateTaskDialog } from "@/features/tasks/CreateTaskDialog";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
+import { SYSTEM_TYPE_CONFIG } from "@/shared/lib/system-types";
 import { ChevronDown, Target } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { Task } from "@/features/tasks/tasks.types";
@@ -107,15 +108,16 @@ export function SystemEntrepreneurialView({ system, initialTasks }: SystemViewPr
   }
 
   const noMilestoneTasks = activeTasks.filter((t) => !t.folderId);
+  const folderRole = SYSTEM_TYPE_CONFIG.entrepreneurial.folderRole!;
 
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between gap-3">
         <NewFolderInline
           systemId={system.id}
-          label="Nuevo milestone"
-          placeholder="Nombre del milestone"
-          icon={Target}
+          label={folderRole.newLabel}
+          placeholder={folderRole.placeholder}
+          icon={folderRole.icon}
         />
         <div className="ml-auto">
           <CreateTaskDialog systemId={system.id} />

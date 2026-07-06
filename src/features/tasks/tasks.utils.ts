@@ -1,3 +1,5 @@
+import { calendarDayInTz } from "@/shared/time";
+
 /**
  * Scheduling statuses that are auto-derived from startDate.
  * "done" and "archived" are intentionally excluded — those are
@@ -5,14 +7,28 @@
  */
 export type ScheduleStatus = "backlog" | "today" | "tomorrow" | "week";
 
-/** Día calendario (yyyy-MM-dd) de `d` en la timezone dada. */
-function calendarDateInTz(d: Date, timezone: string): string {
-  return new Intl.DateTimeFormat("en-CA", {
-    timeZone: timezone,
-    year: "numeric",
-    month: "2-digit",
-    day: "2-digit",
-  }).format(d);
+/**
+ * Decide si asignar `parentTaskId` como padre de `taskId` es inválido:
+ * "self" si son la misma tarea, "cycle" si `taskId` ya es ancestro del nuevo
+ * padre (recorriendo la cadena de padres hacia arriba). Puro: recibe el lookup
+ * de padre (async, para poder consultar la DB en producción) y así es testeable
+ * sin base de datos.
+ */
+export async function findParentViolation(
+  taskId: string,
+  parentTaskId: string,
+  getParentOf: (id: string) => Promise<string | null>,
+): Promise<"self" | "cycle" | null> {
+  if (parentTaskId === taskId) return "self";
+  const seen = new Set<string>([parentTaskId]);
+  let cursor = await getParentOf(parentTaskId);
+  while (cursor) {
+    if (cursor === taskId) return "cycle";
+    if (seen.has(cursor)) break; // ciclo preexistente ajeno a este cambio
+    seen.add(cursor);
+    cursor = await getParentOf(cursor);
+  }
+  return null;
 }
 
 /**
@@ -38,10 +54,10 @@ export function deriveStatusFromDate(
   // calculamos su día calendario en la tz del usuario.
   const day = startDate.length <= 10
     ? startDate.slice(0, 10)
-    : calendarDateInTz(new Date(startDate), timezone);
+    : calendarDayInTz(new Date(startDate), timezone);
   const now = new Date();
-  const today = calendarDateInTz(now, timezone);
-  const tomorrow = calendarDateInTz(new Date(now.getTime() + 86_400_000), timezone);
+  const today = calendarDayInTz(now, timezone);
+  const tomorrow = calendarDayInTz(new Date(now.getTime() + 86_400_000), timezone);
 
   if (day === today) return "today";
   if (day === tomorrow) return "tomorrow";

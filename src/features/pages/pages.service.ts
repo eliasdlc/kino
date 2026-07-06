@@ -197,6 +197,17 @@ export async function createPage(
     }
   }
 
+  // La página padre debe ser del usuario y del mismo sistema (hoy sólo se
+  // validaba folderId, dejando parentPageId sin verificar ownership).
+  if (input.parentPageId) {
+    const [parent] = await db.select({ systemId: pages.systemId })
+      .from(pages)
+      .where(and(eq(pages.id, input.parentPageId), eq(pages.userId, userId), isNull(pages.deletedAt)));
+    if (!parent || parent.systemId !== input.systemId) {
+      throw new ForbiddenError("Parent page does not belong to this system");
+    }
+  }
+
   const [created] = await db
     .insert(pages)
     .values({

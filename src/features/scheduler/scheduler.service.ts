@@ -3,12 +3,14 @@ import { energyCheckins } from '@/shared/db/schema';
 import { eq, sql } from 'drizzle-orm';
 import { ensureYesterdaySnapshot, checkLevel1Triggers, calibrateLearnedCurve } from '@/features/energy/energy.service';
 import { sendPushToUser } from '@/features/notifications/notifications.service';
+import { userToday } from '@/shared/time';
 
 const MAX_USERS_PER_RUN = 50;
 
-// Obtiene los user_id distintos que hicieron check-in hoy (UTC)
+// Obtiene los user_id distintos que hicieron check-in hoy. Cron global sin tz de
+// usuario disponible → se ancla en UTC (mismo origen que el resto del módulo).
 async function getActiveUserIds(): Promise<string[]> {
-  const todayUtc = new Date().toISOString().slice(0, 10);
+  const todayUtc = userToday('UTC');
   const rows = await db
     .selectDistinct({ userId: energyCheckins.userId })
     .from(energyCheckins)

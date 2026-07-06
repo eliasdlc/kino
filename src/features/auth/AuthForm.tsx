@@ -1,9 +1,10 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { authClient } from "@/shared/lib/auth-client";
+import { useHydrated } from "@/shared/hooks/useHydrated";
 import { GoogleIcon, GitHubIcon } from "@/shared/components/OAuthIcons";
 
 const inputClass =
@@ -43,9 +44,9 @@ export function AuthForm({ mode }: { mode: "login" | "register" }) {
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [oauthLoading, setOauthLoading] = useState<"google" | "github" | null>(null);
-  const [coach, setCoach] = useState("");
-
-  useEffect(() => setCoach(coachLine()), []);
+  // coachLine() lee la hora local: sólo estable en cliente. Cadena vacía en SSR
+  // y primer render para no romper la hidratación.
+  const coach = useHydrated() ? coachLine() : "";
 
   const isLogin = mode === "login";
   const copy = COPY[mode];

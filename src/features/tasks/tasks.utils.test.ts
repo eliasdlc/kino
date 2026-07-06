@@ -1,5 +1,33 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
-import { deriveStatusFromDate } from "./tasks.utils";
+import { deriveStatusFromDate, findParentViolation } from "./tasks.utils";
+
+describe("findParentViolation", () => {
+  // Cadena de padres en memoria: id -> parentId. Simula el lookup de la DB.
+  const chain = (map: Record<string, string | null>) => async (id: string) => map[id] ?? null;
+
+  it("detecta self-parent (una tarea no puede ser su propio padre)", async () => {
+    expect(await findParentViolation("A", "A", chain({}))).toBe("self");
+  });
+
+  it("detecta ciclo directo A→B→A", async () => {
+    // Asignar B como padre de A, cuando B ya tiene a A como padre.
+    expect(await findParentViolation("A", "B", chain({ B: "A" }))).toBe("cycle");
+  });
+
+  it("detecta ciclo profundo A→C→B→A", async () => {
+    expect(await findParentViolation("A", "C", chain({ C: "B", B: "A" }))).toBe("cycle");
+  });
+
+  it("permite un padre válido sin ciclo", async () => {
+    expect(await findParentViolation("A", "B", chain({ B: null }))).toBeNull();
+    expect(await findParentViolation("A", "C", chain({ C: "B", B: null }))).toBeNull();
+  });
+
+  it("no cuelga ante un ciclo preexistente ajeno al cambio", async () => {
+    // B↔C ya forman ciclo entre ellos; asignar B como padre de A no involucra a A.
+    expect(await findParentViolation("A", "B", chain({ B: "C", C: "B" }))).toBeNull();
+  });
+});
 
 describe("deriveStatusFromDate", () => {
   beforeEach(() => {

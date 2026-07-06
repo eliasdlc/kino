@@ -1,10 +1,23 @@
 import {
+  AlarmClock,
+  BookOpen,
+  CalendarDays,
+  FileText,
+  FlaskConical,
+  Folder,
   FolderKanban,
   GraduationCap,
+  Hammer,
   Inbox,
+  Layers,
+  Lightbulb,
+  ListChecks,
+  PencilLine,
+  Repeat,
   Rocket,
   Settings,
   Star,
+  Target,
   type LucideIcon,
 } from 'lucide-react';
 
@@ -46,12 +59,67 @@ export interface SystemMetadata {
 
 export type SchedulingPreference = 'lowSlot' | 'peak' | 'highMedium';
 
-export type SystemTypeConfig = {
+/**
+ * Campo declarado por el arquetipo, persistido en la columna `metadata` (jsonb)
+ * de folders (rol de carpeta) o tasks (task kind). El server valida contra el
+ * Zod derivado de estas declaraciones — nada entra a metadata sin schema.
+ */
+export interface ArchetypeFieldDef {
+  id: string;
+  label: string;
+  input: 'text' | 'date' | 'number';
+}
+
+/**
+ * Qué son las carpetas dentro de un arquetipo ("clase", "milestone", "obra").
+ * null → el arquetipo no ofrece carpetas (project agrupa por sprint/epic;
+ * inbox es un funnel plano de triage).
+ */
+export interface FolderRole {
+  noun: string;
+  nounPlural: string;
+  /** CTA de creación, p.ej. "Nueva clase". */
+  newLabel: string;
+  placeholder: string;
   icon: LucideIcon;
-  emoji: string;
+  /** Campos propios del rol, persistidos en folders.metadata. */
+  fields: ArchetypeFieldDef[];
+}
+
+/** Qué son las pages dentro de un arquetipo ("apuntes", "manuscritos"…). */
+export interface PageRole {
+  noun: string;
+  nounPlural: string;
+  /** true → el sistema abre en la biblioteca de pages, no en tasks (writing). */
+  primary: boolean;
+}
+
+/**
+ * Qué "es" una tarea dentro de un arquetipo (entrega, examen, experimento…).
+ * Se persiste en tasks.metadata.kind + fields; capa semántica encima del
+ * taskType global (task/idea/event/reminder/epic), que no cambia.
+ */
+export interface TaskKindDef {
+  id: string;
+  label: string;
+  icon: LucideIcon;
+  fields: ArchetypeFieldDef[];
+}
+
+/**
+ * Manifiesto de arquetipo: la única fuente de verdad de cómo se comporta un
+ * systemType — vocabulario, rol de folders/pages, kinds de tarea, preset de
+ * vista y defaults de energía. Los componentes compartidos leen esto en vez de
+ * hardcodear por tipo; añadir un arquetipo = escribir un manifiesto.
+ * Ver docs/DISENO-ARQUETIPOS-2026-07.md (D9-D13).
+ */
+export type ArchetypeManifest = {
+  icon: LucideIcon;
   label: string;
   view: SystemViewType;
-  extraFields: string[];
+  folderRole: FolderRole | null;
+  pageRole: PageRole;
+  taskKinds: TaskKindDef[];
   energyDefault: 'low' | 'medium' | 'high' | 'flexible' | null;
   /** Preferred energy band for scheduling tasks from this system type. */
   schedulingPreference: SchedulingPreference;
@@ -79,89 +147,144 @@ export const PROJECT_BOARD_COLUMNS = [
 
 export const PROJECT_BOARD_TERMINAL = 'done';
 
-export const SYSTEM_TYPE_CONFIG: Record<SystemType, SystemTypeConfig> = {
+const UNIVERSAL_TABS: SystemTabId[] = ['action', 'backlog', 'planning', 'archive'];
+
+export const SYSTEM_TYPE_CONFIG: Record<SystemType, ArchetypeManifest> = {
   academic: {
     icon: GraduationCap,
-    emoji: '🎓',
     label: 'Académico',
     view: 'timeline',
-    extraFields: ['course', 'professor', 'syllabus', 'collaborators'],
+    folderRole: {
+      noun: 'clase',
+      nounPlural: 'clases',
+      newLabel: 'Nueva clase',
+      placeholder: 'Nombre de la clase',
+      icon: BookOpen,
+      fields: [
+        { id: 'professor', label: 'Profesor/a', input: 'text' },
+        { id: 'schedule', label: 'Horario', input: 'text' },
+        { id: 'semester', label: 'Semestre', input: 'text' },
+      ],
+    },
+    pageRole: { noun: 'apunte', nounPlural: 'apuntes', primary: false },
+    taskKinds: [
+      { id: 'assignment', label: 'Entrega', icon: FileText, fields: [] },
+      { id: 'exam', label: 'Examen', icon: AlarmClock, fields: [] },
+      { id: 'reading', label: 'Lectura', icon: BookOpen, fields: [] },
+      { id: 'practice', label: 'Práctica', icon: PencilLine, fields: [] },
+    ],
     energyDefault: 'medium',
     schedulingPreference: 'highMedium',
     advisorTemplate: 'Energía media — ideal para avanzar en {nombre}.',
     staleTemplate: '{n} días desde última tarea en {nombre}.',
     focusMinutes: 90,
-    tabs: ['action', 'backlog', 'planning', 'archive'],
+    tabs: UNIVERSAL_TABS,
     defaultTab: 'action',
   },
   project: {
     icon: FolderKanban,
-    emoji: '🗂️',
     label: 'Proyecto',
     view: 'kanban',
-    extraFields: ['sprint', 'category', 'epic'],
+    // Sprints + epics + categorías ya agrupan; carpetas aquí duplicarían grouping.
+    folderRole: null,
+    pageRole: { noun: 'doc', nounPlural: 'docs', primary: false },
+    taskKinds: [],
     energyDefault: 'high',
     schedulingPreference: 'highMedium',
     advisorTemplate: '{nombre} lleva {n} días sin actividad — estás en tu ventana de alta energía.',
     staleTemplate: '{n} días desde última tarea en {nombre}.',
     focusMinutes: 25,
-    tabs: ['action', 'backlog', 'planning', 'archive'],
+    tabs: UNIVERSAL_TABS,
     defaultTab: 'action',
   },
   entrepreneurial: {
     icon: Rocket,
-    emoji: '🚀',
     label: 'Emprendimiento',
     view: 'progress',
-    extraFields: ['milestone', 'kpi', 'hypothesis', 'learnings'],
+    folderRole: {
+      noun: 'milestone',
+      nounPlural: 'milestones',
+      newLabel: 'Nuevo milestone',
+      placeholder: 'Nombre del milestone',
+      icon: Target,
+      fields: [{ id: 'targetDate', label: 'Fecha objetivo', input: 'date' }],
+    },
+    pageRole: { noun: 'learning', nounPlural: 'learnings', primary: false },
+    taskKinds: [
+      { id: 'experiment', label: 'Experimento', icon: FlaskConical, fields: [] },
+      { id: 'build', label: 'Build', icon: Hammer, fields: [] },
+      { id: 'learning', label: 'Learning', icon: Lightbulb, fields: [] },
+    ],
     energyDefault: 'high',
     schedulingPreference: 'peak',
     advisorTemplate: '{nombre} espera hace {n} días. Ahora estás en pico — ¿saltás?',
     staleTemplate: '{n} días desde última tarea en {nombre}.',
     focusMinutes: 25,
-    tabs: ['action', 'backlog', 'planning', 'archive'],
+    tabs: UNIVERSAL_TABS,
     defaultTab: 'action',
   },
   personal: {
     icon: Star,
-    emoji: '🌟',
     label: 'Personal',
     view: 'list',
-    extraFields: ['why', 'recurrence', 'reflection'],
+    folderRole: {
+      noun: 'área',
+      nounPlural: 'áreas',
+      newLabel: 'Nueva área',
+      placeholder: 'Nombre del área',
+      icon: Layers,
+      fields: [],
+    },
+    pageRole: { noun: 'nota', nounPlural: 'notas', primary: false },
+    taskKinds: [
+      { id: 'habit', label: 'Hábito', icon: Repeat, fields: [] },
+      { id: 'errand', label: 'Recado', icon: ListChecks, fields: [] },
+      { id: 'event', label: 'Evento', icon: CalendarDays, fields: [] },
+    ],
     energyDefault: 'flexible',
     schedulingPreference: 'lowSlot',
     advisorTemplate: 'Momentos de baja energía son perfectos para {nombre}.',
     staleTemplate: '{n} días desde última tarea en {nombre}.',
     focusMinutes: null,
-    tabs: ['action', 'backlog', 'planning', 'archive'],
+    tabs: UNIVERSAL_TABS,
     defaultTab: 'action',
   },
   custom: {
     icon: Settings,
-    emoji: '⚙️',
     label: 'Personalizado',
     view: 'custom',
-    extraFields: [],
+    folderRole: {
+      noun: 'carpeta',
+      nounPlural: 'carpetas',
+      newLabel: 'Nueva carpeta',
+      placeholder: 'Nombre de la carpeta',
+      icon: Folder,
+      fields: [],
+    },
+    pageRole: { noun: 'página', nounPlural: 'páginas', primary: false },
+    taskKinds: [],
     energyDefault: null,
     schedulingPreference: 'highMedium',
     advisorTemplate: 'Tu sistema, tus reglas.',
     staleTemplate: '{n} días desde última tarea en {nombre}.',
     focusMinutes: null,
-    tabs: ['action', 'backlog', 'planning', 'archive'],
+    tabs: UNIVERSAL_TABS,
     defaultTab: 'action',
   },
   inbox: {
     icon: Inbox,
-    emoji: '📥',
     label: 'Bandeja de entrada',
     view: 'list',
-    extraFields: [],
+    // El inbox es un funnel de triage, no un archivo: sin carpetas a propósito.
+    folderRole: null,
+    pageRole: { noun: 'nota', nounPlural: 'notas', primary: false },
+    taskKinds: [],
     energyDefault: null,
     schedulingPreference: 'lowSlot',
     advisorTemplate: 'Tienes {n} items sin procesar.',
     staleTemplate: '{n} días desde última tarea en {nombre}.',
     focusMinutes: null,
-    tabs: ['action', 'backlog', 'planning', 'archive'],
+    tabs: UNIVERSAL_TABS,
     defaultTab: 'action',
   },
 };

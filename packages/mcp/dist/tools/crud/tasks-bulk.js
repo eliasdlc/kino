@@ -3,7 +3,7 @@ export function registerTaskBulkTools(server, kinoFetch) {
     server.tool('bulk_move_tasks', 'Mueve múltiples tareas al mismo estado en una sola operación (máximo 50)', {
         taskIds: z.array(z.string().uuid()).min(1).max(50).describe('UUIDs de las tareas a mover'),
         status: z
-            .enum(['backlog', 'week', 'tomorrow', 'today', 'done', 'archived'])
+            .enum(['backlog', 'week', 'tomorrow', 'today', 'done'])
             .describe('Estado destino'),
     }, async (data) => {
         await kinoFetch('/api/tasks/bulk-move', {

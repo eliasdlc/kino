@@ -50,53 +50,61 @@ async function sendStandardReminders(): Promise<number> {
     getTasksDueTomorrowUnnotified(userIds),
   ]);
 
-  const byUser = new Map<string, { today: string[]; tomorrow: string[] }>();
+  const byUser = new Map<string, { today: { id: string; title: string }[]; tomorrow: { id: string; title: string }[] }>();
   for (const t of todayTasks) {
     const entry = byUser.get(t.userId) ?? { today: [], tomorrow: [] };
-    entry.today.push(t.title);
+    entry.today.push({ id: t.id, title: t.title });
     byUser.set(t.userId, entry);
   }
   for (const t of tomorrowTasks) {
     const entry = byUser.get(t.userId) ?? { today: [], tomorrow: [] };
-    entry.tomorrow.push(t.title);
+    entry.tomorrow.push({ id: t.id, title: t.title });
     byUser.set(t.userId, entry);
   }
 
   let notified = 0;
+  // Sólo marcamos como notificadas las tareas cuyo push de verdad se entregó;
+  // si el envío falla, quedan sin marcar y el próximo cron las reintenta.
+  const deliveredTodayIds: string[] = [];
+  const deliveredTomorrowIds: string[] = [];
 
   await Promise.allSettled(
     [...byUser.entries()].map(async ([userId, { today, tomorrow }]) => {
       if (today.length > 0) {
         const body = today.length === 1
-          ? today[0]
-          : `${today[0]} y ${today.length - 1} tarea${today.length - 1 > 1 ? 's' : ''} más`;
-        await sendPushToUser(userId, {
+          ? today[0]!.title
+          : `${today[0]!.title} y ${today.length - 1} tarea${today.length - 1 > 1 ? 's' : ''} más`;
+        const delivered = await sendPushToUser(userId, {
           title: `Vence hoy${today.length > 1 ? ` · ${today.length}` : ''}`,
           body,
           url: '/tasks',
         });
-        notified += today.length;
+        if (delivered) {
+          deliveredTodayIds.push(...today.map((t) => t.id));
+          notified += today.length;
+        }
       }
 
       if (tomorrow.length > 0) {
         const body = tomorrow.length === 1
-          ? tomorrow[0]
-          : `${tomorrow[0]} y ${tomorrow.length - 1} tarea${tomorrow.length - 1 > 1 ? 's' : ''} más`;
-        await sendPushToUser(userId, {
+          ? tomorrow[0]!.title
+          : `${tomorrow[0]!.title} y ${tomorrow.length - 1} tarea${tomorrow.length - 1 > 1 ? 's' : ''} más`;
+        const delivered = await sendPushToUser(userId, {
           title: `Vence mañana${tomorrow.length > 1 ? ` · ${tomorrow.length}` : ''}`,
           body,
           url: '/tasks',
         });
-        notified += tomorrow.length;
+        if (delivered) {
+          deliveredTomorrowIds.push(...tomorrow.map((t) => t.id));
+          notified += tomorrow.length;
+        }
       }
     }),
   );
 
-  const todayIds = todayTasks.map((t) => t.id);
-  const tomorrowIds = tomorrowTasks.map((t) => t.id);
   await Promise.all([
-    markTasksNotifiedDueDay(todayIds),
-    markTasksNotifiedBeforeDay(tomorrowIds),
+    markTasksNotifiedDueDay(deliveredTodayIds),
+    markTasksNotifiedBeforeDay(deliveredTomorrowIds),
   ]);
 
   return notified;
@@ -106,19 +114,23 @@ async function sendPendingReminders(): Promise<number> {
   const pending = await getPendingReminders();
   if (pending.length === 0) return 0;
 
+  // Sólo marcamos enviados los reminders cuyo push resolvió; los que fallan
+  // quedan con sent_at NULL y se reintentan en el próximo cron.
+  const deliveredIds: string[] = [];
   await Promise.allSettled(
-    pending.map(({ userId, taskTitle, label }) =>
-      sendPushToUser(userId, {
+    pending.map(async ({ id, userId, taskTitle, label }) => {
+      const delivered = await sendPushToUser(userId, {
         title: label ?? 'Recordatorio',
         body: taskTitle,
         url: '/tasks',
-      }),
-    ),
+      });
+      if (delivered) deliveredIds.push(id);
+    }),
   );
 
-  await markRemindersSent(pending.map((r) => r.id));
+  await markRemindersSent(deliveredIds);
 
-  return pending.length;
+  return deliveredIds.length;
 }
 
 async function sendEscalationReminders(): Promise<number> {
@@ -147,14 +159,21 @@ async function sendEscalationReminders(): Promise<number> {
   return tasks.length;
 }
 
-export async function sendPushToUser(userId: string, payload: PushPayload): Promise<void> {
-  if (!process.env.VAPID_PUBLIC_KEY || !process.env.VAPID_PRIVATE_KEY) return;
+/**
+ * Envía un push a todas las subscriptions del usuario.
+ * @returns true si al menos una entrega resolvió (base para marcar la tarea como
+ * notificada sólo cuando de verdad se entregó; si todas fallan, retornar false
+ * la deja re-intentable en el próximo cron).
+ */
+export async function sendPushToUser(userId: string, payload: PushPayload): Promise<boolean> {
+  if (!process.env.VAPID_PUBLIC_KEY || !process.env.VAPID_PRIVATE_KEY) return false;
 
   const subscriptions = await getPushSubscriptions(userId);
-  if (subscriptions.length === 0) return;
+  if (subscriptions.length === 0) return false;
 
   const serialized = JSON.stringify(payload);
 
+  let anyDelivered = false;
   await Promise.allSettled(
     subscriptions.map(async (sub) => {
       try {
@@ -162,6 +181,7 @@ export async function sendPushToUser(userId: string, payload: PushPayload): Prom
           { endpoint: sub.endpoint, keys: { auth: sub.authKey, p256dh: sub.p256dhKey } },
           serialized,
         );
+        anyDelivered = true;
       } catch (err) {
         if (err instanceof Error && 'statusCode' in err && (err as { statusCode: number }).statusCode === 410) {
           await deletePushSubscription(sub.endpoint);
@@ -169,4 +189,5 @@ export async function sendPushToUser(userId: string, payload: PushPayload): Prom
       }
     }),
   );
+  return anyDelivered;
 }
