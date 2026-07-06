@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { KinoMark } from "./KinoMark";
+import { useHydrated } from "@/shared/hooks/useHydrated";
 
 type Level = "alta" | "media" | "baja";
 
@@ -32,7 +33,7 @@ function curve(h: number) {
 
 /** Tarjeta "Plan de hoy" interactiva del hero: marca tareas y registra energía. */
 export function HeroDemo() {
-  const [mounted, setMounted] = useState(false);
+  const mounted = useHydrated();
   const [hourNow, setHourNow] = useState(10);
   const [dateLabel, setDateLabel] = useState("");
   const [checked, setChecked] = useState<Record<string, boolean>>({});
@@ -47,7 +48,6 @@ export function HeroDemo() {
         d.toLocaleDateString("es-ES", { weekday: "long", day: "numeric", month: "long" })
       );
     };
-    setMounted(true);
     sync();
     const id = setInterval(sync, 60_000);
     return () => clearInterval(id);

@@ -24,6 +24,7 @@ import { buildBudgetPlan, buildEnergyPlan } from './energy.planner';
 import type { EnergyPlanResult } from './energy.planner';
 import type { Chronotype, SleepQuality } from './energy.utils';
 import type { CheckinSlot, CreateCheckinInput, UpdateAccuracyInput } from './energy.schemas';
+import { userToday as getTodayDate } from '@/shared/time';
 import { detectTopPattern } from './energy.advisor';
 import type { AdvisorPattern } from './energy.advisor';
 import {
@@ -49,15 +50,6 @@ export function getCurrentHourInTz(timezone: string): number {
     new Intl.DateTimeFormat('en-US', { timeZone: timezone, hour: 'numeric', hour12: false }).format(new Date()),
     10,
   );
-}
-
-function getTodayDate(timezone: string): string {
-  return new Intl.DateTimeFormat('en-CA', {
-    timeZone: timezone,
-    year: 'numeric',
-    month: '2-digit',
-    day: '2-digit',
-  }).format(new Date());
 }
 
 async function getUserTimezone(userId: string): Promise<string> {

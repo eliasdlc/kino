@@ -1,6 +1,9 @@
 # Dependencies
 node_modules/
 
+# El workspace es pnpm — nunca versionar el lockfile de npm.
+package-lock.json
+
 # Next.js build output
 .next/
 out/
@@ -11,9 +14,6 @@ out/
 .env.development.local
 .env.test.local
 .env.production.local
-
-# Drizzle migrations (generated)
-drizzle/
 
 # Debug logs
 npm-debug.log*

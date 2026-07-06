@@ -8,7 +8,7 @@ const energyLevel = z
   .describe('Nivel de energía requerido: high (requiere concentración), medium, low (rutinario)');
 
 const taskStatus = z
-  .enum(['backlog', 'week', 'tomorrow', 'today', 'done', 'archived'])
+  .enum(['backlog', 'week', 'tomorrow', 'today', 'done'])
   .optional()
   .describe(
     'Estado de la tarea. Si no se especifica startDate ni status, usa "week" para que la tarea aparezca en la Action View (hoy + 7 días). Usa "backlog" solo para ideas o trabajo sin fecha definida.',
@@ -217,11 +217,11 @@ export function registerTaskCrudTools(server: McpServer, kinoFetch: KinoFetch) {
 
   server.tool(
     'move_task',
-    'Mueve una tarea a un estado diferente (backlog, week, tomorrow, today, done, archived)',
+    'Mueve una tarea a un estado diferente (backlog, week, tomorrow, today, done)',
     {
       taskId: z.string().uuid().describe('UUID de la tarea'),
       status: z
-        .enum(['backlog', 'week', 'tomorrow', 'today', 'done', 'archived'])
+        .enum(['backlog', 'week', 'tomorrow', 'today', 'done'])
         .describe('Estado destino'),
     },
     async ({ taskId, status }) => {

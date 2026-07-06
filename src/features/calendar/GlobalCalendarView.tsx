@@ -148,11 +148,23 @@ interface TaskBlockProps {
   onResizeStart: (e: React.PointerEvent, task: Task, startMinutes: number) => void;
 }
 
+// Wrapper sin hooks: el early-return (tarea sin fecha ubicable) vive aquí, para
+// que TaskBlockInner nunca llame useDraggable condicionalmente (rules-of-hooks).
 function TaskBlock({ task, overrideDuration, onResizeStart }: TaskBlockProps) {
   const placementDate = getPlacementDate(task);
   const d = placementDate ? parseDueDate(placementDate) : null;
   if (!d) return null;
+  return (
+    <TaskBlockInner task={task} d={d} overrideDuration={overrideDuration} onResizeStart={onResizeStart} />
+  );
+}
 
+function TaskBlockInner({
+  task,
+  d,
+  overrideDuration,
+  onResizeStart,
+}: TaskBlockProps & { d: Date }) {
   const topOffset = (d.getHours() - START_HOUR + d.getMinutes() / 60) * ROW_HEIGHT;
   const estimatedMinutes = overrideDuration ?? parseEstimatedMinutes(task.estimatedTime);
   const blockHeight = Math.max(24, (estimatedMinutes / 60) * ROW_HEIGHT);
