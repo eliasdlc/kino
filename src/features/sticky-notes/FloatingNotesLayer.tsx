@@ -11,16 +11,27 @@ import {
   applyAnchorMarkAtPos,
   getAnchorYFraction,
 } from "./anchor-utils";
+import { resolveColumnX } from "./sticky-position";
 import type { StickyNoteItem } from "./sticky-notes.types";
 
-interface MarginNotesLayerProps {
+interface FloatingNotesLayerProps {
   notes: StickyNoteItem[];
   context: { pageId: string };
+  /** Contenedor de scroll del cuaderno; define el área donde puede vivir la nota. */
   containerRef: RefObject<HTMLDivElement | null>;
+  /** Columna de texto centrada; origen de coordenadas de las notas. */
+  columnRef: RefObject<HTMLDivElement | null>;
 }
 
-const TEXT_COL_MAX_PX = 768; // max-w-3xl
-const NOTE_W = 176;          // w-44
+/** Geometría del cuaderno en px, recalculada al redimensionar (abrir sidebar, etc.). */
+interface Metrics {
+  columnLeft: number; // px del borde izq. de la columna, relativo al contenedor
+  columnWidth: number;
+  containerW: number;
+  containerH: number;
+}
+
+const NOTE_W = 176; // w-44
 
 function tiltFor(id: string): number {
   const sum = id.charCodeAt(0) + id.charCodeAt(id.length - 1);
@@ -35,51 +46,52 @@ function clamp(v: number, lo: number, hi: number) {
 interface DragStart {
   clientX: number;
   clientY: number;
-  posX: number;
-  posY: number;
-  side: "left" | "right";
+  leftPx: number;
+  topPx: number;
 }
 
-interface LivePos {
-  x: number;
-  y: number;
-  side: "left" | "right";
-}
-
-function MarginNoteItem({
+function FloatingNoteItem({
   note,
   context,
   containerRef,
-  gutterWidth,
+  metrics,
   zIndex,
   onInteract,
 }: {
   note: StickyNoteItem;
   context: { pageId: string };
   containerRef: RefObject<HTMLDivElement | null>;
-  gutterWidth: number;
+  metrics: Metrics;
   zIndex: number;
   onInteract: (id: string) => void;
 }) {
   const editor = useSharedEditor();
   const noteRef = useRef<HTMLDivElement>(null);
   const dragStart = useRef<DragStart | null>(null);
-  const [live, setLive] = useState<LivePos | null>(null);
+  const [live, setLive] = useState<{ leftPx: number; topPx: number } | null>(null);
   const [anchorY, setAnchorY] = useState<number | null>(null);
+  const [noteH, setNoteH] = useState(120);
 
   const { mutate: updateNote } = useUpdateStickyNote(context);
   const qc = useQueryClient();
 
-  const isDragging = live !== null;
-  const side = live?.side ?? (note.positionSide === "right" ? "right" : "left");
-  const posX = live?.x ?? (note.positionX ?? 0);
-  // Use live Y during drag, anchor Y for anchored notes, stored Y as fallback
-  const posY = live?.y ?? (note.anchorId && anchorY !== null ? anchorY : (note.positionY ?? 0.12));
+  const maxLeft = Math.max(0, metrics.containerW - NOTE_W);
+  const maxTop = Math.max(0, metrics.containerH - noteH);
 
-  const maxX = gutterWidth > NOTE_W ? (gutterWidth - NOTE_W) / gutterWidth : 0;
+  // Posición base (px, relativa al contenedor) derivada del modelo columna-relativo.
+  const colX = resolveColumnX(note.positionSide, note.positionX);
+  const baseLeft = metrics.columnLeft + colX * metrics.columnWidth;
+  // Notas ancladas a texto derivan su Y del mark; el resto usa positionY.
+  const baseTopFrac =
+    note.anchorId && anchorY !== null ? anchorY : note.positionY ?? 0.12;
+  const baseTop = baseTopFrac * metrics.containerH;
+
+  const isDragging = live !== null;
+  // Clamp final: la nota nunca se sale de la pantalla.
+  const leftPx = clamp(live?.leftPx ?? baseLeft, 0, maxLeft);
+  const topPx = clamp(live?.topPx ?? baseTop, 0, maxTop);
   const tilt = tiltFor(note.id);
 
-  // Recompute anchor Y whenever the editor content changes
   const computeAnchorY = useCallback(() => {
     if (!note.anchorId || !editor || !containerRef.current) return;
     const y = getAnchorYFraction(editor, note.anchorId, containerRef.current);
@@ -90,8 +102,20 @@ function MarginNoteItem({
     computeAnchorY();
     if (!editor) return;
     editor.on("update", computeAnchorY);
-    return () => { editor.off("update", computeAnchorY); };
+    return () => {
+      editor.off("update", computeAnchorY);
+    };
   }, [editor, computeAnchorY]);
+
+  // Alto real de la nota, para el clamp vertical (sin leer el ref en render).
+  useEffect(() => {
+    const el = noteRef.current;
+    if (!el) return;
+    const ro = new ResizeObserver(() => setNoteH(el.offsetHeight));
+    ro.observe(el);
+    setNoteH(el.offsetHeight);
+    return () => ro.disconnect();
+  }, []);
 
   function onPointerDown(e: React.PointerEvent<HTMLDivElement>) {
     if (e.button !== 0) return;
@@ -100,9 +124,8 @@ function MarginNoteItem({
     dragStart.current = {
       clientX: e.clientX,
       clientY: e.clientY,
-      posX: note.positionX ?? 0,
-      posY: posY,
-      side: note.positionSide === "right" ? "right" : "left",
+      leftPx,
+      topPx,
     };
     void qc.cancelQueries({ queryKey: stickyNoteKeys.byPage(context.pageId) });
   }
@@ -110,40 +133,9 @@ function MarginNoteItem({
   function onPointerMove(e: React.PointerEvent<HTMLDivElement>) {
     const ds = dragStart.current;
     if (!ds) return;
-    const container = containerRef.current;
-    if (!container) return;
-
-    const containerRect = container.getBoundingClientRect();
-    const containerH = container.offsetHeight;
-    const noteH = noteRef.current?.offsetHeight ?? 120;
-
-    const dxPx = e.clientX - ds.clientX;
-    const dyPx = e.clientY - ds.clientY;
-
-    const cursorRelX = e.clientX - containerRect.left;
-    const newSide: "left" | "right" =
-      cursorRelX < containerRect.width / 2 ? "left" : "right";
-
-    let newX: number;
-    if (gutterWidth <= 0) {
-      newX = 0;
-    } else if (newSide === ds.side) {
-      const dxFrac = (ds.side === "left" ? dxPx : -dxPx) / gutterWidth;
-      newX = clamp(ds.posX + dxFrac, 0, maxX);
-    } else {
-      if (newSide === "right") {
-        const textRight = containerRect.left + containerRect.width - gutterWidth;
-        newX = clamp((e.clientX - textRight) / gutterWidth, 0, maxX);
-      } else {
-        const textLeft = containerRect.left + gutterWidth;
-        newX = clamp((textLeft - e.clientX) / gutterWidth, 0, maxX);
-      }
-    }
-
-    const maxY = containerH > 0 ? Math.max(0, 1 - noteH / containerH) : 0.9;
-    const newY = clamp(ds.posY + dyPx / containerH, 0, maxY);
-
-    setLive({ x: newX, y: newY, side: newSide });
+    const nextLeft = clamp(ds.leftPx + (e.clientX - ds.clientX), 0, maxLeft);
+    const nextTop = clamp(ds.topPx + (e.clientY - ds.clientY), 0, maxTop);
+    setLive({ leftPx: nextLeft, topPx: nextTop });
   }
 
   function onPointerUp(e: React.PointerEvent<HTMLDivElement>) {
@@ -151,11 +143,10 @@ function MarginNoteItem({
     dragStart.current = null;
     const snapshot = live;
     setLive(null);
-
     if (!ds || !snapshot) return;
 
     const dist = Math.hypot(e.clientX - ds.clientX, e.clientY - ds.clientY);
-    if (dist < 4) return;
+    if (dist < 4) return; // fue un click, no un arrastre
 
     const suppressClick = (ev: MouseEvent) => {
       ev.stopPropagation();
@@ -164,16 +155,18 @@ function MarginNoteItem({
     };
     document.addEventListener("click", suppressClick, true);
 
+    const nextX =
+      metrics.columnWidth > 0
+        ? (snapshot.leftPx - metrics.columnLeft) / metrics.columnWidth
+        : 0;
+    const nextY = metrics.containerH > 0 ? snapshot.topPx / metrics.containerH : 0;
     const dyAbs = Math.abs(e.clientY - ds.clientY);
 
-    // For anchored notes dragged vertically: re-anchor at drop position
-    if (note.anchorId && dyAbs >= 40 && editor) {
-      const container = containerRef.current;
-      const containerRect = container?.getBoundingClientRect();
-      const textCenterX = containerRect
-        ? containerRect.left + containerRect.width / 2
-        : e.clientX;
-
+    // Nota anclada a texto arrastrada verticalmente: re-anclar en el drop.
+    if (note.anchorId && dyAbs >= 40 && editor && containerRef.current) {
+      const containerRect = containerRef.current.getBoundingClientRect();
+      const textCenterX =
+        containerRect.left + metrics.columnLeft + metrics.columnWidth / 2;
       const result = editor.view.posAtCoords({ left: textCenterX, top: e.clientY });
       if (result) {
         const newAnchorId = crypto.randomUUID();
@@ -181,20 +174,20 @@ function MarginNoteItem({
         applyAnchorMarkAtPos(editor, result.pos, newAnchorId);
         updateNote({
           noteId: note.id,
-          data: { positionSide: snapshot.side, positionX: snapshot.x, anchorId: newAnchorId },
+          data: { positionSide: "over", positionX: nextX, anchorId: newAnchorId },
         });
         return;
       }
     }
 
-    // Standard position save (free notes or horizontal drag of anchored notes)
+    // Al arrastrar libremente la nota pasa a ser flotante ('over'): así su X real
+    // no se confunde con el formato legacy de gutter (ver resolveColumnX).
     updateNote({
       noteId: note.id,
       data: {
-        positionSide: snapshot.side,
-        positionX: snapshot.x,
-        // Don't overwrite positionY for anchored notes (it's derived from mark)
-        ...(note.anchorId ? {} : { positionY: snapshot.y }),
+        positionSide: "over",
+        positionX: nextX,
+        ...(note.anchorId ? {} : { positionY: nextY }),
       },
     });
   }
@@ -209,9 +202,8 @@ function MarginNoteItem({
       ref={noteRef}
       className="absolute w-44 pointer-events-auto touch-none select-none"
       style={{
-        top: `${posY * 100}%`,
-        left: side === "left" ? `${posX * gutterWidth}px` : undefined,
-        right: side === "right" ? `${posX * gutterWidth}px` : undefined,
+        top: `${topPx}px`,
+        left: `${leftPx}px`,
         transform: `rotate(${isDragging ? 0 : tilt}deg)`,
         transition: isDragging ? "none" : "transform 160ms ease",
         zIndex,
@@ -222,31 +214,48 @@ function MarginNoteItem({
       onPointerUp={onPointerUp}
       onPointerCancel={onPointerCancel}
     >
-      <StickyNoteCard
-        note={note}
-        context={context}
-      />
+      <StickyNoteCard note={note} context={context} />
     </div>
   );
 }
 
-export function MarginNotesLayer({ notes, context, containerRef }: MarginNotesLayerProps) {
-  const [containerWidth, setContainerWidth] = useState(0);
+export function FloatingNotesLayer({
+  notes,
+  context,
+  containerRef,
+  columnRef,
+}: FloatingNotesLayerProps) {
+  const [metrics, setMetrics] = useState<Metrics>({
+    columnLeft: 0,
+    columnWidth: 768,
+    containerW: 0,
+    containerH: 0,
+  });
   const [zOrder, setZOrder] = useState<Record<string, number>>({});
   const nextZ = useRef(1);
 
   useEffect(() => {
-    const el = containerRef.current;
-    if (!el) return;
-    const ro = new ResizeObserver(([entry]) => {
-      setContainerWidth(entry!.contentRect.width);
-    });
-    ro.observe(el);
-    setContainerWidth(el.offsetWidth);
-    return () => ro.disconnect();
-  }, [containerRef]);
+    const container = containerRef.current;
+    const column = columnRef.current;
+    if (!container || !column) return;
 
-  const gutterWidth = Math.max(0, (containerWidth - TEXT_COL_MAX_PX) / 2);
+    const measure = () => {
+      const cr = container.getBoundingClientRect();
+      const colr = column.getBoundingClientRect();
+      setMetrics({
+        columnLeft: colr.left - cr.left,
+        columnWidth: colr.width,
+        containerW: container.clientWidth,
+        containerH: container.offsetHeight,
+      });
+    };
+
+    measure();
+    const ro = new ResizeObserver(measure);
+    ro.observe(container);
+    ro.observe(column);
+    return () => ro.disconnect();
+  }, [containerRef, columnRef]);
 
   function bringToFront(id: string) {
     nextZ.current += 1;
@@ -258,12 +267,12 @@ export function MarginNotesLayer({ notes, context, containerRef }: MarginNotesLa
   return (
     <div className="hidden md:block absolute inset-0 pointer-events-none">
       {notes.map((n) => (
-        <MarginNoteItem
+        <FloatingNoteItem
           key={n.id}
           note={n}
           context={context}
           containerRef={containerRef}
-          gutterWidth={gutterWidth}
+          metrics={metrics}
           zIndex={30 + (zOrder[n.id] ?? 0)}
           onInteract={bringToFront}
         />
