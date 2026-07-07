@@ -75,8 +75,18 @@ export async function postBulkCreate(request: NextRequest) {
         return NextResponse.json({ code: "VALIDATION_ERROR", message: "Invalid input", details: parsed.error.flatten() }, { status: 400 });
     }
 
-    const created = await bulkCreateTasks(ctx.userId, parsed.data.tasks);
-    return NextResponse.json(created, { status: 201 });
+    try {
+        const created = await bulkCreateTasks(ctx.userId, parsed.data.tasks);
+        return NextResponse.json(created, { status: 201 });
+    } catch (error) {
+        if (error instanceof NotFoundError) {
+            return NextResponse.json({ code: "NOT_FOUND", message: error.message }, { status: 404 });
+        }
+        if (error instanceof ValidationError) {
+            return NextResponse.json({ code: "VALIDATION_ERROR", message: error.message }, { status: 422 });
+        }
+        throw error;
+    }
 }
 
 export async function POST(request: NextRequest) {
