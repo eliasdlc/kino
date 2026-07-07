@@ -104,7 +104,7 @@ export function StickyNotesGrid(props: Props) {
   const marginNotes = allNotes.filter((n) => !!n.positionSide);
   const groups = groupNotes(notes);
 
-  const [creatorOpen, setCreatorOpen] = useState(false);
+  const [creatorAnchor, setCreatorAnchor] = useState<{ x: number; y: number } | null>(null);
   const [activeId, setActiveId] = useState<string | null>(null);
   const activeNote = allNotes.find((n) => n.id === activeId);
 
@@ -137,7 +137,7 @@ export function StickyNotesGrid(props: Props) {
             variant="ghost"
             size="sm"
             className="h-7 gap-1 text-xs text-muted-foreground"
-            onClick={() => setCreatorOpen(true)}
+            onClick={(e) => setCreatorAnchor({ x: e.clientX, y: e.clientY })}
           >
             <Plus className="size-3" />
             Add
@@ -194,10 +194,11 @@ export function StickyNotesGrid(props: Props) {
         )}
       </div>
 
-      {creatorOpen && (
+      {creatorAnchor && (
         <StickyNoteCreator
           context={context}
-          onClose={() => setCreatorOpen(false)}
+          anchorPoint={creatorAnchor}
+          onClose={() => setCreatorAnchor(null)}
         />
       )}
     </>

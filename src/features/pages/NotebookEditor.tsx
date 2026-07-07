@@ -24,6 +24,7 @@ export function NotebookEditor({ page, systemId, pageId }: NotebookEditorProps) 
   const [stickyCreator, setStickyCreator] = useState<{
     text: string | null;
     anchorId: string | null;
+    screen: { x: number; y: number };
   } | null>(null);
   const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const pendingPatch = useRef<{ title?: string; content?: string } | null>(null);
@@ -74,7 +75,13 @@ export function NotebookEditor({ page, systemId, pageId }: NotebookEditorProps) 
       editor.chain().setMark("stickyAnchor", { anchorId }).run();
     }
 
-    setStickyCreator({ text: text || null, anchorId: anchorId ?? null });
+    // Abrir el popover junto al final de la selección.
+    const coords = editor.view.coordsAtPos(to);
+    setStickyCreator({
+      text: text || null,
+      anchorId: anchorId ?? null,
+      screen: { x: coords.right, y: coords.bottom },
+    });
   }
 
   const resolvedPageId = pageId ?? page.id;
@@ -117,6 +124,7 @@ export function NotebookEditor({ page, systemId, pageId }: NotebookEditorProps) 
       {stickyCreator !== null && (
         <StickyNoteCreator
           context={{ pageId: resolvedPageId }}
+          anchorPoint={stickyCreator.screen}
           textAnchor={stickyCreator.text ?? undefined}
           anchorId={stickyCreator.anchorId ?? undefined}
           onClose={() => setStickyCreator(null)}

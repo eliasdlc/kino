@@ -19,6 +19,7 @@ import {
 } from "@/components/ui/context-menu";
 import { useUpdateStickyNote, useDeleteStickyNote } from "./sticky-notes.hooks";
 import { STICKY_NOTE_COLORS, COLOR_PICKER_OPTIONS, paperStyle } from "./sticky-note-colors";
+import { GUTTER_LEFT_X, GUTTER_RIGHT_X } from "./sticky-position";
 import type { StickyNoteItem } from "./sticky-notes.types";
 
 interface StickyNoteCardProps {
@@ -26,20 +27,35 @@ interface StickyNoteCardProps {
   context: { pageId?: string; folderId?: string };
 }
 
+const EDIT_POPOVER_W = 300;
+const EDIT_POPOVER_H_EST = 260;
+const EDIT_MARGIN = 8;
+
+function editPopoverStyle(anchor: { x: number; y: number }): React.CSSProperties {
+  if (typeof window === "undefined") return { left: anchor.x, top: anchor.y };
+  const left = Math.min(Math.max(EDIT_MARGIN, anchor.x), window.innerWidth - EDIT_POPOVER_W - EDIT_MARGIN);
+  const top =
+    anchor.y + EDIT_POPOVER_H_EST > window.innerHeight - EDIT_MARGIN
+      ? Math.max(EDIT_MARGIN, anchor.y - EDIT_POPOVER_H_EST)
+      : anchor.y;
+  return { left, top, width: EDIT_POPOVER_W };
+}
+
 function EditOverlay({
   note,
   context,
+  anchorPoint,
   onClose,
 }: {
   note: StickyNoteItem;
   context: { pageId?: string; folderId?: string };
+  anchorPoint: { x: number; y: number };
   onClose: () => void;
 }) {
   const { mutate: updateNote, isPending } = useUpdateStickyNote(context);
   const [title, setTitle] = useState(note.title ?? "");
   const [content, setContent] = useState(note.content ?? "");
   const [color, setColor] = useState(note.color);
-  const backdropRef = useRef<HTMLDivElement>(null);
   const colors = STICKY_NOTE_COLORS[color] ?? STICKY_NOTE_COLORS.yellow!;
 
   useEffect(() => {
@@ -58,16 +74,18 @@ function EditOverlay({
   }
 
   return (
-    <div
-      ref={backdropRef}
-      className="fixed inset-0 z-50 flex flex-col items-center justify-end sm:justify-center p-0 sm:p-4 bg-black/70 backdrop-blur-sm"
-      onClick={(e) => { if (e.target === backdropRef.current) onClose(); }}
-    >
-      <div className="w-full max-w-[400px] flex flex-col items-center gap-4 px-4 sm:px-0 pb-4 sm:pb-0">
-        {/* Square Post-it */}
+    <>
+      {/* Backdrop transparente: cierra al hacer click fuera sin tapar la página. */}
+      <div className="fixed inset-0 z-40" onClick={onClose} />
+
+      <div
+        className="fixed z-50 rounded-2xl shadow-2xl border border-border bg-white dark:bg-card p-3 space-y-3"
+        style={editPopoverStyle(anchorPoint)}
+        onClick={(e) => e.stopPropagation()}
+      >
         <div
-          className="w-[90%] aspect-square rounded-lg p-6 flex flex-col gap-1.5"
-          style={{ ...paperStyle(colors.hex), transform: "rotate(-1.5deg)", color: colors.textHex }}
+          className="rounded-lg p-3 flex flex-col gap-1"
+          style={{ ...paperStyle(colors.hex), color: colors.textHex }}
         >
           <input
             autoFocus
@@ -76,7 +94,7 @@ function EditOverlay({
             value={title}
             onChange={(e) => setTitle(e.target.value)}
             maxLength={200}
-            className="bg-transparent outline-none text-lg font-semibold placeholder:opacity-30 w-full"
+            className="bg-transparent outline-none text-base font-semibold placeholder:opacity-30 w-full"
             style={{ color: colors.textHex }}
           />
           <textarea
@@ -84,60 +102,63 @@ function EditOverlay({
             value={content}
             onChange={(e) => setContent(e.target.value)}
             maxLength={500}
-            className="bg-transparent outline-none resize-none flex-1 placeholder:opacity-30 w-full text-sm leading-relaxed"
+            rows={3}
+            className="bg-transparent outline-none resize-none placeholder:opacity-30 w-full text-sm leading-relaxed"
             style={{ color: colors.textHex }}
           />
         </div>
 
-        {/* Bottom panel */}
-        <div className="w-full bg-white dark:bg-card rounded-t-3xl sm:rounded-3xl p-5 space-y-4 shadow-2xl">
-          <div>
-            <p className="text-xs text-muted-foreground mb-3 font-semibold uppercase tracking-wider">Color</p>
-            <div className="flex gap-2.5 flex-wrap">
-              {COLOR_PICKER_OPTIONS.map((c) => {
-                const cls = STICKY_NOTE_COLORS[c]!;
-                return (
-                  <button
-                    key={c}
-                    type="button"
-                    onClick={() => setColor(c as typeof color)}
-                    aria-label={c}
-                    className="size-8 rounded-full transition-all"
-                    style={{
-                      backgroundColor: cls.hex,
-                      border: `3px solid ${color === c ? "#00000055" : "transparent"}`,
-                      transform: color === c ? "scale(1.18)" : "scale(1)",
-                    }}
-                  />
-                );
-              })}
-            </div>
-          </div>
-          <div className="flex gap-2">
-            <Button variant="outline" className="flex-1" onClick={onClose} disabled={isPending}>
-              Cancelar
-            </Button>
-            <Button className="flex-1" onClick={handleSave} disabled={isPending}>
-              {isPending && <Loader2 className="size-4 animate-spin mr-2" />}
-              {isPending ? "Guardando..." : "Guardar"}
-            </Button>
-          </div>
+        <div className="flex gap-2 flex-wrap px-0.5">
+          {COLOR_PICKER_OPTIONS.map((c) => {
+            const cls = STICKY_NOTE_COLORS[c]!;
+            return (
+              <button
+                key={c}
+                type="button"
+                onClick={() => setColor(c as typeof color)}
+                aria-label={c}
+                className="size-6 rounded-full transition-all"
+                style={{
+                  backgroundColor: cls.hex,
+                  border: `2.5px solid ${color === c ? "#00000055" : "transparent"}`,
+                  transform: color === c ? "scale(1.2)" : "scale(1)",
+                }}
+              />
+            );
+          })}
+        </div>
+
+        <div className="flex gap-2">
+          <Button variant="outline" size="sm" className="flex-1" onClick={onClose} disabled={isPending}>
+            Cancelar
+          </Button>
+          <Button size="sm" className="flex-1" onClick={handleSave} disabled={isPending}>
+            {isPending && <Loader2 className="size-3.5 animate-spin mr-1.5" />}
+            {isPending ? "Guardando..." : "Guardar"}
+          </Button>
         </div>
       </div>
-    </div>
+    </>
   );
 }
 
 export function StickyNoteCard({ note, context }: StickyNoteCardProps) {
   const { mutate: deleteNote } = useDeleteStickyNote(context);
   const { mutate: updateNote } = useUpdateStickyNote(context);
-  const [editOpen, setEditOpen] = useState(false);
+  const [editAnchor, setEditAnchor] = useState<{ x: number; y: number } | null>(null);
+  const cardRef = useRef<HTMLDivElement>(null);
   const colors = STICKY_NOTE_COLORS[note.color] ?? STICKY_NOTE_COLORS.yellow!;
 
   function pinToSide(side: "left" | "right" | null) {
     updateNote({
       noteId: note.id,
-      data: { positionSide: side, positionY: side ? 0.12 : null, positionX: side ? 0 : null },
+      data: side
+        ? {
+            positionSide: side,
+            positionY: note.positionY ?? 0.12,
+            positionX: side === "left" ? GUTTER_LEFT_X : GUTTER_RIGHT_X,
+          }
+        : { positionSide: null, positionY: null, positionX: null },
     });
   }
 
@@ -146,12 +167,19 @@ export function StickyNoteCard({ note, context }: StickyNoteCardProps) {
       <ContextMenu>
         <ContextMenuTrigger asChild>
           <div
+            ref={cardRef}
+            data-sticky-note
             className="group relative flex flex-col gap-1 cursor-pointer rounded-lg p-3.5 w-full min-h-[90px]"
             style={{ ...paperStyle(colors.hex), color: colors.textHex }}
-            onClick={() => setEditOpen(true)}
+            onClick={(e) => setEditAnchor({ x: e.currentTarget.getBoundingClientRect().left, y: e.currentTarget.getBoundingClientRect().top })}
             role="button"
             tabIndex={0}
-            onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") setEditOpen(true); }}
+            onKeyDown={(e) => {
+              if (e.key === "Enter" || e.key === " ") {
+                const r = e.currentTarget.getBoundingClientRect();
+                setEditAnchor({ x: r.left, y: r.top });
+              }
+            }}
           >
             {note.title && (
               <p className="font-semibold text-sm leading-tight break-words" style={{ color: colors.textHex }}>
@@ -220,7 +248,13 @@ export function StickyNoteCard({ note, context }: StickyNoteCardProps) {
           </div>
         </ContextMenuTrigger>
         <ContextMenuContent className="w-40">
-          <ContextMenuItem className="gap-2" onSelect={() => setEditOpen(true)}>
+          <ContextMenuItem
+            className="gap-2"
+            onSelect={() => {
+              const r = cardRef.current?.getBoundingClientRect();
+              setEditAnchor(r ? { x: r.left, y: r.top } : { x: 80, y: 80 });
+            }}
+          >
             <Pencil className="size-3.5" /> Editar
           </ContextMenuItem>
           <ContextMenuSeparator />
@@ -230,8 +264,13 @@ export function StickyNoteCard({ note, context }: StickyNoteCardProps) {
         </ContextMenuContent>
       </ContextMenu>
 
-      {editOpen && (
-        <EditOverlay note={note} context={context} onClose={() => setEditOpen(false)} />
+      {editAnchor && (
+        <EditOverlay
+          note={note}
+          context={context}
+          anchorPoint={editAnchor}
+          onClose={() => setEditAnchor(null)}
+        />
       )}
     </>
   );
