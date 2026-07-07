@@ -87,9 +87,9 @@ export function registerTaskCrudTools(server: McpServer, kinoFetch: KinoFetch) {
       parentTaskId: z.string().uuid().optional().describe('UUID de la tarea padre (para crear subtareas)'),
       folderId: z.string().uuid().optional().describe('UUID de la carpeta destino'),
       taskType: z
-        .enum(['idea', 'reminder', 'project', 'todo', 'epic'])
+        .enum(['task', 'idea', 'event', 'reminder', 'epic'])
         .optional()
-        .describe('Tipo de tarea. Las "idea" siempre van a backlog. Por defecto "todo" si se omite.'),
+        .describe('Tipo de tarea. Las "idea" siempre van a backlog. Por defecto "task" si se omite.'),
       estimatedTime: z
         .string()
         .optional()
@@ -143,7 +143,7 @@ export function registerTaskCrudTools(server: McpServer, kinoFetch: KinoFetch) {
               .optional()
               .describe('UUID de la tarea padre — conviértela en subtarea'),
             folderId: z.string().uuid().optional().describe('UUID de la carpeta destino'),
-            taskType: z.enum(['idea', 'reminder', 'project', 'todo', 'epic']).optional(),
+            taskType: z.enum(['task', 'idea', 'event', 'reminder', 'epic']).optional(),
             estimatedTime: z.string().optional().describe('Tiempo estimado HH:MM:SS'),
             startDate: z.string().date().optional().describe('Fecha de inicio YYYY-MM-DD'),
             sprintId: z.string().uuid().optional().describe('UUID del sprint (systemType "project")'),
@@ -175,7 +175,7 @@ export function registerTaskCrudTools(server: McpServer, kinoFetch: KinoFetch) {
       dueDate: z.string().date().nullable().optional(),
       priority: z.enum(['critical', 'high', 'medium', 'low']).optional(),
       folderId: z.string().uuid().nullable().optional().describe('UUID de carpeta (null para quitar)'),
-      taskType: z.enum(['idea', 'reminder', 'project', 'todo', 'epic']).nullable().optional(),
+      taskType: z.enum(['task', 'idea', 'event', 'reminder', 'epic']).nullable().optional(),
       estimatedTime: z.string().nullable().optional().describe('Tiempo estimado HH:MM:SS'),
       startDate: z.string().date().nullable().optional(),
       sprintId: z.string().uuid().nullable().optional().describe('UUID del sprint (null para quitar)'),
