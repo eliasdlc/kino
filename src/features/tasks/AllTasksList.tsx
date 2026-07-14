@@ -2,10 +2,11 @@
 
 import { useState, useCallback, useMemo } from 'react';
 import { useRouter, useSearchParams, usePathname } from 'next/navigation';
-import { SlidersHorizontal, LayoutList, LayoutGrid, X } from 'lucide-react';
+import { Plus, SlidersHorizontal, LayoutList, LayoutGrid, X } from 'lucide-react';
+import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import {
-  parseFiltersFromParams, filtersToParams, countActiveFilters,
+  DEFAULT_FILTERS, parseFiltersFromParams, filtersToParams, countActiveFilters,
   applyFilters, SORTERS, groupTasks,
   type TaskFilters,
 } from '@/lib/taskFilters';
@@ -17,6 +18,7 @@ import { DefaultTaskCard } from './cards/DefaultTaskCard';
 import { ConfirmDialog } from '@/components/ui/confirm-dialog';
 import { useTaskKeyboardNavigation } from './useTaskKeyboardNavigation';
 import { useHotkey } from '@/shared/hooks/useHotkey';
+import { useQuickAddStore } from './quick-add.store';
 import { BulkActionBar } from './BulkActionBar';
 import { CascadeInboxMode } from './CascadeInboxMode';
 import { OverdueGroup, getOverdueTasks } from './OverdueGroup';
@@ -51,6 +53,7 @@ export function AllTasksList({ systems }: AllTasksListProps) {
   const { data: tasks = [], isLoading } = useAllTasks();
   const { mutate: toggleTask } = useToggleTodayTask();
   const { mutate: deleteTask } = useDeleteAnyTaskWithUndo();
+  const { setOpen: setQuickAddOpen } = useQuickAddStore();
 
   const filters = useMemo(() => parseFiltersFromParams(searchParams), [searchParams]);
   const [showFilters, setShowFilters] = useState(false);
@@ -295,8 +298,29 @@ export function AllTasksList({ systems }: AllTasksListProps) {
             ))}
           </div>
         ) : filtered.length === 0 ? (
-          <div className="px-4 py-10 text-center text-sm text-muted-foreground">
-            {filterCount > 0 ? 'No hay tareas con esos filtros.' : 'No hay tareas todavía.'}
+          <div className="px-4 py-10 text-center">
+            <p className="text-sm text-muted-foreground">
+              {filterCount > 0 ? 'No hay tareas con esos filtros.' : 'Aún no tienes tareas.'}
+            </p>
+            {filterCount > 0 ? (
+              <Button
+                variant="link"
+                size="sm"
+                className="mt-1"
+                onClick={() => handleFiltersChange({
+                  ...DEFAULT_FILTERS,
+                  sort: filters.sort,
+                  view: filters.view,
+                })}
+              >
+                Limpiar filtros
+              </Button>
+            ) : (
+              <Button size="sm" className="mt-3" onClick={() => setQuickAddOpen(true)}>
+                <Plus className="size-4" />
+                Crear tarea
+              </Button>
+            )}
           </div>
         ) : (
           renderGrouped(filtered)
