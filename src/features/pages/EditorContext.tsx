@@ -10,6 +10,7 @@ import { Table, TableRow, TableHeader, TableCell } from "@tiptap/extension-table
 import { TaskList, TaskItem } from "@tiptap/extension-list";
 import { StickyAnchorMark } from "@/features/sticky-notes/sticky-anchor.extension";
 import { SlashCommand } from "./slash-command.extension";
+import { ImageUrlPaste } from "./image-paste.extension";
 import { cleanPastedHtml } from "./paste-clean";
 
 const EditorContext = createContext<Editor | null>(null);
@@ -39,6 +40,9 @@ export function EditorProvider({
       TableCell,
       TaskList,
       TaskItem.configure({ nested: true }),
+      ImageUrlPaste.configure({
+        HTMLAttributes: { class: "rounded-lg max-w-full h-auto my-2" },
+      }),
       SlashCommand,
       StickyAnchorMark,
     ],
