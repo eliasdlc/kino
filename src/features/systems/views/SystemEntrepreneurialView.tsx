@@ -29,10 +29,21 @@ function ProgressBar({ done, total }: { done: number; total: number }) {
   );
 }
 
+/** Formatea el targetDate del milestone y calcula si está en riesgo (vencido y sin cerrar). */
+function targetDateMeta(targetDate: string | undefined, isComplete: boolean) {
+  if (!targetDate) return null;
+  const ms = Date.parse(targetDate);
+  if (Number.isNaN(ms)) return null;
+  const label = new Date(ms).toLocaleDateString("es", { day: "numeric", month: "short", year: "numeric" });
+  const atRisk = !isComplete && ms < Date.now();
+  return { label, atRisk };
+}
+
 function MilestoneAccordion({
   label,
   tasks,
   systemId,
+  targetDate,
   onToggle,
   onDelete,
   onEdit,
@@ -40,6 +51,7 @@ function MilestoneAccordion({
   label: string;
   tasks: Task[];
   systemId: string;
+  targetDate?: string;
   onToggle: (taskId: string) => void;
   onDelete: (task: Task) => void;
   onEdit: (task: Task) => void;
@@ -48,6 +60,7 @@ function MilestoneAccordion({
   // Un milestone 100% completado arranca colapsado para reducir ruido.
   const isComplete = tasks.length > 0 && done === tasks.length;
   const [open, setOpen] = useState(!isComplete);
+  const target = targetDateMeta(targetDate, isComplete);
 
   return (
     <div className="rounded-xl border bg-muted/20">
@@ -58,7 +71,21 @@ function MilestoneAccordion({
       >
         <Target size={16} className="shrink-0 text-primary" />
         <div className="flex-1 min-w-0">
-          <span className="font-semibold truncate">{label}</span>
+          <div className="flex items-center gap-2">
+            <span className="font-semibold truncate">{label}</span>
+            {target && (
+              <span
+                className={cn(
+                  "shrink-0 rounded px-1.5 py-0.5 text-[10px] font-medium",
+                  target.atRisk
+                    ? "bg-destructive/15 text-destructive"
+                    : "bg-muted text-muted-foreground",
+                )}
+              >
+                {target.atRisk ? "En riesgo · " : ""}{target.label}
+              </span>
+            )}
+          </div>
           <ProgressBar done={done} total={tasks.length} />
         </div>
         <ChevronDown
@@ -118,6 +145,7 @@ export function SystemEntrepreneurialView({ system, initialTasks }: SystemViewPr
           label={folderRole.newLabel}
           placeholder={folderRole.placeholder}
           icon={folderRole.icon}
+          fields={folderRole.fields}
         />
         <div className="ml-auto">
           <CreateTaskDialog systemId={system.id} />
@@ -134,6 +162,7 @@ export function SystemEntrepreneurialView({ system, initialTasks }: SystemViewPr
               label={folder.name}
               tasks={folderTasks}
               systemId={system.id}
+              targetDate={typeof folder.metadata?.targetDate === "string" ? folder.metadata.targetDate : undefined}
               onToggle={handleToggle}
               onDelete={(t) => setDeleteTarget(t)}
               onEdit={setEditTask}

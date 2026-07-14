@@ -16,6 +16,7 @@ const FOLDER_LIST_COLUMNS = {
   sortIndex: folders.sortIndex,
   parentId: folders.parentId,
   systemId: folders.systemId,
+  metadata: folders.metadata,
 } as const;
 
 // Correlated subqueries for the direct contents of each folder (subfolders + pages).
@@ -58,6 +59,7 @@ export async function getFolderById(
       parentId: folders.parentId,
       systemId: folders.systemId,
       path: folders.path,
+      metadata: folders.metadata,
     })
     .from(folders)
     .where(and(eq(folders.id, folderId), eq(folders.userId, userId)));
@@ -123,6 +125,7 @@ export async function createFolder(
       name: input.name,
       color: input.color ?? "blue",
       path,
+      metadata: input.metadata ?? null,
     })
     .returning(FOLDER_LIST_COLUMNS);
 

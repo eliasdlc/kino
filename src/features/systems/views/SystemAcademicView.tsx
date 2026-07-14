@@ -8,6 +8,8 @@ import { TaskWeekFocusView } from "@/features/tasks/TaskWeekFocusView";
 import { TaskCalendarView } from "@/features/tasks/TaskCalendarView";
 import { TaskPlanningView } from "@/features/tasks/TaskPlanningView";
 import { TaskArchiveView } from "@/features/tasks/TaskArchiveView";
+import { SystemAcademicClasses } from "./SystemAcademicClasses";
+import { useTasks } from "@/features/tasks/tasks.hooks";
 import type { Task } from "@/features/tasks/tasks.types";
 import type { SystemViewProps } from "./SystemDetailView";
 
@@ -20,6 +22,8 @@ export function SystemAcademicView({ system, initialTasks }: SystemViewProps) {
   const [editTask, setEditTask] = useState<Task | null>(null);
   const [tab, setTab] = useState("esta-semana");
   const [highlight, setHighlight] = useState<{ id: string; nonce: number } | null>(null);
+  // La vista de clases necesita las tareas para contar pendientes y próxima entrega.
+  const { data: allTasks = initialTasks } = useTasks(system.id, initialTasks);
 
   function goToAction(taskId?: string) {
     setTab("esta-semana");
@@ -34,6 +38,10 @@ export function SystemAcademicView({ system, initialTasks }: SystemViewProps) {
             <TabsTrigger value="esta-semana" className="min-w-0 px-2 text-xs md:px-3 md:text-sm">
               <span className="md:hidden">Semana</span>
               <span className="hidden md:inline">Esta Semana</span>
+            </TabsTrigger>
+            <TabsTrigger value="classes" className="min-w-0 px-2 text-xs md:px-3 md:text-sm">
+              <span className="md:hidden">Clases</span>
+              <span className="hidden md:inline">Clases</span>
             </TabsTrigger>
             <TabsTrigger value="calendar" className="min-w-0 px-2 text-xs md:px-3 md:text-sm">
               <span className="md:hidden">Cal</span>
@@ -53,6 +61,9 @@ export function SystemAcademicView({ system, initialTasks }: SystemViewProps) {
 
         <TabsContent value="esta-semana">
           <TaskWeekFocusView systemId={system.id} initialData={initialTasks} onEdit={setEditTask} highlight={highlight} />
+        </TabsContent>
+        <TabsContent value="classes">
+          <SystemAcademicClasses systemId={system.id} tasks={allTasks} />
         </TabsContent>
         <TabsContent value="calendar">
           <TaskCalendarView systemId={system.id} initialData={initialTasks} onNavigateToAction={goToAction} />

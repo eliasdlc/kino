@@ -59,6 +59,7 @@ export function useCreateFolder(systemId: string) {
         sortIndex: 0,
         parentId: data.parentId ?? null,
         systemId,
+        metadata: data.metadata ?? null,
         subfolderCount: 0,
         pageCount: 0,
       },

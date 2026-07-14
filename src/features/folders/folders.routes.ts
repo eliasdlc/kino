@@ -1,7 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
 import { updateFolderSchema } from "./folders.schemas";
-import { updateFolder, deleteFolder } from "./folders.service";
+import { updateFolder, deleteFolder, getFolderById } from "./folders.service";
+import { parseFolderMetadata } from "./folders.metadata";
+import { getSystembyId } from "@/features/systems/systems.service";
 import { getAuthContext } from "@/shared/utils/auth-context";
+import type { SystemType } from "@/shared/lib/system-types";
 
 export async function PATCH(
   request: NextRequest,
@@ -21,7 +24,25 @@ export async function PATCH(
     );
   }
 
-  const updated = await updateFolder(id, ctx.userId, parsed.data);
+  const data = parsed.data;
+
+  // Solo si el update toca metadata resolvemos el arquetipo del folder para
+  // validarla; un rename simple no paga esas queries.
+  if (data.metadata !== undefined) {
+    const folder = await getFolderById(id, ctx.userId);
+    if (!folder) return NextResponse.json({ code: "NOT_FOUND", message: "Folder not found" }, { status: 404 });
+    const system = folder.systemId ? await getSystembyId(folder.systemId, ctx.userId) : null;
+    const meta = parseFolderMetadata((system?.templateType ?? "custom") as SystemType, data.metadata);
+    if (!meta.success) {
+      return NextResponse.json(
+        { code: "VALIDATION_ERROR", message: "Invalid folder metadata", details: meta.error.flatten() },
+        { status: 400 }
+      );
+    }
+    data.metadata = meta.data;
+  }
+
+  const updated = await updateFolder(id, ctx.userId, data);
   if (!updated) return NextResponse.json({ code: "NOT_FOUND", message: "Folder not found" }, { status: 404 });
   return NextResponse.json(updated);
 }
