@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import { isValidRRule } from './recurrence';
+import { parseTaskDay } from './tasks.utils';
 
 const RECURRENCE_RULE = z
   .string()
@@ -18,10 +19,19 @@ const START_DATE = z.string().refine((s) => !Number.isNaN(Date.parse(s)), {
   message: 'Invalid start date',
 });
 
-// Compara solo la parte de fecha (yyyy-MM-dd) de due vs start, robusto ante
-// dueDate con hora y startDate sin ella.
-function dueBeforeStart(dueDate: string, startDate: string): boolean {
-  return dueDate.slice(0, 10) < startDate.slice(0, 10);
+// Día de calendario LOCAL de un start/dueDate, como número comparable.
+// parseTaskDay resuelve el día correcto (medianoche UTC = día pelado importado;
+// resto = instante local) y aquí lo truncamos a Y/M/D para comparar solo el día.
+function taskDayKey(value: string): number {
+  const d = parseTaskDay(value);
+  return new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime();
+}
+
+// Compara el día de calendario de due vs start (no un slice lexicográfico de la
+// parte UTC del ISO): una fecha local cerca de medianoche ya no se corre de día
+// al serializar a UTC y la validación no rechaza en bordes de día (FE-07).
+export function dueBeforeStart(dueDate: string, startDate: string): boolean {
+  return taskDayKey(dueDate) < taskDayKey(startDate);
 }
 
 export const taskMetadataSchema = z.object({

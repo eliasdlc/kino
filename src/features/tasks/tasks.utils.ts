@@ -97,10 +97,26 @@ export function parseTaskDay(value: string): Date {
   return d;
 }
 
-/** true si el dueDate tiene una hora significativa (no medianoche). */
+/**
+ * true si el dueDate tiene una hora significativa. Un "día pelado" puede venir
+ * como medianoche LOCAL (lo que guarda dayToLocalISO) o medianoche UTC (datos
+ * importados por MCP/seeds). Ambos casos son "sin hora"; cualquier otro instante
+ * sí lleva hora. Reusa la misma heurística de medianoche-UTC que parseTaskDay
+ * para no marcar hora espuria en tareas importadas (FE-06).
+ */
 export function dueDateHasTime(value: string): boolean {
   const d = parseDueDate(value);
-  return d.getHours() !== 0 || d.getMinutes() !== 0;
+  const localMidnight =
+    d.getHours() === 0 &&
+    d.getMinutes() === 0 &&
+    d.getSeconds() === 0 &&
+    d.getMilliseconds() === 0;
+  const utcMidnight =
+    d.getUTCHours() === 0 &&
+    d.getUTCMinutes() === 0 &&
+    d.getUTCSeconds() === 0 &&
+    d.getUTCMilliseconds() === 0;
+  return !localMidnight && !utcMidnight;
 }
 
 /**
