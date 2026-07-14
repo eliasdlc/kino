@@ -147,6 +147,12 @@ export const PROJECT_BOARD_COLUMNS = [
 
 export const PROJECT_BOARD_TERMINAL = 'done';
 
+/** Busca la definición de un task kind en el manifiesto del arquetipo. */
+export function getTaskKind(systemType: SystemType, kindId: unknown): TaskKindDef | null {
+  if (typeof kindId !== 'string') return null;
+  return SYSTEM_TYPE_CONFIG[systemType]?.taskKinds.find((k) => k.id === kindId) ?? null;
+}
+
 const UNIVERSAL_TABS: SystemTabId[] = ['action', 'backlog', 'planning', 'archive'];
 
 export const SYSTEM_TYPE_CONFIG: Record<SystemType, ArchetypeManifest> = {
@@ -211,7 +217,12 @@ export const SYSTEM_TYPE_CONFIG: Record<SystemType, ArchetypeManifest> = {
     },
     pageRole: { noun: 'learning', nounPlural: 'learnings', primary: false },
     taskKinds: [
-      { id: 'experiment', label: 'Experimento', icon: FlaskConical, fields: [] },
+      {
+        id: 'experiment',
+        label: 'Experimento',
+        icon: FlaskConical,
+        fields: [{ id: 'hypothesis', label: 'Hipótesis (1 línea)', input: 'text' }],
+      },
       { id: 'build', label: 'Build', icon: Hammer, fields: [] },
       { id: 'learning', label: 'Learning', icon: Lightbulb, fields: [] },
     ],

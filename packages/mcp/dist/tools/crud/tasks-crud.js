@@ -77,6 +77,10 @@ export function registerTaskCrudTools(server, kinoFetch) {
             .string()
             .optional()
             .describe('Columna inicial del board (systemType "project"): todo, in_progress, review, done'),
+        metadata: z
+            .record(z.string(), z.any())
+            .optional()
+            .describe('Metadata semántica por arquetipo. `kind` debe ser un tipo válido del sistema (Academic: assignment/exam/reading/practice; Entrepreneurial: experiment/build/learning; Personal: habit/errand/event). El servidor rechaza kinds no declarados.'),
     }, async (data) => {
         // Default to "week" so tasks appear in the Action View, not buried in backlog
         const payload = {
@@ -138,6 +142,10 @@ export function registerTaskCrudTools(server, kinoFetch) {
         estimatedTime: z.string().nullable().optional().describe('Tiempo estimado HH:MM:SS'),
         startDate: z.string().date().nullable().optional(),
         sprintId: z.string().uuid().nullable().optional().describe('UUID del sprint (null para quitar)'),
+        metadata: z
+            .record(z.string(), z.any())
+            .optional()
+            .describe('Metadata semántica por arquetipo. `kind` debe ser un tipo válido del sistema (validado server-side).'),
     }, async ({ taskId, ...data }) => {
         const task = await kinoFetch(`/api/tasks/${taskId}`, {
             method: 'PATCH',
