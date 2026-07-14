@@ -153,27 +153,47 @@ async function applyTransition(
 /** Genera la siguiente instancia de una serie recurrente tras completar una. */
 async function spawnNextRecurrence(tx: DbTransaction, userId: string, task: Task): Promise<void> {
   if (!task.recurrenceRule) return;
+  // Los events se anclan en startDate (no tienen due); el resto en dueDate. La
+  // instancia siguiente avanza ese mismo campo para no dejar un event sin fecha.
+  const usesStart = !task.dueDate && !!task.startDate;
   const anchor = task.dueDate ?? task.startDate;
   const from = anchor ? new Date(anchor) : new Date();
   const next = computeNextOccurrence(task.recurrenceRule, from);
   if (!next) return; // serie agotada (COUNT/UNTIL)
-  await createRecurrenceInstance(tx, userId, task, next);
+  await createRecurrenceInstance(tx, userId, task, next, usesStart);
 }
 
 /**
  * INSERT de una nueva instancia recurrente: hereda los campos de la tarea madre
  * y ancla `recurrenceParentId` al primer ancestro para agrupar la serie. El
- * `userId` viene de la sesión, no de la tarea.
+ * `userId` viene de la sesión, no de la tarea. Idempotente: si ya existe una
+ * instancia viva de la serie en la fecha objetivo (p.ej. tras un undo + volver
+ * a completar), no crea un duplicado.
  */
 async function createRecurrenceInstance(
   tx: DbTransaction,
   userId: string,
   task: Task,
   nextDate: Date,
+  usesStart: boolean,
 ): Promise<void> {
   const tz = await getUserTimezone(userId, tx);
   const nextIso = nextDate.toISOString();
   const status = deriveStatusFromDate(nextIso, tz);
+  const seriesRoot = task.recurrenceParentId ?? task.id;
+  const anchorColumn = usesStart ? tasks.startDate : tasks.dueDate;
+
+  const [existing] = await tx
+    .select({ id: tasks.id })
+    .from(tasks)
+    .where(and(
+      eq(tasks.userId, userId),
+      eq(tasks.recurrenceParentId, seriesRoot),
+      eq(anchorColumn, nextIso),
+      isNull(tasks.deletedAt),
+    ))
+    .limit(1);
+  if (existing) return;
 
   await tx.insert(tasks).values({
     userId,
@@ -191,8 +211,9 @@ async function createRecurrenceInstance(
     metadata: task.metadata,
     recurrenceRule: task.recurrenceRule,
     // Siempre al ancestro raíz: si la completada ya era instancia, hereda su padre.
-    recurrenceParentId: task.recurrenceParentId ?? task.id,
-    dueDate: nextIso,
+    recurrenceParentId: seriesRoot,
+    startDate: usesStart ? nextIso : task.startDate,
+    dueDate: usesStart ? task.dueDate : nextIso,
     status,
     inTodayPlan: status === "today",
   });
