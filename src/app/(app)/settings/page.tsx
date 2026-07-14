@@ -11,13 +11,19 @@ import {
 } from "@/components/ui/select";
 import { useThemeStore } from "@/components/ThemeProvider";
 import { Separator } from "@/components/ui/separator";
-import { Bell, BellOff, Download, Monitor, Moon, Sun } from "lucide-react";
+import { Bell, BellOff, Download, LogOut, Monitor, Moon, Sun } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 import { usePushNotifications } from "@/features/notifications/notifications.hooks";
 import { ApiKeysSection } from "@/features/api-keys/ApiKeysSection";
 import { EnergyLimitSection } from "@/features/settings/EnergyLimitSection";
 import { TimezoneSection } from "@/features/settings/TimezoneSection";
+import {
+  useUserSettings,
+  useUpdateUserSettings,
+} from "@/features/settings/settings.hooks";
+import { authClient } from "@/auth-client";
+import { useRouter } from "next/navigation";
 
 import { Kbd } from "@/components/ui/kbd";
 
@@ -45,6 +51,24 @@ export default function SettingsPage() {
   const mode = useThemeStore((s) => s.mode);
   const setMode = useThemeStore((s) => s.setMode);
   const { status, subscribe, unsubscribe } = usePushNotifications();
+  const { data: settings } = useUserSettings();
+  const { mutate: updateSettings } = useUpdateUserSettings();
+  const { data: session } = authClient.useSession();
+  const router = useRouter();
+
+  // Cambiar el tema aplica al instante (store + localStorage) y lo persiste en
+  // la cuenta para que viaje entre dispositivos.
+  function handleThemeChange(next: "light" | "dark" | "system") {
+    setMode(next);
+    updateSettings({ theme: next });
+  }
+
+  async function handleSignOut() {
+    await authClient.signOut();
+    router.push("/login");
+  }
+
+  const notificationsEnabled = settings?.notificationsEnabled ?? true;
 
   return (
     <PageWrapper>
@@ -56,6 +80,36 @@ export default function SettingsPage() {
       <Separator />
 
       <div className="space-y-8 pb-10">
+        {/* Cuenta */}
+        <div className="space-y-4">
+          <div>
+            <h2 className="text-lg font-semibold">Cuenta</h2>
+            <p className="text-sm text-muted-foreground">
+              La sesión con la que entras a Kino.
+            </p>
+          </div>
+
+          <div className="flex items-center justify-between gap-4 rounded-lg border p-4">
+            <div className="min-w-0 space-y-0.5">
+              <p className="text-sm font-medium truncate">
+                {session?.user.name ?? "Tu cuenta"}
+              </p>
+              <p className="text-xs text-muted-foreground truncate">
+                {session?.user.email ?? "—"}
+              </p>
+            </div>
+            <Button
+              variant="outline"
+              size="sm"
+              className="gap-2 shrink-0"
+              onClick={handleSignOut}
+            >
+              <LogOut className="size-4" />
+              Cerrar sesión
+            </Button>
+          </div>
+        </div>
+
         {/* Appearance */}
         <div className="space-y-4">
           <div>
@@ -74,7 +128,7 @@ export default function SettingsPage() {
             </div>
             <Select
               value={mode}
-              onValueChange={(val) => setMode(val as "light" | "dark" | "system")}
+              onValueChange={(val) => handleThemeChange(val as "light" | "dark" | "system")}
             >
               <SelectTrigger className="w-[140px]">
                 <SelectValue />
@@ -165,13 +219,29 @@ export default function SettingsPage() {
             </p>
           </div>
 
+          {/* Interruptor maestro: cuando está apagado, ningún cron envía
+              recordatorios a esta cuenta, en cualquier dispositivo. */}
+          <div className="flex items-center justify-between gap-4 rounded-lg border p-4">
+            <div className="space-y-0.5">
+              <Label className="text-sm font-medium">Recibir recordatorios</Label>
+              <p className="text-xs text-muted-foreground">
+                Controla si Kino te envía recordatorios de tareas y alertas de energía.
+              </p>
+            </div>
+            <Switch
+              checked={notificationsEnabled}
+              disabled={!settings}
+              onCheckedChange={(checked) => updateSettings({ notificationsEnabled: checked })}
+            />
+          </div>
+
           <div className="flex items-center justify-between gap-4 rounded-lg border p-4">
             <div className="flex items-center gap-3">
               {status === 'subscribed'
                 ? <Bell className="size-4 text-emerald-500" />
                 : <BellOff className="size-4 text-muted-foreground" />}
               <div className="space-y-0.5">
-                <Label className="text-sm font-medium">Notificaciones push</Label>
+                <Label className="text-sm font-medium">Notificaciones push en este dispositivo</Label>
                 <p className="text-xs text-muted-foreground">
                   {status === 'subscribed'   && 'Activas — recibirás alertas en este dispositivo'}
                   {status === 'denied'       && 'Bloqueadas — actívalas en los permisos del navegador'}

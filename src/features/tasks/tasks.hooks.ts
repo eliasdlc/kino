@@ -4,6 +4,7 @@ import { toast } from "sonner";
 import type { Task, CreateTaskInput } from "./tasks.types";
 import type { AdvisorBulkAction } from "@/features/energy/energy.service";
 import { useOptimisticListMutation } from "@/shared/hooks/useOptimisticListMutation";
+import { deriveStatusFromDate } from "./tasks.utils";
 
 // Re-export query keys from the shared module (no React deps) so existing
 // consumers that `import { taskKeys } from './tasks.hooks'` keep working.
@@ -87,22 +88,13 @@ export function useCreateTask(systemId: string, folderId?: string) {
       if (folderQKey) await queryClient.cancelQueries({ queryKey: folderQKey });
       const previousFolder = folderQKey ? queryClient.getQueryData<Task[]>(folderQKey) : undefined;
 
-      // Derive optimistic status from startDate (mirrors backend logic).
-      // startDate puede ser "yyyy-MM-dd" o ISO con hora (timestamptz).
-      const optimisticStatus = (() => {
-        if (!data.startDate) return "backlog" as const;
-        const sd = data.startDate.length <= 10
-          ? new Date(data.startDate + "T00:00:00")
-          : new Date(data.startDate);
-        const d = new Date(sd.getFullYear(), sd.getMonth(), sd.getDate());
-        const now = new Date();
-        const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-        const tomorrow = new Date(today);
-        tomorrow.setDate(tomorrow.getDate() + 1);
-        if (d.getTime() === today.getTime()) return "today" as const;
-        if (d.getTime() === tomorrow.getTime()) return "tomorrow" as const;
-        return "week" as const;
-      })();
+      // Status optimista: reusa el único helper del backend (FE-03) en vez de
+      // reimplementar la derivación. La tz del navegador refleja lo que el
+      // usuario ve; el servidor recalcula con la tz de la cuenta al confirmar.
+      const optimisticStatus = deriveStatusFromDate(
+        data.startDate,
+        Intl.DateTimeFormat().resolvedOptions().timeZone,
+      );
 
       // Create an optimistic task
       const optimisticTask: Task = {
@@ -124,7 +116,7 @@ export function useCreateTask(systemId: string, folderId?: string) {
         sprintId: null,
         systemId,
         userId: "optimistic",
-        recurrenceRule: null,
+        recurrenceRule: data.recurrenceRule ?? null,
         recurrenceParentId: null,
         externalSource: null,
         externalId: null,

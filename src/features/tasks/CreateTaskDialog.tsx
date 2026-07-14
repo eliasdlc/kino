@@ -35,6 +35,7 @@ import { useSprints } from "@/features/sprints/sprints.hooks";
 import { TaskPlanningFields } from "./TaskPlanningFields";
 import { getTaskDialogFields } from "./task-dialog-config";
 import { useTags } from "@/features/tags/tags.hooks";
+import { RecurrencePicker } from "./RecurrencePicker";
 
 const formSchema = z.object({
   title: z.string().min(1, "El título es requerido").max(500),
@@ -50,6 +51,7 @@ const formSchema = z.object({
   folderId: z.string().uuid().nullable().optional(),
   contextTagId: z.string().uuid().nullable().optional(),
   sprintId: z.string().uuid().nullable().optional(),
+  recurrenceRule: z.string().nullable().optional(),
   metadata: z.record(z.string(), z.unknown()).nullable().optional(),
 });
 
@@ -136,6 +138,7 @@ export function CreateTaskDialog({
       folderId: folderId ?? null,
       contextTagId: null,
       sprintId: null,
+      recurrenceRule: null,
       metadata: null,
     },
   });
@@ -237,6 +240,7 @@ export function CreateTaskDialog({
       ...(values.folderId ? { folderId: values.folderId } : {}),
       ...(values.contextTagId ? { contextTagId: values.contextTagId } : {}),
       ...(values.sprintId ? { sprintId: values.sprintId } : {}),
+      ...(values.recurrenceRule ? { recurrenceRule: values.recurrenceRule } : {}),
       ...(values.metadata ? { metadata: values.metadata } : {}),
       ...(parentTaskId ? { parentTaskId } : {}),
     };
@@ -473,6 +477,16 @@ export function CreateTaskDialog({
                 </>
               );
             })()}
+          </div>
+
+          <Separator />
+
+          <div className="space-y-2">
+            <Label>Repetición</Label>
+            <RecurrencePicker
+              value={form.watch('recurrenceRule')}
+              onChange={(rule) => form.setValue('recurrenceRule', rule)}
+            />
           </div>
 
           <Separator />

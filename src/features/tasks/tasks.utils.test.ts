@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
-import { deriveStatusFromDate, findParentViolation } from "./tasks.utils";
+import { deriveStatusFromDate, dueDateHasTime, findParentViolation } from "./tasks.utils";
 
 describe("findParentViolation", () => {
   // Cadena de padres en memoria: id -> parentId. Simula el lookup de la DB.
@@ -64,5 +64,19 @@ describe("deriveStatusFromDate", () => {
     // The current logic defaults it to 'week' because it's not today or tomorrow.
     expect(deriveStatusFromDate("2026-05-17")).toBe("week");
     expect(deriveStatusFromDate("2025-01-01")).toBe("week");
+  });
+});
+
+describe("dueDateHasTime (FE-06)", () => {
+  it("medianoche UTC (dato importado) = sin hora", () => {
+    expect(dueDateHasTime("2026-06-09T00:00:00.000Z")).toBe(false);
+  });
+
+  it("medianoche local (dato de la app) = sin hora", () => {
+    expect(dueDateHasTime(new Date(2026, 5, 9, 0, 0, 0, 0).toISOString())).toBe(false);
+  });
+
+  it("una hora significativa = con hora", () => {
+    expect(dueDateHasTime(new Date(2026, 5, 9, 14, 30).toISOString())).toBe(true);
   });
 });

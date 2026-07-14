@@ -24,7 +24,7 @@ import { buildBudgetPlan, buildEnergyPlan } from './energy.planner';
 import type { EnergyPlanResult } from './energy.planner';
 import type { Chronotype, SleepQuality } from './energy.utils';
 import type { CheckinSlot, CreateCheckinInput, UpdateAccuracyInput } from './energy.schemas';
-import { userToday as getTodayDate } from '@/shared/time';
+import { userToday as getTodayDate, calendarDayInTz } from '@/shared/time';
 import { detectTopPattern } from './energy.advisor';
 import type { AdvisorPattern } from './energy.advisor';
 import {
@@ -139,12 +139,7 @@ export async function computeAndSaveBehaviorSnapshot(userId: string, date: strin
 
 export async function ensureYesterdaySnapshot(userId: string): Promise<void> {
   const timezone = await getUserTimezone(userId);
-  const yesterday = new Intl.DateTimeFormat('en-CA', {
-    timeZone: timezone,
-    year: 'numeric',
-    month: '2-digit',
-    day: '2-digit',
-  }).format(new Date(Date.now() - 86_400_000));
+  const yesterday = calendarDayInTz(new Date(Date.now() - 86_400_000), timezone);
   const existing = await getSnapshotByDate(userId, yesterday);
   if (!existing) {
     await computeAndSaveBehaviorSnapshot(userId, yesterday);
@@ -324,7 +319,8 @@ async function resolveAdvisorAction(
   patternId: AdvisorPattern['id'],
   timezone: string,
 ): Promise<{ actionTaskIds: string[]; actionLabel: string; bulkAction: AdvisorBulkAction }> {
-  const today = new Date(new Intl.DateTimeFormat('en-CA', { timeZone: timezone, year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date()));
+  const todayStr = getTodayDate(timezone);
+  const today = new Date(todayStr);
 
   if (patternId === 'overload') {
     const todayTasks = await db
@@ -343,7 +339,7 @@ async function resolveAdvisorAction(
       .from(tasks)
       .where(and(
         eq(tasks.userId, userId),
-        lt(tasks.dueDate, today.toISOString().slice(0, 10)),
+        lt(tasks.dueDate, todayStr),
         notInArray(tasks.status, ['done', 'archived', 'today']),
         isNull(tasks.deletedAt),
         isNull(tasks.parentTaskId),

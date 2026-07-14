@@ -8,6 +8,8 @@ import { Search } from "lucide-react";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { EditSystemDialog } from "./EditSystemDialog";
 import { SystemCard } from "./SystemCard";
+import { CreateSystemDialog } from "./CreateSystemDialog";
+import { Button } from "@/components/ui/button";
 import type { System } from "./systems.types";
 
 function SystemCardSkeleton() {
@@ -45,10 +47,11 @@ export function SystemsList() {
 
   if (!systems || systems.length === 0) {
     return (
-      <div className="rounded-lg border border-dashed p-12 text-center space-y-2">
+      <div className="rounded-lg border border-dashed p-12 text-center space-y-3">
         <p className="text-sm text-muted-foreground">
           Aún no tienes sistemas. Crea el primero para empezar.
         </p>
+        <CreateSystemDialog trigger={<Button size="sm">Crear sistema</Button>} />
       </div>
     );
   }
@@ -70,10 +73,13 @@ export function SystemsList() {
       </div>
 
       {filteredSystems.length === 0 ? (
-        <div className="rounded-lg border border-dashed p-12 text-center space-y-2">
+        <div className="rounded-lg border border-dashed p-12 text-center space-y-3">
           <p className="text-sm text-muted-foreground">
-            No systems found matching &quot;{searchQuery}&quot;.
+            No hay sistemas que coincidan con &quot;{searchQuery}&quot;.
           </p>
+          <Button variant="outline" size="sm" onClick={() => setSearchQuery("")}>
+            Limpiar búsqueda
+          </Button>
         </div>
       ) : (
         <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">

@@ -5,9 +5,13 @@ import type { UpdateUserSettingsInput } from './settings.schemas';
 
 const DEFAULT_DAILY_ENERGY_LIMIT = 50;
 
+export type UiTheme = 'dark' | 'light' | 'system';
+
 export interface UserSettings {
   dailyEnergyLimit: number;
   timezone: string;
+  theme: UiTheme;
+  notificationsEnabled: boolean;
 }
 
 /** Lee los ajustes editables del usuario. Si no hay fila (pre-onboarding),
@@ -15,7 +19,11 @@ export interface UserSettings {
 export async function getUserSettings(userId: string): Promise<UserSettings> {
   const [[settingsRow], [userRow]] = await Promise.all([
     db
-      .select({ dailyEnergyLimit: userSettings.dailyEnergyLimit })
+      .select({
+        dailyEnergyLimit: userSettings.dailyEnergyLimit,
+        theme: userSettings.theme,
+        notificationsEnabled: userSettings.notificationsEnabled,
+      })
       .from(userSettings)
       .where(eq(userSettings.userId, userId)),
     db
@@ -27,6 +35,8 @@ export async function getUserSettings(userId: string): Promise<UserSettings> {
   return {
     dailyEnergyLimit: settingsRow?.dailyEnergyLimit ?? DEFAULT_DAILY_ENERGY_LIMIT,
     timezone: userRow?.timezone ?? 'UTC',
+    theme: settingsRow?.theme ?? 'system',
+    notificationsEnabled: settingsRow?.notificationsEnabled ?? true,
   };
 }
 
@@ -36,13 +46,20 @@ export async function updateUserSettings(
   userId: string,
   input: UpdateUserSettingsInput,
 ): Promise<UserSettings> {
-  if (input.dailyEnergyLimit !== undefined) {
+  // Los campos que viven en user_settings se upsertean juntos: si la fila no
+  // existe, un solo insert la crea con los valores presentes.
+  const settingsPatch: Partial<typeof userSettings.$inferInsert> = {};
+  if (input.dailyEnergyLimit !== undefined) settingsPatch.dailyEnergyLimit = input.dailyEnergyLimit;
+  if (input.theme !== undefined) settingsPatch.theme = input.theme;
+  if (input.notificationsEnabled !== undefined) settingsPatch.notificationsEnabled = input.notificationsEnabled;
+
+  if (Object.keys(settingsPatch).length > 0) {
     await db
       .insert(userSettings)
-      .values({ userId, dailyEnergyLimit: input.dailyEnergyLimit })
+      .values({ userId, ...settingsPatch })
       .onConflictDoUpdate({
         target: userSettings.userId,
-        set: { dailyEnergyLimit: input.dailyEnergyLimit, updatedAt: new Date() },
+        set: { ...settingsPatch, updatedAt: new Date() },
       });
   }
 
