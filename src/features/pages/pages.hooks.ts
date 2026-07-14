@@ -21,6 +21,7 @@ function makeOptimisticPage(
     createdAt: new Date(),
     updatedAt: new Date(),
     contentPreview: null,
+    wordCount: 0,
     tags: [],
     subPageCount: 0,
   };

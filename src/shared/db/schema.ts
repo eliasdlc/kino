@@ -64,6 +64,7 @@ export const templateTypeEnum = pgEnum('template_type', [
   'personal',
   'custom',
   'inbox',
+  'writing',
 ]);
 
 export const energyLevelEnum = pgEnum('energy_level', [

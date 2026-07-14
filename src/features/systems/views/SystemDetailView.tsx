@@ -8,6 +8,7 @@ import { SystemAcademicView } from "./SystemAcademicView";
 import { SystemProjectView } from "./SystemProjectView";
 import { SystemEntrepreneurialView } from "./SystemEntrepreneurialView";
 import { SystemCustomView } from "./SystemCustomView";
+import { SystemWritingView } from "./SystemWritingView";
 
 export interface SystemViewProps {
   system: System;
@@ -30,6 +31,9 @@ export function SystemDetailView({ system, initialTasks }: SystemViewProps) {
   }
   if (systemType === "entrepreneurial") {
     return <SystemEntrepreneurialView system={system} initialTasks={initialTasks} />;
+  }
+  if (systemType === "writing") {
+    return <SystemWritingView system={system} initialTasks={initialTasks} />;
   }
   if (systemType === "custom") {
     return <SystemCustomView system={system} initialTasks={initialTasks} />;

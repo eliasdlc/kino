@@ -1,7 +1,9 @@
 import {
   AlarmClock,
+  BookMarked,
   BookOpen,
   CalendarDays,
+  Feather,
   FileText,
   FlaskConical,
   Folder,
@@ -12,9 +14,11 @@ import {
   Layers,
   Lightbulb,
   ListChecks,
+  ListTree,
   PencilLine,
   Repeat,
   Rocket,
+  Send,
   Settings,
   Star,
   Target,
@@ -27,7 +31,8 @@ export type SystemType =
   | 'entrepreneurial'
   | 'personal'
   | 'custom'
-  | 'inbox';
+  | 'inbox'
+  | 'writing';
 
 export type SystemViewType = 'timeline' | 'kanban' | 'progress' | 'list' | 'custom';
 
@@ -279,6 +284,41 @@ export const SYSTEM_TYPE_CONFIG: Record<SystemType, ArchetypeManifest> = {
     advisorTemplate: 'Tu sistema, tus reglas.',
     staleTemplate: '{n} días desde última tarea en {nombre}.',
     focusMinutes: null,
+    tabs: UNIVERSAL_TABS,
+    defaultTab: 'action',
+  },
+  writing: {
+    icon: Feather,
+    label: 'Escritura',
+    view: 'list',
+    // Obras: libro/blog/cómic/serie con meta de palabras. El progreso de palabras
+    // se deriva del contenido Tiptap de las pages — nunca un contador persistido.
+    folderRole: {
+      noun: 'obra',
+      nounPlural: 'obras',
+      newLabel: 'Nueva obra',
+      placeholder: 'Título de la obra',
+      icon: BookMarked,
+      fields: [
+        { id: 'kind', label: 'Tipo (libro/blog/cómic/otro)', input: 'text' },
+        { id: 'wordGoal', label: 'Meta de palabras', input: 'number' },
+        { id: 'targetDate', label: 'Fecha objetivo', input: 'date' },
+      ],
+    },
+    // pages-first: el sistema abre en la biblioteca de manuscritos, no en tareas.
+    pageRole: { noun: 'manuscrito', nounPlural: 'manuscritos', primary: true },
+    taskKinds: [
+      { id: 'write', label: 'Escribir', icon: PencilLine, fields: [] },
+      { id: 'revise', label: 'Revisar', icon: Feather, fields: [] },
+      { id: 'outline', label: 'Outline', icon: ListTree, fields: [] },
+      { id: 'publish', label: 'Publicar', icon: Send, fields: [] },
+    ],
+    energyDefault: 'high',
+    // El diferenciador: escribir en tu mejor ventana creativa (pico de energía).
+    schedulingPreference: 'peak',
+    advisorTemplate: 'Tu mejor ventana creativa es ahora — dale a {nombre}.',
+    staleTemplate: '{nombre} lleva {n} días sin una sesión de escritura.',
+    focusMinutes: 45,
     tabs: UNIVERSAL_TABS,
     defaultTab: 'action',
   },

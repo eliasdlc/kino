@@ -39,6 +39,12 @@ describe("parseFolderMetadata", () => {
     expect(parseFolderMetadata("academic", undefined)).toEqual({ success: true, data: null });
   });
 
+  it("coacciona wordGoal (string del form) a número en Writing", () => {
+    const res = parseFolderMetadata("writing", { kind: "book", wordGoal: "50000" });
+    expect(res.success).toBe(true);
+    if (res.success) expect(res.data).toEqual({ kind: "book", wordGoal: 50000 });
+  });
+
   it("un arquetipo sin campos de folder rechaza cualquier metadata no vacía", () => {
     // personal.folderRole.fields === [] → schema estricto vacío.
     expect(parseFolderMetadata("personal", { anything: "x" }).success).toBe(false);

@@ -18,7 +18,9 @@ import {
 function fieldToZod(field: ArchetypeFieldDef): z.ZodTypeAny {
   switch (field.input) {
     case "number":
-      return z.number().finite();
+      // Los inputs HTML mandan strings ("50000"); coerce → number. Los vacíos ya
+      // se descartan antes (stripEmpty), así que no colapsan a 0.
+      return z.coerce.number().finite();
     case "date":
       // ISO date (YYYY-MM-DD) o timestamp parseable.
       return z
