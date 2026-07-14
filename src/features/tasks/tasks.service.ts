@@ -1,12 +1,13 @@
 import { db } from "@/shared/db";
-import { tasks, users, userSettings, systems, folders, sprints, systemStatusDefinitions, timeLogs, taskReminders } from "@/shared/db/schema";
+import { tasks, users, userSettings, systems, folders, sprints, systemStatusDefinitions, timeLogs, taskReminders, contextTags } from "@/shared/db/schema";
 import { and, eq, isNull, isNotNull, sql, sum, count, or, gte, lte, type SQL } from "drizzle-orm";
 import { NotFoundError, ValidationError } from "@/shared/utils/error";
-import { validateTransition, deriveBoardBridgeAction, type TaskStatus, type TransitionAction } from "./tasks.state-machine";
+import { validateTransition, deriveBoardBridgeAction, actionForTransition, type TaskStatus, type TransitionAction } from "./tasks.state-machine";
 import { Task, CreateTaskInput, UpdateTaskInput } from "./tasks.types";
 import type { z } from "zod";
 import type { listTasksQuerySchema, CreateTimeLogInput } from "./tasks.schemas";
-import { deriveStatusFromDate } from "./tasks.utils";
+import { deriveStatusFromDate, findParentViolation } from "./tasks.utils";
+import { sqlUserDay, sqlUserToday } from "@/shared/time";
 
 const ENERGY_POINTS: Record<string, number> = {
   high: 5,
@@ -21,9 +22,14 @@ const ROLLOVER_LOCK_CLASS = 43;
 
 type DbTransaction = Parameters<Parameters<(typeof db)["transaction"]>[0]>[0];
 
+// Un lector/escritor que puede ser el `db` global o una transacción: permite que
+// los helpers de creación corran dentro de la tx de createTask/bulkCreateTasks
+// (rollback total) sin duplicar su lógica, y sigan usables sueltos (default db).
+type Executor = typeof db | DbTransaction;
+
 /** Timezone del usuario (default UTC) — para derivar status "hoy/mañana". */
-async function getUserTimezone(userId: string): Promise<string> {
-  const [row] = await db
+async function getUserTimezone(userId: string, executor: Executor = db): Promise<string> {
+  const [row] = await executor
     .select({ timezone: users.timezone })
     .from(users)
     .where(eq(users.id, userId))
@@ -36,8 +42,8 @@ async function applyTransition(
   tx: DbTransaction,
   taskId: string,
   userId: string,
-  getAction: (current: Task) => TransitionAction,
-): Promise<{ updated: Task; xpDelta: number }> {
+  getAction: (current: Task) => TransitionAction | null,
+): Promise<{ updated: Task }> {
   // Serialize concurrent energy operations per user via a transaction-scoped advisory lock.
   await tx.execute(
     sql`SELECT pg_advisory_xact_lock(${ENERGY_LOCK_CLASS}, hashtext(${userId}))`,
@@ -70,7 +76,7 @@ async function applyTransition(
       and(
         eq(tasks.userId, userId),
         eq(tasks.status, "done"),
-        sql`${tasks.completedAt} >= (NOW() AT TIME ZONE ${tz})::date::timestamptz`,
+        sql`${tasks.completedAt} >= ${sqlUserDay(tz)}`,
         isNull(tasks.deletedAt),
       ),
     );
@@ -81,6 +87,12 @@ async function applyTransition(
   );
 
   const action = getAction(current as Task);
+
+  // action null = no-op (p. ej. mover a la misma columna): no es error, se
+  // devuelve la tarea intacta. Esto elimina el 422 fantasma de bulk_move.
+  if (action === null) {
+    return { updated: current as Task };
+  }
 
   const transition = validateTransition({
     currentStatus: current.status as TaskStatus,
@@ -109,8 +121,6 @@ async function applyTransition(
     updates.inTodayPlan = false;
   }
 
-  let xpDelta = 0;
-
   for (const effect of transition.sideEffects ?? []) {
     switch (effect.type) {
       case "set_completed_at":
@@ -118,15 +128,6 @@ async function applyTransition(
         break;
       case "clear_completed_at":
         updates.completedAt = null;
-        break;
-      case "grant_xp":
-        xpDelta = effect.amount;
-        break;
-      case "revert_xp":
-        xpDelta = -effect.amount;
-        break;
-      case "set_deleted_at":
-        updates.deletedAt = effect.value;
         break;
     }
   }
@@ -139,37 +140,7 @@ async function applyTransition(
 
   if (!updated) throw new NotFoundError("Task not found");
 
-  if (xpDelta !== 0) {
-    await tx
-      .update(users)
-      .set({ xpTotal: sql`${users.xpTotal} + ${xpDelta}` })
-      .where(eq(users.id, userId));
-  }
-
-  return { updated: updated as Task, xpDelta };
-}
-
-function deriveAction(currentStatus: TaskStatus, targetStatus: TaskStatus): TransitionAction | undefined {
-  const map: Record<string, TransitionAction> = {
-    "backlog->week": "move_to_week",
-    "backlog->tomorrow": "move_to_tomorrow",
-    "backlog->today": "move_to_today",
-    "backlog->done": "toggle_done",
-    "week->today": "move_to_today",
-    "week->tomorrow": "move_to_tomorrow",
-    "week->backlog": "move_to_backlog",
-    "week->done": "toggle_done",
-    "tomorrow->today": "move_to_today",
-    "tomorrow->week": "move_to_week",
-    "tomorrow->backlog": "move_to_backlog",
-    "tomorrow->done": "toggle_done",
-    "today->tomorrow": "move_to_tomorrow",
-    "today->week": "move_to_week",
-    "today->done": "toggle_done",
-    "today->backlog": "move_to_backlog",
-    "done->today": "undo_done",
-  };
-  return map[`${currentStatus}->${targetStatus}`];
+  return { updated: updated as Task };
 }
 
 const AUTO_REMINDER_OFFSETS: Record<string, number[]> = {
@@ -177,8 +148,8 @@ const AUTO_REMINDER_OFFSETS: Record<string, number[]> = {
   high: [3],
 };
 
-async function syncAutoReminders(taskId: string, userId: string, dueDate: string, priority: string) {
-  await db.delete(taskReminders).where(
+async function syncAutoReminders(taskId: string, userId: string, dueDate: string, priority: string, executor: Executor = db) {
+  await executor.delete(taskReminders).where(
     and(eq(taskReminders.taskId, taskId), eq(taskReminders.source, 'auto'), isNull(taskReminders.sentAt)),
   );
 
@@ -198,7 +169,7 @@ async function syncAutoReminders(taskId: string, userId: string, dueDate: string
     .filter(({ remindAt }) => remindAt > now);
 
   if (toInsert.length > 0) {
-    await db.insert(taskReminders).values(toInsert);
+    await executor.insert(taskReminders).values(toInsert);
   }
 }
 
@@ -267,8 +238,50 @@ export async function getTasksByFolder(
     .orderBy(tasks.sortIndex);
 }
 
-export async function createTask(userId: string, data: CreateTaskInput) {
-  const [system] = await db
+/** Valida que un contextTagId entrante pertenezca al usuario. */
+async function assertContextTagOwnership(userId: string, contextTagId: string, executor: Executor = db): Promise<void> {
+  const [tag] = await executor
+    .select({ id: contextTags.id })
+    .from(contextTags)
+    .where(and(eq(contextTags.id, contextTagId), eq(contextTags.userId, userId)));
+  if (!tag) throw new ValidationError("Context tag not found");
+}
+
+/**
+ * Valida un parentTaskId entrante para `taskId`: debe existir, ser del usuario,
+ * no ser la propia tarea, y no crear un ciclo (que taskId sea ancestro del
+ * nuevo padre). Filtrar por userId en la query principal no basta: la FK entrante
+ * también tiene que pertenecer al usuario.
+ */
+async function assertValidParent(taskId: string, parentTaskId: string, userId: string): Promise<void> {
+  const [parent] = await db
+    .select({ id: tasks.id, parentTaskId: tasks.parentTaskId })
+    .from(tasks)
+    .where(and(eq(tasks.id, parentTaskId), eq(tasks.userId, userId), isNull(tasks.deletedAt)));
+  if (parentTaskId !== taskId && !parent) throw new ValidationError("Parent task not found");
+
+  const getParentOf = async (id: string): Promise<string | null> => {
+    if (id === parentTaskId) return parent?.parentTaskId ?? null;
+    const [next] = await db
+      .select({ parentTaskId: tasks.parentTaskId })
+      .from(tasks)
+      .where(and(eq(tasks.id, id), eq(tasks.userId, userId)));
+    return next?.parentTaskId ?? null;
+  };
+
+  const violation = await findParentViolation(taskId, parentTaskId, getParentOf);
+  if (violation === "self") throw new ValidationError("A task cannot be its own parent");
+  if (violation === "cycle") throw new ValidationError("Circular parent reference");
+}
+
+/**
+ * Crea una tarea y sus recordatorios asociados dentro de la transacción `tx`.
+ * La tarea, sus auto-recordatorios y el recordatorio de tipo `reminder` son una
+ * sola unidad atómica: o entran todos o ninguno. Nunca debe quedar una tarea sin
+ * el recordatorio que su dueDate/prioridad prometen.
+ */
+async function createTaskInTx(tx: DbTransaction, userId: string, data: CreateTaskInput): Promise<Task | null> {
+  const [system] = await tx
     .select({ id: systems.id })
     .from(systems)
     .where(and(eq(systems.id, data.systemId), eq(systems.userId, userId)));
@@ -276,7 +289,7 @@ export async function createTask(userId: string, data: CreateTaskInput) {
   if (!system) throw new NotFoundError("System not found");
 
   if (data.parentTaskId) {
-    const [parent] = await db
+    const [parent] = await tx
       .select({ id: tasks.id })
       .from(tasks)
       .where(
@@ -289,8 +302,12 @@ export async function createTask(userId: string, data: CreateTaskInput) {
     if (!parent) throw new NotFoundError("Parent task not found");
   }
 
+  if (data.contextTagId) {
+    await assertContextTagOwnership(userId, data.contextTagId, tx);
+  }
+
   if (data.folderId) {
-    const [folder] = await db
+    const [folder] = await tx
       .select({ id: folders.id })
       .from(folders)
       .where(
@@ -304,7 +321,7 @@ export async function createTask(userId: string, data: CreateTaskInput) {
   }
 
   if (data.sprintId) {
-    const [sprint] = await db
+    const [sprint] = await tx
       .select({ id: sprints.id })
       .from(sprints)
       .where(
@@ -317,7 +334,7 @@ export async function createTask(userId: string, data: CreateTaskInput) {
     if (!sprint) throw new ValidationError("Sprint not found in this system");
   }
 
-  const explicitTerminal = data.status === "done" || data.status === "archived";
+  const explicitTerminal = data.status === "done";
   // Ideas are always backlog — they are captures, not scheduled work
   // When startDate is given, derive status from date (authoritative).
   // When startDate is absent, respect an explicit status or fall back to backlog.
@@ -326,10 +343,10 @@ export async function createTask(userId: string, data: CreateTaskInput) {
     : data.taskType === "idea"
       ? "backlog"
       : data.startDate
-        ? deriveStatusFromDate(data.startDate, await getUserTimezone(userId))
+        ? deriveStatusFromDate(data.startDate, await getUserTimezone(userId, tx))
         : (data.status ?? "backlog");
 
-  const [task] = await db
+  const [task] = await tx
     .insert(tasks)
     .values({
       ...data,
@@ -341,12 +358,12 @@ export async function createTask(userId: string, data: CreateTaskInput) {
     .returning();
 
   if (task?.dueDate && task.priority in AUTO_REMINDER_OFFSETS) {
-    await syncAutoReminders(task.id, userId, task.dueDate, task.priority);
+    await syncAutoReminders(task.id, userId, task.dueDate, task.priority, tx);
   }
 
   // reminder type: create a taskReminder at the exact dueDate
   if (task?.taskType === 'reminder' && task.dueDate) {
-    await db.insert(taskReminders).values({
+    await tx.insert(taskReminders).values({
       taskId: task.id,
       userId,
       remindAt: new Date(task.dueDate),
@@ -356,6 +373,10 @@ export async function createTask(userId: string, data: CreateTaskInput) {
   }
 
   return task ?? null;
+}
+
+export async function createTask(userId: string, data: CreateTaskInput) {
+  return db.transaction((tx) => createTaskInTx(tx, userId, data));
 }
 
 export async function updateTask(taskId: string, userId: string, data: UpdateTaskInput) {
@@ -383,6 +404,16 @@ export async function updateTask(taskId: string, userId: string, data: UpdateTas
   }
 
   const targetSystemId = data.systemId ?? current.systemId;
+
+  // Ownership + ausencia de ciclos del nuevo padre (no basta filtrar por userId
+  // en el UPDATE: la FK entrante también debe ser del usuario).
+  if (data.parentTaskId) {
+    await assertValidParent(taskId, data.parentTaskId, userId);
+  }
+
+  if (data.contextTagId) {
+    await assertContextTagOwnership(userId, data.contextTagId);
+  }
 
   // Validate folder↔system consistency when folder_id is being set
   if (data.folderId) {
@@ -426,7 +457,7 @@ export async function updateTask(taskId: string, userId: string, data: UpdateTas
   // Auto-derive status when startDate or taskType changes (skip when status is explicit or task is terminal)
   const hasExplicitStatus = data.status !== undefined;
   if (!hasExplicitStatus && (data.startDate !== undefined || data.taskType !== undefined)) {
-    if (!["done", "archived"].includes(current.status)) {
+    if (current.status !== "done") {
       const effectiveType = data.taskType ?? current.taskType;
       if (effectiveType === "idea") {
         data = { ...data, status: "backlog" } as UpdateTaskInput;
@@ -492,17 +523,14 @@ export async function restoreTask(taskId: string, userId: string) {
 export async function toggleTask(
   taskId: string,
   userId: string,
-): Promise<{ status: string; xp_earned?: number }> {
-  const { updated, xpDelta } = await db.transaction((tx) =>
+): Promise<{ status: string }> {
+  const { updated } = await db.transaction((tx) =>
     applyTransition(tx, taskId, userId, (current) =>
       current.status === "done" ? "undo_done" : "toggle_done",
     ),
   );
 
-  return {
-    status: updated.status,
-    xp_earned: xpDelta > 0 ? xpDelta : undefined,
-  };
+  return { status: updated.status };
 }
 
 export async function reorderTasks(userId: string, ids: string[]) {
@@ -520,7 +548,8 @@ export async function bulkMoveTasks(taskIds: string[], status: TaskStatus, userI
   await db.transaction(async (tx) => {
     for (const taskId of taskIds) {
       await applyTransition(tx, taskId, userId, (current) => {
-        const action = deriveAction(current.status as TaskStatus, status);
+        if (current.status === status) return null; // ya está ahí: no-op
+        const action = actionForTransition(current.status as TaskStatus, status);
         if (!action) {
           throw new ValidationError(`Cannot move task from '${current.status}' to '${status}'`);
         }
@@ -548,7 +577,8 @@ export async function bulkUpdateTasks(
 export async function moveTask(taskId: string, newStatus: TaskStatus, userId: string): Promise<Task> {
   const { updated } = await db.transaction((tx) =>
     applyTransition(tx, taskId, userId, (current) => {
-      const action = deriveAction(current.status as TaskStatus, newStatus);
+      if (current.status === newStatus) return null; // ya está ahí: no-op
+      const action = actionForTransition(current.status as TaskStatus, newStatus);
       if (!action) {
         throw new ValidationError(`Cannot move task from '${current.status}' to '${newStatus}'`);
       }
@@ -630,8 +660,8 @@ export async function ensureTodayPlanRolled(userId: string): Promise<void> {
     .from(users)
     .where(eq(users.id, userId));
   const tz = userRow?.timezone ?? "UTC";
-  const today = sql`(NOW() AT TIME ZONE ${tz})::date`;
-  const tomorrow = sql`((NOW() AT TIME ZONE ${tz})::date + INTERVAL '1 day')::date`;
+  const today = sqlUserToday(tz);
+  const tomorrow = sql`(${sqlUserToday(tz)} + INTERVAL '1 day')::date`;
 
   await db.transaction(async (tx) => {
     // Serializa rollovers concurrentes del mismo usuario.
@@ -697,8 +727,8 @@ export async function reconcileTaskStatuses(userId: string): Promise<void> {
     .where(eq(users.id, userId));
 
   const tz = userRow?.timezone ?? "UTC";
-  const today = sql`(NOW() AT TIME ZONE ${tz})::date`;
-  const tomorrow = sql`((NOW() AT TIME ZONE ${tz})::date + INTERVAL '1 day')::date`;
+  const today = sqlUserToday(tz);
+  const tomorrow = sql`(${sqlUserToday(tz)} + INTERVAL '1 day')::date`;
 
   await db.transaction((tx) => reconcileStatusesInTx(tx, userId, today, tomorrow, tz));
 }
@@ -785,8 +815,18 @@ export async function bulkCreateTasks(
   userId: string,
   items: CreateTaskInput[],
 ): Promise<Task[]> {
-  const settled = await Promise.all(items.map((item) => createTask(userId, item)));
-  return settled.filter((t): t is Task => t !== null);
+  // Un solo `db.transaction` para todo el lote: si un item falla a mitad (ej.
+  // folder ajeno en la tarea 30 de 50), toda la operación revierte — no quedan
+  // tareas huérfanas a medio insertar. Secuencial a propósito: una transacción de
+  // postgres-js no admite queries concurrentes sobre la misma conexión.
+  return db.transaction(async (tx) => {
+    const created: Task[] = [];
+    for (const item of items) {
+      const task = await createTaskInTx(tx, userId, item);
+      if (task) created.push(task);
+    }
+    return created;
+  });
 }
 
 export async function getTimeLogSummary(
@@ -829,12 +869,18 @@ export async function createTimeLog(
   data: CreateTimeLogInput,
 ): Promise<void> {
   const [task] = await db
-    .select({ id: tasks.id })
+    .select({ id: tasks.id, systemId: tasks.systemId })
     .from(tasks)
     .where(and(eq(tasks.id, taskId), eq(tasks.userId, userId)))
     .limit(1);
 
   if (!task) throw new NotFoundError('Task not found');
+
+  // El systemId entrante debe coincidir con el de la tarea (que ya es del
+  // usuario): evita imputar tiempo a un sistema ajeno o inconsistente.
+  if (data.systemId !== task.systemId) {
+    throw new ValidationError('systemId does not match the task');
+  }
 
   await db.insert(timeLogs).values({
     userId,

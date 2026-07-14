@@ -1,7 +1,7 @@
 import { z } from 'zod';
 
 /** Único set de status válido: la máquina de estados global (scheduling). */
-export const TASK_STATUSES = ['backlog', 'week', 'tomorrow', 'today', 'done', 'archived'] as const;
+export const TASK_STATUSES = ['backlog', 'week', 'tomorrow', 'today', 'done'] as const;
 const STATUS = z.enum(TASK_STATUSES);
 
 // dueDate y startDate son timestamptz: aceptan "yyyy-MM-dd" o ISO datetime.

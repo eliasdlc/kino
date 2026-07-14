@@ -12,7 +12,6 @@ import { taskKeys, allTasksKey, suggestedTasksKey, reminderKeys } from "./tasks.
 
 interface ToggleTaskResult {
   status: string;
-  xp_earned?: number;
 }
 
 /** Tareas en la papelera (deleted_at IS NOT NULL) de un sistema. */

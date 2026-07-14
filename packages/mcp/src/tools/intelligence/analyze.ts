@@ -34,7 +34,7 @@ export function registerAnalyzeTools(server: McpServer, kinoFetch: KinoFetch) {
 
   server.tool(
     'find_stale_systems',
-    'Returns systems that have had no new tasks created in the last N days. Helps identify abandoned projects or areas.',
+    'Returns systems with no activity (no task completed and no time logged) in the last N days. Helps identify abandoned projects or areas.',
     {
       days: z
         .number()

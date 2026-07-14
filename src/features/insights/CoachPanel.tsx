@@ -139,7 +139,7 @@ function StaleSlot() {
           <div className="flex-1 min-w-0">
             <p className="text-xs font-medium truncate">{s.systemName}</p>
             <p className="text-[10px] text-muted-foreground">
-              {s.daysSinceLastTask >= 999 ? 'Sin tareas aún' : `Hace ${s.daysSinceLastTask} días`}
+              Sin actividad hace {s.daysSinceActivity} días
             </p>
           </div>
           <Button
