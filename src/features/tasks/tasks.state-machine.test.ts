@@ -201,6 +201,28 @@ describe("validateTransition", () => {
             });
         });
 
+        it("toggle_done de una tarea recurrente emite generate_next_rrule_instance", () => {
+            const result = validateTransition(
+                makeCtx({
+                    currentStatus: "today",
+                    action: "toggle_done",
+                    isRecurring: true,
+                })
+            );
+
+            expect(result.valid).toBe(true);
+            expect(result.sideEffects).toContainEqual({ type: "set_completed_at", value: expect.any(Date) });
+            expect(result.sideEffects).toContainEqual({ type: "generate_next_rrule_instance" });
+        });
+
+        it("toggle_done de una tarea NO recurrente no emite generate_next_rrule_instance", () => {
+            const result = validateTransition(
+                makeCtx({ currentStatus: "today", action: "toggle_done", isRecurring: false })
+            );
+
+            expect(result.sideEffects).not.toContainEqual({ type: "generate_next_rrule_instance" });
+        });
+
         it("undo_done from DONE produces clear_completed_at", () => {
             const result = validateTransition(
                 makeCtx({

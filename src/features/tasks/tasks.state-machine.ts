@@ -19,7 +19,10 @@ export interface TransitionResult {
 
 export type SideEffect =
     | { type: "set_completed_at"; value: Date }
-    | { type: "clear_completed_at" };
+    | { type: "clear_completed_at" }
+    // Al completar una tarea recurrente se genera su siguiente ocurrencia. El
+    // servicio lo maneja en applyTransition (necesita el Task y la tx).
+    | { type: "generate_next_rrule_instance" };
 
 // Borrado y restauración NO viven aquí: son papelera (deletedAt) vía
 // deleteTask/restoreTask, un eje ortogonal al scheduling. Este mapa sólo
@@ -89,7 +92,7 @@ export function validateTransition(ctx: TransitionContext): TransitionResult {
     }
 
     const newStatus = allowedActions[ctx.action]!;
-    const sideEffects = buildSideEffects(ctx.action);
+    const sideEffects = buildSideEffects(ctx.action, ctx.isRecurring);
 
     return {
         valid: true,
@@ -98,7 +101,7 @@ export function validateTransition(ctx: TransitionContext): TransitionResult {
     };
 }
 
-function buildSideEffects(action: TransitionAction): SideEffect[] {
+function buildSideEffects(action: TransitionAction, isRecurring: boolean): SideEffect[] {
     switch (action) {
         case "move_to_week":
         case "move_to_today":
@@ -107,7 +110,12 @@ function buildSideEffects(action: TransitionAction): SideEffect[] {
             return [];
 
         case "toggle_done":
-            return [{ type: "set_completed_at", value: new Date() }];
+            return isRecurring
+                ? [
+                      { type: "set_completed_at", value: new Date() },
+                      { type: "generate_next_rrule_instance" },
+                  ]
+                : [{ type: "set_completed_at", value: new Date() }];
 
         case "undo_done":
             return [{ type: "clear_completed_at" }];

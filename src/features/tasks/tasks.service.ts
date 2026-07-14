@@ -7,6 +7,7 @@ import { Task, CreateTaskInput, UpdateTaskInput } from "./tasks.types";
 import type { z } from "zod";
 import type { listTasksQuerySchema, CreateTimeLogInput } from "./tasks.schemas";
 import { deriveStatusFromDate, findParentViolation } from "./tasks.utils";
+import { computeNextOccurrence } from "./recurrence";
 import { sqlUserDay, sqlUserToday } from "@/shared/time";
 
 const ENERGY_POINTS: Record<string, number> = {
@@ -140,7 +141,61 @@ async function applyTransition(
 
   if (!updated) throw new NotFoundError("Task not found");
 
+  // Al completar una tarea recurrente, sembramos su siguiente ocurrencia dentro
+  // de la misma tx (atómico con el toggle). Una sola instancia por vez.
+  if (transition.sideEffects?.some((e) => e.type === "generate_next_rrule_instance")) {
+    await spawnNextRecurrence(tx, userId, updated as Task);
+  }
+
   return { updated: updated as Task };
+}
+
+/** Genera la siguiente instancia de una serie recurrente tras completar una. */
+async function spawnNextRecurrence(tx: DbTransaction, userId: string, task: Task): Promise<void> {
+  if (!task.recurrenceRule) return;
+  const anchor = task.dueDate ?? task.startDate;
+  const from = anchor ? new Date(anchor) : new Date();
+  const next = computeNextOccurrence(task.recurrenceRule, from);
+  if (!next) return; // serie agotada (COUNT/UNTIL)
+  await createRecurrenceInstance(tx, userId, task, next);
+}
+
+/**
+ * INSERT de una nueva instancia recurrente: hereda los campos de la tarea madre
+ * y ancla `recurrenceParentId` al primer ancestro para agrupar la serie. El
+ * `userId` viene de la sesión, no de la tarea.
+ */
+async function createRecurrenceInstance(
+  tx: DbTransaction,
+  userId: string,
+  task: Task,
+  nextDate: Date,
+): Promise<void> {
+  const tz = await getUserTimezone(userId, tx);
+  const nextIso = nextDate.toISOString();
+  const status = deriveStatusFromDate(nextIso, tz);
+
+  await tx.insert(tasks).values({
+    userId,
+    systemId: task.systemId,
+    title: task.title,
+    description: task.description,
+    energyLevel: task.energyLevel,
+    priority: task.priority,
+    taskType: task.taskType,
+    estimatedTime: task.estimatedTime,
+    folderId: task.folderId,
+    sprintId: task.sprintId,
+    contextTagId: task.contextTagId,
+    boardStatus: task.boardStatus,
+    metadata: task.metadata,
+    recurrenceRule: task.recurrenceRule,
+    // Siempre al ancestro raíz: si la completada ya era instancia, hereda su padre.
+    recurrenceParentId: task.recurrenceParentId ?? task.id,
+    dueDate: nextIso,
+    status,
+    inTodayPlan: status === "today",
+  });
 }
 
 const AUTO_REMINDER_OFFSETS: Record<string, number[]> = {

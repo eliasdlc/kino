@@ -34,6 +34,7 @@ import type { TaskTypeValue } from "@/shared/types/enums";
 import { SubtaskList } from "./SubtaskList";
 import { TaskRemindersSection } from "./TaskRemindersSection";
 import { useUpdateTask } from "./tasks.hooks";
+import { RecurrencePicker } from "./RecurrencePicker";
 import { useFolders } from "@/features/folders/folders.hooks";
 import { useSprints } from "@/features/sprints/sprints.hooks";
 import { getSystemColor } from "@/shared/utils/system-colors";
@@ -152,6 +153,7 @@ function TaskDetailForm({ task, systemId, onClose }: TaskDetailFormProps) {
   const [selectedFolderId, setSelectedFolderId] = useState<string>(task.folderId ?? "none");
   const [sprintId, setSprintId] = useState<string>(task.sprintId ?? "none");
   const [contextTagId, setContextTagId] = useState<string | null>(task.contextTagId ?? null);
+  const [recurrenceRule, setRecurrenceRule] = useState<string | null>(task.recurrenceRule ?? null);
   const [saveStatus, setSaveStatus] = useState<"idle" | "saved">("idle");
 
   const queryClient = useQueryClient();
@@ -199,6 +201,8 @@ function TaskDetailForm({ task, systemId, onClose }: TaskDetailFormProps) {
 
     if (contextTagId !== (task.contextTagId ?? null)) data.contextTagId = contextTagId;
 
+    if (recurrenceRule !== (task.recurrenceRule ?? null)) data.recurrenceRule = recurrenceRule;
+
     const curMetadataStr = metadata ? JSON.stringify(metadata) : null;
     const origMetadataStr = task.metadata ? JSON.stringify(task.metadata) : null;
     if (curMetadataStr !== origMetadataStr) data.metadata = metadata;
@@ -226,7 +230,7 @@ function TaskDetailForm({ task, systemId, onClose }: TaskDetailFormProps) {
     return () => clearTimeout(timer);
   // task.id is stable for the lifetime of this form instance (key={task.id} in parent)
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [title, description, priority, energyLevel, taskType, dueDate, startDate, selectedFolderId, sprintId, contextTagId, metadata]);
+  }, [title, description, priority, energyLevel, taskType, dueDate, startDate, selectedFolderId, sprintId, contextTagId, recurrenceRule, metadata]);
 
   function handleSave() {
     if (!title.trim()) return;
@@ -438,6 +442,13 @@ function TaskDetailForm({ task, systemId, onClose }: TaskDetailFormProps) {
             </PopoverContent>
           </Popover>
         </div>
+      </div>
+
+      <Separator />
+
+      <div className="space-y-2">
+        <Label>Repetición</Label>
+        <RecurrencePicker value={recurrenceRule} onChange={setRecurrenceRule} />
       </div>
 
       <Separator />

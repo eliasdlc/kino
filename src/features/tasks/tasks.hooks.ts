@@ -124,7 +124,7 @@ export function useCreateTask(systemId: string, folderId?: string) {
         sprintId: null,
         systemId,
         userId: "optimistic",
-        recurrenceRule: null,
+        recurrenceRule: data.recurrenceRule ?? null,
         recurrenceParentId: null,
         externalSource: null,
         externalId: null,

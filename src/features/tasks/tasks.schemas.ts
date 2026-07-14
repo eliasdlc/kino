@@ -1,4 +1,10 @@
 import { z } from 'zod';
+import { isValidRRule } from './recurrence';
+
+const RECURRENCE_RULE = z
+  .string()
+  .max(500)
+  .refine(isValidRRule, { message: 'Regla de recurrencia inválida' });
 
 /** Único set de status válido: la máquina de estados global (scheduling). */
 export const TASK_STATUSES = ['backlog', 'week', 'tomorrow', 'today', 'done'] as const;
@@ -38,6 +44,7 @@ export const createTaskSchema = z.object({
   folderId: z.string().uuid().optional(),
   sprintId: z.string().uuid().optional(),
   boardStatus: z.string().max(50).optional(),
+  recurrenceRule: RECURRENCE_RULE.nullable().optional(),
   metadata: taskMetadataSchema.optional(),
 }).superRefine((data, ctx) => {
   if (data.taskType === 'event' && !data.startDate) {
@@ -67,6 +74,7 @@ export const updateTaskSchema = z.object({
   sprintId: z.string().uuid().nullable().optional(),
   systemId: z.string().uuid().optional(),
   inTodayPlan: z.boolean().optional(),
+  recurrenceRule: RECURRENCE_RULE.nullable().optional(),
   metadata: taskMetadataSchema.optional().nullable(),
 }).superRefine((data, ctx) => {
   if (data.taskType === 'event' && data.startDate === null) {
