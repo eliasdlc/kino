@@ -18,9 +18,15 @@ export const updateUserSettingsSchema = z
       .max(50)
       .refine(isValidTimezone, 'Zona horaria inválida')
       .optional(),
+    theme: z.enum(['dark', 'light', 'system']).optional(),
+    notificationsEnabled: z.boolean().optional(),
   })
   .refine(
-    (d) => d.dailyEnergyLimit !== undefined || d.timezone !== undefined,
+    (d) =>
+      d.dailyEnergyLimit !== undefined ||
+      d.timezone !== undefined ||
+      d.theme !== undefined ||
+      d.notificationsEnabled !== undefined,
     'Debe incluir al menos un campo',
   );
 

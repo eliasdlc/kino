@@ -46,12 +46,28 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
   const mode = useThemeStore((s) => s.mode);
   const setMode = useThemeStore((s) => s.setMode);
 
-  // Hydrate from localStorage on mount
+  // Hydrate on mount. localStorage tiene prioridad (aplica sin flash y respeta
+  // la elección de este dispositivo); en un dispositivo nuevo, cae al valor
+  // guardado en la cuenta (userSettings.theme).
   useEffect(() => {
     const stored = localStorage.getItem("kino-theme") as ThemeMode | null;
     if (stored && ["light", "dark", "system"].includes(stored)) {
       setMode(stored);
+      return;
     }
+    let active = true;
+    fetch("/api/settings")
+      .then((res) => (res.ok ? res.json() : null))
+      .then((settings) => {
+        const theme = settings?.theme as ThemeMode | undefined;
+        if (active && theme && ["light", "dark", "system"].includes(theme)) {
+          setMode(theme);
+        }
+      })
+      .catch(() => {});
+    return () => {
+      active = false;
+    };
   }, [setMode]);
 
   // Apply class and listen for OS changes
