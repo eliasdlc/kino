@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { Focus, Minimize2 } from "lucide-react";
 import { useSharedEditor } from "./EditorContext";
 import { countWords } from "./word-count";
 
@@ -21,10 +22,14 @@ export function WriterStatusBar({
   obra,
   paper,
   onTogglePaper,
+  focusMode = false,
+  onToggleFocus,
 }: {
   obra: WriterObra | null;
   paper: boolean;
   onTogglePaper: () => void;
+  focusMode?: boolean;
+  onToggleFocus?: () => void;
 }) {
   const editor = useSharedEditor();
   const [chapterWords, setChapterWords] = useState(0);
@@ -52,7 +57,7 @@ export function WriterStatusBar({
         Cap: <span className="text-foreground">{chapterWords.toLocaleString("es")}</span> palabras
       </span>
 
-      {obra && (
+      {obra && !focusMode && (
         <div className="flex min-w-0 flex-1 items-center gap-2">
           <span className="shrink-0 truncate font-mono">
             {obra.name}: {obraWords!.toLocaleString("es")}
@@ -69,14 +74,29 @@ export function WriterStatusBar({
         </div>
       )}
 
-      <button
-        type="button"
-        onClick={onTogglePaper}
-        className="ml-auto shrink-0 rounded px-1.5 py-0.5 transition-colors hover:text-foreground"
-        title="Alternar fondo papel"
-      >
-        {paper ? "Papel" : "Oscuro"}
-      </button>
+      <div className="ml-auto flex shrink-0 items-center gap-1">
+        {!focusMode && (
+          <button
+            type="button"
+            onClick={onTogglePaper}
+            className="rounded px-1.5 py-0.5 transition-colors hover:text-foreground"
+            title="Alternar fondo papel"
+          >
+            {paper ? "Papel" : "Oscuro"}
+          </button>
+        )}
+        {onToggleFocus && (
+          <button
+            type="button"
+            onClick={onToggleFocus}
+            className="flex items-center gap-1 rounded px-1.5 py-0.5 transition-colors hover:text-foreground"
+            title={focusMode ? "Salir de focus (Esc)" : "Modo focus"}
+          >
+            {focusMode ? <Minimize2 className="size-3.5" /> : <Focus className="size-3.5" />}
+            {focusMode ? "Salir" : "Focus"}
+          </button>
+        )}
+      </div>
     </div>
   );
 }

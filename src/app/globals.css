@@ -233,6 +233,16 @@
   color: var(--paper-fg);
 }
 
+/* Modo focus: atenúa todo menos el bloque activo (marcado con .has-focus por la
+   extension Focus). Solo se activa cuando el contenedor lleva .writer-focus. */
+.writer-focus .tiptap-writer .ProseMirror > * {
+  transition: opacity 0.25s ease;
+  opacity: 0.28;
+}
+.writer-focus .tiptap-writer .ProseMirror > .has-focus {
+  opacity: 1;
+}
+
 /* ── Confetti burst (TodayPlanCard — DECISIONS.md §1.2) ──────────────────── */
 @keyframes confetti-fly {
   0%   { transform: translate(-50%, -50%) rotate(0deg) scale(1); opacity: 1; }
