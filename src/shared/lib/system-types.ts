@@ -299,8 +299,11 @@ export const SYSTEM_TYPE_CONFIG: Record<SystemType, ArchetypeManifest> = {
       newLabel: 'Nueva obra',
       placeholder: 'Título de la obra',
       icon: BookMarked,
+      // `medium` declara la forma de la obra (novela, manga, cómic, guion, serial…)
+      // y en W3 gobernará la estructura del editor por MediumManifest (PLAN-11 §6).
+      // Hasta entonces es texto libre; W3 lo convierte en selección tipada.
       fields: [
-        { id: 'kind', label: 'Tipo (libro/blog/cómic/otro)', input: 'text' },
+        { id: 'medium', label: 'Medium (novela, manga, cómic, guion, serial)', input: 'text' },
         { id: 'wordGoal', label: 'Meta de palabras', input: 'number' },
         { id: 'targetDate', label: 'Fecha objetivo', input: 'date' },
       ],

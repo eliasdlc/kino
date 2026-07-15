@@ -47,7 +47,12 @@ function ObraCard({ obra, manuscripts, systemId }: {
 }) {
   const { mutate: createPage, isPending } = useCreatePage(systemId);
   const meta = obra.metadata ?? {};
-  const kind = typeof meta.kind === "string" ? meta.kind : null;
+  // `medium` es la clave actual (PLAN-11 §6); `kind` es el nombre viejo del campo,
+  // se sigue leyendo para obras creadas antes del rename.
+  const kind =
+    typeof meta.medium === "string" ? meta.medium
+    : typeof meta.kind === "string" ? meta.kind
+    : null;
   const wordGoal = typeof meta.wordGoal === "number" ? meta.wordGoal
     : typeof meta.wordGoal === "string" ? Number(meta.wordGoal) || null : null;
   const totalWords = manuscripts.reduce((sum, p) => sum + p.wordCount, 0);
