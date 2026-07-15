@@ -16,6 +16,7 @@ import { useSubPages, useCreateSubPage } from "./pages.hooks";
 import { htmlToMarkdown } from "./export/html-to-markdown";
 import type { BreadcrumbItem } from "@/components/PageBreadcrumb";
 import type { PageDetail, PageListItem } from "./pages.types";
+import type { WriterObra } from "./WriterStatusBar";
 
 // The Tiptap surface (StarterKit + table + suggestion + list, plus image in
 // Sprint 3) is loaded client-side on demand so it stays out of the route's
@@ -110,6 +111,10 @@ interface NotebookEditorLayoutProps {
   parentNotebook: PageListItem | null;
   /** Sub-pages of the root notebook (pre-fetched server-side) */
   initialSubPages: PageListItem[];
+  /** Arquetipo Writing: activa el "writer feel" del editor (PLAN-11 §7). */
+  writer?: boolean;
+  /** Obra a la que pertenece el capítulo — alimenta el progreso de la status bar. */
+  obra?: WriterObra | null;
 }
 
 function SubPagesSidebar({
@@ -219,6 +224,8 @@ export function NotebookEditorLayout({
   breadcrumbItems,
   parentNotebook,
   initialSubPages,
+  writer = false,
+  obra = null,
 }: NotebookEditorLayoutProps) {
   const [rightOpen, setRightOpen] = useState(false);
 
@@ -244,7 +251,7 @@ export function NotebookEditorLayout({
 
       <div className="flex flex-1 overflow-hidden">
         {/* Main editor — centered content with free-floating margin notes overlay */}
-        <NotebookEditorSurface page={page} systemId={systemId} />
+        <NotebookEditorSurface page={page} systemId={systemId} writer={writer} obra={obra} />
       </div>
 
       {/* Floating right panel */}

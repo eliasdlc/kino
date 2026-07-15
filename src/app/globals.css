@@ -15,6 +15,7 @@
   --font-sans: var(--font-sans);
   --font-mono: var(--font-geist-mono);
   --font-heading: var(--font-sans);
+  --font-serif: var(--font-literata);
   /* Marketing/auth-only fonts — variables defined by next/font inside those layouts */
   --font-display: var(--font-bricolage);
   --font-body: var(--font-instrument);
@@ -192,6 +193,44 @@
 }
 .tiptap-editor .ProseMirror em {
   @apply italic;
+}
+
+/* ── Writer feel (arquetipo Writing, PLAN-11 §7) ──────────────────────────
+   Tipografía serif de lectura, medida cómoda y line-height generoso: el editor
+   debe dar ganas de quedarse. Solo aplica cuando la superficie es de escritura. */
+.tiptap-writer .ProseMirror {
+  font-family: var(--font-serif), Georgia, "Times New Roman", serif;
+  font-size: 1.0625rem; /* ~17px */
+  line-height: 1.85;
+  letter-spacing: 0.003em;
+}
+.tiptap-writer .ProseMirror p {
+  @apply my-0;
+  text-align: justify;
+  text-wrap: pretty;
+}
+.tiptap-writer .ProseMirror p + p {
+  text-indent: 1.4em; /* sangría de párrafo tipo libro; primer párrafo sin sangría */
+}
+.tiptap-writer .ProseMirror h1,
+.tiptap-writer .ProseMirror h2,
+.tiptap-writer .ProseMirror h3 {
+  font-family: var(--font-serif), Georgia, serif;
+  text-align: center;
+  text-indent: 0;
+}
+
+/* Fondo "papel" cálido, opción sobre el dark actual. Se activa por atributo en
+   la columna del editor para no tocar el resto de la app. */
+[data-paper="on"] {
+  --paper-bg: #f6f1e7;
+  --paper-fg: #2b2620;
+  background-color: var(--paper-bg);
+  color: var(--paper-fg);
+  border-radius: 0.5rem;
+}
+[data-paper="on"] .tiptap-writer .ProseMirror {
+  color: var(--paper-fg);
 }
 
 /* ── Confetti burst (TodayPlanCard — DECISIONS.md §1.2) ──────────────────── */

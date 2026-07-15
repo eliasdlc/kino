@@ -43,6 +43,27 @@ export default async function PageEditorRoute({ params }: PageEditorRouteProps) 
 
   const parentNotebook = parentNotebookData as PageListItem | null;
 
+  // Writer feel (PLAN-11 §7): solo el arquetipo Writing. La "obra" es el folder al
+  // que pertenece el capítulo; su progreso = suma de palabras de sus pages (derivado).
+  const writer = system.templateType === "writing";
+  const wordGoalRaw = folder?.metadata?.wordGoal;
+  const wordGoal =
+    typeof wordGoalRaw === "number"
+      ? wordGoalRaw
+      : typeof wordGoalRaw === "string"
+        ? Number(wordGoalRaw) || null
+        : null;
+  const obra =
+    writer && folder
+      ? {
+          name: folder.name,
+          wordGoal,
+          wordsExcludingCurrent: allPages
+            .filter((p) => p.folderId === folder.id && p.id !== page.id)
+            .reduce((sum, p) => sum + p.wordCount, 0),
+        }
+      : null;
+
   const breadcrumbItems: BreadcrumbItem[] = [
     { label: "Sistemas", href: "/systems" },
     { label: system.name, href: `/systems/${systemId}` },
@@ -68,6 +89,8 @@ export default async function PageEditorRoute({ params }: PageEditorRouteProps) 
       breadcrumbItems={breadcrumbItems}
       parentNotebook={parentNotebook}
       initialSubPages={initialSubPages}
+      writer={writer}
+      obra={obra}
     />
   );
 }

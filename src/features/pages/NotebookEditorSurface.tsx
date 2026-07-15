@@ -1,8 +1,10 @@
 "use client";
 
 import { useRef, useState } from "react";
+import { cn } from "@/lib/utils";
 import { EditorProvider } from "./EditorContext";
 import { NotebookEditor } from "./NotebookEditor";
+import { WriterStatusBar, type WriterObra } from "./WriterStatusBar";
 import { StickyNotesGrid } from "@/features/sticky-notes/StickyNotesGrid";
 import { FloatingNotesLayer } from "@/features/sticky-notes/FloatingNotesLayer";
 import { StickyNoteCreator } from "@/features/sticky-notes/StickyNoteCreator";
@@ -19,15 +21,22 @@ import type { PageDetail } from "./pages.types";
 export default function NotebookEditorSurface({
   page,
   systemId,
+  writer = false,
+  obra = null,
 }: {
   page: PageDetail;
   systemId: string;
+  /** Arquetipo Writing: activa el "writer feel" (serif, medida de lectura, status bar). */
+  writer?: boolean;
+  /** Datos de la obra para el progreso en la status bar (null si no aplica). */
+  obra?: WriterObra | null;
 }) {
   const contentRef = useRef<HTMLDivElement>(null);
   const columnRef = useRef<HTMLDivElement>(null);
   const { data: allNotes = [] } = useStickyNotesByPage(page.id);
   const floatingNotes = allNotes.filter((n) => n.positionSide);
   const pageContext = { pageId: page.id };
+  const [paper, setPaper] = useState(false);
 
   // Creador flotante abierto con click derecho: guarda el punto de pantalla y la
   // posición (columna-relativa) donde caerá la nota.
@@ -57,26 +66,40 @@ export default function NotebookEditorSurface({
 
   return (
     <EditorProvider key={page.id} initialContent={page.content ?? ""}>
-      <div className="flex-1 overflow-y-auto">
-        <div
-          ref={contentRef}
-          className="relative min-h-full"
-          onContextMenu={handleContextMenu}
-        >
+      <div className="flex flex-1 flex-col overflow-hidden">
+        <div className="flex-1 overflow-y-auto">
           <div
-            ref={columnRef}
-            className="max-w-3xl mx-auto px-4 py-6 md:px-6 md:py-8 space-y-8"
+            ref={contentRef}
+            className="relative min-h-full"
+            onContextMenu={handleContextMenu}
           >
-            <StickyNotesGrid pageId={page.id} />
-            <NotebookEditor page={page} systemId={systemId} pageId={page.id} />
+            <div
+              ref={columnRef}
+              data-paper={writer && paper ? "on" : undefined}
+              className={cn(
+                "mx-auto px-4 py-6 md:px-6 md:py-8 space-y-8",
+                writer ? "max-w-[46rem] md:my-6 md:px-10" : "max-w-3xl"
+              )}
+            >
+              <StickyNotesGrid pageId={page.id} />
+              <NotebookEditor page={page} systemId={systemId} pageId={page.id} writer={writer} />
+            </div>
+            <FloatingNotesLayer
+              notes={floatingNotes}
+              context={pageContext}
+              containerRef={contentRef}
+              columnRef={columnRef}
+            />
           </div>
-          <FloatingNotesLayer
-            notes={floatingNotes}
-            context={pageContext}
-            containerRef={contentRef}
-            columnRef={columnRef}
-          />
         </div>
+
+        {writer && (
+          <WriterStatusBar
+            obra={obra}
+            paper={paper}
+            onTogglePaper={() => setPaper((p) => !p)}
+          />
+        )}
       </div>
 
       {creator && (

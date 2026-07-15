@@ -15,9 +15,11 @@ interface NotebookEditorProps {
   page: PageDetail;
   systemId: string;
   pageId?: string;
+  /** Arquetipo Writing: activa la tipografía serif de lectura (PLAN-11 §7). */
+  writer?: boolean;
 }
 
-export function NotebookEditor({ page, systemId, pageId }: NotebookEditorProps) {
+export function NotebookEditor({ page, systemId, pageId, writer = false }: NotebookEditorProps) {
   const editor = useSharedEditor();
   const { mutate: updatePage } = useUpdatePage(page.id, systemId);
   const [title, setTitle] = useState(page.title ?? "");
@@ -97,7 +99,7 @@ export function NotebookEditor({ page, systemId, pageId }: NotebookEditorProps) 
           className="w-full bg-transparent text-3xl font-bold placeholder:text-muted-foreground/40 focus:outline-none border-none p-0"
           maxLength={500}
         />
-        <div className="tiptap-editor flex-1 relative">
+        <div className={cn("tiptap-editor flex-1 relative", writer && "tiptap-writer")}>
           {editor && (
             <BubbleMenu editor={editor}>
               <div className="flex items-center gap-1 bg-popover border border-border rounded-lg px-1.5 py-1 shadow-lg">
