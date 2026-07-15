@@ -25,7 +25,7 @@ export const TASK_TYPE_VALUES = ["task", "idea", "event", "reminder", "epic"] as
 export type TaskTypeValue = (typeof TASK_TYPE_VALUES)[number];
 
 export const TEMPLATE_TYPE_VALUES = [
-  "academic", "project", "entrepreneurial", "personal", "custom",
+  "academic", "project", "entrepreneurial", "personal", "writing", "custom",
 ] as const;
 export type TemplateTypeValue = (typeof TEMPLATE_TYPE_VALUES)[number];
 

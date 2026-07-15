@@ -27,6 +27,8 @@ interface DefaultTaskCardProps extends TaskCardProps {
   renderMeta?: (state: TaskCardState) => React.ReactNode;
   isSelected?: boolean;
   onSelectionToggle?: (taskId: string) => void;
+  /** Personal: la card no grita prioridad — sin badge ni bordes rojo/naranja. */
+  soft?: boolean;
 }
 
 const STATUS_BADGE: Record<string, string> = {
@@ -265,13 +267,17 @@ function DefaultMeta({ task, state, systemType, systemId }: DefaultMetaProps) {
   );
 }
 
-export function DefaultTaskCard({ task, systemId, systemType, draggable, isFocused, onToggle, onDelete, onEdit, renderMeta, isSelected, onSelectionToggle }: DefaultTaskCardProps) {
+export function DefaultTaskCard({ task, systemId, systemType, draggable, isFocused, onToggle, onDelete, onEdit, renderMeta, isSelected, onSelectionToggle, soft }: DefaultTaskCardProps) {
   const state = useTaskCard(task, systemId, onToggle);
   const {
-    isDone, isArchived, isCritical, isHigh, completing,
+    isDone, isArchived, completing,
     isThisRunning, anotherRunning, isExpanded, setIsExpanded,
-    showPriorityBadge, handleToggle, openModeDialog,
+    handleToggle, openModeDialog,
   } = state;
+  // En modo soft (personal) la prioridad no tiñe la card ni muestra badge.
+  const isCritical = state.isCritical && !soft;
+  const isHigh = state.isHigh && !soft;
+  const showPriorityBadge = state.showPriorityBadge && !soft;
 
   return (
     <ContextMenu>

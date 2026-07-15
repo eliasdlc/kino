@@ -5,6 +5,7 @@ import { NotFoundError, ForbiddenError } from "@/shared/utils/error";
 import type { CreatePageInput, UpdatePageInput } from "./pages.schemas";
 import type { PageDetail, PageListItem, LinkedTask, PageMutationResult } from "./pages.types";
 import type { ContextTagListItem } from "@/features/tags/tags.types";
+import { countWords } from "./word-count";
 
 function stripHtml(html: string | null | undefined): string | null {
   if (!html) return null;
@@ -91,6 +92,7 @@ export async function getPagesBySystem(
   return rows.map(({ content, ...rest }) => ({
     ...rest,
     contentPreview: stripHtml(content),
+    wordCount: countWords(content),
     tags: tagsByPage.get(rest.id) ?? [],
     subPageCount: subCountByPage.get(rest.id) ?? 0,
   }));
@@ -141,6 +143,7 @@ export async function getSubPages(
   return rows.map(({ content, ...rest }) => ({
     ...rest,
     contentPreview: stripHtml(content),
+    wordCount: countWords(content),
     tags: [],
     subPageCount: 0,
   }));
@@ -229,7 +232,7 @@ export async function createPage(
       updatedAt: pages.updatedAt,
     });
 
-  return { ...created!, contentPreview: null, tags: [], subPageCount: 0 };
+  return { ...created!, contentPreview: null, wordCount: countWords(input.content), tags: [], subPageCount: 0 };
 }
 
 export async function updatePage(
@@ -269,7 +272,7 @@ export async function updatePage(
     .innerJoin(contextTags, eq(pageTags.tagId, contextTags.id))
     .where(eq(pageTags.pageId, pageId));
 
-  return { ...updated, contentPreview: stripHtml(updated.content), tags: existingTags, subPageCount: 0 };
+  return { ...updated, contentPreview: stripHtml(updated.content), wordCount: countWords(updated.content), tags: existingTags, subPageCount: 0 };
 }
 
 export async function deletePage(

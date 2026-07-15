@@ -8,6 +8,8 @@ export type PageListItem = Pick<
   "id" | "title" | "folderId" | "systemId" | "isPinned" | "parentPageId" | "createdAt" | "updatedAt"
 > & {
   contentPreview: string | null;
+  /** Palabras derivadas del contenido Tiptap (arquetipo Writing). Nunca persistido. */
+  wordCount: number;
   tags: ContextTagListItem[];
   subPageCount: number;
 };

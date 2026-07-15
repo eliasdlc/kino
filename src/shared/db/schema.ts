@@ -64,6 +64,7 @@ export const templateTypeEnum = pgEnum('template_type', [
   'personal',
   'custom',
   'inbox',
+  'writing',
 ]);
 
 export const energyLevelEnum = pgEnum('energy_level', [
@@ -752,6 +753,11 @@ export const folders = pgTable(
     color: colorEnum('color').notNull().default('blue'),
     path: ltree('path').notNull(),
     sortIndex: integer('sort_index').notNull().default(0),
+    // Campos propios del rol de folder por arquetipo (professor/horario/semestre en
+    // Academic, targetDate en Entrepreneurial, kind/wordGoal en Writing). El shape
+    // depende del systemType; se valida server-side con un Zod discriminado. Ver
+    // folders.metadata.ts y docs/DISENO-ARQUETIPOS-2026-07.md (D10).
+    metadata: jsonb('metadata').$type<Record<string, unknown> | null>(),
     createdAt: timestamp('created_at', { withTimezone: true })
       .notNull()
       .defaultNow(),

@@ -4,7 +4,7 @@ export type Folder = typeof folders.$inferSelect;
 
 export type FolderListItem = Pick<
   Folder,
-  "id" | "name" | "color" | "sortIndex" | "parentId" | "systemId"
+  "id" | "name" | "color" | "sortIndex" | "parentId" | "systemId" | "metadata"
 >;
 
 /** A folder in a list, enriched with its direct-content counts for the card UI. */
@@ -15,7 +15,7 @@ export type FolderWithCounts = FolderListItem & {
 
 export type FolderDetail = Pick<
   Folder,
-  "id" | "name" | "color" | "sortIndex" | "parentId" | "systemId" | "path"
+  "id" | "name" | "color" | "sortIndex" | "parentId" | "systemId" | "path" | "metadata"
 >;
 
 export type BreadcrumbItem = {

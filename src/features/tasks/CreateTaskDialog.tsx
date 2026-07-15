@@ -118,6 +118,7 @@ export function CreateTaskDialog({
   const isProjectSystem = systemTemplateType === 'project';
   const { data: sprints = [] } = useSprints(systemId, { enabled: isProjectSystem });
   const dialogFields = getTaskDialogFields(systemTemplateType);
+  const taskKinds = systemTemplateType ? SYSTEM_TYPE_CONFIG[systemTemplateType]?.taskKinds ?? [] : [];
   const rawEnergyDefault = systemTemplateType ? SYSTEM_TYPE_CONFIG[systemTemplateType]?.energyDefault : null;
   const energyDefault: 'high' | 'medium' | 'low' =
     rawEnergyDefault === 'high' ? 'high' : rawEnergyDefault === 'low' ? 'low' : 'medium';
@@ -429,6 +430,60 @@ export function CreateTaskDialog({
 
       {/* ── Step 2: Planificación ── */}
       {step === 2 && (
+        <div className="flex flex-col gap-4">
+        {taskKinds.length > 0 && (
+          <div className="space-y-2">
+            <Label>Tipo</Label>
+            <div className="flex flex-wrap gap-1.5">
+              {taskKinds.map((kind) => {
+                const KindIcon = kind.icon;
+                const active = (currentMetadata?.kind as string | undefined) === kind.id;
+                return (
+                  <button
+                    key={kind.id}
+                    type="button"
+                    onClick={() => {
+                      const meta = (form.getValues('metadata') as Record<string, unknown>) || {};
+                      form.setValue(
+                        'metadata',
+                        active ? { ...meta, kind: undefined } : { ...meta, kind: kind.id },
+                      );
+                    }}
+                    className={cn(
+                      "inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-sm transition-colors",
+                      active
+                        ? "border-primary bg-primary/10 text-foreground"
+                        : "border-border text-muted-foreground hover:border-primary/50",
+                    )}
+                  >
+                    <KindIcon size={14} />
+                    {kind.label}
+                  </button>
+                );
+              })}
+            </div>
+            {(() => {
+              const activeKind = taskKinds.find((k) => k.id === (currentMetadata?.kind as string | undefined));
+              if (!activeKind || activeKind.fields.length === 0) return null;
+              return (
+                <div className="grid grid-cols-1 gap-2 pt-1">
+                  {activeKind.fields.map((field) => (
+                    <Input
+                      key={field.id}
+                      type={field.input === "date" ? "date" : field.input === "number" ? "number" : "text"}
+                      placeholder={field.label}
+                      value={(currentMetadata?.[field.id] as string | undefined) ?? ""}
+                      onChange={(e) => {
+                        const meta = (form.getValues("metadata") as Record<string, unknown>) || {};
+                        form.setValue("metadata", { ...meta, [field.id]: e.target.value });
+                      }}
+                    />
+                  ))}
+                </div>
+              );
+            })()}
+          </div>
+        )}
         <TaskPlanningFields
           form={form}
           systemId={systemId}
@@ -441,6 +496,7 @@ export function CreateTaskDialog({
           dateRange={dateRange}
           setDateRange={setDateRange}
         />
+        </div>
       )}
 
       {/* ── Step 3: Detalle ── */}

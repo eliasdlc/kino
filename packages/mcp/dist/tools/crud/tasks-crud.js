@@ -60,9 +60,9 @@ export function registerTaskCrudTools(server, kinoFetch) {
         parentTaskId: z.string().uuid().optional().describe('UUID de la tarea padre (para crear subtareas)'),
         folderId: z.string().uuid().optional().describe('UUID de la carpeta destino'),
         taskType: z
-            .enum(['idea', 'reminder', 'project', 'todo', 'epic'])
+            .enum(['task', 'idea', 'event', 'reminder', 'epic'])
             .optional()
-            .describe('Tipo de tarea. Las "idea" siempre van a backlog. Por defecto "todo" si se omite.'),
+            .describe('Tipo de tarea. Las "idea" siempre van a backlog. Por defecto "task" si se omite.'),
         estimatedTime: z
             .string()
             .optional()
@@ -77,6 +77,10 @@ export function registerTaskCrudTools(server, kinoFetch) {
             .string()
             .optional()
             .describe('Columna inicial del board (systemType "project"): todo, in_progress, review, done'),
+        metadata: z
+            .record(z.string(), z.any())
+            .optional()
+            .describe('Metadata semántica por arquetipo. `kind` debe ser un tipo válido del sistema (Academic: assignment/exam/reading/practice; Entrepreneurial: experiment/build/learning; Personal: habit/errand/event). El servidor rechaza kinds no declarados.'),
     }, async (data) => {
         // Default to "week" so tasks appear in the Action View, not buried in backlog
         const payload = {
@@ -109,7 +113,7 @@ export function registerTaskCrudTools(server, kinoFetch) {
                 .optional()
                 .describe('UUID de la tarea padre — conviértela en subtarea'),
             folderId: z.string().uuid().optional().describe('UUID de la carpeta destino'),
-            taskType: z.enum(['idea', 'reminder', 'project', 'todo', 'epic']).optional(),
+            taskType: z.enum(['task', 'idea', 'event', 'reminder', 'epic']).optional(),
             estimatedTime: z.string().optional().describe('Tiempo estimado HH:MM:SS'),
             startDate: z.string().date().optional().describe('Fecha de inicio YYYY-MM-DD'),
             sprintId: z.string().uuid().optional().describe('UUID del sprint (systemType "project")'),
@@ -134,10 +138,14 @@ export function registerTaskCrudTools(server, kinoFetch) {
         dueDate: z.string().date().nullable().optional(),
         priority: z.enum(['critical', 'high', 'medium', 'low']).optional(),
         folderId: z.string().uuid().nullable().optional().describe('UUID de carpeta (null para quitar)'),
-        taskType: z.enum(['idea', 'reminder', 'project', 'todo', 'epic']).nullable().optional(),
+        taskType: z.enum(['task', 'idea', 'event', 'reminder', 'epic']).nullable().optional(),
         estimatedTime: z.string().nullable().optional().describe('Tiempo estimado HH:MM:SS'),
         startDate: z.string().date().nullable().optional(),
         sprintId: z.string().uuid().nullable().optional().describe('UUID del sprint (null para quitar)'),
+        metadata: z
+            .record(z.string(), z.any())
+            .optional()
+            .describe('Metadata semántica por arquetipo. `kind` debe ser un tipo válido del sistema (validado server-side).'),
     }, async ({ taskId, ...data }) => {
         const task = await kinoFetch(`/api/tasks/${taskId}`, {
             method: 'PATCH',
