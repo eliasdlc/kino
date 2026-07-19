@@ -16,6 +16,10 @@ import { FormsSection } from "./sections/forms";
 import { OverlaysSection } from "./sections/overlays";
 import { ContentSection } from "./sections/content";
 import { KinoSection } from "./sections/kino";
+import { DashboardSection } from "./sections/dashboard";
+import { TasksViewsSection } from "./sections/tasks-views";
+import { NotebooksSection } from "./sections/notebooks";
+import { MobileSection } from "./sections/mobile";
 
 const TOC: Array<{ id: string; number: string; label: string }> = [
   { id: "colores", number: "01", label: "Colores" },
@@ -27,6 +31,10 @@ const TOC: Array<{ id: string; number: string; label: string }> = [
   { id: "overlays", number: "07", label: "Overlays" },
   { id: "contenido", number: "08", label: "Contenido y datos" },
   { id: "kino", number: "09", label: "Componentes Kino" },
+  { id: "dashboard", number: "10", label: "Dashboard" },
+  { id: "tareas", number: "11", label: "Tareas: vistas" },
+  { id: "notebooks", number: "12", label: "Notebooks y notas" },
+  { id: "mobile", number: "13", label: "Mobile" },
 ];
 
 /**
@@ -120,6 +128,10 @@ export function SystemDesignShell() {
                   <OverlaysSection />
                   <ContentSection />
                   <KinoSection />
+                  <DashboardSection />
+                  <TasksViewsSection />
+                  <NotebooksSection />
+                  <MobileSection />
                 </main>
               </div>
             </div>

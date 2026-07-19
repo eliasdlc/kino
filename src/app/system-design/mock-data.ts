@@ -1,5 +1,16 @@
 import type { Task } from "@/features/tasks/tasks.types";
 import type { SystemWithSignals } from "@/features/systems/systems.types";
+import type { FolderWithCounts } from "@/features/folders/folders.types";
+import type { PageListItem, LinkedTask } from "@/features/pages/pages.types";
+import type { StickyNoteItem } from "@/features/sticky-notes/sticky-notes.types";
+import type { Sprint } from "@/features/sprints/sprints.types";
+import type {
+  TodayCheckinRow,
+  WeeklyTrend,
+  LearningInsight,
+} from "@/features/energy/energy.service";
+import type { EnergyPlanItem } from "@/features/energy/energy.planner";
+import type { AdvisorPattern } from "@/features/energy/energy.advisor";
 
 /**
  * Datos de muestra para el catálogo visual. Los componentes compuestos de Kino
@@ -51,6 +62,13 @@ export function makeTask(overrides: Partial<Task> = {}): Task {
   return { ...base, ...overrides };
 }
 
+/** Fecha relativa a hoy (ISO), para estados overdue / due-soon reproducibles. */
+export function daysFromNow(days: number): string {
+  const d = new Date();
+  d.setDate(d.getDate() + days);
+  return d.toISOString();
+}
+
 export function makeSystem(overrides: Partial<SystemWithSignals> = {}): SystemWithSignals {
   const base: SystemWithSignals = {
     id: uuid(1),
@@ -73,5 +91,182 @@ export function makeSystem(overrides: Partial<SystemWithSignals> = {}): SystemWi
     daysSinceLastActivity: 1,
     activeTaskCount: 8,
   } as SystemWithSignals;
+  return { ...base, ...overrides };
+}
+
+export function makeFolder(overrides: Partial<FolderWithCounts> = {}): FolderWithCounts {
+  const base: FolderWithCounts = {
+    id: uuid(200),
+    name: "Apuntes de clase",
+    color: "blue",
+    sortIndex: 0,
+    parentId: null,
+    systemId: MOCK_SYSTEM_ID,
+    metadata: null,
+    subfolderCount: 2,
+    pageCount: 5,
+  } as FolderWithCounts;
+  return { ...base, ...overrides };
+}
+
+export function makePage(overrides: Partial<PageListItem> = {}): PageListItem {
+  const base: PageListItem = {
+    id: uuid(300),
+    title: "Notas de la reunión",
+    folderId: null,
+    systemId: MOCK_SYSTEM_ID,
+    isPinned: false,
+    parentPageId: null,
+    createdAt: NOW,
+    updatedAt: new Date(),
+    contentPreview:
+      "Resumen de decisiones: mover el lanzamiento una semana, priorizar el bug de sincronización y…",
+    wordCount: 482,
+    tags: [],
+    subPageCount: 0,
+  } as unknown as PageListItem;
+  return { ...base, ...overrides };
+}
+
+export function makeStickyNote(overrides: Partial<StickyNoteItem> = {}): StickyNoteItem {
+  const base: StickyNoteItem = {
+    id: uuid(400),
+    title: "Recordar",
+    content: "Preguntar por la fecha del examen",
+    color: "yellow",
+    sortIndex: 0,
+    pageId: null,
+    folderId: null,
+    positionSide: null,
+    positionY: null,
+    positionX: null,
+    anchorId: null,
+    stackId: null,
+    textAnchor: null,
+  } as StickyNoteItem;
+  return { ...base, ...overrides };
+}
+
+export function makeLinkedTask(overrides: Partial<LinkedTask> = {}): LinkedTask {
+  const base: LinkedTask = {
+    id: uuid(500),
+    title: "Enviar borrador al profesor",
+    status: "today",
+    priority: "medium",
+    energyLevel: "medium",
+    dueDate: null,
+    startDate: null,
+    description: null,
+    taskType: "task",
+    estimatedTime: null,
+    folderId: null,
+    systemId: MOCK_SYSTEM_ID,
+    parentTaskId: null,
+  } as LinkedTask;
+  return { ...base, ...overrides };
+}
+
+export function makeSprint(overrides: Partial<Sprint> = {}): Sprint {
+  const base = {
+    id: uuid(600),
+    userId: uuid(2),
+    systemId: MOCK_SYSTEM_ID,
+    name: "Sprint 3",
+    goal: "Cerrar el flujo de onboarding",
+    startDate: new Date(daysFromNow(-7)),
+    endDate: new Date(daysFromNow(7)),
+    status: "active",
+    completedAt: null,
+    sortOrder: 0,
+    externalId: null,
+    createdAt: NOW,
+    updatedAt: NOW,
+  } as unknown as Sprint;
+  return { ...base, ...overrides };
+}
+
+// ── Energía / dashboard ──────────────────────────────────────────────────────
+
+/** Curva proyectada de 24h con pico de media mañana (forma realista). */
+export const MOCK_CURVE: number[] = [
+  30, 25, 20, 18, 20, 25, 35, 50, 65, 78, 85, 88, 80, 70, 60, 55, 58, 62, 65,
+  60, 50, 45, 40, 35,
+];
+
+export function makeCheckin(overrides: Partial<TodayCheckinRow> = {}): TodayCheckinRow {
+  const morning = new Date();
+  morning.setHours(9, 15, 0, 0);
+  const base: TodayCheckinRow = {
+    id: uuid(700),
+    slot: "morning",
+    currentLevel: 72,
+    sleepQuality: "good",
+    predictionAccuracy: null,
+    createdAt: morning,
+  };
+  return { ...base, ...overrides };
+}
+
+export function makeEnergyPlanItem(
+  task: Task,
+  overrides: Partial<Omit<EnergyPlanItem, "task">> = {}
+): EnergyPlanItem {
+  return {
+    task,
+    scheduledStartMinute: 9 * 60,
+    effectiveEnergyAtStart: 80,
+    startsHere: true,
+    breakBefore: false,
+    ...overrides,
+  };
+}
+
+/** 7 días de snapshots/checkins; las cards solo leen date+completionRate y date+currentLevel. */
+export function mockWeeklyTrend(): WeeklyTrend {
+  const days = Array.from({ length: 7 }, (_, i) => {
+    const d = new Date(Date.now() - (6 - i) * 86_400_000);
+    const y = d.getFullYear();
+    const m = String(d.getMonth() + 1).padStart(2, "0");
+    const day = String(d.getDate()).padStart(2, "0");
+    return `${y}-${m}-${day}`;
+  });
+  const rates = [0.4, 0.65, 0.8, null, 0.55, 0.9, 0.7];
+  const levels = [55, 70, 82, null, 48, 88, 74];
+  return {
+    snapshots: days
+      .map((date, i) => (rates[i] === null ? null : { date, completionRate: rates[i] }))
+      .filter(Boolean),
+    checkins: days
+      .map((date, i) => (levels[i] === null ? null : { date, currentLevel: levels[i] }))
+      .filter(Boolean),
+  } as unknown as WeeklyTrend;
+}
+
+export function mockLearningInsight(overrides: Partial<LearningInsight> = {}): LearningInsight {
+  const base = {
+    hasCurve: true,
+    peak: { start: 9, end: 12 },
+    advice: { text: "Estás en tu pico: aprovecha para lo difícil", tone: "peak" },
+    personalizationPct: 72,
+    trend: "up",
+    trendDelta: 6,
+    sparkline: [22, 35, 41, 48, 60, 66, 72],
+    correlationFactor: 2.1,
+    accuracy: { rate: 78 },
+    chronotype: "morning",
+  } as unknown as LearningInsight;
+  return { ...base, ...overrides };
+}
+
+export function mockAdvisorPattern(overrides: Partial<AdvisorPattern> = {}): AdvisorPattern {
+  const base: AdvisorPattern = {
+    id: "overload",
+    label: "Sobrecarga",
+    message: "Tienes más tareas críticas de las que caben en un día. Considera mover algunas a mañana.",
+    severity: 2,
+    urgency: 3,
+    actionability: 2,
+    score: 12,
+  };
   return { ...base, ...overrides };
 }

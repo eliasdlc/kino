@@ -1,7 +1,7 @@
 "use client";
 
 import { Section, SubSection, Specimen } from "../helpers";
-import { makeSystem, makeTask, MOCK_SYSTEM_ID } from "../mock-data";
+import { makeSystem, makeTask, daysFromNow, MOCK_SYSTEM_ID } from "../mock-data";
 import { SystemCard } from "@/features/systems/SystemCard";
 import { PhysicalCard } from "@/components/PhysicalCard";
 import { TaskCardFor } from "@/features/tasks/cards/TaskCardFor";
@@ -21,13 +21,6 @@ import {
 import { LayoutGrid, Inbox, Calendar, BookOpen, Rocket } from "lucide-react";
 
 const noop = () => {};
-
-/** Fechas relativas a hoy para los estados overdue / due-soon. */
-function daysFromNow(days: number): string {
-  const d = new Date();
-  d.setDate(d.getDate() + days);
-  return d.toISOString();
-}
 
 export function KinoSection() {
   return (
@@ -262,13 +255,13 @@ export function KinoSection() {
       </SubSection>
 
       <Specimen
-        label="No incluidos aquí (dependen de datos o layout de la app)"
-        hint="SystemsSidebar completo · BottomNav · MobileHeader · FocusTimerWidget · StickyNoteCard con anclas · vistas de calendario/kanban"
+        label="No incluidos en el catálogo (dependen de datos reales o del layout completo)"
+        hint="SystemsSidebar completo · FocusTimerWidget (solo visible con timer activo) · vistas completas de calendario/kanban · editor Tiptap vivo · command palette global"
         className="border-solid bg-muted/30"
       >
         <p className="text-sm text-muted-foreground">
-          Estos se revisan en la app real; sus piezas (tokens, sidebar primitives, paleta de
-          sticky notes, task cards) están todas arriba.
+          Estos se revisan en la app real; todas sus piezas (tokens, primitivas de sidebar,
+          task cards, board cards, barras de calendario) están en este catálogo.
         </p>
       </Specimen>
     </Section>
