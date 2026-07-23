@@ -1,10 +1,11 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import dynamic from "next/dynamic";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { PanelRight, Plus, Loader2, Download } from "lucide-react";
+import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 import { Sheet, SheetContent, SheetTitle } from "@/components/ui/sheet";
@@ -16,6 +17,7 @@ import { useSubPages, useCreateSubPage } from "./pages.hooks";
 import { htmlToMarkdown } from "./export/html-to-markdown";
 import type { BreadcrumbItem } from "@/components/PageBreadcrumb";
 import type { PageDetail, PageListItem } from "./pages.types";
+import type { WriterObra } from "./WriterStatusBar";
 
 // The Tiptap surface (StarterKit + table + suggestion + list, plus image in
 // Sprint 3) is loaded client-side on demand so it stays out of the route's
@@ -110,6 +112,10 @@ interface NotebookEditorLayoutProps {
   parentNotebook: PageListItem | null;
   /** Sub-pages of the root notebook (pre-fetched server-side) */
   initialSubPages: PageListItem[];
+  /** Arquetipo Writing: activa el "writer feel" del editor (PLAN-11 §7). */
+  writer?: boolean;
+  /** Obra a la que pertenece el capítulo — alimenta el progreso de la status bar. */
+  obra?: WriterObra | null;
 }
 
 function SubPagesSidebar({
@@ -219,15 +225,33 @@ export function NotebookEditorLayout({
   breadcrumbItems,
   parentNotebook,
   initialSubPages,
+  writer = false,
+  obra = null,
 }: NotebookEditorLayoutProps) {
   const [rightOpen, setRightOpen] = useState(false);
+  const [focusMode, setFocusMode] = useState(false);
 
   const rootPageId = parentNotebook?.id ?? page.id;
 
+  // Esc sale del modo focus (PLAN-11 §7).
+  useEffect(() => {
+    if (!focusMode) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setFocusMode(false);
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [focusMode]);
+
   return (
     <div className="flex h-full overflow-hidden flex-col">
-      {/* Breadcrumb bar */}
-      <div className="sticky top-0 z-10 bg-background border-b px-4 md:px-3 py-2.5 shrink-0 flex items-center gap-2">
+      {/* Breadcrumb bar — oculta en modo focus para dejar solo el texto */}
+      <div
+        className={cn(
+          "sticky top-0 z-10 bg-background border-b px-4 md:px-3 py-2.5 shrink-0 flex items-center gap-2",
+          focusMode && "hidden"
+        )}
+      >
         <div className="flex-1 min-w-0">
           <PageBreadcrumb items={breadcrumbItems} />
         </div>
@@ -244,7 +268,14 @@ export function NotebookEditorLayout({
 
       <div className="flex flex-1 overflow-hidden">
         {/* Main editor — centered content with free-floating margin notes overlay */}
-        <NotebookEditorSurface page={page} systemId={systemId} />
+        <NotebookEditorSurface
+          page={page}
+          systemId={systemId}
+          writer={writer}
+          obra={obra}
+          focusMode={focusMode}
+          onToggleFocus={() => setFocusMode((f) => !f)}
+        />
       </div>
 
       {/* Floating right panel */}

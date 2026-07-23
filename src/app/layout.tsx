@@ -1,10 +1,13 @@
 import type { Metadata, Viewport } from "next";
-import { Geist, Geist_Mono, Inter } from "next/font/google";
+import { Geist, Geist_Mono, Inter, Literata } from "next/font/google";
 import "./globals.css";
 import { cn } from "@/lib/utils";
 import { Toaster } from "sonner";
 
 const inter = Inter({subsets:['latin'],variable:'--font-sans'});
+
+// Serif de lectura del arquetipo Writing: la "sensación de escritor" del editor.
+const literata = Literata({ subsets: ["latin"], variable: "--font-literata" });
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -41,7 +44,7 @@ export default function RootLayout({
     <html
       lang="en"
       suppressHydrationWarning
-      className={cn("h-full", "antialiased", geistSans.variable, geistMono.variable, "font-sans", inter.variable)}
+      className={cn("h-full", "antialiased", geistSans.variable, geistMono.variable, "font-sans", inter.variable, literata.variable)}
     >
       <body className="min-h-full flex flex-col">
         {children}

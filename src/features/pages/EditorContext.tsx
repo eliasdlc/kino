@@ -6,6 +6,7 @@ import type { Editor } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
 import Placeholder from "@tiptap/extension-placeholder";
 import Typography from "@tiptap/extension-typography";
+import Focus from "@tiptap/extension-focus";
 import { Table, TableRow, TableHeader, TableCell } from "@tiptap/extension-table";
 import { TaskList, TaskItem } from "@tiptap/extension-list";
 import { StickyAnchorMark } from "@/features/sticky-notes/sticky-anchor.extension";
@@ -33,6 +34,10 @@ export function EditorProvider({
       // (globals.css) and the slash menu, so `#### ` never makes an unstyled h4.
       StarterKit.configure({ heading: { levels: [1, 2, 3] } }),
       Typography,
+      // Marca el bloque de nivel superior que contiene el cursor con `.has-focus`.
+      // El modo focus del arquetipo Writing (PLAN-11 §7) usa esa clase para atenuar
+      // todo menos el párrafo activo. Inerte fuera del modo focus.
+      Focus.configure({ className: "has-focus", mode: "shallowest" }),
       Placeholder.configure({ placeholder: "Empieza a escribir…" }),
       Table.configure({ resizable: true }),
       TableRow,

@@ -40,9 +40,9 @@ describe("parseFolderMetadata", () => {
   });
 
   it("coacciona wordGoal (string del form) a número en Writing", () => {
-    const res = parseFolderMetadata("writing", { kind: "book", wordGoal: "50000" });
+    const res = parseFolderMetadata("writing", { medium: "novela", wordGoal: "50000" });
     expect(res.success).toBe(true);
-    if (res.success) expect(res.data).toEqual({ kind: "book", wordGoal: 50000 });
+    if (res.success) expect(res.data).toEqual({ medium: "novela", wordGoal: 50000 });
   });
 
   it("un arquetipo sin campos de folder rechaza cualquier metadata no vacía", () => {
