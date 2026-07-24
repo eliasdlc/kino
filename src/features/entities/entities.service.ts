@@ -220,6 +220,10 @@ export async function createEntity(
       updatedAt: entities.updatedAt,
     });
 
+  // La entidad nueva puede aparecer ya en capítulos existentes (flujo library o
+  // alias de algo ya escrito). Reindexar el universo, best-effort.
+  await safeRecomputeSystem(input.systemId, userId);
+
   return created!;
 }
 
@@ -229,7 +233,7 @@ export async function updateEntity(
   input: UpdateEntityInput,
 ): Promise<EntityListItem | null> {
   const [existing] = await db
-    .select({ id: entities.id, type: entities.type })
+    .select({ id: entities.id, type: entities.type, systemId: entities.systemId })
     .from(entities)
     .where(
       and(
@@ -272,7 +276,14 @@ export async function updateEntity(
       updatedAt: entities.updatedAt,
     });
 
-  return updated ?? null;
+  if (!updated) return null;
+
+  // Renombrar o cambiar aliases altera qué capítulos la mencionan: reindexar.
+  if (input.name !== undefined || input.aliases !== undefined) {
+    await safeRecomputeSystem(existing.systemId, userId);
+  }
+
+  return updated;
 }
 
 export async function deleteEntity(entityId: string, userId: string): Promise<boolean> {
@@ -287,7 +298,21 @@ export async function deleteEntity(entityId: string, userId: string): Promise<bo
       ),
     )
     .returning({ id: entities.id });
-  return !!deleted;
+  if (!deleted) return false;
+
+  // Soft-delete no dispara el ON DELETE cascade de la FK, así que las menciones
+  // quedarían huérfanas: las limpiamos explícitamente.
+  await db.delete(pageEntityMentions).where(eq(pageEntityMentions.entityId, entityId));
+  return true;
+}
+
+/** Recompute del sistema que nunca propaga su error al llamador (índice derivado). */
+async function safeRecomputeSystem(systemId: string, userId: string): Promise<void> {
+  try {
+    await recomputeSystemMentions(systemId, userId);
+  } catch (err) {
+    console.error("recomputeSystemMentions failed", { systemId, err });
+  }
 }
 
 // ── relaciones ──
