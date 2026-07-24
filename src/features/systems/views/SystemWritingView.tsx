@@ -6,7 +6,7 @@ import { usePages, useCreatePage } from "@/features/pages/pages.hooks";
 import { NewFolderInline } from "@/features/folders/NewFolderInline";
 import { SYSTEM_TYPE_CONFIG } from "@/shared/lib/system-types";
 import { differenceInCalendarDays } from "date-fns";
-import { BookMarked, FileText, Feather, Plus, Sparkles } from "lucide-react";
+import { BookMarked, BookOpen, FileText, Feather, Plus, Sparkles } from "lucide-react";
 import type { PageListItem } from "@/features/pages/pages.types";
 import type { FolderWithCounts } from "@/features/folders/folders.types";
 import type { SystemViewProps } from "./SystemDetailView";
@@ -138,6 +138,13 @@ export function SystemWritingView({ system }: SystemViewProps) {
           icon={folderRole.icon}
           fields={folderRole.fields}
         />
+        <Link
+          href={`/systems/${system.id}/codex`}
+          className="flex shrink-0 items-center gap-1.5 rounded-md border border-border px-2.5 py-1.5 text-sm text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+        >
+          <BookOpen size={15} className="shrink-0" />
+          Codex
+        </Link>
       </div>
 
       {obras.length === 0 && looseManuscripts.length === 0 ? (

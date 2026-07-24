@@ -9,6 +9,7 @@ import { useUpdatePage } from "./pages.hooks";
 import { useSharedEditor } from "./EditorContext";
 import { TableMenus } from "./TableMenus";
 import { CodexSelectionActions } from "./CodexBubbleMenu";
+import { EntityFicheSheet } from "@/features/entities/EntityFicheSheet";
 import { StickyNoteCreator } from "@/features/sticky-notes/StickyNoteCreator";
 import type { PageDetail } from "./pages.types";
 
@@ -29,8 +30,21 @@ export function NotebookEditor({ page, systemId, pageId, writer = false }: Noteb
     anchorId: string | null;
     screen: { x: number; y: number };
   } | null>(null);
+  const [mentionEntityId, setMentionEntityId] = useState<string | null>(null);
   const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const pendingPatch = useRef<{ title?: string; content?: string } | null>(null);
+
+  // Click en una mención del codex → abre su ficha (referencia a un click sin
+  // salir del texto, PLAN-11 §8.3). Solo en editores de escritura.
+  function handleEditorClick(e: React.MouseEvent<HTMLDivElement>) {
+    if (!writer) return;
+    const mention = (e.target as HTMLElement).closest<HTMLElement>(".codex-mention");
+    const id = mention?.getAttribute("data-entity-id");
+    if (id) {
+      e.preventDefault();
+      setMentionEntityId(id);
+    }
+  }
 
   const scheduleSave = useCallback(
     (patch: { title?: string; content?: string }) => {
@@ -121,9 +135,20 @@ export function NotebookEditor({ page, systemId, pageId, writer = false }: Noteb
             </BubbleMenu>
           )}
           {editor && <TableMenus editor={editor} />}
-          <EditorContent editor={editor} />
+          <div onClickCapture={handleEditorClick}>
+            <EditorContent editor={editor} />
+          </div>
         </div>
       </div>
+
+      {writer && (
+        <EntityFicheSheet
+          entityId={mentionEntityId}
+          systemId={systemId}
+          open={mentionEntityId !== null}
+          onOpenChange={(o) => !o && setMentionEntityId(null)}
+        />
+      )}
 
       {stickyCreator !== null && (
         <StickyNoteCreator
