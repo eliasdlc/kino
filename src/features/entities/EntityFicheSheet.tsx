@@ -41,6 +41,7 @@ import {
   useCreateRelation,
   useDeleteRelation,
 } from "./entities.hooks";
+import { EntityImages } from "./EntityImages";
 
 export function EntityFicheSheet({
   entityId,
@@ -140,6 +141,8 @@ function EntityFicheForm({
           className="text-base font-semibold"
         />
       </div>
+
+      <EntityImages entity={entity} systemId={systemId} />
 
       <div className="grid grid-cols-2 gap-3">
         <div className="space-y-1.5">
