@@ -186,6 +186,22 @@ export const predictionAccuracyEnum = pgEnum('prediction_accuracy', [
   'inaccurate',
 ]);
 
+/**
+ * Tipo de entidad del Codex (Writing W2). El universo se comparte a nivel de
+ * sistema; cada entidad declara qué es y eso gobierna sus `attributes` (Zod
+ * discriminado en entities.schemas.ts). Ampliable — al añadir un valor, recordar
+ * que Postgres no tiene DROP VALUE (DB-06).
+ */
+export const entityTypeEnum = pgEnum('entity_type', [
+  'character',
+  'location',
+  'object',
+  'concept',
+  'event',
+  'faction',
+  'other',
+]);
+
 // ============================================================================
 // Tables
 // ============================================================================
@@ -856,6 +872,106 @@ export const pageTags = pgTable(
     primaryKey({ columns: [table.pageId, table.tagId] }),
     index('idx_page_tags_page').on(table.pageId),
     index('idx_page_tags_tag').on(table.tagId),
+  ],
+);
+
+// ── entities (Codex — Writing W2) ──
+// El universo de la historia: personajes, lugares, objetos, conceptos, eventos,
+// facciones. Scope = sistema (universo compartido entre obras). Nace del texto
+// (mención @) y se enriquece después. Borrado vía papelera única (deletedAt, D3).
+
+export const entities = pgTable(
+  'entities',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    userId: uuid('user_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    systemId: uuid('system_id')
+      .notNull()
+      .references(() => systems.id, { onDelete: 'cascade' }),
+    type: entityTypeEnum('type').notNull().default('character'),
+    name: varchar('name', { length: 255 }).notNull(),
+    // Nombres alternativos para la auto-detección textual ("Luffy", "Sombrero
+    // de Paja"). string[] validado con Zod en la capa de servicio.
+    aliases: jsonb('aliases')
+      .$type<string[]>()
+      .notNull()
+      .default(sql`'[]'::jsonb`),
+    summary: text('summary'),
+    // Campos por tipo (character → edad/rol/origen…, location → región…). Shape
+    // discriminado por `type`, validado con Zod (entities.schemas.ts). Nunca un
+    // saco de basura: el schema es strict. Ver PLAN-11 §5.1.
+    attributes: jsonb('attributes').$type<Record<string, unknown> | null>(),
+    coverImageUrl: text('cover_image_url'),
+    images: jsonb('images')
+      .$type<string[]>()
+      .notNull()
+      .default(sql`'[]'::jsonb`),
+    deletedAt: timestamp('deleted_at', { withTimezone: true }),
+    createdAt: timestamp('created_at', { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+    updatedAt: timestamp('updated_at', { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (table) => [
+    index('idx_entities_system')
+      .on(table.systemId)
+      .where(sql`${table.deletedAt} IS NULL`),
+    index('idx_entities_user').on(table.userId),
+  ],
+);
+
+// ── entity_relations ──
+// Relaciones dirigidas entre entidades ("padre de", "rival de", "vive en").
+// v1: lista editable en la ficha; el grafo del universo es render sobre esto (§13).
+// Ownership se valida en el servicio (ambas entidades del usuario), igual que
+// task_page_links no lleva userId propio.
+
+export const entityRelations = pgTable(
+  'entity_relations',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    fromEntityId: uuid('from_entity_id')
+      .notNull()
+      .references(() => entities.id, { onDelete: 'cascade' }),
+    toEntityId: uuid('to_entity_id')
+      .notNull()
+      .references(() => entities.id, { onDelete: 'cascade' }),
+    label: varchar('label', { length: 100 }),
+    notes: text('notes'),
+    createdAt: timestamp('created_at', { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (table) => [
+    index('idx_entity_relations_from').on(table.fromEntityId),
+    index('idx_entity_relations_to').on(table.toEntityId),
+  ],
+);
+
+// ── page_entity_mentions ──
+// DERIVADA (materializada): se recalcula server-side al guardar la page,
+// escaneando el texto plano contra names+aliases del universo (sin LLM). Alimenta
+// el codex rail (entidades del capítulo) y las "apariciones" de la ficha.
+
+export const pageEntityMentions = pgTable(
+  'page_entity_mentions',
+  {
+    pageId: uuid('page_id')
+      .notNull()
+      .references(() => pages.id, { onDelete: 'cascade' }),
+    entityId: uuid('entity_id')
+      .notNull()
+      .references(() => entities.id, { onDelete: 'cascade' }),
+    mentionCount: integer('mention_count').notNull().default(0),
+  },
+  (table) => [
+    primaryKey({ columns: [table.pageId, table.entityId] }),
+    index('idx_page_entity_mentions_page').on(table.pageId),
+    index('idx_page_entity_mentions_entity').on(table.entityId),
   ],
 );
 

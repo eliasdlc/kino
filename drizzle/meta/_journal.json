@@ -43,6 +43,13 @@
       "when": 1784071221848,
       "tag": "0005_flimsy_maverick",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1784857876109,
+      "tag": "0006_talented_trauma",
+      "breakpoints": true
     }
   ]
 }
