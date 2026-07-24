@@ -107,7 +107,11 @@ export default function NotebookEditorSurface({
   }
 
   return (
-    <EditorProvider key={page.id} initialContent={page.content ?? ""}>
+    <EditorProvider
+      key={page.id}
+      initialContent={page.content ?? ""}
+      codex={writer ? { systemId } : null}
+    >
       <div className="flex flex-1 flex-col overflow-hidden">
         <div
           ref={scrollRef}

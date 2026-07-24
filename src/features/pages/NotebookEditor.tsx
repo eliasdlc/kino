@@ -8,6 +8,7 @@ import { cn } from "@/lib/utils";
 import { useUpdatePage } from "./pages.hooks";
 import { useSharedEditor } from "./EditorContext";
 import { TableMenus } from "./TableMenus";
+import { CodexSelectionActions } from "./CodexBubbleMenu";
 import { StickyNoteCreator } from "@/features/sticky-notes/StickyNoteCreator";
 import type { PageDetail } from "./pages.types";
 
@@ -115,6 +116,7 @@ export function NotebookEditor({ page, systemId, pageId, writer = false }: Noteb
                   <StickyNote className="size-3" />
                   Sticky
                 </button>
+                {writer && <CodexSelectionActions editor={editor} systemId={systemId} />}
               </div>
             </BubbleMenu>
           )}
