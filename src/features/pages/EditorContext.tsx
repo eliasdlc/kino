@@ -12,6 +12,7 @@ import { TaskList, TaskItem } from "@tiptap/extension-list";
 import { StickyAnchorMark } from "@/features/sticky-notes/sticky-anchor.extension";
 import { SlashCommand } from "./slash-command.extension";
 import { ImageUrlPaste } from "./image-paste.extension";
+import { CodexMention } from "./codex-mention.extension";
 import { cleanPastedHtml } from "./paste-clean";
 
 const EditorContext = createContext<Editor | null>(null);
@@ -22,9 +23,12 @@ export function useSharedEditor() {
 
 export function EditorProvider({
   initialContent,
+  codex = null,
   children,
 }: {
   initialContent: string;
+  /** Arquetipo Writing: activa la mención `@` del Codex sobre este sistema/universo. */
+  codex?: { systemId: string } | null;
   children: React.ReactNode;
 }) {
   const editor = useEditor({
@@ -50,6 +54,9 @@ export function EditorProvider({
       }),
       SlashCommand,
       StickyAnchorMark,
+      ...(codex
+        ? [CodexMention.configure({ systemId: codex.systemId, HTMLAttributes: {} })]
+        : []),
     ],
     content: initialContent,
     editorProps: {

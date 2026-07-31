@@ -6,6 +6,7 @@ import type { CreatePageInput, UpdatePageInput } from "./pages.schemas";
 import type { PageDetail, PageListItem, LinkedTask, PageMutationResult } from "./pages.types";
 import type { ContextTagListItem } from "@/features/tags/tags.types";
 import { countWords } from "./word-count";
+import { recomputePageMentions } from "@/features/entities/entities.service";
 
 function stripHtml(html: string | null | undefined): string | null {
   if (!html) return null;
@@ -232,6 +233,14 @@ export async function createPage(
       updatedAt: pages.updatedAt,
     });
 
+  if (input.content) {
+    try {
+      await recomputePageMentions(created!.id, input.systemId, userId, input.content);
+    } catch (err) {
+      console.error("recomputePageMentions failed", { pageId: created!.id, err });
+    }
+  }
+
   return { ...created!, contentPreview: null, wordCount: countWords(input.content), tags: [], subPageCount: 0 };
 }
 
@@ -259,6 +268,16 @@ export async function updatePage(
     });
 
   if (!updated) return null;
+
+  // El codex se recalcula cuando cambia el texto (derivada best-effort: un fallo
+  // aquí no debe romper el guardado — se recompone al siguiente save).
+  if (data.content !== undefined) {
+    try {
+      await recomputePageMentions(updated.id, updated.systemId, userId, updated.content);
+    } catch (err) {
+      console.error("recomputePageMentions failed", { pageId: updated.id, err });
+    }
+  }
 
   const existingTags = await db
     .select({

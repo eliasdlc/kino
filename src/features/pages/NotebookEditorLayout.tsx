@@ -12,6 +12,7 @@ import { Sheet, SheetContent, SheetTitle } from "@/components/ui/sheet";
 import { PageBreadcrumb } from "@/components/PageBreadcrumb";
 import { LinkedTasksPanel } from "./LinkedTasksPanel";
 import { NotebookTagPicker } from "./NotebookTagPicker";
+import { CodexRail } from "@/features/entities/CodexRail";
 import { EditorShortcutsHelp } from "./EditorShortcutsHelp";
 import { useSubPages, useCreateSubPage } from "./pages.hooks";
 import { htmlToMarkdown } from "./export/html-to-markdown";
@@ -294,6 +295,13 @@ export function NotebookEditorLayout({
           <Separator />
 
           <div className="p-4 space-y-4 flex-1 overflow-y-auto">
+            {writer && (
+              <>
+                <CodexRail pageId={page.id} systemId={systemId} />
+                <Separator />
+              </>
+            )}
+
             <div>
               <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">
                 Etiquetas

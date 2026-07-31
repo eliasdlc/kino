@@ -194,6 +194,16 @@
 .tiptap-editor .ProseMirror em {
   @apply italic;
 }
+/* ── Mención del Codex (Writing W2) ──────────────────────────────────────
+   Enlace vivo a una entidad del universo; se distingue del texto sin gritar. */
+.tiptap-editor .ProseMirror .codex-mention {
+  @apply text-primary font-medium rounded px-0.5 cursor-pointer;
+  box-decoration-break: clone;
+  -webkit-box-decoration-break: clone;
+}
+.tiptap-editor .ProseMirror .codex-mention:hover {
+  @apply bg-primary/10;
+}
 
 /* ── Writer feel (arquetipo Writing, PLAN-11 §7) ──────────────────────────
    Tipografía serif de lectura, medida cómoda y line-height generoso: el editor

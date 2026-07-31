@@ -4,6 +4,7 @@ import type {
   SuggestionKeyDownProps,
   SuggestionProps,
 } from "@tiptap/suggestion";
+import type { Editor } from "@tiptap/react";
 import {
   Heading1,
   Heading2,
@@ -14,9 +15,32 @@ import {
   Quote,
   Code,
   Table as TableIcon,
+  Image as ImageIcon,
 } from "lucide-react";
 import { SlashMenu } from "./SlashMenu";
 import type { SlashItem, SlashMenuProps, SlashMenuRef } from "./SlashMenu";
+import { uploadImageFile } from "@/features/uploads/uploads.client";
+
+/**
+ * Abre el selector de archivos, comprime a WebP, sube y inserta la imagen
+ * (Writing W2 / desbloquea el Rumbo 08 Sprint 3: upload real en el editor).
+ */
+function pickAndInsertImage(editor: Editor) {
+  const input = document.createElement("input");
+  input.type = "file";
+  input.accept = "image/*";
+  input.onchange = async () => {
+    const file = input.files?.[0];
+    if (!file) return;
+    try {
+      const url = await uploadImageFile(file);
+      editor.chain().focus().setImage({ src: url }).run();
+    } catch {
+      // best-effort: sin storage configurado, no se inserta nada.
+    }
+  };
+  input.click();
+}
 
 /** Insertion blocks offered by the `/` menu. Image is wired in Sprint 3. */
 const SLASH_ITEMS: SlashItem[] = [
@@ -96,6 +120,16 @@ const SLASH_ITEMS: SlashItem[] = [
         .deleteRange(range)
         .insertTable({ rows: 3, cols: 3, withHeaderRow: true })
         .run(),
+  },
+  {
+    title: "Imagen",
+    subtitle: "Subir una imagen",
+    icon: ImageIcon,
+    keywords: ["image", "imagen", "foto", "picture", "subir"],
+    command: ({ editor, range }) => {
+      editor.chain().focus().deleteRange(range).run();
+      pickAndInsertImage(editor);
+    },
   },
 ];
 
