@@ -100,17 +100,19 @@ export async function getEntityById(
   };
 }
 
-async function getRelationsForEntity(entityId: string): Promise<EntityRelationItem[]> {
-  const rows = await db
+/**
+ * Consultas de la ficha, expuestas como builders para poder compilarlas a SQL en
+ * un test: los tests de servicio mockean `db` y no detectan una columna que
+ * referencia una tabla ausente del FROM/JOIN — drizzle sólo lo grita en runtime.
+ */
+export function relationsForEntityQuery(entityId: string) {
+  return db
     .select({
       id: entityRelations.id,
       fromEntityId: entityRelations.fromEntityId,
       toEntityId: entityRelations.toEntityId,
       label: entityRelations.label,
       notes: entityRelations.notes,
-      otherFromId: entities.id,
-      otherFromName: entities.name,
-      otherFromType: entities.type,
     })
     .from(entityRelations)
     .where(
@@ -119,6 +121,23 @@ async function getRelationsForEntity(entityId: string): Promise<EntityRelationIt
         eq(entityRelations.toEntityId, entityId),
       ),
     );
+}
+
+export function appearancesForEntityQuery(entityId: string) {
+  return db
+    .select({
+      pageId: pageEntityMentions.pageId,
+      pageTitle: pages.title,
+      mentionCount: pageEntityMentions.mentionCount,
+    })
+    .from(pageEntityMentions)
+    .innerJoin(pages, eq(pageEntityMentions.pageId, pages.id))
+    .where(and(eq(pageEntityMentions.entityId, entityId), isNull(pages.deletedAt)))
+    .orderBy(pages.createdAt);
+}
+
+async function getRelationsForEntity(entityId: string): Promise<EntityRelationItem[]> {
+  const rows = await relationsForEntityQuery(entityId);
 
   if (rows.length === 0) return [];
 
@@ -144,16 +163,7 @@ async function getRelationsForEntity(entityId: string): Promise<EntityRelationIt
 }
 
 async function getAppearancesForEntity(entityId: string): Promise<EntityAppearance[]> {
-  return db
-    .select({
-      pageId: pageEntityMentions.pageId,
-      pageTitle: pages.title,
-      mentionCount: pageEntityMentions.mentionCount,
-    })
-    .from(pageEntityMentions)
-    .innerJoin(pages, eq(pageEntityMentions.pageId, pages.id))
-    .where(and(eq(pageEntityMentions.entityId, entityId), isNull(pages.deletedAt)))
-    .orderBy(pages.createdAt);
+  return appearancesForEntityQuery(entityId);
 }
 
 /** Entidades mencionadas en un capítulo — codex rail contextual. */
