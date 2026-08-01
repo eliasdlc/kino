@@ -1,6 +1,7 @@
 'use client';
 
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useRouter } from 'next/navigation';
 import { useTodayPlanTasks } from '@/features/tasks/tasks.hooks';
 import { useUserSettings } from '@/features/settings/settings.hooks';
 import { computeEnergyBudget, type EnergyBudget } from './energy.budget';
@@ -68,6 +69,7 @@ export function useEnergyAdvisor() {
 
 export function useCreateCheckin() {
   const queryClient = useQueryClient();
+  const router = useRouter();
   return useMutation<unknown, Error, CreateCheckinClientInput>({
     mutationFn: async (data) => {
       const res = await fetch('/api/energy/checkin', {
@@ -81,6 +83,10 @@ export function useCreateCheckin() {
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: energyKeys.checkins() });
       void queryClient.invalidateQueries({ queryKey: energyKeys.plan() });
+      // El ciclo del día ("predije X, confirmaste Y, mejoré Z") lo renderiza el
+      // server component del dashboard: sin refresh, el check-in que acabas de
+      // dar no aparecería verificado hasta recargar.
+      router.refresh();
     },
   });
 }

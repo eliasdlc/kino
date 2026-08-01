@@ -1,6 +1,6 @@
 import { and, asc, desc, eq, gte, inArray, isNotNull, isNull, lt, notInArray, sql } from 'drizzle-orm';
 import { db } from '@/shared/db';
-import { behaviorSnapshots, energyCheckins, tasks, timeLogs, userEnergyProfile } from '@/shared/db/schema';
+import { behaviorSnapshots, energyCheckins, energyPredictions, tasks, timeLogs, userEnergyProfile } from '@/shared/db/schema';
 import type { CheckinSlot, CreateCheckinInput } from './energy.schemas';
 
 // ── behavior_snapshots ─────────────────────────────────────────────────────
@@ -234,29 +234,49 @@ export async function getCompletedTasksLast90Days(
   return rows as Array<{ completedHour: number; energyLevel: string }>;
 }
 
-export async function getStartedTimeLogsLast90Days(
-  userId: string,
-  timezone: string,
-): Promise<Array<{ startedHour: number; energyLevel: string }>> {
-  const cutoff = new Date();
-  cutoff.setDate(cutoff.getDate() - 90);
+export interface TimeLogSignalRow {
+  startedHour: number;
+  /** Null en las sesiones de escritura: un capítulo no declara nivel de energía. */
+  energyLevel: string | null;
+  source: 'timer' | 'writing';
+}
 
-  const rows = await db
+/**
+ * Sesiones de trabajo de los últimos 90 días para calibrar la curva.
+ *
+ * Incluye las sesiones de escritura (W4), no solo los timers de tareas: son horas
+ * de trabajo profundo reales y el arquetipo Writing muestra su "ventana creativa"
+ * derivada justo de esta curva. Con el `innerJoin` a tasks que había antes,
+ * escribir tres horas diarias no movía la ventana que Kino le enseña al escritor.
+ * De ahí el leftJoin: las filas de escritura no tienen tarea.
+ */
+export function startedTimeLogsLast90DaysQuery(userId: string, timezone: string, cutoff: Date) {
+  return db
     .select({
       startedHour: sql<number>`EXTRACT(HOUR FROM ${timeLogs.startedAt} AT TIME ZONE ${timezone})::int`,
       energyLevel: tasks.energyLevel,
+      source: timeLogs.source,
     })
     .from(timeLogs)
-    .innerJoin(tasks, eq(timeLogs.taskId, tasks.id))
+    .leftJoin(tasks, eq(timeLogs.taskId, tasks.id))
     .where(
       and(
         eq(timeLogs.userId, userId),
-        eq(timeLogs.source, 'timer'),
+        inArray(timeLogs.source, ['timer', 'writing']),
         gte(timeLogs.startedAt, cutoff),
       ),
     );
+}
 
-  return rows as Array<{ startedHour: number; energyLevel: string }>;
+export async function getStartedTimeLogsLast90Days(
+  userId: string,
+  timezone: string,
+): Promise<TimeLogSignalRow[]> {
+  const cutoff = new Date();
+  cutoff.setDate(cutoff.getDate() - 90);
+
+  const rows = await startedTimeLogsLast90DaysQuery(userId, timezone, cutoff);
+  return rows as TimeLogSignalRow[];
 }
 
 export interface CheckinSignalRow {
@@ -314,6 +334,67 @@ export async function getRecentCheckinInsight(
     .where(and(eq(energyCheckins.userId, userId), gte(energyCheckins.date, cutoffStr)));
 
   return rows as CheckinInsightRow[];
+}
+
+// ── energy_predictions ─────────────────────────────────────────────────────
+
+export interface PredictionRow {
+  slot: CheckinSlot;
+  predictedLevel: number;
+  alphaAtPrediction: number;
+}
+
+/**
+ * Registra la predicción de un slot si no existe. `onConflictDoNothing` es la
+ * garantía central del loop: la primera predicción del día es la que se verifica,
+ * y ninguna lectura posterior la reescribe con una curva que ya aprendió del dato.
+ */
+export async function insertPredictionsIfAbsent(
+  userId: string,
+  date: string,
+  predictions: Array<{ slot: CheckinSlot; predictedLevel: number; alphaAtPrediction: number }>,
+): Promise<void> {
+  if (predictions.length === 0) return;
+
+  await db
+    .insert(energyPredictions)
+    .values(predictions.map((p) => ({ userId, date, ...p })))
+    .onConflictDoNothing({
+      target: [energyPredictions.userId, energyPredictions.date, energyPredictions.slot],
+    });
+}
+
+export async function getPredictionsForDate(userId: string, date: string): Promise<PredictionRow[]> {
+  const rows = await db
+    .select({
+      slot: energyPredictions.slot,
+      predictedLevel: energyPredictions.predictedLevel,
+      alphaAtPrediction: energyPredictions.alphaAtPrediction,
+    })
+    .from(energyPredictions)
+    .where(and(eq(energyPredictions.userId, userId), eq(energyPredictions.date, date)));
+
+  return rows as PredictionRow[];
+}
+
+/** Guarda el alpha antes/después de que un check-in recalibrara la curva. */
+export async function saveCheckinAlphaDelta(
+  userId: string,
+  date: string,
+  slot: CheckinSlot,
+  alphaBefore: number,
+  alphaAfter: number,
+): Promise<void> {
+  await db
+    .update(energyCheckins)
+    .set({ alphaBefore, alphaAfter })
+    .where(
+      and(
+        eq(energyCheckins.userId, userId),
+        eq(energyCheckins.date, date),
+        eq(energyCheckins.slot, slot),
+      ),
+    );
 }
 
 export async function saveLearnedCurve(

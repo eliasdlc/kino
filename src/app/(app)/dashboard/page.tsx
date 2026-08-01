@@ -75,6 +75,7 @@ export default async function DashboardPage() {
             projectedCurve={dailyPlan.projectedCurve}
             chronotype={dailyPlan.chronotype}
             deferredTasks={dailyPlan.energyPlan?.deferred}
+            predictions={dailyPlan.predictions}
           />
           <div className="flex-1 min-h-0">
             {topPattern ? (

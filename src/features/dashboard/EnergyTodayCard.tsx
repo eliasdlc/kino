@@ -14,6 +14,7 @@ import type { CheckinSlot } from '@/features/energy/energy.schemas';
 import type { Chronotype } from '@/features/energy/energy.utils';
 import type { Task } from '@/features/tasks/tasks.types';
 import type { TodayCheckinRow } from '@/features/energy/energy.service';
+import type { PredictionRow } from '@/features/energy/energy.queries';
 import { EnergyChart, type ChartEntry } from './EnergyChart';
 import { EnergyCheckinForm, type CheckinValues } from './EnergyCheckinForm';
 import {
@@ -30,6 +31,8 @@ interface EnergyTodayCardProps {
   projectedCurve: number[];
   chronotype: Chronotype | null;
   deferredTasks?: Task[];
+  /** Predicciones guardadas de hoy: lo que Kino dijo antes de conocer el resultado (4.2). */
+  predictions?: PredictionRow[];
 }
 
 const SLOT_MIDPOINT: Record<CheckinSlot, number> = { morning: 9, afternoon: 15, evening: 20 };
@@ -99,6 +102,7 @@ export function EnergyTodayCard({
   initialCheckins,
   projectedCurve,
   chronotype,
+  predictions = [],
 }: EnergyTodayCardProps) {
   const { data: liveCheckins } = useTodayCheckins();
   const { mutate: createCheckin, isPending } = useCreateCheckin();
@@ -119,15 +123,20 @@ export function EnergyTodayCard({
   const currentSlotCheckin = checkins.find((c) => c.slot === currentSlot) ?? null;
 
   const readingHour = isCurrent ? currentHour : SLOT_MIDPOINT[selectedSlot];
-  const predictedValue = hasCurve ? Math.round(projectedCurve[readingHour] ?? 0) : 0;
+  const projectedValue = hasCurve ? Math.round(projectedCurve[readingHour] ?? 0) : 0;
   const isReal = slotCheckin !== null;
-  const heroValue = isReal ? slotCheckin.currentLevel : predictedValue;
+  const heroValue = isReal ? slotCheckin.currentLevel : projectedValue;
   const reading = interpretEnergy(heroValue);
   const animatedValue = useCountUp(heroValue, animate);
 
   const peak = hasCurve ? findPeakRange(projectedCurve) : null;
   const chartData = hasCurve ? buildChartData(projectedCurve, checkins) : null;
-  const diff = isReal ? slotCheckin.currentLevel - predictedValue : null;
+
+  // La comparación usa la predicción GUARDADA del slot, no la curva de ahora: la
+  // curva ya aprendió de este check-in, así que compararse contra ella sería
+  // medirse contra un modelo que vio la respuesta (4.2).
+  const storedPrediction = predictions.find((p) => p.slot === selectedSlot) ?? null;
+  const diff = isReal && storedPrediction ? slotCheckin.currentLevel - storedPrediction.predictedLevel : null;
 
   const hasAnyCheckin = checkins.length > 0;
   const showPredictionFeedback =
@@ -163,7 +172,7 @@ export function EnergyTodayCard({
       <div className="px-5 py-3.5 space-y-3.5">
         {showForm ? (
           <EnergyCheckinForm
-            defaultLevel={Math.max(1, predictedValue || 70)}
+            defaultLevel={Math.max(1, projectedValue || 70)}
             initialSlot={currentSlot}
             isPending={isPending}
             onSubmit={handleSubmit}
@@ -204,10 +213,10 @@ export function EnergyTodayCard({
                   </span>
                 </div>
                 <p className="text-xs text-muted-foreground mt-0.5">{reading.hint}</p>
-                {isReal && diff !== null && (
+                {isReal && diff !== null && storedPrediction && (
                   <p className="text-[11px] text-muted-foreground mt-1">
-                    Previsto {predictedValue} ·{' '}
-                    <span className={cn(Math.abs(diff) <= 8 ? 'text-emerald-500' : 'text-amber-500')}>
+                    Predije {storedPrediction.predictedLevel} ·{' '}
+                    <span className={cn(Math.abs(diff) <= 10 ? 'text-emerald-500' : 'text-amber-500')}>
                       {diff > 0 ? '+' : ''}{diff} vs predicción
                     </span>
                   </p>
