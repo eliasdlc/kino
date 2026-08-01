@@ -11,6 +11,7 @@ import {
 } from '@/features/tasks/tasks.hooks';
 import { useFocusTimer } from '@/features/tasks/FocusTimerProvider';
 import { PlanTaskRow } from './PlanTaskRow';
+import { EnergyBudgetBar } from '@/features/energy/EnergyBudgetBar';
 import type { EnergyPlanItem } from '@/features/energy/energy.planner';
 
 interface TodayPlanCardProps {
@@ -126,6 +127,13 @@ export function TodayPlanCard({ noProfile, energyItems }: TodayPlanCardProps) {
             className="h-full bg-emerald-500 transition-[width] duration-300 ease-out"
             style={{ width: `${progressPct}%` }}
           />
+        </div>
+      )}
+
+      {/* Presupuesto de energía: lo comprometido del día, no lo producido (4.1 · D2) */}
+      {totalToday > 0 && (
+        <div className="px-4 py-2.5 border-b shrink-0">
+          <EnergyBudgetBar />
         </div>
       )}
 

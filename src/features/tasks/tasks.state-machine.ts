@@ -4,9 +4,6 @@ export type TransitionAction = "move_to_week" | "move_to_today" | "move_to_tomor
 export interface TransitionContext {
     currentStatus: TaskStatus;
     action: TransitionAction;
-    taskEnergyPoints: number;
-    currentDayEnergyUsed: number;
-    dailyEnergyLimit: number;
     isRecurring: boolean;
 }
 
@@ -71,6 +68,17 @@ export function actionForTransition(from: TaskStatus, to: TaskStatus): Transitio
     return null;
 }
 
+/**
+ * Valida una transición de status. Solo la forma del movimiento: el presupuesto
+ * de energía NO se decide aquí.
+ *
+ * Hasta Fase 4.1 esta función rechazaba `move_to_today` cuando el día pasaba de
+ * `dailyEnergyLimit` (→ 422). Se eliminó por D2: el sobregiro **avisa, jamás
+ * bloquea**. Además el chequeo era doblemente mentiroso — sumaba los puntos de
+ * las tareas ya completadas (castigaba trabajar, no sobre-prometer) y solo
+ * corría por este camino, así que `PATCH { inTodayPlan: true }` nunca lo tocaba.
+ * El presupuesto real vive en `energy.budget.ts` y se muestra, no se impone.
+ */
 export function validateTransition(ctx: TransitionContext): TransitionResult {
     const allowedActions = TRANSITION_MAP[ctx.currentStatus];
 
@@ -79,16 +87,6 @@ export function validateTransition(ctx: TransitionContext): TransitionResult {
             valid: false,
             error: `Transición no válida: de '${ctx.currentStatus}' vía '${ctx.action}'`,
         };
-    }
-
-    if (ctx.action === "move_to_today") {
-        const totalEnergyWouldBe = ctx.currentDayEnergyUsed + ctx.taskEnergyPoints;
-        if (totalEnergyWouldBe > ctx.dailyEnergyLimit) {
-            return {
-                valid: false,
-                error: `Límite de energía diario excedido (usaría ${totalEnergyWouldBe}, límite es ${ctx.dailyEnergyLimit})`,
-            };
-        }
     }
 
     const newStatus = allowedActions[ctx.action]!;

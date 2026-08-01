@@ -8,18 +8,12 @@ import type { z } from "zod";
 import type { listTasksQuerySchema, CreateTimeLogInput } from "./tasks.schemas";
 import { deriveStatusFromDate, findParentViolation } from "./tasks.utils";
 import { computeNextOccurrence } from "./recurrence";
-import { sqlUserDay, sqlUserToday } from "@/shared/time";
+import { sqlUserToday } from "@/shared/time";
 import { validateTaskKind } from "./tasks.metadata";
 import type { SystemType } from "@/shared/lib/system-types";
 
-const ENERGY_POINTS: Record<string, number> = {
-  high: 5,
-  medium: 3,
-  low: 1,
-};
-
-// Advisory lock class — namespaces energy locks from other advisory locks in the app.
-const ENERGY_LOCK_CLASS = 42;
+// Advisory lock class — namespaces transition locks from other advisory locks in the app.
+const TRANSITION_LOCK_CLASS = 42;
 // Advisory lock class — serializa el rollover diario del plan por usuario.
 const ROLLOVER_LOCK_CLASS = 43;
 
@@ -47,22 +41,13 @@ async function applyTransition(
   userId: string,
   getAction: (current: Task) => TransitionAction | null,
 ): Promise<{ updated: Task }> {
-  // Serialize concurrent energy operations per user via a transaction-scoped advisory lock.
+  // Serializa las transiciones de un mismo usuario en un lock por transacción:
+  // dos toggles concurrentes de una serie recurrente no deben sembrar dos veces
+  // la siguiente ocurrencia. (Antes servía además al límite duro de energía, que
+  // Fase 4.1 eliminó; la clase del lock se mantiene en 42 por compatibilidad.)
   await tx.execute(
-    sql`SELECT pg_advisory_xact_lock(${ENERGY_LOCK_CLASS}, hashtext(${userId}))`,
+    sql`SELECT pg_advisory_xact_lock(${TRANSITION_LOCK_CLASS}, hashtext(${userId}))`,
   );
-
-  const [settingsRow] = await tx
-    .select({
-      dailyEnergyLimit: userSettings.dailyEnergyLimit,
-      timezone: users.timezone,
-    })
-    .from(userSettings)
-    .innerJoin(users, eq(users.id, userSettings.userId))
-    .where(eq(userSettings.userId, userId));
-
-  // Compute "today" boundary in the user's timezone, not UTC
-  const tz = settingsRow?.timezone ?? "UTC";
 
   const [current] = await tx
     .select()
@@ -70,24 +55,6 @@ async function applyTransition(
     .where(and(eq(tasks.id, taskId), eq(tasks.userId, userId), isNull(tasks.deletedAt)));
 
   if (!current) throw new NotFoundError("Task not found");
-
-  // Use timezone-aware SQL to count tasks completed "today" in user's local time
-  const doneTodayRows = await tx
-    .select({ energyLevel: tasks.energyLevel })
-    .from(tasks)
-    .where(
-      and(
-        eq(tasks.userId, userId),
-        eq(tasks.status, "done"),
-        sql`${tasks.completedAt} >= ${sqlUserDay(tz)}`,
-        isNull(tasks.deletedAt),
-      ),
-    );
-
-  const currentDayEnergyUsed = doneTodayRows.reduce(
-    (sum, row) => sum + (ENERGY_POINTS[row.energyLevel ?? "medium"] ?? 3),
-    0,
-  );
 
   const action = getAction(current as Task);
 
@@ -100,9 +67,6 @@ async function applyTransition(
   const transition = validateTransition({
     currentStatus: current.status as TaskStatus,
     action,
-    taskEnergyPoints: ENERGY_POINTS[current.energyLevel ?? "medium"] ?? 3,
-    currentDayEnergyUsed,
-    dailyEnergyLimit: settingsRow?.dailyEnergyLimit ?? 50,
     isRecurring: current.recurrenceRule !== null && current.recurrenceRule !== undefined,
   });
 

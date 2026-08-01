@@ -12,9 +12,6 @@ function makeCtx(overrides: Partial<TransitionContext>): TransitionContext {
     return {
         currentStatus: "backlog",
         action: "move_to_week",
-        taskEnergyPoints: 3,
-        currentDayEnergyUsed: 0,
-        dailyEnergyLimit: 50,
         isRecurring: false,
         ...overrides,
     };
@@ -79,92 +76,20 @@ describe("validateTransition", () => {
         });
     });
 
-    describe("energy guard", () => {
-        it("blocks move_to_today when energy would exceed limit", () => {
-            const result = validateTransition(
-                makeCtx({
-                    currentStatus: "backlog",
-                    action: "move_to_today",
-                    taskEnergyPoints: 30,
-                    currentDayEnergyUsed: 30,
-                    dailyEnergyLimit: 50,
-                })
-            );
-
-            expect(result.valid).toBe(false);
-            expect(result.error).toContain("Límite de energía diario excedido");
+    // D2 (Fase 4.1): el presupuesto de energía avisa, jamás bloquea. La máquina de
+    // estados solo valida la FORMA del movimiento; nada de energía entra aquí.
+    describe("sin límite duro de energía (D2)", () => {
+        it("move_to_today siempre es válido, sin importar la carga del día", () => {
+            for (const from of ["backlog", "week", "tomorrow"] as TaskStatus[]) {
+                const result = validateTransition(makeCtx({ currentStatus: from, action: "move_to_today" }));
+                expect(result.valid).toBe(true);
+                expect(result.newStatus).toBe("today");
+            }
         });
 
-        it("allows move_to_today when energy is exactly at limit", () => {
-            const result = validateTransition(
-                makeCtx({
-                    currentStatus: "backlog",
-                    action: "move_to_today",
-                    taskEnergyPoints: 20,
-                    currentDayEnergyUsed: 30,
-                    dailyEnergyLimit: 50,
-                })
-            );
-
-            expect(result.valid).toBe(true);
-            expect(result.newStatus).toBe("today");
-        });
-
-        it("allows move_to_today when under limit", () => {
-            const result = validateTransition(
-                makeCtx({
-                    currentStatus: "backlog",
-                    action: "move_to_today",
-                    taskEnergyPoints: 10,
-                    currentDayEnergyUsed: 20,
-                    dailyEnergyLimit: 50,
-                })
-            );
-
-            expect(result.valid).toBe(true);
-            expect(result.newStatus).toBe("today");
-        });
-
-        it("energy guard applies for backlog -> today", () => {
-            const result = validateTransition(
-                makeCtx({
-                    currentStatus: "backlog",
-                    action: "move_to_today",
-                    taskEnergyPoints: 40,
-                    currentDayEnergyUsed: 20,
-                    dailyEnergyLimit: 50,
-                })
-            );
-
-            expect(result.valid).toBe(false);
-        });
-
-        it("energy guard applies for week -> today", () => {
-            const result = validateTransition(
-                makeCtx({
-                    currentStatus: "week",
-                    action: "move_to_today",
-                    taskEnergyPoints: 40,
-                    currentDayEnergyUsed: 20,
-                    dailyEnergyLimit: 50,
-                })
-            );
-
-            expect(result.valid).toBe(false);
-        });
-
-        it("energy guard not applied for other actions", () => {
-            const result = validateTransition(
-                makeCtx({
-                    currentStatus: "backlog",
-                    action: "move_to_week",
-                    taskEnergyPoints: 100,
-                    currentDayEnergyUsed: 100,
-                    dailyEnergyLimit: 50,
-                })
-            );
-
-            expect(result.valid).toBe(true);
+        it("el contexto de transición no expone noción de energía", () => {
+            const ctx = makeCtx({ action: "move_to_today" });
+            expect(Object.keys(ctx).sort()).toEqual(["action", "currentStatus", "isRecurring"]);
         });
     });
 
@@ -174,7 +99,6 @@ describe("validateTransition", () => {
                 makeCtx({
                     currentStatus: "today",
                     action: "toggle_done",
-                    taskEnergyPoints: 5,
                 })
             );
 
@@ -190,7 +114,6 @@ describe("validateTransition", () => {
                 makeCtx({
                     currentStatus: "backlog",
                     action: "toggle_done",
-                    taskEnergyPoints: 7,
                 })
             );
 
@@ -228,7 +151,6 @@ describe("validateTransition", () => {
                 makeCtx({
                     currentStatus: "done",
                     action: "undo_done",
-                    taskEnergyPoints: 4,
                 })
             );
 
