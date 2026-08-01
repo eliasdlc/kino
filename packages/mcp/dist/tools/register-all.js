@@ -5,6 +5,7 @@ import { registerPageCrudTools } from './crud/pages-crud.js';
 import { registerFolderCrudTools } from './crud/folders-crud.js';
 import { registerStickyNoteCrudTools } from './crud/sticky-notes-crud.js';
 import { registerEnergyTools } from './energy.js';
+import { registerStoryTools } from './story.js';
 import { registerContextTools } from './intelligence/context.js';
 import { registerAnalyzeTools } from './intelligence/analyze.js';
 import { registerSuggestTools } from './intelligence/suggest.js';
@@ -23,6 +24,7 @@ export function registerAllKinoTools(server, kinoFetch) {
     registerFolderCrudTools(server, kinoFetch);
     registerStickyNoteCrudTools(server, kinoFetch);
     registerEnergyTools(server, kinoFetch);
+    registerStoryTools(server, kinoFetch);
     registerContextTools(server, kinoFetch);
     registerAnalyzeTools(server, kinoFetch);
     registerSuggestTools(server, kinoFetch);

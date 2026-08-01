@@ -22,7 +22,7 @@ const mcpHandler = (req: Request) => {
     (server) => {
       registerAllKinoTools(server, kinoFetch);
     },
-    { serverInfo: { name: "kino", version: "2.3.0" } },
+    { serverInfo: { name: "kino", version: "2.4.0" } },
     { basePath: "/api", maxDuration: 60, disableSse: true },
   )(req);
 };

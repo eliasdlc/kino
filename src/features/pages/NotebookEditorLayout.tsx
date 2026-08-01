@@ -13,6 +13,10 @@ import { PageBreadcrumb } from "@/components/PageBreadcrumb";
 import { LinkedTasksPanel } from "./LinkedTasksPanel";
 import { NotebookTagPicker } from "./NotebookTagPicker";
 import { CodexRail } from "@/features/entities/CodexRail";
+import { ChapterStatusToggle } from "@/features/writing/ChapterStatusToggle";
+import { WritingSessionButton } from "@/features/writing/WritingSessionButton";
+import { ReferenceTable } from "@/features/writing/ReferenceTable";
+import { usePinnedReferences } from "@/features/writing/pinned-references";
 import { EditorShortcutsHelp } from "./EditorShortcutsHelp";
 import { useSubPages, useCreateSubPage } from "./pages.hooks";
 import { htmlToMarkdown, exportFileMeta } from "./export/html-to-markdown";
@@ -130,6 +134,8 @@ interface NotebookEditorLayoutProps {
   writer?: boolean;
   /** Obra a la que pertenece el capítulo — alimenta el progreso de la status bar. */
   obra?: WriterObra | null;
+  /** Metadata de la obra — de ahí sale la mesa de referencias (W4). */
+  obraMetadata?: Record<string, unknown> | null;
   /** Medium de la obra (W3): estructura del editor, vocabulario y export. */
   medium?: MediumManifest | null;
 }
@@ -247,10 +253,16 @@ export function NotebookEditorLayout({
   initialSubPages,
   writer = false,
   obra = null,
+  obraMetadata = null,
   medium = null,
 }: NotebookEditorLayoutProps) {
   const [rightOpen, setRightOpen] = useState(false);
   const [focusMode, setFocusMode] = useState(false);
+  const { pinnedIds, toggle: togglePin, canPin } = usePinnedReferences({
+    systemId,
+    folderId: obra?.id ?? null,
+    metadata: obraMetadata,
+  });
   // Índice del capítulo: lo calcula el editor (que vive en un chunk aparte) y lo
   // publica aquí; el salto se queda en un ref para no re-renderizar por él.
   const [outline, setOutline] = useState<OutlineItem[]>([]);
@@ -280,6 +292,18 @@ export function NotebookEditorLayout({
         <div className="flex-1 min-w-0">
           <PageBreadcrumb items={breadcrumbItems} />
         </div>
+        {writer && (
+          <WritingSessionButton pageId={page.id} pageTitle={page.title} systemId={systemId} />
+        )}
+        {writer && (
+          <ChapterStatusToggle
+            pageId={page.id}
+            systemId={systemId}
+            title={page.title}
+            initialCompletedAt={page.completedAt}
+            unitNoun={medium?.unit.noun}
+          />
+        )}
         <Button
           variant="ghost"
           size="icon"
@@ -334,7 +358,19 @@ export function NotebookEditorLayout({
                   }}
                 />
                 <Separator />
-                <CodexRail pageId={page.id} systemId={systemId} />
+                <CodexRail
+                  pageId={page.id}
+                  systemId={systemId}
+                  pinnedIds={pinnedIds}
+                  onTogglePin={canPin ? togglePin : undefined}
+                />
+                <Separator />
+                <ReferenceTable
+                  systemId={systemId}
+                  pinnedIds={pinnedIds}
+                  onToggle={togglePin}
+                  canPin={canPin}
+                />
                 <Separator />
               </>
             )}

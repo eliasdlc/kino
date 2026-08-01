@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { X, Loader2, MoreHorizontal, PanelLeft, PanelRight, PinOff, Pencil, Trash2 } from "lucide-react";
+import { X, Lightbulb, Loader2, MoreHorizontal, PanelLeft, PanelRight, PinOff, Pencil, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -149,6 +149,11 @@ export function StickyNoteCard({ note, context }: StickyNoteCardProps) {
   const cardRef = useRef<HTMLDivElement>(null);
   const colors = STICKY_NOTE_COLORS[note.color] ?? STICKY_NOTE_COLORS.yellow!;
 
+  /** Breakthrough: la idea que desbloquea la historia entra al diario (§9). */
+  function toggleEureka() {
+    updateNote({ noteId: note.id, data: { isEureka: !note.isEureka } });
+  }
+
   function pinToSide(side: "left" | "right" | null) {
     updateNote({
       noteId: note.id,
@@ -196,6 +201,15 @@ export function StickyNoteCard({ note, context }: StickyNoteCardProps) {
             )}
             {!note.title && !note.content && (
               <p className="text-xs italic opacity-35" style={{ color: colors.textHex }}>Nota vacía</p>
+            )}
+
+            {note.isEureka && (
+              <span
+                className="mt-auto flex items-center gap-1 pt-1 text-[10px] uppercase tracking-wider"
+                style={{ color: colors.textHex, opacity: 0.7 }}
+              >
+                <Lightbulb className="size-3" /> Eureka
+              </span>
             )}
 
             {/* Top-right controls */}
@@ -256,6 +270,10 @@ export function StickyNoteCard({ note, context }: StickyNoteCardProps) {
             }}
           >
             <Pencil className="size-3.5" /> Editar
+          </ContextMenuItem>
+          <ContextMenuItem className="gap-2" onSelect={toggleEureka}>
+            <Lightbulb className="size-3.5" />
+            {note.isEureka ? "Quitar eureka" : "Marcar eureka"}
           </ContextMenuItem>
           <ContextMenuSeparator />
           <ContextMenuItem variant="destructive" className="gap-2" onSelect={() => deleteNote(note.id)}>

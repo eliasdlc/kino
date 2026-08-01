@@ -1,11 +1,16 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { Focus, Minimize2 } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
+import { Flame, Focus, Minimize2, Target } from "lucide-react";
+import { cn } from "@/lib/utils";
 import { useSharedEditor } from "./EditorContext";
 import { countWords } from "./word-count";
+import { useWritingOverview } from "@/features/writing/writing.hooks";
+import { useCelebrateOnce } from "@/features/writing/celebrate";
 
 export interface WriterObra {
+  /** Folder de la obra — ancla las celebraciones a una obra concreta. */
+  id: string;
   name: string;
   /** Meta de palabras de la obra (folders.metadata.wordGoal), o null si no tiene. */
   wordGoal: number | null;
@@ -13,19 +18,24 @@ export interface WriterObra {
   wordsExcludingCurrent: number;
 }
 
+/** Rachas que merecen celebración — mismas que marca el diario de la obra. */
+const STREAK_MILESTONES = [7, 30, 100, 365];
+
 /**
- * Status bar del arquetipo Writing (PLAN-11 §7): palabras del capítulo en vivo y
- * progreso de la obra contra su meta. El conteo se deriva del contenido Tiptap —
- * nunca un contador persistido (D12: derivar > mantener).
+ * Status bar del arquetipo Writing (PLAN-11 §7): palabras del capítulo en vivo,
+ * progreso de la obra contra su meta y racha. El conteo se deriva del contenido
+ * Tiptap — nunca un contador persistido (D12: derivar > mantener).
  */
 export function WriterStatusBar({
   obra,
+  systemId,
   paper,
   onTogglePaper,
   focusMode = false,
   onToggleFocus,
 }: {
   obra: WriterObra | null;
+  systemId: string;
   paper: boolean;
   onTogglePaper: () => void;
   focusMode?: boolean;
@@ -33,6 +43,8 @@ export function WriterStatusBar({
 }) {
   const editor = useSharedEditor();
   const [chapterWords, setChapterWords] = useState(0);
+  const { data: overview } = useWritingOverview(systemId);
+  const celebrateOnce = useCelebrateOnce();
 
   useEffect(() => {
     if (!editor) return;
@@ -50,6 +62,36 @@ export function WriterStatusBar({
     obraWords != null && goal && goal > 0
       ? Math.min(100, Math.round((obraWords / goal) * 100))
       : null;
+
+  // Cruzar la meta se celebra en el instante en que pasa, escribiendo. Abrir una
+  // obra que ya estaba por encima de su meta no dispara nada: hace falta haberla
+  // visto por debajo primero.
+  const wasBelowGoal = useRef(false);
+  useEffect(() => {
+    if (!obra || !goal || goal <= 0 || obraWords == null) return;
+    if (obraWords < goal) {
+      wasBelowGoal.current = true;
+      return;
+    }
+    if (!wasBelowGoal.current) return;
+    wasBelowGoal.current = false;
+    celebrateOnce(`goal:${obra.id}:${goal}`, {
+      icon: Target,
+      title: `Alcanzaste la meta de ${obra.name}`,
+      detail: `${goal.toLocaleString("es")} palabras. Lo que sigue ya es ventaja.`,
+    });
+  }, [obra, goal, obraWords, celebrateOnce]);
+
+  // La racha se celebra en los saltos que se sienten (7, 30, 100, 365 días).
+  useEffect(() => {
+    if (!overview?.streakIncludesToday) return;
+    if (!STREAK_MILESTONES.includes(overview.streakDays)) return;
+    celebrateOnce(`streak:${systemId}:${overview.streakDays}`, {
+      icon: Flame,
+      title: `Racha de ${overview.streakDays} días escribiendo`,
+      detail: "Ese hábito es la obra, más que cualquier sesión suelta.",
+    });
+  }, [overview, systemId, celebrateOnce]);
 
   return (
     <div className="sticky bottom-0 z-10 flex items-center gap-4 border-t bg-background/80 px-4 py-1.5 text-xs text-muted-foreground backdrop-blur md:px-6">
@@ -72,6 +114,25 @@ export function WriterStatusBar({
             </div>
           )}
         </div>
+      )}
+
+      {overview && overview.streakDays > 0 && !focusMode && (
+        <span
+          className="flex shrink-0 items-center gap-1 font-mono"
+          title={
+            overview.streakIncludesToday
+              ? "Tu racha ya cuenta hoy"
+              : "Tu racha sigue viva: escribe hoy para no perderla"
+          }
+        >
+          <Flame
+            className={cn(
+              "size-3.5",
+              overview.streakIncludesToday ? "text-primary" : "text-muted-foreground",
+            )}
+          />
+          {overview.streakDays}
+        </span>
       )}
 
       <div className="ml-auto flex shrink-0 items-center gap-1">

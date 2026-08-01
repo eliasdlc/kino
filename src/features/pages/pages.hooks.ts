@@ -18,6 +18,7 @@ function makeOptimisticPage(
     systemId: fields.systemId,
     isPinned: false,
     parentPageId: fields.parentPageId ?? null,
+    completedAt: null,
     createdAt: new Date(),
     updatedAt: new Date(),
     contentPreview: null,

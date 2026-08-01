@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { BookOpen } from "lucide-react";
+import { BookOpen, Pin } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { usePageEntities } from "./entities.hooks";
 import { ENTITY_TYPE_ICON } from "./entities.ui";
@@ -16,9 +16,14 @@ import { EntityFicheSheet } from "./EntityFicheSheet";
 export function CodexRail({
   pageId,
   systemId,
+  pinnedIds = [],
+  onTogglePin,
 }: {
   pageId: string;
   systemId: string;
+  /** Ids ya fijados en la mesa de referencias (W4); vacío si la obra no aplica. */
+  pinnedIds?: string[];
+  onTogglePin?: (entityId: string) => void;
 }) {
   const { data: entities = [], isLoading } = usePageEntities(pageId);
   const [openEntityId, setOpenEntityId] = useState<string | null>(null);
@@ -49,13 +54,14 @@ export function CodexRail({
         <ul className="space-y-0.5">
           {entities.map((e) => {
             const Icon = ENTITY_TYPE_ICON[e.type];
+            const pinned = pinnedIds.includes(e.id);
             return (
-              <li key={e.id}>
+              <li key={e.id} className="group flex items-center">
                 <button
                   type="button"
                   onClick={() => setOpenEntityId(e.id)}
                   className={cn(
-                    "flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-sm transition-colors hover:bg-accent/50",
+                    "flex min-w-0 flex-1 items-center gap-2 rounded-md px-2 py-1.5 text-left text-sm transition-colors hover:bg-accent/50",
                   )}
                 >
                   <Icon className="size-3.5 shrink-0 text-muted-foreground" />
@@ -64,6 +70,22 @@ export function CodexRail({
                     {e.mentionCount}×
                   </span>
                 </button>
+                {onTogglePin && (
+                  <button
+                    type="button"
+                    onClick={() => onTogglePin(e.id)}
+                    aria-pressed={pinned}
+                    aria-label={pinned ? `Quitar ${e.name} de la mesa` : `Fijar ${e.name} en la mesa`}
+                    className={cn(
+                      "ml-0.5 shrink-0 rounded p-1 transition-colors hover:text-foreground",
+                      pinned
+                        ? "text-primary"
+                        : "text-muted-foreground opacity-100 md:opacity-0 md:group-hover:opacity-100 md:focus:opacity-100",
+                    )}
+                  >
+                    <Pin className="size-3" />
+                  </button>
+                )}
               </li>
             );
           })}

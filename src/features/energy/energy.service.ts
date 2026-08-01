@@ -1,6 +1,6 @@
 import { and, asc, eq, inArray, isNull, lt, notInArray } from 'drizzle-orm';
 import { db } from '@/shared/db';
-import { tasks, users } from '@/shared/db/schema';
+import { tasks } from '@/shared/db/schema';
 import {
   upsertCheckin,
   getCheckinByDate,
@@ -25,6 +25,7 @@ import type { EnergyPlanResult } from './energy.planner';
 import type { Chronotype, SleepQuality } from './energy.utils';
 import type { CheckinSlot, CreateCheckinInput, UpdateAccuracyInput } from './energy.schemas';
 import { userToday as getTodayDate, calendarDayInTz } from '@/shared/time';
+import { getUserTimezone } from '@/shared/time/user-timezone';
 import { detectTopPattern } from './energy.advisor';
 import type { AdvisorPattern } from './energy.advisor';
 import {
@@ -52,13 +53,19 @@ export function getCurrentHourInTz(timezone: string): number {
   );
 }
 
-async function getUserTimezone(userId: string): Promise<string> {
-  const [row] = await db
-    .select({ timezone: users.timezone })
-    .from(users)
-    .where(eq(users.id, userId))
-    .limit(1);
-  return row?.timezone ?? 'UTC';
+
+/**
+ * Ventana de mayor energía aprendida, en horas locales. Versión ligera de lo que
+ * `getLearningInsight` calcula de paso: la usa el arquetipo Writing para decir
+ * "tu mejor ventana creativa es 9–11" sin arrastrar snapshots ni check-ins.
+ * Null mientras no haya curva aprendida — nunca se inventa una ventana.
+ */
+export async function getPeakWindow(
+  userId: string,
+): Promise<{ start: number; end: number } | null> {
+  const learned = await getLearnedCurve(userId);
+  if (!learned?.curve || learned.curve.length !== 24) return null;
+  return findPeakRange(learned.curve);
 }
 
 export async function createTodayCheckin(userId: string, input: CreateCheckinInput) {

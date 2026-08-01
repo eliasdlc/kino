@@ -54,7 +54,8 @@ export function FocusTimerModeDialog() {
     if (!pendingTask) return;
     dispatch({
       type: 'START',
-      taskId: pendingTask.id,
+      taskId: pendingTask.isPage ? null : pendingTask.id,
+      pageId: pendingTask.isPage ? pendingTask.id : null,
       taskTitle: pendingTask.title,
       systemId: pendingTask.systemId,
       mode,
@@ -79,7 +80,9 @@ export function FocusTimerModeDialog() {
             {isRunning
               ? 'Ya hay un timer activo'
               : pendingTask
-              ? `Enfocarme en "${pendingTask.title}"`
+              ? pendingTask.isPage
+                ? `Sesión de escritura en "${pendingTask.title}"`
+                : `Enfocarme en "${pendingTask.title}"`
               : 'Iniciar foco'}
           </ResponsiveDialogTitle>
         </ResponsiveDialogHeader>

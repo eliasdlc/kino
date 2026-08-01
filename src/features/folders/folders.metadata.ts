@@ -26,6 +26,9 @@ function fieldToZod(field: ArchetypeFieldDef): z.ZodTypeAny {
       return z
         .string()
         .refine((v) => !Number.isNaN(Date.parse(v)), { message: "Fecha inválida" });
+    case "idList":
+      // Lista de UUIDs escrita por la UI (mesa de referencias de una obra).
+      return z.array(z.string().uuid()).max(50);
     case "select": {
       // Enum cerrado sobre las opciones declaradas por el manifiesto. Un campo
       // `select` sin opciones sería un error de manifiesto, no de input.

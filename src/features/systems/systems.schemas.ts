@@ -19,6 +19,8 @@ const systemTabIdSchema = z.enum(["backlog", "planning", "action", "archive"]);
 export const systemMetadataSchema = z.object({
   tabs: z.array(systemTabIdSchema).optional(),
   defaultTab: systemTabIdSchema.optional(),
+  // Solo Writing: meta diaria de palabras. 0 la desactiva sin borrar la clave.
+  dailyWordGoal: z.coerce.number().int().min(0).max(100_000).optional(),
 });
 
 export const updateSystemSchema = createSystemSchema.partial().extend({

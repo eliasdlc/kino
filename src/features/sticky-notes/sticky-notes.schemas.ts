@@ -37,6 +37,8 @@ export const updateStickyNoteSchema = z.object({
   anchorId: z.string().nullable().optional(),
   stackId: z.string().uuid().nullable().optional(),
   textAnchor: z.string().nullable().optional(),
+  // Breakthrough del arquetipo Writing (PLAN-11 §9).
+  isEureka: z.boolean().optional(),
 });
 
 export const stackStickyNotesSchema = z.object({

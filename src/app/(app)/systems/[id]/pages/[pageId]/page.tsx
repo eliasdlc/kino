@@ -60,6 +60,7 @@ export default async function PageEditorRoute({ params }: PageEditorRouteProps) 
   const obra =
     writer && folder
       ? {
+          id: folder.id,
           name: folder.name,
           wordGoal,
           wordsExcludingCurrent: allPages
@@ -95,6 +96,7 @@ export default async function PageEditorRoute({ params }: PageEditorRouteProps) 
       initialSubPages={initialSubPages}
       writer={writer}
       obra={obra}
+      obraMetadata={writer ? (folder?.metadata ?? null) : null}
       medium={medium}
     />
   );
