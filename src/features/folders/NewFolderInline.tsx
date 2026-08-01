@@ -16,11 +16,14 @@ interface NewFolderInlineProps {
   fields?: ArchetypeFieldDef[];
 }
 
-const INPUT_TYPE: Record<ArchetypeFieldDef["input"], string> = {
+const INPUT_TYPE: Record<Exclude<ArchetypeFieldDef["input"], "select">, string> = {
   text: "text",
   date: "date",
   number: "number",
 };
+
+const FIELD_CLASS =
+  "rounded border border-border/60 bg-transparent px-2 py-1 text-xs outline-none focus:border-primary/60 placeholder:text-muted-foreground/60";
 
 /**
  * Control inline para crear un folder con el vocabulario y los campos de su
@@ -97,20 +100,40 @@ export function NewFolderInline({
           />
         </div>
         <div className="grid grid-cols-1 gap-1.5 pl-6 sm:grid-cols-2">
-          {fields.map((field) => (
-            <input
-              key={field.id}
-              type={INPUT_TYPE[field.input]}
-              value={values[field.id] ?? ""}
-              onChange={(e) => setValues((prev) => ({ ...prev, [field.id]: e.target.value }))}
-              onKeyDown={(e) => {
-                if (e.key === "Enter") handleCreate();
-                if (e.key === "Escape") reset();
-              }}
-              placeholder={field.label}
-              className="rounded border border-border/60 bg-transparent px-2 py-1 text-xs outline-none focus:border-primary/60 placeholder:text-muted-foreground/60"
-            />
-          ))}
+          {fields.map((field) =>
+            field.input === "select" ? (
+              <select
+                key={field.id}
+                aria-label={field.label}
+                value={values[field.id] ?? ""}
+                onChange={(e) => setValues((prev) => ({ ...prev, [field.id]: e.target.value }))}
+                onKeyDown={(e) => {
+                  if (e.key === "Escape") reset();
+                }}
+                className={FIELD_CLASS}
+              >
+                <option value="">{field.label}</option>
+                {(field.options ?? []).map((opt) => (
+                  <option key={opt.value} value={opt.value}>
+                    {opt.label}
+                  </option>
+                ))}
+              </select>
+            ) : (
+              <input
+                key={field.id}
+                type={INPUT_TYPE[field.input]}
+                value={values[field.id] ?? ""}
+                onChange={(e) => setValues((prev) => ({ ...prev, [field.id]: e.target.value }))}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") handleCreate();
+                  if (e.key === "Escape") reset();
+                }}
+                placeholder={field.label}
+                className={FIELD_CLASS}
+              />
+            )
+          )}
         </div>
         <div className="flex items-center gap-2 pl-6">
           <button

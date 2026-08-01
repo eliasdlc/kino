@@ -40,9 +40,17 @@ describe("parseFolderMetadata", () => {
   });
 
   it("coacciona wordGoal (string del form) a número en Writing", () => {
-    const res = parseFolderMetadata("writing", { medium: "novela", wordGoal: "50000" });
+    const res = parseFolderMetadata("writing", { medium: "novel", wordGoal: "50000" });
     expect(res.success).toBe(true);
-    if (res.success) expect(res.data).toEqual({ medium: "novela", wordGoal: 50000 });
+    if (res.success) expect(res.data).toEqual({ medium: "novel", wordGoal: 50000 });
+  });
+
+  it("el medium es un enum cerrado sobre las opciones del manifiesto (W3)", () => {
+    expect(parseFolderMetadata("writing", { medium: "screenplay" }).success).toBe(true);
+    // El texto libre que aceptaba W1/W2 ya no entra: se normaliza al leer, no al
+    // escribir (resolveMedium), así que ninguna obra vieja se rompe.
+    expect(parseFolderMetadata("writing", { medium: "novela" }).success).toBe(false);
+    expect(parseFolderMetadata("writing", { medium: "cualquier cosa" }).success).toBe(false);
   });
 
   it("un arquetipo sin campos de folder rechaza cualquier metadata no vacía", () => {

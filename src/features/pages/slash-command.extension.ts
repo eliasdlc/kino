@@ -133,10 +133,10 @@ const SLASH_ITEMS: SlashItem[] = [
   },
 ];
 
-function getSlashItems(query: string): SlashItem[] {
+function getSlashItems(items: SlashItem[], query: string): SlashItem[] {
   const q = query.toLowerCase().trim();
-  if (!q) return SLASH_ITEMS;
-  return SLASH_ITEMS.filter(
+  if (!q) return items;
+  return items.filter(
     (item) =>
       item.title.toLowerCase().includes(q) ||
       item.keywords.some((k) => k.includes(q))
@@ -199,10 +199,23 @@ function renderSlashMenu() {
   };
 }
 
-export const SlashCommand = Extension.create({
+export interface SlashCommandOptions {
+  /**
+   * Bloques propios del medium de la obra (W3), añadidos arriba del menú base:
+   * un guion ofrece "Encabezado de escena", una novela "Separador de escena".
+   */
+  mediumItems: SlashItem[];
+}
+
+export const SlashCommand = Extension.create<SlashCommandOptions>({
   name: "slashCommand",
 
+  addOptions() {
+    return { mediumItems: [] };
+  },
+
   addProseMirrorPlugins() {
+    const options = this.options;
     return [
       Suggestion<SlashItem, SlashItem>({
         editor: this.editor,
@@ -211,7 +224,8 @@ export const SlashCommand = Extension.create({
         startOfLine: false,
         // No `/` menu inside code blocks — there `/` is literal.
         allow: ({ editor }) => !editor.isActive("codeBlock"),
-        items: ({ query }) => getSlashItems(query),
+        items: ({ query }) =>
+          getSlashItems([...options.mediumItems, ...SLASH_ITEMS], query),
         command: ({ editor, range, props }) =>
           props.command({ editor, range }),
         render: renderSlashMenu,
