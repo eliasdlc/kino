@@ -12,7 +12,7 @@ export async function startServer() {
 
   const server = new McpServer({
     name: 'kino',
-    version: '2.5.0',
+    version: '2.6.0',
   });
 
   const kinoFetch = createKinoFetch({

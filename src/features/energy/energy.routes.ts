@@ -1,7 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getAuthContext } from '@/shared/utils/auth-context';
 import { AppError } from '@/shared/utils/error';
-import { createCheckinSchema, updateCheckinAccuracySchema, scheduleBlockSchema, blockProposalQuerySchema } from './energy.schemas';
+import {
+  createCheckinSchema,
+  updateCheckinAccuracySchema,
+  scheduleBlockSchema,
+  blockProposalQuerySchema,
+  applyRitualSchema,
+} from './energy.schemas';
 import {
   createTodayCheckin,
   getTodayCheckins,
@@ -13,6 +19,8 @@ import {
   proposeDayBlocks,
   scheduleTaskBlock,
   clearTaskBlock,
+  getWeeklyRitual,
+  applyWeeklyRitual,
 } from './energy.blocks';
 
 const STATUS_BY_CODE: Record<string, number> = {
@@ -213,5 +221,44 @@ export async function clearBlockRoute(request: NextRequest) {
     return NextResponse.json(task);
   } catch (error) {
     return errorResponse(error, 'Failed to clear block');
+  }
+}
+
+// ── Ritual de revisión semanal (Fase 4.4) ──────────────────────────────────
+
+export async function getWeeklyRitualRoute(request: NextRequest) {
+  const ctx = await getAuthContext(request);
+  if (!ctx) {
+    return NextResponse.json({ code: 'UNAUTHORIZED', message: 'Unauthorized' }, { status: 401 });
+  }
+
+  try {
+    const ritual = await getWeeklyRitual(ctx.userId);
+    return NextResponse.json(ritual);
+  } catch (error) {
+    return errorResponse(error, 'Failed to build weekly ritual');
+  }
+}
+
+export async function applyWeeklyRitualRoute(request: NextRequest) {
+  const ctx = await getAuthContext(request);
+  if (!ctx) {
+    return NextResponse.json({ code: 'UNAUTHORIZED', message: 'Unauthorized' }, { status: 401 });
+  }
+
+  const body = await request.json();
+  const parsed = applyRitualSchema.safeParse(body);
+  if (!parsed.success) {
+    return NextResponse.json(
+      { code: 'VALIDATION_ERROR', message: 'Invalid input', details: parsed.error.flatten() },
+      { status: 400 },
+    );
+  }
+
+  try {
+    const result = await applyWeeklyRitual(ctx.userId, parsed.data.assignments);
+    return NextResponse.json(result);
+  } catch (error) {
+    return errorResponse(error, 'Failed to apply weekly ritual');
   }
 }

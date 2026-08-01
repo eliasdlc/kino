@@ -1,7 +1,7 @@
 {
   "name": "@kino-app/mcp",
   "type": "module",
-  "version": "2.5.0",
+  "version": "2.6.0",
   "description": "Kino MCP server — connect Claude Code to your tasks, systems, and energy data",
   "main": "./dist/index.js",
   "bin": {

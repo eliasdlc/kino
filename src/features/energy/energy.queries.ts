@@ -2,6 +2,7 @@ import { and, asc, desc, eq, gte, inArray, isNotNull, isNull, lt, notInArray, sq
 import { db } from '@/shared/db';
 import { behaviorSnapshots, energyCheckins, energyPredictions, tasks, timeLogs, userEnergyProfile } from '@/shared/db/schema';
 import type { CheckinSlot, CreateCheckinInput } from './energy.schemas';
+import type { Task } from '@/features/tasks/tasks.types';
 
 // ── behavior_snapshots ─────────────────────────────────────────────────────
 
@@ -218,6 +219,61 @@ export async function getCommittedTodayTasks(
     );
 
   return rows;
+}
+
+/**
+ * Tareas vencidas: con fecha límite pasada y todavía sin cerrar. Mismo predicado
+ * que usa el advisor para el patrón de abandono, para que ritual y advisor no
+ * cuenten cosas distintas.
+ */
+export async function getOverdueTasks(userId: string, today: string): Promise<Task[]> {
+  const rows = await db
+    .select()
+    .from(tasks)
+    .where(
+      and(
+        eq(tasks.userId, userId),
+        lt(tasks.dueDate, today),
+        notInArray(tasks.status, ['done', 'archived']),
+        isNull(tasks.deletedAt),
+        isNull(tasks.parentTaskId),
+      ),
+    );
+
+  return rows as Task[];
+}
+
+/**
+ * Carga ya programada por día calendario (en la tz del usuario) para un rango.
+ * Un día "comprometido" son los puntos de energía de lo que tiene `start_date`
+ * ese día: la misma noción de compromiso del presupuesto, proyectada a futuro.
+ */
+export function scheduledLoadByDayQuery(userId: string, timezone: string, from: string, to: string) {
+  return db
+    .select({
+      day: sql<string>`((${tasks.startDate} AT TIME ZONE ${timezone})::date)::text`,
+      energyLevel: tasks.energyLevel,
+    })
+    .from(tasks)
+    .where(
+      and(
+        eq(tasks.userId, userId),
+        isNotNull(tasks.startDate),
+        notInArray(tasks.status, ['done', 'archived']),
+        isNull(tasks.deletedAt),
+        isNull(tasks.parentTaskId),
+        sql`((${tasks.startDate} AT TIME ZONE ${timezone})::date) BETWEEN ${from}::date AND ${to}::date`,
+      ),
+    );
+}
+
+export async function getScheduledLoadByDay(
+  userId: string,
+  timezone: string,
+  from: string,
+  to: string,
+): Promise<Array<{ day: string; energyLevel: string | null }>> {
+  return scheduledLoadByDayQuery(userId, timezone, from, to);
 }
 
 export async function getUserEnergyProfile(userId: string) {

@@ -72,6 +72,30 @@ export function registerEnergyTools(server, kinoFetch) {
         });
         return { content: [{ type: 'text', text: JSON.stringify(block, null, 2) }] };
     });
+    // ── Ritual de revisión semanal ────────────────────────────────────────────
+    server.tool('get_weekly_ritual', 'Estado del ritual de revisión semanal: tareas vencidas y en qué día de los próximos siete caben según el presupuesto de energía de cada día, con las que no tienen lugar y por qué. No escribe nada. isReviewDay indica si hoy es el día de revisión que el usuario eligió.', {}, async () => {
+        const ritual = await kinoFetch('/api/rituals/weekly');
+        return { content: [{ type: 'text', text: JSON.stringify(ritual, null, 2) }] };
+    });
+    server.tool('apply_weekly_ritual', 'Aplica el reparto de la revisión semanal: reprograma cada tarea al día indicado (cambia su programación, NUNCA su fecha límite). Normalmente se llama con las asignaciones que devolvió get_weekly_ritual, quitando las que el usuario no quiera. Devuelve las aplicadas y las que fallaron.', {
+        assignments: z
+            .array(z.object({
+            taskId: z.string().uuid(),
+            date: z
+                .string()
+                .regex(/^\d{4}-\d{2}-\d{2}$/)
+                .describe('Día destino en formato yyyy-MM-dd'),
+        }))
+            .min(1)
+            .max(100)
+            .describe('Tareas a reprogramar con su día destino'),
+    }, async (data) => {
+        const result = await kinoFetch('/api/rituals/weekly', {
+            method: 'POST',
+            body: JSON.stringify(data),
+        });
+        return { content: [{ type: 'text', text: JSON.stringify(result, null, 2) }] };
+    });
     server.tool('clear_task_block', 'Saca una tarea del calendario (elimina su programación) sin tocar su fecha límite. Los eventos no pueden quedarse sin fecha de inicio: para un evento, muévelo de hora con schedule_task_block.', {
         taskId: z.string().uuid().describe('ID de la tarea a desprogramar'),
     }, async ({ taskId }) => {

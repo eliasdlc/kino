@@ -17,16 +17,25 @@
 import { NotFoundError, ValidationError } from '@/shared/utils/error';
 import { getTaskById, updateTask } from '@/features/tasks/tasks.service';
 import { userToday, zonedDayHourToUtc } from '@/shared/time';
-import { computeEnergyBudget, type EnergyBudget } from './energy.budget';
+import { computeEnergyBudget, energyPointsFor, type EnergyBudget } from './energy.budget';
 import { buildEnergyPlan, type DeferralReason } from './energy.planner';
 import { predictLevelForSlot, SLOT_HOUR_RANGES } from './energy.prediction';
 import {
   getCommittedTodayTasks,
   getLearnedCurve,
+  getOverdueTasks,
   getPlanCandidateTasks,
   getPredictionsForDate,
+  getScheduledLoadByDay,
   getUserEnergyProfile,
 } from './energy.queries';
+import {
+  buildWeeklyRitual,
+  nextDays,
+  weekdayOf,
+  type RitualDay,
+  type WeeklyRitual,
+} from './energy.ritual';
 import { getUserSettings } from '@/features/settings/settings.service';
 import type { CheckinSlot } from './energy.schemas';
 import {
@@ -161,6 +170,9 @@ const DEFERRAL_EXPLANATION: Record<DeferralReason, string> = {
 };
 
 const DEFAULT_START_HOUR = 9;
+
+/** Ventana del ritual: hoy más los seis días siguientes. */
+const RITUAL_HORIZON_DAYS = 7;
 
 /**
  * Propuesta de bloques para un día, sin escribir nada.
@@ -364,4 +376,94 @@ export async function clearTaskBlock(userId: string, taskId: string) {
   }
 
   return updateTask(taskId, userId, { startDate: null });
+}
+
+// ── Ritual de revisión semanal (Fase 4.4) ──────────────────────────────────
+
+/**
+ * Estado del ritual: qué está vencido y dónde cabe en los próximos días.
+ *
+ * Los días arrancan HOY, no mañana: si el ritual corre un domingo por la mañana y
+ * hoy queda presupuesto, retrasar lo vencido un día más sería absurdo.
+ */
+export async function getWeeklyRitual(userId: string): Promise<WeeklyRitual> {
+  const { timezone, dailyEnergyLimit, weeklyReviewDay } = await getUserSettings(userId);
+  const today = userToday(timezone);
+  const days = nextDays(today, RITUAL_HORIZON_DAYS);
+  const lastDay = days[days.length - 1]!;
+
+  const [overdue, scheduled, committedToday] = await Promise.all([
+    getOverdueTasks(userId, today),
+    getScheduledLoadByDay(userId, timezone, today, lastDay),
+    getCommittedTodayTasks(userId),
+  ]);
+
+  const loadByDay = new Map<string, number>();
+  for (const row of scheduled) {
+    loadByDay.set(row.day, (loadByDay.get(row.day) ?? 0) + energyPointsFor(row.energyLevel));
+  }
+
+  const ritualDays: RitualDay[] = days.map((date) => {
+    const committedPoints = loadByDay.get(date) ?? 0;
+    return {
+      date,
+      weekday: weekdayOf(date),
+      committedPoints,
+      remainingPoints: Math.max(0, dailyEnergyLimit - committedPoints),
+    };
+  });
+
+  return buildWeeklyRitual({
+    reviewDay: weeklyReviewDay,
+    todayWeekday: weekdayOf(today),
+    today,
+    timezone,
+    dailyLimit: dailyEnergyLimit,
+    overdue,
+    days: ritualDays,
+    committedToday,
+  });
+}
+
+export interface AppliedRitual {
+  applied: Array<{ taskId: string; date: string }>;
+  failed: Array<{ taskId: string; message: string }>;
+}
+
+/**
+ * Aplica el reparto: cada tarea recibe `start_date` en la medianoche local de su
+ * día, que es el "día pelado" sin hora — el ritual reprograma, no bloquea horas.
+ *
+ * `dueDate` no se toca: es el compromiso original del usuario y falsearlo para que
+ * deje de verse vencida sería la forma más rápida de que el indicador mienta.
+ *
+ * Secuencial a propósito: cada `updateTask` toma su lock por usuario, y en paralelo
+ * solo se pelearían por él. Un fallo no aborta el resto — se reporta.
+ */
+export async function applyWeeklyRitual(
+  userId: string,
+  assignments: Array<{ taskId: string; date: string }>,
+): Promise<AppliedRitual> {
+  const { timezone } = await getUserSettings(userId);
+  const applied: AppliedRitual['applied'] = [];
+  const failed: AppliedRitual['failed'] = [];
+
+  for (const { taskId, date } of assignments) {
+    if (!DAY_PATTERN.test(date)) {
+      failed.push({ taskId, message: 'La fecha debe tener el formato yyyy-MM-dd' });
+      continue;
+    }
+    try {
+      const startsAt = zonedDayHourToUtc(date, 0, timezone);
+      await updateTask(taskId, userId, { startDate: startsAt.toISOString() });
+      applied.push({ taskId, date });
+    } catch (error) {
+      failed.push({
+        taskId,
+        message: error instanceof Error ? error.message : 'No se pudo reprogramar',
+      });
+    }
+  }
+
+  return { applied, failed };
 }

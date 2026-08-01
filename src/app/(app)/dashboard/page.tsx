@@ -35,6 +35,7 @@ const EnergyTodayCard = dynamic(
 import { AdvisorCard } from "@/features/dashboard/AdvisorCard";
 import { FocusNowCard } from "@/features/dashboard/FocusNowCard";
 import { NotificationPromptCard } from "@/features/dashboard/NotificationPromptCard";
+import { WeeklyRitualPrompt } from "@/features/energy/WeeklyRitualPrompt";
 import { DashboardBottomRow } from "@/features/dashboard/DashboardBottomRow";
 
 export const metadata = { title: "Inicio - Kino" };
@@ -55,6 +56,7 @@ export default async function DashboardPage() {
   return (
     <div className="md:h-full md:overflow-hidden p-3 md:p-4">
       <NotificationPromptCard />
+      <WeeklyRitualPrompt />
 
       <div className="dashboard-grid h-full">
         {/* ── Plan de hoy — client component, fetches its own tasks ── */}

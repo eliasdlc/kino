@@ -34,7 +34,15 @@ export const blockProposalQuerySchema = z.object({
   startHour: HOUR.optional(),
 });
 
+export const applyRitualSchema = z.object({
+  assignments: z
+    .array(z.object({ taskId: z.string().uuid(), date: DAY }))
+    .min(1, 'Hace falta al menos una tarea que reprogramar')
+    .max(100),
+});
+
 export type ScheduleBlockInput = z.infer<typeof scheduleBlockSchema>;
+export type ApplyRitualInput = z.infer<typeof applyRitualSchema>;
 
 export type CreateCheckinInput = z.infer<typeof createCheckinSchema>;
 // Tipo de entrada del cliente: sleepQuality es opcional (solo se envía en la mañana).
