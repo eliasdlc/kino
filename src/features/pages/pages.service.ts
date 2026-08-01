@@ -1,5 +1,5 @@
 import { db } from "@/shared/db";
-import { pages, tasks, taskPageLinks, folders, pageTags, contextTags } from "@/shared/db/schema";
+import { pages, tasks, taskPageLinks, folders, pageTags, contextTags, systems } from "@/shared/db/schema";
 import { and, eq, isNull, inArray, count } from "drizzle-orm";
 import { NotFoundError, ForbiddenError } from "@/shared/utils/error";
 import type { CreatePageInput, UpdatePageInput } from "./pages.schemas";
@@ -7,6 +7,7 @@ import type { PageDetail, PageListItem, LinkedTask, PageMutationResult } from ".
 import type { ContextTagListItem } from "@/features/tags/tags.types";
 import { countWords } from "./word-count";
 import { recomputePageMentions } from "@/features/entities/entities.service";
+import { recordWritingActivity } from "@/features/writing/writing.service";
 
 function stripHtml(html: string | null | undefined): string | null {
   if (!html) return null;
@@ -34,6 +35,7 @@ export async function getPagesBySystem(
       folderId: pages.folderId,
       systemId: pages.systemId,
       isPinned: pages.isPinned,
+      completedAt: pages.completedAt,
       parentPageId: pages.parentPageId,
       createdAt: pages.createdAt,
       updatedAt: pages.updatedAt,
@@ -126,6 +128,7 @@ export async function getSubPages(
       folderId: pages.folderId,
       systemId: pages.systemId,
       isPinned: pages.isPinned,
+      completedAt: pages.completedAt,
       parentPageId: pages.parentPageId,
       createdAt: pages.createdAt,
       updatedAt: pages.updatedAt,
@@ -228,6 +231,7 @@ export async function createPage(
       folderId: pages.folderId,
       systemId: pages.systemId,
       isPinned: pages.isPinned,
+      completedAt: pages.completedAt,
       parentPageId: pages.parentPageId,
       createdAt: pages.createdAt,
       updatedAt: pages.updatedAt,
@@ -249,6 +253,22 @@ export async function updatePage(
   userId: string,
   data: UpdatePageInput
 ): Promise<PageMutationResult | null> {
+  // Estado previo — hace falta antes del UPDATE para el delta de palabras de la
+  // sesión de escritura. Solo se consulta cuando el guardado toca el contenido.
+  const previous =
+    data.content !== undefined
+      ? (
+          await db
+            .select({ content: pages.content, templateType: systems.templateType })
+            .from(pages)
+            .leftJoin(systems, eq(pages.systemId, systems.id))
+            .where(
+              and(eq(pages.id, pageId), eq(pages.userId, userId), isNull(pages.deletedAt))
+            )
+            .limit(1)
+        )[0] ?? null
+      : null;
+
   const [updated] = await db
     .update(pages)
     .set({ ...data, updatedAt: new Date() })
@@ -261,6 +281,7 @@ export async function updatePage(
       folderId: pages.folderId,
       systemId: pages.systemId,
       isPinned: pages.isPinned,
+      completedAt: pages.completedAt,
       parentPageId: pages.parentPageId,
       content: pages.content,
       createdAt: pages.createdAt,
@@ -276,6 +297,27 @@ export async function updatePage(
       await recomputePageMentions(updated.id, updated.systemId, userId, updated.content);
     } catch (err) {
       console.error("recomputePageMentions failed", { pageId: updated.id, err });
+    }
+  }
+
+  // Sesión de escritura (PLAN-11 §9): solo en el arquetipo Writing y solo si el
+  // texto cambió de verdad — un guardado que no mueve nada no es una sesión.
+  // Best-effort igual que las menciones: la racha no puede tumbar un guardado.
+  if (
+    previous &&
+    updated.systemId &&
+    previous.templateType === "writing" &&
+    previous.content !== updated.content
+  ) {
+    try {
+      await recordWritingActivity({
+        userId,
+        systemId: updated.systemId,
+        pageId: updated.id,
+        wordsDelta: countWords(updated.content) - countWords(previous.content),
+      });
+    } catch (err) {
+      console.error("recordWritingActivity failed", { pageId: updated.id, err });
     }
   }
 

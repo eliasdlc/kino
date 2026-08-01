@@ -7,4 +7,5 @@ export type StickyNoteItem = Pick<
   | "id" | "title" | "content" | "color" | "sortIndex"
   | "pageId" | "folderId"
   | "positionSide" | "positionY" | "positionX" | "anchorId" | "stackId" | "textAnchor"
+  | "isEureka"
 >;

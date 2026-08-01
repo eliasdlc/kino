@@ -53,6 +53,27 @@ describe("parseFolderMetadata", () => {
     expect(parseFolderMetadata("writing", { medium: "cualquier cosa" }).success).toBe(false);
   });
 
+  it("la mesa de referencias acepta una lista de UUIDs (campo hidden de Writing, W4)", () => {
+    const ids = [
+      "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+      "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb",
+    ];
+    const res = parseFolderMetadata("writing", { medium: "manga", pinnedEntityIds: ids });
+    expect(res.success).toBe(true);
+    if (res.success) expect(res.data).toEqual({ medium: "manga", pinnedEntityIds: ids });
+  });
+
+  it("la mesa de referencias rechaza cualquier cosa que no sea un UUID", () => {
+    expect(parseFolderMetadata("writing", { pinnedEntityIds: ["no-soy-uuid"] }).success).toBe(false);
+    expect(parseFolderMetadata("writing", { pinnedEntityIds: "un-string" }).success).toBe(false);
+  });
+
+  it("una mesa vacía se persiste (desfijar la última referencia no la resucita)", () => {
+    const res = parseFolderMetadata("writing", { pinnedEntityIds: [] });
+    expect(res.success).toBe(true);
+    if (res.success) expect(res.data).toEqual({ pinnedEntityIds: [] });
+  });
+
   it("un arquetipo sin campos de folder rechaza cualquier metadata no vacía", () => {
     // personal.folderRole.fields === [] → schema estricto vacío.
     expect(parseFolderMetadata("personal", { anything: "x" }).success).toBe(false);

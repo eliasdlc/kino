@@ -204,6 +204,7 @@ export default function NotebookEditorSurface({
         {writer && (
           <WriterStatusBar
             obra={obra}
+            systemId={systemId}
             paper={paper}
             onTogglePaper={() => setPaper((p) => !p)}
             focusMode={focusMode}

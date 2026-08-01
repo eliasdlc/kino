@@ -61,6 +61,12 @@ export interface SystemMetadata {
   tabs?: SystemTabId[];
   /** Tab que se abre por defecto (override del preset). */
   defaultTab?: SystemTabId;
+  /**
+   * Solo Writing: meta diaria de palabras del sistema (PLAN-11 §9). Vive aquí y
+   * no en la obra porque el hábito es del escritor, no del manuscrito — escribas
+   * donde escribas, el día cuenta.
+   */
+  dailyWordGoal?: number;
 }
 
 export type SchedulingPreference = 'lowSlot' | 'peak' | 'highMedium';
@@ -73,9 +79,15 @@ export type SchedulingPreference = 'lowSlot' | 'peak' | 'highMedium';
 export interface ArchetypeFieldDef {
   id: string;
   label: string;
-  input: 'text' | 'date' | 'number' | 'select';
+  input: 'text' | 'date' | 'number' | 'select' | 'idList';
   /** Solo `select`: valores admitidos. El Zod derivado es un enum sobre ellos. */
   options?: { value: string; label: string }[];
+  /**
+   * El campo se valida pero no se pinta en los formularios. Para estado que la
+   * UI escribe sola (referencias pineadas de una obra) y que igual debe pasar
+   * por el schema — metadata sigue sin ser un saco.
+   */
+  hidden?: boolean;
 }
 
 /**
@@ -310,6 +322,14 @@ export const SYSTEM_TYPE_CONFIG: Record<SystemType, ArchetypeManifest> = {
         { id: 'medium', label: 'Medium', input: 'select', options: MEDIUM_OPTIONS },
         { id: 'wordGoal', label: 'Meta de palabras', input: 'number' },
         { id: 'targetDate', label: 'Fecha objetivo', input: 'date' },
+        // Mesa de referencias (§7): entidades que el autor quiere a la vista
+        // mientras escribe. Lo escribe el codex rail, no un formulario.
+        {
+          id: 'pinnedEntityIds',
+          label: 'Referencias pineadas',
+          input: 'idList',
+          hidden: true,
+        },
       ],
     },
     // pages-first: el sistema abre en la biblioteca de manuscritos, no en tareas.

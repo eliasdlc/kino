@@ -1,29 +1,13 @@
 import { and, eq, inArray, isNull } from 'drizzle-orm';
 import { db } from '@/shared/db';
-import { tasks, users } from '@/shared/db/schema';
+import { tasks } from '@/shared/db/schema';
+import { userToday as getTodayDate } from '@/shared/time';
+import { getUserTimezone } from '@/shared/time/user-timezone';
 import { getUsersSystems } from '@/features/systems/systems.service';
 import { getTodayCheckin, getTodayAdvisor, getTodayEnergyPlan, getCurrentHourInTz } from '@/features/energy/energy.service';
 import { queryEnergyBySystem, queryInactiveSystems } from './insights.queries';
 import type { Task } from '@/features/tasks/tasks.types';
 import type { CheckinSlot } from '@/features/energy/energy.schemas';
-
-function getTodayDate(timezone: string): string {
-  return new Intl.DateTimeFormat('en-CA', {
-    timeZone: timezone,
-    year: 'numeric',
-    month: '2-digit',
-    day: '2-digit',
-  }).format(new Date());
-}
-
-async function getUserTimezone(userId: string): Promise<string> {
-  const [row] = await db
-    .select({ timezone: users.timezone })
-    .from(users)
-    .where(eq(users.id, userId))
-    .limit(1);
-  return row?.timezone ?? 'UTC';
-}
 
 // ── Context ────────────────────────────────────────────────────────────────
 

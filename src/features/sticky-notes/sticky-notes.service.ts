@@ -18,6 +18,7 @@ const NOTE_COLUMNS = {
   anchorId: stickyNotes.anchorId,
   stackId: stickyNotes.stackId,
   textAnchor: stickyNotes.textAnchor,
+  isEureka: stickyNotes.isEureka,
 } as const;
 
 export async function getStickyNotesByPage(

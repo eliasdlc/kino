@@ -11,10 +11,22 @@ import {
   resolveMedium,
   type MediumId,
 } from "@/shared/lib/mediums";
-import { differenceInCalendarDays } from "date-fns";
-import { BookMarked, BookOpen, FileText, Feather, Plus, Sparkles } from "lucide-react";
+import { WritingPulse } from "@/features/writing/WritingPulse";
+import { WorkJournalDialog } from "@/features/writing/WorkJournalDialog";
+import { useWritingOverview } from "@/features/writing/writing.hooks";
+import { useState } from "react";
+import {
+  BookMarked,
+  BookOpen,
+  CheckCircle2,
+  FileText,
+  Feather,
+  History,
+  Plus,
+} from "lucide-react";
 import type { PageListItem } from "@/features/pages/pages.types";
 import type { FolderWithCounts } from "@/features/folders/folders.types";
+import type { WorkPulse } from "@/features/writing/writing.types";
 import type { SystemViewProps } from "./SystemDetailView";
 
 const folderRole = SYSTEM_TYPE_CONFIG.writing.folderRole!;
@@ -36,40 +48,36 @@ function WordProgress({ words, goal }: { words: number; goal: number | null }) {
   );
 }
 
-/** Días desde la última sesión = manuscrito de la obra actualizado más recientemente. */
-function daysSinceLastSession(manuscripts: PageListItem[]): number | null {
-  if (manuscripts.length === 0) return null;
-  const latest = manuscripts.reduce((max, p) => {
-    const ms = new Date(p.updatedAt).getTime();
-    return ms > max ? ms : max;
-  }, 0);
-  return differenceInCalendarDays(new Date(), new Date(latest));
-}
-
 function readWordGoal(meta: Record<string, unknown>): number | null {
   if (typeof meta.wordGoal === "number") return meta.wordGoal;
   if (typeof meta.wordGoal === "string") return Number(meta.wordGoal) || null;
   return null;
 }
 
-function ObraCard({ obra, manuscripts, systemId }: {
+function ObraCard({ obra, manuscripts, systemId, pulse }: {
   obra: FolderWithCounts;
   manuscripts: PageListItem[];
   systemId: string;
+  /** Pulso derivado de las sesiones reales; null si la obra nunca tuvo una. */
+  pulse: WorkPulse | null;
 }) {
   const { mutate: createPage, isPending } = useCreatePage(systemId);
   const { mutate: updateFolder } = useUpdateFolder(systemId);
+  const [journalOpen, setJournalOpen] = useState(false);
   const meta = (obra.metadata ?? {}) as Record<string, unknown>;
   // El medium gobierna la estructura del editor (W3): se normaliza al leer, así
   // las obras con el texto libre de W1/W2 ("novela", "guión") siguen funcionando.
   const medium = MEDIUM_CONFIG[resolveMedium(meta)];
   const wordGoal = readWordGoal(meta);
   const totalWords = manuscripts.reduce((sum, p) => sum + p.wordCount, 0);
-  const stale = daysSinceLastSession(manuscripts);
+  // Días sin escribir: se mide contra sesiones reales, no contra `updatedAt` de
+  // las pages — renombrar un capítulo no debería resucitar una obra parada.
+  const stale = pulse?.daysSinceLastSession ?? null;
 
   /** Reescribe la metadata con las claves del manifiesto (el legacy `kind` sale). */
   function changeMedium(next: MediumId) {
     const targetDate = typeof meta.targetDate === "string" ? meta.targetDate : null;
+    const pinned = Array.isArray(meta.pinnedEntityIds) ? meta.pinnedEntityIds : null;
     updateFolder({
       folderId: obra.id,
       data: {
@@ -77,6 +85,7 @@ function ObraCard({ obra, manuscripts, systemId }: {
           medium: next,
           ...(wordGoal != null ? { wordGoal } : {}),
           ...(targetDate ? { targetDate } : {}),
+          ...(pinned ? { pinnedEntityIds: pinned } : {}),
         },
       },
     });
@@ -131,22 +140,43 @@ function ObraCard({ obra, manuscripts, systemId }: {
             href={`/systems/${systemId}/pages/${m.id}`}
             className="flex items-center gap-2 rounded-md px-2 py-1.5 text-sm text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
           >
-            <FileText size={14} className="shrink-0" />
+            {m.completedAt ? (
+              <CheckCircle2 size={14} className="shrink-0 text-primary" />
+            ) : (
+              <FileText size={14} className="shrink-0" />
+            )}
             <span className="flex-1 truncate">{m.title || "Sin título"}</span>
             <span className="shrink-0 font-mono text-xs">{m.wordCount.toLocaleString("es")}</span>
           </Link>
         ))}
       </div>
 
-      <button
-        type="button"
-        disabled={isPending}
-        onClick={addManuscript}
-        className="flex items-center gap-1.5 text-sm text-muted-foreground transition-colors hover:text-foreground disabled:opacity-50"
-      >
-        <Plus size={15} />
-        {medium.unit.newLabel}
-      </button>
+      <div className="flex items-center gap-4">
+        <button
+          type="button"
+          disabled={isPending}
+          onClick={addManuscript}
+          className="flex items-center gap-1.5 text-sm text-muted-foreground transition-colors hover:text-foreground disabled:opacity-50"
+        >
+          <Plus size={15} />
+          {medium.unit.newLabel}
+        </button>
+        <button
+          type="button"
+          onClick={() => setJournalOpen(true)}
+          className="flex items-center gap-1.5 text-sm text-muted-foreground transition-colors hover:text-foreground"
+        >
+          <History size={15} />
+          Diario
+        </button>
+      </div>
+
+      <WorkJournalDialog
+        folderId={obra.id}
+        folderName={obra.name}
+        open={journalOpen}
+        onOpenChange={setJournalOpen}
+      />
     </div>
   );
 }
@@ -160,16 +190,15 @@ function ObraCard({ obra, manuscripts, systemId }: {
 export function SystemWritingView({ system }: SystemViewProps) {
   const { data: obras = [] } = useFolders(system.id);
   const { data: pages = [] } = usePages(system.id);
+  const { data: overview } = useWritingOverview(system.id);
 
   // Manuscritos sueltos (sin obra) — se muestran aparte para no perderlos.
   const looseManuscripts = pages.filter((p) => !p.folderId);
+  const pulseByFolder = new Map((overview?.works ?? []).map((w) => [w.folderId, w]));
 
   return (
     <div className="space-y-4">
-      <div className="flex items-center gap-2 rounded-lg border border-primary/20 bg-primary/5 px-3 py-2 text-sm text-muted-foreground">
-        <Sparkles size={15} className="shrink-0 text-primary" />
-        <span>Escribí en tu mejor ventana creativa — tu pico de energía. Kino la conoce.</span>
-      </div>
+      <WritingPulse systemId={system.id} />
 
       <div className="flex items-center justify-between gap-3">
         <NewFolderInline
@@ -203,6 +232,7 @@ export function SystemWritingView({ system }: SystemViewProps) {
               obra={obra}
               manuscripts={pages.filter((p) => p.folderId === obra.id)}
               systemId={system.id}
+              pulse={pulseByFolder.get(obra.id) ?? null}
             />
           ))}
 

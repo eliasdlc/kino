@@ -25,6 +25,7 @@ function makeOptimisticStickyNote(
     anchorId: data.anchorId ?? null,
     stackId: null,
     textAnchor: data.textAnchor ?? null,
+    isEureka: false,
   };
 }
 

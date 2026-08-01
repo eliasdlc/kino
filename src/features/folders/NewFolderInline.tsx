@@ -16,7 +16,12 @@ interface NewFolderInlineProps {
   fields?: ArchetypeFieldDef[];
 }
 
-const INPUT_TYPE: Record<Exclude<ArchetypeFieldDef["input"], "select">, string> = {
+// `select` tiene su propio render y `idList` es siempre `hidden` (lo escribe la
+// UI, no este formulario), así que ninguno necesita un tipo de input HTML.
+const INPUT_TYPE: Record<
+  Exclude<ArchetypeFieldDef["input"], "select" | "idList">,
+  string
+> = {
   text: "text",
   date: "date",
   number: "number",
@@ -36,7 +41,7 @@ export function NewFolderInline({
   label,
   placeholder,
   icon: Icon = Target,
-  fields = [],
+  fields: allFields = [],
 }: NewFolderInlineProps) {
   const [isCreating, setIsCreating] = useState(false);
   const [name, setName] = useState("");
@@ -44,6 +49,8 @@ export function NewFolderInline({
   const inputRef = useRef<HTMLInputElement>(null);
   const { mutateAsync: createFolder, isPending } = useCreateFolder(systemId);
 
+  // Los campos `hidden` del manifiesto los escribe la UI, no este formulario.
+  const fields = allFields.filter((f) => !f.hidden);
   const hasFields = fields.length > 0;
 
   useEffect(() => {
@@ -122,7 +129,7 @@ export function NewFolderInline({
             ) : (
               <input
                 key={field.id}
-                type={INPUT_TYPE[field.input]}
+                type={INPUT_TYPE[field.input as keyof typeof INPUT_TYPE] ?? "text"}
                 value={values[field.id] ?? ""}
                 onChange={(e) => setValues((prev) => ({ ...prev, [field.id]: e.target.value }))}
                 onKeyDown={(e) => {

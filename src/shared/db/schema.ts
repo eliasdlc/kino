@@ -105,6 +105,9 @@ export const timeSourceEnum = pgEnum('time_source', [
   'pomodoro',
   'manual',
   'timer',
+  // Sesión de escritura detectada por actividad en el editor (PLAN-11 W4): no la
+  // arranca el usuario, la deriva el server de los guardados del capítulo.
+  'writing',
 ]);
 
 export const taskTypeEnum = pgEnum('task_type', [
@@ -811,6 +814,9 @@ export const pages = pgTable(
     title: varchar('title', { length: 500 }),
     content: text('content'),
     isPinned: boolean('is_pinned').notNull().default(false),
+    // Capítulo terminado (PLAN-11 §7/§9): el check del navegador de manuscrito y
+    // el hito que entra al diario de la obra. Null = en curso.
+    completedAt: timestamp('completed_at', { withTimezone: true }),
     deletedAt: timestamp('deleted_at', { withTimezone: true }),
     createdAt: timestamp('created_at', { withTimezone: true })
       .notNull()
@@ -1004,6 +1010,9 @@ export const stickyNotes = pgTable(
     anchorId: varchar('anchor_id', { length: 36 }),
     // Stack grouping: all notes with same stackId form a visual stack
     stackId: uuid('stack_id'),
+    // Breakthrough del arquetipo Writing (PLAN-11 §9): la idea que desbloquea la
+    // historia. Marcada así, entra al diario de la obra en vez de perderse.
+    isEureka: boolean('is_eureka').notNull().default(false),
     // Excerpt of text selected when note was created from editor selection
     textAnchor: text('text_anchor'),
     createdAt: timestamp('created_at', { withTimezone: true })
@@ -1030,6 +1039,11 @@ export const stickyNotes = pgTable(
 );
 
 // ── time_logs ──
+//
+// Un log de tiempo apunta a exactamente un objetivo: una tarea (focus timer) o
+// una page (sesión de escritura, PLAN-11 W4). Compartir la tabla es deliberado:
+// las sesiones de escritura cuentan como actividad del sistema en insights y en
+// "último movimiento" sin duplicar la maquinaria de tiempo.
 
 export const timeLogs = pgTable(
   'time_logs',
@@ -1038,15 +1052,17 @@ export const timeLogs = pgTable(
     userId: uuid('user_id')
       .notNull()
       .references(() => users.id, { onDelete: 'cascade' }),
-    taskId: uuid('task_id')
-      .notNull()
-      .references(() => tasks.id, { onDelete: 'cascade' }),
+    taskId: uuid('task_id').references(() => tasks.id, { onDelete: 'cascade' }),
+    /** Sesión de escritura: el capítulo sobre el que se escribió. */
+    pageId: uuid('page_id').references(() => pages.id, { onDelete: 'cascade' }),
     systemId: uuid('system_id')
       .notNull()
       .references(() => systems.id, { onDelete: 'cascade' }),
     startedAt: timestamp('started_at', { withTimezone: true }).notNull(),
     endedAt: timestamp('ended_at', { withTimezone: true }),
     durationMinutes: integer('duration_minutes').notNull(),
+    /** Delta neto de palabras de la sesión (solo escritura; puede ser negativo). */
+    wordsWritten: integer('words_written'),
     source: timeSourceEnum('source').notNull().default('timer'),
     createdAt: timestamp('created_at', { withTimezone: true })
       .notNull()
@@ -1057,8 +1073,15 @@ export const timeLogs = pgTable(
       'duration_minutes_non_negative',
       sql`${table.durationMinutes} >= 0`,
     ),
+    check(
+      'time_log_single_target',
+      sql`(${table.taskId} IS NULL) <> (${table.pageId} IS NULL)`,
+    ),
     index('idx_timelogs_user').on(table.userId, table.startedAt),
     index('idx_timelogs_system').on(table.systemId, table.startedAt),
+    index('idx_timelogs_page')
+      .on(table.userId, table.pageId, table.startedAt)
+      .where(sql`${table.pageId} IS NOT NULL`),
   ],
 );
 
