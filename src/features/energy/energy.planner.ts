@@ -39,13 +39,25 @@ export interface EnergyPlanItem {
   breakBefore: boolean;
 }
 
+/** Por qué una tarea no entró en el día. */
+export type DeferralReason = 'budget' | 'energy';
+
+export interface DeferredItem {
+  task: Task;
+  reason: DeferralReason;
+}
+
 export interface EnergyPlanResult {
   items: EnergyPlanItem[];
   /** Capacidad proyectada por hora (24 valores, índice = hora 0–23) */
   projectedCurve: readonly number[];
   totalBreakMinutes: number;
-  /** Tareas que no se pudieron ubicar (energía insuficiente o presupuesto agotado) */
-  deferred: Task[];
+  /**
+   * Tareas que no se pudieron ubicar, con su motivo. El motivo no es decorativo:
+   * un agente que arma el día tiene que poder explicar por qué algo quedó fuera
+   * ("no cabía" y "no alcanzaba tu energía" se resuelven distinto).
+   */
+  deferred: DeferredItem[];
 }
 
 export interface EnergyPlanOptions {
@@ -102,7 +114,7 @@ export function buildEnergyPlan(options: EnergyPlanOptions): EnergyPlanResult {
   );
 
   const items: EnergyPlanItem[] = [];
-  const deferred: Task[] = [];
+  const deferred: DeferredItem[] = [];
 
   let currentMinute = startHour * 60;
   let continuousWorkMinutes = 0;
@@ -126,7 +138,7 @@ export function buildEnergyPlan(options: EnergyPlanOptions): EnergyPlanResult {
 
     // Presupuesto agotado
     if (usedMinutes + taskMinutes > budgetMinutes) {
-      deferred.push(task);
+      deferred.push({ task, reason: 'budget' });
       continue;
     }
 
@@ -144,7 +156,7 @@ export function buildEnergyPlan(options: EnergyPlanOptions): EnergyPlanResult {
 
     // Solo las tareas 'high' se difieren por energía insuficiente
     if (demand === 'high' && effectiveEnergy < ENERGY_THRESHOLDS.high) {
-      deferred.push(task);
+      deferred.push({ task, reason: 'energy' });
       continue; // no avanzar el reloj — la ranura sigue libre para la siguiente tarea
     }
 

@@ -12,7 +12,6 @@ import {
 import { findPeakRange, formatHourRange, CHRONOTYPE_LABELS } from '@/features/energy/energy.utils';
 import type { CheckinSlot } from '@/features/energy/energy.schemas';
 import type { Chronotype } from '@/features/energy/energy.utils';
-import type { Task } from '@/features/tasks/tasks.types';
 import type { TodayCheckinRow } from '@/features/energy/energy.service';
 import type { PredictionRow } from '@/features/energy/energy.queries';
 import { EnergyChart, type ChartEntry } from './EnergyChart';
@@ -30,7 +29,6 @@ interface EnergyTodayCardProps {
   initialCheckins: TodayCheckinRow[];
   projectedCurve: number[];
   chronotype: Chronotype | null;
-  deferredTasks?: Task[];
   /** Predicciones guardadas de hoy: lo que Kino dijo antes de conocer el resultado (4.2). */
   predictions?: PredictionRow[];
 }

@@ -198,6 +198,28 @@ export async function getPlanCandidateTasks(userId: string) {
     );
 }
 
+/**
+ * Tareas comprometidas al plan de hoy, con lo mínimo que el presupuesto necesita.
+ * Incluye las completadas: el presupuesto mide compromiso, no producción.
+ */
+export async function getCommittedTodayTasks(
+  userId: string,
+): Promise<Array<{ energyLevel: string | null; status: string }>> {
+  const rows = await db
+    .select({ energyLevel: tasks.energyLevel, status: tasks.status })
+    .from(tasks)
+    .where(
+      and(
+        eq(tasks.userId, userId),
+        eq(tasks.inTodayPlan, true),
+        isNull(tasks.deletedAt),
+        isNull(tasks.parentTaskId),
+      ),
+    );
+
+  return rows;
+}
+
 export async function getUserEnergyProfile(userId: string) {
   const [row] = await db
     .select()
