@@ -24,6 +24,7 @@ import {
   Target,
   type LucideIcon,
 } from 'lucide-react';
+import { MEDIUM_OPTIONS } from './mediums';
 
 export type SystemType =
   | 'academic'
@@ -72,7 +73,9 @@ export type SchedulingPreference = 'lowSlot' | 'peak' | 'highMedium';
 export interface ArchetypeFieldDef {
   id: string;
   label: string;
-  input: 'text' | 'date' | 'number';
+  input: 'text' | 'date' | 'number' | 'select';
+  /** Solo `select`: valores admitidos. El Zod derivado es un enum sobre ellos. */
+  options?: { value: string; label: string }[];
 }
 
 /**
@@ -299,11 +302,12 @@ export const SYSTEM_TYPE_CONFIG: Record<SystemType, ArchetypeManifest> = {
       newLabel: 'Nueva obra',
       placeholder: 'Título de la obra',
       icon: BookMarked,
-      // `medium` declara la forma de la obra (novela, manga, cómic, guion, serial…)
-      // y en W3 gobernará la estructura del editor por MediumManifest (PLAN-11 §6).
-      // Hasta entonces es texto libre; W3 lo convierte en selección tipada.
+      // `medium` declara la forma de la obra y gobierna la estructura real del
+      // editor vía MediumManifest (W3, PLAN-11 §6): bloques propios, plantilla,
+      // atajos y formato de export. Las obras creadas antes de W3 guardaron texto
+      // libre ("novela", "guión"); `resolveMedium` las normaliza al leerlas.
       fields: [
-        { id: 'medium', label: 'Medium (novela, manga, cómic, guion, serial)', input: 'text' },
+        { id: 'medium', label: 'Medium', input: 'select', options: MEDIUM_OPTIONS },
         { id: 'wordGoal', label: 'Meta de palabras', input: 'number' },
         { id: 'targetDate', label: 'Fecha objetivo', input: 'date' },
       ],

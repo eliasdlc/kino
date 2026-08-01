@@ -243,6 +243,85 @@
   color: var(--paper-fg);
 }
 
+/* ── Bloques por medium (Writing W3, PLAN-11 §6) ──────────────────────────
+   Separador de escena: el corte del capítulo, discreto y centrado. */
+.tiptap-editor .ProseMirror .scene-break {
+  @apply my-8 text-center text-muted-foreground select-none;
+  letter-spacing: 0.6em;
+  text-indent: 0;
+}
+
+/* Guion de manga/cómic/webtoon: páginas y paneles numerados con contadores CSS.
+   El número no se guarda en ningún sitio — insertar un panel en medio renumera
+   solo (D12: derivar > mantener). */
+.tiptap-editor .ProseMirror {
+  counter-reset: manga-page panel;
+}
+.tiptap-editor .ProseMirror .manga-page {
+  @apply my-5 rounded-lg border border-border/70 p-3 pt-8 relative;
+  counter-increment: manga-page;
+  counter-reset: panel;
+}
+.tiptap-editor .ProseMirror .manga-page::before {
+  content: "Página " counter(manga-page);
+  @apply absolute left-3 top-2 font-sans text-[10px] font-semibold uppercase tracking-widest text-muted-foreground;
+}
+.tiptap-editor .ProseMirror .panel {
+  @apply my-2 rounded-md border-l-2 border-primary/40 bg-muted/30 py-2 pl-3 pr-2 relative;
+  counter-increment: panel;
+}
+.tiptap-editor .ProseMirror .panel::before {
+  content: "Panel " counter(panel);
+  @apply block mb-1 font-sans text-[10px] font-semibold uppercase tracking-widest text-muted-foreground;
+}
+.tiptap-writer .ProseMirror .panel p,
+.tiptap-writer .ProseMirror .manga-page p {
+  text-align: left;
+  text-indent: 0;
+}
+
+/* Guion audiovisual: las sangrías y mayúsculas son presentación, no texto — lo
+   guardado sigue siendo la línea tal cual la escribió el autor. */
+.tiptap-editor .ProseMirror [data-sp] {
+  @apply my-0;
+  text-align: left;
+  text-indent: 0;
+}
+.tiptap-editor .ProseMirror .sp-sceneHeading {
+  @apply mt-6 mb-2 font-semibold;
+  text-transform: uppercase;
+}
+.tiptap-editor .ProseMirror .sp-action {
+  @apply my-2;
+}
+.tiptap-editor .ProseMirror .sp-character {
+  @apply mt-4;
+  margin-left: 34%;
+  text-transform: uppercase;
+}
+.tiptap-editor .ProseMirror .sp-parenthetical {
+  margin-left: 28%;
+  @apply text-muted-foreground;
+}
+.tiptap-editor .ProseMirror .sp-dialogue {
+  margin-left: 20%;
+  margin-right: 18%;
+}
+/* En móvil las sangrías de guion comen la medida útil: se reducen sin perder la
+   jerarquía visual entre acción, personaje y diálogo. */
+@media (max-width: 640px) {
+  .tiptap-editor .ProseMirror .sp-character {
+    margin-left: 22%;
+  }
+  .tiptap-editor .ProseMirror .sp-parenthetical {
+    margin-left: 16%;
+  }
+  .tiptap-editor .ProseMirror .sp-dialogue {
+    margin-left: 10%;
+    margin-right: 4%;
+  }
+}
+
 /* Modo focus: atenúa todo menos el bloque activo (marcado con .has-focus por la
    extension Focus). Solo se activa cuando el contenedor lleva .writer-focus. */
 .writer-focus .tiptap-writer .ProseMirror > * {

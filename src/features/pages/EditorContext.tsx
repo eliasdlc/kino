@@ -13,7 +13,10 @@ import { StickyAnchorMark } from "@/features/sticky-notes/sticky-anchor.extensio
 import { SlashCommand } from "./slash-command.extension";
 import { ImageUrlPaste } from "./image-paste.extension";
 import { CodexMention } from "./codex-mention.extension";
+import { mediumExtensions } from "./mediums/medium-extensions";
+import { mediumSlashItems } from "./mediums/medium-blocks";
 import { cleanPastedHtml } from "./paste-clean";
+import type { MediumManifest } from "@/shared/lib/mediums";
 
 const EditorContext = createContext<Editor | null>(null);
 
@@ -24,11 +27,14 @@ export function useSharedEditor() {
 export function EditorProvider({
   initialContent,
   codex = null,
+  medium = null,
   children,
 }: {
   initialContent: string;
   /** Arquetipo Writing: activa la mención `@` del Codex sobre este sistema/universo. */
   codex?: { systemId: string } | null;
+  /** Medium de la obra (W3): monta sus nodos, su slash menu y su teclado. */
+  medium?: MediumManifest | null;
   children: React.ReactNode;
 }) {
   const editor = useEditor({
@@ -42,7 +48,9 @@ export function EditorProvider({
       // El modo focus del arquetipo Writing (PLAN-11 §7) usa esa clase para atenuar
       // todo menos el párrafo activo. Inerte fuera del modo focus.
       Focus.configure({ className: "has-focus", mode: "shallowest" }),
-      Placeholder.configure({ placeholder: "Empieza a escribir…" }),
+      Placeholder.configure({
+        placeholder: medium?.placeholder ?? "Empieza a escribir…",
+      }),
       Table.configure({ resizable: true }),
       TableRow,
       TableHeader,
@@ -52,11 +60,12 @@ export function EditorProvider({
       ImageUrlPaste.configure({
         HTMLAttributes: { class: "rounded-lg max-w-full h-auto my-2" },
       }),
-      SlashCommand,
+      SlashCommand.configure({ mediumItems: mediumSlashItems(medium) }),
       StickyAnchorMark,
       ...(codex
         ? [CodexMention.configure({ systemId: codex.systemId, HTMLAttributes: {} })]
         : []),
+      ...mediumExtensions(medium),
     ],
     content: initialContent,
     editorProps: {

@@ -226,7 +226,12 @@ export function useSubPages(parentPageId: string) {
 }
 
 export function useCreateSubPage(parentPageId: string, systemId: string) {
-  return useOptimisticListMutation<PageListItem, Error, { title?: string }, PageListItem>({
+  return useOptimisticListMutation<
+    PageListItem,
+    Error,
+    { title?: string; content?: string },
+    PageListItem
+  >({
     mutationFn: async (data) => {
       const res = await fetch(`/api/pages/${parentPageId}/subpages`, {
         method: "POST",
@@ -235,11 +240,16 @@ export function useCreateSubPage(parentPageId: string, systemId: string) {
       });
       if (!res.ok) throw new Error("Failed to create sub-page");
       const page = await res.json() as PageListItem;
-      if (data.title) {
+      // La ruta de subpáginas solo acepta el parent; título y plantilla del
+      // medium (W3) se aplican en un PATCH inmediato.
+      if (data.title || data.content) {
         await fetch(`/api/pages/${page.id}`, {
           method: "PATCH",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ title: data.title }),
+          body: JSON.stringify({
+            ...(data.title ? { title: data.title } : {}),
+            ...(data.content ? { content: data.content } : {}),
+          }),
         });
       }
       return page;

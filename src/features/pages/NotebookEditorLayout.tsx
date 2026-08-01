@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import dynamic from "next/dynamic";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -15,10 +15,13 @@ import { NotebookTagPicker } from "./NotebookTagPicker";
 import { CodexRail } from "@/features/entities/CodexRail";
 import { EditorShortcutsHelp } from "./EditorShortcutsHelp";
 import { useSubPages, useCreateSubPage } from "./pages.hooks";
-import { htmlToMarkdown } from "./export/html-to-markdown";
+import { htmlToMarkdown, exportFileMeta } from "./export/html-to-markdown";
+import { ManuscriptOutline } from "./mediums/ManuscriptOutline";
+import type { OutlineItem } from "./mediums/outline";
 import type { BreadcrumbItem } from "@/components/PageBreadcrumb";
 import type { PageDetail, PageListItem } from "./pages.types";
 import type { WriterObra } from "./WriterStatusBar";
+import type { MediumManifest } from "@/shared/lib/mediums";
 
 // The Tiptap surface (StarterKit + table + suggestion + list, plus image in
 // Sprint 3) is loaded client-side on demand so it stays out of the route's
@@ -53,11 +56,21 @@ function downloadBlob(blob: Blob, filename: string) {
   URL.revokeObjectURL(url);
 }
 
-function ExportPanel({ page }: { page: PageDetail }) {
+function ExportPanel({
+  page,
+  medium = null,
+}: {
+  page: PageDetail;
+  medium?: MediumManifest | null;
+}) {
+  // El medium decide el serializador: un guion sale en Fountain (.fountain), lo
+  // que importan Final Draft y Highland; el resto en Markdown (PLAN-11 §6).
+  const { extension, label } = exportFileMeta(medium?.id ?? null);
+
   function exportMarkdown() {
-    const md = htmlToMarkdown(page.content ?? "");
+    const md = htmlToMarkdown(page.content ?? "", { medium: medium?.id ?? null });
     const blob = new Blob([md], { type: "text/markdown;charset=utf-8" });
-    downloadBlob(blob, `${slugify(page.title ?? "")}.md`);
+    downloadBlob(blob, `${slugify(page.title ?? "")}.${extension}`);
   }
 
   function exportJson() {
@@ -87,7 +100,7 @@ function ExportPanel({ page }: { page: PageDetail }) {
           onClick={exportMarkdown}
         >
           <Download className="size-3.5 shrink-0" />
-          Markdown (.md)
+          {label}
         </Button>
         <Button
           variant="ghost"
@@ -117,6 +130,8 @@ interface NotebookEditorLayoutProps {
   writer?: boolean;
   /** Obra a la que pertenece el capítulo — alimenta el progreso de la status bar. */
   obra?: WriterObra | null;
+  /** Medium de la obra (W3): estructura del editor, vocabulario y export. */
+  medium?: MediumManifest | null;
 }
 
 function SubPagesSidebar({
@@ -125,12 +140,14 @@ function SubPagesSidebar({
   systemId,
   systemName,
   initialSubPages,
+  medium = null,
 }: {
   rootPageId: string;
   currentPageId: string;
   systemId: string;
   systemName: string;
   initialSubPages: PageListItem[];
+  medium?: MediumManifest | null;
 }) {
   const router = useRouter();
   const { data: subPages = initialSubPages ?? [] } = useSubPages(rootPageId);
@@ -141,7 +158,9 @@ function SubPagesSidebar({
   function handleCreate() {
     const title = newTitle.trim();
     createSubPage(
-      { title: title || undefined },
+      // La plantilla del medium arranca la estructura (una página con su primer
+      // panel, un encabezado de escena): la prosa nace en blanco.
+      { title: title || undefined, content: medium?.template || undefined },
       {
         onSuccess: (page) => {
           setNewTitle("");
@@ -198,7 +217,7 @@ function SubPagesSidebar({
                 if (e.key === "Escape") { setAdding(false); setNewTitle(""); }
               }}
               onBlur={() => { if (!newTitle.trim()) setAdding(false); }}
-              placeholder="Nueva página..."
+              placeholder={medium ? `${medium.unit.newLabel}...` : "Nueva página..."}
               maxLength={500}
               className="w-full bg-muted/60 rounded px-2 py-1 text-xs outline-none focus:ring-1 focus:ring-primary/40 border border-border"
             />
@@ -211,7 +230,7 @@ function SubPagesSidebar({
             className="flex items-center gap-1 px-2 py-1 text-xs text-muted-foreground hover:text-foreground transition-colors ml-2"
           >
             <Plus className="size-3" />
-            Nueva página
+            {medium ? medium.unit.newLabel : "Nueva página"}
           </button>
         )}
       </div>
@@ -228,9 +247,14 @@ export function NotebookEditorLayout({
   initialSubPages,
   writer = false,
   obra = null,
+  medium = null,
 }: NotebookEditorLayoutProps) {
   const [rightOpen, setRightOpen] = useState(false);
   const [focusMode, setFocusMode] = useState(false);
+  // Índice del capítulo: lo calcula el editor (que vive en un chunk aparte) y lo
+  // publica aquí; el salto se queda en un ref para no re-renderizar por él.
+  const [outline, setOutline] = useState<OutlineItem[]>([]);
+  const jumpRef = useRef<((pos: number) => void) | null>(null);
 
   const rootPageId = parentNotebook?.id ?? page.id;
 
@@ -274,8 +298,11 @@ export function NotebookEditorLayout({
           systemId={systemId}
           writer={writer}
           obra={obra}
+          medium={medium}
           focusMode={focusMode}
           onToggleFocus={() => setFocusMode((f) => !f)}
+          onOutline={setOutline}
+          jumpRef={jumpRef}
         />
       </div>
 
@@ -290,6 +317,7 @@ export function NotebookEditorLayout({
             systemId={systemId}
             systemName={systemName}
             initialSubPages={initialSubPages}
+            medium={medium}
           />
 
           <Separator />
@@ -297,6 +325,15 @@ export function NotebookEditorLayout({
           <div className="p-4 space-y-4 flex-1 overflow-y-auto">
             {writer && (
               <>
+                <ManuscriptOutline
+                  items={outline}
+                  unitNoun={medium?.unit.noun ?? "capítulo"}
+                  onJump={(pos) => {
+                    jumpRef.current?.(pos);
+                    setRightOpen(false);
+                  }}
+                />
+                <Separator />
                 <CodexRail pageId={page.id} systemId={systemId} />
                 <Separator />
               </>
@@ -315,11 +352,11 @@ export function NotebookEditorLayout({
 
             <Separator />
 
-            <ExportPanel page={page} />
+            <ExportPanel page={page} medium={medium} />
 
             <Separator />
 
-            <EditorShortcutsHelp />
+            <EditorShortcutsHelp medium={medium} />
           </div>
         </SheetContent>
       </Sheet>

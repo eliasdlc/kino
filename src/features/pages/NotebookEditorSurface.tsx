@@ -5,6 +5,8 @@ import { cn } from "@/lib/utils";
 import { EditorProvider, useSharedEditor } from "./EditorContext";
 import { NotebookEditor } from "./NotebookEditor";
 import { WriterStatusBar, type WriterObra } from "./WriterStatusBar";
+import { deriveOutline, type OutlineItem } from "./mediums/outline";
+import type { MediumManifest } from "@/shared/lib/mediums";
 import { StickyNotesGrid } from "@/features/sticky-notes/StickyNotesGrid";
 import { FloatingNotesLayer } from "@/features/sticky-notes/FloatingNotesLayer";
 import { StickyNoteCreator } from "@/features/sticky-notes/StickyNoteCreator";
@@ -54,13 +56,58 @@ function TypewriterScroll({
   return null;
 }
 
+/**
+ * Puente entre el editor y el navegador del manuscrito, que vive fuera de este
+ * árbol (en el panel lateral del layout). Publica hacia arriba el índice derivado
+ * y deja el salto en un ref: así el layout no necesita montar Tiptap y el editor
+ * sigue cargándose bajo demanda (KIN-73).
+ */
+function OutlineBridge({
+  onOutline,
+  jumpRef,
+}: {
+  onOutline: (items: OutlineItem[]) => void;
+  jumpRef: React.RefObject<((pos: number) => void) | null>;
+}) {
+  const editor = useSharedEditor();
+
+  useEffect(() => {
+    if (!editor) return;
+    const recompute = () => onOutline(deriveOutline(editor.state.doc));
+    recompute();
+    editor.on("update", recompute);
+    return () => {
+      editor.off("update", recompute);
+      onOutline([]);
+    };
+  }, [editor, onOutline]);
+
+  useEffect(() => {
+    if (!editor) return;
+    const ref = jumpRef;
+    ref.current = (pos) => {
+      const dom = editor.view.nodeDOM(pos);
+      const el = dom instanceof HTMLElement ? dom : (dom as ChildNode | null)?.parentElement;
+      el?.scrollIntoView({ behavior: "smooth", block: "start" });
+    };
+    return () => {
+      ref.current = null;
+    };
+  }, [editor, jumpRef]);
+
+  return null;
+}
+
 export default function NotebookEditorSurface({
   page,
   systemId,
   writer = false,
   obra = null,
+  medium = null,
   focusMode = false,
   onToggleFocus,
+  onOutline,
+  jumpRef,
 }: {
   page: PageDetail;
   systemId: string;
@@ -68,9 +115,14 @@ export default function NotebookEditorSurface({
   writer?: boolean;
   /** Datos de la obra para el progreso en la status bar (null si no aplica). */
   obra?: WriterObra | null;
+  /** Medium de la obra (W3): nodos, slash menu y teclado propios del formato. */
+  medium?: MediumManifest | null;
   /** Modo focus activo: atenúa lo demás y activa typewriter scroll. */
   focusMode?: boolean;
   onToggleFocus?: () => void;
+  /** Publica el índice derivado del capítulo hacia el navegador del layout. */
+  onOutline?: (items: OutlineItem[]) => void;
+  jumpRef?: React.RefObject<((pos: number) => void) | null>;
 }) {
   const contentRef = useRef<HTMLDivElement>(null);
   const columnRef = useRef<HTMLDivElement>(null);
@@ -111,6 +163,7 @@ export default function NotebookEditorSurface({
       key={page.id}
       initialContent={page.content ?? ""}
       codex={writer ? { systemId } : null}
+      medium={writer ? medium : null}
     >
       <div className="flex flex-1 flex-col overflow-hidden">
         <div
@@ -143,6 +196,10 @@ export default function NotebookEditorSurface({
         </div>
 
         {writer && <TypewriterScroll enabled={focusMode} scrollRef={scrollRef} />}
+
+        {writer && onOutline && jumpRef && (
+          <OutlineBridge onOutline={onOutline} jumpRef={jumpRef} />
+        )}
 
         {writer && (
           <WriterStatusBar

@@ -6,6 +6,7 @@ import { getSystembyId } from "@/features/systems/systems.service";
 import { getFolderById, getFolderBreadcrumb } from "@/features/folders/folders.service";
 import type { BreadcrumbItem } from "@/components/PageBreadcrumb";
 import { NotebookEditorLayout } from "@/features/pages/NotebookEditorLayout";
+import { MEDIUM_CONFIG, resolveMedium } from "@/shared/lib/mediums";
 import type { PageListItem } from "@/features/pages/pages.types";
 
 interface PageEditorRouteProps {
@@ -46,6 +47,9 @@ export default async function PageEditorRoute({ params }: PageEditorRouteProps) 
   // Writer feel (PLAN-11 §7): solo el arquetipo Writing. La "obra" es el folder al
   // que pertenece el capítulo; su progreso = suma de palabras de sus pages (derivado).
   const writer = system.templateType === "writing";
+  // El medium de la obra gobierna nodos, slash menu, plantilla y export (W3, §6).
+  // Un manuscrito suelto (sin obra) escribe en prosa con el medium por defecto.
+  const medium = writer ? MEDIUM_CONFIG[resolveMedium(folder?.metadata)] : null;
   const wordGoalRaw = folder?.metadata?.wordGoal;
   const wordGoal =
     typeof wordGoalRaw === "number"
@@ -91,6 +95,7 @@ export default async function PageEditorRoute({ params }: PageEditorRouteProps) 
       initialSubPages={initialSubPages}
       writer={writer}
       obra={obra}
+      medium={medium}
     />
   );
 }

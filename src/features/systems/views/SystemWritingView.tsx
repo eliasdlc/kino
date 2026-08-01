@@ -1,10 +1,16 @@
 "use client";
 
 import Link from "next/link";
-import { useFolders } from "@/features/folders/folders.hooks";
+import { useFolders, useUpdateFolder } from "@/features/folders/folders.hooks";
 import { usePages, useCreatePage } from "@/features/pages/pages.hooks";
 import { NewFolderInline } from "@/features/folders/NewFolderInline";
 import { SYSTEM_TYPE_CONFIG } from "@/shared/lib/system-types";
+import {
+  MEDIUM_CONFIG,
+  MEDIUM_OPTIONS,
+  resolveMedium,
+  type MediumId,
+} from "@/shared/lib/mediums";
 import { differenceInCalendarDays } from "date-fns";
 import { BookMarked, BookOpen, FileText, Feather, Plus, Sparkles } from "lucide-react";
 import type { PageListItem } from "@/features/pages/pages.types";
@@ -40,23 +46,51 @@ function daysSinceLastSession(manuscripts: PageListItem[]): number | null {
   return differenceInCalendarDays(new Date(), new Date(latest));
 }
 
+function readWordGoal(meta: Record<string, unknown>): number | null {
+  if (typeof meta.wordGoal === "number") return meta.wordGoal;
+  if (typeof meta.wordGoal === "string") return Number(meta.wordGoal) || null;
+  return null;
+}
+
 function ObraCard({ obra, manuscripts, systemId }: {
   obra: FolderWithCounts;
   manuscripts: PageListItem[];
   systemId: string;
 }) {
   const { mutate: createPage, isPending } = useCreatePage(systemId);
-  const meta = obra.metadata ?? {};
-  // `medium` es la clave actual (PLAN-11 §6); `kind` es el nombre viejo del campo,
-  // se sigue leyendo para obras creadas antes del rename.
-  const kind =
-    typeof meta.medium === "string" ? meta.medium
-    : typeof meta.kind === "string" ? meta.kind
-    : null;
-  const wordGoal = typeof meta.wordGoal === "number" ? meta.wordGoal
-    : typeof meta.wordGoal === "string" ? Number(meta.wordGoal) || null : null;
+  const { mutate: updateFolder } = useUpdateFolder(systemId);
+  const meta = (obra.metadata ?? {}) as Record<string, unknown>;
+  // El medium gobierna la estructura del editor (W3): se normaliza al leer, así
+  // las obras con el texto libre de W1/W2 ("novela", "guión") siguen funcionando.
+  const medium = MEDIUM_CONFIG[resolveMedium(meta)];
+  const wordGoal = readWordGoal(meta);
   const totalWords = manuscripts.reduce((sum, p) => sum + p.wordCount, 0);
   const stale = daysSinceLastSession(manuscripts);
+
+  /** Reescribe la metadata con las claves del manifiesto (el legacy `kind` sale). */
+  function changeMedium(next: MediumId) {
+    const targetDate = typeof meta.targetDate === "string" ? meta.targetDate : null;
+    updateFolder({
+      folderId: obra.id,
+      data: {
+        metadata: {
+          medium: next,
+          ...(wordGoal != null ? { wordGoal } : {}),
+          ...(targetDate ? { targetDate } : {}),
+        },
+      },
+    });
+  }
+
+  function addManuscript() {
+    const unit = medium.unit.noun;
+    createPage({
+      folderId: obra.id,
+      title: `${unit.charAt(0).toUpperCase()}${unit.slice(1)} ${manuscripts.length + 1}`,
+      // Los mediums estructurados nacen con su esqueleto; la prosa, en blanco.
+      content: medium.template || undefined,
+    });
+  }
 
   return (
     <div className="rounded-xl border bg-muted/20 p-4 space-y-3">
@@ -65,11 +99,18 @@ function ObraCard({ obra, manuscripts, systemId }: {
         <div className="min-w-0 flex-1">
           <div className="flex items-center gap-2">
             <span className="font-semibold truncate">{obra.name}</span>
-            {kind && (
-              <span className="shrink-0 rounded bg-muted px-1.5 py-0.5 text-[10px] uppercase tracking-wide text-muted-foreground">
-                {kind}
-              </span>
-            )}
+            <select
+              aria-label="Medium de la obra"
+              value={medium.id}
+              onChange={(e) => changeMedium(e.target.value as MediumId)}
+              className="shrink-0 rounded bg-muted px-1.5 py-0.5 text-[10px] uppercase tracking-wide text-muted-foreground outline-none transition-colors hover:text-foreground focus:ring-1 focus:ring-primary/40"
+            >
+              {MEDIUM_OPTIONS.map((opt) => (
+                <option key={opt.value} value={opt.value}>
+                  {opt.label}
+                </option>
+              ))}
+            </select>
           </div>
           {stale != null && stale >= 3 && (
             <p className="mt-0.5 text-xs text-amber-500">
@@ -100,11 +141,11 @@ function ObraCard({ obra, manuscripts, systemId }: {
       <button
         type="button"
         disabled={isPending}
-        onClick={() => createPage({ folderId: obra.id, title: "Nuevo manuscrito" })}
+        onClick={addManuscript}
         className="flex items-center gap-1.5 text-sm text-muted-foreground transition-colors hover:text-foreground disabled:opacity-50"
       >
         <Plus size={15} />
-        Nuevo manuscrito
+        {medium.unit.newLabel}
       </button>
     </div>
   );
