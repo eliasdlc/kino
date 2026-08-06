@@ -121,3 +121,31 @@ describe("deriveOutline", () => {
     ]);
   });
 });
+
+describe("corte guía del plot grid (KIN-141)", () => {
+  it("el corte que abre el capítulo no numera una escena nueva", () => {
+    const items = deriveOutline(
+      doc([
+        ["sceneBreak", "", 0, { leading: true }],
+        ["paragraph", "La niebla no levantó.", 2],
+        ["sceneBreak", "", 30],
+        ["paragraph", "Bruno la encontró.", 32],
+      ]),
+    );
+    expect(items.map((i) => i.label)).toEqual([
+      "Escena 1 · La niebla no levantó.",
+      "Escena 2 · Bruno la encontró.",
+    ]);
+  });
+
+  it("un corte guía que no está al principio se cuenta como separador normal", () => {
+    const items = deriveOutline(
+      doc([
+        ["paragraph", "Uno.", 0],
+        ["sceneBreak", "", 10, { leading: true }],
+        ["paragraph", "Dos.", 12],
+      ]),
+    );
+    expect(items).toHaveLength(2);
+  });
+});

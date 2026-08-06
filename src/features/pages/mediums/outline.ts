@@ -58,6 +58,13 @@ export function deriveOutline(doc: OutlineDoc): OutlineItem[] {
   doc.forEach((node, offset) => {
     switch (node.type.name) {
       case "sceneBreak": {
+        // El corte guía del plot grid (KIN-141) abre el capítulo: no separa dos
+        // escenas, así que no numera una nueva — solo etiqueta la primera.
+        if (node.attrs?.leading === true && offset === 0) {
+          openScene = firstScene;
+          firstScene.pos = offset;
+          return;
+        }
         breaks += 1;
         const item: OutlineItem = {
           pos: offset,

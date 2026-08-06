@@ -23,6 +23,7 @@ import {
   FileText,
   Feather,
   History,
+  Layers,
   Plus,
 } from "lucide-react";
 import type { PageListItem } from "@/features/pages/pages.types";
@@ -178,6 +179,13 @@ function ObraCard({ obra, manuscripts, systemId, pulse }: {
             >
               <BookOpen size={15} />
               Leer
+            </Link>
+            <Link
+              href={`/systems/${systemId}/folders/${obra.id}/tablero`}
+              className="flex items-center gap-1.5 text-sm text-muted-foreground transition-colors hover:text-foreground"
+            >
+              <Layers size={15} />
+              Tablero
             </Link>
             <CompileMenu folderId={obra.id} systemId={systemId} />
           </>

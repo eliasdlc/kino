@@ -131,3 +131,28 @@ describe("exportFileMeta", () => {
     expect(exportFileMeta(null).extension).toBe("md");
   });
 });
+
+describe("corte guía del plot grid (KIN-141)", () => {
+  const LEADING =
+    '<div data-scene-break="" class="scene-break" data-arc="Trama A" data-leading="true">* * *</div>';
+
+  it("no se exporta: solo carga el arco de la primera escena", () => {
+    const out = htmlToMarkdown(`${LEADING}<p>Uno</p>`);
+    expect(out).not.toContain("* * *");
+    expect(out).toContain("Uno");
+  });
+
+  it("un corte normal sí se exporta", () => {
+    const out = htmlToMarkdown(
+      '<p>Uno</p><div data-scene-break="" class="scene-break">* * *</div><p>Dos</p>',
+    );
+    expect(out).toContain("* * *");
+  });
+
+  it("tampoco aparece en Fountain", () => {
+    const out = htmlToMarkdown(`${LEADING}<p data-sp="action">Uno</p>`, {
+      medium: "screenplay",
+    });
+    expect(out).not.toContain("* * *");
+  });
+});

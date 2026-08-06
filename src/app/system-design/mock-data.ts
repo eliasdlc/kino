@@ -20,6 +20,7 @@ import type {
 import type { LooseThread, LooseThreadsReport } from "@/features/writing/chekhov";
 import type { TimelineReport } from "@/features/writing/timeline";
 import type { Manuscript } from "@/features/writing/writing.manuscript";
+import type { PlotGrid } from "@/features/writing/writing.plot";
 
 /**
  * Datos de muestra para el catálogo visual. Los componentes compuestos de Kino
@@ -546,6 +547,46 @@ export function makeManuscript(overrides: Partial<Manuscript> = {}): Manuscript 
     chapters: [
       { id: uuid(900), title: "Capítulo 1 · La niebla", content: body, wordCount: 84, completed: true },
       { id: uuid(901), title: "Capítulo 2 · El gremio", content: body, wordCount: 64, completed: false },
+    ],
+    ...overrides,
+  };
+}
+
+export function makePlotGrid(overrides: Partial<PlotGrid> = {}): PlotGrid {
+  const scene = (index: number, arc: string | null, preview: string, wordCount: number) => ({
+    index,
+    arc,
+    preview,
+    wordCount,
+  });
+  return {
+    folderId: MOCK_FOLDER_ID,
+    folderName: "La marea baja",
+    arcs: ["Aurelia", "El gremio"],
+    chapters: [
+      {
+        chapterId: uuid(950),
+        title: "Capítulo 1 · La niebla",
+        scenes: [
+          scene(0, "Aurelia", "La niebla no levantó ese día, ni el siguiente. Aurelia lo anotó en el margen del mapa.", 640),
+          scene(1, "El gremio", "Bruno la encontró en el taller, con la carta desplegada y la tinta todavía fresca.", 410),
+        ],
+      },
+      {
+        chapterId: uuid(951),
+        title: "Capítulo 2 · El gremio",
+        scenes: [
+          scene(0, "El gremio", "Firmaron sin leerlo. Nadie preguntó en nombre de qué casa hablaba Bruno.", 520),
+          scene(1, null, "El posadero cerró antes de tiempo y no dio explicaciones.", 180),
+        ],
+      },
+      {
+        chapterId: uuid(952),
+        title: "Capítulo 3",
+        scenes: [
+          scene(0, "Aurelia", "El puerto seguía ahí abajo, respirando, y los barcos habían dejado de salir.", 300),
+        ],
+      },
     ],
     ...overrides,
   };

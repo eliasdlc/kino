@@ -27,6 +27,10 @@ function isScreenplay(node: TurndownNode, kind: string): boolean {
   return element(node)?.getAttribute("data-sp") === kind;
 }
 
+function isLeadingBreak(node: TurndownNode): boolean {
+  return element(node)?.getAttribute("data-leading") === "true";
+}
+
 /** Posición 1-based del nodo entre los hermanos que cumplen el mismo predicado. */
 function siblingIndex(node: TurndownNode, matches: (el: Element) => boolean): number {
   const parent = (node as Element).parentNode;
@@ -80,7 +84,9 @@ function markdownService(): TurndownService {
 
   td.addRule("sceneBreak", {
     filter: (node) => hasAttr(node, "data-scene-break"),
-    replacement: () => "\n\n* * *\n\n",
+    // El corte guía del plot grid (KIN-141) solo carga el arco de la primera
+    // escena: no es un separador y no debe aparecer en el archivo exportado.
+    replacement: (_content, node) => (isLeadingBreak(node) ? "" : "\n\n* * *\n\n"),
   });
 
   td.addRule("mangaPage", {
@@ -132,7 +138,7 @@ function fountainService(): TurndownService {
 
   td.addRule("sceneBreak", {
     filter: (node) => hasAttr(node, "data-scene-break"),
-    replacement: () => "\n\n> * * * <\n\n",
+    replacement: (_content, node) => (isLeadingBreak(node) ? "" : "\n\n> * * * <\n\n"),
   });
 
   td.addRule("screenplay", {

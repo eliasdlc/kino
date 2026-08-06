@@ -250,6 +250,12 @@
   letter-spacing: 0.6em;
   text-indent: 0;
 }
+/* Corte guía del plot grid (KIN-141): abre el capítulo solo para cargar el arco
+   de la primera escena. No es un separador entre dos escenas, así que no se
+   pinta — ni en el editor ni leyendo. */
+:is(.tiptap-editor .ProseMirror, .reading-surface) .scene-break[data-leading="true"] {
+  display: none;
+}
 
 /* Guion de manga/cómic/webtoon: páginas y paneles numerados con contadores CSS.
    El número no se guarda en ningún sitio — insertar un panel en medio renumera

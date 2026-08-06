@@ -11,6 +11,7 @@ import {
   makeWorkJournal,
   makeLooseThreadsReport,
   makeTimelineReport,
+  makePlotGrid,
   makeFolder,
   makeSystem,
 } from "../mock-data";
@@ -19,12 +20,14 @@ import { WritingPulse } from "@/features/writing/WritingPulse";
 import { WorkJournalDialog } from "@/features/writing/WorkJournalDialog";
 import { LooseThreads } from "@/features/writing/LooseThreads";
 import { InWorldTimeline } from "@/features/writing/InWorldTimeline";
+import { PlotGridView } from "@/features/writing/PlotGridView";
 import { celebrate } from "@/features/writing/celebrate";
 import { writingKeys } from "@/features/writing/writing.hooks";
 import { folderKeys } from "@/features/folders/folders.hooks";
 import type { WritingOverview } from "@/features/writing/writing.types";
 import type { LooseThreadsReport } from "@/features/writing/chekhov";
 import type { TimelineReport } from "@/features/writing/timeline";
+import type { PlotGrid } from "@/features/writing/writing.plot";
 
 /**
  * El panel de motivación de escritura (PLAN-11 W4).
@@ -213,7 +216,39 @@ export function MotivationSection() {
           </Specimen>
         </SpecimenGrid>
       </SubSection>
+
+      <SubSection
+        title="Plot grid"
+        description="Las escenas por capítulo y arco. Se derivan del texto y mover una tarjeta reescribe el capítulo: no hay un orden persistido en paralelo que pueda divergir de lo escrito. Se arrastra, y también se mueve con botones — un arrastre accidental aquí reescribe el manuscrito."
+      >
+        <Specimen
+          label="Tres capítulos, dos arcos"
+          hint="PlotGridView"
+          className="flex-col items-stretch"
+        >
+          <PlotSpecimen grid={makePlotGrid()} />
+        </Specimen>
+
+        <Specimen label="Obra sin escenas" hint="capítulos sin separadores">
+          <PlotSpecimen
+            grid={makePlotGrid({
+              arcs: [],
+              chapters: [{ chapterId: "vacio", title: "Capítulo 1", scenes: [] }],
+            })}
+          />
+        </Specimen>
+      </SubSection>
     </Section>
+  );
+}
+
+function PlotSpecimen({ grid }: { grid: PlotGrid }) {
+  return (
+    <Seeded seed={(qc) => qc.setQueryData(writingKeys.plot(MOCK_FOLDER_ID), grid)}>
+      <div className="w-full">
+        <PlotGridView systemId={MOCK_SYSTEM_ID} folderId={MOCK_FOLDER_ID} />
+      </div>
+    </Seeded>
   );
 }
 
