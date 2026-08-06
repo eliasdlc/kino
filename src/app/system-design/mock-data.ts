@@ -22,6 +22,7 @@ import type { TimelineReport } from "@/features/writing/timeline";
 import type { Manuscript } from "@/features/writing/writing.manuscript";
 import type { PlotGrid } from "@/features/writing/writing.plot";
 import { withDeltas, type SnapshotListItem } from "@/features/writing/snapshots";
+import type { StudioReport } from "@/features/writing/writing.studio";
 
 /**
  * Datos de muestra para el catálogo visual. Los componentes compuestos de Kino
@@ -600,4 +601,52 @@ export function makeSnapshots(): SnapshotListItem[] {
     { id: uuid(972), wordCount: 2010, createdAt: "2026-08-02T22:10:00Z", sessionStartedAt: "2026-08-02T21:15:00Z" },
     { id: uuid(973), wordCount: 640, createdAt: "2026-08-01T11:00:00Z", sessionStartedAt: null },
   ]);
+}
+
+export function makeStudioReport(overrides: Partial<StudioReport> = {}): StudioReport {
+  return {
+    systemId: MOCK_SYSTEM_ID,
+    looseThreadCount: 3,
+    suggestions: [
+      {
+        kind: "resume-chapter",
+        title: "Retoma «Capítulo 4 · La niebla»",
+        reason: "Es lo último que escribiste, hace 2 días · 1.240 palabras en La marea baja.",
+        target: { kind: "page", id: MOCK_PAGE_ID },
+        weight: 88,
+      },
+      {
+        kind: "peak-window",
+        title: "Estás dentro de tu ventana creativa",
+        reason: "Es la franja donde tu energía registrada es más alta.",
+        weight: 70,
+      },
+      {
+        kind: "stale-work",
+        title: "«El puerto» lleva 9 días sin sesión",
+        reason: "Se mide contra sesiones reales, no contra la última vez que se guardó algo.",
+        target: { kind: "folder", id: MOCK_FOLDER_ID },
+        weight: 69,
+      },
+      {
+        kind: "daily-goal",
+        title: "Te faltan 180 palabras para la meta de hoy",
+        reason: "Llevas 820 de 1.000.",
+        weight: 50,
+      },
+      {
+        kind: "loose-threads",
+        title: "Hay 3 hilos sueltos por revisar",
+        reason: "Entidades que se nombraron poco y llevan capítulos calladas.",
+        target: { kind: "threads", id: "" },
+        weight: 40,
+      },
+    ],
+    codexGaps: [
+      { entityId: uuid(980), name: "Puerto Ceniza", mentions: 22, chapters: 5 },
+      { entityId: uuid(981), name: "El Gremio", mentions: 9, chapters: 3 },
+      { entityId: uuid(982), name: "La Daga", mentions: 4, chapters: 1 },
+    ],
+    ...overrides,
+  };
 }

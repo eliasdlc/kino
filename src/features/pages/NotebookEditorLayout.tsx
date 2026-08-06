@@ -17,6 +17,7 @@ import { ChapterStatusToggle } from "@/features/writing/ChapterStatusToggle";
 import { WritingSessionButton } from "@/features/writing/WritingSessionButton";
 import { ReferenceTable } from "@/features/writing/ReferenceTable";
 import { ChapterHistory } from "@/features/writing/ChapterHistory";
+import { ChapterSummaryPanel } from "@/features/writing/ChapterSummaryPanel";
 import { usePinnedReferences } from "@/features/writing/pinned-references";
 import { EditorShortcutsHelp } from "./EditorShortcutsHelp";
 import { useSubPages, useCreateSubPage } from "./pages.hooks";
@@ -357,6 +358,8 @@ export function NotebookEditorLayout({
                   onToggle={togglePin}
                   canPin={canPin}
                 />
+                <Separator />
+                <ChapterSummaryPanel pageId={page.id} />
                 <Separator />
                 <ChapterHistory pageId={page.id} />
                 <Separator />

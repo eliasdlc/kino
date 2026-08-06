@@ -25,6 +25,7 @@ import {
   History,
   Layers,
   Plus,
+  Sparkles,
 } from "lucide-react";
 import type { PageListItem } from "@/features/pages/pages.types";
 import type { FolderWithCounts } from "@/features/folders/folders.types";
@@ -229,13 +230,22 @@ export function SystemWritingView({ system }: SystemViewProps) {
           icon={folderRole.icon}
           fields={folderRole.fields}
         />
-        <Link
-          href={`/systems/${system.id}/codex`}
-          className="flex shrink-0 items-center gap-1.5 rounded-md border border-border px-2.5 py-1.5 text-sm text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
-        >
-          <BookOpen size={15} className="shrink-0" />
-          Codex
-        </Link>
+        <div className="flex shrink-0 items-center gap-2">
+          <Link
+            href={`/systems/${system.id}/estudio`}
+            className="flex items-center gap-1.5 rounded-md border border-border px-2.5 py-1.5 text-sm text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+          >
+            <Sparkles size={15} className="shrink-0" />
+            Estudio
+          </Link>
+          <Link
+            href={`/systems/${system.id}/codex`}
+            className="flex items-center gap-1.5 rounded-md border border-border px-2.5 py-1.5 text-sm text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+          >
+            <BookOpen size={15} className="shrink-0" />
+            Codex
+          </Link>
+        </div>
       </div>
 
       {obras.length === 0 && looseManuscripts.length === 0 ? (
