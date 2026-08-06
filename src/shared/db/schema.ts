@@ -249,6 +249,11 @@ export const userSettings = pgTable('user_settings', {
     .primaryKey()
     .references(() => users.id, { onDelete: 'cascade' }),
   profileType: profileTypeEnum('profile_type'),
+  // Identidad elegida en la bifurcación del onboarding (D14): estudiante,
+  // builder, emprendedor, escritor o propio. varchar y no enum a propósito —
+  // los segmentos de go-to-market cambian más rápido que un tipo de Postgres.
+  // null → cuenta anterior al onboarding segmentado.
+  archetypeIdentity: varchar('archetype_identity', { length: 20 }),
   onboardingVersion: integer('onboarding_version').notNull().default(1),
   weeklyReviewDay: weekdayEnum('weekly_review_day').notNull().default('sun'),
   dailyResetTime: time('daily_reset_time').notNull().default('00:00'),

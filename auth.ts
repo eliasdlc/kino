@@ -33,18 +33,6 @@ export const auth = betterAuth({
         defaultValue: false,
         input: false,
       },
-      xpTotal: {
-        type: "number",
-        required: false,
-        defaultValue: 0,
-        input: false,
-      },
-      coins: {
-        type: "number",
-        required: false,
-        defaultValue: 0,
-        input: false,
-      },
       timezone: {
         type: "string",
         required: false,
@@ -67,11 +55,11 @@ export const auth = betterAuth({
         required: false,
         input: false,
       },
-      lastSyncDate: {
-        type: "date",
-        required: false,
-        input: false,
-      },
+      // OJO: cada `additionalField` debe existir como columna en el schema
+      // Drizzle de `users`. El adaptador valida contra el schema, no contra la
+      // base: un campo fantasma (xpTotal, coins, lastSyncDate — gamificación que
+      // nunca se implementó) hace fallar la creación de usuarios entera, o sea
+      // todo el registro. No añadir aquí nada que no esté en schema.ts.
     },
   },
 
