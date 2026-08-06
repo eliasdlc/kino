@@ -6,6 +6,7 @@ import type { WorkJournal, WritingOverview } from "./writing.types";
 import type { LooseThreadsReport } from "./chekhov";
 import type { TimelineReport } from "./timeline";
 import type { Manuscript } from "./writing.manuscript";
+import type { PlotGrid, PlotOperation } from "./writing.plot";
 
 async function jsonOrThrow<T>(res: Response, fallback: string): Promise<T> {
   if (!res.ok) {
@@ -21,7 +22,60 @@ export const writingKeys = {
   threads: (folderId: string) => ["writing", "threads", folderId] as const,
   timeline: (folderId: string) => ["writing", "timeline", folderId] as const,
   manuscript: (folderId: string) => ["writing", "manuscript", folderId] as const,
+  plot: (folderId: string) => ["writing", "plot", folderId] as const,
 };
+
+/** Escenas por capítulo y arco (KIN-141). */
+export function usePlotGrid(folderId: string | null) {
+  return useQuery<PlotGrid>({
+    queryKey: writingKeys.plot(folderId ?? "none"),
+    queryFn: () =>
+      fetch(`/api/folders/${folderId}/plot`).then((r) =>
+        jsonOrThrow(r, "No se pudo cargar el tablero de escenas"),
+      ),
+    enabled: !!folderId,
+    staleTime: 15_000,
+  });
+}
+
+/**
+ * Mueve una escena o le cambia el arco. El server devuelve la rejilla completa ya
+ * recalculada —es él quien reescribe el texto—, así que la respuesta se escribe
+ * directa en el cache en vez de invalidar y volver a pedir.
+ */
+export function usePlotOperation(folderId: string) {
+  const qc = useQueryClient();
+  return useMutation<
+    PlotGrid,
+    Error,
+    PlotOperation,
+    { prev?: PlotGrid }
+  >({
+    mutationFn: (operation) =>
+      fetch(`/api/folders/${folderId}/plot`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(operation),
+      }).then((r) => jsonOrThrow(r, "No se pudo mover la escena")),
+    onMutate: async () => {
+      const key = writingKeys.plot(folderId);
+      await qc.cancelQueries({ queryKey: key });
+      return { prev: qc.getQueryData<PlotGrid>(key) };
+    },
+    onSuccess: (grid) => {
+      qc.setQueryData(writingKeys.plot(folderId), grid);
+    },
+    onError: (_e, _v, context) => {
+      if (context?.prev) qc.setQueryData(writingKeys.plot(folderId), context.prev);
+    },
+    onSettled: () => {
+      // El texto de los capítulos cambió: el editor y el codex tienen que verlo.
+      qc.invalidateQueries({ queryKey: ["pages"] });
+      qc.invalidateQueries({ queryKey: ["entities"] });
+      qc.invalidateQueries({ queryKey: writingKeys.manuscript(folderId) });
+    },
+  });
+}
 
 /**
  * El manuscrito completo con el contenido de cada capítulo (KIN-139). Pesa lo

@@ -27,6 +27,29 @@ export const SceneBreak = Node.create({
   atom: true,
   selectable: true,
 
+  addAttributes() {
+    return {
+      // Arco narrativo de la escena que este corte abre (KIN-141). Vive aquí, en
+      // el texto, y no en una tabla aparte: el plot grid reordena escribiendo de
+      // vuelta en el contenido, así que no hay una segunda fuente que pueda
+      // divergir de lo escrito.
+      arc: {
+        default: null,
+        parseHTML: (element) => element.getAttribute("data-arc"),
+        renderHTML: (attrs) =>
+          attrs.arc ? { "data-arc": attrs.arc as string } : {},
+      },
+      // Corte que abre el capítulo: existe solo para cargar el arco de la primera
+      // escena, así que no se pinta. Sin esto, ponerle arco a la primera escena
+      // metería un `* * *` al principio del capítulo.
+      leading: {
+        default: false,
+        parseHTML: (element) => element.getAttribute("data-leading") === "true",
+        renderHTML: (attrs) => (attrs.leading ? { "data-leading": "true" } : {}),
+      },
+    };
+  },
+
   parseHTML() {
     return [{ tag: "div[data-scene-break]" }];
   },

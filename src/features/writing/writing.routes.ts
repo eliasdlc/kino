@@ -15,6 +15,7 @@ import {
   unplaceFromTimeline,
 } from "./writing.timeline";
 import { getManuscript } from "./writing.manuscript";
+import { applyPlotOperation, getPlotGrid } from "./writing.plot";
 import { ForbiddenError } from "@/shared/utils/error";
 
 const UNAUTHORIZED = { code: "UNAUTHORIZED", message: "Unauthorized" };
@@ -209,6 +210,66 @@ export async function deleteEntityTimelinePlacement(
     return NextResponse.json({ code: "NOT_FOUND", message: "Entity not found" }, { status: 404 });
   }
   return new NextResponse(null, { status: 204 });
+}
+
+// GET /api/folders/[id]/plot — escenas por capítulo y arco (KIN-141)
+export async function getFolderPlot(
+  request: NextRequest,
+  { params }: { params: Promise<{ id: string }> },
+) {
+  const ctx = await getAuthContext(request);
+  if (!ctx) return NextResponse.json(UNAUTHORIZED, { status: 401 });
+
+  const { id: folderId } = await params;
+  const grid = await getPlotGrid(ctx.userId, folderId);
+  if (!grid) {
+    return NextResponse.json({ code: "NOT_FOUND", message: "Work not found" }, { status: 404 });
+  }
+  return NextResponse.json(grid);
+}
+
+const sceneIndex = z.number().int().min(0).max(2000);
+
+const plotOperationSchema = z.discriminatedUnion("kind", [
+  z.object({
+    kind: z.literal("move"),
+    chapterId: z.string().uuid(),
+    index: sceneIndex,
+    toChapterId: z.string().uuid(),
+    toIndex: sceneIndex,
+    // Presente solo cuando el gesto también decide el arco (soltar en una celda).
+    arc: z.string().trim().max(60).nullable().optional(),
+  }),
+  z.object({
+    kind: z.literal("arc"),
+    chapterId: z.string().uuid(),
+    index: sceneIndex,
+    arc: z.string().trim().max(60).nullable(),
+  }),
+]);
+
+// PATCH /api/folders/[id]/plot — mover una escena o cambiarle el arco
+export async function patchFolderPlot(
+  request: NextRequest,
+  { params }: { params: Promise<{ id: string }> },
+) {
+  const ctx = await getAuthContext(request);
+  if (!ctx) return NextResponse.json(UNAUTHORIZED, { status: 401 });
+
+  const { id: folderId } = await params;
+  const parsed = plotOperationSchema.safeParse(await request.json());
+  if (!parsed.success) {
+    return NextResponse.json(
+      { code: "VALIDATION_ERROR", message: "Invalid input", details: parsed.error.flatten() },
+      { status: 400 },
+    );
+  }
+
+  const grid = await applyPlotOperation(ctx.userId, folderId, parsed.data);
+  if (!grid) {
+    return NextResponse.json({ code: "NOT_FOUND", message: "Work not found" }, { status: 404 });
+  }
+  return NextResponse.json(grid);
 }
 
 const isoDate = z.string().refine((v) => !Number.isNaN(Date.parse(v)), "Fecha inválida");
