@@ -37,6 +37,7 @@ vi.mock('@/shared/db', () => ({
 }));
 
 import { updateUserSettings } from './settings.service';
+import { updateUserSettingsSchema } from './settings.schemas';
 
 const USER = 'user-1';
 
@@ -71,5 +72,32 @@ describe('updateUserSettings (Fase 2.2 · ruteo de campos)', () => {
     expect(upserts).toHaveLength(1);
     expect(upserts[0]?.values?.dailyEnergyLimit).toBe(80);
     expect(upserts[0]?.values?.theme).toBe('light');
+  });
+
+  it('persiste weeklyReviewDay en user_settings (KIN-131)', async () => {
+    await updateUserSettings(USER, { weeklyReviewDay: 'fri' });
+    const upsert = calls.find((c) => c.op === 'upsert' && c.table === 'user_settings');
+    expect(upsert?.values?.weeklyReviewDay).toBe('fri');
+    expect(upsert?.set?.weeklyReviewDay).toBe('fri');
+    // No debe arrastrar la columna a users: el día de revisión no es del cron.
+    expect(calls.some((c) => c.op === 'update' && c.table === 'users')).toBe(false);
+  });
+});
+
+describe('updateUserSettingsSchema (KIN-131)', () => {
+  it('acepta un weeklyReviewDay válido', () => {
+    const parsed = updateUserSettingsSchema.safeParse({ weeklyReviewDay: 'wed' });
+    expect(parsed.success).toBe(true);
+  });
+
+  it('rechaza un día que no existe en el enum de la columna', () => {
+    expect(updateUserSettingsSchema.safeParse({ weeklyReviewDay: 'domingo' }).success).toBe(false);
+    expect(updateUserSettingsSchema.safeParse({ weeklyReviewDay: 'Sun' }).success).toBe(false);
+  });
+
+  it('sigue exigiendo al menos un campo conocido', () => {
+    expect(updateUserSettingsSchema.safeParse({}).success).toBe(false);
+    // Una clave desconocida se descarta, así que el payload queda vacío.
+    expect(updateUserSettingsSchema.safeParse({ inventado: true }).success).toBe(false);
   });
 });

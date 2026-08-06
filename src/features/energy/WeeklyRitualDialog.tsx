@@ -140,7 +140,7 @@ export function WeeklyRitualDialog({ open, onOpenChange }: WeeklyRitualDialogPro
                       <div key={a.taskId} className="flex items-center gap-2 px-3 py-2 group">
                         <span className="flex-1 min-w-0 truncate text-sm">{a.title}</span>
                         <span className="font-mono text-[11px] tabular-nums text-muted-foreground shrink-0">
-                          {a.energyPoints} pts
+                          {a.energyPoints} pt{a.energyPoints !== 1 ? 's' : ''}
                         </span>
                         <button
                           onClick={() => setExcluded((prev) => new Set([...prev, a.taskId]))}

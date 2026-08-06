@@ -7,6 +7,7 @@ import { mockLearningInsight } from "../mock-data";
 import { EnergyBudgetBar } from "@/features/energy/EnergyBudgetBar";
 import { WeeklyRitualPrompt } from "@/features/energy/WeeklyRitualPrompt";
 import { LearningInsightCard } from "@/features/dashboard/LearningInsightCard";
+import { WeeklyReviewDaySection } from "@/features/settings/WeeklyReviewDaySection";
 import { weeklyRitualKey } from "@/features/energy/WeeklyRitualDialog";
 import { WEEKDAY_ORDER } from "@/features/energy/energy.ritual";
 import { taskKeys } from "@/features/tasks/tasks.keys";
@@ -329,6 +330,17 @@ export function EnergyBudgetSection() {
               <WeeklyRitualPrompt />
             </Seeded>
           </ClientOnly>
+        </div>
+      </SubSection>
+
+      <SubSection
+        title="WeeklyReviewDaySection"
+        description="El ajuste que decide cuándo aparece la tira. Vive en Settings y comparte las etiquetas de los días con el diálogo del reparto, para que el día que eliges se llame igual en los dos sitios."
+      >
+        <div className="max-w-2xl">
+          <Seeded seed={seedBudget([], 50)}>
+            <WeeklyReviewDaySection />
+          </Seeded>
         </div>
       </SubSection>
     </Section>

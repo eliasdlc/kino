@@ -137,6 +137,28 @@ describe('mergeCommitted', () => {
   });
 });
 
+describe('el día vacío se reconoce por lo comprometido, no por lo que queda (KIN-130)', () => {
+  it('con límite válido, remaining 0 nunca es estado ok', () => {
+    // La barra tenía un mensaje para el día vacío colgado de `remaining === 0`,
+    // inalcanzable: quedarse sin margen implica pct >= 100, que ya es tight/over.
+    for (const limit of [1, 7, 50, 500]) {
+      const full = computeEnergyBudget(
+        Array.from({ length: limit }, () => t('low')),
+        limit,
+      );
+      expect(full.remaining).toBe(0);
+      expect(full.state).not.toBe('ok');
+    }
+  });
+
+  it('el día sin nada comprometido queda en ok con el presupuesto entero libre', () => {
+    const empty = computeEnergyBudget([], 50);
+    expect(empty.committed).toBe(0);
+    expect(empty.remaining).toBe(50);
+    expect(empty.state).toBe('ok');
+  });
+});
+
 describe('crossesLimitWith', () => {
   it('detecta el cruce exacto y solo en el cruce', () => {
     const budget = computeEnergyBudget(Array.from({ length: 9 }, () => t('high')), 50); // 45

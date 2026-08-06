@@ -58,6 +58,7 @@ export async function updateUserSettings(
   if (input.dailyEnergyLimit !== undefined) settingsPatch.dailyEnergyLimit = input.dailyEnergyLimit;
   if (input.theme !== undefined) settingsPatch.theme = input.theme;
   if (input.notificationsEnabled !== undefined) settingsPatch.notificationsEnabled = input.notificationsEnabled;
+  if (input.weeklyReviewDay !== undefined) settingsPatch.weeklyReviewDay = input.weeklyReviewDay;
 
   if (Object.keys(settingsPatch).length > 0) {
     await db
