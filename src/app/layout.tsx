@@ -3,6 +3,7 @@ import { Geist, Geist_Mono, Inter, Literata } from "next/font/google";
 import "./globals.css";
 import { cn } from "@/lib/utils";
 import { Toaster } from "sonner";
+import { SITE_URL } from "@/shared/lib/site-url";
 
 const inter = Inter({subsets:['latin'],variable:'--font-sans'});
 
@@ -21,6 +22,9 @@ const geistMono = Geist_Mono({
 
 
 export const metadata: Metadata = {
+  // Base de los canonical/OpenGraph de las páginas públicas (landing, docs y
+  // las landings por arquetipo), que declaran sus URLs en relativo.
+  metadataBase: new URL(SITE_URL),
   title: "Kino",
   description: "Gestión de energía",
   manifest: "/manifest.json",
