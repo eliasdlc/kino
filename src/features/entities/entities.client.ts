@@ -4,7 +4,7 @@ import type {
   MentionedEntity,
   EntityRelationItem,
 } from "./entities.types";
-import type { EntityType } from "./entities.attributes";
+import type { EntityAttributes, EntityType } from "./entities.attributes";
 import type { UniverseGraph } from "./entities.graph";
 
 async function jsonOrThrow<T>(res: Response, fallback: string): Promise<T> {
@@ -44,7 +44,7 @@ export interface CreateEntityBody {
   type: EntityType;
   aliases?: string[];
   summary?: string | null;
-  attributes?: Record<string, string> | null;
+  attributes?: EntityAttributes | null;
   coverImageUrl?: string | null;
   images?: string[];
 }

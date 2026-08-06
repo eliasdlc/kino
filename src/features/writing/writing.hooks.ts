@@ -4,6 +4,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { pageKeys } from "@/features/pages/pages.hooks";
 import type { WorkJournal, WritingOverview } from "./writing.types";
 import type { LooseThreadsReport } from "./chekhov";
+import type { TimelineReport } from "./timeline";
 
 async function jsonOrThrow<T>(res: Response, fallback: string): Promise<T> {
   if (!res.ok) {
@@ -17,7 +18,71 @@ export const writingKeys = {
   overview: (systemId: string) => ["writing", "overview", systemId] as const,
   journal: (folderId: string) => ["writing", "journal", folderId] as const,
   threads: (folderId: string) => ["writing", "threads", folderId] as const,
+  timeline: (folderId: string) => ["writing", "timeline", folderId] as const,
 };
+
+/** Cronología in-world de una obra (KIN-140). */
+export function useTimeline(folderId: string | null) {
+  return useQuery<TimelineReport>({
+    queryKey: writingKeys.timeline(folderId ?? "none"),
+    queryFn: () =>
+      fetch(`/api/folders/${folderId}/timeline`).then((r) =>
+        jsonOrThrow(r, "No se pudo cargar la cronología"),
+      ),
+    enabled: !!folderId,
+    staleTime: 30_000,
+  });
+}
+
+/**
+ * Reordena la cronología. Optimista sobre la lista completa: el server reasigna
+ * posiciones 1..n, así que el cliente puede anticipar exactamente el resultado.
+ */
+export function useReorderTimeline(systemId: string, folderId: string) {
+  const qc = useQueryClient();
+  return useMutation<
+    { updated: number },
+    Error,
+    { eventIds: string[]; placed: TimelineReport["placed"] },
+    { prev?: TimelineReport }
+  >({
+    mutationFn: ({ eventIds }) =>
+      fetch(`/api/systems/${systemId}/timeline`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ eventIds }),
+      }).then((r) => jsonOrThrow(r, "No se pudo reordenar la cronología")),
+    onMutate: async ({ placed }) => {
+      const key = writingKeys.timeline(folderId);
+      await qc.cancelQueries({ queryKey: key });
+      const prev = qc.getQueryData<TimelineReport>(key);
+      if (prev) qc.setQueryData<TimelineReport>(key, { ...prev, placed });
+      return { prev };
+    },
+    onError: (_e, _v, context) => {
+      if (context?.prev) qc.setQueryData(writingKeys.timeline(folderId), context.prev);
+    },
+    onSettled: () => {
+      qc.invalidateQueries({ queryKey: writingKeys.timeline(folderId) });
+      qc.invalidateQueries({ queryKey: ["entities"] });
+    },
+  });
+}
+
+/** Saca un evento de la cronología (vuelve a "sin ubicar"). */
+export function useUnplaceEvent(folderId: string) {
+  const qc = useQueryClient();
+  return useMutation<void, Error, string>({
+    mutationFn: async (entityId) => {
+      const res = await fetch(`/api/entities/${entityId}/timeline`, { method: "DELETE" });
+      if (!res.ok) throw new Error("No se pudo sacar el evento de la cronología");
+    },
+    onSettled: () => {
+      qc.invalidateQueries({ queryKey: writingKeys.timeline(folderId) });
+      qc.invalidateQueries({ queryKey: ["entities"] });
+    },
+  });
+}
 
 /** Hilos sueltos de una obra (KIN-137). */
 export function useLooseThreads(folderId: string | null) {

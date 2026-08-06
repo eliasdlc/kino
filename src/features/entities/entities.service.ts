@@ -21,7 +21,7 @@ import type {
   EntityAppearance,
   MentionedEntity,
 } from "./entities.types";
-import type { EntityType } from "./entities.attributes";
+import type { EntityAttributes, EntityType } from "./entities.attributes";
 import { parseEntityAttributes } from "./entities.attributes";
 import { detectMentions, plainTextFromHtml } from "./entities.detection";
 import type { UniverseGraph } from "./entities.graph";
@@ -95,7 +95,7 @@ export async function getEntityById(
     coverImageUrl: entity.coverImageUrl,
     createdAt: entity.createdAt,
     updatedAt: entity.updatedAt,
-    attributes: entity.attributes as Record<string, string> | null,
+    attributes: entity.attributes as EntityAttributes | null,
     images: entity.images,
     relations,
     appearances,

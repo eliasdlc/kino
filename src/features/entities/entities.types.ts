@@ -1,4 +1,4 @@
-import type { EntityType } from "./entities.attributes";
+import type { EntityAttributes, EntityType } from "./entities.attributes";
 
 export interface EntityListItem {
   id: string;
@@ -31,7 +31,7 @@ export interface EntityAppearance {
 }
 
 export interface EntityDetail extends EntityListItem {
-  attributes: Record<string, string> | null;
+  attributes: EntityAttributes | null;
   images: string[];
   relations: EntityRelationItem[];
   appearances: EntityAppearance[];

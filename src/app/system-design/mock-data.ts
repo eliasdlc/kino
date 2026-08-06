@@ -18,6 +18,7 @@ import type {
   WorkJournal,
 } from "@/features/writing/writing.types";
 import type { LooseThread, LooseThreadsReport } from "@/features/writing/chekhov";
+import type { TimelineReport } from "@/features/writing/timeline";
 
 /**
  * Datos de muestra para el catálogo visual. Los componentes compuestos de Kino
@@ -457,6 +458,71 @@ export function makeLooseThreadsReport(
         firstChapter: { index: 1, id: uuid(602), title: "Capítulo 1" },
         lastChapter: { index: 1, id: uuid(602), title: "Capítulo 1" },
       }),
+    ],
+    ...overrides,
+  };
+}
+
+export function makeTimelineReport(
+  overrides: Partial<TimelineReport> = {},
+): TimelineReport {
+  const chapter = (index: number, title: string) => ({
+    pageId: uuid(700 + index),
+    title,
+    index,
+    mentionCount: 2,
+  });
+  return {
+    folderId: MOCK_FOLDER_ID,
+    folderName: "La marea baja",
+    chapterCount: 4,
+    placed: [
+      {
+        entityId: uuid(800),
+        name: "La caída del Puente Gris",
+        summary: null,
+        when: "Año 1023, otoño",
+        what: "El puente cede durante la tormenta y aísla el puerto por dos inviernos.",
+        order: 1,
+        narratedIn: [chapter(3, "Capítulo 3 · Lo que quedó")],
+        firstNarratedIndex: 3,
+        outOfOrder: true,
+      },
+      {
+        entityId: uuid(801),
+        name: "El pacto del gremio",
+        summary: null,
+        when: "Año 1025, invierno",
+        what: "Bruno firma en nombre de una casa que ya no existe.",
+        order: 2,
+        narratedIn: [chapter(1, "Capítulo 1"), chapter(2, "Capítulo 2 · El gremio")],
+        firstNarratedIndex: 1,
+        outOfOrder: false,
+      },
+      {
+        entityId: uuid(802),
+        name: "La marea baja",
+        summary: null,
+        when: "Año 1026, primavera",
+        what: null,
+        order: 3,
+        narratedIn: [],
+        firstNarratedIndex: null,
+        outOfOrder: false,
+      },
+    ],
+    unplaced: [
+      {
+        entityId: uuid(803),
+        name: "El incendio de la torre",
+        summary: "Nadie recuerda quién dio la orden.",
+        when: null,
+        what: null,
+        order: null,
+        narratedIn: [chapter(4, "Capítulo 4 · La niebla")],
+        firstNarratedIndex: 4,
+        outOfOrder: false,
+      },
     ],
     ...overrides,
   };

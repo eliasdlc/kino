@@ -8,6 +8,7 @@ import { CodexLibrary } from "@/features/entities/CodexLibrary";
 import { CodexNav } from "@/features/entities/CodexNav";
 import { UniverseGraphLazy } from "@/features/entities/UniverseGraphLazy";
 import { LooseThreads } from "@/features/writing/LooseThreads";
+import { InWorldTimeline } from "@/features/writing/InWorldTimeline";
 import { resolveCodexView } from "@/features/entities/codex.views";
 
 export default async function CodexPage({
@@ -54,6 +55,8 @@ export default async function CodexPage({
             <UniverseGraphLazy systemId={id} />
           ) : view === "hilos" ? (
             <LooseThreads system={system} />
+          ) : view === "cronologia" ? (
+            <InWorldTimeline systemId={id} />
           ) : (
             <CodexLibrary systemId={id} />
           )}
