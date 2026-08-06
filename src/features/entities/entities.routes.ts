@@ -15,6 +15,7 @@ import {
   createRelation,
   deleteRelation,
   getMentionedEntities,
+  getUniverseGraph,
 } from "./entities.service";
 
 const UNAUTHORIZED = { code: "UNAUTHORIZED", message: "Unauthorized" };
@@ -60,6 +61,18 @@ export async function createSystemEntity(
     }
     throw err;
   }
+}
+
+// GET /api/systems/[id]/graph  (grafo del universo)
+export async function getSystemGraph(
+  request: NextRequest,
+  { params }: { params: Promise<{ id: string }> },
+) {
+  const ctx = await getAuthContext(request);
+  if (!ctx) return NextResponse.json(UNAUTHORIZED, { status: 401 });
+
+  const { id: systemId } = await params;
+  return NextResponse.json(await getUniverseGraph(systemId, ctx.userId));
 }
 
 // GET/PATCH/DELETE /api/entities/[id]
