@@ -16,6 +16,8 @@ function fakeStorage(
   return {
     upload: vi.fn(),
     delete: vi.fn(),
+    list: vi.fn(),
+    deleteMany: vi.fn(),
     owns: (url) => url.startsWith(HOST),
     download: async (url) => {
       onDownload?.(url);

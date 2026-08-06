@@ -1,4 +1,16 @@
-import { put, del } from "@vercel/blob";
+import { put, del, list } from "@vercel/blob";
+
+/**
+ * Prefijo de todas las imágenes de un usuario dentro del store.
+ *
+ * Vive aquí y no en el llamador porque lo comparten dos operaciones opuestas: la
+ * subida escribe bajo este prefijo y el barrido de huérfanas lista por él. Si los
+ * dos dejaran de coincidir, el barrido no vería nada del usuario — o, peor, vería
+ * lo de otro.
+ */
+export function userKeyPrefix(userId: string): string {
+  return `u/${userId}`;
+}
 
 /**
  * Abstracción de almacenamiento de imágenes (Writing W2, §5.3). El resto de la app
@@ -23,6 +35,22 @@ export interface ImageStorage {
   owns(url: string): boolean;
   /** Descarga un blob propio. `null` si no existe o no responde. */
   download(url: string): Promise<{ data: ArrayBuffer; contentType: string } | null>;
+  /**
+   * Lista una página de blobs bajo un prefijo. `cursor` ausente en la respuesta
+   * significa que no queda nada más.
+   */
+  list(input: { prefix: string; cursor?: string }): Promise<{
+    blobs: StoredBlob[];
+    cursor?: string;
+  }>;
+  /** Borra varios blobs de una vez. */
+  deleteMany(urls: string[]): Promise<void>;
+}
+
+export interface StoredBlob {
+  url: string;
+  size: number;
+  uploadedAt: Date;
 }
 
 /**
@@ -67,6 +95,30 @@ class VercelBlobStorage implements ImageStorage {
 
   owns(url: string): boolean {
     return isVercelBlobUrl(url);
+  }
+
+  async list(input: { prefix: string; cursor?: string }): Promise<{
+    blobs: StoredBlob[];
+    cursor?: string;
+  }> {
+    const page = await list({
+      prefix: input.prefix,
+      cursor: input.cursor,
+      token: this.token,
+    });
+    return {
+      blobs: page.blobs.map((b) => ({
+        url: b.url,
+        size: b.size,
+        uploadedAt: new Date(b.uploadedAt),
+      })),
+      cursor: page.hasMore ? page.cursor : undefined,
+    };
+  }
+
+  async deleteMany(urls: string[]): Promise<void> {
+    if (urls.length === 0) return;
+    await del(urls, { token: this.token });
   }
 
   async download(url: string): Promise<{ data: ArrayBuffer; contentType: string } | null> {
