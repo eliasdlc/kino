@@ -4,6 +4,26 @@ import { behaviorSnapshots, energyCheckins, energyPredictions, tasks, timeLogs, 
 import type { CheckinSlot, CreateCheckinInput } from './energy.schemas';
 import type { Task } from '@/features/tasks/tasks.types';
 
+/**
+ * Qué cuenta como «tarea vencida»: fecha límite pasada, todavía sin cerrar y
+ * raíz — el ritual no reparte subtareas sueltas, así que contarlas aquí hacía
+ * que el aviso dijera «tienes 3 vencidas» junto a un ritual que ofrecía repartir
+ * 1, dos números para lo mismo en la misma pantalla.
+ *
+ * Vive en un solo sitio a propósito: el aviso del advisor y el reparto del
+ * ritual tienen que contar lo mismo, y un comentario que lo pida no impide que
+ * una de las dos consultas se quede atrás.
+ */
+export function overdueTasksPredicate(userId: string, date: string) {
+  return and(
+    eq(tasks.userId, userId),
+    lt(tasks.dueDate, date),
+    notInArray(tasks.status, ['done', 'archived']),
+    isNull(tasks.deletedAt),
+    isNull(tasks.parentTaskId),
+  );
+}
+
 // ── behavior_snapshots ─────────────────────────────────────────────────────
 
 export interface SnapshotData {
@@ -80,18 +100,8 @@ export async function countSnapshotMetrics(userId: string, date: string, timezon
           isNull(tasks.deletedAt),
         ),
       ),
-    // Tareas vencidas a esa fecha
-    db
-      .select({ count: sql<number>`COUNT(*)::int` })
-      .from(tasks)
-      .where(
-        and(
-          eq(tasks.userId, userId),
-          lt(tasks.dueDate, date),
-          notInArray(tasks.status, ['done', 'archived']),
-          isNull(tasks.deletedAt),
-        ),
-      ),
+    // Tareas vencidas a esa fecha — mismo predicado que usa el ritual.
+    overdueCountQuery(userId, date),
     // Tareas críticas activas
     db
       .select({ count: sql<number>`COUNT(*)::int` })
@@ -221,27 +231,20 @@ export async function getCommittedTodayTasks(
   return rows;
 }
 
-/**
- * Tareas vencidas: con fecha límite pasada y todavía sin cerrar. Mismo predicado
- * que usa el advisor para el patrón de abandono, para que ritual y advisor no
- * cuenten cosas distintas.
- */
-export async function getOverdueTasks(userId: string, today: string): Promise<Task[]> {
-  const rows = await db
-    .select()
-    .from(tasks)
-    .where(
-      and(
-        eq(tasks.userId, userId),
-        lt(tasks.dueDate, today),
-        notInArray(tasks.status, ['done', 'archived']),
-        isNull(tasks.deletedAt),
-        isNull(tasks.parentTaskId),
-      ),
-    );
+/** Las tareas vencidas que el ritual reparte. Ver `overdueTasksPredicate`. */
+export const overdueTasksQuery = (userId: string, today: string) =>
+  db.select().from(tasks).where(overdueTasksPredicate(userId, today));
 
-  return rows as Task[];
+export async function getOverdueTasks(userId: string, today: string): Promise<Task[]> {
+  return (await overdueTasksQuery(userId, today)) as Task[];
 }
+
+/** El conteo de vencidas del advisor. Comparte predicado con el del ritual. */
+export const overdueCountQuery = (userId: string, date: string) =>
+  db
+    .select({ count: sql<number>`COUNT(*)::int` })
+    .from(tasks)
+    .where(overdueTasksPredicate(userId, date));
 
 /**
  * Carga ya programada por día calendario (en la tz del usuario) para un rango.
