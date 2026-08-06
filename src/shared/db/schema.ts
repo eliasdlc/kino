@@ -968,6 +968,40 @@ export const entityRelations = pgTable(
   ],
 );
 
+// ── page_snapshots ──
+// Versionado de capítulos (KIN-142). Una foto del texto por **sesión de
+// escritura**: cuando el detector de sesiones abre una nueva (hueco de 20 min),
+// guarda cómo quedó el capítulo al final de la anterior. El punto de corte ya
+// existía desde W4; aquí solo se usa.
+//
+// Coste: un snapshot por sesión de una novela larga crece rápido y el free tier
+// de Neon tiene techo. Contra eso, dos frenos en el servicio: no se guarda si el
+// texto no cambió, y se podan los viejos dejando solo los últimos N por página.
+
+export const pageSnapshots = pgTable(
+  'page_snapshots',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    pageId: uuid('page_id')
+      .notNull()
+      .references(() => pages.id, { onDelete: 'cascade' }),
+    userId: uuid('user_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    content: text('content'),
+    wordCount: integer('word_count').notNull().default(0),
+    /** Inicio de la sesión que este snapshot cierra, si se conoce. */
+    sessionStartedAt: timestamp('session_started_at', { withTimezone: true }),
+    createdAt: timestamp('created_at', { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (table) => [
+    index('idx_page_snapshots_page').on(table.pageId, table.createdAt),
+    index('idx_page_snapshots_user').on(table.userId),
+  ],
+);
+
 // ── page_entity_mentions ──
 // DERIVADA (materializada): se recalcula server-side al guardar la page,
 // escaneando el texto plano contra names+aliases del universo (sin LLM). Alimenta

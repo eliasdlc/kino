@@ -6,6 +6,7 @@ import { getUserTimezone } from "@/shared/time/user-timezone";
 import { getPeakWindow } from "@/features/energy/energy.service";
 import { countWords } from "@/features/pages/word-count";
 import { buildJournal, computeStreak } from "./writing.streak";
+import { captureSnapshot } from "./writing.snapshots";
 import type {
   WorkJournal,
   WorkPulse,
@@ -36,6 +37,12 @@ export interface RecordWritingActivityInput {
   pageId: string;
   /** Delta neto de palabras del guardado; puede ser negativo (recortar cuenta). */
   wordsDelta: number;
+  /**
+   * Texto del capítulo **antes** de este guardado. Al abrir sesión nueva se
+   * archiva como versión (KIN-142): es exactamente cómo quedó el capítulo la
+   * última vez que el autor paró.
+   */
+  previousContent?: string | null;
 }
 
 /**
@@ -50,6 +57,7 @@ export async function recordWritingActivity({
   systemId,
   pageId,
   wordsDelta,
+  previousContent,
 }: RecordWritingActivityInput): Promise<void> {
   const now = new Date();
   const cutoff = new Date(now.getTime() - SESSION_GAP_MINUTES * 60_000);
@@ -85,6 +93,22 @@ export async function recordWritingActivity({
       })
       .where(eq(timeLogs.id, open.id));
     return;
+  }
+
+  // Sesión nueva: el texto que había hasta ahora es el resultado de la anterior,
+  // así que este es el corte natural para archivarlo (KIN-142). Best-effort — el
+  // historial no puede tumbar un guardado; la siguiente sesión lo reintenta.
+  if (previousContent !== undefined) {
+    try {
+      await captureSnapshot({
+        pageId,
+        userId,
+        content: previousContent,
+        sessionStartedAt: null,
+      });
+    } catch (err) {
+      console.error("captureSnapshot failed", { pageId, err });
+    }
   }
 
   await db.insert(timeLogs).values({

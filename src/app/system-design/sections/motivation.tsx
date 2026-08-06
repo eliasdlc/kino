@@ -12,6 +12,8 @@ import {
   makeLooseThreadsReport,
   makeTimelineReport,
   makePlotGrid,
+  makeSnapshots,
+  MOCK_PAGE_ID,
   makeFolder,
   makeSystem,
 } from "../mock-data";
@@ -21,6 +23,7 @@ import { WorkJournalDialog } from "@/features/writing/WorkJournalDialog";
 import { LooseThreads } from "@/features/writing/LooseThreads";
 import { InWorldTimeline } from "@/features/writing/InWorldTimeline";
 import { PlotGridView } from "@/features/writing/PlotGridView";
+import { ChapterHistory } from "@/features/writing/ChapterHistory";
 import { celebrate } from "@/features/writing/celebrate";
 import { writingKeys } from "@/features/writing/writing.hooks";
 import { folderKeys } from "@/features/folders/folders.hooks";
@@ -28,6 +31,7 @@ import type { WritingOverview } from "@/features/writing/writing.types";
 import type { LooseThreadsReport } from "@/features/writing/chekhov";
 import type { TimelineReport } from "@/features/writing/timeline";
 import type { PlotGrid } from "@/features/writing/writing.plot";
+import type { SnapshotListItem } from "@/features/writing/snapshots";
 
 /**
  * El panel de motivación de escritura (PLAN-11 W4).
@@ -238,7 +242,30 @@ export function MotivationSection() {
           />
         </Specimen>
       </SubSection>
+
+      <SubSection
+        title="Historial del capítulo"
+        description="Una versión por sesión de escritura: el corte lo pone el mismo detector que alimenta la racha. Restaurar guarda antes el estado actual, así que volver atrás siempre se puede deshacer."
+      >
+        <SpecimenGrid>
+          <Specimen label="Con versiones" hint="ChapterHistory · abre el diálogo">
+            <HistorySpecimen snapshots={makeSnapshots()} />
+          </Specimen>
+
+          <Specimen label="Sin historial todavía" hint="capítulo recién creado">
+            <HistorySpecimen snapshots={[]} />
+          </Specimen>
+        </SpecimenGrid>
+      </SubSection>
     </Section>
+  );
+}
+
+function HistorySpecimen({ snapshots }: { snapshots: SnapshotListItem[] }) {
+  return (
+    <Seeded seed={(qc) => qc.setQueryData(writingKeys.snapshots(MOCK_PAGE_ID), snapshots)}>
+      <ChapterHistory pageId={MOCK_PAGE_ID} />
+    </Seeded>
   );
 }
 
