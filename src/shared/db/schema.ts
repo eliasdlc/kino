@@ -775,7 +775,7 @@ export const folders = pgTable(
     // Campos propios del rol de folder por arquetipo (professor/horario/semestre en
     // Academic, targetDate en Entrepreneurial, kind/wordGoal en Writing). El shape
     // depende del systemType; se valida server-side con un Zod discriminado. Ver
-    // folders.metadata.ts y docs/DISENO-ARQUETIPOS-2026-07.md (D10).
+    // folders.metadata.ts y D10 en el doc "Índice de decisiones D1–D16" de Linear.
     metadata: jsonb('metadata').$type<Record<string, unknown> | null>(),
     createdAt: timestamp('created_at', { withTimezone: true })
       .notNull()
@@ -1201,6 +1201,13 @@ export const energyCheckins = pgTable(
     currentLevel: smallint('current_level').notNull(),
     sleepQuality: sleepQualityEnum('sleep_quality').notNull(),
     predictionAccuracy: predictionAccuracyEnum('prediction_accuracy'),
+    /**
+     * Personalización de la curva antes y después de que este check-in la
+     * recalibrara (Fase 4.2). Guardarlas es lo que permite decir "mi modelo mejoró
+     * Z %" sin recalcularlo desde una curva que ya incorporó el dato.
+     */
+    alphaBefore: doublePrecision('alpha_before'),
+    alphaAfter: doublePrecision('alpha_after'),
     createdAt: timestamp('created_at', { withTimezone: true })
       .notNull()
       .defaultNow(),
@@ -1212,6 +1219,39 @@ export const energyCheckins = pgTable(
     ),
     uniqueIndex('uq_checkin_slot').on(table.userId, table.date, table.slot),
     index('idx_checkin_user').on(table.userId, table.date),
+  ],
+);
+
+// ── energy_predictions ──
+
+/**
+ * La predicción de energía por slot, escrita ANTES de conocer el resultado
+ * (Fase 4.2). Sin esta fila la verificación sería circular: la curva vigente ya
+ * aprendió del check-in que se quiere verificar.
+ */
+export const energyPredictions = pgTable(
+  'energy_predictions',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    userId: uuid('user_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    date: date('date').notNull(),
+    slot: checkinSlotEnum('slot').notNull(),
+    predictedLevel: smallint('predicted_level').notNull(),
+    /** Personalización de la curva que produjo la predicción (0 = puro cronotipo). */
+    alphaAtPrediction: doublePrecision('alpha_at_prediction').notNull().default(0),
+    createdAt: timestamp('created_at', { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (table) => [
+    check(
+      'prediction_level_range',
+      sql`${table.predictedLevel} BETWEEN 1 AND 100`,
+    ),
+    uniqueIndex('uq_prediction_slot').on(table.userId, table.date, table.slot),
+    index('idx_prediction_user').on(table.userId, table.date),
   ],
 );
 

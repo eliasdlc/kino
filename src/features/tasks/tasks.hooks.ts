@@ -1,7 +1,9 @@
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient, type QueryClient } from "@tanstack/react-query";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import type { Task, CreateTaskInput } from "./tasks.types";
+import { computeEnergyBudget, mergeCommitted } from "@/features/energy/energy.budget";
+import { userSettingsKey } from "@/features/settings/settings.hooks";
 import type { AdvisorBulkAction } from "@/features/energy/energy.service";
 import { useOptimisticListMutation } from "@/shared/hooks/useOptimisticListMutation";
 import { deriveStatusFromDate } from "./tasks.utils";
@@ -405,6 +407,33 @@ type BulkMoveCtx = {
   previousStates: { id: string; status: string }[];
 };
 
+/**
+ * Aviso de sobregiro tras comprometer tareas al día (Fase 4.1 · D2).
+ *
+ * Se lee del cache —plan de hoy + límite de ajustes— en vez de pedirlo al server:
+ * este es justo el camino que antes devolvía 422 por energía, y ahora tiene que
+ * informar sin frenar. Solo cuenta las tareas que aún no estaban en el plan, para
+ * no inflar el presupuesto al re-mover algo que ya estaba comprometido.
+ *
+ * Devuelve undefined si no hay sobregiro (o falta el límite): sin ruido innecesario.
+ */
+function overdraftNotice(queryClient: QueryClient, taskIds: string[]): string | undefined {
+  const limit = queryClient.getQueryData<{ dailyEnergyLimit: number }>(userSettingsKey())
+    ?.dailyEnergyLimit;
+  if (!limit) return undefined;
+
+  const planTasks = queryClient.getQueryData<Task[]>(taskKeys.todayPlan()) ?? [];
+  const allTasks = queryClient.getQueryData<Task[]>(allTasksKey()) ?? [];
+  const committed = taskIds
+    .map((id) => allTasks.find((t) => t.id === id))
+    .filter((t): t is Task => t !== undefined);
+
+  const budget = computeEnergyBudget(mergeCommitted(planTasks, committed), limit);
+  if (budget.state !== 'over') return undefined;
+
+  return `Energía comprometida: ${budget.committed}/${budget.limit} pts (+${budget.overBy}). Nada bloqueado — solo que lo sepas.`;
+}
+
 export function useBulkMove() {
   const queryClient = useQueryClient();
 
@@ -430,10 +459,11 @@ export function useBulkMove() {
       );
       return { previous, previousStates };
     },
-    onSuccess: (_data, { taskIds }, context) => {
+    onSuccess: (_data, { taskIds, status }, context) => {
       const n = taskIds.length;
       const { previousStates } = context;
       toast.success(`${n} tarea${n !== 1 ? 's' : ''} movida${n !== 1 ? 's' : ''}`, {
+        description: status === 'today' ? overdraftNotice(queryClient, taskIds) : undefined,
         duration: 7000,
         action: {
           label: 'Deshacer',

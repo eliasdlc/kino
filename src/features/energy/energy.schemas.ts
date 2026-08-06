@@ -14,6 +14,36 @@ export const updateCheckinAccuracySchema = z.object({
   slot: z.enum(CHECKIN_SLOTS).optional(),
 });
 
+// ── Time-blocking (Fase 4.3) ───────────────────────────────────────────────
+
+const DAY = z
+  .string()
+  .regex(/^\d{4}-\d{2}-\d{2}$/, 'La fecha debe tener el formato yyyy-MM-dd');
+
+/** Hora local del usuario, 0–23. El agente habla en horas, no en instantes. */
+const HOUR = z.coerce.number().int().min(0).max(23);
+
+export const scheduleBlockSchema = z.object({
+  taskId: z.string().uuid(),
+  date: DAY,
+  hour: HOUR,
+});
+
+export const blockProposalQuerySchema = z.object({
+  date: DAY.optional(),
+  startHour: HOUR.optional(),
+});
+
+export const applyRitualSchema = z.object({
+  assignments: z
+    .array(z.object({ taskId: z.string().uuid(), date: DAY }))
+    .min(1, 'Hace falta al menos una tarea que reprogramar')
+    .max(100),
+});
+
+export type ScheduleBlockInput = z.infer<typeof scheduleBlockSchema>;
+export type ApplyRitualInput = z.infer<typeof applyRitualSchema>;
+
 export type CreateCheckinInput = z.infer<typeof createCheckinSchema>;
 // Tipo de entrada del cliente: sleepQuality es opcional (solo se envía en la mañana).
 // El backend rellena el default 'partial' al parsear para slots sin sueño.

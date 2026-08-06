@@ -244,10 +244,11 @@ export function DocsContent() {
         <p className="mb-4 text-[#c4c4ce]">
           Para usuarios avanzados: Kino expone su funcionalidad vía API y a través del{" "}
           <strong className="text-[#e4e4e7]">Model Context Protocol</strong>, para que tu asistente
-          de IA gestione tus tareas y energía por ti. Son <strong className="text-[#e4e4e7]">~50
+          de IA gestione tus tareas y energía por ti. Son <strong className="text-[#e4e4e7]">~60
           herramientas</strong> (<code className="font-jetbrains text-[13px] text-[#c4c4ce]">create_task</code>,{" "}
           <code className="font-jetbrains text-[13px] text-[#c4c4ce]">get_today_plan</code>,{" "}
-          <code className="font-jetbrains text-[13px] text-[#c4c4ce]">create_energy_checkin</code>,{" "}
+          <code className="font-jetbrains text-[13px] text-[#c4c4ce]">get_energy_windows</code>,{" "}
+          <code className="font-jetbrains text-[13px] text-[#c4c4ce]">propose_day_blocks</code>,{" "}
           <code className="font-jetbrains text-[13px] text-[#c4c4ce]">suggest_next_action</code> …).
         </p>
         <p className="mb-2 text-[15px] font-semibold text-[#e4e4e7]">Instalar en 2 pasos</p>

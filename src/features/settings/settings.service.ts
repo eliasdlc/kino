@@ -7,11 +7,15 @@ const DEFAULT_DAILY_ENERGY_LIMIT = 50;
 
 export type UiTheme = 'dark' | 'light' | 'system';
 
+export type Weekday = 'mon' | 'tue' | 'wed' | 'thu' | 'fri' | 'sat' | 'sun';
+
 export interface UserSettings {
   dailyEnergyLimit: number;
   timezone: string;
   theme: UiTheme;
   notificationsEnabled: boolean;
+  /** Día en que se ofrece el ritual de revisión semanal (Fase 4.4). */
+  weeklyReviewDay: Weekday;
 }
 
 /** Lee los ajustes editables del usuario. Si no hay fila (pre-onboarding),
@@ -23,6 +27,7 @@ export async function getUserSettings(userId: string): Promise<UserSettings> {
         dailyEnergyLimit: userSettings.dailyEnergyLimit,
         theme: userSettings.theme,
         notificationsEnabled: userSettings.notificationsEnabled,
+        weeklyReviewDay: userSettings.weeklyReviewDay,
       })
       .from(userSettings)
       .where(eq(userSettings.userId, userId)),
@@ -37,6 +42,7 @@ export async function getUserSettings(userId: string): Promise<UserSettings> {
     timezone: userRow?.timezone ?? 'UTC',
     theme: settingsRow?.theme ?? 'system',
     notificationsEnabled: settingsRow?.notificationsEnabled ?? true,
+    weeklyReviewDay: (settingsRow?.weeklyReviewDay ?? 'sun') as Weekday,
   };
 }
 

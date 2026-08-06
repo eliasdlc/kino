@@ -131,7 +131,7 @@ export interface TaskKindDef {
  * systemType — vocabulario, rol de folders/pages, kinds de tarea, preset de
  * vista y defaults de energía. Los componentes compartidos leen esto en vez de
  * hardcodear por tipo; añadir un arquetipo = escribir un manifiesto.
- * Ver docs/DISENO-ARQUETIPOS-2026-07.md (D9-D13).
+ * Ver D9–D13 en el doc "Índice de decisiones D1–D16" de Linear.
  */
 export type ArchetypeManifest = {
   icon: LucideIcon;

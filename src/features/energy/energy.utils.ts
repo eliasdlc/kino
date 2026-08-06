@@ -212,6 +212,36 @@ export function buildPeakAdvice(
   };
 }
 
+// ── Pesos de la evidencia de actividad ──────────────────────────────────────
+
+/** Cuánto pesa una señal según la energía que declaraba la tarea. */
+const ENERGY_WEIGHTS: Record<string, number> = { high: 3, medium: 2, low: 1 };
+
+/** Un timer es señal más limpia que "completé": el reloj corrió de verdad. */
+const TIMER_MULTIPLIER = 1.5;
+
+/**
+ * Peso de una sesión de escritura. No declara nivel de energía —un capítulo no
+ * tiene `energyLevel`— pero es trabajo profundo por definición, así que cuenta
+ * como un timer de tarea media. Sin esto, escribir todos los días no movía la
+ * curva de la que el propio arquetipo Writing deriva su ventana creativa.
+ */
+const WRITING_SESSION_WEIGHT = ENERGY_WEIGHTS.medium! * TIMER_MULTIPLIER;
+
+/** Peso de una tarea completada a cierta hora. */
+export function completionWeight(energyLevel: string | null | undefined): number {
+  return ENERGY_WEIGHTS[energyLevel ?? 'medium'] ?? 1;
+}
+
+/** Peso de una sesión cronometrada: timer de tarea o sesión de escritura. */
+export function sessionWeight(
+  source: 'timer' | 'writing',
+  energyLevel: string | null | undefined,
+): number {
+  if (source === 'writing') return WRITING_SESSION_WEIGHT;
+  return completionWeight(energyLevel) * TIMER_MULTIPLIER;
+}
+
 // ── Aprendizaje de la curva personal ────────────────────────────────────────
 
 export interface AccuracyTally {

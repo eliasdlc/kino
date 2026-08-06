@@ -9,7 +9,8 @@ import {
  * Zod derivado del manifiesto: cada arquetipo declara los `fields` de su
  * folderRole (professor/horario/semestre en Academic, targetDate en
  * Entrepreneurial…) y de ahí sale el validador. Un arquetipo nuevo obtiene
- * validación sin tocar este archivo. Ver docs/DISENO-ARQUETIPOS-2026-07.md (D10).
+ * validación sin tocar este archivo. Ver D10 en el doc "Índice de decisiones
+ * D1–D16" de Linear.
  *
  * Todos los campos son opcionales (una clase puede no tener profesor cargado);
  * el schema es `.strict()` para rechazar claves fuera del manifiesto — metadata
