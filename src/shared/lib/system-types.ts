@@ -92,6 +92,12 @@ export interface SystemMetadata {
    * donde escribas, el día cuenta.
    */
   dailyWordGoal?: number;
+  /**
+   * Solo Writing: sensibilidad del detector de hilos sueltos (KIN-137). Vive en
+   * el sistema porque es una preferencia del escritor sobre cuánto quiere que le
+   * hablen — un detector que grita demasiado se ignora y deja de existir.
+   */
+  chekhov?: { maxMentions: number; minSilentChapters: number };
 }
 
 export type SchedulingPreference = 'lowSlot' | 'peak' | 'highMedium';

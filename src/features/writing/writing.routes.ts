@@ -8,6 +8,8 @@ import {
   setChapterCompleted,
 } from "./writing.service";
 import { getWorkStructure, searchStory } from "./writing.story";
+import { getLooseThreads, setThreadResolved } from "./writing.chekhov";
+import { ForbiddenError } from "@/shared/utils/error";
 
 const UNAUTHORIZED = { code: "UNAUTHORIZED", message: "Unauthorized" };
 
@@ -72,6 +74,55 @@ export async function searchSystemStory(
   if (query.length < 2) return NextResponse.json([]);
 
   return NextResponse.json(await searchStory(ctx.userId, systemId, query));
+}
+
+// GET /api/folders/[id]/threads — hilos sueltos de la obra (Chekhov tracker)
+export async function getFolderThreads(
+  request: NextRequest,
+  { params }: { params: Promise<{ id: string }> },
+) {
+  const ctx = await getAuthContext(request);
+  if (!ctx) return NextResponse.json(UNAUTHORIZED, { status: 401 });
+
+  const { id: folderId } = await params;
+  const report = await getLooseThreads(ctx.userId, folderId);
+  if (!report) {
+    return NextResponse.json({ code: "NOT_FOUND", message: "Work not found" }, { status: 404 });
+  }
+  return NextResponse.json(report);
+}
+
+const resolveThreadSchema = z.object({ resolved: z.boolean() });
+
+// PATCH /api/entities/[id]/thread — cerrar o reabrir un hilo
+export async function patchEntityThread(
+  request: NextRequest,
+  { params }: { params: Promise<{ id: string }> },
+) {
+  const ctx = await getAuthContext(request);
+  if (!ctx) return NextResponse.json(UNAUTHORIZED, { status: 401 });
+
+  const { id: entityId } = await params;
+  const parsed = resolveThreadSchema.safeParse(await request.json());
+  if (!parsed.success) {
+    return NextResponse.json(
+      { code: "VALIDATION_ERROR", message: "Invalid input", details: parsed.error.flatten() },
+      { status: 400 },
+    );
+  }
+
+  try {
+    const updated = await setThreadResolved(entityId, ctx.userId, parsed.data.resolved);
+    if (!updated) {
+      return NextResponse.json({ code: "NOT_FOUND", message: "Entity not found" }, { status: 404 });
+    }
+    return NextResponse.json(updated);
+  } catch (err) {
+    if (err instanceof ForbiddenError) {
+      return NextResponse.json({ code: "FORBIDDEN", message: err.message }, { status: 403 });
+    }
+    throw err;
+  }
 }
 
 const isoDate = z.string().refine((v) => !Number.isNaN(Date.parse(v)), "Fecha inválida");

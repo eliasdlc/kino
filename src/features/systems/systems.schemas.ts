@@ -41,6 +41,13 @@ export const systemMetadataSchema = z.object({
   composition: systemCompositionSchema.optional(),
   // Solo Writing: meta diaria de palabras. 0 la desactiva sin borrar la clave.
   dailyWordGoal: z.coerce.number().int().min(0).max(100_000).optional(),
+  // Solo Writing: sensibilidad del detector de hilos sueltos (KIN-137).
+  chekhov: z
+    .object({
+      maxMentions: z.coerce.number().int().min(1).max(50),
+      minSilentChapters: z.coerce.number().int().min(1).max(50),
+    })
+    .optional(),
 });
 
 export const updateSystemSchema = createSystemSchema.partial().extend({
