@@ -16,6 +16,7 @@ import {
 } from "./writing.timeline";
 import { getManuscript } from "./writing.manuscript";
 import { applyPlotOperation, getPlotGrid } from "./writing.plot";
+import { getSnapshot, listSnapshots, restoreSnapshot } from "./writing.snapshots";
 import { ForbiddenError } from "@/shared/utils/error";
 
 const UNAUTHORIZED = { code: "UNAUTHORIZED", message: "Unauthorized" };
@@ -270,6 +271,50 @@ export async function patchFolderPlot(
     return NextResponse.json({ code: "NOT_FOUND", message: "Work not found" }, { status: 404 });
   }
   return NextResponse.json(grid);
+}
+
+// GET /api/pages/[id]/snapshots — historial del capítulo (KIN-142)
+export async function getPageSnapshots(
+  request: NextRequest,
+  { params }: { params: Promise<{ id: string }> },
+) {
+  const ctx = await getAuthContext(request);
+  if (!ctx) return NextResponse.json(UNAUTHORIZED, { status: 401 });
+
+  const { id: pageId } = await params;
+  return NextResponse.json(await listSnapshots(pageId, ctx.userId));
+}
+
+// GET /api/snapshots/[id] — una versión con su texto
+export async function getPageSnapshot(
+  request: NextRequest,
+  { params }: { params: Promise<{ id: string }> },
+) {
+  const ctx = await getAuthContext(request);
+  if (!ctx) return NextResponse.json(UNAUTHORIZED, { status: 401 });
+
+  const { id } = await params;
+  const snapshot = await getSnapshot(id, ctx.userId);
+  if (!snapshot) {
+    return NextResponse.json({ code: "NOT_FOUND", message: "Snapshot not found" }, { status: 404 });
+  }
+  return NextResponse.json(snapshot);
+}
+
+// POST /api/snapshots/[id]/restore — devolver el capítulo a esta versión
+export async function postSnapshotRestore(
+  request: NextRequest,
+  { params }: { params: Promise<{ id: string }> },
+) {
+  const ctx = await getAuthContext(request);
+  if (!ctx) return NextResponse.json(UNAUTHORIZED, { status: 401 });
+
+  const { id } = await params;
+  const restored = await restoreSnapshot(id, ctx.userId);
+  if (!restored) {
+    return NextResponse.json({ code: "NOT_FOUND", message: "Snapshot not found" }, { status: 404 });
+  }
+  return NextResponse.json(restored);
 }
 
 const isoDate = z.string().refine((v) => !Number.isNaN(Date.parse(v)), "Fecha inválida");

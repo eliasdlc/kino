@@ -7,6 +7,7 @@ import type { LooseThreadsReport } from "./chekhov";
 import type { TimelineReport } from "./timeline";
 import type { Manuscript } from "./writing.manuscript";
 import type { PlotGrid, PlotOperation } from "./writing.plot";
+import type { SnapshotDetail, SnapshotListItem } from "./snapshots";
 
 async function jsonOrThrow<T>(res: Response, fallback: string): Promise<T> {
   if (!res.ok) {
@@ -23,7 +24,51 @@ export const writingKeys = {
   timeline: (folderId: string) => ["writing", "timeline", folderId] as const,
   manuscript: (folderId: string) => ["writing", "manuscript", folderId] as const,
   plot: (folderId: string) => ["writing", "plot", folderId] as const,
+  snapshots: (pageId: string) => ["writing", "snapshots", pageId] as const,
+  snapshot: (snapshotId: string) => ["writing", "snapshot", snapshotId] as const,
 };
+
+/** Historial de versiones de un capítulo (KIN-142). Sin el texto: solo metadatos. */
+export function useSnapshots(pageId: string | null) {
+  return useQuery<SnapshotListItem[]>({
+    queryKey: writingKeys.snapshots(pageId ?? "none"),
+    queryFn: () =>
+      fetch(`/api/pages/${pageId}/snapshots`).then((r) =>
+        jsonOrThrow(r, "No se pudo cargar el historial"),
+      ),
+    enabled: !!pageId,
+    staleTime: 15_000,
+  });
+}
+
+/** Una versión concreta con su texto, para previsualizarla antes de restaurar. */
+export function useSnapshot(snapshotId: string | null) {
+  return useQuery<SnapshotDetail>({
+    queryKey: writingKeys.snapshot(snapshotId ?? "none"),
+    queryFn: () =>
+      fetch(`/api/snapshots/${snapshotId}`).then((r) =>
+        jsonOrThrow(r, "No se pudo cargar la versión"),
+      ),
+    enabled: !!snapshotId,
+    // El texto de una versión no cambia nunca: no hay por qué volver a pedirlo.
+    staleTime: Infinity,
+  });
+}
+
+export function useRestoreSnapshot(pageId: string) {
+  const qc = useQueryClient();
+  return useMutation<{ pageId: string; content: string | null }, Error, string>({
+    mutationFn: (snapshotId) =>
+      fetch(`/api/snapshots/${snapshotId}/restore`, { method: "POST" }).then((r) =>
+        jsonOrThrow(r, "No se pudo restaurar la versión"),
+      ),
+    onSettled: () => {
+      qc.invalidateQueries({ queryKey: writingKeys.snapshots(pageId) });
+      qc.invalidateQueries({ queryKey: ["pages"] });
+      qc.invalidateQueries({ queryKey: ["entities"] });
+    },
+  });
+}
 
 /** Escenas por capítulo y arco (KIN-141). */
 export function usePlotGrid(folderId: string | null) {

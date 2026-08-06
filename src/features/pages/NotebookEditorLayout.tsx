@@ -16,6 +16,7 @@ import { CodexRail } from "@/features/entities/CodexRail";
 import { ChapterStatusToggle } from "@/features/writing/ChapterStatusToggle";
 import { WritingSessionButton } from "@/features/writing/WritingSessionButton";
 import { ReferenceTable } from "@/features/writing/ReferenceTable";
+import { ChapterHistory } from "@/features/writing/ChapterHistory";
 import { usePinnedReferences } from "@/features/writing/pinned-references";
 import { EditorShortcutsHelp } from "./EditorShortcutsHelp";
 import { useSubPages, useCreateSubPage } from "./pages.hooks";
@@ -356,6 +357,8 @@ export function NotebookEditorLayout({
                   onToggle={togglePin}
                   canPin={canPin}
                 />
+                <Separator />
+                <ChapterHistory pageId={page.id} />
                 <Separator />
               </>
             )}

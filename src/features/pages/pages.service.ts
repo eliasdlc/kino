@@ -315,6 +315,9 @@ export async function updatePage(
         systemId: updated.systemId,
         pageId: updated.id,
         wordsDelta: countWords(updated.content) - countWords(previous.content),
+        // Si esto abre una sesión nueva, el texto de antes es el resultado de la
+        // anterior: se archiva como versión (KIN-142).
+        previousContent: previous.content,
       });
     } catch (err) {
       console.error("recordWritingActivity failed", { pageId: updated.id, err });

@@ -21,6 +21,7 @@ import type { LooseThread, LooseThreadsReport } from "@/features/writing/chekhov
 import type { TimelineReport } from "@/features/writing/timeline";
 import type { Manuscript } from "@/features/writing/writing.manuscript";
 import type { PlotGrid } from "@/features/writing/writing.plot";
+import { withDeltas, type SnapshotListItem } from "@/features/writing/snapshots";
 
 /**
  * Datos de muestra para el catálogo visual. Los componentes compuestos de Kino
@@ -590,4 +591,13 @@ export function makePlotGrid(overrides: Partial<PlotGrid> = {}): PlotGrid {
     ],
     ...overrides,
   };
+}
+
+export function makeSnapshots(): SnapshotListItem[] {
+  return withDeltas([
+    { id: uuid(970), wordCount: 2480, createdAt: "2026-08-05T18:40:00Z", sessionStartedAt: "2026-08-05T17:05:00Z" },
+    { id: uuid(971), wordCount: 1840, createdAt: "2026-08-04T09:20:00Z", sessionStartedAt: "2026-08-04T08:00:00Z" },
+    { id: uuid(972), wordCount: 2010, createdAt: "2026-08-02T22:10:00Z", sessionStartedAt: "2026-08-02T21:15:00Z" },
+    { id: uuid(973), wordCount: 640, createdAt: "2026-08-01T11:00:00Z", sessionStartedAt: null },
+  ]);
 }
