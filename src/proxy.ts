@@ -50,6 +50,10 @@ export async function proxy(request: NextRequest) {
   const isPublicRoute =
     pathname === "/" ||
     pathname.startsWith("/docs") ||
+    // Landings por arquetipo (/para/estudiantes…): son la puerta de entrada del
+    // sitio. Si pasan por el gate, un visitante anónimo — o un buscador — recibe
+    // un redirect a /login en vez de la página.
+    pathname.startsWith("/para/") ||
     pathname.startsWith("/login") ||
     // Catálogo visual de la UI (sin datos de usuario, noindex)
     pathname.startsWith("/system-design") ||
