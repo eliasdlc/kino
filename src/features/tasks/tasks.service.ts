@@ -10,7 +10,7 @@ import { deriveStatusFromDate, findParentViolation } from "./tasks.utils";
 import { computeNextOccurrence } from "./recurrence";
 import { sqlUserToday } from "@/shared/time";
 import { validateTaskKind } from "./tasks.metadata";
-import type { SystemType } from "@/shared/lib/system-types";
+import { resolveManifest } from "@/shared/lib/system-manifest";
 
 // Advisory lock class — namespaces transition locks from other advisory locks in the app.
 const TRANSITION_LOCK_CLASS = 42;
@@ -324,14 +324,14 @@ async function assertValidParent(taskId: string, parentTaskId: string, userId: s
  */
 async function createTaskInTx(tx: DbTransaction, userId: string, data: CreateTaskInput): Promise<Task | null> {
   const [system] = await tx
-    .select({ id: systems.id, templateType: systems.templateType })
+    .select({ id: systems.id, templateType: systems.templateType, metadata: systems.metadata })
     .from(systems)
     .where(and(eq(systems.id, data.systemId), eq(systems.userId, userId)));
 
   if (!system) throw new NotFoundError("System not found");
 
   // Capa semántica del arquetipo: el kind debe estar declarado en el manifiesto.
-  const kindError = validateTaskKind((system.templateType ?? "custom") as SystemType, data.metadata);
+  const kindError = validateTaskKind(resolveManifest(system.templateType, system.metadata), data.metadata);
   if (kindError) throw new ValidationError(kindError);
 
   if (data.parentTaskId) {
@@ -454,10 +454,13 @@ export async function updateTask(taskId: string, userId: string, data: UpdateTas
   // Valida el kind contra el arquetipo del sistema destino (solo si toca metadata).
   if (data.metadata !== undefined && data.metadata !== null) {
     const [targetSystem] = await db
-      .select({ templateType: systems.templateType })
+      .select({ templateType: systems.templateType, metadata: systems.metadata })
       .from(systems)
       .where(and(eq(systems.id, targetSystemId), eq(systems.userId, userId)));
-    const kindError = validateTaskKind((targetSystem?.templateType ?? "custom") as SystemType, data.metadata);
+    const kindError = validateTaskKind(
+      resolveManifest(targetSystem?.templateType, targetSystem?.metadata),
+      data.metadata,
+    );
     if (kindError) throw new ValidationError(kindError);
   }
 

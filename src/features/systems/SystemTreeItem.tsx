@@ -27,7 +27,7 @@ import { getSystemColor } from "@/shared/utils/system-colors";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import type { SystemWithSignals } from "./systems.types";
-import { SYSTEM_TYPE_CONFIG, type SystemType } from "@/shared/lib/system-types";
+import { resolveSystemManifest } from "@/shared/lib/system-manifest";
 
 interface SystemTreeItemProps {
   system: SystemWithSignals;
@@ -105,9 +105,10 @@ export function SystemTreeItem({
     setIsCreating(true);
   }
 
-  const typeConfig = SYSTEM_TYPE_CONFIG[(system.templateType ?? 'custom') as SystemType];
-  // El arquetipo decide si ofrece carpetas y cómo se llaman (Project/Inbox: null).
-  const folderRole = typeConfig?.folderRole ?? null;
+  // El manifiesto efectivo decide si el sistema ofrece contenedores y cómo se
+  // llaman: el arquetipo en los tipos con opinión, la composición en un custom.
+  const typeConfig = resolveSystemManifest(system);
+  const folderRole = typeConfig.folderRole;
   const Icon = ICON_MAP[system.icon ?? ''] ?? typeConfig?.icon ?? DEFAULT_ICON;
   const cls = getSystemColor(system.color);
   const isStale = system.stale;

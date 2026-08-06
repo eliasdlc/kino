@@ -5,6 +5,7 @@ import { ProjectTaskCard } from "./ProjectTaskCard";
 import { AcademicTaskCard } from "./AcademicTaskCard";
 import { EntrepreneurialTaskCard } from "./EntrepreneurialTaskCard";
 import { PersonalTaskCard } from "./PersonalTaskCard";
+import { CustomTaskCard } from "./CustomTaskCard";
 
 /**
  * Única fuente de verdad de "qué card dibuja cada systemType". Para darle una
@@ -21,6 +22,8 @@ export function TaskCardFor({ systemType, ...props }: TaskCardProps & { systemTy
       return <EntrepreneurialTaskCard {...props} />;
     case "personal":
       return <PersonalTaskCard {...props} />;
+    case "custom":
+      return <CustomTaskCard {...props} />;
     default:
       return <DefaultTaskCard {...props} />;
   }

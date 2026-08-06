@@ -25,6 +25,7 @@ import { CodexSection } from "./sections/codex";
 import { MediumsSection } from "./sections/mediums";
 import { MotivationSection } from "./sections/motivation";
 import { OnboardingSection } from "./sections/onboarding";
+import { ComposableSection } from "./sections/composable";
 
 const TOC: Array<{ id: string; number: string; label: string }> = [
   { id: "colores", number: "01", label: "Colores" },
@@ -45,6 +46,7 @@ const TOC: Array<{ id: string; number: string; label: string }> = [
   { id: "mediums", number: "16", label: "Bloques por medium" },
   { id: "motivacion", number: "17", label: "Motivación" },
   { id: "onboarding", number: "18", label: "Onboarding por identidad" },
+  { id: "componible", number: "19", label: "Sistema componible" },
 ];
 
 /**
@@ -147,6 +149,7 @@ export function SystemDesignShell() {
                   <MediumsSection />
                   <MotivationSection />
                   <OnboardingSection />
+                  <ComposableSection />
                 </main>
               </div>
             </div>

@@ -20,6 +20,8 @@ import { TaskDragOverlay } from "./dnd/TaskDragOverlay";
 import { Progress } from "@/components/ui/progress";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { useTaskKeyboardNavigation } from "./useTaskKeyboardNavigation";
+import { useSystemManifest } from "@/features/systems/systems.hooks";
+import { tasksEmptyCopy } from "@/shared/lib/archetype-copy";
 
 interface TaskKanbanViewProps {
     systemId: string;
@@ -138,6 +140,8 @@ export function TaskKanbanView({ systemId, initialData, folderId, folderInitialD
     }, []);
 
     const [deleteTarget, setDeleteTarget] = useState<Task | null>(null);
+    const manifest = useSystemManifest(systemId);
+    const empty = tasksEmptyCopy(manifest, "action");
 
     const { focusedTaskId } = useTaskKeyboardNavigation(activeTasks, {
         onSelect: onEdit,
@@ -150,10 +154,8 @@ export function TaskKanbanView({ systemId, initialData, folderId, folderInitialD
     if (!tasks || activeTasks.length === 0) {
         return (
             <div className="flex flex-col items-center justify-center py-12 text-center space-y-2 border border-dashed rounded-lg bg-card mt-6">
-                <p className="text-base font-medium">No hay tareas en tu semana</p>
-                <p className="text-sm text-muted-foreground max-w-sm">
-                    No tienes trabajo programado. Ve a la pestaña <strong>Planificación</strong> para organizar tareas de hoy o de la semana.
-                </p>
+                <p className="text-base font-medium">{empty.title}</p>
+                <p className="text-sm text-muted-foreground max-w-sm">{empty.hint}</p>
             </div>
         );
     }

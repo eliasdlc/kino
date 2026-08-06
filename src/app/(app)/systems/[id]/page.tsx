@@ -9,6 +9,7 @@ import { SystemDetailHeader } from "@/features/systems/SystemDetailHeader";
 import { computeSystemSignals } from "@/features/systems/systems.signals";
 import { SystemDetailView } from "@/features/systems/views/SystemDetailView";
 import { NotebooksView } from "@/features/notebooks/NotebooksView";
+import { landingSurface } from "@/shared/lib/system-manifest";
 
 export default async function SystemPage({
   params,
@@ -29,6 +30,9 @@ export default async function SystemPage({
   if (!system) notFound();
 
   const signals = computeSystemSignals(system, tasks);
+  // Sin `?tab=`, manda la composición: un sistema cuyas páginas son primarias
+  // abre en su biblioteca, no en el funnel de tareas.
+  const surface = tab === "docs" ? "docs" : tab === "tasks" ? "tasks" : landingSurface(system);
 
   return (
     <div className="w-full">
@@ -41,10 +45,10 @@ export default async function SystemPage({
         />
       </div>
       <PageWrapper className="w-full">
-        <SystemDetailHeader system={system} signals={signals} currentTab={tab === "docs" ? "docs" : "tasks"} />
+        <SystemDetailHeader system={system} signals={signals} currentTab={surface} />
 
         <div className="mt-4">
-          {tab === "docs" ? (
+          {surface === "docs" ? (
             <NotebooksView systemId={id} />
           ) : (
             <SystemDetailView system={system} initialTasks={tasks} />

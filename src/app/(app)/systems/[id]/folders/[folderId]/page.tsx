@@ -16,6 +16,8 @@ import { NotebookCard } from "@/features/notebooks/NotebookCard";
 import { FolderViewToolbar } from "@/features/notebooks/FolderViewToolbar";
 
 import { TasksList } from "@/features/tasks/TasksList";
+import { resolveSystemManifest } from "@/shared/lib/system-manifest";
+import { containerDetailEmptyCopy } from "@/shared/lib/archetype-copy";
 import { Separator } from "@/components/ui/separator";
 
 interface FolderViewRouteProps {
@@ -43,6 +45,7 @@ export default async function FolderViewRoute({ params }: FolderViewRouteProps) 
   ]);
 
   const folderPages = allPages.filter((p) => p.folderId === folderId);
+  const emptyCopy = containerDetailEmptyCopy(resolveSystemManifest(system));
   const hasDocContent = children.length > 0 || folderPages.length > 0;
 
   const breadcrumbItems = [
@@ -69,9 +72,8 @@ export default async function FolderViewRoute({ params }: FolderViewRouteProps) 
       {!hasDocContent ? (
         <div className="rounded-lg border border-dashed p-10 text-center space-y-2">
           <Files className="size-8 text-muted-foreground/40 mx-auto" />
-          <p className="text-sm text-muted-foreground">
-            Esta carpeta está vacía. Crea una subcarpeta o notebook para empezar.
-          </p>
+          <p className="text-sm font-medium">{emptyCopy.title}</p>
+          <p className="text-sm text-muted-foreground">{emptyCopy.hint}</p>
         </div>
       ) : (
         <div className="space-y-6">
