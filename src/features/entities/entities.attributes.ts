@@ -18,8 +18,18 @@ export type EntityType = (typeof ENTITY_TYPES)[number];
 export interface EntityAttributeField {
   id: string;
   label: string;
-  input: "text" | "textarea";
+  input: "text" | "textarea" | "number";
+  /** Ayuda bajo el campo cuando el nombre no basta para saber qué escribir. */
+  hint?: string;
+  /**
+   * El campo se valida pero no se pinta en la ficha: lo escribe otra pantalla.
+   * Mismo contrato que `hidden` en los campos de arquetipo (system-types.ts).
+   */
+  hidden?: boolean;
 }
+
+/** Valor admitido en `attributes`: texto, o número para los campos ordenables. */
+export type EntityAttributeValue = string | number;
 
 /**
  * Campos de `attributes` por tipo (PLAN-11 §5.1). Todo opcional — la ficha vacía
@@ -45,8 +55,18 @@ export const ENTITY_ATTRIBUTE_FIELDS: Record<EntityType, EntityAttributeField[]>
   ],
   concept: [{ id: "description", label: "Descripción", input: "textarea" }],
   event: [
-    { id: "when", label: "Cuándo (in-world)", input: "text" },
+    {
+      id: "when",
+      label: "Cuándo (in-world)",
+      input: "text",
+      hint: "Como lo diría la historia: «Año 1023, otoño», «tres días antes del asedio».",
+    },
     { id: "what", label: "Qué pasó", input: "textarea" },
+    // La cronología in-world (KIN-140) necesita algo *ordenable*, y una fecha
+    // inventada no lo es: no hay forma de comparar "Año 1023" con "la Segunda
+    // Era". El orden va aparte, como número, y lo escribe la vista de
+    // cronología reordenando — nadie tiene que teclear posiciones a mano.
+    { id: "timelineOrder", label: "Orden in-world", input: "number", hidden: true },
   ],
   faction: [
     { id: "leader", label: "Líder", input: "text" },
@@ -61,7 +81,12 @@ const SCHEMA_BY_TYPE = new Map<EntityType, z.ZodObject<z.ZodRawShape>>();
 function buildSchema(fields: EntityAttributeField[]): z.ZodObject<z.ZodRawShape> {
   const shape: Record<string, z.ZodTypeAny> = {};
   for (const field of fields) {
-    shape[field.id] = z.string().max(2000).optional();
+    shape[field.id] =
+      field.input === "number"
+        ? // Los inputs HTML y el MCP mandan strings ("4"); coerce → number. Los
+          // vacíos ya se descartaron antes, así que no colapsan a 0.
+          z.coerce.number().finite().optional()
+        : z.string().max(2000).optional();
   }
   // strict → rechaza claves fuera del manifiesto: attributes no es un saco.
   return z.object(shape).strict();
@@ -75,8 +100,10 @@ export function entityAttributesSchema(type: EntityType): z.ZodObject<z.ZodRawSh
   return schema;
 }
 
+export type EntityAttributes = Record<string, EntityAttributeValue>;
+
 export type EntityAttributesParse =
-  | { success: true; data: Record<string, string> | null }
+  | { success: true; data: EntityAttributes | null }
   | { success: false; error: z.ZodError };
 
 /** Quita strings vacíos/whitespace; null si el objeto queda vacío o no es objeto. */
@@ -108,6 +135,6 @@ export function parseEntityAttributes(
   const result = entityAttributesSchema(type).safeParse(cleaned);
   if (!result.success) return { success: false, error: result.error };
 
-  const data = result.data as Record<string, string>;
+  const data = result.data as EntityAttributes;
   return { success: true, data: Object.keys(data).length === 0 ? null : data };
 }

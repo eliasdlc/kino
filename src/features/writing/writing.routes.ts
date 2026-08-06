@@ -9,6 +9,11 @@ import {
 } from "./writing.service";
 import { getWorkStructure, searchStory } from "./writing.story";
 import { getLooseThreads, setThreadResolved } from "./writing.chekhov";
+import {
+  getTimeline,
+  reorderTimeline,
+  unplaceFromTimeline,
+} from "./writing.timeline";
 import { ForbiddenError } from "@/shared/utils/error";
 
 const UNAUTHORIZED = { code: "UNAUTHORIZED", message: "Unauthorized" };
@@ -123,6 +128,70 @@ export async function patchEntityThread(
     }
     throw err;
   }
+}
+
+// GET /api/folders/[id]/timeline — cronología in-world contra el orden narrado
+export async function getFolderTimeline(
+  request: NextRequest,
+  { params }: { params: Promise<{ id: string }> },
+) {
+  const ctx = await getAuthContext(request);
+  if (!ctx) return NextResponse.json(UNAUTHORIZED, { status: 401 });
+
+  const { id: folderId } = await params;
+  const timeline = await getTimeline(ctx.userId, folderId);
+  if (!timeline) {
+    return NextResponse.json({ code: "NOT_FOUND", message: "Work not found" }, { status: 404 });
+  }
+  return NextResponse.json(timeline);
+}
+
+const reorderTimelineSchema = z.object({
+  eventIds: z.array(z.string().uuid()).max(500),
+});
+
+// PUT /api/systems/[id]/timeline — reasignar el orden in-world de los eventos
+export async function putSystemTimeline(
+  request: NextRequest,
+  { params }: { params: Promise<{ id: string }> },
+) {
+  const ctx = await getAuthContext(request);
+  if (!ctx) return NextResponse.json(UNAUTHORIZED, { status: 401 });
+
+  const { id: systemId } = await params;
+  const parsed = reorderTimelineSchema.safeParse(await request.json());
+  if (!parsed.success) {
+    return NextResponse.json(
+      { code: "VALIDATION_ERROR", message: "Invalid input", details: parsed.error.flatten() },
+      { status: 400 },
+    );
+  }
+
+  try {
+    const updated = await reorderTimeline(ctx.userId, systemId, parsed.data.eventIds);
+    return NextResponse.json({ updated });
+  } catch (err) {
+    if (err instanceof ForbiddenError) {
+      return NextResponse.json({ code: "FORBIDDEN", message: err.message }, { status: 403 });
+    }
+    throw err;
+  }
+}
+
+// DELETE /api/entities/[id]/timeline — sacar un evento de la cronología
+export async function deleteEntityTimelinePlacement(
+  request: NextRequest,
+  { params }: { params: Promise<{ id: string }> },
+) {
+  const ctx = await getAuthContext(request);
+  if (!ctx) return NextResponse.json(UNAUTHORIZED, { status: 401 });
+
+  const { id: entityId } = await params;
+  const ok = await unplaceFromTimeline(ctx.userId, entityId);
+  if (!ok) {
+    return NextResponse.json({ code: "NOT_FOUND", message: "Entity not found" }, { status: 404 });
+  }
+  return new NextResponse(null, { status: 204 });
 }
 
 const isoDate = z.string().refine((v) => !Number.isNaN(Date.parse(v)), "Fecha inválida");

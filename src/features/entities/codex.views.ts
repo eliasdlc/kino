@@ -1,4 +1,4 @@
-import { Library, Network, Scissors, type LucideIcon } from "lucide-react";
+import { Hourglass, Library, Network, Scissors, type LucideIcon } from "lucide-react";
 
 /**
  * Las lecturas del codex. El universo es uno solo; lo que cambia es desde dónde
@@ -9,6 +9,7 @@ export const CODEX_VIEWS = [
   { id: "biblioteca", label: "Biblioteca", icon: Library },
   { id: "grafo", label: "Grafo", icon: Network },
   { id: "hilos", label: "Hilos sueltos", icon: Scissors },
+  { id: "cronologia", label: "Cronología", icon: Hourglass },
 ] as const satisfies ReadonlyArray<{ id: string; label: string; icon: LucideIcon }>;
 
 export type CodexViewId = (typeof CODEX_VIEWS)[number]["id"];

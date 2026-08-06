@@ -56,9 +56,11 @@ export function registerStoryTools(server: McpServer, kinoFetch: KinoFetch) {
         .optional()
         .describe('Una línea que la describa, para el popover del editor'),
       attributes: z
-        .record(z.string(), z.string())
+        .record(z.string(), z.union([z.string(), z.number()]))
         .optional()
-        .describe('Campos propios del tipo (edad, rol, origen…). Todo opcional'),
+        .describe(
+          'Campos propios del tipo (edad, rol, origen…). Todo opcional. Los eventos admiten además `timelineOrder` (número): su posición en el tiempo interno de la historia',
+        ),
     },
     async ({ systemId, ...body }) =>
       asText(
@@ -79,7 +81,7 @@ export function registerStoryTools(server: McpServer, kinoFetch: KinoFetch) {
       aliases: z.array(z.string().min(1).max(255)).max(50).optional().describe('Lista completa de alias (reemplaza la anterior)'),
       summary: z.string().max(1000).nullable().optional().describe('Resumen de una línea (null para borrarlo)'),
       attributes: z
-        .record(z.string(), z.string())
+        .record(z.string(), z.union([z.string(), z.number()]))
         .nullable()
         .optional()
         .describe('Atributos completos (reemplazan los anteriores)'),
@@ -122,6 +124,15 @@ export function registerStoryTools(server: McpServer, kinoFetch: KinoFetch) {
       folderId: z.string().uuid().describe('UUID de la obra (folder del sistema de escritura)'),
     },
     async ({ folderId }) => asText(await kinoFetch(`/api/folders/${folderId}/structure`)),
+  );
+
+  server.tool(
+    'get_timeline',
+    'Cronología in-world de una obra: los eventos del codex ordenados en el tiempo de la historia, con el capítulo donde se cuenta cada uno y cuáles se narran fuera de orden (flashbacks). Los eventos sin ubicar vienen aparte',
+    {
+      folderId: z.string().uuid().describe('UUID de la obra (folder del sistema de escritura)'),
+    },
+    async ({ folderId }) => asText(await kinoFetch(`/api/folders/${folderId}/timeline`)),
   );
 
   server.tool(

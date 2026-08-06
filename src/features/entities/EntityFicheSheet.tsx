@@ -94,8 +94,12 @@ function EntityFicheForm({
   const [type, setType] = useState<EntityType>(entity.type);
   const [aliases, setAliases] = useState((entity.aliases ?? []).join(", "));
   const [summary, setSummary] = useState(entity.summary ?? "");
-  const [attributes, setAttributes] = useState<Record<string, string>>(
-    (entity.attributes as Record<string, string>) ?? {},
+  // El form trabaja siempre con strings —es lo que devuelven los inputs— y el
+  // Zod del manifiesto vuelve a coercionar los numéricos al guardar.
+  const [attributes, setAttributes] = useState<Record<string, string>>(() =>
+    Object.fromEntries(
+      Object.entries(entity.attributes ?? {}).map(([k, v]) => [k, String(v)]),
+    ),
   );
 
   const update = useUpdateEntity(entity.id, systemId);
@@ -104,7 +108,10 @@ function EntityFicheForm({
 
   // El estado inicial viene del `entity` cargado; el form se remonta por
   // `key={entity.id}` en el padre, así que no hace falta re-sincronizar.
-  const fields = ENTITY_ATTRIBUTE_FIELDS[type] ?? [];
+  const allFields = ENTITY_ATTRIBUTE_FIELDS[type] ?? [];
+  // Los campos `hidden` los escribe otra pantalla (el orden in-world lo pone la
+  // cronología reordenando), pero tienen que sobrevivir al guardado de la ficha.
+  const fields = allFields.filter((f) => !f.hidden);
 
   function save() {
     const aliasList = aliases
@@ -113,7 +120,7 @@ function EntityFicheForm({
       .filter(Boolean);
     // Solo mandamos attributes válidos para el tipo actual.
     const attrs: Record<string, string> = {};
-    for (const f of fields) {
+    for (const f of allFields) {
       const v = attributes[f.id]?.trim();
       if (v) attrs[f.id] = v;
     }
@@ -195,11 +202,15 @@ function EntityFicheForm({
                 />
               ) : (
                 <Input
+                  type={f.input === "number" ? "number" : "text"}
                   value={attributes[f.id] ?? ""}
                   onChange={(e) =>
                     setAttributes((a) => ({ ...a, [f.id]: e.target.value }))
                   }
                 />
+              )}
+              {f.hint && (
+                <p className="text-[11px] text-muted-foreground/80">{f.hint}</p>
               )}
             </div>
           ))}

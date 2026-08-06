@@ -10,6 +10,7 @@ import {
   makeWritingOverview,
   makeWorkJournal,
   makeLooseThreadsReport,
+  makeTimelineReport,
   makeFolder,
   makeSystem,
 } from "../mock-data";
@@ -17,11 +18,13 @@ import { Button } from "@/components/ui/button";
 import { WritingPulse } from "@/features/writing/WritingPulse";
 import { WorkJournalDialog } from "@/features/writing/WorkJournalDialog";
 import { LooseThreads } from "@/features/writing/LooseThreads";
+import { InWorldTimeline } from "@/features/writing/InWorldTimeline";
 import { celebrate } from "@/features/writing/celebrate";
 import { writingKeys } from "@/features/writing/writing.hooks";
 import { folderKeys } from "@/features/folders/folders.hooks";
 import type { WritingOverview } from "@/features/writing/writing.types";
 import type { LooseThreadsReport } from "@/features/writing/chekhov";
+import type { TimelineReport } from "@/features/writing/timeline";
 
 /**
  * El panel de motivación de escritura (PLAN-11 W4).
@@ -195,6 +198,21 @@ export function MotivationSection() {
           </Specimen>
         </SpecimenGrid>
       </SubSection>
+
+      <SubSection
+        title="Cronología in-world"
+        description="Los eventos en el tiempo de la historia, no en el del manuscrito. El capítulo dice dónde se cuenta cada uno, y lo que se narra antes de tiempo queda marcado — un flashback se ve sin buscarlo. Se reordena con flechas, no arrastrando: el proyecto no usa drag and drop en touch."
+      >
+        <SpecimenGrid>
+          <Specimen label="Con flashback" hint="InWorldTimeline · uno fuera de orden, uno sin ubicar">
+            <TimelineSpecimen report={makeTimelineReport()} />
+          </Specimen>
+
+          <Specimen label="Universo sin eventos" hint="placed y unplaced vacíos">
+            <TimelineSpecimen report={makeTimelineReport({ placed: [], unplaced: [] })} />
+          </Specimen>
+        </SpecimenGrid>
+      </SubSection>
     </Section>
   );
 }
@@ -217,6 +235,23 @@ function ThreadsSpecimen({ report }: { report: LooseThreadsReport }) {
     >
       <div className="w-full">
         <LooseThreads system={MOCK_WRITING_SYSTEM} />
+      </div>
+    </Seeded>
+  );
+}
+
+function TimelineSpecimen({ report }: { report: TimelineReport }) {
+  return (
+    <Seeded
+      seed={(qc) => {
+        qc.setQueryData(folderKeys.bySystem(MOCK_SYSTEM_ID), [
+          makeFolder({ id: MOCK_FOLDER_ID, name: report.folderName }),
+        ]);
+        qc.setQueryData(writingKeys.timeline(MOCK_FOLDER_ID), report);
+      }}
+    >
+      <div className="w-full">
+        <InWorldTimeline systemId={MOCK_SYSTEM_ID} />
       </div>
     </Seeded>
   );
