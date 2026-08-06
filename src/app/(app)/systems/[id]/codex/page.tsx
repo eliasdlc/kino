@@ -5,18 +5,26 @@ import { getSystembyId } from "@/features/systems/systems.service";
 import { PageWrapper } from "@/components/PageWrapper";
 import { PageBreadcrumb } from "@/components/PageBreadcrumb";
 import { CodexLibrary } from "@/features/entities/CodexLibrary";
+import { CodexNav } from "@/features/entities/CodexNav";
+import { UniverseGraphLazy } from "@/features/entities/UniverseGraphLazy";
+import { resolveCodexView } from "@/features/entities/codex.views";
 
 export default async function CodexPage({
   params,
+  searchParams,
 }: {
   params: Promise<{ id: string }>;
+  searchParams: Promise<{ view?: string }>;
 }) {
   const { id } = await params;
+  const { view: rawView } = await searchParams;
   const session = await auth.api.getSession({ headers: await headers() });
   if (!session) redirect("/login");
 
   const system = await getSystembyId(id, session.user.id);
   if (!system) notFound();
+
+  const view = resolveCodexView(rawView);
 
   return (
     <div className="w-full">
@@ -37,7 +45,16 @@ export default async function CodexPage({
             crece desde el texto.
           </p>
         </div>
-        <CodexLibrary systemId={id} />
+
+        <CodexNav systemId={id} current={view} />
+
+        <div className="mt-5">
+          {view === "grafo" ? (
+            <UniverseGraphLazy systemId={id} />
+          ) : (
+            <CodexLibrary systemId={id} />
+          )}
+        </div>
       </PageWrapper>
     </div>
   );

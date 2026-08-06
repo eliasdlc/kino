@@ -13,6 +13,8 @@ import { Button } from "@/components/ui/button";
 import { CodexRail } from "@/features/entities/CodexRail";
 import { EntityFicheSheet } from "@/features/entities/EntityFicheSheet";
 import { MentionList, type MentionItem } from "@/features/entities/MentionList";
+import { GraphCanvas } from "@/features/entities/UniverseGraph";
+import { layoutGraph, type GraphEdge, type GraphNode } from "@/features/entities/entities.graph";
 import { entityKeys } from "@/features/entities/entities.hooks";
 import type { MentionedEntity } from "@/features/entities/entities.types";
 
@@ -78,6 +80,27 @@ const noop = () => {};
 const MENTION_ITEMS: MentionItem[] = [
   ...CAST.map((e) => ({ kind: "entity" as const, id: e.id, name: e.name, type: e.type })),
   { kind: "create", name: "Marea Baja", type: "character" },
+];
+
+/**
+ * Universo de muestra para el grafo. El layout es determinista, así que este
+ * specimen dibuja siempre el mismo mapa — se puede comparar entre despliegues.
+ */
+const GRAPH_NODES: GraphNode[] = [
+  { id: "aurelia", name: "Aurelia", type: "character", mentionCount: 22, workIds: [] },
+  { id: "bruno", name: "Bruno Salazar", type: "character", mentionCount: 9, workIds: [] },
+  { id: "puerto", name: "Puerto Ceniza", type: "location", mentionCount: 14, workIds: [] },
+  { id: "gremio", name: "El Gremio", type: "faction", mentionCount: 6, workIds: [] },
+  { id: "daga", name: "La Daga", type: "object", mentionCount: 2, workIds: [] },
+  { id: "marea", name: "Marea Baja", type: "event", mentionCount: 1, workIds: [] },
+];
+
+const GRAPH_EDGES: GraphEdge[] = [
+  { id: "e1", from: "aurelia", to: "bruno", label: "maestro" },
+  { id: "e2", from: "bruno", to: "gremio", label: null },
+  { id: "e3", from: "aurelia", to: "puerto", label: "vive en" },
+  { id: "e4", from: "gremio", to: "puerto", label: null },
+  { id: "e5", from: "aurelia", to: "daga", label: "porta" },
 ];
 
 export function CodexSection() {
@@ -148,6 +171,25 @@ export function CodexSection() {
           <Specimen label="Sin resultados" hint="items vacío">
             <div className="w-full max-w-72">
               <MentionList items={[]} command={noop} />
+            </div>
+          </Specimen>
+        </SpecimenGrid>
+      </SubSection>
+
+      <SubSection
+        title="Grafo del universo"
+        description="Solo render sobre entity_relations. Monocromo: el tipo se lee por icono y el peso por tamaño. Se arrastra para desplazar y hay zoom; el borde punteado marca una entidad sin ninguna relación."
+      >
+        <SpecimenGrid>
+          <Specimen label="Universo conectado" hint="GraphCanvas · 6 entidades, 5 relaciones">
+            <div className="w-full">
+              <GraphCanvas layout={layoutGraph(GRAPH_NODES, GRAPH_EDGES)} onOpen={noop} />
+            </div>
+          </Specimen>
+
+          <Specimen label="Todo suelto" hint="sin relaciones — todos los bordes punteados">
+            <div className="w-full">
+              <GraphCanvas layout={layoutGraph(GRAPH_NODES, [])} onOpen={noop} />
             </div>
           </Specimen>
         </SpecimenGrid>

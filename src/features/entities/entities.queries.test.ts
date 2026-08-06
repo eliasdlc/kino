@@ -1,7 +1,9 @@
 import { describe, expect, it } from "vitest";
 import {
   appearancesForEntityQuery,
+  entityWorkMentionsQuery,
   relationsForEntityQuery,
+  universeRelationsQuery,
 } from "./entities.service";
 
 /**
@@ -24,5 +26,26 @@ describe("consultas de la ficha de entidad", () => {
     const { sql } = appearancesForEntityQuery(ENTITY).toSQL();
     expect(sql).toContain('from "page_entity_mentions"');
     expect(sql).toContain('inner join "pages"');
+  });
+});
+
+describe("consultas del grafo del universo", () => {
+  const SYSTEM = "22222222-2222-2222-2222-222222222222";
+  const USER = "33333333-3333-3333-3333-333333333333";
+  const A = "44444444-4444-4444-4444-444444444444";
+  const B = "55555555-5555-5555-5555-555555555555";
+
+  it("las relaciones del universo se piden por los dos extremos", () => {
+    const { sql, params } = universeRelationsQuery([A, B]).toSQL();
+    expect(sql).toContain('from "entity_relations"');
+    expect(sql).toContain("or");
+    expect(params).toEqual([A, B, A, B]);
+  });
+
+  it("las menciones por obra compilan con el join y el group by", () => {
+    const { sql } = entityWorkMentionsQuery(SYSTEM, USER).toSQL();
+    expect(sql).toContain('from "page_entity_mentions"');
+    expect(sql).toContain('inner join "pages"');
+    expect(sql).toContain("group by");
   });
 });

@@ -5,6 +5,7 @@ import type {
   EntityRelationItem,
 } from "./entities.types";
 import type { EntityType } from "./entities.attributes";
+import type { UniverseGraph } from "./entities.graph";
 
 async function jsonOrThrow<T>(res: Response, fallback: string): Promise<T> {
   if (!res.ok) {
@@ -17,6 +18,12 @@ async function jsonOrThrow<T>(res: Response, fallback: string): Promise<T> {
 export function fetchSystemEntities(systemId: string): Promise<EntityListItem[]> {
   return fetch(`/api/systems/${systemId}/entities`).then((r) =>
     jsonOrThrow(r, "Failed to fetch entities"),
+  );
+}
+
+export function fetchUniverseGraph(systemId: string): Promise<UniverseGraph> {
+  return fetch(`/api/systems/${systemId}/graph`).then((r) =>
+    jsonOrThrow(r, "Failed to fetch universe graph"),
   );
 }
 

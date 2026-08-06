@@ -6,10 +6,12 @@ import type {
   EntityDetail,
   MentionedEntity,
 } from "./entities.types";
+import type { UniverseGraph } from "./entities.graph";
 import {
   fetchSystemEntities,
   fetchEntity,
   fetchPageEntities,
+  fetchUniverseGraph,
   createEntityApi,
   updateEntityApi,
   deleteEntityApi,
@@ -22,7 +24,17 @@ export const entityKeys = {
   bySystem: (systemId: string) => ["entities", "system", systemId] as const,
   detail: (entityId: string) => ["entities", "detail", entityId] as const,
   byPage: (pageId: string) => ["entities", "page", pageId] as const,
+  graph: (systemId: string) => ["entities", "graph", systemId] as const,
 };
+
+export function useUniverseGraph(systemId: string, enabled = true) {
+  return useQuery<UniverseGraph>({
+    queryKey: entityKeys.graph(systemId),
+    queryFn: () => fetchUniverseGraph(systemId),
+    enabled,
+    staleTime: 30_000,
+  });
+}
 
 export function useSystemEntities(systemId: string) {
   return useQuery<EntityListItem[]>({
@@ -57,6 +69,7 @@ export function useCreateEntity(systemId: string) {
     mutationFn: (body) => createEntityApi(systemId, body),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: entityKeys.bySystem(systemId) });
+      qc.invalidateQueries({ queryKey: entityKeys.graph(systemId) });
       qc.invalidateQueries({ queryKey: ["entities", "page"] });
     },
   });
@@ -69,6 +82,7 @@ export function useUpdateEntity(entityId: string, systemId: string) {
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: entityKeys.detail(entityId) });
       qc.invalidateQueries({ queryKey: entityKeys.bySystem(systemId) });
+      qc.invalidateQueries({ queryKey: entityKeys.graph(systemId) });
       qc.invalidateQueries({ queryKey: ["entities", "page"] });
     },
   });
@@ -80,6 +94,7 @@ export function useDeleteEntity(systemId: string) {
     mutationFn: (entityId) => deleteEntityApi(entityId),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: entityKeys.bySystem(systemId) });
+      qc.invalidateQueries({ queryKey: entityKeys.graph(systemId) });
       qc.invalidateQueries({ queryKey: ["entities", "page"] });
     },
   });
@@ -95,6 +110,9 @@ export function useCreateRelation(fromEntityId: string) {
     mutationFn: (body) => createRelationApi(fromEntityId, body),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: entityKeys.detail(fromEntityId) });
+      // El grafo es el dibujo de estas mismas relaciones: crear una arista tiene
+      // que redibujarlo aunque el usuario la haya creado desde la ficha.
+      qc.invalidateQueries({ queryKey: ["entities", "graph"] });
     },
   });
 }
@@ -105,6 +123,9 @@ export function useDeleteRelation(fromEntityId: string) {
     mutationFn: (relationId) => deleteRelationApi(fromEntityId, relationId),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: entityKeys.detail(fromEntityId) });
+      // El grafo es el dibujo de estas mismas relaciones: crear una arista tiene
+      // que redibujarlo aunque el usuario la haya creado desde la ficha.
+      qc.invalidateQueries({ queryKey: ["entities", "graph"] });
     },
   });
 }

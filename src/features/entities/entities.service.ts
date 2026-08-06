@@ -2,11 +2,12 @@ import { db } from "@/shared/db";
 import {
   entities,
   entityRelations,
+  folders,
   pageEntityMentions,
   pages,
   systems,
 } from "@/shared/db/schema";
-import { and, eq, or, isNull, inArray, desc } from "drizzle-orm";
+import { and, eq, or, isNull, inArray, desc, sql } from "drizzle-orm";
 import { ForbiddenError } from "@/shared/utils/error";
 import type {
   CreateEntityInput,
@@ -23,6 +24,7 @@ import type {
 import type { EntityType } from "./entities.attributes";
 import { parseEntityAttributes } from "./entities.attributes";
 import { detectMentions, plainTextFromHtml } from "./entities.detection";
+import type { UniverseGraph } from "./entities.graph";
 
 /** Lanza si el sistema no existe o no es del usuario. */
 async function assertSystemOwnership(systemId: string, userId: string): Promise<void> {
@@ -190,6 +192,128 @@ export async function getMentionedEntities(
     .innerJoin(entities, eq(pageEntityMentions.entityId, entities.id))
     .where(and(eq(pageEntityMentions.pageId, pageId), isNull(entities.deletedAt)))
     .orderBy(desc(pageEntityMentions.mentionCount), entities.name);
+}
+
+// ── grafo del universo (KIN-136) ──
+
+/**
+ * Relaciones entre entidades de un conjunto. Se piden por cualquiera de los dos
+ * extremos y se filtran después: una relación con una punta fuera del filtro no
+ * es una arista dibujable.
+ */
+export function universeRelationsQuery(entityIds: string[]) {
+  return db
+    .select({
+      id: entityRelations.id,
+      fromEntityId: entityRelations.fromEntityId,
+      toEntityId: entityRelations.toEntityId,
+      label: entityRelations.label,
+    })
+    .from(entityRelations)
+    .where(
+      or(
+        inArray(entityRelations.fromEntityId, entityIds),
+        inArray(entityRelations.toEntityId, entityIds),
+      ),
+    );
+}
+
+/**
+ * Menciones de cada entidad agrupadas por obra. Da dos cosas de una pasada: el
+ * peso del nodo (cuánto se nombra en el texto) y en qué obras aparece, que es lo
+ * que permite leer un universo compartido desde una sola historia.
+ */
+export function entityWorkMentionsQuery(systemId: string, userId: string) {
+  return db
+    .select({
+      entityId: pageEntityMentions.entityId,
+      folderId: pages.folderId,
+      mentions: sql<number>`SUM(${pageEntityMentions.mentionCount})::int`,
+    })
+    .from(pageEntityMentions)
+    .innerJoin(pages, eq(pageEntityMentions.pageId, pages.id))
+    .where(
+      and(
+        eq(pages.systemId, systemId),
+        eq(pages.userId, userId),
+        isNull(pages.deletedAt),
+      ),
+    )
+    .groupBy(pageEntityMentions.entityId, pages.folderId);
+}
+
+/**
+ * El universo entero listo para dibujar: nodos, aristas y las obras del sistema.
+ * No hay dato nuevo detrás — todo sale de `entities`, `entity_relations` y el
+ * índice derivado de menciones que ya mantiene W2.
+ */
+export async function getUniverseGraph(
+  systemId: string,
+  userId: string,
+): Promise<UniverseGraph> {
+  const [entityRows, workRows] = await Promise.all([
+    db
+      .select({
+        id: entities.id,
+        name: entities.name,
+        type: entities.type,
+      })
+      .from(entities)
+      .where(
+        and(
+          eq(entities.systemId, systemId),
+          eq(entities.userId, userId),
+          isNull(entities.deletedAt),
+        ),
+      )
+      .orderBy(entities.name),
+    db
+      .select({ id: folders.id, name: folders.name })
+      .from(folders)
+      .where(and(eq(folders.systemId, systemId), eq(folders.userId, userId)))
+      .orderBy(folders.name),
+  ]);
+
+  if (entityRows.length === 0) {
+    return { nodes: [], edges: [], works: workRows };
+  }
+
+  const ids = entityRows.map((e) => e.id);
+  const [relationRows, mentionRows] = await Promise.all([
+    universeRelationsQuery(ids),
+    entityWorkMentionsQuery(systemId, userId),
+  ]);
+
+  const totals = new Map<string, number>();
+  const worksByEntity = new Map<string, Set<string>>();
+  for (const row of mentionRows) {
+    totals.set(row.entityId, (totals.get(row.entityId) ?? 0) + (row.mentions ?? 0));
+    if (!row.folderId) continue; // capítulo suelto: cuenta para el peso, no para el filtro
+    const set = worksByEntity.get(row.entityId) ?? new Set<string>();
+    set.add(row.folderId);
+    worksByEntity.set(row.entityId, set);
+  }
+
+  const alive = new Set(ids);
+
+  return {
+    nodes: entityRows.map((e) => ({
+      id: e.id,
+      name: e.name,
+      type: e.type,
+      mentionCount: totals.get(e.id) ?? 0,
+      workIds: Array.from(worksByEntity.get(e.id) ?? []),
+    })),
+    edges: relationRows
+      .filter((r) => alive.has(r.fromEntityId) && alive.has(r.toEntityId))
+      .map((r) => ({
+        id: r.id,
+        from: r.fromEntityId,
+        to: r.toEntityId,
+        label: r.label,
+      })),
+    works: workRows,
+  };
 }
 
 // ── escrituras ──
