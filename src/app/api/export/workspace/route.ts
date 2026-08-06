@@ -6,12 +6,26 @@ import { getTasksBySystem } from "@/features/tasks/tasks.service";
 import { getFoldersBySystem } from "@/features/folders/folders.service";
 import { getPagesBySystemForExport } from "@/features/pages/pages.service";
 import { htmlToMarkdown } from "@/features/pages/export/html-to-markdown";
+import { getImageStorage } from "@/features/uploads/image-storage";
+import { extractImageUrlsFromHtml, rewriteImageUrls } from "@/features/uploads/image-refs";
+import { bundleImages } from "@/features/uploads/image-bundle";
+import { ASSETS_DIR, pageDir, assetPathFromPage } from "@/features/pages/export/workspace-layout";
 
 function slugify(str: string): string {
   return (str || "sin-nombre")
     .toLowerCase()
     .replace(/[^a-z0-9]+/g, "-")
     .replace(/^-+|-+$/g, "");
+}
+
+/** Nombre único dentro de una carpeta del ZIP: dos páginas homónimas no se pisan. */
+function uniqueSlug(base: string, used: Set<string>): string {
+  let candidate = base;
+  for (let i = 2; used.has(candidate); i += 1) {
+    candidate = `${base}-${i}`;
+  }
+  used.add(candidate);
+  return candidate;
 }
 
 export async function GET(request: NextRequest) {
@@ -21,27 +35,72 @@ export async function GET(request: NextRequest) {
   }
 
   const systems = await getUsersSystems(ctx.userId);
+
+  // Primera pasada: leer todo y juntar las imágenes referenciadas. Hay que conocer
+  // el mapa completo de URL → archivo antes de serializar ningún Markdown.
+  const loaded = await Promise.all(
+    systems.map(async (system) => {
+      const [tasks, folders, pages] = await Promise.all([
+        getTasksBySystem(system.id, ctx.userId),
+        getFoldersBySystem(system.id, ctx.userId),
+        getPagesBySystemForExport(system.id, ctx.userId),
+      ]);
+      return { system, tasks, folders, pages };
+    }),
+  );
+
+  const referenced = new Set<string>();
+  for (const { pages } of loaded) {
+    for (const page of pages) {
+      for (const url of extractImageUrlsFromHtml(page.content)) {
+        referenced.add(url);
+      }
+    }
+  }
+
+  const storage = getImageStorage();
+  const bundled =
+    storage && referenced.size > 0
+      ? await bundleImages([...referenced], storage)
+      : { files: [], byUrl: new Map<string, string>(), skipped: 0 };
+
+  // Las rutas del Markdown son relativas al archivo `.md`, no al ZIP.
+  const rewrites = new Map(
+    [...bundled.byUrl].map(([url, name]) => [url, assetPathFromPage(name)]),
+  );
+
+  // Segunda pasada: montar el ZIP.
   const zip = new JSZip();
 
-  for (const system of systems) {
-    const folder = zip.folder(slugify(system.name))!;
+  if (bundled.files.length > 0) {
+    const assets = zip.folder(ASSETS_DIR)!;
+    for (const file of bundled.files) {
+      // Sin DEFLATE: WebP, PNG y JPEG ya vienen comprimidos, así que volver a
+      // pasarlos por el compresor gasta del presupuesto de 10s sin ganar bytes.
+      assets.file(file.name, file.data, { compression: "STORE" });
+    }
+  }
 
-    const [tasks, folders, pages] = await Promise.all([
-      getTasksBySystem(system.id, ctx.userId),
-      getFoldersBySystem(system.id, ctx.userId),
-      getPagesBySystemForExport(system.id, ctx.userId),
-    ]);
+  const usedSystemSlugs = new Set<string>();
+  for (const { system, tasks, folders, pages } of loaded) {
+    const systemSlug = uniqueSlug(slugify(system.name), usedSystemSlugs);
+    const folder = zip.folder(systemSlug)!;
 
     folder.file("system.json", JSON.stringify(system, null, 2));
     folder.file("tasks.json", JSON.stringify(tasks, null, 2));
     folder.file("folders.json", JSON.stringify(folders, null, 2));
 
-    const pagesFolder = folder.folder("pages")!;
+    // Vía `pageDir` y no `folder.folder("pages")`: la profundidad de esta carpeta
+    // es la misma que calcula `assetPathFromPage`, y deben salir del mismo sitio.
+    const pagesFolder = zip.folder(pageDir(systemSlug))!;
+    const usedPageSlugs = new Set<string>();
     for (const page of pages) {
-      const slug = slugify(page.title ?? "sin-titulo");
+      const slug = uniqueSlug(slugify(page.title ?? "sin-titulo"), usedPageSlugs);
+      // El JSON conserva las URLs originales a propósito: es la copia cruda del
+      // dato, y reimportarlo no debería depender de dónde cayó el archivo.
       pagesFolder.file(`${slug}.json`, JSON.stringify(page, null, 2));
       if (page.content) {
-        pagesFolder.file(`${slug}.md`, htmlToMarkdown(page.content));
+        pagesFolder.file(`${slug}.md`, htmlToMarkdown(rewriteImageUrls(page.content, rewrites)));
       }
     }
   }
@@ -54,6 +113,9 @@ export async function GET(request: NextRequest) {
     headers: {
       "Content-Type": "application/zip",
       "Content-Disposition": 'attachment; filename="kino-workspace.zip"',
+      // Permite a la UI avisar de que el export salió incompleto sin abrir el ZIP.
+      "X-Kino-Images-Bundled": String(bundled.files.length),
+      "X-Kino-Images-Skipped": String(bundled.skipped),
     },
   });
 }
