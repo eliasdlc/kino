@@ -19,6 +19,7 @@ import type {
 } from "@/features/writing/writing.types";
 import type { LooseThread, LooseThreadsReport } from "@/features/writing/chekhov";
 import type { TimelineReport } from "@/features/writing/timeline";
+import type { Manuscript } from "@/features/writing/writing.manuscript";
 
 /**
  * Datos de muestra para el catálogo visual. Los componentes compuestos de Kino
@@ -523,6 +524,28 @@ export function makeTimelineReport(
         firstNarratedIndex: 4,
         outOfOrder: false,
       },
+    ],
+    ...overrides,
+  };
+}
+
+const PROSE_CHAPTER = `<p>La niebla no levantó ese día, ni el siguiente. Aurelia lo anotó en el margen del mapa, con la letra pequeña que usaba para lo que no quería que nadie leyera.</p><p>El puerto seguía ahí abajo, respirando. Los barcos habían dejado de salir hacía dos semanas y nadie decía por qué.</p><div data-scene-break class="scene-break">* * *</div><p>Bruno la encontró en el taller, con la carta desplegada y la tinta todavía fresca.</p><p>—No vas a arreglarlo mirándolo —dijo.</p>`;
+
+const SCREENPLAY_CHAPTER = `<p data-sp="sceneHeading" class="sp-sceneHeading">int. taller de mapas — noche</p><p data-sp="action" class="sp-action">Aurelia despliega la carta sobre la mesa. La tinta todavía huele.</p><p data-sp="character" class="sp-character">aurelia</p><p data-sp="parenthetical" class="sp-parenthetical">(sin levantar la vista)</p><p data-sp="dialogue" class="sp-dialogue">Mi madre dejó este borde sin cerrar a propósito.</p>`;
+
+export function makeManuscript(overrides: Partial<Manuscript> = {}): Manuscript {
+  const medium = overrides.medium ?? "novel";
+  const body = medium === "screenplay" ? SCREENPLAY_CHAPTER : PROSE_CHAPTER;
+  return {
+    folderId: MOCK_FOLDER_ID,
+    systemId: MOCK_SYSTEM_ID,
+    title: "La marea baja",
+    author: "Elias De La Cruz",
+    medium,
+    totalWords: 148,
+    chapters: [
+      { id: uuid(900), title: "Capítulo 1 · La niebla", content: body, wordCount: 84, completed: true },
+      { id: uuid(901), title: "Capítulo 2 · El gremio", content: body, wordCount: 64, completed: false },
     ],
     ...overrides,
   };

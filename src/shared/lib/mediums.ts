@@ -36,6 +36,17 @@ export type MediumBlockId =
 /** Serializador de export: prosa markdown, guion numerado o Fountain. */
 export type MediumExportFormat = 'prose' | 'script' | 'screenplay';
 
+/**
+ * Cómo se lee la obra terminada (KIN-138). Es la cuarta salida del manifiesto,
+ * junto al vocabulario, los bloques y el export: nada nuevo que decidir sobre qué
+ * es cada medium, solo cómo se presenta cuando ya no se está escribiendo.
+ *
+ * - `book`: página paginada, serif, sangría y justificado — se lee como un libro.
+ * - `script`: guion limpio de manga/cómic, con sus páginas y paneles numerados.
+ * - `screenplay`: formato de guion audiovisual, con sus sangrías estándar.
+ */
+export type MediumReadingLayout = 'book' | 'script' | 'screenplay';
+
 export interface MediumUnit {
   /** Cómo llama esta obra a cada manuscrito ("capítulo", "episodio"). */
   noun: string;
@@ -58,6 +69,8 @@ export interface MediumManifest {
   exportFormat: MediumExportFormat;
   /** Extensión del archivo exportado desde el editor. */
   exportExtension: 'md' | 'fountain';
+  /** Presentación del modo lectura (KIN-138). */
+  readingLayout: MediumReadingLayout;
 }
 
 const MANGA_TEMPLATE =
@@ -77,6 +90,7 @@ export const MEDIUM_CONFIG: Record<MediumId, MediumManifest> = {
     placeholder: 'Empieza el capítulo…',
     exportFormat: 'prose',
     exportExtension: 'md',
+    readingLayout: 'book',
   },
   manga: {
     id: 'manga',
@@ -88,6 +102,7 @@ export const MEDIUM_CONFIG: Record<MediumId, MediumManifest> = {
     placeholder: 'Describe el panel…',
     exportFormat: 'script',
     exportExtension: 'md',
+    readingLayout: 'script',
   },
   comic: {
     id: 'comic',
@@ -99,6 +114,7 @@ export const MEDIUM_CONFIG: Record<MediumId, MediumManifest> = {
     placeholder: 'Describe el panel…',
     exportFormat: 'script',
     exportExtension: 'md',
+    readingLayout: 'script',
   },
   webtoon: {
     // Scroll vertical: sin páginas, solo beats — el panel es la unidad de dibujo.
@@ -111,6 +127,7 @@ export const MEDIUM_CONFIG: Record<MediumId, MediumManifest> = {
     placeholder: 'Describe el panel…',
     exportFormat: 'script',
     exportExtension: 'md',
+    readingLayout: 'script',
   },
   screenplay: {
     id: 'screenplay',
@@ -122,6 +139,7 @@ export const MEDIUM_CONFIG: Record<MediumId, MediumManifest> = {
     placeholder: 'Escribe la acción…',
     exportFormat: 'screenplay',
     exportExtension: 'fountain',
+    readingLayout: 'screenplay',
   },
   serial: {
     id: 'serial',
@@ -133,6 +151,7 @@ export const MEDIUM_CONFIG: Record<MediumId, MediumManifest> = {
     placeholder: 'Empieza la entrega…',
     exportFormat: 'prose',
     exportExtension: 'md',
+    readingLayout: 'book',
   },
   other: {
     id: 'other',
@@ -144,6 +163,7 @@ export const MEDIUM_CONFIG: Record<MediumId, MediumManifest> = {
     placeholder: 'Empieza a escribir…',
     exportFormat: 'prose',
     exportExtension: 'md',
+    readingLayout: 'book',
   },
 };
 

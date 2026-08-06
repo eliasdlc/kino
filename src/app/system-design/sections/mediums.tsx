@@ -1,7 +1,9 @@
 "use client";
 
-import { Section, SubSection, Specimen } from "../helpers";
+import { Section, SubSection, Specimen, SpecimenGrid } from "../helpers";
 import { SCREENPLAY_LABELS } from "@/features/pages/mediums/screenplay.extension";
+import { ReadingView } from "@/features/writing/ReadingView";
+import { makeManuscript } from "../mock-data";
 
 /**
  * Los bloques por medium (PLAN-11 W3).
@@ -107,6 +109,38 @@ export function MediumsSection() {
             ))}
           </EditorSurface>
         </Specimen>
+      </SubSection>
+
+      <SubSection
+        title="Modo lectura"
+        description="La cuarta salida del MediumManifest (KIN-138): la obra como la vería quien la lee. La prosa se pagina con columnas CSS y scroll-snap —el truco de los lectores de ePub, sin partir el HTML—; el guion no, porque sus páginas se cuentan en líneas y paginarlo por píxeles sería mentir."
+      >
+        <SpecimenGrid>
+          <Specimen label="Novela" hint="readingLayout: book · serif, sangría, justificado">
+            <div className="w-full">
+              <ReadingView manuscript={makeManuscript()} />
+            </div>
+          </Specimen>
+
+          <Specimen label="Guion" hint="readingLayout: screenplay · sin paginado">
+            <div className="w-full">
+              <ReadingView manuscript={makeManuscript({ medium: "screenplay" })} />
+            </div>
+          </Specimen>
+
+          <Specimen label="Obra en blanco" hint="capítulos sin contenido">
+            <div className="w-full">
+              <ReadingView
+                manuscript={makeManuscript({
+                  chapters: [
+                    { id: "vacio", title: "Capítulo 1", content: "", wordCount: 0, completed: false },
+                  ],
+                  totalWords: 0,
+                })}
+              />
+            </div>
+          </Specimen>
+        </SpecimenGrid>
       </SubSection>
 
       <SubSection

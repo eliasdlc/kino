@@ -72,4 +72,26 @@ describe("MEDIUM_CONFIG", () => {
     expect(MEDIUM_CONFIG.webtoon.template).not.toContain("data-manga-page");
     expect(MEDIUM_CONFIG.screenplay.template).toContain('data-sp="sceneHeading"');
   });
+  it("el modo lectura sale del mismo manifiesto que el export (KIN-138)", () => {
+    // La presentación de lectura no es una decisión aparte: es la cuarta salida
+    // de lo que el medium ya declaraba. Si divergen, alguien la hardcodeó.
+    for (const id of MEDIUM_IDS) {
+      const manifest = MEDIUM_CONFIG[id];
+      const expected =
+        manifest.exportFormat === "prose"
+          ? "book"
+          : manifest.exportFormat === "script"
+            ? "script"
+            : "screenplay";
+      expect(manifest.readingLayout).toBe(expected);
+    }
+  });
+
+  it("solo la prosa se lee paginada como un libro", () => {
+    // Paginar un guion por columnas mentiría: sus páginas se cuentan en líneas.
+    expect(MEDIUM_CONFIG.novel.readingLayout).toBe("book");
+    expect(MEDIUM_CONFIG.serial.readingLayout).toBe("book");
+    expect(MEDIUM_CONFIG.screenplay.readingLayout).toBe("screenplay");
+    expect(MEDIUM_CONFIG.manga.readingLayout).toBe("script");
+  });
 });
