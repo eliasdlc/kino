@@ -1,7 +1,8 @@
 "use client";
 
 import { cn } from "@/lib/utils";
-import type { ReactNode } from "react";
+import { useState, useSyncExternalStore, type ReactNode } from "react";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 
 /**
  * Bloques de organización del catálogo visual (/system-design).
@@ -11,6 +12,51 @@ import type { ReactNode } from "react";
  * componente se muestre dentro de un Specimen para que cada estado quede
  * nombrado y comparable con sus vecinos.
  */
+
+/**
+ * Un QueryClient aislado por specimen, sembrado antes del primer render.
+ *
+ * Muchos componentes de Kino no reciben datos por props: los sacan del cache de
+ * react-query, igual que en la app. Sembrar un cliente propio por specimen es lo
+ * que permite enseñar varios estados del *mismo* componente en la misma página,
+ * y que lo que se ve salga del mismo cálculo que ve el usuario en vez de una
+ * copia de mentira que se le parezca.
+ */
+export function Seeded({
+  seed,
+  children,
+}: {
+  seed: (qc: QueryClient) => void;
+  children: ReactNode;
+}) {
+  const [client] = useState(() => {
+    const qc = new QueryClient({
+      defaultOptions: { queries: { retry: false, staleTime: Infinity, gcTime: Infinity } },
+    });
+    seed(qc);
+    return qc;
+  });
+  return <QueryClientProvider client={client}>{children}</QueryClientProvider>;
+}
+
+const subscribeNoop = () => () => {};
+
+/**
+ * Monta solo en el cliente. Algunos componentes deciden qué pintar con la fecha
+ * u hora actual; en producción eso nunca corre en SSR porque los datos aún no
+ * están en cache, pero aquí sí los sembramos antes del primer render. Sin este
+ * guard, el server (en su tz) y el cliente (en la del usuario) pueden discrepar
+ * y romper la hidratación — un artefacto del specimen, no del componente.
+ */
+export function ClientOnly({ children }: { children: ReactNode }) {
+  const mounted = useSyncExternalStore(
+    subscribeNoop,
+    () => true,
+    () => false,
+  );
+  if (!mounted) return null;
+  return <>{children}</>;
+}
 
 export function Section({
   id,

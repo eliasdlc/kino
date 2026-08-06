@@ -11,6 +11,12 @@ import type {
 } from "@/features/energy/energy.service";
 import type { EnergyPlanItem } from "@/features/energy/energy.planner";
 import type { AdvisorPattern } from "@/features/energy/energy.advisor";
+import type { MentionedEntity, EntityDetail } from "@/features/entities/entities.types";
+import type {
+  WritingOverview,
+  WritingSession,
+  WorkJournal,
+} from "@/features/writing/writing.types";
 
 /**
  * Datos de muestra para el catálogo visual. Los componentes compuestos de Kino
@@ -269,4 +275,128 @@ export function mockAdvisorPattern(overrides: Partial<AdvisorPattern> = {}): Adv
     score: 12,
   };
   return { ...base, ...overrides };
+}
+
+// ── Writing: Codex y motivación (PLAN-11 W2/W4) ──────────────────────────
+
+export const MOCK_PAGE_ID = uuid(3);
+export const MOCK_FOLDER_ID = uuid(4);
+
+export function makeMentionedEntity(
+  overrides: Partial<MentionedEntity> = {},
+): MentionedEntity {
+  return {
+    id: uuid(300),
+    name: "Aurelia Vance",
+    type: "character",
+    summary: "Cartógrafa del gremio; busca el mapa que su madre nunca terminó.",
+    coverImageUrl: null,
+    mentionCount: 7,
+    ...overrides,
+  };
+}
+
+export function makeEntityDetail(overrides: Partial<EntityDetail> = {}): EntityDetail {
+  return {
+    id: uuid(300),
+    systemId: MOCK_SYSTEM_ID,
+    type: "character",
+    name: "Aurelia Vance",
+    aliases: ["La Cartógrafa", "Vance"],
+    summary: "Cartógrafa del gremio; busca el mapa que su madre nunca terminó.",
+    coverImageUrl: null,
+    createdAt: NOW,
+    updatedAt: NOW,
+    attributes: { edad: "34", origen: "Puerto Ceniza", rol: "Protagonista" },
+    images: [],
+    relations: [
+      {
+        id: uuid(310),
+        label: "rival de",
+        notes: null,
+        other: { id: uuid(301), name: "Bruno Salazar", type: "character" },
+        outgoing: true,
+      },
+      {
+        id: uuid(311),
+        label: "vive en",
+        notes: null,
+        other: { id: uuid(302), name: "Puerto Ceniza", type: "location" },
+        outgoing: true,
+      },
+    ],
+    appearances: [
+      { pageId: MOCK_PAGE_ID, pageTitle: "Capítulo 1 · La marea baja", mentionCount: 7 },
+      { pageId: uuid(303), pageTitle: "Capítulo 2 · El gremio", mentionCount: 3 },
+    ],
+    ...overrides,
+  };
+}
+
+export function makeWritingOverview(
+  overrides: Partial<WritingOverview> = {},
+): WritingOverview {
+  return {
+    streakDays: 12,
+    streakIncludesToday: true,
+    wordsToday: 820,
+    dailyWordGoal: 1_000,
+    peakWindow: { start: 9, end: 11 },
+    currentHour: 10,
+    works: [{ folderId: MOCK_FOLDER_ID, lastSessionAt: NOW.toISOString(), daysSinceLastSession: 0 }],
+    ...overrides,
+  };
+}
+
+function makeSession(overrides: Partial<WritingSession> = {}): WritingSession {
+  return {
+    id: uuid(400),
+    pageId: MOCK_PAGE_ID,
+    pageTitle: "Capítulo 1 · La marea baja",
+    folderId: MOCK_FOLDER_ID,
+    startedAt: "2026-07-15T09:05:00Z",
+    endedAt: "2026-07-15T10:40:00Z",
+    durationMinutes: 95,
+    wordsWritten: 820,
+    ...overrides,
+  };
+}
+
+export function makeWorkJournal(overrides: Partial<WorkJournal> = {}): WorkJournal {
+  return {
+    folderId: MOCK_FOLDER_ID,
+    folderName: "La marea baja",
+    wordGoal: 80_000,
+    totalWords: 24_310,
+    days: [
+      {
+        day: "2026-07-15",
+        sessions: [makeSession()],
+        words: 820,
+        minutes: 95,
+        cumulativeWords: 24_310,
+        milestones: [{ kind: "goal-reached", goal: 1_000 }],
+      },
+      {
+        day: "2026-07-14",
+        sessions: [makeSession({ id: uuid(401), wordsWritten: 1_240, durationMinutes: 120 })],
+        words: 1_240,
+        minutes: 120,
+        cumulativeWords: 23_490,
+        milestones: [
+          { kind: "chapter-completed", pageId: MOCK_PAGE_ID, pageTitle: "Capítulo 1 · La marea baja" },
+          { kind: "streak", days: 10 },
+        ],
+      },
+      {
+        day: "2026-07-13",
+        sessions: [makeSession({ id: uuid(402), wordsWritten: 460, durationMinutes: 45 })],
+        words: 460,
+        minutes: 45,
+        cumulativeWords: 22_250,
+        milestones: [],
+      },
+    ],
+    ...overrides,
+  };
 }
