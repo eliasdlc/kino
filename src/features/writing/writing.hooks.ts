@@ -5,6 +5,7 @@ import { pageKeys } from "@/features/pages/pages.hooks";
 import type { WorkJournal, WritingOverview } from "./writing.types";
 import type { LooseThreadsReport } from "./chekhov";
 import type { TimelineReport } from "./timeline";
+import type { Manuscript } from "./writing.manuscript";
 
 async function jsonOrThrow<T>(res: Response, fallback: string): Promise<T> {
   if (!res.ok) {
@@ -19,7 +20,24 @@ export const writingKeys = {
   journal: (folderId: string) => ["writing", "journal", folderId] as const,
   threads: (folderId: string) => ["writing", "threads", folderId] as const,
   timeline: (folderId: string) => ["writing", "timeline", folderId] as const,
+  manuscript: (folderId: string) => ["writing", "manuscript", folderId] as const,
 };
+
+/**
+ * El manuscrito completo con el contenido de cada capítulo (KIN-139). Pesa lo
+ * que pese la obra, así que solo se pide cuando de verdad se va a compilar.
+ */
+export function useManuscript(folderId: string | null) {
+  return useQuery<Manuscript>({
+    queryKey: writingKeys.manuscript(folderId ?? "none"),
+    queryFn: () =>
+      fetch(`/api/folders/${folderId}/manuscript`).then((r) =>
+        jsonOrThrow(r, "No se pudo cargar el manuscrito"),
+      ),
+    enabled: !!folderId,
+    staleTime: 30_000,
+  });
+}
 
 /** Cronología in-world de una obra (KIN-140). */
 export function useTimeline(folderId: string | null) {

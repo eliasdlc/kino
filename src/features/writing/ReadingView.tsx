@@ -13,6 +13,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { MEDIUM_CONFIG } from "@/shared/lib/mediums";
+import { CompileMenu } from "./CompileMenu";
 import type { Manuscript } from "./writing.manuscript";
 
 /**
@@ -32,7 +33,14 @@ import type { Manuscript } from "./writing.manuscript";
 
 type Mode = "paged" | "scroll";
 
-export function ReadingView({ manuscript }: { manuscript: Manuscript }) {
+export function ReadingView({
+  manuscript,
+  autoPrint = false,
+}: {
+  manuscript: Manuscript;
+  /** Llega con `?print=1` desde "PDF (imprimir)" del menú de compilación. */
+  autoPrint?: boolean;
+}) {
   const medium = MEDIUM_CONFIG[manuscript.medium];
   const layout = medium.readingLayout;
   // Paginar un guion por píxeles sería mentir sobre dónde caen sus páginas: se
@@ -78,6 +86,16 @@ export function ReadingView({ manuscript }: { manuscript: Manuscript }) {
     (c) => !c.content || c.content.trim().length === 0,
   );
 
+  // El diálogo de impresión se abre una sola vez y tras un frame: si se llama
+  // durante el montaje, Chrome fotografía la página a medio pintar.
+  const printed = useRef(false);
+  useEffect(() => {
+    if (!autoPrint || empty || printed.current) return;
+    printed.current = true;
+    const id = requestAnimationFrame(() => window.print());
+    return () => cancelAnimationFrame(id);
+  }, [autoPrint, empty]);
+
   return (
     <div
       className="mx-auto w-full max-w-4xl"
@@ -96,6 +114,11 @@ export function ReadingView({ manuscript }: { manuscript: Manuscript }) {
         </div>
 
         <div className="flex shrink-0 items-center gap-1">
+          <CompileMenu
+            folderId={manuscript.folderId}
+            systemId={manuscript.systemId}
+            manuscript={manuscript}
+          />
           {canPage && (
             <Button
               variant="outline"

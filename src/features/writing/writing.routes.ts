@@ -14,6 +14,7 @@ import {
   reorderTimeline,
   unplaceFromTimeline,
 } from "./writing.timeline";
+import { getManuscript } from "./writing.manuscript";
 import { ForbiddenError } from "@/shared/utils/error";
 
 const UNAUTHORIZED = { code: "UNAUTHORIZED", message: "Unauthorized" };
@@ -128,6 +129,22 @@ export async function patchEntityThread(
     }
     throw err;
   }
+}
+
+// GET /api/folders/[id]/manuscript — la obra entera con el contenido (KIN-139)
+export async function getFolderManuscript(
+  request: NextRequest,
+  { params }: { params: Promise<{ id: string }> },
+) {
+  const ctx = await getAuthContext(request);
+  if (!ctx) return NextResponse.json(UNAUTHORIZED, { status: 401 });
+
+  const { id: folderId } = await params;
+  const manuscript = await getManuscript(ctx.userId, folderId);
+  if (!manuscript) {
+    return NextResponse.json({ code: "NOT_FOUND", message: "Work not found" }, { status: 404 });
+  }
+  return NextResponse.json(manuscript);
 }
 
 // GET /api/folders/[id]/timeline — cronología in-world contra el orden narrado
