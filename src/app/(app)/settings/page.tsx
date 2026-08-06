@@ -18,6 +18,7 @@ import { usePushNotifications } from "@/features/notifications/notifications.hoo
 import { ApiKeysSection } from "@/features/api-keys/ApiKeysSection";
 import { EnergyLimitSection } from "@/features/settings/EnergyLimitSection";
 import { TimezoneSection } from "@/features/settings/TimezoneSection";
+import { WeeklyReviewDaySection } from "@/features/settings/WeeklyReviewDaySection";
 import {
   useUserSettings,
   useUpdateUserSettings,
@@ -277,6 +278,9 @@ export default function SettingsPage() {
 
         {/* Energía */}
         <EnergyLimitSection />
+
+        {/* Revisión semanal */}
+        <WeeklyReviewDaySection />
 
         {/* API Keys */}
         <ApiKeysSection />
