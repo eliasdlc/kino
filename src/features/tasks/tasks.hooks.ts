@@ -462,8 +462,13 @@ export function useBulkMove() {
     onSuccess: (_data, { taskIds, status }, context) => {
       const n = taskIds.length;
       const { previousStates } = context;
-      toast.success(`${n} tarea${n !== 1 ? 's' : ''} movida${n !== 1 ? 's' : ''}`, {
-        description: status === 'today' ? overdraftNotice(queryClient, taskIds) : undefined,
+      const overdraft = status === 'today' ? overdraftNotice(queryClient, taskIds) : undefined;
+      // Con richColors, `toast.success` sale verde con check: leerlo encima de un
+      // aviso de sobregiro se contradice. El movimiento sí ocurrió —nada bloquea—
+      // pero el tono lo marca el aviso, igual que al aceptar una sugerencia.
+      const notify = overdraft ? toast.warning : toast.success;
+      notify(`${n} tarea${n !== 1 ? 's' : ''} movida${n !== 1 ? 's' : ''}`, {
+        description: overdraft,
         duration: 7000,
         action: {
           label: 'Deshacer',

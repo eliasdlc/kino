@@ -14,14 +14,22 @@ const TONES: Record<EnergyBudgetState, { spent: string; pending: string; text: s
   over: { spent: 'bg-red-500', pending: 'bg-red-500/35', text: 'text-red-500 dark:text-red-400' },
 };
 
-function message(state: EnergyBudgetState, remaining: number, overBy: number): string {
+function message(
+  state: EnergyBudgetState,
+  remaining: number,
+  overBy: number,
+  committed: number,
+): string {
   if (state === 'over') {
     return `Sobregiro de ${overBy} pt${overBy !== 1 ? 's' : ''} — nada te frena, pero el día ya está sobrevendido.`;
   }
   if (state === 'tight') {
     return remaining === 0 ? 'Presupuesto justo: el día está lleno.' : `Casi lleno — quedan ${remaining} pts.`;
   }
-  return remaining > 0 ? `Quedan ${remaining} pts para hoy.` : 'Sin energía comprometida todavía.';
+  // El día vacío se reconoce por lo comprometido, no por lo que queda: con un
+  // límite válido, `remaining === 0` implica pct >= 100, que ya no es estado ok.
+  if (committed === 0) return 'Sin energía comprometida todavía.';
+  return `Quedan ${remaining} pt${remaining !== 1 ? 's' : ''} para hoy.`;
 }
 
 /**
@@ -77,7 +85,7 @@ export function EnergyBudgetBar({ className }: EnergyBudgetBarProps) {
       </div>
 
       <p className={`mt-1 text-[11px] ${tone.text}`}>
-        {message(budget.state, budget.remaining, budget.overBy)}
+        {message(budget.state, budget.remaining, budget.overBy, budget.committed)}
         {budget.spent > 0 && budget.state !== 'over' && (
           <span className="text-muted-foreground"> {budget.spent} ya cumplidos.</span>
         )}
