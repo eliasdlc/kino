@@ -9,7 +9,7 @@ export function MobileSection() {
   return (
     <Section
       id="mobile"
-      number="13"
+      number="14"
       title="Mobile"
       description="El chrome móvil de la app. Ambos componentes son md:hidden y BottomNav es fixed; aquí van dentro de un marco de teléfono con overrides de display/posición para poder verlos en desktop."
     >

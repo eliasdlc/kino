@@ -20,7 +20,7 @@ export function NotebooksSection() {
   return (
     <Section
       id="notebooks"
-      number="12"
+      number="13"
       title="Notebooks, páginas y sticky notes"
       description="Los objetos físicos del arquetipo de escritura/notas: carpetas con papeles que asoman, cards de página con preview, post-its y tareas vinculadas a una página."
     >

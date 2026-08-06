@@ -36,7 +36,7 @@ export function TasksViewsSection() {
   return (
     <Section
       id="tareas"
-      number="11"
+      number="12"
       title="Tareas — vistas y controles"
       description="Las demás representaciones de una tarea (fila de lista global, card de planning, card del board kanban) y los pickers que las editan."
     >
