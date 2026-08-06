@@ -21,6 +21,9 @@ import { EnergyBudgetSection } from "./sections/energy-budget";
 import { TasksViewsSection } from "./sections/tasks-views";
 import { NotebooksSection } from "./sections/notebooks";
 import { MobileSection } from "./sections/mobile";
+import { CodexSection } from "./sections/codex";
+import { MediumsSection } from "./sections/mediums";
+import { MotivationSection } from "./sections/motivation";
 
 const TOC: Array<{ id: string; number: string; label: string }> = [
   { id: "colores", number: "01", label: "Colores" },
@@ -37,6 +40,9 @@ const TOC: Array<{ id: string; number: string; label: string }> = [
   { id: "tareas", number: "12", label: "Tareas: vistas" },
   { id: "notebooks", number: "13", label: "Notebooks y notas" },
   { id: "mobile", number: "14", label: "Mobile" },
+  { id: "codex", number: "15", label: "Codex" },
+  { id: "mediums", number: "16", label: "Bloques por medium" },
+  { id: "motivacion", number: "17", label: "Motivación" },
 ];
 
 /**
@@ -135,6 +141,9 @@ export function SystemDesignShell() {
                   <TasksViewsSection />
                   <NotebooksSection />
                   <MobileSection />
+                  <CodexSection />
+                  <MediumsSection />
+                  <MotivationSection />
                 </main>
               </div>
             </div>

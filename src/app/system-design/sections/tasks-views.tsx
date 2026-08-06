@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { DndContext } from "@dnd-kit/core";
-import { Section, SubSection, Specimen, SpecimenGrid } from "../helpers";
+import { Section, SubSection, Specimen, SpecimenGrid, ClientOnly } from "../helpers";
 import { makeTask, makeSprint, daysFromNow, MOCK_SYSTEM_ID } from "../mock-data";
 import { TaskListRow } from "@/features/tasks/TaskListRow";
 import { OverdueGroup } from "@/features/tasks/OverdueGroup";
@@ -124,37 +124,43 @@ export function TasksViewsSection() {
             sprintFilter={sprintFilter}
             onSelectFilter={setSprintFilter}
           />
-          <DndContext>
-            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-              <BoardCard
-                task={makeTask({
-                  id: "b1",
-                  title: "Card en progreso, estancada",
-                  boardStatus: "in_progress",
-                  boardStatusChangedAt: new Date(daysFromNow(-10)),
-                })}
-                systemId={MOCK_SYSTEM_ID}
-                onToggle={noop}
-                onDelete={noop}
-                onEdit={noop}
-                onMoveColumn={noop}
-              />
-              <BoardCard
-                task={makeTask({
-                  id: "b2",
-                  title: "Card recién movida a review",
-                  boardStatus: "review",
-                  boardStatusChangedAt: new Date(),
-                  priority: "high",
-                })}
-                systemId={MOCK_SYSTEM_ID}
-                onToggle={noop}
-                onDelete={noop}
-                onEdit={noop}
-                onMoveColumn={noop}
-              />
-            </div>
-          </DndContext>
+          {/* dnd-kit genera ids no deterministas para la accesibilidad del drag, así
+              que el HTML del servidor y el del cliente nunca coinciden. Montar solo
+              en cliente evita ensuciar la consola del catálogo con un mismatch que
+              no existe en la app, donde el board siempre llega tras la query. */}
+          <ClientOnly>
+            <DndContext>
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                <BoardCard
+                  task={makeTask({
+                    id: "b1",
+                    title: "Card en progreso, estancada",
+                    boardStatus: "in_progress",
+                    boardStatusChangedAt: new Date(daysFromNow(-10)),
+                  })}
+                  systemId={MOCK_SYSTEM_ID}
+                  onToggle={noop}
+                  onDelete={noop}
+                  onEdit={noop}
+                  onMoveColumn={noop}
+                />
+                <BoardCard
+                  task={makeTask({
+                    id: "b2",
+                    title: "Card recién movida a review",
+                    boardStatus: "review",
+                    boardStatusChangedAt: new Date(),
+                    priority: "high",
+                  })}
+                  systemId={MOCK_SYSTEM_ID}
+                  onToggle={noop}
+                  onDelete={noop}
+                  onEdit={noop}
+                  onMoveColumn={noop}
+                />
+              </div>
+            </DndContext>
+          </ClientOnly>
         </div>
       </SubSection>
 

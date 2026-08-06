@@ -1,8 +1,7 @@
 "use client";
 
-import { useState, useSyncExternalStore } from "react";
-import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { Section, SubSection, Specimen, SpecimenGrid } from "../helpers";
+import type { QueryClient } from "@tanstack/react-query";
+import { Section, SubSection, Specimen, SpecimenGrid, Seeded, ClientOnly } from "../helpers";
 import { mockLearningInsight } from "../mock-data";
 import { EnergyBudgetBar } from "@/features/energy/EnergyBudgetBar";
 import { WeeklyRitualPrompt } from "@/features/energy/WeeklyRitualPrompt";
@@ -28,24 +27,6 @@ function seededTask(id: string, energyLevel: string, status: string) {
   return { id, title: `Tarea ${id}`, energyLevel, status };
 }
 
-/** Un QueryClient aislado por specimen, sembrado antes del primer render. */
-function Seeded({
-  seed,
-  children,
-}: {
-  seed: (qc: QueryClient) => void;
-  children: React.ReactNode;
-}) {
-  const [client] = useState(() => {
-    const qc = new QueryClient({
-      defaultOptions: { queries: { retry: false, staleTime: Infinity, gcTime: Infinity } },
-    });
-    seed(qc);
-    return qc;
-  });
-  return <QueryClientProvider client={client}>{children}</QueryClientProvider>;
-}
-
 /**
  * Monta solo en el cliente. La tira del ritual decide si hoy es el día de
  * revisión con `new Date()`, y en producción eso nunca corre en SSR porque los
@@ -54,18 +35,6 @@ function Seeded({
  * pueden discrepar de día y romper la hidratación — un artefacto del specimen,
  * no del componente.
  */
-const subscribeNoop = () => () => {};
-
-function ClientOnly({ children }: { children: React.ReactNode }) {
-  const mounted = useSyncExternalStore(
-    subscribeNoop,
-    () => true,
-    () => false,
-  );
-  if (!mounted) return null;
-  return <>{children}</>;
-}
-
 function seedBudget(tasks: ReturnType<typeof seededTask>[], limit: number) {
   return (qc: QueryClient) => {
     qc.setQueryData(taskKeys.todayPlan(), tasks as never);
