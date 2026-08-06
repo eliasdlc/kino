@@ -20,6 +20,9 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/utils";
+import { useSystemManifest } from "@/features/systems/systems.hooks";
+import { capitalize } from "@/shared/lib/system-manifest";
+import { pagesEmptyCopy } from "@/shared/lib/archetype-copy";
 
 const TAG_DOT: Record<string, string> = {
   red: "bg-red-500", blue: "bg-blue-500", pink: "bg-pink-500",
@@ -39,6 +42,13 @@ export function NotebooksView({ systemId }: NotebooksViewProps) {
   const { mutate: createFolder, isPending: creatingFolder } = useCreateFolder(systemId);
   const { mutateAsync: createPage } = useCreatePage(systemId);
   const { data: allTags = [] } = useTags(systemId);
+
+  // Vocabulario del sistema: aquí no hay "carpetas" y "notebooks" salvo que el
+  // arquetipo (o la composición del usuario) los llame así.
+  const manifest = useSystemManifest(systemId);
+  const folderRole = manifest.folderRole;
+  const pageRole = manifest.pageRole;
+  const empty = pagesEmptyCopy(manifest);
 
   const [folderDialogOpen, setFolderDialogOpen] = useState(false);
   const [folderName, setFolderName] = useState("");
@@ -83,6 +93,8 @@ export function NotebooksView({ systemId }: NotebooksViewProps) {
       <NotebooksToolbar
         onNewFolder={() => setFolderDialogOpen(true)}
         onNewPage={handleCreateNotebook}
+        newFolderLabel={folderRole?.newLabel ?? null}
+        newPageLabel={`${pageRole.gender === "f" ? "Nueva" : "Nuevo"} ${pageRole.noun}`}
       />
 
       {!isLoading && allTags.length > 0 && (
@@ -120,9 +132,8 @@ export function NotebooksView({ systemId }: NotebooksViewProps) {
       {!isLoading && isEmpty && (
         <div className="rounded-lg border border-dashed p-10 text-center space-y-2">
           <Files className="size-8 text-muted-foreground/40 mx-auto" />
-          <p className="text-sm text-muted-foreground">
-            Aún no hay notebooks. Crea una carpeta o notebook para empezar.
-          </p>
+          <p className="text-sm font-medium">{empty.title}</p>
+          <p className="text-sm text-muted-foreground">{empty.hint}</p>
         </div>
       )}
 
@@ -130,7 +141,7 @@ export function NotebooksView({ systemId }: NotebooksViewProps) {
         <section className="space-y-3">
           <p className="text-xs font-semibold uppercase tracking-widest text-muted-foreground flex items-center gap-1.5">
             <FolderOpen className="size-3.5" />
-            Carpetas
+            {capitalize(folderRole?.nounPlural ?? "carpetas")}
           </p>
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
             {folders.map((folder) => (
@@ -149,7 +160,7 @@ export function NotebooksView({ systemId }: NotebooksViewProps) {
         <section className="space-y-3">
           {folders.length > 0 && (
             <p className="text-xs font-semibold uppercase tracking-widest text-muted-foreground">
-              Notebooks
+              {capitalize(pageRole.nounPlural)}
             </p>
           )}
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
@@ -168,7 +179,7 @@ export function NotebooksView({ systemId }: NotebooksViewProps) {
       <ResponsiveDialog open={folderDialogOpen} onOpenChange={setFolderDialogOpen}>
         <ResponsiveDialogContent>
           <ResponsiveDialogHeader>
-            <ResponsiveDialogTitle>Nueva carpeta</ResponsiveDialogTitle>
+            <ResponsiveDialogTitle>{folderRole?.newLabel ?? "Nueva carpeta"}</ResponsiveDialogTitle>
           </ResponsiveDialogHeader>
           <div className="flex flex-col gap-4 pt-1">
             <div className="space-y-1.5">
@@ -176,7 +187,7 @@ export function NotebooksView({ systemId }: NotebooksViewProps) {
               <Input
                 id="folder-name"
                 autoFocus
-                placeholder="Nombre de la carpeta"
+                placeholder={folderRole?.placeholder ?? "Nombre de la carpeta"}
                 value={folderName}
                 onChange={(e) => setFolderName(e.target.value)}
                 onKeyDown={(e) => {
@@ -190,7 +201,7 @@ export function NotebooksView({ systemId }: NotebooksViewProps) {
               disabled={!folderName.trim() || creatingFolder}
             >
               {creatingFolder && <Loader2 className="size-4 animate-spin mr-2" />}
-              {creatingFolder ? "Creando..." : "Crear carpeta"}
+              {creatingFolder ? "Creando..." : `Crear ${folderRole?.noun ?? "carpeta"}`}
             </Button>
           </div>
         </ResponsiveDialogContent>

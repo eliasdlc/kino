@@ -60,7 +60,18 @@ export async function PATCH(
 
     await assertNotInbox(currentSystem);
 
-    const updatedSystem = await updateSystem(id, ctx.userId, parsed.data);
+    // `metadata` es una bolsa compartida (tabs, composición, meta de palabras):
+    // un PATCH que solo toca una clave no puede borrar las demás. `null` explícito
+    // sigue significando "vacía la bolsa".
+    const data =
+      parsed.data.metadata == null
+        ? parsed.data
+        : {
+            ...parsed.data,
+            metadata: { ...(currentSystem.metadata ?? {}), ...parsed.data.metadata },
+          };
+
+    const updatedSystem = await updateSystem(id, ctx.userId, data);
 
     if (!updatedSystem) return NextResponse.json({ code: "NOT_FOUND", message: "System not found" }, { status: 404 });
 

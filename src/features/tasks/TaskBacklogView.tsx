@@ -4,6 +4,8 @@ import { useTasks, useFolderTasks, useToggleTask, useDeleteTaskWithUndo } from "
 import { DefaultTaskCard } from "./cards/DefaultTaskCard";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { useTaskKeyboardNavigation } from "./useTaskKeyboardNavigation";
+import { useSystemManifest } from "@/features/systems/systems.hooks";
+import { tasksEmptyCopy } from "@/shared/lib/archetype-copy";
 
 interface TaskBacklogViewProps {
     systemId: string;
@@ -26,6 +28,8 @@ export function TaskBacklogView({ systemId, initialData, folderId, folderInitial
 
     const { mutate: toggleTask } = useToggleTask(systemId, folderId);
     const { mutate: deleteTask } = useDeleteTaskWithUndo(systemId, folderId);
+    const manifest = useSystemManifest(systemId);
+    const empty = tasksEmptyCopy(manifest, "backlog");
 
     const backlogTasks = tasks.filter((t) => t.status === "backlog");
 
@@ -49,10 +53,8 @@ export function TaskBacklogView({ systemId, initialData, folderId, folderInitial
             </div>
             {backlogTasks.length === 0 ? (
                 <div className="flex flex-col items-center justify-center py-10 text-center space-y-2 border border-dashed rounded-lg bg-card">
-                    <p className="text-base font-medium">¡Todo al día!</p>
-                    <p className="text-sm text-muted-foreground">
-                        Tu backlog está completamente vacío. Todo está programado o completado.
-                    </p>
+                    <p className="text-base font-medium">{empty.title}</p>
+                    <p className="text-sm text-muted-foreground">{empty.hint}</p>
                 </div>
             ) : (
                 <div className="flex flex-col gap-3 w-full">

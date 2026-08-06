@@ -16,9 +16,29 @@ export const createSystemSchema = z.object({
 
 const systemTabIdSchema = z.enum(["backlog", "planning", "action", "archive"]);
 
+// Sustantivos que el usuario elige para SU sistema (D16). Cortos a propósito:
+// caben en un chip de sidebar y en un CTA sin romper el layout.
+const nounSchema = z.string().trim().min(1).max(24);
+
+export const systemCompositionSchema = z.object({
+  containers: z
+    .object({ enabled: z.boolean(), noun: nounSchema, nounPlural: nounSchema })
+    .optional(),
+  pages: z
+    .object({ noun: nounSchema, nounPlural: nounSchema, primary: z.boolean() })
+    .optional(),
+  // El id lo deriva la UI del label y no vuelve a cambiar: las tareas guardadas
+  // apuntan a él. El tope evita convertir el selector en un menú infinito.
+  taskKinds: z
+    .array(z.object({ id: z.string().min(1).max(40), label: z.string().trim().min(1).max(32) }))
+    .max(8)
+    .optional(),
+});
+
 export const systemMetadataSchema = z.object({
   tabs: z.array(systemTabIdSchema).optional(),
   defaultTab: systemTabIdSchema.optional(),
+  composition: systemCompositionSchema.optional(),
   // Solo Writing: meta diaria de palabras. 0 la desactiva sin borrar la clave.
   dailyWordGoal: z.coerce.number().int().min(0).max(100_000).optional(),
 });

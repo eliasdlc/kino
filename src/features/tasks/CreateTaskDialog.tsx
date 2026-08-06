@@ -29,7 +29,8 @@ import { dayToLocalISO } from "./tasks.utils";
 import { parseQuickInput, stripAccents } from "./quick-date-parse";
 import { minutesToTimeString } from "./EstimatedTimePicker";
 import { useQueryClient } from "@tanstack/react-query";
-import { SYSTEM_TYPE_CONFIG, type SystemType } from "@/shared/lib/system-types";
+import { type SystemType } from "@/shared/lib/system-types";
+import { resolveSystemManifest } from "@/shared/lib/system-manifest";
 import type { System } from "@/features/systems/systems.types";
 import { useSprints } from "@/features/sprints/sprints.hooks";
 import { TaskPlanningFields } from "./TaskPlanningFields";
@@ -114,12 +115,15 @@ export function CreateTaskDialog({
 
   // Derive energy default from system type (zero-cost: reads from cache)
   const cachedSystems = queryClient.getQueryData<System[]>(['systems']);
-  const systemTemplateType = cachedSystems?.find((s) => s.id === systemId)?.templateType as SystemType | undefined;
+  const cachedSystem = cachedSystems?.find((s) => s.id === systemId);
+  const systemTemplateType = cachedSystem?.templateType as SystemType | undefined;
   const isProjectSystem = systemTemplateType === 'project';
   const { data: sprints = [] } = useSprints(systemId, { enabled: isProjectSystem });
   const dialogFields = getTaskDialogFields(systemTemplateType);
-  const taskKinds = systemTemplateType ? SYSTEM_TYPE_CONFIG[systemTemplateType]?.taskKinds ?? [] : [];
-  const rawEnergyDefault = systemTemplateType ? SYSTEM_TYPE_CONFIG[systemTemplateType]?.energyDefault : null;
+  // Manifiesto EFECTIVO: en un sistema custom los kinds los compuso el usuario.
+  const manifest = resolveSystemManifest(cachedSystem);
+  const taskKinds = manifest.taskKinds;
+  const rawEnergyDefault = manifest.energyDefault;
   const energyDefault: 'high' | 'medium' | 'low' =
     rawEnergyDefault === 'high' ? 'high' : rawEnergyDefault === 'low' ? 'low' : 'medium';
 
