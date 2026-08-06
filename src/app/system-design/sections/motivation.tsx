@@ -13,6 +13,7 @@ import {
   makeTimelineReport,
   makePlotGrid,
   makeSnapshots,
+  makeStudioReport,
   MOCK_PAGE_ID,
   makeFolder,
   makeSystem,
@@ -24,6 +25,7 @@ import { LooseThreads } from "@/features/writing/LooseThreads";
 import { InWorldTimeline } from "@/features/writing/InWorldTimeline";
 import { PlotGridView } from "@/features/writing/PlotGridView";
 import { ChapterHistory } from "@/features/writing/ChapterHistory";
+import { Studio } from "@/features/writing/Studio";
 import { celebrate } from "@/features/writing/celebrate";
 import { writingKeys } from "@/features/writing/writing.hooks";
 import { folderKeys } from "@/features/folders/folders.hooks";
@@ -32,6 +34,7 @@ import type { LooseThreadsReport } from "@/features/writing/chekhov";
 import type { TimelineReport } from "@/features/writing/timeline";
 import type { PlotGrid } from "@/features/writing/writing.plot";
 import type { SnapshotListItem } from "@/features/writing/snapshots";
+import type { StudioReport } from "@/features/writing/writing.studio";
 
 /**
  * El panel de motivación de escritura (PLAN-11 W4).
@@ -257,7 +260,34 @@ export function MotivationSection() {
           </Specimen>
         </SpecimenGrid>
       </SubSection>
+
+      <SubSection
+        title="Estudio"
+        description="Qué escribir hoy, sin LLM: sale de sesiones, menciones y capítulos que Kino ya tenía. Cada sugerencia enseña el dato del que viene — eso es lo que separa una señal de una corazonada."
+      >
+        <SpecimenGrid>
+          <Specimen label="Con señales" hint="Studio · sugerencias y huecos del codex">
+            <StudioSpecimen report={makeStudioReport()} />
+          </Specimen>
+
+          <Specimen label="Nada que señalar" hint="ninguna señal activa">
+            <StudioSpecimen
+              report={makeStudioReport({ suggestions: [], codexGaps: [], looseThreadCount: 0 })}
+            />
+          </Specimen>
+        </SpecimenGrid>
+      </SubSection>
     </Section>
+  );
+}
+
+function StudioSpecimen({ report }: { report: StudioReport }) {
+  return (
+    <Seeded seed={(qc) => qc.setQueryData(writingKeys.studio(MOCK_SYSTEM_ID), report)}>
+      <div className="w-full">
+        <Studio systemId={MOCK_SYSTEM_ID} />
+      </div>
+    </Seeded>
   );
 }
 

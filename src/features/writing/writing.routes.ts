@@ -17,6 +17,7 @@ import {
 import { getManuscript } from "./writing.manuscript";
 import { applyPlotOperation, getPlotGrid } from "./writing.plot";
 import { getSnapshot, listSnapshots, restoreSnapshot } from "./writing.snapshots";
+import { getChapterSummary, getStudioReport } from "./writing.studio";
 import { ForbiddenError } from "@/shared/utils/error";
 
 const UNAUTHORIZED = { code: "UNAUTHORIZED", message: "Unauthorized" };
@@ -315,6 +316,38 @@ export async function postSnapshotRestore(
     return NextResponse.json({ code: "NOT_FOUND", message: "Snapshot not found" }, { status: 404 });
   }
   return NextResponse.json(restored);
+}
+
+// GET /api/systems/[id]/studio — qué escribir hoy y huecos del universo (KIN-143)
+export async function getSystemStudio(
+  request: NextRequest,
+  { params }: { params: Promise<{ id: string }> },
+) {
+  const ctx = await getAuthContext(request);
+  if (!ctx) return NextResponse.json(UNAUTHORIZED, { status: 401 });
+
+  const { id: systemId } = await params;
+  const report = await getStudioReport(ctx.userId, systemId);
+  if (!report) {
+    return NextResponse.json({ code: "NOT_FOUND", message: "System not found" }, { status: 404 });
+  }
+  return NextResponse.json(report);
+}
+
+// GET /api/pages/[id]/summary — resumen extractivo del capítulo
+export async function getPageSummary(
+  request: NextRequest,
+  { params }: { params: Promise<{ id: string }> },
+) {
+  const ctx = await getAuthContext(request);
+  if (!ctx) return NextResponse.json(UNAUTHORIZED, { status: 401 });
+
+  const { id: pageId } = await params;
+  const summary = await getChapterSummary(ctx.userId, pageId);
+  if (!summary) {
+    return NextResponse.json({ code: "NOT_FOUND", message: "Page not found" }, { status: 404 });
+  }
+  return NextResponse.json(summary);
 }
 
 const isoDate = z.string().refine((v) => !Number.isNaN(Date.parse(v)), "Fecha inválida");

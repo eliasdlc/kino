@@ -8,6 +8,7 @@ import type { TimelineReport } from "./timeline";
 import type { Manuscript } from "./writing.manuscript";
 import type { PlotGrid, PlotOperation } from "./writing.plot";
 import type { SnapshotDetail, SnapshotListItem } from "./snapshots";
+import type { ChapterSummary, StudioReport } from "./writing.studio";
 
 async function jsonOrThrow<T>(res: Response, fallback: string): Promise<T> {
   if (!res.ok) {
@@ -26,7 +27,38 @@ export const writingKeys = {
   plot: (folderId: string) => ["writing", "plot", folderId] as const,
   snapshots: (pageId: string) => ["writing", "snapshots", pageId] as const,
   snapshot: (snapshotId: string) => ["writing", "snapshot", snapshotId] as const,
+  studio: (systemId: string) => ["writing", "studio", systemId] as const,
+  summary: (pageId: string) => ["writing", "summary", pageId] as const,
 };
+
+/** Qué escribir hoy y huecos del universo (KIN-143). */
+export function useStudio(systemId: string | null) {
+  return useQuery<StudioReport>({
+    queryKey: writingKeys.studio(systemId ?? "none"),
+    queryFn: () =>
+      fetch(`/api/systems/${systemId}/studio`).then((r) =>
+        jsonOrThrow(r, "No se pudo cargar el estudio"),
+      ),
+    enabled: !!systemId,
+    // Depende de la hora local y de lo escrito hoy: al volver a la ventana, se
+    // vuelve a mirar.
+    refetchOnWindowFocus: true,
+    staleTime: 30_000,
+  });
+}
+
+/** Resumen extractivo del capítulo. */
+export function useChapterSummary(pageId: string | null) {
+  return useQuery<ChapterSummary>({
+    queryKey: writingKeys.summary(pageId ?? "none"),
+    queryFn: () =>
+      fetch(`/api/pages/${pageId}/summary`).then((r) =>
+        jsonOrThrow(r, "No se pudo resumir el capítulo"),
+      ),
+    enabled: !!pageId,
+    staleTime: 60_000,
+  });
+}
 
 /** Historial de versiones de un capítulo (KIN-142). Sin el texto: solo metadatos. */
 export function useSnapshots(pageId: string | null) {
