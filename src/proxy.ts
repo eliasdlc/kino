@@ -51,6 +51,8 @@ export async function proxy(request: NextRequest) {
     pathname === "/" ||
     pathname.startsWith("/docs") ||
     pathname.startsWith("/login") ||
+    // Catálogo visual de la UI (sin datos de usuario, noindex)
+    pathname.startsWith("/system-design") ||
     pathname.startsWith("/register") ||
     pathname.startsWith("/api/auth") ||
     pathname.startsWith("/api/cron/") ||
