@@ -30,6 +30,7 @@ import { PageBreadcrumb } from "@/components/PageBreadcrumb";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { MoreHorizontal, Inbox, Plus } from "lucide-react";
+import { ReclaimSpaceSection } from "@/features/uploads/ReclaimSpaceSection";
 
 export function ContentSection() {
   return (
@@ -248,6 +249,17 @@ export function ContentSection() {
           <Badge variant="ghost">Backlog</Badge>
           <Badge>Sugerida</Badge>
         </div>
+      </SubSection>
+
+      <SubSection
+        title="Datos y portabilidad"
+        description="Las filas de acción de Settings. Sin backend en esta página, el botón renderiza su estado en reposo."
+      >
+        <Specimen label="Liberar espacio" hint="ReclaimSpaceSection">
+          <div className="w-full">
+            <ReclaimSpaceSection />
+          </div>
+        </Specimen>
       </SubSection>
     </Section>
   );

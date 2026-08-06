@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getAuthContext } from "@/shared/utils/auth-context";
-import { getImageStorage } from "./image-storage";
+import { getImageStorage, userKeyPrefix } from "./image-storage";
+import { sweepOrphanImagesForUser } from "./uploads.service";
 
 const MAX_BYTES = 4 * 1024 * 1024; // 4MB — tras compresión WebP client-side sobra.
 const EXT_BY_TYPE: Record<string, string> = {
@@ -53,7 +54,7 @@ export async function uploadImage(request: NextRequest) {
     const { url } = await storage.upload({
       data: buffer,
       contentType,
-      keyPrefix: `u/${ctx.userId}`,
+      keyPrefix: userKeyPrefix(ctx.userId),
       ext,
     });
     return NextResponse.json({ url }, { status: 201 });
@@ -63,4 +64,26 @@ export async function uploadImage(request: NextRequest) {
       { status: 502 },
     );
   }
+}
+
+/**
+ * POST /api/uploads/sweep — borra las imágenes del usuario que ya no referencia
+ * ningún contenido vivo. Es la forma de recuperar el espacio que se perdió antes
+ * de que existiera el barrido; el cron hace lo mismo a diario.
+ */
+export async function sweepOrphanImages(request: NextRequest) {
+  const ctx = await getAuthContext(request);
+  if (!ctx) {
+    return NextResponse.json({ code: "UNAUTHORIZED", message: "Unauthorized" }, { status: 401 });
+  }
+
+  const result = await sweepOrphanImagesForUser(ctx.userId);
+  if (!result) {
+    return NextResponse.json(
+      { code: "STORAGE_UNAVAILABLE", message: "El almacenamiento de imágenes no está configurado" },
+      { status: 503 },
+    );
+  }
+
+  return NextResponse.json(result, { status: 200 });
 }

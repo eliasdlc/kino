@@ -19,6 +19,7 @@ import { ApiKeysSection } from "@/features/api-keys/ApiKeysSection";
 import { EnergyLimitSection } from "@/features/settings/EnergyLimitSection";
 import { TimezoneSection } from "@/features/settings/TimezoneSection";
 import { WeeklyReviewDaySection } from "@/features/settings/WeeklyReviewDaySection";
+import { ReclaimSpaceSection } from "@/features/uploads/ReclaimSpaceSection";
 import {
   useUserSettings,
   useUpdateUserSettings,
@@ -343,6 +344,8 @@ export default function SettingsPage() {
               Exportar ZIP
             </Button>
           </div>
+
+          <ReclaimSpaceSection />
         </div>
       </div>
     </PageWrapper>
