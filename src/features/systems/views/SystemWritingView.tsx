@@ -169,6 +169,15 @@ function ObraCard({ obra, manuscripts, systemId, pulse }: {
           <History size={15} />
           Diario
         </button>
+        {manuscripts.length > 0 && (
+          <Link
+            href={`/systems/${systemId}/folders/${obra.id}/lectura`}
+            className="flex items-center gap-1.5 text-sm text-muted-foreground transition-colors hover:text-foreground"
+          >
+            <BookOpen size={15} />
+            Leer
+          </Link>
+        )}
       </div>
 
       <WorkJournalDialog
