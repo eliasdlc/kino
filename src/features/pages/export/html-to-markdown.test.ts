@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { exportFileMeta, htmlToMarkdown } from "./html-to-markdown";
+import { rewriteImageUrls } from "@/features/uploads/image-refs";
 
 describe("htmlToMarkdown — prosa", () => {
   it("mantiene el comportamiento base del editor", () => {
@@ -96,6 +97,27 @@ describe("htmlToMarkdown — guion audiovisual (Fountain)", () => {
     expect(md).toContain("### INT. CASA DE KAEL - NOCHE");
     expect(md).toContain("**KAEL**");
     expect(md).toContain("_(en voz baja)_");
+  });
+});
+
+// Lo que hace el export del workspace: reescribir los `src` a la copia local y
+// entonces serializar. Es la composición que decide si el ZIP abre con imágenes.
+describe("htmlToMarkdown — imágenes empaquetadas", () => {
+  const BLOB = "https://abc.public.blob.vercel-storage.com/u/user-1/foto.webp";
+
+  it("emite la ruta relativa al assets del ZIP", () => {
+    const html = `<p>antes</p><img src="${BLOB}" alt="La torre"><p>después</p>`;
+    const md = htmlToMarkdown(rewriteImageUrls(html, new Map([[BLOB, "../../assets/foto.webp"]])));
+
+    expect(md).toContain("![La torre](../../assets/foto.webp)");
+    expect(md).not.toContain("blob.vercel-storage.com");
+  });
+
+  it("deja intacta la imagen que no se pudo empaquetar", () => {
+    const externa = "https://ajena.example/foto.png";
+    const md = htmlToMarkdown(rewriteImageUrls(`<img src="${externa}">`, new Map()));
+
+    expect(md).toContain(externa);
   });
 });
 

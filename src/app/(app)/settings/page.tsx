@@ -25,6 +25,7 @@ import {
 } from "@/features/settings/settings.hooks";
 import { authClient } from "@/auth-client";
 import { useRouter } from "next/navigation";
+import { toast } from "sonner";
 
 import { Kbd } from "@/components/ui/kbd";
 
@@ -298,7 +299,8 @@ export default function SettingsPage() {
             <div className="space-y-0.5">
               <p className="text-sm font-medium">Exportar workspace completo</p>
               <p className="text-xs text-muted-foreground">
-                Descarga un ZIP con todos tus sistemas, tareas, carpetas y cuadernos en Markdown y JSON.
+                Descarga un ZIP con todos tus sistemas, tareas, carpetas y cuadernos en Markdown y
+                JSON, con las imágenes incluidas.
               </p>
             </div>
             <Button
@@ -306,8 +308,21 @@ export default function SettingsPage() {
               size="sm"
               className="gap-2 shrink-0"
               onClick={async () => {
-                const res = await fetch("/api/export/workspace");
-                if (!res.ok) return;
+                let res: Response;
+                try {
+                  res = await fetch("/api/export/workspace");
+                } catch {
+                  toast.error("No se pudo generar el export");
+                  return;
+                }
+                if (!res.ok) {
+                  toast.error("No se pudo generar el export");
+                  return;
+                }
+                // El export nunca falla por una imagen: las que no cupieron en el
+                // presupuesto se quedan apuntando a su URL remota, y avisarlo es
+                // preferible a que el usuario lo descubra abriendo el ZIP.
+                const skipped = Number(res.headers.get("X-Kino-Images-Skipped") ?? 0);
                 const blob = await res.blob();
                 const url = URL.createObjectURL(blob);
                 const a = document.createElement("a");
@@ -315,6 +330,13 @@ export default function SettingsPage() {
                 a.download = "kino-workspace.zip";
                 a.click();
                 URL.revokeObjectURL(url);
+                if (skipped > 0) {
+                  toast.warning(
+                    `${skipped} ${skipped === 1 ? "imagen quedó fuera" : "imágenes quedaron fuera"} del ZIP y siguen apuntando a su URL original.`,
+                  );
+                } else {
+                  toast.success("Export listo");
+                }
               }}
             >
               <Download className="size-4" />

@@ -15,6 +15,31 @@ export interface ImageStorage {
     ext: string;
   }): Promise<{ url: string }>;
   delete(url: string): Promise<void>;
+  /**
+   * ¿Esta URL la sirve este store? Distinguir lo propio de lo ajeno es lo que
+   * permite descargar sin exponerse a SSRF: el contenido del usuario puede
+   * apuntar a cualquier host, y el servidor solo debe traerse lo suyo.
+   */
+  owns(url: string): boolean;
+  /** Descarga un blob propio. `null` si no existe o no responde. */
+  download(url: string): Promise<{ data: ArrayBuffer; contentType: string } | null>;
+}
+
+/**
+ * ¿La URL apunta a un store de Vercel Blob? Es la barrera que impide que el
+ * servidor se descargue una URL cualquiera del contenido del usuario (SSRF), así
+ * que se compara el sufijo **con el punto delante**: sin él, un host del estilo
+ * `evilblob.vercel-storage.com` pasaría el filtro.
+ */
+export function isVercelBlobUrl(url: string): boolean {
+  try {
+    const parsed = new URL(url);
+    if (parsed.protocol !== "https:") return false;
+    // Los stores sirven desde `<storeId>.public.blob.vercel-storage.com`.
+    return parsed.hostname.toLowerCase().endsWith(".blob.vercel-storage.com");
+  } catch {
+    return false;
+  }
 }
 
 class VercelBlobStorage implements ImageStorage {
@@ -38,6 +63,20 @@ class VercelBlobStorage implements ImageStorage {
 
   async delete(url: string): Promise<void> {
     await del(url, { token: this.token });
+  }
+
+  owns(url: string): boolean {
+    return isVercelBlobUrl(url);
+  }
+
+  async download(url: string): Promise<{ data: ArrayBuffer; contentType: string } | null> {
+    if (!this.owns(url)) return null;
+    const res = await fetch(url);
+    if (!res.ok) return null;
+    return {
+      data: await res.arrayBuffer(),
+      contentType: res.headers.get("content-type") ?? "application/octet-stream",
+    };
   }
 }
 
