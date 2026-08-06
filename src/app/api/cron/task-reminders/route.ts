@@ -18,7 +18,8 @@ async function handle(req: Request) {
 }
 
 // Vercel Cron dispara por GET; un cron externo (cron-job.org, cada 15 min para
-// los remind_at exactos — ver docs/CRON-REMINDERS.md) puede usar cualquiera de
+// los remind_at exactos — ver el doc "Operación — cron externo de reminders (D4)"
+// en Linear) puede usar cualquiera de
 // los dos. Ambos comparten el mismo guard por Bearer CRON_SECRET.
 export const GET = handle;
 export const POST = handle;

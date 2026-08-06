@@ -775,7 +775,7 @@ export const folders = pgTable(
     // Campos propios del rol de folder por arquetipo (professor/horario/semestre en
     // Academic, targetDate en Entrepreneurial, kind/wordGoal en Writing). El shape
     // depende del systemType; se valida server-side con un Zod discriminado. Ver
-    // folders.metadata.ts y docs/DISENO-ARQUETIPOS-2026-07.md (D10).
+    // folders.metadata.ts y D10 en el doc "Índice de decisiones D1–D16" de Linear.
     metadata: jsonb('metadata').$type<Record<string, unknown> | null>(),
     createdAt: timestamp('created_at', { withTimezone: true })
       .notNull()
