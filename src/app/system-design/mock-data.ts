@@ -17,6 +17,7 @@ import type {
   WritingSession,
   WorkJournal,
 } from "@/features/writing/writing.types";
+import type { LooseThread, LooseThreadsReport } from "@/features/writing/chekhov";
 
 /**
  * Datos de muestra para el catálogo visual. Los componentes compuestos de Kino
@@ -396,6 +397,66 @@ export function makeWorkJournal(overrides: Partial<WorkJournal> = {}): WorkJourn
         cumulativeWords: 22_250,
         milestones: [],
       },
+    ],
+    ...overrides,
+  };
+}
+
+function makeLooseThread(overrides: Partial<LooseThread> = {}): LooseThread {
+  return {
+    entityId: uuid(500),
+    name: "La Daga",
+    type: "object",
+    totalMentions: 2,
+    chapterCount: 1,
+    firstChapter: { index: 2, id: uuid(600), title: "Capítulo 2 · El gremio" },
+    lastChapter: { index: 2, id: uuid(600), title: "Capítulo 2 · El gremio" },
+    silentChapters: 5,
+    resolved: false,
+    reopened: false,
+    ...overrides,
+  };
+}
+
+export function makeLooseThreadsReport(
+  overrides: Partial<LooseThreadsReport> = {},
+): LooseThreadsReport {
+  return {
+    folderId: MOCK_FOLDER_ID,
+    folderName: "La marea baja",
+    chapterCount: 7,
+    settings: { maxMentions: 3, minSilentChapters: 3 },
+    threads: [
+      makeLooseThread(),
+      makeLooseThread({
+        entityId: uuid(501),
+        name: "Marea Baja",
+        type: "event",
+        totalMentions: 1,
+        silentChapters: 4,
+        firstChapter: { index: 3, id: uuid(601), title: "Capítulo 3" },
+        lastChapter: { index: 3, id: uuid(601), title: "Capítulo 3" },
+      }),
+      makeLooseThread({
+        entityId: uuid(502),
+        name: "Bruno Salazar",
+        type: "character",
+        totalMentions: 3,
+        silentChapters: 3,
+        reopened: true,
+        firstChapter: { index: 1, id: uuid(602), title: "Capítulo 1" },
+        lastChapter: { index: 4, id: uuid(603), title: "Capítulo 4 · La niebla" },
+      }),
+      makeLooseThread({
+        entityId: uuid(503),
+        name: "El posadero",
+        type: "character",
+        totalMentions: 1,
+        silentChapters: 6,
+        resolved: true,
+        firstChapter: { index: 1, id: uuid(602), title: "Capítulo 1" },
+        lastChapter: { index: 1, id: uuid(602), title: "Capítulo 1" },
+      }),
     ],
     ...overrides,
   };

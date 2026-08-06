@@ -919,6 +919,11 @@ export const entities = pgTable(
       .$type<string[]>()
       .notNull()
       .default(sql`'[]'::jsonb`),
+    // Detector de hilos sueltos (KIN-137): menciones que la entidad tenía cuando
+    // el autor dio el hilo por cerrado. NULL = nunca se cerró. Se guarda el
+    // conteo y no una fecha a propósito — si la entidad vuelve a nombrarse, el
+    // número de hoy supera al de entonces y el hilo se reabre solo.
+    threadResolvedMentions: integer('thread_resolved_mentions'),
     deletedAt: timestamp('deleted_at', { withTimezone: true }),
     createdAt: timestamp('created_at', { withTimezone: true })
       .notNull()

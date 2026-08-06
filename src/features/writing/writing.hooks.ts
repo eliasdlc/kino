@@ -3,6 +3,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { pageKeys } from "@/features/pages/pages.hooks";
 import type { WorkJournal, WritingOverview } from "./writing.types";
+import type { LooseThreadsReport } from "./chekhov";
 
 async function jsonOrThrow<T>(res: Response, fallback: string): Promise<T> {
   if (!res.ok) {
@@ -15,7 +16,63 @@ async function jsonOrThrow<T>(res: Response, fallback: string): Promise<T> {
 export const writingKeys = {
   overview: (systemId: string) => ["writing", "overview", systemId] as const,
   journal: (folderId: string) => ["writing", "journal", folderId] as const,
+  threads: (folderId: string) => ["writing", "threads", folderId] as const,
 };
+
+/** Hilos sueltos de una obra (KIN-137). */
+export function useLooseThreads(folderId: string | null) {
+  return useQuery<LooseThreadsReport>({
+    queryKey: writingKeys.threads(folderId ?? "none"),
+    queryFn: () =>
+      fetch(`/api/folders/${folderId}/threads`).then((r) =>
+        jsonOrThrow(r, "No se pudieron cargar los hilos sueltos"),
+      ),
+    enabled: !!folderId,
+    staleTime: 30_000,
+  });
+}
+
+/**
+ * Cierra o reabre un hilo. Optimista: la lista se reordena sola en el server, así
+ * que aquí solo se conmuta la bandera y se revalida — el patrón canónico de
+ * mutación del proyecto con el rollback incluido.
+ */
+export function useResolveThread(folderId: string) {
+  const qc = useQueryClient();
+  return useMutation<
+    { id: string; threadResolvedMentions: number | null },
+    Error,
+    { entityId: string; resolved: boolean },
+    { prev?: LooseThreadsReport }
+  >({
+    mutationFn: ({ entityId, resolved }) =>
+      fetch(`/api/entities/${entityId}/thread`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ resolved }),
+      }).then((r) => jsonOrThrow(r, "No se pudo actualizar el hilo")),
+    onMutate: async ({ entityId, resolved }) => {
+      const key = writingKeys.threads(folderId);
+      await qc.cancelQueries({ queryKey: key });
+      const prev = qc.getQueryData<LooseThreadsReport>(key);
+      if (prev) {
+        qc.setQueryData<LooseThreadsReport>(key, {
+          ...prev,
+          threads: prev.threads.map((t) =>
+            t.entityId === entityId ? { ...t, resolved, reopened: false } : t,
+          ),
+        });
+      }
+      return { prev };
+    },
+    onError: (_err, _vars, context) => {
+      if (context?.prev) qc.setQueryData(writingKeys.threads(folderId), context.prev);
+    },
+    onSettled: () => {
+      qc.invalidateQueries({ queryKey: writingKeys.threads(folderId) });
+    },
+  });
+}
 
 /** Racha, palabras de hoy, ventana creativa y pulso de cada obra. */
 export function useWritingOverview(systemId: string, enabled = true) {

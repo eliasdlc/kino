@@ -4,13 +4,24 @@ import { useState } from "react";
 import type { QueryClient } from "@tanstack/react-query";
 import { Flame, PartyPopper, Target } from "lucide-react";
 import { Section, SubSection, Specimen, SpecimenGrid, Seeded, ClientOnly } from "../helpers";
-import { MOCK_SYSTEM_ID, MOCK_FOLDER_ID, makeWritingOverview, makeWorkJournal } from "../mock-data";
+import {
+  MOCK_SYSTEM_ID,
+  MOCK_FOLDER_ID,
+  makeWritingOverview,
+  makeWorkJournal,
+  makeLooseThreadsReport,
+  makeFolder,
+  makeSystem,
+} from "../mock-data";
 import { Button } from "@/components/ui/button";
 import { WritingPulse } from "@/features/writing/WritingPulse";
 import { WorkJournalDialog } from "@/features/writing/WorkJournalDialog";
+import { LooseThreads } from "@/features/writing/LooseThreads";
 import { celebrate } from "@/features/writing/celebrate";
 import { writingKeys } from "@/features/writing/writing.hooks";
+import { folderKeys } from "@/features/folders/folders.hooks";
 import type { WritingOverview } from "@/features/writing/writing.types";
+import type { LooseThreadsReport } from "@/features/writing/chekhov";
 
 /**
  * El panel de motivación de escritura (PLAN-11 W4).
@@ -163,6 +174,50 @@ export function MotivationSection() {
           <JournalSpecimen />
         </Specimen>
       </SubSection>
+
+      <SubSection
+        title="Hilos sueltos"
+        description="Continuidad narrativa sin LLM: aritmética sobre las menciones ya indexadas. Cada hallazgo dice en qué capítulo fue, así que se verifica en un clic. Cerrar un hilo lo silencia hasta que la entidad vuelva a nombrarse."
+      >
+        <SpecimenGrid>
+          <Specimen label="Con hallazgos" hint="LooseThreads · uno retomado, uno cerrado">
+            <ThreadsSpecimen report={makeLooseThreadsReport()} />
+          </Specimen>
+
+          <Specimen label="Nada olvidado" hint="ningún hilo cumple el criterio">
+            <ThreadsSpecimen report={makeLooseThreadsReport({ threads: [] })} />
+          </Specimen>
+
+          <Specimen label="Obra sin capítulos" hint="el silencio se cuenta en capítulos">
+            <ThreadsSpecimen
+              report={makeLooseThreadsReport({ threads: [], chapterCount: 0 })}
+            />
+          </Specimen>
+        </SpecimenGrid>
+      </SubSection>
     </Section>
+  );
+}
+
+const MOCK_WRITING_SYSTEM = makeSystem({
+  id: MOCK_SYSTEM_ID,
+  name: "Escritura",
+  templateType: "writing",
+});
+
+function ThreadsSpecimen({ report }: { report: LooseThreadsReport }) {
+  return (
+    <Seeded
+      seed={(qc) => {
+        qc.setQueryData(folderKeys.bySystem(MOCK_SYSTEM_ID), [
+          makeFolder({ id: MOCK_FOLDER_ID, name: report.folderName }),
+        ]);
+        qc.setQueryData(writingKeys.threads(MOCK_FOLDER_ID), report);
+      }}
+    >
+      <div className="w-full">
+        <LooseThreads system={MOCK_WRITING_SYSTEM} />
+      </div>
+    </Seeded>
   );
 }

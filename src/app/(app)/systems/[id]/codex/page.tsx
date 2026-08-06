@@ -7,6 +7,7 @@ import { PageBreadcrumb } from "@/components/PageBreadcrumb";
 import { CodexLibrary } from "@/features/entities/CodexLibrary";
 import { CodexNav } from "@/features/entities/CodexNav";
 import { UniverseGraphLazy } from "@/features/entities/UniverseGraphLazy";
+import { LooseThreads } from "@/features/writing/LooseThreads";
 import { resolveCodexView } from "@/features/entities/codex.views";
 
 export default async function CodexPage({
@@ -51,6 +52,8 @@ export default async function CodexPage({
         <div className="mt-5">
           {view === "grafo" ? (
             <UniverseGraphLazy systemId={id} />
+          ) : view === "hilos" ? (
+            <LooseThreads system={system} />
           ) : (
             <CodexLibrary systemId={id} />
           )}
