@@ -13,10 +13,13 @@ import { ReadingView } from "@/features/writing/ReadingView";
  */
 export default async function ReadingRoute({
   params,
+  searchParams,
 }: {
   params: Promise<{ id: string; folderId: string }>;
+  searchParams: Promise<{ print?: string }>;
 }) {
   const { id: systemId, folderId } = await params;
+  const { print } = await searchParams;
   const session = await auth.api.getSession({ headers: await headers() });
   if (!session) redirect("/login");
 
@@ -43,7 +46,7 @@ export default async function ReadingRoute({
         />
       </div>
       <div className="p-4 md:p-8">
-        <ReadingView manuscript={manuscript} />
+        <ReadingView manuscript={manuscript} autoPrint={print === "1"} />
       </div>
     </div>
   );

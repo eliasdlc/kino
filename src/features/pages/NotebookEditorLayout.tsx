@@ -20,6 +20,7 @@ import { usePinnedReferences } from "@/features/writing/pinned-references";
 import { EditorShortcutsHelp } from "./EditorShortcutsHelp";
 import { useSubPages, useCreateSubPage } from "./pages.hooks";
 import { htmlToMarkdown, exportFileMeta } from "./export/html-to-markdown";
+import { downloadBlob, slugify } from "@/shared/utils/download";
 import { ManuscriptOutline } from "./mediums/ManuscriptOutline";
 import type { OutlineItem } from "./mediums/outline";
 import type { BreadcrumbItem } from "@/components/PageBreadcrumb";
@@ -43,22 +44,6 @@ const NotebookEditorSurface = dynamic(() => import("./NotebookEditorSurface"), {
     </div>
   ),
 });
-
-function slugify(title: string): string {
-  return (title || "sin-titulo")
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, "-")
-    .replace(/^-+|-+$/g, "");
-}
-
-function downloadBlob(blob: Blob, filename: string) {
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement("a");
-  a.href = url;
-  a.download = filename;
-  a.click();
-  URL.revokeObjectURL(url);
-}
 
 function ExportPanel({
   page,

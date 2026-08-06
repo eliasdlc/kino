@@ -14,6 +14,7 @@ import {
 import { WritingPulse } from "@/features/writing/WritingPulse";
 import { WorkJournalDialog } from "@/features/writing/WorkJournalDialog";
 import { useWritingOverview } from "@/features/writing/writing.hooks";
+import { CompileMenu } from "@/features/writing/CompileMenu";
 import { useState } from "react";
 import {
   BookMarked,
@@ -170,13 +171,16 @@ function ObraCard({ obra, manuscripts, systemId, pulse }: {
           Diario
         </button>
         {manuscripts.length > 0 && (
-          <Link
-            href={`/systems/${systemId}/folders/${obra.id}/lectura`}
-            className="flex items-center gap-1.5 text-sm text-muted-foreground transition-colors hover:text-foreground"
-          >
-            <BookOpen size={15} />
-            Leer
-          </Link>
+          <>
+            <Link
+              href={`/systems/${systemId}/folders/${obra.id}/lectura`}
+              className="flex items-center gap-1.5 text-sm text-muted-foreground transition-colors hover:text-foreground"
+            >
+              <BookOpen size={15} />
+              Leer
+            </Link>
+            <CompileMenu folderId={obra.id} systemId={systemId} />
+          </>
         )}
       </div>
 
