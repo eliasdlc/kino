@@ -11,6 +11,8 @@ const subscribeSchema = z.object({
   }),
 });
 
+// Session-only a propósito (KIN-144): requiere el PushSubscription del
+// navegador, que sólo existe en una sesión de UI. No migrar a getAuthContext.
 export async function POST(req: Request) {
   const session = await auth.api.getSession({ headers: await headers() });
   if (!session) return Response.json({ code: 'UNAUTHORIZED' }, { status: 401 });
