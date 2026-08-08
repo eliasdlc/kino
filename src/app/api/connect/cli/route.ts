@@ -3,6 +3,8 @@ import { headers } from 'next/headers';
 import { auth } from '@/auth';
 import { generateApiKeyReplacing } from '@/features/api-keys/api-keys.service';
 
+// Session-only a propósito (KIN-144): es el pairing del CLI, arranca desde el
+// navegador y emite una API key. Aceptar Bearer sería escalada de privilegio.
 export async function GET(request: NextRequest) {
   const { searchParams, origin } = new URL(request.url);
   const portStr = searchParams.get('port');

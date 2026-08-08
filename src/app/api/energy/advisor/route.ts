@@ -1,12 +1,13 @@
-import { headers } from 'next/headers';
-import { NextResponse } from 'next/server';
-import { auth } from '@/auth';
+import { NextRequest, NextResponse } from 'next/server';
+import { getAuthContext } from '@/shared/utils/auth-context';
 import { getTodayAdvisor } from '@/features/energy/energy.service';
 
-export async function GET() {
-  const session = await auth.api.getSession({ headers: await headers() });
-  if (!session) return NextResponse.json(null, { status: 401 });
+export async function GET(request: NextRequest) {
+  const authContext = await getAuthContext(request);
+  if (!authContext) {
+    return NextResponse.json({ code: 'UNAUTHORIZED', message: 'Unauthorized' }, { status: 401 });
+  }
 
-  const advisor = await getTodayAdvisor(session.user.id);
+  const advisor = await getTodayAdvisor(authContext.userId);
   return NextResponse.json(advisor);
 }
