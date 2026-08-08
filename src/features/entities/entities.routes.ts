@@ -1,6 +1,6 @@
-import { NextRequest, NextResponse } from "next/server";
-import { getAuthContext } from "@/shared/utils/auth-context";
-import { ForbiddenError } from "@/shared/utils/error";
+import { NextResponse } from "next/server";
+import { route } from "@/shared/utils/route";
+import { NotFoundError } from "@/shared/utils/error";
 import {
   createEntitySchema,
   updateEntitySchema,
@@ -18,168 +18,71 @@ import {
   getUniverseGraph,
 } from "./entities.service";
 
-const UNAUTHORIZED = { code: "UNAUTHORIZED", message: "Unauthorized" };
+// Migrado al wrapper `route` (KIN-145): auth, validación de body y mapeo de
+// errores viven ahí. El ForbiddenError que lanza el servicio sale como 403 y el
+// NotFoundError como 404, con los mismos mensajes y status que antes.
 
-function validationError(details: unknown) {
-  return NextResponse.json(
-    { code: "VALIDATION_ERROR", message: "Invalid input", details },
-    { status: 400 },
-  );
-}
+type IdParam = { id: string };
 
 // GET/POST /api/systems/[id]/entities  (biblioteca del universo)
-export async function getSystemEntities(
-  request: NextRequest,
-  { params }: { params: Promise<{ id: string }> },
-) {
-  const ctx = await getAuthContext(request);
-  if (!ctx) return NextResponse.json(UNAUTHORIZED, { status: 401 });
+export const getSystemEntities = route<IdParam>()({}, async ({ userId, params }) =>
+  NextResponse.json(await listEntities(params.id, userId)),
+);
 
-  const { id: systemId } = await params;
-  const list = await listEntities(systemId, ctx.userId);
-  return NextResponse.json(list);
-}
-
-export async function createSystemEntity(
-  request: NextRequest,
-  { params }: { params: Promise<{ id: string }> },
-) {
-  const ctx = await getAuthContext(request);
-  if (!ctx) return NextResponse.json(UNAUTHORIZED, { status: 401 });
-
-  const { id: systemId } = await params;
-  const body = await request.json();
-  const parsed = createEntitySchema.safeParse({ ...body, systemId });
-  if (!parsed.success) return validationError(parsed.error.flatten());
-
-  try {
-    const entity = await createEntity(ctx.userId, parsed.data);
-    return NextResponse.json(entity, { status: 201 });
-  } catch (err) {
-    if (err instanceof ForbiddenError) {
-      return NextResponse.json({ code: "FORBIDDEN", message: err.message }, { status: 403 });
-    }
-    throw err;
-  }
-}
+export const createSystemEntity = route<IdParam>()(
+  {
+    body: createEntitySchema,
+    // `systemId` viaja en la URL, no en el body, pero el schema lo exige.
+    prepareBody: (raw, params) => ({ ...(raw as object), systemId: params.id }),
+  },
+  async ({ userId, body }) => NextResponse.json(await createEntity(userId, body), { status: 201 }),
+);
 
 // GET /api/systems/[id]/graph  (grafo del universo)
-export async function getSystemGraph(
-  request: NextRequest,
-  { params }: { params: Promise<{ id: string }> },
-) {
-  const ctx = await getAuthContext(request);
-  if (!ctx) return NextResponse.json(UNAUTHORIZED, { status: 401 });
-
-  const { id: systemId } = await params;
-  return NextResponse.json(await getUniverseGraph(systemId, ctx.userId));
-}
+export const getSystemGraph = route<IdParam>()({}, async ({ userId, params }) =>
+  NextResponse.json(await getUniverseGraph(params.id, userId)),
+);
 
 // GET/PATCH/DELETE /api/entities/[id]
-export async function getEntity(
-  request: NextRequest,
-  { params }: { params: Promise<{ id: string }> },
-) {
-  const ctx = await getAuthContext(request);
-  if (!ctx) return NextResponse.json(UNAUTHORIZED, { status: 401 });
-
-  const { id } = await params;
-  const entity = await getEntityById(id, ctx.userId);
-  if (!entity) return NextResponse.json({ code: "NOT_FOUND", message: "Entity not found" }, { status: 404 });
+export const getEntity = route<IdParam>()({}, async ({ userId, params }) => {
+  const entity = await getEntityById(params.id, userId);
+  if (!entity) throw new NotFoundError("Entity not found");
   return NextResponse.json(entity);
-}
+});
 
-export async function patchEntity(
-  request: NextRequest,
-  { params }: { params: Promise<{ id: string }> },
-) {
-  const ctx = await getAuthContext(request);
-  if (!ctx) return NextResponse.json(UNAUTHORIZED, { status: 401 });
-
-  const { id } = await params;
-  const body = await request.json();
-  const parsed = updateEntitySchema.safeParse(body);
-  if (!parsed.success) return validationError(parsed.error.flatten());
-
-  try {
-    const updated = await updateEntity(id, ctx.userId, parsed.data);
-    if (!updated) return NextResponse.json({ code: "NOT_FOUND", message: "Entity not found" }, { status: 404 });
+export const patchEntity = route<IdParam>()(
+  { body: updateEntitySchema },
+  async ({ userId, params, body }) => {
+    const updated = await updateEntity(params.id, userId, body);
+    if (!updated) throw new NotFoundError("Entity not found");
     return NextResponse.json(updated);
-  } catch (err) {
-    if (err instanceof ForbiddenError) {
-      return NextResponse.json({ code: "FORBIDDEN", message: err.message }, { status: 403 });
-    }
-    throw err;
-  }
-}
+  },
+);
 
-export async function removeEntity(
-  request: NextRequest,
-  { params }: { params: Promise<{ id: string }> },
-) {
-  const ctx = await getAuthContext(request);
-  if (!ctx) return NextResponse.json(UNAUTHORIZED, { status: 401 });
-
-  const { id } = await params;
-  const ok = await deleteEntity(id, ctx.userId);
-  if (!ok) return NextResponse.json({ code: "NOT_FOUND", message: "Entity not found" }, { status: 404 });
+export const removeEntity = route<IdParam>()({}, async ({ userId, params }) => {
+  const ok = await deleteEntity(params.id, userId);
+  if (!ok) throw new NotFoundError("Entity not found");
   return new NextResponse(null, { status: 204 });
-}
+});
 
 // POST /api/entities/[id]/relations
-export async function createEntityRelation(
-  request: NextRequest,
-  { params }: { params: Promise<{ id: string }> },
-) {
-  const ctx = await getAuthContext(request);
-  if (!ctx) return NextResponse.json(UNAUTHORIZED, { status: 401 });
-
-  const { id: fromEntityId } = await params;
-  const body = await request.json();
-  const parsed = createRelationSchema.safeParse(body);
-  if (!parsed.success) return validationError(parsed.error.flatten());
-
-  try {
-    const relation = await createRelation(fromEntityId, ctx.userId, parsed.data);
-    return NextResponse.json(relation, { status: 201 });
-  } catch (err) {
-    if (err instanceof ForbiddenError) {
-      return NextResponse.json({ code: "FORBIDDEN", message: err.message }, { status: 403 });
-    }
-    throw err;
-  }
-}
+export const createEntityRelation = route<IdParam>()(
+  { body: createRelationSchema },
+  async ({ userId, params, body }) =>
+    NextResponse.json(await createRelation(params.id, userId, body), { status: 201 }),
+);
 
 // DELETE /api/entities/[id]/relations/[relationId]
-export async function removeEntityRelation(
-  request: NextRequest,
-  { params }: { params: Promise<{ id: string; relationId: string }> },
-) {
-  const ctx = await getAuthContext(request);
-  if (!ctx) return NextResponse.json(UNAUTHORIZED, { status: 401 });
-
-  const { relationId } = await params;
-  try {
-    const ok = await deleteRelation(relationId, ctx.userId);
-    if (!ok) return NextResponse.json({ code: "NOT_FOUND", message: "Relation not found" }, { status: 404 });
+export const removeEntityRelation = route<{ id: string; relationId: string }>()(
+  {},
+  async ({ userId, params }) => {
+    const ok = await deleteRelation(params.relationId, userId);
+    if (!ok) throw new NotFoundError("Relation not found");
     return new NextResponse(null, { status: 204 });
-  } catch (err) {
-    if (err instanceof ForbiddenError) {
-      return NextResponse.json({ code: "FORBIDDEN", message: err.message }, { status: 403 });
-    }
-    throw err;
-  }
-}
+  },
+);
 
 // GET /api/pages/[id]/entities  (codex rail contextual)
-export async function getPageEntities(
-  request: NextRequest,
-  { params }: { params: Promise<{ id: string }> },
-) {
-  const ctx = await getAuthContext(request);
-  if (!ctx) return NextResponse.json(UNAUTHORIZED, { status: 401 });
-
-  const { id: pageId } = await params;
-  const mentioned = await getMentionedEntities(pageId, ctx.userId);
-  return NextResponse.json(mentioned);
-}
+export const getPageEntities = route<IdParam>()({}, async ({ userId, params }) =>
+  NextResponse.json(await getMentionedEntities(params.id, userId)),
+);
