@@ -137,9 +137,9 @@ describe("buildStudyPlanTasks", () => {
     expect(plan).toEqual([]);
   });
 
-  it("no genera nada para un evento que no es evaluable", () => {
+  it("no genera nada para una práctica, que es evento pero no se estudia igual", () => {
     const plan = buildStudyPlanTasks(
-      examen({ metadata: { eventSubtype: "clase", generateStudyPlan: true } }),
+      examen({ metadata: { eventSubtype: "practice", generateStudyPlan: true } }),
       "p",
       SYSTEM_ID,
     );
@@ -152,7 +152,7 @@ describe("buildStudyPlanTasks", () => {
   });
 
   it("no genera nada cuando no hay metadata", () => {
-    const plan = buildStudyPlanTasks(examen({ metadata: null }), "p", SYSTEM_ID);
+    const plan = buildStudyPlanTasks(examen({ metadata: undefined }), "p", SYSTEM_ID);
     expect(plan).toEqual([]);
   });
 });
