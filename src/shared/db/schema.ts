@@ -73,15 +73,6 @@ export const energyLevelEnum = pgEnum('energy_level', [
   'low',
 ]);
 
-export const taskStatusEnum = pgEnum('task_status', [
-  'backlog',
-  'week',
-  'tomorrow',
-  'today',
-  'done',
-  'archived',
-]);
-
 export const taskPriorityEnum = pgEnum('task_priority', [
   'critical',
   'high',
@@ -121,12 +112,6 @@ export const taskTypeEnum = pgEnum('task_type', [
   'habit',
   'todo',
   'project',
-]);
-
-export const frequencyEnum = pgEnum('frequency', [
-  'daily',
-  'weekly',
-  'monthly',
 ]);
 
 export const accountStatusEnum = pgEnum('account_status', [
@@ -618,6 +603,9 @@ export const tasks = pgTable(
     }),
     title: varchar('title', { length: 500 }).notNull(),
     description: text('description'),
+    // varchar + CHECK a propósito, no un enum: el set cambia con la state machine
+    // de scheduling y Postgres no tiene DROP VALUE, así que un enum aquí sólo
+    // acumularía valores muertos. El guard vive en el CHECK `tasks_status_valid`.
     status: varchar('status', { length: 50 }).notNull().default('backlog'),
     // Segundo eje (solo systemType `project`): columna del board kanban. null en
     // sistemas que no son project. Separado de `status` (scheduling) a propósito —
