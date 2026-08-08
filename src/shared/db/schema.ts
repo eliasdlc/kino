@@ -1331,3 +1331,32 @@ export const apiKeys = pgTable(
     index('idx_api_keys_hash').on(table.keyHash),
   ],
 );
+
+// rateLimits (tabla rate_limits)
+
+/**
+ * Contador compartido del rate limit por identidad (KIN-149 / BE-12). Sustituye
+ * al `Map` en memoria del proxy, que daba una cuota independiente por cada
+ * instancia serverless y por tanto no limitaba nada en producción.
+ *
+ * Una fila por `(identity, bucket)`, reutilizada: la ventana no crea filas
+ * nuevas, sólo reescribe `window_start` y resetea `hits`. El crecimiento está
+ * acotado por credenciales distintas vistas, no por tráfico; el barrido diario
+ * de `/api/cron/daily-snapshot` poda las que quedan huérfanas cuando una sesión
+ * o un token rotan.
+ */
+export const rateLimits = pgTable(
+  'rate_limits',
+  {
+    /** `key:` / `tok:` / `sess:` + SHA-256 hex de la credencial presentada. */
+    identity: varchar('identity', { length: 96 }).notNull(),
+    /** Clase de tráfico (`mcp`, `mutation`): cada una lleva su propia cuenta. */
+    bucket: varchar('bucket', { length: 32 }).notNull(),
+    windowStart: timestamp('window_start', { withTimezone: true }).notNull(),
+    hits: integer('hits').notNull().default(0),
+  },
+  (table) => [
+    primaryKey({ columns: [table.identity, table.bucket] }),
+    index('idx_rate_limits_window').on(table.windowStart),
+  ],
+);

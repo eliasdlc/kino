@@ -1,4 +1,5 @@
 import { runDailySnapshotForActiveUsers } from '@/features/scheduler/scheduler.service';
+import { pruneStaleRateLimits } from '@/shared/rate-limit/store';
 
 export const maxDuration = 10;
 
@@ -14,5 +15,16 @@ export async function GET(req: Request) {
   }
 
   const result = await runDailySnapshotForActiveUsers();
-  return Response.json({ ok: true, ...result });
+
+  // Va colgado de este cron y no del suyo propio porque el free tier de Vercel
+  // sólo admite una entrada en `vercel.json`. Si falla, el snapshot no se cae
+  // con él: la poda es higiene, no parte del resultado.
+  let prunedRateLimits = 0;
+  try {
+    prunedRateLimits = await pruneStaleRateLimits();
+  } catch (error) {
+    console.error('[cron] no se pudo podar rate_limits:', error);
+  }
+
+  return Response.json({ ok: true, ...result, prunedRateLimits });
 }
