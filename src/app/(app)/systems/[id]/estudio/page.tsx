@@ -3,7 +3,7 @@ import { headers } from "next/headers";
 import { notFound, redirect } from "next/navigation";
 import { PageBreadcrumb } from "@/components/PageBreadcrumb";
 import { PageWrapper } from "@/components/PageWrapper";
-import { getSystembyId } from "@/features/systems/systems.service";
+import { getSystemById } from "@/features/systems/systems.service";
 import { Studio } from "@/features/writing/Studio";
 
 /** El estudio de escritura (KIN-143): qué escribir hoy, derivado de datos reales. */
@@ -16,7 +16,7 @@ export default async function StudioRoute({
   const session = await auth.api.getSession({ headers: await headers() });
   if (!session) redirect("/login");
 
-  const system = await getSystembyId(id, session.user.id);
+  const system = await getSystemById(id, session.user.id);
   if (!system) notFound();
 
   return (

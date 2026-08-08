@@ -3,7 +3,7 @@ import { headers } from "next/headers";
 import { notFound, redirect } from "next/navigation";
 import { PageBreadcrumb } from "@/components/PageBreadcrumb";
 import { PageWrapper } from "@/components/PageWrapper";
-import { getSystembyId } from "@/features/systems/systems.service";
+import { getSystemById } from "@/features/systems/systems.service";
 import { getFolderById } from "@/features/folders/folders.service";
 import { PlotGridView } from "@/features/writing/PlotGridView";
 
@@ -19,7 +19,7 @@ export default async function PlotBoardRoute({
 
   const [folder, system] = await Promise.all([
     getFolderById(folderId, session.user.id),
-    getSystembyId(systemId, session.user.id),
+    getSystemById(systemId, session.user.id),
   ]);
 
   if (!folder || !system) notFound();

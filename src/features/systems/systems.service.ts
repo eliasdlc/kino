@@ -116,7 +116,7 @@ export async function updateSystem(id: string, userId: string, update: UpdateSys
   return updated ?? null;
 }
 
-export async function getSystembyId(id: string, userId: string) {
+export async function getSystemById(id: string, userId: string) {
   const [system] = await db.select()
     .from(systems)
     .where(

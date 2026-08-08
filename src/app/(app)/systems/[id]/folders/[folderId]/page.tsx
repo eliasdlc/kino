@@ -8,7 +8,7 @@ import {
   getFolderBreadcrumb,
   getFolderChildren,
 } from "@/features/folders/folders.service";
-import { getSystembyId } from "@/features/systems/systems.service";
+import { getSystemById } from "@/features/systems/systems.service";
 import { getPagesBySystem } from "@/features/pages/pages.service";
 import { getTasksByFolder } from "@/features/tasks/tasks.service";
 import { FolderCard } from "@/features/notebooks/FolderCard";
@@ -32,7 +32,7 @@ export default async function FolderViewRoute({ params }: FolderViewRouteProps) 
 
   const [folder, system] = await Promise.all([
     getFolderById(folderId, session.user.id),
-    getSystembyId(systemId, session.user.id),
+    getSystemById(systemId, session.user.id),
   ]);
 
   if (!folder || !system) notFound();
