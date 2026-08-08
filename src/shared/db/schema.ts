@@ -1325,9 +1325,9 @@ export const behaviorSnapshots = pgTable(
   ],
 );
 
-// api_keys
+// apiKeys (tabla api_keys)
 
-export const api_keys = pgTable(
+export const apiKeys = pgTable(
   'api_keys',
   {
     id: uuid('id').primaryKey().defaultRandom(),

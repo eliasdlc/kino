@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { updateFolderSchema } from "./folders.schemas";
 import { updateFolder, deleteFolder, getFolderById } from "./folders.service";
 import { parseFolderMetadata } from "./folders.metadata";
-import { getSystembyId } from "@/features/systems/systems.service";
+import { getSystemById } from "@/features/systems/systems.service";
 import { getAuthContext } from "@/shared/utils/auth-context";
 import type { SystemType } from "@/shared/lib/system-types";
 
@@ -31,7 +31,7 @@ export async function PATCH(
   if (data.metadata !== undefined) {
     const folder = await getFolderById(id, ctx.userId);
     if (!folder) return NextResponse.json({ code: "NOT_FOUND", message: "Folder not found" }, { status: 404 });
-    const system = folder.systemId ? await getSystembyId(folder.systemId, ctx.userId) : null;
+    const system = folder.systemId ? await getSystemById(folder.systemId, ctx.userId) : null;
     const meta = parseFolderMetadata((system?.templateType ?? "custom") as SystemType, data.metadata);
     if (!meta.success) {
       return NextResponse.json(

@@ -1,7 +1,7 @@
 import { auth } from "@/auth";
 import { headers } from "next/headers";
 import { notFound, redirect } from "next/navigation";
-import { getSystembyId } from "@/features/systems/systems.service";
+import { getSystemById } from "@/features/systems/systems.service";
 import { PageWrapper } from "@/components/PageWrapper";
 import { PageBreadcrumb } from "@/components/PageBreadcrumb";
 import { CodexLibrary } from "@/features/entities/CodexLibrary";
@@ -23,7 +23,7 @@ export default async function CodexPage({
   const session = await auth.api.getSession({ headers: await headers() });
   if (!session) redirect("/login");
 
-  const system = await getSystembyId(id, session.user.id);
+  const system = await getSystemById(id, session.user.id);
   if (!system) notFound();
 
   const view = resolveCodexView(rawView);

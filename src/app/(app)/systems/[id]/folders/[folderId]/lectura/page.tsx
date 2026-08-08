@@ -2,7 +2,7 @@ import { auth } from "@/auth";
 import { headers } from "next/headers";
 import { notFound, redirect } from "next/navigation";
 import { PageBreadcrumb } from "@/components/PageBreadcrumb";
-import { getSystembyId } from "@/features/systems/systems.service";
+import { getSystemById } from "@/features/systems/systems.service";
 import { getManuscript } from "@/features/writing/writing.manuscript";
 import { ReadingView } from "@/features/writing/ReadingView";
 
@@ -25,7 +25,7 @@ export default async function ReadingRoute({
 
   const [manuscript, system] = await Promise.all([
     getManuscript(session.user.id, folderId),
-    getSystembyId(systemId, session.user.id),
+    getSystemById(systemId, session.user.id),
   ]);
 
   if (!manuscript || !system) notFound();

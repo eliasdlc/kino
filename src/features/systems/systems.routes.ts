@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createSystemSchema, reorderSystemsSchema, updateSystemSchema } from "./systems.schemas";
-import { createSystem, createInboxForUser, deactivateSystem, getUsersSystems, reorderSystem, updateSystem, assertNotInbox, getSystembyId } from "./systems.service";
+import { createSystem, createInboxForUser, deactivateSystem, getUsersSystems, reorderSystem, updateSystem, assertNotInbox, getSystemById } from "./systems.service";
 import { ForbiddenError, NotFoundError } from "@/shared/utils/error";
 import { getAuthContext } from "@/shared/utils/auth-context";
 
@@ -52,7 +52,7 @@ export async function PATCH(
       return NextResponse.json({ code: "VALIDATION_ERROR", message: "Invalid input", details: parsed.error.flatten() }, { status: 400 });
     }
 
-    const currentSystem = await getSystembyId(id, ctx.userId);
+    const currentSystem = await getSystemById(id, ctx.userId);
 
     if (!currentSystem) {
       return NextResponse.json({ code: "NOT_FOUND", message: "System not found" }, { status: 404 });

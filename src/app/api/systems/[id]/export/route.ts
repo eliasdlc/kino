@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getAuthContext } from "@/shared/utils/auth-context";
-import { getSystembyId } from "@/features/systems/systems.service";
+import { getSystemById } from "@/features/systems/systems.service";
 import { getTasksBySystem } from "@/features/tasks/tasks.service";
 import { getFoldersBySystem } from "@/features/folders/folders.service";
 import { getPagesBySystem } from "@/features/pages/pages.service";
@@ -17,7 +17,7 @@ export async function GET(
   const { id } = await params;
 
   const [system, tasks, folders, pages] = await Promise.all([
-    getSystembyId(id, ctx.userId),
+    getSystemById(id, ctx.userId),
     getTasksBySystem(id, ctx.userId),
     getFoldersBySystem(id, ctx.userId),
     getPagesBySystem(id, ctx.userId),

@@ -2,7 +2,7 @@ import { auth } from "@/auth";
 import { headers } from "next/headers";
 import { notFound, redirect } from "next/navigation";
 import { getPageById, getPagesBySystem, getSubPages } from "@/features/pages/pages.service";
-import { getSystembyId } from "@/features/systems/systems.service";
+import { getSystemById } from "@/features/systems/systems.service";
 import { getFolderById, getFolderBreadcrumb } from "@/features/folders/folders.service";
 import type { BreadcrumbItem } from "@/components/PageBreadcrumb";
 import { NotebookEditorLayout } from "@/features/pages/NotebookEditorLayout";
@@ -21,7 +21,7 @@ export default async function PageEditorRoute({ params }: PageEditorRouteProps) 
 
   const [page, system, allPages] = await Promise.all([
     getPageById(pageId, session.user.id),
-    getSystembyId(systemId, session.user.id),
+    getSystemById(systemId, session.user.id),
     getPagesBySystem(systemId, session.user.id),
   ]);
 

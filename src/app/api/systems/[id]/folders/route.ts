@@ -3,7 +3,7 @@ import { getAuthContext } from "@/shared/utils/auth-context";
 import { createFolderSchema } from "@/features/folders/folders.schemas";
 import { createFolder, getFoldersBySystem } from "@/features/folders/folders.service";
 import { parseFolderMetadata } from "@/features/folders/folders.metadata";
-import { getSystembyId } from "@/features/systems/systems.service";
+import { getSystemById } from "@/features/systems/systems.service";
 import type { SystemType } from "@/shared/lib/system-types";
 
 export async function GET(
@@ -38,7 +38,7 @@ export async function POST(
 
   // Ownership + arquetipo del sistema dueño: sin sistema propio no hay folder,
   // y el systemType decide qué schema valida la metadata.
-  const system = await getSystembyId(systemId, ctx.userId);
+  const system = await getSystemById(systemId, ctx.userId);
   if (!system) return NextResponse.json({ code: "NOT_FOUND", message: "System not found" }, { status: 404 });
 
   const meta = parseFolderMetadata((system.templateType ?? "custom") as SystemType, parsed.data.metadata);
