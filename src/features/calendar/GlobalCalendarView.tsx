@@ -8,8 +8,6 @@ import {
   TouchSensor,
   useSensor,
   useSensors,
-  useDroppable,
-  useDraggable,
   type DragStartEvent,
   type DragEndEvent,
 } from "@dnd-kit/core";
@@ -24,232 +22,34 @@ import {
   startOfToday,
 } from "date-fns";
 import { es } from "date-fns/locale";
-import { ChevronLeft, ChevronRight, GripVertical } from "lucide-react";
+import { ChevronLeft, ChevronRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import type { Task } from "@/features/tasks/tasks.types";
 import { useCalendarTasks, useUpdateCalendarTask, useAllTasks } from "@/features/tasks/tasks.hooks";
-import { parseDueDate, dueDateHasTime, parseTaskDay, dayToLocalISO } from "@/features/tasks/tasks.utils";
+import { dayToLocalISO } from "@/features/tasks/tasks.utils";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { GlobalCalendarMobileView } from "./GlobalCalendarMobileView";
 import type { TaskDragData } from "@/features/tasks/dnd/dnd.types";
 import { useTodayEnergyPlan } from "@/features/energy/energy.hooks";
-
-const ROW_HEIGHT = 56; // px per hour
-const START_HOUR = 6;
-const END_HOUR = 22;
-const HOURS = Array.from({ length: END_HOUR - START_HOUR + 1 }, (_, i) => START_HOUR + i);
-const TOTAL_HEIGHT = HOURS.length * ROW_HEIGHT;
-
-const PRIORITY_CHIP: Record<string, string> = {
-  critical: "bg-red-500/20 border-red-500/40 text-red-700 dark:text-red-400",
-  high: "bg-orange-500/20 border-orange-500/40 text-orange-700 dark:text-orange-400",
-  medium: "bg-blue-500/20 border-blue-500/40 text-blue-700 dark:text-blue-400",
-  low: "bg-neutral-500/20 border-neutral-500/40 text-muted-foreground",
-};
-
-function dayKey(date: Date): string {
-  return format(date, "yyyy-MM-dd");
-}
-
-function parseEstimatedMinutes(time: string | null | undefined): number {
-  if (!time) return 60;
-  const parts = time.split(":").map(Number);
-  return (parts[0] ?? 0) * 60 + (parts[1] ?? 0);
-}
-
-function minutesToTimeString(minutes: number): string {
-  const h = Math.floor(minutes / 60);
-  const m = minutes % 60;
-  return `${h.toString().padStart(2, "0")}:${m.toString().padStart(2, "0")}`;
-}
-
-/** Energy level 0–100 → bg color class for overlay */
-function energyBgClass(capacity: number): string {
-  if (capacity >= 60) return "bg-emerald-500/8";
-  if (capacity >= 30) return "bg-amber-500/8";
-  return "bg-rose-500/8";
-}
-
-/** Pick the best unoccupied hour for a task's energyLevel from projectedCurve */
-function suggestHour(
-  energyLevel: string,
-  curve: number[],
-  occupiedHours: Set<number>,
-): number | null {
-  let bestHour: number | null = null;
-  let bestScore = -Infinity;
-  for (let h = START_HOUR; h <= END_HOUR; h++) {
-    if (occupiedHours.has(h)) continue;
-    const cap = curve[h] ?? 0;
-    const score =
-      energyLevel === "high" ? cap
-      : energyLevel === "low" ? -cap
-      : -(Math.abs(cap - 50)); // medium → closest to 50%
-    if (score > bestScore) { bestScore = score; bestHour = h; }
-  }
-  return bestHour;
-}
-
-/** Preferred placement date: timed startDate > dueDate > startDate (no time) */
-function getPlacementDate(task: Task): string | null {
-  if (task.startDate && dueDateHasTime(task.startDate)) return task.startDate;
-  if (task.dueDate) return task.dueDate;
-  return task.startDate ?? null;
-}
-
-// ── Sub-components ───────────────────────────────────────────────────────────
-
-function AllDayCell({ day, tasks }: { day: Date; tasks: Task[] }) {
-  const { setNodeRef, isOver } = useDroppable({ id: `allday:${dayKey(day)}` });
-  return (
-    <div
-      ref={setNodeRef}
-      className={cn(
-        "border-r last:border-r-0 p-1 min-h-[32px] space-y-0.5 transition-colors",
-        isOver && "bg-primary/10",
-        isToday(day) && "bg-primary/5",
-      )}
-    >
-      {tasks.map((t) => (
-        <div
-          key={t.id}
-          className={cn(
-            "px-1.5 py-0.5 rounded border text-[11px] truncate",
-            PRIORITY_CHIP[t.priority ?? "medium"],
-          )}
-        >
-          {t.title}
-        </div>
-      ))}
-    </div>
-  );
-}
-
-function DroppableSlot({ id, hour, energyCapacity }: { id: string; hour: number; energyCapacity?: number }) {
-  const { setNodeRef, isOver } = useDroppable({ id });
-  return (
-    <div
-      ref={setNodeRef}
-      className={cn(
-        "absolute w-full border-t border-border/40 transition-colors",
-        isOver && "bg-primary/15",
-        hour % 2 === 0 ? "border-border/40" : "border-border/20",
-        energyCapacity !== undefined && !isOver && energyBgClass(energyCapacity),
-      )}
-      style={{ top: (hour - START_HOUR) * ROW_HEIGHT, height: ROW_HEIGHT }}
-    />
-  );
-}
-
-interface TaskBlockProps {
-  task: Task;
-  overrideDuration?: number;
-  onResizeStart: (e: React.PointerEvent, task: Task, startMinutes: number) => void;
-}
-
-// Wrapper sin hooks: el early-return (tarea sin fecha ubicable) vive aquí, para
-// que TaskBlockInner nunca llame useDraggable condicionalmente (rules-of-hooks).
-function TaskBlock({ task, overrideDuration, onResizeStart }: TaskBlockProps) {
-  const placementDate = getPlacementDate(task);
-  const d = placementDate ? parseDueDate(placementDate) : null;
-  if (!d) return null;
-  return (
-    <TaskBlockInner task={task} d={d} overrideDuration={overrideDuration} onResizeStart={onResizeStart} />
-  );
-}
-
-function TaskBlockInner({
-  task,
-  d,
-  overrideDuration,
-  onResizeStart,
-}: TaskBlockProps & { d: Date }) {
-  const topOffset = (d.getHours() - START_HOUR + d.getMinutes() / 60) * ROW_HEIGHT;
-  const estimatedMinutes = overrideDuration ?? parseEstimatedMinutes(task.estimatedTime);
-  const blockHeight = Math.max(24, (estimatedMinutes / 60) * ROW_HEIGHT);
-
-  const dragData: TaskDragData = { task, sourceType: "calendar", sourceId: dayKey(d) };
-  const { attributes, listeners, setNodeRef, isDragging } = useDraggable({
-    id: `cal:${task.id}`,
-    data: dragData,
-  });
-
-  return (
-    <div
-      ref={setNodeRef}
-      {...attributes}
-      {...listeners}
-      className={cn(
-        "absolute left-0.5 right-0.5 rounded border px-1.5 pt-0.5 pb-2 text-[11px] leading-tight select-none cursor-grab active:cursor-grabbing overflow-hidden",
-        PRIORITY_CHIP[task.priority ?? "medium"],
-        isDragging && "opacity-30",
-      )}
-      style={{ top: topOffset, height: blockHeight }}
-      title={task.title}
-    >
-      <span className="font-medium">{format(d, "HH:mm")} </span>
-      <span className="truncate">{task.title}</span>
-      {/* Resize handle */}
-      <div
-        className="absolute bottom-0 left-0 right-0 h-2.5 cursor-row-resize flex items-center justify-center opacity-40 hover:opacity-80"
-        onPointerDown={(e) => {
-          e.stopPropagation(); // don't trigger drag
-          onResizeStart(e, task, estimatedMinutes);
-        }}
-      >
-        <GripVertical className="size-2.5 rotate-90" />
-      </div>
-    </div>
-  );
-}
-
-function UnscheduledChip({
-  task,
-  suggestedHour,
-  onAcceptSuggestion,
-}: {
-  task: Task;
-  suggestedHour: number | null;
-  onAcceptSuggestion: (task: Task, hour: number) => void;
-}) {
-  const dragData: TaskDragData = { task, sourceType: "unscheduled", sourceId: "unscheduled" };
-  const { attributes, listeners, setNodeRef, isDragging } = useDraggable({
-    id: `unscheduled:${task.id}`,
-    data: dragData,
-  });
-  return (
-    <div
-      className={cn(
-        "rounded border text-xs select-none",
-        PRIORITY_CHIP[task.priority ?? "medium"],
-        isDragging && "opacity-30",
-      )}
-    >
-      <div
-        ref={setNodeRef}
-        {...attributes}
-        {...listeners}
-        className="px-2 py-1 truncate cursor-grab active:cursor-grabbing"
-        title={task.title}
-      >
-        {task.title}
-      </div>
-      {suggestedHour !== null && (
-        <button
-          type="button"
-          className="w-full text-left px-2 pb-1 text-[10px] text-primary/80 hover:text-primary flex items-center gap-1 leading-tight"
-          onClick={() => onAcceptSuggestion(task, suggestedHour)}
-        >
-          <span>Kino sugiere {format(new Date(2000, 0, 1, suggestedHour), "HH:mm")}</span>
-          <span className="text-primary/50">→</span>
-        </button>
-      )}
-    </div>
-  );
-}
-
-// ── Main component ───────────────────────────────────────────────────────────
+import {
+  HOURS,
+  ROW_HEIGHT,
+  TOTAL_HEIGHT,
+  dayKey,
+  groupTasksByDay,
+  minutesToTimeString,
+  occupiedHoursForDay,
+  resizedMinutes,
+  suggestHour,
+} from "./calendar.layout";
+import {
+  AllDayCell,
+  DroppableSlot,
+  PRIORITY_CHIP,
+  TaskBlock,
+  UnscheduledChip,
+} from "./CalendarBlocks";
 
 export function GlobalCalendarView() {
   const today = startOfToday();
@@ -288,18 +88,10 @@ export function GlobalCalendarView() {
     [allTasks],
   );
 
-  // Hours already occupied in the selected day (for suggestion avoidance)
-  const occupiedHoursForSelectedDay = useMemo(() => {
-    const set = new Set<number>();
-    const key = dayKey(selectedDay);
-    for (const task of calendarTasks) {
-      const dateVal = getPlacementDate(task);
-      if (!dateVal || !dueDateHasTime(dateVal)) continue;
-      const d = parseDueDate(dateVal);
-      if (dayKey(d) === key) set.add(d.getHours());
-    }
-    return set;
-  }, [calendarTasks, selectedDay]);
+  const occupiedHoursForSelectedDay = useMemo(
+    () => occupiedHoursForDay(calendarTasks, selectedDay),
+    [calendarTasks, selectedDay],
+  );
 
   function handleAcceptSuggestion(task: Task, hour: number) {
     const date = dayKey(selectedDay);
@@ -307,51 +99,30 @@ export function GlobalCalendarView() {
     updateTask({ taskId: task.id, data: { startDate: newDate } });
   }
 
-  const byDayAllDay = useMemo(() => {
-    const map = new Map<string, Task[]>();
-    for (const task of calendarTasks) {
-      const dateVal = getPlacementDate(task);
-      if (!dateVal || dueDateHasTime(dateVal)) continue;
-      const key = dayKey(parseTaskDay(dateVal));
-      const bucket = map.get(key);
-      if (bucket) bucket.push(task);
-      else map.set(key, [task]);
-    }
-    return map;
-  }, [calendarTasks]);
+  const byDayAllDay = useMemo(
+    () => groupTasksByDay(calendarTasks, { timed: false }),
+    [calendarTasks],
+  );
 
-  const timedByDay = useMemo(() => {
-    const map = new Map<string, Task[]>();
-    for (const task of calendarTasks) {
-      const dateVal = getPlacementDate(task);
-      if (!dateVal || !dueDateHasTime(dateVal)) continue;
-      const key = dayKey(parseDueDate(dateVal));
-      const bucket = map.get(key);
-      if (bucket) bucket.push(task);
-      else map.set(key, [task]);
-    }
-    return map;
-  }, [calendarTasks]);
+  const timedByDay = useMemo(
+    () => groupTasksByDay(calendarTasks, { timed: true }),
+    [calendarTasks],
+  );
 
   // Pointer-based resize tracking
   useEffect(() => {
     if (!resizeInfo) return;
 
     function onMove(e: PointerEvent) {
-      setResizeInfo((prev) => {
-        if (!prev) return null;
-        const deltaY = e.clientY - prev.startY;
-        const deltaMinutes = Math.round((deltaY / ROW_HEIGHT) * 60 / 15) * 15;
-        return { ...prev, currentMinutes: Math.max(15, prev.startMinutes + deltaMinutes) };
-      });
+      setResizeInfo((prev) =>
+        prev ? { ...prev, currentMinutes: resizedMinutes(prev.startMinutes, e.clientY - prev.startY) } : null,
+      );
     }
 
     function onUp(e: PointerEvent) {
       setResizeInfo((prev) => {
         if (!prev) return null;
-        const deltaY = e.clientY - prev.startY;
-        const deltaMinutes = Math.round((deltaY / ROW_HEIGHT) * 60 / 15) * 15;
-        const newMinutes = Math.max(15, prev.startMinutes + deltaMinutes);
+        const newMinutes = resizedMinutes(prev.startMinutes, e.clientY - prev.startY);
         if (newMinutes !== prev.startMinutes) {
           updateTask({
             taskId: prev.task.id,
