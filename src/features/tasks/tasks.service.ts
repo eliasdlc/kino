@@ -592,15 +592,29 @@ export async function toggleTask(
   return { status: updated.status };
 }
 
+/**
+ * Reordena en una sola sentencia (KIN-145 · BE-10). Antes era un UPDATE por
+ * fila dentro de una transacción, y con Neon cada sentencia es un viaje de red:
+ * el costo crecía lineal con el largo de la lista.
+ *
+ * `unnest` empareja cada id con su posición y actualiza todas las filas de
+ * golpe. Los tres filtros del WHERE son la garantía de aislamiento y no se
+ * pueden quitar: `user_id` impide que un id ajeno se cuele, `deleted_at IS
+ * NULL` deja fuera las borradas, y el join por id ignora los inexistentes.
+ */
 export async function reorderTasks(userId: string, ids: string[]) {
-  await db.transaction(async (tx) => {
-    for (let i = 0; i < ids.length; i++) {
-      await tx
-        .update(tasks)
-        .set({ sortIndex: i })
-        .where(and(eq(tasks.id, ids[i]), eq(tasks.userId, userId), isNull(tasks.deletedAt)));
-    }
-  });
+  if (ids.length === 0) return;
+
+  const positions = ids.map((_, index) => index);
+
+  await db.execute(sql`
+    UPDATE ${tasks}
+    SET ${sql.identifier(tasks.sortIndex.name)} = v.idx
+    FROM unnest(${sql.param(ids)}::uuid[], ${sql.param(positions)}::int[]) AS v(id, idx)
+    WHERE ${tasks.id} = v.id
+      AND ${tasks.userId} = ${userId}
+      AND ${tasks.deletedAt} IS NULL
+  `);
 }
 
 export async function bulkMoveTasks(taskIds: string[], status: TaskStatus, userId: string): Promise<void> {
