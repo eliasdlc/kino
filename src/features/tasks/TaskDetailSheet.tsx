@@ -2,9 +2,8 @@
 
 import { useEffect, useRef, useState } from "react";
 import { useIsMobile } from "@/hooks/use-mobile";
-import { format } from "date-fns";
 import { parseDueDate } from "./tasks.utils";
-import { CalendarIcon, Timer, Download } from "lucide-react";
+import { Timer } from "lucide-react";
 import {
   ResponsiveDialog,
   ResponsiveDialogContent,
@@ -23,8 +22,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { Calendar } from "@/components/ui/calendar";
 import { Separator } from "@/components/ui/separator";
 import {
   ENERGY_LEVEL_VALUES,
@@ -39,81 +36,30 @@ import { useFolders } from "@/features/folders/folders.hooks";
 import { useSprints } from "@/features/sprints/sprints.hooks";
 import { getSystemColor } from "@/shared/utils/system-colors";
 import { TaskTypePicker } from "./TaskTypePicker";
-import { TimePicker } from "@/components/ui/time-picker";
 import { TagPicker } from "@/features/tags/TagPicker";
 import type { Task } from "./tasks.types";
 import { useFocusTimer } from "./FocusTimerProvider";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useQueryClient } from "@tanstack/react-query";
 import type { SystemType } from "@/shared/lib/system-types";
 import type { System } from "@/features/systems/systems.types";
+import {
+  ENERGY_LABELS,
+  PRIORITY_LABELS,
+  buildDirtyTaskData,
+  needsGradeField,
+} from "./task-detail.helpers";
+import {
+  DateTimeField,
+  ExportTaskJsonButton,
+  GradeField,
+  TimeLoggedSection,
+} from "./TaskDetailFields";
 
 interface TaskDetailSheetProps {
   task: Task | null;
   systemId: string;
   open: boolean;
   onOpenChange: (open: boolean) => void;
-}
-
-const PRIORITY_LABELS: Record<string, string> = {
-  critical: "Crítica",
-  high: "Alta",
-  medium: "Media",
-  low: "Baja",
-};
-
-const ENERGY_LABELS: Record<string, string> = {
-  high: "Alta",
-  medium: "Media",
-  low: "Baja",
-};
-
-function formatDuration(minutes: number): string {
-  if (minutes < 60) return `${minutes} min`;
-  const h = Math.floor(minutes / 60);
-  const m = minutes % 60;
-  return m > 0 ? `${h}h ${m}min` : `${h}h`;
-}
-
-function TimeLoggedSection({ taskId }: { taskId: string }) {
-  const { data } = useQuery<{ totalMinutes: number; sessionCount: number }>({
-    queryKey: ['time-logs', taskId],
-    queryFn: () => fetch(`/api/tasks/${taskId}/time-logs`).then((r) => r.json()),
-    staleTime: 5 * 60_000,
-  });
-
-  if (!data || data.sessionCount === 0) return null;
-
-  return (
-    <div className="mt-4 pt-4 border-t">
-      <p className="text-xs text-muted-foreground mb-1">Tiempo registrado</p>
-      <p className="text-sm font-medium">
-        {formatDuration(data.totalMinutes)}
-        <span className="text-muted-foreground font-normal"> · {data.sessionCount} sesión{data.sessionCount !== 1 ? 'es' : ''}</span>
-      </p>
-    </div>
-  );
-}
-
-/** true si dueDate tiene hora significativa (no medianoche local). */
-function hasDueTime(d: Date): boolean {
-  return d.getHours() !== 0 || d.getMinutes() !== 0;
-}
-
-/** Cambia el día conservando la hora previa (Calendar devuelve medianoche). */
-function withDay(prev: Date | undefined, day: Date | undefined): Date | undefined {
-  if (!day) return undefined;
-  const next = new Date(day);
-  if (prev) next.setHours(prev.getHours(), prev.getMinutes(), 0, 0);
-  return next;
-}
-
-/** Aplica una hora "HH:mm" al Date actual. */
-function withTime(prev: Date | undefined, value: string): Date | undefined {
-  if (!prev || !value) return prev;
-  const [h, m] = value.split(":").map(Number);
-  const next = new Date(prev);
-  next.setHours(h ?? 0, m ?? 0, 0, 0);
-  return next;
 }
 
 interface TaskDetailFormProps {
@@ -164,50 +110,21 @@ function TaskDetailForm({ task, systemId, onClose }: TaskDetailFormProps) {
   const updateTaskRef = useRef(updateTask);
   updateTaskRef.current = updateTask;
 
-  /**
-   * Solo los campos que cambiaron respecto al `task` original. Un único builder
-   * usado por autosave y "Guardar y cerrar":
-   *  - dueDate siempre como ISO (conserva hora; antes el botón truncaba a día).
-   *  - limpiar una fecha existente manda `null` (antes omitía → DB nunca limpiaba).
-   *  - no incluir dueDate cuando no cambió evita el reset de recordatorios/flags
-   *    en cada tecla.
-   */
-  function buildDirtyData(): import("./tasks.types").UpdateTaskInput {
-    const data: import("./tasks.types").UpdateTaskInput = {};
-
-    const trimmedTitle = title.trim();
-    if (trimmedTitle !== task.title) data.title = trimmedTitle;
-    if (description !== (task.description ?? "")) data.description = description || undefined;
-    if (priority !== task.priority) data.priority = priority;
-    if (energyLevel !== task.energyLevel) data.energyLevel = energyLevel;
-
-    const curType = taskType ?? null;
-    if (curType !== (task.taskType ?? null)) data.taskType = curType;
-
-    const curDue = dueDate ? dueDate.toISOString() : null;
-    const origDue = task.dueDate ? parseDueDate(task.dueDate).toISOString() : null;
-    if (curDue !== origDue) data.dueDate = curDue;
-
-    // startDate como ISO (conserva hora), igual que dueDate.
-    const curStart = startDate ? startDate.toISOString() : null;
-    const origStart = task.startDate ? parseDueDate(task.startDate).toISOString() : null;
-    if (curStart !== origStart) data.startDate = curStart;
-
-    const curFolder = selectedFolderId !== "none" ? selectedFolderId : null;
-    if (curFolder !== (task.folderId ?? null)) data.folderId = curFolder;
-
-    const curSprint = sprintId !== "none" ? sprintId : null;
-    if (curSprint !== (task.sprintId ?? null)) data.sprintId = curSprint;
-
-    if (contextTagId !== (task.contextTagId ?? null)) data.contextTagId = contextTagId;
-
-    if (recurrenceRule !== (task.recurrenceRule ?? null)) data.recurrenceRule = recurrenceRule;
-
-    const curMetadataStr = metadata ? JSON.stringify(metadata) : null;
-    const origMetadataStr = task.metadata ? JSON.stringify(task.metadata) : null;
-    if (curMetadataStr !== origMetadataStr) data.metadata = metadata;
-
-    return data;
+  function buildDirtyData() {
+    return buildDirtyTaskData(task, {
+      title,
+      description,
+      priority,
+      energyLevel,
+      taskType,
+      dueDate,
+      startDate,
+      selectedFolderId,
+      sprintId,
+      contextTagId,
+      recurrenceRule,
+      metadata,
+    });
   }
 
   useEffect(() => {
@@ -367,81 +284,18 @@ function TaskDetailForm({ task, systemId, onClose }: TaskDetailFormProps) {
       )}
 
       <div className="grid grid-cols-2 gap-3">
-        <div className="space-y-1.5">
-          <Label>Fecha de inicio</Label>
-          <Popover>
-            <PopoverTrigger asChild>
-              <Button variant="outline" className="w-full min-w-0 justify-start gap-2 text-sm font-normal">
-                <CalendarIcon size={16} className="shrink-0 text-muted-foreground" />
-                {startDate ? (
-                  <span className="truncate">
-                    {format(startDate, "MMM d, yyyy")}
-                    {hasDueTime(startDate) && <span className="text-muted-foreground"> · {format(startDate, "HH:mm")}</span>}
-                  </span>
-                ) : (
-                  <span className="truncate text-muted-foreground">Elegir fecha</span>
-                )}
-              </Button>
-            </PopoverTrigger>
-            <PopoverContent className="w-auto p-0" align="start">
-              <Calendar mode="single" selected={startDate} onSelect={(day) => setStartDate((prev) => withDay(prev, day))} />
-              {startDate && (
-                <div className="p-2 border-t space-y-2">
-                  <div className="flex items-center gap-2">
-                    <Label htmlFor="start-time" className="text-xs text-muted-foreground shrink-0">Hora</Label>
-                    <TimePicker
-                      id="start-time"
-                      value={format(startDate, "HH:mm")}
-                      onChange={(val) => setStartDate((prev) => withTime(prev, val))}
-                      className="h-8"
-                    />
-                  </div>
-                  <Button variant="ghost" size="sm" className="w-full" onClick={() => setStartDate(undefined)}>
-                    Limpiar
-                  </Button>
-                </div>
-              )}
-            </PopoverContent>
-          </Popover>
-        </div>
-
-        <div className="space-y-1.5">
-          <Label>Fecha de vencimiento</Label>
-          <Popover>
-            <PopoverTrigger asChild>
-              <Button variant="outline" className="w-full min-w-0 justify-start gap-2 text-sm font-normal">
-                <CalendarIcon size={16} className="shrink-0 text-muted-foreground" />
-                {dueDate ? (
-                  <span className="truncate">
-                    {format(dueDate, "MMM d, yyyy")}
-                    {hasDueTime(dueDate) && <span className="text-muted-foreground"> · {format(dueDate, "HH:mm")}</span>}
-                  </span>
-                ) : (
-                  <span className="truncate text-muted-foreground">Elegir fecha</span>
-                )}
-              </Button>
-            </PopoverTrigger>
-            <PopoverContent className="w-auto p-0" align="start">
-              <Calendar mode="single" selected={dueDate} onSelect={(day) => setDueDate((prev) => withDay(prev, day))} />
-              {dueDate && (
-                <div className="p-2 border-t space-y-2">
-                  <div className="flex items-center gap-2">
-                    <Label htmlFor="due-time" className="text-xs text-muted-foreground shrink-0">Hora</Label>
-                    <TimePicker
-                      id="due-time"
-                      value={format(dueDate, "HH:mm")}
-                      onChange={(val) => setDueDate((prev) => withTime(prev, val))}
-                      className="h-8"
-                    />
-                  </div>
-                  <Button variant="ghost" size="sm" className="w-full" onClick={() => setDueDate(undefined)}>
-                    Limpiar
-                  </Button>
-                </div>
-              )}
-            </PopoverContent>
-          </Popover>
-        </div>
+        <DateTimeField
+          label="Fecha de inicio"
+          timeInputId="start-time"
+          value={startDate}
+          onChange={setStartDate}
+        />
+        <DateTimeField
+          label="Fecha de vencimiento"
+          timeInputId="due-time"
+          value={dueDate}
+          onChange={setDueDate}
+        />
       </div>
 
       <Separator />
@@ -453,29 +307,9 @@ function TaskDetailForm({ task, systemId, onClose }: TaskDetailFormProps) {
 
       <Separator />
 
-      {isDone && taskType === 'event' && ['exam', 'quiz', 'practice'].includes((metadata as Record<string, unknown>)?.eventSubtype as string) && (
+      {needsGradeField(isDone, taskType, metadata) && (
         <>
-          <div className="space-y-1.5 p-3 rounded-lg bg-emerald-500/10 border border-emerald-500/20">
-            <Label className="text-emerald-600 dark:text-emerald-400 font-medium">Calificación obtenida</Label>
-            <Input
-              type="number"
-              min={0}
-              max={100}
-              value={((metadata as Record<string, unknown>)?.grade as string | number) || ""}
-              onChange={(e) => {
-                const val = e.target.value;
-                const newMetadata: Record<string, unknown> = { ...(metadata as Record<string, unknown> | null) };
-                if (val === "") {
-                  delete newMetadata.grade;
-                } else {
-                  newMetadata.grade = Number(val);
-                }
-                setMetadata(Object.keys(newMetadata).length ? newMetadata : null);
-              }}
-              placeholder="Ej: 95"
-              className="w-full bg-background"
-            />
-          </div>
+          <GradeField metadata={metadata} onChange={setMetadata} />
           <Separator />
         </>
       )}
@@ -509,28 +343,7 @@ function TaskDetailForm({ task, systemId, onClose }: TaskDetailFormProps) {
           <span className="text-sm text-muted-foreground">Guardado</span>
         )}
         <div className="ml-auto flex items-center gap-2">
-          <Button
-            variant="ghost"
-            size="sm"
-            className="gap-1.5 text-muted-foreground"
-            onClick={async () => {
-              const subtasksRes = await fetch(`/api/tasks/${task.id}/subtasks`);
-              const subtasks = subtasksRes.ok ? await subtasksRes.json() : [];
-              const payload = { ...task, subtasks };
-              const blob = new Blob([JSON.stringify(payload, null, 2)], {
-                type: "application/json;charset=utf-8",
-              });
-              const url = URL.createObjectURL(blob);
-              const a = document.createElement("a");
-              a.href = url;
-              a.download = `${(task.title ?? "tarea").toLowerCase().replace(/[^a-z0-9]+/g, "-")}.json`;
-              a.click();
-              URL.revokeObjectURL(url);
-            }}
-          >
-            <Download size={14} />
-            JSON
-          </Button>
+          <ExportTaskJsonButton task={task} />
           <Button
             onClick={handleSave}
             disabled={!title.trim() || isPending}
