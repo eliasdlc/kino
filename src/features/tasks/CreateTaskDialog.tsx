@@ -3,9 +3,6 @@
 import { useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { z } from "zod";
-import { format } from "date-fns";
-import { es } from "date-fns/locale";
 import type { DateRange } from "react-day-picker";
 import { Button } from "@/components/ui/button";
 import {
@@ -16,18 +13,14 @@ import {
 } from "@/components/ui/responsive-dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
 import { Separator } from "@/components/ui/separator";
-import { CalendarRange, ChevronLeft, ChevronRight, Plus, X, Sparkles } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Plus } from 'lucide-react';
 import { cn } from "@/lib/utils";
-import { Switch } from '@/components/ui/switch';
-import type { CreateTaskInput, Task } from "./tasks.types";
+import type { Task } from "./tasks.types";
 import { useCreateTask } from "./tasks.hooks";
 import { useFolders } from "@/features/folders/folders.hooks";
 import { getTaskTypeConfig } from "./task-type-config";
-import { dayToLocalISO } from "./tasks.utils";
 import { parseQuickInput, stripAccents } from "./quick-date-parse";
-import { minutesToTimeString } from "./EstimatedTimePicker";
 import { useQueryClient } from "@tanstack/react-query";
 import { type SystemType } from "@/shared/lib/system-types";
 import { resolveSystemManifest } from "@/shared/lib/system-manifest";
@@ -37,47 +30,21 @@ import { TaskPlanningFields } from "./TaskPlanningFields";
 import { getTaskDialogFields } from "./task-dialog-config";
 import { useTags } from "@/features/tags/tags.hooks";
 import { RecurrencePicker } from "./RecurrencePicker";
+import {
+  STEP_FIELDS,
+  buildCreateTaskPayload,
+  buildStudyPlanTasks,
+  formSchema,
+  type FormValues,
+} from "./create-task.helpers";
+import {
+  DescriptionField,
+  NlChips,
+  SubtaskEditor,
+  TaskKindField,
+} from "./CreateTaskFields";
 
-const formSchema = z.object({
-  title: z.string().min(1, "El título es requerido").max(500),
-  taskType: z.enum(['task', 'idea', 'event', 'reminder', 'epic']).nullable().optional(),
-  priority: z.enum(['critical', 'high', 'medium', 'low']),
-  energyLevel: z.enum(['high', 'medium', 'low']),
-  startDate: z.string().date().nullable().optional(),
-  dueDate: z.string().date().nullable().optional(),
-  startTime: z.string().optional(),
-  dueTime: z.string().optional(),
-  estimatedMinutes: z.number().int().min(1).nullable().optional(),
-  description: z.string().optional(),
-  folderId: z.string().uuid().nullable().optional(),
-  contextTagId: z.string().uuid().nullable().optional(),
-  sprintId: z.string().uuid().nullable().optional(),
-  recurrenceRule: z.string().nullable().optional(),
-  metadata: z.record(z.string(), z.unknown()).nullable().optional(),
-});
-
-export type FormValues = z.infer<typeof formSchema>;
-
-const STEP_FIELDS: Record<1 | 2 | 3, (keyof FormValues)[]> = {
-  1: ['title'],
-  2: ['priority', 'energyLevel'],
-  3: [],
-};
-
-const PRIORITY_LABELS: Record<string, string> = {
-  critical: "Urgente",
-  high: "Alta",
-  medium: "Media",
-  low: "Baja",
-};
-
-function formatDuration(mins: number): string {
-  const h = Math.floor(mins / 60);
-  const m = mins % 60;
-  if (h > 0 && m > 0) return `${h}h ${m}min`;
-  if (h > 0) return `${h}h`;
-  return `${m}min`;
-}
+export type { FormValues } from "./create-task.helpers";
 
 interface CreateTaskDialogProps {
   systemId: string;
@@ -156,15 +123,12 @@ export function CreateTaskDialog({
   // Parser reactivo en tiempo real — detecta tokens en el título mientras el usuario escribe.
   const rawNlParsed = parseQuickInput(form.watch('title'));
 
-  const showDateChip = !!(rawNlParsed?.dueDate && !nlIgnoredFields.has('dueDate'));
-  const showPriorityChip = !!(rawNlParsed?.priority && !nlIgnoredFields.has('priority'));
-  const showSystemChip = !!(rawNlParsed?.systemHint && !nlIgnoredFields.has('systemHint'));
-  const showTagChip = !!(rawNlParsed?.tagHint && !nlIgnoredFields.has('tagHint'));
-  const showDurationChip = !!(rawNlParsed?.estimatedMinutes && !nlIgnoredFields.has('estimatedMinutes'));
-  const hasNlChips = showDateChip || showPriorityChip || showSystemChip || showTagChip || showDurationChip;
-
   function dismissNlField(field: string) {
     setNlIgnoredFields((prev) => new Set([...prev, field]));
+  }
+
+  function setMetadata(next: Record<string, unknown> | null) {
+    form.setValue('metadata', next);
   }
 
   function applyNlParse() {
@@ -231,64 +195,16 @@ export function CreateTaskDialog({
       return;
     }
 
-    const payload: CreateTaskInput = {
+    const payload = buildCreateTaskPayload(values, {
       systemId,
-      title: values.title.trim(),
-      priority: values.priority,
-      energyLevel: typeConfig.hideEnergyAndPriority ? undefined : values.energyLevel,
-      ...(values.taskType ? { taskType: values.taskType } : {}),
-      // startDate/dueDate como ISO en hora local (medianoche si no hay hora).
-      ...(values.startDate ? { startDate: dayToLocalISO(values.startDate, values.startTime) } : {}),
-      ...(values.dueDate ? { dueDate: dayToLocalISO(values.dueDate, values.dueTime) } : {}),
-      ...(values.estimatedMinutes ? { estimatedTime: minutesToTimeString(values.estimatedMinutes) } : {}),
-      ...(values.description ? { description: values.description } : {}),
-      ...(values.folderId ? { folderId: values.folderId } : {}),
-      ...(values.contextTagId ? { contextTagId: values.contextTagId } : {}),
-      ...(values.sprintId ? { sprintId: values.sprintId } : {}),
-      ...(values.recurrenceRule ? { recurrenceRule: values.recurrenceRule } : {}),
-      ...(values.metadata ? { metadata: values.metadata } : {}),
-      ...(parentTaskId ? { parentTaskId } : {}),
-    };
+      parentTaskId,
+      hideEnergyAndPriority: !!typeConfig.hideEnergyAndPriority,
+    });
 
     try {
       const parent = await createTask(payload);
-      
-      const studyTasks = [];
-      const meta = payload.metadata as Record<string, unknown> | undefined;
-      const isExamOrQuiz = meta?.eventSubtype === 'exam' || meta?.eventSubtype === 'quiz';
-      
-      if (isExamOrQuiz && meta?.generateStudyPlan && payload.startDate) {
-        const start = new Date(payload.startDate);
-        // Study Task 1: 5 days before
-        const d1 = new Date(start);
-        d1.setDate(d1.getDate() - 5);
-        studyTasks.push({
-            systemId,
-            title: `Repaso 1: ${payload.title}`,
-            status: 'backlog' as const,
-            priority: 'high' as const,
-            energyLevel: 'high' as const,
-            taskType: 'task' as const,
-            startDate: d1.toISOString(),
-            dueDate: d1.toISOString(),
-            parentTaskId: parent.id,
-        });
 
-        // Study Task 2: 2 days before
-        const d2 = new Date(start);
-        d2.setDate(d2.getDate() - 2);
-        studyTasks.push({
-            systemId,
-            title: `Repaso Final: ${payload.title}`,
-            status: 'backlog' as const,
-            priority: 'high' as const,
-            energyLevel: 'high' as const,
-            taskType: 'task' as const,
-            startDate: d2.toISOString(),
-            dueDate: d2.toISOString(),
-            parentTaskId: parent.id,
-        });
-      }
+      const studyTasks = buildStudyPlanTasks(payload, parent.id, systemId);
 
       const validSubtasks = subtasks.filter((s) => s.title.trim());
       await Promise.allSettled([
@@ -357,77 +273,11 @@ export function CreateTaskDialog({
             {form.formState.errors.title && (
               <p className="text-xs text-destructive">{form.formState.errors.title.message}</p>
             )}
-            {hasNlChips && (
-              <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted-foreground">
-                {showDateChip && (
-                  <span className="flex items-center gap-1">
-                    <CalendarRange size={12} className="shrink-0" />
-                    {format(new Date(rawNlParsed!.dueDate! + 'T00:00:00'), 'EEE d MMM', { locale: es })}
-                    {rawNlParsed!.dueTime ? ` · ${rawNlParsed!.dueTime}` : ''}
-                    <button
-                      type="button"
-                      aria-label="Ignorar fecha detectada"
-                      onClick={() => dismissNlField('dueDate')}
-                      className="rounded p-0.5 hover:bg-accent"
-                    >
-                      <X size={12} />
-                    </button>
-                  </span>
-                )}
-                {showPriorityChip && (
-                  <span className="flex items-center gap-1">
-                    {PRIORITY_LABELS[rawNlParsed!.priority!]}
-                    <button
-                      type="button"
-                      aria-label="Ignorar prioridad detectada"
-                      onClick={() => dismissNlField('priority')}
-                      className="rounded p-0.5 hover:bg-accent"
-                    >
-                      <X size={12} />
-                    </button>
-                  </span>
-                )}
-                {showSystemChip && (
-                  <span className="flex items-center gap-1">
-                    @{rawNlParsed!.systemHint}
-                    <button
-                      type="button"
-                      aria-label="Ignorar sistema detectado"
-                      onClick={() => dismissNlField('systemHint')}
-                      className="rounded p-0.5 hover:bg-accent"
-                    >
-                      <X size={12} />
-                    </button>
-                  </span>
-                )}
-                {showTagChip && (
-                  <span className="flex items-center gap-1">
-                    #{rawNlParsed!.tagHint}
-                    <button
-                      type="button"
-                      aria-label="Ignorar etiqueta detectada"
-                      onClick={() => dismissNlField('tagHint')}
-                      className="rounded p-0.5 hover:bg-accent"
-                    >
-                      <X size={12} />
-                    </button>
-                  </span>
-                )}
-                {showDurationChip && (
-                  <span className="flex items-center gap-1">
-                    {formatDuration(rawNlParsed!.estimatedMinutes!)}
-                    <button
-                      type="button"
-                      aria-label="Ignorar duración detectada"
-                      onClick={() => dismissNlField('estimatedMinutes')}
-                      className="rounded p-0.5 hover:bg-accent"
-                    >
-                      <X size={12} />
-                    </button>
-                  </span>
-                )}
-              </div>
-            )}
+            <NlChips
+              parsed={rawNlParsed}
+              ignoredFields={nlIgnoredFields}
+              onDismiss={dismissNlField}
+            />
           </div>
         </div>
       )}
@@ -435,109 +285,36 @@ export function CreateTaskDialog({
       {/* ── Step 2: Planificación ── */}
       {step === 2 && (
         <div className="flex flex-col gap-4">
-        {taskKinds.length > 0 && (
-          <div className="space-y-2">
-            <Label>Tipo</Label>
-            <div className="flex flex-wrap gap-1.5">
-              {taskKinds.map((kind) => {
-                const KindIcon = kind.icon;
-                const active = (currentMetadata?.kind as string | undefined) === kind.id;
-                return (
-                  <button
-                    key={kind.id}
-                    type="button"
-                    onClick={() => {
-                      const meta = (form.getValues('metadata') as Record<string, unknown>) || {};
-                      form.setValue(
-                        'metadata',
-                        active ? { ...meta, kind: undefined } : { ...meta, kind: kind.id },
-                      );
-                    }}
-                    className={cn(
-                      "inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-sm transition-colors",
-                      active
-                        ? "border-primary bg-primary/10 text-foreground"
-                        : "border-border text-muted-foreground hover:border-primary/50",
-                    )}
-                  >
-                    <KindIcon size={14} />
-                    {kind.label}
-                  </button>
-                );
-              })}
-            </div>
-            {(() => {
-              const activeKind = taskKinds.find((k) => k.id === (currentMetadata?.kind as string | undefined));
-              if (!activeKind || activeKind.fields.length === 0) return null;
-              return (
-                <div className="grid grid-cols-1 gap-2 pt-1">
-                  {activeKind.fields.map((field) => (
-                    <Input
-                      key={field.id}
-                      type={field.input === "date" ? "date" : field.input === "number" ? "number" : "text"}
-                      placeholder={field.label}
-                      value={(currentMetadata?.[field.id] as string | undefined) ?? ""}
-                      onChange={(e) => {
-                        const meta = (form.getValues("metadata") as Record<string, unknown>) || {};
-                        form.setValue("metadata", { ...meta, [field.id]: e.target.value });
-                      }}
-                    />
-                  ))}
-                </div>
-              );
-            })()}
-          </div>
-        )}
-        <TaskPlanningFields
-          form={form}
-          systemId={systemId}
-          systemTemplateType={systemTemplateType}
-          fields={dialogFields}
-          typeConfig={typeConfig}
-          taskType={taskType}
-          folders={folders}
-          sprints={sprints}
-          dateRange={dateRange}
-          setDateRange={setDateRange}
-        />
+          <TaskKindField
+            taskKinds={taskKinds}
+            metadata={currentMetadata}
+            onMetadataChange={setMetadata}
+          />
+          <TaskPlanningFields
+            form={form}
+            systemId={systemId}
+            systemTemplateType={systemTemplateType}
+            fields={dialogFields}
+            typeConfig={typeConfig}
+            taskType={taskType}
+            folders={folders}
+            sprints={sprints}
+            dateRange={dateRange}
+            setDateRange={setDateRange}
+          />
         </div>
       )}
 
       {/* ── Step 3: Detalle ── */}
       {step === 3 && (
         <div className="flex flex-col gap-4">
-          <div className="space-y-2">
-            {(() => {
-              const meta = currentMetadata;
-              const isExamOrQuiz = meta?.eventSubtype === 'exam' || meta?.eventSubtype === 'quiz';
-              return (
-                <>
-                  <Label htmlFor="description">{isExamOrQuiz ? 'Temario a estudiar' : 'Notas'}</Label>
-                  <Textarea
-                    id="description"
-                    placeholder={isExamOrQuiz ? "Temas principales..." : "Detalles opcionales..."}
-                    {...form.register('description')}
-                    className="min-h-[72px] resize-none"
-                  />
-                  {isExamOrQuiz && (
-                    <div className="flex items-center justify-between gap-2 p-3 mt-2 border rounded-lg bg-muted/20">
-                      <div className="space-y-0.5">
-                        <Label className="flex items-center gap-1.5"><Sparkles size={14} className="text-amber-500" /> Plan de Estudio</Label>
-                        <p className="text-[11px] text-muted-foreground">Auto-generar tareas de repaso antes de la fecha.</p>
-                      </div>
-                      <Switch
-                        checked={!!meta?.generateStudyPlan}
-                        onCheckedChange={(checked) => {
-                          const currentMetadata = (form.getValues('metadata') as Record<string, unknown>) || {};
-                          form.setValue('metadata', { ...currentMetadata, generateStudyPlan: checked });
-                        }}
-                      />
-                    </div>
-                  )}
-                </>
-              );
-            })()}
-          </div>
+          <DescriptionField
+            metadata={currentMetadata}
+            register={form.register('description')}
+            onToggleStudyPlan={(checked) =>
+              setMetadata({ ...(form.getValues('metadata') ?? {}), generateStudyPlan: checked })
+            }
+          />
 
           <Separator />
 
@@ -551,44 +328,7 @@ export function CreateTaskDialog({
 
           <Separator />
 
-          <div className="space-y-2">
-            <div className="flex items-center justify-between">
-              <Label>Subtareas</Label>
-              <Button
-                type="button"
-                variant="ghost"
-                size="sm"
-                className="h-7 text-sm text-muted-foreground"
-                onClick={() => setSubtasks((prev) => [...prev, { id: crypto.randomUUID(), title: '' }])}
-              >
-                <Plus size={14} className="mr-1" />
-                Agregar
-              </Button>
-            </div>
-            {subtasks.map((sub, i) => (
-              <div key={sub.id} className="flex items-center gap-2">
-                <Input
-                  placeholder={`Subtarea ${i + 1}`}
-                  value={sub.title}
-                  onChange={(e) => {
-                    const updated = [...subtasks];
-                    updated[i] = { ...updated[i], title: e.target.value };
-                    setSubtasks(updated);
-                  }}
-                  maxLength={500}
-                />
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="icon"
-                  className="shrink-0 size-8"
-                  onClick={() => setSubtasks((prev) => prev.filter((_, j) => j !== i))}
-                >
-                  <X size={16} />
-                </Button>
-              </div>
-            ))}
-          </div>
+          <SubtaskEditor subtasks={subtasks} onChange={setSubtasks} />
         </div>
       )}
 
