@@ -712,8 +712,12 @@ export const tasks = pgTable(
     index('idx_tasks_sprint')
       .on(table.sprintId)
       .where(sql`${table.sprintId} IS NOT NULL`),
+    // Lo que hace idempotente la importación desde GitHub: reimportar el mismo
+    // issue actualiza en vez de duplicar. Lleva `user_id` porque `external_source`
+    // es 'github' para todo el mundo — sin él, dos usuarios sincronizando el mismo
+    // repositorio chocarían en el mismo par (KIN-135).
     uniqueIndex('uq_tasks_external')
-      .on(table.externalSource, table.externalId)
+      .on(table.userId, table.externalSource, table.externalId)
       .where(sql`${table.externalId} IS NOT NULL`),
   ],
 );
@@ -752,6 +756,12 @@ export const sprints = pgTable(
   (table) => [
     index('idx_sprints_system').on(table.systemId, table.status),
     index('idx_sprints_user').on(table.userId),
+    // Mapeo idempotente milestone→sprint (KIN-135). El alcance es el sistema y no
+    // el usuario porque el milestone pertenece al repositorio, y el repositorio se
+    // declara en un sistema concreto.
+    uniqueIndex('uq_sprints_external')
+      .on(table.systemId, table.externalId)
+      .where(sql`${table.externalId} IS NOT NULL`),
   ],
 );
 

@@ -159,8 +159,27 @@ Criterio de aceptación cumplido · `typecheck` limpio · `lint` en 0 · tests v
 No referenciarlas como si existieran:
 
 - **Billing / Premium**: `subscriptionStatus` y `planType` son placeholders, sin código.
-- **Sync adapters**: la tabla `syncConnections` existe, sin lógica.
-- **GitHub sync**: `externalSource`, `externalId` y `sprints.externalId` están sembrados a propósito, dormidos.
+- **Sync adapters**: `syncConnections` sólo la usa GitHub (ver abajo). El resto de valores de `syncProviderEnum` siguen sin lógica.
 - **iCalendar import**: sin implementación.
 - **Context tags**: tabla en schema, sin pantalla de gestión.
 - **Captura offline**: existe `/offline` y un service worker que **solo** hace push. No hay cola de mutaciones.
+
+## Sincronización con GitHub (KIN-135)
+
+Un sistema `project` puede declarar un repositorio en `systems.metadata.github` y traer sus issues al board como tarjetas. El slice es `src/features/github-sync/`.
+
+- **Dirección: sólo lectura.** GitHub manda sobre título, cuerpo, abierto/cerrado y milestone. Kino nunca escribe en GitHub.
+- **Idempotencia** por `uq_tasks_external` `(user_id, external_source, external_id)`, con `external_id` = id numérico global del issue. Los milestones mapean a sprints por `uq_sprints_external` `(system_id, external_id)`.
+- **Lo que un refresco nunca pisa**: `energyLevel`, `dueDate`, `startDate`, `inTodayPlan` y demás campos de `KINO_OWNED_FIELDS` (`github-sync.mapper.ts`). Son el valor que Kino añade sobre un issue; si un refresco los borrara, el feature destruiría trabajo.
+- **Columnas**: issue cerrado → columna terminal (que completa la tarea por el puente de `moveTaskBoard`); reabierto → sale de la terminal. Las columnas intermedias las mueve la persona y la sincronización no las toca.
+- **Refresco**: bajo demanda al abrir el board o con el botón. Sin cron — la única entrada de `vercel.json` del free tier está ocupada.
+
+Variables de entorno que necesita:
+
+```bash
+ENCRYPTION_KEY            # 32 bytes en base64: openssl rand -base64 32
+GITHUB_SYNC_CLIENT_ID     # OAuth App propio, distinto del de login
+GITHUB_SYNC_CLIENT_SECRET # callback: <NEXT_PUBLIC_APP_URL>/api/integrations/github/callback
+```
+
+Son un OAuth App aparte del login porque GitHub sólo admite **una** URL de callback por app y esa ya la ocupa Better Auth, y porque leer issues privados exige el scope `repo`. Sin estas variables la integración se oculta sola: no rompe nada, simplemente no aparece.

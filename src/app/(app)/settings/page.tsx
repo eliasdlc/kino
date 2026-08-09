@@ -1,5 +1,6 @@
 "use client";
 
+import { Suspense } from "react";
 import { PageWrapper, PageHeader } from "@/components/PageWrapper";
 import { Label } from "@/components/ui/label";
 import {
@@ -16,6 +17,7 @@ import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 import { usePushNotifications } from "@/features/notifications/notifications.hooks";
 import { ApiKeysSection } from "@/features/api-keys/ApiKeysSection";
+import { GithubConnectionSection } from "@/features/github-sync/GithubConnectionSection";
 import { EnergyLimitSection } from "@/features/settings/EnergyLimitSection";
 import { TimezoneSection } from "@/features/settings/TimezoneSection";
 import { WeeklyReviewDaySection } from "@/features/settings/WeeklyReviewDaySection";
@@ -286,6 +288,12 @@ export default function SettingsPage() {
 
         {/* API Keys */}
         <ApiKeysSection />
+
+        {/* GitHub — lee el resultado del callback de OAuth de la URL, así que
+            necesita su propio límite de Suspense. */}
+        <Suspense>
+          <GithubConnectionSection />
+        </Suspense>
 
         {/* Datos y portabilidad */}
         <div className="space-y-4">

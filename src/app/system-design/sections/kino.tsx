@@ -19,6 +19,7 @@ import {
   SidebarMenuSubItem,
 } from "@/components/ui/sidebar";
 import { LayoutGrid, Inbox, Calendar, BookOpen, Rocket } from "lucide-react";
+import { GithubRepoPanelView } from "@/features/github-sync/GithubRepoPanelView";
 
 const noop = () => {};
 
@@ -193,6 +194,36 @@ export function KinoSection() {
               />
             </div>
           ))}
+        </div>
+      </SubSection>
+
+      <SubSection
+        title="GithubRepoPanel — estados (KIN-135)"
+        description="Barra del board de un sistema `project` para enlazar un repositorio y refrescar sus issues. Sólo la monta la vista project: ningún otro arquetipo ve esta integración. Tres estados según haya cuenta conectada y repositorio elegido, más el token caducado, que degrada con aviso en vez de romper el board."
+      >
+        <div className="flex max-w-2xl flex-col gap-3">
+          <Specimen label="Sin cuenta conectada" hint="el trabajo se hace en Ajustes">
+            <GithubRepoPanelView state={{ kind: "disconnected" }} />
+          </Specimen>
+          <Specimen label="Conectado, sin repositorio" hint="acepta owner/repo pegado">
+            <GithubRepoPanelView state={{ kind: "unlinked" }} />
+          </Specimen>
+          <Specimen label="Enlazado" hint="refresco bajo demanda">
+            <GithubRepoPanelView
+              state={{ kind: "linked", repo: { owner: "eliasdlc", repo: "kino" }, revoked: false }}
+            />
+          </Specimen>
+          <Specimen label="Sincronizando">
+            <GithubRepoPanelView
+              state={{ kind: "linked", repo: { owner: "eliasdlc", repo: "kino" }, revoked: false }}
+              syncing
+            />
+          </Specimen>
+          <Specimen label="Token revocado" hint="degrada, no rompe">
+            <GithubRepoPanelView
+              state={{ kind: "linked", repo: { owner: "eliasdlc", repo: "kino" }, revoked: true }}
+            />
+          </Specimen>
         </div>
       </SubSection>
 
