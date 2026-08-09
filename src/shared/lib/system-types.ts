@@ -98,6 +98,14 @@ export interface SystemMetadata {
    * hablen — un detector que grita demasiado se ignora y deja de existir.
    */
   chekhov?: { maxMentions: number; minSilentChapters: number };
+  /**
+   * Solo Project: repositorio de GitHub cuyos issues alimentan el board
+   * (KIN-135). Vive en el sistema y no en la conexión porque la cuenta de GitHub
+   * es una sola por usuario, mientras que el repositorio es de este proyecto
+   * concreto — un usuario puede tener varios sistemas `project`, cada uno con el
+   * suyo.
+   */
+  github?: { owner: string; repo: string };
 }
 
 export type SchedulingPreference = 'lowSlot' | 'peak' | 'highMedium';
