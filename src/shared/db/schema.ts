@@ -588,6 +588,15 @@ export const systemStatusDefinitions = pgTable(
 
 // ── tasks ──
 
+// Ojo (KIN-92): en la base, `tasks` y `pages` tienen además una columna
+// `search_vector tsvector` GENERATED con su índice GIN, creada en
+// `drizzle/0015_busqueda_full_text.sql`. No está declarada aquí a propósito:
+// media docena de queries hacen `db.select().from(tasks)` sin proyección y su
+// resultado viaja tal cual al cliente, así que declararla metería el tsvector en
+// el tipo `Task` y en todas esas respuestas sin que nadie la lea. La consume
+// sólo `search.service.ts`, por SQL crudo.
+// Consecuencia: `pnpm db:push` la borraría. El flujo del repo es
+// `db:generate` + `db:migrate`, que no la tocan.
 export const tasks = pgTable(
   'tasks',
   {
@@ -788,6 +797,8 @@ export const folders = pgTable(
 
 // ── pages ──
 
+// Ojo (KIN-92): `pages.search_vector` existe en la base pero no se declara aquí.
+// El porqué está en el comentario de `tasks`.
 export const pages = pgTable(
   'pages',
   {

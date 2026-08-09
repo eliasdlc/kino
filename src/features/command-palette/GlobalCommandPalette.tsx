@@ -17,6 +17,7 @@ import { useSystems } from "@/features/systems/systems.hooks";
 import { useQuickAddStore } from "@/features/tasks/quick-add.store";
 import { useSearch } from "@/features/search/search.hooks";
 import { SEARCH_MIN_LENGTH } from "@/features/search/search.types";
+import { SearchSnippet } from "@/features/search/SearchSnippet";
 import { useCommandPaletteStore } from "./command-palette.store";
 import {
   Calendar,
@@ -104,8 +105,11 @@ export function GlobalCommandPalette() {
                         runCommand(() => router.push(`/systems/${r.systemId}`))
                       }
                     >
-                      <ListChecks className="mr-2 h-4 w-4 text-muted-foreground" />
-                      <span className="truncate">{r.title}</span>
+                      <ListChecks className="mr-2 h-4 w-4 shrink-0 self-start text-muted-foreground" />
+                      <span className="min-w-0 flex-1">
+                        <span className="block truncate">{r.title}</span>
+                        {r.snippet && <SearchSnippet snippet={r.snippet} />}
+                      </span>
                     </CommandItem>
                   ))}
                 </CommandGroup>
@@ -124,8 +128,11 @@ export function GlobalCommandPalette() {
                         )
                       }
                     >
-                      <FileText className="mr-2 h-4 w-4 text-muted-foreground" />
-                      <span className="truncate">{r.title}</span>
+                      <FileText className="mr-2 h-4 w-4 shrink-0 self-start text-muted-foreground" />
+                      <span className="min-w-0 flex-1">
+                        <span className="block truncate">{r.title}</span>
+                        {r.snippet && <SearchSnippet snippet={r.snippet} />}
+                      </span>
                     </CommandItem>
                   ))}
                 </CommandGroup>

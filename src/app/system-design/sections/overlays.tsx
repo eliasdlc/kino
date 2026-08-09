@@ -73,7 +73,31 @@ import {
   CommandList,
   CommandShortcut,
 } from "@/components/ui/command";
-import { Eye, Pencil, Trash2, Plus, Zap, Calendar, Search } from "lucide-react";
+import {
+  Eye,
+  Pencil,
+  Trash2,
+  Plus,
+  Zap,
+  Calendar,
+  Search,
+  FileText,
+  Layers,
+  ListChecks,
+} from "lucide-react";
+import { SearchSnippet } from "@/features/search/SearchSnippet";
+import {
+  SNIPPET_CLOSE,
+  SNIPPET_OPEN,
+} from "@/features/search/search.types";
+
+/**
+ * Tal cual sale de `ts_headline`: la coincidencia va marcada con caracteres de
+ * control, no con HTML. Se monta desde las constantes para que el specimen no
+ * se desincronice si cambian.
+ */
+const SNIPPET_TAREA = `Repasar la ${SNIPPET_OPEN}canción${SNIPPET_CLOSE} del final`;
+const SNIPPET_PAGINA = `Ana estaba escribiendo una ${SNIPPET_OPEN}canción${SNIPPET_CLOSE} sobre el mar`;
 
 export function OverlaysSection() {
   const [confirmOpen, setConfirmOpen] = useState(false);
@@ -291,6 +315,51 @@ export function OverlaysSection() {
                 <CommandItem>
                   <Calendar className="size-4" /> Calendario
                   <CommandShortcut>G C</CommandShortcut>
+                </CommandItem>
+              </CommandGroup>
+            </CommandList>
+          </Command>
+        </div>
+      </SubSection>
+
+      <SubSection
+        title="Command · resultados de búsqueda (KIN-92)"
+        description="Cuando hay término, el palette muestra resultados del servidor ordenados por relevancia. Los de tarea y página traen debajo el fragmento donde apareció el término, con la coincidencia resaltada — sin él, un resultado que casó por el cuerpo no explica por qué salió. Los sistemas no llevan fragmento: sólo tienen nombre."
+      >
+        <div className="max-w-md rounded-lg border border-border">
+          <Command shouldFilter={false}>
+            <CommandInput placeholder="cancion" />
+            <CommandList>
+              <CommandGroup heading="Tareas">
+                <CommandItem>
+                  <ListChecks className="mr-2 size-4 shrink-0 self-start text-muted-foreground" />
+                  <span className="min-w-0 flex-1">
+                    <span className="block truncate">Revisar el capítulo</span>
+                    <SearchSnippet snippet={SNIPPET_TAREA} />
+                  </span>
+                </CommandItem>
+              </CommandGroup>
+              <CommandGroup heading="Páginas">
+                <CommandItem>
+                  <FileText className="mr-2 size-4 shrink-0 self-start text-muted-foreground" />
+                  <span className="min-w-0 flex-1">
+                    <span className="block truncate">Canción de cuna</span>
+                  </span>
+                </CommandItem>
+                <CommandItem>
+                  <FileText className="mr-2 size-4 shrink-0 self-start text-muted-foreground" />
+                  <span className="min-w-0 flex-1">
+                    <span className="block truncate">Capítulo tres</span>
+                    <SearchSnippet snippet={SNIPPET_PAGINA} />
+                  </span>
+                </CommandItem>
+              </CommandGroup>
+              <CommandGroup heading="Sistemas">
+                <CommandItem>
+                  <Layers className="mr-2 size-4 shrink-0 self-start text-muted-foreground" />
+                  <span className="min-w-0 flex-1">
+                    <span className="block truncate">Novela</span>
+                  </span>
                 </CommandItem>
               </CommandGroup>
             </CommandList>
