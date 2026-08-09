@@ -33,9 +33,9 @@ export function registerStoryTools(server, kinoFetch) {
             .optional()
             .describe('Una línea que la describa, para el popover del editor'),
         attributes: z
-            .record(z.string(), z.string())
+            .record(z.string(), z.union([z.string(), z.number()]))
             .optional()
-            .describe('Campos propios del tipo (edad, rol, origen…). Todo opcional'),
+            .describe('Campos propios del tipo (edad, rol, origen…). Todo opcional. Los eventos admiten además `timelineOrder` (número): su posición en el tiempo interno de la historia'),
     }, async ({ systemId, ...body }) => asText(await kinoFetch(`/api/systems/${systemId}/entities`, {
         method: 'POST',
         body: JSON.stringify(body),
@@ -47,7 +47,7 @@ export function registerStoryTools(server, kinoFetch) {
         aliases: z.array(z.string().min(1).max(255)).max(50).optional().describe('Lista completa de alias (reemplaza la anterior)'),
         summary: z.string().max(1000).nullable().optional().describe('Resumen de una línea (null para borrarlo)'),
         attributes: z
-            .record(z.string(), z.string())
+            .record(z.string(), z.union([z.string(), z.number()]))
             .nullable()
             .optional()
             .describe('Atributos completos (reemplazan los anteriores)'),
@@ -71,6 +71,9 @@ export function registerStoryTools(server, kinoFetch) {
     server.tool('get_work_structure', 'Estructura de una obra: sus capítulos en orden con palabras, si están terminados y qué entidades del codex aparecen en cada uno. La vista de conjunto para razonar sobre continuidad', {
         folderId: z.string().uuid().describe('UUID de la obra (folder del sistema de escritura)'),
     }, async ({ folderId }) => asText(await kinoFetch(`/api/folders/${folderId}/structure`)));
+    server.tool('get_timeline', 'Cronología in-world de una obra: los eventos del codex ordenados en el tiempo de la historia, con el capítulo donde se cuenta cada uno y cuáles se narran fuera de orden (flashbacks). Los eventos sin ubicar vienen aparte', {
+        folderId: z.string().uuid().describe('UUID de la obra (folder del sistema de escritura)'),
+    }, async ({ folderId }) => asText(await kinoFetch(`/api/folders/${folderId}/timeline`)));
     server.tool('search_story', 'Busca una frase dentro del texto de las obras de un sistema y devuelve los capítulos con fragmentos alrededor de cada coincidencia', {
         systemId: z.string().uuid().describe('UUID del sistema de escritura'),
         query: z.string().min(2).describe('Texto a buscar dentro de los manuscritos'),
