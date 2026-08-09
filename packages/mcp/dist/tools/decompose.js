@@ -1,131 +1,48 @@
 import { z } from 'zod';
-import Anthropic from '@anthropic-ai/sdk';
-const ENERGY_KEYWORDS = {
-    high: [
-        'analiz', 'design', 'diseñ', 'archi', 'investig', 'research', 'develop', 'desarroll',
-        'implement', 'creat', 'present', 'escribir', 'write', 'revis', 'audit', 'plan',
-    ],
-    low: [
-        'archiv', 'mover', 'move', 'elimin', 'delet', 'copiar', 'copy', 'renombr', 'rename',
-        'respond', 'reply', 'confirm', 'schedule', 'agendar', 'recordar', 'remind',
-    ],
-};
-const TIME_KEYWORDS = {
-    rápido: 15, quick: 15, pequeño: 15, small: 15,
-    reunión: 60, meeting: 60, review: 45, revisión: 45,
-    analiz: 90, research: 90, investigar: 90,
-    present: 60, deploy: 30,
-};
-function estimateEnergy(text) {
-    const lower = text.toLowerCase();
-    for (const kw of ENERGY_KEYWORDS.high) {
-        if (lower.includes(kw))
-            return 'high';
-    }
-    for (const kw of ENERGY_KEYWORDS.low) {
-        if (lower.includes(kw))
-            return 'low';
-    }
-    return 'medium';
-}
-function estimateTime(text) {
-    const lower = text.toLowerCase();
-    for (const [kw, minutes] of Object.entries(TIME_KEYWORDS)) {
-        if (lower.includes(kw)) {
-            const h = Math.floor(minutes / 60).toString().padStart(2, '0');
-            const m = (minutes % 60).toString().padStart(2, '0');
-            return `${h}:${m}:00`;
-        }
-    }
-    return '00:30:00';
-}
+/**
+ * Adaptadores de estimación y descomposición (KIN-148 / BE-11).
+ *
+ * Este archivo tenía las tablas de keywords del modelo de energía de Kino y un
+ * prompt a Anthropic con su propia API key. Las dos cosas eran reglas de negocio
+ * viviendo fuera de la app, y la segunda además hacía que el mismo tool se
+ * comportara distinto por stdio que por la ruta remota `/api/mcp`, donde esa
+ * variable de entorno no existe. Todo eso se mudó a
+ * `src/features/insights/insights.service.ts`, con tests y endpoint propio.
+ *
+ * Lo que queda aquí es lo que debe quedar: traducir argumentos a una llamada.
+ */
 export function registerDecomposeTools(server, kinoFetch) {
-    server.tool('estimate_task', 'Estimates the energy level and time required for a task based on keyword analysis of its title and description.', {
-        title: z.string().min(1).max(500).describe('Task title'),
-        description: z.string().optional().describe('Task description for more accurate estimation'),
+    server.tool('estimate_task', 'Estima el nivel de energía (high/medium/low) y el tiempo que tomará una tarea a partir de su título y descripción. Úsalo ANTES de crear una tarea cuando el usuario no dijo cuánta energía o cuánto tiempo requiere, para rellenar esos campos con un valor por defecto razonable. Es una heurística de keywords, no un juicio: si el usuario dio su propia estimación, la suya manda.', {
+        title: z.string().min(1).max(500).describe('Título de la tarea a estimar'),
+        description: z
+            .string()
+            .optional()
+            .describe('Descripción de la tarea, para una estimación más precisa'),
     }, async ({ title, description }) => {
-        const text = [title, description ?? ''].join(' ');
-        const energyLevel = estimateEnergy(text);
-        const estimatedTime = estimateTime(text);
-        const result = {
-            energyLevel,
-            estimatedTime,
-            reasoning: `Basado en keywords: "${energyLevel === 'high' ? 'análisis/diseño/investigación' : energyLevel === 'low' ? 'acción mecánica' : 'trabajo estándar'}"`,
-        };
-        return { content: [{ type: 'text', text: JSON.stringify(result, null, 2) }] };
+        const estimate = await kinoFetch('/api/insights/estimate', {
+            method: 'POST',
+            body: JSON.stringify({ title, description }),
+        });
+        return { content: [{ type: 'text', text: JSON.stringify(estimate, null, 2) }] };
     });
-    server.tool('reorder_by_importance', 'Returns today\'s tasks sorted by importance score (priority × urgency × age). Use to decide what to tackle first.', {}, async () => {
+    server.tool('reorder_by_importance', 'Devuelve las tareas de hoy ordenadas por importancia (prioridad × urgencia × antigüedad). Úsalo cuando el usuario pregunte por dónde empezar o qué es lo más importante, no para listar tareas — para eso está list_tasks.', {}, async () => {
         const suggestions = await kinoFetch('/api/insights/suggest?limit=10');
         return { content: [{ type: 'text', text: JSON.stringify(suggestions, null, 2) }] };
     });
-    server.tool('generate_subtasks', 'Uses AI to suggest subtasks for decomposing a complex task into smaller, actionable steps. Requires ANTHROPIC_API_KEY env var.', {
-        taskId: z.string().uuid().describe('UUID of the task to decompose'),
+    server.tool('generate_subtasks', 'Prepara la descomposición de una tarea compleja: devuelve la tarea, las subtareas que ya tiene y las reglas de Kino para partirla bien. Úsalo cuando el usuario pida dividir, descomponer o "hacer más manejable" una tarea. TÚ redactas las subtareas a partir de lo que devuelve, respetando `guidance` y el formato de `outputContract`; después llama a bulk_create_tasks con los valores que vienen en `outputContract.thenCallWith` para crearlas. Muéstraselas al usuario antes de crearlas.', {
+        taskId: z.string().uuid().describe('UUID de la tarea a descomponer'),
         count: z
             .number()
             .int()
             .min(2)
             .max(8)
             .optional()
-            .describe('Number of subtasks to generate (default: 3)'),
-    }, async ({ taskId, count = 3 }) => {
-        if (!process.env.ANTHROPIC_API_KEY) {
-            return {
-                content: [{
-                        type: 'text',
-                        text: JSON.stringify({ error: 'ANTHROPIC_API_KEY not set. Cannot generate subtasks.' }),
-                    }],
-            };
-        }
-        let task = null;
-        try {
-            task = await kinoFetch(`/api/tasks/${taskId}`);
-        }
-        catch {
-            task = null;
-        }
-        if (!task) {
-            return {
-                content: [{
-                        type: 'text',
-                        text: JSON.stringify({ error: `Task ${taskId} not found.` }),
-                    }],
-            };
-        }
-        const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
-        const prompt = `You are a productivity assistant. Decompose the following task into ${count} concrete, actionable subtasks.
-
-Task: "${task.title}"
-${task.description ? `Description: ${task.description}` : ''}
-
-Return ONLY a JSON array of objects with this shape (no markdown, no explanation):
-[
-  { "title": "...", "energyLevel": "high|medium|low", "estimatedMinutes": 30 },
-  ...
-]`;
-        const message = await client.messages.create({
-            model: 'claude-haiku-4-5-20251001',
-            max_tokens: 512,
-            messages: [{ role: 'user', content: prompt }],
+            .describe('Cuántas subtareas proponer (por defecto: 3)'),
+    }, async ({ taskId, count }) => {
+        const brief = await kinoFetch('/api/insights/decompose', {
+            method: 'POST',
+            body: JSON.stringify({ taskId, count }),
         });
-        const rawText = message.content[0]?.type === 'text' ? message.content[0].text : '[]';
-        let subtasks = [];
-        try {
-            subtasks = JSON.parse(rawText);
-        }
-        catch {
-            subtasks = [];
-        }
-        return {
-            content: [{
-                    type: 'text',
-                    text: JSON.stringify({
-                        parentTaskId: taskId,
-                        parentTitle: task.title,
-                        systemId: task.systemId,
-                        subtasks,
-                        note: `Use bulk_create_tasks with parentTaskId="${taskId}" and systemId="${task.systemId}" on each item to create these as subtasks.`,
-                    }, null, 2),
-                }],
-        };
+        return { content: [{ type: 'text', text: JSON.stringify(brief, null, 2) }] };
     });
 }
