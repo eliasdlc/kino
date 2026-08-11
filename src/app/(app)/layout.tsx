@@ -10,6 +10,7 @@ import { SidebarProvider } from "@/components/ui/sidebar";
 import { MobileHeader } from "@/components/MobileHeader";
 import { BottomNav } from "@/components/BottomNav";
 import { InstallPrompt } from "@/components/InstallPrompt";
+import { OfflineIndicator } from "@/features/offline/OfflineIndicator";
 
 import { GlobalCommandPalette } from "@/features/command-palette/GlobalCommandPalette";
 import { GlobalQuickAddDialog } from "@/features/tasks/GlobalQuickAddDialog";
@@ -60,6 +61,7 @@ export default async function AppLayout({
         <FocusTimerWidget />
         <FocusTimerModeDialog />
         <InstallPrompt />
+        <OfflineIndicator />
       </FocusTimerProvider>
     </Providers>
   );

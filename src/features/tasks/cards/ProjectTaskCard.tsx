@@ -4,6 +4,7 @@ import { useState } from "react";
 import { format } from "date-fns";
 import { ChevronDown, Clock, Flag, Hourglass, MoreHorizontal, Timer, Trash2 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { PendingSyncBadge } from "@/features/offline/PendingSyncBadge";
 import {
   ContextMenu,
   ContextMenuContent,
@@ -171,6 +172,8 @@ export function ProjectTaskCard({ task, systemId, onToggle, onDelete, onEdit, sh
           >
             {task.title}
           </button>
+
+          <PendingSyncBadge id={task.id} className="mt-1" />
 
           {(task.dueDate || estimate) && (
             <div className="flex items-center gap-4 text-[13px] font-medium mt-0.5">

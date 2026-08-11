@@ -650,6 +650,12 @@ export const tasks = pgTable(
     externalSource: varchar('external_source', { length: 255 }),
     // github-ready: id del recurso externo (ej. issue) para mapeo idempotente.
     externalId: varchar('external_id', { length: 255 }),
+    // KIN-57 · Idempotencia de la captura offline. Lo genera el cliente al pulsar
+    // "crear" y viaja en las variables de la mutación encolada, así que sobrevive
+    // al cierre del navegador. Si la cola reproduce dos veces la misma creación
+    // —o si el INSERT llegó y la respuesta se perdió— el índice único de abajo
+    // convierte el segundo intento en la misma fila, no en una tarea duplicada.
+    clientRequestId: uuid('client_request_id'),
     sortIndex: integer('sort_index').notNull().default(0),
     metadata: jsonb('metadata').$type<Record<string, unknown> | null>(),
     inTodayPlan: boolean('in_today_plan').notNull().default(false),
@@ -696,6 +702,11 @@ export const tasks = pgTable(
       .where(
         sql`${table.recurrenceRule} IS NOT NULL AND ${table.deletedAt} IS NULL`,
       ),
+    // Parcial: sólo las filas creadas por la cola offline llevan el id. Postgres
+    // trata los NULL como distintos, pero el WHERE mantiene el índice pequeño.
+    uniqueIndex('idx_tasks_client_request')
+      .on(table.userId, table.clientRequestId)
+      .where(sql`${table.clientRequestId} IS NOT NULL`),
     index('idx_tasks_parent')
       .on(table.parentTaskId)
       .where(sql`${table.parentTaskId} IS NOT NULL`),
@@ -832,6 +843,8 @@ export const pages = pgTable(
     // el hito que entra al diario de la obra. Null = en curso.
     completedAt: timestamp('completed_at', { withTimezone: true }),
     deletedAt: timestamp('deleted_at', { withTimezone: true }),
+    // KIN-57 · Idempotencia de la captura offline (ver `tasks.clientRequestId`).
+    clientRequestId: uuid('client_request_id'),
     createdAt: timestamp('created_at', { withTimezone: true })
       .notNull()
       .defaultNow(),
@@ -840,6 +853,9 @@ export const pages = pgTable(
       .defaultNow(),
   },
   (table) => [
+    uniqueIndex('idx_pages_client_request')
+      .on(table.userId, table.clientRequestId)
+      .where(sql`${table.clientRequestId} IS NOT NULL`),
     index('idx_pages_user')
       .on(table.userId)
       .where(sql`${table.deletedAt} IS NULL`),
@@ -1068,6 +1084,8 @@ export const stickyNotes = pgTable(
     isEureka: boolean('is_eureka').notNull().default(false),
     // Excerpt of text selected when note was created from editor selection
     textAnchor: text('text_anchor'),
+    // KIN-57 · Idempotencia de la captura offline (ver `tasks.clientRequestId`).
+    clientRequestId: uuid('client_request_id'),
     createdAt: timestamp('created_at', { withTimezone: true })
       .notNull()
       .defaultNow(),
@@ -1081,6 +1099,9 @@ export const stickyNotes = pgTable(
       'sticky_note_location',
       sql`(${table.pageId} IS NOT NULL AND ${table.folderId} IS NULL) OR (${table.pageId} IS NULL AND ${table.folderId} IS NOT NULL)`,
     ),
+    uniqueIndex('idx_sticky_client_request')
+      .on(table.userId, table.clientRequestId)
+      .where(sql`${table.clientRequestId} IS NOT NULL`),
     index('idx_sticky_user').on(table.userId),
     index('idx_sticky_page')
       .on(table.pageId)
