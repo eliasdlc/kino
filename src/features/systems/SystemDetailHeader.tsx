@@ -21,7 +21,7 @@ import { EditSystemDialog } from "./EditSystemDialog";
 import type { System } from "./systems.types";
 import Link from "next/link";
 import { type SystemSignals, formatStaleAdvisor } from "./systems.signals";
-import { SYSTEM_TYPE_CONFIG, type SystemType } from "@/shared/lib/system-types";
+import { capitalize, resolveSystemManifest } from "@/shared/lib/system-manifest";
 import { cn } from "@/lib/utils";
 
 interface SystemDetailHeaderProps {
@@ -66,7 +66,7 @@ export function SystemDetailHeader({ system, signals, currentTab = "tasks" }: Sy
   const cls = getSystemColor(system.color);
 
   const toggleOpen = () => setHeaderOpen(!open);
-  const typeConfig = SYSTEM_TYPE_CONFIG[(system.templateType ?? 'custom') as SystemType];
+  const typeConfig = resolveSystemManifest(system);
   const TypeIcon = typeConfig.icon;
   const staleAdvisor = formatStaleAdvisor(system, signals);
   const nextDue = signals.nextDueDate ? new Date(signals.nextDueDate) : null;
@@ -242,7 +242,7 @@ export function SystemDetailHeader({ system, signals, currentTab = "tasks" }: Sy
             currentTab === "docs" ? "text-foreground" : "text-muted-foreground"
           )}
         >
-          Docs
+          {capitalize(typeConfig.pageRole.nounPlural)}
           {currentTab === "docs" && (
             <div className={`absolute bottom-0 left-0 right-0 h-0.5 bg-${cls} rounded-t-full`} />
           )}

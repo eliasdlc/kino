@@ -28,6 +28,9 @@ pnpm-debug.log*
 *.swo
 *~
 
+# Estado local de Claude Code (locks de sesion, tareas programadas)
+.claude/
+
 # OS files
 .DS_Store
 Thumbs.db

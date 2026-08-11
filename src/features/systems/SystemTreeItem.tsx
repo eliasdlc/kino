@@ -27,7 +27,7 @@ import { getSystemColor } from "@/shared/utils/system-colors";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import type { SystemWithSignals } from "./systems.types";
-import { SYSTEM_TYPE_CONFIG, type SystemType } from "@/shared/lib/system-types";
+import { resolveSystemManifest } from "@/shared/lib/system-manifest";
 
 interface SystemTreeItemProps {
   system: SystemWithSignals;
@@ -105,7 +105,10 @@ export function SystemTreeItem({
     setIsCreating(true);
   }
 
-  const typeConfig = SYSTEM_TYPE_CONFIG[(system.templateType ?? 'custom') as SystemType];
+  // El manifiesto efectivo decide si el sistema ofrece contenedores y cómo se
+  // llaman: el arquetipo en los tipos con opinión, la composición en un custom.
+  const typeConfig = resolveSystemManifest(system);
+  const folderRole = typeConfig.folderRole;
   const Icon = ICON_MAP[system.icon ?? ''] ?? typeConfig?.icon ?? DEFAULT_ICON;
   const cls = getSystemColor(system.color);
   const isStale = system.stale;
@@ -208,10 +211,12 @@ export function SystemTreeItem({
                 </>
               )}
             </DropdownMenuItem>
-            <DropdownMenuItem onClick={handleNewFolder}>
-              <FolderPlus className="size-5 mr-2" />
-              Nueva carpeta
-            </DropdownMenuItem>
+            {folderRole && (
+              <DropdownMenuItem onClick={handleNewFolder}>
+                <FolderPlus className="size-5 mr-2" />
+                {folderRole.newLabel}
+              </DropdownMenuItem>
+            )}
             <DropdownMenuSeparator />
             <DropdownMenuItem
               className="text-destructive focus:text-destructive"
@@ -252,10 +257,10 @@ export function SystemTreeItem({
               </Link>
             ))}
 
-          {/* Empty state */}
-          {!foldersLoading && (!folders || folders.length === 0) && !isCreating && (
+          {/* Empty state — solo en arquetipos que ofrecen carpetas */}
+          {folderRole && !foldersLoading && (!folders || folders.length === 0) && !isCreating && (
             <p className="px-2 py-1 text-xs text-muted-foreground/60">
-              Sin carpetas
+              Sin {folderRole.nounPlural}
             </p>
           )}
 
@@ -272,7 +277,7 @@ export function SystemTreeItem({
                   if (isPending) return;
                   if (!newFolderName.trim()) setIsCreating(false);
                 }}
-                placeholder="Nombre de la carpeta"
+                placeholder={folderRole?.placeholder ?? "Nombre de la carpeta"}
                 className="flex-1 bg-transparent text-sm outline-none border-b border-sidebar-primary text-sidebar-foreground placeholder:text-muted-foreground/60"
               />
             </div>

@@ -1,7 +1,28 @@
 import { and, asc, desc, eq, gte, inArray, isNotNull, isNull, lt, notInArray, sql } from 'drizzle-orm';
 import { db } from '@/shared/db';
-import { behaviorSnapshots, energyCheckins, tasks, timeLogs, userEnergyProfile } from '@/shared/db/schema';
+import { behaviorSnapshots, energyCheckins, energyPredictions, tasks, timeLogs, userEnergyProfile } from '@/shared/db/schema';
 import type { CheckinSlot, CreateCheckinInput } from './energy.schemas';
+import type { Task } from '@/features/tasks/tasks.types';
+
+/**
+ * Qué cuenta como «tarea vencida»: fecha límite pasada, todavía sin cerrar y
+ * raíz — el ritual no reparte subtareas sueltas, así que contarlas aquí hacía
+ * que el aviso dijera «tienes 3 vencidas» junto a un ritual que ofrecía repartir
+ * 1, dos números para lo mismo en la misma pantalla.
+ *
+ * Vive en un solo sitio a propósito: el aviso del advisor y el reparto del
+ * ritual tienen que contar lo mismo, y un comentario que lo pida no impide que
+ * una de las dos consultas se quede atrás.
+ */
+export function overdueTasksPredicate(userId: string, date: string) {
+  return and(
+    eq(tasks.userId, userId),
+    lt(tasks.dueDate, date),
+    notInArray(tasks.status, ['done', 'archived']),
+    isNull(tasks.deletedAt),
+    isNull(tasks.parentTaskId),
+  );
+}
 
 // ── behavior_snapshots ─────────────────────────────────────────────────────
 
@@ -79,18 +100,8 @@ export async function countSnapshotMetrics(userId: string, date: string, timezon
           isNull(tasks.deletedAt),
         ),
       ),
-    // Tareas vencidas a esa fecha
-    db
-      .select({ count: sql<number>`COUNT(*)::int` })
-      .from(tasks)
-      .where(
-        and(
-          eq(tasks.userId, userId),
-          lt(tasks.dueDate, date),
-          notInArray(tasks.status, ['done', 'archived']),
-          isNull(tasks.deletedAt),
-        ),
-      ),
+    // Tareas vencidas a esa fecha — mismo predicado que usa el ritual.
+    overdueCountQuery(userId, date),
     // Tareas críticas activas
     db
       .select({ count: sql<number>`COUNT(*)::int` })
@@ -198,6 +209,76 @@ export async function getPlanCandidateTasks(userId: string) {
     );
 }
 
+/**
+ * Tareas comprometidas al plan de hoy, con lo mínimo que el presupuesto necesita.
+ * Incluye las completadas: el presupuesto mide compromiso, no producción.
+ */
+export async function getCommittedTodayTasks(
+  userId: string,
+): Promise<Array<{ energyLevel: string | null; status: string }>> {
+  const rows = await db
+    .select({ energyLevel: tasks.energyLevel, status: tasks.status })
+    .from(tasks)
+    .where(
+      and(
+        eq(tasks.userId, userId),
+        eq(tasks.inTodayPlan, true),
+        isNull(tasks.deletedAt),
+        isNull(tasks.parentTaskId),
+      ),
+    );
+
+  return rows;
+}
+
+/** Las tareas vencidas que el ritual reparte. Ver `overdueTasksPredicate`. */
+export const overdueTasksQuery = (userId: string, today: string) =>
+  db.select().from(tasks).where(overdueTasksPredicate(userId, today));
+
+export async function getOverdueTasks(userId: string, today: string): Promise<Task[]> {
+  return (await overdueTasksQuery(userId, today)) as Task[];
+}
+
+/** El conteo de vencidas del advisor. Comparte predicado con el del ritual. */
+export const overdueCountQuery = (userId: string, date: string) =>
+  db
+    .select({ count: sql<number>`COUNT(*)::int` })
+    .from(tasks)
+    .where(overdueTasksPredicate(userId, date));
+
+/**
+ * Carga ya programada por día calendario (en la tz del usuario) para un rango.
+ * Un día "comprometido" son los puntos de energía de lo que tiene `start_date`
+ * ese día: la misma noción de compromiso del presupuesto, proyectada a futuro.
+ */
+export function scheduledLoadByDayQuery(userId: string, timezone: string, from: string, to: string) {
+  return db
+    .select({
+      day: sql<string>`((${tasks.startDate} AT TIME ZONE ${timezone})::date)::text`,
+      energyLevel: tasks.energyLevel,
+    })
+    .from(tasks)
+    .where(
+      and(
+        eq(tasks.userId, userId),
+        isNotNull(tasks.startDate),
+        notInArray(tasks.status, ['done', 'archived']),
+        isNull(tasks.deletedAt),
+        isNull(tasks.parentTaskId),
+        sql`((${tasks.startDate} AT TIME ZONE ${timezone})::date) BETWEEN ${from}::date AND ${to}::date`,
+      ),
+    );
+}
+
+export async function getScheduledLoadByDay(
+  userId: string,
+  timezone: string,
+  from: string,
+  to: string,
+): Promise<Array<{ day: string; energyLevel: string | null }>> {
+  return scheduledLoadByDayQuery(userId, timezone, from, to);
+}
+
 export async function getUserEnergyProfile(userId: string) {
   const [row] = await db
     .select()
@@ -234,29 +315,49 @@ export async function getCompletedTasksLast90Days(
   return rows as Array<{ completedHour: number; energyLevel: string }>;
 }
 
-export async function getStartedTimeLogsLast90Days(
-  userId: string,
-  timezone: string,
-): Promise<Array<{ startedHour: number; energyLevel: string }>> {
-  const cutoff = new Date();
-  cutoff.setDate(cutoff.getDate() - 90);
+export interface TimeLogSignalRow {
+  startedHour: number;
+  /** Null en las sesiones de escritura: un capítulo no declara nivel de energía. */
+  energyLevel: string | null;
+  source: 'timer' | 'writing';
+}
 
-  const rows = await db
+/**
+ * Sesiones de trabajo de los últimos 90 días para calibrar la curva.
+ *
+ * Incluye las sesiones de escritura (W4), no solo los timers de tareas: son horas
+ * de trabajo profundo reales y el arquetipo Writing muestra su "ventana creativa"
+ * derivada justo de esta curva. Con el `innerJoin` a tasks que había antes,
+ * escribir tres horas diarias no movía la ventana que Kino le enseña al escritor.
+ * De ahí el leftJoin: las filas de escritura no tienen tarea.
+ */
+export function startedTimeLogsLast90DaysQuery(userId: string, timezone: string, cutoff: Date) {
+  return db
     .select({
       startedHour: sql<number>`EXTRACT(HOUR FROM ${timeLogs.startedAt} AT TIME ZONE ${timezone})::int`,
       energyLevel: tasks.energyLevel,
+      source: timeLogs.source,
     })
     .from(timeLogs)
-    .innerJoin(tasks, eq(timeLogs.taskId, tasks.id))
+    .leftJoin(tasks, eq(timeLogs.taskId, tasks.id))
     .where(
       and(
         eq(timeLogs.userId, userId),
-        eq(timeLogs.source, 'timer'),
+        inArray(timeLogs.source, ['timer', 'writing']),
         gte(timeLogs.startedAt, cutoff),
       ),
     );
+}
 
-  return rows as Array<{ startedHour: number; energyLevel: string }>;
+export async function getStartedTimeLogsLast90Days(
+  userId: string,
+  timezone: string,
+): Promise<TimeLogSignalRow[]> {
+  const cutoff = new Date();
+  cutoff.setDate(cutoff.getDate() - 90);
+
+  const rows = await startedTimeLogsLast90DaysQuery(userId, timezone, cutoff);
+  return rows as TimeLogSignalRow[];
 }
 
 export interface CheckinSignalRow {
@@ -314,6 +415,67 @@ export async function getRecentCheckinInsight(
     .where(and(eq(energyCheckins.userId, userId), gte(energyCheckins.date, cutoffStr)));
 
   return rows as CheckinInsightRow[];
+}
+
+// ── energy_predictions ─────────────────────────────────────────────────────
+
+export interface PredictionRow {
+  slot: CheckinSlot;
+  predictedLevel: number;
+  alphaAtPrediction: number;
+}
+
+/**
+ * Registra la predicción de un slot si no existe. `onConflictDoNothing` es la
+ * garantía central del loop: la primera predicción del día es la que se verifica,
+ * y ninguna lectura posterior la reescribe con una curva que ya aprendió del dato.
+ */
+export async function insertPredictionsIfAbsent(
+  userId: string,
+  date: string,
+  predictions: Array<{ slot: CheckinSlot; predictedLevel: number; alphaAtPrediction: number }>,
+): Promise<void> {
+  if (predictions.length === 0) return;
+
+  await db
+    .insert(energyPredictions)
+    .values(predictions.map((p) => ({ userId, date, ...p })))
+    .onConflictDoNothing({
+      target: [energyPredictions.userId, energyPredictions.date, energyPredictions.slot],
+    });
+}
+
+export async function getPredictionsForDate(userId: string, date: string): Promise<PredictionRow[]> {
+  const rows = await db
+    .select({
+      slot: energyPredictions.slot,
+      predictedLevel: energyPredictions.predictedLevel,
+      alphaAtPrediction: energyPredictions.alphaAtPrediction,
+    })
+    .from(energyPredictions)
+    .where(and(eq(energyPredictions.userId, userId), eq(energyPredictions.date, date)));
+
+  return rows as PredictionRow[];
+}
+
+/** Guarda el alpha antes/después de que un check-in recalibrara la curva. */
+export async function saveCheckinAlphaDelta(
+  userId: string,
+  date: string,
+  slot: CheckinSlot,
+  alphaBefore: number,
+  alphaAfter: number,
+): Promise<void> {
+  await db
+    .update(energyCheckins)
+    .set({ alphaBefore, alphaAfter })
+    .where(
+      and(
+        eq(energyCheckins.userId, userId),
+        eq(energyCheckins.date, date),
+        eq(energyCheckins.slot, slot),
+      ),
+    );
 }
 
 export async function saveLearnedCurve(

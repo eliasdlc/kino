@@ -22,6 +22,11 @@ export interface TimerState {
   phase: TimerPhase;
   mode: TimerMode | null;
   taskId: string | null;
+  /**
+   * Sesión de escritura (PLAN-11 §9): el timer también se lanza desde un
+   * capítulo. Exactamente uno de `taskId`/`pageId` está presente mientras corre.
+   */
+  pageId: string | null;
   taskTitle: string | null;
   systemId: string | null;
   estimatedMinutes: number | null;
@@ -34,7 +39,15 @@ export interface TimerState {
 }
 
 export type TimerAction =
-  | { type: 'START'; taskId: string; taskTitle: string; systemId: string; mode: TimerMode; estimatedMinutes?: number }
+  | {
+      type: 'START';
+      taskId?: string | null;
+      pageId?: string | null;
+      taskTitle: string;
+      systemId: string;
+      mode: TimerMode;
+      estimatedMinutes?: number;
+    }
   | { type: 'EXPIRE' }
   | { type: 'STOP' }
   | { type: 'COMPLETE_TASK' }
@@ -46,6 +59,8 @@ export interface PendingTask {
   title: string;
   systemId: string;
   estimatedDuration?: number | null;
+  /** El objetivo es un capítulo, no una tarea: sesión de escritura. */
+  isPage?: boolean;
 }
 
 interface TimerContextValue {
@@ -75,6 +90,7 @@ const INITIAL: TimerState = {
   phase: 'idle',
   mode: null,
   taskId: null,
+  pageId: null,
   taskTitle: null,
   systemId: null,
   estimatedMinutes: null,
@@ -100,7 +116,8 @@ function reducer(state: TimerState, action: TimerAction): TimerState {
         ...INITIAL,
         phase: 'working',
         mode: action.mode,
-        taskId: action.taskId,
+        taskId: action.taskId ?? null,
+        pageId: action.pageId ?? null,
         taskTitle: action.taskTitle,
         systemId: action.systemId,
         estimatedMinutes: em,
@@ -163,16 +180,19 @@ interface RecapToastProps {
   taskTitle: string;
   workedLabel: string;
   estimateMsg: string;
+  /** Sesión de escritura: cambia el verbo, no la mecánica. */
+  writing?: boolean;
   onEnergy: (level: 'high' | 'medium' | 'low') => void;
   onDismiss: () => void;
 }
 
-function RecapToast({ taskTitle, workedLabel, estimateMsg, onEnergy, onDismiss }: RecapToastProps) {
+function RecapToast({ taskTitle, workedLabel, estimateMsg, writing = false, onEnergy, onDismiss }: RecapToastProps) {
   return (
     <div className="w-80 rounded-xl border bg-card shadow-lg p-4 flex flex-col gap-3">
       <div>
         <p className="text-sm font-medium text-foreground">
-          Trabajaste {workedLabel} en <span className="text-primary">&ldquo;{taskTitle}&rdquo;</span>
+          {writing ? 'Escribiste' : 'Trabajaste'} {workedLabel} en{' '}
+          <span className="text-primary">&ldquo;{taskTitle}&rdquo;</span>
         </p>
         {estimateMsg && <p className="text-xs text-muted-foreground mt-0.5">{estimateMsg}</p>}
       </div>
@@ -266,8 +286,8 @@ export function FocusTimerProvider({ children }: { children: ReactNode }) {
     if (state.phase !== 'recap' || recapShownRef.current) return;
     recapShownRef.current = true;
 
-    const { taskId, taskTitle, systemId, recapWorkMs, estimatedMinutes } = state;
-    if (!taskId || !taskTitle || !systemId) { dispatch({ type: 'RESET' }); return; }
+    const { taskId, pageId, taskTitle, systemId, recapWorkMs, estimatedMinutes } = state;
+    if ((!taskId && !pageId) || !taskTitle || !systemId) { dispatch({ type: 'RESET' }); return; }
 
     const workMs = recapWorkMs ?? 0;
     const workedMinutes = Math.round(workMs / 60000);
@@ -284,16 +304,27 @@ export function FocusTimerProvider({ children }: { children: ReactNode }) {
       }
     }
 
-    const logTime = () =>
-      workedMinutes > 0
-        ? fetch(`/api/tasks/${taskId}/time-log`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ systemId, startedAt, endedAt, durationMinutes: workedMinutes, source: state.mode === 'pomodoro' ? 'pomodoro' : 'timer' }),
-          })
-            .then(() => queryClient.invalidateQueries({ queryKey: ['time-logs', taskId] }))
-            .catch(() => {})
-        : Promise.resolve();
+    // Una sesión de escritura no crea una fila propia: refina la que el server ya
+    // detectó por actividad, así los minutos no se cuentan dos veces (W4).
+    const logTime = () => {
+      if (workedMinutes <= 0) return Promise.resolve();
+      if (pageId) {
+        return fetch(`/api/pages/${pageId}/session`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ startedAt, endedAt, durationMinutes: workedMinutes }),
+        })
+          .then(() => queryClient.invalidateQueries({ queryKey: ['writing'] }))
+          .catch(() => {});
+      }
+      return fetch(`/api/tasks/${taskId}/time-log`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ systemId, startedAt, endedAt, durationMinutes: workedMinutes, source: state.mode === 'pomodoro' ? 'pomodoro' : 'timer' }),
+      })
+        .then(() => queryClient.invalidateQueries({ queryKey: ['time-logs', taskId] }))
+        .catch(() => {});
+    };
 
     const reset = () => {
       recapShownRef.current = false;
@@ -306,6 +337,7 @@ export function FocusTimerProvider({ children }: { children: ReactNode }) {
           taskTitle={taskTitle}
           workedLabel={workedLabel}
           estimateMsg={estimateMsg}
+          writing={pageId !== null}
           onEnergy={async (level) => {
             toast.dismiss(id);
             await Promise.allSettled([

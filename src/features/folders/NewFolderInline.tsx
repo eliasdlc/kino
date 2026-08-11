@@ -3,50 +3,164 @@
 import { useEffect, useRef, useState, type ComponentType } from "react";
 import { Plus, Target, type LucideProps } from "lucide-react";
 import { useCreateFolder } from "./folders.hooks";
+import type { ArchetypeFieldDef } from "@/shared/lib/system-types";
 
 interface NewFolderInlineProps {
   systemId: string;
-  /** Texto del botón disparador, p.ej. "Nuevo milestone" / "Nuevo proyecto". */
+  /** Texto del botón disparador, p.ej. "Nueva clase" / "Nuevo milestone". */
   label: string;
   placeholder: string;
   /** Icono mostrado junto al input. Por defecto Target. */
   icon?: ComponentType<LucideProps>;
+  /** Campos del rol de carpeta (del manifiesto). Vacío → solo nombre. */
+  fields?: ArchetypeFieldDef[];
 }
 
+// `select` tiene su propio render y `idList` es siempre `hidden` (lo escribe la
+// UI, no este formulario), así que ninguno necesita un tipo de input HTML.
+const INPUT_TYPE: Record<
+  Exclude<ArchetypeFieldDef["input"], "select" | "idList">,
+  string
+> = {
+  text: "text",
+  date: "date",
+  number: "number",
+};
+
+const FIELD_CLASS =
+  "rounded border border-border/60 bg-transparent px-2 py-1 text-xs outline-none focus:border-primary/60 placeholder:text-muted-foreground/60";
+
 /**
- * Control inline para crear un folder (milestone/proyecto) siguiendo el patrón
- * de SystemTreeItem: botón → input con Enter/Escape/blur → useCreateFolder.
+ * Control inline para crear un folder con el vocabulario y los campos de su
+ * arquetipo (manifiesto). Sin `fields` es el patrón simple de una línea; con
+ * `fields` despliega un mini-form (clase con profesor/horario, milestone con
+ * fecha objetivo…). La metadata se valida server-side por systemType.
  */
-export function NewFolderInline({ systemId, label, placeholder, icon: Icon = Target }: NewFolderInlineProps) {
+export function NewFolderInline({
+  systemId,
+  label,
+  placeholder,
+  icon: Icon = Target,
+  fields: allFields = [],
+}: NewFolderInlineProps) {
   const [isCreating, setIsCreating] = useState(false);
   const [name, setName] = useState("");
+  const [values, setValues] = useState<Record<string, string>>({});
   const inputRef = useRef<HTMLInputElement>(null);
   const { mutateAsync: createFolder, isPending } = useCreateFolder(systemId);
+
+  // Los campos `hidden` del manifiesto los escribe la UI, no este formulario.
+  const fields = allFields.filter((f) => !f.hidden);
+  const hasFields = fields.length > 0;
 
   useEffect(() => {
     if (isCreating) inputRef.current?.focus();
   }, [isCreating]);
 
+  function reset() {
+    setName("");
+    setValues({});
+    setIsCreating(false);
+  }
+
+  function buildMetadata(): Record<string, string> | undefined {
+    const meta: Record<string, string> = {};
+    for (const field of fields) {
+      const v = values[field.id]?.trim();
+      if (v) meta[field.id] = v;
+    }
+    return Object.keys(meta).length > 0 ? meta : undefined;
+  }
+
   async function handleCreate() {
     const trimmed = name.trim();
     if (!trimmed) {
-      setIsCreating(false);
+      reset();
       return;
     }
     try {
-      await createFolder({ name: trimmed });
+      await createFolder({ name: trimmed, metadata: buildMetadata() });
     } finally {
-      setName("");
-      setIsCreating(false);
+      reset();
     }
   }
 
-  function handleKeyDown(e: React.KeyboardEvent<HTMLInputElement>) {
-    if (e.key === "Enter") handleCreate();
-    if (e.key === "Escape") {
-      setIsCreating(false);
-      setName("");
-    }
+  function handleNameKeyDown(e: React.KeyboardEvent<HTMLInputElement>) {
+    // Con campos extra, Enter en el nombre pasa el foco al primer campo en vez
+    // de crear a medias.
+    if (e.key === "Enter" && !hasFields) handleCreate();
+    if (e.key === "Escape") reset();
+  }
+
+  if (isCreating && hasFields) {
+    return (
+      <div className="flex flex-col gap-2 rounded-md border border-primary/50 px-3 py-2.5">
+        <div className="flex items-center gap-2">
+          <Icon size={16} className="shrink-0 text-primary" />
+          <input
+            ref={inputRef}
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            onKeyDown={handleNameKeyDown}
+            placeholder={placeholder}
+            className="flex-1 bg-transparent text-sm font-medium outline-none placeholder:text-muted-foreground/60"
+          />
+        </div>
+        <div className="grid grid-cols-1 gap-1.5 pl-6 sm:grid-cols-2">
+          {fields.map((field) =>
+            field.input === "select" ? (
+              <select
+                key={field.id}
+                aria-label={field.label}
+                value={values[field.id] ?? ""}
+                onChange={(e) => setValues((prev) => ({ ...prev, [field.id]: e.target.value }))}
+                onKeyDown={(e) => {
+                  if (e.key === "Escape") reset();
+                }}
+                className={FIELD_CLASS}
+              >
+                <option value="">{field.label}</option>
+                {(field.options ?? []).map((opt) => (
+                  <option key={opt.value} value={opt.value}>
+                    {opt.label}
+                  </option>
+                ))}
+              </select>
+            ) : (
+              <input
+                key={field.id}
+                type={INPUT_TYPE[field.input as keyof typeof INPUT_TYPE] ?? "text"}
+                value={values[field.id] ?? ""}
+                onChange={(e) => setValues((prev) => ({ ...prev, [field.id]: e.target.value }))}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") handleCreate();
+                  if (e.key === "Escape") reset();
+                }}
+                placeholder={field.label}
+                className={FIELD_CLASS}
+              />
+            )
+          )}
+        </div>
+        <div className="flex items-center gap-2 pl-6">
+          <button
+            type="button"
+            onClick={handleCreate}
+            disabled={isPending || !name.trim()}
+            className="rounded bg-primary px-2.5 py-1 text-xs font-medium text-primary-foreground disabled:opacity-50"
+          >
+            Crear
+          </button>
+          <button
+            type="button"
+            onClick={reset}
+            className="text-xs text-muted-foreground hover:text-foreground"
+          >
+            Cancelar
+          </button>
+        </div>
+      </div>
+    );
   }
 
   if (isCreating) {
@@ -57,7 +171,7 @@ export function NewFolderInline({ systemId, label, placeholder, icon: Icon = Tar
           ref={inputRef}
           value={name}
           onChange={(e) => setName(e.target.value)}
-          onKeyDown={handleKeyDown}
+          onKeyDown={handleNameKeyDown}
           onBlur={() => {
             if (isPending) return;
             if (!name.trim()) setIsCreating(false);

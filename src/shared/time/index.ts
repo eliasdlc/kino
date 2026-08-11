@@ -53,12 +53,25 @@ function tzOffsetMs(date: Date, tz: string): number {
   return asUtc - date.getTime();
 }
 
-/** Instante UTC de la medianoche local del día `yyyy-MM-dd` en `tz`. */
-function zonedMidnightToUtc(dayISO: string, tz: string): Date {
+/**
+ * Instante UTC de una hora local del día `yyyy-MM-dd` en `tz`.
+ *
+ * El equivalente de servidor a `dayToLocalISO` del cliente: ese construye el
+ * instante en la tz del navegador, que en el server (UTC) sería el día
+ * equivocado. Lo usa el time-blocking por MCP, donde el agente dice "las 9" y la
+ * hora tiene que caer en las 9 **del usuario**.
+ */
+export function zonedDayHourToUtc(dayISO: string, hour: number, tz: string): Date {
   const [y, m, d] = dayISO.slice(0, 10).split("-").map(Number);
-  const guess = Date.UTC(y!, (m ?? 1) - 1, d ?? 1, 0, 0, 0);
+  const h = Math.max(0, Math.min(23, Math.floor(hour)));
+  const guess = Date.UTC(y!, (m ?? 1) - 1, d ?? 1, h, 0, 0);
   const offset = tzOffsetMs(new Date(guess), tz);
   return new Date(guess - offset);
+}
+
+/** Instante UTC de la medianoche local del día `yyyy-MM-dd` en `tz`. */
+function zonedMidnightToUtc(dayISO: string, tz: string): Date {
+  return zonedDayHourToUtc(dayISO, 0, tz);
 }
 
 /**

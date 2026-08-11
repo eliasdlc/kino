@@ -15,6 +15,7 @@
   --font-sans: var(--font-sans);
   --font-mono: var(--font-geist-mono);
   --font-heading: var(--font-sans);
+  --font-serif: var(--font-literata);
   /* Marketing/auth-only fonts — variables defined by next/font inside those layouts */
   --font-display: var(--font-bricolage);
   --font-body: var(--font-instrument);
@@ -193,8 +194,151 @@
 .tiptap-editor .ProseMirror em {
   @apply italic;
 }
+/* ── Mención del Codex (Writing W2) ──────────────────────────────────────
+   Enlace vivo a una entidad del universo; se distingue del texto sin gritar. */
+.tiptap-editor .ProseMirror .codex-mention {
+  @apply text-primary font-medium rounded px-0.5 cursor-pointer;
+  box-decoration-break: clone;
+  -webkit-box-decoration-break: clone;
+}
+.tiptap-editor .ProseMirror .codex-mention:hover {
+  @apply bg-primary/10;
+}
 
-/* ── Confetti burst (TodayPlanCard — DECISIONS.md §1.2) ──────────────────── */
+/* ── Writer feel (arquetipo Writing, PLAN-11 §7) ──────────────────────────
+   Tipografía serif de lectura, medida cómoda y line-height generoso: el editor
+   debe dar ganas de quedarse. Solo aplica cuando la superficie es de escritura. */
+.tiptap-writer .ProseMirror {
+  font-family: var(--font-serif), Georgia, "Times New Roman", serif;
+  font-size: 1.0625rem; /* ~17px */
+  line-height: 1.85;
+  letter-spacing: 0.003em;
+}
+.tiptap-writer .ProseMirror p {
+  @apply my-0;
+  text-align: justify;
+  text-wrap: pretty;
+}
+.tiptap-writer .ProseMirror p + p {
+  text-indent: 1.4em; /* sangría de párrafo tipo libro; primer párrafo sin sangría */
+}
+.tiptap-writer .ProseMirror h1,
+.tiptap-writer .ProseMirror h2,
+.tiptap-writer .ProseMirror h3 {
+  font-family: var(--font-serif), Georgia, serif;
+  text-align: center;
+  text-indent: 0;
+}
+
+/* Fondo "papel" cálido, opción sobre el dark actual. Se activa por atributo en
+   la columna del editor para no tocar el resto de la app. */
+[data-paper="on"] {
+  --paper-bg: #f6f1e7;
+  --paper-fg: #2b2620;
+  background-color: var(--paper-bg);
+  color: var(--paper-fg);
+  border-radius: 0.5rem;
+}
+[data-paper="on"] .tiptap-writer .ProseMirror {
+  color: var(--paper-fg);
+}
+
+/* ── Bloques por medium (Writing W3, PLAN-11 §6) ──────────────────────────
+   Separador de escena: el corte del capítulo, discreto y centrado. */
+:is(.tiptap-editor .ProseMirror, .reading-surface) .scene-break {
+  @apply my-8 text-center text-muted-foreground select-none;
+  letter-spacing: 0.6em;
+  text-indent: 0;
+}
+/* Corte guía del plot grid (KIN-141): abre el capítulo solo para cargar el arco
+   de la primera escena. No es un separador entre dos escenas, así que no se
+   pinta — ni en el editor ni leyendo. */
+:is(.tiptap-editor .ProseMirror, .reading-surface) .scene-break[data-leading="true"] {
+  display: none;
+}
+
+/* Guion de manga/cómic/webtoon: páginas y paneles numerados con contadores CSS.
+   El número no se guarda en ningún sitio — insertar un panel en medio renumera
+   solo (D12: derivar > mantener). */
+.tiptap-editor .ProseMirror {
+  counter-reset: manga-page panel;
+}
+:is(.tiptap-editor .ProseMirror, .reading-surface) .manga-page {
+  @apply my-5 rounded-lg border border-border/70 p-3 pt-8 relative;
+  counter-increment: manga-page;
+  counter-reset: panel;
+}
+:is(.tiptap-editor .ProseMirror, .reading-surface) .manga-page::before {
+  content: "Página " counter(manga-page);
+  @apply absolute left-3 top-2 font-sans text-[10px] font-semibold uppercase tracking-widest text-muted-foreground;
+}
+:is(.tiptap-editor .ProseMirror, .reading-surface) .panel {
+  @apply my-2 rounded-md border-l-2 border-primary/40 bg-muted/30 py-2 pl-3 pr-2 relative;
+  counter-increment: panel;
+}
+:is(.tiptap-editor .ProseMirror, .reading-surface) .panel::before {
+  content: "Panel " counter(panel);
+  @apply block mb-1 font-sans text-[10px] font-semibold uppercase tracking-widest text-muted-foreground;
+}
+:is(.tiptap-writer .ProseMirror, .reading-surface[data-layout="script"]) .panel p,
+:is(.tiptap-writer .ProseMirror, .reading-surface[data-layout="script"]) .manga-page p {
+  text-align: left;
+  text-indent: 0;
+}
+
+/* Guion audiovisual: las sangrías y mayúsculas son presentación, no texto — lo
+   guardado sigue siendo la línea tal cual la escribió el autor. */
+:is(.tiptap-editor .ProseMirror, .reading-surface) [data-sp] {
+  @apply my-0;
+  text-align: left;
+  text-indent: 0;
+}
+:is(.tiptap-editor .ProseMirror, .reading-surface) .sp-sceneHeading {
+  @apply mt-6 mb-2 font-semibold;
+  text-transform: uppercase;
+}
+:is(.tiptap-editor .ProseMirror, .reading-surface) .sp-action {
+  @apply my-2;
+}
+:is(.tiptap-editor .ProseMirror, .reading-surface) .sp-character {
+  @apply mt-4;
+  margin-left: 34%;
+  text-transform: uppercase;
+}
+:is(.tiptap-editor .ProseMirror, .reading-surface) .sp-parenthetical {
+  margin-left: 28%;
+  @apply text-muted-foreground;
+}
+:is(.tiptap-editor .ProseMirror, .reading-surface) .sp-dialogue {
+  margin-left: 20%;
+  margin-right: 18%;
+}
+/* En móvil las sangrías de guion comen la medida útil: se reducen sin perder la
+   jerarquía visual entre acción, personaje y diálogo. */
+@media (max-width: 640px) {
+  :is(.tiptap-editor .ProseMirror, .reading-surface) .sp-character {
+    margin-left: 22%;
+  }
+  :is(.tiptap-editor .ProseMirror, .reading-surface) .sp-parenthetical {
+    margin-left: 16%;
+  }
+  :is(.tiptap-editor .ProseMirror, .reading-surface) .sp-dialogue {
+    margin-left: 10%;
+    margin-right: 4%;
+  }
+}
+
+/* Modo focus: atenúa todo menos el bloque activo (marcado con .has-focus por la
+   extension Focus). Solo se activa cuando el contenedor lleva .writer-focus. */
+.writer-focus .tiptap-writer .ProseMirror > * {
+  transition: opacity 0.25s ease;
+  opacity: 0.28;
+}
+.writer-focus .tiptap-writer .ProseMirror > .has-focus {
+  opacity: 1;
+}
+
+/* ── Confetti burst (TodayPlanCard) — CSS puro, GPU-only, respeta reduced-motion ── */
 @keyframes confetti-fly {
   0%   { transform: translate(-50%, -50%) rotate(0deg) scale(1); opacity: 1; }
   100% {
@@ -315,7 +459,7 @@
   opacity: 0.75;
 }
 
-/* ── Dashboard fixed-height grid (DECISIONS.md §1.1) ──────────────────────── */
+/* ── Dashboard fixed-height grid — layout sin scroll ─────────────────────── */
 .dashboard-grid {
   display: grid;
   height: 100%;
@@ -337,5 +481,125 @@
     grid-template-areas: "plan" "side" "bottom";
     height: auto;
     overflow-y: visible;
+  }
+}
+
+/* ── Modo lectura (KIN-138) ───────────────────────────────────────────────
+   La obra como la vería quien la lee. Es la cuarta salida del MediumManifest:
+   los bloques por medium (páginas, paneles, guion) se comparten con el editor
+   vía `:is(…, .reading-surface)` más arriba; aquí va solo lo propio de leer.
+
+   El contador de páginas y paneles se reinicia por capítulo, no por obra: cada
+   capítulo de manga empieza en su página 1, igual que en el editor. */
+.reading-chapter {
+  counter-reset: manga-page panel;
+}
+/* Aire entre capítulos: en continuo el título del siguiente se pega al último
+   párrafo del anterior y los dos se leen como uno solo. */
+.reading-chapter + .reading-chapter {
+  margin-top: 3.5rem;
+}
+
+.reading-surface {
+  color: var(--foreground);
+}
+
+/* Libro: la tipografía del writer feel, pero sin nada del editor alrededor. */
+.reading-surface[data-layout="book"] {
+  font-family: var(--font-serif), Georgia, "Times New Roman", serif;
+  font-size: 1.0625rem;
+  line-height: 1.85;
+  letter-spacing: 0.003em;
+}
+.reading-surface[data-layout="book"] p {
+  margin: 0;
+  text-align: justify;
+  text-wrap: pretty;
+}
+.reading-surface[data-layout="book"] p + p {
+  text-indent: 1.4em;
+}
+.reading-surface[data-layout="book"] h1,
+.reading-surface[data-layout="book"] h2,
+.reading-surface[data-layout="book"] h3 {
+  font-family: var(--font-serif), Georgia, serif;
+  text-align: center;
+  text-indent: 0;
+  @apply mb-4 mt-8 font-semibold;
+}
+.reading-surface[data-layout="book"] blockquote {
+  @apply my-6 border-l-2 border-border pl-4 italic;
+  text-indent: 0;
+}
+
+/* Guion de manga/cómic y guion audiovisual: sans y sin sangrías de prosa — lo
+   que se lee es la estructura, no el ritmo del párrafo. */
+.reading-surface[data-layout="script"],
+.reading-surface[data-layout="screenplay"] {
+  font-size: 0.95rem;
+  line-height: 1.7;
+}
+.reading-surface[data-layout="screenplay"] {
+  font-family: var(--font-mono), "Courier New", monospace;
+}
+
+.reading-surface img {
+  @apply mx-auto my-6 max-w-full rounded;
+}
+.reading-surface ul,
+.reading-surface ol {
+  @apply my-4 pl-6;
+  text-indent: 0;
+}
+.reading-surface ul { list-style: disc; }
+.reading-surface ol { list-style: decimal; }
+
+/* Vista paginada: columnas del ancho del contenedor con scroll-snap horizontal.
+   Es el truco clásico de los lectores de ePub — pura CSS, sin medir texto ni
+   partir el HTML, así que ningún contenido se pierde si el cálculo falla.
+   Fuera de `book` no se activa: paginar un guion por píxeles sería mentir sobre
+   dónde caen sus páginas, que se cuentan en líneas. */
+.reading-paged {
+  column-width: var(--reading-page-width, 38rem);
+  column-gap: 4rem;
+  column-fill: auto;
+  height: var(--reading-page-height, 70vh);
+  overflow-x: auto;
+  overflow-y: hidden;
+  scroll-snap-type: x mandatory;
+  scroll-behavior: smooth;
+}
+.reading-paged > * {
+  scroll-snap-align: start;
+}
+/* Un título o una imagen partidos por la mitad entre dos columnas se leen fatal. */
+.reading-paged h1,
+.reading-paged h2,
+.reading-paged h3,
+.reading-paged img,
+.reading-paged blockquote,
+.reading-paged .manga-page,
+.reading-paged .panel {
+  break-inside: avoid;
+}
+@media (prefers-reduced-motion: reduce) {
+  .reading-paged { scroll-behavior: auto; }
+}
+
+/* Impresión: el manuscrito y nada más. Es también la vía honesta al PDF sin
+   meter un generador dentro del límite de 10s de la función serverless. */
+@media print {
+  .reading-no-print { display: none !important; }
+  .reading-paged {
+    column-width: auto;
+    columns: 1;
+    height: auto;
+    overflow: visible;
+  }
+  .reading-chapter { break-before: page; }
+  .reading-chapter:first-child { break-before: auto; }
+  .reading-surface {
+    color: #000;
+    font-size: 11pt;
   }
 }

@@ -6,6 +6,7 @@ import Link from "next/link";
 import { authClient } from "@/shared/lib/auth-client";
 import { useHydrated } from "@/shared/hooks/useHydrated";
 import { GoogleIcon, GitHubIcon } from "@/shared/components/OAuthIcons";
+import { identityFromLandingSlug } from "@/features/onboarding/onboarding.archetypes";
 
 const inputClass =
   "w-full rounded-[11px] border border-white/10 bg-white/[0.04] px-3.5 py-3 text-[15px] text-[#f4f4f5] outline-none transition focus:border-[#818cf8]/60 focus:shadow-[0_0_0_3px_rgba(99,102,241,0.15)] placeholder:text-[#52525b]";
@@ -38,6 +39,15 @@ export function AuthForm({ mode }: { mode: "login" | "register" }) {
   const rawNext = searchParams.get("next") ?? "";
   const next = rawNext.startsWith("/") ? rawNext : "/dashboard";
 
+  // Quien llega desde una landing por arquetipo (`/para/escritores`) ya dijo
+  // quién es: el slug viaja con el registro para que el onboarding continúe esa
+  // conversación en vez de volver a preguntarlo. Se valida contra el manifiesto
+  // — un slug inventado no se propaga.
+  const paraSlug = searchParams.get("para");
+  const para = identityFromLandingSlug(paraSlug) ? paraSlug : null;
+  const afterSignup = para ? `/onboarding?para=${encodeURIComponent(para)}` : "/dashboard";
+  const withPara = (href: string) => (para ? `${href}?para=${encodeURIComponent(para)}` : href);
+
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -63,7 +73,10 @@ export function AuthForm({ mode }: { mode: "login" | "register" }) {
         setLoading(false);
         return;
       }
-      router.push(next);
+      // Con segmento y sin destino explícito, el login también desemboca en el
+      // onboarding preseleccionado; si ya lo completó, esa ruta lo devuelve al
+      // panel por su cuenta.
+      router.push(para && !rawNext ? afterSignup : next);
       return;
     }
 
@@ -79,12 +92,12 @@ export function AuthForm({ mode }: { mode: "login" | "register" }) {
       setLoading(false);
       return;
     }
-    router.push("/dashboard");
+    router.push(afterSignup);
   }
 
   async function handleOAuth(provider: "google" | "github") {
     setOauthLoading(provider);
-    await authClient.signIn.social({ provider, callbackURL: isLogin ? next : "/dashboard" });
+    await authClient.signIn.social({ provider, callbackURL: isLogin ? next : afterSignup });
   }
 
   const busy = loading || oauthLoading !== null;
@@ -92,6 +105,11 @@ export function AuthForm({ mode }: { mode: "login" | "register" }) {
   return (
     <div>
       <div className="mb-7 text-center">
+        {para && (
+          <p className="mb-3 inline-flex items-center gap-2 rounded-full border border-[#818cf8]/25 bg-[#818cf8]/[0.10] px-3 py-1 font-jetbrains text-[11px] text-[#a5b4fc]">
+            vienes de Kino para {para}
+          </p>
+        )}
         <h1 className="mb-2 font-display text-[30px] font-extrabold tracking-[-0.02em] text-[#f4f4f5]">
           {copy.heading}
         </h1>
@@ -100,10 +118,10 @@ export function AuthForm({ mode }: { mode: "login" | "register" }) {
 
       <div className="rounded-[20px] border border-white/[0.09] bg-[#18181c] p-[26px] shadow-[0_24px_80px_rgba(0,0,0,0.5)]">
         <div className="mb-[22px] flex gap-1 rounded-xl border border-white/[0.07] bg-white/[0.04] p-1">
-          <Tab href="/login" active={isLogin}>
+          <Tab href={withPara("/login")} active={isLogin}>
             Entrar
           </Tab>
-          <Tab href="/register" active={!isLogin}>
+          <Tab href={withPara("/register")} active={!isLogin}>
             Crear cuenta
           </Tab>
         </div>

@@ -4,7 +4,11 @@ import { useState } from 'react';
 import { Sparkles, RefreshCw, CalendarPlus, AlertCircle } from 'lucide-react';
 import { useQueryClient } from '@tanstack/react-query';
 import { isToday, isTomorrow, differenceInCalendarDays } from 'date-fns';
+import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
+import { EnergyBudgetBar } from '@/features/energy/EnergyBudgetBar';
+import { useEnergyBudget } from '@/features/energy/energy.hooks';
+import { crossesLimitWith } from '@/features/energy/energy.budget';
 import { useSuggestedTasks, useAddToTodayPlan, useToggleTodayTask, suggestedTasksKey, type SuggestedTask } from './tasks.hooks';
 import { TaskDetailSheet } from './TaskDetailSheet';
 import type { Task } from './tasks.types';
@@ -126,6 +130,7 @@ export function KinoSuggestedSection() {
   const { mutate: addToPlan } = useAddToTodayPlan();
   const { mutate: complete } = useToggleTodayTask();
   const queryClient = useQueryClient();
+  const budget = useEnergyBudget();
 
   const [addedIds, setAddedIds] = useState<Set<string>>(new Set());
   const [selectedTask, setSelectedTask] = useState<Task | null>(null);
@@ -136,6 +141,18 @@ export function KinoSuggestedSection() {
     .slice(0, 7);
 
   function handleAdd(taskId: string) {
+    // Aviso en el cruce exacto del presupuesto (D2: avisa, jamás bloquea). Solo
+    // al cruzar: ya en sobregiro no se repite en cada tarea que se agregue.
+    const task = suggestions.find((t) => t.id === taskId);
+    if (budget && task) {
+      const { crosses, overBy, next } = crossesLimitWith(budget, task);
+      if (crosses) {
+        toast('Este plan pasa tu presupuesto de energía', {
+          description: `Quedaría en ${next}/${budget.limit} pts (+${overBy}). Kino no te frena — solo que lo sepas.`,
+        });
+      }
+    }
+
     addToPlan({ taskId });
     setAddedIds((prev) => new Set([...prev, taskId]));
   }
@@ -202,6 +219,11 @@ export function KinoSuggestedSection() {
             <RefreshCw className="w-3 h-3" />
             Regenerar
           </button>
+        </div>
+
+        {/* Aceptar sugerencias es comprometer el día: el presupuesto se ve aquí mismo */}
+        <div className="px-4 py-2.5 border-b">
+          <EnergyBudgetBar />
         </div>
 
         {visible.length === 0 ? (

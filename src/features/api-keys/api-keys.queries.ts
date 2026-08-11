@@ -1,11 +1,11 @@
 import { db } from '@/shared/db';
-import { api_keys } from '@/shared/db/schema';
+import { apiKeys } from '@/shared/db/schema';
 import { and, eq, sql } from 'drizzle-orm';
 
 export async function deleteApiKeysByName(userId: string, name: string) {
   await db
-    .delete(api_keys)
-    .where(and(eq(api_keys.userId, userId), eq(api_keys.name, name)));
+    .delete(apiKeys)
+    .where(and(eq(apiKeys.userId, userId), eq(apiKeys.name, name)));
 }
 
 export async function findRecentApiKeyByName(
@@ -15,13 +15,13 @@ export async function findRecentApiKeyByName(
 ): Promise<boolean> {
   const cutoff = new Date(Date.now() - withinSeconds * 1000);
   const [row] = await db
-    .select({ id: api_keys.id })
-    .from(api_keys)
+    .select({ id: apiKeys.id })
+    .from(apiKeys)
     .where(
       and(
-        eq(api_keys.userId, userId),
-        eq(api_keys.name, name),
-        sql`${api_keys.createdAt} > ${cutoff.toISOString()}`,
+        eq(apiKeys.userId, userId),
+        eq(apiKeys.name, name),
+        sql`${apiKeys.createdAt} > ${cutoff.toISOString()}`,
       ),
     )
     .limit(1);
@@ -34,42 +34,42 @@ export async function insertApiKey(values: {
   keyHash: string;
   keyPrefix: string;
 }) {
-  const [record] = await db.insert(api_keys).values(values).returning();
+  const [record] = await db.insert(apiKeys).values(values).returning();
   return record!;
 }
 
 export async function findApiKeyByHash(keyHash: string) {
   const [record] = await db
     .select()
-    .from(api_keys)
-    .where(eq(api_keys.keyHash, keyHash));
+    .from(apiKeys)
+    .where(eq(apiKeys.keyHash, keyHash));
   return record ?? null;
 }
 
 export async function touchApiKey(id: string) {
   await db
-    .update(api_keys)
+    .update(apiKeys)
     .set({ lastUsedAt: new Date() })
-    .where(eq(api_keys.id, id));
+    .where(eq(apiKeys.id, id));
 }
 
 export async function selectApiKeysByUser(userId: string) {
   return db
     .select({
-      id: api_keys.id,
-      name: api_keys.name,
-      keyPrefix: api_keys.keyPrefix,
-      lastUsedAt: api_keys.lastUsedAt,
-      createdAt: api_keys.createdAt,
+      id: apiKeys.id,
+      name: apiKeys.name,
+      keyPrefix: apiKeys.keyPrefix,
+      lastUsedAt: apiKeys.lastUsedAt,
+      createdAt: apiKeys.createdAt,
     })
-    .from(api_keys)
-    .where(eq(api_keys.userId, userId));
+    .from(apiKeys)
+    .where(eq(apiKeys.userId, userId));
 }
 
 export async function deleteApiKeyById(id: string, userId: string) {
   const result = await db
-    .delete(api_keys)
-    .where(and(eq(api_keys.id, id), eq(api_keys.userId, userId)))
-    .returning({ id: api_keys.id });
+    .delete(apiKeys)
+    .where(and(eq(apiKeys.id, id), eq(apiKeys.userId, userId)))
+    .returning({ id: apiKeys.id });
   return result.length > 0;
 }

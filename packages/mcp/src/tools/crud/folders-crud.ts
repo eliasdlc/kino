@@ -47,12 +47,16 @@ export function registerFolderCrudTools(server: McpServer, kinoFetch: KinoFetch)
 
   server.tool(
     'create_folder',
-    'Crea una carpeta en un sistema de Kino. Puede anidarse bajo otra carpeta con parentId.',
+    'Crea una carpeta en un sistema de Kino. Puede anidarse bajo otra carpeta con parentId. Según el arquetipo del sistema, la carpeta es una clase (Academic: professor/schedule/semester), un milestone (Entrepreneurial: targetDate) o un área — esos campos van en metadata y el servidor los valida.',
     {
       systemId: z.string().uuid().describe('UUID del sistema al que pertenece la carpeta'),
       name: z.string().min(1).max(255).describe('Nombre de la carpeta'),
       color,
       parentId: z.string().uuid().optional().describe('UUID de la carpeta padre (para anidar)'),
+      metadata: z
+        .record(z.string(), z.any())
+        .optional()
+        .describe('Campos del rol de carpeta según el arquetipo (ej. { professor, schedule, semester } en Academic, { targetDate } en Entrepreneurial). Validado server-side.'),
     },
     async ({ systemId, ...data }) => {
       const folder = await kinoFetch(`/api/systems/${systemId}/folders`, {
@@ -65,11 +69,15 @@ export function registerFolderCrudTools(server: McpServer, kinoFetch: KinoFetch)
 
   server.tool(
     'update_folder',
-    'Actualiza el nombre o color de una carpeta en Kino',
+    'Actualiza el nombre, color o metadata (campos del rol de carpeta según el arquetipo) de una carpeta en Kino',
     {
       folderId: z.string().uuid().describe('UUID de la carpeta a actualizar'),
       name: z.string().min(1).max(255).optional(),
       color,
+      metadata: z
+        .record(z.string(), z.any())
+        .optional()
+        .describe('Campos del rol de carpeta según el arquetipo. Reemplaza la metadata existente. Validado server-side.'),
     },
     async ({ folderId, ...data }) => {
       const folder = await kinoFetch(`/api/folders/${folderId}`, {

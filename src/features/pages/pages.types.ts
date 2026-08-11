@@ -5,9 +5,12 @@ export type Page = typeof pages.$inferSelect;
 
 export type PageListItem = Pick<
   Page,
-  "id" | "title" | "folderId" | "systemId" | "isPinned" | "parentPageId" | "createdAt" | "updatedAt"
+  | "id" | "title" | "folderId" | "systemId" | "isPinned" | "parentPageId"
+  | "completedAt" | "createdAt" | "updatedAt"
 > & {
   contentPreview: string | null;
+  /** Palabras derivadas del contenido Tiptap (arquetipo Writing). Nunca persistido. */
+  wordCount: number;
   tags: ContextTagListItem[];
   subPageCount: number;
 };

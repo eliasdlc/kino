@@ -8,6 +8,8 @@ import { cn } from "@/lib/utils";
 import { useUpdatePage } from "./pages.hooks";
 import { useSharedEditor } from "./EditorContext";
 import { TableMenus } from "./TableMenus";
+import { CodexSelectionActions } from "./CodexBubbleMenu";
+import { EntityFicheSheet } from "@/features/entities/EntityFicheSheet";
 import { StickyNoteCreator } from "@/features/sticky-notes/StickyNoteCreator";
 import type { PageDetail } from "./pages.types";
 
@@ -15,9 +17,11 @@ interface NotebookEditorProps {
   page: PageDetail;
   systemId: string;
   pageId?: string;
+  /** Arquetipo Writing: activa la tipografía serif de lectura (PLAN-11 §7). */
+  writer?: boolean;
 }
 
-export function NotebookEditor({ page, systemId, pageId }: NotebookEditorProps) {
+export function NotebookEditor({ page, systemId, pageId, writer = false }: NotebookEditorProps) {
   const editor = useSharedEditor();
   const { mutate: updatePage } = useUpdatePage(page.id, systemId);
   const [title, setTitle] = useState(page.title ?? "");
@@ -26,8 +30,21 @@ export function NotebookEditor({ page, systemId, pageId }: NotebookEditorProps) 
     anchorId: string | null;
     screen: { x: number; y: number };
   } | null>(null);
+  const [mentionEntityId, setMentionEntityId] = useState<string | null>(null);
   const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const pendingPatch = useRef<{ title?: string; content?: string } | null>(null);
+
+  // Click en una mención del codex → abre su ficha (referencia a un click sin
+  // salir del texto, PLAN-11 §8.3). Solo en editores de escritura.
+  function handleEditorClick(e: React.MouseEvent<HTMLDivElement>) {
+    if (!writer) return;
+    const mention = (e.target as HTMLElement).closest<HTMLElement>(".codex-mention");
+    const id = mention?.getAttribute("data-entity-id");
+    if (id) {
+      e.preventDefault();
+      setMentionEntityId(id);
+    }
+  }
 
   const scheduleSave = useCallback(
     (patch: { title?: string; content?: string }) => {
@@ -97,7 +114,7 @@ export function NotebookEditor({ page, systemId, pageId }: NotebookEditorProps) 
           className="w-full bg-transparent text-3xl font-bold placeholder:text-muted-foreground/40 focus:outline-none border-none p-0"
           maxLength={500}
         />
-        <div className="tiptap-editor flex-1 relative">
+        <div className={cn("tiptap-editor flex-1 relative", writer && "tiptap-writer")}>
           {editor && (
             <BubbleMenu editor={editor}>
               <div className="flex items-center gap-1 bg-popover border border-border rounded-lg px-1.5 py-1 shadow-lg">
@@ -113,13 +130,25 @@ export function NotebookEditor({ page, systemId, pageId }: NotebookEditorProps) 
                   <StickyNote className="size-3" />
                   Sticky
                 </button>
+                {writer && <CodexSelectionActions editor={editor} systemId={systemId} />}
               </div>
             </BubbleMenu>
           )}
           {editor && <TableMenus editor={editor} />}
-          <EditorContent editor={editor} />
+          <div onClickCapture={handleEditorClick}>
+            <EditorContent editor={editor} />
+          </div>
         </div>
       </div>
+
+      {writer && (
+        <EntityFicheSheet
+          entityId={mentionEntityId}
+          systemId={systemId}
+          open={mentionEntityId !== null}
+          onOpenChange={(o) => !o && setMentionEntityId(null)}
+        />
+      )}
 
       {stickyCreator !== null && (
         <StickyNoteCreator

@@ -4,9 +4,6 @@ export type TransitionAction = "move_to_week" | "move_to_today" | "move_to_tomor
 export interface TransitionContext {
     currentStatus: TaskStatus;
     action: TransitionAction;
-    taskEnergyPoints: number;
-    currentDayEnergyUsed: number;
-    dailyEnergyLimit: number;
     isRecurring: boolean;
 }
 
@@ -19,7 +16,10 @@ export interface TransitionResult {
 
 export type SideEffect =
     | { type: "set_completed_at"; value: Date }
-    | { type: "clear_completed_at" };
+    | { type: "clear_completed_at" }
+    // Al completar una tarea recurrente se genera su siguiente ocurrencia. El
+    // servicio lo maneja en applyTransition (necesita el Task y la tx).
+    | { type: "generate_next_rrule_instance" };
 
 // Borrado y restauración NO viven aquí: son papelera (deletedAt) vía
 // deleteTask/restoreTask, un eje ortogonal al scheduling. Este mapa sólo
@@ -68,6 +68,17 @@ export function actionForTransition(from: TaskStatus, to: TaskStatus): Transitio
     return null;
 }
 
+/**
+ * Valida una transición de status. Solo la forma del movimiento: el presupuesto
+ * de energía NO se decide aquí.
+ *
+ * Hasta Fase 4.1 esta función rechazaba `move_to_today` cuando el día pasaba de
+ * `dailyEnergyLimit` (→ 422). Se eliminó por D2: el sobregiro **avisa, jamás
+ * bloquea**. Además el chequeo era doblemente mentiroso — sumaba los puntos de
+ * las tareas ya completadas (castigaba trabajar, no sobre-prometer) y solo
+ * corría por este camino, así que `PATCH { inTodayPlan: true }` nunca lo tocaba.
+ * El presupuesto real vive en `energy.budget.ts` y se muestra, no se impone.
+ */
 export function validateTransition(ctx: TransitionContext): TransitionResult {
     const allowedActions = TRANSITION_MAP[ctx.currentStatus];
 
@@ -78,18 +89,8 @@ export function validateTransition(ctx: TransitionContext): TransitionResult {
         };
     }
 
-    if (ctx.action === "move_to_today") {
-        const totalEnergyWouldBe = ctx.currentDayEnergyUsed + ctx.taskEnergyPoints;
-        if (totalEnergyWouldBe > ctx.dailyEnergyLimit) {
-            return {
-                valid: false,
-                error: `Límite de energía diario excedido (usaría ${totalEnergyWouldBe}, límite es ${ctx.dailyEnergyLimit})`,
-            };
-        }
-    }
-
     const newStatus = allowedActions[ctx.action]!;
-    const sideEffects = buildSideEffects(ctx.action);
+    const sideEffects = buildSideEffects(ctx.action, ctx.isRecurring);
 
     return {
         valid: true,
@@ -98,7 +99,7 @@ export function validateTransition(ctx: TransitionContext): TransitionResult {
     };
 }
 
-function buildSideEffects(action: TransitionAction): SideEffect[] {
+function buildSideEffects(action: TransitionAction, isRecurring: boolean): SideEffect[] {
     switch (action) {
         case "move_to_week":
         case "move_to_today":
@@ -107,7 +108,12 @@ function buildSideEffects(action: TransitionAction): SideEffect[] {
             return [];
 
         case "toggle_done":
-            return [{ type: "set_completed_at", value: new Date() }];
+            return isRecurring
+                ? [
+                      { type: "set_completed_at", value: new Date() },
+                      { type: "generate_next_rrule_instance" },
+                  ]
+                : [{ type: "set_completed_at", value: new Date() }];
 
         case "undo_done":
             return [{ type: "clear_completed_at" }];

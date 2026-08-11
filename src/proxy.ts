@@ -1,11 +1,16 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getSessionCookie } from "better-auth/cookies";
+import { guardApiRequest } from "@/shared/rate-limit";
 
-// NOTE: This rate limiter is in-memory and only effective within a single
-// Vercel Serverless instance. Parallel cold-starts each have their own map,
-// so it provides best-effort protection in development but NOT in production
-// at scale. A shared store (e.g. Vercel KV) is required for production-grade
-// rate limiting. Accepted trade-off given the $0/month constraint.
+// Limitador por IP, en memoria, sólo para `/api/auth/*`. Sigue siendo por
+// instancia — N arranques en frío son N cuotas — y eso aquí es tolerable: en
+// login todavía no hay identidad que contar, la IP es lo único disponible, y
+// meterle un roundtrip a Postgres a la ruta más sensible del sitio para frenar
+// fuerza bruta es pagar latencia por algo que el WAF de Vercel corta mejor.
+//
+// El resto de la API ya no depende de esto: las mutaciones y `/api/mcp` pasan
+// por el contador compartido en Postgres de `@/shared/rate-limit` (KIN-149),
+// que sí es consistente entre instancias y cuenta por identidad.
 const rateLimitMap = new Map<string, { count: number; lastReset: number }>();
 const RATE_LIMIT_WINDOW_MS = 60 * 1000;
 const MAX_REQUESTS_PER_WINDOW = 5;
@@ -50,7 +55,13 @@ export async function proxy(request: NextRequest) {
   const isPublicRoute =
     pathname === "/" ||
     pathname.startsWith("/docs") ||
+    // Landings por arquetipo (/para/estudiantes…): son la puerta de entrada del
+    // sitio. Si pasan por el gate, un visitante anónimo — o un buscador — recibe
+    // un redirect a /login en vez de la página.
+    pathname.startsWith("/para/") ||
     pathname.startsWith("/login") ||
+    // Catálogo visual de la UI (sin datos de usuario, noindex)
+    pathname.startsWith("/system-design") ||
     pathname.startsWith("/register") ||
     pathname.startsWith("/api/auth") ||
     pathname.startsWith("/api/cron/") ||
@@ -82,6 +93,13 @@ export async function proxy(request: NextRequest) {
       return NextResponse.redirect(url);
     }
   }
+
+  // Después del gate a propósito: el tráfico anónimo ya se fue con un 401 y no
+  // llega a crear filas en la tabla de contadores. `/api/mcp` sí pasa por aquí
+  // aunque sea "pública" — se autentica sola por OAuth y es justo la ruta que
+  // el ticket exige cubrir.
+  const rateLimited = await guardApiRequest(request);
+  if (rateLimited) return rateLimited;
 
   return NextResponse.next();
 }

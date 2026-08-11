@@ -18,10 +18,12 @@ export const updateUserSettingsSchema = z
       .max(50)
       .refine(isValidTimezone, 'Zona horaria inválida')
       .optional(),
+    theme: z.enum(['dark', 'light', 'system']).optional(),
+    notificationsEnabled: z.boolean().optional(),
+    weeklyReviewDay: z.enum(['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun']).optional(),
   })
-  .refine(
-    (d) => d.dailyEnergyLimit !== undefined || d.timezone !== undefined,
-    'Debe incluir al menos un campo',
-  );
+  // Zod ya descartó las claves desconocidas, así que contar las que quedan es
+  // equivalente a enumerarlas — y no se olvida de actualizarse al añadir un campo.
+  .refine((d) => Object.keys(d).length > 0, 'Debe incluir al menos un campo');
 
 export type UpdateUserSettingsInput = z.infer<typeof updateUserSettingsSchema>;

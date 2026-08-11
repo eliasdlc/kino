@@ -169,6 +169,9 @@ describe('buildEnergyPlan', () => {
     });
     expect(result.items).toHaveLength(0);
     expect(result.deferred).toHaveLength(1);
+    // El motivo distingue "no alcanzaba tu energía" de "no cabía en el día":
+    // un agente los resuelve distinto (mover de hora vs. mover de día).
+    expect(result.deferred[0]?.reason).toBe('energy');
   });
 
   it('places medium/low tasks even when energy is moderate', () => {
@@ -209,6 +212,7 @@ describe('buildEnergyPlan', () => {
     const totalPlannedMinutes = result.items.reduce((sum) => sum + 30, 0);
     expect(totalPlannedMinutes).toBeLessThanOrEqual(60);
     expect(result.deferred.length).toBeGreaterThan(0);
+    expect(result.deferred.every((d) => d.reason === 'budget')).toBe(true);
   });
 
   it('projectedCurve has exactly 24 non-negative values', () => {
@@ -229,7 +233,7 @@ describe('buildEnergyPlan', () => {
     const todo = makeTask({ taskType: 'todo', id: 'todo' });
     const result = buildEnergyPlan({ ...baseOptions, tasks: [idea, todo] });
     expect(result.items.some((i) => i.task.id === 'idea')).toBe(false);
-    expect(result.deferred.some((t) => t.id === 'idea')).toBe(false);
+    expect(result.deferred.some((d) => d.task.id === 'idea')).toBe(false);
   });
 
   it('excludes soft-deleted tasks entirely', () => {

@@ -2,12 +2,14 @@
 
 import type { System } from "@/features/systems/systems.types";
 import type { Task } from "@/features/tasks/tasks.types";
-import { SYSTEM_TYPE_CONFIG, type SystemType } from "@/shared/lib/system-types";
+import type { SystemType } from "@/shared/lib/system-types";
+import { resolveSystemManifest } from "@/shared/lib/system-manifest";
 import { TasksList } from "@/features/tasks/TasksList";
 import { SystemAcademicView } from "./SystemAcademicView";
 import { SystemProjectView } from "./SystemProjectView";
 import { SystemEntrepreneurialView } from "./SystemEntrepreneurialView";
 import { SystemCustomView } from "./SystemCustomView";
+import { SystemWritingView } from "./SystemWritingView";
 
 export interface SystemViewProps {
   system: System;
@@ -31,12 +33,16 @@ export function SystemDetailView({ system, initialTasks }: SystemViewProps) {
   if (systemType === "entrepreneurial") {
     return <SystemEntrepreneurialView system={system} initialTasks={initialTasks} />;
   }
+  if (systemType === "writing") {
+    return <SystemWritingView system={system} initialTasks={initialTasks} />;
+  }
   if (systemType === "custom") {
     return <SystemCustomView system={system} initialTasks={initialTasks} />;
   }
 
-  // inbox + personal → funnel universal desde el preset
-  const config = SYSTEM_TYPE_CONFIG[systemType] ?? SYSTEM_TYPE_CONFIG.personal;
+  // inbox + personal → funnel universal desde el preset (más los tabs que el
+  // usuario haya guardado para ese sistema)
+  const config = resolveSystemManifest(system);
   return (
     <TasksList
       systemId={system.id}

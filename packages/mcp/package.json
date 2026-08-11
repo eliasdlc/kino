@@ -1,7 +1,7 @@
 {
   "name": "@kino-app/mcp",
   "type": "module",
-  "version": "2.3.0",
+  "version": "2.6.0",
   "description": "Kino MCP server — connect Claude Code to your tasks, systems, and energy data",
   "main": "./dist/index.js",
   "bin": {
@@ -31,7 +31,6 @@
   "license": "ISC",
   "packageManager": "pnpm@10.33.4",
   "dependencies": {
-    "@anthropic-ai/sdk": "^0.56.0",
     "@modelcontextprotocol/sdk": "^1.29.0",
     "marked": "^18.0.4",
     "zod": "^4.3.6"

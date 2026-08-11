@@ -1,6 +1,6 @@
 import { and, asc, eq, inArray, isNull, lt, notInArray } from 'drizzle-orm';
 import { db } from '@/shared/db';
-import { tasks, users } from '@/shared/db/schema';
+import { tasks } from '@/shared/db/schema';
 import {
   upsertCheckin,
   getCheckinByDate,
@@ -19,12 +19,22 @@ import {
   getRecentCheckinInsight,
   saveLearnedCurve,
   getLearnedCurve,
+  insertPredictionsIfAbsent,
+  getPredictionsForDate,
+  saveCheckinAlphaDelta,
+  type PredictionRow,
 } from './energy.queries';
+import {
+  predictLevelForSlot,
+  buildVerificationLoop,
+  type VerificationLoop,
+} from './energy.prediction';
 import { buildBudgetPlan, buildEnergyPlan } from './energy.planner';
 import type { EnergyPlanResult } from './energy.planner';
 import type { Chronotype, SleepQuality } from './energy.utils';
 import type { CheckinSlot, CreateCheckinInput, UpdateAccuracyInput } from './energy.schemas';
-import { userToday as getTodayDate } from '@/shared/time';
+import { userToday as getTodayDate, calendarDayInTz } from '@/shared/time';
+import { getUserTimezone } from '@/shared/time/user-timezone';
 import { detectTopPattern } from './energy.advisor';
 import type { AdvisorPattern } from './energy.advisor';
 import {
@@ -35,6 +45,8 @@ import {
   emptyAccuracyBySlot,
   findPeakRange,
   buildPeakAdvice,
+  completionWeight,
+  sessionWeight,
   CHRONOTYPE_CURVES,
   type PeakAdviceTone,
 } from './energy.utils';
@@ -52,20 +64,124 @@ export function getCurrentHourInTz(timezone: string): number {
   );
 }
 
-async function getUserTimezone(userId: string): Promise<string> {
-  const [row] = await db
-    .select({ timezone: users.timezone })
-    .from(users)
-    .where(eq(users.id, userId))
-    .limit(1);
-  return row?.timezone ?? 'UTC';
+
+/**
+ * Ventana de mayor energía aprendida, en horas locales. Versión ligera de lo que
+ * `getLearningInsight` calcula de paso: la usa el arquetipo Writing para decir
+ * "tu mejor ventana creativa es 9–11" sin arrastrar snapshots ni check-ins.
+ * Null mientras no haya curva aprendida — nunca se inventa una ventana.
+ */
+export async function getPeakWindow(
+  userId: string,
+): Promise<{ start: number; end: number } | null> {
+  const learned = await getLearnedCurve(userId);
+  if (!learned?.curve || learned.curve.length !== 24) return null;
+  return findPeakRange(learned.curve);
+}
+
+const ALL_SLOTS: readonly CheckinSlot[] = ['morning', 'afternoon', 'evening'];
+
+/**
+ * Registra la predicción del día para los slots que aún no tienen check-in
+ * (Fase 4.2). Se llama al leer el día y antes de guardar un check-in.
+ *
+ * La garantía de honestidad está en el filtro: **nunca** se escribe la predicción
+ * de un slot que ya tiene resultado. Así la fila guardada siempre viene de un
+ * modelo que no conocía la respuesta, que es lo que hace verificable el loop.
+ * Sin curva aprendida se predice desde el cronotipo con alpha 0: Kino predice
+ * desde el día uno y lo dice.
+ */
+export async function ensureTodayPredictions(userId: string): Promise<void> {
+  const profile = await getUserEnergyProfile(userId);
+  if (!profile) return;
+
+  const timezone = await getUserTimezone(userId);
+  const today = getTodayDate(timezone);
+
+  const [learned, existing, checkins] = await Promise.all([
+    getLearnedCurve(userId),
+    getPredictionsForDate(userId, today),
+    getCheckinsForDate(userId, today),
+  ]);
+
+  const hasLearned = learned?.curve.length === 24;
+  const curve = hasLearned ? learned!.curve : CHRONOTYPE_CURVES[profile.chronotype as Chronotype];
+  const alpha = hasLearned ? learned!.alpha : 0;
+
+  const settled = new Set<string>([
+    ...existing.map((p) => p.slot),
+    ...checkins.map((c) => c.slot),
+  ]);
+  const pending = ALL_SLOTS.filter((slot) => !settled.has(slot));
+  if (pending.length === 0) return;
+
+  await insertPredictionsIfAbsent(
+    userId,
+    today,
+    pending.map((slot) => ({
+      slot,
+      predictedLevel: predictLevelForSlot(curve, slot),
+      alphaAtPrediction: alpha,
+    })),
+  );
 }
 
 export async function createTodayCheckin(userId: string, input: CreateCheckinInput) {
   const timezone = await getUserTimezone(userId);
   const today = getTodayDate(timezone);
   const slot = input.slot ?? getSlotForHour(getCurrentHourInTz(timezone));
-  return upsertCheckin(userId, today, slot, input);
+
+  // La predicción se cierra antes de aceptar el dato: si el usuario llegó por un
+  // camino que no leyó el día (MCP, API), esta es la última oportunidad de dejar
+  // constancia de lo que el modelo esperaba sin conocer todavía la respuesta.
+  await ensureTodayPredictions(userId);
+
+  const alphaBefore = (await getLearnedCurve(userId))?.alpha ?? 0;
+  const row = await upsertCheckin(userId, today, slot, input);
+
+  // Recalibrar aquí —y no solo en el cron— es lo que permite mostrar la mejora
+  // atribuible a ESTE check-in en el momento de registrarlo.
+  await calibrateLearnedCurve(userId);
+  const alphaAfter = (await getLearnedCurve(userId))?.alpha ?? alphaBefore;
+  await saveCheckinAlphaDelta(userId, today, slot, alphaBefore, alphaAfter);
+
+  return row;
+}
+
+/**
+ * El loop del día: la predicción guardada frente al check-in que la verificó, con
+ * la mejora del modelo atribuible a ese dato. Toma el check-in más reciente que
+ * tenga predicción; `null` si todavía no hay ninguno que verificar.
+ */
+export async function getVerificationLoop(userId: string): Promise<VerificationLoop | null> {
+  const timezone = await getUserTimezone(userId);
+  const today = getTodayDate(timezone);
+
+  const [checkins, predictions] = await Promise.all([
+    getCheckinsForDate(userId, today),
+    getPredictionsForDate(userId, today),
+  ]);
+  if (checkins.length === 0 || predictions.length === 0) return null;
+
+  const bySlot = new Map(predictions.map((p) => [p.slot, p]));
+
+  // getCheckinsForDate viene en orden ascendente por createdAt → el más reciente primero.
+  for (const checkin of [...checkins].reverse()) {
+    const prediction = bySlot.get(checkin.slot as CheckinSlot);
+    if (!prediction) continue;
+
+    return buildVerificationLoop({
+      slot: checkin.slot as CheckinSlot,
+      predictedLevel: prediction.predictedLevel,
+      reportedLevel: checkin.currentLevel,
+      alphaAtPrediction: prediction.alphaAtPrediction,
+      alphaBefore: checkin.alphaBefore,
+      alphaAfter: checkin.alphaAfter,
+      userVerdict: checkin.predictionAccuracy as 'accurate' | 'partial' | 'inaccurate' | null,
+    });
+  }
+
+  return null;
 }
 
 export async function getTodayCheckin(userId: string) {
@@ -121,6 +237,8 @@ export interface TodayEnergyPlanResult {
   learningAlpha: number;
   /** Curva proyectada para display (24 valores), disponible siempre (con o sin check-in). */
   projectedCurve: number[];
+  /** Predicciones guardadas de hoy, por slot: lo que Kino dijo antes de saber (4.2). */
+  predictions: PredictionRow[];
 }
 
 // ── Behavior snapshots ─────────────────────────────────────────────────────
@@ -139,19 +257,12 @@ export async function computeAndSaveBehaviorSnapshot(userId: string, date: strin
 
 export async function ensureYesterdaySnapshot(userId: string): Promise<void> {
   const timezone = await getUserTimezone(userId);
-  const yesterday = new Intl.DateTimeFormat('en-CA', {
-    timeZone: timezone,
-    year: 'numeric',
-    month: '2-digit',
-    day: '2-digit',
-  }).format(new Date(Date.now() - 86_400_000));
+  const yesterday = calendarDayInTz(new Date(Date.now() - 86_400_000), timezone);
   const existing = await getSnapshotByDate(userId, yesterday);
   if (!existing) {
     await computeAndSaveBehaviorSnapshot(userId, yesterday);
   }
 }
-
-const ENERGY_WEIGHTS: Record<string, number> = { high: 3, medium: 2, low: 1 };
 
 const clampHour = (h: number) => Math.max(0, Math.min(23, h));
 
@@ -169,10 +280,10 @@ export async function calibrateLearnedCurve(userId: string): Promise<void> {
 
   const activityWeight = new Array<number>(24).fill(0);
   for (const { completedHour, energyLevel } of completedTasks) {
-    activityWeight[clampHour(completedHour)] += ENERGY_WEIGHTS[energyLevel] ?? 1;
+    activityWeight[clampHour(completedHour)] += completionWeight(energyLevel);
   }
-  for (const { startedHour, energyLevel } of timerLogs) {
-    activityWeight[clampHour(startedHour)] += (ENERGY_WEIGHTS[energyLevel] ?? 1) * 1.5; // timer es señal más limpia
+  for (const { startedHour, energyLevel, source } of timerLogs) {
+    activityWeight[clampHour(startedHour)] += sessionWeight(source, energyLevel);
   }
 
   const checkinLevelSum = new Array<number>(24).fill(0);
@@ -225,6 +336,8 @@ export interface LearningInsight {
   /** Precisión de la predicción según tu feedback (null si aún no hay) */
   accuracy: { rate: number; sample: number } | null;
   chronotype: Chronotype | null;
+  /** El ciclo de hoy: predije X, confirmaste Y, el modelo mejoró Z (null si no hay qué verificar) */
+  loop: VerificationLoop | null;
 }
 
 export async function getLearningInsight(userId: string): Promise<LearningInsight> {
@@ -239,16 +352,18 @@ export async function getLearningInsight(userId: string): Promise<LearningInsigh
     correlationFactor: null,
     accuracy: null,
     chronotype: null,
+    loop: null,
   };
 
   const profile = await getUserEnergyProfile(userId);
   if (!profile) return base;
 
   const timezone = await getUserTimezone(userId);
-  const [learned, snapshots, checkinRows] = await Promise.all([
+  const [learned, snapshots, checkinRows, loop] = await Promise.all([
     getLearnedCurve(userId),
     getRecentSnapshots(userId, 30),
     getRecentCheckinInsight(userId, 30),
+    getVerificationLoop(userId),
   ]);
 
   const chronotype = profile.chronotype as Chronotype;
@@ -306,6 +421,7 @@ export async function getLearningInsight(userId: string): Promise<LearningInsigh
     correlationFactor,
     accuracy,
     chronotype,
+    loop,
   };
 }
 
@@ -324,7 +440,8 @@ async function resolveAdvisorAction(
   patternId: AdvisorPattern['id'],
   timezone: string,
 ): Promise<{ actionTaskIds: string[]; actionLabel: string; bulkAction: AdvisorBulkAction }> {
-  const today = new Date(new Intl.DateTimeFormat('en-CA', { timeZone: timezone, year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date()));
+  const todayStr = getTodayDate(timezone);
+  const today = new Date(todayStr);
 
   if (patternId === 'overload') {
     const todayTasks = await db
@@ -343,7 +460,7 @@ async function resolveAdvisorAction(
       .from(tasks)
       .where(and(
         eq(tasks.userId, userId),
-        lt(tasks.dueDate, today.toISOString().slice(0, 10)),
+        lt(tasks.dueDate, todayStr),
         notInArray(tasks.status, ['done', 'archived', 'today']),
         isNull(tasks.deletedAt),
         isNull(tasks.parentTaskId),
@@ -433,17 +550,22 @@ export async function checkLevel1Triggers(userId: string): Promise<Level1Result>
 export async function getTodayEnergyPlan(userId: string): Promise<TodayEnergyPlanResult> {
   const profile = await getUserEnergyProfile(userId);
   if (!profile) {
-    return { energyPlan: null, noProfile: true, hasCheckin: false, checkin: null, checkins: [], chronotype: null, learnedCurve: null, learningAlpha: 0, projectedCurve: [] };
+    return { energyPlan: null, noProfile: true, hasCheckin: false, checkin: null, checkins: [], chronotype: null, learnedCurve: null, learningAlpha: 0, projectedCurve: [], predictions: [] };
   }
 
   const timezone = await getUserTimezone(userId);
   const todayStr = getTodayDate(timezone);
 
-  const [candidateTasks, checkinRow, allCheckins, learned] = await Promise.all([
+  // Leer el día es el momento natural para cerrar la predicción: se escribe antes
+  // de que exista el check-in que la va a verificar.
+  await ensureTodayPredictions(userId);
+
+  const [candidateTasks, checkinRow, allCheckins, learned, predictions] = await Promise.all([
     getPlanCandidateTasks(userId),
     getCheckinByDate(userId, todayStr),
     getCheckinsForDate(userId, todayStr),
     getLearnedCurve(userId),
+    getPredictionsForDate(userId, todayStr),
   ]);
 
   const today = new Date(todayStr);
@@ -492,5 +614,6 @@ export async function getTodayEnergyPlan(userId: string): Promise<TodayEnergyPla
     learnedCurve,
     learningAlpha: learned?.alpha ?? 0,
     projectedCurve,
+    predictions,
   };
 }

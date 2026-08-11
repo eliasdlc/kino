@@ -2,10 +2,11 @@ import { auth } from "@/auth";
 import { headers } from "next/headers";
 import { notFound, redirect } from "next/navigation";
 import { getPageById, getPagesBySystem, getSubPages } from "@/features/pages/pages.service";
-import { getSystembyId } from "@/features/systems/systems.service";
+import { getSystemById } from "@/features/systems/systems.service";
 import { getFolderById, getFolderBreadcrumb } from "@/features/folders/folders.service";
 import type { BreadcrumbItem } from "@/components/PageBreadcrumb";
 import { NotebookEditorLayout } from "@/features/pages/NotebookEditorLayout";
+import { MEDIUM_CONFIG, resolveMedium } from "@/shared/lib/mediums";
 import type { PageListItem } from "@/features/pages/pages.types";
 
 interface PageEditorRouteProps {
@@ -20,7 +21,7 @@ export default async function PageEditorRoute({ params }: PageEditorRouteProps) 
 
   const [page, system, allPages] = await Promise.all([
     getPageById(pageId, session.user.id),
-    getSystembyId(systemId, session.user.id),
+    getSystemById(systemId, session.user.id),
     getPagesBySystem(systemId, session.user.id),
   ]);
 
@@ -42,6 +43,31 @@ export default async function PageEditorRoute({ params }: PageEditorRouteProps) 
   const initialSubPages = await getSubPages(rootPageId, session.user.id);
 
   const parentNotebook = parentNotebookData as PageListItem | null;
+
+  // Writer feel (PLAN-11 §7): solo el arquetipo Writing. La "obra" es el folder al
+  // que pertenece el capítulo; su progreso = suma de palabras de sus pages (derivado).
+  const writer = system.templateType === "writing";
+  // El medium de la obra gobierna nodos, slash menu, plantilla y export (W3, §6).
+  // Un manuscrito suelto (sin obra) escribe en prosa con el medium por defecto.
+  const medium = writer ? MEDIUM_CONFIG[resolveMedium(folder?.metadata)] : null;
+  const wordGoalRaw = folder?.metadata?.wordGoal;
+  const wordGoal =
+    typeof wordGoalRaw === "number"
+      ? wordGoalRaw
+      : typeof wordGoalRaw === "string"
+        ? Number(wordGoalRaw) || null
+        : null;
+  const obra =
+    writer && folder
+      ? {
+          id: folder.id,
+          name: folder.name,
+          wordGoal,
+          wordsExcludingCurrent: allPages
+            .filter((p) => p.folderId === folder.id && p.id !== page.id)
+            .reduce((sum, p) => sum + p.wordCount, 0),
+        }
+      : null;
 
   const breadcrumbItems: BreadcrumbItem[] = [
     { label: "Sistemas", href: "/systems" },
@@ -68,6 +94,10 @@ export default async function PageEditorRoute({ params }: PageEditorRouteProps) 
       breadcrumbItems={breadcrumbItems}
       parentNotebook={parentNotebook}
       initialSubPages={initialSubPages}
+      writer={writer}
+      obra={obra}
+      obraMetadata={writer ? (folder?.metadata ?? null) : null}
+      medium={medium}
     />
   );
 }

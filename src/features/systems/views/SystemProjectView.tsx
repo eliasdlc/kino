@@ -10,6 +10,7 @@ import { useSprints } from "@/features/sprints/sprints.hooks";
 import { ProjectBoard } from "./project/ProjectBoard";
 import { ProjectArchive } from "./project/ProjectArchive";
 import { SprintBar } from "./project/SprintBar";
+import { GithubRepoPanel } from "@/features/github-sync/GithubRepoPanel";
 import type { Task } from "@/features/tasks/tasks.types";
 import type { SystemViewProps } from "./SystemDetailView";
 
@@ -44,6 +45,8 @@ export function SystemProjectView({ system, initialTasks }: SystemViewProps) {
         </div>
 
         <TabsContent value="board" className="flex flex-col gap-4">
+          {/* Sólo aquí: los demás arquetipos no ven nada de GitHub (KIN-135). */}
+          <GithubRepoPanel systemId={system.id} metadata={system.metadata} />
           <SprintBar
             systemId={system.id}
             sprints={sprints}

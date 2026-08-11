@@ -116,7 +116,7 @@ export async function updateSystem(id: string, userId: string, update: UpdateSys
   return updated ?? null;
 }
 
-export async function getSystembyId(id: string, userId: string) {
+export async function getSystemById(id: string, userId: string) {
   const [system] = await db.select()
     .from(systems)
     .where(
@@ -145,17 +145,22 @@ export async function deactivateSystem(id: string, userId: string) {
   return updated;
 }
 
+/**
+ * Reordena en una sola sentencia (KIN-147 · BE-10). Misma forma que
+ * `reorderTasks`: `unnest` empareja id con posición y el filtro por `user_id`
+ * es lo que impide que un id ajeno se cuele — no se puede quitar.
+ * Los systems no tienen soft delete, así que aquí no hay filtro de borrados.
+ */
 export async function reorderSystem(userId: string, ids: string[]) {
-  await db.transaction(async (tx) => {
-    for (let i = 0; i < ids.length; i++) {
-      await tx.update(systems)
-        .set({ sortOrder: i })
-        .where(
-          and(
-            eq(systems.id, ids[i]),
-            eq(systems.userId, userId)
-          )
-        )
-    }
-  });
+  if (ids.length === 0) return;
+
+  const positions = ids.map((_, index) => index);
+
+  await db.execute(sql`
+    UPDATE ${systems}
+    SET ${sql.identifier(systems.sortOrder.name)} = v.idx
+    FROM unnest(${sql.param(ids)}::uuid[], ${sql.param(positions)}::int[]) AS v(id, idx)
+    WHERE ${systems.id} = v.id
+      AND ${systems.userId} = ${userId}
+  `);
 }

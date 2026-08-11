@@ -4,6 +4,8 @@ import type { System, SystemWithSignals, CreateSystemInput, UpdateSystemInput } 
 import { folderKeys } from "@/features/folders/folders.hooks";
 import { pageKeys } from "@/features/pages/pages.hooks";
 import { taskKeys } from "@/features/tasks/tasks.hooks";
+import { resolveSystemManifest } from "@/shared/lib/system-manifest";
+import type { ArchetypeManifest } from "@/shared/lib/system-types";
 
 export function useSystems() {
   return useQuery<SystemWithSignals[]>({
@@ -15,6 +17,28 @@ export function useSystems() {
     },
     refetchOnWindowFocus: true,
   });
+}
+
+/**
+ * La versión viva de un sistema que llegó como prop de un server component.
+ * Las vistas de detalle reciben la fila renderizada en el servidor y no se
+ * re-renderizan al mutar; la lista `["systems"]` sí (mutación optimista), así
+ * que componer un sistema se ve al instante en vez de al navegar.
+ */
+export function useLiveSystem<T extends System>(system: T): T {
+  const { data } = useSystems();
+  const live = data?.find((s) => s.id === system.id) as T | undefined;
+  return live ?? system;
+}
+
+/**
+ * Manifiesto efectivo de un sistema a partir de su id. Para componentes que solo
+ * conocen el `systemId` (las vistas del funnel de tareas, que se montan igual
+ * desde un sistema que desde una carpeta) y necesitan hablar su vocabulario.
+ */
+export function useSystemManifest(systemId: string | null | undefined): ArchetypeManifest {
+  const { data } = useSystems();
+  return resolveSystemManifest(data?.find((s) => s.id === systemId));
 }
 
 export function useCreateSystem() {

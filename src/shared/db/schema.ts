@@ -64,21 +64,13 @@ export const templateTypeEnum = pgEnum('template_type', [
   'personal',
   'custom',
   'inbox',
+  'writing',
 ]);
 
 export const energyLevelEnum = pgEnum('energy_level', [
   'high',
   'medium',
   'low',
-]);
-
-export const taskStatusEnum = pgEnum('task_status', [
-  'backlog',
-  'week',
-  'tomorrow',
-  'today',
-  'done',
-  'archived',
 ]);
 
 export const taskPriorityEnum = pgEnum('task_priority', [
@@ -104,6 +96,9 @@ export const timeSourceEnum = pgEnum('time_source', [
   'pomodoro',
   'manual',
   'timer',
+  // Sesión de escritura detectada por actividad en el editor (PLAN-11 W4): no la
+  // arranca el usuario, la deriva el server de los guardados del capítulo.
+  'writing',
 ]);
 
 export const taskTypeEnum = pgEnum('task_type', [
@@ -117,12 +112,6 @@ export const taskTypeEnum = pgEnum('task_type', [
   'habit',
   'todo',
   'project',
-]);
-
-export const frequencyEnum = pgEnum('frequency', [
-  'daily',
-  'weekly',
-  'monthly',
 ]);
 
 export const accountStatusEnum = pgEnum('account_status', [
@@ -185,6 +174,22 @@ export const predictionAccuracyEnum = pgEnum('prediction_accuracy', [
   'inaccurate',
 ]);
 
+/**
+ * Tipo de entidad del Codex (Writing W2). El universo se comparte a nivel de
+ * sistema; cada entidad declara qué es y eso gobierna sus `attributes` (Zod
+ * discriminado en entities.schemas.ts). Ampliable — al añadir un valor, recordar
+ * que Postgres no tiene DROP VALUE (DB-06).
+ */
+export const entityTypeEnum = pgEnum('entity_type', [
+  'character',
+  'location',
+  'object',
+  'concept',
+  'event',
+  'faction',
+  'other',
+]);
+
 // ============================================================================
 // Tables
 // ============================================================================
@@ -229,6 +234,11 @@ export const userSettings = pgTable('user_settings', {
     .primaryKey()
     .references(() => users.id, { onDelete: 'cascade' }),
   profileType: profileTypeEnum('profile_type'),
+  // Identidad elegida en la bifurcación del onboarding (D14): estudiante,
+  // builder, emprendedor, escritor o propio. varchar y no enum a propósito —
+  // los segmentos de go-to-market cambian más rápido que un tipo de Postgres.
+  // null → cuenta anterior al onboarding segmentado.
+  archetypeIdentity: varchar('archetype_identity', { length: 20 }),
   onboardingVersion: integer('onboarding_version').notNull().default(1),
   weeklyReviewDay: weekdayEnum('weekly_review_day').notNull().default('sun'),
   dailyResetTime: time('daily_reset_time').notNull().default('00:00'),
@@ -578,6 +588,15 @@ export const systemStatusDefinitions = pgTable(
 
 // ── tasks ──
 
+// Ojo (KIN-92): en la base, `tasks` y `pages` tienen además una columna
+// `search_vector tsvector` GENERATED con su índice GIN, creada en
+// `drizzle/0015_busqueda_full_text.sql`. No está declarada aquí a propósito:
+// media docena de queries hacen `db.select().from(tasks)` sin proyección y su
+// resultado viaja tal cual al cliente, así que declararla metería el tsvector en
+// el tipo `Task` y en todas esas respuestas sin que nadie la lea. La consume
+// sólo `search.service.ts`, por SQL crudo.
+// Consecuencia: `pnpm db:push` la borraría. El flujo del repo es
+// `db:generate` + `db:migrate`, que no la tocan.
 export const tasks = pgTable(
   'tasks',
   {
@@ -593,6 +612,9 @@ export const tasks = pgTable(
     }),
     title: varchar('title', { length: 500 }).notNull(),
     description: text('description'),
+    // varchar + CHECK a propósito, no un enum: el set cambia con la state machine
+    // de scheduling y Postgres no tiene DROP VALUE, así que un enum aquí sólo
+    // acumularía valores muertos. El guard vive en el CHECK `tasks_status_valid`.
     status: varchar('status', { length: 50 }).notNull().default('backlog'),
     // Segundo eje (solo systemType `project`): columna del board kanban. null en
     // sistemas que no son project. Separado de `status` (scheduling) a propósito —
@@ -690,8 +712,12 @@ export const tasks = pgTable(
     index('idx_tasks_sprint')
       .on(table.sprintId)
       .where(sql`${table.sprintId} IS NOT NULL`),
+    // Lo que hace idempotente la importación desde GitHub: reimportar el mismo
+    // issue actualiza en vez de duplicar. Lleva `user_id` porque `external_source`
+    // es 'github' para todo el mundo — sin él, dos usuarios sincronizando el mismo
+    // repositorio chocarían en el mismo par (KIN-135).
     uniqueIndex('uq_tasks_external')
-      .on(table.externalSource, table.externalId)
+      .on(table.userId, table.externalSource, table.externalId)
       .where(sql`${table.externalId} IS NOT NULL`),
   ],
 );
@@ -730,6 +756,12 @@ export const sprints = pgTable(
   (table) => [
     index('idx_sprints_system').on(table.systemId, table.status),
     index('idx_sprints_user').on(table.userId),
+    // Mapeo idempotente milestone→sprint (KIN-135). El alcance es el sistema y no
+    // el usuario porque el milestone pertenece al repositorio, y el repositorio se
+    // declara en un sistema concreto.
+    uniqueIndex('uq_sprints_external')
+      .on(table.systemId, table.externalId)
+      .where(sql`${table.externalId} IS NOT NULL`),
   ],
 );
 
@@ -752,6 +784,11 @@ export const folders = pgTable(
     color: colorEnum('color').notNull().default('blue'),
     path: ltree('path').notNull(),
     sortIndex: integer('sort_index').notNull().default(0),
+    // Campos propios del rol de folder por arquetipo (professor/horario/semestre en
+    // Academic, targetDate en Entrepreneurial, kind/wordGoal en Writing). El shape
+    // depende del systemType; se valida server-side con un Zod discriminado. Ver
+    // folders.metadata.ts y D10 en el doc "Índice de decisiones D1–D16" de Linear.
+    metadata: jsonb('metadata').$type<Record<string, unknown> | null>(),
     createdAt: timestamp('created_at', { withTimezone: true })
       .notNull()
       .defaultNow(),
@@ -770,6 +807,8 @@ export const folders = pgTable(
 
 // ── pages ──
 
+// Ojo (KIN-92): `pages.search_vector` existe en la base pero no se declara aquí.
+// El porqué está en el comentario de `tasks`.
 export const pages = pgTable(
   'pages',
   {
@@ -789,6 +828,9 @@ export const pages = pgTable(
     title: varchar('title', { length: 500 }),
     content: text('content'),
     isPinned: boolean('is_pinned').notNull().default(false),
+    // Capítulo terminado (PLAN-11 §7/§9): el check del navegador de manuscrito y
+    // el hito que entra al diario de la obra. Null = en curso.
+    completedAt: timestamp('completed_at', { withTimezone: true }),
     deletedAt: timestamp('deleted_at', { withTimezone: true }),
     createdAt: timestamp('created_at', { withTimezone: true })
       .notNull()
@@ -853,6 +895,145 @@ export const pageTags = pgTable(
   ],
 );
 
+// ── entities (Codex — Writing W2) ──
+// El universo de la historia: personajes, lugares, objetos, conceptos, eventos,
+// facciones. Scope = sistema (universo compartido entre obras). Nace del texto
+// (mención @) y se enriquece después. Borrado vía papelera única (deletedAt, D3).
+
+export const entities = pgTable(
+  'entities',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    userId: uuid('user_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    systemId: uuid('system_id')
+      .notNull()
+      .references(() => systems.id, { onDelete: 'cascade' }),
+    type: entityTypeEnum('type').notNull().default('character'),
+    name: varchar('name', { length: 255 }).notNull(),
+    // Nombres alternativos para la auto-detección textual ("Luffy", "Sombrero
+    // de Paja"). string[] validado con Zod en la capa de servicio.
+    aliases: jsonb('aliases')
+      .$type<string[]>()
+      .notNull()
+      .default(sql`'[]'::jsonb`),
+    summary: text('summary'),
+    // Campos por tipo (character → edad/rol/origen…, location → región…). Shape
+    // discriminado por `type`, validado con Zod (entities.schemas.ts). Nunca un
+    // saco de basura: el schema es strict. Ver PLAN-11 §5.1.
+    attributes: jsonb('attributes').$type<Record<string, unknown> | null>(),
+    coverImageUrl: text('cover_image_url'),
+    images: jsonb('images')
+      .$type<string[]>()
+      .notNull()
+      .default(sql`'[]'::jsonb`),
+    // Detector de hilos sueltos (KIN-137): menciones que la entidad tenía cuando
+    // el autor dio el hilo por cerrado. NULL = nunca se cerró. Se guarda el
+    // conteo y no una fecha a propósito — si la entidad vuelve a nombrarse, el
+    // número de hoy supera al de entonces y el hilo se reabre solo.
+    threadResolvedMentions: integer('thread_resolved_mentions'),
+    deletedAt: timestamp('deleted_at', { withTimezone: true }),
+    createdAt: timestamp('created_at', { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+    updatedAt: timestamp('updated_at', { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (table) => [
+    index('idx_entities_system')
+      .on(table.systemId)
+      .where(sql`${table.deletedAt} IS NULL`),
+    index('idx_entities_user').on(table.userId),
+  ],
+);
+
+// ── entity_relations ──
+// Relaciones dirigidas entre entidades ("padre de", "rival de", "vive en").
+// v1: lista editable en la ficha; el grafo del universo es render sobre esto (§13).
+// Ownership se valida en el servicio (ambas entidades del usuario), igual que
+// task_page_links no lleva userId propio.
+
+export const entityRelations = pgTable(
+  'entity_relations',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    fromEntityId: uuid('from_entity_id')
+      .notNull()
+      .references(() => entities.id, { onDelete: 'cascade' }),
+    toEntityId: uuid('to_entity_id')
+      .notNull()
+      .references(() => entities.id, { onDelete: 'cascade' }),
+    label: varchar('label', { length: 100 }),
+    notes: text('notes'),
+    createdAt: timestamp('created_at', { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (table) => [
+    index('idx_entity_relations_from').on(table.fromEntityId),
+    index('idx_entity_relations_to').on(table.toEntityId),
+  ],
+);
+
+// ── page_snapshots ──
+// Versionado de capítulos (KIN-142). Una foto del texto por **sesión de
+// escritura**: cuando el detector de sesiones abre una nueva (hueco de 20 min),
+// guarda cómo quedó el capítulo al final de la anterior. El punto de corte ya
+// existía desde W4; aquí solo se usa.
+//
+// Coste: un snapshot por sesión de una novela larga crece rápido y el free tier
+// de Neon tiene techo. Contra eso, dos frenos en el servicio: no se guarda si el
+// texto no cambió, y se podan los viejos dejando solo los últimos N por página.
+
+export const pageSnapshots = pgTable(
+  'page_snapshots',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    pageId: uuid('page_id')
+      .notNull()
+      .references(() => pages.id, { onDelete: 'cascade' }),
+    userId: uuid('user_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    content: text('content'),
+    wordCount: integer('word_count').notNull().default(0),
+    /** Inicio de la sesión que este snapshot cierra, si se conoce. */
+    sessionStartedAt: timestamp('session_started_at', { withTimezone: true }),
+    createdAt: timestamp('created_at', { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (table) => [
+    index('idx_page_snapshots_page').on(table.pageId, table.createdAt),
+    index('idx_page_snapshots_user').on(table.userId),
+  ],
+);
+
+// ── page_entity_mentions ──
+// DERIVADA (materializada): se recalcula server-side al guardar la page,
+// escaneando el texto plano contra names+aliases del universo (sin LLM). Alimenta
+// el codex rail (entidades del capítulo) y las "apariciones" de la ficha.
+
+export const pageEntityMentions = pgTable(
+  'page_entity_mentions',
+  {
+    pageId: uuid('page_id')
+      .notNull()
+      .references(() => pages.id, { onDelete: 'cascade' }),
+    entityId: uuid('entity_id')
+      .notNull()
+      .references(() => entities.id, { onDelete: 'cascade' }),
+    mentionCount: integer('mention_count').notNull().default(0),
+  },
+  (table) => [
+    primaryKey({ columns: [table.pageId, table.entityId] }),
+    index('idx_page_entity_mentions_page').on(table.pageId),
+    index('idx_page_entity_mentions_entity').on(table.entityId),
+  ],
+);
+
 // ── sticky_notes ──
 
 export const stickyNotes = pgTable(
@@ -882,6 +1063,9 @@ export const stickyNotes = pgTable(
     anchorId: varchar('anchor_id', { length: 36 }),
     // Stack grouping: all notes with same stackId form a visual stack
     stackId: uuid('stack_id'),
+    // Breakthrough del arquetipo Writing (PLAN-11 §9): la idea que desbloquea la
+    // historia. Marcada así, entra al diario de la obra en vez de perderse.
+    isEureka: boolean('is_eureka').notNull().default(false),
     // Excerpt of text selected when note was created from editor selection
     textAnchor: text('text_anchor'),
     createdAt: timestamp('created_at', { withTimezone: true })
@@ -908,6 +1092,11 @@ export const stickyNotes = pgTable(
 );
 
 // ── time_logs ──
+//
+// Un log de tiempo apunta a exactamente un objetivo: una tarea (focus timer) o
+// una page (sesión de escritura, PLAN-11 W4). Compartir la tabla es deliberado:
+// las sesiones de escritura cuentan como actividad del sistema en insights y en
+// "último movimiento" sin duplicar la maquinaria de tiempo.
 
 export const timeLogs = pgTable(
   'time_logs',
@@ -916,15 +1105,17 @@ export const timeLogs = pgTable(
     userId: uuid('user_id')
       .notNull()
       .references(() => users.id, { onDelete: 'cascade' }),
-    taskId: uuid('task_id')
-      .notNull()
-      .references(() => tasks.id, { onDelete: 'cascade' }),
+    taskId: uuid('task_id').references(() => tasks.id, { onDelete: 'cascade' }),
+    /** Sesión de escritura: el capítulo sobre el que se escribió. */
+    pageId: uuid('page_id').references(() => pages.id, { onDelete: 'cascade' }),
     systemId: uuid('system_id')
       .notNull()
       .references(() => systems.id, { onDelete: 'cascade' }),
     startedAt: timestamp('started_at', { withTimezone: true }).notNull(),
     endedAt: timestamp('ended_at', { withTimezone: true }),
     durationMinutes: integer('duration_minutes').notNull(),
+    /** Delta neto de palabras de la sesión (solo escritura; puede ser negativo). */
+    wordsWritten: integer('words_written'),
     source: timeSourceEnum('source').notNull().default('timer'),
     createdAt: timestamp('created_at', { withTimezone: true })
       .notNull()
@@ -935,8 +1126,15 @@ export const timeLogs = pgTable(
       'duration_minutes_non_negative',
       sql`${table.durationMinutes} >= 0`,
     ),
+    check(
+      'time_log_single_target',
+      sql`(${table.taskId} IS NULL) <> (${table.pageId} IS NULL)`,
+    ),
     index('idx_timelogs_user').on(table.userId, table.startedAt),
     index('idx_timelogs_system').on(table.systemId, table.startedAt),
+    index('idx_timelogs_page')
+      .on(table.userId, table.pageId, table.startedAt)
+      .where(sql`${table.pageId} IS NOT NULL`),
   ],
 );
 
@@ -1056,6 +1254,13 @@ export const energyCheckins = pgTable(
     currentLevel: smallint('current_level').notNull(),
     sleepQuality: sleepQualityEnum('sleep_quality').notNull(),
     predictionAccuracy: predictionAccuracyEnum('prediction_accuracy'),
+    /**
+     * Personalización de la curva antes y después de que este check-in la
+     * recalibrara (Fase 4.2). Guardarlas es lo que permite decir "mi modelo mejoró
+     * Z %" sin recalcularlo desde una curva que ya incorporó el dato.
+     */
+    alphaBefore: doublePrecision('alpha_before'),
+    alphaAfter: doublePrecision('alpha_after'),
     createdAt: timestamp('created_at', { withTimezone: true })
       .notNull()
       .defaultNow(),
@@ -1067,6 +1272,39 @@ export const energyCheckins = pgTable(
     ),
     uniqueIndex('uq_checkin_slot').on(table.userId, table.date, table.slot),
     index('idx_checkin_user').on(table.userId, table.date),
+  ],
+);
+
+// ── energy_predictions ──
+
+/**
+ * La predicción de energía por slot, escrita ANTES de conocer el resultado
+ * (Fase 4.2). Sin esta fila la verificación sería circular: la curva vigente ya
+ * aprendió del check-in que se quiere verificar.
+ */
+export const energyPredictions = pgTable(
+  'energy_predictions',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    userId: uuid('user_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    date: date('date').notNull(),
+    slot: checkinSlotEnum('slot').notNull(),
+    predictedLevel: smallint('predicted_level').notNull(),
+    /** Personalización de la curva que produjo la predicción (0 = puro cronotipo). */
+    alphaAtPrediction: doublePrecision('alpha_at_prediction').notNull().default(0),
+    createdAt: timestamp('created_at', { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (table) => [
+    check(
+      'prediction_level_range',
+      sql`${table.predictedLevel} BETWEEN 1 AND 100`,
+    ),
+    uniqueIndex('uq_prediction_slot').on(table.userId, table.date, table.slot),
+    index('idx_prediction_user').on(table.userId, table.date),
   ],
 );
 
@@ -1096,9 +1334,9 @@ export const behaviorSnapshots = pgTable(
   ],
 );
 
-// api_keys
+// apiKeys (tabla api_keys)
 
-export const api_keys = pgTable(
+export const apiKeys = pgTable(
   'api_keys',
   {
     id: uuid('id').primaryKey().defaultRandom(),
@@ -1112,5 +1350,34 @@ export const api_keys = pgTable(
   (table) => [
     index('idx_api_keys_user').on(table.userId),
     index('idx_api_keys_hash').on(table.keyHash),
+  ],
+);
+
+// rateLimits (tabla rate_limits)
+
+/**
+ * Contador compartido del rate limit por identidad (KIN-149 / BE-12). Sustituye
+ * al `Map` en memoria del proxy, que daba una cuota independiente por cada
+ * instancia serverless y por tanto no limitaba nada en producción.
+ *
+ * Una fila por `(identity, bucket)`, reutilizada: la ventana no crea filas
+ * nuevas, sólo reescribe `window_start` y resetea `hits`. El crecimiento está
+ * acotado por credenciales distintas vistas, no por tráfico; el barrido diario
+ * de `/api/cron/daily-snapshot` poda las que quedan huérfanas cuando una sesión
+ * o un token rotan.
+ */
+export const rateLimits = pgTable(
+  'rate_limits',
+  {
+    /** `key:` / `tok:` / `sess:` + SHA-256 hex de la credencial presentada. */
+    identity: varchar('identity', { length: 96 }).notNull(),
+    /** Clase de tráfico (`mcp`, `mutation`): cada una lleva su propia cuenta. */
+    bucket: varchar('bucket', { length: 32 }).notNull(),
+    windowStart: timestamp('window_start', { withTimezone: true }).notNull(),
+    hits: integer('hits').notNull().default(0),
+  },
+  (table) => [
+    primaryKey({ columns: [table.identity, table.bucket] }),
+    index('idx_rate_limits_window').on(table.windowStart),
   ],
 );

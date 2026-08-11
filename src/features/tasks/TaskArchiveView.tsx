@@ -5,6 +5,8 @@ import { DefaultTaskCard } from "./cards/DefaultTaskCard";
 import { TaskTrashSection } from "./TaskTrashSection";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { useTaskKeyboardNavigation } from "./useTaskKeyboardNavigation";
+import { useSystemManifest } from "@/features/systems/systems.hooks";
+import { tasksEmptyCopy } from "@/shared/lib/archetype-copy";
 
 interface TaskArchiveViewProps {
     systemId: string;
@@ -22,6 +24,8 @@ export function TaskArchiveView({ systemId, initialData, folderId, folderInitial
 
     const { mutate: toggleTask } = useToggleTask(systemId, folderId);
     const { mutate: deleteTask } = useDeleteTaskWithUndo(systemId, folderId);
+    const manifest = useSystemManifest(systemId);
+    const empty = tasksEmptyCopy(manifest, "archive");
     
     const archivedTasks = tasks.filter((task) => task.status === "done" || task.status === "archived");
 
@@ -41,10 +45,8 @@ export function TaskArchiveView({ systemId, initialData, folderId, folderInitial
             <div className="flex flex-col gap-2.5 w-full h-full overflow-y-auto">
                 {archivedTasks.length === 0 ? (
                     <div className="flex flex-col items-center justify-center py-10 text-center space-y-2 border border-dashed rounded-lg bg-card">
-                        <p className="text-sm font-medium">Aún no hay nada aquí</p>
-                        <p className="text-sm text-muted-foreground">
-                            Las tareas completadas aparecerán aquí para tu referencia.
-                        </p>
+                        <p className="text-sm font-medium">{empty.title}</p>
+                        <p className="text-sm text-muted-foreground">{empty.hint}</p>
                     </div>
                 ) : (
                     archivedTasks.map((task) => (

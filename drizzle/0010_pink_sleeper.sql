@@ -1,0 +1,1 @@
+ALTER TABLE "user_settings" ADD COLUMN "archetype_identity" varchar(20);

@@ -1,7 +1,9 @@
 import {
   AlarmClock,
+  BookMarked,
   BookOpen,
   CalendarDays,
+  Feather,
   FileText,
   FlaskConical,
   Folder,
@@ -12,14 +14,17 @@ import {
   Layers,
   Lightbulb,
   ListChecks,
+  ListTree,
   PencilLine,
   Repeat,
   Rocket,
+  Send,
   Settings,
   Star,
   Target,
   type LucideIcon,
 } from 'lucide-react';
+import { MEDIUM_OPTIONS } from './mediums';
 
 export type SystemType =
   | 'academic'
@@ -27,7 +32,8 @@ export type SystemType =
   | 'entrepreneurial'
   | 'personal'
   | 'custom'
-  | 'inbox';
+  | 'inbox'
+  | 'writing';
 
 export type SystemViewType = 'timeline' | 'kanban' | 'progress' | 'list' | 'custom';
 
@@ -49,12 +55,57 @@ export const SYSTEM_TAB_SHORT_LABELS: Record<SystemTabId, string> = {
   archive: "Archivo",
 };
 
+/**
+ * Género gramatical del sustantivo con que un arquetipo llama a sus cosas. Lo
+ * necesita el copy derivado ("la primera clase" vs "el primer milestone"): sin
+ * esto los estados vacíos hablan en neutro de traducción automática.
+ */
+export type Gender = 'f' | 'm';
+
+/**
+ * Composición que el usuario define para UN sistema concreto, persistida en
+ * `systems.metadata.composition`. Solo la lee el arquetipo `custom` (D16): los
+ * demás traen opinión propia y no se dejan renombrar — si alguien quiere que sus
+ * clases se llamen "asignaturas", el camino es un arquetipo nuevo, no editar
+ * Academic desde la UI y romper el vocabulario compartido con el advisor.
+ */
+export interface SystemComposition {
+  /** Cómo se llaman los contenedores; `enabled: false` → el sistema no ofrece carpetas. */
+  containers?: { enabled: boolean; noun: string; nounPlural: string };
+  /** Cómo se llaman las páginas y si el sistema abre en su biblioteca. */
+  pages?: { noun: string; nounPlural: string; primary: boolean };
+  /** Clases de tarea propias. Sin campos: el usuario nombra, no diseña formularios. */
+  taskKinds?: { id: string; label: string }[];
+}
+
 /** Configuración por-sistema persistida en systems.metadata (JSON). */
 export interface SystemMetadata {
   /** Tabs visibles elegidos por el usuario (solo Custom). */
   tabs?: SystemTabId[];
   /** Tab que se abre por defecto (override del preset). */
   defaultTab?: SystemTabId;
+  /** Vocabulario y piezas propias del sistema (solo Custom). */
+  composition?: SystemComposition;
+  /**
+   * Solo Writing: meta diaria de palabras del sistema (PLAN-11 §9). Vive aquí y
+   * no en la obra porque el hábito es del escritor, no del manuscrito — escribas
+   * donde escribas, el día cuenta.
+   */
+  dailyWordGoal?: number;
+  /**
+   * Solo Writing: sensibilidad del detector de hilos sueltos (KIN-137). Vive en
+   * el sistema porque es una preferencia del escritor sobre cuánto quiere que le
+   * hablen — un detector que grita demasiado se ignora y deja de existir.
+   */
+  chekhov?: { maxMentions: number; minSilentChapters: number };
+  /**
+   * Solo Project: repositorio de GitHub cuyos issues alimentan el board
+   * (KIN-135). Vive en el sistema y no en la conexión porque la cuenta de GitHub
+   * es una sola por usuario, mientras que el repositorio es de este proyecto
+   * concreto — un usuario puede tener varios sistemas `project`, cada uno con el
+   * suyo.
+   */
+  github?: { owner: string; repo: string };
 }
 
 export type SchedulingPreference = 'lowSlot' | 'peak' | 'highMedium';
@@ -67,7 +118,15 @@ export type SchedulingPreference = 'lowSlot' | 'peak' | 'highMedium';
 export interface ArchetypeFieldDef {
   id: string;
   label: string;
-  input: 'text' | 'date' | 'number';
+  input: 'text' | 'date' | 'number' | 'select' | 'idList';
+  /** Solo `select`: valores admitidos. El Zod derivado es un enum sobre ellos. */
+  options?: { value: string; label: string }[];
+  /**
+   * El campo se valida pero no se pinta en los formularios. Para estado que la
+   * UI escribe sola (referencias pineadas de una obra) y que igual debe pasar
+   * por el schema — metadata sigue sin ser un saco.
+   */
+  hidden?: boolean;
 }
 
 /**
@@ -78,6 +137,8 @@ export interface ArchetypeFieldDef {
 export interface FolderRole {
   noun: string;
   nounPlural: string;
+  /** Género del sustantivo — lo consume el copy derivado (estados vacíos). */
+  gender: Gender;
   /** CTA de creación, p.ej. "Nueva clase". */
   newLabel: string;
   placeholder: string;
@@ -90,6 +151,8 @@ export interface FolderRole {
 export interface PageRole {
   noun: string;
   nounPlural: string;
+  /** Género del sustantivo — lo consume el copy derivado (estados vacíos). */
+  gender: Gender;
   /** true → el sistema abre en la biblioteca de pages, no en tasks (writing). */
   primary: boolean;
 }
@@ -111,7 +174,7 @@ export interface TaskKindDef {
  * systemType — vocabulario, rol de folders/pages, kinds de tarea, preset de
  * vista y defaults de energía. Los componentes compartidos leen esto en vez de
  * hardcodear por tipo; añadir un arquetipo = escribir un manifiesto.
- * Ver docs/DISENO-ARQUETIPOS-2026-07.md (D9-D13).
+ * Ver D9–D13 en el doc "Índice de decisiones D1–D16" de Linear.
  */
 export type ArchetypeManifest = {
   icon: LucideIcon;
@@ -147,6 +210,12 @@ export const PROJECT_BOARD_COLUMNS = [
 
 export const PROJECT_BOARD_TERMINAL = 'done';
 
+/** Busca la definición de un task kind en el manifiesto del arquetipo. */
+export function getTaskKind(systemType: SystemType, kindId: unknown): TaskKindDef | null {
+  if (typeof kindId !== 'string') return null;
+  return SYSTEM_TYPE_CONFIG[systemType]?.taskKinds.find((k) => k.id === kindId) ?? null;
+}
+
 const UNIVERSAL_TABS: SystemTabId[] = ['action', 'backlog', 'planning', 'archive'];
 
 export const SYSTEM_TYPE_CONFIG: Record<SystemType, ArchetypeManifest> = {
@@ -157,6 +226,7 @@ export const SYSTEM_TYPE_CONFIG: Record<SystemType, ArchetypeManifest> = {
     folderRole: {
       noun: 'clase',
       nounPlural: 'clases',
+      gender: 'f',
       newLabel: 'Nueva clase',
       placeholder: 'Nombre de la clase',
       icon: BookOpen,
@@ -166,7 +236,7 @@ export const SYSTEM_TYPE_CONFIG: Record<SystemType, ArchetypeManifest> = {
         { id: 'semester', label: 'Semestre', input: 'text' },
       ],
     },
-    pageRole: { noun: 'apunte', nounPlural: 'apuntes', primary: false },
+    pageRole: { noun: 'apunte', nounPlural: 'apuntes', gender: 'm', primary: false },
     taskKinds: [
       { id: 'assignment', label: 'Entrega', icon: FileText, fields: [] },
       { id: 'exam', label: 'Examen', icon: AlarmClock, fields: [] },
@@ -187,7 +257,7 @@ export const SYSTEM_TYPE_CONFIG: Record<SystemType, ArchetypeManifest> = {
     view: 'kanban',
     // Sprints + epics + categorías ya agrupan; carpetas aquí duplicarían grouping.
     folderRole: null,
-    pageRole: { noun: 'doc', nounPlural: 'docs', primary: false },
+    pageRole: { noun: 'doc', nounPlural: 'docs', gender: 'm', primary: false },
     taskKinds: [],
     energyDefault: 'high',
     schedulingPreference: 'highMedium',
@@ -204,14 +274,20 @@ export const SYSTEM_TYPE_CONFIG: Record<SystemType, ArchetypeManifest> = {
     folderRole: {
       noun: 'milestone',
       nounPlural: 'milestones',
+      gender: 'm',
       newLabel: 'Nuevo milestone',
       placeholder: 'Nombre del milestone',
       icon: Target,
       fields: [{ id: 'targetDate', label: 'Fecha objetivo', input: 'date' }],
     },
-    pageRole: { noun: 'learning', nounPlural: 'learnings', primary: false },
+    pageRole: { noun: 'learning', nounPlural: 'learnings', gender: 'm', primary: false },
     taskKinds: [
-      { id: 'experiment', label: 'Experimento', icon: FlaskConical, fields: [] },
+      {
+        id: 'experiment',
+        label: 'Experimento',
+        icon: FlaskConical,
+        fields: [{ id: 'hypothesis', label: 'Hipótesis (1 línea)', input: 'text' }],
+      },
       { id: 'build', label: 'Build', icon: Hammer, fields: [] },
       { id: 'learning', label: 'Learning', icon: Lightbulb, fields: [] },
     ],
@@ -230,12 +306,13 @@ export const SYSTEM_TYPE_CONFIG: Record<SystemType, ArchetypeManifest> = {
     folderRole: {
       noun: 'área',
       nounPlural: 'áreas',
+      gender: 'f',
       newLabel: 'Nueva área',
       placeholder: 'Nombre del área',
       icon: Layers,
       fields: [],
     },
-    pageRole: { noun: 'nota', nounPlural: 'notas', primary: false },
+    pageRole: { noun: 'nota', nounPlural: 'notas', gender: 'f', primary: false },
     taskKinds: [
       { id: 'habit', label: 'Hábito', icon: Repeat, fields: [] },
       { id: 'errand', label: 'Recado', icon: ListChecks, fields: [] },
@@ -256,12 +333,13 @@ export const SYSTEM_TYPE_CONFIG: Record<SystemType, ArchetypeManifest> = {
     folderRole: {
       noun: 'carpeta',
       nounPlural: 'carpetas',
+      gender: 'f',
       newLabel: 'Nueva carpeta',
       placeholder: 'Nombre de la carpeta',
       icon: Folder,
       fields: [],
     },
-    pageRole: { noun: 'página', nounPlural: 'páginas', primary: false },
+    pageRole: { noun: 'página', nounPlural: 'páginas', gender: 'f', primary: false },
     taskKinds: [],
     energyDefault: null,
     schedulingPreference: 'highMedium',
@@ -271,13 +349,61 @@ export const SYSTEM_TYPE_CONFIG: Record<SystemType, ArchetypeManifest> = {
     tabs: UNIVERSAL_TABS,
     defaultTab: 'action',
   },
+  writing: {
+    icon: Feather,
+    label: 'Escritura',
+    view: 'list',
+    // Obras: libro/blog/cómic/serie con meta de palabras. El progreso de palabras
+    // se deriva del contenido Tiptap de las pages — nunca un contador persistido.
+    folderRole: {
+      noun: 'obra',
+      nounPlural: 'obras',
+      gender: 'f',
+      newLabel: 'Nueva obra',
+      placeholder: 'Título de la obra',
+      icon: BookMarked,
+      // `medium` declara la forma de la obra y gobierna la estructura real del
+      // editor vía MediumManifest (W3, PLAN-11 §6): bloques propios, plantilla,
+      // atajos y formato de export. Las obras creadas antes de W3 guardaron texto
+      // libre ("novela", "guión"); `resolveMedium` las normaliza al leerlas.
+      fields: [
+        { id: 'medium', label: 'Medium', input: 'select', options: MEDIUM_OPTIONS },
+        { id: 'wordGoal', label: 'Meta de palabras', input: 'number' },
+        { id: 'targetDate', label: 'Fecha objetivo', input: 'date' },
+        // Mesa de referencias (§7): entidades que el autor quiere a la vista
+        // mientras escribe. Lo escribe el codex rail, no un formulario.
+        {
+          id: 'pinnedEntityIds',
+          label: 'Referencias pineadas',
+          input: 'idList',
+          hidden: true,
+        },
+      ],
+    },
+    // pages-first: el sistema abre en la biblioteca de manuscritos, no en tareas.
+    pageRole: { noun: 'manuscrito', nounPlural: 'manuscritos', gender: 'm', primary: true },
+    taskKinds: [
+      { id: 'write', label: 'Escribir', icon: PencilLine, fields: [] },
+      { id: 'revise', label: 'Revisar', icon: Feather, fields: [] },
+      { id: 'outline', label: 'Outline', icon: ListTree, fields: [] },
+      { id: 'publish', label: 'Publicar', icon: Send, fields: [] },
+    ],
+    energyDefault: 'high',
+    // El diferenciador: escribir en tu mejor ventana creativa (pico de energía).
+    schedulingPreference: 'peak',
+    advisorTemplate: 'Tu mejor ventana creativa es ahora — dale a {nombre}.',
+    staleTemplate: '{nombre} lleva {n} días sin una sesión de escritura.',
+    focusMinutes: 45,
+    tabs: UNIVERSAL_TABS,
+    defaultTab: 'action',
+  },
   inbox: {
     icon: Inbox,
     label: 'Bandeja de entrada',
     view: 'list',
     // El inbox es un funnel de triage, no un archivo: sin carpetas a propósito.
     folderRole: null,
-    pageRole: { noun: 'nota', nounPlural: 'notas', primary: false },
+    pageRole: { noun: 'nota', nounPlural: 'notas', gender: 'f', primary: false },
     taskKinds: [],
     energyDefault: null,
     schedulingPreference: 'lowSlot',

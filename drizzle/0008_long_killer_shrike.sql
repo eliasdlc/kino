@@ -1,0 +1,1 @@
+ALTER TABLE "sticky_notes" ADD COLUMN "is_eureka" boolean DEFAULT false NOT NULL;

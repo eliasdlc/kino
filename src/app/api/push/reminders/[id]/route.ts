@@ -1,16 +1,18 @@
-import { auth } from '@/auth';
-import { headers } from 'next/headers';
+import { NextRequest } from 'next/server';
+import { getAuthContext } from '@/shared/utils/auth-context';
 import { deleteTaskReminder } from '@/features/notifications/notifications.queries';
 
 export async function DELETE(
-  _req: Request,
+  req: NextRequest,
   { params }: { params: Promise<{ id: string }> },
 ) {
-  const session = await auth.api.getSession({ headers: await headers() });
-  if (!session) return Response.json({ code: 'UNAUTHORIZED' }, { status: 401 });
+  const authContext = await getAuthContext(req);
+  if (!authContext) {
+    return Response.json({ code: 'UNAUTHORIZED', message: 'Unauthorized' }, { status: 401 });
+  }
 
   const { id } = await params;
-  const deleted = await deleteTaskReminder(id, session.user.id);
+  const deleted = await deleteTaskReminder(id, authContext.userId);
 
   if (!deleted) return Response.json({ code: 'NOT_FOUND' }, { status: 404 });
 

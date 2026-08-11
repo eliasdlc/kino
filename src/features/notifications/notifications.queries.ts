@@ -32,10 +32,17 @@ export async function deletePushSubscription(endpoint: string) {
 }
 
 export async function getUserIdsWithPushSubscriptions(): Promise<string[]> {
-  const rows = await db
-    .selectDistinct({ userId: pushSubscriptions.userId })
-    .from(pushSubscriptions);
-  return rows.map((r) => r.userId);
+  // Excluye a quienes desactivaron notificaciones. La ausencia de fila en
+  // user_settings cuenta como habilitado (default true del schema).
+  const rows = await db.execute<{ user_id: string }>(sql`
+    SELECT DISTINCT ps.user_id
+    FROM push_subscriptions ps
+    WHERE NOT EXISTS (
+      SELECT 1 FROM user_settings us
+      WHERE us.user_id = ps.user_id AND us.notifications_enabled = false
+    )
+  `);
+  return [...rows].map((r) => r.user_id);
 }
 
 export async function getTasksDueTodayUnnotified(userIds: string[]) {
@@ -117,6 +124,10 @@ export async function getPendingReminders(): Promise<PendingReminder[]> {
       AND t.status NOT IN ('done', 'archived')
       AND t.deleted_at IS NULL
       AND EXISTS (SELECT 1 FROM push_subscriptions ps WHERE ps.user_id = tr.user_id)
+      AND NOT EXISTS (
+        SELECT 1 FROM user_settings us
+        WHERE us.user_id = tr.user_id AND us.notifications_enabled = false
+      )
   `);
   return [...rows].map((r) => ({
     id: r.id,
@@ -178,6 +189,10 @@ export async function getTasksForEscalation(): Promise<EscalationTask[]> {
         END
       )
       AND EXISTS (SELECT 1 FROM push_subscriptions ps WHERE ps.user_id = t.user_id)
+      AND NOT EXISTS (
+        SELECT 1 FROM user_settings us
+        WHERE us.user_id = t.user_id AND us.notifications_enabled = false
+      )
   `);
   return [...rows].map((r) => ({
     id: r.id,

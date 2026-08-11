@@ -4,6 +4,8 @@ import { auth } from '@/auth';
 import { createApiKeySchema } from './api-keys.schemas';
 import { generateApiKey, listApiKeys, deleteApiKey } from './api-keys.service';
 
+// Session-only a propósito (KIN-144): emitir o revocar una API key usando una
+// API key es escalada de privilegio. No migrar a getAuthContext.
 async function getSession() {
   return auth.api.getSession({ headers: await headers() });
 }

@@ -86,7 +86,7 @@ export function FocusTimerWidget() {
       </div>
 
       <div className="flex items-center gap-1 shrink-0">
-        {!isBreak && (
+        {!isBreak && !state.pageId && (
           <button
             onClick={() => dispatch({ type: 'COMPLETE_TASK' })}
             className="p-1.5 rounded-md text-muted-foreground hover:text-green-400 hover:bg-green-400/10 transition-colors"
@@ -128,7 +128,7 @@ export function FocusTimerWidget() {
       </p>
 
       <div className="flex gap-1 shrink-0">
-        {!isBreak && (
+        {!isBreak && !state.pageId && (
           <button
             onClick={() => dispatch({ type: 'COMPLETE_TASK' })}
             className="p-1.5 rounded-md text-muted-foreground hover:text-green-400 transition-colors"

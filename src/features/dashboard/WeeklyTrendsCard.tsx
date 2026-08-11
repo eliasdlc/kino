@@ -1,5 +1,6 @@
 import { parseISO } from 'date-fns';
 import { cn } from '@/lib/utils';
+import { calendarDayInTz } from '@/shared/time';
 import type { WeeklyTrend } from '@/features/energy/energy.service';
 
 interface Props {
@@ -15,13 +16,15 @@ function toMap<T extends { date: string }>(rows: T[]): Map<string, T> {
   return new Map(rows.map((r) => [r.date, r]));
 }
 
-// Genera las últimas 7 fechas en formato YYYY-MM-DD (hoy es la última)
+// Genera las últimas 7 fechas en formato YYYY-MM-DD (hoy es la última).
+// Día calendario local, no UTC: a las 22:00 en una tz negativa toISOString()
+// ya daría "mañana" y desalinearía el eje contra los `date` locales de la DB.
 function lastSevenDates(): string[] {
+  const tz = Intl.DateTimeFormat().resolvedOptions().timeZone;
   const dates: string[] = [];
   for (let i = 6; i >= 0; i--) {
-    const d = new Date();
-    d.setDate(d.getDate() - i);
-    dates.push(d.toISOString().slice(0, 10));
+    const d = new Date(Date.now() - i * 86_400_000);
+    dates.push(calendarDayInTz(d, tz));
   }
   return dates;
 }

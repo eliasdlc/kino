@@ -11,6 +11,7 @@ import {
 } from '@/features/tasks/tasks.hooks';
 import { useFocusTimer } from '@/features/tasks/FocusTimerProvider';
 import { PlanTaskRow } from './PlanTaskRow';
+import { EnergyBudgetBar } from '@/features/energy/EnergyBudgetBar';
 import type { EnergyPlanItem } from '@/features/energy/energy.planner';
 
 interface TodayPlanCardProps {
@@ -128,6 +129,15 @@ export function TodayPlanCard({ noProfile, energyItems }: TodayPlanCardProps) {
           />
         </div>
       )}
+
+      {/* Presupuesto de energía: lo comprometido del día, no lo producido (4.1 · D2).
+          Se muestra también con el plan vacío: el momento en que saber cuánto
+          cabe hoy más sirve es antes de comprometer nada, y la barra tiene un
+          mensaje escrito para ese estado. `EnergyBudgetBar` ya se oculta sola
+          si todavía no hay límite en cache. */}
+      <div className="px-4 py-2.5 border-b shrink-0">
+        <EnergyBudgetBar />
+      </div>
 
       {/* Content */}
       <div className="flex-1 overflow-y-auto min-h-0">

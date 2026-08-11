@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createSystemSchema, reorderSystemsSchema, updateSystemSchema } from "./systems.schemas";
-import { createSystem, createInboxForUser, deactivateSystem, getUsersSystems, reorderSystem, updateSystem, assertNotInbox, getSystembyId } from "./systems.service";
+import { createSystem, createInboxForUser, deactivateSystem, getUsersSystems, reorderSystem, updateSystem, assertNotInbox, getSystemById } from "./systems.service";
 import { ForbiddenError, NotFoundError } from "@/shared/utils/error";
 import { getAuthContext } from "@/shared/utils/auth-context";
 
@@ -52,7 +52,7 @@ export async function PATCH(
       return NextResponse.json({ code: "VALIDATION_ERROR", message: "Invalid input", details: parsed.error.flatten() }, { status: 400 });
     }
 
-    const currentSystem = await getSystembyId(id, ctx.userId);
+    const currentSystem = await getSystemById(id, ctx.userId);
 
     if (!currentSystem) {
       return NextResponse.json({ code: "NOT_FOUND", message: "System not found" }, { status: 404 });
@@ -60,7 +60,18 @@ export async function PATCH(
 
     await assertNotInbox(currentSystem);
 
-    const updatedSystem = await updateSystem(id, ctx.userId, parsed.data);
+    // `metadata` es una bolsa compartida (tabs, composición, meta de palabras):
+    // un PATCH que solo toca una clave no puede borrar las demás. `null` explícito
+    // sigue significando "vacía la bolsa".
+    const data =
+      parsed.data.metadata == null
+        ? parsed.data
+        : {
+            ...parsed.data,
+            metadata: { ...(currentSystem.metadata ?? {}), ...parsed.data.metadata },
+          };
+
+    const updatedSystem = await updateSystem(id, ctx.userId, data);
 
     if (!updatedSystem) return NextResponse.json({ code: "NOT_FOUND", message: "System not found" }, { status: 404 });
 
