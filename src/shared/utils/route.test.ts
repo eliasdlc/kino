@@ -10,6 +10,9 @@ const { route } = await import('@/shared/utils/route');
 
 const USER_ID = '11111111-1111-1111-1111-111111111111';
 
+/** Lo que Next pasa a una ruta no dinámica: el objeto existe, los params van vacíos. */
+const EMPTY_CTX = { params: Promise.resolve({}) };
+
 function req(body?: unknown, url = 'http://localhost/api/test') {
   return new NextRequest(url, {
     method: body === undefined ? 'GET' : 'POST',
@@ -32,7 +35,7 @@ describe('route() · auth', () => {
     getAuthContext.mockResolvedValue(null);
     const handler = vi.fn();
 
-    const res = await route()({}, handler)(req());
+    const res = await route()({}, handler)(req(), EMPTY_CTX);
 
     expect(res.status).toBe(401);
     await expect(res.json()).resolves.toEqual({
@@ -45,7 +48,7 @@ describe('route() · auth', () => {
   it('pasa el userId resuelto al handler', async () => {
     const handler = vi.fn(({ userId }) => NextResponse.json({ userId }));
 
-    const res = await route()({}, handler)(req());
+    const res = await route()({}, handler)(req(), EMPTY_CTX);
 
     expect(res.status).toBe(200);
     await expect(res.json()).resolves.toEqual({ userId: USER_ID });
@@ -58,7 +61,7 @@ describe('route() · validación de body', () => {
   it('devuelve 400 con details cuando el body no valida', async () => {
     const handler = vi.fn();
 
-    const res = await route()({ body: schema }, handler)(req({ name: '', count: 'x' }));
+    const res = await route()({ body: schema }, handler)(req({ name: '', count: 'x' }), EMPTY_CTX);
 
     expect(res.status).toBe(400);
     const payload = await res.json();
@@ -72,7 +75,7 @@ describe('route() · validación de body', () => {
   it('devuelve 400 cuando el JSON está malformado, en vez de un 500 mudo', async () => {
     const handler = vi.fn();
 
-    const res = await route()({ body: schema }, handler)(req('{ roto'));
+    const res = await route()({ body: schema }, handler)(req('{ roto'), EMPTY_CTX);
 
     expect(res.status).toBe(400);
     await expect(res.json()).resolves.toEqual({
@@ -85,7 +88,7 @@ describe('route() · validación de body', () => {
   it('entrega el body ya parseado y tipado al handler', async () => {
     const handler = vi.fn(({ body }) => NextResponse.json(body));
 
-    const res = await route()({ body: schema }, handler)(req({ name: 'kino', count: 2 }));
+    const res = await route()({ body: schema }, handler)(req({ name: 'kino', count: 2 }), EMPTY_CTX);
 
     await expect(res.json()).resolves.toEqual({ name: 'kino', count: 2 });
   });
@@ -93,7 +96,7 @@ describe('route() · validación de body', () => {
   it('no lee el body cuando no se declaró schema', async () => {
     const handler = vi.fn(({ body }) => NextResponse.json({ body: body ?? null }));
 
-    const res = await route()({}, handler)(req({ ignorado: true }));
+    const res = await route()({}, handler)(req({ ignorado: true }), EMPTY_CTX);
 
     await expect(res.json()).resolves.toEqual({ body: null });
   });
@@ -123,6 +126,7 @@ describe('route() · validación de query', () => {
   it('devuelve 400 con details cuando la query no valida', async () => {
     const res = await route()({ query: schema }, vi.fn())(
       req(undefined, 'http://localhost/api/test?taskId=no-es-uuid'),
+      EMPTY_CTX,
     );
 
     expect(res.status).toBe(400);
@@ -137,6 +141,7 @@ describe('route() · validación de query', () => {
 
     const res = await route()({ query: schema }, handler)(
       req(undefined, `http://localhost/api/test?taskId=${uuid}`),
+      EMPTY_CTX,
     );
 
     await expect(res.json()).resolves.toEqual({ taskId: uuid });
@@ -157,7 +162,7 @@ describe('route() · params', () => {
   it('entrega un objeto vacío en rutas sin params', async () => {
     const handler = vi.fn(({ params }) => NextResponse.json(params));
 
-    const res = await route()({}, handler)(req());
+    const res = await route()({}, handler)(req(), EMPTY_CTX);
 
     await expect(res.json()).resolves.toEqual({});
   });
@@ -176,7 +181,7 @@ describe('route() · mapeo de errores', () => {
   it('mapea NotFoundError a 404', async () => {
     const res = await route()({}, () => {
       throw new NotFoundError('Entity not found');
-    })(req());
+    })(req(), EMPTY_CTX);
 
     expect(res.status).toBe(404);
     await expect(res.json()).resolves.toEqual({
@@ -189,7 +194,7 @@ describe('route() · mapeo de errores', () => {
   it('mapea ForbiddenError a 403', async () => {
     const res = await route()({}, () => {
       throw new ForbiddenError('No es tuyo');
-    })(req());
+    })(req(), EMPTY_CTX);
 
     expect(res.status).toBe(403);
     await expect(res.json()).resolves.toEqual({ code: 'FORBIDDEN', message: 'No es tuyo' });
@@ -198,7 +203,7 @@ describe('route() · mapeo de errores', () => {
   it('mapea ValidationError a 400', async () => {
     const res = await route()({}, () => {
       throw new ValidationError('Rango inválido');
-    })(req());
+    })(req(), EMPTY_CTX);
 
     expect(res.status).toBe(400);
     await expect(res.json()).resolves.toEqual({
@@ -212,7 +217,7 @@ describe('route() · mapeo de errores', () => {
 
     const res = await route()({}, () => {
       throw boom;
-    })(req());
+    })(req(), EMPTY_CTX);
 
     expect(res.status).toBe(500);
     await expect(res.json()).resolves.toEqual({
@@ -226,7 +231,7 @@ describe('route() · mapeo de errores', () => {
     const res = await route()({}, async () => {
       await Promise.resolve();
       throw new NotFoundError('tarde');
-    })(req());
+    })(req(), EMPTY_CTX);
 
     expect(res.status).toBe(404);
   });
@@ -234,14 +239,14 @@ describe('route() · mapeo de errores', () => {
 
 describe('route() · camino feliz', () => {
   it('respeta el status que devuelve el handler', async () => {
-    const res = await route()({}, () => NextResponse.json({ ok: true }, { status: 201 }))(req());
+    const res = await route()({}, () => NextResponse.json({ ok: true }, { status: 201 }))(req(), EMPTY_CTX);
 
     expect(res.status).toBe(201);
     await expect(res.json()).resolves.toEqual({ ok: true });
   });
 
   it('respeta un 204 sin body', async () => {
-    const res = await route()({}, () => new NextResponse(null, { status: 204 }))(req());
+    const res = await route()({}, () => new NextResponse(null, { status: 204 }))(req(), EMPTY_CTX);
 
     expect(res.status).toBe(204);
     expect(await res.text()).toBe('');
@@ -250,7 +255,7 @@ describe('route() · camino feliz', () => {
   it('expone el request crudo para rutas que lo necesitan', async () => {
     const handler = vi.fn(({ request }) => NextResponse.json({ url: request.url }));
 
-    const res = await route()({}, handler)(req(undefined, 'http://localhost/api/uploads?x=1'));
+    const res = await route()({}, handler)(req(undefined, 'http://localhost/api/uploads?x=1'), EMPTY_CTX);
 
     await expect(res.json()).resolves.toEqual({ url: 'http://localhost/api/uploads?x=1' });
   });
