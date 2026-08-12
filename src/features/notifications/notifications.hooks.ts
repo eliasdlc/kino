@@ -32,8 +32,11 @@ export function usePushNotifications() {
   async function subscribe() {
     setStatus('loading');
     try {
-      const reg = await navigator.serviceWorker.register('/kino-sw.js');
-      await navigator.serviceWorker.ready;
+      // KIN-57: ya no se registra un SW propio aquí. El de next-pwa se registra
+      // al cargar la app para todo el mundo (por eso el shell offline existe sin
+      // depender del permiso de push) y trae los handlers de `push` desde
+      // `worker/index.js`. Aquí sólo se espera a que esté activo.
+      const reg = await navigator.serviceWorker.ready;
       const permission = await Notification.requestPermission();
       if (permission !== 'granted') {
         setStatus('denied');

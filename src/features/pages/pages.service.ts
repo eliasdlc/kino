@@ -1,6 +1,6 @@
 import { db } from "@/shared/db";
 import { pages, tasks, taskPageLinks, folders, pageTags, contextTags, systems } from "@/shared/db/schema";
-import { and, eq, isNull, inArray, count } from "drizzle-orm";
+import { and, eq, isNull, inArray, count, sql } from "drizzle-orm";
 import { NotFoundError, ForbiddenError } from "@/shared/utils/error";
 import type { CreatePageInput, UpdatePageInput } from "./pages.schemas";
 import type { PageDetail, PageListItem, LinkedTask, PageMutationResult } from "./pages.types";
@@ -215,7 +215,19 @@ export async function createPage(
     }
   }
 
-  const [created] = await db
+  const returnedColumns = {
+    id: pages.id,
+    title: pages.title,
+    folderId: pages.folderId,
+    systemId: pages.systemId,
+    isPinned: pages.isPinned,
+    completedAt: pages.completedAt,
+    parentPageId: pages.parentPageId,
+    createdAt: pages.createdAt,
+    updatedAt: pages.updatedAt,
+  };
+
+  const [inserted] = await db
     .insert(pages)
     .values({
       userId,
@@ -224,18 +236,33 @@ export async function createPage(
       parentPageId: input.parentPageId ?? null,
       title: input.title ?? null,
       content: input.content ?? null,
+      clientRequestId: input.clientRequestId ?? null,
     })
-    .returning({
-      id: pages.id,
-      title: pages.title,
-      folderId: pages.folderId,
-      systemId: pages.systemId,
-      isPinned: pages.isPinned,
-      completedAt: pages.completedAt,
-      parentPageId: pages.parentPageId,
-      createdAt: pages.createdAt,
-      updatedAt: pages.updatedAt,
-    });
+    // KIN-57 · Idempotencia de la cola offline (ver `clientRequestIdField`).
+    .onConflictDoNothing({
+      target: [pages.userId, pages.clientRequestId],
+      where: sql`${pages.clientRequestId} IS NOT NULL`,
+    })
+    .returning(returnedColumns);
+
+  // El cuaderno ya existía de un intento anterior: devolverlo tal cual, sin
+  // recalcular menciones (ya se hizo cuando se creó de verdad).
+  if (!inserted && input.clientRequestId) {
+    const [existing] = await db
+      .select(returnedColumns)
+      .from(pages)
+      .where(
+        and(
+          eq(pages.userId, userId),
+          eq(pages.clientRequestId, input.clientRequestId),
+        ),
+      );
+    if (existing) {
+      return { ...existing, contentPreview: null, wordCount: countWords(input.content), tags: [], subPageCount: 0 };
+    }
+  }
+
+  const created = inserted;
 
   if (input.content) {
     try {

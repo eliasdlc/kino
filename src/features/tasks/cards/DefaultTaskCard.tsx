@@ -9,6 +9,7 @@ import { SubtaskList } from "../SubtaskList";
 import { useSubtasks } from "../tasks.hooks";
 import { getSystemColor } from "@/shared/utils/system-colors";
 import { useTaskCard, type TaskCardState } from "./useTaskCard";
+import { PendingSyncBadge } from "@/features/offline/PendingSyncBadge";
 import type { TaskCardProps } from "./types";
 import type { SystemType } from "@/shared/lib/system-types";
 import {
@@ -346,6 +347,7 @@ export function DefaultTaskCard({ task, systemId, systemType, draggable, isFocus
           >
             {task.title}
           </button>
+          <PendingSyncBadge id={task.id} />
           <div className="flex items-center gap-1.5 shrink-0">
             {!isDone && !isArchived && (
               <button

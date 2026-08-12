@@ -62,6 +62,11 @@ export async function proxy(request: NextRequest) {
     pathname.startsWith("/login") ||
     // Catálogo visual de la UI (sin datos de usuario, noindex)
     pathname.startsWith("/system-design") ||
+    // Pantalla de respaldo sin conexión (KIN-57). El service worker la precachea
+    // al instalarse, y esa petición puede salir sin sesión — con el gate puesto
+    // Workbox recibía el redirect a /login y guardaba eso (o fallaba la
+    // instalación entera). No lleva datos de usuario: es una shell estática.
+    pathname === "/offline" ||
     pathname.startsWith("/register") ||
     pathname.startsWith("/api/auth") ||
     pathname.startsWith("/api/cron/") ||

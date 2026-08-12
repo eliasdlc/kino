@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { clientRequestIdField } from '@/shared/offline/client-request';
 import { isValidRRule } from './recurrence';
 import { parseTaskDay } from './tasks.utils';
 
@@ -56,6 +57,7 @@ export const createTaskSchema = z.object({
   boardStatus: z.string().max(50).optional(),
   recurrenceRule: RECURRENCE_RULE.nullable().optional(),
   metadata: taskMetadataSchema.optional(),
+  clientRequestId: clientRequestIdField,
 }).superRefine((data, ctx) => {
   if (data.taskType === 'event' && !data.startDate) {
     ctx.addIssue({ code: 'custom', path: ['startDate'], message: 'Events require a start date' });

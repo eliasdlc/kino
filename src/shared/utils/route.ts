@@ -85,9 +85,14 @@ export function route<TParams extends RouteParams = RouteParams>() {
     config: RouteConfig<TBody, TQuery, TParams>,
     handler: (args: RouteHandlerArgs<TBody, TQuery, TParams>) => Promise<Response> | Response,
   ) {
+    // Ni `context` ni `params` llevan `?`: Next 16 genera para cada ruta un tipo
+    // que exige que el segundo parámetro acepte su `RouteContext`, y un
+    // `undefined` en la firma no satisface esa restricción (`pnpm typecheck`
+    // falla dentro de `.next/types`). En runtime Next siempre pasa el objeto; el
+    // acceso de abajo se mantiene defensivo por las llamadas directas de los tests.
     return async function wrappedHandler(
       request: NextRequest,
-      context?: { params?: Promise<TParams> },
+      context: { params: Promise<TParams> },
     ): Promise<Response> {
       const auth = await getAuthContext(request);
       if (!auth) return NextResponse.json(UNAUTHORIZED, { status: 401 });

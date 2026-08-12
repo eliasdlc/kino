@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { clientRequestIdField } from "@/shared/offline/client-request";
 
 export const createPageSchema = z.object({
   systemId: z.string().uuid(),
@@ -6,6 +7,7 @@ export const createPageSchema = z.object({
   parentPageId: z.string().uuid().optional(),
   title: z.string().max(500).optional(),
   content: z.string().nullable().optional(),
+  clientRequestId: clientRequestIdField,
 });
 
 export const updatePageSchema = z.object({

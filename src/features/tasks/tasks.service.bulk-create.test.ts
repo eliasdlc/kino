@@ -24,7 +24,11 @@ function makeTx(staged: { table: string; values: unknown }[]) {
         // Fallo inyectado a mitad de lote: la tarea 'BOOM' revienta el insert.
         if (values.title === 'BOOM') throw new Error('insert failed');
         staged.push({ table: tableName(table), values });
-        return { returning: () => Promise.resolve([{ id: `id-${staged.length}`, ...values }]) };
+        const returning = () => Promise.resolve([{ id: `id-${staged.length}`, ...values }]);
+        // KIN-57 añadió `onConflictDoNothing` a la creación (idempotencia de la
+        // cola offline). Sin `clientRequestId` el target no aplica, así que aquí
+        // es un paso encadenado que no cambia el resultado.
+        return { returning, onConflictDoNothing: () => ({ returning }) };
       },
     }),
     delete: () => ({ where: () => Promise.resolve() }),

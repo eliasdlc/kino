@@ -401,7 +401,30 @@ async function createTaskInTx(tx: DbTransaction, userId: string, data: CreateTas
       ...(data.boardStatus ? { boardStatusChangedAt: new Date() } : {}),
       userId,
     })
+    // KIN-57 · La cola offline puede reproducir la misma creación dos veces (o
+    // haber insertado ya y perdido la respuesta). El índice único parcial sobre
+    // (user_id, client_request_id) lo convierte en un no-op en vez de duplicar.
+    // Sin `clientRequestId` el target no aplica y el INSERT es el de siempre.
+    .onConflictDoNothing({
+      target: [tasks.userId, tasks.clientRequestId],
+      where: sql`${tasks.clientRequestId} IS NOT NULL`,
+    })
     .returning();
+
+  // Reintento de algo ya creado: devolvemos la fila original y no repetimos los
+  // efectos de abajo (recordatorios), que ya se aplicaron la primera vez.
+  if (!task && data.clientRequestId) {
+    const [existing] = await tx
+      .select()
+      .from(tasks)
+      .where(
+        and(
+          eq(tasks.userId, userId),
+          eq(tasks.clientRequestId, data.clientRequestId),
+        ),
+      );
+    return existing ?? null;
+  }
 
   if (task?.dueDate && task.priority in AUTO_REMINDER_OFFSETS) {
     await syncAutoReminders(task.id, userId, task.dueDate, task.priority, tx);
