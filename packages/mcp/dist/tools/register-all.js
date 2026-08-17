@@ -2,6 +2,7 @@ import { registerTaskCrudTools } from './crud/tasks-crud.js';
 import { registerTaskBulkTools } from './crud/tasks-bulk.js';
 import { registerSystemCrudTools } from './crud/systems-crud.js';
 import { registerPageCrudTools } from './crud/pages-crud.js';
+import { registerLearningTools } from './learning.js';
 import { registerFolderCrudTools } from './crud/folders-crud.js';
 import { registerStickyNoteCrudTools } from './crud/sticky-notes-crud.js';
 import { registerEnergyTools } from './energy.js';
@@ -21,6 +22,7 @@ export function registerAllKinoTools(server, kinoFetch) {
     registerTaskBulkTools(server, kinoFetch);
     registerSystemCrudTools(server, kinoFetch);
     registerPageCrudTools(server, kinoFetch);
+    registerLearningTools(server, kinoFetch);
     registerFolderCrudTools(server, kinoFetch);
     registerStickyNoteCrudTools(server, kinoFetch);
     registerEnergyTools(server, kinoFetch);

@@ -1,7 +1,7 @@
 import { db } from "@/shared/db";
 import { pages, tasks, taskPageLinks, folders, pageTags, contextTags, systems } from "@/shared/db/schema";
 import { and, eq, isNull, inArray, count, sql } from "drizzle-orm";
-import { NotFoundError, ForbiddenError } from "@/shared/utils/error";
+import { ConflictError, NotFoundError, ForbiddenError } from "@/shared/utils/error";
 import type { CreatePageInput, UpdatePageInput } from "./pages.schemas";
 import type { PageDetail, PageListItem, LinkedTask, PageMutationResult } from "./pages.types";
 import type { ContextTagListItem } from "@/features/tags/tags.types";
@@ -280,6 +280,7 @@ export async function updatePage(
   userId: string,
   data: UpdatePageInput
 ): Promise<PageMutationResult | null> {
+  const { expectedUpdatedAt, ...changes } = data;
   // Estado previo — hace falta antes del UPDATE para el delta de palabras de la
   // sesión de escritura. Solo se consulta cuando el guardado toca el contenido.
   const previous =
@@ -298,9 +299,14 @@ export async function updatePage(
 
   const [updated] = await db
     .update(pages)
-    .set({ ...data, updatedAt: new Date() })
+    .set({ ...changes, updatedAt: new Date() })
     .where(
-      and(eq(pages.id, pageId), eq(pages.userId, userId), isNull(pages.deletedAt))
+      and(
+        eq(pages.id, pageId),
+        eq(pages.userId, userId),
+        isNull(pages.deletedAt),
+        expectedUpdatedAt ? eq(pages.updatedAt, expectedUpdatedAt) : undefined,
+      )
     )
     .returning({
       id: pages.id,
@@ -315,7 +321,12 @@ export async function updatePage(
       updatedAt: pages.updatedAt,
     });
 
-  if (!updated) return null;
+  if (!updated) {
+    if (expectedUpdatedAt && previous) {
+      throw new ConflictError("Page changed since it was read. Fetch the latest version before saving.");
+    }
+    return null;
+  }
 
   // El codex se recalcula cuando cambia el texto (derivada best-effort: un fallo
   // aquí no debe romper el guardado — se recompone al siguiente save).

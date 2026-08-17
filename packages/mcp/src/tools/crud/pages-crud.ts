@@ -2,6 +2,12 @@ import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { z } from 'zod';
 import type { KinoFetch } from '../../client.js';
 import { markdownToHtml } from '../../utils/markdown.js';
+import {
+  appendMarkdown,
+  assertPageVersion,
+  pageAsMarkdown,
+  parseStoredPage,
+} from '../../utils/page-content.js';
 
 export function registerPageCrudTools(server: McpServer, kinoFetch: KinoFetch) {
   server.tool(
@@ -45,7 +51,7 @@ export function registerPageCrudTools(server: McpServer, kinoFetch: KinoFetch) {
     },
     async ({ pageId }) => {
       const page = await kinoFetch(`/api/pages/${pageId}`);
-      return { content: [{ type: 'text', text: JSON.stringify(page, null, 2) }] };
+      return { content: [{ type: 'text', text: JSON.stringify(pageAsMarkdown(page), null, 2) }] };
     },
   );
 
@@ -56,18 +62,48 @@ export function registerPageCrudTools(server: McpServer, kinoFetch: KinoFetch) {
       pageId: z.string().uuid().describe('UUID de la página a actualizar'),
       title: z.string().max(500).nullable().optional().describe('Nuevo título (null para borrar)'),
       content: z.string().nullable().optional().describe('Contenido completo en markdown (null para borrar; se convierte a HTML al guardar para que el editor lo renderice correctamente)'),
+      expectedUpdatedAt: z.iso.datetime({ offset: true }).optional().describe('Versión updatedAt devuelta por get_page. Es obligatoria cuando se reemplaza content'),
       folderId: z.string().uuid().nullable().optional().describe('UUID de la carpeta destino (null para quitar de carpeta)'),
       isPinned: z.boolean().optional().describe('Fijar o desfijar la página'),
     },
-    async ({ pageId, content, ...rest }) => {
+    async ({ pageId, content, expectedUpdatedAt, ...rest }) => {
+      if (content !== undefined && expectedUpdatedAt === undefined) {
+        throw new Error('expectedUpdatedAt is required when update_page replaces content. Call get_page first.');
+      }
       const payload = content !== undefined
-        ? { ...rest, content: markdownToHtml(content) }
+        ? { ...rest, content: markdownToHtml(content), expectedUpdatedAt }
         : rest;
       const updated = await kinoFetch(`/api/pages/${pageId}`, {
         method: 'PATCH',
         body: JSON.stringify(payload),
       });
-      return { content: [{ type: 'text', text: JSON.stringify(updated, null, 2) }] };
+      const result = content !== undefined ? pageAsMarkdown(updated) : updated;
+      return { content: [{ type: 'text', text: JSON.stringify(result, null, 2) }] };
+    },
+  );
+
+  server.tool(
+    'append_page_content',
+    'Añade Markdown al final de una página sin sobrescribir cambios hechos después de la última lectura',
+    {
+      pageId: z.string().uuid().describe('UUID de la página'),
+      content: z.string().min(1).describe('Markdown que se añadirá al final'),
+      expectedUpdatedAt: z.iso.datetime({ offset: true }).describe('Versión updatedAt devuelta por get_page'),
+    },
+    async ({ pageId, content, expectedUpdatedAt }) => {
+      const stored = parseStoredPage(await kinoFetch(`/api/pages/${pageId}`));
+      assertPageVersion(stored, expectedUpdatedAt);
+
+      const markdown = pageAsMarkdown(stored).content;
+      const updated = await kinoFetch(`/api/pages/${pageId}`, {
+        method: 'PATCH',
+        body: JSON.stringify({
+          content: markdownToHtml(appendMarkdown(markdown, content)),
+          expectedUpdatedAt,
+        }),
+      });
+
+      return { content: [{ type: 'text', text: JSON.stringify(pageAsMarkdown(updated), null, 2) }] };
     },
   );
 

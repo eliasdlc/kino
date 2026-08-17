@@ -15,6 +15,7 @@ export const updatePageSchema = z.object({
   content: z.string().nullable().optional(),
   folderId: z.string().uuid().nullable().optional(),
   isPinned: z.boolean().optional(),
+  expectedUpdatedAt: z.iso.datetime({ offset: true }).transform((value) => new Date(value)).optional(),
 });
 
 export const linkTaskSchema = z.object({

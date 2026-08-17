@@ -1,4 +1,25 @@
 import { marked } from 'marked';
+import TurndownService from 'turndown';
+import { gfm } from 'turndown-plugin-gfm';
+
+const turndown = new TurndownService({
+  headingStyle: 'atx',
+  codeBlockStyle: 'fenced',
+  bulletListMarker: '-',
+});
+
+turndown.use(gfm);
+
+turndown.addRule('tiptapTaskListItem', {
+  filter: (node) =>
+    node.nodeName === 'LI' &&
+    (node as HTMLElement).querySelector('input[type="checkbox"]') !== null,
+  replacement: (content, node) => {
+    const checkbox = (node as HTMLElement).querySelector<HTMLInputElement>('input[type="checkbox"]');
+    const text = content.replace(/^\s*\[[x ]\]\s*/i, '').trim();
+    return `- [${checkbox?.checked ? 'x' : ' '}] ${text}\n`;
+  },
+});
 
 /**
  * Convierte un string markdown a HTML compatible con el editor TipTap
@@ -16,4 +37,11 @@ export function markdownToHtml(input: string | null | undefined): string | null 
   if (input == null) return null;
   if (input.trim() === '') return null;
   return marked.parse(input, { async: false });
+}
+
+/** Converts stored Tiptap HTML into the Markdown contract exposed by MCP. */
+export function htmlToMarkdown(input: string | null | undefined): string | null {
+  if (input == null) return null;
+  if (input.trim() === '') return null;
+  return turndown.turndown(input);
 }

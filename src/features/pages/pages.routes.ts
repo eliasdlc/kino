@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createPageSchema, updatePageSchema, linkTaskSchema } from "./pages.schemas";
-import { NotFoundError, ForbiddenError } from "@/shared/utils/error";
+import { ConflictError, NotFoundError, ForbiddenError } from "@/shared/utils/error";
 import { getAuthContext } from "@/shared/utils/auth-context";
 import {
   getPagesBySystem,
@@ -80,9 +80,16 @@ export async function patchPage(
     );
   }
 
-  const updated = await updatePage(id, ctx.userId, parsed.data);
-  if (!updated) return NextResponse.json({ code: "NOT_FOUND", message: "Page not found" }, { status: 404 });
-  return NextResponse.json(updated);
+  try {
+    const updated = await updatePage(id, ctx.userId, parsed.data);
+    if (!updated) return NextResponse.json({ code: "NOT_FOUND", message: "Page not found" }, { status: 404 });
+    return NextResponse.json(updated);
+  } catch (error: unknown) {
+    if (error instanceof ConflictError) {
+      return NextResponse.json({ code: "CONFLICT", message: error.message }, { status: 409 });
+    }
+    throw error;
+  }
 }
 
 export async function removePage(

@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 import { getAuthContext } from '@/shared/utils/auth-context';
-import { ForbiddenError, NotFoundError, ValidationError } from '@/shared/utils/error';
+import { ConflictError, ForbiddenError, NotFoundError, ValidationError } from '@/shared/utils/error';
 
 /**
  * Wrapper de handlers de API (KIN-145 / BE-08 · AR-01).
@@ -65,6 +65,9 @@ function mapError(error: unknown): NextResponse {
   }
   if (error instanceof ValidationError) {
     return NextResponse.json({ code: 'VALIDATION_ERROR', message: error.message }, { status: 400 });
+  }
+  if (error instanceof ConflictError) {
+    return NextResponse.json({ code: 'CONFLICT', message: error.message }, { status: 409 });
   }
   console.error('[route] unhandled error:', error);
   return NextResponse.json(
