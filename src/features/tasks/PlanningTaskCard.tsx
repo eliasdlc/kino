@@ -14,7 +14,7 @@ function SubtaskCount({ taskId, systemId }: { taskId: string; systemId: string }
   if (!subtasks || subtasks.length === 0) return null;
   const done = subtasks.filter((s) => s.status === "done").length;
   return (
-    <span className="font-mono text-[10px] text-zinc-600">
+    <span className="font-mono text-[10px] text-muted-foreground/65">
       {done}/{subtasks.length}
     </span>
   );
@@ -61,10 +61,10 @@ export function PlanningTaskCard({ task, isFocused, onToggle, onDelete, onEdit }
     <div
       className={cn(
         "group/card relative rounded-lg border px-2 py-1.5 motion-safe:transition-colors",
-        !isCritical && !isHigh && !isFocused && "bg-[#1a1a1e] border-white/[0.07] hover:border-white/[0.16]",
-        isCritical && "bg-[rgba(188,38,38,0.12)] border-[rgba(220,50,50,0.32)]",
-        isHigh && "bg-[rgba(180,90,20,0.12)] border-[rgba(230,115,30,0.32)]",
-        isFocused && "bg-[rgba(99,102,241,0.08)] border-[rgba(99,102,241,0.6)]",
+        !isCritical && !isHigh && !isFocused && "bg-card border-border hover:border-foreground/25",
+        isCritical && "bg-task-critical/[0.12] border-task-critical/32",
+        isHigh && "bg-task-high/[0.12] border-task-high/32",
+        isFocused && "bg-primary/8 border-primary/60",
         isDone && "opacity-45",
         isArchived && "opacity-35",
       )}
@@ -80,12 +80,12 @@ export function PlanningTaskCard({ task, isFocused, onToggle, onDelete, onEdit }
             "relative mt-px size-3.5 shrink-0 rounded-full border-2 flex items-center justify-center",
             "after:absolute after:inset-[-8px] after:content-['']",
             isDone || isArchived
-              ? "border-[#3ecf72] bg-[#3ecf72] text-[#0e0e10]"
+              ? "border-task-done bg-task-done text-task-done-foreground"
               : isCritical
-                ? "border-[rgba(220,80,80,0.5)] hover:border-[#e05555]"
+                ? "border-task-critical/50 hover:border-task-critical"
                 : isHigh
-                  ? "border-[rgba(230,115,30,0.5)] hover:border-[#e6731e]"
-                  : "border-white/25 hover:border-white/50",
+                  ? "border-task-high/50 hover:border-task-high"
+                  : "border-muted-foreground/40 hover:border-muted-foreground/70",
           )}
         >
           {(isDone || isArchived) && <CheckIcon />}
@@ -96,8 +96,8 @@ export function PlanningTaskCard({ task, isFocused, onToggle, onDelete, onEdit }
           type="button"
           onClick={() => onEdit?.(task)}
           className={cn(
-            "flex-1 min-w-0 text-left text-xs leading-snug text-zinc-200 line-clamp-2",
-            isDone && "line-through text-zinc-500",
+            "flex-1 min-w-0 text-left text-xs leading-snug text-foreground line-clamp-2",
+            isDone && "line-through text-muted-foreground/85",
           )}
         >
           {task.title}
@@ -107,7 +107,7 @@ export function PlanningTaskCard({ task, isFocused, onToggle, onDelete, onEdit }
         <button
           type="button"
           onClick={() => onDelete(task)}
-          className="shrink-0 -mr-0.5 text-zinc-600 hover:text-red-400 opacity-0 group-hover/card:opacity-100 motion-safe:transition-opacity"
+          className="shrink-0 -mr-0.5 text-muted-foreground/65 hover:text-destructive opacity-0 group-hover/card:opacity-100 motion-safe:transition-opacity"
           aria-label="Eliminar tarea"
         >
           <Trash2 size={13} />
@@ -127,7 +127,7 @@ export function PlanningTaskCard({ task, isFocused, onToggle, onDelete, onEdit }
             <span
               className={cn(
                 "font-mono text-[10px]",
-                isOverdue ? "text-[#f87171]" : isDueSoon ? "text-[#fbbf24]" : "text-zinc-500",
+                isOverdue ? "text-task-overdue" : isDueSoon ? "text-task-due-soon" : "text-muted-foreground/85",
               )}
             >
               {isOverdue ? "vencida" : "vence"} · {format(parseDueDate(task.dueDate), "MMM d")}
