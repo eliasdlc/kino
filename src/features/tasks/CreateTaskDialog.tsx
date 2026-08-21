@@ -358,7 +358,7 @@ export function CreateTaskDialog({
       {/* ── Navigation ── */}
       <div className="flex gap-2 pt-1">
         {step > 1 && (
-          <Button type="button" variant="ghost" size="icon" onClick={prevStep} className="shrink-0">
+          <Button type="button" variant="ghost" size="icon" aria-label="Paso anterior" onClick={prevStep} className="shrink-0">
             <ChevronLeft size={18} />
           </Button>
         )}
@@ -366,7 +366,7 @@ export function CreateTaskDialog({
           {isPending ? 'Creando...' : 'Guardar'}
         </Button>
         {step < 3 && (
-          <Button type="button" variant="outline" size="icon" onClick={nextStep} className="shrink-0">
+          <Button type="button" variant="outline" size="icon" aria-label="Paso siguiente" onClick={nextStep} className="shrink-0">
             <ChevronRight size={18} />
           </Button>
         )}

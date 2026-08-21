@@ -206,6 +206,7 @@ export function TaskCalendarView({ systemId, initialData, onNavigateToAction }: 
                 variant="ghost"
                 size="icon"
                 className="size-8"
+                aria-label="Mes anterior"
                 onClick={() => setMonth((m) => addMonths(m, -1))}
               >
                 <ChevronLeft className="size-4" />
@@ -214,6 +215,7 @@ export function TaskCalendarView({ systemId, initialData, onNavigateToAction }: 
                 variant="ghost"
                 size="icon"
                 className="size-8"
+                aria-label="Mes siguiente"
                 onClick={() => setMonth((m) => addMonths(m, 1))}
               >
                 <ChevronRight className="size-4" />

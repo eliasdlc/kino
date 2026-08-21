@@ -20,7 +20,16 @@ import {
   type CreatedApiKey,
 } from "./api-keys.hooks";
 
-function CopyButton({ text, className }: { text: string; className?: string }) {
+function CopyButton({
+  text,
+  label,
+  className,
+}: {
+  text: string;
+  /** Qué se copia. Obligatorio: el botón sólo es un icono. */
+  label: string;
+  className?: string;
+}) {
   const [copied, setCopied] = useState(false);
 
   async function handleCopy() {
@@ -30,7 +39,13 @@ function CopyButton({ text, className }: { text: string; className?: string }) {
   }
 
   return (
-    <Button variant="ghost" size="icon" className={className ?? "size-7 shrink-0"} onClick={handleCopy}>
+    <Button
+      variant="ghost"
+      size="icon"
+      aria-label={copied ? `${label}: copiado` : label}
+      className={className ?? "size-7 shrink-0"}
+      onClick={handleCopy}
+    >
       {copied ? <Check className="size-3.5 text-emerald-500" /> : <Copy className="size-3.5" />}
     </Button>
   );
@@ -78,7 +93,7 @@ function NewKeyReveal({ created, onClose }: { created: CreatedApiKey; onClose: (
             </p>
             <div className="flex items-center gap-2 rounded-md border bg-muted/50 px-3 py-2">
               <code className="flex-1 text-xs break-all font-mono">{created.token}</code>
-              <CopyButton text={created.token} />
+              <CopyButton text={created.token} label="Copiar la clave al portapapeles" />
             </div>
           </div>
 
@@ -89,7 +104,11 @@ function NewKeyReveal({ created, onClose }: { created: CreatedApiKey; onClose: (
             </p>
             <div className="relative">
               <pre className="bg-muted rounded-md p-3 overflow-x-auto text-[11px] font-mono pr-8">{config}</pre>
-              <CopyButton text={config} className="absolute top-1.5 right-1.5 size-7 bg-background/80 hover:bg-background" />
+              <CopyButton
+                text={config}
+                label="Copiar la configuración MCP al portapapeles"
+                className="absolute top-1.5 right-1.5 size-7 bg-background/80 hover:bg-background"
+              />
             </div>
           </div>
         </div>
@@ -179,6 +198,7 @@ function ClaudeCodeGuide() {
               <pre className="rounded-md bg-muted p-3 text-[11px] font-mono overflow-x-auto pr-8">{SETUP_COMMAND}</pre>
               <CopyButton
                 text={SETUP_COMMAND}
+                label="Copiar el comando al portapapeles"
                 className="absolute top-1.5 right-1.5 size-7 bg-background/80 hover:bg-background"
               />
             </div>
@@ -266,6 +286,7 @@ export function ApiKeysSection() {
               variant="ghost"
               size="icon"
               className="size-8 shrink-0 text-muted-foreground hover:text-destructive"
+              aria-label={`Borrar la clave ${key.name}`}
               onClick={() => deleteKey.mutate(key.id)}
               disabled={deleteKey.isPending}
             >

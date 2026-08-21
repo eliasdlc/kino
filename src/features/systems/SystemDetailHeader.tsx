@@ -109,7 +109,12 @@ export function SystemDetailHeader({ system, signals, currentTab = "tasks" }: Sy
         </button>
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
-            <Button variant="outline" size="icon" className="shrink-0 size-9">
+            <Button
+              variant="outline"
+              size="icon"
+              aria-label={`Acciones de ${system.name}`}
+              className="shrink-0 size-9"
+            >
               <MoreHorizontal className="size-4" />
             </Button>
           </DropdownMenuTrigger>

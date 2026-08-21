@@ -245,6 +245,7 @@ export function GlobalCalendarView() {
                 variant="ghost"
                 size="icon"
                 className="size-8"
+                aria-label={view === "week" ? "Semana anterior" : "Día anterior"}
                 onClick={() => {
                   if (view === "week") setWeekStart((w) => addWeeks(w, -1));
                   else handleSelectDay(addDays(selectedDay, -1));
@@ -259,6 +260,7 @@ export function GlobalCalendarView() {
                 variant="ghost"
                 size="icon"
                 className="size-8"
+                aria-label={view === "week" ? "Semana siguiente" : "Día siguiente"}
                 onClick={() => {
                   if (view === "week") setWeekStart((w) => addWeeks(w, 1));
                   else handleSelectDay(addDays(selectedDay, 1));
