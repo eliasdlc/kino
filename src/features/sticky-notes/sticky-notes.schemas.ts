@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { clientRequestIdField } from "@/shared/offline/client-request";
 
 export const colorValues = [
   "red", "blue", "pink", "purple", "green",
@@ -25,6 +26,7 @@ export const createStickyNoteSchema = z.object({
   anchorId: z.string().nullable().optional(),
   pageId: z.string().uuid().optional(),
   folderId: z.string().uuid().optional(),
+  clientRequestId: clientRequestIdField,
 });
 
 export const updateStickyNoteSchema = z.object({

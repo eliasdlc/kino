@@ -120,6 +120,20 @@
       "when": 1786295709166,
       "tag": "0016_github_sync_idempotencia",
       "breakpoints": true
+    },
+    {
+      "idx": 17,
+      "version": "7",
+      "when": 1786455623804,
+      "tag": "0017_captura_offline_idempotencia",
+      "breakpoints": true
+    },
+    {
+      "idx": 18,
+      "version": "7",
+      "when": 1787324412101,
+      "tag": "0018_api_keys_ciclo_de_vida",
+      "breakpoints": true
     }
   ]
 }

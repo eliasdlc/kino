@@ -22,6 +22,8 @@ import { useFolders } from "@/features/folders/folders.hooks";
 import { getTaskTypeConfig } from "./task-type-config";
 import { parseQuickInput, stripAccents } from "./quick-date-parse";
 import { useQueryClient } from "@tanstack/react-query";
+import { toast } from "sonner";
+import { useOnlineStatus } from "@/features/offline/offline.hooks";
 import { type SystemType } from "@/shared/lib/system-types";
 import { resolveSystemManifest } from "@/shared/lib/system-manifest";
 import type { System } from "@/features/systems/systems.types";
@@ -76,7 +78,8 @@ export function CreateTaskDialog({
   const [nlIgnoredFields, setNlIgnoredFields] = useState<Set<string>>(new Set());
 
   const { data: folders = [] } = useFolders(systemId);
-  const { mutateAsync: createTask, isPending } = useCreateTask(systemId);
+  const { mutateAsync: createTask, mutate: createTaskSync, isPending } = useCreateTask(systemId);
+  const isOnline = useOnlineStatus();
   const { data: tags } = useTags(systemId);
   const queryClient = useQueryClient();
 
@@ -200,6 +203,26 @@ export function CreateTaskDialog({
       parentTaskId,
       hideEnergyAndPriority: !!typeConfig.hideEnergyAndPriority,
     });
+
+    // Sin conexión (KIN-57) la mutación se encola y su promesa no resuelve hasta
+    // que vuelva la red: esperarla dejaría el diálogo colgado con el spinner
+    // puesto y la idea sin escribir en ningún sitio. Se dispara sin await y se
+    // cierra, que es justo lo que se espera de una captura rápida.
+    //
+    // Lo que se degrada a propósito: subtareas y plan de estudio. Ambos cuelgan
+    // del id real que devuelve el servidor, y offline ese id todavía no existe.
+    // La tarea principal —lo que el usuario vino a capturar— sí se guarda.
+    if (!isOnline) {
+      createTaskSync(payload);
+      const pendientes = subtasks.filter((s) => s.title.trim()).length;
+      if (pendientes > 0) {
+        toast.info(
+          `Las ${pendientes} subtareas se crean al volver la conexión: escríbelas cuando la tarea haya subido`,
+        );
+      }
+      handleClose(false);
+      return;
+    }
 
     try {
       const parent = await createTask(payload);
@@ -335,7 +358,7 @@ export function CreateTaskDialog({
       {/* ── Navigation ── */}
       <div className="flex gap-2 pt-1">
         {step > 1 && (
-          <Button type="button" variant="ghost" size="icon" onClick={prevStep} className="shrink-0">
+          <Button type="button" variant="ghost" size="icon" aria-label="Paso anterior" onClick={prevStep} className="shrink-0">
             <ChevronLeft size={18} />
           </Button>
         )}
@@ -343,7 +366,7 @@ export function CreateTaskDialog({
           {isPending ? 'Creando...' : 'Guardar'}
         </Button>
         {step < 3 && (
-          <Button type="button" variant="outline" size="icon" onClick={nextStep} className="shrink-0">
+          <Button type="button" variant="outline" size="icon" aria-label="Paso siguiente" onClick={nextStep} className="shrink-0">
             <ChevronRight size={18} />
           </Button>
         )}

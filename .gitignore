@@ -46,6 +46,9 @@ next-env.d.ts
 public/sw.js
 public/workbox-*.js
 public/swe-worker-*.js
+# Salidas del worker propio y del fallback offline, con hash en el nombre (KIN-57).
+public/worker-*.js
+public/fallback-*.js
 
 # MD
 Kino_Especificaciones_Tecnicas_v2.3.md

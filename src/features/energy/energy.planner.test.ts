@@ -29,6 +29,7 @@ function makeTask(overrides: Partial<Task> = {}): Task {
     sprintId: null,
     externalSource: null,
     externalId: null,
+    clientRequestId: null,
     sortIndex: 0,
     metadata: null,
     inTodayPlan: false,

@@ -12,6 +12,14 @@ const eslintConfig = defineConfig([
     "out/**",
     "build/**",
     "next-env.d.ts",
+    // Service worker y compañía: los escribe next-pwa dentro de `public/` en
+    // cada build (KIN-57). Es bundle de Workbox, no código nuestro, y sin esto
+    // `pnpm lint` pasa de 1 aviso a 113 según si acabas de buildear o no.
+    "public/sw.js",
+    "public/workbox-*.js",
+    "public/swe-worker-*.js",
+    "public/worker-*.js",
+    "public/fallback-*.js",
   ]),
 ]);
 

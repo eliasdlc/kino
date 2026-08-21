@@ -2,6 +2,7 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 import { NotFoundError, ForbiddenError, ValidationError } from '@/shared/utils/error';
+import { KINO_READ, KINO_WRITE, OWNER, type AuthScopes } from '@/shared/lib/scopes';
 
 const getAuthContext = vi.hoisted(() => vi.fn());
 vi.mock('@/shared/utils/auth-context', () => ({ getAuthContext }));
@@ -9,6 +10,9 @@ vi.mock('@/shared/utils/auth-context', () => ({ getAuthContext }));
 const { route } = await import('@/shared/utils/route');
 
 const USER_ID = '11111111-1111-1111-1111-111111111111';
+
+/** Lo que Next pasa a una ruta no dinámica: el objeto existe, los params van vacíos. */
+const EMPTY_CTX = { params: Promise.resolve({}) };
 
 function req(body?: unknown, url = 'http://localhost/api/test') {
   return new NextRequest(url, {
@@ -24,7 +28,7 @@ function req(body?: unknown, url = 'http://localhost/api/test') {
 
 beforeEach(() => {
   getAuthContext.mockReset();
-  getAuthContext.mockResolvedValue({ userId: USER_ID });
+  getAuthContext.mockResolvedValue({ userId: USER_ID, scopes: OWNER });
 });
 
 describe('route() · auth', () => {
@@ -32,7 +36,7 @@ describe('route() · auth', () => {
     getAuthContext.mockResolvedValue(null);
     const handler = vi.fn();
 
-    const res = await route()({}, handler)(req());
+    const res = await route()({}, handler)(req(), EMPTY_CTX);
 
     expect(res.status).toBe(401);
     await expect(res.json()).resolves.toEqual({
@@ -45,7 +49,7 @@ describe('route() · auth', () => {
   it('pasa el userId resuelto al handler', async () => {
     const handler = vi.fn(({ userId }) => NextResponse.json({ userId }));
 
-    const res = await route()({}, handler)(req());
+    const res = await route()({}, handler)(req(), EMPTY_CTX);
 
     expect(res.status).toBe(200);
     await expect(res.json()).resolves.toEqual({ userId: USER_ID });
@@ -58,7 +62,7 @@ describe('route() · validación de body', () => {
   it('devuelve 400 con details cuando el body no valida', async () => {
     const handler = vi.fn();
 
-    const res = await route()({ body: schema }, handler)(req({ name: '', count: 'x' }));
+    const res = await route()({ body: schema }, handler)(req({ name: '', count: 'x' }), EMPTY_CTX);
 
     expect(res.status).toBe(400);
     const payload = await res.json();
@@ -72,7 +76,7 @@ describe('route() · validación de body', () => {
   it('devuelve 400 cuando el JSON está malformado, en vez de un 500 mudo', async () => {
     const handler = vi.fn();
 
-    const res = await route()({ body: schema }, handler)(req('{ roto'));
+    const res = await route()({ body: schema }, handler)(req('{ roto'), EMPTY_CTX);
 
     expect(res.status).toBe(400);
     await expect(res.json()).resolves.toEqual({
@@ -85,7 +89,7 @@ describe('route() · validación de body', () => {
   it('entrega el body ya parseado y tipado al handler', async () => {
     const handler = vi.fn(({ body }) => NextResponse.json(body));
 
-    const res = await route()({ body: schema }, handler)(req({ name: 'kino', count: 2 }));
+    const res = await route()({ body: schema }, handler)(req({ name: 'kino', count: 2 }), EMPTY_CTX);
 
     await expect(res.json()).resolves.toEqual({ name: 'kino', count: 2 });
   });
@@ -93,7 +97,7 @@ describe('route() · validación de body', () => {
   it('no lee el body cuando no se declaró schema', async () => {
     const handler = vi.fn(({ body }) => NextResponse.json({ body: body ?? null }));
 
-    const res = await route()({}, handler)(req({ ignorado: true }));
+    const res = await route()({}, handler)(req({ ignorado: true }), EMPTY_CTX);
 
     await expect(res.json()).resolves.toEqual({ body: null });
   });
@@ -123,6 +127,7 @@ describe('route() · validación de query', () => {
   it('devuelve 400 con details cuando la query no valida', async () => {
     const res = await route()({ query: schema }, vi.fn())(
       req(undefined, 'http://localhost/api/test?taskId=no-es-uuid'),
+      EMPTY_CTX,
     );
 
     expect(res.status).toBe(400);
@@ -137,6 +142,7 @@ describe('route() · validación de query', () => {
 
     const res = await route()({ query: schema }, handler)(
       req(undefined, `http://localhost/api/test?taskId=${uuid}`),
+      EMPTY_CTX,
     );
 
     await expect(res.json()).resolves.toEqual({ taskId: uuid });
@@ -157,7 +163,7 @@ describe('route() · params', () => {
   it('entrega un objeto vacío en rutas sin params', async () => {
     const handler = vi.fn(({ params }) => NextResponse.json(params));
 
-    const res = await route()({}, handler)(req());
+    const res = await route()({}, handler)(req(), EMPTY_CTX);
 
     await expect(res.json()).resolves.toEqual({});
   });
@@ -176,7 +182,7 @@ describe('route() · mapeo de errores', () => {
   it('mapea NotFoundError a 404', async () => {
     const res = await route()({}, () => {
       throw new NotFoundError('Entity not found');
-    })(req());
+    })(req(), EMPTY_CTX);
 
     expect(res.status).toBe(404);
     await expect(res.json()).resolves.toEqual({
@@ -189,18 +195,18 @@ describe('route() · mapeo de errores', () => {
   it('mapea ForbiddenError a 403', async () => {
     const res = await route()({}, () => {
       throw new ForbiddenError('No es tuyo');
-    })(req());
+    })(req(), EMPTY_CTX);
 
     expect(res.status).toBe(403);
     await expect(res.json()).resolves.toEqual({ code: 'FORBIDDEN', message: 'No es tuyo' });
   });
 
-  it('mapea ValidationError a 400', async () => {
+  it('mapea ValidationError a 422, no a 400: el schema pasó y la regla de dominio no', async () => {
     const res = await route()({}, () => {
       throw new ValidationError('Rango inválido');
-    })(req());
+    })(req(), EMPTY_CTX);
 
-    expect(res.status).toBe(400);
+    expect(res.status).toBe(422);
     await expect(res.json()).resolves.toEqual({
       code: 'VALIDATION_ERROR',
       message: 'Rango inválido',
@@ -212,7 +218,7 @@ describe('route() · mapeo de errores', () => {
 
     const res = await route()({}, () => {
       throw boom;
-    })(req());
+    })(req(), EMPTY_CTX);
 
     expect(res.status).toBe(500);
     await expect(res.json()).resolves.toEqual({
@@ -226,7 +232,7 @@ describe('route() · mapeo de errores', () => {
     const res = await route()({}, async () => {
       await Promise.resolve();
       throw new NotFoundError('tarde');
-    })(req());
+    })(req(), EMPTY_CTX);
 
     expect(res.status).toBe(404);
   });
@@ -234,14 +240,14 @@ describe('route() · mapeo de errores', () => {
 
 describe('route() · camino feliz', () => {
   it('respeta el status que devuelve el handler', async () => {
-    const res = await route()({}, () => NextResponse.json({ ok: true }, { status: 201 }))(req());
+    const res = await route()({}, () => NextResponse.json({ ok: true }, { status: 201 }))(req(), EMPTY_CTX);
 
     expect(res.status).toBe(201);
     await expect(res.json()).resolves.toEqual({ ok: true });
   });
 
   it('respeta un 204 sin body', async () => {
-    const res = await route()({}, () => new NextResponse(null, { status: 204 }))(req());
+    const res = await route()({}, () => new NextResponse(null, { status: 204 }))(req(), EMPTY_CTX);
 
     expect(res.status).toBe(204);
     expect(await res.text()).toBe('');
@@ -250,8 +256,110 @@ describe('route() · camino feliz', () => {
   it('expone el request crudo para rutas que lo necesitan', async () => {
     const handler = vi.fn(({ request }) => NextResponse.json({ url: request.url }));
 
-    const res = await route()({}, handler)(req(undefined, 'http://localhost/api/uploads?x=1'));
+    const res = await route()({}, handler)(req(undefined, 'http://localhost/api/uploads?x=1'), EMPTY_CTX);
 
     await expect(res.json()).resolves.toEqual({ url: 'http://localhost/api/uploads?x=1' });
+  });
+});
+
+describe('route() · scopes', () => {
+  function oauth(...granted: string[]): AuthScopes {
+    return { kind: 'oauth', granted };
+  }
+
+  function withMethod(method: string) {
+    return new NextRequest('http://localhost/api/test', { method });
+  }
+
+  it('un GET exige kino:read: un token de sólo lectura pasa', async () => {
+    getAuthContext.mockResolvedValue({ userId: USER_ID, scopes: oauth(KINO_READ) });
+    const handler = vi.fn(() => NextResponse.json({ ok: true }));
+
+    const res = await route()({}, handler)(withMethod('GET'), EMPTY_CTX);
+
+    expect(res.status).toBe(200);
+    expect(handler).toHaveBeenCalled();
+  });
+
+  it.each(['POST', 'PUT', 'PATCH', 'DELETE'])(
+    'un %s exige kino:write: un token de sólo lectura recibe 403 y no llega al handler',
+    async (method) => {
+      getAuthContext.mockResolvedValue({ userId: USER_ID, scopes: oauth(KINO_READ) });
+      const handler = vi.fn();
+
+      const res = await route()({}, handler)(withMethod(method), EMPTY_CTX);
+
+      expect(res.status).toBe(403);
+      expect(handler).not.toHaveBeenCalled();
+    },
+  );
+
+  it('el 403 nombra el scope que falta, para que el cliente pueda pedirlo', async () => {
+    getAuthContext.mockResolvedValue({ userId: USER_ID, scopes: oauth(KINO_READ) });
+
+    const res = await route()({}, vi.fn())(withMethod('DELETE'), EMPTY_CTX);
+
+    await expect(res.json()).resolves.toEqual({
+      code: 'INSUFFICIENT_SCOPE',
+      message: `Este token no tiene el permiso ${KINO_WRITE}`,
+      requiredScope: KINO_WRITE,
+    });
+  });
+
+  it('403 y no 401: sabemos quién eres, falta el permiso', async () => {
+    getAuthContext.mockResolvedValue({ userId: USER_ID, scopes: oauth(KINO_READ) });
+
+    const res = await route()({}, vi.fn())(withMethod('POST'), EMPTY_CTX);
+
+    expect(res.status).not.toBe(401);
+  });
+
+  it('requiredScope manda sobre el método: un POST que sólo lee acepta kino:read', async () => {
+    getAuthContext.mockResolvedValue({ userId: USER_ID, scopes: oauth(KINO_READ) });
+    const handler = vi.fn(() => NextResponse.json({ ok: true }));
+
+    const res = await route()({ requiredScope: KINO_READ }, handler)(
+      withMethod('POST'),
+      EMPTY_CTX,
+    );
+
+    expect(res.status).toBe(200);
+    expect(handler).toHaveBeenCalled();
+  });
+
+  it('una credencial del dueño escribe sin declarar nada', async () => {
+    const handler = vi.fn(() => NextResponse.json({ ok: true }));
+
+    const res = await route()({}, handler)(withMethod('DELETE'), EMPTY_CTX);
+
+    expect(res.status).toBe(200);
+  });
+
+  // La regresión que importa: un token emitido antes de que existieran estos
+  // scopes tiene que seguir escribiendo, o el deploy corta la conexión MCP viva.
+  it('un token anterior a los scopes de Kino sigue escribiendo', async () => {
+    getAuthContext.mockResolvedValue({
+      userId: USER_ID,
+      scopes: oauth('openid', 'profile', 'email', 'offline_access'),
+    });
+    const handler = vi.fn(() => NextResponse.json({ ok: true }));
+
+    const res = await route()({}, handler)(withMethod('POST'), EMPTY_CTX);
+
+    expect(res.status).toBe(200);
+  });
+
+  it('la comprobación va antes de leer el body: un 403 no consume la petición', async () => {
+    getAuthContext.mockResolvedValue({ userId: USER_ID, scopes: oauth(KINO_READ) });
+    const handler = vi.fn();
+
+    const res = await route()({ body: z.object({ nunca: z.string() }) }, handler)(
+      req({ otra: 'cosa' }),
+      EMPTY_CTX,
+    );
+
+    // Si validara el body primero, esto sería un 400 con details.
+    expect(res.status).toBe(403);
+    expect(handler).not.toHaveBeenCalled();
   });
 });

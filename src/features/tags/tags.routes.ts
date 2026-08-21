@@ -1,40 +1,23 @@
-import { NextRequest, NextResponse } from "next/server";
-import { getAuthContext } from "@/shared/utils/auth-context";
+import { NextResponse } from "next/server";
+import { route } from "@/shared/utils/route";
+import { NotFoundError } from "@/shared/utils/error";
 import { updateTagSchema } from "./tags.schemas";
 import { updateTag, deleteTag } from "./tags.service";
 
-export async function PATCH(
-  request: NextRequest,
-  { params }: { params: Promise<{ id: string }> },
-) {
-  const ctx = await getAuthContext(request);
-  if (!ctx) return NextResponse.json({ code: "UNAUTHORIZED", message: "Unauthorized" }, { status: 401 });
+type IdParam = { id: string };
 
-  const { id } = await params;
-  const body = await request.json();
-  const parsed = updateTagSchema.safeParse(body);
+// PATCH/DELETE /api/tags/[id]
+export const PATCH = route<IdParam>()(
+  { body: updateTagSchema },
+  async ({ userId, params, body }) => {
+    const updated = await updateTag(params.id, userId, body);
+    if (!updated) throw new NotFoundError("Tag not found");
+    return NextResponse.json(updated);
+  },
+);
 
-  if (!parsed.success) {
-    return NextResponse.json(
-      { code: "VALIDATION_ERROR", message: "Invalid input", details: parsed.error.flatten() },
-      { status: 400 },
-    );
-  }
-
-  const updated = await updateTag(id, ctx.userId, parsed.data);
-  if (!updated) return NextResponse.json({ code: "NOT_FOUND", message: "Tag not found" }, { status: 404 });
-  return NextResponse.json(updated);
-}
-
-export async function DELETE(
-  request: NextRequest,
-  { params }: { params: Promise<{ id: string }> },
-) {
-  const ctx = await getAuthContext(request);
-  if (!ctx) return NextResponse.json({ code: "UNAUTHORIZED", message: "Unauthorized" }, { status: 401 });
-
-  const { id } = await params;
-  const ok = await deleteTag(id, ctx.userId);
-  if (!ok) return NextResponse.json({ code: "NOT_FOUND", message: "Tag not found" }, { status: 404 });
+export const DELETE = route<IdParam>()({}, async ({ userId, params }) => {
+  const ok = await deleteTag(params.id, userId);
+  if (!ok) throw new NotFoundError("Tag not found");
   return new NextResponse(null, { status: 204 });
-}
+});

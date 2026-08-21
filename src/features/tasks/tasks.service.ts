@@ -1,6 +1,6 @@
 import { db } from "@/shared/db";
 import { tasks, users, userSettings, systems, folders, sprints, systemStatusDefinitions, timeLogs, taskReminders, contextTags } from "@/shared/db/schema";
-import { and, eq, isNull, isNotNull, sql, sum, count, or, gte, lte, type SQL } from "drizzle-orm";
+import { and, eq, inArray, isNull, isNotNull, sql, sum, count, or, gte, lte, type SQL } from "drizzle-orm";
 import { NotFoundError, ValidationError } from "@/shared/utils/error";
 import { validateTransition, deriveBoardBridgeAction, actionForTransition, type TaskStatus, type TransitionAction } from "./tasks.state-machine";
 import { Task, CreateTaskInput, UpdateTaskInput } from "./tasks.types";
@@ -401,7 +401,30 @@ async function createTaskInTx(tx: DbTransaction, userId: string, data: CreateTas
       ...(data.boardStatus ? { boardStatusChangedAt: new Date() } : {}),
       userId,
     })
+    // KIN-57 · La cola offline puede reproducir la misma creación dos veces (o
+    // haber insertado ya y perdido la respuesta). El índice único parcial sobre
+    // (user_id, client_request_id) lo convierte en un no-op en vez de duplicar.
+    // Sin `clientRequestId` el target no aplica y el INSERT es el de siempre.
+    .onConflictDoNothing({
+      target: [tasks.userId, tasks.clientRequestId],
+      where: sql`${tasks.clientRequestId} IS NOT NULL`,
+    })
     .returning();
+
+  // Reintento de algo ya creado: devolvemos la fila original y no repetimos los
+  // efectos de abajo (recordatorios), que ya se aplicaron la primera vez.
+  if (!task && data.clientRequestId) {
+    const [existing] = await tx
+      .select()
+      .from(tasks)
+      .where(
+        and(
+          eq(tasks.userId, userId),
+          eq(tasks.clientRequestId, data.clientRequestId),
+        ),
+      );
+    return existing ?? null;
+  }
 
   if (task?.dueDate && task.priority in AUTO_REMINDER_OFFSETS) {
     await syncAutoReminders(task.id, userId, task.dueDate, task.priority, tx);
@@ -632,19 +655,38 @@ export async function bulkMoveTasks(taskIds: string[], status: TaskStatus, userI
   });
 }
 
+/**
+ * Cambia la prioridad de varias tareas de golpe.
+ *
+ * Un solo `UPDATE ... WHERE id = ANY(...)`. El bucle anterior emitía una
+ * sentencia por tarea dentro de una transacción, y con Neon cada sentencia es
+ * un viaje de red: con el máximo que admite el schema eran 50 viajes
+ * secuenciales para lo que Postgres resuelve en uno.
+ *
+ * Los tres filtros del WHERE son la garantía de aislamiento y no se relajan
+ * por pasar a un `inArray`: `user_id` es lo que impide que un id ajeno se
+ * cuele, y `deleted_at IS NULL` deja fuera las borradas.
+ */
 export async function bulkUpdateTasks(
   taskIds: string[],
   data: Pick<UpdateTaskInput, "priority">,
   userId: string,
 ): Promise<void> {
-  await db.transaction(async (tx) => {
-    for (const taskId of taskIds) {
-      await tx
-        .update(tasks)
-        .set({ ...(data.priority !== undefined ? { priority: data.priority } : {}), updatedAt: new Date() })
-        .where(and(eq(tasks.id, taskId), eq(tasks.userId, userId), isNull(tasks.deletedAt)));
-    }
-  });
+  // `priority` es el único campo actualizable y el schema lo deja opcional.
+  // Sin él no hay nada que cambiar, y escribir sólo `updated_at` en 50 filas
+  // para no cambiar nada es la peor versión de esta función.
+  if (taskIds.length === 0 || data.priority === undefined) return;
+
+  await db
+    .update(tasks)
+    .set({ priority: data.priority, updatedAt: new Date() })
+    .where(
+      and(
+        inArray(tasks.id, taskIds),
+        eq(tasks.userId, userId),
+        isNull(tasks.deletedAt),
+      ),
+    );
 }
 
 export async function moveTask(taskId: string, newStatus: TaskStatus, userId: string): Promise<Task> {

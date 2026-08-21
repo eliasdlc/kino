@@ -1,14 +1,13 @@
-import { auth } from '@/auth';
-import { headers } from 'next/headers';
 import { z } from 'zod';
 import { deletePushSubscription } from '@/features/notifications/notifications.queries';
+import { getServerSession } from '@/shared/utils/session';
 
 const schema = z.object({ endpoint: z.string().url() });
 
 // Session-only a propósito (KIN-144): opera sobre el PushSubscription del
 // navegador, que sólo existe en una sesión de UI. No migrar a getAuthContext.
 export async function DELETE(req: Request) {
-  const session = await auth.api.getSession({ headers: await headers() });
+  const session = await getServerSession();
   if (!session) return Response.json({ code: 'UNAUTHORIZED' }, { status: 401 });
 
   const body: unknown = await req.json();

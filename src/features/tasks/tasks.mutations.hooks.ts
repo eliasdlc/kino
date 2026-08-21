@@ -1,10 +1,16 @@
 "use client";
 
-import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { onlineManager, useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { type Task, type CreateTaskInput } from "./tasks.types";
 import { useOptimisticListMutation } from "@/shared/hooks/useOptimisticListMutation";
-import { deriveStatusFromDate } from "./tasks.utils";
+import {
+  applyCreated,
+  applyOptimistic,
+  createTaskSpec,
+  revertOptimistic,
+} from "@/features/offline/offline.mutations";
+import { useStampedMutation } from "@/features/offline/offline.hooks";
 import { taskKeys, allTasksKey } from "./tasks.keys";
 
 /**
@@ -19,96 +25,48 @@ interface ToggleTaskResult {
 }
 
 
-// Caso multi-key: toca `bySystem` y `folderTasks` a la vez, así que mantiene el
-// patrón optimista inline (ver `useOptimisticListMutation` para el caso de una
-// sola lista y la doc del patrón canónico).
+/**
+ * Crear tarea — la única mutación que sobrevive a la falta de red (KIN-57).
+ *
+ * Caso multi-key: toca `bySystem` y `folderTasks` a la vez, así que no usa
+ * `useOptimisticListMutation` (pensado para una sola lista). Lo que antes estaba
+ * inline aquí —el `mutationFn`, el placeholder optimista y las keys que toca—
+ * vive ahora en `createTaskSpec`, porque la cola offline necesita reproducir todo
+ * eso **sin este componente montado**, después de cerrar y reabrir el navegador.
+ *
+ * El rollback ya no restaura un snapshot de la lista entera: retira sólo el
+ * placeholder de esta creación. Con varias capturas en vuelo a la vez —justo lo
+ * que pasa al vaciar la cola— restaurar el snapshot borraría las otras.
+ */
 export function useCreateTask(systemId: string, folderId?: string) {
   const queryClient = useQueryClient();
 
-  return useMutation<Task, Error, CreateTaskInput>({
-    mutationFn: async (data) => {
-      const res = await fetch("/api/tasks", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(data),
-      });
-      if (!res.ok) {
-        const body = await res.json().catch(() => ({}));
-        throw new Error((body as { message?: string }).message ?? "Failed to create task");
-      }
-      return res.json() as Promise<Task>;
-    },
+  const mutation = useMutation<Task, Error, CreateTaskInput>({
+    mutationKey: createTaskSpec.mutationKey,
+    mutationFn: createTaskSpec.mutationFn,
+    // Intenta la petición aunque el navegador se crea sin red, y sólo se pausa
+    // cuando falla de verdad. Ver `registerOfflineMutationDefaults`.
+    networkMode: "offlineFirst",
     onMutate: async (data) => {
-      // Always cancel bySystem — all 4 view components subscribe to this key
-      const systemQKey = taskKeys.bySystem(systemId);
-      await queryClient.cancelQueries({ queryKey: systemQKey });
-      const previousSystem = queryClient.getQueryData<Task[]>(systemQKey);
-
-      // If a folder is involved, also cancel folderTasks to prevent race overwrites
-      const folderQKey = folderId ? taskKeys.folderTasks(systemId, folderId) : null;
-      if (folderQKey) await queryClient.cancelQueries({ queryKey: folderQKey });
-      const previousFolder = folderQKey ? queryClient.getQueryData<Task[]>(folderQKey) : undefined;
-
-      // Status optimista: reusa el único helper del backend (FE-03) en vez de
-      // reimplementar la derivación. La tz del navegador refleja lo que el
-      // usuario ve; el servidor recalcula con la tz de la cuenta al confirmar.
-      const optimisticStatus = deriveStatusFromDate(
-        data.startDate,
-        Intl.DateTimeFormat().resolvedOptions().timeZone,
+      const keys = [
+        ...createTaskSpec.queryKeys(data),
+        ...(folderId ? [taskKeys.folderTasks(systemId, folderId)] : []),
+      ];
+      await Promise.all(
+        keys.map((queryKey) => queryClient.cancelQueries({ queryKey })),
       );
+      applyOptimistic(queryClient, createTaskSpec, data);
 
-      // Create an optimistic task
-      const optimisticTask: Task = {
-        id: crypto.randomUUID(),
-        title: data.title,
-        description: data.description ?? null,
-        status: optimisticStatus,
-        boardStatus: null,
-        boardStatusChangedAt: null,
-        priority: (data.priority as Task["priority"]) ?? "medium",
-        energyLevel: (data.energyLevel as Task["energyLevel"]) ?? "medium",
-        taskType: (data.taskType as Task["taskType"]) ?? null,
-        dueDate: data.dueDate ?? null,
-        startDate: data.startDate ?? null,
-        estimatedTime: data.estimatedTime ?? null,
-        parentTaskId: data.parentTaskId ?? null,
-        contextTagId: data.contextTagId ?? null,
-        folderId: data.folderId ?? null,
-        sprintId: null,
-        systemId,
-        userId: "optimistic",
-        recurrenceRule: data.recurrenceRule ?? null,
-        recurrenceParentId: null,
-        externalSource: null,
-        externalId: null,
-        sortIndex: 0,
-        metadata: null,
-        inTodayPlan: false,
-        notifiedBeforeDay: false,
-        notifiedDueDay: false,
-        reminderCount: 0,
-        lastRemindedAt: null,
-        createdAt: new Date(),
-        updatedAt: new Date(),
-        completedAt: null,
-        deletedAt: null,
-      };
-
-      // Write to bySystem so all views immediately see the new task
-      queryClient.setQueryData<Task[]>(systemQKey, (old = []) => [...old, optimisticTask]);
-      // Also write to folderTasks for consistency in folder-scoped views
-      if (folderQKey) {
-        queryClient.setQueryData<Task[]>(folderQKey, (old = []) => [...old, optimisticTask]);
+      if (!onlineManager.isOnline()) {
+        toast.success(`"${data.title}" guardada sin conexión · se subirá al volver la red`);
       }
-
-      return { previousSystem, systemQKey, previousFolder, folderQKey };
     },
-    onSuccess: (newTask) => {
-      // Replace the optimistic placeholder (userId="optimistic") with the real task
-      queryClient.setQueryData<Task[]>(taskKeys.bySystem(systemId), (old = []) => {
-        const withoutOptimistic = old.filter((t) => t.userId !== "optimistic");
-        return [...withoutOptimistic, newTask];
-      });
+    onSuccess: (newTask, data) => {
+      applyCreated(queryClient, createTaskSpec, data, newTask);
+
+      // Al reconectar, la confirmación de algo capturado hace rato no debe
+      // repetir el toast de creación: ya se avisó al guardarlo.
+      if (data.clientRequestId && !onlineManager.isOnline()) return;
 
       // Mensaje neutro con el destino real (sirve desde QuickAdd global o desde
       // un sistema): no asume que haya un "Action tab" en pantalla.
@@ -123,17 +81,8 @@ export function useCreateTask(systemId: string, folderId?: string) {
       const where = statusLabel[newTask.status] ?? "tu lista";
       toast.success(`"${newTask.title}" creada · ${where}`);
     },
-    onError: (err, _vars, context) => {
-      const ctx = context as {
-        previousSystem?: Task[]; systemQKey?: readonly unknown[];
-        previousFolder?: Task[]; folderQKey?: readonly unknown[] | null;
-      } | undefined;
-      if (ctx?.previousSystem !== undefined && ctx?.systemQKey) {
-        queryClient.setQueryData(ctx.systemQKey, ctx.previousSystem);
-      }
-      if (ctx?.previousFolder !== undefined && ctx?.folderQKey) {
-        queryClient.setQueryData(ctx.folderQKey, ctx.previousFolder);
-      }
+    onError: (err, data) => {
+      revertOptimistic(queryClient, createTaskSpec, data);
       toast.error(err.message ?? "No se pudo crear la tarea");
     },
     onSettled: () => {
@@ -141,6 +90,8 @@ export function useCreateTask(systemId: string, folderId?: string) {
       queryClient.invalidateQueries({ queryKey: taskKeys.bySystem(systemId) });
     },
   });
+
+  return useStampedMutation(mutation);
 }
 
 

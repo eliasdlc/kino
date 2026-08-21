@@ -1,40 +1,23 @@
 "use client";
 
+import { useCallback } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useOptimisticListMutation } from "@/shared/hooks/useOptimisticListMutation";
+import {
+  applyCreated,
+  applyOptimistic,
+  createPageSpec,
+  revertOptimistic,
+} from "@/features/offline/offline.mutations";
+import { useStampedMutation } from "@/features/offline/offline.hooks";
+import { pageKeys } from "./pages.keys";
 import type { PageListItem, PageDetail, LinkedTask, PageMutationResult } from "./pages.types";
 import type { CreatePageInput, UpdatePageInput } from "./pages.schemas";
 import type { ContextTagListItem } from "@/features/tags/tags.types";
 
-/** Página optimista provisional para la lista; el invalidate de onSettled la
- *  reemplaza por la fila real del server. */
-function makeOptimisticPage(
-  fields: { systemId: string; folderId?: string | null; parentPageId?: string | null; title?: string | null },
-): PageListItem {
-  return {
-    id: crypto.randomUUID(),
-    title: fields.title ?? null,
-    folderId: fields.folderId ?? null,
-    systemId: fields.systemId,
-    isPinned: false,
-    parentPageId: fields.parentPageId ?? null,
-    completedAt: null,
-    createdAt: new Date(),
-    updatedAt: new Date(),
-    contentPreview: null,
-    wordCount: 0,
-    tags: [],
-    subPageCount: 0,
-  };
-}
-
-export const pageKeys = {
-  bySystem: (systemId: string) => ["pages", "system", systemId] as const,
-  detail: (pageId: string) => ["pages", "detail", pageId] as const,
-  linkedTasks: (pageId: string) => ["pages", "tasks", pageId] as const,
-  tags: (pageId: string) => ["pages", "tags", pageId] as const,
-  subPages: (pageId: string) => ["pages", "subpages", pageId] as const,
-};
+// El placeholder optimista vive ahora en `createPageSpec` (KIN-57): la cola
+// offline tiene que poder redibujarlo sin este módulo montado.
+export { pageKeys } from "./pages.keys";
 
 export function usePages(systemId: string) {
   return useQuery<PageListItem[]>({
@@ -72,26 +55,49 @@ export function useLinkedTasks(pageId: string) {
   });
 }
 
+/**
+ * Crear cuaderno. Encolable sin conexión (KIN-57), así que el `mutationFn`, el
+ * placeholder y las keys que toca viven en `createPageSpec` — la cola necesita
+ * reproducirlos tras cerrar el navegador, cuando este hook ya no existe.
+ *
+ * `systemId` viaja dentro de las variables, no en el closure, por lo mismo: es lo
+ * único que se persiste de una mutación pausada.
+ */
 export function useCreatePage(systemId: string) {
-  return useOptimisticListMutation<PageListItem, Error, Omit<CreatePageInput, "systemId">, PageListItem>({
-    mutationFn: async (data) => {
-      const res = await fetch(`/api/systems/${systemId}/pages`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(data),
-      });
-      if (!res.ok) {
-        const body = await res.json().catch(() => ({}));
-        throw new Error((body as { message?: string }).message ?? "Failed to create page");
-      }
-      return res.json();
+  const queryClient = useQueryClient();
+
+  const mutation = useMutation<PageListItem, Error, CreatePageInput>({
+    mutationKey: createPageSpec.mutationKey,
+    mutationFn: createPageSpec.mutationFn,
+    networkMode: "offlineFirst",
+    onMutate: async (data) => {
+      await queryClient.cancelQueries({ queryKey: pageKeys.bySystem(data.systemId) });
+      applyOptimistic(queryClient, createPageSpec, data);
     },
-    queryKey: pageKeys.bySystem(systemId),
-    updater: (pages, data) => [
-      ...pages,
-      makeOptimisticPage({ systemId, folderId: data.folderId, parentPageId: data.parentPageId, title: data.title }),
-    ],
+    onSuccess: (created, data) => applyCreated(queryClient, createPageSpec, data, created),
+    onError: (_err, data) => revertOptimistic(queryClient, createPageSpec, data),
+    onSettled: (_data, _err, data) => {
+      queryClient.invalidateQueries({ queryKey: pageKeys.bySystem(data.systemId) });
+    },
   });
+
+  const stamped = useStampedMutation(mutation);
+  const { mutate: stampedMutate, mutateAsync: stampedMutateAsync } = stamped;
+
+  // Los llamantes siguen pasando el cuaderno sin `systemId`: lo pone el hook.
+  // Las deps son las funciones (estables), no `stamped`, que cambia cada render.
+  const mutate = useCallback(
+    (data: Omit<CreatePageInput, "systemId">, options?: Parameters<typeof stampedMutate>[1]) =>
+      stampedMutate({ ...data, systemId }, options),
+    [stampedMutate, systemId],
+  );
+  const mutateAsync = useCallback(
+    (data: Omit<CreatePageInput, "systemId">, options?: Parameters<typeof stampedMutateAsync>[1]) =>
+      stampedMutateAsync({ ...data, systemId }, options),
+    [stampedMutateAsync, systemId],
+  );
+
+  return { ...stamped, mutate, mutateAsync };
 }
 
 export function useUpdatePage(pageId: string, systemId?: string) {
@@ -258,7 +264,9 @@ export function useCreateSubPage(parentPageId: string, systemId: string) {
     queryKey: pageKeys.subPages(parentPageId),
     updater: (subPages, data) => [
       ...subPages,
-      makeOptimisticPage({ systemId, parentPageId, title: data.title }),
+      // Mismo constructor que la creación normal: una sola definición de cómo se
+      // ve un cuaderno todavía sin confirmar.
+      createPageSpec.optimistic({ systemId, parentPageId, title: data.title }),
     ],
     // Prefijo ['pages'] → reconcilia subpáginas y la lista del sistema.
     invalidateKey: ["pages"],

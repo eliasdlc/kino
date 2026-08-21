@@ -1,19 +1,15 @@
 import type { Metadata, Viewport } from "next";
-import { Geist, Geist_Mono, Inter, Literata } from "next/font/google";
+import { Geist_Mono, Inter, Literata } from "next/font/google";
 import "./globals.css";
 import { cn } from "@/lib/utils";
 import { Toaster } from "sonner";
 import { SITE_URL } from "@/shared/lib/site-url";
+import { rootThemeScript } from "@/shared/lib/theme-script";
 
 const inter = Inter({subsets:['latin'],variable:'--font-sans'});
 
 // Serif de lectura del arquetipo Writing: la "sensación de escritor" del editor.
 const literata = Literata({ subsets: ["latin"], variable: "--font-literata" });
-
-const geistSans = Geist({
-  variable: "--font-geist-sans",
-  subsets: ["latin"],
-});
 
 const geistMono = Geist_Mono({
   variable: "--font-geist-mono",
@@ -36,7 +32,13 @@ export const metadata: Metadata = {
 };
 
 export const viewport: Viewport = {
-  themeColor: "#000000",
+  // Los dos valores de `--background`. La barra del navegador en móvil sigue la
+  // preferencia del sistema, no la clase `dark`: quien fuerza un tema distinto
+  // al del SO verá la barra del otro, que es el límite del atributo.
+  themeColor: [
+    { media: "(prefers-color-scheme: light)", color: "#ffffff" },
+    { media: "(prefers-color-scheme: dark)", color: "#161616" },
+  ],
 };
 
 export default function RootLayout({
@@ -46,10 +48,13 @@ export default function RootLayout({
 }>) {
   return (
     <html
-      lang="en"
+      lang="es"
       suppressHydrationWarning
-      className={cn("h-full", "antialiased", geistSans.variable, geistMono.variable, "font-sans", inter.variable, literata.variable)}
+      className={cn("h-full", "antialiased", geistMono.variable, "font-sans", inter.variable, literata.variable)}
     >
+      <head>
+        <script dangerouslySetInnerHTML={{ __html: rootThemeScript }} />
+      </head>
       <body className="min-h-full flex flex-col">
         {children}
         <Toaster richColors position="bottom-right" />

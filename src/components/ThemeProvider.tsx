@@ -3,26 +3,35 @@
 import { create } from "zustand";
 import { useEffect } from "react";
 
-type ThemeMode = "light" | "dark" | "system";
+export type ThemeMode = "light" | "dark" | "system";
+
+const STORAGE_KEY = "kino-theme";
+const MODES: readonly ThemeMode[] = ["light", "dark", "system"];
+
+function isThemeMode(value: string | null): value is ThemeMode {
+  return value !== null && MODES.includes(value as ThemeMode);
+}
 
 interface ThemeState {
   mode: ThemeMode;
+  /** false hasta saber qué tema eligió este dispositivo. */
+  hydrated: boolean;
+  /** Elección explícita: se persiste en este dispositivo. */
   setMode: (mode: ThemeMode) => void;
+  /** Valor ya conocido: se adopta sin volver a escribirlo. */
+  hydrate: (mode: ThemeMode) => void;
 }
 
-/**
- * Zustand store for theme persistence.
- * Reads initial value from localStorage, writes back on change.
- * The actual class toggling happens in the ThemeProvider component via useEffect.
- */
 export const useThemeStore = create<ThemeState>((set) => ({
   mode: "system",
+  hydrated: false,
   setMode: (mode) => {
     if (typeof window !== "undefined") {
-      localStorage.setItem("kino-theme", mode);
+      localStorage.setItem(STORAGE_KEY, mode);
     }
-    set({ mode });
+    set({ mode, hydrated: true });
   },
+  hydrate: (mode) => set({ mode, hydrated: true }),
 }));
 
 function applyThemeClass(mode: ThemeMode) {
@@ -36,42 +45,41 @@ function applyThemeClass(mode: ThemeMode) {
 }
 
 /**
- * ThemeProvider must be rendered once in the app tree (inside Providers).
- * Handles:
- * 1. Reading initial theme from localStorage on mount
- * 2. Applying the dark class to <html>
- * 3. Listening for OS preference changes when mode === "system"
+ * Se renderiza una vez en el árbol de la app, dentro de Providers.
+ *
+ * La clase `dark` de la primera pintura no la pone este componente sino los
+ * scripts inline de `shared/lib/theme-script` — un efecto siempre corre después
+ * de pintar y produciría un destello. Aquí sólo se mantiene sincronizada a
+ * partir de ese punto: cambios del usuario y cambios del tema del SO.
+ *
+ * `initialTheme` es el tema guardado en la cuenta, que el layout de `(app)`
+ * lee del servidor. Sólo se usa si este dispositivo no tiene elección propia.
  */
-export function ThemeProvider({ children }: { children: React.ReactNode }) {
+export function ThemeProvider({
+  initialTheme = "system",
+  children,
+}: {
+  initialTheme?: ThemeMode;
+  children: React.ReactNode;
+}) {
   const mode = useThemeStore((s) => s.mode);
+  const hydrated = useThemeStore((s) => s.hydrated);
   const setMode = useThemeStore((s) => s.setMode);
+  const hydrate = useThemeStore((s) => s.hydrate);
 
-  // Hydrate on mount. localStorage tiene prioridad (aplica sin flash y respeta
-  // la elección de este dispositivo); en un dispositivo nuevo, cae al valor
-  // guardado en la cuenta (userSettings.theme).
   useEffect(() => {
-    const stored = localStorage.getItem("kino-theme") as ThemeMode | null;
-    if (stored && ["light", "dark", "system"].includes(stored)) {
-      setMode(stored);
+    const stored = localStorage.getItem(STORAGE_KEY);
+    if (isThemeMode(stored)) {
+      hydrate(stored);
       return;
     }
-    let active = true;
-    fetch("/api/settings")
-      .then((res) => (res.ok ? res.json() : null))
-      .then((settings) => {
-        const theme = settings?.theme as ThemeMode | undefined;
-        if (active && theme && ["light", "dark", "system"].includes(theme)) {
-          setMode(theme);
-        }
-      })
-      .catch(() => {});
-    return () => {
-      active = false;
-    };
-  }, [setMode]);
+    // Dispositivo estrenado: el tema de la cuenta pasa a ser el suyo, para que
+    // el script del layout raíz lo resuelva solo en la siguiente carga.
+    setMode(initialTheme);
+  }, [initialTheme, hydrate, setMode]);
 
-  // Apply class and listen for OS changes
   useEffect(() => {
+    if (!hydrated) return;
     applyThemeClass(mode);
 
     if (mode !== "system") return;
@@ -80,7 +88,7 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
     const handler = () => applyThemeClass("system");
     mediaQuery.addEventListener("change", handler);
     return () => mediaQuery.removeEventListener("change", handler);
-  }, [mode]);
+  }, [mode, hydrated]);
 
   return <>{children}</>;
 }

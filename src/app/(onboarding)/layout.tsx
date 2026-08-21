@@ -1,16 +1,15 @@
-import { headers } from 'next/headers';
 import { redirect } from 'next/navigation';
 import { eq } from 'drizzle-orm';
-import { auth } from '@/auth';
 import { db } from '@/shared/db';
 import { users } from '@/shared/db/schema';
+import { getServerSession } from '@/shared/utils/session';
 
 export default async function OnboardingLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
-  const session = await auth.api.getSession({ headers: await headers() });
+  const session = await getServerSession();
   if (!session) redirect('/login');
 
   const [user] = await db

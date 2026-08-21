@@ -1,38 +1,22 @@
 "use client";
 
+import { useCallback } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useOptimisticListMutation } from "@/shared/hooks/useOptimisticListMutation";
+import {
+  applyCreated,
+  applyOptimistic,
+  createStickyNoteSpec,
+  revertOptimistic,
+  type CreateStickyNoteVars,
+} from "@/features/offline/offline.mutations";
+import { useStampedMutation } from "@/features/offline/offline.hooks";
 import type { StickyNoteItem } from "./sticky-notes.types";
 import type { UpdateStickyNoteInput, CreateStickyNoteInput } from "./sticky-notes.schemas";
+import { stickyNoteKeys } from "./sticky-notes.keys";
 
-/** Nota optimista provisional: aparece al instante; el invalidate de onSettled
- *  la reconcilia con la fila real del server. */
-function makeOptimisticStickyNote(
-  data: Omit<CreateStickyNoteInput, "pageId" | "folderId">,
-  scope: { pageId?: string; folderId?: string },
-): StickyNoteItem {
-  return {
-    id: crypto.randomUUID(),
-    title: data.title ?? null,
-    content: data.content ?? null,
-    color: data.color ?? "yellow",
-    sortIndex: 0,
-    pageId: scope.pageId ?? null,
-    folderId: scope.folderId ?? null,
-    positionSide: data.positionSide ?? null,
-    positionY: data.positionY ?? null,
-    positionX: data.positionX ?? null,
-    anchorId: data.anchorId ?? null,
-    stackId: null,
-    textAnchor: data.textAnchor ?? null,
-    isEureka: false,
-  };
-}
-
-export const stickyNoteKeys = {
-  byPage: (pageId: string) => ["sticky-notes", "page", pageId] as const,
-  byFolder: (folderId: string) => ["sticky-notes", "folder", folderId] as const,
-};
+// La nota optimista vive ahora en `createStickyNoteSpec` (KIN-57): la cola
+// offline tiene que poder redibujarla sin este módulo montado.
+export { stickyNoteKeys } from "./sticky-notes.keys";
 
 export function useStickyNotesByPage(pageId: string) {
   return useQuery<StickyNoteItem[]>({
@@ -60,39 +44,68 @@ export function useStickyNotesByFolder(folderId: string) {
   });
 }
 
-type CreateForPage = Omit<CreateStickyNoteInput, "pageId" | "folderId">;
-type CreateForFolder = Omit<CreateStickyNoteInput, "pageId" | "folderId">;
+/** Lo que escribe el llamante; el destino (página o carpeta) lo pone el hook. */
+type CreateForScope = Omit<CreateStickyNoteInput, "pageId" | "folderId">;
+
+/**
+ * Crear sticky note (en una página o en una carpeta). Encolable sin conexión
+ * (KIN-57): el destino viaja en las variables, no en el closure, porque la cola
+ * tiene que reconstruir la URL después de cerrar el navegador.
+ */
+function useCreateStickyNote(scope: { pageId: string } | { folderId: string }) {
+  const queryClient = useQueryClient();
+  // Desarmado en primitivas: el objeto `scope` es nuevo en cada render y como
+  // dependencia haría inestables los callbacks de abajo.
+  const pageId = "pageId" in scope ? scope.pageId : undefined;
+  const folderId = "folderId" in scope ? scope.folderId : undefined;
+
+  const mutation = useMutation<StickyNoteItem, Error, CreateStickyNoteVars>({
+    mutationKey: createStickyNoteSpec.mutationKey,
+    mutationFn: createStickyNoteSpec.mutationFn,
+    networkMode: "offlineFirst",
+    onMutate: async (data) => {
+      const [queryKey] = createStickyNoteSpec.queryKeys(data);
+      await queryClient.cancelQueries({ queryKey });
+      applyOptimistic(queryClient, createStickyNoteSpec, data);
+    },
+    onSuccess: (created, data) =>
+      applyCreated(queryClient, createStickyNoteSpec, data, created),
+    onError: (_err, data) => revertOptimistic(queryClient, createStickyNoteSpec, data),
+    onSettled: (_data, _err, data) => {
+      const [queryKey] = createStickyNoteSpec.queryKeys(data);
+      queryClient.invalidateQueries({ queryKey });
+    },
+  });
+
+  const stamped = useStampedMutation(mutation);
+  const { mutate: stampedMutate, mutateAsync: stampedMutateAsync } = stamped;
+
+  const mutate = useCallback(
+    (data: CreateForScope, options?: Parameters<typeof stampedMutate>[1]) =>
+      stampedMutate(
+        { ...data, ...(pageId ? { pageId } : { folderId: folderId! }) } as CreateStickyNoteVars,
+        options,
+      ),
+    [stampedMutate, pageId, folderId],
+  );
+  const mutateAsync = useCallback(
+    (data: CreateForScope, options?: Parameters<typeof stampedMutateAsync>[1]) =>
+      stampedMutateAsync(
+        { ...data, ...(pageId ? { pageId } : { folderId: folderId! }) } as CreateStickyNoteVars,
+        options,
+      ),
+    [stampedMutateAsync, pageId, folderId],
+  );
+
+  return { ...stamped, mutate, mutateAsync };
+}
 
 export function useCreateStickyNoteForPage(pageId: string) {
-  return useOptimisticListMutation<StickyNoteItem, Error, CreateForPage, StickyNoteItem>({
-    mutationFn: async (data) => {
-      const res = await fetch(`/api/pages/${pageId}/sticky-notes`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(data),
-      });
-      if (!res.ok) throw new Error("Failed to create sticky note");
-      return res.json();
-    },
-    queryKey: stickyNoteKeys.byPage(pageId),
-    updater: (notes, data) => [...notes, makeOptimisticStickyNote(data, { pageId })],
-  });
+  return useCreateStickyNote({ pageId });
 }
 
 export function useCreateStickyNoteForFolder(folderId: string) {
-  return useOptimisticListMutation<StickyNoteItem, Error, CreateForFolder, StickyNoteItem>({
-    mutationFn: async (data) => {
-      const res = await fetch(`/api/folders/${folderId}/sticky-notes`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(data),
-      });
-      if (!res.ok) throw new Error("Failed to create sticky note");
-      return res.json();
-    },
-    queryKey: stickyNoteKeys.byFolder(folderId),
-    updater: (notes, data) => [...notes, makeOptimisticStickyNote(data, { folderId })],
-  });
+  return useCreateStickyNote({ folderId });
 }
 
 export function useUpdateStickyNote(context: { pageId?: string; folderId?: string }) {

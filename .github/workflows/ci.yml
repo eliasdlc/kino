@@ -1,0 +1,87 @@
+name: CI
+
+on:
+  push:
+    branches: [dev, main]
+  pull_request:
+    branches: [dev, main]
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  verify:
+    name: typecheck · lint · test
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    # Sin `env:` y sin `secrets:` a propósito. Los tests son lógica pura o mockean
+    # `@/shared/db`, así que ninguno necesita DATABASE_URL. Si alguno empieza a
+    # pedirla, este job tiene que fallar en rojo, no ganar una variable aquí.
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 11.20.0
+
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 26
+          cache: pnpm
+
+      - run: pnpm install --frozen-lockfile
+
+      - run: pnpm typecheck
+
+      - run: pnpm lint
+
+      - run: pnpm test
+
+  isolation:
+    name: aislamiento entre usuarios
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    # La batería de KIN-190 sí necesita base, y una de verdad: con `db` mockeado
+    # sólo se comprobaría que la consulta lleva el filtro, no que Postgres lo
+    # respete. Es la misma imagen que levanta docker-compose en local.
+    services:
+      postgres:
+        image: postgres:15-alpine
+        env:
+          POSTGRES_USER: kino
+          POSTGRES_PASSWORD: kino_dev_password
+          POSTGRES_DB: kino_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U kino -d kino_test"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+
+    env:
+      DATABASE_URL: postgresql://kino:kino_dev_password@localhost:5432/kino_test
+
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 11.20.0
+
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 26
+          cache: pnpm
+
+      - run: pnpm install --frozen-lockfile
+
+      - name: Extensiones que el schema da por hechas
+        run: psql "$DATABASE_URL" -f init-db/01-extensions.sql
+
+      - run: pnpm db:migrate
+
+      - run: pnpm test:isolation

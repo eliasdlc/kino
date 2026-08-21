@@ -19,20 +19,20 @@ function PersonalMeta({ task }: { task: Task; state: TaskCardState }) {
   const recurrence = task.recurrenceRule ? describeRecurrence(task.recurrenceRule) : null;
 
   return (
-    <div className="flex items-center gap-2 flex-wrap text-xs md:text-sm text-zinc-400">
+    <div className="flex items-center gap-2 flex-wrap text-xs md:text-sm text-muted-foreground">
       {kind && KindIcon && (
-        <span className="inline-flex items-center gap-1 rounded-md bg-white/[0.06] px-2 py-0.5 text-zinc-300">
+        <span className="inline-flex items-center gap-1 rounded-md bg-muted px-2 py-0.5 text-foreground/85">
           <KindIcon size={13} />
           {kind.label}
         </span>
       )}
       {recurrence && (
-        <span className="inline-flex items-center gap-1 text-[#d8b4fe]">
+        <span className="inline-flex items-center gap-1 text-purple-700 dark:text-purple-300">
           <Repeat size={13} />
           {recurrence}
         </span>
       )}
-      <span className="font-mono text-zinc-500">{task.energyLevel}</span>
+      <span className="font-mono text-muted-foreground/85">{task.energyLevel}</span>
     </div>
   );
 }

@@ -1,6 +1,6 @@
 import { db } from '@/shared/db';
 import { apiKeys } from '@/shared/db/schema';
-import { and, eq, sql } from 'drizzle-orm';
+import { and, eq, isNull, sql } from 'drizzle-orm';
 
 export async function deleteApiKeysByName(userId: string, name: string) {
   await db
@@ -33,6 +33,7 @@ export async function insertApiKey(values: {
   name: string;
   keyHash: string;
   keyPrefix: string;
+  expiresAt: Date | null;
 }) {
   const [record] = await db.insert(apiKeys).values(values).returning();
   return record!;
@@ -60,10 +61,22 @@ export async function selectApiKeysByUser(userId: string) {
       name: apiKeys.name,
       keyPrefix: apiKeys.keyPrefix,
       lastUsedAt: apiKeys.lastUsedAt,
+      expiresAt: apiKeys.expiresAt,
+      revokedAt: apiKeys.revokedAt,
       createdAt: apiKeys.createdAt,
     })
     .from(apiKeys)
     .where(eq(apiKeys.userId, userId));
+}
+
+/** Marca la clave como revocada. Idempotente: revocar dos veces no cambia la fecha. */
+export async function revokeApiKeyById(id: string, userId: string) {
+  const result = await db
+    .update(apiKeys)
+    .set({ revokedAt: new Date() })
+    .where(and(eq(apiKeys.id, id), eq(apiKeys.userId, userId), isNull(apiKeys.revokedAt)))
+    .returning({ id: apiKeys.id });
+  return result.length > 0;
 }
 
 export async function deleteApiKeyById(id: string, userId: string) {

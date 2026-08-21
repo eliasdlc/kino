@@ -1,4 +1,1 @@
-import { NextRequest } from 'next/server';
-import { getContextRoute } from '@/features/insights/insights.routes';
-
-export const GET = (req: NextRequest) => getContextRoute(req);
+export { getContextRoute as GET } from '@/features/insights/insights.routes';

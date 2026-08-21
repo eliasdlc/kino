@@ -1,7 +1,7 @@
 import { and, asc, desc, eq, isNull, sql } from "drizzle-orm";
 import { db } from "@/shared/db";
 import { entities, folders, pageEntityMentions, pages, systems } from "@/shared/db/schema";
-import { countWords } from "@/features/pages/word-count";
+import { countWords } from "@/shared/lib/word-count";
 import { toPlainText } from "./story-text";
 import { buildSuggestions, type StudioSignals, type Suggestion } from "./studio";
 import { summarize, keyTerms, type SummarySentence } from "./summary";

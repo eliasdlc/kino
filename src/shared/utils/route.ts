@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 import { getAuthContext } from '@/shared/utils/auth-context';
+import { allowsScope, KINO_READ, KINO_WRITE, type KinoScope } from '@/shared/lib/scopes';
 import { ForbiddenError, NotFoundError, ValidationError } from '@/shared/utils/error';
 
 /**
@@ -19,6 +20,18 @@ import { ForbiddenError, NotFoundError, ValidationError } from '@/shared/utils/e
 
 const UNAUTHORIZED = { code: 'UNAUTHORIZED', message: 'Unauthorized' };
 
+/**
+ * El scope que exige una ruta sale del método, no de una anotación por ruta.
+ * Anotar cien handlers a mano es cien sitios donde olvidarlo; derivarlo del
+ * verbo acierta por defecto y deja `requiredScope` para las excepciones, que
+ * son los POST que en realidad sólo leen.
+ */
+const WRITE_METHODS = new Set(['POST', 'PUT', 'PATCH', 'DELETE']);
+
+function scopeForMethod(method: string): KinoScope {
+  return WRITE_METHODS.has(method.toUpperCase()) ? KINO_WRITE : KINO_READ;
+}
+
 type RouteParams = Record<string, string>;
 
 export interface RouteConfig<TBody, TQuery, TParams extends RouteParams> {
@@ -32,6 +45,12 @@ export interface RouteConfig<TBody, TQuery, TParams extends RouteParams> {
    * al crudo, antes de validar.
    */
   prepareBody?: (raw: unknown, params: TParams) => unknown;
+  /**
+   * Sobreescribe el scope que se deriva del método. Se usa en los POST que
+   * sólo leen (`/api/insights/estimate` y compañía), donde exigir `kino:write`
+   * sería mentir sobre lo que hace la ruta.
+   */
+  requiredScope?: KinoScope;
 }
 
 export interface RouteHandlerArgs<TBody, TQuery, TParams extends RouteParams> {
@@ -42,6 +61,7 @@ export interface RouteHandlerArgs<TBody, TQuery, TParams extends RouteParams> {
   request: NextRequest;
 }
 
+/** 400: el body o la query no pasan el schema. Ver `mapError` para el 422. */
 function validationResponse(message: string, details?: unknown) {
   return NextResponse.json(
     details === undefined
@@ -63,8 +83,12 @@ function mapError(error: unknown): NextResponse {
   if (error instanceof ForbiddenError) {
     return NextResponse.json({ code: 'FORBIDDEN', message: error.message }, { status: 403 });
   }
+  // 422 y no 400: el request llegó bien formado y el schema lo aceptó; lo que
+  // lo rechaza es una regla de dominio (una transición imposible, una fecha
+  // fuera de rango). Es la convención que ya tenían `tasks` y `energy`, y la
+  // que distingue "no te entiendo" de "te entiendo y no".
   if (error instanceof ValidationError) {
-    return NextResponse.json({ code: 'VALIDATION_ERROR', message: error.message }, { status: 400 });
+    return NextResponse.json({ code: 'VALIDATION_ERROR', message: error.message }, { status: 422 });
   }
   console.error('[route] unhandled error:', error);
   return NextResponse.json(
@@ -85,12 +109,31 @@ export function route<TParams extends RouteParams = RouteParams>() {
     config: RouteConfig<TBody, TQuery, TParams>,
     handler: (args: RouteHandlerArgs<TBody, TQuery, TParams>) => Promise<Response> | Response,
   ) {
+    // Ni `context` ni `params` llevan `?`: Next 16 genera para cada ruta un tipo
+    // que exige que el segundo parámetro acepte su `RouteContext`, y un
+    // `undefined` en la firma no satisface esa restricción (`pnpm typecheck`
+    // falla dentro de `.next/types`). En runtime Next siempre pasa el objeto; el
+    // acceso de abajo se mantiene defensivo por las llamadas directas de los tests.
     return async function wrappedHandler(
       request: NextRequest,
-      context?: { params?: Promise<TParams> },
+      context: { params: Promise<TParams> },
     ): Promise<Response> {
       const auth = await getAuthContext(request);
       if (!auth) return NextResponse.json(UNAUTHORIZED, { status: 401 });
+
+      // 403 y no 401: sabemos quién eres, lo que falta es el permiso. El
+      // cuerpo nombra el scope para que el cliente pueda pedirlo y reintentar.
+      const requiredScope = config.requiredScope ?? scopeForMethod(request.method);
+      if (!allowsScope(auth.scopes, requiredScope)) {
+        return NextResponse.json(
+          {
+            code: 'INSUFFICIENT_SCOPE',
+            message: `Este token no tiene el permiso ${requiredScope}`,
+            requiredScope,
+          },
+          { status: 403 },
+        );
+      }
 
       const params = ((await context?.params) ?? {}) as TParams;
 

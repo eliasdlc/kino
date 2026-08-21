@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { authClient } from "@/shared/lib/auth-client";
+import { KINO_READ, KINO_WRITE } from "@/shared/lib/scopes";
 import { Button } from "@/components/ui/button";
 import {
     Card,
@@ -18,6 +19,8 @@ const SCOPE_LABELS: Record<string, string> = {
     profile: "Tu nombre y perfil",
     email: "Tu correo electrónico",
     offline_access: "Acceso continuo sin reconectar",
+    [KINO_READ]: "Leer tus tareas, sistemas y notas",
+    [KINO_WRITE]: "Crear, editar y borrar tus tareas, sistemas y notas",
 };
 
 export function ConsentForm() {

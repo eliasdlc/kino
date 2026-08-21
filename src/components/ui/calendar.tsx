@@ -20,6 +20,7 @@ function Calendar({
   buttonVariant = "ghost",
   locale,
   formatters,
+  labels,
   components,
   ...props
 }: React.ComponentProps<typeof DayPicker> & {
@@ -42,6 +43,14 @@ function Calendar({
         formatMonthDropdown: (date) =>
           date.toLocaleString(locale?.code, { month: "short" }),
         ...formatters,
+      }}
+      // react-day-picker etiqueta su navegación en inglés por defecto. Se
+      // traduce por prop y no editando los botones, para que un `shadcn add`
+      // futuro no se lleve las etiquetas por delante.
+      labels={{
+        labelPrevious: () => "Mes anterior",
+        labelNext: () => "Mes siguiente",
+        ...labels,
       }}
       classNames={{
         root: cn("w-fit", defaultClassNames.root),

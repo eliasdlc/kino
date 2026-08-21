@@ -13,7 +13,7 @@ function SubtaskCount({ taskId, systemId }: { taskId: string; systemId: string }
   if (!subtasks || subtasks.length === 0) return null;
   const done = subtasks.filter((s) => s.status === 'done').length;
   return (
-    <span className="text-[10px] font-mono text-zinc-600">
+    <span className="text-[10px] font-mono text-muted-foreground/65">
       {done}/{subtasks.length}
     </span>
   );
@@ -36,22 +36,22 @@ interface TaskListRowProps {
 }
 
 const PRIORITY_BADGE: Record<string, string> = {
-  critical: 'bg-red-500/15 text-red-400 ring-1 ring-red-500/25',
-  high:     'bg-orange-500/15 text-orange-400 ring-1 ring-orange-500/25',
-  medium:   'bg-sky-500/15 text-sky-400 ring-1 ring-sky-500/25',
-  low:      'bg-zinc-500/15 text-zinc-400 ring-1 ring-zinc-500/25',
+  critical: 'bg-red-500/15 text-red-700 ring-1 ring-red-500/25 dark:text-red-400',
+  high:     'bg-orange-500/15 text-orange-700 ring-1 ring-orange-500/25 dark:text-orange-400',
+  medium:   'bg-sky-500/15 text-sky-700 ring-1 ring-sky-500/25 dark:text-sky-400',
+  low:      'bg-muted text-muted-foreground ring-1 ring-muted-foreground/25',
 };
 const PRIORITY_SHORT: Record<string, string> = {
   critical: 'CRIT', high: 'ALTA', medium: 'MED', low: 'BAJA',
 };
 
 const STATUS_BADGE: Record<string, string> = {
-  backlog:  'bg-zinc-500/10 text-zinc-500',
-  week:     'bg-indigo-500/15 text-indigo-400',
-  today:    'bg-emerald-500/15 text-emerald-400',
-  tomorrow: 'bg-amber-500/15 text-amber-400',
-  done:     'bg-emerald-500/10 text-emerald-600',
-  archived: 'bg-zinc-500/10 text-zinc-600',
+  backlog:  'bg-muted text-muted-foreground/85',
+  week:     'bg-indigo-500/15 text-indigo-700 dark:text-indigo-400',
+  today:    'bg-emerald-500/15 text-emerald-700 dark:text-emerald-400',
+  tomorrow: 'bg-amber-500/15 text-amber-700 dark:text-amber-400',
+  done:     'bg-emerald-500/10 text-emerald-700 dark:text-emerald-600',
+  archived: 'bg-muted text-muted-foreground/65',
 };
 const STATUS_LABEL: Record<string, string> = {
   backlog: 'Backlog', week: 'Semana', today: 'Hoy',
@@ -59,7 +59,7 @@ const STATUS_LABEL: Record<string, string> = {
 };
 
 const ENERGY_DOT: Record<string, string> = {
-  high: 'bg-amber-400', medium: 'bg-sky-400', low: 'bg-zinc-400',
+  high: 'bg-amber-500', medium: 'bg-sky-500', low: 'bg-muted-foreground',
 };
 
 function dueDateLabel(dueDate: string | null): { label: string; overdue: boolean } {
@@ -82,7 +82,7 @@ export function TaskListRow({ task, systemMap, onToggle, onOpen, isFocused, isSe
     <div
       className={cn(
         'flex items-center gap-2 px-4 py-2 hover:bg-accent/30 transition-colors group',
-        overdue && 'border-l-2 border-red-500/60',
+        overdue && 'border-l-2 border-task-overdue/60',
         isDone && 'opacity-50',
         isSelected && 'bg-primary/5',
         isFocused && !isSelected && 'bg-accent/40',
@@ -111,7 +111,7 @@ export function TaskListRow({ task, systemMap, onToggle, onOpen, isFocused, isSe
         className={cn(
           'w-4 h-4 rounded border shrink-0 transition-colors',
           isDone
-            ? 'bg-emerald-500/30 border-emerald-500/50'
+            ? 'bg-task-done/30 border-task-done/50'
             : 'border-border hover:border-primary',
         )}
         aria-label={isDone ? 'Marcar pendiente' : 'Completar'}
@@ -162,7 +162,7 @@ export function TaskListRow({ task, systemMap, onToggle, onOpen, isFocused, isSe
 
         {/* Due date */}
         {dateLabel && (
-          <span className={cn('text-[11px]', overdue ? 'text-red-400' : 'text-muted-foreground/70')}>
+          <span className={cn('text-[11px]', overdue ? 'text-task-overdue' : 'text-muted-foreground/70')}>
             {overdue && <AlertCircle className="inline w-3 h-3 mr-0.5" />}
             {dateLabel}
           </span>

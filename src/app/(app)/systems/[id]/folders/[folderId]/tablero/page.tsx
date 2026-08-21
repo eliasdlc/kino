@@ -1,11 +1,10 @@
-import { auth } from "@/auth";
-import { headers } from "next/headers";
 import { notFound, redirect } from "next/navigation";
 import { PageBreadcrumb } from "@/components/PageBreadcrumb";
 import { PageWrapper } from "@/components/PageWrapper";
 import { getSystemById } from "@/features/systems/systems.service";
 import { getFolderById } from "@/features/folders/folders.service";
 import { PlotGridView } from "@/features/writing/PlotGridView";
+import { getServerSession } from "@/shared/utils/session";
 
 /** Tablero de escenas de una obra (KIN-141). */
 export default async function PlotBoardRoute({
@@ -14,7 +13,7 @@ export default async function PlotBoardRoute({
   params: Promise<{ id: string; folderId: string }>;
 }) {
   const { id: systemId, folderId } = await params;
-  const session = await auth.api.getSession({ headers: await headers() });
+  const session = await getServerSession();
   if (!session) redirect("/login");
 
   const [folder, system] = await Promise.all([

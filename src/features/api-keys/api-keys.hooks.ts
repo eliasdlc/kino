@@ -1,12 +1,17 @@
 "use client";
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import type { ApiKeyTtl } from "./api-keys.schemas";
 
 export interface ApiKeyRecord {
   id: string;
   name: string;
   keyPrefix: string;
   lastUsedAt: string | null;
+  /** null = no caduca. */
+  expiresAt: string | null;
+  /** null = activa. */
+  revokedAt: string | null;
   createdAt: string;
 }
 
@@ -31,7 +36,7 @@ export function useApiKeys() {
 
 export function useCreateApiKey() {
   const qc = useQueryClient();
-  return useMutation<CreatedApiKey, Error, { name: string }>({
+  return useMutation<CreatedApiKey, Error, { name: string; ttl: ApiKeyTtl }>({
     mutationFn: async (data) => {
       const res = await fetch("/api/api-keys", {
         method: "POST",
@@ -65,6 +70,31 @@ export function useDeleteApiKey() {
     onError: (_err, _id, context) => {
       const ctx = context as { previous?: ApiKeyRecord[] } | undefined;
       if (ctx?.previous) qc.setQueryData(apiKeyKeys.all, ctx.previous);
+    },
+    onSettled: () => {
+      qc.invalidateQueries({ queryKey: apiKeyKeys.all });
+    },
+  });
+}
+
+export function useRevokeApiKey() {
+  const qc = useQueryClient();
+  return useMutation<void, Error, string, { previous?: ApiKeyRecord[] }>({
+    mutationFn: async (id) => {
+      const res = await fetch(`/api/api-keys/${id}/revoke`, { method: "POST" });
+      if (!res.ok) throw new Error("Failed to revoke API key");
+    },
+    onMutate: async (id) => {
+      await qc.cancelQueries({ queryKey: apiKeyKeys.all });
+      const previous = qc.getQueryData<ApiKeyRecord[]>(apiKeyKeys.all);
+      const now = new Date().toISOString();
+      qc.setQueryData<ApiKeyRecord[]>(apiKeyKeys.all, (old = []) =>
+        old.map((k) => (k.id === id ? { ...k, revokedAt: now } : k))
+      );
+      return { previous };
+    },
+    onError: (_err, _id, context) => {
+      if (context?.previous) qc.setQueryData(apiKeyKeys.all, context.previous);
     },
     onSettled: () => {
       qc.invalidateQueries({ queryKey: apiKeyKeys.all });

@@ -1,6 +1,6 @@
 import { db } from "@/shared/db";
 import { stickyNotes } from "@/shared/db/schema";
-import { and, eq } from "drizzle-orm";
+import { and, eq, sql } from "drizzle-orm";
 import type { CreateStickyNoteInput, UpdateStickyNoteInput } from "./sticky-notes.schemas";
 import type { StickyNoteItem } from "./sticky-notes.types";
 
@@ -61,8 +61,27 @@ export async function createStickyNote(
       anchorId: input.anchorId ?? null,
       pageId: "pageId" in input ? input.pageId : null,
       folderId: "folderId" in input ? input.folderId : null,
+      clientRequestId: input.clientRequestId ?? null,
+    })
+    // KIN-57 · Idempotencia de la cola offline (ver `clientRequestIdField`).
+    .onConflictDoNothing({
+      target: [stickyNotes.userId, stickyNotes.clientRequestId],
+      where: sql`${stickyNotes.clientRequestId} IS NOT NULL`,
     })
     .returning(NOTE_COLUMNS);
+
+  if (!created && input.clientRequestId) {
+    const [existing] = await db
+      .select(NOTE_COLUMNS)
+      .from(stickyNotes)
+      .where(
+        and(
+          eq(stickyNotes.userId, userId),
+          eq(stickyNotes.clientRequestId, input.clientRequestId),
+        ),
+      );
+    if (existing) return existing;
+  }
 
   return created!;
 }

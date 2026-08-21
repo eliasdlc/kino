@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { clientRequestIdField } from '@/shared/offline/client-request';
 import { isValidRRule } from './recurrence';
 import { parseTaskDay } from './tasks.utils';
 
@@ -56,6 +57,7 @@ export const createTaskSchema = z.object({
   boardStatus: z.string().max(50).optional(),
   recurrenceRule: RECURRENCE_RULE.nullable().optional(),
   metadata: taskMetadataSchema.optional(),
+  clientRequestId: clientRequestIdField,
 }).superRefine((data, ctx) => {
   if (data.taskType === 'event' && !data.startDate) {
     ctx.addIssue({ code: 'custom', path: ['startDate'], message: 'Events require a start date' });
@@ -131,6 +133,18 @@ export const listTasksQuerySchema = z.object({
   status: STATUS.optional(),
   // Cuando es true, lista la papelera (deleted_at IS NOT NULL) en vez de activas.
   deleted: z.boolean().optional(),
+});
+
+/**
+ * El mismo filtro leído de la URL, donde todo llega como string. `deleted`
+ * sólo cuenta si vale exactamente "true": cualquier otro valor lista las
+ * activas, que es lo que hacía la ruta cuando parseaba a mano.
+ */
+export const listTasksQueryParamsSchema = listTasksQuerySchema.extend({
+  deleted: z
+    .string()
+    .optional()
+    .transform((value) => (value === "true" ? true : undefined)),
 });
 
 export const createTimeLogSchema = z.object({

@@ -1,18 +1,5 @@
-import { NextRequest } from 'next/server';
-import {
-  createCheckinRoute,
-  getTodayCheckinsRoute,
-  updateCheckinAccuracyRoute,
+export {
+  createCheckinRoute as POST,
+  getTodayCheckinsRoute as GET,
+  updateCheckinAccuracyRoute as PATCH,
 } from '@/features/energy/energy.routes';
-
-export function POST(request: NextRequest) {
-  return createCheckinRoute(request);
-}
-
-export function GET(request: NextRequest) {
-  return getTodayCheckinsRoute(request);
-}
-
-export function PATCH(request: NextRequest) {
-  return updateCheckinAccuracyRoute(request);
-}

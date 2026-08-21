@@ -2,7 +2,7 @@ import { and, asc, eq, isNull } from "drizzle-orm";
 import { db } from "@/shared/db";
 import { folders, pages } from "@/shared/db/schema";
 import { recomputePageMentions } from "@/features/entities/entities.service";
-import { countWords } from "@/features/pages/word-count";
+import { countWords } from "@/shared/lib/word-count";
 import {
   insertIndexFor,
   joinScenes,

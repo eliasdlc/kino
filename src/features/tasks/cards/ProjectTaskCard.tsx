@@ -4,6 +4,7 @@ import { useState } from "react";
 import { format } from "date-fns";
 import { ChevronDown, Clock, Flag, Hourglass, MoreHorizontal, Timer, Trash2 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { PendingSyncBadge } from "@/features/offline/PendingSyncBadge";
 import {
   ContextMenu,
   ContextMenuContent,
@@ -91,8 +92,8 @@ export function ProjectTaskCard({ task, systemId, onToggle, onDelete, onEdit, sh
       <ContextMenuTrigger asChild>
         <div
           className={cn(
-            "bg-[#212123] border border-[#323234] rounded-[18px] p-[18px] flex flex-col gap-3.5 shadow-sm",
-            "motion-safe:transition-colors hover:border-[#3f3f42]",
+            "bg-card border border-border rounded-[18px] p-[18px] flex flex-col gap-3.5 shadow-sm",
+            "motion-safe:transition-colors hover:border-foreground/20",
             isDone && "opacity-50",
             isArchived && "opacity-40",
           )}
@@ -100,7 +101,7 @@ export function ProjectTaskCard({ task, systemId, onToggle, onDelete, onEdit, sh
           <div className="flex items-start justify-between gap-2">
             <div className="flex flex-col gap-2">
               {(category || sprint) && (
-                <div className="flex items-center gap-3 flex-wrap text-[11px] font-medium text-[#8b8b8f]">
+                <div className="flex items-center gap-3 flex-wrap text-[11px] font-medium text-muted-foreground">
                   {category && (
                     <span className="inline-flex items-center gap-1.5 font-semibold uppercase tracking-wider">
                       <span className={cn("h-2 w-2 rounded-full shrink-0", tagDotClass(category.color))} />
@@ -125,7 +126,7 @@ export function ProjectTaskCard({ task, systemId, onToggle, onDelete, onEdit, sh
                   type="button"
                   onPointerDown={(e) => e.stopPropagation()}
                   aria-label="Acciones"
-                  className="md:hidden shrink-0 -mr-1 -mt-1 p-1 text-zinc-500 hover:text-zinc-300"
+                  className="md:hidden shrink-0 -mr-1 -mt-1 p-1 text-muted-foreground/85 hover:text-foreground/85"
                 >
                   <MoreHorizontal size={18} />
                 </button>
@@ -133,7 +134,7 @@ export function ProjectTaskCard({ task, systemId, onToggle, onDelete, onEdit, sh
               <DropdownMenuContent align="end" className="w-52">
                 {showActions && (
                   <DropdownMenuItem disabled={anotherRunning} onSelect={startFocus}>
-                    <Timer className={cn(isThisRunning && "text-amber-400")} />
+                    <Timer className={cn(isThisRunning && "text-amber-600 dark:text-amber-400")} />
                     {isThisRunning ? "Timer en curso" : "Iniciar foco"}
                   </DropdownMenuItem>
                 )}
@@ -165,23 +166,25 @@ export function ProjectTaskCard({ task, systemId, onToggle, onDelete, onEdit, sh
             type="button"
             onClick={() => onEdit?.(task)}
             className={cn(
-              "text-white text-[15px] font-semibold leading-snug tracking-wide text-left",
-              isDone && "line-through text-zinc-500",
+              "text-card-foreground text-[15px] font-semibold leading-snug tracking-wide text-left",
+              isDone && "line-through text-muted-foreground/85",
             )}
           >
             {task.title}
           </button>
 
+          <PendingSyncBadge id={task.id} className="mt-1" />
+
           {(task.dueDate || estimate) && (
             <div className="flex items-center gap-4 text-[13px] font-medium mt-0.5">
               {task.dueDate && (
-                <span className={cn("inline-flex items-center gap-1.5", dueUrgent ? "text-[#d55e62]" : "text-[#8b8b8f]")}>
+                <span className={cn("inline-flex items-center gap-1.5", dueUrgent ? "text-task-overdue" : "text-muted-foreground")}>
                   <Clock size={15} />
                   {isOverdue ? "Vencida" : dueDays === 0 ? "Hoy" : format(parseDueDate(task.dueDate), "MMM d")}
                 </span>
               )}
               {estimate && (
-                <span className="inline-flex items-center gap-1.5 text-[#8b8b8f]">
+                <span className="inline-flex items-center gap-1.5 text-muted-foreground">
                   <Hourglass size={14} />
                   {estimate}
                 </span>
@@ -197,14 +200,14 @@ export function ProjectTaskCard({ task, systemId, onToggle, onDelete, onEdit, sh
               onPointerDown={(e) => e.stopPropagation()}
               onClick={(e) => { e.stopPropagation(); setIsExpanded((v) => !v); }}
               aria-label={isExpanded ? "Ocultar subtareas" : "Mostrar subtareas"}
-              className="text-zinc-600 hover:text-zinc-300 transition-colors"
+              className="text-muted-foreground/65 hover:text-foreground/85 transition-colors"
             >
               <ChevronDown size={14} className={cn("transition-transform", isExpanded && "rotate-180")} />
             </button>
           </div>
 
           {isExpanded && (
-            <div className="mt-2 pt-2 border-t border-white/[0.06]">
+            <div className="mt-2 pt-2 border-t border-border">
               <SubtaskList parentTaskId={task.id} systemId={systemId} />
             </div>
           )}
@@ -215,7 +218,7 @@ export function ProjectTaskCard({ task, systemId, onToggle, onDelete, onEdit, sh
         {showActions && (
           <>
             <ContextMenuItem disabled={anotherRunning} onSelect={startFocus}>
-              <Timer className={cn(isThisRunning && "text-amber-400")} />
+              <Timer className={cn(isThisRunning && "text-amber-600 dark:text-amber-400")} />
               {isThisRunning ? "Timer en curso" : "Iniciar foco"}
             </ContextMenuItem>
             <ContextMenuSeparator />

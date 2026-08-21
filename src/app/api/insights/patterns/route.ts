@@ -1,4 +1,1 @@
-import { NextRequest } from 'next/server';
-import { getPatternsRoute } from '@/features/insights/insights.routes';
-
-export const GET = (req: NextRequest) => getPatternsRoute(req);
+export { getPatternsRoute as GET } from '@/features/insights/insights.routes';

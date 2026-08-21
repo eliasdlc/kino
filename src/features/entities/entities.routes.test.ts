@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { NextRequest } from 'next/server';
 import { ForbiddenError } from '@/shared/utils/error';
+import { OWNER } from '@/shared/lib/scopes';
 
 /**
  * Contrato de las rutas de entidades tras migrarlas al wrapper `route`
@@ -49,7 +50,7 @@ const systemParams = { params: Promise.resolve({ id: SYSTEM_ID }) };
 
 beforeEach(() => {
   vi.clearAllMocks();
-  getAuthContext.mockResolvedValue({ userId: USER_ID });
+  getAuthContext.mockResolvedValue({ userId: USER_ID, scopes: OWNER });
 });
 
 describe('entities.routes · auth', () => {
