@@ -5,7 +5,7 @@ import { NotFoundError, ForbiddenError } from "@/shared/utils/error";
 import type { CreatePageInput, UpdatePageInput } from "./pages.schemas";
 import type { PageDetail, PageListItem, LinkedTask, PageMutationResult } from "./pages.types";
 import type { ContextTagListItem } from "@/features/tags/tags.types";
-import { countWords } from "./word-count";
+import { countWords } from "@/shared/lib/word-count";
 import { recomputePageMentions } from "@/features/entities/entities.service";
 import { recordWritingActivity } from "@/features/writing/writing.service";
 

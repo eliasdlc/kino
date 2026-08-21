@@ -1,7 +1,7 @@
 import { and, asc, eq, ilike, inArray, isNull } from "drizzle-orm";
 import { db } from "@/shared/db";
 import { entities, folders, pageEntityMentions, pages } from "@/shared/db/schema";
-import { countWords } from "@/features/pages/word-count";
+import { countWords } from "@/shared/lib/word-count";
 import { resolveMedium } from "@/shared/lib/mediums";
 import { buildExcerpts, toPlainText } from "./story-text";
 import type { EntityType } from "@/features/entities/entities.attributes";

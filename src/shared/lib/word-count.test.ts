@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { countWords } from "./word-count";
+import { countWords } from "@/shared/lib/word-count";
 
 describe("countWords", () => {
   it("cuenta palabras de HTML Tiptap ignorando etiquetas", () => {
