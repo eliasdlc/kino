@@ -1,6 +1,4 @@
-import { auth } from "@/auth";
 import { getSystemById } from "@/features/systems/systems.service";
-import { headers } from "next/headers";
 import { notFound, redirect } from "next/navigation";
 import { getTasksBySystem } from "@/features/tasks/tasks.service";
 import { PageWrapper } from "@/components/PageWrapper";
@@ -10,6 +8,7 @@ import { computeSystemSignals } from "@/features/systems/systems.signals";
 import { SystemDetailView } from "@/features/systems/views/SystemDetailView";
 import { NotebooksView } from "@/features/notebooks/NotebooksView";
 import { landingSurface } from "@/shared/lib/system-manifest";
+import { getServerSession } from "@/shared/utils/session";
 
 export default async function SystemPage({
   params,
@@ -20,7 +19,7 @@ export default async function SystemPage({
 }) {
   const { id } = await params;
   const { tab } = await searchParams;
-  const session = await auth.api.getSession({ headers: await headers() });
+  const session = await getServerSession();
 
   if (!session) redirect("/login");
 

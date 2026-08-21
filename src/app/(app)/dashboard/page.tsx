@@ -1,5 +1,3 @@
-import { auth } from "@/auth";
-import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { getTodayEnergyPlan, getTodayAdvisor, getWeeklyTrends, getLearningInsight } from "@/features/energy/energy.service";
 import { TodayPlanCard } from "@/features/dashboard/TodayPlanCard";
@@ -37,11 +35,12 @@ import { FocusNowCard } from "@/features/dashboard/FocusNowCard";
 import { NotificationPromptCard } from "@/features/dashboard/NotificationPromptCard";
 import { WeeklyRitualPrompt } from "@/features/energy/WeeklyRitualPrompt";
 import { DashboardBottomRow } from "@/features/dashboard/DashboardBottomRow";
+import { getServerSession } from "@/shared/utils/session";
 
 export const metadata = { title: "Inicio - Kino" };
 
 export default async function DashboardPage() {
-  const session = await auth.api.getSession({ headers: await headers() });
+  const session = await getServerSession();
   if (!session) redirect("/login");
 
   const userId = session.user.id;

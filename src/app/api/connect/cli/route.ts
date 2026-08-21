@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { headers } from 'next/headers';
-import { auth } from '@/auth';
 import { generateApiKeyReplacing } from '@/features/api-keys/api-keys.service';
+import { getServerSession } from '@/shared/utils/session';
 
 // Session-only a propósito (KIN-144): es el pairing del CLI, arranca desde el
 // navegador y emite una API key. Aceptar Bearer sería escalada de privilegio.
@@ -17,7 +16,7 @@ export async function GET(request: NextRequest) {
     );
   }
 
-  const session = await auth.api.getSession({ headers: await headers() });
+  const session = await getServerSession();
 
   if (!session) {
     const next = encodeURIComponent(`/api/connect/cli?port=${port}`);

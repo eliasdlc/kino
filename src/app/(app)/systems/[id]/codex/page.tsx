@@ -1,5 +1,3 @@
-import { auth } from "@/auth";
-import { headers } from "next/headers";
 import { notFound, redirect } from "next/navigation";
 import { getSystemById } from "@/features/systems/systems.service";
 import { PageWrapper } from "@/components/PageWrapper";
@@ -10,6 +8,7 @@ import { UniverseGraphLazy } from "@/features/entities/UniverseGraphLazy";
 import { LooseThreads } from "@/features/writing/LooseThreads";
 import { InWorldTimeline } from "@/features/writing/InWorldTimeline";
 import { resolveCodexView } from "@/features/entities/codex.views";
+import { getServerSession } from "@/shared/utils/session";
 
 export default async function CodexPage({
   params,
@@ -20,7 +19,7 @@ export default async function CodexPage({
 }) {
   const { id } = await params;
   const { view: rawView } = await searchParams;
-  const session = await auth.api.getSession({ headers: await headers() });
+  const session = await getServerSession();
   if (!session) redirect("/login");
 
   const system = await getSystemById(id, session.user.id);

@@ -1,7 +1,5 @@
-import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { eq } from "drizzle-orm";
-import { auth } from "@/auth";
 import { db } from "@/shared/db";
 import { users, userSettings } from "@/shared/db/schema";
 import { Providers } from "./providers";
@@ -19,13 +17,14 @@ import { GlobalNavigationShortcuts } from "@/features/command-palette/GlobalNavi
 import { FocusTimerProvider } from "@/features/tasks/FocusTimerProvider";
 import { FocusTimerWidget } from "@/features/tasks/FocusTimerWidget";
 import { FocusTimerModeDialog } from "@/features/tasks/FocusTimerModeDialog";
+import { getServerSession } from "@/shared/utils/session";
 
 export default async function AppLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
-  const session = await auth.api.getSession({ headers: await headers() });
+  const session = await getServerSession();
 
   if (!session) redirect("/login");
 
