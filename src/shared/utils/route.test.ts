@@ -200,12 +200,12 @@ describe('route() · mapeo de errores', () => {
     await expect(res.json()).resolves.toEqual({ code: 'FORBIDDEN', message: 'No es tuyo' });
   });
 
-  it('mapea ValidationError a 400', async () => {
+  it('mapea ValidationError a 422, no a 400: el schema pasó y la regla de dominio no', async () => {
     const res = await route()({}, () => {
       throw new ValidationError('Rango inválido');
     })(req(), EMPTY_CTX);
 
-    expect(res.status).toBe(400);
+    expect(res.status).toBe(422);
     await expect(res.json()).resolves.toEqual({
       code: 'VALIDATION_ERROR',
       message: 'Rango inválido',

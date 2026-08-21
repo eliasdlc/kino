@@ -42,6 +42,7 @@ export interface RouteHandlerArgs<TBody, TQuery, TParams extends RouteParams> {
   request: NextRequest;
 }
 
+/** 400: el body o la query no pasan el schema. Ver `mapError` para el 422. */
 function validationResponse(message: string, details?: unknown) {
   return NextResponse.json(
     details === undefined
@@ -63,8 +64,12 @@ function mapError(error: unknown): NextResponse {
   if (error instanceof ForbiddenError) {
     return NextResponse.json({ code: 'FORBIDDEN', message: error.message }, { status: 403 });
   }
+  // 422 y no 400: el request llegó bien formado y el schema lo aceptó; lo que
+  // lo rechaza es una regla de dominio (una transición imposible, una fecha
+  // fuera de rango). Es la convención que ya tenían `tasks` y `energy`, y la
+  // que distingue "no te entiendo" de "te entiendo y no".
   if (error instanceof ValidationError) {
-    return NextResponse.json({ code: 'VALIDATION_ERROR', message: error.message }, { status: 400 });
+    return NextResponse.json({ code: 'VALIDATION_ERROR', message: error.message }, { status: 422 });
   }
   console.error('[route] unhandled error:', error);
   return NextResponse.json(
