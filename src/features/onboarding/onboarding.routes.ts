@@ -1,6 +1,5 @@
-import { headers } from 'next/headers';
 import { NextRequest, NextResponse } from 'next/server';
-import { auth } from '@/auth';
+import { getServerSession } from '@/shared/utils/session';
 import { setupProfileSchema } from './onboarding.schemas';
 import { completeOnboarding } from './onboarding.service';
 import { getEnergyProfile } from './onboarding.queries';
@@ -8,7 +7,7 @@ import { getEnergyProfile } from './onboarding.queries';
 // Session-only a propósito (KIN-144): ambos handlers son flujo de UI de
 // onboarding, previo a que exista una API key. No migrar a getAuthContext.
 export async function completeOnboardingRoute(request: NextRequest) {
-  const session = await auth.api.getSession({ headers: await headers() });
+  const session = await getServerSession();
   if (!session) {
     return NextResponse.json({ code: 'UNAUTHORIZED', message: 'Unauthorized' }, { status: 401 });
   }
@@ -34,7 +33,7 @@ export async function completeOnboardingRoute(request: NextRequest) {
 }
 
 export async function getOnboardingStatus() {
-  const session = await auth.api.getSession({ headers: await headers() });
+  const session = await getServerSession();
   if (!session) {
     return NextResponse.json({ code: 'UNAUTHORIZED', message: 'Unauthorized' }, { status: 401 });
   }
