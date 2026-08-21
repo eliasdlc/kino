@@ -4,6 +4,7 @@ import "./globals.css";
 import { cn } from "@/lib/utils";
 import { Toaster } from "sonner";
 import { SITE_URL } from "@/shared/lib/site-url";
+import { rootThemeScript } from "@/shared/lib/theme-script";
 
 const inter = Inter({subsets:['latin'],variable:'--font-sans'});
 
@@ -31,7 +32,13 @@ export const metadata: Metadata = {
 };
 
 export const viewport: Viewport = {
-  themeColor: "#000000",
+  // Los dos valores de `--background`. La barra del navegador en móvil sigue la
+  // preferencia del sistema, no la clase `dark`: quien fuerza un tema distinto
+  // al del SO verá la barra del otro, que es el límite del atributo.
+  themeColor: [
+    { media: "(prefers-color-scheme: light)", color: "#ffffff" },
+    { media: "(prefers-color-scheme: dark)", color: "#161616" },
+  ],
 };
 
 export default function RootLayout({
@@ -45,6 +52,9 @@ export default function RootLayout({
       suppressHydrationWarning
       className={cn("h-full", "antialiased", geistMono.variable, "font-sans", inter.variable, literata.variable)}
     >
+      <head>
+        <script dangerouslySetInnerHTML={{ __html: rootThemeScript }} />
+      </head>
       <body className="min-h-full flex flex-col">
         {children}
         <Toaster richColors position="bottom-right" />

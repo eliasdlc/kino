@@ -2,7 +2,7 @@
 
 import { PersistQueryClientProvider } from "@tanstack/react-query-persist-client";
 import { useState } from "react";
-import { ThemeProvider } from "@/components/ThemeProvider";
+import { ThemeProvider, type ThemeMode } from "@/components/ThemeProvider";
 import { SystemTypeProvider } from "@/components/SystemTypeProvider";
 import {
   createOfflineQueryClient,
@@ -12,7 +12,14 @@ import { applyPendingOptimistic } from "@/features/offline/offline.mutations";
 import { useSyncOnlineManager } from "@/features/offline/offline.hooks";
 import { useUnregisterLegacyServiceWorker } from "@/features/offline/service-worker";
 
-export function Providers({ children }: { children: React.ReactNode }) {
+export function Providers({
+  initialTheme,
+  children,
+}: {
+  /** Tema guardado en la cuenta, para dispositivos sin elección propia. */
+  initialTheme: ThemeMode;
+  children: React.ReactNode;
+}) {
   const [queryClient] = useState(createOfflineQueryClient);
   const [persistOptions] = useState(createOfflinePersistOptions);
 
@@ -22,7 +29,7 @@ export function Providers({ children }: { children: React.ReactNode }) {
   useUnregisterLegacyServiceWorker();
 
   return (
-    <ThemeProvider>
+    <ThemeProvider initialTheme={initialTheme}>
       <SystemTypeProvider>
         <PersistQueryClientProvider
           client={queryClient}
