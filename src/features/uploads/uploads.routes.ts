@@ -1,5 +1,5 @@
-import { NextRequest, NextResponse } from "next/server";
-import { getAuthContext } from "@/shared/utils/auth-context";
+import { NextResponse } from "next/server";
+import { route } from "@/shared/utils/route";
 import { getImageStorage, userKeyPrefix } from "./image-storage";
 import { sweepOrphanImagesForUser } from "./uploads.service";
 
@@ -13,15 +13,10 @@ const EXT_BY_TYPE: Record<string, string> = {
 };
 
 /**
- * POST /api/uploads — sube una imagen (ya comprimida en el cliente) y devuelve su
+ * POST /api/uploads: sube una imagen (ya comprimida en el cliente) y devuelve su
  * URL pública. El cuerpo es la imagen cruda; el content-type declara el formato.
  */
-export async function uploadImage(request: NextRequest) {
-  const ctx = await getAuthContext(request);
-  if (!ctx) {
-    return NextResponse.json({ code: "UNAUTHORIZED", message: "Unauthorized" }, { status: 401 });
-  }
-
+export const uploadImage = route()({}, async ({ userId, request }) => {
   const storage = getImageStorage();
   if (!storage) {
     return NextResponse.json(
@@ -54,7 +49,7 @@ export async function uploadImage(request: NextRequest) {
     const { url } = await storage.upload({
       data: buffer,
       contentType,
-      keyPrefix: userKeyPrefix(ctx.userId),
+      keyPrefix: userKeyPrefix(userId),
       ext,
     });
     return NextResponse.json({ url }, { status: 201 });
@@ -64,20 +59,15 @@ export async function uploadImage(request: NextRequest) {
       { status: 502 },
     );
   }
-}
+});
 
 /**
- * POST /api/uploads/sweep — borra las imágenes del usuario que ya no referencia
+ * POST /api/uploads/sweep: borra las imágenes del usuario que ya no referencia
  * ningún contenido vivo. Es la forma de recuperar el espacio que se perdió antes
  * de que existiera el barrido; el cron hace lo mismo a diario.
  */
-export async function sweepOrphanImages(request: NextRequest) {
-  const ctx = await getAuthContext(request);
-  if (!ctx) {
-    return NextResponse.json({ code: "UNAUTHORIZED", message: "Unauthorized" }, { status: 401 });
-  }
-
-  const result = await sweepOrphanImagesForUser(ctx.userId);
+export const sweepOrphanImages = route()({}, async ({ userId }) => {
+  const result = await sweepOrphanImagesForUser(userId);
   if (!result) {
     return NextResponse.json(
       { code: "STORAGE_UNAVAILABLE", message: "El almacenamiento de imágenes no está configurado" },
@@ -86,4 +76,4 @@ export async function sweepOrphanImages(request: NextRequest) {
   }
 
   return NextResponse.json(result, { status: 200 });
-}
+});

@@ -1,62 +1,36 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextResponse } from "next/server";
+import { route } from "@/shared/utils/route";
 import { createSystemSchema, reorderSystemsSchema, updateSystemSchema } from "./systems.schemas";
-import { createSystem, createInboxForUser, deactivateSystem, getUsersSystems, reorderSystem, updateSystem, assertNotInbox, getSystemById } from "./systems.service";
-import { ForbiddenError, NotFoundError } from "@/shared/utils/error";
-import { getAuthContext } from "@/shared/utils/auth-context";
+import {
+  createSystem,
+  createInboxForUser,
+  deactivateSystem,
+  getUsersSystems,
+  reorderSystem,
+  updateSystem,
+  assertNotInbox,
+  getSystemById,
+} from "./systems.service";
+import { NotFoundError } from "@/shared/utils/error";
 
-export async function GET(request: NextRequest) {
-  const ctx = await getAuthContext(request);
-  if (!ctx) return NextResponse.json({ code: "UNAUTHORIZED", message: "Unauthorized" }, { status: 401 });
+type IdParam = { id: string };
 
-  await createInboxForUser(ctx.userId);
-  const userSystems = await getUsersSystems(ctx.userId);
-  return NextResponse.json(userSystems);
-}
+// GET/POST /api/systems
+export const GET = route()({}, async ({ userId }) => {
+  await createInboxForUser(userId);
+  return NextResponse.json(await getUsersSystems(userId));
+});
 
-export async function POST(request: NextRequest) {
-  const ctx = await getAuthContext(request);
-  if (!ctx) return NextResponse.json({ code: "UNAUTHORIZED", message: "Unauthorized" }, { status: 401 });
+export const POST = route()({ body: createSystemSchema }, async ({ userId, body }) =>
+  NextResponse.json(await createSystem(userId, body), { status: 201 }),
+);
 
-  const body = await request.json();
-  const parsed = createSystemSchema.safeParse(body);
-  if (!parsed.success) {
-    return NextResponse.json({
-      code: "VALIDATION_ERROR",
-      message: "Invalid input",
-      details: parsed.error.flatten()
-    }, { status: 400 });
-  }
-
-  const system = await createSystem(ctx.userId, parsed.data);
-
-  return NextResponse.json(system, { status: 201 });
-}
-
-export async function PATCH(
-  request: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
-) {
-  try {
-    const ctx = await getAuthContext(request);
-    if (!ctx) return NextResponse.json({ code: "UNAUTHORIZED", message: "Unauthorized" }, { status: 401 });
-
-    const { id } = await params;
-    let body: unknown;
-    try {
-      body = await request.json();
-    } catch {
-      return NextResponse.json({ code: "VALIDATION_ERROR", message: "Invalid JSON body" }, { status: 400 });
-    }
-    const parsed = updateSystemSchema.safeParse(body);
-    if (!parsed.success) {
-      return NextResponse.json({ code: "VALIDATION_ERROR", message: "Invalid input", details: parsed.error.flatten() }, { status: 400 });
-    }
-
-    const currentSystem = await getSystemById(id, ctx.userId);
-
-    if (!currentSystem) {
-      return NextResponse.json({ code: "NOT_FOUND", message: "System not found" }, { status: 404 });
-    }
+// PATCH/DELETE /api/systems/[id]
+export const PATCH = route<IdParam>()(
+  { body: updateSystemSchema },
+  async ({ userId, params, body }) => {
+    const currentSystem = await getSystemById(params.id, userId);
+    if (!currentSystem) throw new NotFoundError("System not found");
 
     await assertNotInbox(currentSystem);
 
@@ -64,69 +38,26 @@ export async function PATCH(
     // un PATCH que solo toca una clave no puede borrar las demás. `null` explícito
     // sigue significando "vacía la bolsa".
     const data =
-      parsed.data.metadata == null
-        ? parsed.data
-        : {
-            ...parsed.data,
-            metadata: { ...(currentSystem.metadata ?? {}), ...parsed.data.metadata },
-          };
+      body.metadata == null
+        ? body
+        : { ...body, metadata: { ...(currentSystem.metadata ?? {}), ...body.metadata } };
 
-    const updatedSystem = await updateSystem(id, ctx.userId, data);
-
-    if (!updatedSystem) return NextResponse.json({ code: "NOT_FOUND", message: "System not found" }, { status: 404 });
-
+    const updatedSystem = await updateSystem(params.id, userId, data);
+    if (!updatedSystem) throw new NotFoundError("System not found");
     return NextResponse.json(updatedSystem);
-  } catch (error) {
-    if (error instanceof ForbiddenError) {
-      return NextResponse.json(
-        { code: "FORBIDDEN", message: error.message },
-        { status: 403 }
-      );
-    }
-    if (error instanceof NotFoundError) {
-      return NextResponse.json({ code: "NOT_FOUND", message: "System not found" }, { status: 404 });
-    }
-    throw error;
-  }
-}
+  },
+);
 
-export async function DELETE(
-  request: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
-) {
-  const ctx = await getAuthContext(request);
-  if (!ctx) return NextResponse.json({ code: "UNAUTHORIZED", message: "Unauthorized" }, { status: 401 });
-
-  const { id } = await params;
-
-  try {
-    await deactivateSystem(id, ctx.userId);
-    return new NextResponse(null, { status: 204 });
-  } catch (error) {
-    if (error instanceof NotFoundError) {
-      return NextResponse.json({ code: "NOT_FOUND", message: "System not found" }, { status: 404 });
-    }
-    if (error instanceof ForbiddenError) {
-      return NextResponse.json({ code: "FORBIDDEN", message: "Cannot delete Inbox" }, { status: 403 });
-    }
-    throw error;
-  }
-}
-
-export async function postReorder(request: NextRequest) {
-  const ctx = await getAuthContext(request);
-  if (!ctx) return NextResponse.json({ code: "UNAUTHORIZED", message: "Unauthorized" }, { status: 401 });
-
-  const body = await request.json();
-  const parsed = reorderSystemsSchema.safeParse(body);
-  if (!parsed.success) {
-    return NextResponse.json({
-      code: "VALIDATION_ERROR",
-      message: "Invalid input",
-      details: parsed.error.flatten()
-    }, { status: 400 });
-  }
-
-  await reorderSystem(ctx.userId, parsed.data.systemIds);
+export const DELETE = route<IdParam>()({}, async ({ userId, params }) => {
+  await deactivateSystem(params.id, userId);
   return new NextResponse(null, { status: 204 });
-}
+});
+
+// POST /api/systems/reorder
+export const postReorder = route()(
+  { body: reorderSystemsSchema },
+  async ({ userId, body }) => {
+    await reorderSystem(userId, body.systemIds);
+    return new NextResponse(null, { status: 204 });
+  },
+);

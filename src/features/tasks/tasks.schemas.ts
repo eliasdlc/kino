@@ -135,6 +135,18 @@ export const listTasksQuerySchema = z.object({
   deleted: z.boolean().optional(),
 });
 
+/**
+ * El mismo filtro leído de la URL, donde todo llega como string. `deleted`
+ * sólo cuenta si vale exactamente "true": cualquier otro valor lista las
+ * activas, que es lo que hacía la ruta cuando parseaba a mano.
+ */
+export const listTasksQueryParamsSchema = listTasksQuerySchema.extend({
+  deleted: z
+    .string()
+    .optional()
+    .transform((value) => (value === "true" ? true : undefined)),
+});
+
 export const createTimeLogSchema = z.object({
   systemId: z.string().uuid(),
   startedAt: z.string().datetime(),

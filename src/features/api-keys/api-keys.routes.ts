@@ -1,17 +1,14 @@
-import { headers } from 'next/headers';
 import { NextRequest, NextResponse } from 'next/server';
-import { auth } from '@/auth';
+import { getServerSession } from '@/shared/utils/session';
 import { createApiKeySchema } from './api-keys.schemas';
 import { generateApiKey, listApiKeys, deleteApiKey, revokeApiKey } from './api-keys.service';
 
 // Session-only a propósito (KIN-144): emitir o revocar una API key usando una
-// API key es escalada de privilegio. No migrar a getAuthContext.
-async function getSession() {
-  return auth.api.getSession({ headers: await headers() });
-}
+// API key es escalada de privilegio. Por eso este slice no pasa por el wrapper
+// `route()`, que autentica con getAuthContext y acepta Bearer.
 
 export async function GET() {
-  const session = await getSession();
+  const session = await getServerSession();
   if (!session) return NextResponse.json({ code: 'UNAUTHORIZED', message: 'Unauthorized' }, { status: 401 });
 
   const keys = await listApiKeys(session.user.id);
@@ -19,7 +16,7 @@ export async function GET() {
 }
 
 export async function POST(request: NextRequest) {
-  const session = await getSession();
+  const session = await getServerSession();
   if (!session) return NextResponse.json({ code: 'UNAUTHORIZED', message: 'Unauthorized' }, { status: 401 });
 
   const body = await request.json();
@@ -39,7 +36,7 @@ export async function DELETE(
   _req: NextRequest,
   { params }: { params: Promise<{ id: string }> },
 ) {
-  const session = await getSession();
+  const session = await getServerSession();
   if (!session) return NextResponse.json({ code: 'UNAUTHORIZED', message: 'Unauthorized' }, { status: 401 });
 
   const { id } = await params;
@@ -57,7 +54,7 @@ export async function POST_REVOKE(
   _req: NextRequest,
   { params }: { params: Promise<{ id: string }> },
 ) {
-  const session = await getSession();
+  const session = await getServerSession();
   if (!session) return NextResponse.json({ code: 'UNAUTHORIZED', message: 'Unauthorized' }, { status: 401 });
 
   const { id } = await params;
