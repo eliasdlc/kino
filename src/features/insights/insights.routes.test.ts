@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { NextRequest } from 'next/server';
+import { OWNER } from '@/shared/lib/scopes';
 
 /**
  * Contrato HTTP de los endpoints que BE-11 (KIN-148) añadió para que los tools
@@ -42,7 +43,7 @@ const NO_PARAMS = { params: Promise.resolve({}) };
 
 beforeEach(() => {
   vi.clearAllMocks();
-  getAuthContext.mockResolvedValue({ userId: USER_ID });
+  getAuthContext.mockResolvedValue({ userId: USER_ID, scopes: OWNER });
 });
 
 describe('POST /api/insights/estimate', () => {

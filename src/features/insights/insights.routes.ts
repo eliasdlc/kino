@@ -1,5 +1,9 @@
 import { NextResponse } from 'next/server';
 import { route } from '@/shared/utils/route';
+import { KINO_READ } from '@/shared/lib/scopes';
+// Los tres POST de este slice no escriben nada: el body es el filtro de una
+// lectura, no una mutación. Sin este override el wrapper les exigiría
+// `kino:write` por el verbo.
 import { NotFoundError } from '@/shared/utils/error';
 import {
   classifyTaskSchema,
@@ -40,7 +44,7 @@ export const getSuggestRoute = route()(
 );
 
 export const postClassifyRoute = route()(
-  { body: classifyTaskSchema },
+  { body: classifyTaskSchema, requiredScope: KINO_READ },
   async ({ userId, body }) =>
     NextResponse.json(await classifyTask(userId, body.title, body.description)),
 );
@@ -52,8 +56,10 @@ export const postClassifyRoute = route()(
  *
  * No toca la base: es una función pura sobre el título y la descripción.
  */
-export const postEstimateRoute = route()({ body: estimateTaskSchema }, async ({ body }) =>
-  NextResponse.json(estimateTaskAttributes(body.title, body.description)),
+export const postEstimateRoute = route()(
+  { body: estimateTaskSchema, requiredScope: KINO_READ },
+  async ({ body }) =>
+    NextResponse.json(estimateTaskAttributes(body.title, body.description)),
 );
 
 /**
@@ -63,7 +69,7 @@ export const postEstimateRoute = route()({ body: estimateTaskSchema }, async ({ 
  * bien y cuáles son las reglas (KIN-148 / BE-11).
  */
 export const postDecomposeRoute = route()(
-  { body: decomposeSchema },
+  { body: decomposeSchema, requiredScope: KINO_READ },
   async ({ userId, body }) => {
     const brief = await buildDecompositionBrief(userId, body.taskId, body.count);
     if (!brief) throw new NotFoundError('Task not found');

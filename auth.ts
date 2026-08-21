@@ -4,6 +4,7 @@ import { jwt } from "better-auth/plugins";
 import { oauthProvider } from "@better-auth/oauth-provider";
 import { db } from "./src/shared/db";
 import * as schema from "./src/shared/db/schema";
+import { KINO_READ, KINO_WRITE } from "@/shared/lib/scopes";
 
 const APP_URL = process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000";
 
@@ -110,7 +111,10 @@ export const auth = betterAuth({
       // clients via Dynamic Client Registration before the user is known.
       allowDynamicClientRegistration: true,
       allowUnauthenticatedClientRegistration: true,
-      scopes: ["openid", "profile", "email", "offline_access"],
+      // Los de OIDC dicen quién eres; los de Kino, qué puedes hacer con tus
+      // datos. Sin estos dos la pantalla de consentimiento pedía permisos que
+      // después no comprobaba nadie (KIN-175).
+      scopes: ["openid", "profile", "email", "offline_access", KINO_READ, KINO_WRITE],
       // The MCP endpoint is the protected resource / token audience.
       validAudiences: [`${APP_URL}/api/mcp`],
       // The root .well-known routes satisfy these discovery docs.

@@ -2,6 +2,7 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 import { NotFoundError, ForbiddenError, ValidationError } from '@/shared/utils/error';
+import { KINO_READ, KINO_WRITE, OWNER, type AuthScopes } from '@/shared/lib/scopes';
 
 const getAuthContext = vi.hoisted(() => vi.fn());
 vi.mock('@/shared/utils/auth-context', () => ({ getAuthContext }));
@@ -27,7 +28,7 @@ function req(body?: unknown, url = 'http://localhost/api/test') {
 
 beforeEach(() => {
   getAuthContext.mockReset();
-  getAuthContext.mockResolvedValue({ userId: USER_ID });
+  getAuthContext.mockResolvedValue({ userId: USER_ID, scopes: OWNER });
 });
 
 describe('route() · auth', () => {
@@ -258,5 +259,107 @@ describe('route() · camino feliz', () => {
     const res = await route()({}, handler)(req(undefined, 'http://localhost/api/uploads?x=1'), EMPTY_CTX);
 
     await expect(res.json()).resolves.toEqual({ url: 'http://localhost/api/uploads?x=1' });
+  });
+});
+
+describe('route() · scopes', () => {
+  function oauth(...granted: string[]): AuthScopes {
+    return { kind: 'oauth', granted };
+  }
+
+  function withMethod(method: string) {
+    return new NextRequest('http://localhost/api/test', { method });
+  }
+
+  it('un GET exige kino:read: un token de sólo lectura pasa', async () => {
+    getAuthContext.mockResolvedValue({ userId: USER_ID, scopes: oauth(KINO_READ) });
+    const handler = vi.fn(() => NextResponse.json({ ok: true }));
+
+    const res = await route()({}, handler)(withMethod('GET'), EMPTY_CTX);
+
+    expect(res.status).toBe(200);
+    expect(handler).toHaveBeenCalled();
+  });
+
+  it.each(['POST', 'PUT', 'PATCH', 'DELETE'])(
+    'un %s exige kino:write: un token de sólo lectura recibe 403 y no llega al handler',
+    async (method) => {
+      getAuthContext.mockResolvedValue({ userId: USER_ID, scopes: oauth(KINO_READ) });
+      const handler = vi.fn();
+
+      const res = await route()({}, handler)(withMethod(method), EMPTY_CTX);
+
+      expect(res.status).toBe(403);
+      expect(handler).not.toHaveBeenCalled();
+    },
+  );
+
+  it('el 403 nombra el scope que falta, para que el cliente pueda pedirlo', async () => {
+    getAuthContext.mockResolvedValue({ userId: USER_ID, scopes: oauth(KINO_READ) });
+
+    const res = await route()({}, vi.fn())(withMethod('DELETE'), EMPTY_CTX);
+
+    await expect(res.json()).resolves.toEqual({
+      code: 'INSUFFICIENT_SCOPE',
+      message: `Este token no tiene el permiso ${KINO_WRITE}`,
+      requiredScope: KINO_WRITE,
+    });
+  });
+
+  it('403 y no 401: sabemos quién eres, falta el permiso', async () => {
+    getAuthContext.mockResolvedValue({ userId: USER_ID, scopes: oauth(KINO_READ) });
+
+    const res = await route()({}, vi.fn())(withMethod('POST'), EMPTY_CTX);
+
+    expect(res.status).not.toBe(401);
+  });
+
+  it('requiredScope manda sobre el método: un POST que sólo lee acepta kino:read', async () => {
+    getAuthContext.mockResolvedValue({ userId: USER_ID, scopes: oauth(KINO_READ) });
+    const handler = vi.fn(() => NextResponse.json({ ok: true }));
+
+    const res = await route()({ requiredScope: KINO_READ }, handler)(
+      withMethod('POST'),
+      EMPTY_CTX,
+    );
+
+    expect(res.status).toBe(200);
+    expect(handler).toHaveBeenCalled();
+  });
+
+  it('una credencial del dueño escribe sin declarar nada', async () => {
+    const handler = vi.fn(() => NextResponse.json({ ok: true }));
+
+    const res = await route()({}, handler)(withMethod('DELETE'), EMPTY_CTX);
+
+    expect(res.status).toBe(200);
+  });
+
+  // La regresión que importa: un token emitido antes de que existieran estos
+  // scopes tiene que seguir escribiendo, o el deploy corta la conexión MCP viva.
+  it('un token anterior a los scopes de Kino sigue escribiendo', async () => {
+    getAuthContext.mockResolvedValue({
+      userId: USER_ID,
+      scopes: oauth('openid', 'profile', 'email', 'offline_access'),
+    });
+    const handler = vi.fn(() => NextResponse.json({ ok: true }));
+
+    const res = await route()({}, handler)(withMethod('POST'), EMPTY_CTX);
+
+    expect(res.status).toBe(200);
+  });
+
+  it('la comprobación va antes de leer el body: un 403 no consume la petición', async () => {
+    getAuthContext.mockResolvedValue({ userId: USER_ID, scopes: oauth(KINO_READ) });
+    const handler = vi.fn();
+
+    const res = await route()({ body: z.object({ nunca: z.string() }) }, handler)(
+      req({ otra: 'cosa' }),
+      EMPTY_CTX,
+    );
+
+    // Si validara el body primero, esto sería un 400 con details.
+    expect(res.status).toBe(403);
+    expect(handler).not.toHaveBeenCalled();
   });
 });
