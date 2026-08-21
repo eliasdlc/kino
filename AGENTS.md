@@ -45,8 +45,8 @@ pnpm test -- --run <path>           # Un solo archivo de test
 
 1. **$0/mes de infraestructura.** Todo dentro de free tiers de Vercel + Neon.
 2. **Sin Redis, sin BullMQ, sin servidor persistente.** 100% serverless.
-3. **Sin WebSockets.** Vercel Serverless no soporta conexiones persistentes; usar polling de TanStack Query (`refetchInterval` + `invalidateQueries`).
-4. **Límite de 10s** por función en free tier. Paginar lo pesado.
+3. **Sin WebSockets.** Vercel Serverless no soporta conexiones persistentes. Lo que refresca hoy es `refetchOnWindowFocus`, el default de TanStack Query: con un solo usuario, volver a la pestaña llega a tiempo. `refetchInterval` no se usa en ningún sitio y no es la alternativa prescrita: cada intervalo activo es una invocación por usuario y por minuto contra el free tier. La señal que reabriría la decisión es el agente MCP escribiendo mientras miras el tablero.
+4. **10s por función, salvo excepción justificada.** Es el presupuesto por defecto y las rutas que lo declaran usan `export const maxDuration = 10`. La única excepción viva es `/api/mcp`, en 60s, porque el protocolo mantiene la petición abierta mientras el agente encadena herramientas. Subir el límite en una ruta nueva es una decisión, no un ajuste: escríbela en el comentario de la ruta. Paginar lo pesado sigue siendo la respuesta primero.
 5. **Sin JWT.** Better Auth con sesiones en Postgres.
 6. **`system_id` es NOT NULL en tasks.** Toda tarea pertenece a un sistema; Inbox es el default. No hay tareas flotantes.
 7. **Timestamps en UTC** (TIMESTAMPTZ). El frontend convierte para mostrar.
@@ -65,7 +65,11 @@ src/features/{feature}/
 └── {feature}.types.ts       # Tipos propios del slice
 ```
 
-Cada feature es autocontenida. Los slices se comunican **solo** por interfaces compartidas explícitas. Nunca importar los internals de otro slice.
+Cada feature es autocontenida en lo que puede. Tipos, hooks y componentes cruzan entre slices cuando hace falta: `systems` renderiza las tarjetas de `tasks` porque un sistema enseña tareas, y eso no es acoplamiento accidental.
+
+Lo que sí es una decisión: **un `.service.ts` no importa el `.service.ts` de otro slice salvo que orquestar sea su trabajo.** `insights` y `scheduler` orquestan y por eso importan tres servicios cada uno; el resto no debería. Si un servicio necesita lógica de otro y no está orquestando, esa lógica va a `shared` (como `shared/lib/word-count`, que usaban `pages` y `writing` a la vez y creaba un ciclo entre los dos slices).
+
+No hay `index.ts` por slice ni regla de lint que lo verifique, y es a propósito: con dieciséis slices y un desarrollador, declarar una superficie pública por slice cuesta más de lo que evita.
 
 ## Convenciones de código
 
@@ -107,8 +111,11 @@ Una sola fuente Zod por entidad, importada por servidor y cliente. El backend **
 | Filtros de lista | URL (`useSearchParams`) |
 | UI efímera | `useState` / `useReducer` |
 | Timer activo cross-route | React Context en root |
+| UI global (abierto/cerrado, tema, sidebar) | Zustand |
 
-**No introducir Zustand, Redux ni Jotai.** TanStack Query + Context alcanza.
+**Zustand sólo para estado de UI global.** Nunca datos de servidor: eso es de TanStack Query y no se copia a un store paralelo. La regla existía para impedir esa fuga, y esa fuga no se ha dado: los cuatro stores que hay (`ThemeProvider`, `command-palette`, `quick-add`, `systems`) guardan booleanos y preferencias. Para un booleano de apertura, un provider más en el árbol re-renderiza todo lo que cuelga de él a cambio de nada.
+
+**No introducir Redux ni Jotai.** Con TanStack Query, Zustand y el Context que ya existe para el timer, sobra.
 
 ### Lógica de negocio
 
@@ -146,10 +153,10 @@ Criterio de aceptación cumplido · `typecheck` limpio · `lint` en 0 · tests v
 ## Qué NO hacer
 
 - **No** guardar timestamps sin timezone.
-- **No** importar internals de otro slice.
+- **No** importar el `.service.ts` de otro slice sin estar orquestando.
 - **No** usar `any`.
 - **No** saltarse Zod en ningún input de endpoint.
-- **No** introducir Zustand/Redux/Jotai.
+- **No** introducir Redux ni Jotai, ni meter datos de servidor en un store de Zustand.
 - **No** implementar guards de Premium/subscripción — no existe código de payments.
 - **No** reimplementar cálculos de fecha fuera de `src/shared/time`.
 - **No** crear archivos Markdown en el repo más allá de `README.md`, `AGENTS.md` y `DESIGN.md`.
