@@ -9,16 +9,16 @@ export default function PlotBoardLoading() {
       </div>
       <div className="space-y-6 p-4 md:p-6">
         <div className="space-y-2">
-          <Skeleton className="h-6 w-56 rounded bg-white/10" />
-          <Skeleton className="h-4 w-80 rounded bg-white/5" />
+          <Skeleton className="h-6 w-56 rounded" />
+          <Skeleton className="h-4 w-80 rounded" />
         </div>
         {/* Rejilla: una columna por capítulo, tarjetas dentro */}
         <div className="flex gap-3 overflow-hidden">
           {[1, 2, 3].map((col) => (
             <div key={col} className="min-w-56 flex-1 space-y-2">
-              <Skeleton className="h-4 w-32 rounded bg-white/10" />
+              <Skeleton className="h-4 w-32 rounded" />
               {Array.from({ length: col === 2 ? 3 : 2 }).map((_, i) => (
-                <Skeleton key={i} className="h-24 rounded-lg bg-white/5" />
+                <Skeleton key={i} className="h-24 rounded-lg" />
               ))}
             </div>
           ))}

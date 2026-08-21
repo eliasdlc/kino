@@ -12,11 +12,7 @@ export function BreadcrumbSkeleton({ segments = 2 }: { segments?: number }) {
         return (
           <span key={i} className="flex items-center gap-1">
             {i > 0 && <ChevronRight className="size-3.5 shrink-0 text-muted-foreground/30" />}
-            <Skeleton
-              className={`h-4 rounded bg-white/5 ${
-                isLast ? "w-28 bg-white/10" : "w-16 bg-white/5"
-              }`}
-            />
+            <Skeleton className={`h-4 rounded ${isLast ? "w-28" : "w-16"}`} />
           </span>
         );
       })}
@@ -29,23 +25,23 @@ export function BreadcrumbSkeleton({ segments = 2 }: { segments?: number }) {
  */
 export function TaskCardSkeleton() {
   return (
-    <div className="flex items-start gap-3.5 px-4 py-3.5 rounded-xl border bg-[#1a1a1e] border-white/[0.07] w-full">
+    <div className="flex items-start gap-3.5 px-4 py-3.5 rounded-xl border bg-card border-border w-full">
       {/* Checkbox circle */}
-      <div className="mt-0.5 size-6 shrink-0 rounded-full border-2 border-white/25 flex items-center justify-center">
-        <Skeleton className="size-full rounded-full bg-white/5" />
+      <div className="mt-0.5 size-6 shrink-0 rounded-full border-2 border-muted-foreground/40 flex items-center justify-center">
+        <Skeleton className="size-full rounded-full" />
       </div>
       {/* Content */}
       <div className="flex-1 min-w-0 space-y-2">
         {/* Title row */}
         <div className="flex items-center justify-between gap-2 mb-[5px]">
-          <Skeleton className="h-5 w-2/3 rounded bg-white/10" />
+          <Skeleton className="h-5 w-2/3 rounded" />
         </div>
         {/* Meta badges */}
         <div className="flex items-center gap-2 flex-wrap">
           {/* Type chip */}
-          <Skeleton className="h-[22px] w-14 rounded-md bg-white/5" />
+          <Skeleton className="h-[22px] w-14 rounded-md" />
           {/* Status chip */}
-          <Skeleton className="h-[22px] w-16 rounded-md bg-white/5" />
+          <Skeleton className="h-[22px] w-16 rounded-md" />
         </div>
       </div>
     </div>

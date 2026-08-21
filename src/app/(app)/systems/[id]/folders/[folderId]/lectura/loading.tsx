@@ -10,18 +10,18 @@ export default function ReadingLoading() {
       <div className="mx-auto w-full max-w-4xl p-4 md:p-8">
         <div className="mb-8 flex items-center justify-between gap-3">
           <div className="space-y-2">
-            <Skeleton className="h-5 w-48 rounded bg-white/10" />
-            <Skeleton className="h-3 w-64 rounded bg-white/5" />
+            <Skeleton className="h-5 w-48 rounded" />
+            <Skeleton className="h-3 w-64 rounded" />
           </div>
-          <Skeleton className="h-9 w-32 rounded-md bg-white/5" />
+          <Skeleton className="h-9 w-32 rounded-md" />
         </div>
         {/* Columna de lectura: líneas de texto, no cards */}
         <div className="space-y-3">
-          <Skeleton className="mx-auto h-4 w-40 rounded bg-white/10" />
+          <Skeleton className="mx-auto h-4 w-40 rounded" />
           {Array.from({ length: 14 }).map((_, i) => (
             <Skeleton
               key={i}
-              className="h-3.5 rounded bg-white/5"
+              className="h-3.5 rounded"
               style={{ width: i % 5 === 4 ? "62%" : "100%" }}
             />
           ))}
