@@ -1,61 +1,47 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextResponse } from "next/server";
+import { route } from "@/shared/utils/route";
+import { NotFoundError } from "@/shared/utils/error";
 import { updateFolderSchema } from "./folders.schemas";
 import { updateFolder, deleteFolder, getFolderById } from "./folders.service";
 import { parseFolderMetadata } from "./folders.metadata";
 import { getSystemById } from "@/features/systems/systems.service";
-import { getAuthContext } from "@/shared/utils/auth-context";
 import type { SystemType } from "@/shared/lib/system-types";
 
-export async function PATCH(
-  request: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
-) {
-  const ctx = await getAuthContext(request);
-  if (!ctx) return NextResponse.json({ code: "UNAUTHORIZED", message: "Unauthorized" }, { status: 401 });
+type IdParam = { id: string };
 
-  const { id } = await params;
-  const body = await request.json();
-  const parsed = updateFolderSchema.safeParse(body);
+// PATCH/DELETE /api/folders/[id]
+export const PATCH = route<IdParam>()(
+  { body: updateFolderSchema },
+  async ({ userId, params, body }) => {
+    const data = { ...body };
 
-  if (!parsed.success) {
-    return NextResponse.json(
-      { code: "VALIDATION_ERROR", message: "Invalid input", details: parsed.error.flatten() },
-      { status: 400 }
-    );
-  }
-
-  const data = parsed.data;
-
-  // Solo si el update toca metadata resolvemos el arquetipo del folder para
-  // validarla; un rename simple no paga esas queries.
-  if (data.metadata !== undefined) {
-    const folder = await getFolderById(id, ctx.userId);
-    if (!folder) return NextResponse.json({ code: "NOT_FOUND", message: "Folder not found" }, { status: 404 });
-    const system = folder.systemId ? await getSystemById(folder.systemId, ctx.userId) : null;
-    const meta = parseFolderMetadata((system?.templateType ?? "custom") as SystemType, data.metadata);
-    if (!meta.success) {
-      return NextResponse.json(
-        { code: "VALIDATION_ERROR", message: "Invalid folder metadata", details: meta.error.flatten() },
-        { status: 400 }
-      );
+    // Solo si el update toca metadata resolvemos el arquetipo del folder para
+    // validarla; un rename simple no paga esas queries.
+    if (data.metadata !== undefined) {
+      const folder = await getFolderById(params.id, userId);
+      if (!folder) throw new NotFoundError("Folder not found");
+      const system = folder.systemId ? await getSystemById(folder.systemId, userId) : null;
+      const meta = parseFolderMetadata((system?.templateType ?? "custom") as SystemType, data.metadata);
+      if (!meta.success) {
+        // Se devuelve la respuesta a mano en vez de lanzar: este 400 lleva
+        // `details` con los errores del schema, y ValidationError sólo carga
+        // un mensaje.
+        return NextResponse.json(
+          { code: "VALIDATION_ERROR", message: "Invalid folder metadata", details: meta.error.flatten() },
+          { status: 400 },
+        );
+      }
+      data.metadata = meta.data;
     }
-    data.metadata = meta.data;
-  }
 
-  const updated = await updateFolder(id, ctx.userId, data);
-  if (!updated) return NextResponse.json({ code: "NOT_FOUND", message: "Folder not found" }, { status: 404 });
-  return NextResponse.json(updated);
-}
+    const updated = await updateFolder(params.id, userId, data);
+    if (!updated) throw new NotFoundError("Folder not found");
+    return NextResponse.json(updated);
+  },
+);
 
-export async function DELETE(
-  request: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
-) {
-  const ctx = await getAuthContext(request);
-  if (!ctx) return NextResponse.json({ code: "UNAUTHORIZED", message: "Unauthorized" }, { status: 401 });
-
-  const { id } = await params;
-  const ok = await deleteFolder(id, ctx.userId);
-  if (!ok) return NextResponse.json({ code: "NOT_FOUND", message: "Folder not found" }, { status: 404 });
+export const DELETE = route<IdParam>()({}, async ({ userId, params }) => {
+  const ok = await deleteFolder(params.id, userId);
+  if (!ok) throw new NotFoundError("Folder not found");
   return new NextResponse(null, { status: 204 });
-}
+});
