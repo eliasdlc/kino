@@ -1231,15 +1231,6 @@ export const taskReminders = pgTable(
   ],
 );
 
-// ── default_context_tags (seed/reference table) ──
-
-export const defaultContextTags = pgTable('default_context_tags', {
-  id: uuid('id').primaryKey().defaultRandom(),
-  profileType: profileTypeEnum('profile_type').notNull(),
-  title: varchar('title', { length: 24 }).notNull(),
-  color: colorEnum('color').notNull().default('blue'),
-});
-
 // ── user_energy_profile ──
 
 export const userEnergyProfile = pgTable('user_energy_profile', {
@@ -1366,12 +1357,16 @@ export const apiKeys = pgTable(
     keyHash: varchar('key_hash', { length: 64 }).notNull().unique(),
     keyPrefix: varchar('key_prefix', { length: 14 }).notNull(),
     lastUsedAt: timestamp('last_used_at', { withTimezone: true }),
+    // null = no caduca. Es lo que son las claves emitidas antes de KIN-176, y
+    // la migración no las caduca retroactivamente.
+    expiresAt: timestamp('expires_at', { withTimezone: true }),
+    // null = activa. Revocar deja la fila visible en Ajustes y muerta para
+    // autenticar, que es lo que quieres cuando sospechas de una fuga.
+    revokedAt: timestamp('revoked_at', { withTimezone: true }),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
   },
-  (table) => [
-    index('idx_api_keys_user').on(table.userId),
-    index('idx_api_keys_hash').on(table.keyHash),
-  ],
+  // `keyHash` lleva `.unique()`, que ya crea su índice: no hace falta otro.
+  (table) => [index('idx_api_keys_user').on(table.userId)],
 );
 
 // rateLimits (tabla rate_limits)
