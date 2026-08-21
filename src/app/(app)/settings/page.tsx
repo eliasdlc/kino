@@ -12,7 +12,7 @@ import {
 } from "@/components/ui/select";
 import { useThemeStore } from "@/components/ThemeProvider";
 import { Separator } from "@/components/ui/separator";
-import { Bell, BellOff, Download, LogOut, Monitor, Moon, Sun } from "lucide-react";
+import { Bell, BellOff, Download, Loader2, LogOut, Monitor, Moon, Sun } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 import { usePushNotifications } from "@/features/notifications/notifications.hooks";
@@ -25,10 +25,10 @@ import { ReclaimSpaceSection } from "@/features/uploads/ReclaimSpaceSection";
 import {
   useUserSettings,
   useUpdateUserSettings,
+  useExportWorkspace,
 } from "@/features/settings/settings.hooks";
 import { authClient } from "@/auth-client";
 import { useRouter } from "next/navigation";
-import { toast } from "sonner";
 
 import { Kbd } from "@/components/ui/kbd";
 
@@ -58,6 +58,7 @@ export default function SettingsPage() {
   const { status, subscribe, unsubscribe } = usePushNotifications();
   const { data: settings } = useUserSettings();
   const { mutate: updateSettings } = useUpdateUserSettings();
+  const exportWorkspace = useExportWorkspace();
   const { data: session } = authClient.useSession();
   const router = useRouter();
 
@@ -316,40 +317,20 @@ export default function SettingsPage() {
               variant="outline"
               size="sm"
               className="gap-2 shrink-0"
-              onClick={async () => {
-                let res: Response;
-                try {
-                  res = await fetch("/api/export/workspace");
-                } catch {
-                  toast.error("No se pudo generar el export");
-                  return;
-                }
-                if (!res.ok) {
-                  toast.error("No se pudo generar el export");
-                  return;
-                }
-                // El export nunca falla por una imagen: las que no cupieron en el
-                // presupuesto se quedan apuntando a su URL remota, y avisarlo es
-                // preferible a que el usuario lo descubra abriendo el ZIP.
-                const skipped = Number(res.headers.get("X-Kino-Images-Skipped") ?? 0);
-                const blob = await res.blob();
-                const url = URL.createObjectURL(blob);
-                const a = document.createElement("a");
-                a.href = url;
-                a.download = "kino-workspace.zip";
-                a.click();
-                URL.revokeObjectURL(url);
-                if (skipped > 0) {
-                  toast.warning(
-                    `${skipped} ${skipped === 1 ? "imagen quedó fuera" : "imágenes quedaron fuera"} del ZIP y siguen apuntando a su URL original.`,
-                  );
-                } else {
-                  toast.success("Export listo");
-                }
-              }}
+              disabled={exportWorkspace.isPending}
+              onClick={() => exportWorkspace.mutate()}
             >
-              <Download className="size-4" />
-              Exportar ZIP
+              {exportWorkspace.isPending ? (
+                <>
+                  <Loader2 className="size-4 animate-spin" />
+                  Preparando el ZIP
+                </>
+              ) : (
+                <>
+                  <Download className="size-4" />
+                  Exportar ZIP
+                </>
+              )}
             </Button>
           </div>
 

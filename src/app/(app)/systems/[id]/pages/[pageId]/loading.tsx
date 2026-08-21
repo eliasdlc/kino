@@ -19,28 +19,28 @@ export default function PageEditorLoading() {
             <div className="space-y-3">
               <div className="flex items-center justify-between select-none">
                 <div className="flex items-center gap-1.5 text-sm font-medium text-muted-foreground">
-                  <span className="size-4 shrink-0 rounded bg-white/5" />
+                  <span className="size-4 shrink-0 rounded" />
                   Sticky notes
                 </div>
-                <Skeleton className="h-7 w-12 rounded bg-white/5" />
+                <Skeleton className="h-7 w-12 rounded" />
               </div>
               <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-2">
                 {[1, 2, 3].map((i) => (
-                  <Skeleton key={i} className="h-20 w-full rounded-lg bg-white/5" />
+                  <Skeleton key={i} className="h-20 w-full rounded-lg" />
                 ))}
               </div>
             </div>
 
             {/* Page Title & Editor lines */}
             <div className="space-y-4 pt-2">
-              <Skeleton className="h-9 w-2/3 rounded-md bg-white/10" />
+              <Skeleton className="h-9 w-2/3 rounded-md" />
               <div className="space-y-3 pt-2">
-                <Skeleton className="h-4 w-full rounded bg-white/5" />
-                <Skeleton className="h-4 w-[92%] rounded bg-white/5" />
-                <Skeleton className="h-4 w-[85%] rounded bg-white/5" />
-                <Skeleton className="h-4 w-full rounded bg-white/5" />
-                <Skeleton className="h-4 w-[78%] rounded bg-white/5" />
-                <Skeleton className="h-4 w-[90%] rounded bg-white/5" />
+                <Skeleton className="h-4 w-full rounded" />
+                <Skeleton className="h-4 w-[92%] rounded" />
+                <Skeleton className="h-4 w-[85%] rounded" />
+                <Skeleton className="h-4 w-full rounded" />
+                <Skeleton className="h-4 w-[78%] rounded" />
+                <Skeleton className="h-4 w-[90%] rounded" />
               </div>
             </div>
           </div>
@@ -55,8 +55,8 @@ export default function PageEditorLoading() {
                 Page info
               </p>
               <div className="space-y-1.5 text-xs text-muted-foreground">
-                <Skeleton className="h-3 w-32 rounded bg-white/5" />
-                <Skeleton className="h-3 w-28 rounded bg-white/5" />
+                <Skeleton className="h-3 w-32 rounded" />
+                <Skeleton className="h-3 w-28 rounded" />
               </div>
             </div>
 
@@ -68,9 +68,9 @@ export default function PageEditorLoading() {
                 Pages
               </p>
               <div className="space-y-0.5">
-                <Skeleton className="h-7 w-full rounded bg-white/10" />
-                <Skeleton className="h-7 w-[95%] rounded bg-white/5" />
-                <Skeleton className="h-7 w-[90%] rounded bg-white/5" />
+                <Skeleton className="h-7 w-full rounded" />
+                <Skeleton className="h-7 w-[95%] rounded" />
+                <Skeleton className="h-7 w-[90%] rounded" />
               </div>
             </div>
 
@@ -80,17 +80,17 @@ export default function PageEditorLoading() {
             <div className="space-y-3">
               <div className="flex items-center justify-between select-none">
                 <div className="flex items-center gap-1.5 text-sm font-medium">
-                  <span className="size-4 shrink-0 rounded bg-white/5" />
+                  <span className="size-4 shrink-0 rounded" />
                   Linked tasks
                 </div>
                 <div className="flex items-center gap-1">
-                  <Skeleton className="h-8 w-12 rounded bg-white/5" />
-                  <Skeleton className="h-8 w-12 rounded bg-white/5" />
+                  <Skeleton className="h-8 w-12 rounded" />
+                  <Skeleton className="h-8 w-12 rounded" />
                 </div>
               </div>
               <div className="space-y-2">
                 {[1, 2].map((i) => (
-                  <Skeleton key={i} className="h-16 w-full rounded-lg bg-white/5" />
+                  <Skeleton key={i} className="h-16 w-full rounded-lg" />
                 ))}
               </div>
             </div>

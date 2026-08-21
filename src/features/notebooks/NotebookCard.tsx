@@ -133,6 +133,7 @@ export function NotebookCard({ page, systemId, href }: NotebookCardProps) {
               variant="ghost"
               size="icon"
               className="absolute bottom-3 right-3 size-6 rounded md:opacity-0 md:group-hover:opacity-100 transition-opacity"
+              aria-label={`Acciones de ${page.title ?? "la nota"}`}
               onClick={(e) => e.preventDefault()}
             >
               <MoreHorizontal className="size-3.5" />

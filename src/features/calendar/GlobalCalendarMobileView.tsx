@@ -54,6 +54,7 @@ export function GlobalCalendarMobileView({
           variant="ghost"
           size="icon"
           className="size-8"
+          aria-label="Día anterior"
           onClick={() => onSelectDay(addDays(selectedDay, -1))}
         >
           <ChevronLeft className="size-4" />
@@ -73,6 +74,7 @@ export function GlobalCalendarMobileView({
           variant="ghost"
           size="icon"
           className="size-8"
+          aria-label="Día siguiente"
           onClick={() => onSelectDay(addDays(selectedDay, 1))}
         >
           <ChevronRight className="size-4" />

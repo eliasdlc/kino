@@ -10,7 +10,7 @@ export function SubtaskProgressBars({ taskId, systemId }: { taskId: string; syst
   const { data: subtasks } = useSubtasks(taskId, systemId);
 
   if (!subtasks || subtasks.length === 0) {
-    return <span className="text-[13px] text-[#8b8b8f]">Sin subtareas</span>;
+    return <span className="text-[13px] text-muted-foreground">Sin subtareas</span>;
   }
 
   const done = subtasks.filter((s) => s.status === "done").length;
@@ -21,12 +21,12 @@ export function SubtaskProgressBars({ taskId, systemId }: { taskId: string; syst
         {subtasks.map((s, i) => (
           <div
             key={s.id ?? i}
-            className={cn("w-[2.5px] h-3.5 rounded-sm", i < done ? "bg-[#3c5deb]" : "bg-[#363638]")}
+            className={cn("w-[2.5px] h-3.5 rounded-sm", i < done ? "bg-blue-600 dark:bg-[#3c5deb]" : "bg-muted-foreground/25")}
           />
         ))}
       </div>
-      <div className="text-[13px] font-semibold text-[#8b8b8f]">
-        <span className="text-white">{done}</span> / {subtasks.length}
+      <div className="text-[13px] font-semibold text-muted-foreground">
+        <span className="text-foreground">{done}</span> / {subtasks.length}
       </div>
     </div>
   );

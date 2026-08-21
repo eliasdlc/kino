@@ -33,23 +33,23 @@ interface DefaultTaskCardProps extends TaskCardProps {
 }
 
 const STATUS_BADGE: Record<string, string> = {
-  backlog:  "bg-white/[0.06] text-zinc-400",
-  week:     "bg-[rgba(99,102,241,0.18)] text-[#a5b4fc]",
-  today:    "bg-[rgba(16,185,129,0.18)] text-[#6ee7b7]",
-  tomorrow: "bg-[rgba(245,158,11,0.18)] text-[#fcd34d]",
-  done:     "bg-[rgba(62,207,114,0.14)] text-[#6ee7b7]",
-  archived: "bg-white/[0.05] text-zinc-600",
+  backlog:  "bg-muted text-muted-foreground",
+  week:     "bg-indigo-500/18 text-indigo-700 dark:text-indigo-300",
+  today:    "bg-emerald-500/18 text-emerald-700 dark:text-emerald-300",
+  tomorrow: "bg-amber-500/18 text-amber-700 dark:text-amber-300",
+  done:     "bg-task-done/15 text-emerald-700 dark:text-emerald-300",
+  archived: "bg-muted/60 text-muted-foreground/65",
 };
 
 const TYPE_BADGE: Record<string, string> = {
-  task:     "bg-white/[0.06] text-zinc-400",
-  idea:     "bg-[rgba(245,158,11,0.15)] text-[#fbbf24]",
-  event:    "bg-[rgba(14,165,233,0.15)] text-[#7dd3fc]",
-  reminder: "bg-[rgba(249,115,22,0.15)] text-[#fb923c]",
-  epic:     "bg-[rgba(139,92,246,0.18)] text-[#c4b5fd]",
-  habit:    "bg-[rgba(168,85,247,0.15)] text-[#d8b4fe]",
-  todo:     "bg-white/[0.06] text-zinc-400",
-  project:  "bg-[rgba(59,130,246,0.18)] text-[#93c5fd]",
+  task:     "bg-muted text-muted-foreground",
+  idea:     "bg-amber-500/15 text-amber-700 dark:text-amber-400",
+  event:    "bg-sky-500/15 text-sky-700 dark:text-sky-300",
+  reminder: "bg-orange-500/15 text-orange-700 dark:text-orange-400",
+  epic:     "bg-violet-500/18 text-violet-700 dark:text-violet-300",
+  habit:    "bg-purple-500/15 text-purple-700 dark:text-purple-300",
+  todo:     "bg-muted text-muted-foreground",
+  project:  "bg-blue-500/18 text-blue-700 dark:text-blue-300",
 };
 
 function CalendarIcon() {
@@ -93,7 +93,7 @@ function ReminderCountdown({ dueDate }: { dueDate: string }) {
 
   if (days < 0) {
     return (
-      <span className="inline-flex items-center gap-1 font-mono text-sm text-[#f87171] font-medium">
+      <span className="inline-flex items-center gap-1 font-mono text-sm text-task-overdue font-medium">
         <ClockIcon />
         vencida · {format(parseDueDate(dueDate), "MMM d")}
       </span>
@@ -101,7 +101,7 @@ function ReminderCountdown({ dueDate }: { dueDate: string }) {
   }
   if (days === 0) {
     return (
-      <span className="inline-flex items-center gap-1 font-mono text-sm text-[#f87171] font-medium">
+      <span className="inline-flex items-center gap-1 font-mono text-sm text-task-overdue font-medium">
         <ClockIcon />
         vence · hoy · {format(parseDueDate(dueDate), "MMM d")}
       </span>
@@ -109,7 +109,7 @@ function ReminderCountdown({ dueDate }: { dueDate: string }) {
   }
   if (days === 1) {
     return (
-      <span className="inline-flex items-center gap-1 font-mono text-sm text-[#fbbf24]">
+      <span className="inline-flex items-center gap-1 font-mono text-sm text-task-due-soon">
         <CalendarIcon />
         vence · mañana · {format(parseDueDate(dueDate), "MMM d")}
       </span>
@@ -117,14 +117,14 @@ function ReminderCountdown({ dueDate }: { dueDate: string }) {
   }
   if (days <= 2) {
     return (
-      <span className="inline-flex items-center gap-1 font-mono text-sm text-[#fbbf24]">
+      <span className="inline-flex items-center gap-1 font-mono text-sm text-task-due-soon">
         <CalendarIcon />
         {format(parseDueDate(dueDate), "MMM d")} · en {days} días
       </span>
     );
   }
   return (
-    <span className="inline-flex items-center gap-[3px] font-mono text-xs text-zinc-500">
+    <span className="inline-flex items-center gap-[3px] font-mono text-xs text-muted-foreground/85">
       <CalendarIcon />
       vence · {format(parseDueDate(dueDate), "MMM d")}
     </span>
@@ -140,11 +140,11 @@ function SubtaskProgress({ parentTaskId, systemId }: { parentTaskId: string; sys
   const pct = Math.round((done / subtasks.length) * 100);
   return (
     <>
-      <span className="text-xs text-zinc-700">·</span>
-      <span className="inline-flex items-center gap-1.5 font-mono text-sm text-zinc-500">
-        <span className="inline-flex h-1 w-12 rounded-full bg-zinc-700/80 overflow-hidden">
+      <span className="text-xs text-muted-foreground/45">·</span>
+      <span className="inline-flex items-center gap-1.5 font-mono text-sm text-muted-foreground/85">
+        <span className="inline-flex h-1 w-12 rounded-full bg-muted-foreground/30 overflow-hidden">
           <span
-            className="h-full bg-[#3ecf72] rounded-full motion-safe:transition-all motion-safe:duration-300"
+            className="h-full bg-task-done rounded-full motion-safe:transition-all motion-safe:duration-300"
             style={{ width: `${pct}%` }}
           />
         </span>
@@ -186,15 +186,15 @@ function DefaultMeta({ task, state, systemType, systemId }: DefaultMetaProps) {
 
       {task.taskType === "reminder" && task.dueDate ? (
         <>
-          <span className="text-sm text-zinc-700">·</span>
+          <span className="text-sm text-muted-foreground/45">·</span>
           <ReminderCountdown dueDate={task.dueDate} />
         </>
       ) : task.dueDate ? (
         <>
-          <span className="text-sm text-zinc-700">·</span>
+          <span className="text-sm text-muted-foreground/45">·</span>
           <span className={cn(
             "inline-flex items-center gap-1 font-mono text-xs md:text-sm",
-            isOverdue ? "text-[#f87171] font-medium" : isDueSoon ? "text-[#fbbf24]" : "text-zinc-500"
+            isOverdue ? "text-task-overdue font-medium" : isDueSoon ? "text-task-due-soon" : "text-muted-foreground/85"
           )}>
             {isOverdue ? <ClockIcon /> : <CalendarIcon />}
             {isOverdue ? "vencida" : "vence"} · {format(parseDueDate(task.dueDate), "MMM d")}
@@ -211,8 +211,8 @@ function DefaultMeta({ task, state, systemType, systemId }: DefaultMetaProps) {
       )}>
         {folder && (
           <>
-            <span className="text-xs text-zinc-700">·</span>
-            <span className="inline-flex items-center gap-1 text-sm text-zinc-500">
+            <span className="text-xs text-muted-foreground/45">·</span>
+            <span className="inline-flex items-center gap-1 text-sm text-muted-foreground/85">
               <span className={cn("size-1.5 rounded-full shrink-0", `bg-${getSystemColor(folder.color)}`)} />
               {folder.name}
             </span>
@@ -221,15 +221,15 @@ function DefaultMeta({ task, state, systemType, systemId }: DefaultMetaProps) {
 
         {!typeConfig.hideEnergyAndPriority && (
           <>
-            <span className="text-xs text-zinc-700">·</span>
-            <span className="font-mono text-sm text-zinc-600">{task.energyLevel}</span>
+            <span className="text-xs text-muted-foreground/45">·</span>
+            <span className="font-mono text-sm text-muted-foreground/65">{task.energyLevel}</span>
           </>
         )}
 
         {task.estimatedTime && (
           <>
-            <span className="text-xs text-zinc-700">·</span>
-            <span className="font-mono text-sm text-zinc-500">
+            <span className="text-xs text-muted-foreground/45">·</span>
+            <span className="font-mono text-sm text-muted-foreground/85">
               {formatTime(task.estimatedTime)}
             </span>
           </>
@@ -239,20 +239,20 @@ function DefaultMeta({ task, state, systemType, systemId }: DefaultMetaProps) {
           const m = task.metadata as TaskMetadata;
           if (systemType === "academic" && m.course) return (
             <>
-              <span className="text-xs text-zinc-700">·</span>
-              <span className="text-sm text-zinc-500">{m.course}</span>
+              <span className="text-xs text-muted-foreground/45">·</span>
+              <span className="text-sm text-muted-foreground/85">{m.course}</span>
             </>
           );
           if (systemType === "project" && (m.assignee || m.project)) return (
             <>
-              {m.project && <><span className="text-xs text-zinc-700">·</span><span className="text-sm text-zinc-500">{m.project}</span></>}
-              {m.assignee && <><span className="text-xs text-zinc-700">·</span><span className="text-sm text-zinc-500">{m.assignee}</span></>}
+              {m.project && <><span className="text-xs text-muted-foreground/45">·</span><span className="text-sm text-muted-foreground/85">{m.project}</span></>}
+              {m.assignee && <><span className="text-xs text-muted-foreground/45">·</span><span className="text-sm text-muted-foreground/85">{m.assignee}</span></>}
             </>
           );
           if (systemType === "entrepreneurial" && m.milestone) return (
             <>
-              <span className="text-xs text-zinc-700">·</span>
-              <span className="text-sm text-zinc-500">{m.milestone}</span>
+              <span className="text-xs text-muted-foreground/45">·</span>
+              <span className="text-sm text-muted-foreground/85">{m.milestone}</span>
             </>
           );
           return null;
@@ -260,7 +260,7 @@ function DefaultMeta({ task, state, systemType, systemId }: DefaultMetaProps) {
       </span>
 
       {systemType === "personal" && (task.metadata as TaskMetadata | null)?.why && (
-        <p className="text-xs text-zinc-600 mt-0.5 truncate">
+        <p className="text-xs text-muted-foreground/65 mt-0.5 truncate">
           {(task.metadata as TaskMetadata).why}
         </p>
       )}
@@ -286,12 +286,12 @@ export function DefaultTaskCard({ task, systemId, systemType, draggable, isFocus
     <div
       className={cn(
         "group relative flex items-start gap-3 px-3.5 py-3 md:gap-3.5 md:px-4 md:py-3.5 rounded-xl border motion-safe:transition-[border-color,background] motion-safe:duration-150",
-        !isCritical && !isHigh && !isFocused && !isSelected && "bg-[#1a1a1e] border-white/[0.07] hover:bg-[#1e1e23] hover:border-white/[0.13]",
-        isCritical && "bg-[rgba(188,38,38,0.13)] border-[rgba(220,50,50,0.35)] hover:border-[rgba(220,50,50,0.55)] hover:bg-[rgba(188,38,38,0.18)]",
-        isHigh && "bg-[rgba(180,90,20,0.13)] border-[rgba(230,115,30,0.35)] hover:border-[rgba(230,115,30,0.55)] hover:bg-[rgba(180,90,20,0.18)]",
+        !isCritical && !isHigh && !isFocused && !isSelected && "bg-card border-border hover:bg-accent hover:border-foreground/20",
+        isCritical && "bg-task-critical/[0.13] border-task-critical/35 hover:border-task-critical/55 hover:bg-task-critical/[0.18]",
+        isHigh && "bg-task-high/[0.13] border-task-high/35 hover:border-task-high/55 hover:bg-task-high/[0.18]",
         isDone && "opacity-45",
         isArchived && "opacity-35",
-        isFocused && "bg-[rgba(99,102,241,0.08)] border-[rgba(99,102,241,0.6)]",
+        isFocused && "bg-primary/8 border-primary/60",
         isSelected && !isCritical && !isHigh && "bg-primary/5 border-primary/40",
         draggable && "cursor-grab active:cursor-grabbing"
       )}
@@ -304,7 +304,7 @@ export function DefaultTaskCard({ task, systemId, systemType, draggable, isFocus
             "mt-0.5 size-5 shrink-0 rounded border-2 flex items-center justify-center motion-safe:transition-[colors,opacity]",
             isSelected
               ? "border-primary bg-primary text-primary-foreground opacity-100"
-              : "border-white/25 bg-transparent md:opacity-0 md:group-hover:opacity-100 hover:border-primary/70",
+              : "border-muted-foreground/40 bg-transparent md:opacity-0 md:group-hover:opacity-100 hover:border-primary/70",
           )}
           aria-label={isSelected ? "Deseleccionar" : "Seleccionar"}
         >
@@ -322,14 +322,14 @@ export function DefaultTaskCard({ task, systemId, systemType, draggable, isFocus
           isArchived && "cursor-default",
           "after:absolute after:inset-[-10px] after:content-['']",
           "motion-safe:transition-[colors,transform,box-shadow] motion-safe:duration-200",
-          completing && "motion-safe:scale-125 motion-safe:shadow-[0_0_0_5px_rgba(62,207,114,0.2)]",
+          completing && "motion-safe:scale-125 motion-safe:shadow-[0_0_0_5px_color-mix(in_oklab,var(--task-done)_20%,transparent)]",
           isDone || isArchived
-            ? "border-[#3ecf72] bg-[#3ecf72] text-[#0e0e10]"
+            ? "border-task-done bg-task-done text-task-done-foreground"
             : isCritical
-            ? "border-[rgba(220,80,80,0.5)] hover:border-[#e05555]"
+            ? "border-task-critical/50 hover:border-task-critical"
             : isHigh
-            ? "border-[rgba(230,115,30,0.5)] hover:border-[#e6731e]"
-            : "border-white/25 hover:border-white/50"
+            ? "border-task-high/50 hover:border-task-high"
+            : "border-muted-foreground/40 hover:border-muted-foreground/70"
         )}
       >
         {(isDone || isArchived) && <CheckIcon />}
@@ -341,8 +341,8 @@ export function DefaultTaskCard({ task, systemId, systemType, draggable, isFocus
             type="button"
             onClick={() => onEdit?.(task)}
             className={cn(
-              "text-sm md:text-base font-normal text-zinc-200 truncate text-left leading-snug",
-              isDone && "line-through text-zinc-500"
+              "text-sm md:text-base font-normal text-foreground truncate text-left leading-snug",
+              isDone && "line-through text-muted-foreground/85"
             )}
           >
             {task.title}
@@ -364,10 +364,10 @@ export function DefaultTaskCard({ task, systemId, systemType, draggable, isFocus
                 className={cn(
                   "md:opacity-0 md:group-hover:opacity-100 motion-safe:transition-opacity",
                   isThisRunning
-                    ? "text-amber-400 md:opacity-100"
+                    ? "text-amber-600 dark:text-amber-400 md:opacity-100"
                     : anotherRunning
-                      ? "text-zinc-700 cursor-not-allowed"
-                      : "text-zinc-500 hover:text-amber-400",
+                      ? "text-muted-foreground/45 cursor-not-allowed"
+                      : "text-muted-foreground/85 hover:text-amber-600 dark:hover:text-amber-400",
                 )}
                 aria-label={isThisRunning ? "Timer en curso" : "Iniciar foco"}
               >
@@ -377,7 +377,7 @@ export function DefaultTaskCard({ task, systemId, systemType, draggable, isFocus
             <button
               type="button"
               onClick={() => setIsExpanded((v) => !v)}
-              className="md:opacity-0 md:group-hover:opacity-100 motion-safe:transition-opacity text-zinc-500 hover:text-zinc-200"
+              className="md:opacity-0 md:group-hover:opacity-100 motion-safe:transition-opacity text-muted-foreground/85 hover:text-foreground"
               aria-label={isExpanded ? "Ocultar subtareas" : "Mostrar subtareas"}
             >
               <ChevronDown size={18} className={cn("motion-safe:transition-transform", isExpanded && "rotate-180")} />
@@ -385,7 +385,7 @@ export function DefaultTaskCard({ task, systemId, systemType, draggable, isFocus
             <button
               type="button"
               onClick={() => onDelete(task)}
-              className="md:opacity-0 md:group-hover:opacity-100 motion-safe:transition-opacity text-zinc-500 hover:text-red-400"
+              className="md:opacity-0 md:group-hover:opacity-100 motion-safe:transition-opacity text-muted-foreground/85 hover:text-destructive"
               aria-label="Eliminar tarea"
             >
               <Trash2 size={16} />
@@ -399,7 +399,7 @@ export function DefaultTaskCard({ task, systemId, systemType, draggable, isFocus
         }
 
         {isExpanded && (
-          <div className="mt-2 pt-2 border-t border-white/[0.06]">
+          <div className="mt-2 pt-2 border-t border-border">
             <SubtaskList parentTaskId={task.id} systemId={systemId} />
           </div>
         )}
@@ -408,7 +408,7 @@ export function DefaultTaskCard({ task, systemId, systemType, draggable, isFocus
       {showPriorityBadge && (
         <span className={cn(
           "absolute top-2.5 right-3 font-mono text-xs font-semibold uppercase tracking-[0.06em] px-1.5 py-0.5 rounded",
-          isCritical ? "bg-[rgba(220,50,50,0.2)] text-[#f87171]" : "bg-[rgba(230,115,30,0.2)] text-[#fb923c]"
+          isCritical ? "bg-task-critical/20 text-task-overdue" : "bg-task-high/20 text-task-high-foreground"
         )}>
           {isCritical ? "critical" : "high"}
         </span>
@@ -422,7 +422,7 @@ export function DefaultTaskCard({ task, systemId, systemType, draggable, isFocus
               disabled={anotherRunning}
               onSelect={() => openModeDialog({ id: task.id, title: task.title, systemId, estimatedDuration: task.estimatedTime ? (() => { const [h, m] = task.estimatedTime!.split(":").map(Number); return h * 60 + m; })() : null })}
             >
-              <Timer className={cn("mr-2 size-4", isThisRunning && "text-amber-400")} />
+              <Timer className={cn("mr-2 size-4", isThisRunning && "text-amber-600 dark:text-amber-400")} />
               {isThisRunning ? "Timer en curso" : "Iniciar foco"}
             </ContextMenuItem>
             <ContextMenuSeparator />

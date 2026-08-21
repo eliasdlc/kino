@@ -29,7 +29,7 @@ function Countdown({ task, state }: { task: Task; state: TaskCardState }) {
     <span
       className={cn(
         "inline-flex items-center gap-1 font-mono text-xs md:text-sm",
-        state.isOverdue ? "text-[#f87171] font-medium" : state.isDueSoon ? "text-[#fbbf24]" : "text-zinc-500",
+        state.isOverdue ? "text-task-overdue font-medium" : state.isDueSoon ? "text-task-due-soon" : "text-muted-foreground/85",
       )}
     >
       <CalendarClock size={13} />
@@ -51,14 +51,14 @@ function AcademicMeta({ task, state }: { task: Task; state: TaskCardState }) {
   return (
     <div className="flex items-center gap-2 flex-wrap">
       {kind && KindIcon && (
-        <span className="inline-flex items-center gap-1 rounded-md bg-white/[0.06] px-2 py-0.5 text-xs md:text-sm text-zinc-300">
+        <span className="inline-flex items-center gap-1 rounded-md bg-muted px-2 py-0.5 text-xs md:text-sm text-foreground/85">
           <KindIcon size={13} />
           {kind.label}
         </span>
       )}
 
       {folder && (
-        <span className="inline-flex items-center gap-1 text-xs md:text-sm text-zinc-400">
+        <span className="inline-flex items-center gap-1 text-xs md:text-sm text-muted-foreground">
           <span className={cn("size-1.5 rounded-full shrink-0", `bg-${getSystemColor(folder.color)}`)} />
           {folder.name}
         </span>
@@ -66,7 +66,7 @@ function AcademicMeta({ task, state }: { task: Task; state: TaskCardState }) {
 
       {task.dueDate && (
         <>
-          {(kind || folder) && <span className="text-xs text-zinc-700">·</span>}
+          {(kind || folder) && <span className="text-xs text-muted-foreground/45">·</span>}
           <Countdown task={task} state={state} />
         </>
       )}

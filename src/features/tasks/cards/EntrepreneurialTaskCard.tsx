@@ -20,9 +20,9 @@ function EntrepreneurialMeta({ task, state }: { task: Task; state: TaskCardState
 
   return (
     <div className="flex flex-col gap-1">
-      <div className="flex items-center gap-2 flex-wrap text-xs md:text-sm text-zinc-400">
+      <div className="flex items-center gap-2 flex-wrap text-xs md:text-sm text-muted-foreground">
         {kind && KindIcon && (
-          <span className="inline-flex items-center gap-1 rounded-md bg-white/[0.06] px-2 py-0.5 text-zinc-300">
+          <span className="inline-flex items-center gap-1 rounded-md bg-muted px-2 py-0.5 text-foreground/85">
             <KindIcon size={13} />
             {kind.label}
           </span>
@@ -35,7 +35,7 @@ function EntrepreneurialMeta({ task, state }: { task: Task; state: TaskCardState
         )}
       </div>
       {typeof hypothesis === "string" && hypothesis.trim() && (
-        <p className="text-xs text-zinc-500 truncate">{hypothesis}</p>
+        <p className="text-xs text-muted-foreground/85 truncate">{hypothesis}</p>
       )}
     </div>
   );

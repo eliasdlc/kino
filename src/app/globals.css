@@ -49,6 +49,16 @@
   --color-popover: var(--popover);
   --color-card-foreground: var(--card-foreground);
   --color-card: var(--card);
+  /* Estados de tarea. Las tarjetas los usaban como hex fijos elegidos contra
+     fondo negro, así que en tema claro no había ninguno. */
+  --color-task-overdue: var(--task-overdue);
+  --color-task-due-soon: var(--task-due-soon);
+  --color-task-done: var(--task-done);
+  --color-task-done-foreground: var(--task-done-foreground);
+  --color-task-critical: var(--task-critical);
+  --color-task-critical-foreground: var(--task-critical-foreground);
+  --color-task-high: var(--task-high);
+  --color-task-high-foreground: var(--task-high-foreground);
   --radius-sm: calc(var(--radius) * 0.6);
   --radius-md: calc(var(--radius) * 0.8);
   --radius-lg: var(--radius);
@@ -92,6 +102,19 @@
   --sidebar-ring: oklch(0.708 0 0);
   --background: oklch(1 0 0);
   --foreground: oklch(0.145 0 0);
+
+  /* Estados de tarea, claro. Cada valor cumple AA como texto sobre --card
+     blanco; los tonos 500/600 del oscuro no llegaban a 4.5:1 y por eso aquí
+     bajan un paso. Los que llevan sufijo -foreground son el texto que va
+     encima del relleno o del badge de su mismo nombre. */
+  --task-overdue: #b91c1c;             /* red-700  · 6,2:1 sobre blanco */
+  --task-due-soon: #b45309;            /* amber-700 · 4,8:1 */
+  --task-done: #15803d;                /* green-700 · 4,9:1 */
+  --task-done-foreground: #ffffff;
+  --task-critical: #dc2626;            /* red-600, relleno y borde con alfa */
+  --task-critical-foreground: #b91c1c; /* red-700  · 6,2:1 */
+  --task-high: #ea580c;                /* orange-600 */
+  --task-high-foreground: #c2410c;     /* orange-700 · 5,1:1 */
 }
 
 .dark {
@@ -127,6 +150,17 @@
   --sidebar-accent-foreground: oklch(0.985 0 0);
   --sidebar-border: oklch(1 0 0 / 10%);
   --sidebar-ring: oklch(0.556 0 0);
+
+  /* Estados de tarea, oscuro: los valores que ya tenían las tarjetas. El tema
+     oscuro es el diseño aprobado y no cambia ni un tono. */
+  --task-overdue: #f87171;
+  --task-due-soon: #fbbf24;
+  --task-done: #3ecf72;
+  --task-done-foreground: #0e0e10;
+  --task-critical: #dc3232;
+  --task-critical-foreground: #f87171;
+  --task-high: #e6731e;
+  --task-high-foreground: #fb923c;
 }
 
 @layer base {

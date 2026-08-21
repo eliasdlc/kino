@@ -248,6 +248,7 @@ export function SubtaskEditor({
             variant="ghost"
             size="icon"
             className="shrink-0 size-8"
+            aria-label="Quitar esta subtarea"
             onClick={() => onChange(subtasks.filter((_, j) => j !== i))}
           >
             <X size={16} />
