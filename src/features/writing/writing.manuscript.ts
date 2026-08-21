@@ -1,7 +1,7 @@
 import { and, asc, eq, isNull } from "drizzle-orm";
 import { db } from "@/shared/db";
 import { folders, pages, users } from "@/shared/db/schema";
-import { countWords } from "@/features/pages/word-count";
+import { countWords } from "@/shared/lib/word-count";
 import { resolveMedium, type MediumId } from "@/shared/lib/mediums";
 
 /**

@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { Flame, Focus, Minimize2, Target } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useSharedEditor } from "./EditorContext";
-import { countWords } from "./word-count";
+import { countWords } from "@/shared/lib/word-count";
 import { useWritingOverview } from "@/features/writing/writing.hooks";
 import { useCelebrateOnce } from "@/features/writing/celebrate";
 

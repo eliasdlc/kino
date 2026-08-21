@@ -4,7 +4,7 @@ import { folders, pages, stickyNotes, systems, timeLogs } from "@/shared/db/sche
 import { calendarDayInTz, userToday } from "@/shared/time";
 import { getUserTimezone } from "@/shared/time/user-timezone";
 import { getPeakWindow } from "@/features/energy/energy.service";
-import { countWords } from "@/features/pages/word-count";
+import { countWords } from "@/shared/lib/word-count";
 import { buildJournal, computeStreak } from "./writing.streak";
 import { captureSnapshot } from "./writing.snapshots";
 import type {

@@ -1,7 +1,7 @@
 import { and, desc, eq, isNull, lt } from "drizzle-orm";
 import { db } from "@/shared/db";
 import { pageSnapshots, pages } from "@/shared/db/schema";
-import { countWords } from "@/features/pages/word-count";
+import { countWords } from "@/shared/lib/word-count";
 import {
   MAX_SNAPSHOTS_PER_PAGE,
   withDeltas,
