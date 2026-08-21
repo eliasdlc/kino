@@ -1,7 +1,6 @@
-import { auth } from '@/auth';
-import { headers } from 'next/headers';
 import { z } from 'zod';
 import { upsertPushSubscription } from '@/features/notifications/notifications.queries';
+import { getServerSession } from '@/shared/utils/session';
 
 const subscribeSchema = z.object({
   endpoint: z.string().url(),
@@ -14,7 +13,7 @@ const subscribeSchema = z.object({
 // Session-only a propósito (KIN-144): requiere el PushSubscription del
 // navegador, que sólo existe en una sesión de UI. No migrar a getAuthContext.
 export async function POST(req: Request) {
-  const session = await auth.api.getSession({ headers: await headers() });
+  const session = await getServerSession();
   if (!session) return Response.json({ code: 'UNAUTHORIZED' }, { status: 401 });
 
   const body: unknown = await req.json();

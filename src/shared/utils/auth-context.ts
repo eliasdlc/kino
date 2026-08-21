@@ -1,8 +1,7 @@
 import { NextRequest } from 'next/server';
-import { headers } from 'next/headers';
-import { auth } from '@/auth';
 import { validateApiKey } from '@/features/api-keys/api-keys.service';
 import { verifyOAuthToken } from '@/shared/lib/oauth-resource';
+import { getServerSession } from './session';
 
 export async function getAuthContext(
   request: NextRequest,
@@ -19,6 +18,6 @@ export async function getAuthContext(
     const claims = await verifyOAuthToken(token);
     return claims ? { userId: claims.userId } : null;
   }
-  const session = await auth.api.getSession({ headers: await headers() });
+  const session = await getServerSession();
   return session ? { userId: session.user.id } : null;
 }

@@ -1,5 +1,3 @@
-import { auth } from "@/auth";
-import { headers } from "next/headers";
 import { notFound, redirect } from "next/navigation";
 import { Files } from "lucide-react";
 import { PageBreadcrumb } from "@/components/PageBreadcrumb";
@@ -19,6 +17,7 @@ import { TasksList } from "@/features/tasks/TasksList";
 import { resolveSystemManifest } from "@/shared/lib/system-manifest";
 import { containerDetailEmptyCopy } from "@/shared/lib/archetype-copy";
 import { Separator } from "@/components/ui/separator";
+import { getServerSession } from "@/shared/utils/session";
 
 interface FolderViewRouteProps {
   params: Promise<{ id: string; folderId: string }>;
@@ -26,7 +25,7 @@ interface FolderViewRouteProps {
 
 export default async function FolderViewRoute({ params }: FolderViewRouteProps) {
   const { id: systemId, folderId } = await params;
-  const session = await auth.api.getSession({ headers: await headers() });
+  const session = await getServerSession();
 
   if (!session) redirect("/login");
 

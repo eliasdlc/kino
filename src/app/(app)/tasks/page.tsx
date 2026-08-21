@@ -1,5 +1,3 @@
-import { auth } from '@/auth';
-import { headers } from 'next/headers';
 import { redirect } from 'next/navigation';
 import { dehydrate, HydrationBoundary } from '@tanstack/react-query';
 import getQueryClient from '@/lib/get-query-client';
@@ -8,11 +6,12 @@ import { queryTasks, ensureTodayPlanRolled } from '@/features/tasks/tasks.servic
 import { getSuggestedTasks } from '@/features/insights/insights.service';
 import { allTasksKey, suggestedTasksKey } from '@/features/tasks/tasks.keys';
 import { TasksPageClient } from '@/features/tasks/TasksPage';
+import { getServerSession } from '@/shared/utils/session';
 
 export const metadata = { title: 'Tasks - Kino' };
 
 export default async function TasksPage() {
-  const session = await auth.api.getSession({ headers: await headers() });
+  const session = await getServerSession();
   if (!session) redirect('/login');
 
   const userId = session.user.id;

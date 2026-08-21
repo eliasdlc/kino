@@ -1,5 +1,3 @@
-import { auth } from "@/auth";
-import { headers } from "next/headers";
 import { notFound, redirect } from "next/navigation";
 import { getPageById, getPagesBySystem, getSubPages } from "@/features/pages/pages.service";
 import { getSystemById } from "@/features/systems/systems.service";
@@ -8,6 +6,7 @@ import type { BreadcrumbItem } from "@/components/PageBreadcrumb";
 import { NotebookEditorLayout } from "@/features/pages/NotebookEditorLayout";
 import { MEDIUM_CONFIG, resolveMedium } from "@/shared/lib/mediums";
 import type { PageListItem } from "@/features/pages/pages.types";
+import { getServerSession } from "@/shared/utils/session";
 
 interface PageEditorRouteProps {
   params: Promise<{ id: string; pageId: string }>;
@@ -15,7 +14,7 @@ interface PageEditorRouteProps {
 
 export default async function PageEditorRoute({ params }: PageEditorRouteProps) {
   const { id: systemId, pageId } = await params;
-  const session = await auth.api.getSession({ headers: await headers() });
+  const session = await getServerSession();
 
   if (!session) redirect("/login");
 
