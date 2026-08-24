@@ -2,9 +2,10 @@
  * Único punto de salida de correo de la app. Habla con la API REST de Resend
  * directamente (un solo POST) en vez de cargar un SDK para un endpoint.
  *
- * Sin `RESEND_API_KEY`: en producción falla en alto para que el error se vea;
- * en desarrollo imprime el correo en consola, así los flujos de recuperación
- * y verificación se pueden ejercitar sin cuenta del proveedor.
+ * Sin `RESEND_API_KEY` el correo no sale pero el flujo que lo pidió sigue:
+ * en desarrollo se imprime completo en consola para poder ejercitar
+ * recuperación y verificación sin cuenta del proveedor; en producción se
+ * deja un aviso en el log, así un registro nunca falla por falta de proveedor.
  */
 
 export interface EmailMessage {
@@ -25,7 +26,10 @@ export async function sendEmail(message: EmailMessage): Promise<void> {
 
   if (!apiKey) {
     if (process.env.NODE_ENV === "production") {
-      throw new Error("RESEND_API_KEY no está configurada: el correo no puede salir");
+      console.warn(
+        `[email] RESEND_API_KEY no está configurada: correo omitido to=${message.to} subject="${message.subject}"`,
+      );
+      return;
     }
     console.info(
       `[email:dev] to=${message.to} subject="${message.subject}"\n${message.text}`,
