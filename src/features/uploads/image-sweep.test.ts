@@ -1,5 +1,11 @@
 import { describe, it, expect, vi } from "vitest";
-import { selectOrphans, sweepUserImages, toBlobKey, DEFAULT_GRACE_MS } from "./image-sweep";
+import {
+  selectOrphans,
+  sweepUserImages,
+  toBlobKey,
+  deleteAllUserImages,
+  DEFAULT_GRACE_MS,
+} from "./image-sweep";
 import type { ImageStorage, StoredBlob } from "./image-storage";
 
 const NOW = new Date("2026-08-06T12:00:00Z").getTime();
@@ -316,5 +322,44 @@ describe("sweepUserImages", () => {
 
     expect(spy).toHaveBeenCalledTimes(3);
     expect(spy.mock.calls.every((call) => call[0].length <= 100)).toBe(true);
+  });
+});
+
+describe("deleteAllUserImages", () => {
+  /** Store con páginas fijas: lo que se borra no mueve el cursor de la siguiente. */
+  function pagedStorage(total: number, pageSize: number) {
+    const all = Array.from({ length: total }, (_, i) => blob(`img-${i}.webp`, DAYS));
+    const deleteMany = vi.fn<ImageStorage["deleteMany"]>(async () => {});
+    const storage: ImageStorage = {
+      upload: vi.fn(),
+      delete: vi.fn(),
+      owns: (url) => url.startsWith(HOST),
+      download: vi.fn(),
+      list: async ({ cursor }) => {
+        const start = cursor ? Number(cursor) : 0;
+        const next = start + pageSize;
+        return { blobs: all.slice(start, next), cursor: next < all.length ? String(next) : undefined };
+      },
+      deleteMany,
+    };
+    return { storage, deleteMany, all };
+  }
+
+  it("recorre todas las páginas y borra en lotes", async () => {
+    const { storage, deleteMany, all } = pagedStorage(250, 100);
+
+    const deleted = await deleteAllUserImages(storage, "user-1");
+
+    expect(deleted).toBe(250);
+    expect(deleteMany).toHaveBeenCalledTimes(3);
+    const borradas = deleteMany.mock.calls.flatMap(([urls]) => urls);
+    expect(new Set(borradas)).toEqual(new Set(all.map((b) => b.url)));
+  });
+
+  it("con el store vacío no borra nada", async () => {
+    const { storage, deleteMany } = pagedStorage(0, 100);
+
+    expect(await deleteAllUserImages(storage, "user-1")).toBe(0);
+    expect(deleteMany).not.toHaveBeenCalled();
   });
 });

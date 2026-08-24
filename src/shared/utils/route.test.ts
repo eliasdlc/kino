@@ -363,3 +363,27 @@ describe('route() · scopes', () => {
     expect(handler).not.toHaveBeenCalled();
   });
 });
+
+describe('route() · sessionOnly', () => {
+  it('rechaza con 403 una credencial que no es la sesión del navegador', async () => {
+    // Una clave API válida del mismo usuario: identidad sí, sesión no.
+    getAuthContext.mockResolvedValue({ userId: USER_ID, scopes: OWNER });
+    const handler = vi.fn();
+
+    const res = await route()({ sessionOnly: true }, handler)(req(), EMPTY_CTX);
+
+    expect(res.status).toBe(403);
+    await expect(res.json()).resolves.toMatchObject({ code: 'SESSION_REQUIRED' });
+    expect(handler).not.toHaveBeenCalled();
+  });
+
+  it('entrega el sessionId al handler cuando la sesión existe', async () => {
+    getAuthContext.mockResolvedValue({ userId: USER_ID, scopes: OWNER, sessionId: 'sess-1' });
+    const handler = vi.fn(({ sessionId }) => NextResponse.json({ sessionId }));
+
+    const res = await route()({ sessionOnly: true }, handler)(req(), EMPTY_CTX);
+
+    expect(res.status).toBe(200);
+    await expect(res.json()).resolves.toEqual({ sessionId: 'sess-1' });
+  });
+});

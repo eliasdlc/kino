@@ -12,6 +12,12 @@ export interface AuthContext {
    * comprobarlos.
    */
   scopes: AuthScopes;
+  /**
+   * Sesión de navegador que autenticó el request. Ausente cuando entró con una
+   * clave API o un token OAuth: es lo que permite a una ruta exigir "sólo
+   * desde el navegador" para lo que toca credenciales.
+   */
+  sessionId?: string;
 }
 
 export async function getAuthContext(request: NextRequest): Promise<AuthContext | null> {
@@ -28,5 +34,7 @@ export async function getAuthContext(request: NextRequest): Promise<AuthContext 
     return claims ? { userId: claims.userId, scopes: { kind: 'oauth', granted: claims.scopes } } : null;
   }
   const session = await getServerSession();
-  return session ? { userId: session.user.id, scopes: OWNER } : null;
+  return session
+    ? { userId: session.user.id, scopes: OWNER, sessionId: session.session.id }
+    : null;
 }
