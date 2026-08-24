@@ -17,7 +17,7 @@ pnpm build                          # Build de producción
 pnpm lint                           # ESLint strict — debe pasar con 0 errores
 pnpm typecheck                      # tsc --noEmit — debe pasar
 pnpm db:generate                    # drizzle-kit generate (migraciones)
-pnpm db:migrate                     # Aplicar migraciones
+pnpm db:migrate                     # Aplicar migraciones a la base de DATABASE_URL (local: rama de desarrollo)
 pnpm db:studio                      # Drizzle Studio
 pnpm test                           # Suite completa
 pnpm test -- --run <path>           # Un solo archivo de test
@@ -53,7 +53,21 @@ pnpm test -- --run <path>           # Un solo archivo de test
 7. **Timestamps en UTC** (TIMESTAMPTZ). El frontend convierte para mostrar.
 8. **Soft delete** en tasks y pages vía `deleted_at`. Siempre filtrar con `WHERE deleted_at IS NULL`.
 
-**Dato de operación crítico:** development y production **comparten la misma base Neon**. No hay branch de datos: `pnpm db:migrate` desde local escribe en producción. Toda migración debe ser compatible hacia atrás con el código ya desplegado.
+## Entornos y base de datos
+
+Producción y desarrollo son **dos ramas de Neon** con cadenas de conexión distintas. Ninguna laptop tiene la de producción.
+
+| Entorno | Quién la usa | `DATABASE_URL` |
+|---|---|---|
+| Producción | el deploy de `main` en Vercel | variable **Production** de Vercel, y en ningún otro sitio |
+| Desarrollo | los previews de Vercel (PRs y `dev`) y el `.env.local` de cada máquina | rama de desarrollo de Neon: variable **Preview** de Vercel y `.env.local` |
+| Local aislado | `docker compose up -d` y la batería de aislamiento (`pnpm test:isolation`, que hace `TRUNCATE`) | `postgresql://kino:kino_dev_password@localhost:5433/kino` |
+
+**Las migraciones a producción las aplica sólo el despliegue.** El `buildCommand` de `vercel.json` corre `pnpm db:migrate` antes de `next build` con la variable del entorno que está construyendo: un preview migra la rama de desarrollo y el deploy de `main` migra producción. Si la migración falla, el build falla y el deploy anterior sigue arriba; el código nunca sale sin su schema. `pnpm db:migrate` desde local sólo llega a la base de `.env.local`.
+
+Toda migración sigue teniendo que ser **compatible hacia atrás** con el código ya desplegado: el build migra antes de publicar, y entre una cosa y la otra el código viejo lee el schema nuevo.
+
+Las variables de entorno están documentadas en **`.env.example`**, una línea por clave con para qué sirve y si es obligatoria. Toda variable nueva se añade ahí en el mismo commit que la lee.
 
 ## Estructura — vertical slice
 
@@ -147,7 +161,7 @@ Lo mismo para los mediums de escritura en `src/shared/lib/mediums.ts`. Ojo: el m
 - **Commits**: Conventional Commits, atómicos, **sin trailers de atribución a IA**.
 - Las ramas completadas son registro histórico: **no se borran**.
 - Antes de un PR: `pnpm typecheck && pnpm lint && pnpm test`.
-- Nunca commitear `.env` ni secretos.
+- Nunca commitear `.env` ni secretos. `.env.example` es el único `.env` versionado y no lleva valores reales.
 
 ## Definition of Done
 
@@ -184,12 +198,4 @@ Un sistema `project` puede declarar un repositorio en `systems.metadata.github` 
 - **Columnas**: issue cerrado → columna terminal (que completa la tarea por el puente de `moveTaskBoard`); reabierto → sale de la terminal. Las columnas intermedias las mueve la persona y la sincronización no las toca.
 - **Refresco**: bajo demanda al abrir el board o con el botón. Sin cron — la única entrada de `vercel.json` del free tier está ocupada.
 
-Variables de entorno que necesita:
-
-```bash
-ENCRYPTION_KEY            # 32 bytes en base64: openssl rand -base64 32
-GITHUB_SYNC_CLIENT_ID     # OAuth App propio, distinto del de login
-GITHUB_SYNC_CLIENT_SECRET # callback: <NEXT_PUBLIC_APP_URL>/api/integrations/github/callback
-```
-
-Son un OAuth App aparte del login porque GitHub sólo admite **una** URL de callback por app y esa ya la ocupa Better Auth, y porque leer issues privados exige el scope `repo`. Sin estas variables la integración se oculta sola: no rompe nada, simplemente no aparece.
+Necesita `GITHUB_SYNC_CLIENT_ID`, `GITHUB_SYNC_CLIENT_SECRET` y `ENCRYPTION_KEY` (ver `.env.example`). Son un OAuth App aparte del login porque GitHub sólo admite **una** URL de callback por app y esa ya la ocupa Better Auth, y porque leer issues privados exige el scope `repo`. Sin estas variables la integración se oculta sola: no rompe nada, simplemente no aparece.
