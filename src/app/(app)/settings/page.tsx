@@ -12,7 +12,7 @@ import {
 } from "@/components/ui/select";
 import { useThemeStore } from "@/components/ThemeProvider";
 import { Separator } from "@/components/ui/separator";
-import { Bell, BellOff, Download, Loader2, LogOut, Monitor, Moon, Sun } from "lucide-react";
+import { Bell, BellOff, Download, Loader2, Monitor, Moon, Sun } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 import { usePushNotifications } from "@/features/notifications/notifications.hooks";
@@ -22,13 +22,15 @@ import { EnergyLimitSection } from "@/features/settings/EnergyLimitSection";
 import { TimezoneSection } from "@/features/settings/TimezoneSection";
 import { WeeklyReviewDaySection } from "@/features/settings/WeeklyReviewDaySection";
 import { ReclaimSpaceSection } from "@/features/uploads/ReclaimSpaceSection";
+import { AccountSection } from "@/features/account/AccountSection";
+import { EmailChangeResult } from "@/features/account/EmailChangeResult";
+import { SessionsSection } from "@/features/account/SessionsSection";
+import { DangerZoneSection } from "@/features/account/DangerZoneSection";
 import {
   useUserSettings,
   useUpdateUserSettings,
   useExportWorkspace,
 } from "@/features/settings/settings.hooks";
-import { authClient } from "@/auth-client";
-import { useRouter } from "next/navigation";
 
 import { Kbd } from "@/components/ui/kbd";
 
@@ -59,19 +61,12 @@ export default function SettingsPage() {
   const { data: settings } = useUserSettings();
   const { mutate: updateSettings } = useUpdateUserSettings();
   const exportWorkspace = useExportWorkspace();
-  const { data: session } = authClient.useSession();
-  const router = useRouter();
 
   // Cambiar el tema aplica al instante (store + localStorage) y lo persiste en
   // la cuenta para que viaje entre dispositivos.
   function handleThemeChange(next: "light" | "dark" | "system") {
     setMode(next);
     updateSettings({ theme: next });
-  }
-
-  async function handleSignOut() {
-    await authClient.signOut();
-    router.push("/login");
   }
 
   const notificationsEnabled = settings?.notificationsEnabled ?? true;
@@ -86,35 +81,16 @@ export default function SettingsPage() {
       <Separator />
 
       <div className="space-y-8 pb-10">
-        {/* Cuenta */}
-        <div className="space-y-4">
-          <div>
-            <h2 className="text-lg font-semibold">Cuenta</h2>
-            <p className="text-sm text-muted-foreground">
-              La sesión con la que entras a Kino.
-            </p>
-          </div>
+        {/* Cuenta: nombre, correo, contraseña y cierre de sesión. El resultado
+            del cambio de correo llega por la URL y necesita su propio límite
+            de Suspense. */}
+        <Suspense>
+          <EmailChangeResult />
+        </Suspense>
+        <AccountSection />
 
-          <div className="flex items-center justify-between gap-4 rounded-lg border p-4">
-            <div className="min-w-0 space-y-0.5">
-              <p className="text-sm font-medium truncate">
-                {session?.user.name ?? "Tu cuenta"}
-              </p>
-              <p className="text-xs text-muted-foreground truncate">
-                {session?.user.email ?? "—"}
-              </p>
-            </div>
-            <Button
-              variant="outline"
-              size="sm"
-              className="gap-2 shrink-0"
-              onClick={handleSignOut}
-            >
-              <LogOut className="size-4" />
-              Cerrar sesión
-            </Button>
-          </div>
-        </div>
+        {/* Sesiones abiertas en otros dispositivos */}
+        <SessionsSection />
 
         {/* Appearance */}
         <div className="space-y-4">
@@ -336,6 +312,9 @@ export default function SettingsPage() {
 
           <ReclaimSpaceSection />
         </div>
+
+        {/* Va al final, después de la exportación: es el orden natural de irse. */}
+        <DangerZoneSection />
       </div>
     </PageWrapper>
   );

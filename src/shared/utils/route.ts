@@ -34,7 +34,12 @@ function scopeForMethod(method: string): KinoScope {
 
 type RouteParams = Record<string, string>;
 
-export interface RouteConfig<TBody, TQuery, TParams extends RouteParams> {
+export interface RouteConfig<
+  TBody,
+  TQuery,
+  TParams extends RouteParams,
+  TSessionOnly extends boolean = false,
+> {
   /** Schema del body JSON. Si se omite, el body no se lee ni se valida. */
   body?: z.ZodType<TBody>;
   /** Schema de los search params, recibidos como objeto plano de strings. */
@@ -51,10 +56,24 @@ export interface RouteConfig<TBody, TQuery, TParams extends RouteParams> {
    * sería mentir sobre lo que hace la ruta.
    */
   requiredScope?: KinoScope;
+  /**
+   * Exige la sesión del navegador: una clave API o un token OAuth del MCP
+   * recibe 403 aunque pertenezcan al mismo usuario. Es para lo que cambia
+   * credenciales, cierra sesiones o borra la cuenta, donde un token filtrado
+   * no debe bastar.
+   */
+  sessionOnly?: TSessionOnly;
 }
 
-export interface RouteHandlerArgs<TBody, TQuery, TParams extends RouteParams> {
+export interface RouteHandlerArgs<
+  TBody,
+  TQuery,
+  TParams extends RouteParams,
+  TSessionOnly extends boolean = false,
+> {
   userId: string;
+  /** Id de la sesión de navegador. Garantizado sólo con `sessionOnly`. */
+  sessionId: TSessionOnly extends true ? string : string | undefined;
   body: TBody;
   query: TQuery;
   params: TParams;
@@ -105,9 +124,15 @@ function mapError(error: unknown): NextResponse {
  * Rutas sin params: `route()({ … }, handler)`.
  */
 export function route<TParams extends RouteParams = RouteParams>() {
-  return function withConfig<TBody = undefined, TQuery = undefined>(
-    config: RouteConfig<TBody, TQuery, TParams>,
-    handler: (args: RouteHandlerArgs<TBody, TQuery, TParams>) => Promise<Response> | Response,
+  return function withConfig<
+    TBody = undefined,
+    TQuery = undefined,
+    TSessionOnly extends boolean = false,
+  >(
+    config: RouteConfig<TBody, TQuery, TParams, TSessionOnly>,
+    handler: (
+      args: RouteHandlerArgs<TBody, TQuery, TParams, TSessionOnly>,
+    ) => Promise<Response> | Response,
   ) {
     // Ni `context` ni `params` llevan `?`: Next 16 genera para cada ruta un tipo
     // que exige que el segundo parámetro acepte su `RouteContext`, y un
@@ -135,6 +160,22 @@ export function route<TParams extends RouteParams = RouteParams>() {
         );
       }
 
+      if (config.sessionOnly && !auth.sessionId) {
+        return NextResponse.json(
+          {
+            code: 'SESSION_REQUIRED',
+            message: 'Esta acción sólo se puede hacer desde la sesión del navegador',
+          },
+          { status: 403 },
+        );
+      }
+      const sessionId = auth.sessionId as RouteHandlerArgs<
+        TBody,
+        TQuery,
+        TParams,
+        TSessionOnly
+      >['sessionId'];
+
       const params = ((await context?.params) ?? {}) as TParams;
 
       let body = undefined as TBody;
@@ -160,7 +201,7 @@ export function route<TParams extends RouteParams = RouteParams>() {
       }
 
       try {
-        return await handler({ userId: auth.userId, body, query, params, request });
+        return await handler({ userId: auth.userId, sessionId, body, query, params, request });
       } catch (error) {
         return mapError(error);
       }

@@ -202,3 +202,27 @@ function isImplausible(
   if (result.scanned === 0 || result.keptReferenced > 0) return false;
   return [...referenced].some((url) => storage.owns(url));
 }
+
+/**
+ * Borra todo lo que el usuario tiene en el store, sin mirar referencias: es el
+ * barrido del borrado de cuenta, donde ya no va a quedar contenido que las
+ * sostenga. Se lista entero antes de borrar para no depender de cómo se
+ * comporte el cursor del store cuando desaparecen entradas a mitad del listado.
+ * Devuelve cuántos blobs se fueron.
+ */
+export async function deleteAllUserImages(storage: ImageStorage, userId: string): Promise<number> {
+  const prefix = userKeyPrefix(userId);
+  const urls: string[] = [];
+  let cursor: string | undefined;
+
+  do {
+    const page = await storage.list({ prefix, cursor });
+    urls.push(...page.blobs.map((b) => b.url));
+    cursor = page.cursor;
+  } while (cursor);
+
+  for (let i = 0; i < urls.length; i += DELETE_BATCH) {
+    await storage.deleteMany(urls.slice(i, i + DELETE_BATCH));
+  }
+  return urls.length;
+}

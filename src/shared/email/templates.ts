@@ -93,3 +93,16 @@ export function verifyEmailEmail(to: string, url: string): EmailMessage {
       "El enlace caduca en una hora; desde la app puedes pedir otro. Si no creaste una cuenta en Kino, ignora este correo.",
   });
 }
+
+export function changeEmailEmail(to: string, url: string): EmailMessage {
+  return render(to, {
+    subject: "Confirma tu correo nuevo en Kino",
+    heading: "Confirma tu correo nuevo",
+    intro:
+      "Pediste cambiar el correo de tu cuenta de Kino a esta dirección. El cambio se aplica al confirmarlo; hasta entonces sigues entrando con el correo anterior.",
+    ctaLabel: "Confirmar correo nuevo",
+    url,
+    footnote:
+      "El enlace caduca en una hora. Si no pediste este cambio, ignora este correo: tu cuenta sigue con el correo de siempre.",
+  });
+}

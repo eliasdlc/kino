@@ -6,7 +6,8 @@ import { db } from "./src/shared/db";
 import * as schema from "./src/shared/db/schema";
 import { KINO_READ, KINO_WRITE } from "@/shared/lib/scopes";
 import { sendEmail } from "@/shared/email/send";
-import { resetPasswordEmail, verifyEmailEmail } from "@/shared/email/templates";
+import { changeEmailEmail, resetPasswordEmail, verifyEmailEmail } from "@/shared/email/templates";
+import { emailChangeTarget } from "@/shared/email/verification-intent";
 
 const APP_URL = process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000";
 
@@ -64,6 +65,11 @@ export const auth = betterAuth({
       // nunca se implementó) hace fallar la creación de usuarios entera, o sea
       // todo el registro. No añadir aquí nada que no esté en schema.ts.
     },
+    // El correo cambia cuando la dirección nueva confirma el enlace; hasta
+    // entonces la cuenta sigue con la anterior. No se avisa a la vieja: quien
+    // tiene la sesión ya demostró ser el dueño, y una dirección que se perdió
+    // (por eso se cambia) no recibiría el aviso de todas formas.
+    changeEmail: { enabled: true },
   },
 
   session: {
@@ -94,8 +100,13 @@ export const auth = betterAuth({
   // persistente vive en el layout de la app y desaparece al confirmar. Google
   // y GitHub llegan con el correo ya verificado por el proveedor.
   emailVerification: {
-    sendVerificationEmail: async ({ user, url }) => {
-      await sendEmail(verifyEmailEmail(user.email, url));
+    // El mismo hook cubre el alta y el cambio de correo; el token dice cuál es
+    // y en ambos casos `user.email` ya es la dirección a la que hay que escribir.
+    sendVerificationEmail: async ({ user, url, token }) => {
+      const message = emailChangeTarget(token)
+        ? changeEmailEmail(user.email, url)
+        : verifyEmailEmail(user.email, url);
+      await sendEmail(message);
     },
     sendOnSignUp: true,
     autoSignInAfterVerification: true,

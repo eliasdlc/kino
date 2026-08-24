@@ -104,6 +104,8 @@ La referencia canónica vive en `src/features/tasks/tasks.hooks.ts` (Rumbo 05). 
 
 Una sola fuente Zod por entidad, importada por servidor y cliente. El backend **siempre** valida aunque el cliente ya lo hizo. `userId` **siempre** viene de la sesión, nunca del body. Los `metadata` jsonb se validan con Zod discriminado por `systemType` — metadata no es un saco.
 
+Las rutas que tocan credenciales o borran la cuenta (`/api/account/*`) llevan `sessionOnly: true` en `route()`: sólo la sesión del navegador, nunca una clave API ni un token OAuth del MCP, aunque sean del mismo usuario.
+
 ### Estado
 
 | Tipo | Herramienta |

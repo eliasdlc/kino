@@ -45,6 +45,8 @@ export function AuthForm({ mode }: { mode: "login" | "register" }) {
   const para = identityFromLandingSlug(paraSlug) ? paraSlug : null;
   // Viene de /reset-password tras cambiar la contraseña con éxito.
   const resetDone = searchParams.get("reset") === "1";
+  // Viene de Ajustes tras borrar la cuenta.
+  const accountDeleted = searchParams.get("deleted") === "1";
   const afterSignup = para ? `/onboarding?para=${encodeURIComponent(para)}` : "/dashboard";
   const withPara = (href: string) => (para ? `${href}?para=${encodeURIComponent(para)}` : href);
 
@@ -127,6 +129,11 @@ export function AuthForm({ mode }: { mode: "login" | "register" }) {
         {isLogin && resetDone && (
           <p className="mb-[18px] rounded-[10px] border border-[#34d399]/20 bg-[#34d399]/[0.08] px-3 py-[9px] text-[13px] text-[#34d399]">
             Contraseña cambiada. Entra con la nueva.
+          </p>
+        )}
+        {isLogin && accountDeleted && (
+          <p className="mb-[18px] rounded-[10px] border border-white/10 bg-white/[0.04] px-3 py-[9px] text-[13px] text-[#d4d4d8]">
+            Tu cuenta y todos sus datos se borraron. Gracias por probar Kino.
           </p>
         )}
         <div className="mb-[22px] flex gap-1 rounded-xl border border-white/[0.07] bg-white/[0.04] p-1">
