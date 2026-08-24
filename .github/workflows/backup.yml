@@ -1,0 +1,63 @@
+name: Respaldo de producción
+
+# Volcado diario de la base de producción a Cloudflare R2, cifrado con age.
+# Neon Free sólo guarda 6 horas de historial: sin esto, un borrado que se
+# descubre al día siguiente ya no tiene vuelta. Restaurar: scripts/backup/restore.sh.
+#
+# Secretos del repo: BACKUP_DATABASE_URL (cadena DIRECTA de producción, sin
+# -pooler), BACKUP_AGE_RECIPIENT (clave pública age1...), R2_ACCOUNT_ID,
+# R2_ACCESS_KEY_ID, R2_SECRET_ACCESS_KEY, R2_BUCKET. Sin ellos el job falla en
+# rojo a propósito: un respaldo que se salta en silencio no es un respaldo.
+
+on:
+  schedule:
+    - cron: "0 5 * * *"
+  workflow_dispatch:
+
+concurrency:
+  group: backup
+  cancel-in-progress: false
+
+jobs:
+  dump:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - uses: actions/checkout@v5
+
+      # Producción corre Postgres 17 y pg_dump tiene que ser igual o más nuevo;
+      # el cliente que trae Ubuntu es el 16.
+      - name: Instalar pg_dump 17 y age
+        run: |
+          sudo install -d /usr/share/postgresql-common/pgdg
+          sudo curl -fsSo /usr/share/postgresql-common/pgdg/apt.postgresql.org.asc https://www.postgresql.org/media/keys/ACCC4CF8.asc
+          echo "deb [signed-by=/usr/share/postgresql-common/pgdg/apt.postgresql.org.asc] https://apt.postgresql.org/pub/repos/apt $(lsb_release -cs)-pgdg main" | sudo tee /etc/apt/sources.list.d/pgdg.list
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq postgresql-client-17 age
+          pg_dump --version && age --version
+
+      - name: Volcar y cifrar
+        env:
+          DATABASE_URL: ${{ secrets.BACKUP_DATABASE_URL }}
+          BACKUP_AGE_RECIPIENT: ${{ secrets.BACKUP_AGE_RECIPIENT }}
+        run: |
+          mkdir -p out
+          scripts/backup/dump.sh out | tee dump.log
+
+      # R2 habla S3; la CLI de AWS ya viene en el runner. La retención (borrar
+      # lo de más de 30 días) es una regla de ciclo de vida del bucket, no
+      # lógica de aquí.
+      - name: Subir a R2
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+          AWS_DEFAULT_REGION: auto
+          AWS_REQUEST_CHECKSUM_CALCULATION: when_required
+          AWS_RESPONSE_CHECKSUM_VALIDATION: when_required
+          R2_ENDPOINT: https://${{ secrets.R2_ACCOUNT_ID }}.r2.cloudflarestorage.com
+          R2_BUCKET: ${{ secrets.R2_BUCKET }}
+        run: |
+          : "${R2_BUCKET:?Falta el secreto R2_BUCKET}"
+          aws s3 cp out/ "s3://$R2_BUCKET/" --recursive --endpoint-url "$R2_ENDPOINT"
+          aws s3 ls "s3://$R2_BUCKET/" --endpoint-url "$R2_ENDPOINT" | tail -n 5

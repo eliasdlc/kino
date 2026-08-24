@@ -67,6 +67,8 @@ Producción y desarrollo son **dos ramas de Neon** con cadenas de conexión dist
 
 Toda migración sigue teniendo que ser **compatible hacia atrás** con el código ya desplegado: el build migra antes de publicar, y entre una cosa y la otra el código viejo lee el schema nuevo.
 
+**Respaldo.** Neon Free guarda 6 horas de historial y nada más. Por eso `.github/workflows/backup.yml` vuelca producción a diario (05:00 UTC) a un bucket de Cloudflare R2: `pg_dump -Fc` cifrado con `age`, en `scripts/backup/dump.sh`. La clave privada no está en ningún servicio: vive en el gestor de contraseñas de Elias, y sin ella el volcado es ruido. Restaurar es `scripts/backup/restore.sh <archivo.dump.age>` contra la base destino y `scripts/backup/verify.sh` sobre origen y destino para hacer `diff`; ensayado contra una base de 12 MB: 8 s de volcado, 3 s de restauración. La base de producción cabe en el runner: si alguna vez el volcado supera lo que R2 regala (10 GB), es una decisión, no un ajuste.
+
 Las variables de entorno están documentadas en **`.env.example`**, una línea por clave con para qué sirve y si es obligatoria. Toda variable nueva se añade ahí en el mismo commit que la lee.
 
 ## Estructura — vertical slice
