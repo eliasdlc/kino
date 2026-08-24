@@ -32,6 +32,7 @@ pnpm test -- --run <path>           # Un solo archivo de test
 - **ORM**: Drizzle
 - **Base de datos**: PostgreSQL (Neon) con `uuid-ossp` y `ltree`
 - **Auth**: Better Auth — sesiones stateful en Postgres, cookies HttpOnly, **sin JWT**
+- **Email transaccional**: Resend por API REST (`src/shared/email`, sin SDK). `RESEND_API_KEY` + `EMAIL_FROM`; sin la key, el correo se omite sin romper el flujo: en dev se imprime en consola y en producción queda un aviso en el log
 - **Server state**: TanStack Query v5
 - **Formularios**: react-hook-form + zodResolver
 - **Estilos**: Tailwind + shadcn/ui (Radix)
