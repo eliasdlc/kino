@@ -5,6 +5,8 @@ import { oauthProvider } from "@better-auth/oauth-provider";
 import { db } from "./src/shared/db";
 import * as schema from "./src/shared/db/schema";
 import { KINO_READ, KINO_WRITE } from "@/shared/lib/scopes";
+import { sendEmail } from "@/shared/email/send";
+import { resetPasswordEmail, verifyEmailEmail } from "@/shared/email/templates";
 
 const APP_URL = process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000";
 
@@ -80,6 +82,23 @@ export const auth = betterAuth({
 
   emailAndPassword: {
     enabled: true,
+    sendResetPassword: async ({ user, url }) => {
+      await sendEmail(resetPasswordEmail(user.email, url));
+    },
+    // La contraseña cambió porque la anterior se perdió o se filtró: cualquier
+    // sesión que siguiera abierta con ella deja de valer.
+    revokeSessionsOnPasswordReset: true,
+  },
+
+  // Verificar no bloquea nada: la cuenta entra y usa Kino completa. El aviso
+  // persistente vive en el layout de la app y desaparece al confirmar. Google
+  // y GitHub llegan con el correo ya verificado por el proveedor.
+  emailVerification: {
+    sendVerificationEmail: async ({ user, url }) => {
+      await sendEmail(verifyEmailEmail(user.email, url));
+    },
+    sendOnSignUp: true,
+    autoSignInAfterVerification: true,
   },
 
   socialProviders: {

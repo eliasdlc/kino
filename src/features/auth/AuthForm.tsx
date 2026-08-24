@@ -7,9 +7,7 @@ import { authClient } from "@/shared/lib/auth-client";
 import { useHydrated } from "@/shared/hooks/useHydrated";
 import { GoogleIcon, GitHubIcon } from "@/shared/components/OAuthIcons";
 import { identityFromLandingSlug } from "@/features/onboarding/onboarding.archetypes";
-
-const inputClass =
-  "w-full rounded-[11px] border border-white/10 bg-white/[0.04] px-3.5 py-3 text-[15px] text-[#f4f4f5] outline-none transition focus:border-[#818cf8]/60 focus:shadow-[0_0_0_3px_rgba(99,102,241,0.15)] placeholder:text-[#52525b]";
+import { inputClass, cardClass, submitClass, errorClass } from "./form-styles";
 
 const COPY = {
   login: {
@@ -45,6 +43,8 @@ export function AuthForm({ mode }: { mode: "login" | "register" }) {
   // — un slug inventado no se propaga.
   const paraSlug = searchParams.get("para");
   const para = identityFromLandingSlug(paraSlug) ? paraSlug : null;
+  // Viene de /reset-password tras cambiar la contraseña con éxito.
+  const resetDone = searchParams.get("reset") === "1";
   const afterSignup = para ? `/onboarding?para=${encodeURIComponent(para)}` : "/dashboard";
   const withPara = (href: string) => (para ? `${href}?para=${encodeURIComponent(para)}` : href);
 
@@ -80,7 +80,14 @@ export function AuthForm({ mode }: { mode: "login" | "register" }) {
       return;
     }
 
-    const { error } = await authClient.signUp.email({ name, email, password });
+    // El callbackURL viaja en el correo de verificación: al pulsar el enlace
+    // se aterriza dentro de la app, no en el marketing.
+    const { error } = await authClient.signUp.email({
+      name,
+      email,
+      password,
+      callbackURL: "/dashboard",
+    });
     if (error) {
       setError(error.message ?? "No se pudo crear la cuenta");
       setLoading(false);
@@ -116,7 +123,12 @@ export function AuthForm({ mode }: { mode: "login" | "register" }) {
         <p className="text-[15px] text-[#6b6b74]">{copy.subheading}</p>
       </div>
 
-      <div className="rounded-[20px] border border-white/[0.09] bg-[#18181c] p-[26px] shadow-[0_24px_80px_rgba(0,0,0,0.5)]">
+      <div className={cardClass}>
+        {isLogin && resetDone && (
+          <p className="mb-[18px] rounded-[10px] border border-[#34d399]/20 bg-[#34d399]/[0.08] px-3 py-[9px] text-[13px] text-[#34d399]">
+            Contraseña cambiada. Entra con la nueva.
+          </p>
+        )}
         <div className="mb-[22px] flex gap-1 rounded-xl border border-white/[0.07] bg-white/[0.04] p-1">
           <Tab href={withPara("/login")} active={isLogin}>
             Entrar
@@ -178,17 +190,18 @@ export function AuthForm({ mode }: { mode: "login" | "register" }) {
             />
           </Field>
 
-          {error && (
-            <p className="rounded-[10px] border border-[#f87171]/20 bg-[#f87171]/[0.08] px-3 py-[9px] text-[13px] text-[#f87171]">
-              {error}
-            </p>
+          {isLogin && (
+            <Link
+              href="/forgot-password"
+              className="-mt-1.5 self-end text-[12.5px] text-[#818cf8] transition-colors hover:text-[#a5b4fc]"
+            >
+              ¿Olvidaste tu contraseña?
+            </Link>
           )}
 
-          <button
-            type="submit"
-            disabled={busy}
-            className="mt-1 cursor-pointer rounded-xl bg-[#818cf8] py-3 text-[15px] font-semibold text-[#0e0e11] transition-colors hover:bg-[#a5b4fc] disabled:opacity-60"
-          >
+          {error && <p className={errorClass}>{error}</p>}
+
+          <button type="submit" disabled={busy} className={submitClass}>
             {loading ? copy.loading : copy.submit}
           </button>
         </form>

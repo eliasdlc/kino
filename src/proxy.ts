@@ -68,6 +68,9 @@ export async function proxy(request: NextRequest) {
     // instalación entera). No lleva datos de usuario: es una shell estática.
     pathname === "/offline" ||
     pathname.startsWith("/register") ||
+    // Recuperación de contraseña: quien llega aquí no tiene sesión por definición.
+    pathname.startsWith("/forgot-password") ||
+    pathname.startsWith("/reset-password") ||
     pathname.startsWith("/api/auth") ||
     pathname.startsWith("/api/cron/") ||
     // The remote MCP connector authenticates itself via OAuth 2.1 inside the
