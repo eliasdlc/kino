@@ -3,7 +3,7 @@ import path from "path";
 
 /**
  * La batería de integración, aparte de `pnpm test` a propósito: aquélla mockea
- * `@/shared/db` en 84 de 85 archivos y ésta es justo la que no puede.
+ * `@/shared/db` en casi todos sus archivos y ésta es justo la que no puede.
  *
  * La base la levanta `src/shared/db/testing/setup.ts`, una por archivo. Sin
  * `TEST_DATABASE_URL` es PGlite en memoria y los archivos corren en paralelo,
