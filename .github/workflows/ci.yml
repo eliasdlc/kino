@@ -44,12 +44,12 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 15
 
-    # La batería de KIN-190 sí necesita base, y una de verdad: con `db` mockeado
-    # sólo se comprobaría que la consulta lleva el filtro, no que Postgres lo
-    # respete. Es la misma imagen que levanta docker-compose en local.
+    # Esta batería sí necesita base, y una de verdad: con `db` mockeado sólo se
+    # comprobaría que la consulta lleva el filtro, no que Postgres lo respete.
+    # La versión sigue a producción y a docker-compose: los tres en 17.
     services:
       postgres:
-        image: postgres:15-alpine
+        image: postgres:17-alpine
         env:
           POSTGRES_USER: kino
           POSTGRES_PASSWORD: kino_dev_password
