@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 import { getAuthContext } from '@/shared/utils/auth-context';
-import { allowsScope, KINO_READ, KINO_WRITE, type KinoScope } from '@/shared/lib/scopes';
+import { allowsScope, scopeForMethod, type KinoScope } from '@/shared/lib/scopes';
 import { ForbiddenError, NotFoundError, ValidationError } from '@/shared/utils/error';
 
 /**
@@ -19,18 +19,6 @@ import { ForbiddenError, NotFoundError, ValidationError } from '@/shared/utils/e
  */
 
 const UNAUTHORIZED = { code: 'UNAUTHORIZED', message: 'Unauthorized' };
-
-/**
- * El scope que exige una ruta sale del método, no de una anotación por ruta.
- * Anotar cien handlers a mano es cien sitios donde olvidarlo; derivarlo del
- * verbo acierta por defecto y deja `requiredScope` para las excepciones, que
- * son los POST que en realidad sólo leen.
- */
-const WRITE_METHODS = new Set(['POST', 'PUT', 'PATCH', 'DELETE']);
-
-function scopeForMethod(method: string): KinoScope {
-  return WRITE_METHODS.has(method.toUpperCase()) ? KINO_WRITE : KINO_READ;
-}
 
 type RouteParams = Record<string, string>;
 
