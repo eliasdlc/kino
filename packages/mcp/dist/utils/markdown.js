@@ -2,11 +2,19 @@ import { marked } from 'marked';
 /**
  * Convierte un string markdown a HTML compatible con el editor TipTap
  * del cliente. La salida se almacena tal cual en la columna `content`
- * de pages — TipTap parsea el HTML al cargar la página.
+ * de pages, que se valida como `z.string()`: cualquier HTML pasa.
  *
- * El render en el cliente pasa por el parser de ProseMirror, que descarta
- * nodos fuera del schema (script, iframe, handlers), actuando como
- * sanitizador implícito. No se inyecta HTML crudo con dangerouslySetInnerHTML.
+ * **Esto no sanea nada.** `marked` corre con su configuración por defecto y
+ * no filtra `script`, `iframe` ni handlers inline. Que el editor cargue el
+ * contenido por el parser de ProseMirror, que sí descarta lo que no está en
+ * su schema, protege al editor y sólo al editor: hay dos vistas de lectura
+ * que pintan `pages.content` crudo sin pasar por ahí.
+ *
+ * - `src/features/writing/ReadingView.tsx`
+ * - `src/features/writing/ChapterHistory.tsx`
+ *
+ * Las dos usan `dangerouslySetInnerHTML`. La sanitización de verdad tiene que
+ * vivir en el punto de render, y hoy no existe.
  *
  * Devuelve null para inputs vacíos/nulos para preservar el contrato del API
  * (content nullable).
