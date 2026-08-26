@@ -1,7 +1,7 @@
 import type { TaskTransport } from "@/features/tasks/tasks.types";
 import type { SystemWithSignalsTransport } from "@/features/systems/systems.types";
 import type { FolderWithCounts } from "@/features/folders/folders.types";
-import type { PageListItem, LinkedTask } from "@/features/pages/pages.types";
+import type { PageListItemTransport, LinkedTaskTransport } from "@/features/pages/pages.types";
 import type { StickyNoteItem } from "@/features/sticky-notes/sticky-notes.types";
 import type { SprintTransport } from "@/features/sprints/sprints.types";
 import type {
@@ -124,8 +124,8 @@ export function makeFolder(overrides: Partial<FolderWithCounts> = {}): FolderWit
   return { ...base, ...overrides };
 }
 
-export function makePage(overrides: Partial<PageListItem> = {}): PageListItem {
-  const base: PageListItem = {
+export function makePage(overrides: Partial<PageListItemTransport> = {}): PageListItemTransport {
+  const base: PageListItemTransport = {
     id: uuid(300),
     title: "Notas de la reunión",
     folderId: null,
@@ -139,7 +139,7 @@ export function makePage(overrides: Partial<PageListItem> = {}): PageListItem {
     wordCount: 482,
     tags: [],
     subPageCount: 0,
-  } as unknown as PageListItem;
+  } as unknown as PageListItemTransport;
   return { ...base, ...overrides };
 }
 
@@ -162,8 +162,8 @@ export function makeStickyNote(overrides: Partial<StickyNoteItem> = {}): StickyN
   return { ...base, ...overrides };
 }
 
-export function makeLinkedTask(overrides: Partial<LinkedTask> = {}): LinkedTask {
-  const base: LinkedTask = {
+export function makeLinkedTask(overrides: Partial<LinkedTaskTransport> = {}): LinkedTaskTransport {
+  const base: LinkedTaskTransport = {
     id: uuid(500),
     title: "Enviar borrador al profesor",
     status: "today",
@@ -177,7 +177,7 @@ export function makeLinkedTask(overrides: Partial<LinkedTask> = {}): LinkedTask 
     folderId: null,
     systemId: MOCK_SYSTEM_ID,
     parentTaskId: null,
-  } as LinkedTask;
+  } as LinkedTaskTransport;
   return { ...base, ...overrides };
 }
 

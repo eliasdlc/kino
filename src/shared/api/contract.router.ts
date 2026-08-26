@@ -1,6 +1,7 @@
 import { energyContract } from "@/features/energy/energy.contract";
 import { entitiesContract } from "@/features/entities/entities.contract";
 import { foldersContract } from "@/features/folders/folders.contract";
+import { pagesContract } from "@/features/pages/pages.contract";
 import { onboardingContract } from "@/features/onboarding/onboarding.contract";
 import { searchContract } from "@/features/search/search.contract";
 import { settingsContract } from "@/features/settings/settings.contract";
@@ -20,6 +21,7 @@ export const apiContract = {
   entities: entitiesContract,
   folders: foldersContract,
   onboarding: onboardingContract,
+  pages: pagesContract,
   search: searchContract,
   settings: settingsContract,
   sprints: sprintsContract,

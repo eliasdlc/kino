@@ -1,6 +1,7 @@
 import { energyRouter } from "@/features/energy/energy.router";
 import { entitiesRouter } from "@/features/entities/entities.router";
 import { foldersRouter } from "@/features/folders/folders.router";
+import { pagesRouter } from "@/features/pages/pages.router";
 import { onboardingRouter } from "@/features/onboarding/onboarding.router";
 import { searchRouter } from "@/features/search/search.router";
 import { settingsRouter } from "@/features/settings/settings.router";
@@ -24,6 +25,7 @@ export const apiRouter = {
   entities: entitiesRouter,
   folders: foldersRouter,
   onboarding: onboardingRouter,
+  pages: pagesRouter,
   search: searchRouter,
   settings: settingsRouter,
   sprints: sprintsRouter,

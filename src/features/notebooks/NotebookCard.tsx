@@ -28,7 +28,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useDeletePage, useUpdatePage } from "@/features/pages/pages.hooks";
-import type { PageListItem } from "@/features/pages/pages.types";
+import type { PageListItemTransport } from "@/features/pages/pages.types";
 
 const TAG_PILL: Record<string, string> = {
   red: "bg-red-500/20 text-red-400",
@@ -45,7 +45,7 @@ const TAG_PILL: Record<string, string> = {
 };
 
 interface NotebookCardProps {
-  page: PageListItem;
+  page: PageListItemTransport;
   systemId: string;
   href: string;
 }

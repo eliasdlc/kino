@@ -11,46 +11,34 @@ import {
 } from "@/features/offline/offline.mutations";
 import { useStampedMutation } from "@/features/offline/offline.hooks";
 import { pageKeys } from "./pages.keys";
-import type { PageListItem, PageDetail, LinkedTask, PageMutationResult } from "./pages.types";
+import type { PageDetailTransport, PageListItemTransport, PageMutationResultTransport } from "./pages.types";
 import type { CreatePageInput, UpdatePageInput } from "./pages.schemas";
-import type { ContextTagListItem } from "@/features/tags/tags.types";
+import { api } from "@/shared/api/client";
 
 // El placeholder optimista vive ahora en `createPageSpec` (KIN-57): la cola
 // offline tiene que poder redibujarlo sin este módulo montado.
 export { pageKeys } from "./pages.keys";
 
 export function usePages(systemId: string) {
-  return useQuery<PageListItem[]>({
+  return useQuery({
     queryKey: pageKeys.bySystem(systemId),
-    queryFn: async () => {
-      const res = await fetch(`/api/systems/${systemId}/pages`);
-      if (!res.ok) throw new Error("Failed to fetch pages");
-      return res.json();
-    },
+    queryFn: () => api.pages.bySystem({ systemId }),
     refetchOnWindowFocus: true,
   });
 }
 
 export function usePage(pageId: string) {
-  return useQuery<PageDetail>({
+  return useQuery({
     queryKey: pageKeys.detail(pageId),
-    queryFn: async () => {
-      const res = await fetch(`/api/pages/${pageId}`);
-      if (!res.ok) throw new Error("Failed to fetch page");
-      return res.json();
-    },
+    queryFn: () => api.pages.byId({ id: pageId }),
     refetchOnWindowFocus: true,
   });
 }
 
 export function useLinkedTasks(pageId: string) {
-  return useQuery<LinkedTask[]>({
+  return useQuery({
     queryKey: pageKeys.linkedTasks(pageId),
-    queryFn: async () => {
-      const res = await fetch(`/api/pages/${pageId}/tasks`);
-      if (!res.ok) throw new Error("Failed to fetch linked tasks");
-      return res.json();
-    },
+    queryFn: () => api.pages.linkedTasks({ id: pageId }),
     refetchOnWindowFocus: true,
   });
 }
@@ -66,7 +54,7 @@ export function useLinkedTasks(pageId: string) {
 export function useCreatePage(systemId: string) {
   const queryClient = useQueryClient();
 
-  const mutation = useMutation<PageListItem, Error, CreatePageInput>({
+  const mutation = useMutation<PageListItemTransport, Error, CreatePageInput>({
     mutationKey: createPageSpec.mutationKey,
     mutationFn: createPageSpec.mutationFn,
     networkMode: "offlineFirst",
@@ -105,36 +93,25 @@ export function useUpdatePage(pageId: string, systemId?: string) {
 
   // Multi-key: optimista sobre la lista (bySystem, donde se ve pin/rename al
   // instante) + escribe el detalle en onSuccess. Por eso se queda inline.
-  return useMutation<PageMutationResult, Error, UpdatePageInput>({
-    mutationFn: async (data) => {
-      const res = await fetch(`/api/pages/${pageId}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(data),
-      });
-      if (!res.ok) {
-        const body = await res.json().catch(() => ({}));
-        throw new Error((body as { message?: string }).message ?? "Failed to update page");
-      }
-      return res.json();
-    },
+  return useMutation<PageMutationResultTransport, Error, UpdatePageInput>({
+    mutationFn: (data) => api.pages.update({ id: pageId, ...data }),
     onMutate: async (data) => {
       if (!systemId) return {};
       const listKey = pageKeys.bySystem(systemId);
       await qc.cancelQueries({ queryKey: listKey });
-      const previousList = qc.getQueryData<PageListItem[]>(listKey);
-      qc.setQueryData<PageListItem[]>(listKey, (old = []) =>
+      const previousList = qc.getQueryData<PageListItemTransport[]>(listKey);
+      qc.setQueryData<PageListItemTransport[]>(listKey, (old = []) =>
         old.map((p) => (p.id === pageId ? { ...p, ...data } : p)),
       );
       return { previousList, listKey };
     },
     onSuccess: (updated) => {
-      qc.setQueryData<PageDetail>(pageKeys.detail(pageId), (old) =>
+      qc.setQueryData<PageDetailTransport>(pageKeys.detail(pageId), (old) =>
         old ? { ...old, ...updated } : undefined
       );
     },
     onError: (_err, _vars, ctx) => {
-      const c = ctx as { previousList?: PageListItem[]; listKey?: readonly unknown[] } | undefined;
+      const c = ctx as { previousList?: PageListItemTransport[]; listKey?: readonly unknown[] } | undefined;
       if (c?.previousList && c.listKey) qc.setQueryData(c.listKey, c.previousList);
     },
     onSettled: () => {
@@ -144,11 +121,8 @@ export function useUpdatePage(pageId: string, systemId?: string) {
 }
 
 export function useDeletePage(systemId: string) {
-  return useOptimisticListMutation<void, Error, string, PageListItem>({
-    mutationFn: async (pageId) => {
-      const res = await fetch(`/api/pages/${pageId}`, { method: "DELETE" });
-      if (!res.ok) throw new Error("Failed to delete page");
-    },
+  return useOptimisticListMutation<void, Error, string, PageListItemTransport>({
+    mutationFn: (pageId) => api.pages.remove({ id: pageId }),
     queryKey: pageKeys.bySystem(systemId),
     updater: (pages, pageId) => pages.filter((p) => p.id !== pageId),
     // Prefijo ['pages'] → reconcilia lista, detalle y linkedTasks de golpe.
@@ -160,14 +134,7 @@ export function useLinkTask(pageId: string) {
   const qc = useQueryClient();
 
   return useMutation<void, Error, string>({
-    mutationFn: async (taskId) => {
-      const res = await fetch(`/api/pages/${pageId}/tasks`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ taskId }),
-      });
-      if (!res.ok) throw new Error("Failed to link task");
-    },
+    mutationFn: (taskId) => api.pages.linkTask({ id: pageId, taskId }),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: pageKeys.linkedTasks(pageId) });
       qc.invalidateQueries({ queryKey: pageKeys.detail(pageId) });
@@ -179,10 +146,7 @@ export function useUnlinkTask(pageId: string) {
   const qc = useQueryClient();
 
   return useMutation<void, Error, string>({
-    mutationFn: async (taskId) => {
-      const res = await fetch(`/api/pages/${pageId}/tasks/${taskId}`, { method: "DELETE" });
-      if (!res.ok) throw new Error("Failed to unlink task");
-    },
+    mutationFn: (taskId) => api.pages.unlinkTask({ id: pageId, taskId }),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: pageKeys.linkedTasks(pageId) });
       qc.invalidateQueries({ queryKey: pageKeys.detail(pageId) });
@@ -191,13 +155,9 @@ export function useUnlinkTask(pageId: string) {
 }
 
 export function usePageTags(pageId: string) {
-  return useQuery<ContextTagListItem[]>({
+  return useQuery({
     queryKey: pageKeys.tags(pageId),
-    queryFn: async () => {
-      const res = await fetch(`/api/pages/${pageId}/tags`);
-      if (!res.ok) throw new Error("Failed to fetch page tags");
-      return res.json();
-    },
+    queryFn: () => api.pages.tags({ id: pageId }),
     staleTime: 30_000,
   });
 }
@@ -205,14 +165,7 @@ export function usePageTags(pageId: string) {
 export function useAddPageTag(pageId: string, systemId: string) {
   const qc = useQueryClient();
   return useMutation<void, Error, string>({
-    mutationFn: async (tagId) => {
-      const res = await fetch(`/api/pages/${pageId}/tags`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ tagId }),
-      });
-      if (!res.ok) throw new Error("Failed to add tag");
-    },
+    mutationFn: (tagId) => api.pages.addTag({ id: pageId, tagId }),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: pageKeys.tags(pageId) });
       qc.invalidateQueries({ queryKey: pageKeys.bySystem(systemId) });
@@ -221,42 +174,29 @@ export function useAddPageTag(pageId: string, systemId: string) {
 }
 
 export function useSubPages(parentPageId: string) {
-  return useQuery<PageListItem[]>({
+  return useQuery({
     queryKey: pageKeys.subPages(parentPageId),
-    queryFn: async () => {
-      const res = await fetch(`/api/pages/${parentPageId}/subpages`);
-      if (!res.ok) throw new Error("Failed to fetch sub-pages");
-      return res.json();
-    },
+    queryFn: () => api.pages.subpages({ id: parentPageId }),
     staleTime: 10_000,
   });
 }
 
 export function useCreateSubPage(parentPageId: string, systemId: string) {
   return useOptimisticListMutation<
-    PageListItem,
+    PageListItemTransport,
     Error,
     { title?: string; content?: string },
-    PageListItem
+    PageListItemTransport
   >({
     mutationFn: async (data) => {
-      const res = await fetch(`/api/pages/${parentPageId}/subpages`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ systemId }),
-      });
-      if (!res.ok) throw new Error("Failed to create sub-page");
-      const page = await res.json() as PageListItem;
-      // La ruta de subpáginas solo acepta el parent; título y plantilla del
+      const page = await api.pages.createSubpage({ id: parentPageId, systemId });
+      // La operación de subpáginas sólo acepta el parent; título y plantilla del
       // medium (W3) se aplican en un PATCH inmediato.
       if (data.title || data.content) {
-        await fetch(`/api/pages/${page.id}`, {
-          method: "PATCH",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            ...(data.title ? { title: data.title } : {}),
-            ...(data.content ? { content: data.content } : {}),
-          }),
+        await api.pages.update({
+          id: page.id,
+          ...(data.title ? { title: data.title } : {}),
+          ...(data.content ? { content: data.content } : {}),
         });
       }
       return page;
@@ -277,8 +217,7 @@ export function useRemovePageTag(pageId: string, systemId: string) {
   const qc = useQueryClient();
   return useMutation<void, Error, string>({
     mutationFn: async (tagId) => {
-      const res = await fetch(`/api/pages/${pageId}/tags/${tagId}`, { method: "DELETE" });
-      if (!res.ok) throw new Error("Failed to remove tag");
+      await api.pages.removeTag({ id: pageId, tagId });
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: pageKeys.tags(pageId) });

@@ -5,8 +5,9 @@ import { getFolderById, getFolderBreadcrumb } from "@/features/folders/folders.s
 import type { BreadcrumbItem } from "@/components/PageBreadcrumb";
 import { NotebookEditorLayout } from "@/features/pages/NotebookEditorLayout";
 import { MEDIUM_CONFIG, resolveMedium } from "@/shared/lib/mediums";
-import type { PageListItem } from "@/features/pages/pages.types";
+import type { PageListItemTransport } from "@/features/pages/pages.types";
 import { getServerSession } from "@/shared/utils/session";
+import { toTransport } from "@/shared/api/transport";
 
 interface PageEditorRouteProps {
   params: Promise<{ id: string; pageId: string }>;
@@ -41,7 +42,7 @@ export default async function PageEditorRoute({ params }: PageEditorRouteProps) 
     : null;
   const initialSubPages = await getSubPages(rootPageId, session.user.id);
 
-  const parentNotebook = parentNotebookData as PageListItem | null;
+  const parentNotebook = parentNotebookData as PageListItemTransport | null;
 
   // Writer feel (PLAN-11 §7): solo el arquetipo Writing. La "obra" es el folder al
   // que pertenece el capítulo; su progreso = suma de palabras de sus pages (derivado).
@@ -86,13 +87,13 @@ export default async function PageEditorRoute({ params }: PageEditorRouteProps) 
 
   return (
     <NotebookEditorLayout
-      page={page}
+      page={toTransport(page)}
       systemId={systemId}
       systemName={system.name}
-      allPages={allPages}
+      allPages={toTransport(allPages)}
       breadcrumbItems={breadcrumbItems}
       parentNotebook={parentNotebook}
-      initialSubPages={initialSubPages}
+      initialSubPages={toTransport(initialSubPages)}
       writer={writer}
       obra={obra}
       obraMetadata={writer ? (folder?.metadata ?? null) : null}

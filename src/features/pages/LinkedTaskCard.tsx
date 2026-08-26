@@ -6,7 +6,7 @@ import { parseDueDate } from "@/features/tasks/tasks.utils";
 import { Pencil, X } from "lucide-react";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { getTaskTypeConfig } from "@/features/tasks/task-type-config";
-import type { LinkedTask } from "./pages.types";
+import type { LinkedTaskTransport } from "./pages.types";
 
 // ── Status badge colors (subset of TaskCard's palette) ──
 const STATUS_BADGE: Record<string, string> = {
@@ -27,7 +27,7 @@ const PRIORITY_COLOR: Record<string, string> = {
 };
 
 interface LinkedTaskCardProps {
-  task: LinkedTask;
+  task: LinkedTaskTransport;
   onToggle: () => void;
   onEdit: () => void;
   onUnlink: () => void;
