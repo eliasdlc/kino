@@ -2,10 +2,12 @@ import { accountContract } from "@/features/account/account.contract";
 import { apiKeysContract } from "@/features/api-keys/api-keys.contract";
 import { energyContract } from "@/features/energy/energy.contract";
 import { entitiesContract } from "@/features/entities/entities.contract";
+import { githubContract } from "@/features/github-sync/github-sync.contract";
 import { foldersContract } from "@/features/folders/folders.contract";
 import { pagesContract } from "@/features/pages/pages.contract";
 import { insightsContract } from "@/features/insights/insights.contract";
 import { writingContract } from "@/features/writing/writing.contract";
+import { notificationsContract } from "@/features/notifications/notifications.contract";
 import { onboardingContract } from "@/features/onboarding/onboarding.contract";
 import { searchContract } from "@/features/search/search.contract";
 import { settingsContract } from "@/features/settings/settings.contract";
@@ -26,7 +28,9 @@ export const apiContract = {
   energy: energyContract,
   entities: entitiesContract,
   folders: foldersContract,
+  github: githubContract,
   insights: insightsContract,
+  notifications: notificationsContract,
   onboarding: onboardingContract,
   pages: pagesContract,
   search: searchContract,

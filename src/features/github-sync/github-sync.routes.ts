@@ -1,47 +1,28 @@
 import { NextRequest, NextResponse } from "next/server";
 import { cookies } from "next/headers";
-import { route } from "@/shared/utils/route";
 import { getAuthContext } from "@/shared/utils/auth-context";
-import { linkRepoSchema } from "./github-sync.schemas";
-import {
-  connectGithub,
-  disconnectGithub,
-  getConnectionStatus,
-  linkRepo,
-  syncSystem,
-  unlinkRepo,
-} from "./github-sync.service";
-import { GithubApiError } from "./github-sync.types";
+import { connectGithub } from "./github-sync.service";
 import {
   authorizeUrl,
   exchangeCode,
   GithubOAuthNotConfigured,
-  isOAuthConfigured,
   newState,
   OAUTH_RETURN_COOKIE,
   OAUTH_STATE_COOKIE,
   readOAuthConfig,
 } from "./github-sync.oauth";
 
-type IdParam = { id: string };
-
 const APP_URL = process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000";
 
 /**
- * Traduce los errores de GitHub a algo que la UI pueda mostrar. Un 401 sale como
- * 409 y no como 500: no es que la app se haya roto, es que hay que reconectar,
- * y el cliente necesita distinguirlo para ofrecer el botón correcto.
+ * Los dos únicos handlers de GitHub que no caben en el contrato: la respuesta
+ * feliz de los dos es un 302 hacia GitHub o de vuelta a la app, no JSON. El
+ * resto del slice se sirve desde `github-sync.contract.ts`.
+ *
+ * `mapGithubError` traduce el fallo de configuración a algo que la UI pueda
+ * mostrar en vez de un 500 mudo.
  */
 function mapGithubError(error: unknown): NextResponse | null {
-  if (error instanceof GithubApiError) {
-    return NextResponse.json(
-      {
-        code: error.unauthorized ? "GITHUB_UNAUTHORIZED" : "GITHUB_ERROR",
-        message: error.message,
-      },
-      { status: error.unauthorized ? 409 : 502 },
-    );
-  }
   if (error instanceof GithubOAuthNotConfigured) {
     return NextResponse.json(
       { code: "GITHUB_NOT_CONFIGURED", message: error.message },
@@ -50,34 +31,6 @@ function mapGithubError(error: unknown): NextResponse | null {
   }
   return null;
 }
-
-async function withGithubErrors(
-  fn: () => Promise<NextResponse>,
-): Promise<NextResponse> {
-  try {
-    return await fn();
-  } catch (error) {
-    const mapped = mapGithubError(error);
-    if (mapped) return mapped;
-    throw error;
-  }
-}
-
-// ── Conexión ──
-
-export const getGithubStatus = route()({}, async ({ userId }) =>
-  withGithubErrors(async () =>
-    NextResponse.json({
-      ...(await getConnectionStatus(userId)),
-      configured: isOAuthConfigured(),
-    }),
-  ),
-);
-
-export const deleteGithubStatus = route()({}, async ({ userId }) => {
-  await disconnectGithub(userId);
-  return new NextResponse(null, { status: 204 });
-});
 
 /**
  * Arranque del OAuth. No usa el wrapper `route()` porque la respuesta feliz es
@@ -163,24 +116,3 @@ export async function githubOAuthCallback(request: NextRequest) {
   url.searchParams.set("github", "connected");
   return clear(NextResponse.redirect(url));
 }
-
-// ── Repositorio y sincronización de un sistema ──
-
-export const postLinkRepo = route<IdParam>()(
-  { body: linkRepoSchema },
-  async ({ userId, params, body }) =>
-    withGithubErrors(async () =>
-      NextResponse.json(await linkRepo(params.id, userId, body)),
-    ),
-);
-
-export const deleteLinkRepo = route<IdParam>()({}, async ({ userId, params }) => {
-  await unlinkRepo(params.id, userId);
-  return new NextResponse(null, { status: 204 });
-});
-
-export const postSyncSystem = route<IdParam>()({}, async ({ userId, params }) =>
-  withGithubErrors(async () =>
-    NextResponse.json(await syncSystem(params.id, userId)),
-  ),
-);

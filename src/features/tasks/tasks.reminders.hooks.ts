@@ -3,6 +3,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { reminderKeys } from "./tasks.keys";
+import { api } from '@/shared/api/client';
 
 /**
  * Recordatorios de una tarea.
@@ -26,12 +27,10 @@ export interface TaskReminder {
 
 
 export function useTaskReminders(taskId: string) {
-  return useQuery<TaskReminder[]>({
+  return useQuery({
     queryKey: reminderKeys.byTask(taskId),
     queryFn: async () => {
-      const res = await fetch(`/api/push/reminders?taskId=${taskId}`);
-      if (!res.ok) throw new Error('Failed to fetch reminders');
-      return res.json() as Promise<TaskReminder[]>;
+      return api.notifications.reminders({ taskId });
     },
     staleTime: 30_000,
   });
@@ -42,13 +41,7 @@ export function useCreateTaskReminder(taskId: string) {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: async (data: { remindAt: string; label?: string }) => {
-      const res = await fetch('/api/push/reminders', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ taskId, ...data }),
-      });
-      if (!res.ok) throw new Error('Failed to create reminder');
-      return res.json() as Promise<TaskReminder>;
+      return api.notifications.createReminder({ taskId, ...data });
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: reminderKeys.byTask(taskId) });
@@ -64,8 +57,7 @@ export function useDeleteTaskReminder(taskId: string) {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: async (reminderId: string) => {
-      const res = await fetch(`/api/push/reminders/${reminderId}`, { method: 'DELETE' });
-      if (!res.ok) throw new Error('Failed to delete reminder');
+      await api.notifications.removeReminder({ id: reminderId });
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: reminderKeys.byTask(taskId) });

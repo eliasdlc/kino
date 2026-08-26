@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
+import { api } from '@/shared/api/client';
 
 type PushStatus = 'idle' | 'loading' | 'subscribed' | 'denied' | 'unsupported';
 
@@ -53,11 +54,7 @@ export function usePushNotifications() {
         endpoint: string;
         keys: { auth: string; p256dh: string };
       };
-      await fetch('/api/push/subscribe', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ endpoint: json.endpoint, keys: json.keys }),
-      });
+      await api.notifications.subscribe({ endpoint: json.endpoint, keys: json.keys });
       setStatus('subscribed');
     } catch {
       await checkSubscription();
@@ -69,11 +66,7 @@ export function usePushNotifications() {
       const reg = await navigator.serviceWorker.ready;
       const sub = await reg.pushManager.getSubscription();
       if (sub) {
-        await fetch('/api/push/unsubscribe', {
-          method: 'DELETE',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ endpoint: sub.endpoint }),
-        });
+        await api.notifications.unsubscribe({ endpoint: sub.endpoint });
         await sub.unsubscribe();
       }
     } finally {

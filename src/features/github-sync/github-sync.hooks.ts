@@ -3,6 +3,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { taskKeys } from "@/features/tasks/tasks.keys";
 import { sprintKeys } from "@/features/sprints/sprints.hooks";
+import { api } from "@/shared/api/client";
 import type {
   GithubConnectionStatus,
   GithubRepoRef,
@@ -18,21 +19,11 @@ export const githubKeys = {
   connection: ["github", "connection"] as const,
 };
 
-/** Mensaje del backend, que ya viene redactado para enseñarlo tal cual. */
-async function readError(res: Response, fallback: string): Promise<never> {
-  const body = (await res.json().catch(() => null)) as {
-    message?: string;
-  } | null;
-  throw new Error(body?.message ?? fallback);
-}
-
 export function useGithubConnection() {
-  return useQuery<ConnectionStatusResponse>({
+  return useQuery({
     queryKey: githubKeys.connection,
     queryFn: async () => {
-      const res = await fetch("/api/integrations/github");
-      if (!res.ok) return readError(res, "No se pudo leer la conexión con GitHub");
-      return res.json();
+      return api.github.status({});
     },
     staleTime: 60_000,
   });
@@ -42,8 +33,7 @@ export function useDisconnectGithub() {
   const qc = useQueryClient();
   return useMutation<void, Error, void>({
     mutationFn: async () => {
-      const res = await fetch("/api/integrations/github", { method: "DELETE" });
-      if (!res.ok) return readError(res, "No se pudo desconectar");
+      await api.github.disconnect({});
     },
     onSettled: () => {
       qc.invalidateQueries({ queryKey: githubKeys.connection });
@@ -55,13 +45,7 @@ export function useLinkRepo(systemId: string) {
   const qc = useQueryClient();
   return useMutation<{ fullName: string }, Error, { fullName: string }>({
     mutationFn: async (body) => {
-      const res = await fetch(`/api/systems/${systemId}/github/link`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(body),
-      });
-      if (!res.ok) return readError(res, "No se pudo enlazar el repositorio");
-      return res.json();
+      return api.github.linkRepo({ ...body, id: systemId });
     },
     onSettled: () => {
       qc.invalidateQueries({ queryKey: ["systems"] });
@@ -73,10 +57,7 @@ export function useUnlinkRepo(systemId: string) {
   const qc = useQueryClient();
   return useMutation<void, Error, void>({
     mutationFn: async () => {
-      const res = await fetch(`/api/systems/${systemId}/github/link`, {
-        method: "DELETE",
-      });
-      if (!res.ok) return readError(res, "No se pudo desenlazar el repositorio");
+      await api.github.unlinkRepo({ id: systemId });
     },
     onSettled: () => {
       qc.invalidateQueries({ queryKey: ["systems"] });
@@ -95,11 +76,7 @@ export function useSyncGithub(systemId: string) {
   const qc = useQueryClient();
   return useMutation<SyncResult, Error, void>({
     mutationFn: async () => {
-      const res = await fetch(`/api/systems/${systemId}/github/sync`, {
-        method: "POST",
-      });
-      if (!res.ok) return readError(res, "No se pudo sincronizar con GitHub");
-      return res.json();
+      return api.github.sync({ id: systemId });
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: taskKeys.bySystem(systemId) });
