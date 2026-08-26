@@ -5,7 +5,7 @@ import type { PageListItem, LinkedTask } from "@/features/pages/pages.types";
 import type { StickyNoteItem } from "@/features/sticky-notes/sticky-notes.types";
 import type { SprintTransport } from "@/features/sprints/sprints.types";
 import type {
-  TodayCheckinRow,
+  TodayCheckinRowTransport,
   WeeklyTrend,
   LearningInsight,
 } from "@/features/energy/energy.service";
@@ -204,16 +204,16 @@ export const MOCK_CURVE: number[] = [
   60, 50, 45, 40, 35,
 ];
 
-export function makeCheckin(overrides: Partial<TodayCheckinRow> = {}): TodayCheckinRow {
+export function makeCheckin(overrides: Partial<TodayCheckinRowTransport> = {}): TodayCheckinRowTransport {
   const morning = new Date();
   morning.setHours(9, 15, 0, 0);
-  const base: TodayCheckinRow = {
+  const base: TodayCheckinRowTransport = {
     id: uuid(700),
     slot: "morning",
     currentLevel: 72,
     sleepQuality: "good",
     predictionAccuracy: null,
-    createdAt: morning,
+    createdAt: morning.toISOString(),
   };
   return { ...base, ...overrides };
 }
