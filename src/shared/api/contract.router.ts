@@ -2,6 +2,8 @@ import { energyContract } from "@/features/energy/energy.contract";
 import { entitiesContract } from "@/features/entities/entities.contract";
 import { foldersContract } from "@/features/folders/folders.contract";
 import { pagesContract } from "@/features/pages/pages.contract";
+import { insightsContract } from "@/features/insights/insights.contract";
+import { writingContract } from "@/features/writing/writing.contract";
 import { onboardingContract } from "@/features/onboarding/onboarding.contract";
 import { searchContract } from "@/features/search/search.contract";
 import { settingsContract } from "@/features/settings/settings.contract";
@@ -20,6 +22,7 @@ export const apiContract = {
   energy: energyContract,
   entities: entitiesContract,
   folders: foldersContract,
+  insights: insightsContract,
   onboarding: onboardingContract,
   pages: pagesContract,
   search: searchContract,
@@ -29,4 +32,5 @@ export const apiContract = {
   systems: systemsContract,
   tags: tagsContract,
   tasks: tasksContract,
+  writing: writingContract,
 };

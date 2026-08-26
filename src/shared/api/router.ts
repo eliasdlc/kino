@@ -2,6 +2,8 @@ import { energyRouter } from "@/features/energy/energy.router";
 import { entitiesRouter } from "@/features/entities/entities.router";
 import { foldersRouter } from "@/features/folders/folders.router";
 import { pagesRouter } from "@/features/pages/pages.router";
+import { insightsRouter } from "@/features/insights/insights.router";
+import { writingRouter } from "@/features/writing/writing.router";
 import { onboardingRouter } from "@/features/onboarding/onboarding.router";
 import { searchRouter } from "@/features/search/search.router";
 import { settingsRouter } from "@/features/settings/settings.router";
@@ -24,6 +26,7 @@ export const apiRouter = {
   energy: energyRouter,
   entities: entitiesRouter,
   folders: foldersRouter,
+  insights: insightsRouter,
   onboarding: onboardingRouter,
   pages: pagesRouter,
   search: searchRouter,
@@ -33,4 +36,5 @@ export const apiRouter = {
   systems: systemsRouter,
   tags: tagsRouter,
   tasks: tasksRouter,
+  writing: writingRouter,
 };

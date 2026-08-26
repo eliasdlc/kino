@@ -15,12 +15,15 @@ export async function callApi(
   method: string,
   path: string,
   body?: unknown,
+  /** Cuerpo crudo, para los casos que mandan algo que no es JSON válido. */
+  raw?: string,
 ): Promise<{ status: number; body: unknown; text: string }> {
+  const payload = raw ?? (body === undefined ? undefined : JSON.stringify(body));
   const request = new NextRequest(`http://localhost/api${path}`, {
     method,
-    ...(body === undefined
+    ...(payload === undefined
       ? {}
-      : { body: JSON.stringify(body), headers: { "content-type": "application/json" } }),
+      : { body: payload, headers: { "content-type": "application/json" } }),
   });
 
   const { matched, response } = await apiHandler.handle(request, {
