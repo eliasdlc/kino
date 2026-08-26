@@ -10,7 +10,7 @@ import { TaskPlanningView } from "@/features/tasks/TaskPlanningView";
 import { TaskArchiveView } from "@/features/tasks/TaskArchiveView";
 import { SystemAcademicClasses } from "./SystemAcademicClasses";
 import { useTasks } from "@/features/tasks/tasks.hooks";
-import type { Task } from "@/features/tasks/tasks.types";
+import type { TaskTransport } from "@/features/tasks/tasks.types";
 import type { SystemViewProps } from "./SystemDetailView";
 
 /**
@@ -19,7 +19,7 @@ import type { SystemViewProps } from "./SystemDetailView";
  * reutilizado. El headspace lo da abrir en "Esta Semana", no en el calendario.
  */
 export function SystemAcademicView({ system, initialTasks }: SystemViewProps) {
-  const [editTask, setEditTask] = useState<Task | null>(null);
+  const [editTask, setEditTask] = useState<TaskTransport | null>(null);
   const [tab, setTab] = useState("esta-semana");
   const [highlight, setHighlight] = useState<{ id: string; nonce: number } | null>(null);
   // La vista de clases necesita las tareas para contar pendientes y próxima entrega.

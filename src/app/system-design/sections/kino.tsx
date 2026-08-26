@@ -171,7 +171,7 @@ export function KinoSection() {
               id: "t-6",
               title: "Completada",
               status: "done",
-              completedAt: new Date(),
+              completedAt: new Date().toISOString(),
             }),
             makeTask({ id: "t-7", title: "Archivada", status: "archived" }),
             makeTask({

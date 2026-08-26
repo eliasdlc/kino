@@ -1,6 +1,6 @@
 import { cn } from "@/lib/utils";
 import { getTaskTypeConfig } from "../../task-type-config";
-import type { Task } from "../../tasks.types";
+import type { TaskTransport } from "../../tasks.types";
 
 /**
  * Paleta de los tags del board (ver mockup de `ProjectTaskCard`).
@@ -53,7 +53,7 @@ export function EnergyTag({ energyLevel }: { energyLevel: string | null }) {
 }
 
 /** Fila de tags del ticket: prioridad + tipo + energía. */
-export function TaskTags({ task }: { task: Task }) {
+export function TaskTags({ task }: { task: TaskTransport }) {
   const config = getTaskTypeConfig(task.taskType, task.metadata);
   return (
     <div className="flex items-center gap-2 flex-wrap">

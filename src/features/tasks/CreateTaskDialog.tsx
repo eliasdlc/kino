@@ -16,7 +16,7 @@ import { Label } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
 import { ChevronLeft, ChevronRight, Plus } from 'lucide-react';
 import { cn } from "@/lib/utils";
-import type { Task } from "./tasks.types";
+import type { TaskTransport } from "./tasks.types";
 import { useCreateTask } from "./tasks.hooks";
 import { useFolders } from "@/features/folders/folders.hooks";
 import { getTaskTypeConfig } from "./task-type-config";
@@ -55,7 +55,7 @@ interface CreateTaskDialogProps {
   open?: boolean;
   onOpenChange?: (open: boolean) => void;
   header?: React.ReactNode;
-  onTaskCreated?: (task: Task) => void;
+  onTaskCreated?: (task: TaskTransport) => void;
 }
 
 export function CreateTaskDialog({

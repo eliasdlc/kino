@@ -1,5 +1,5 @@
 import { format } from "date-fns";
-import type { Task } from "@/features/tasks/tasks.types";
+import type { TaskTransport } from "@/features/tasks/tasks.types";
 import { parseDueDate, dueDateHasTime, parseTaskDay } from "@/features/tasks/tasks.utils";
 
 /**
@@ -72,7 +72,7 @@ export function suggestHour(
 }
 
 /** Fecha de colocación preferida: startDate con hora > dueDate > startDate sin hora. */
-export function getPlacementDate(task: Task): string | null {
+export function getPlacementDate(task: TaskTransport): string | null {
   if (task.startDate && dueDateHasTime(task.startDate)) return task.startDate;
   if (task.dueDate) return task.dueDate;
   return task.startDate ?? null;
@@ -109,8 +109,8 @@ export function resizedMinutes(startMinutes: number, deltaY: number): number {
  * día calendario — son dos parseos distintos a propósito, por el off-by-one de
  * timezone que arrastran las fechas sin hora.
  */
-export function groupTasksByDay(tasks: Task[], options: { timed: boolean }): Map<string, Task[]> {
-  const map = new Map<string, Task[]>();
+export function groupTasksByDay(tasks: TaskTransport[], options: { timed: boolean }): Map<string, TaskTransport[]> {
+  const map = new Map<string, TaskTransport[]>();
   for (const task of tasks) {
     const dateVal = getPlacementDate(task);
     if (!dateVal) continue;
@@ -124,7 +124,7 @@ export function groupTasksByDay(tasks: Task[], options: { timed: boolean }): Map
 }
 
 /** Horas ya ocupadas de un día, para que una sugerencia no caiga encima. */
-export function occupiedHoursForDay(tasks: Task[], day: Date): Set<number> {
+export function occupiedHoursForDay(tasks: TaskTransport[], day: Date): Set<number> {
   const set = new Set<number>();
   const key = dayKey(day);
   for (const task of tasks) {

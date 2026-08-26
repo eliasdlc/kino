@@ -1,4 +1,4 @@
-import { type Task, type CreateTaskInput } from "./tasks.types";
+import { type TaskTransport, type CreateTaskInput } from "./tasks.types";
 import { deriveStatusFromDate } from "./tasks.utils";
 
 /**
@@ -10,7 +10,7 @@ import { deriveStatusFromDate } from "./tasks.utils";
  * placeholder que se vio antes de cerrar. Por eso es una función pura de `data` y
  * por eso el id sale del `clientRequestId` en vez de un uuid nuevo cada vez.
  */
-export function buildOptimisticTask(data: CreateTaskInput): Task {
+export function buildOptimisticTask(data: CreateTaskInput): TaskTransport {
   // Status optimista: reusa el único helper del backend (FE-03) en vez de
   // reimplementar la derivación. La tz del navegador refleja lo que el
   // usuario ve; el servidor recalcula con la tz de la cuenta al confirmar.
@@ -28,9 +28,9 @@ export function buildOptimisticTask(data: CreateTaskInput): Task {
     status: optimisticStatus,
     boardStatus: null,
     boardStatusChangedAt: null,
-    priority: (data.priority as Task["priority"]) ?? "medium",
-    energyLevel: (data.energyLevel as Task["energyLevel"]) ?? "medium",
-    taskType: (data.taskType as Task["taskType"]) ?? null,
+    priority: (data.priority as TaskTransport["priority"]) ?? "medium",
+    energyLevel: (data.energyLevel as TaskTransport["energyLevel"]) ?? "medium",
+    taskType: (data.taskType as TaskTransport["taskType"]) ?? null,
     dueDate: data.dueDate ?? null,
     startDate: data.startDate ?? null,
     estimatedTime: data.estimatedTime ?? null,
@@ -52,8 +52,10 @@ export function buildOptimisticTask(data: CreateTaskInput): Task {
     notifiedDueDay: false,
     reminderCount: 0,
     lastRemindedAt: null,
-    createdAt: new Date(),
-    updatedAt: new Date(),
+    // Texto ISO y no `Date`: el placeholder tiene que ser indistinguible de lo
+    // que devuelve el servidor, o al confirmarse la fila cambiaría de forma.
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
     completedAt: null,
     deletedAt: null,
   };

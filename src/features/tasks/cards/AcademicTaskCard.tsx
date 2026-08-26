@@ -9,10 +9,10 @@ import { parseDueDate } from "../tasks.utils";
 import { DefaultTaskCard } from "./DefaultTaskCard";
 import type { TaskCardProps } from "./types";
 import type { TaskCardState } from "./useTaskCard";
-import type { Task } from "../tasks.types";
+import type { TaskTransport } from "../tasks.types";
 
 /** Countdown compacto: un examen se define por cuánto falta. */
-function Countdown({ task, state }: { task: Task; state: TaskCardState }) {
+function Countdown({ task, state }: { task: TaskTransport; state: TaskCardState }) {
   if (!task.dueDate) return null;
   const label = format(parseDueDate(task.dueDate), "MMM d");
   const days = state.dueDays;
@@ -43,7 +43,7 @@ function Countdown({ task, state }: { task: Task; state: TaskCardState }) {
  * folder con su color), qué kind de tarea (entrega/examen…) y el countdown a la
  * entrega. Compone la fila base vía renderMeta.
  */
-function AcademicMeta({ task, state }: { task: Task; state: TaskCardState }) {
+function AcademicMeta({ task, state }: { task: TaskTransport; state: TaskCardState }) {
   const kind = getTaskKind("academic", (task.metadata as Record<string, unknown> | null)?.kind);
   const KindIcon = kind?.icon;
   const { folder } = state;

@@ -8,6 +8,7 @@ import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { taskKeys } from '@/features/tasks/tasks.keys';
+import { api } from "@/shared/api/client";
 import {
   useSuggestedTasks,
   useEnergyDistribution,
@@ -45,12 +46,7 @@ function SuggestionSlot() {
   async function moveToToday(taskId: string) {
     setMoving(taskId);
     try {
-      const res = await fetch('/api/tasks/bulk-move', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ taskIds: [taskId], status: 'today' }),
-      });
-      if (!res.ok) throw new Error();
+      await api.tasks.bulkMove({ taskIds: [taskId], status: 'today' });
       toast.success('Tarea movida a hoy');
       void queryClient.invalidateQueries({ queryKey: taskKeys.todayPlan() });
     } catch {

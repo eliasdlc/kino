@@ -2,11 +2,11 @@
 
 import { DragOverlay } from "@dnd-kit/core";
 import { cn } from "@/lib/utils";
-import type { Task } from "../tasks.types";
+import type { TaskTransport } from "../tasks.types";
 import { ProjectTaskCard } from "../cards/ProjectTaskCard";
 
 interface TaskDragOverlayProps {
-  activeTask: Task | null;
+  activeTask: TaskTransport | null;
   systemId: string;
 }
 

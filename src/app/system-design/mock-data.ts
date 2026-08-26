@@ -1,4 +1,4 @@
-import type { Task } from "@/features/tasks/tasks.types";
+import type { TaskTransport } from "@/features/tasks/tasks.types";
 import type { SystemWithSignals } from "@/features/systems/systems.types";
 import type { FolderWithCounts } from "@/features/folders/folders.types";
 import type { PageListItem, LinkedTask } from "@/features/pages/pages.types";
@@ -9,7 +9,7 @@ import type {
   WeeklyTrend,
   LearningInsight,
 } from "@/features/energy/energy.service";
-import type { EnergyPlanItem } from "@/features/energy/energy.planner";
+import type { EnergyPlanItemTransport } from "@/features/energy/energy.planner";
 import type { AdvisorPattern } from "@/features/energy/energy.advisor";
 import type { MentionedEntity, EntityDetail } from "@/features/entities/entities.types";
 import type {
@@ -35,8 +35,8 @@ const uuid = (n: number) => `00000000-0000-4000-8000-${String(n).padStart(12, "0
 
 export const MOCK_SYSTEM_ID = uuid(1);
 
-export function makeTask(overrides: Partial<Task> = {}): Task {
-  const base: Task = {
+export function makeTask(overrides: Partial<TaskTransport> = {}): TaskTransport {
+  const base: TaskTransport = {
     id: uuid(100),
     userId: uuid(2),
     systemId: MOCK_SYSTEM_ID,
@@ -66,11 +66,12 @@ export function makeTask(overrides: Partial<Task> = {}): Task {
     notifiedDueDay: false,
     reminderCount: 0,
     lastRemindedAt: null,
+    clientRequestId: null,
     completedAt: null,
     deletedAt: null,
     createdAt: NOW,
     updatedAt: NOW,
-  } as Task;
+  } as unknown as TaskTransport;
   return { ...base, ...overrides };
 }
 
@@ -220,9 +221,9 @@ export function makeCheckin(overrides: Partial<TodayCheckinRow> = {}): TodayChec
 }
 
 export function makeEnergyPlanItem(
-  task: Task,
-  overrides: Partial<Omit<EnergyPlanItem, "task">> = {}
-): EnergyPlanItem {
+  task: TaskTransport,
+  overrides: Partial<Omit<EnergyPlanItemTransport, "task">> = {}
+): EnergyPlanItemTransport {
   return {
     task,
     scheduledStartMinute: 9 * 60,

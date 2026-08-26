@@ -1,7 +1,7 @@
 'use client';
 
 import { useQuery } from '@tanstack/react-query';
-import type { Task } from '@/features/tasks/tasks.types';
+import type { TaskTransport } from '@/features/tasks/tasks.types';
 import type { AdvisorWithAction } from '@/features/energy/energy.service';
 
 export const insightsKeys = {
@@ -11,7 +11,7 @@ export const insightsKeys = {
   topPattern: () => ['insights', 'pattern'] as const,
 };
 
-export type SuggestedTask = Task & {
+export type SuggestedTask = TaskTransport & {
   importanceScore: number;
   why: string;
   energyBand: 'high' | 'medium' | 'low';

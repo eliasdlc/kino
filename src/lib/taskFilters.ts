@@ -1,6 +1,6 @@
 import { differenceInCalendarDays, startOfToday } from 'date-fns';
 import { parseDueDate } from '@/features/tasks/tasks.utils';
-import type { Task } from '@/features/tasks/tasks.types';
+import type { TaskTransport } from '@/features/tasks/tasks.types';
 
 // ── Types ──────────────────────────────────────────────────────────────────
 
@@ -74,7 +74,7 @@ export function countActiveFilters(f: TaskFilters): number {
 
 // ── Filtering ──────────────────────────────────────────────────────────────
 
-export function applyFilters(tasks: Task[], f: TaskFilters): Task[] {
+export function applyFilters(tasks: TaskTransport[], f: TaskFilters): TaskTransport[] {
   const today = startOfToday();
   return tasks.filter((t) => {
     if (f.status.length && !f.status.includes(t.status)) return false;
@@ -104,7 +104,7 @@ export function applyFilters(tasks: Task[], f: TaskFilters): Task[] {
 const PRIORITY_ORDER: Record<string, number> = { critical: 0, high: 1, medium: 2, low: 3 };
 const ENERGY_ORDER: Record<string, number> = { high: 0, medium: 1, low: 2 };
 
-export const SORTERS: Record<TaskFilters['sort'], (a: Task, b: Task) => number> = {
+export const SORTERS: Record<TaskFilters['sort'], (a: TaskTransport, b: TaskTransport) => number> = {
   priority: (a, b) =>
     (PRIORITY_ORDER[a.priority ?? 'medium'] ?? 2) - (PRIORITY_ORDER[b.priority ?? 'medium'] ?? 2),
   dueDate: (a, b) => {
@@ -132,15 +132,15 @@ const ENERGY_LABEL: Record<string, string> = { high: 'Alta', medium: 'Media', lo
 
 export type GroupKey = Exclude<TaskFilters['group'], ''>;
 
-export const GROUPERS: Record<GroupKey, (t: Task) => string> = {
+export const GROUPERS: Record<GroupKey, (t: TaskTransport) => string> = {
   system: (t) => t.systemId,
   status: (t) => STATUS_LABEL[t.status] ?? t.status,
   priority: (t) => PRIORITY_LABEL[t.priority ?? 'medium'] ?? 'Media',
   energy: (t) => ENERGY_LABEL[t.energyLevel ?? 'medium'] ?? 'Media',
 };
 
-export function groupTasks(tasks: Task[], groupKey: GroupKey): Map<string, Task[]> {
-  const map = new Map<string, Task[]>();
+export function groupTasks(tasks: TaskTransport[], groupKey: GroupKey): Map<string, TaskTransport[]> {
+  const map = new Map<string, TaskTransport[]>();
   const grouper = GROUPERS[groupKey];
   for (const task of tasks) {
     const key = grouper(task);

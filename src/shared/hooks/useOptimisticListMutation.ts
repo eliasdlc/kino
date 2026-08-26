@@ -80,7 +80,7 @@ function resolveKey<TVariables>(
  *
  * @example
  * useOptimisticListMutation<ToggleResult, Error, string, Task>({
- *   mutationFn: (id) => fetch(`/api/tasks/${id}/toggle`, { method: 'POST' }).then(r => r.json()),
+ *   mutationFn: (id) => api.tasks.toggle({ id }),
  *   queryKey: taskKeys.bySystem(systemId),
  *   updater: (tasks, id) =>
  *     tasks.map((t) => (t.id === id ? { ...t, status: t.status === 'done' ? 'today' : 'done' } : t)),

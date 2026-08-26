@@ -9,14 +9,14 @@ import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { useTasks, useToggleTask } from "@/features/tasks/tasks.hooks";
 import { useDeleteSprint } from "@/features/sprints/sprints.hooks";
 import { ProjectTaskCard } from "@/features/tasks/cards/ProjectTaskCard";
-import type { Task } from "@/features/tasks/tasks.types";
+import type { TaskTransport } from "@/features/tasks/tasks.types";
 import type { Sprint } from "@/features/sprints/sprints.types";
 
 interface ProjectArchiveProps {
   systemId: string;
-  initialData: Task[];
+  initialData: TaskTransport[];
   sprints: Sprint[];
-  onEdit?: (task: Task) => void;
+  onEdit?: (task: TaskTransport) => void;
 }
 
 function ProgressBar({ done, total }: { done: number; total: number }) {
@@ -39,9 +39,9 @@ function SprintAccordion({
   onDelete,
 }: {
   sprint: Sprint;
-  tasks: Task[];
+  tasks: TaskTransport[];
   systemId: string;
-  onEdit?: (task: Task) => void;
+  onEdit?: (task: TaskTransport) => void;
   onDelete: (sprint: Sprint) => void;
 }) {
   const [open, setOpen] = useState(false);

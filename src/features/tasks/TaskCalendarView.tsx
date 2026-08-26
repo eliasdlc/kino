@@ -36,13 +36,13 @@ import { useTasks, useUpdateTask } from "./tasks.hooks";
 import { DroppableColumn } from "./dnd/DroppableColumn";
 import { parseDueDate, dayToLocalISO } from "./tasks.utils";
 import { cn } from "@/lib/utils";
-import type { Task } from "./tasks.types";
+import type { TaskTransport } from "./tasks.types";
 import { TaskCalendarMobileView } from "./TaskCalendarMobileView";
 import { useIsMobile } from "@/hooks/use-mobile";
 
 interface TaskCalendarViewProps {
   systemId: string;
-  initialData: Task[];
+  initialData: TaskTransport[];
   /** Click en una tarea → la action view del system (en academic, "Esta Semana").
    *  Pasa el taskId para resaltarla allí; sin id (ej. "+N más") solo navega. */
   onNavigateToAction?: (taskId?: string) => void;
@@ -59,7 +59,7 @@ function TaskChip({
   task,
   onClick,
 }: {
-  task: Task;
+  task: TaskTransport;
   onClick?: () => void;
 }) {
   const { attributes, listeners, setNodeRef, isDragging } = useDraggable({ id: task.id });
@@ -91,7 +91,7 @@ export function TaskCalendarView({ systemId, initialData, onNavigateToAction }: 
   const { mutate: updateDueDate } = useUpdateTask(systemId);
 
   const [month, setMonth] = useState(startOfToday());
-  const [draggingTask, setDraggingTask] = useState<Task | null>(null);
+  const [draggingTask, setDraggingTask] = useState<TaskTransport | null>(null);
 
   const sensors = useSensors(
     useSensor(MouseSensor, { activationConstraint: { distance: 8 } }),
@@ -103,7 +103,7 @@ export function TaskCalendarView({ systemId, initialData, onNavigateToAction }: 
   const withoutDate = activeTasks.filter((t) => !t.dueDate);
 
   // Tareas con fecha indexadas por día (yyyy-MM-dd).
-  const byDay = new Map<string, Task[]>();
+  const byDay = new Map<string, TaskTransport[]>();
   for (const t of activeTasks) {
     if (!t.dueDate) continue;
     const key = dayId(parseDueDate(t.dueDate));

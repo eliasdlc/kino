@@ -5,12 +5,12 @@ import { CSS } from "@dnd-kit/utilities";
 import { cn } from "@/lib/utils";
 import { TaskCardFor } from "../cards/TaskCardFor";
 import { PlanningTaskCard } from "../PlanningTaskCard";
-import type { Task } from "../tasks.types";
+import type { TaskTransport } from "../tasks.types";
 import type { SystemType } from "@/shared/lib/system-types";
 import type { TaskDragData, DragSourceType } from "./dnd.types";
 
 interface DraggableTaskCardProps {
-  task: Task;
+  task: TaskTransport;
   systemId: string;
   sourceType: DragSourceType;
   sourceId: string;
@@ -20,8 +20,8 @@ interface DraggableTaskCardProps {
   /** Renderiza la variante compacta (columnas estrechas de Planificación). */
   compact?: boolean;
   onToggle: (taskId: string) => void;
-  onDelete: (task: Task) => void;
-  onEdit?: (task: Task) => void;
+  onDelete: (task: TaskTransport) => void;
+  onEdit?: (task: TaskTransport) => void;
 }
 
 /**

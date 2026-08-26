@@ -6,12 +6,12 @@ import { useTasks, useToggleTask, useDeleteTaskWithUndo } from "./tasks.hooks";
 import { DefaultTaskCard } from "./cards/DefaultTaskCard";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { parseDueDate } from "./tasks.utils";
-import type { Task } from "./tasks.types";
+import type { TaskTransport } from "./tasks.types";
 
 interface TaskWeekFocusViewProps {
   systemId: string;
-  initialData: Task[];
-  onEdit?: (task: Task) => void;
+  initialData: TaskTransport[];
+  onEdit?: (task: TaskTransport) => void;
   /** Tarea a resaltar al entrar (ej. tras un click desde el calendario). */
   highlight?: { id: string; nonce: number } | null;
 }
@@ -21,7 +21,7 @@ const HOY_LIMIT = 3;
 
 const PRIORITY_RANK: Record<string, number> = { critical: 0, high: 1, medium: 2, low: 3 };
 
-function daysUntil(task: Task, today: Date): number {
+function daysUntil(task: TaskTransport, today: Date): number {
   if (!task.dueDate) return Number.POSITIVE_INFINITY;
   return differenceInCalendarDays(parseDueDate(task.dueDate), today);
 }
@@ -34,8 +34,8 @@ function Section({
 }: {
   title: string;
   hint?: string;
-  tasks: Task[];
-  renderTask: (task: Task) => ReactNode;
+  tasks: TaskTransport[];
+  renderTask: (task: TaskTransport) => ReactNode;
 }) {
   if (tasks.length === 0) return null;
   return (
@@ -59,7 +59,7 @@ export function TaskWeekFocusView({ systemId, initialData, onEdit, highlight }: 
   const { mutate: toggleTask } = useToggleTask(systemId);
   const { mutate: deleteTask } = useDeleteTaskWithUndo(systemId);
 
-  const [deleteTarget, setDeleteTarget] = useState<Task | null>(null);
+  const [deleteTarget, setDeleteTarget] = useState<TaskTransport | null>(null);
 
   // Resaltado temporal: hace scroll a la tarea y la marca por ~1s.
   // Se deriva en render (no setState síncrono en effect): la tarea está
@@ -111,7 +111,7 @@ export function TaskWeekFocusView({ systemId, initialData, onEdit, highlight }: 
         ? "Nada vence hoy. Vas con tiempo. ✨"
         : `Vas al día — ${hoy.length} para hoy, lo demás tiene espacio.`;
 
-  function renderTask(task: Task) {
+  function renderTask(task: TaskTransport) {
     return (
       <div
         key={task.id}

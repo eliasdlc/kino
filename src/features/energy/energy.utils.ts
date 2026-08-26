@@ -1,6 +1,5 @@
 import { differenceInCalendarDays } from 'date-fns';
 import { parseDueDate } from '@/features/tasks/tasks.utils';
-import type { Task } from '@/features/tasks/tasks.types';
 import type { CheckinSlot } from './energy.schemas';
 
 // ── Cronotipos y calidad de sueño ──────────────────────────────────────────
@@ -117,12 +116,24 @@ function urgencyScore(dueDate: string | null | undefined, today: Date): number {
   return 0;
 }
 
-function ageScore(createdAt: Date, today: Date): number {
-  const days = Math.max(0, differenceInCalendarDays(today, createdAt));
+function ageScore(createdAt: Date | string, today: Date): number {
+  const days = Math.max(0, differenceInCalendarDays(today, new Date(createdAt)));
   return Math.min(days * 2, 30);
 }
 
-export function computeImportance(task: Task, today: Date): number {
+/**
+ * Lo único que la importancia mira de una tarea. Pide el mínimo en vez de la
+ * fila entera porque la puntúan los dos lados: el servidor sobre filas, donde
+ * `createdAt` es un `Date`, y el cliente sobre lo que llegó por la red, donde
+ * es texto.
+ */
+export interface Scorable {
+  priority: string | null;
+  dueDate: string | null;
+  createdAt: Date | string;
+}
+
+export function computeImportance(task: Scorable, today: Date): number {
   const priority = PRIORITY_SCORE[task.priority ?? 'medium'] ?? 40;
   const urgency = urgencyScore(task.dueDate, today);
   const age = ageScore(task.createdAt, today);

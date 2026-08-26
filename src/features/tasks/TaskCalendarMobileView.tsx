@@ -6,7 +6,7 @@ import { es } from "date-fns/locale";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
-import type { Task } from "./tasks.types";
+import type { TaskTransport } from "./tasks.types";
 
 const WEEKDAYS = ["L", "M", "X", "J", "V", "S", "D"];
 const MAX_DOTS = 3;
@@ -22,12 +22,12 @@ interface TaskCalendarMobileViewProps {
   month: Date;
   onMonthChange: (updater: (m: Date) => Date) => void;
   days: Date[];
-  byDay: Map<string, Task[]>;
-  withoutDate: Task[];
+  byDay: Map<string, TaskTransport[]>;
+  withoutDate: TaskTransport[];
   onNavigateToAction?: (taskId?: string) => void;
 }
 
-function TaskRow({ task, onClick }: { task: Task; onClick?: () => void }) {
+function TaskRow({ task, onClick }: { task: TaskTransport; onClick?: () => void }) {
   return (
     <button
       type="button"

@@ -3,7 +3,7 @@
 import { isBefore, isToday, startOfToday } from 'date-fns';
 import { cn } from '@/lib/utils';
 import { AlertCircle, Check } from 'lucide-react';
-import type { Task } from './tasks.types';
+import type { TaskTransport } from './tasks.types';
 import { parseDueDate } from './tasks.utils';
 import { useSubtasks } from './tasks.hooks';
 
@@ -26,10 +26,10 @@ interface SystemInfo {
 }
 
 interface TaskListRowProps {
-  task: Task;
+  task: TaskTransport;
   systemMap: Map<string, SystemInfo>;
   onToggle: (taskId: string) => void;
-  onOpen: (task: Task) => void;
+  onOpen: (task: TaskTransport) => void;
   isFocused?: boolean;
   isSelected?: boolean;
   onSelectionToggle?: (taskId: string) => void;

@@ -16,7 +16,7 @@ import {
 import { cn } from "@/lib/utils";
 import { PlanningTaskCard } from "./PlanningTaskCard";
 import { MultiDayTaskBar } from "./MultiDayTaskBar";
-import type { Task } from "./tasks.types";
+import type { TaskTransport } from "./tasks.types";
 import { parseDueDate, parseTaskDay } from "./tasks.utils";
 
 interface TaskPlanningMobileViewProps {
@@ -24,14 +24,14 @@ interface TaskPlanningMobileViewProps {
   weekOffset: number;
   monthHeading: string;
   weekNumber: number;
-  singleDayTasks: Task[];
-  multiDayTasks: Task[];
+  singleDayTasks: TaskTransport[];
+  multiDayTasks: TaskTransport[];
   onPrevWeek: () => void;
   onNextWeek: () => void;
   onResetWeek: () => void;
   onToggle: (taskId: string) => void;
-  onDelete: (task: Task) => void;
-  onEdit?: (task: Task) => void;
+  onDelete: (task: TaskTransport) => void;
+  onEdit?: (task: TaskTransport) => void;
   onMoveToDay: (taskId: string, dayISO: string) => void;
 }
 

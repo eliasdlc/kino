@@ -4,7 +4,7 @@ import { differenceInCalendarDays, format, startOfToday } from "date-fns";
 import { parseDueDate } from "../tasks.utils";
 import { ChevronDown, Trash2, Timer } from "lucide-react";
 import { cn } from "@/lib/utils";
-import type { Task, TaskMetadata } from "../tasks.types";
+import type { TaskTransport, TaskMetadata } from "../tasks.types";
 import { SubtaskList } from "../SubtaskList";
 import { useSubtasks } from "../tasks.hooks";
 import { getSystemColor } from "@/shared/utils/system-colors";
@@ -155,7 +155,7 @@ function SubtaskProgress({ parentTaskId, systemId }: { parentTaskId: string; sys
 }
 
 interface DefaultMetaProps {
-  task: Task;
+  task: TaskTransport;
   state: TaskCardState;
   systemType?: SystemType;
   systemId: string;

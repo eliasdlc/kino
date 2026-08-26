@@ -1,12 +1,12 @@
 import { Zap, ArrowRight, Clock, AlertCircle, Coffee } from 'lucide-react';
 import Link from 'next/link';
 import { cn } from '@/lib/utils';
-import type { PlanItem, EnergyPlanItem } from '@/features/energy/energy.planner';
+import type { PlanItem, EnergyPlanItemTransport } from '@/features/energy/energy.planner';
 
 interface Props {
   plan: PlanItem[];
   noProfile: boolean;
-  energyItems?: EnergyPlanItem[];
+  energyItems?: EnergyPlanItemTransport[];
 }
 
 function estimatedLabel(estimatedTime: string | null | undefined): string {
@@ -31,7 +31,7 @@ const ENERGY_LABEL: Record<string, string> = {
   low: 'Baja',
 };
 
-function EnergyPlanRow({ item }: { item: EnergyPlanItem }) {
+function EnergyPlanRow({ item }: { item: EnergyPlanItemTransport }) {
   const { task, startsHere, breakBefore, effectiveEnergyAtStart } = item;
   return (
     <>

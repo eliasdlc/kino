@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import type { Task } from "./tasks.types";
+import type { TaskTransport } from "./tasks.types";
 import {
   buildDirtyTaskData,
   formatDuration,
@@ -18,7 +18,7 @@ import {
  * fecha, y no incluir una fecha que no cambió para no resetear recordatorios.
  */
 
-function task(partial: Partial<Task> = {}): Task {
+function task(partial: Partial<TaskTransport> = {}): TaskTransport {
   return {
     id: "task-1",
     title: "Original",
@@ -34,7 +34,7 @@ function task(partial: Partial<Task> = {}): Task {
     recurrenceRule: null,
     metadata: null,
     ...partial,
-  } as Task;
+  } as TaskTransport;
 }
 
 function form(partial: Partial<TaskDetailFormState> = {}): TaskDetailFormState {

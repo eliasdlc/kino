@@ -37,7 +37,7 @@ import { useSprints } from "@/features/sprints/sprints.hooks";
 import { getSystemColor } from "@/shared/utils/system-colors";
 import { TaskTypePicker } from "./TaskTypePicker";
 import { TagPicker } from "@/features/tags/TagPicker";
-import type { Task } from "./tasks.types";
+import type { TaskTransport } from "./tasks.types";
 import { useFocusTimer } from "./FocusTimerProvider";
 import { useQueryClient } from "@tanstack/react-query";
 import type { SystemType } from "@/shared/lib/system-types";
@@ -56,14 +56,14 @@ import {
 } from "./TaskDetailFields";
 
 interface TaskDetailSheetProps {
-  task: Task | null;
+  task: TaskTransport | null;
   systemId: string;
   open: boolean;
   onOpenChange: (open: boolean) => void;
 }
 
 interface TaskDetailFormProps {
-  task: Task;
+  task: TaskTransport;
   systemId: string;
   onClose: () => void;
 }
@@ -82,8 +82,8 @@ function TaskDetailForm({ task, systemId, onClose }: TaskDetailFormProps) {
 
   const [title, setTitle] = useState(task.title);
   const [description, setDescription] = useState(task.description ?? "");
-  const [priority, setPriority] = useState<Task["priority"]>(task.priority);
-  const [energyLevel, setEnergyLevel] = useState<Task["energyLevel"]>(task.energyLevel);
+  const [priority, setPriority] = useState<TaskTransport["priority"]>(task.priority);
+  const [energyLevel, setEnergyLevel] = useState<TaskTransport["energyLevel"]>(task.energyLevel);
   const [taskType, setTaskType] = useState<TaskTypeValue | undefined>(
     (task.taskType && ['task', 'idea', 'event', 'reminder', 'epic'].includes(task.taskType))
       ? (task.taskType as TaskTypeValue)
@@ -211,7 +211,7 @@ function TaskDetailForm({ task, systemId, onClose }: TaskDetailFormProps) {
       <div className="grid grid-cols-2 gap-3">
         <div className="space-y-1.5">
           <Label>Prioridad</Label>
-          <Select value={priority} onValueChange={(v) => setPriority(v as Task["priority"])}>
+          <Select value={priority} onValueChange={(v) => setPriority(v as TaskTransport["priority"])}>
             <SelectTrigger>
               <SelectValue />
             </SelectTrigger>
@@ -225,7 +225,7 @@ function TaskDetailForm({ task, systemId, onClose }: TaskDetailFormProps) {
 
         <div className="space-y-1.5">
           <Label>Energía</Label>
-          <Select value={energyLevel} onValueChange={(v) => setEnergyLevel(v as Task["energyLevel"])}>
+          <Select value={energyLevel} onValueChange={(v) => setEnergyLevel(v as TaskTransport["energyLevel"])}>
             <SelectTrigger>
               <SelectValue />
             </SelectTrigger>

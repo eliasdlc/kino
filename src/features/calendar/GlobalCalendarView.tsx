@@ -25,7 +25,7 @@ import { es } from "date-fns/locale";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
-import type { Task } from "@/features/tasks/tasks.types";
+import type { TaskTransport } from "@/features/tasks/tasks.types";
 import { useCalendarTasks, useUpdateCalendarTask, useAllTasks } from "@/features/tasks/tasks.hooks";
 import { dayToLocalISO } from "@/features/tasks/tasks.utils";
 import { useIsMobile } from "@/hooks/use-mobile";
@@ -56,9 +56,9 @@ export function GlobalCalendarView() {
   const [weekStart, setWeekStart] = useState(() => startOfWeek(today, { weekStartsOn: 1 }));
   const [view, setView] = useState<"week" | "day">("week");
   const [selectedDay, setSelectedDay] = useState<Date>(today);
-  const [activeTask, setActiveTask] = useState<Task | null>(null);
+  const [activeTask, setActiveTask] = useState<TaskTransport | null>(null);
   const [resizeInfo, setResizeInfo] = useState<{
-    task: Task;
+    task: TaskTransport;
     startY: number;
     startMinutes: number;
     currentMinutes: number;
@@ -93,7 +93,7 @@ export function GlobalCalendarView() {
     [calendarTasks, selectedDay],
   );
 
-  function handleAcceptSuggestion(task: Task, hour: number) {
+  function handleAcceptSuggestion(task: TaskTransport, hour: number) {
     const date = dayKey(selectedDay);
     const newDate = dayToLocalISO(date, `${hour.toString().padStart(2, "0")}:00`);
     updateTask({ taskId: task.id, data: { startDate: newDate } });
@@ -392,7 +392,7 @@ export function GlobalCalendarView() {
                         />
                       ))}
 
-                      {/* Task blocks (absolutely positioned) */}
+                      {/* TaskTransport blocks (absolutely positioned) */}
                       {timedTasks.map((task) => (
                         <TaskBlock
                           key={task.id}
