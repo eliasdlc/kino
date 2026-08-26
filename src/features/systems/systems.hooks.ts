@@ -1,6 +1,12 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useOptimisticListMutation } from "@/shared/hooks/useOptimisticListMutation";
-import type { System, SystemWithSignals, CreateSystemInput, UpdateSystemInput } from "./systems.types";
+import { api } from "@/shared/api/client";
+import type {
+  SystemTransport,
+  SystemWithSignalsTransport,
+  CreateSystemInput,
+  UpdateSystemInput,
+} from "./systems.types";
 import { folderKeys } from "@/features/folders/folders.hooks";
 import { pageKeys } from "@/features/pages/pages.hooks";
 import { taskKeys } from "@/features/tasks/tasks.hooks";
@@ -8,13 +14,9 @@ import { resolveSystemManifest } from "@/shared/lib/system-manifest";
 import type { ArchetypeManifest } from "@/shared/lib/system-types";
 
 export function useSystems() {
-  return useQuery<SystemWithSignals[]>({
+  return useQuery({
     queryKey: ["systems"],
-    queryFn: async () => {
-      const res = await fetch("/api/systems");
-      if (!res.ok) throw new Error("Failed to fetch systems");
-      return res.json();
-    },
+    queryFn: () => api.systems.list({}),
     refetchOnWindowFocus: true,
   });
 }
@@ -25,7 +27,7 @@ export function useSystems() {
  * re-renderizan al mutar; la lista `["systems"]` sí (mutación optimista), así
  * que componer un sistema se ve al instante en vez de al navegar.
  */
-export function useLiveSystem<T extends System>(system: T): T {
+export function useLiveSystem<T extends SystemTransport>(system: T): T {
   const { data } = useSystems();
   const live = data?.find((s) => s.id === system.id) as T | undefined;
   return live ?? system;
@@ -44,19 +46,8 @@ export function useSystemManifest(systemId: string | null | undefined): Archetyp
 export function useCreateSystem() {
   const queryClient = useQueryClient();
 
-  return useMutation<System, Error, CreateSystemInput>({
-    mutationFn: async (data) => {
-      const res = await fetch("/api/systems", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(data),
-      });
-      if (!res.ok) {
-        const body = await res.json().catch(() => ({}));
-        throw new Error((body as { message?: string }).message ?? "Failed to create system");
-      }
-      return res.json() as Promise<System>;
-    },
+  return useMutation<SystemTransport, Error, CreateSystemInput>({
+    mutationFn: (data) => api.systems.create(data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["systems"] });
     },
@@ -64,19 +55,8 @@ export function useCreateSystem() {
 }
 
 export function useUpdateSystem() {
-  return useOptimisticListMutation<System, Error, { systemId: string; data: UpdateSystemInput }, SystemWithSignals>({
-    mutationFn: async ({ systemId, data }) => {
-      const res = await fetch(`/api/systems/${systemId}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(data),
-      });
-      if (!res.ok) {
-        const body = await res.json().catch(() => ({}));
-        throw new Error((body as { message?: string }).message ?? "Failed to update system");
-      }
-      return res.json() as Promise<System>;
-    },
+  return useOptimisticListMutation<SystemTransport, Error, { systemId: string; data: UpdateSystemInput }, SystemWithSignalsTransport>({
+    mutationFn: ({ systemId, data }) => api.systems.update({ id: systemId, ...data }),
     queryKey: ["systems"],
     updater: (systems, { systemId, data }) =>
       systems.map((s) => (s.id === systemId ? { ...s, ...data } : s)),
@@ -86,11 +66,8 @@ export function useUpdateSystem() {
 export function useDeleteSystem() {
   const queryClient = useQueryClient();
 
-  return useOptimisticListMutation<void, Error, string, SystemWithSignals>({
-    mutationFn: async (systemId) => {
-      const res = await fetch(`/api/systems/${systemId}`, { method: "DELETE" });
-      if (!res.ok) throw new Error("Failed to delete system");
-    },
+  return useOptimisticListMutation<void, Error, string, SystemWithSignalsTransport>({
+    mutationFn: (systemId) => api.systems.remove({ id: systemId }),
     queryKey: ["systems"],
     updater: (systems, systemId) => systems.filter((s) => s.id !== systemId),
     // El helper invalida ['systems']; al borrar el sistema también purgamos sus

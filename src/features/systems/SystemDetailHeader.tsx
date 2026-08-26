@@ -18,14 +18,14 @@ import { useDeleteSystem } from "./systems.hooks";
 import { getSystemColor } from "@/shared/utils/system-colors";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { EditSystemDialog } from "./EditSystemDialog";
-import type { System } from "./systems.types";
+import type { SystemTransport } from "./systems.types";
 import Link from "next/link";
 import { type SystemSignals, formatStaleAdvisor } from "./systems.signals";
 import { capitalize, resolveSystemManifest } from "@/shared/lib/system-manifest";
 import { cn } from "@/lib/utils";
 
 interface SystemDetailHeaderProps {
-  system: System;
+  system: SystemTransport;
   signals: SystemSignals;
   currentTab?: "tasks" | "docs";
 }

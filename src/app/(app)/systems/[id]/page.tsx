@@ -45,13 +45,13 @@ export default async function SystemPage({
         />
       </div>
       <PageWrapper className="w-full">
-        <SystemDetailHeader system={system} signals={signals} currentTab={surface} />
+        <SystemDetailHeader system={toTransport(system)} signals={signals} currentTab={surface} />
 
         <div className="mt-4">
           {surface === "docs" ? (
             <NotebooksView systemId={id} />
           ) : (
-            <SystemDetailView system={system} initialTasks={toTransport(tasks)} />
+            <SystemDetailView system={toTransport(system)} initialTasks={toTransport(tasks)} />
           )}
         </div>
       </PageWrapper>

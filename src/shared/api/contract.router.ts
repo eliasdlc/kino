@@ -1,8 +1,10 @@
 import { foldersContract } from "@/features/folders/folders.contract";
+import { onboardingContract } from "@/features/onboarding/onboarding.contract";
 import { searchContract } from "@/features/search/search.contract";
 import { settingsContract } from "@/features/settings/settings.contract";
 import { sprintsContract } from "@/features/sprints/sprints.contract";
 import { stickyNotesContract } from "@/features/sticky-notes/sticky-notes.contract";
+import { systemsContract } from "@/features/systems/systems.contract";
 import { tagsContract } from "@/features/tags/tags.contract";
 import { tasksContract } from "@/features/tasks/tasks.contract";
 
@@ -13,10 +15,12 @@ import { tasksContract } from "@/features/tasks/tasks.contract";
  */
 export const apiContract = {
   folders: foldersContract,
+  onboarding: onboardingContract,
   search: searchContract,
   settings: settingsContract,
   sprints: sprintsContract,
   stickyNotes: stickyNotesContract,
+  systems: systemsContract,
   tags: tagsContract,
   tasks: tasksContract,
 };

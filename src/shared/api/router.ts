@@ -1,8 +1,10 @@
 import { foldersRouter } from "@/features/folders/folders.router";
+import { onboardingRouter } from "@/features/onboarding/onboarding.router";
 import { searchRouter } from "@/features/search/search.router";
 import { settingsRouter } from "@/features/settings/settings.router";
 import { sprintsRouter } from "@/features/sprints/sprints.router";
 import { stickyNotesRouter } from "@/features/sticky-notes/sticky-notes.router";
+import { systemsRouter } from "@/features/systems/systems.router";
 import { tagsRouter } from "@/features/tags/tags.router";
 import { tasksRouter } from "@/features/tasks/tasks.router";
 
@@ -17,10 +19,12 @@ import { tasksRouter } from "@/features/tasks/tasks.router";
  */
 export const apiRouter = {
   folders: foldersRouter,
+  onboarding: onboardingRouter,
   search: searchRouter,
   settings: settingsRouter,
   sprints: sprintsRouter,
   stickyNotes: stickyNotesRouter,
+  systems: systemsRouter,
   tags: tagsRouter,
   tasks: tasksRouter,
 };

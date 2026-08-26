@@ -1,5 +1,5 @@
 import type { TaskTransport } from "@/features/tasks/tasks.types";
-import type { SystemWithSignals } from "@/features/systems/systems.types";
+import type { SystemWithSignalsTransport } from "@/features/systems/systems.types";
 import type { FolderWithCounts } from "@/features/folders/folders.types";
 import type { PageListItem, LinkedTask } from "@/features/pages/pages.types";
 import type { StickyNoteItem } from "@/features/sticky-notes/sticky-notes.types";
@@ -30,7 +30,9 @@ import type { StudioReport } from "@/features/writing/writing.studio";
  * completas para que cada estado visual sea reproducible sin datos reales.
  */
 
-const NOW = new Date("2026-07-15T12:00:00Z");
+/** Instante fijo del catálogo, en la misma forma que llega por la red. */
+const NOW = "2026-07-15T12:00:00.000Z";
+const NOW_DATE = new Date(NOW);
 const uuid = (n: number) => `00000000-0000-4000-8000-${String(n).padStart(12, "0")}`;
 
 export const MOCK_SYSTEM_ID = uuid(1);
@@ -82,8 +84,8 @@ export function daysFromNow(days: number): string {
   return d.toISOString();
 }
 
-export function makeSystem(overrides: Partial<SystemWithSignals> = {}): SystemWithSignals {
-  const base: SystemWithSignals = {
+export function makeSystem(overrides: Partial<SystemWithSignalsTransport> = {}): SystemWithSignalsTransport {
+  const base: SystemWithSignalsTransport = {
     id: uuid(1),
     userId: uuid(2),
     name: "Universidad",
@@ -100,10 +102,11 @@ export function makeSystem(overrides: Partial<SystemWithSignals> = {}): SystemWi
     sortOrder: 0,
     createdAt: NOW,
     updatedAt: NOW,
+    lastActivityAt: NOW,
     stale: false,
     daysSinceLastActivity: 1,
     activeTaskCount: 8,
-  } as SystemWithSignals;
+  } as SystemWithSignalsTransport;
   return { ...base, ...overrides };
 }
 
@@ -308,8 +311,8 @@ export function makeEntityDetail(overrides: Partial<EntityDetail> = {}): EntityD
     aliases: ["La Cartógrafa", "Vance"],
     summary: "Cartógrafa del gremio; busca el mapa que su madre nunca terminó.",
     coverImageUrl: null,
-    createdAt: NOW,
-    updatedAt: NOW,
+    createdAt: NOW_DATE,
+    updatedAt: NOW_DATE,
     attributes: { edad: "34", origen: "Puerto Ceniza", rol: "Protagonista" },
     images: [],
     relations: [
@@ -346,7 +349,7 @@ export function makeWritingOverview(
     dailyWordGoal: 1_000,
     peakWindow: { start: 9, end: 11 },
     currentHour: 10,
-    works: [{ folderId: MOCK_FOLDER_ID, lastSessionAt: NOW.toISOString(), daysSinceLastSession: 0 }],
+    works: [{ folderId: MOCK_FOLDER_ID, lastSessionAt: NOW, daysSinceLastSession: 0 }],
     ...overrides,
   };
 }
