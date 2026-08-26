@@ -6,6 +6,7 @@ import type { LooseThreadsReport } from "./chekhov";
 import type { TimelineReport } from "./timeline";
 import type { PlotGrid, PlotOperation } from "./writing.plot";
 import { api } from "@/shared/api/client";
+import { useOptimisticRecord } from "@/shared/hooks/optimistic";
 
 export const writingKeys = {
   overview: (systemId: string) => ["writing", "overview", systemId] as const,
@@ -99,25 +100,13 @@ export function usePlotGrid(folderId: string | null) {
  */
 export function usePlotOperation(folderId: string) {
   const qc = useQueryClient();
-  return useMutation<
-    PlotGrid,
-    Error,
-    PlotOperation,
-    { prev?: PlotGrid }
-  >({
-    mutationFn: (operation) =>
-      api.writing.applyPlotOperation({ id: folderId, ...operation }),
-    onMutate: async () => {
-      const key = writingKeys.plot(folderId);
-      await qc.cancelQueries({ queryKey: key });
-      return { prev: qc.getQueryData<PlotGrid>(key) };
-    },
-    onSuccess: (grid) => {
-      qc.setQueryData(writingKeys.plot(folderId), grid);
-    },
-    onError: (_e, _v, context) => {
-      if (context?.prev) qc.setQueryData(writingKeys.plot(folderId), context.prev);
-    },
+  // La rejilla es un registro, no una lista: el servidor la devuelve entera ya
+  // recalculada, así que el updater la deja como está y `onSuccess` la escribe.
+  return useOptimisticRecord<PlotGrid, Error, PlotOperation, PlotGrid>({
+    mutationFn: (operation) => api.writing.applyPlotOperation({ id: folderId, ...operation }),
+    queryKey: writingKeys.plot(folderId),
+    updater: (grid) => grid,
+    onSuccess: (grid) => qc.setQueryData(writingKeys.plot(folderId), grid),
     onSettled: () => {
       // El texto de los capítulos cambió: el editor y el codex tienen que verlo.
       qc.invalidateQueries({ queryKey: ["pages"] });
@@ -158,28 +147,16 @@ export function useTimeline(folderId: string | null) {
  */
 export function useReorderTimeline(systemId: string, folderId: string) {
   const qc = useQueryClient();
-  return useMutation<
+  return useOptimisticRecord<
     { updated: number },
     Error,
     { eventIds: string[]; placed: TimelineReport["placed"] },
-    { prev?: TimelineReport }
+    TimelineReport
   >({
-    mutationFn: ({ eventIds }) =>
-      api.writing.reorderTimeline({ id: systemId, eventIds }),
-    onMutate: async ({ placed }) => {
-      const key = writingKeys.timeline(folderId);
-      await qc.cancelQueries({ queryKey: key });
-      const prev = qc.getQueryData<TimelineReport>(key);
-      if (prev) qc.setQueryData<TimelineReport>(key, { ...prev, placed });
-      return { prev };
-    },
-    onError: (_e, _v, context) => {
-      if (context?.prev) qc.setQueryData(writingKeys.timeline(folderId), context.prev);
-    },
-    onSettled: () => {
-      qc.invalidateQueries({ queryKey: writingKeys.timeline(folderId) });
-      qc.invalidateQueries({ queryKey: ["entities"] });
-    },
+    mutationFn: ({ eventIds }) => api.writing.reorderTimeline({ id: systemId, eventIds }),
+    queryKey: writingKeys.timeline(folderId),
+    updater: (report, { placed }) => ({ ...report, placed }),
+    onSettled: () => qc.invalidateQueries({ queryKey: ["entities"] }),
   });
 }
 
@@ -214,35 +191,20 @@ export function useLooseThreads(folderId: string | null) {
  * mutación del proyecto con el rollback incluido.
  */
 export function useResolveThread(folderId: string) {
-  const qc = useQueryClient();
-  return useMutation<
+  return useOptimisticRecord<
     { id: string; threadResolvedMentions: number | null },
     Error,
     { entityId: string; resolved: boolean },
-    { prev?: LooseThreadsReport }
+    LooseThreadsReport
   >({
-    mutationFn: ({ entityId, resolved }) =>
-      api.writing.resolveThread({ id: entityId, resolved }),
-    onMutate: async ({ entityId, resolved }) => {
-      const key = writingKeys.threads(folderId);
-      await qc.cancelQueries({ queryKey: key });
-      const prev = qc.getQueryData<LooseThreadsReport>(key);
-      if (prev) {
-        qc.setQueryData<LooseThreadsReport>(key, {
-          ...prev,
-          threads: prev.threads.map((t) =>
-            t.entityId === entityId ? { ...t, resolved, reopened: false } : t,
-          ),
-        });
-      }
-      return { prev };
-    },
-    onError: (_err, _vars, context) => {
-      if (context?.prev) qc.setQueryData(writingKeys.threads(folderId), context.prev);
-    },
-    onSettled: () => {
-      qc.invalidateQueries({ queryKey: writingKeys.threads(folderId) });
-    },
+    mutationFn: ({ entityId, resolved }) => api.writing.resolveThread({ id: entityId, resolved }),
+    queryKey: writingKeys.threads(folderId),
+    updater: (report, { entityId, resolved }) => ({
+      ...report,
+      threads: report.threads.map((t) =>
+        t.entityId === entityId ? { ...t, resolved, reopened: false } : t,
+      ),
+    }),
   });
 }
 

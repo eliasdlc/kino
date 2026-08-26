@@ -2,7 +2,7 @@
 
 import { useCallback } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useOptimisticListMutation } from "@/shared/hooks/useOptimisticListMutation";
+import { useOptimisticList } from "@/shared/hooks/optimistic";
 import {
   applyCreated,
   applyOptimistic,
@@ -121,7 +121,7 @@ export function useUpdatePage(pageId: string, systemId?: string) {
 }
 
 export function useDeletePage(systemId: string) {
-  return useOptimisticListMutation<void, Error, string, PageListItemTransport>({
+  return useOptimisticList<void, Error, string, PageListItemTransport>({
     mutationFn: (pageId) => api.pages.remove({ id: pageId }),
     queryKey: pageKeys.bySystem(systemId),
     updater: (pages, pageId) => pages.filter((p) => p.id !== pageId),
@@ -182,7 +182,7 @@ export function useSubPages(parentPageId: string) {
 }
 
 export function useCreateSubPage(parentPageId: string, systemId: string) {
-  return useOptimisticListMutation<
+  return useOptimisticList<
     PageListItemTransport,
     Error,
     { title?: string; content?: string },

@@ -5,6 +5,7 @@ import { toast } from 'sonner';
 import type { AccountOverview, ActiveSession } from './account.service';
 import type { ChangeEmailInput, ChangePasswordInput, DeleteAccountInput } from './account.schemas';
 import { api } from '@/shared/api/client';
+import { useOptimisticList } from '@/shared/hooks/optimistic';
 
 /** Las fechas viajan como ISO por JSON. */
 export type ActiveSessionDto = Omit<ActiveSession, 'createdAt' | 'lastActiveAt'> & {
@@ -74,49 +75,22 @@ export function useSessions() {
 }
 
 export function useRevokeSession() {
-  const qc = useQueryClient();
-  return useMutation<void, Error, string, { prev?: ActiveSessionDto[] }>({
-    mutationFn: async (id) => {
-      await api.account.revokeSession({ id });
-    },
-    onMutate: async (id) => {
-      await qc.cancelQueries({ queryKey: accountKeys.sessions });
-      const prev = qc.getQueryData<ActiveSessionDto[]>(accountKeys.sessions);
-      qc.setQueryData<ActiveSessionDto[]>(accountKeys.sessions, (old = []) => old.filter((s) => s.id !== id));
-      return { prev };
-    },
-    onError: (error, _id, context) => {
-      if (context?.prev) qc.setQueryData(accountKeys.sessions, context.prev);
-      toast.error(error.message);
-    },
-    onSettled: () => {
-      qc.invalidateQueries({ queryKey: accountKeys.sessions });
-    },
+  return useOptimisticList<void, Error, string, ActiveSessionDto>({
+    mutationFn: (id) => api.account.revokeSession({ id }),
+    queryKey: accountKeys.sessions,
+    updater: (sessions, id) => sessions.filter((s) => s.id !== id),
+    onError: (error) => toast.error(error.message),
   });
 }
 
 export function useRevokeOtherSessions() {
-  const qc = useQueryClient();
-  return useMutation<{ revoked: number }, Error, void, { prev?: ActiveSessionDto[] }>({
-    mutationFn: async () => {
-      return api.account.revokeOtherSessions({});
-    },
-    onMutate: async () => {
-      await qc.cancelQueries({ queryKey: accountKeys.sessions });
-      const prev = qc.getQueryData<ActiveSessionDto[]>(accountKeys.sessions);
-      qc.setQueryData<ActiveSessionDto[]>(accountKeys.sessions, (old = []) => old.filter((s) => s.current));
-      return { prev };
-    },
-    onSuccess: ({ revoked }) => {
-      toast.success(revoked === 1 ? 'Se cerró 1 sesión' : `Se cerraron ${revoked} sesiones`);
-    },
-    onError: (error, _input, context) => {
-      if (context?.prev) qc.setQueryData(accountKeys.sessions, context.prev);
-      toast.error(error.message);
-    },
-    onSettled: () => {
-      qc.invalidateQueries({ queryKey: accountKeys.sessions });
-    },
+  return useOptimisticList<{ revoked: number }, Error, void, ActiveSessionDto>({
+    mutationFn: () => api.account.revokeOtherSessions({}),
+    queryKey: accountKeys.sessions,
+    updater: (sessions) => sessions.filter((s) => s.current),
+    onSuccess: ({ revoked }) =>
+      toast.success(revoked === 1 ? 'Se cerró 1 sesión' : `Se cerraron ${revoked} sesiones`),
+    onError: (error) => toast.error(error.message),
   });
 }
 

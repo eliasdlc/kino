@@ -2,7 +2,7 @@ import { renderHook, waitFor } from "@testing-library/react";
 import { describe, it, expect, beforeEach, vi } from "vitest";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import React from "react";
-import { useOptimisticListMutation } from "./useOptimisticListMutation";
+import { useOptimisticList, useOptimisticRecord, useOptimisticScope } from "./optimistic";
 
 type Item = { id: string; label: string };
 
@@ -12,7 +12,7 @@ function makeWrapper(client: QueryClient) {
   };
 }
 
-describe("useOptimisticListMutation", () => {
+describe("useOptimisticList", () => {
   let client: QueryClient;
   const KEY = ["items"] as const;
   const INITIAL: Item[] = [{ id: "1", label: "a" }];
@@ -27,7 +27,7 @@ describe("useOptimisticListMutation", () => {
   it("applies the optimistic update immediately (before the server resolves)", async () => {
     const { result } = renderHook(
       () =>
-        useOptimisticListMutation<Item, Error, Item, Item>({
+        useOptimisticList<Item, Error, Item, Item>({
           // Nunca resuelve: la mutación queda pending para observar el estado optimista.
           mutationFn: () => new Promise<Item>(() => {}),
           queryKey: KEY,
@@ -47,7 +47,7 @@ describe("useOptimisticListMutation", () => {
     const onError = vi.fn();
     const { result } = renderHook(
       () =>
-        useOptimisticListMutation<Item, Error, Item, Item>({
+        useOptimisticList<Item, Error, Item, Item>({
           mutationFn: async () => {
             throw new Error("boom");
           },
@@ -69,7 +69,7 @@ describe("useOptimisticListMutation", () => {
   it("keeps the optimistic result on success", async () => {
     const { result } = renderHook(
       () =>
-        useOptimisticListMutation<Item, Error, Item, Item>({
+        useOptimisticList<Item, Error, Item, Item>({
           mutationFn: async (item) => item,
           queryKey: KEY,
           updater: (items, item) => [...items, item],
@@ -87,7 +87,7 @@ describe("useOptimisticListMutation", () => {
     const spy = vi.spyOn(client, "invalidateQueries");
     const { result } = renderHook(
       () =>
-        useOptimisticListMutation<Item, Error, Item, Item>({
+        useOptimisticList<Item, Error, Item, Item>({
           mutationFn: async (item) => item,
           queryKey: KEY,
           updater: (items, item) => [...items, item],
@@ -106,7 +106,7 @@ describe("useOptimisticListMutation", () => {
     const spy = vi.spyOn(client, "invalidateQueries");
     const { result } = renderHook(
       () =>
-        useOptimisticListMutation<Item, Error, Item, Item>({
+        useOptimisticList<Item, Error, Item, Item>({
           mutationFn: async (item) => item,
           queryKey: KEY,
           updater: (items, item) => [...items, item],
@@ -128,7 +128,7 @@ describe("useOptimisticListMutation", () => {
 
     const { result } = renderHook(
       () =>
-        useOptimisticListMutation<Item, Error, { scope: string; item: Item }, Item>({
+        useOptimisticList<Item, Error, { scope: string; item: Item }, Item>({
           mutationFn: () => new Promise<Item>(() => {}),
           queryKey: (vars) => ["items", `scope-${vars.scope}`],
           updater: (items, vars) => [...items, vars.item],
@@ -143,5 +143,114 @@ describe("useOptimisticListMutation", () => {
     });
     // La lista no relacionada queda intacta.
     expect(client.getQueryData<Item[]>(KEY)).toEqual(INITIAL);
+  });
+});
+
+describe("useOptimisticRecord", () => {
+  let client: QueryClient;
+  const KEY = ["settings"] as const;
+  const INITIAL = { theme: "dark", limit: 100 };
+
+  beforeEach(() => {
+    client = new QueryClient({ defaultOptions: { queries: { retry: false }, mutations: { retry: false } } });
+    client.setQueryData(KEY, INITIAL);
+  });
+
+  function setup(mutationFn: (patch: Partial<typeof INITIAL>) => Promise<unknown>) {
+    return renderHook(
+      () =>
+        useOptimisticRecord<unknown, Error, Partial<typeof INITIAL>, typeof INITIAL>({
+          mutationFn,
+          queryKey: KEY,
+          updater: (previous, patch) => ({ ...previous, ...patch }),
+        }),
+      { wrapper: makeWrapper(client) },
+    );
+  }
+
+  it("pinta el cambio antes de que responda el servidor", async () => {
+    const { result } = setup(() => new Promise(() => {}));
+
+    result.current.mutate({ theme: "light" });
+
+    await waitFor(() => expect(client.getQueryData(KEY)).toEqual({ theme: "light", limit: 100 }));
+  });
+
+  it("devuelve el registro entero si el servidor lo rechaza", async () => {
+    const { result } = setup(() => Promise.reject(new Error("no")));
+
+    result.current.mutate({ theme: "light" });
+
+    await waitFor(() => expect(result.current.isError).toBe(true));
+    expect(client.getQueryData(KEY)).toEqual(INITIAL);
+  });
+
+  it("no inventa un registro donde no había nada cacheado", async () => {
+    client.removeQueries({ queryKey: KEY });
+    const { result } = setup(() => Promise.resolve({}));
+
+    result.current.mutate({ theme: "light" });
+
+    await waitFor(() => expect(result.current.isSuccess).toBe(true));
+    expect(client.getQueryData(KEY)).toBeUndefined();
+  });
+});
+
+describe("useOptimisticScope", () => {
+  let client: QueryClient;
+  const PREFIX = ["tasks"] as const;
+  const HOY = ["tasks", "today"] as const;
+  const TODAS = ["tasks", "all"] as const;
+  const OTRA = ["pages"] as const;
+
+  beforeEach(() => {
+    client = new QueryClient({ defaultOptions: { queries: { retry: false }, mutations: { retry: false } } });
+    client.setQueryData(HOY, [{ id: "1", label: "a" }]);
+    client.setQueryData(TODAS, [{ id: "1", label: "a" }, { id: "2", label: "b" }]);
+    client.setQueryData(OTRA, [{ id: "1", label: "a" }]);
+  });
+
+  function setup(mutationFn: (id: string) => Promise<unknown>) {
+    return renderHook(
+      () =>
+        useOptimisticScope<unknown, Error, string, Item>({
+          mutationFn,
+          queryKey: PREFIX,
+          updater: (items, id) => items.map((i) => (i.id === id ? { ...i, label: "hecho" } : i)),
+        }),
+      { wrapper: makeWrapper(client) },
+    );
+  }
+
+  // Lo que el hook existe para evitar: la vista de delante actualizada y las
+  // demás mintiendo hasta el siguiente refetch.
+  it("escribe en todas las listas del prefijo a la vez", async () => {
+    const { result } = setup(() => new Promise(() => {}));
+
+    result.current.mutate("1");
+
+    await waitFor(() => {
+      expect(client.getQueryData<Item[]>(HOY)![0].label).toBe("hecho");
+      expect(client.getQueryData<Item[]>(TODAS)![0].label).toBe("hecho");
+    });
+  });
+
+  it("no toca lo que cuelga de otro prefijo", async () => {
+    const { result } = setup(() => new Promise(() => {}));
+
+    result.current.mutate("1");
+
+    await waitFor(() => expect(client.getQueryData<Item[]>(HOY)![0].label).toBe("hecho"));
+    expect(client.getQueryData<Item[]>(OTRA)![0].label).toBe("a");
+  });
+
+  it("las devuelve todas a su estado si el servidor falla", async () => {
+    const { result } = setup(() => Promise.reject(new Error("no")));
+
+    result.current.mutate("1");
+
+    await waitFor(() => expect(result.current.isError).toBe(true));
+    expect(client.getQueryData<Item[]>(HOY)![0].label).toBe("a");
+    expect(client.getQueryData<Item[]>(TODAS)![0].label).toBe("a");
   });
 });

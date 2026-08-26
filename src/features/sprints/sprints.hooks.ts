@@ -2,7 +2,7 @@
 
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { api } from "@/shared/api/client";
-import { useOptimisticListMutation } from "@/shared/hooks/useOptimisticListMutation";
+import { useOptimisticList } from "@/shared/hooks/optimistic";
 import type { CreateSprintInput, UpdateSprintInput } from "./sprints.schemas";
 import type { SprintTransport } from "./sprints.types";
 
@@ -20,7 +20,7 @@ export function useSprints(systemId: string, options?: { enabled?: boolean }) {
 }
 
 export function useCreateSprint(systemId: string) {
-  return useOptimisticListMutation<
+  return useOptimisticList<
     SprintTransport,
     Error,
     Omit<CreateSprintInput, "systemId">,
@@ -48,7 +48,7 @@ export function useCreateSprint(systemId: string) {
 }
 
 export function useUpdateSprint(systemId: string) {
-  return useOptimisticListMutation<
+  return useOptimisticList<
     SprintTransport,
     Error,
     { sprintId: string; data: UpdateSprintInput },
@@ -63,7 +63,7 @@ export function useUpdateSprint(systemId: string) {
 
 export function useCloseSprint(systemId: string) {
   const qc = useQueryClient();
-  return useOptimisticListMutation<SprintTransport, Error, string, SprintTransport>({
+  return useOptimisticList<SprintTransport, Error, string, SprintTransport>({
     mutationFn: (sprintId) => api.sprints.close({ id: sprintId }),
     queryKey: sprintKeys.bySystem(systemId),
     updater: (sprints, sprintId) =>
@@ -79,7 +79,7 @@ export function useCloseSprint(systemId: string) {
 
 export function useDeleteSprint(systemId: string) {
   const qc = useQueryClient();
-  return useOptimisticListMutation<void, Error, string, SprintTransport>({
+  return useOptimisticList<void, Error, string, SprintTransport>({
     mutationFn: (sprintId) => api.sprints.remove({ id: sprintId }),
     queryKey: sprintKeys.bySystem(systemId),
     updater: (sprints, sprintId) => sprints.filter((s) => s.id !== sprintId),

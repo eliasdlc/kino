@@ -106,15 +106,17 @@ Los query keys se declaran como **factory por feature** (`taskKeys`, `pageKeys`,
 
 ### Mutaciones — patrón optimista canónico
 
-**Todas** las mutaciones lo usan, sin excepción: UI optimista siempre, rollback en error, invalidate en settled.
+**Todas** las mutaciones lo usan, sin excepción: UI optimista siempre, rollback en error, invalidate en settled. El patrón no se escribe a mano: vive en `src/shared/hooks/optimistic.ts`, en tres formas según sobre qué se aplique.
 
-```ts
-onMutate:  cancelQueries → snapshot del cache → setQueryData optimista → return { prev }
-onError:   setQueryData(prev)  // rollback
-onSettled: invalidateQueries
-```
+| Hook | Para qué |
+|---|---|
+| `useOptimisticList` | Una lista bajo una key. Completar, borrar, editar o mover dentro de ella |
+| `useOptimisticRecord` | Un registro bajo una key. Ajustes, la rejilla de escenas, la cronología |
+| `useOptimisticScope` | Todas las listas de un prefijo. Una tarea se ve a la vez en el plan de hoy, en la lista global y en la de su sistema |
 
-La referencia canónica vive en `src/features/tasks/tasks.hooks.ts` (Rumbo 05). Si lo tocas, no rompas esa referencia.
+La invalidación es parte del hook, no una decisión por mutación: ahí estaba el riesgo real, con uno invalidando un prefijo y otro una clave exacta, y la diferencia notándose sólo con dos vistas abiertas.
+
+Lo que no cabe —leer de una cache y escribir en otra, o una creación encolable sin conexión— se escribe inline **con un comentario diciendo por qué**. Son cinco casos y los cinco lo llevan.
 
 ### Fechas y timezone
 
