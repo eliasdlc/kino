@@ -22,6 +22,7 @@ pnpm db:studio                      # Drizzle Studio
 pnpm test                           # Suite completa (lógica pura, sin base)
 pnpm test -- --run <path>           # Un solo archivo de test
 pnpm test:integration               # Batería de integración contra Postgres (PGlite, sin Docker)
+pnpm mcp:generate                   # Vuelca el contrato en las operaciones que ve el MCP
 ```
 
 **Siempre** correr `pnpm typecheck && pnpm lint` después de cualquier cambio. Si alguno falla, se arregla antes de commitear.
@@ -156,6 +157,8 @@ pasaba porque el cliente afirmaba la respuesta con un cast.
   / `SESSION_REQUIRED`, 404 `NOT_FOUND`, 400 `VALIDATION_ERROR` de schema, 422
   `VALIDATION_ERROR` de regla de dominio, 500 `INTERNAL_ERROR`. La traducción vive
   en `shared/api/handler.ts` y en `shared/api/procedures.ts`.
+
+**Las tools del MCP salen de aquí.** `packages/mcp` se publica en npm y no puede importar `src/`, así que el contrato viaja hasta él como código generado (`pnpm mcp:generate` → `packages/mcp/src/generated/operations.ts`). El paquete sólo escribe a mano lo que el agente lee: el nombre y la descripción de cada tool, en `catalog.ts`, que es un mapa **exhaustivo** sobre las operaciones. Un endpoint nuevo no compila hasta que alguien decide si es una tool o un `null` explícito, y un test comprueba que lo commiteado coincide con el contrato.
 
 Lo que cruza la red no es una fila: `Transport<T>` (en `shared/api/transport.ts`)
 convierte las fechas en texto ISO, que es lo que sobrevive a un `JSON.stringify`.
