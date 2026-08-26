@@ -100,13 +100,12 @@ export type CreateStickyNoteVars = CreateStickyNoteInput &
 export const createStickyNoteSpec: OfflineCreateSpec<CreateStickyNoteVars, StickyNoteItem> = {
   mutationKey: ["sticky-notes", "create"],
   mutationFn: (data) =>
-    postJson<StickyNoteItem>(
-      "pageId" in data && data.pageId
-        ? `/api/pages/${data.pageId}/sticky-notes`
-        : `/api/folders/${(data as { folderId: string }).folderId}/sticky-notes`,
-      data,
-      "Failed to create sticky note",
-    ),
+    "pageId" in data && data.pageId
+      ? api.stickyNotes.createOnPage({ ...data, pageId: data.pageId })
+      : api.stickyNotes.createOnFolder({
+          ...data,
+          folderId: (data as { folderId: string }).folderId,
+        }),
   queryKeys: (data) => [
     "pageId" in data && data.pageId
       ? stickyNoteKeys.byPage(data.pageId)

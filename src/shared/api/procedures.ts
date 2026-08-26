@@ -69,6 +69,17 @@ export const translateDomainErrors = base.middleware(async ({ next }) => {
 });
 
 /**
+ * El 400 de un schema que no se puede declarar en el contrato porque depende de
+ * datos: la metadata de una carpeta la valida un Zod distinto según el
+ * arquetipo del sistema dueño, y eso sólo se sabe después de leerlo.
+ *
+ * Sale con el mismo cuerpo que el 400 del contrato, `details` incluido.
+ */
+export function schemaError(message: string, details: unknown) {
+  return new ORPCError("VALIDATION_ERROR", { status: 400, message, data: { details } });
+}
+
+/**
  * Resuelve la credencial y el permiso antes de que el handler exista.
  *
  * El scope se deriva del método declarado en el contrato, y `meta.scope` es la

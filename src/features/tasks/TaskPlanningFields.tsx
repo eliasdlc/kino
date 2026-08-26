@@ -14,7 +14,7 @@ import { cn } from "@/lib/utils";
 import { getSystemColor } from "@/shared/utils/system-colors";
 import { TagPicker } from "@/features/tags/TagPicker";
 import type { FolderWithCounts } from "@/features/folders/folders.types";
-import type { Sprint } from "@/features/sprints/sprints.types";
+import type { SprintTransport } from "@/features/sprints/sprints.types";
 import { EstimatedTimePicker } from "./EstimatedTimePicker";
 import { TaskTypePicker } from "./TaskTypePicker";
 import { TimePicker } from "@/components/ui/time-picker";
@@ -34,7 +34,7 @@ interface TaskPlanningFieldsProps {
   typeConfig: TaskTypeConfig;
   taskType: FormValues['taskType'];
   folders: FolderWithCounts[];
-  sprints: Sprint[];
+  sprints: SprintTransport[];
   dateRange: DateRange;
   setDateRange: (range: DateRange) => void;
 }
@@ -272,7 +272,7 @@ export function TaskPlanningFields({
         if (activeSprints.length === 0) return null;
         return (
           <div className="space-y-2">
-            <Label>Sprint</Label>
+            <Label>SprintTransport</Label>
             <Controller
               control={form.control}
               name="sprintId"

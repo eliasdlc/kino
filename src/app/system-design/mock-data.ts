@@ -3,7 +3,7 @@ import type { SystemWithSignals } from "@/features/systems/systems.types";
 import type { FolderWithCounts } from "@/features/folders/folders.types";
 import type { PageListItem, LinkedTask } from "@/features/pages/pages.types";
 import type { StickyNoteItem } from "@/features/sticky-notes/sticky-notes.types";
-import type { Sprint } from "@/features/sprints/sprints.types";
+import type { SprintTransport } from "@/features/sprints/sprints.types";
 import type {
   TodayCheckinRow,
   WeeklyTrend,
@@ -179,22 +179,18 @@ export function makeLinkedTask(overrides: Partial<LinkedTask> = {}): LinkedTask 
   return { ...base, ...overrides };
 }
 
-export function makeSprint(overrides: Partial<Sprint> = {}): Sprint {
-  const base = {
+export function makeSprint(overrides: Partial<SprintTransport> = {}): SprintTransport {
+  const base: SprintTransport = {
     id: uuid(600),
-    userId: uuid(2),
     systemId: MOCK_SYSTEM_ID,
     name: "Sprint 3",
     goal: "Cerrar el flujo de onboarding",
-    startDate: new Date(daysFromNow(-7)),
-    endDate: new Date(daysFromNow(7)),
+    startDate: daysFromNow(-7),
+    endDate: daysFromNow(7),
     status: "active",
     completedAt: null,
     sortOrder: 0,
-    externalId: null,
-    createdAt: NOW,
-    updatedAt: NOW,
-  } as unknown as Sprint;
+  };
   return { ...base, ...overrides };
 }
 

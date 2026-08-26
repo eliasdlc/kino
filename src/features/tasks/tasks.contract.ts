@@ -1,8 +1,6 @@
 import { z } from "zod";
-import { type } from "@orpc/contract";
-import { endpoint } from "@/shared/api/contract";
-import { toTransport } from "@/shared/api/transport";
-import type { Task, TaskTransport } from "./tasks.types";
+import { endpoint, noContent, output } from "@/shared/api/contract";
+import type { Task } from "./tasks.types";
 import {
   bulkCreateTaskSchema,
   bulkMoveSchema,
@@ -24,23 +22,18 @@ import {
  * sin reescribir. Lo que faltaba es la salida, que hasta ahora era lo que
  * devolviera el servicio y el cliente afirmaba con un cast.
  *
- * Por qué `type<Task, TaskTransport>(toTransport)` y no un Zod para la salida:
- * el tipo de la salida se deriva de la tabla, así que una columna nueva aparece
- * sola en el cliente en vez de exigir que alguien la copie. Y como la fila y su
- * forma de transporte no son el mismo tipo, el compilador obliga a que exista la
- * conversión: no se puede declarar que sale texto ISO y devolver un `Date`.
- * Las salidas que no son filas de una tabla sí llevan su Zod, escrito a mano
- * porque no hay nada de donde derivarlas.
+ * Por qué `output<Task>()` y no un Zod para la salida: el tipo se deriva de la
+ * tabla, así que una columna nueva aparece sola en el cliente en vez de exigir
+ * que alguien la copie. Las salidas que no son filas sí llevan su Zod, escrito
+ * a mano porque no hay nada de donde derivarlas.
  *
  * Las rutas con params llevan el param dentro del schema de entrada: oRPC lo
  * saca de la URL y deja el resto en el body, que es lo que `prepareBody` hacía
  * a mano en `route()`.
  */
 
-const task = () => type<Task, TaskTransport>(toTransport);
-/** Sin cuerpo: un 204 no devuelve nada, y el tipo lo dice en vez de `unknown`. */
-const nothing = () => type<void>();
-const taskList = () => type<Task[], TaskTransport[]>(toTransport);
+const task = () => output<Task>();
+const taskList = () => output<Task[]>();
 
 const idParam = z.object({ id: z.string().uuid() });
 const id = { id: z.string().uuid() };
@@ -64,17 +57,17 @@ export const tasksContract = {
   bulkMove: endpoint
     .route({ method: "POST", path: "/tasks/bulk-move", successStatus: 204 })
     .input(bulkMoveSchema)
-    .output(nothing()),
+    .output(noContent()),
 
   bulkUpdate: endpoint
     .route({ method: "PATCH", path: "/tasks/bulk-update", successStatus: 204 })
     .input(bulkUpdateSchema)
-    .output(nothing()),
+    .output(noContent()),
 
   reorder: endpoint
     .route({ method: "POST", path: "/tasks/reorder", successStatus: 204 })
     .input(reorderTasksSchema)
-    .output(nothing()),
+    .output(noContent()),
 
   calendar: endpoint
     .route({ method: "GET", path: "/tasks/calendar" })
@@ -98,7 +91,7 @@ export const tasksContract = {
   remove: endpoint
     .route({ method: "DELETE", path: "/tasks/{id}", successStatus: 204 })
     .input(idParam)
-    .output(nothing()),
+    .output(noContent()),
 
   // Devuelve sólo el status resultante, no la tarea: es lo que la transición
   // decide y lo único que el cliente necesita para pintar el cambio.
@@ -135,7 +128,7 @@ export const tasksContract = {
   createTimeLog: endpoint
     .route({ method: "POST", path: "/tasks/{id}/time-log", successStatus: 201 })
     .input(createTimeLogSchema.extend(id))
-    .output(nothing()),
+    .output(noContent()),
 
   bySystem: endpoint
     .route({ method: "GET", path: "/systems/{systemId}/tasks" })

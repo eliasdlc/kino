@@ -1,3 +1,9 @@
+import { foldersRouter } from "@/features/folders/folders.router";
+import { searchRouter } from "@/features/search/search.router";
+import { settingsRouter } from "@/features/settings/settings.router";
+import { sprintsRouter } from "@/features/sprints/sprints.router";
+import { stickyNotesRouter } from "@/features/sticky-notes/sticky-notes.router";
+import { tagsRouter } from "@/features/tags/tags.router";
 import { tasksRouter } from "@/features/tasks/tasks.router";
 
 /**
@@ -10,5 +16,11 @@ import { tasksRouter } from "@/features/tasks/tasks.router";
  * su slice, al lado de sus schemas.
  */
 export const apiRouter = {
+  folders: foldersRouter,
+  search: searchRouter,
+  settings: settingsRouter,
+  sprints: sprintsRouter,
+  stickyNotes: stickyNotesRouter,
+  tags: tagsRouter,
   tasks: tasksRouter,
 };
