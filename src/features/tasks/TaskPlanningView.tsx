@@ -30,7 +30,7 @@ import { DroppableColumn } from "./dnd/DroppableColumn";
 import { TaskDragOverlay } from "./dnd/TaskDragOverlay";
 import type { TaskDragData } from "./dnd/dnd.types";
 import { useTasks, useFolderTasks, useToggleTask, useDeleteTaskWithUndo, useUpdateTask } from "./tasks.hooks";
-import type { Task } from "./tasks.types";
+import type { TaskTransport } from "./tasks.types";
 import { parseDueDate, parseTaskDay, dayToLocalISO } from "./tasks.utils";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { useTaskKeyboardNavigation } from "./useTaskKeyboardNavigation";
@@ -45,10 +45,10 @@ function sameDueDay(startDate: string, dueDate: string): boolean {
 
 interface TaskPlanningViewProps {
   systemId: string;
-  initialData: Task[];
+  initialData: TaskTransport[];
   folderId?: string;
-  folderInitialData?: Task[];
-  onEdit?: (task: Task) => void;
+  folderInitialData?: TaskTransport[];
+  onEdit?: (task: TaskTransport) => void;
   keyboardDisabled?: boolean;
 }
 
@@ -63,7 +63,7 @@ export function TaskPlanningView({ systemId, initialData, folderId, folderInitia
   const { mutate: updateTask } = useUpdateTask(systemId);
 
   // Track the currently dragged task for the DragOverlay
-  const [activeTask, setActiveTask] = useState<Task | null>(null);
+  const [activeTask, setActiveTask] = useState<TaskTransport | null>(null);
 
   // Week navigation: 0 = current week, 1 = next, -1 = previous
   const [weekOffset, setWeekOffset] = useState(0);
@@ -133,7 +133,7 @@ export function TaskPlanningView({ systemId, initialData, folderId, folderInitia
     );
   }, [visibleTasks]);
 
-  const [deleteTarget, setDeleteTarget] = useState<Task | null>(null);
+  const [deleteTarget, setDeleteTarget] = useState<TaskTransport | null>(null);
 
   const { focusedTaskId } = useTaskKeyboardNavigation(visibleTasks, {
     onSelect: onEdit,

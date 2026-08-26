@@ -2,12 +2,12 @@ import { renderHook, act } from "@testing-library/react";
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import userEvent from "@testing-library/user-event";
 import { useTaskKeyboardNavigation } from "./useTaskKeyboardNavigation";
-import type { Task } from "./tasks.types";
+import type { TaskTransport } from "./tasks.types";
 
-const mockTasks: Task[] = [
-  { id: "task-1", title: "Task 1", status: "backlog" } as Task,
-  { id: "task-2", title: "Task 2", status: "today" } as Task,
-  { id: "task-3", title: "Task 3", status: "done" } as Task,
+const mockTasks: TaskTransport[] = [
+  { id: "task-1", title: "TaskTransport 1", status: "backlog" } as TaskTransport,
+  { id: "task-2", title: "TaskTransport 2", status: "today" } as TaskTransport,
+  { id: "task-3", title: "TaskTransport 3", status: "done" } as TaskTransport,
 ];
 
 describe("useTaskKeyboardNavigation", () => {

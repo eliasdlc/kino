@@ -7,12 +7,12 @@ import { Plus, Flag, CheckCircle2, Trash2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useCreateSprint, useCloseSprint, useDeleteSprint } from "@/features/sprints/sprints.hooks";
 import type { Sprint } from "@/features/sprints/sprints.types";
-import type { Task } from "@/features/tasks/tasks.types";
+import type { TaskTransport } from "@/features/tasks/tasks.types";
 
 interface SprintBarProps {
   systemId: string;
   sprints: Sprint[];
-  tasks: Task[];
+  tasks: TaskTransport[];
   sprintFilter: string | null;
   onSelectFilter: (value: string | null) => void;
 }

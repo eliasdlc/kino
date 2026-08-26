@@ -1,13 +1,14 @@
 import type { QueryClient, QueryKey } from "@tanstack/react-query";
 import { taskKeys } from "@/features/tasks/tasks.keys";
 import { buildOptimisticTask } from "@/features/tasks/tasks.optimistic";
-import type { Task, CreateTaskInput } from "@/features/tasks/tasks.types";
+import type { TaskTransport, CreateTaskInput } from "@/features/tasks/tasks.types";
 import { pageKeys } from "@/features/pages/pages.keys";
 import type { PageListItem } from "@/features/pages/pages.types";
 import type { CreatePageInput } from "@/features/pages/pages.schemas";
 import { stickyNoteKeys } from "@/features/sticky-notes/sticky-notes.keys";
 import type { StickyNoteItem } from "@/features/sticky-notes/sticky-notes.types";
 import type { CreateStickyNoteInput } from "@/features/sticky-notes/sticky-notes.schemas";
+import { api } from "@/shared/api/client";
 import { reconcileCreated, dropOptimistic } from "./reconcile";
 
 /**
@@ -59,9 +60,9 @@ async function postJson<T>(url: string, body: unknown, fallbackMessage: string):
   return res.json() as Promise<T>;
 }
 
-export const createTaskSpec: OfflineCreateSpec<CreateTaskInput, Task> = {
+export const createTaskSpec: OfflineCreateSpec<CreateTaskInput, TaskTransport> = {
   mutationKey: ["tasks", "create"],
-  mutationFn: (data) => postJson<Task>("/api/tasks", data, "Failed to create task"),
+  mutationFn: (data) => api.tasks.create(data),
   queryKeys: (data) => [
     // bySystem la escuchan las cuatro vistas; folderTasks sólo si hay carpeta.
     taskKeys.bySystem(data.systemId),

@@ -11,7 +11,7 @@ import { useEnergyBudget } from '@/features/energy/energy.hooks';
 import { crossesLimitWith } from '@/features/energy/energy.budget';
 import { useSuggestedTasks, useAddToTodayPlan, useToggleTodayTask, suggestedTasksKey, type SuggestedTask } from './tasks.hooks';
 import { TaskDetailSheet } from './TaskDetailSheet';
-import type { Task } from './tasks.types';
+import type { TaskTransport } from './tasks.types';
 import { parseDueDate } from './tasks.utils';
 
 const PRIORITY_BADGE: Record<string, string> = {
@@ -50,7 +50,7 @@ interface SuggestedRowProps {
   addedIds: Set<string>;
   onAdd: (taskId: string) => void;
   onComplete: (taskId: string) => void;
-  onOpen: (task: Task) => void;
+  onOpen: (task: TaskTransport) => void;
 }
 
 function SuggestedRow({ task, addedIds, onAdd, onComplete, onOpen }: SuggestedRowProps) {
@@ -133,7 +133,7 @@ export function KinoSuggestedSection() {
   const budget = useEnergyBudget();
 
   const [addedIds, setAddedIds] = useState<Set<string>>(new Set());
-  const [selectedTask, setSelectedTask] = useState<Task | null>(null);
+  const [selectedTask, setSelectedTask] = useState<TaskTransport | null>(null);
 
   // Mostrar hasta 7 tareas; excluir las que se añadieron al plan (desaparecen)
   const visible = suggestions

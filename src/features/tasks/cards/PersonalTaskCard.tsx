@@ -6,14 +6,14 @@ import { describeRecurrence } from "../recurrence";
 import { DefaultTaskCard } from "./DefaultTaskCard";
 import type { TaskCardProps } from "./types";
 import type { TaskCardState } from "./useTaskCard";
-import type { Task } from "../tasks.types";
+import type { TaskTransport } from "../tasks.types";
 
 /**
  * Personal — fila suave: sin prioridad agresiva (soft), muestra el kind
  * (hábito/recado/evento), la recurrencia si la hay y la franja de energía. Lo
  * que importa aquí es la constancia, no la urgencia.
  */
-function PersonalMeta({ task }: { task: Task; state: TaskCardState }) {
+function PersonalMeta({ task }: { task: TaskTransport; state: TaskCardState }) {
   const kind = getTaskKind("personal", (task.metadata as Record<string, unknown> | null)?.kind);
   const KindIcon = kind?.icon;
   const recurrence = task.recurrenceRule ? describeRecurrence(task.recurrenceRule) : null;

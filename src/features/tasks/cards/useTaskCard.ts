@@ -5,7 +5,7 @@ import { useFolders } from "@/features/folders/folders.hooks";
 import { getTaskTypeConfig } from "../task-type-config";
 import { useFocusTimer } from "../FocusTimerProvider";
 import { toast } from "sonner";
-import type { Task } from "../tasks.types";
+import type { TaskTransport } from "../tasks.types";
 import type { FolderWithCounts } from "@/features/folders/folders.types";
 
 export interface TaskCardState {
@@ -30,7 +30,7 @@ export interface TaskCardState {
 }
 
 export function useTaskCard(
-  task: Task,
+  task: TaskTransport,
   systemId: string,
   onToggle: (taskId: string) => void,
 ): TaskCardState {

@@ -11,7 +11,7 @@ import { ProjectBoard } from "./project/ProjectBoard";
 import { ProjectArchive } from "./project/ProjectArchive";
 import { SprintBar } from "./project/SprintBar";
 import { GithubRepoPanel } from "@/features/github-sync/GithubRepoPanel";
-import type { Task } from "@/features/tasks/tasks.types";
+import type { TaskTransport } from "@/features/tasks/tasks.types";
 import type { SystemViewProps } from "./SystemDetailView";
 
 /**
@@ -19,7 +19,7 @@ import type { SystemViewProps } from "./SystemDetailView";
  * semanal (eje scheduling, reutilizada de Academic) y archivadas por sprint.
  */
 export function SystemProjectView({ system, initialTasks }: SystemViewProps) {
-  const [editTask, setEditTask] = useState<Task | null>(null);
+  const [editTask, setEditTask] = useState<TaskTransport | null>(null);
   const [tab, setTab] = useState("board");
   const [sprintFilter, setSprintFilter] = useState<string | null>(null);
 

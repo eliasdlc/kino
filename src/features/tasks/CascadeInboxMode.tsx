@@ -5,7 +5,8 @@ import { X, ArrowRight } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useHotkey } from "@/shared/hooks/useHotkey";
 import { useBulkMove } from "./tasks.hooks";
-import type { Task } from "./tasks.types";
+import type { TaskTransport } from "./tasks.types";
+import { type TaskStatus } from "./tasks.state-machine";
 import {
   Dialog,
   DialogContent,
@@ -14,7 +15,7 @@ import {
 } from "@/components/ui/dialog";
 
 interface CascadeInboxModeProps {
-  tasks: Task[];
+  tasks: TaskTransport[];
   open: boolean;
   onOpenChange: (open: boolean) => void;
 }
@@ -35,7 +36,7 @@ export function CascadeInboxMode({ tasks, open, onOpenChange }: CascadeInboxMode
     else onOpenChange(false);
   }
 
-  function schedule(status: string) {
+  function schedule(status: TaskStatus) {
     if (!task) return;
     bulkMove({ taskIds: [task.id], status }, { onSuccess: advance });
   }
@@ -74,7 +75,7 @@ export function CascadeInboxMode({ tasks, open, onOpenChange }: CascadeInboxMode
           />
         </div>
 
-        {/* Task */}
+        {/* TaskTransport */}
         <div className="py-4 border rounded-xl px-4 bg-card">
           <p className="text-base font-medium text-foreground">{task.title}</p>
           <p className="text-xs text-muted-foreground mt-1">

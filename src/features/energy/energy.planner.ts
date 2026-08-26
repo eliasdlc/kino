@@ -7,6 +7,7 @@ import {
   CHRONOTYPE_CURVES,
 } from './energy.utils';
 import type { Task } from '@/features/tasks/tasks.types';
+import type { Transport } from '@/shared/api/transport';
 
 export interface PlanItem {
   task: Task;
@@ -38,6 +39,12 @@ export interface EnergyPlanItem {
   /** El planner insertó un descanso justo antes de esta tarea */
   breakBefore: boolean;
 }
+
+/**
+ * El mismo item tal como lo recibe el cliente. El planner corre en el servidor
+ * sobre filas; lo que llega al navegador ya pasó por un `JSON.stringify`.
+ */
+export type EnergyPlanItemTransport = Transport<EnergyPlanItem>;
 
 /** Por qué una tarea no entró en el día. */
 export type DeferralReason = 'budget' | 'energy';

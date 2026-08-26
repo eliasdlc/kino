@@ -1,38 +1,34 @@
 "use client";
 
 import { useQuery } from "@tanstack/react-query";
-import { type Task } from "./tasks.types";
+import { api } from "@/shared/api/client";
+import { type TaskTransport } from "./tasks.types";
 import { taskKeys, allTasksKey, suggestedTasksKey } from "./tasks.keys";
 
 /**
  * Queries de lectura de tareas.
  *
- * Extraído de tasks.hooks.ts en KIN-146 (FE-05). Traslado literal: el
- * comportamiento no cambia. `tasks.hooks.ts` sigue reexportando todo, así que
- * ningún consumidor tuvo que cambiar de import.
+ * Las URLs y los casts se fueron con el contrato: `api.tasks.*` ya sabe qué
+ * recibe y qué devuelve, y un error de red o del servidor llega como excepción,
+ * que es lo que TanStack Query necesita.
  */
+
 /** Tareas en la papelera (deleted_at IS NOT NULL) de un sistema. */
 export function useTrashedTasks(systemId: string, enabled = true) {
-  return useQuery<Task[]>({
+  return useQuery({
     queryKey: taskKeys.trash(systemId),
-    queryFn: async () => {
-      const res = await fetch(`/api/tasks?systemId=${systemId}&deleted=true`);
-      if (!res.ok) throw new Error("Failed to fetch trashed tasks");
-      return res.json();
-    },
+    // `deleted` viaja por la query string, donde todo es texto: el schema de la
+    // ruta es el que lo convierte en booleano.
+    queryFn: () => api.tasks.list({ systemId, deleted: "true" }),
     enabled,
   });
 }
 
 
-export function useTasks(systemId: string, initialData: Task[]) {
-  return useQuery<Task[]>({
+export function useTasks(systemId: string, initialData: TaskTransport[]) {
+  return useQuery({
     queryKey: taskKeys.bySystem(systemId),
-    queryFn: async () => {
-      const res = await fetch(`/api/systems/${systemId}/tasks`);
-      if (!res.ok) throw new Error("Failed to fetch tasks");
-      return res.json();
-    },
+    queryFn: () => api.tasks.bySystem({ systemId }),
     initialData,
     initialDataUpdatedAt: 0,
     refetchOnWindowFocus: true,
@@ -41,14 +37,14 @@ export function useTasks(systemId: string, initialData: Task[]) {
 }
 
 
-export function useFolderTasks(systemId: string, folderId: string, initialData?: Task[]) {
-  return useQuery<Task[]>({
+export function useFolderTasks(
+  systemId: string,
+  folderId: string,
+  initialData?: TaskTransport[],
+) {
+  return useQuery({
     queryKey: taskKeys.folderTasks(systemId, folderId),
-    queryFn: async () => {
-      const res = await fetch(`/api/systems/${systemId}/folders/${folderId}/tasks`);
-      if (!res.ok) throw new Error("Failed to fetch folder tasks");
-      return res.json();
-    },
+    queryFn: () => api.tasks.byFolder({ systemId, folderId }),
     enabled: !!folderId,
     refetchOnWindowFocus: true,
     staleTime: 30_000,
@@ -62,13 +58,9 @@ export function useSubtasks(
   _systemId: string,
   options?: { enabled?: boolean }
 ) {
-  return useQuery<Task[]>({
+  return useQuery({
     queryKey: taskKeys.subtasks(taskId),
-    queryFn: async () => {
-      const res = await fetch(`/api/tasks/${taskId}/subtasks`);
-      if (!res.ok) throw new Error("Failed to fetch subtasks");
-      return res.json();
-    },
+    queryFn: () => api.tasks.subtasks({ id: taskId }),
     enabled: options?.enabled ?? true,
     refetchOnWindowFocus: true,
     staleTime: 30_000,
@@ -77,21 +69,23 @@ export function useSubtasks(
 
 
 export function useAllTasks() {
-  return useQuery<Task[]>({
+  return useQuery({
     queryKey: allTasksKey(),
-    queryFn: async () => {
-      const res = await fetch('/api/tasks');
-      if (!res.ok) throw new Error('Failed to fetch tasks');
-      return res.json() as Promise<Task[]>;
-    },
+    queryFn: () => api.tasks.list({}),
     staleTime: 30_000,
   });
 }
 
-
-export type SuggestedTask = Task & { importanceScore: number; why: string; energyBand: string };
-
-
+/**
+ * La sugerencia de `insights`, que todavía sirve su propia ruta. El tipo es el
+ * de transporte igual: lo que describe no es qué handler contestó, sino lo que
+ * sobrevive al viaje.
+ */
+export type SuggestedTask = TaskTransport & {
+  importanceScore: number;
+  why: string;
+  energyBand: string;
+};
 
 
 export function useSuggestedTasks() {
@@ -110,15 +104,10 @@ export function useSuggestedTasks() {
 
 
 export function useCalendarTasks(from: string, to: string) {
-  return useQuery<Task[]>({
+  return useQuery({
     queryKey: taskKeys.calendarTasks(from, to),
-    queryFn: async () => {
-      const res = await fetch(`/api/tasks/calendar?from=${encodeURIComponent(from)}&to=${encodeURIComponent(to)}`);
-      if (!res.ok) throw new Error('Failed to fetch calendar tasks');
-      return res.json() as Promise<Task[]>;
-    },
+    queryFn: () => api.tasks.calendar({ from, to }),
     staleTime: 30_000,
     refetchOnWindowFocus: true,
   });
 }
-

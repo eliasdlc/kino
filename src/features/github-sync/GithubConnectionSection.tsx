@@ -77,6 +77,7 @@ export function GithubConnectionSection() {
           <div className="flex shrink-0 gap-2">
             {data.revoked && (
               <Button asChild size="sm">
+                {/* eslint-disable-next-line @next/next/no-html-link-for-pages -- `/api/...` no es una página: es el endpoint que redirige a GitHub, y necesita navegación real. La regla lo confunde desde que existe el catch-all del contrato. */}
                 <a href="/api/integrations/github/connect?returnTo=/settings">
                   Reconectar
                 </a>
@@ -93,6 +94,7 @@ export function GithubConnectionSection() {
           </div>
         ) : (
           <Button asChild size="sm" className="shrink-0">
+            {/* eslint-disable-next-line @next/next/no-html-link-for-pages -- Mismo caso que arriba: endpoint de redirección, no página. */}
             <a href="/api/integrations/github/connect?returnTo=/settings">
               Conectar
             </a>

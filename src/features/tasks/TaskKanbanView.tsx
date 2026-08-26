@@ -10,7 +10,7 @@ import {
   type DragStartEvent,
   type DragEndEvent,
 } from "@dnd-kit/core";
-import type { Task } from "./tasks.types";
+import type { TaskTransport } from "./tasks.types";
 import type { TaskDragData } from "./dnd/dnd.types";
 import { useTasks, useFolderTasks, useToggleTask, useDeleteTaskWithUndo, useUpdateTask } from "./tasks.hooks";
 import { useFolders } from "@/features/folders/folders.hooks";
@@ -25,10 +25,10 @@ import { tasksEmptyCopy } from "@/shared/lib/archetype-copy";
 
 interface TaskKanbanViewProps {
     systemId: string;
-    initialData: Task[];
+    initialData: TaskTransport[];
     folderId?: string;
-    folderInitialData?: Task[];
-    onEdit?: (task: Task) => void;
+    folderInitialData?: TaskTransport[];
+    onEdit?: (task: TaskTransport) => void;
     keyboardDisabled?: boolean;
     defaultGroupBy?: KanbanGroupBy;
 }
@@ -58,7 +58,7 @@ const PRIORITY_COLUMNS: ColumnDef[] = [
 ];
 
 /** Campo de la tarea que define en qué columna cae, según el agrupamiento. */
-function taskGroupKey(task: Task, groupBy: KanbanGroupBy): string {
+function taskGroupKey(task: TaskTransport, groupBy: KanbanGroupBy): string {
     if (groupBy === "energy") return task.energyLevel ?? "medium";
     if (groupBy === "priority") return task.priority ?? "medium";
     return task.folderId ?? NO_PROJECT;
@@ -76,7 +76,7 @@ export function TaskKanbanView({ systemId, initialData, folderId, folderInitialD
     const { data: folders = [] } = useFolders(systemId);
 
     const [groupBy, setGroupBy] = useState<KanbanGroupBy>(defaultGroupBy);
-    const [activeTask, setActiveTask] = useState<Task | null>(null);
+    const [activeTask, setActiveTask] = useState<TaskTransport | null>(null);
 
     const projectColumns: ColumnDef[] = [
         ...folders.map((f) => ({ id: f.id, label: f.name, description: "" })),
@@ -126,10 +126,10 @@ export function TaskKanbanView({ systemId, initialData, folderId, folderInitialD
             updateTask({
                 taskId: data.task.id,
                 data: data.sourceType === "priority"
-                    ? { priority: targetId as Task["priority"] }
+                    ? { priority: targetId as TaskTransport["priority"] }
                     : data.sourceType === "project"
                     ? { folderId: targetId === NO_PROJECT ? null : targetId }
-                    : { energyLevel: targetId as Task["energyLevel"] },
+                    : { energyLevel: targetId as TaskTransport["energyLevel"] },
             });
         },
         [updateTask]
@@ -139,7 +139,7 @@ export function TaskKanbanView({ systemId, initialData, folderId, folderInitialD
         setActiveTask(null);
     }, []);
 
-    const [deleteTarget, setDeleteTarget] = useState<Task | null>(null);
+    const [deleteTarget, setDeleteTarget] = useState<TaskTransport | null>(null);
     const manifest = useSystemManifest(systemId);
     const empty = tasksEmptyCopy(manifest, "action");
 

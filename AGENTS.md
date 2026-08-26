@@ -76,7 +76,9 @@ Las variables de entorno están documentadas en **`.env.example`**, una línea p
 
 ```
 src/features/{feature}/
-├── {feature}.routes.ts      # Handlers de API Routes
+├── {feature}.contract.ts    # Qué entra, qué sale y por qué URL (slices migrados)
+├── {feature}.router.ts      # Implementación del contrato (slices migrados)
+├── {feature}.routes.ts      # Handlers con `route()` (slices sin migrar)
 ├── {feature}.service.ts     # Lógica de negocio (funciones puras donde se pueda)
 ├── {feature}.schemas.ts     # Schemas Zod + DTOs
 ├── {feature}.types.ts       # Tipos propios del slice
@@ -123,11 +125,45 @@ La referencia canónica vive en `src/features/tasks/tasks.hooks.ts` (Rumbo 05). 
 - `dueDate` y `startDate` son **`timestamptz` con hora opcional**, no columnas DATE. Cuidado con el off-by-one.
 - El cálculo de "hoy" y de slots para lógica de negocio se hace **en el servidor** con la timezone del usuario. El cliente solo pinta — así un reloj mal puesto en el cliente no corrompe el plan.
 
+### El contrato de la API
+
+Un slice migrado declara su API en `{feature}.contract.ts`: método, URL, schema de
+entrada y **schema de salida**. De ahí salen las dos puntas: `{feature}.router.ts`
+la implementa y `@/shared/api/client` la consume tipada. Cambiar la salida de un
+endpoint rompe el `typecheck` en el hook que la lee, que es justo lo que antes no
+pasaba porque el cliente afirmaba la respuesta con un cast.
+
+- **Un contrato por slice, al lado de sus schemas.** Lo único central es la
+  composición: `shared/api/contract.router.ts` (lo que importa el cliente) y
+  `shared/api/router.ts` (lo que sirve el servidor).
+- **Los schemas de entrada no se reescriben:** son los mismos de
+  `{feature}.schemas.ts`. Las rutas con params llevan el param dentro del schema
+  y oRPC lo saca de la URL.
+- **La salida se declara con `type<Fila, Transport<Fila>>(toTransport)`.** El tipo
+  del cliente se deriva de la tabla, y como la fila y su forma de transporte no
+  son el mismo tipo, el compilador exige la conversión.
+- **Los permisos salen del contrato:** el scope se deriva del método y `meta` es
+  la excepción (`{ scope }` para los POST que sólo leen, `{ sessionOnly: true }`
+  para lo que toca credenciales).
+- **Las dos formas conviven.** `src/app/api/[...rest]/route.ts` es un catch-all;
+  Next resuelve antes cualquier `route.ts` más específico, así que sólo llega lo
+  que ningún archivo reclama. Migrar un slice es borrar sus `route.ts` y añadir su
+  contrato al router.
+- **Los códigos de error no cambian:** 401 `UNAUTHORIZED`, 403 `INSUFFICIENT_SCOPE`
+  / `SESSION_REQUIRED`, 404 `NOT_FOUND`, 400 `VALIDATION_ERROR` de schema, 422
+  `VALIDATION_ERROR` de regla de dominio, 500 `INTERNAL_ERROR`. La traducción vive
+  en `shared/api/handler.ts` y en `shared/api/procedures.ts`.
+
+Lo que cruza la red no es una fila: `Transport<T>` (en `shared/api/transport.ts`)
+convierte las fechas en texto ISO, que es lo que sobrevive a un `JSON.stringify`.
+El cliente usa `TaskTransport`, no `Task`, y un Server Component que pase filas
+como `initialData` tiene que llamar a `toTransport` primero.
+
 ### Validación
 
 Una sola fuente Zod por entidad, importada por servidor y cliente. El backend **siempre** valida aunque el cliente ya lo hizo. `userId` **siempre** viene de la sesión, nunca del body. Los `metadata` jsonb se validan con Zod discriminado por `systemType` — metadata no es un saco.
 
-Las rutas que tocan credenciales o borran la cuenta (`/api/account/*`) llevan `sessionOnly: true` en `route()`: sólo la sesión del navegador, nunca una clave API ni un token OAuth del MCP, aunque sean del mismo usuario.
+Las rutas que tocan credenciales o borran la cuenta (`/api/account/*`) llevan `sessionOnly: true` — en `route()` si el slice no está migrado, en el `meta` del contrato si lo está: sólo la sesión del navegador, nunca una clave API ni un token OAuth del MCP, aunque sean del mismo usuario.
 
 ### Estado
 
@@ -163,7 +199,7 @@ CSS puro — keyframes, transitions, Tailwind. **No instalar Framer Motion.** An
 Dos baterías, y la diferencia es si hay base de por medio.
 
 - **`*.test.ts` / `*.test.tsx` → `pnpm test`.** Lógica pura y componentes. Mockean `@/shared/db`; no tocan Postgres y por eso la suite entera tarda segundos.
-- **`*.itest.ts` → `pnpm test:integration`.** Lo que sólo contesta una base: `ltree`, la búsqueda full-text, las transacciones y el aislamiento entre usuarios. Un mock aquí sólo confirmaría que la consulta lleva el filtro, no que Postgres lo respete.
+- **`*.itest.ts` → `pnpm test:integration`.** Lo que sólo contesta una base: `ltree`, la búsqueda full-text, las transacciones, el aislamiento entre usuarios y el contrato de punta a punta (petición HTTP real con una clave API real). Un mock aquí sólo confirmaría que la consulta lleva el filtro, no que Postgres lo respete.
 
 La base de integración la levanta `src/shared/db/testing/setup.ts`, **una por archivo de test**: PGlite (Postgres en WASM, en memoria, con `ltree`, `uuid-ossp` y `unaccent`) hablando el protocolo de cable, así que el driver sigue siendo el `postgres-js` de producción. No hace falta Docker y los archivos corren en paralelo. Un `.itest.ts` nuevo no configura nada: pide sus dos usuarios a `resetAndSeedActors()` y ya.
 

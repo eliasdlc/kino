@@ -9,8 +9,9 @@ import { Label } from "@/components/ui/label";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Calendar } from "@/components/ui/calendar";
 import { TimePicker } from "@/components/ui/time-picker";
-import type { Task } from "./tasks.types";
+import type { TaskTransport } from "./tasks.types";
 import { formatDuration, hasDueTime, taskJsonFilename, withDay, withTime } from "./task-detail.helpers";
+import { api } from "@/shared/api/client";
 
 /**
  * Bloques del panel de detalle de tarea (KIN-146 · FE-05).
@@ -19,9 +20,9 @@ import { formatDuration, hasDueTime, taskJsonFilename, withDay, withTime } from 
  */
 
 export function TimeLoggedSection({ taskId }: { taskId: string }) {
-  const { data } = useQuery<{ totalMinutes: number; sessionCount: number }>({
+  const { data } = useQuery({
     queryKey: ['time-logs', taskId],
-    queryFn: () => fetch(`/api/tasks/${taskId}/time-logs`).then((r) => r.json()),
+    queryFn: () => api.tasks.timeLogSummary({ id: taskId }),
     staleTime: 5 * 60_000,
   });
 
@@ -124,15 +125,14 @@ export function GradeField({
 }
 
 /** Descarga la tarea y sus subtareas como JSON. */
-export function ExportTaskJsonButton({ task }: { task: Task }) {
+export function ExportTaskJsonButton({ task }: { task: TaskTransport }) {
   return (
     <Button
       variant="ghost"
       size="sm"
       className="gap-1.5 text-muted-foreground"
       onClick={async () => {
-        const subtasksRes = await fetch(`/api/tasks/${task.id}/subtasks`);
-        const subtasks = subtasksRes.ok ? await subtasksRes.json() : [];
+        const subtasks = await api.tasks.subtasks({ id: task.id }).catch(() => []);
         const payload = { ...task, subtasks };
         const blob = new Blob([JSON.stringify(payload, null, 2)], {
           type: "application/json;charset=utf-8",

@@ -3,7 +3,9 @@
 import { useMutation, useQueryClient, type QueryClient } from "@tanstack/react-query";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
-import { type Task } from "./tasks.types";
+import { api } from "@/shared/api/client";
+import { type TaskTransport, type TaskPriority } from "./tasks.types";
+import { type TaskStatus } from "./tasks.state-machine";
 import { computeEnergyBudget, mergeCommitted } from "@/features/energy/energy.budget";
 import { userSettingsKey } from "@/features/settings/settings.hooks";
 import { type AdvisorBulkAction } from "@/features/energy/energy.service";
@@ -12,9 +14,11 @@ import { taskKeys, allTasksKey } from "./tasks.keys";
 /**
  * Acciones sobre varias tareas a la vez y las del consejo del día.
  *
- * Extraído de tasks.hooks.ts en KIN-146 (FE-05). Traslado literal: el
- * comportamiento no cambia. `tasks.hooks.ts` sigue reexportando todo, así que
- * ningún consumidor tuvo que cambiar de import.
+ * El status que estos hooks devuelven a su estado anterior sale de la caché,
+ * donde vive como texto: la columna es un varchar con CHECK y no un enum, así
+ * que el tipo de la fila dice `string`. Volver a estrecharlo al entrar en el
+ * contrato es la única forma, y es segura porque el valor lo escribió el
+ * servidor.
  */
 export function useAdvisorAction() {
   const router = useRouter();
@@ -24,32 +28,11 @@ export function useAdvisorAction() {
       if (bulkAction === 'none' || taskIds.length === 0) return;
 
       if (bulkAction === 'move-tomorrow') {
-        const res = await fetch('/api/tasks/bulk-move', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ taskIds, status: 'tomorrow' }),
-        });
-        if (!res.ok) {
-          const errData = await res.json().catch(() => ({}));
-          throw new Error(errData.message || 'No se pudo mover las tareas');
-        }
+        await api.tasks.bulkMove({ taskIds, status: 'tomorrow' });
       } else if (bulkAction === 'move-today') {
-        const res = await fetch('/api/tasks/bulk-move', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ taskIds, status: 'today' }),
-        });
-        if (!res.ok) {
-          const errData = await res.json().catch(() => ({}));
-          throw new Error(errData.message || 'No se pudo mover la tarea');
-        }
+        await api.tasks.bulkMove({ taskIds, status: 'today' });
       } else if (bulkAction === 'lower-priority') {
-        const res = await fetch('/api/tasks/bulk-update', {
-          method: 'PATCH',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ taskIds, priority: 'high' }),
-        });
-        if (!res.ok) throw new Error('No se pudo actualizar la prioridad');
+        await api.tasks.bulkUpdate({ taskIds, priority: 'high' });
       }
     },
     onSuccess: (_data, { actionLabel }) => {
@@ -64,7 +47,7 @@ export function useAdvisorAction() {
 
 
 type BulkMoveCtx = {
-  previous: [readonly unknown[], Task[] | undefined][];
+  previous: [readonly unknown[], TaskTransport[] | undefined][];
   previousStates: { id: string; status: string }[];
 };
 
@@ -84,11 +67,11 @@ function overdraftNotice(queryClient: QueryClient, taskIds: string[]): string | 
     ?.dailyEnergyLimit;
   if (!limit) return undefined;
 
-  const planTasks = queryClient.getQueryData<Task[]>(taskKeys.todayPlan()) ?? [];
-  const allTasks = queryClient.getQueryData<Task[]>(allTasksKey()) ?? [];
+  const planTasks = queryClient.getQueryData<TaskTransport[]>(taskKeys.todayPlan()) ?? [];
+  const allTasks = queryClient.getQueryData<TaskTransport[]>(allTasksKey()) ?? [];
   const committed = taskIds
     .map((id) => allTasks.find((t) => t.id === id))
-    .filter((t): t is Task => t !== undefined);
+    .filter((t): t is TaskTransport => t !== undefined);
 
   const budget = computeEnergyBudget(mergeCommitted(planTasks, committed), limit);
   if (budget.state !== 'over') return undefined;
@@ -100,24 +83,17 @@ function overdraftNotice(queryClient: QueryClient, taskIds: string[]): string | 
 export function useBulkMove() {
   const queryClient = useQueryClient();
 
-  return useMutation<void, Error, { taskIds: string[]; status: string }, BulkMoveCtx>({
-    mutationFn: async ({ taskIds, status }) => {
-      const res = await fetch('/api/tasks/bulk-move', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ taskIds, status }),
-      });
-      if (!res.ok) throw new Error('No se pudo mover las tareas');
-    },
+  return useMutation<void, Error, { taskIds: string[]; status: TaskStatus }, BulkMoveCtx>({
+    mutationFn: ({ taskIds, status }) => api.tasks.bulkMove({ taskIds, status }),
     onMutate: async ({ taskIds, status }) => {
       await queryClient.cancelQueries({ queryKey: ['tasks'] });
-      const previous = queryClient.getQueriesData<Task[]>({ queryKey: ['tasks'] });
-      const allTasks = queryClient.getQueryData<Task[]>(allTasksKey()) ?? [];
+      const previous = queryClient.getQueriesData<TaskTransport[]>({ queryKey: ['tasks'] });
+      const allTasks = queryClient.getQueryData<TaskTransport[]>(allTasksKey()) ?? [];
       const previousStates = taskIds.map((id) => ({
         id,
         status: allTasks.find((t) => t.id === id)?.status ?? 'backlog',
       }));
-      queryClient.setQueriesData<Task[]>({ queryKey: ['tasks'] }, (old) =>
+      queryClient.setQueriesData<TaskTransport[]>({ queryKey: ['tasks'] }, (old) =>
         old?.map((t) => (taskIds.includes(t.id) ? { ...t, status } : t))
       );
       return { previous, previousStates };
@@ -138,11 +114,7 @@ export function useBulkMove() {
           onClick: async () => {
             await Promise.all(
               previousStates.map(({ id, status }) =>
-                fetch(`/api/tasks/${id}`, {
-                  method: 'PATCH',
-                  headers: { 'Content-Type': 'application/json' },
-                  body: JSON.stringify({ status }),
-                })
+                api.tasks.update({ id, status: status as TaskStatus })
               )
             );
             queryClient.invalidateQueries({ queryKey: ['tasks'] });
@@ -160,7 +132,7 @@ export function useBulkMove() {
 
 
 type BulkUpdateCtx = {
-  previous: [readonly unknown[], Task[] | undefined][];
+  previous: [readonly unknown[], TaskTransport[] | undefined][];
   previousStates: { id: string; priority: string | null }[];
 };
 
@@ -168,25 +140,18 @@ type BulkUpdateCtx = {
 export function useBulkUpdate() {
   const queryClient = useQueryClient();
 
-  return useMutation<void, Error, { taskIds: string[]; priority: string }, BulkUpdateCtx>({
-    mutationFn: async ({ taskIds, priority }) => {
-      const res = await fetch('/api/tasks/bulk-update', {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ taskIds, priority }),
-      });
-      if (!res.ok) throw new Error('No se pudo actualizar la prioridad');
-    },
+  return useMutation<void, Error, { taskIds: string[]; priority: TaskPriority }, BulkUpdateCtx>({
+    mutationFn: ({ taskIds, priority }) => api.tasks.bulkUpdate({ taskIds, priority }),
     onMutate: async ({ taskIds, priority }) => {
       await queryClient.cancelQueries({ queryKey: ['tasks'] });
-      const previous = queryClient.getQueriesData<Task[]>({ queryKey: ['tasks'] });
-      const allTasks = queryClient.getQueryData<Task[]>(allTasksKey()) ?? [];
+      const previous = queryClient.getQueriesData<TaskTransport[]>({ queryKey: ['tasks'] });
+      const allTasks = queryClient.getQueryData<TaskTransport[]>(allTasksKey()) ?? [];
       const previousStates = taskIds.map((id) => ({
         id,
         priority: allTasks.find((t) => t.id === id)?.priority ?? null,
       }));
-      queryClient.setQueriesData<Task[]>({ queryKey: ['tasks'] }, (old) =>
-        old?.map((t) => (taskIds.includes(t.id) ? { ...t, priority: priority as Task['priority'] } : t))
+      queryClient.setQueriesData<TaskTransport[]>({ queryKey: ['tasks'] }, (old) =>
+        old?.map((t) => (taskIds.includes(t.id) ? { ...t, priority: priority as TaskTransport['priority'] } : t))
       );
       return { previous, previousStates };
     },
@@ -201,11 +166,7 @@ export function useBulkUpdate() {
               previousStates
                 .filter(({ priority }) => priority !== null)
                 .map(({ id, priority }) =>
-                  fetch(`/api/tasks/${id}`, {
-                    method: 'PATCH',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ priority }),
-                  })
+                  api.tasks.update({ id, priority: priority as TaskPriority })
                 )
             );
             queryClient.invalidateQueries({ queryKey: ['tasks'] });

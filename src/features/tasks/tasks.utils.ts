@@ -65,10 +65,18 @@ export function deriveStatusFromDate(
 }
 
 /**
- * Parsea un dueDate a Date. dueDate es timestamptz (PLAN-07 fase 3): puede
- * llegar como ISO ("2026-06-09T09:00:00.000Z"), formato Postgres con espacio
- * ("2026-06-09 09:00:00+00") o solo fecha ("2026-06-09"). El constructor Date
- * maneja los tres; parseISO de date-fns NO acepta el formato con espacio.
+ * Parsea un dueDate a Date.
+ *
+ * Existe por el formato, no por el tipo. `dueDate` y `startDate` son las dos
+ * únicas columnas de fecha con `mode: 'string'`, así que el driver las entrega
+ * ya como texto y pueden venir en tres formas: ISO
+ * ("2026-06-09T09:00:00.000Z"), formato Postgres con espacio
+ * ("2026-06-09 09:00:00+00") o sólo el día ("2026-06-09"). El constructor Date
+ * maneja las tres; `parseISO` de date-fns NO acepta la del espacio.
+ *
+ * El resto de las fechas de una tarea no pasan por aquí: el tipo de transporte
+ * dice que son texto ISO, y un `new Date(...)` sobre ellas es una conversión de
+ * verdad, no la defensa que era cuando el tipo decía `Date` y llegaba texto.
  */
 export function parseDueDate(value: string): Date {
   return new Date(value);

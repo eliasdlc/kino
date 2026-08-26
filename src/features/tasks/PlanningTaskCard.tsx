@@ -3,7 +3,7 @@
 import { differenceInCalendarDays, format, isBefore, startOfToday } from "date-fns";
 import { Trash2 } from "lucide-react";
 import { cn } from "@/lib/utils";
-import type { Task } from "./tasks.types";
+import type { TaskTransport } from "./tasks.types";
 import { parseDueDate } from "./tasks.utils";
 import { getTaskTypeConfig } from "./task-type-config";
 import { useSubtasks } from "./tasks.hooks";
@@ -21,11 +21,11 @@ function SubtaskCount({ taskId, systemId }: { taskId: string; systemId: string }
 }
 
 interface PlanningTaskCardProps {
-  task: Task;
+  task: TaskTransport;
   isFocused?: boolean;
   onToggle: (taskId: string) => void;
-  onDelete: (task: Task) => void;
-  onEdit?: (task: Task) => void;
+  onDelete: (task: TaskTransport) => void;
+  onEdit?: (task: TaskTransport) => void;
 }
 
 function CheckIcon() {

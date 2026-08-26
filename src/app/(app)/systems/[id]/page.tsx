@@ -9,6 +9,7 @@ import { SystemDetailView } from "@/features/systems/views/SystemDetailView";
 import { NotebooksView } from "@/features/notebooks/NotebooksView";
 import { landingSurface } from "@/shared/lib/system-manifest";
 import { getServerSession } from "@/shared/utils/session";
+import { toTransport } from "@/shared/api/transport";
 
 export default async function SystemPage({
   params,
@@ -50,7 +51,7 @@ export default async function SystemPage({
           {surface === "docs" ? (
             <NotebooksView systemId={id} />
           ) : (
-            <SystemDetailView system={system} initialTasks={tasks} />
+            <SystemDetailView system={system} initialTasks={toTransport(tasks)} />
           )}
         </div>
       </PageWrapper>

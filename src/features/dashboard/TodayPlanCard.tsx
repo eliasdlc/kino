@@ -12,11 +12,11 @@ import {
 import { useFocusTimer } from '@/features/tasks/FocusTimerProvider';
 import { PlanTaskRow } from './PlanTaskRow';
 import { EnergyBudgetBar } from '@/features/energy/EnergyBudgetBar';
-import type { EnergyPlanItem } from '@/features/energy/energy.planner';
+import type { EnergyPlanItemTransport } from '@/features/energy/energy.planner';
 
 interface TodayPlanCardProps {
   noProfile: boolean;
-  energyItems?: EnergyPlanItem[];
+  energyItems?: EnergyPlanItemTransport[];
 }
 
 // Confetti burst — 12 spans, CSS keyframes, GPU-only

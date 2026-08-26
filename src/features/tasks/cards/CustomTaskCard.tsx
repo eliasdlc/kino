@@ -7,14 +7,14 @@ import { cn } from "@/lib/utils";
 import { DefaultTaskCard } from "./DefaultTaskCard";
 import type { TaskCardProps } from "./types";
 import type { TaskCardState } from "./useTaskCard";
-import type { Task } from "../tasks.types";
+import type { TaskTransport } from "../tasks.types";
 
 /**
  * Custom — la única card cuyo vocabulario no está en el código: el kind sale de
  * lo que el usuario compuso para SU sistema (D16). Sin composición se comporta
  * exactamente como la fila genérica.
  */
-function CustomMeta({ task, state, systemId }: { task: Task; state: TaskCardState; systemId: string }) {
+function CustomMeta({ task, state, systemId }: { task: TaskTransport; state: TaskCardState; systemId: string }) {
   const manifest = useSystemManifest(systemId);
   const kind = findTaskKind(manifest, (task.metadata as Record<string, unknown> | null)?.kind);
   const KindIcon = kind?.icon;

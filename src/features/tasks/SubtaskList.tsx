@@ -13,7 +13,7 @@ import { Input } from "@/components/ui/input";
 import { TaskDetailSheet } from "./TaskDetailSheet";
 import { parseQuickInput } from "./quick-date-parse";
 import { parseDueDate } from "./tasks.utils";
-import type { Task } from "./tasks.types";
+import type { TaskTransport } from "./tasks.types";
 
 const ENERGY_DOT: Record<string, string> = {
   high: "bg-amber-400",
@@ -30,7 +30,7 @@ export function SubtaskList({ parentTaskId, systemId }: SubtaskListProps) {
   const queryClient = useQueryClient();
   const [deleteTarget, setDeleteTarget] = useState<{ id: string; title: string } | null>(null);
   const [newTitle, setNewTitle] = useState("");
-  const [editingSubtask, setEditingSubtask] = useState<Task | null>(null);
+  const [editingSubtask, setEditingSubtask] = useState<TaskTransport | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const { data: subtasks, isLoading } = useSubtasks(parentTaskId, systemId, { enabled: true });
   const { mutate: toggleTask } = useToggleTask(systemId);

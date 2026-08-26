@@ -1,5 +1,5 @@
 import { useState } from "react";
-import type { Task } from "./tasks.types";
+import type { TaskTransport } from "./tasks.types";
 import { useDeleteTaskWithUndo, useTasks, useFolderTasks, useToggleTask } from "./tasks.hooks";
 import { DefaultTaskCard } from "./cards/DefaultTaskCard";
 import { TaskTrashSection } from "./TaskTrashSection";
@@ -10,10 +10,10 @@ import { tasksEmptyCopy } from "@/shared/lib/archetype-copy";
 
 interface TaskArchiveViewProps {
     systemId: string;
-    initialData: Task[];
+    initialData: TaskTransport[];
     folderId?: string;
-    folderInitialData?: Task[];
-    onEdit?: (task: Task) => void;
+    folderInitialData?: TaskTransport[];
+    onEdit?: (task: TaskTransport) => void;
     keyboardDisabled?: boolean;
 }
 export function TaskArchiveView({ systemId, initialData, folderId, folderInitialData, onEdit, keyboardDisabled }: TaskArchiveViewProps) {
@@ -29,7 +29,7 @@ export function TaskArchiveView({ systemId, initialData, folderId, folderInitial
     
     const archivedTasks = tasks.filter((task) => task.status === "done" || task.status === "archived");
 
-    const [deleteTarget, setDeleteTarget] = useState<Task | null>(null);
+    const [deleteTarget, setDeleteTarget] = useState<TaskTransport | null>(null);
 
     const { focusedTaskId } = useTaskKeyboardNavigation(archivedTasks, {
         onSelect: onEdit,

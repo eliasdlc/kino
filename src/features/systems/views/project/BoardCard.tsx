@@ -7,16 +7,16 @@ import { useIsMobile } from "@/hooks/use-mobile";
 import { ProjectTaskCard } from "@/features/tasks/cards/ProjectTaskCard";
 import { PROJECT_BOARD_COLUMNS } from "@/shared/lib/system-types";
 import { boardAgingDays, isStalled } from "./board.metrics";
-import type { Task } from "@/features/tasks/tasks.types";
+import type { TaskTransport } from "@/features/tasks/tasks.types";
 import type { TaskDragData } from "@/features/tasks/dnd/dnd.types";
 
 interface BoardCardProps {
-  task: Task;
+  task: TaskTransport;
   systemId: string;
   isFocused?: boolean;
   onToggle: (taskId: string) => void;
-  onDelete: (task: Task) => void;
-  onEdit?: (task: Task) => void;
+  onDelete: (task: TaskTransport) => void;
+  onEdit?: (task: TaskTransport) => void;
   /** Fallback móvil: mover de columna con un select en vez de arrastrar. */
   onMoveColumn?: (boardStatus: string) => void;
   /** Muestra el sprint de la tarjeta (vista 'Todas'). */

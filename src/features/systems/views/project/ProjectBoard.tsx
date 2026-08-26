@@ -18,22 +18,22 @@ import { TaskDragOverlay } from "@/features/tasks/dnd/TaskDragOverlay";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { BoardCard } from "./BoardCard";
 import { computeBoardMetrics } from "./board.metrics";
-import type { Task } from "@/features/tasks/tasks.types";
+import type { TaskTransport } from "@/features/tasks/tasks.types";
 import type { TaskDragData } from "@/features/tasks/dnd/dnd.types";
 
 interface ProjectBoardProps {
   systemId: string;
-  initialData: Task[];
+  initialData: TaskTransport[];
   /** null = todas; "none" = sin sprint; uuid = ese sprint. */
   sprintFilter: string | null;
-  onEdit?: (task: Task) => void;
+  onEdit?: (task: TaskTransport) => void;
   keyboardDisabled?: boolean;
 }
 
 const FIRST_COLUMN = PROJECT_BOARD_COLUMNS[0].id;
 
 /** Columna del board en la que cae una tarjeta (board_status null → primera). */
-function boardColumnOf(task: Task): string {
+function boardColumnOf(task: TaskTransport): string {
   return task.boardStatus ?? FIRST_COLUMN;
 }
 
@@ -43,8 +43,8 @@ export function ProjectBoard({ systemId, initialData, sprintFilter, onEdit, keyb
   const { mutate: deleteTask } = useDeleteTaskWithUndo(systemId);
   const { mutate: moveBoard } = useMoveTaskBoard(systemId);
 
-  const [activeTask, setActiveTask] = useState<Task | null>(null);
-  const [deleteTarget, setDeleteTarget] = useState<Task | null>(null);
+  const [activeTask, setActiveTask] = useState<TaskTransport | null>(null);
+  const [deleteTarget, setDeleteTarget] = useState<TaskTransport | null>(null);
 
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 8 } }),

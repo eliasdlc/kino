@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import type { Task } from "@/features/tasks/tasks.types";
+import type { TaskTransport } from "@/features/tasks/tasks.types";
 import {
   END_HOUR,
   HOURS,
@@ -25,8 +25,8 @@ import {
  * probar dónde cae un bloque sin montar el calendario entero.
  */
 
-function task(partial: Partial<Task>): Task {
-  return { id: "t", title: "Tarea", ...partial } as Task;
+function task(partial: Partial<TaskTransport>): TaskTransport {
+  return { id: "t", title: "Tarea", ...partial } as TaskTransport;
 }
 
 describe("constantes de la rejilla", () => {

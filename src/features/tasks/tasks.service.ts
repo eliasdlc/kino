@@ -260,6 +260,31 @@ export async function getSubtasks(taskId: string, userId: string) {
 
 // Returns tasks directly assigned to a folder via folder_id.
 // folder_id is the single source of truth — page links don't affect placement.
+/**
+ * Las tareas del plan de hoy.
+ *
+ * La membresía está desacoplada del status (PLAN-07 fase 1), así que filtra
+ * sólo por `in_today_plan`. Las subtareas quedan fuera: se ven a través de su
+ * tarea madre, nunca sueltas en el plan.
+ *
+ * Quien llame a esto debe haber rolleado el plan antes (`ensureTodayPlanRolled`),
+ * o leerá el del día anterior.
+ */
+export async function getTodayPlan(userId: string): Promise<Task[]> {
+  return db
+    .select()
+    .from(tasks)
+    .where(
+      and(
+        eq(tasks.userId, userId),
+        isNull(tasks.deletedAt),
+        isNull(tasks.parentTaskId),
+        eq(tasks.inTodayPlan, true),
+      ),
+    )
+    .orderBy(tasks.sortIndex);
+}
+
 export async function getTasksByFolder(
   folderId: string,
   systemId: string,

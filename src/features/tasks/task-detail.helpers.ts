@@ -1,5 +1,5 @@
 import { parseDueDate } from "./tasks.utils";
-import type { Task, UpdateTaskInput } from "./tasks.types";
+import type { TaskTransport, UpdateTaskInput } from "./tasks.types";
 import type { TaskTypeValue } from "@/shared/types/enums";
 
 /**
@@ -57,8 +57,8 @@ export function withTime(prev: Date | undefined, value: string): Date | undefine
 export interface TaskDetailFormState {
   title: string;
   description: string;
-  priority: Task["priority"];
-  energyLevel: Task["energyLevel"];
+  priority: TaskTransport["priority"];
+  energyLevel: TaskTransport["energyLevel"];
   taskType: TaskTypeValue | undefined;
   dueDate: Date | undefined;
   startDate: Date | undefined;
@@ -77,7 +77,7 @@ export interface TaskDetailFormState {
  *  - no incluir dueDate cuando no cambió evita el reset de recordatorios/flags
  *    en cada tecla.
  */
-export function buildDirtyTaskData(task: Task, form: TaskDetailFormState): UpdateTaskInput {
+export function buildDirtyTaskData(task: TaskTransport, form: TaskDetailFormState): UpdateTaskInput {
   const data: UpdateTaskInput = {};
 
   const trimmedTitle = form.title.trim();
