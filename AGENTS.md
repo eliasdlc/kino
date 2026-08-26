@@ -77,16 +77,22 @@ Las variables de entorno están documentadas en **`.env.example`**, una línea p
 src/features/{feature}/
 ├── {feature}.routes.ts      # Handlers de API Routes
 ├── {feature}.service.ts     # Lógica de negocio (funciones puras donde se pueda)
-├── {feature}.queries.ts     # Queries Drizzle
 ├── {feature}.schemas.ts     # Schemas Zod + DTOs
-└── {feature}.types.ts       # Tipos propios del slice
+├── {feature}.types.ts       # Tipos propios del slice
+└── {feature}.queries.ts     # Opcional — ver abajo
 ```
+
+`.queries.ts` lo tienen 8 de los 27 slices, y es a propósito: se separa cuando el
+volumen de queries hace ilegible el servicio, no por norma. En los otros 19 las
+queries de Drizzle viven dentro del `.service.ts`, y eso es la forma correcta
+ahí. La regla real es que el acceso a datos no sale del slice, no en qué archivo
+está.
 
 Cada feature es autocontenida en lo que puede. Tipos, hooks y componentes cruzan entre slices cuando hace falta: `systems` renderiza las tarjetas de `tasks` porque un sistema enseña tareas, y eso no es acoplamiento accidental.
 
 Lo que sí es una decisión: **un `.service.ts` no importa el `.service.ts` de otro slice salvo que orquestar sea su trabajo.** `insights` y `scheduler` orquestan y por eso importan tres servicios cada uno; el resto no debería. Si un servicio necesita lógica de otro y no está orquestando, esa lógica va a `shared` (como `shared/lib/word-count`, que usaban `pages` y `writing` a la vez y creaba un ciclo entre los dos slices).
 
-No hay `index.ts` por slice ni regla de lint que lo verifique, y es a propósito: con dieciséis slices y un desarrollador, declarar una superficie pública por slice cuesta más de lo que evita.
+No hay `index.ts` por slice ni regla de lint que lo verifique, y es a propósito: con veintisiete slices y un desarrollador, declarar una superficie pública por slice cuesta más de lo que evita.
 
 ## Convenciones de código
 
