@@ -1,3 +1,5 @@
+import { accountRouter } from "@/features/account/account.router";
+import { apiKeysRouter } from "@/features/api-keys/api-keys.router";
 import { energyRouter } from "@/features/energy/energy.router";
 import { entitiesRouter } from "@/features/entities/entities.router";
 import { foldersRouter } from "@/features/folders/folders.router";
@@ -23,6 +25,8 @@ import { tasksRouter } from "@/features/tasks/tasks.router";
  * su slice, al lado de sus schemas.
  */
 export const apiRouter = {
+  account: accountRouter,
+  apiKeys: apiKeysRouter,
   energy: energyRouter,
   entities: entitiesRouter,
   folders: foldersRouter,

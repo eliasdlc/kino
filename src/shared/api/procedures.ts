@@ -16,6 +16,11 @@ import type { ApiMeta } from "./contract";
  */
 export interface ApiContext {
   request: NextRequest;
+  /**
+   * Cabeceras de la respuesta, que pone `ResponseHeadersPlugin`. Sólo las tocan
+   * las operaciones que emiten cookies; el resto devuelve datos y ya.
+   */
+  resHeaders?: Headers;
 }
 
 /** Lo que las middlewares añaden y los handlers consumen. */
@@ -40,6 +45,9 @@ export interface AuthedContext {
  */
 
 const base = os.$context<ApiContext>().$meta<ApiMeta>({});
+
+/** El mismo punto de partida, ya con lo que `authenticate` deja en el contexto. */
+const authed = os.$context<ApiContext & AuthedContext>().$meta<ApiMeta>({});
 
 /**
  * Traduce los errores del dominio al código y al status que ya eran contrato
@@ -66,6 +74,22 @@ export const translateDomainErrors = base.middleware(async ({ next }) => {
     }
     throw error;
   }
+});
+
+/**
+ * Estrecha `sessionId` a `string` para los slices que sólo se sirven desde el
+ * navegador. Quien exige la sesión es `authenticate`, leyendo `meta.sessionOnly`
+ * del contrato — así no se puede olvidar. Esto lo dice además en el tipo, y de
+ * paso protege a quien lo use sin declarar la meta.
+ */
+export const requireSession = authed.middleware(async ({ context, next }) => {
+  if (!context.sessionId) {
+    throw new ORPCError("SESSION_REQUIRED", {
+      status: 403,
+      message: "Esta acción sólo se puede hacer desde la sesión del navegador",
+    });
+  }
+  return next({ context: { sessionId: context.sessionId } });
 });
 
 /**

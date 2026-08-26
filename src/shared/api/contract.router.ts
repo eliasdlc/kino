@@ -1,3 +1,5 @@
+import { accountContract } from "@/features/account/account.contract";
+import { apiKeysContract } from "@/features/api-keys/api-keys.contract";
 import { energyContract } from "@/features/energy/energy.contract";
 import { entitiesContract } from "@/features/entities/entities.contract";
 import { foldersContract } from "@/features/folders/folders.contract";
@@ -19,6 +21,8 @@ import { tasksContract } from "@/features/tasks/tasks.contract";
  * entero sin que nada del servidor entre en el bundle.
  */
 export const apiContract = {
+  account: accountContract,
+  apiKeys: apiKeysContract,
   energy: energyContract,
   entities: entitiesContract,
   folders: foldersContract,

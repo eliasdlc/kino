@@ -2,6 +2,7 @@
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import type { ApiKeyTtl } from "./api-keys.schemas";
+import { api } from "@/shared/api/client";
 
 export interface ApiKeyRecord {
   id: string;
@@ -27,9 +28,7 @@ export function useApiKeys() {
   return useQuery<ApiKeyRecord[]>({
     queryKey: apiKeyKeys.all,
     queryFn: async () => {
-      const res = await fetch("/api/api-keys");
-      if (!res.ok) throw new Error("Failed to fetch API keys");
-      return res.json();
+      return api.apiKeys.list({});
     },
   });
 }
@@ -38,13 +37,7 @@ export function useCreateApiKey() {
   const qc = useQueryClient();
   return useMutation<CreatedApiKey, Error, { name: string; ttl: ApiKeyTtl }>({
     mutationFn: async (data) => {
-      const res = await fetch("/api/api-keys", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(data),
-      });
-      if (!res.ok) throw new Error("Failed to create API key");
-      return res.json();
+      return api.apiKeys.create(data);
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: apiKeyKeys.all });
@@ -56,8 +49,7 @@ export function useDeleteApiKey() {
   const qc = useQueryClient();
   return useMutation<void, Error, string>({
     mutationFn: async (id) => {
-      const res = await fetch(`/api/api-keys/${id}`, { method: "DELETE" });
-      if (!res.ok) throw new Error("Failed to delete API key");
+      await api.apiKeys.remove({ id });
     },
     onMutate: async (id) => {
       await qc.cancelQueries({ queryKey: apiKeyKeys.all });
@@ -81,8 +73,7 @@ export function useRevokeApiKey() {
   const qc = useQueryClient();
   return useMutation<void, Error, string, { previous?: ApiKeyRecord[] }>({
     mutationFn: async (id) => {
-      const res = await fetch(`/api/api-keys/${id}/revoke`, { method: "POST" });
-      if (!res.ok) throw new Error("Failed to revoke API key");
+      await api.apiKeys.revoke({ id });
     },
     onMutate: async (id) => {
       await qc.cancelQueries({ queryKey: apiKeyKeys.all });

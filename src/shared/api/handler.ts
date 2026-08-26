@@ -1,5 +1,6 @@
 import { OpenAPIHandler } from "@orpc/openapi/fetch";
 import { onError, ORPCError, ValidationError } from "@orpc/server";
+import { ResponseHeadersPlugin } from "@orpc/server/plugins";
 import type { SchemaIssue } from "@orpc/contract";
 import { apiRouter } from "./router";
 
@@ -59,6 +60,10 @@ function flattenIssues(issues: readonly SchemaIssue[]) {
 
 export const apiHandler = new OpenAPIHandler(apiRouter, {
   customErrorResponseBodyEncoder: encodeErrorBody,
+  // Un handler devuelve datos, no una `Response`, así que las cabeceras que
+  // alguna operación necesita fijar —las cookies que Better Auth emite al
+  // cambiar la contraseña o borrar la cuenta— se escriben en `context.resHeaders`.
+  plugins: [new ResponseHeadersPlugin()],
   interceptors: [
     onError((error) => {
       // Sólo lo inesperado. Un 404 o un 422 son respuestas, no incidentes, y
