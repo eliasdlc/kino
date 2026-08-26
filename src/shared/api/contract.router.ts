@@ -1,3 +1,5 @@
+import { energyContract } from "@/features/energy/energy.contract";
+import { entitiesContract } from "@/features/entities/entities.contract";
 import { foldersContract } from "@/features/folders/folders.contract";
 import { onboardingContract } from "@/features/onboarding/onboarding.contract";
 import { searchContract } from "@/features/search/search.contract";
@@ -14,6 +16,8 @@ import { tasksContract } from "@/features/tasks/tasks.contract";
  * entero sin que nada del servidor entre en el bundle.
  */
 export const apiContract = {
+  energy: energyContract,
+  entities: entitiesContract,
   folders: foldersContract,
   onboarding: onboardingContract,
   search: searchContract,

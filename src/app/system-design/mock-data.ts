@@ -11,7 +11,7 @@ import type {
 } from "@/features/energy/energy.service";
 import type { EnergyPlanItemTransport } from "@/features/energy/energy.planner";
 import type { AdvisorPattern } from "@/features/energy/energy.advisor";
-import type { MentionedEntity, EntityDetail } from "@/features/entities/entities.types";
+import type { MentionedEntityTransport, EntityDetailTransport } from "@/features/entities/entities.types";
 import type {
   WritingOverview,
   WritingSession,
@@ -32,7 +32,6 @@ import type { StudioReport } from "@/features/writing/writing.studio";
 
 /** Instante fijo del catálogo, en la misma forma que llega por la red. */
 const NOW = "2026-07-15T12:00:00.000Z";
-const NOW_DATE = new Date(NOW);
 const uuid = (n: number) => `00000000-0000-4000-8000-${String(n).padStart(12, "0")}`;
 
 export const MOCK_SYSTEM_ID = uuid(1);
@@ -289,8 +288,8 @@ export const MOCK_PAGE_ID = uuid(3);
 export const MOCK_FOLDER_ID = uuid(4);
 
 export function makeMentionedEntity(
-  overrides: Partial<MentionedEntity> = {},
-): MentionedEntity {
+  overrides: Partial<MentionedEntityTransport> = {},
+): MentionedEntityTransport {
   return {
     id: uuid(300),
     name: "Aurelia Vance",
@@ -302,7 +301,7 @@ export function makeMentionedEntity(
   };
 }
 
-export function makeEntityDetail(overrides: Partial<EntityDetail> = {}): EntityDetail {
+export function makeEntityDetail(overrides: Partial<EntityDetailTransport> = {}): EntityDetailTransport {
   return {
     id: uuid(300),
     systemId: MOCK_SYSTEM_ID,
@@ -311,8 +310,8 @@ export function makeEntityDetail(overrides: Partial<EntityDetail> = {}): EntityD
     aliases: ["La Cartógrafa", "Vance"],
     summary: "Cartógrafa del gremio; busca el mapa que su madre nunca terminó.",
     coverImageUrl: null,
-    createdAt: NOW_DATE,
-    updatedAt: NOW_DATE,
+    createdAt: NOW,
+    updatedAt: NOW,
     attributes: { edad: "34", origen: "Puerto Ceniza", rol: "Protagonista" },
     images: [],
     relations: [

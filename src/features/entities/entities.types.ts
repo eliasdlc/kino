@@ -1,3 +1,4 @@
+import type { Transport } from "@/shared/api/transport";
 import type { EntityAttributes, EntityType } from "./entities.attributes";
 
 export interface EntityListItem {
@@ -46,3 +47,12 @@ export interface MentionedEntity {
   coverImageUrl: string | null;
   mentionCount: number;
 }
+
+/**
+ * Las mismas entidades tal como llegan al cliente: las fechas, en texto. El
+ * codex se pinta con estas, no con las filas.
+ */
+export type EntityListItemTransport = Transport<EntityListItem>;
+export type EntityDetailTransport = Transport<EntityDetail>;
+export type EntityRelationItemTransport = Transport<EntityRelationItem>;
+export type MentionedEntityTransport = Transport<MentionedEntity>;

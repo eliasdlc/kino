@@ -6,7 +6,7 @@ import { Pin, PinOff, Plus, X } from "lucide-react";
 import { useSystemEntities } from "@/features/entities/entities.hooks";
 import { ENTITY_TYPE_ICON } from "@/features/entities/entities.ui";
 import { EntityFicheSheet } from "@/features/entities/EntityFicheSheet";
-import type { EntityListItem } from "@/features/entities/entities.types";
+import type { EntityListItemTransport } from "@/features/entities/entities.types";
 
 /**
  * Mesa de referencias (PLAN-11 §7): las fichas que el autor deja fijadas para
@@ -32,7 +32,7 @@ export function ReferenceTable({
   const byId = new Map(entities.map((e) => [e.id, e]));
   const pinned = pinnedIds
     .map((id) => byId.get(id))
-    .filter((e): e is EntityListItem => e !== undefined);
+    .filter((e): e is EntityListItemTransport => e !== undefined);
 
   const candidates = entities
     .filter((e) => !pinnedIds.includes(e.id))

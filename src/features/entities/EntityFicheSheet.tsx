@@ -87,7 +87,7 @@ function EntityFicheForm({
   onClose,
 }: {
   systemId: string;
-  entity: import("./entities.types").EntityDetail;
+  entity: import("./entities.types").EntityDetailTransport;
   onClose: () => void;
 }) {
   const [name, setName] = useState(entity.name);
@@ -266,7 +266,7 @@ function RelationsSection({
   entity,
 }: {
   systemId: string;
-  entity: import("./entities.types").EntityDetail;
+  entity: import("./entities.types").EntityDetailTransport;
 }) {
   const { data: allEntities = [] } = useSystemEntities(systemId);
   const createRel = useCreateRelation(entity.id);
@@ -378,7 +378,7 @@ function AppearancesSection({
   entity,
 }: {
   systemId: string;
-  entity: import("./entities.types").EntityDetail;
+  entity: import("./entities.types").EntityDetailTransport;
 }) {
   if (entity.appearances.length === 0) {
     return (

@@ -1,3 +1,5 @@
+import { energyRouter } from "@/features/energy/energy.router";
+import { entitiesRouter } from "@/features/entities/entities.router";
 import { foldersRouter } from "@/features/folders/folders.router";
 import { onboardingRouter } from "@/features/onboarding/onboarding.router";
 import { searchRouter } from "@/features/search/search.router";
@@ -18,6 +20,8 @@ import { tasksRouter } from "@/features/tasks/tasks.router";
  * su slice, al lado de sus schemas.
  */
 export const apiRouter = {
+  energy: energyRouter,
+  entities: entitiesRouter,
   folders: foldersRouter,
   onboarding: onboardingRouter,
   search: searchRouter,
