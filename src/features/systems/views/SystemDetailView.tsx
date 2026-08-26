@@ -1,6 +1,6 @@
 "use client";
 
-import type { System } from "@/features/systems/systems.types";
+import type { SystemTransport } from "@/features/systems/systems.types";
 import type { TaskTransport } from "@/features/tasks/tasks.types";
 import type { SystemType } from "@/shared/lib/system-types";
 import { resolveSystemManifest } from "@/shared/lib/system-manifest";
@@ -12,7 +12,7 @@ import { SystemCustomView } from "./SystemCustomView";
 import { SystemWritingView } from "./SystemWritingView";
 
 export interface SystemViewProps {
-  system: System;
+  system: SystemTransport;
   initialTasks: TaskTransport[];
 }
 

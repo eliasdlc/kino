@@ -10,12 +10,12 @@ import { useTasks, useToggleTask } from "@/features/tasks/tasks.hooks";
 import { useDeleteSprint } from "@/features/sprints/sprints.hooks";
 import { ProjectTaskCard } from "@/features/tasks/cards/ProjectTaskCard";
 import type { TaskTransport } from "@/features/tasks/tasks.types";
-import type { Sprint } from "@/features/sprints/sprints.types";
+import type { SprintTransport } from "@/features/sprints/sprints.types";
 
 interface ProjectArchiveProps {
   systemId: string;
   initialData: TaskTransport[];
-  sprints: Sprint[];
+  sprints: SprintTransport[];
   onEdit?: (task: TaskTransport) => void;
 }
 
@@ -38,11 +38,11 @@ function SprintAccordion({
   onEdit,
   onDelete,
 }: {
-  sprint: Sprint;
+  sprint: SprintTransport;
   tasks: TaskTransport[];
   systemId: string;
   onEdit?: (task: TaskTransport) => void;
-  onDelete: (sprint: Sprint) => void;
+  onDelete: (sprint: SprintTransport) => void;
 }) {
   const [open, setOpen] = useState(false);
   const { mutate: toggleTask } = useToggleTask(systemId);
@@ -101,7 +101,7 @@ function SprintAccordion({
 export function ProjectArchive({ systemId, initialData, sprints, onEdit }: ProjectArchiveProps) {
   const { data: tasks = [] } = useTasks(systemId, initialData);
   const { mutate: deleteSprint } = useDeleteSprint(systemId);
-  const [deleteTarget, setDeleteTarget] = useState<Sprint | null>(null);
+  const [deleteTarget, setDeleteTarget] = useState<SprintTransport | null>(null);
   const completed = sprints.filter((s) => s.status === "completed");
 
   if (completed.length === 0) {

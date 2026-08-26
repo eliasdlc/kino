@@ -26,11 +26,11 @@ import { ICON_MAP, DEFAULT_ICON } from "./system-icons";
 import { getSystemColor } from "@/shared/utils/system-colors";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
-import type { SystemWithSignals } from "./systems.types";
+import type { SystemWithSignalsTransport } from "./systems.types";
 import { resolveSystemManifest } from "@/shared/lib/system-manifest";
 
 interface SystemTreeItemProps {
-  system: SystemWithSignals;
+  system: SystemWithSignalsTransport;
   isActive: boolean;
   activeFolderId?: string;
   collapsed?: boolean;
@@ -137,7 +137,7 @@ export function SystemTreeItem({
 
   return (
     <div>
-      {/* System row */}
+      {/* SystemTransport row */}
       <div
         className={`group relative flex items-center gap-1.5 px-2 py-2 rounded-lg text-sm transition-colors ${isActive
           ? "bg-sidebar-accent text-sidebar-foreground font-medium"
@@ -158,7 +158,7 @@ export function SystemTreeItem({
           />
         </button>
 
-        {/* System link */}
+        {/* SystemTransport link */}
         <Link
           href={`/systems/${system.id}`}
           onClick={onNavigate}

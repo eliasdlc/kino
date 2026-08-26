@@ -2,7 +2,7 @@
 
 import { useQuery } from '@tanstack/react-query';
 import type { TaskTransport } from '@/features/tasks/tasks.types';
-import type { AdvisorWithAction } from '@/features/energy/energy.service';
+import { api } from '@/shared/api/client';
 
 export const insightsKeys = {
   suggested: (limit: number) => ['insights', 'suggested', limit] as const,
@@ -36,51 +36,38 @@ export interface StaleSystem {
 }
 
 export function useSuggestedTasks(limit = 10) {
-  return useQuery<SuggestedTask[]>({
+  return useQuery({
     queryKey: insightsKeys.suggested(limit),
-    queryFn: async () => {
-      const res = await fetch(`/api/insights/suggest?limit=${limit}`);
-      if (!res.ok) throw new Error('Failed to fetch suggested tasks');
-      return res.json() as Promise<SuggestedTask[]>;
-    },
+    queryFn: () => api.insights.suggest({ limit }),
     staleTime: 5 * 60_000,
   });
 }
 
 export function useEnergyDistribution(days = 7) {
-  return useQuery<EnergyDistribution>({
+  return useQuery({
     queryKey: insightsKeys.energyDistribution(days),
-    queryFn: async () => {
-      const res = await fetch(`/api/insights/energy-distribution?days=${days}`);
-      if (!res.ok) throw new Error('Failed to fetch energy distribution');
-      return res.json() as Promise<EnergyDistribution>;
-    },
+    queryFn: () => api.insights.energyDistribution({ days }),
     staleTime: 10 * 60_000,
   });
 }
 
 export function useStaleSystems(days = 14) {
-  return useQuery<StaleSystem[]>({
+  return useQuery({
     queryKey: insightsKeys.staleSystems(days),
-    queryFn: async () => {
-      const res = await fetch(`/api/insights/stale-systems?days=${days}`);
-      if (!res.ok) throw new Error('Failed to fetch stale systems');
-      return res.json() as Promise<StaleSystem[]>;
-    },
+    queryFn: () => api.insights.staleSystems({ days }),
     staleTime: 10 * 60_000,
   });
 }
 
 // KIN-15: endpoint exists at /api/insights/patterns → getTopPattern → getTodayAdvisor
 export function useTopPattern() {
-  return useQuery<AdvisorWithAction | null>({
+  return useQuery({
     queryKey: insightsKeys.topPattern(),
     queryFn: async () => {
-      const res = await fetch('/api/insights/patterns');
-      if (!res.ok) throw new Error('Failed to fetch pattern');
-      const data = (await res.json()) as AdvisorWithAction | { pattern: null };
-      if (data && 'id' in data) return data as AdvisorWithAction;
-      return null;
+      // El endpoint contesta `{ pattern: null }` cuando no hay ninguno; el
+      // hook lo traduce a `null` para que el componente pregunte una sola cosa.
+      const data = await api.insights.patterns({});
+      return data && 'id' in data ? data : null;
     },
     staleTime: 5 * 60_000,
   });

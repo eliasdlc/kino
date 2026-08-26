@@ -94,7 +94,7 @@ export default async function FolderViewRoute({ params }: FolderViewRouteProps) 
               {folderPages.map((page) => (
                 <NotebookCard
                   key={page.id}
-                  page={page}
+                  page={toTransport(page)}
                   systemId={systemId}
                   href={`/systems/${systemId}/pages/${page.id}`}
                 />

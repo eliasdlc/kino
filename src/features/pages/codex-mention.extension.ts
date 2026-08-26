@@ -14,7 +14,7 @@ import {
   fetchSystemEntities,
   createEntityApi,
 } from "@/features/entities/entities.client";
-import type { EntityListItem } from "@/features/entities/entities.types";
+import type { EntityListItemTransport } from "@/features/entities/entities.types";
 
 /**
  * Nodo Mention del Codex (Writing W2). Trigger `@`: sugiere entidades del universo
@@ -31,9 +31,9 @@ export interface CodexMentionOptions {
 
 // Cache corto por sistema para no golpear la API en cada tecla dentro de un `@`.
 const CACHE_TTL_MS = 4000;
-let cache: { systemId: string; at: number; data: EntityListItem[] } | null = null;
+let cache: { systemId: string; at: number; data: EntityListItemTransport[] } | null = null;
 
-async function getEntities(systemId: string): Promise<EntityListItem[]> {
+async function getEntities(systemId: string): Promise<EntityListItemTransport[]> {
   const now = Date.now();
   if (cache && cache.systemId === systemId && now - cache.at < CACHE_TTL_MS) {
     return cache.data;

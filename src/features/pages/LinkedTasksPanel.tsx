@@ -16,7 +16,7 @@ import { useLinkedTasks, useLinkTask, useUnlinkTask } from "./pages.hooks";
 import { LinkedTaskCard } from "./LinkedTaskCard";
 import { TaskDetailSheet } from "@/features/tasks/TaskDetailSheet";
 import { CreateTaskDialog } from "@/features/tasks/CreateTaskDialog";
-import type { LinkedTask } from "./pages.types";
+import type { LinkedTaskTransport } from "./pages.types";
 import type { TaskTransport } from "@/features/tasks/tasks.types";
 import { Skeleton } from "@/components/ui/skeleton";
 
@@ -51,7 +51,7 @@ export function LinkedTasksPanel({ pageId, systemId }: LinkedTasksPanelProps) {
   const available = allTasks.filter((t) => !linkedIds.has(t.id) && t.status !== "archived");
 
   // When user clicks edit on a linked task, fetch the full TaskTransport object
-  async function handleEdit(linkedTask: LinkedTask) {
+  async function handleEdit(linkedTask: LinkedTaskTransport) {
     try {
       setEditTask(await api.tasks.byId({ id: linkedTask.id }));
       setEditSheetOpen(true);
@@ -165,7 +165,7 @@ export function LinkedTasksPanel({ pageId, systemId }: LinkedTasksPanelProps) {
       {/* TaskTransport cards */}
       {!isLoading && visibleLinked.length > 0 && (
         <div className="flex flex-col gap-2">
-          {visibleLinked.map((task: LinkedTask) => (
+          {visibleLinked.map((task: LinkedTaskTransport) => (
             <LinkedTaskCard
               key={task.id}
               task={task}

@@ -5,17 +5,19 @@ import { allowsScope, scopeForMethod, type KinoScope } from '@/shared/lib/scopes
 import { ForbiddenError, NotFoundError, ValidationError } from '@/shared/utils/error';
 
 /**
- * Wrapper de handlers de API (KIN-145 / BE-08 · AR-01).
+ * La escotilla de las rutas que no caben en el contrato.
  *
- * Centraliza el preámbulo que cada ruta repetía a mano — auth, parseo y
- * validación del body, mapeo de errores a status — para que no se pueda
- * olvidar una pieza. Lo que NO hace es decidir el shape de la respuesta feliz:
- * el handler devuelve su propia `Response`, porque los status y bodies
- * existentes son contrato con el frontend y el wrapper se adapta a ellos.
+ * Casi toda la API se sirve desde `src/shared/api/router.ts`, donde la entrada,
+ * la salida y el permiso están declarados. Este wrapper se queda para lo que no
+ * encaja ahí: hoy, las dos rutas de `uploads`, que necesitan el `request` crudo
+ * porque el cuerpo es la imagen. La lista completa de excepciones, con su razón,
+ * está en `src/app/api/[...rest]/route.ts`.
+ *
+ * Lo que resuelve: auth, scope por método, validación de body y query, y el
+ * mapeo de errores a status. Lo que NO hace es decidir el shape de la respuesta
+ * feliz: el handler devuelve su propia `Response`.
  *
  * El handler recibe `{ userId, body, query, params, request }` ya resueltos.
- * `request` queda expuesto para las rutas que necesitan el crudo (FormData en
- * uploads, por ejemplo) sin pelearse con el wrapper.
  */
 
 const UNAUTHORIZED = { code: 'UNAUTHORIZED', message: 'Unauthorized' };

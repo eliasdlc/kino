@@ -1,43 +1,19 @@
-import type {
-  EntityListItem,
-  EntityDetail,
-  MentionedEntity,
-  EntityRelationItem,
-} from "./entities.types";
+import { api } from "@/shared/api/client";
 import type { EntityAttributes, EntityType } from "./entities.attributes";
-import type { UniverseGraph } from "./entities.graph";
 
-async function jsonOrThrow<T>(res: Response, fallback: string): Promise<T> {
-  if (!res.ok) {
-    const body = await res.json().catch(() => ({}));
-    throw new Error((body as { message?: string }).message ?? fallback);
-  }
-  return res.json();
-}
+/**
+ * Las llamadas del codex, con nombre de dominio. Los tipos y las URLs salen del
+ * contrato: aquí sólo queda el vocabulario del slice.
+ */
 
-export function fetchSystemEntities(systemId: string): Promise<EntityListItem[]> {
-  return fetch(`/api/systems/${systemId}/entities`).then((r) =>
-    jsonOrThrow(r, "Failed to fetch entities"),
-  );
-}
+export const fetchSystemEntities = (systemId: string) =>
+  api.entities.bySystem({ systemId });
 
-export function fetchUniverseGraph(systemId: string): Promise<UniverseGraph> {
-  return fetch(`/api/systems/${systemId}/graph`).then((r) =>
-    jsonOrThrow(r, "Failed to fetch universe graph"),
-  );
-}
+export const fetchUniverseGraph = (systemId: string) => api.entities.graph({ systemId });
 
-export function fetchEntity(entityId: string): Promise<EntityDetail> {
-  return fetch(`/api/entities/${entityId}`).then((r) =>
-    jsonOrThrow(r, "Failed to fetch entity"),
-  );
-}
+export const fetchEntity = (entityId: string) => api.entities.byId({ id: entityId });
 
-export function fetchPageEntities(pageId: string): Promise<MentionedEntity[]> {
-  return fetch(`/api/pages/${pageId}/entities`).then((r) =>
-    jsonOrThrow(r, "Failed to fetch page entities"),
-  );
-}
+export const fetchPageEntities = (pageId: string) => api.entities.byPage({ pageId });
 
 export interface CreateEntityBody {
   name: string;
@@ -49,50 +25,20 @@ export interface CreateEntityBody {
   images?: string[];
 }
 
-export function createEntityApi(
-  systemId: string,
-  body: CreateEntityBody,
-): Promise<EntityListItem> {
-  return fetch(`/api/systems/${systemId}/entities`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(body),
-  }).then((r) => jsonOrThrow(r, "Failed to create entity"));
-}
+export const createEntityApi = (systemId: string, body: CreateEntityBody) =>
+  api.entities.create({ ...body, systemId });
 
-export function updateEntityApi(
+export const updateEntityApi = (
   entityId: string,
   body: Partial<CreateEntityBody> & { type?: EntityType },
-): Promise<EntityListItem> {
-  return fetch(`/api/entities/${entityId}`, {
-    method: "PATCH",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(body),
-  }).then((r) => jsonOrThrow(r, "Failed to update entity"));
-}
+) => api.entities.update({ ...body, id: entityId });
 
-export async function deleteEntityApi(entityId: string): Promise<void> {
-  const res = await fetch(`/api/entities/${entityId}`, { method: "DELETE" });
-  if (!res.ok) throw new Error("Failed to delete entity");
-}
+export const deleteEntityApi = (entityId: string) => api.entities.remove({ id: entityId });
 
-export function createRelationApi(
+export const createRelationApi = (
   fromEntityId: string,
   body: { toEntityId: string; label?: string | null; notes?: string | null },
-): Promise<EntityRelationItem> {
-  return fetch(`/api/entities/${fromEntityId}/relations`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(body),
-  }).then((r) => jsonOrThrow(r, "Failed to create relation"));
-}
+) => api.entities.createRelation({ ...body, id: fromEntityId });
 
-export async function deleteRelationApi(
-  fromEntityId: string,
-  relationId: string,
-): Promise<void> {
-  const res = await fetch(`/api/entities/${fromEntityId}/relations/${relationId}`, {
-    method: "DELETE",
-  });
-  if (!res.ok) throw new Error("Failed to delete relation");
-}
+export const deleteRelationApi = (fromEntityId: string, relationId: string) =>
+  api.entities.removeRelation({ id: fromEntityId, relationId });

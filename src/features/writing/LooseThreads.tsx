@@ -25,7 +25,7 @@ import { ENTITY_TYPE_ICON } from "@/features/entities/entities.ui";
 import { EntityFicheSheet } from "@/features/entities/EntityFicheSheet";
 import { useLooseThreads, useResolveThread } from "./writing.hooks";
 import { CHEKHOV_LIMITS, threadSummary, type LooseThread } from "./chekhov";
-import type { System } from "@/features/systems/systems.types";
+import type { SystemTransport } from "@/features/systems/systems.types";
 
 /**
  * Detector de hilos sueltos (KIN-137). *"La Daga apareció en el capítulo 2 y
@@ -35,7 +35,7 @@ import type { System } from "@/features/systems/systems.types";
  * clic. Y se puede cerrar a mano — una entidad de fondo nombrada una vez a
  * propósito no es un cabo suelto, y un detector que grita demasiado se ignora.
  */
-export function LooseThreads({ system }: { system: System }) {
+export function LooseThreads({ system }: { system: SystemTransport }) {
   const { data: works = [] } = useFolders(system.id);
   const [folderId, setFolderId] = useState<string | null>(null);
   const activeFolderId = folderId ?? works[0]?.id ?? null;
@@ -245,7 +245,7 @@ function ThreadRow({
  * Los dos umbrales. Se guardan en el sistema porque son una preferencia del
  * escritor sobre cuánto quiere que le hablen, no del manuscrito.
  */
-function SensitivityPopover({ system }: { system: System }) {
+function SensitivityPopover({ system }: { system: SystemTransport }) {
   const { mutate: updateSystem } = useUpdateSystem();
   const current = system.metadata?.chekhov ?? { maxMentions: 3, minSilentChapters: 3 };
   const [draft, setDraft] = useState(current);

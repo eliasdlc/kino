@@ -16,7 +16,7 @@ import { MentionList, type MentionItem } from "@/features/entities/MentionList";
 import { GraphCanvas } from "@/features/entities/UniverseGraph";
 import { layoutGraph, type GraphEdge, type GraphNode } from "@/features/entities/entities.graph";
 import { entityKeys } from "@/features/entities/entities.hooks";
-import type { MentionedEntity } from "@/features/entities/entities.types";
+import type { MentionedEntityTransport } from "@/features/entities/entities.types";
 
 /**
  * El Codex (PLAN-11 W2): el universo de la obra visto desde el capítulo abierto.
@@ -26,7 +26,7 @@ import type { MentionedEntity } from "@/features/entities/entities.types";
  * enseñar varios estados del mismo componente en la misma página.
  */
 
-const CAST: MentionedEntity[] = [
+const CAST: MentionedEntityTransport[] = [
   makeMentionedEntity(),
   makeMentionedEntity({
     id: "00000000-0000-4000-8000-000000000301",
@@ -44,7 +44,7 @@ const CAST: MentionedEntity[] = [
   }),
 ];
 
-function seedRail(entities: MentionedEntity[]) {
+function seedRail(entities: MentionedEntityTransport[]) {
   return (qc: QueryClient) => {
     qc.setQueryData(entityKeys.byPage(MOCK_PAGE_ID), entities);
   };

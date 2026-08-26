@@ -4,6 +4,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import type { AccountOverview, ActiveSession } from './account.service';
 import type { ChangeEmailInput, ChangePasswordInput, DeleteAccountInput } from './account.schemas';
+import { api } from '@/shared/api/client';
 
 /** Las fechas viajan como ISO por JSON. */
 export type ActiveSessionDto = Omit<ActiveSession, 'createdAt' | 'lastActiveAt'> & {
@@ -17,25 +18,11 @@ export const accountKeys = {
 };
 
 /** Mensaje del cuerpo de error de la API, o el de respaldo si no trae uno. */
-async function errorMessage(res: Response, fallback: string): Promise<string> {
-  try {
-    const data: unknown = await res.json();
-    if (typeof data === 'object' && data !== null && 'message' in data && typeof data.message === 'string') {
-      return data.message;
-    }
-  } catch {
-    // Sin cuerpo JSON: vale el de respaldo.
-  }
-  return fallback;
-}
-
 export function useAccount() {
   return useQuery<AccountOverview>({
     queryKey: accountKeys.overview,
     queryFn: async () => {
-      const res = await fetch('/api/account');
-      if (!res.ok) throw new Error('No se pudo cargar la cuenta');
-      return res.json();
+      return api.account.overview({});
     },
     staleTime: 60_000,
   });
@@ -45,13 +32,7 @@ export function useRenameAccount() {
   const qc = useQueryClient();
   return useMutation<AccountOverview, Error, string>({
     mutationFn: async (name) => {
-      const res = await fetch('/api/account', {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name }),
-      });
-      if (!res.ok) throw new Error(await errorMessage(res, 'No se pudo guardar el nombre'));
-      return res.json();
+      return api.account.rename({ name });
     },
     onSuccess: (data) => {
       qc.setQueryData(accountKeys.overview, data);
@@ -65,12 +46,7 @@ export function useChangePassword() {
   const qc = useQueryClient();
   return useMutation<void, Error, ChangePasswordInput>({
     mutationFn: async (input) => {
-      const res = await fetch('/api/account/password', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(input),
-      });
-      if (!res.ok) throw new Error(await errorMessage(res, 'No se pudo cambiar la contraseña'));
+      await api.account.changePassword(input);
     },
     // Cambiarla cierra las demás sesiones: la lista tiene que reflejarlo.
     onSuccess: () => {
@@ -83,12 +59,7 @@ export function useChangePassword() {
 export function useRequestEmailChange() {
   return useMutation<void, Error, ChangeEmailInput>({
     mutationFn: async (input) => {
-      const res = await fetch('/api/account/email', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(input),
-      });
-      if (!res.ok) throw new Error(await errorMessage(res, 'No se pudo pedir el cambio de correo'));
+      await api.account.changeEmail(input);
     },
   });
 }
@@ -97,9 +68,7 @@ export function useSessions() {
   return useQuery<ActiveSessionDto[]>({
     queryKey: accountKeys.sessions,
     queryFn: async () => {
-      const res = await fetch('/api/account/sessions');
-      if (!res.ok) throw new Error('No se pudieron cargar las sesiones');
-      return res.json();
+      return api.account.sessions({});
     },
   });
 }
@@ -108,8 +77,7 @@ export function useRevokeSession() {
   const qc = useQueryClient();
   return useMutation<void, Error, string, { prev?: ActiveSessionDto[] }>({
     mutationFn: async (id) => {
-      const res = await fetch(`/api/account/sessions/${id}`, { method: 'DELETE' });
-      if (!res.ok) throw new Error(await errorMessage(res, 'No se pudo cerrar la sesión'));
+      await api.account.revokeSession({ id });
     },
     onMutate: async (id) => {
       await qc.cancelQueries({ queryKey: accountKeys.sessions });
@@ -131,9 +99,7 @@ export function useRevokeOtherSessions() {
   const qc = useQueryClient();
   return useMutation<{ revoked: number }, Error, void, { prev?: ActiveSessionDto[] }>({
     mutationFn: async () => {
-      const res = await fetch('/api/account/sessions/revoke-others', { method: 'POST' });
-      if (!res.ok) throw new Error(await errorMessage(res, 'No se pudieron cerrar las sesiones'));
-      return res.json();
+      return api.account.revokeOtherSessions({});
     },
     onMutate: async () => {
       await qc.cancelQueries({ queryKey: accountKeys.sessions });
@@ -157,12 +123,7 @@ export function useRevokeOtherSessions() {
 export function useDeleteAccount() {
   return useMutation<void, Error, DeleteAccountInput>({
     mutationFn: async (input) => {
-      const res = await fetch('/api/account/delete', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(input),
-      });
-      if (!res.ok) throw new Error(await errorMessage(res, 'No se pudo borrar la cuenta'));
+      await api.account.remove(input);
     },
   });
 }

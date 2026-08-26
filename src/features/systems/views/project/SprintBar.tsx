@@ -6,12 +6,12 @@ import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { Plus, Flag, CheckCircle2, Trash2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useCreateSprint, useCloseSprint, useDeleteSprint } from "@/features/sprints/sprints.hooks";
-import type { Sprint } from "@/features/sprints/sprints.types";
+import type { SprintTransport } from "@/features/sprints/sprints.types";
 import type { TaskTransport } from "@/features/tasks/tasks.types";
 
 interface SprintBarProps {
   systemId: string;
-  sprints: Sprint[];
+  sprints: SprintTransport[];
   tasks: TaskTransport[];
   sprintFilter: string | null;
   onSelectFilter: (value: string | null) => void;
@@ -33,8 +33,8 @@ export function SprintBar({ systemId, sprints, tasks, sprintFilter, onSelectFilt
 
   const [adding, setAdding] = useState(false);
   const [name, setName] = useState("");
-  const [closeTarget, setCloseTarget] = useState<Sprint | null>(null);
-  const [deleteTarget, setDeleteTarget] = useState<Sprint | null>(null);
+  const [closeTarget, setCloseTarget] = useState<SprintTransport | null>(null);
+  const [deleteTarget, setDeleteTarget] = useState<SprintTransport | null>(null);
 
   const active = sprints.filter((s) => s.status === "active");
   const selectedActive = active.find((s) => s.id === sprintFilter) ?? null;
@@ -96,7 +96,7 @@ export function SprintBar({ systemId, sprints, tasks, sprintFilter, onSelectFilt
         />
       ) : (
         <Button size="sm" variant="ghost" onClick={() => setAdding(true)} disabled={creating} className="h-7 text-xs gap-1">
-          <Plus size={12} /> Sprint
+          <Plus size={12} /> SprintTransport
         </Button>
       )}
 

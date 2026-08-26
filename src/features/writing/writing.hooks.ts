@@ -2,21 +2,10 @@
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { pageKeys } from "@/features/pages/pages.hooks";
-import type { WorkJournal, WritingOverview } from "./writing.types";
 import type { LooseThreadsReport } from "./chekhov";
 import type { TimelineReport } from "./timeline";
-import type { Manuscript } from "./writing.manuscript";
 import type { PlotGrid, PlotOperation } from "./writing.plot";
-import type { SnapshotDetail, SnapshotListItem } from "./snapshots";
-import type { ChapterSummary, StudioReport } from "./writing.studio";
-
-async function jsonOrThrow<T>(res: Response, fallback: string): Promise<T> {
-  if (!res.ok) {
-    const body = await res.json().catch(() => ({}));
-    throw new Error((body as { message?: string }).message ?? fallback);
-  }
-  return res.json();
-}
+import { api } from "@/shared/api/client";
 
 export const writingKeys = {
   overview: (systemId: string) => ["writing", "overview", systemId] as const,
@@ -33,12 +22,10 @@ export const writingKeys = {
 
 /** Qué escribir hoy y huecos del universo (KIN-143). */
 export function useStudio(systemId: string | null) {
-  return useQuery<StudioReport>({
+  return useQuery({
     queryKey: writingKeys.studio(systemId ?? "none"),
     queryFn: () =>
-      fetch(`/api/systems/${systemId}/studio`).then((r) =>
-        jsonOrThrow(r, "No se pudo cargar el estudio"),
-      ),
+      api.writing.studio({ id: systemId! }),
     enabled: !!systemId,
     // Depende de la hora local y de lo escrito hoy: al volver a la ventana, se
     // vuelve a mirar.
@@ -49,12 +36,10 @@ export function useStudio(systemId: string | null) {
 
 /** Resumen extractivo del capítulo. */
 export function useChapterSummary(pageId: string | null) {
-  return useQuery<ChapterSummary>({
+  return useQuery({
     queryKey: writingKeys.summary(pageId ?? "none"),
     queryFn: () =>
-      fetch(`/api/pages/${pageId}/summary`).then((r) =>
-        jsonOrThrow(r, "No se pudo resumir el capítulo"),
-      ),
+      api.writing.chapterSummary({ id: pageId! }),
     enabled: !!pageId,
     staleTime: 60_000,
   });
@@ -62,12 +47,10 @@ export function useChapterSummary(pageId: string | null) {
 
 /** Historial de versiones de un capítulo (KIN-142). Sin el texto: solo metadatos. */
 export function useSnapshots(pageId: string | null) {
-  return useQuery<SnapshotListItem[]>({
+  return useQuery({
     queryKey: writingKeys.snapshots(pageId ?? "none"),
     queryFn: () =>
-      fetch(`/api/pages/${pageId}/snapshots`).then((r) =>
-        jsonOrThrow(r, "No se pudo cargar el historial"),
-      ),
+      api.writing.snapshots({ id: pageId! }),
     enabled: !!pageId,
     staleTime: 15_000,
   });
@@ -75,12 +58,10 @@ export function useSnapshots(pageId: string | null) {
 
 /** Una versión concreta con su texto, para previsualizarla antes de restaurar. */
 export function useSnapshot(snapshotId: string | null) {
-  return useQuery<SnapshotDetail>({
+  return useQuery({
     queryKey: writingKeys.snapshot(snapshotId ?? "none"),
     queryFn: () =>
-      fetch(`/api/snapshots/${snapshotId}`).then((r) =>
-        jsonOrThrow(r, "No se pudo cargar la versión"),
-      ),
+      api.writing.snapshot({ id: snapshotId! }),
     enabled: !!snapshotId,
     // El texto de una versión no cambia nunca: no hay por qué volver a pedirlo.
     staleTime: Infinity,
@@ -91,9 +72,7 @@ export function useRestoreSnapshot(pageId: string) {
   const qc = useQueryClient();
   return useMutation<{ pageId: string; content: string | null }, Error, string>({
     mutationFn: (snapshotId) =>
-      fetch(`/api/snapshots/${snapshotId}/restore`, { method: "POST" }).then((r) =>
-        jsonOrThrow(r, "No se pudo restaurar la versión"),
-      ),
+      api.writing.restoreSnapshot({ id: snapshotId }),
     onSettled: () => {
       qc.invalidateQueries({ queryKey: writingKeys.snapshots(pageId) });
       qc.invalidateQueries({ queryKey: ["pages"] });
@@ -104,12 +83,10 @@ export function useRestoreSnapshot(pageId: string) {
 
 /** Escenas por capítulo y arco (KIN-141). */
 export function usePlotGrid(folderId: string | null) {
-  return useQuery<PlotGrid>({
+  return useQuery({
     queryKey: writingKeys.plot(folderId ?? "none"),
     queryFn: () =>
-      fetch(`/api/folders/${folderId}/plot`).then((r) =>
-        jsonOrThrow(r, "No se pudo cargar el tablero de escenas"),
-      ),
+      api.writing.plot({ id: folderId! }),
     enabled: !!folderId,
     staleTime: 15_000,
   });
@@ -129,11 +106,7 @@ export function usePlotOperation(folderId: string) {
     { prev?: PlotGrid }
   >({
     mutationFn: (operation) =>
-      fetch(`/api/folders/${folderId}/plot`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(operation),
-      }).then((r) => jsonOrThrow(r, "No se pudo mover la escena")),
+      api.writing.applyPlotOperation({ id: folderId, ...operation }),
     onMutate: async () => {
       const key = writingKeys.plot(folderId);
       await qc.cancelQueries({ queryKey: key });
@@ -159,12 +132,10 @@ export function usePlotOperation(folderId: string) {
  * que pese la obra, así que solo se pide cuando de verdad se va a compilar.
  */
 export function useManuscript(folderId: string | null) {
-  return useQuery<Manuscript>({
+  return useQuery({
     queryKey: writingKeys.manuscript(folderId ?? "none"),
     queryFn: () =>
-      fetch(`/api/folders/${folderId}/manuscript`).then((r) =>
-        jsonOrThrow(r, "No se pudo cargar el manuscrito"),
-      ),
+      api.writing.manuscript({ id: folderId! }),
     enabled: !!folderId,
     staleTime: 30_000,
   });
@@ -172,12 +143,10 @@ export function useManuscript(folderId: string | null) {
 
 /** Cronología in-world de una obra (KIN-140). */
 export function useTimeline(folderId: string | null) {
-  return useQuery<TimelineReport>({
+  return useQuery({
     queryKey: writingKeys.timeline(folderId ?? "none"),
     queryFn: () =>
-      fetch(`/api/folders/${folderId}/timeline`).then((r) =>
-        jsonOrThrow(r, "No se pudo cargar la cronología"),
-      ),
+      api.writing.timeline({ id: folderId! }),
     enabled: !!folderId,
     staleTime: 30_000,
   });
@@ -196,11 +165,7 @@ export function useReorderTimeline(systemId: string, folderId: string) {
     { prev?: TimelineReport }
   >({
     mutationFn: ({ eventIds }) =>
-      fetch(`/api/systems/${systemId}/timeline`, {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ eventIds }),
-      }).then((r) => jsonOrThrow(r, "No se pudo reordenar la cronología")),
+      api.writing.reorderTimeline({ id: systemId, eventIds }),
     onMutate: async ({ placed }) => {
       const key = writingKeys.timeline(folderId);
       await qc.cancelQueries({ queryKey: key });
@@ -223,8 +188,7 @@ export function useUnplaceEvent(folderId: string) {
   const qc = useQueryClient();
   return useMutation<void, Error, string>({
     mutationFn: async (entityId) => {
-      const res = await fetch(`/api/entities/${entityId}/timeline`, { method: "DELETE" });
-      if (!res.ok) throw new Error("No se pudo sacar el evento de la cronología");
+      await api.writing.unplaceFromTimeline({ id: entityId });
     },
     onSettled: () => {
       qc.invalidateQueries({ queryKey: writingKeys.timeline(folderId) });
@@ -235,12 +199,10 @@ export function useUnplaceEvent(folderId: string) {
 
 /** Hilos sueltos de una obra (KIN-137). */
 export function useLooseThreads(folderId: string | null) {
-  return useQuery<LooseThreadsReport>({
+  return useQuery({
     queryKey: writingKeys.threads(folderId ?? "none"),
     queryFn: () =>
-      fetch(`/api/folders/${folderId}/threads`).then((r) =>
-        jsonOrThrow(r, "No se pudieron cargar los hilos sueltos"),
-      ),
+      api.writing.threads({ id: folderId! }),
     enabled: !!folderId,
     staleTime: 30_000,
   });
@@ -260,11 +222,7 @@ export function useResolveThread(folderId: string) {
     { prev?: LooseThreadsReport }
   >({
     mutationFn: ({ entityId, resolved }) =>
-      fetch(`/api/entities/${entityId}/thread`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ resolved }),
-      }).then((r) => jsonOrThrow(r, "No se pudo actualizar el hilo")),
+      api.writing.resolveThread({ id: entityId, resolved }),
     onMutate: async ({ entityId, resolved }) => {
       const key = writingKeys.threads(folderId);
       await qc.cancelQueries({ queryKey: key });
@@ -290,12 +248,10 @@ export function useResolveThread(folderId: string) {
 
 /** Racha, palabras de hoy, ventana creativa y pulso de cada obra. */
 export function useWritingOverview(systemId: string, enabled = true) {
-  return useQuery<WritingOverview>({
+  return useQuery({
     queryKey: writingKeys.overview(systemId),
     queryFn: () =>
-      fetch(`/api/systems/${systemId}/writing`).then((r) =>
-        jsonOrThrow(r, "No se pudo cargar el panorama de escritura"),
-      ),
+      api.writing.overview({ id: systemId! }),
     enabled,
     // Las sesiones se registran al guardar el capítulo: al volver a la ventana
     // la racha y las palabras de hoy ya reflejan lo que se acaba de escribir.
@@ -305,12 +261,10 @@ export function useWritingOverview(systemId: string, enabled = true) {
 }
 
 export function useWorkJournal(folderId: string | null) {
-  return useQuery<WorkJournal>({
+  return useQuery({
     queryKey: writingKeys.journal(folderId ?? "none"),
     queryFn: () =>
-      fetch(`/api/folders/${folderId}/journal`).then((r) =>
-        jsonOrThrow(r, "No se pudo cargar el diario de la obra"),
-      ),
+      api.writing.journal({ id: folderId! }),
     enabled: !!folderId,
     staleTime: 30_000,
   });
@@ -320,11 +274,7 @@ export function useToggleChapterComplete(pageId: string, systemId: string) {
   const qc = useQueryClient();
   return useMutation<{ id: string; completedAt: string | null }, Error, boolean>({
     mutationFn: (completed) =>
-      fetch(`/api/pages/${pageId}/complete`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ completed }),
-      }).then((r) => jsonOrThrow(r, "No se pudo marcar el capítulo")),
+      api.writing.setCompleted({ id: pageId, completed }),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: pageKeys.bySystem(systemId) });
       qc.invalidateQueries({ queryKey: pageKeys.detail(pageId) });

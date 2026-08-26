@@ -76,9 +76,8 @@ Las variables de entorno están documentadas en **`.env.example`**, una línea p
 
 ```
 src/features/{feature}/
-├── {feature}.contract.ts    # Qué entra, qué sale y por qué URL (slices migrados)
-├── {feature}.router.ts      # Implementación del contrato (slices migrados)
-├── {feature}.routes.ts      # Handlers con `route()` (slices sin migrar)
+├── {feature}.contract.ts    # Qué entra, qué sale y por qué URL
+├── {feature}.router.ts      # Implementación del contrato
 ├── {feature}.service.ts     # Lógica de negocio (funciones puras donde se pueda)
 ├── {feature}.schemas.ts     # Schemas Zod + DTOs
 ├── {feature}.types.ts       # Tipos propios del slice
@@ -145,10 +144,12 @@ pasaba porque el cliente afirmaba la respuesta con un cast.
 - **Los permisos salen del contrato:** el scope se deriva del método y `meta` es
   la excepción (`{ scope }` para los POST que sólo leen, `{ sessionOnly: true }`
   para lo que toca credenciales).
-- **Las dos formas conviven.** `src/app/api/[...rest]/route.ts` es un catch-all;
-  Next resuelve antes cualquier `route.ts` más específico, así que sólo llega lo
-  que ningún archivo reclama. Migrar un slice es borrar sus `route.ts` y añadir su
-  contrato al router.
+- **Añadir un endpoint no toca `app/`.** `src/app/api/[...rest]/route.ts` es un
+  catch-all y sirve toda la API. Los pocos `route.ts` que quedan son los que no
+  caben en el contrato —el handler de Better Auth, `/api/mcp`, los cron, los dos
+  302 de GitHub, los dos ZIP de export y las dos de `uploads`— y cada uno tiene
+  su razón escrita en ese archivo. `route()` sobrevive sólo como la escotilla de
+  esos casos.
 - **Los códigos de error no cambian:** 401 `UNAUTHORIZED`, 403 `INSUFFICIENT_SCOPE`
   / `SESSION_REQUIRED`, 404 `NOT_FOUND`, 400 `VALIDATION_ERROR` de schema, 422
   `VALIDATION_ERROR` de regla de dominio, 500 `INTERNAL_ERROR`. La traducción vive

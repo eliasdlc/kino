@@ -11,10 +11,10 @@ import { TableMenus } from "./TableMenus";
 import { CodexSelectionActions } from "./CodexBubbleMenu";
 import { EntityFicheSheet } from "@/features/entities/EntityFicheSheet";
 import { StickyNoteCreator } from "@/features/sticky-notes/StickyNoteCreator";
-import type { PageDetail } from "./pages.types";
+import type { PageDetailTransport } from "./pages.types";
 
 interface NotebookEditorProps {
-  page: PageDetail;
+  page: PageDetailTransport;
   systemId: string;
   pageId?: string;
   /** Arquetipo Writing: activa la tipografía serif de lectura (PLAN-11 §7). */

@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { NextRequest } from "next/server";
-import { KINO_READ } from "@/shared/lib/scopes";
+import { KINO_READ, scopeForMethod } from "@/shared/lib/scopes";
+import type { ApiMeta } from "./contract";
 
 vi.mock("@/shared/db", () => ({ db: {} }));
 vi.mock("@/shared/utils/auth-context", () => ({ getAuthContext: vi.fn() }));
@@ -18,14 +19,32 @@ const { apiContract } = await import("./contract.router");
  * con los `*.routes.ts` que todavía no están migrados.
  */
 
-type Procedure = { "~orpc": { route: { method?: string; path?: string } } };
+type Procedure = {
+  "~orpc": { route: { method?: string; path?: string }; meta: ApiMeta };
+};
 
-function procedures(): Array<{ name: string; method: string; path: string }> {
-  const found: Array<{ name: string; method: string; path: string }> = [];
+interface Operation {
+  name: string;
+  method: string;
+  path: string;
+  scope: string;
+  sessionOnly: boolean;
+}
+
+function procedures(): Operation[] {
+  const found: Operation[] = [];
   for (const [slice, contract] of Object.entries(apiContract)) {
     for (const [name, procedure] of Object.entries(contract as Record<string, Procedure>)) {
-      const { method, path } = procedure["~orpc"].route;
-      if (method && path) found.push({ name: `${slice}.${name}`, method, path });
+      const { route, meta } = procedure["~orpc"];
+      if (!route.method || !route.path) continue;
+      found.push({
+        name: `${slice}.${name}`,
+        method: route.method,
+        path: route.path,
+        // La misma regla que aplica la middleware: del método, salvo anotación.
+        scope: meta.scope ?? scopeForMethod(route.method),
+        sessionOnly: meta.sessionOnly ?? false,
+      });
     }
   }
   return found;
@@ -75,7 +94,7 @@ describe("contrato · el borde de autenticación", () => {
     expect(await response!.json()).toEqual({ code: "UNAUTHORIZED", message: "Unauthorized" });
   });
 
-  const writes = all.filter((p) => p.method !== "GET");
+  const writes = all.filter((p) => p.scope === "kino:write");
 
   it.each(writes)("$name con un token de sólo lectura contesta 403", async ({ method, path }) => {
     vi.mocked(getAuthContext).mockResolvedValue({
@@ -90,6 +109,41 @@ describe("contrato · el borde de autenticación", () => {
       code: "INSUFFICIENT_SCOPE",
       requiredScope: "kino:write",
     });
+  });
+
+  // Las excepciones: los POST que en realidad sólo leen. Que estén anotadas no
+  // basta — hay que ver que la anotación manda sobre el verbo.
+  const readOnlyWrites = all.filter((p) => p.method !== "GET" && p.scope === KINO_READ);
+
+  it("hay operaciones de escritura anotadas como lectura", () => {
+    expect(readOnlyWrites.length).toBeGreaterThan(0);
+  });
+
+  it.each(readOnlyWrites)("$name acepta un token de sólo lectura", async ({ method, path }) => {
+    vi.mocked(getAuthContext).mockResolvedValue({
+      userId: "11111111-1111-4111-8111-111111111111",
+      scopes: { kind: "oauth", granted: [KINO_READ] },
+    });
+
+    const { response } = await respond(method, path);
+
+    expect(response!.status).not.toBe(403);
+  });
+
+  // Lo que toca credenciales o borra la cuenta no se alcanza con una clave API,
+  // aunque sea del mismo usuario.
+  const sessionOnly = all.filter((p) => p.sessionOnly);
+
+  it.each(sessionOnly)("$name sin sesión de navegador contesta 403", async ({ method, path }) => {
+    vi.mocked(getAuthContext).mockResolvedValue({
+      userId: "11111111-1111-4111-8111-111111111111",
+      scopes: { kind: "owner" },
+    });
+
+    const { response } = await respond(method, path);
+
+    expect(response!.status).toBe(403);
+    expect(await response!.json()).toMatchObject({ code: "SESSION_REQUIRED" });
   });
 });
 

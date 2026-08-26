@@ -11,7 +11,7 @@ import { StickyNotesGrid } from "@/features/sticky-notes/StickyNotesGrid";
 import { FloatingNotesLayer } from "@/features/sticky-notes/FloatingNotesLayer";
 import { StickyNoteCreator } from "@/features/sticky-notes/StickyNoteCreator";
 import { useStickyNotesByPage } from "@/features/sticky-notes/sticky-notes.hooks";
-import type { PageDetail } from "./pages.types";
+import type { PageDetailTransport } from "./pages.types";
 
 /**
  * The Tiptap editing surface, isolated so it can be loaded with `next/dynamic`
@@ -109,7 +109,7 @@ export default function NotebookEditorSurface({
   onOutline,
   jumpRef,
 }: {
-  page: PageDetail;
+  page: PageDetailTransport;
   systemId: string;
   /** Arquetipo Writing: activa el "writer feel" (serif, medida de lectura, status bar). */
   writer?: boolean;

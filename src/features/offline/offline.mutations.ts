@@ -3,7 +3,7 @@ import { taskKeys } from "@/features/tasks/tasks.keys";
 import { buildOptimisticTask } from "@/features/tasks/tasks.optimistic";
 import type { TaskTransport, CreateTaskInput } from "@/features/tasks/tasks.types";
 import { pageKeys } from "@/features/pages/pages.keys";
-import type { PageListItem } from "@/features/pages/pages.types";
+import type { PageListItemTransport } from "@/features/pages/pages.types";
 import type { CreatePageInput } from "@/features/pages/pages.schemas";
 import { stickyNoteKeys } from "@/features/sticky-notes/sticky-notes.keys";
 import type { StickyNoteItem } from "@/features/sticky-notes/sticky-notes.types";
@@ -47,19 +47,6 @@ export type OfflineCreateSpec<TVars, TResult> = {
   optimistic: (variables: Queued<TVars>) => TResult;
 };
 
-async function postJson<T>(url: string, body: unknown, fallbackMessage: string): Promise<T> {
-  const res = await fetch(url, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(body),
-  });
-  if (!res.ok) {
-    const parsed = await res.json().catch(() => ({}));
-    throw new Error((parsed as { message?: string }).message ?? fallbackMessage);
-  }
-  return res.json() as Promise<T>;
-}
-
 export const createTaskSpec: OfflineCreateSpec<CreateTaskInput, TaskTransport> = {
   mutationKey: ["tasks", "create"],
   mutationFn: (data) => api.tasks.create(data),
@@ -71,10 +58,9 @@ export const createTaskSpec: OfflineCreateSpec<CreateTaskInput, TaskTransport> =
   optimistic: (data) => buildOptimisticTask(data),
 };
 
-export const createPageSpec: OfflineCreateSpec<CreatePageInput, PageListItem> = {
+export const createPageSpec: OfflineCreateSpec<CreatePageInput, PageListItemTransport> = {
   mutationKey: ["pages", "create"],
-  mutationFn: ({ systemId, ...data }) =>
-    postJson<PageListItem>(`/api/systems/${systemId}/pages`, data, "Failed to create page"),
+  mutationFn: ({ systemId, ...data }) => api.pages.createInSystem({ ...data, systemId }),
   queryKeys: (data) => [pageKeys.bySystem(data.systemId)],
   optimistic: (data) => ({
     id: data.clientRequestId ?? crypto.randomUUID(),
@@ -84,8 +70,8 @@ export const createPageSpec: OfflineCreateSpec<CreatePageInput, PageListItem> = 
     isPinned: false,
     parentPageId: data.parentPageId ?? null,
     completedAt: null,
-    createdAt: new Date(),
-    updatedAt: new Date(),
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
     contentPreview: null,
     wordCount: 0,
     tags: [],
@@ -100,13 +86,12 @@ export type CreateStickyNoteVars = CreateStickyNoteInput &
 export const createStickyNoteSpec: OfflineCreateSpec<CreateStickyNoteVars, StickyNoteItem> = {
   mutationKey: ["sticky-notes", "create"],
   mutationFn: (data) =>
-    postJson<StickyNoteItem>(
-      "pageId" in data && data.pageId
-        ? `/api/pages/${data.pageId}/sticky-notes`
-        : `/api/folders/${(data as { folderId: string }).folderId}/sticky-notes`,
-      data,
-      "Failed to create sticky note",
-    ),
+    "pageId" in data && data.pageId
+      ? api.stickyNotes.createOnPage({ ...data, pageId: data.pageId })
+      : api.stickyNotes.createOnFolder({
+          ...data,
+          folderId: (data as { folderId: string }).folderId,
+        }),
   queryKeys: (data) => [
     "pageId" in data && data.pageId
       ? stickyNoteKeys.byPage(data.pageId)

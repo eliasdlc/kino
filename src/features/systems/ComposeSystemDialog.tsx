@@ -27,13 +27,13 @@ import {
 } from "@/shared/lib/system-manifest";
 import { containersEmptyCopy, pagesEmptyCopy } from "@/shared/lib/archetype-copy";
 import { useUpdateSystem } from "./systems.hooks";
-import type { System } from "./systems.types";
+import type { SystemTransport } from "./systems.types";
 
 const ALL_TABS = SYSTEM_TYPE_CONFIG.custom.tabs;
 const MAX_KINDS = 8;
 
 interface ComposeSystemDialogProps {
-  system: System;
+  system: SystemTransport;
   open: boolean;
   onOpenChange: (open: boolean) => void;
 }

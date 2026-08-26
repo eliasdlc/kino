@@ -10,6 +10,7 @@ import {
   type CreateStickyNoteVars,
 } from "@/features/offline/offline.mutations";
 import { useStampedMutation } from "@/features/offline/offline.hooks";
+import { api } from "@/shared/api/client";
 import type { StickyNoteItem } from "./sticky-notes.types";
 import type { UpdateStickyNoteInput, CreateStickyNoteInput } from "./sticky-notes.schemas";
 import { stickyNoteKeys } from "./sticky-notes.keys";
@@ -19,27 +20,19 @@ import { stickyNoteKeys } from "./sticky-notes.keys";
 export { stickyNoteKeys } from "./sticky-notes.keys";
 
 export function useStickyNotesByPage(pageId: string) {
-  return useQuery<StickyNoteItem[]>({
+  return useQuery({
     queryKey: stickyNoteKeys.byPage(pageId),
     enabled: !!pageId,
-    queryFn: async () => {
-      const res = await fetch(`/api/pages/${pageId}/sticky-notes`);
-      if (!res.ok) throw new Error("Failed to fetch sticky notes");
-      return res.json();
-    },
+    queryFn: () => api.stickyNotes.byPage({ pageId }),
     refetchOnWindowFocus: true,
   });
 }
 
 export function useStickyNotesByFolder(folderId: string) {
-  return useQuery<StickyNoteItem[]>({
+  return useQuery({
     queryKey: stickyNoteKeys.byFolder(folderId),
     enabled: !!folderId,
-    queryFn: async () => {
-      const res = await fetch(`/api/folders/${folderId}/sticky-notes`);
-      if (!res.ok) throw new Error("Failed to fetch sticky notes");
-      return res.json();
-    },
+    queryFn: () => api.stickyNotes.byFolder({ folderId }),
     refetchOnWindowFocus: true,
   });
 }
@@ -111,15 +104,7 @@ export function useCreateStickyNoteForFolder(folderId: string) {
 export function useUpdateStickyNote(context: { pageId?: string; folderId?: string }) {
   const qc = useQueryClient();
   return useMutation<StickyNoteItem, Error, { noteId: string; data: UpdateStickyNoteInput }>({
-    mutationFn: async ({ noteId, data }) => {
-      const res = await fetch(`/api/sticky-notes/${noteId}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(data),
-      });
-      if (!res.ok) throw new Error("Failed to update sticky note");
-      return res.json();
-    },
+    mutationFn: ({ noteId, data }) => api.stickyNotes.update({ id: noteId, ...data }),
     onMutate: async ({ noteId, data }) => {
       const key = context.pageId
         ? stickyNoteKeys.byPage(context.pageId)
@@ -147,15 +132,7 @@ export function useUpdateStickyNote(context: { pageId?: string; folderId?: strin
 export function useStackStickyNotes(context: { pageId?: string; folderId?: string }) {
   const qc = useQueryClient();
   return useMutation<{ dragged: StickyNoteItem; target: StickyNoteItem }, Error, { draggedId: string; targetId: string }>({
-    mutationFn: async ({ draggedId, targetId }) => {
-      const res = await fetch("/api/sticky-notes/stack", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ draggedId, targetId }),
-      });
-      if (!res.ok) throw new Error("Failed to stack sticky notes");
-      return res.json();
-    },
+    mutationFn: ({ draggedId, targetId }) => api.stickyNotes.stack({ draggedId, targetId }),
     onMutate: async ({ draggedId, targetId }) => {
       const key = context.pageId
         ? stickyNoteKeys.byPage(context.pageId)
@@ -188,10 +165,7 @@ export function useStackStickyNotes(context: { pageId?: string; folderId?: strin
 export function useDeleteStickyNote(context: { pageId?: string; folderId?: string }) {
   const qc = useQueryClient();
   return useMutation<void, Error, string>({
-    mutationFn: async (noteId) => {
-      const res = await fetch(`/api/sticky-notes/${noteId}`, { method: "DELETE" });
-      if (!res.ok) throw new Error("Failed to delete sticky note");
-    },
+    mutationFn: (noteId) => api.stickyNotes.remove({ id: noteId }),
     onMutate: async (noteId) => {
       const key = context.pageId
         ? stickyNoteKeys.byPage(context.pageId)

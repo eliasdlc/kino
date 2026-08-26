@@ -26,7 +26,7 @@ import { toast } from "sonner";
 import { useOnlineStatus } from "@/features/offline/offline.hooks";
 import { type SystemType } from "@/shared/lib/system-types";
 import { resolveSystemManifest } from "@/shared/lib/system-manifest";
-import type { System } from "@/features/systems/systems.types";
+import type { SystemTransport } from "@/features/systems/systems.types";
 import { useSprints } from "@/features/sprints/sprints.hooks";
 import { TaskPlanningFields } from "./TaskPlanningFields";
 import { getTaskDialogFields } from "./task-dialog-config";
@@ -84,7 +84,7 @@ export function CreateTaskDialog({
   const queryClient = useQueryClient();
 
   // Derive energy default from system type (zero-cost: reads from cache)
-  const cachedSystems = queryClient.getQueryData<System[]>(['systems']);
+  const cachedSystems = queryClient.getQueryData<SystemTransport[]>(['systems']);
   const cachedSystem = cachedSystems?.find((s) => s.id === systemId);
   const systemTemplateType = cachedSystem?.templateType as SystemType | undefined;
   const isProjectSystem = systemTemplateType === 'project';

@@ -29,7 +29,7 @@ import {
   ENTITY_TYPE_LABEL,
   ENTITY_TYPE_LABEL_PLURAL,
 } from "./entities.ui";
-import type { EntityListItem } from "./entities.types";
+import type { EntityListItemTransport } from "./entities.types";
 
 /**
  * Biblioteca del universo (PLAN-11 §8.4): las entidades del sistema agrupadas por
@@ -51,7 +51,7 @@ export function CodexLibrary({ systemId }: { systemId: string }) {
             (e.aliases ?? []).some((a) => a.toLowerCase().includes(q)),
         )
       : entities;
-    const byType = new Map<EntityType, EntityListItem[]>();
+    const byType = new Map<EntityType, EntityListItemTransport[]>();
     for (const e of filtered) {
       const list = byType.get(e.type) ?? [];
       list.push(e);

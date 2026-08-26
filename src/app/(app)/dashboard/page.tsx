@@ -73,7 +73,7 @@ export default async function DashboardPage() {
           style={{ animationDelay: "80ms" }}
         >
           <EnergyTodayCard
-            initialCheckins={dailyPlan.checkins}
+            initialCheckins={toTransport(dailyPlan.checkins)}
             projectedCurve={dailyPlan.projectedCurve}
             chronotype={dailyPlan.chronotype}
             predictions={dailyPlan.predictions}

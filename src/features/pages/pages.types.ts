@@ -1,3 +1,4 @@
+import type { Transport } from "@/shared/api/transport";
 import { pages, tasks } from "@/shared/db/schema";
 import type { ContextTagListItem } from "@/features/tags/tags.types";
 
@@ -29,3 +30,9 @@ export type LinkedTask = Pick<
 // updatePage returns content so the client cache stays consistent
 // after a PATCH (no stale gap until the next refetch).
 export type PageMutationResult = PageListItem & Pick<Page, "content">;
+
+/** Las mismas páginas tal como llegan al cliente: las fechas, en texto. */
+export type PageListItemTransport = Transport<PageListItem>;
+export type PageDetailTransport = Transport<PageDetail>;
+export type LinkedTaskTransport = Transport<LinkedTask>;
+export type PageMutationResultTransport = Transport<PageMutationResult>;

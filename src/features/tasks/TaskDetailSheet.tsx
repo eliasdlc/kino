@@ -41,7 +41,7 @@ import type { TaskTransport } from "./tasks.types";
 import { useFocusTimer } from "./FocusTimerProvider";
 import { useQueryClient } from "@tanstack/react-query";
 import type { SystemType } from "@/shared/lib/system-types";
-import type { System } from "@/features/systems/systems.types";
+import type { SystemTransport } from "@/features/systems/systems.types";
 import {
   ENERGY_LABELS,
   PRIORITY_LABELS,
@@ -103,7 +103,7 @@ function TaskDetailForm({ task, systemId, onClose }: TaskDetailFormProps) {
   const [saveStatus, setSaveStatus] = useState<"idle" | "saved">("idle");
 
   const queryClient = useQueryClient();
-  const cachedSystems = queryClient.getQueryData<System[]>(['systems']);
+  const cachedSystems = queryClient.getQueryData<SystemTransport[]>(['systems']);
   const systemTemplateType = cachedSystems?.find((s) => s.id === systemId)?.templateType as SystemType | undefined;
 
   const isMountedRef = useRef(false);

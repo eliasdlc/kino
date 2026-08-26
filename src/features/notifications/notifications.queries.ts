@@ -221,6 +221,18 @@ export async function getTaskRemindersForTask(taskId: string, userId: string) {
     .orderBy(taskReminders.remindAt);
 }
 
+/**
+ * ¿Es tuya y sigue viva la tarea a la que quieres ponerle recordatorio? Vive
+ * aquí y no en la ruta, que es donde estaba con SQL a mano.
+ */
+export async function ownsActiveTask(taskId: string, userId: string): Promise<boolean> {
+  const [task] = await db
+    .select({ id: tasks.id })
+    .from(tasks)
+    .where(and(eq(tasks.id, taskId), eq(tasks.userId, userId), isNull(tasks.deletedAt)));
+  return !!task;
+}
+
 export async function createTaskReminder(data: {
   taskId: string;
   userId: string;

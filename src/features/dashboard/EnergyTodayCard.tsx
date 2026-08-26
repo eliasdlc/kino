@@ -12,7 +12,7 @@ import {
 import { findPeakRange, formatHourRange, CHRONOTYPE_LABELS } from '@/features/energy/energy.utils';
 import type { CheckinSlot } from '@/features/energy/energy.schemas';
 import type { Chronotype } from '@/features/energy/energy.utils';
-import type { TodayCheckinRow } from '@/features/energy/energy.service';
+import type { TodayCheckinRowTransport } from '@/features/energy/energy.service';
 import type { PredictionRow } from '@/features/energy/energy.queries';
 import { EnergyChart, type ChartEntry } from './EnergyChart';
 import { EnergyCheckinForm, type CheckinValues } from './EnergyCheckinForm';
@@ -26,7 +26,7 @@ import {
 } from './energyDisplay';
 
 interface EnergyTodayCardProps {
-  initialCheckins: TodayCheckinRow[];
+  initialCheckins: TodayCheckinRowTransport[];
   projectedCurve: number[];
   chronotype: Chronotype | null;
   /** Predicciones guardadas de hoy: lo que Kino dijo antes de conocer el resultado (4.2). */
@@ -47,7 +47,7 @@ const TONE_GLOW: Record<string, string> = {
   low: 'bg-red-400/25',
 };
 
-function buildChartData(curve: number[], checkins: TodayCheckinRow[]): ChartEntry[] {
+function buildChartData(curve: number[], checkins: TodayCheckinRowTransport[]): ChartEntry[] {
   return Array.from({ length: 24 }, (_, hour) => {
     const checkin = checkins.find((c) => new Date(c.createdAt).getHours() === hour);
     return {

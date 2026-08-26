@@ -9,6 +9,7 @@ import { LooseThreads } from "@/features/writing/LooseThreads";
 import { InWorldTimeline } from "@/features/writing/InWorldTimeline";
 import { resolveCodexView } from "@/features/entities/codex.views";
 import { getServerSession } from "@/shared/utils/session";
+import { toTransport } from "@/shared/api/transport";
 
 export default async function CodexPage({
   params,
@@ -53,7 +54,7 @@ export default async function CodexPage({
           {view === "grafo" ? (
             <UniverseGraphLazy systemId={id} />
           ) : view === "hilos" ? (
-            <LooseThreads system={system} />
+            <LooseThreads system={toTransport(system)} />
           ) : view === "cronologia" ? (
             <InWorldTimeline systemId={id} />
           ) : (
