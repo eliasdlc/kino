@@ -3,12 +3,14 @@ import { db } from '@/shared/db';
 import { users } from '@/shared/db/schema';
 
 /**
- * Arnés de la batería de aislamiento (KIN-190). Sólo lo usan los `*.itest.ts`,
- * que corren contra un Postgres real y no entran en `pnpm test`.
+ * Datos comunes a la batería de integración (`*.itest.ts`), la que corre contra
+ * un Postgres de verdad y no entra en `pnpm test`.
  *
- * Contra una base de verdad y no con `db` mockeado a propósito: un mock sólo
- * confirma que la consulta lleva el filtro, no que Postgres lo respete. La
- * pregunta que esta batería contesta es la segunda.
+ * Contra una base real y no con `db` mockeado a propósito: un mock sólo confirma
+ * que la consulta lleva el filtro, no que Postgres lo respete, ni que el `ltree`
+ * case, ni que una transacción revierta. Esas son las preguntas de esta batería.
+ *
+ * Quién levanta y apaga la base: `testing/setup.ts`.
  */
 
 /** Las dos cuentas del experimento: A intenta tocar lo de B. */
@@ -38,9 +40,4 @@ export async function resetAndSeedActors(): Promise<Actors> {
     .returning({ id: users.id });
 
   return { alice: alice!.id, bob: bob!.id };
-}
-
-/** Cierra la conexión para que vitest no se quede colgado al terminar. */
-export async function closeTestDb() {
-  await db.$client.end();
 }

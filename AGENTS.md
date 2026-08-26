@@ -19,8 +19,9 @@ pnpm typecheck                      # tsc --noEmit — debe pasar
 pnpm db:generate                    # drizzle-kit generate (migraciones)
 pnpm db:migrate                     # Aplicar migraciones a la base de DATABASE_URL (local: rama de desarrollo)
 pnpm db:studio                      # Drizzle Studio
-pnpm test                           # Suite completa
+pnpm test                           # Suite completa (lógica pura, sin base)
 pnpm test -- --run <path>           # Un solo archivo de test
+pnpm test:integration               # Batería de integración contra Postgres (PGlite, sin Docker)
 ```
 
 **Siempre** correr `pnpm typecheck && pnpm lint` después de cualquier cambio. Si alguno falla, se arregla antes de commitear.
@@ -61,7 +62,7 @@ Producción y desarrollo son **dos ramas de Neon** con cadenas de conexión dist
 |---|---|---|
 | Producción | el deploy de `main` en Vercel | variable **Production** de Vercel, y en ningún otro sitio |
 | Desarrollo | los previews de Vercel (PRs y `dev`) y el `.env.local` de cada máquina | rama de desarrollo de Neon: variable **Preview** de Vercel y `.env.local` |
-| Local aislado | `docker compose up -d` y la batería de aislamiento (`pnpm test:isolation`, que hace `TRUNCATE`) | `postgresql://kino:kino_dev_password@localhost:5433/kino` |
+| Local aislado | `docker compose up -d`, y la batería de integración cuando se la apunta ahí con `TEST_DATABASE_URL` (hace `TRUNCATE`) | `postgresql://kino:kino_dev_password@localhost:5433/kino` |
 
 **Las migraciones a producción las aplica sólo el despliegue.** El `buildCommand` de `vercel.json` corre `pnpm db:migrate` antes de `next build` con la variable del entorno que está construyendo: un preview migra la rama de desarrollo y el deploy de `main` migra producción. Si la migración falla, el build falla y el deploy anterior sigue arriba; el código nunca sale sin su schema. `pnpm db:migrate` desde local sólo llega a la base de `.env.local`.
 
@@ -157,6 +158,25 @@ CSS puro — keyframes, transitions, Tailwind. **No instalar Framer Motion.** An
 - Todo cambio de UI se previsualiza en **`/system-design`** y añade su specimen.
 - Cada ruta con su `loading.tsx`, cubierta por un `error.tsx`.
 
+### Tests
+
+Dos baterías, y la diferencia es si hay base de por medio.
+
+- **`*.test.ts` / `*.test.tsx` → `pnpm test`.** Lógica pura y componentes. Mockean `@/shared/db`; no tocan Postgres y por eso la suite entera tarda segundos.
+- **`*.itest.ts` → `pnpm test:integration`.** Lo que sólo contesta una base: `ltree`, la búsqueda full-text, las transacciones y el aislamiento entre usuarios. Un mock aquí sólo confirmaría que la consulta lleva el filtro, no que Postgres lo respete.
+
+La base de integración la levanta `src/shared/db/testing/setup.ts`, **una por archivo de test**: PGlite (Postgres en WASM, en memoria, con `ltree`, `uuid-ossp` y `unaccent`) hablando el protocolo de cable, así que el driver sigue siendo el `postgres-js` de producción. No hace falta Docker y los archivos corren en paralelo. Un `.itest.ts` nuevo no configura nada: pide sus dos usuarios a `resetAndSeedActors()` y ya.
+
+Para correr la misma batería contra el motor exacto de producción (PGlite va por Postgres 18; producción y el compose, por 17):
+
+```bash
+docker compose up -d
+DATABASE_URL="postgresql://kino:kino_dev_password@localhost:5433/kino" pnpm db:migrate
+TEST_DATABASE_URL="postgresql://kino:kino_dev_password@localhost:5433/kino" pnpm test:integration
+```
+
+Un test de integración vale lo que vale su versión rota: si se invierte el operador o se le quita el idioma a la consulta y la batería sigue verde, el test no estaba probando la consulta.
+
 ### El manifiesto de arquetipo
 
 `src/shared/lib/system-types.ts` es la fuente única de cómo se comporta cada `systemType`: vocabulario, `folderRole`, `pageRole`, `taskKinds`. **Nunca hardcodear un label o un comportamiento por tipo de sistema** — se lee del manifiesto. Añadir un arquetipo debe ser añadir una entrada, no un fork de código.
@@ -168,7 +188,7 @@ Lo mismo para los mediums de escritura en `src/shared/lib/mediums.ts`. Ojo: el m
 - **Ramas**: `main` → `dev` → rama de feature. Nunca push directo a `main`.
 - **Commits**: Conventional Commits, atómicos, **sin trailers de atribución a IA**.
 - Las ramas completadas son registro histórico: **no se borran**.
-- Antes de un PR: `pnpm typecheck && pnpm lint && pnpm test`.
+- Antes de un PR: `pnpm typecheck && pnpm lint && pnpm test && pnpm test:integration`.
 - Nunca commitear `.env` ni secretos. `.env.example` es el único `.env` versionado y no lleva valores reales.
 
 ## Definition of Done
