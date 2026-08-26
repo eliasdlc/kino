@@ -16,9 +16,10 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 15
 
-    # Sin `env:` y sin `secrets:` a propósito. Los tests son lógica pura o mockean
-    # `@/shared/db`, así que ninguno necesita DATABASE_URL. Si alguno empieza a
-    # pedirla, este job tiene que fallar en rojo, no ganar una variable aquí.
+    # Sin `env:` y sin `secrets:` a propósito. `pnpm test` es lógica pura o
+    # mockea `@/shared/db`, y `pnpm test:integration` se levanta su propia base
+    # PGlite en el proceso. Si algún test empieza a pedir una DATABASE_URL de
+    # fuera, este job tiene que fallar en rojo, no ganar una variable aquí.
     steps:
       - uses: actions/checkout@v5
 
@@ -39,14 +40,17 @@ jobs:
 
       - run: pnpm test
 
-  isolation:
-    name: aislamiento entre usuarios
+      - run: pnpm test:integration
+
+  motor-real:
+    name: integración contra Postgres 17
     runs-on: ubuntu-latest
     timeout-minutes: 15
 
-    # Esta batería sí necesita base, y una de verdad: con `db` mockeado sólo se
-    # comprobaría que la consulta lleva el filtro, no que Postgres lo respete.
-    # La versión sigue a producción y a docker-compose: los tres en 17.
+    # La misma batería que el job de arriba, contra el motor exacto de
+    # producción. PGlite es Postgres de verdad pero va por su propia versión
+    # (18), y producción, el compose y este contenedor están en 17: si algo se
+    # comporta distinto entre las dos, aquí es donde se ve.
     services:
       postgres:
         image: postgres:17-alpine
@@ -63,7 +67,12 @@ jobs:
           --health-retries 10
 
     env:
+      # `DATABASE_URL` es para drizzle-kit, que migra. `TEST_DATABASE_URL` es la
+      # que lee la batería, y es una variable propia a propósito: deja la base en
+      # TRUNCATE, así que nombrarla tiene que ser un acto deliberado y nunca algo
+      # que herede de una DATABASE_URL que ya estuviera en el entorno.
       DATABASE_URL: postgresql://kino:kino_dev_password@localhost:5432/kino_test
+      TEST_DATABASE_URL: postgresql://kino:kino_dev_password@localhost:5432/kino_test
 
     steps:
       - uses: actions/checkout@v5
@@ -84,4 +93,4 @@ jobs:
 
       - run: pnpm db:migrate
 
-      - run: pnpm test:isolation
+      - run: pnpm test:integration
