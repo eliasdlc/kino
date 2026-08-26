@@ -22,6 +22,7 @@ pnpm db:studio                      # Drizzle Studio
 pnpm test                           # Suite completa (lógica pura, sin base)
 pnpm test -- --run <path>           # Un solo archivo de test
 pnpm test:integration               # Batería de integración contra Postgres (PGlite, sin Docker)
+pnpm mcp:generate                   # Vuelca el contrato en las operaciones que ve el MCP
 ```
 
 **Siempre** correr `pnpm typecheck && pnpm lint` después de cualquier cambio. Si alguno falla, se arregla antes de commitear.
@@ -106,15 +107,17 @@ Los query keys se declaran como **factory por feature** (`taskKeys`, `pageKeys`,
 
 ### Mutaciones — patrón optimista canónico
 
-**Todas** las mutaciones lo usan, sin excepción: UI optimista siempre, rollback en error, invalidate en settled.
+**Todas** las mutaciones lo usan, sin excepción: UI optimista siempre, rollback en error, invalidate en settled. El patrón no se escribe a mano: vive en `src/shared/hooks/optimistic.ts`, en tres formas según sobre qué se aplique.
 
-```ts
-onMutate:  cancelQueries → snapshot del cache → setQueryData optimista → return { prev }
-onError:   setQueryData(prev)  // rollback
-onSettled: invalidateQueries
-```
+| Hook | Para qué |
+|---|---|
+| `useOptimisticList` | Una lista bajo una key. Completar, borrar, editar o mover dentro de ella |
+| `useOptimisticRecord` | Un registro bajo una key. Ajustes, la rejilla de escenas, la cronología |
+| `useOptimisticScope` | Todas las listas de un prefijo. Una tarea se ve a la vez en el plan de hoy, en la lista global y en la de su sistema |
 
-La referencia canónica vive en `src/features/tasks/tasks.hooks.ts` (Rumbo 05). Si lo tocas, no rompas esa referencia.
+La invalidación es parte del hook, no una decisión por mutación: ahí estaba el riesgo real, con uno invalidando un prefijo y otro una clave exacta, y la diferencia notándose sólo con dos vistas abiertas.
+
+Lo que no cabe —leer de una cache y escribir en otra, o una creación encolable sin conexión— se escribe inline **con un comentario diciendo por qué**. Son cinco casos y los cinco lo llevan.
 
 ### Fechas y timezone
 
@@ -154,6 +157,8 @@ pasaba porque el cliente afirmaba la respuesta con un cast.
   / `SESSION_REQUIRED`, 404 `NOT_FOUND`, 400 `VALIDATION_ERROR` de schema, 422
   `VALIDATION_ERROR` de regla de dominio, 500 `INTERNAL_ERROR`. La traducción vive
   en `shared/api/handler.ts` y en `shared/api/procedures.ts`.
+
+**Las tools del MCP salen de aquí.** `packages/mcp` se publica en npm y no puede importar `src/`, así que el contrato viaja hasta él como código generado (`pnpm mcp:generate` → `packages/mcp/src/generated/operations.ts`). El paquete sólo escribe a mano lo que el agente lee: el nombre y la descripción de cada tool, en `catalog.ts`, que es un mapa **exhaustivo** sobre las operaciones. Un endpoint nuevo no compila hasta que alguien decide si es una tool o un `null` explícito, y un test comprueba que lo commiteado coincide con el contrato.
 
 Lo que cruza la red no es una fila: `Transport<T>` (en `shared/api/transport.ts`)
 convierte las fechas en texto ISO, que es lo que sobrevive a un `JSON.stringify`.

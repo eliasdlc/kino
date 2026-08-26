@@ -1,6 +1,7 @@
 "use client";
 
 import { useMutation, useQueryClient, type QueryClient } from "@tanstack/react-query";
+import { useOptimisticScope } from "@/shared/hooks/optimistic";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { api } from "@/shared/api/client";
@@ -46,10 +47,28 @@ export function useAdvisorAction() {
 }
 
 
-type BulkMoveCtx = {
-  previous: [readonly unknown[], TaskTransport[] | undefined][];
-  previousStates: { id: string; status: string }[];
-};
+/**
+ * El deshacer devuelve cada tarea a su valor anterior, y ese valor está en el
+ * snapshot que el hook optimista guardó antes de escribir. Antes se leía de la
+ * lista global, que podía no estar cargada.
+ */
+type Snapshot = [readonly unknown[], TaskTransport[] | undefined][];
+
+function findBefore(snapshot: Snapshot, taskId: string): TaskTransport | undefined {
+  for (const [, tasks] of snapshot) {
+    const found = tasks?.find((t) => t.id === taskId);
+    if (found) return found;
+  }
+  return undefined;
+}
+
+function previousStatuses(snapshot: Snapshot, taskIds: string[]) {
+  return taskIds.map((id) => ({ id, status: findBefore(snapshot, id)?.status ?? 'backlog' }));
+}
+
+function previousPriorities(snapshot: Snapshot, taskIds: string[]) {
+  return taskIds.map((id) => ({ id, priority: findBefore(snapshot, id)?.priority ?? null }));
+}
 
 
 /**
@@ -83,24 +102,15 @@ function overdraftNotice(queryClient: QueryClient, taskIds: string[]): string | 
 export function useBulkMove() {
   const queryClient = useQueryClient();
 
-  return useMutation<void, Error, { taskIds: string[]; status: TaskStatus }, BulkMoveCtx>({
+  return useOptimisticScope<void, Error, { taskIds: string[]; status: TaskStatus }, TaskTransport>({
     mutationFn: ({ taskIds, status }) => api.tasks.bulkMove({ taskIds, status }),
-    onMutate: async ({ taskIds, status }) => {
-      await queryClient.cancelQueries({ queryKey: ['tasks'] });
-      const previous = queryClient.getQueriesData<TaskTransport[]>({ queryKey: ['tasks'] });
-      const allTasks = queryClient.getQueryData<TaskTransport[]>(allTasksKey()) ?? [];
-      const previousStates = taskIds.map((id) => ({
-        id,
-        status: allTasks.find((t) => t.id === id)?.status ?? 'backlog',
-      }));
-      queryClient.setQueriesData<TaskTransport[]>({ queryKey: ['tasks'] }, (old) =>
-        old?.map((t) => (taskIds.includes(t.id) ? { ...t, status } : t))
-      );
-      return { previous, previousStates };
-    },
+    queryKey: ['tasks'],
+    updater: (tasks, { taskIds, status }) =>
+      tasks.map((t) => (taskIds.includes(t.id) ? { ...t, status } : t)),
     onSuccess: (_data, { taskIds, status }, context) => {
       const n = taskIds.length;
-      const { previousStates } = context;
+      // El deshacer necesita el status de antes, y está en el snapshot.
+      const previousStates = previousStatuses(context?.previous ?? [], taskIds);
       const overdraft = status === 'today' ? overdraftNotice(queryClient, taskIds) : undefined;
       // Con richColors, `toast.success` sale verde con check: leerlo encima de un
       // aviso de sobregiro se contradice. El movimiento sí ocurrió —nada bloquea—
@@ -122,41 +132,21 @@ export function useBulkMove() {
         },
       });
     },
-    onError: (_err, _vars, context) => {
-      context?.previous.forEach(([key, data]) => queryClient.setQueryData(key, data));
-      toast.error('No se pudo mover las tareas');
-    },
-    onSettled: () => queryClient.invalidateQueries({ queryKey: ['tasks'] }),
+    onError: () => toast.error('No se pudo mover las tareas'),
   });
 }
-
-
-type BulkUpdateCtx = {
-  previous: [readonly unknown[], TaskTransport[] | undefined][];
-  previousStates: { id: string; priority: string | null }[];
-};
 
 
 export function useBulkUpdate() {
   const queryClient = useQueryClient();
 
-  return useMutation<void, Error, { taskIds: string[]; priority: TaskPriority }, BulkUpdateCtx>({
+  return useOptimisticScope<void, Error, { taskIds: string[]; priority: TaskPriority }, TaskTransport>({
     mutationFn: ({ taskIds, priority }) => api.tasks.bulkUpdate({ taskIds, priority }),
-    onMutate: async ({ taskIds, priority }) => {
-      await queryClient.cancelQueries({ queryKey: ['tasks'] });
-      const previous = queryClient.getQueriesData<TaskTransport[]>({ queryKey: ['tasks'] });
-      const allTasks = queryClient.getQueryData<TaskTransport[]>(allTasksKey()) ?? [];
-      const previousStates = taskIds.map((id) => ({
-        id,
-        priority: allTasks.find((t) => t.id === id)?.priority ?? null,
-      }));
-      queryClient.setQueriesData<TaskTransport[]>({ queryKey: ['tasks'] }, (old) =>
-        old?.map((t) => (taskIds.includes(t.id) ? { ...t, priority: priority as TaskTransport['priority'] } : t))
-      );
-      return { previous, previousStates };
-    },
-    onSuccess: (_data, _vars, context) => {
-      const { previousStates } = context;
+    queryKey: ['tasks'],
+    updater: (tasks, { taskIds, priority }) =>
+      tasks.map((t) => (taskIds.includes(t.id) ? { ...t, priority } : t)),
+    onSuccess: (_data, { taskIds }, context) => {
+      const previousStates = previousPriorities(context?.previous ?? [], taskIds);
       toast.success('Prioridad actualizada', {
         duration: 7000,
         action: {
@@ -174,11 +164,7 @@ export function useBulkUpdate() {
         },
       });
     },
-    onError: (_err, _vars, context) => {
-      context?.previous.forEach(([key, data]) => queryClient.setQueryData(key, data));
-      toast.error('No se pudo actualizar la prioridad');
-    },
-    onSettled: () => queryClient.invalidateQueries({ queryKey: ['tasks'] }),
+    onError: () => toast.error('No se pudo actualizar la prioridad'),
   });
 }
 

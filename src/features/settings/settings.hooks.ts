@@ -1,4 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useOptimisticRecord } from '@/shared/hooks/optimistic';
 import { toast } from 'sonner';
 import { downloadBlob } from '@/shared/utils/download';
 import { api } from '@/shared/api/client';
@@ -18,30 +19,15 @@ export function useUserSettings() {
 export function useUpdateUserSettings() {
   const queryClient = useQueryClient();
 
-  return useMutation({
-    mutationFn: (input: UpdateUserSettingsInput) => api.settings.update(input),
-    // Patrón optimista canónico: el control refleja la elección al instante y
-    // vuelve atrás si el servidor la rechaza. Sin esto un Select se queda
-    // pintando el valor viejo hasta que responde el PATCH.
-    onMutate: async (input) => {
-      await queryClient.cancelQueries({ queryKey: userSettingsKey() });
-      const prev = queryClient.getQueryData<UserSettings>(userSettingsKey());
-      if (prev) {
-        queryClient.setQueryData<UserSettings>(userSettingsKey(), { ...prev, ...input });
-      }
-      return { prev };
-    },
+  return useOptimisticRecord<UserSettings, Error, UpdateUserSettingsInput, UserSettings>({
+    mutationFn: (input) => api.settings.update(input),
+    queryKey: userSettingsKey(),
+    updater: (previous, input) => ({ ...previous, ...input }),
     onSuccess: (data) => {
       queryClient.setQueryData(userSettingsKey(), data);
       toast.success('Ajustes guardados');
     },
-    onError: (_err, _input, context) => {
-      if (context?.prev) queryClient.setQueryData(userSettingsKey(), context.prev);
-      toast.error('No se pudieron guardar los ajustes');
-    },
-    onSettled: () => {
-      queryClient.invalidateQueries({ queryKey: userSettingsKey() });
-    },
+    onError: () => toast.error('No se pudieron guardar los ajustes'),
   });
 }
 

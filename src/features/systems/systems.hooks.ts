@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useOptimisticListMutation } from "@/shared/hooks/useOptimisticListMutation";
+import { useOptimisticList } from "@/shared/hooks/optimistic";
 import { api } from "@/shared/api/client";
 import type {
   SystemTransport,
@@ -55,7 +55,7 @@ export function useCreateSystem() {
 }
 
 export function useUpdateSystem() {
-  return useOptimisticListMutation<SystemTransport, Error, { systemId: string; data: UpdateSystemInput }, SystemWithSignalsTransport>({
+  return useOptimisticList<SystemTransport, Error, { systemId: string; data: UpdateSystemInput }, SystemWithSignalsTransport>({
     mutationFn: ({ systemId, data }) => api.systems.update({ id: systemId, ...data }),
     queryKey: ["systems"],
     updater: (systems, { systemId, data }) =>
@@ -66,7 +66,7 @@ export function useUpdateSystem() {
 export function useDeleteSystem() {
   const queryClient = useQueryClient();
 
-  return useOptimisticListMutation<void, Error, string, SystemWithSignalsTransport>({
+  return useOptimisticList<void, Error, string, SystemWithSignalsTransport>({
     mutationFn: (systemId) => api.systems.remove({ id: systemId }),
     queryKey: ["systems"],
     updater: (systems, systemId) => systems.filter((s) => s.id !== systemId),

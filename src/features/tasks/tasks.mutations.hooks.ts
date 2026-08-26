@@ -4,7 +4,7 @@ import { onlineManager, useMutation, useQueryClient } from "@tanstack/react-quer
 import { toast } from "sonner";
 import { api } from "@/shared/api/client";
 import { type TaskTransport, type CreateTaskInput, type UpdateTaskInput } from "./tasks.types";
-import { useOptimisticListMutation } from "@/shared/hooks/useOptimisticListMutation";
+import { useOptimisticList } from "@/shared/hooks/optimistic";
 import {
   applyCreated,
   applyOptimistic,
@@ -31,7 +31,7 @@ interface ToggleTaskResult {
  * Crear tarea — la única mutación que sobrevive a la falta de red (KIN-57).
  *
  * Caso multi-key: toca `bySystem` y `folderTasks` a la vez, así que no usa
- * `useOptimisticListMutation` (pensado para una sola lista). Lo que antes estaba
+ * `useOptimisticList` (pensado para una sola lista). Lo que antes estaba
  * inline aquí —el `mutationFn`, el placeholder optimista y las keys que toca—
  * vive ahora en `createTaskSpec`, porque la cola offline necesita reproducir todo
  * eso **sin este componente montado**, después de cerrar y reabrir el navegador.
@@ -98,7 +98,7 @@ export function useCreateTask(systemId: string, folderId?: string) {
 
 
 export function useToggleTask(systemId: string, folderId?: string) {
-  return useOptimisticListMutation<ToggleTaskResult, Error, string, TaskTransport>({
+  return useOptimisticList<ToggleTaskResult, Error, string, TaskTransport>({
     mutationFn: (taskId) => api.tasks.toggle({ id: taskId }),
     queryKey: folderId ? taskKeys.folderTasks(systemId, folderId) : taskKeys.bySystem(systemId),
     updater: (tasks, taskId) =>
@@ -112,7 +112,7 @@ export function useToggleTask(systemId: string, folderId?: string) {
 
 
 export function useDeleteTask(systemId: string, folderId?: string) {
-  return useOptimisticListMutation<void, Error, string, TaskTransport>({
+  return useOptimisticList<void, Error, string, TaskTransport>({
     mutationFn: (taskId) => api.tasks.remove({ id: taskId }),
     queryKey: folderId ? taskKeys.folderTasks(systemId, folderId) : taskKeys.bySystem(systemId),
     updater: (tasks, taskId) => tasks.filter((t) => t.id !== taskId),
@@ -135,41 +135,21 @@ export function useDeleteTaskWithUndo(systemId: string, folderId?: string) {
     },
   });
 
-  return useMutation({
-    mutationFn: (taskId: string) => api.tasks.remove({ id: taskId }),
-    onMutate: async (taskId) => {
-      const qKey = folderId ? taskKeys.folderTasks(systemId, folderId) : taskKeys.bySystem(systemId);
-      await queryClient.cancelQueries({ queryKey: qKey });
-      const previous = queryClient.getQueryData<TaskTransport[]>(qKey);
-      const deletedTask = previous?.find((t) => t.id === taskId);
-      queryClient.setQueryData<TaskTransport[]>(qKey, (old = []) => old.filter((t) => t.id !== taskId));
-      return { previous, qKey, deletedTask };
-    },
+  return useOptimisticList<void, Error, string, TaskTransport>({
+    mutationFn: (taskId) => api.tasks.remove({ id: taskId }),
+    queryKey: folderId ? taskKeys.folderTasks(systemId, folderId) : taskKeys.bySystem(systemId),
+    updater: (tasks, taskId) => tasks.filter((t) => t.id !== taskId),
+    // bySystem es prefijo de folderTasks → invalidarla cubre las dos vistas.
+    invalidateKey: taskKeys.bySystem(systemId),
+    // El título para el toast sale del snapshot: la tarea ya no está en la lista.
     onSuccess: (_data, taskId, context) => {
-      const title = context?.deletedTask?.title ?? "Tarea";
+      const title = context?.previous?.find((t) => t.id === taskId)?.title ?? "Tarea";
       toast(`"${title}" movida a la papelera`, {
-        action: {
-          label: "Deshacer",
-          onClick: () => restore(taskId),
-        },
+        action: { label: "Deshacer", onClick: () => restore(taskId) },
         duration: 5000,
       });
     },
-    onError: (_err, _vars, context) => {
-      if (context?.previous) {
-        queryClient.setQueryData(context.qKey, context.previous);
-      }
-      toast.error("No se pudo mover a la papelera");
-    },
-    onSettled: (_data, _error, _vars, context) => {
-      if (context?.qKey) {
-        queryClient.invalidateQueries({ queryKey: context.qKey });
-      }
-      queryClient.invalidateQueries({ queryKey: taskKeys.bySystem(systemId) });
-      if (folderId) {
-        queryClient.invalidateQueries({ queryKey: taskKeys.folderTasks(systemId, folderId) });
-      }
-    },
+    onError: () => toast.error("No se pudo mover a la papelera"),
   });
 }
 
@@ -187,28 +167,19 @@ export function useDeleteAnyTaskWithUndo() {
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ["tasks"] }),
   });
 
-  return useMutation<void, Error, string, { previous?: TaskTransport[]; deletedTask?: TaskTransport }>({
-    mutationFn: (taskId: string) => api.tasks.remove({ id: taskId }),
-    onMutate: async (taskId) => {
-      const qKey = allTasksKey();
-      await queryClient.cancelQueries({ queryKey: qKey });
-      const previous = queryClient.getQueryData<TaskTransport[]>(qKey);
-      const deletedTask = previous?.find((t) => t.id === taskId);
-      queryClient.setQueryData<TaskTransport[]>(qKey, (old = []) => old.filter((t) => t.id !== taskId));
-      return { previous, deletedTask };
-    },
+  return useOptimisticList<void, Error, string, TaskTransport>({
+    mutationFn: (taskId) => api.tasks.remove({ id: taskId }),
+    queryKey: allTasksKey(),
+    updater: (tasks, taskId) => tasks.filter((t) => t.id !== taskId),
+    invalidateKey: ["tasks"],
     onSuccess: (_data, taskId, context) => {
-      const title = context?.deletedTask?.title ?? "Tarea";
+      const title = context?.previous?.find((t) => t.id === taskId)?.title ?? "Tarea";
       toast(`"${title}" movida a la papelera`, {
         action: { label: "Deshacer", onClick: () => restore(taskId) },
         duration: 5000,
       });
     },
-    onError: (_err, _vars, context) => {
-      if (context?.previous) queryClient.setQueryData(allTasksKey(), context.previous);
-      toast.error("No se pudo borrar la tarea");
-    },
-    onSettled: () => queryClient.invalidateQueries({ queryKey: ["tasks"] }),
+    onError: () => toast.error("No se pudo borrar la tarea"),
   });
 }
 
@@ -231,7 +202,7 @@ export function useRestoreTask() {
 export function useUpdateTask(systemId: string) {
   const queryClient = useQueryClient();
 
-  return useOptimisticListMutation<
+  return useOptimisticList<
     TaskTransport,
     Error,
     { taskId: string; data: UpdateTaskInput },
@@ -253,7 +224,7 @@ export function useUpdateTask(systemId: string) {
 /** Mueve una tarjeta de columna del board (systemType `project`). Optimista:
  * refleja la nueva columna y, si entra/sale de la terminal, el done de scheduling. */
 export function useMoveTaskBoard(systemId: string) {
-  return useOptimisticListMutation<TaskTransport, Error, { taskId: string; boardStatus: string }, TaskTransport>({
+  return useOptimisticList<TaskTransport, Error, { taskId: string; boardStatus: string }, TaskTransport>({
     mutationFn: ({ taskId, boardStatus }) => api.tasks.moveBoard({ id: taskId, boardStatus }),
     queryKey: taskKeys.bySystem(systemId),
     updater: (tasks, { taskId, boardStatus }) =>
@@ -273,6 +244,12 @@ export function useMoveTaskBoard(systemId: string) {
   });
 }
 
+/**
+ * Se queda inline: no toca una lista, lee de una y escribe en otra. Al programar
+ * una tarea que todavía no estaba en el calendario hay que ir a buscarla a la
+ * lista global, y ninguno de los tres hooks optimistas expresa eso sin volverse
+ * una abstracción que nadie entiende al leerla.
+ */
 export function useUpdateCalendarTask(from: string, to: string) {
   const queryClient = useQueryClient();
 
