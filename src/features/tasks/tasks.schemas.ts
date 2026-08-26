@@ -147,6 +147,15 @@ export const listTasksQueryParamsSchema = listTasksQuerySchema.extend({
     .transform((value) => (value === "true" ? true : undefined)),
 });
 
+/**
+ * Rango que pide el calendario. Los dos extremos son obligatorios: la ruta los
+ * leía a mano de la query y devolvía 400 si faltaba alguno.
+ */
+export const calendarRangeSchema = z.object({
+  from: z.string().refine((s) => !Number.isNaN(Date.parse(s)), { message: 'Invalid from date' }),
+  to: z.string().refine((s) => !Number.isNaN(Date.parse(s)), { message: 'Invalid to date' }),
+});
+
 export const createTimeLogSchema = z.object({
   systemId: z.string().uuid(),
   startedAt: z.string().datetime(),
