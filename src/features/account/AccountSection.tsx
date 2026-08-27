@@ -16,7 +16,7 @@ import {
   ResponsiveDialogHeader,
   ResponsiveDialogTitle,
 } from '@/components/ui/responsive-dialog';
-import { authClient } from '@/auth-client';
+import { authClient } from '@/shared/lib/auth-client';
 import { useAccount, useChangePassword, useRenameAccount, useRequestEmailChange } from './account.hooks';
 import { changeEmailSchema } from './account.schemas';
 

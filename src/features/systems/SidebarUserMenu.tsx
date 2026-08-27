@@ -12,7 +12,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { authClient } from "@/auth-client";
+import { authClient } from "@/shared/lib/auth-client";
 import { cn } from "@/lib/utils";
 
 interface SidebarUserMenuProps {
