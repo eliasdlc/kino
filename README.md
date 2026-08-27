@@ -10,7 +10,7 @@ No es otra lista de tareas ni un Notion genérico: Kino aprende tu curva de ener
 
 **Los arquetipos.** Un sistema de tipo académico habla de clases y entregas; uno de escritura, de obras y capítulos; uno de proyecto, de sprints y epics. No son plantillas cosméticas: un manifiesto único parametriza el vocabulario, la estructura y las clases de tarea de cada arquetipo.
 
-**Agent-native.** ~65 herramientas MCP exponen tareas, sistemas, páginas, el codex narrativo y el propio motor de energía. Un agente puede leer tu curva, proponerte bloques para el día y escribirlos en tu calendario.
+**Agent-native.** 64 herramientas MCP exponen tareas, sistemas, páginas, el codex narrativo y el propio motor de energía. Un agente puede leer tu curva, proponerte bloques para el día y escribirlos en tu calendario.
 
 ## Stack
 

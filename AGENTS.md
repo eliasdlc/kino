@@ -6,7 +6,7 @@ Plataforma de productividad construida alrededor de la gestión de energía cogn
 >
 > En Linear: los proyectos van numerados `01`–`07` en orden de ejecución. Los documentos del equipo *Norte, principios y estándares*, *Estado real del producto* e *Índice de decisiones D1–D16* son la fuente de verdad de qué se construye y por qué.
 >
-> **En este repo solo se aceptan tres Markdown:** `README.md`, `AGENTS.md` y `DESIGN.md`. Ningún plan, audit ni análisis. Las notas locales que no son código van a `~/Documents/Kino/dev/`.
+> **En este repo solo se aceptan dos Markdown:** `README.md` y `AGENTS.md`. Ningún plan, audit ni análisis. Un `DESIGN.md` sería el único tercero admisible, y sólo el día que el sistema de diseño necesite su propio documento; hoy no existe. Las notas locales que no son código van a `~/Documents/Kino/dev/`.
 
 ## Comandos
 
@@ -33,7 +33,7 @@ pnpm mcp:generate                   # Vuelca el contrato en las operaciones que 
 - **Lenguaje**: TypeScript strict
 - **ORM**: Drizzle
 - **Base de datos**: PostgreSQL (Neon) con `uuid-ossp` y `ltree`
-- **Auth**: Better Auth — sesiones stateful en Postgres, cookies HttpOnly, **sin JWT**
+- **Auth**: Better Auth — sesiones stateful en Postgres, cookies HttpOnly. La sesión del navegador nunca es un JWT; el plugin `jwt` existe sólo para el OAuth 2.1 del MCP (ver restricción 5)
 - **Email transaccional**: Resend por API REST (`src/shared/email`, sin SDK). `RESEND_API_KEY` + `EMAIL_FROM`; sin la key, el correo se omite sin romper el flujo: en dev se imprime en consola y en producción queda un aviso en el log
 - **Server state**: TanStack Query v5
 - **Formularios**: react-hook-form + zodResolver
@@ -55,7 +55,9 @@ pnpm mcp:generate                   # Vuelca el contrato en las operaciones que 
 2. **Sin Redis, sin BullMQ, sin servidor persistente.** 100% serverless.
 3. **Sin WebSockets.** Vercel Serverless no soporta conexiones persistentes. Lo que refresca hoy es `refetchOnWindowFocus`, el default de TanStack Query: con un solo usuario, volver a la pestaña llega a tiempo. `refetchInterval` no se usa en ningún sitio y no es la alternativa prescrita: cada intervalo activo es una invocación por usuario y por minuto contra el free tier. La señal que reabriría la decisión es el agente MCP escribiendo mientras miras el tablero.
 4. **10s por función, salvo excepción justificada.** Es el presupuesto por defecto y las rutas que lo declaran usan `export const maxDuration = 10`. La única excepción viva es `/api/mcp`, en 60s, porque el protocolo mantiene la petición abierta mientras el agente encadena herramientas. Subir el límite en una ruta nueva es una decisión, no un ajuste: escríbela en el comentario de la ruta. Paginar lo pesado sigue siendo la respuesta primero.
-5. **Sin JWT.** Better Auth con sesiones en Postgres.
+5. **La sesión del navegador no es un JWT.** Better Auth guarda sesiones con estado en Postgres y las entrega en una cookie HttpOnly, para que revocar una sesión la revoque de verdad. Un token de vida propia que el servidor no puede invalidar no vale como sesión, y eso es lo que la regla protege.
+
+   Lo que sí lleva JWT es el conector MCP: `auth.ts` monta el plugin `jwt` para firmar los access tokens del OAuth 2.1 y publicar el JWKS que los verifica. Son tokens de una aplicación cliente, con caducidad corta y su propia tabla, no la identidad de nadie en el navegador.
 6. **`system_id` es NOT NULL en tasks.** Toda tarea pertenece a un sistema; Inbox es el default. No hay tareas flotantes.
 7. **Timestamps en UTC** (TIMESTAMPTZ). El frontend convierte para mostrar.
 8. **Soft delete** en tasks y pages vía `deleted_at`. Siempre filtrar con `WHERE deleted_at IS NULL`.
@@ -251,7 +253,7 @@ Criterio de aceptación cumplido · `typecheck` limpio · `lint` en 0 · tests v
 - **No** introducir Redux ni Jotai, ni meter datos de servidor en un store de Zustand.
 - **No** implementar guards de Premium/subscripción — no existe código de payments.
 - **No** reimplementar cálculos de fecha fuera de `src/shared/time`.
-- **No** crear archivos Markdown en el repo más allá de `README.md`, `AGENTS.md` y `DESIGN.md`.
+- **No** crear archivos Markdown en el repo más allá de `README.md` y `AGENTS.md`.
 
 ## Features en el schema sin implementación activa
 
