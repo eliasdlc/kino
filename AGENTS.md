@@ -43,6 +43,9 @@ pnpm mcp:generate                   # Vuelca el contrato en las operaciones que 
 - **Background**: Lazy Evaluation (catch-up al entrar) + Vercel Cron + cron externo
 - **Errores**: Sentry en navegador, API y crons. Inerte sin `NEXT_PUBLIC_SENTRY_DSN`;
   el recorte de datos personales vive en `src/shared/observability/sentry-options.ts`
+- **Analítica de producto**: PostHog sin cookies, sólo el funnel de registro.
+  Inerte sin `NEXT_PUBLIC_POSTHOG_KEY`; los eventos que existen y las propiedades
+  que cada uno puede llevar son una lista cerrada en `src/shared/observability/analytics.ts`
 - **Deploy**: Vercel + Neon
 - **Package manager**: pnpm (NO npm, NO yarn)
 

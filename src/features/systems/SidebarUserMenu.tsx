@@ -14,6 +14,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { authClient } from "@/auth-client";
 import { cn } from "@/lib/utils";
+import { resetAnalytics } from "@/shared/observability/analytics.client";
 
 interface SidebarUserMenuProps {
   userName?: string;
@@ -41,6 +42,7 @@ export function SidebarUserMenu({
 
   async function handleSignOut() {
     await authClient.signOut();
+    resetAnalytics();
     router.push("/login");
   }
 

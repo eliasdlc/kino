@@ -13,6 +13,7 @@ import {
 } from "@/features/offline/offline.mutations";
 import { useStampedMutation } from "@/features/offline/offline.hooks";
 import { taskKeys, allTasksKey } from "./tasks.keys";
+import { trackOnce } from "@/shared/observability/analytics.client";
 
 /**
  * Mutaciones de una tarea: crear, editar, completar, borrar y restaurar.
@@ -65,6 +66,10 @@ export function useCreateTask(systemId: string, folderId?: string) {
     },
     onSuccess: (newTask, data) => {
       applyCreated(queryClient, createTaskSpec, data, newTask);
+
+      // Último paso del funnel de registro (KIN-165): mide que alguien llegó a
+      // usar el producto, así que sólo cuenta la primera vez. Ver `trackOnce`.
+      trackOnce("first_task_created");
 
       // Al reconectar, la confirmación de algo capturado hace rato no debe
       // repetir el toast de creación: ya se avisó al guardarlo.
