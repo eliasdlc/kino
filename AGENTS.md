@@ -41,6 +41,8 @@ pnpm mcp:generate                   # Vuelca el contrato en las operaciones que 
 - **Toasts**: sonner · **Gráficas**: Recharts · **Fechas**: date-fns · **Recurrencia**: rrule
 - **Editor**: Tiptap v3
 - **Background**: Lazy Evaluation (catch-up al entrar) + Vercel Cron + cron externo
+- **Errores**: Sentry en navegador, API y crons. Inerte sin `NEXT_PUBLIC_SENTRY_DSN`;
+  el recorte de datos personales vive en `src/shared/observability/sentry-options.ts`
 - **Deploy**: Vercel + Neon
 - **Package manager**: pnpm (NO npm, NO yarn)
 
