@@ -81,6 +81,11 @@ export function isAnalyticsEvent(name: string): name is AnalyticsEvent {
  * búsqueda de la lista, así que las que sobran no se mandan. El referente sí se
  * queda —dice de dónde llegó la visita, que es media pregunta del ticket— pero
  * sin query, igual que en el reporte de errores.
+ *
+ * Ojo con el alcance: `property_denylist` sólo cubre las propiedades del evento.
+ * Las de la persona viajan aparte, en `$set` y `$set_once`, y ahí la URL inicial
+ * se guardaría para siempre en el perfil. Por eso el recorte de abajo se aplica
+ * a las tres.
  */
 const DENIED_PROPERTIES = [
   "$current_url",
@@ -90,6 +95,42 @@ const DENIED_PROPERTIES = [
 ];
 
 const REFERRER_PROPERTIES = new Set(["$referrer", "$initial_referrer"]);
+
+/**
+ * Lo único que PostHog necesita para ingerir y que no lleva `$`: a qué proyecto
+ * va el evento y de quién es. Una lista blanca que sólo perdonara el prefijo se
+ * las comería, y el servidor descartaría cada evento sin decir nada más que un
+ * aviso en consola que nadie lee.
+ */
+const REQUIRED_PROPERTIES = new Set(["token", "distinct_id"]);
+
+/**
+ * Las propiedades de la persona: las `$initial_*` con las que PostHog hace
+ * atribución de primera visita, más el segmento que guardamos nosotros. Se
+ * quedan todas menos las que llevan una URL de la app, y el referente pierde la
+ * query. A diferencia del evento, aquí no hay lista blanca de nombres: lo que
+ * PostHog guarde del origen de la visita es justo lo que se quiere saber.
+ */
+export function scrubPersonProperties(
+  properties: Record<string, unknown>,
+): Record<string, unknown> {
+  const scrubbed: Record<string, unknown> = {};
+
+  for (const [name, value] of Object.entries(properties)) {
+    if (DENIED_PROPERTIES.includes(name)) continue;
+    scrubbed[name] =
+      REFERRER_PROPERTIES.has(name) && typeof value === "string" ? stripQuery(value) : value;
+  }
+
+  return scrubbed;
+}
+
+/** `$set` y `$set_once` llevan propiedades de persona, no del evento. */
+const PERSON_PROPERTY_KEYS = ["$set", "$set_once"];
+
+function isPropertyBag(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
 
 /**
  * El recorte por evento. Las propiedades con `$` son la fontanería de PostHog
@@ -108,9 +149,16 @@ export function scrubProperties(
     if (name.startsWith("$")) {
       if (REFERRER_PROPERTIES.has(name)) {
         scrubbed[name] = typeof value === "string" ? stripQuery(value) : value;
+      } else if (PERSON_PROPERTY_KEYS.includes(name) && isPropertyBag(value)) {
+        scrubbed[name] = scrubPersonProperties(value);
       } else {
         scrubbed[name] = value;
       }
+      continue;
+    }
+
+    if (REQUIRED_PROPERTIES.has(name)) {
+      scrubbed[name] = value;
       continue;
     }
 
@@ -136,6 +184,10 @@ export function scrubCapture(capture: CaptureResult | null): CaptureResult | nul
   if (!capture.event.startsWith("$") && !isAnalyticsEvent(capture.event)) return null;
 
   capture.properties = scrubProperties(capture.event, capture.properties);
+  // Los mismos datos viajan a veces como campo propio del evento y no dentro de
+  // `properties`, según por dónde entren. Las dos puertas se recortan igual.
+  if (capture.$set) capture.$set = scrubPersonProperties(capture.$set);
+  if (capture.$set_once) capture.$set_once = scrubPersonProperties(capture.$set_once);
   return capture;
 }
 
