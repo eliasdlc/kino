@@ -48,6 +48,61 @@ export const MUTATION_POLICY: RateLimitPolicy = {
   windowMs: MINUTE_MS,
 };
 
+/**
+ * El acceso se limita por IP y no por identidad — ahí todavía no hay usuario —
+ * y su contador sigue viviendo en la memoria del proxy. Lo que decide *cuánto*
+ * se permite vive aquí con el resto.
+ *
+ * Son dos buckets por la misma razón que MCP y mutaciones van separados:
+ * adivinar una contraseña y conectar el MCP entran los dos por `/api/auth/*`.
+ * Con un contador único, el handshake OAuth de Claude — registro, autorización,
+ * token, jwks, y cada refresco después — gastaba la cuota del login y dejaba
+ * fuera a quien sólo quería entrar. Lo mismo hacía el retorno de Google, que
+ * son dos peticiones por intento en vez de una.
+ */
+export const AUTH_CREDENTIALS_POLICY: RateLimitPolicy = {
+  bucket: 'auth-credentials',
+  limit: 5,
+  windowMs: MINUTE_MS,
+};
+
+export const AUTH_FLOW_POLICY: RateLimitPolicy = {
+  bucket: 'auth-flow',
+  limit: 60,
+  windowMs: MINUTE_MS,
+};
+
+/**
+ * Rutas donde se presenta algo que se puede adivinar, o que mandan un correo.
+ * El resto de `/api/auth/*` cae en el bucket ancho: no es que no se limite, es
+ * que no compite con el login.
+ */
+const CREDENTIAL_PREFIXES = [
+  '/api/auth/sign-in/email',
+  '/api/auth/sign-up/',
+  '/api/auth/request-password-reset',
+  '/api/auth/forget-password',
+  '/api/auth/reset-password',
+  '/api/auth/change-password',
+  '/api/auth/verify-password',
+  '/api/auth/change-email',
+  '/api/auth/send-verification-email',
+];
+
+/**
+ * Política por IP para `/api/auth/*`, o `null` fuera de ahí.
+ *
+ * `sign-in/social` queda en el bucket ancho a propósito: sólo devuelve la URL
+ * del proveedor, no presenta credencial, y meterlo con el login significaba
+ * que reintentar Google cinco veces te dejaba sin poder entrar por correo.
+ */
+export function authPolicyFor(pathname: string): RateLimitPolicy | null {
+  if (!pathname.startsWith('/api/auth/')) return null;
+  return CREDENTIAL_PREFIXES.some((prefix) => pathname.startsWith(prefix))
+    ? AUTH_CREDENTIALS_POLICY
+    : AUTH_FLOW_POLICY;
+}
+
 const MUTATING_METHODS = new Set(['POST', 'PATCH', 'PUT', 'DELETE']);
 
 /**
@@ -56,8 +111,8 @@ const MUTATING_METHODS = new Set(['POST', 'PATCH', 'PUT', 'DELETE']);
  * cuenta frente a un Redis.
  *
  * `/api/auth/*` queda fuera a propósito: ahí todavía no hay identidad y lo
- * cubre el limitador por IP del proxy. `/api/cron/*` lo dispara Vercel con el
- * `CRON_SECRET`, no un usuario.
+ * cubre `authPolicyFor`, por IP, desde el proxy. `/api/cron/*` lo dispara
+ * Vercel con el `CRON_SECRET`, no un usuario.
  */
 export function policyFor(pathname: string, method: string): RateLimitPolicy | null {
   if (pathname.startsWith('/api/mcp')) return MCP_POLICY;

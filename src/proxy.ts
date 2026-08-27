@@ -1,6 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getSessionCookie } from "better-auth/cookies";
-import { guardApiRequest } from "@/shared/rate-limit";
+import {
+  AUTH_CREDENTIALS_POLICY,
+  AUTH_FLOW_POLICY,
+  authPolicyFor,
+  guardApiRequest,
+} from "@/shared/rate-limit";
 
 // Limitador por IP, en memoria, sólo para `/api/auth/*`. Sigue siendo por
 // instancia — N arranques en frío son N cuotas — y eso aquí es tolerable: en
@@ -11,17 +16,31 @@ import { guardApiRequest } from "@/shared/rate-limit";
 // El resto de la API ya no depende de esto: las mutaciones y `/api/mcp` pasan
 // por el contador compartido en Postgres de `@/shared/rate-limit` (KIN-149),
 // que sí es consistente entre instancias y cuenta por identidad.
+//
+// Qué cuenta contra qué lo decide `authPolicyFor`, no este archivo: aquí sólo
+// vive el contador. La clave lleva el bucket delante para que el handshake del
+// MCP y el login no compartan cuota.
 const rateLimitMap = new Map<string, { count: number; lastReset: number }>();
-const RATE_LIMIT_WINDOW_MS = 60 * 1000;
-const MAX_REQUESTS_PER_WINDOW = 5;
+const ENTRY_TTL_MS = Math.max(AUTH_CREDENTIALS_POLICY.windowMs, AUTH_FLOW_POLICY.windowMs);
 
 function cleanupRateLimitMap() {
   const now = Date.now();
   for (const [key, value] of rateLimitMap.entries()) {
-    if (now - value.lastReset > RATE_LIMIT_WINDOW_MS) {
+    if (now - value.lastReset > ENTRY_TTL_MS) {
       rateLimitMap.delete(key);
     }
   }
+}
+
+/**
+ * `x-forwarded-for` llega como cadena de proxies (`cliente, proxy1, proxy2`);
+ * el cliente es el primero. Sin cabecera, como en `pnpm dev`, todo el tráfico
+ * local comparte una cuota, que es justo lo que el bucket ancho vuelve
+ * tolerable.
+ */
+function clientIp(request: NextRequest): string {
+  const forwarded = request.headers.get("x-forwarded-for");
+  return forwarded?.split(",")[0]?.trim() || "sin-forwarded-for";
 }
 
 let requestCounter = 0;
@@ -30,24 +49,31 @@ export async function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
   // Rate limiting para endpoints de autenticación
-  if (pathname.startsWith("/api/auth/")) {
+  const authPolicy = authPolicyFor(pathname);
+  if (authPolicy) {
     requestCounter++;
     if (requestCounter % 100 === 0) cleanupRateLimitMap();
 
-    const ip = request.headers.get("x-forwarded-for") ?? "127.0.0.1";
+    const key = `${authPolicy.bucket}|${clientIp(request)}`;
     const now = Date.now();
-    const record = rateLimitMap.get(ip);
+    const record = rateLimitMap.get(key);
 
-    if (record && now - record.lastReset < RATE_LIMIT_WINDOW_MS) {
+    if (record && now - record.lastReset < authPolicy.windowMs) {
       record.count += 1;
-      if (record.count > MAX_REQUESTS_PER_WINDOW) {
+      if (record.count > authPolicy.limit) {
+        // La ventana aquí es deslizante, no la fija de `@/shared/rate-limit`,
+        // así que el `Retry-After` se calcula sobre el propio `lastReset`.
+        const retryAfter = Math.max(
+          1,
+          Math.ceil((record.lastReset + authPolicy.windowMs - now) / 1000),
+        );
         return NextResponse.json(
           { code: "RATE_LIMITED", message: "Too many requests. Please try again later." },
-          { status: 429 }
+          { status: 429, headers: { "Retry-After": String(retryAfter) } }
         );
       }
     } else {
-      rateLimitMap.set(ip, { count: 1, lastReset: now });
+      rateLimitMap.set(key, { count: 1, lastReset: now });
     }
     return NextResponse.next();
   }
