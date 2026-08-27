@@ -9,6 +9,7 @@ import { KINO_READ, KINO_WRITE } from "@/shared/lib/scopes";
 import { sendEmail } from "@/shared/email/send";
 import { changeEmailEmail, resetPasswordEmail, verifyEmailEmail } from "@/shared/email/templates";
 import { emailChangeTarget } from "@/shared/email/verification-intent";
+import { resolveTrustedOrigins } from "@/shared/lib/trusted-origins";
 import { clientIp } from "@/shared/rate-limit";
 import {
   clearSignInAttempts,
@@ -31,7 +32,14 @@ export const auth = betterAuth({
   // Pin the issuer so OAuth/OIDC token `iss` and JWKS URLs are deterministic
   // (request-derived origin is unreliable behind the Vercel proxy).
   baseURL: APP_URL,
-  trustedOrigins: [APP_URL],
+  // Un preview cambia de dominio por rama, así que nunca sería el origen fijo
+  // de arriba y Better Auth rechazaría el intento. `resolveTrustedOrigins` los
+  // añade sólo cuando el despliegue es un preview, sin tocar `baseURL`.
+  trustedOrigins: resolveTrustedOrigins(APP_URL, {
+    env: process.env.VERCEL_ENV,
+    branchUrl: process.env.VERCEL_BRANCH_URL,
+    deploymentUrl: process.env.VERCEL_URL,
+  }),
   database: drizzleAdapter(db, {
     provider: "pg",
     schema: {

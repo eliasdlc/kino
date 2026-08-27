@@ -106,18 +106,36 @@ export const AUTH_ACCOUNT_POLICY: RateLimitPolicy = {
 const MUTATING_METHODS = new Set(['POST', 'PATCH', 'PUT', 'DELETE']);
 
 /**
- * Donde se presenta una credencial o se dispara un correo a una dirección que el
+ * Donde se presenta algo adivinable o se dispara un correo a una dirección que el
  * visitante elige. Better Auth expone `request-password-reset` y mantiene
  * `forget-password` como alias, así que están los dos.
+ *
+ * Son prefijos y no rutas exactas porque `sign-up` tiene más de una forma, y
+ * porque el resto de `/api/auth/*` no queda sin límite: cae en el bucket ancho,
+ * donde no compite con el login.
  */
-const CREDENTIAL_PATHS = new Set([
+const CREDENTIAL_PREFIXES = [
   '/api/auth/sign-in/email',
-  '/api/auth/sign-up/email',
+  '/api/auth/sign-up/',
   '/api/auth/forget-password',
   '/api/auth/request-password-reset',
   '/api/auth/reset-password',
+  '/api/auth/change-password',
+  '/api/auth/verify-password',
+  '/api/auth/change-email',
   '/api/auth/send-verification-email',
-]);
+];
+
+/**
+ * `sign-in/social` queda fuera de esa lista a propósito: sólo devuelve la URL
+ * del proveedor, no presenta credencial, y meterlo con el login significaba que
+ * reintentar Google cinco veces te dejaba sin poder entrar por correo. Lo mismo
+ * vale para el handshake OAuth del conector MCP, que entra por aquí y antes
+ * gastaba la cuota de quien sólo quería acceder.
+ */
+function isCredentialPath(pathname: string): boolean {
+  return CREDENTIAL_PREFIXES.some((prefix) => pathname.startsWith(prefix));
+}
 
 /**
  * Se limita lo caro y lo que se puede probar a ciegas: MCP, las mutaciones y el
@@ -132,7 +150,7 @@ export function policyFor(pathname: string, method: string): ProxyRateLimitPolic
   if (!pathname.startsWith('/api/')) return null;
   if (pathname.startsWith('/api/cron/')) return null;
   if (pathname.startsWith('/api/auth/')) {
-    return CREDENTIAL_PATHS.has(pathname) ? AUTH_CREDENTIAL_POLICY : AUTH_POLICY;
+    return isCredentialPath(pathname) ? AUTH_CREDENTIAL_POLICY : AUTH_POLICY;
   }
   return MUTATING_METHODS.has(method.toUpperCase()) ? MUTATION_POLICY : null;
 }

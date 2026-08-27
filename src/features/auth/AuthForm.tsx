@@ -26,6 +26,38 @@ const COPY = {
   },
 } as const;
 
+const OAUTH_LABEL = { google: "Google", github: "GitHub" } as const;
+
+const UNREACHABLE = "No se pudo hablar con el servidor. Revisa tu conexión y vuelve a intentarlo.";
+
+/**
+ * Resultado de una llamada al cliente de auth. Falla de dos formas y hay que
+ * contarlas distinto: devuelve `error` cuando el servidor responde con un
+ * status de error, y lanza cuando la petición ni siquiera llega (sin red, o
+ * bloqueada). Sin distinguirlas, la segunda se queda sin capturar y el
+ * formulario carga para siempre.
+ */
+type AuthAttempt =
+  | { ok: true }
+  | { ok: false; reason: "rejected"; message?: string }
+  | { ok: false; reason: "unreachable" };
+
+async function attempt(
+  call: () => Promise<{ error: { message?: string } | null }>,
+): Promise<AuthAttempt> {
+  try {
+    const { error } = await call();
+    return error ? { ok: false, reason: "rejected", message: error.message } : { ok: true };
+  } catch {
+    return { ok: false, reason: "unreachable" };
+  }
+}
+
+/** Quien llama pone el texto del rechazo; el fallo de red se explica igual siempre. */
+function messageFor(result: Extract<AuthAttempt, { ok: false }>, rejected: string) {
+  return result.reason === "unreachable" ? UNREACHABLE : (result.message ?? rejected);
+}
+
 function coachLine() {
   const h = new Date().getHours();
   if (h < 12) return "kino dice: buenos días — tu pico matutino te espera";
@@ -71,9 +103,9 @@ export function AuthForm({ mode }: { mode: "login" | "register" }) {
     setLoading(true);
 
     if (isLogin) {
-      const { error } = await authClient.signIn.email({ email, password });
-      if (error) {
-        setError(error.message ?? "No se pudo iniciar sesión");
+      const result = await attempt(() => authClient.signIn.email({ email, password }));
+      if (!result.ok) {
+        setError(messageFor(result, "No se pudo iniciar sesión"));
         setLoading(false);
         return;
       }
@@ -86,22 +118,26 @@ export function AuthForm({ mode }: { mode: "login" | "register" }) {
 
     // El callbackURL viaja en el correo de verificación: al pulsar el enlace
     // se aterriza dentro de la app, no en el marketing.
-    const { error } = await authClient.signUp.email({
-      name,
-      email,
-      password,
-      callbackURL: "/dashboard",
-    });
-    if (error) {
-      setError(error.message ?? "No se pudo crear la cuenta");
+    const result = await attempt(() =>
+      authClient.signUp.email({
+        name,
+        email,
+        password,
+        callbackURL: "/dashboard",
+      }),
+    );
+    if (!result.ok) {
+      setError(messageFor(result, "No se pudo crear la cuenta"));
       setLoading(false);
       return;
     }
     // La cuenta ya existe. Quien anuncia el paso del funnel es la pantalla
     // siguiente, que es la primera que tiene sesión montada.
     markPendingSignup({ method: "email", segment: para });
-    const setupRes = await fetch("/api/users/setup", { method: "POST" });
-    if (!setupRes.ok) {
+    const setupOk = await fetch("/api/users/setup", { method: "POST" })
+      .then((res) => res.ok)
+      .catch(() => false);
+    if (!setupOk) {
       setError("No se pudo configurar la cuenta");
       setLoading(false);
       return;
@@ -110,14 +146,28 @@ export function AuthForm({ mode }: { mode: "login" | "register" }) {
   }
 
   async function handleOAuth(provider: "google" | "github") {
+    setError(null);
     setOauthLoading(provider);
     // El alta social se va a otro dominio y vuelve por un redirect: la nota es
     // la única forma de que la pantalla de destino sepa que esto fue un alta.
     if (!isLogin) markPendingSignup({ method: provider, segment: para });
-    await authClient.signIn.social({ provider, callbackURL: isLogin ? next : afterSignup });
-    // Llegar aquí significa que el redirect no ocurrió. Sin borrar la nota, un
-    // login posterior en esta pestaña se contaría como cuenta creada.
+    const result = await attempt(() =>
+      authClient.signIn.social({ provider, callbackURL: isLogin ? next : afterSignup }),
+    );
+    // Salir bien significa que el navegador ya se está yendo al proveedor: el
+    // botón se queda en "Redirigiendo…" a propósito hasta que cambie la página.
+    if (result.ok) return;
+    // No hubo redirect. Sin borrar la nota, un login posterior en esta pestaña
+    // se contaría como cuenta creada.
     if (!isLogin) clearPendingSignup();
+    // El motivo que devuelve el proveedor no le sirve de nada a quien lo lee
+    // ("Invalid origin"), y la salida siempre es la misma: entrar por correo.
+    setError(
+      result.reason === "unreachable"
+        ? UNREACHABLE
+        : `No se pudo conectar con ${OAUTH_LABEL[provider]}. Intenta con tu correo.`,
+    );
+    setOauthLoading(null);
   }
 
   const busy = loading || oauthLoading !== null;

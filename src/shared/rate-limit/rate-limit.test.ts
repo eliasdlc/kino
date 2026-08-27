@@ -205,6 +205,54 @@ describe('policyFor', () => {
   });
 });
 
+describe('policyFor · la clasificación de /api/auth/*', () => {
+  it('lo que presenta una credencial adivinable va al bucket estrecho', () => {
+    for (const path of [
+      '/api/auth/sign-in/email',
+      '/api/auth/sign-up/email',
+      '/api/auth/request-password-reset',
+      '/api/auth/forget-password',
+      '/api/auth/reset-password',
+      '/api/auth/reset-password/un-token',
+      '/api/auth/change-password',
+      '/api/auth/verify-password',
+    ]) {
+      expect(policyFor(path, 'POST')).toBe(AUTH_CREDENTIAL_POLICY);
+    }
+  });
+
+  it('lo que manda un correo también, porque se puede abusar del envío', () => {
+    expect(policyFor('/api/auth/send-verification-email', 'POST')).toBe(AUTH_CREDENTIAL_POLICY);
+    expect(policyFor('/api/auth/change-email', 'POST')).toBe(AUTH_CREDENTIAL_POLICY);
+  });
+
+  it('el handshake del MCP no compite con el login', () => {
+    for (const path of [
+      '/api/auth/oauth2/register',
+      '/api/auth/oauth2/authorize',
+      '/api/auth/oauth2/token',
+      '/api/auth/jwks',
+      '/api/auth/token',
+    ]) {
+      expect(policyFor(path, 'POST')).toBe(AUTH_POLICY);
+    }
+  });
+
+  it('el login social y su retorno tampoco: no presentan credencial', () => {
+    expect(policyFor('/api/auth/sign-in/social', 'POST')).toBe(AUTH_POLICY);
+    expect(policyFor('/api/auth/callback/google', 'GET')).toBe(AUTH_POLICY);
+  });
+
+  it('leer la sesión o salir no gasta la cuota de entrar', () => {
+    expect(policyFor('/api/auth/get-session', 'GET')).toBe(AUTH_POLICY);
+    expect(policyFor('/api/auth/sign-out', 'POST')).toBe(AUTH_POLICY);
+  });
+
+  it('el prefijo no se desborda fuera de /api/auth', () => {
+    expect(policyFor('/api/authorization', 'GET')).toBeNull();
+  });
+});
+
 describe('rateLimitedResponse', () => {
   it('responde 429 con Retry-After, que es lo que el cliente MCP espera', async () => {
     const res = rateLimitedResponse(decide(4, 75_000, POLICY));
