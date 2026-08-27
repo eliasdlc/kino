@@ -19,6 +19,7 @@ import { FocusTimerProvider } from "@/features/tasks/FocusTimerProvider";
 import { FocusTimerWidget } from "@/features/tasks/FocusTimerWidget";
 import { FocusTimerModeDialog } from "@/features/tasks/FocusTimerModeDialog";
 import { getServerSession } from "@/shared/utils/session";
+import { AnalyticsIdentity } from "@/shared/observability/AnalyticsIdentity";
 
 export default async function AppLayout({
   children,
@@ -47,6 +48,10 @@ export default async function AppLayout({
 
   return (
     <Providers initialTheme={theme}>
+      {/* Antes que `children`: sus efectos corren en ese orden, así que la
+          persona ya está identificada cuando la pantalla de debajo dispara su
+          primer evento del funnel. */}
+      <AnalyticsIdentity userId={session.user.id} />
       {/* Aplica el tema de la cuenta antes de la primera pintura cuando este
           dispositivo todavía no tiene uno propio. Ver `theme-script`. */}
       <script dangerouslySetInnerHTML={{ __html: accountThemeScript(theme) }} />

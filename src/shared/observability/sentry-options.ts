@@ -1,4 +1,5 @@
 import type { ErrorEvent, Breadcrumb } from "@sentry/nextjs";
+import { stripQuery } from "./strip-query";
 
 /**
  * Lo que Kino le cuenta a Sentry, y sobre todo lo que no.
@@ -77,16 +78,6 @@ function keepOnlySafeHeaders(headers: Record<string, string>): Record<string, st
   return Object.fromEntries(
     Object.entries(headers).filter(([name]) => KEPT_HEADERS.has(name.toLowerCase())),
   );
-}
-
-/**
- * Deja la URL sin query. Los parámetros llevan tokens de verificación, el
- * `state` del emparejamiento del CLI y términos de búsqueda, y la ruta sola ya
- * dice dónde ocurrió.
- */
-function stripQuery(url: string): string {
-  const cut = url.indexOf("?");
-  return cut === -1 ? url : url.slice(0, cut);
 }
 
 /**

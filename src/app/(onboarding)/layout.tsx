@@ -3,6 +3,7 @@ import { eq } from 'drizzle-orm';
 import { db } from '@/shared/db';
 import { users } from '@/shared/db/schema';
 import { getServerSession } from '@/shared/utils/session';
+import { AnalyticsIdentity } from '@/shared/observability/AnalyticsIdentity';
 
 export default async function OnboardingLayout({
   children,
@@ -22,6 +23,10 @@ export default async function OnboardingLayout({
 
   return (
     <div className="min-h-screen bg-background">
+      {/* Antes que `children`: sus efectos corren en ese orden, así que la
+          persona ya está identificada cuando la pantalla de debajo dispara su
+          primer evento del funnel. */}
+      <AnalyticsIdentity userId={session.user.id} />
       {children}
     </div>
   );

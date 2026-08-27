@@ -13,6 +13,9 @@ allowBuilds:
   # el token de Sentry entre en Vercel las trazas llegarían minificadas y el
   # motivo no se vería por ninguna parte.
   '@sentry/cli': true
+  # Lo arrastra posthog-js. Su script de instalación sólo imprime un mensaje de
+  # patrocinio: no genera nada que el build necesite.
+  core-js: false
   esbuild: true
   msw: true
   sharp: true
