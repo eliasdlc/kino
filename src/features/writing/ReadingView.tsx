@@ -12,6 +12,7 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
+import { SanitizedHtml } from "@/shared/components/SanitizedHtml";
 import { MEDIUM_CONFIG } from "@/shared/lib/mediums";
 import { CompileMenu } from "./CompileMenu";
 import type { Manuscript } from "./writing.manuscript";
@@ -25,10 +26,9 @@ import type { Manuscript } from "./writing.manuscript";
  * que decidir sobre qué es cada medium, solo cómo se enseña cuando ya no se está
  * escribiendo.
  *
- * El HTML se inyecta tal cual porque es el mismo contenido que el editor del
- * usuario produce y muestra: no hay contenido de terceros en el producto (toda
- * query filtra por `userId`), así que la superficie de riesgo no cambia respecto
- * al editor.
+ * El capítulo se pinta por `SanitizedHtml`: el contenido de una página ya no lo
+ * escribe sólo el editor del usuario, el MCP también, y eso puede traer HTML que
+ * el editor nunca habría producido.
  */
 
 type Mode = "paged" | "scroll";
@@ -184,7 +184,7 @@ export function ReadingView({
                   {chapter.title?.trim() || "Sin título"}
                 </h2>
                 {chapter.content ? (
-                  <div dangerouslySetInnerHTML={{ __html: chapter.content }} />
+                  <SanitizedHtml html={chapter.content} />
                 ) : (
                   <p className="text-center text-sm text-muted-foreground">
                     (en blanco)

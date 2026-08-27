@@ -10,6 +10,7 @@ import {
   ResponsiveDialogTitle,
 } from "@/components/ui/responsive-dialog";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
+import { SanitizedHtml } from "@/shared/components/SanitizedHtml";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 import { useRestoreSnapshot, useSnapshot, useSnapshots } from "./writing.hooks";
@@ -179,9 +180,8 @@ function Preview({ snapshotId }: { snapshotId: string }) {
   }
 
   return (
-    <div
-      // Es el propio texto del usuario, el mismo que el editor muestra.
-      dangerouslySetInnerHTML={{ __html: data?.content ?? "" }}
+    <SanitizedHtml
+      html={data?.content}
       className="reading-surface mt-2 max-h-64 overflow-y-auto rounded-md border bg-muted/20 p-3 text-sm"
       data-layout="book"
     />
