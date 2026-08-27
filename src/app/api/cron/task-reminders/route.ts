@@ -1,4 +1,5 @@
 import { sendTaskReminders } from '@/features/notifications/notifications.service';
+import { withCronRun } from '@/shared/observability/cron-runs';
 
 export const maxDuration = 10;
 
@@ -13,13 +14,18 @@ async function handle(req: Request) {
     return Response.json({ error: 'Unauthorized' }, { status: 401 });
   }
 
-  const result = await sendTaskReminders();
+  const result = await withCronRun('task-reminders', sendTaskReminders);
   return Response.json({ ok: true, ...result });
 }
 
-// Vercel Cron dispara por GET; un cron externo (cron-job.org, cada 15 min para
-// los remind_at exactos — ver el doc "Operación — cron externo de reminders (D4)"
-// en Linear) puede usar cualquiera de
-// los dos. Ambos comparten el mismo guard por Bearer CRON_SECRET.
+// Lo dispara un cron externo (cron-job.org, cada 15 min para los remind_at
+// exactos — ver el doc "Operación — cron externo de reminders (D4)" en Linear),
+// no Vercel: `vercel.json` sólo tiene una entrada y el plan gratuito no admite
+// una cadencia de quince minutos. Acepta GET y POST porque el disparador
+// externo puede usar cualquiera de los dos, con el mismo guard por Bearer.
+//
+// Al vivir fuera del repo, su fallo sería invisible: por eso cada ejecución
+// queda en `cron_runs` y el snapshot diario avisa si esto lleva callado más de
+// dos horas (KIN-166).
 export const GET = handle;
 export const POST = handle;

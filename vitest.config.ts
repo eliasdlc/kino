@@ -13,6 +13,7 @@ const alias = { "@": path.resolve(__dirname, "./src") };
  */
 const domTests = [
   "**/*.test.tsx",
+  "src/features/pages/editor-html.test.ts",
   "src/features/pages/mediums/medium-nodes.test.ts",
   "src/features/pages/paste-clean.test.ts",
   "src/features/writing/compile.test.ts",

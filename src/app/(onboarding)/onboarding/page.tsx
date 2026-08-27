@@ -9,5 +9,13 @@ export default async function OnboardingPage({
   searchParams: Promise<{ para?: string }>;
 }) {
   const { para } = await searchParams;
-  return <OnboardingWizard initialIdentity={identityFromLandingSlug(para)} />;
+  const initialIdentity = identityFromLandingSlug(para);
+  // El slug sólo viaja a la medición si el manifiesto lo reconoce: uno inventado
+  // ni preselecciona identidad ni ensucia la dimensión del funnel.
+  return (
+    <OnboardingWizard
+      initialIdentity={initialIdentity}
+      segment={initialIdentity ? (para ?? null) : null}
+    />
+  );
 }

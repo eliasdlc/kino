@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import * as Sentry from '@sentry/nextjs';
 import { z } from 'zod';
 import { getAuthContext } from '@/shared/utils/auth-context';
 import { allowsScope, scopeForMethod, type KinoScope } from '@/shared/lib/scopes';
@@ -99,6 +100,9 @@ function mapError(error: unknown): NextResponse {
   if (error instanceof ValidationError) {
     return NextResponse.json({ code: 'VALIDATION_ERROR', message: error.message }, { status: 422 });
   }
+  // Un 500 aquí es siempre un bug. Va a Sentry además del log, porque los logs
+  // de Vercel sólo los lee quien ya sabe que algo se rompió.
+  Sentry.captureException(error, { tags: { layer: 'route' } });
   console.error('[route] unhandled error:', error);
   return NextResponse.json(
     { code: 'INTERNAL_ERROR', message: 'Internal server error' },

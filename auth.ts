@@ -1,4 +1,5 @@
 import { betterAuth } from "better-auth";
+import { APIError, createAuthMiddleware } from "better-auth/api";
 import { drizzleAdapter } from "better-auth/adapters/drizzle";
 import { jwt } from "better-auth/plugins";
 import { oauthProvider } from "@better-auth/oauth-provider";
@@ -9,8 +10,23 @@ import { sendEmail } from "@/shared/email/send";
 import { changeEmailEmail, resetPasswordEmail, verifyEmailEmail } from "@/shared/email/templates";
 import { emailChangeTarget } from "@/shared/email/verification-intent";
 import { resolveTrustedOrigins } from "@/shared/lib/trusted-origins";
+import { clientIp } from "@/shared/rate-limit";
+import {
+  clearSignInAttempts,
+  didSignIn,
+  guardSignInAttempt,
+} from "@/shared/rate-limit/sign-in-attempts";
 
 const APP_URL = process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000";
+
+const SIGN_IN_PATH = "/sign-in/email";
+
+/** El correo tal y como llega en el cuerpo de un `sign-in/email`. */
+function signInEmail(body: unknown): string | null {
+  if (typeof body !== "object" || body === null) return null;
+  const email = (body as { email?: unknown }).email;
+  return typeof email === "string" && email.trim() ? email : null;
+}
 
 export const auth = betterAuth({
   // Pin the issuer so OAuth/OIDC token `iss` and JWKS URLs are deterministic
@@ -135,6 +151,46 @@ export const auth = betterAuth({
     database: {
       generateId: false,
     },
+  },
+
+  /**
+   * El límite de intentos por cuenta (KIN-161). El proxy cuenta por IP y no
+   * puede hacer más: contra qué cuenta se está probando viaja en el cuerpo de la
+   * request, y si la contraseña era la buena sólo se sabe al final.
+   *
+   * `before` cuenta el intento y corta; `after` borra el contador sólo si se
+   * entró de verdad. Ese "sólo" es la parte delicada: `after` corre también
+   * cuando la contraseña era mala, porque Better Auth captura el error y se lo
+   * pasa al hook antes de decidir que fue un error. Limpiar sin mirar dejaba el
+   * contador en cero tras cada fallo, que es lo mismo que no tener límite.
+   */
+  hooks: {
+    before: createAuthMiddleware(async (ctx) => {
+      if (ctx.path !== SIGN_IN_PATH) return;
+      const email = signInEmail(ctx.body);
+      if (!email) return;
+
+      const decision = await guardSignInAttempt(email, clientIp(ctx.headers ?? new Headers()));
+      if (!decision) return;
+
+      throw new APIError("TOO_MANY_REQUESTS", {
+        code: "RATE_LIMITED",
+        message: "Too many requests. Please try again later.",
+        // Mismo shape que el 429 del proxy, para que el cliente no tenga que
+        // distinguir cuál de los dos límites lo cortó.
+        retryAfter: decision.retryAfterSeconds,
+      });
+    }),
+
+    after: createAuthMiddleware(async (ctx) => {
+      if (ctx.path !== SIGN_IN_PATH) return;
+      if (!didSignIn(ctx.context.returned)) return;
+
+      const email = signInEmail(ctx.body);
+      if (!email) return;
+
+      await clearSignInAttempts(email, clientIp(ctx.headers ?? new Headers()));
+    }),
   },
 
   plugins: [

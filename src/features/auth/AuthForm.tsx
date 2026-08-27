@@ -7,6 +7,8 @@ import { authClient } from "@/shared/lib/auth-client";
 import { useHydrated } from "@/shared/hooks/useHydrated";
 import { GoogleIcon, GitHubIcon } from "@/shared/components/OAuthIcons";
 import { identityFromLandingSlug } from "@/features/onboarding/onboarding.archetypes";
+import { TrackOnMount } from "@/shared/observability/TrackOnMount";
+import { clearPendingSignup, markPendingSignup } from "@/shared/observability/analytics.client";
 import { inputClass, cardClass, submitClass, errorClass } from "./form-styles";
 
 const COPY = {
@@ -129,6 +131,9 @@ export function AuthForm({ mode }: { mode: "login" | "register" }) {
       setLoading(false);
       return;
     }
+    // La cuenta ya existe. Quien anuncia el paso del funnel es la pantalla
+    // siguiente, que es la primera que tiene sesión montada.
+    markPendingSignup({ method: "email", segment: para });
     const setupOk = await fetch("/api/users/setup", { method: "POST" })
       .then((res) => res.ok)
       .catch(() => false);
@@ -143,12 +148,18 @@ export function AuthForm({ mode }: { mode: "login" | "register" }) {
   async function handleOAuth(provider: "google" | "github") {
     setError(null);
     setOauthLoading(provider);
+    // El alta social se va a otro dominio y vuelve por un redirect: la nota es
+    // la única forma de que la pantalla de destino sepa que esto fue un alta.
+    if (!isLogin) markPendingSignup({ method: provider, segment: para });
     const result = await attempt(() =>
       authClient.signIn.social({ provider, callbackURL: isLogin ? next : afterSignup }),
     );
     // Salir bien significa que el navegador ya se está yendo al proveedor: el
     // botón se queda en "Redirigiendo…" a propósito hasta que cambie la página.
     if (result.ok) return;
+    // No hubo redirect. Sin borrar la nota, un login posterior en esta pestaña
+    // se contaría como cuenta creada.
+    if (!isLogin) clearPendingSignup();
     // El motivo que devuelve el proveedor no le sirve de nada a quien lo lee
     // ("Invalid origin"), y la salida siempre es la misma: entrar por correo.
     setError(
@@ -163,6 +174,7 @@ export function AuthForm({ mode }: { mode: "login" | "register" }) {
 
   return (
     <div>
+      {!isLogin && <TrackOnMount event="signup_started" properties={{ segment: para }} />}
       <div className="mb-7 text-center">
         {para && (
           <p className="mb-3 inline-flex items-center gap-2 rounded-full border border-[#818cf8]/25 bg-[#818cf8]/[0.10] px-3 py-1 font-jetbrains text-[11px] text-[#a5b4fc]">

@@ -1,3 +1,4 @@
+import * as Sentry from "@sentry/nextjs";
 import { OpenAPIHandler } from "@orpc/openapi/fetch";
 import { onError, ORPCError, ValidationError } from "@orpc/server";
 import { ResponseHeadersPlugin } from "@orpc/server/plugins";
@@ -69,7 +70,9 @@ export const apiHandler = new OpenAPIHandler(apiRouter, {
       // Sólo lo inesperado. Un 404 o un 422 son respuestas, no incidentes, y
       // llenar el log con ellos es la forma de dejar de leerlo.
       const status = error instanceof ORPCError ? error.status : 500;
-      if (status >= 500) console.error("[api] unhandled error:", error);
+      if (status < 500) return;
+      Sentry.captureException(error, { tags: { layer: "api" } });
+      console.error("[api] unhandled error:", error);
     }),
   ],
 });
