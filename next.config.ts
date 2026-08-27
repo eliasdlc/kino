@@ -1,4 +1,5 @@
 import type { NextConfig } from "next";
+import { withSentryConfig } from "@sentry/nextjs";
 import withPWAInit from "@ducanh2912/next-pwa";
 
 // KIN-57 · Un solo service worker. Antes convivían el generado por next-pwa y
@@ -46,4 +47,24 @@ const nextConfig: NextConfig = {
   transpilePackages: ["@kino-app/mcp"],
 };
 
-export default withPWA(nextConfig);
+// Sentry envuelve por fuera de next-pwa: su plugin de webpack tiene que ver el
+// bundle ya generado para poder subirle los sourcemaps. Al revés, next-pwa
+// recibiría una config que no reconoce.
+//
+// Sin `SENTRY_AUTH_TOKEN` no se sube nada y el build sale igual de verde, que es
+// el estado mientras la clave no esté cargada en Vercel.
+export default withSentryConfig(withPWA(nextConfig), {
+  org: process.env.SENTRY_ORG,
+  project: process.env.SENTRY_PROJECT,
+  authToken: process.env.SENTRY_AUTH_TOKEN,
+  // El build no debe llenarse de avisos por una credencial que aún no existe.
+  silent: !process.env.CI,
+  // Los sourcemaps se suben y se borran del bundle público: sirven para leer
+  // una traza en Sentry, no para que cualquiera lea el código en el navegador.
+  sourcemaps: { deleteSourcemapsAfterUpload: true },
+  // Un proxy propio para que los bloqueadores de anuncios no se coman los
+  // informes, que es la causa más común de "Sentry no reporta nada".
+  tunnelRoute: "/monitoring",
+  // Quita del bundle los logs de depuración del propio SDK.
+  webpack: { treeshake: { removeDebugLogging: true } },
+});

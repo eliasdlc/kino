@@ -25,6 +25,11 @@ export async function proxy(request: NextRequest) {
     pathname.startsWith("/forgot-password") ||
     pathname.startsWith("/reset-password") ||
     pathname.startsWith("/api/auth") ||
+    // El túnel por el que el navegador manda los informes a Sentry (KIN-163).
+    // Va aquí porque el fallo más importante que puede reportar —un login roto—
+    // ocurre justo cuando todavía no hay sesión: con el gate puesto, el informe
+    // recibiría un 401 y nadie se enteraría del error que dejó a la gente fuera.
+    pathname.startsWith("/monitoring") ||
     pathname.startsWith("/api/cron/") ||
     // The remote MCP connector authenticates itself via OAuth 2.1 inside the
     // route (withMcpAuth), so it must bypass the session-cookie gate here.

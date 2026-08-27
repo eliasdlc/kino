@@ -17,6 +17,7 @@ import {
   ResponsiveDialogTitle,
 } from '@/components/ui/responsive-dialog';
 import { authClient } from '@/auth-client';
+import { resetAnalytics } from '@/shared/observability/analytics.client';
 import { useAccount, useChangePassword, useRenameAccount, useRequestEmailChange } from './account.hooks';
 import { changeEmailSchema } from './account.schemas';
 
@@ -220,6 +221,7 @@ export function AccountSection() {
 
   async function handleSignOut() {
     await authClient.signOut();
+    resetAnalytics();
     router.push('/login');
   }
 
