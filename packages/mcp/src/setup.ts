@@ -1,5 +1,6 @@
 import { createServer } from 'http';
-import { exec } from 'child_process';
+import { spawn } from 'child_process';
+import { randomBytes, timingSafeEqual } from 'crypto';
 import { readFileSync, writeFileSync } from 'fs';
 import { homedir } from 'os';
 import { join } from 'path';
@@ -7,13 +8,79 @@ import { join } from 'path';
 const BASE_URL = process.env.KINO_BASE_URL ?? 'https://www.usekino.dev';
 const TIMEOUT_MS = 5 * 60 * 1000;
 
+/**
+ * Abre el navegador sin pasar por un shell.
+ *
+ * La URL se arma con `KINO_BASE_URL`, que es una variable de entorno: pasarla
+ * dentro de una cadena que interpreta el shell convierte unas comillas y un
+ * punto y coma en ejecución de comandos. Con `spawn` y argumentos sueltos, la
+ * URL es un argumento y nada más.
+ *
+ * En Windows se evita `cmd /c start` a propósito: `cmd` vuelve a parsear la
+ * línea que recibe, así que un `&` en la URL seguiría separando comandos.
+ * `rundll32` no parsea nada.
+ */
 function openBrowser(url: string) {
-  const platform = process.platform;
-  const cmd =
-    platform === 'darwin' ? `open "${url}"` :
-      platform === 'win32' ? `start "" "${url}"` :
-        `xdg-open "${url}"`;
-  exec(cmd);
+  const [command, args] =
+    process.platform === 'darwin' ? ['open', [url]] :
+      process.platform === 'win32' ? ['rundll32', ['url.dll,FileProtocolHandler', url]] :
+        ['xdg-open', [url]];
+
+  const child = spawn(command, args, { detached: true, stdio: 'ignore' });
+  // Que no falle el setup entero porque la máquina no tenga navegador: la URL ya
+  // se imprimió y se puede abrir a mano.
+  child.on('error', () => {});
+  child.unref();
+}
+
+/**
+ * Compara sin filtrar por tiempo cuánto coincide. Aquí el margen es teórico —el
+ * atacante tendría que acertar además el puerto efímero— pero comparar nonces
+ * con `===` es la clase de atajo que después se copia a un sitio donde sí pesa.
+ */
+function sameState(expected: string, received: string | null): boolean {
+  if (!received) return false;
+  const a = Buffer.from(expected);
+  const b = Buffer.from(received);
+  return a.length === b.length && timingSafeEqual(a, b);
+}
+
+/** Qué hacer con una petición que llega al servidor efímero del setup. */
+export type CallbackOutcome =
+  | { kind: 'ignored' }
+  | { kind: 'rejected'; status: number; reason: string }
+  | { kind: 'accepted'; token: string };
+
+/**
+ * Decide si una petición al servidor local trae de verdad el token que este
+ * setup pidió.
+ *
+ * Está separada del servidor para poder probarla: la garantía del ticket es que
+ * un `state` que no cuadra no escribe nada en la configuración, y eso se
+ * comprueba viendo que sólo `accepted` lleva token. Lo demás es plomería.
+ */
+export function readCallback(
+  requestUrl: string | undefined,
+  port: number,
+  expectedState: string,
+): CallbackOutcome {
+  const url = new URL(requestUrl ?? '/', `http://localhost:${port}`);
+  if (url.pathname !== '/callback') return { kind: 'ignored' };
+
+  if (!sameState(expectedState, url.searchParams.get('state'))) {
+    return {
+      kind: 'rejected',
+      status: 403,
+      reason: 'Rejected: the callback did not carry the expected state.',
+    };
+  }
+
+  const token = url.searchParams.get('token');
+  if (!token) {
+    return { kind: 'rejected', status: 400, reason: 'Rejected: the callback carried no token.' };
+  }
+
+  return { kind: 'accepted', token };
 }
 
 function mergeClaudeJson(token: string) {
@@ -72,10 +139,18 @@ export async function runSetup() {
     });
   });
 
-  const authUrl = `${BASE_URL}/api/connect/cli?port=${port}`;
+  // Nonce de un solo uso. Sin él, cualquier página que acierte el puerto efímero
+  // puede llamar a `/callback` con su propio token y dejar tu agente escribiendo
+  // en la cuenta de otro. La app lo devuelve tal cual en el redirect.
+  const state = randomBytes(32).toString('base64url');
+
+  const authUrl = new URL('/api/connect/cli', BASE_URL);
+  authUrl.searchParams.set('port', String(port));
+  authUrl.searchParams.set('state', state);
+
   console.log(`\nOpening browser for authentication...`);
   console.log(`If the browser does not open, visit:\n  ${authUrl}\n`);
-  openBrowser(authUrl);
+  openBrowser(authUrl.toString());
 
   const token: string = await new Promise((resolve, reject) => {
     const timer = setTimeout(() => {
@@ -83,23 +158,34 @@ export async function runSetup() {
       reject(new Error('Timed out waiting for authentication (5 minutes)'));
     }, TIMEOUT_MS);
 
-    server.on('request', (req, res) => {
-      const url = new URL(req.url ?? '/', `http://localhost:${port}`);
-      if (url.pathname !== '/callback') {
-        res.writeHead(404).end();
-        return;
-      }
-
-      const token = url.searchParams.get('token');
-      if (!token) {
-        res.writeHead(400).end('Missing token');
-        return;
-      }
-
-      res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' }).end(SUCCESS_HTML);
+    const done = () => {
       clearTimeout(timer);
       server.close();
-      resolve(token);
+    };
+
+    server.on('request', (req, res) => {
+      const outcome = readCallback(req.url, port, state);
+
+      switch (outcome.kind) {
+        case 'ignored':
+          res.writeHead(404).end();
+          return;
+
+        case 'rejected':
+          // Se corta el flujo entero, no sólo esta petición: `mergeClaudeJson`
+          // vive después del `await` y nunca llega a correr.
+          res
+            .writeHead(outcome.status, { 'Content-Type': 'text/plain; charset=utf-8' })
+            .end(outcome.reason);
+          done();
+          reject(new Error(outcome.reason));
+          return;
+
+        case 'accepted':
+          res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' }).end(SUCCESS_HTML);
+          done();
+          resolve(outcome.token);
+      }
     });
   });
 

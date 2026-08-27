@@ -1,9 +1,10 @@
 import { NextResponse, type NextRequest } from 'next/server';
-import { identityFor } from './identity';
+import { identityFor, ipIdentityFor } from './identity';
 import { decide, policyFor, windowStartFor, type RateLimitDecision, type RateLimitPolicy } from './policy';
 import type { RateLimitStore } from './store';
 
 export * from './policy';
+export { clientIp } from './identity';
 export type { RateLimitStore } from './store';
 
 /**
@@ -57,7 +58,8 @@ export async function guardApiRequest(
   const policy = policyFor(request.nextUrl.pathname, request.method);
   if (!policy) return null;
 
-  const identity = await identityFor(request);
+  const identity =
+    policy.keyBy === 'ip' ? await ipIdentityFor(request) : await identityFor(request);
   if (!identity) return null;
 
   try {

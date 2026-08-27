@@ -2,55 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { getSessionCookie } from "better-auth/cookies";
 import { guardApiRequest } from "@/shared/rate-limit";
 
-// Limitador por IP, en memoria, sólo para `/api/auth/*`. Sigue siendo por
-// instancia — N arranques en frío son N cuotas — y eso aquí es tolerable: en
-// login todavía no hay identidad que contar, la IP es lo único disponible, y
-// meterle un roundtrip a Postgres a la ruta más sensible del sitio para frenar
-// fuerza bruta es pagar latencia por algo que el WAF de Vercel corta mejor.
-//
-// El resto de la API ya no depende de esto: las mutaciones y `/api/mcp` pasan
-// por el contador compartido en Postgres de `@/shared/rate-limit` (KIN-149),
-// que sí es consistente entre instancias y cuenta por identidad.
-const rateLimitMap = new Map<string, { count: number; lastReset: number }>();
-const RATE_LIMIT_WINDOW_MS = 60 * 1000;
-const MAX_REQUESTS_PER_WINDOW = 5;
-
-function cleanupRateLimitMap() {
-  const now = Date.now();
-  for (const [key, value] of rateLimitMap.entries()) {
-    if (now - value.lastReset > RATE_LIMIT_WINDOW_MS) {
-      rateLimitMap.delete(key);
-    }
-  }
-}
-
-let requestCounter = 0;
-
 export async function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
-
-  // Rate limiting para endpoints de autenticación
-  if (pathname.startsWith("/api/auth/")) {
-    requestCounter++;
-    if (requestCounter % 100 === 0) cleanupRateLimitMap();
-
-    const ip = request.headers.get("x-forwarded-for") ?? "127.0.0.1";
-    const now = Date.now();
-    const record = rateLimitMap.get(ip);
-
-    if (record && now - record.lastReset < RATE_LIMIT_WINDOW_MS) {
-      record.count += 1;
-      if (record.count > MAX_REQUESTS_PER_WINDOW) {
-        return NextResponse.json(
-          { code: "RATE_LIMITED", message: "Too many requests. Please try again later." },
-          { status: 429 }
-        );
-      }
-    } else {
-      rateLimitMap.set(ip, { count: 1, lastReset: now });
-    }
-    return NextResponse.next();
-  }
 
   const isPublicRoute =
     pathname === "/" ||
@@ -107,10 +60,20 @@ export async function proxy(request: NextRequest) {
     }
   }
 
-  // Después del gate a propósito: el tráfico anónimo ya se fue con un 401 y no
-  // llega a crear filas en la tabla de contadores. `/api/mcp` sí pasa por aquí
-  // aunque sea "pública" — se autentica sola por OAuth y es justo la ruta que
-  // el ticket exige cubrir.
+  // Después del gate a propósito: el tráfico anónimo que no va a ninguna ruta
+  // pública ya se fue con un 401 y no llega a crear filas en la tabla de
+  // contadores. Las que sí son públicas — `/api/mcp`, que se autentica sola por
+  // OAuth, y `/api/auth/*`, donde todavía no hay con quién autenticarse — pasan
+  // por aquí igual, y son justo las dos que hay que cubrir.
+  //
+  // El acceso se cuenta por IP contra el mismo Postgres que el resto (KIN-161).
+  // Antes vivía en un `Map` de este módulo, o sea una cuota nueva por cada
+  // arranque en frío: en Vercel eso son muchos más intentos que los anunciados.
+  // El precio es un roundtrip en `/api/auth/*`, y a cambio el límite existe.
+  //
+  // Aquí sólo se ve la IP. Cuántas veces se ha fallado *contra una cuenta*
+  // necesita el correo del cuerpo de la request, y eso se cuenta en el hook de
+  // `sign-in-attempts.ts`.
   const rateLimited = await guardApiRequest(request);
   if (rateLimited) return rateLimited;
 
