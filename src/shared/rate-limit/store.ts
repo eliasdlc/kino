@@ -1,4 +1,4 @@
-import { sql } from 'drizzle-orm';
+import { and, eq, sql } from 'drizzle-orm';
 import { db } from '@/shared/db';
 import { rateLimits } from '@/shared/db/schema';
 
@@ -9,6 +9,12 @@ import { rateLimits } from '@/shared/db/schema';
 export interface RateLimitStore {
   /** Cuenta esta request y devuelve el total acumulado en la ventana. */
   hit(identity: string, bucket: string, windowStart: Date): Promise<number>;
+  /**
+   * Borra el contador. Sólo lo usa el acceso: acertar la contraseña no debe
+   * arrastrar los intentos fallidos de antes, o quien se equivoca cuatro veces
+   * pagaría por ello el resto del cuarto de hora.
+   */
+  reset(identity: string, bucket: string): Promise<void>;
 }
 
 /**
@@ -36,6 +42,12 @@ export const postgresRateLimitStore: RateLimitStore = {
       .returning({ hits: rateLimits.hits });
 
     return row.hits;
+  },
+
+  async reset(identity, bucket) {
+    await db
+      .delete(rateLimits)
+      .where(and(eq(rateLimits.identity, identity), eq(rateLimits.bucket, bucket)));
   },
 };
 
