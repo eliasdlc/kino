@@ -13,6 +13,7 @@ import {
 import { toast } from 'sonner';
 import { useQueryClient } from '@tanstack/react-query';
 import { api } from "@/shared/api/client";
+import { ENERGY_LABELS } from "./task-detail.helpers";
 
 // ── Types ─────────────────────────────────────────────────────────────────
 
@@ -205,7 +206,7 @@ function RecapToast({ taskTitle, workedLabel, estimateMsg, writing = false, onEn
             onClick={() => onEnergy(level)}
             className="flex-1 py-1.5 rounded-lg text-sm border border-border hover:bg-accent transition-colors"
           >
-            {level === 'high' ? '🔥 Alta' : level === 'medium' ? '⚡ Media' : '🌙 Baja'}
+            {ENERGY_LABELS[level]}
           </button>
         ))}
       </div>

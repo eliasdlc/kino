@@ -108,7 +108,7 @@ export function TaskWeekFocusView({ systemId, initialData, onEdit, highlight }: 
     overdueCount > 0
       ? `Tienes ${overdueCount} atrasada${overdueCount !== 1 ? "s" : ""} — arranquemos por ahí, con calma.`
       : urgent.length === 0
-        ? "Nada vence hoy. Vas con tiempo. ✨"
+        ? "Nada vence hoy. Vas con tiempo."
         : `Vas al día — ${hoy.length} para hoy, lo demás tiene espacio.`;
 
   function renderTask(task: TaskTransport) {

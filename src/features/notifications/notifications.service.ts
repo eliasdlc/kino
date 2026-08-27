@@ -137,9 +137,11 @@ async function sendEscalationReminders(): Promise<number> {
   const tasks = await getTasksForEscalation();
   if (tasks.length === 0) return 0;
 
+  // El título viaja a la pantalla de bloqueo del teléfono, donde no hay iconos
+  // que renderizar: la urgencia tiene que estar en las palabras.
   const PRIORITY_LABEL: Record<string, string> = {
-    critical: '🔴 Crítico',
-    high: '🟠 Alta prioridad',
+    critical: 'Crítico',
+    high: 'Alta prioridad',
     medium: 'Pendiente',
     low: 'Pendiente',
   };
