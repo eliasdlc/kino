@@ -5,16 +5,13 @@ import { marked } from 'marked';
  * de pages, que se valida como `z.string()`: cualquier HTML pasa.
  *
  * **Esto no sanea nada.** `marked` corre con su configuración por defecto y
- * no filtra `script`, `iframe` ni handlers inline. Que el editor cargue el
- * contenido por el parser de ProseMirror, que sí descarta lo que no está en
- * su schema, protege al editor y sólo al editor: hay dos vistas de lectura
- * que pintan `pages.content` crudo sin pasar por ahí.
+ * no filtra `script`, `iframe` ni handlers inline. Quien filtra es el punto de
+ * render: la app pinta `pages.content` por `src/shared/components/SanitizedHtml.tsx`,
+ * el único sitio que lo inyecta, con la lista blanca de `src/shared/lib/sanitize.ts`.
  *
- * - `src/features/writing/ReadingView.tsx`
- * - `src/features/writing/ChapterHistory.tsx`
- *
- * Las dos usan `dangerouslySetInnerHTML`. La sanitización de verdad tiene que
- * vivir en el punto de render, y hoy no existe.
+ * Saneando al pintar y no al guardar, las páginas que ya estaban escritas quedan
+ * cubiertas también, y el editor sigue recibiendo el HTML íntegro para que su
+ * parser de ProseMirror decida qué cabe en el schema.
  *
  * Devuelve null para inputs vacíos/nulos para preservar el contrato del API
  * (content nullable).
