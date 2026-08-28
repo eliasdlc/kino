@@ -8,4 +8,4 @@
  * Se mantiene igual a la de `package.json`, y un test lo comprueba en vez de
  * confiar en que alguien se acuerde.
  */
-export const MCP_SERVER_VERSION = '2.6.0';
+export const MCP_SERVER_VERSION = '2.7.0';
