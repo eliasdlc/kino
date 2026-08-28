@@ -1,5 +1,6 @@
 import { Node, mergeAttributes, ReactRenderer } from "@tiptap/react";
 import Suggestion from "@tiptap/suggestion";
+import { PluginKey } from "@tiptap/pm/state";
 import type {
   SuggestionKeyDownProps,
   SuggestionProps,
@@ -22,6 +23,9 @@ import type { EntityListItemTransport } from "@/features/entities/entities.types
  * existe. El nodo guarda `entityId` — renombrar la entidad no rompe el enlace, y el
  * texto renderizado (`@nombre`) alimenta la auto-detección determinística al guardar.
  */
+
+/** Propia y distinta de la del menú de barra: ver `addProseMirrorPlugins`. */
+const CODEX_MENTION_KEY = new PluginKey("codexMention");
 
 export interface CodexMentionOptions {
   /** Sistema (universo) del que se sugieren/crean entidades. null → mención inerte. */
@@ -187,6 +191,11 @@ export const CodexMention = Node.create<CodexMentionOptions>({
     const options = this.options;
     return [
       Suggestion<MentionItem, MentionItem>({
+        // `@tiptap/suggestion` registra su plugin bajo `PluginKey("suggestion")`
+        // si no le das uno. Con dos extensiones de sugerencia en el mismo editor
+        // —esta y el menú de barra— ProseMirror ve dos plugins distintos con la
+        // misma clave y se niega a montar el editor entero.
+        pluginKey: CODEX_MENTION_KEY,
         editor: this.editor,
         char: "@",
         allowSpaces: false,
