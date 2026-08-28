@@ -23,3 +23,14 @@ export class ValidationError extends AppError {
         super('VALIDATION_ERROR', message);
     }
 }
+
+/**
+ * La escritura llegó bien formada y el recurso existe: lo que falla es que
+ * alguien escribió antes. Se traduce a 409 y no a 422 porque el cliente no
+ * tiene que corregir nada, tiene que releer y reintentar.
+ */
+export class ConflictError extends AppError {
+    constructor(message: string) {
+        super('CONFLICT', message);
+    }
+}

@@ -162,8 +162,10 @@ pasaba porque el cliente afirmaba la respuesta con un cast.
   esos casos.
 - **Los códigos de error no cambian:** 401 `UNAUTHORIZED`, 403 `INSUFFICIENT_SCOPE`
   / `SESSION_REQUIRED`, 404 `NOT_FOUND`, 400 `VALIDATION_ERROR` de schema, 422
-  `VALIDATION_ERROR` de regla de dominio, 500 `INTERNAL_ERROR`. La traducción vive
-  en `shared/api/handler.ts` y en `shared/api/procedures.ts`.
+  `VALIDATION_ERROR` de regla de dominio, 409 `CONFLICT` cuando el recurso está
+  bien y quien falla es el momento (una versión vieja, un enlace repetido), 500
+  `INTERNAL_ERROR`. La traducción vive en `shared/api/handler.ts` y en
+  `shared/api/procedures.ts`.
 
 **Las tools del MCP salen de aquí.** `packages/mcp` se publica en npm y no puede importar `src/`, así que el contrato viaja hasta él como código generado (`pnpm mcp:generate` → `packages/mcp/src/generated/operations.ts`). El paquete sólo escribe a mano lo que el agente lee: el nombre y la descripción de cada tool, en `catalog.ts`, que es un mapa **exhaustivo** sobre las operaciones. Un endpoint nuevo no compila hasta que alguien decide si es una tool o un `null` explícito, y un test comprueba que lo commiteado coincide con el contrato.
 

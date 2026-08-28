@@ -3,6 +3,7 @@ import type { NextRequest } from "next/server";
 import { getAuthContext } from "@/shared/utils/auth-context";
 import { allowsScope, scopeForMethod } from "@/shared/lib/scopes";
 import {
+  ConflictError,
   ForbiddenError,
   NotFoundError,
   ValidationError,
@@ -71,6 +72,9 @@ export const translateDomainErrors = base.middleware(async ({ next }) => {
     }
     if (error instanceof ValidationError) {
       throw new ORPCError("VALIDATION_ERROR", { status: 422, message: error.message });
+    }
+    if (error instanceof ConflictError) {
+      throw new ORPCError("CONFLICT", { status: 409, message: error.message });
     }
     throw error;
   }

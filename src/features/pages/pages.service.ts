@@ -1,7 +1,7 @@
 import { db } from "@/shared/db";
 import { pages, tasks, taskPageLinks, folders, pageTags, contextTags, systems } from "@/shared/db/schema";
 import { and, eq, isNull, inArray, count, sql } from "drizzle-orm";
-import { NotFoundError, ForbiddenError } from "@/shared/utils/error";
+import { ConflictError, NotFoundError, ForbiddenError } from "@/shared/utils/error";
 import type { CreatePageInput, UpdatePageInput } from "./pages.schemas";
 import type { PageDetail, PageListItem, LinkedTask, PageMutationResult } from "./pages.types";
 import type { ContextTagListItem } from "@/features/tags/tags.types";
@@ -275,11 +275,35 @@ export async function createPage(
   return { ...created!, contentPreview: null, wordCount: countWords(input.content), tags: [], subPageCount: 0 };
 }
 
+/**
+ * La condición de versión del UPDATE optimista.
+ *
+ * Trunca a milisegundos porque las dos puntas guardan precisiones distintas: en
+ * Postgres `updated_at` nace de `defaultNow()` y lleva microsegundos, y al
+ * cliente viaja como ISO, que sólo llega al milisegundo. Comparar en crudo haría
+ * que una página recién creada nunca coincidiera consigo misma.
+ */
+function sameVersion(expectedUpdatedAt: string) {
+  // El ISO se manda tal cual y lo castea Postgres: un `Date` dentro de un `sql`
+  // crudo viaja sin tipo declarado y el driver lo rechaza al serializarlo.
+  return sql`date_trunc('milliseconds', ${pages.updatedAt}) = ${expectedUpdatedAt}::timestamptz`;
+}
+
+async function pageExists(pageId: string, userId: string): Promise<boolean> {
+  const [row] = await db
+    .select({ id: pages.id })
+    .from(pages)
+    .where(and(eq(pages.id, pageId), eq(pages.userId, userId), isNull(pages.deletedAt)));
+  return !!row;
+}
+
 export async function updatePage(
   pageId: string,
   userId: string,
   data: UpdatePageInput
 ): Promise<PageMutationResult | null> {
+  const { expectedUpdatedAt, ...changes } = data;
+
   // Estado previo — hace falta antes del UPDATE para el delta de palabras de la
   // sesión de escritura. Solo se consulta cuando el guardado toca el contenido.
   const previous =
@@ -298,9 +322,17 @@ export async function updatePage(
 
   const [updated] = await db
     .update(pages)
-    .set({ ...data, updatedAt: new Date() })
+    .set({ ...changes, updatedAt: new Date() })
     .where(
-      and(eq(pages.id, pageId), eq(pages.userId, userId), isNull(pages.deletedAt))
+      and(
+        eq(pages.id, pageId),
+        eq(pages.userId, userId),
+        isNull(pages.deletedAt),
+        // La comprobación de versión va dentro del propio UPDATE: leerla antes y
+        // escribir después dejaría una ventana en la que otra escritura entra en
+        // medio, que es justo lo que esto viene a cerrar.
+        expectedUpdatedAt ? sameVersion(expectedUpdatedAt) : undefined,
+      )
     )
     .returning({
       id: pages.id,
@@ -315,7 +347,17 @@ export async function updatePage(
       updatedAt: pages.updatedAt,
     });
 
-  if (!updated) return null;
+  // Sin fila hay dos historias distintas: la página no existe, o existe y la
+  // versión no era la que el cliente creía. Sólo se pregunta cuando hace falta
+  // distinguirlas, o sea cuando venía una versión.
+  if (!updated) {
+    if (expectedUpdatedAt && (await pageExists(pageId, userId))) {
+      throw new ConflictError(
+        "La página cambió después de leerla. Vuelve a leerla y aplica el cambio sobre la versión nueva.",
+      );
+    }
+    return null;
+  }
 
   // El codex se recalcula cuando cambia el texto (derivada best-effort: un fallo
   // aquí no debe romper el guardado — se recompone al siguiente save).
