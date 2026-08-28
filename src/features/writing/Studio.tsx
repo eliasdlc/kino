@@ -93,12 +93,15 @@ export function Studio({ systemId }: { systemId: string }) {
           <ul className="space-y-1.5">
             {gaps.map((gap) => (
               <li key={gap.entityId}>
+                {/* min-h-11: el mínimo táctil. Con una sola línea de texto se
+                    quedaba en unos 40px, y en un teléfono el nombre y el recuento
+                    no caben en la misma fila, así que se apilan hasta sm. */}
                 <button
                   type="button"
                   onClick={() => setOpenEntityId(gap.entityId)}
-                  className="flex w-full items-center gap-3 rounded-lg border bg-card p-2.5 text-left transition-colors hover:border-primary/40"
+                  className="flex min-h-11 w-full flex-col items-start gap-0.5 rounded-lg border bg-card px-3 py-2 text-left transition-colors hover:border-primary/40 sm:flex-row sm:items-center sm:gap-3"
                 >
-                  <span className="min-w-0 flex-1 truncate text-sm font-medium">
+                  <span className="min-w-0 max-w-full flex-1 truncate text-sm font-medium">
                     {gap.name}
                   </span>
                   <span className="shrink-0 font-mono text-xs text-muted-foreground">
