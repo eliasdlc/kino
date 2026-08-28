@@ -94,13 +94,18 @@ export function WriterStatusBar({
   }, [overview, systemId, celebrateOnce]);
 
   return (
-    <div className="sticky bottom-0 z-10 flex items-center gap-4 border-t bg-background/80 px-4 py-1.5 text-xs text-muted-foreground backdrop-blur md:px-6">
+    // Pegajosa sólo desde md. En un teléfono `bottom-0` pelea con el teclado
+    // virtual: el viewport de layout no encoge al abrirse, así que la barra se
+    // queda debajo del teclado o encima de la línea que estás escribiendo. Lo
+    // que lleva —recuento y modo focus— se consulta entre frases, no mientras
+    // se teclea, así que baja con el texto y deja de competir.
+    <div className="z-10 flex flex-wrap items-center gap-x-4 gap-y-1 border-t bg-background/80 px-4 py-1.5 text-xs text-muted-foreground backdrop-blur md:flex-nowrap md:sticky md:bottom-0 md:px-6">
       <span className="font-mono">
         Cap: <span className="text-foreground">{chapterWords.toLocaleString("es")}</span> palabras
       </span>
 
       {obra && !focusMode && (
-        <div className="flex min-w-0 flex-1 items-center gap-2">
+        <div className="flex w-full min-w-0 items-center gap-2 md:w-auto md:flex-1">
           <span className="shrink-0 truncate font-mono">
             {obra.name}: {obraWords!.toLocaleString("es")}
             {goal ? ` / ${goal.toLocaleString("es")}` : ""}

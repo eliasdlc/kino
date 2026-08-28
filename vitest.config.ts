@@ -39,6 +39,8 @@ export default defineConfig({
           name: "dom",
           globals: true,
           environment: "jsdom",
+          // Lo que jsdom no trae y los componentes llaman al montarse.
+          setupFiles: ["./src/shared/testing/jsdom-setup.ts"],
           include: domTests,
           exclude: defaultExclude,
         },

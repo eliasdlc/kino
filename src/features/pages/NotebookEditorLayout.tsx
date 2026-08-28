@@ -319,7 +319,13 @@ export function NotebookEditorLayout({
 
       {/* Floating right panel */}
       <Sheet open={rightOpen} onOpenChange={setRightOpen}>
-        <SheetContent side="right" className="!w-70 !h-[95%] !my-auto rounded-2xl shadow-2xl p-0 flex flex-col gap-0">
+        {/* La tarjeta flotante es de escritorio: en un teléfono un panel de 280px
+            al 95% de alto deja el contenido en una columna que no cabe. Debajo de
+            md el Sheet usa su forma normal, a toda altura. */}
+        <SheetContent
+          side="right"
+          className="p-0 flex flex-col gap-0 shadow-2xl md:!w-70 md:!h-[95%] md:!my-auto md:rounded-2xl"
+        >
           <SheetTitle className="sr-only">Panel del cuaderno</SheetTitle>
 
           <SubPagesSidebar
