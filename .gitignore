@@ -62,4 +62,6 @@ DISCOVERY.md
 PLAN.md
 .env*
 !.env.example
-docs/
+# Anclado a la raíz a propósito: sin la barra inicial esta regla también tapaba
+# src/features/marketing/docs y src/app/(marketing)/docs, que son código.
+/docs/

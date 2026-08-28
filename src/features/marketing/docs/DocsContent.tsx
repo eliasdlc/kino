@@ -1,4 +1,22 @@
 import Link from "next/link";
+import {
+  AlarmClock,
+  Compass,
+  Feather,
+  FolderKanban,
+  GraduationCap,
+  Inbox,
+  Infinity as InfinityIcon,
+  Lightbulb,
+  Moon,
+  Rocket,
+  Settings,
+  Star,
+  Sun,
+  Sunrise,
+  Timer,
+  type LucideIcon,
+} from "lucide-react";
 import { EnergyCurveViz } from "./EnergyCurveViz";
 import { btnPrimary } from "../styles";
 
@@ -11,34 +29,25 @@ export const DOCS_NAV = [
   { label: "API y MCP", href: "#mcp" },
 ];
 
-function Soon() {
-  return (
-    <span className="ml-2 align-middle rounded-full border border-[#fbbf24]/30 bg-[#fbbf24]/10 px-2 py-0.5 font-jetbrains text-[10px] font-semibold uppercase tracking-wide text-[#fbbf24]">
-      Pronto
-    </span>
-  );
-}
-
-function Section({ id, title, soon, children }: { id: string; title: string; soon?: boolean; children: React.ReactNode }) {
+function Section({ id, title, children }: { id: string; title: string; children: React.ReactNode }) {
   return (
     <section id={id} className="scroll-mt-[76px] pt-[52px]">
       <h2 className="mb-3.5 font-display text-[28px] font-bold tracking-[-0.02em] text-[#f4f4f5]">
         {title}
-        {soon && <Soon />}
       </h2>
       {children}
     </section>
   );
 }
 
-function Callout({ icon, tone = "indigo", children }: { icon: string; tone?: "indigo" | "amber"; children: React.ReactNode }) {
+function Callout({ icon: Icon, tone = "indigo", children }: { icon: LucideIcon; tone?: "indigo" | "amber"; children: React.ReactNode }) {
   const tones = {
     indigo: "border-[#6366f1]/[0.18] bg-[#6366f1]/[0.07] text-[#c7d2fe]",
     amber: "border-[#fbbf24]/20 bg-[#fbbf24]/[0.06] text-[#fcd34d]",
   };
   return (
     <div className={`mt-4 flex items-start gap-3 rounded-xl border px-4 py-3.5 ${tones[tone]}`}>
-      <span className="mt-px text-[15px]">{icon}</span>
+      <Icon className="mt-0.5 h-[17px] w-[17px] flex-none" aria-hidden />
       <p className="text-sm">{children}</p>
     </div>
   );
@@ -53,24 +62,103 @@ const STEPS = [
   ["Crea tu primer sistema y añade tareas", "Elige un tipo (académico, profesional…), suelta 3-5 tareas con su energía estimada, y mira tu primer Plan de hoy."],
 ];
 
-const CHRONOTYPES = [
-  ["🌅", "Alondra", "Pico temprano, baja al atardecer."],
-  ["☀️", "Intermedio", "Pico medio mañana, valle tras comer."],
-  ["🦉", "Búho", "Arranca lento, pico por la tarde-noche."],
+const CHRONOTYPES: [LucideIcon, string, string][] = [
+  [Sunrise, "Alondra", "Pico temprano, baja al atardecer."],
+  [Sun, "Intermedio", "Pico medio mañana, valle tras comer."],
+  [Moon, "Búho", "Arranca lento, pico por la tarde-noche."],
 ];
 
-const SYSTEMS = [
-  ["🎓", "Académico", "Timeline orientado a fechas de entrega. Kino calcula cuándo empezar a estudiar para no llegar tarde.", "por estudiar · estudiando · borrador · entregado"],
-  ["🗂️", "Proyecto", "Board kanban con sprints, epics y categorías (bug/feature). Mueve tarjetas por su flujo sin perder tu plan del día.", "por hacer · en progreso · review · hecho"],
-  ["🚀", "Emprendedor", "Milestones con KPIs e hipótesis. Mide tu velocidad real frente a tus metas.", "validando · construyendo · midiendo · lanzado"],
-  ["🌟", "Personal", 'Lista flexible y amable, con tu "por qué" siempre visible. Cero presión, cero culpa.', "idea · activo · pausado · completado"],
-  ["⚙️", "Custom", "¿Ninguno encaja? Define tus propios estados, campos y vista. Tu sistema, tus reglas.", "tú lo defines todo"],
+/**
+ * Los siete arquetipos, contados como los vive quien los usa. El orden y los
+ * nombres siguen a `SYSTEM_TYPE_CONFIG` (`src/shared/lib/system-types.ts`), que
+ * es quien de verdad gobierna la interfaz: si allí cambia un vocabulario o una
+ * clase de tarea, esta sección deja de ser cierta y hay que actualizarla.
+ */
+interface Archetype {
+  icon: LucideIcon;
+  name: string;
+  /** Para quién es, en una línea. */
+  forWhom: string;
+  /** Cómo llama a sus contenedores. */
+  groups: string;
+  /** Cómo llama a sus páginas. */
+  pages: string;
+  /** Clases de tarea propias; vacío cuando el arquetipo no añade ninguna. */
+  taskKinds: string[];
+  /** En qué momento del día lo propone el advisor. */
+  agenda: string;
+}
+
+const ARCHETYPES: Archetype[] = [
+  {
+    icon: GraduationCap,
+    name: "Académico",
+    forWhom: "Para un semestre. Todo cuelga de una clase y casi todo tiene fecha.",
+    groups: "clases",
+    pages: "apuntes",
+    taskKinds: ["Entrega", "Examen", "Lectura", "Práctica"],
+    agenda: "Energía media, foco de 90 min",
+  },
+  {
+    icon: FolderKanban,
+    name: "Proyecto",
+    forWhom: "Para trabajo que avanza por fases, tuyo o de un equipo.",
+    groups: "sprints y epics, sin carpetas",
+    pages: "docs",
+    taskKinds: [],
+    agenda: "Energía alta o media, foco de 25 min",
+  },
+  {
+    icon: Rocket,
+    name: "Emprendimiento",
+    forWhom: "Para validar una idea: hipótesis, experimentos y lo que aprendes de cada uno.",
+    groups: "milestones",
+    pages: "learnings",
+    taskKinds: ["Experimento", "Build", "Learning"],
+    agenda: "En tu pico, foco de 25 min",
+  },
+  {
+    icon: Star,
+    name: "Personal",
+    forWhom: "Para lo que sostiene todo lo demás: hábitos, recados, tu gente.",
+    groups: "áreas",
+    pages: "notas",
+    taskKinds: ["Hábito", "Recado", "Evento"],
+    agenda: "Franja baja, sin sesiones de foco",
+  },
+  {
+    icon: Feather,
+    name: "Escritura",
+    forWhom: "Para una novela, un blog o un cómic. Abre en tus manuscritos, no en una lista de tareas.",
+    groups: "obras, con su formato y su meta de palabras",
+    pages: "manuscritos",
+    taskKinds: ["Escribir", "Revisar", "Outline", "Publicar"],
+    agenda: "En tu pico creativo, foco de 45 min",
+  },
+  {
+    icon: Inbox,
+    name: "Bandeja de entrada",
+    forWhom: "Donde cae lo que capturas antes de decidir dónde va. No se organiza: se vacía.",
+    groups: "nada, a propósito",
+    pages: "notas",
+    taskKinds: [],
+    agenda: "Franja baja",
+  },
+  {
+    icon: Settings,
+    name: "Personalizado",
+    forWhom: "Si ninguno encaja: tú pones los nombres y eliges las piezas.",
+    groups: "carpetas, y las renombras tú",
+    pages: "páginas",
+    taskKinds: [],
+    agenda: "Lo decides tú",
+  },
 ];
 
-const TIMER_MODES = [
-  ["🍅 Pomodoro", "25 min foco + descanso. El clásico para arrancar."],
-  ["⏱️ Estimado", "Cuenta atrás según el tiempo estimado de la tarea."],
-  ["∞ Libre", "Cronómetro abierto para cuando estás en flow."],
+const TIMER_MODES: [LucideIcon, string, string][] = [
+  [Timer, "Pomodoro", "25 min foco + descanso. El clásico para arrancar."],
+  [AlarmClock, "Estimado", "Cuenta atrás según el tiempo estimado de la tarea."],
+  [InfinityIcon, "Libre", "Cronómetro abierto para cuando estás en flow."],
 ];
 
 export function DocsContent() {
@@ -118,7 +206,7 @@ export function DocsContent() {
             </div>
           ))}
         </div>
-        <Callout icon="💡" tone="indigo">
+        <Callout icon={Lightbulb} tone="indigo">
           <strong className="text-[#e0e7ff]">Tip:</strong> instala Kino como app (PWA) desde el
           menú del navegador. Funciona offline y los check-ins son un toque desde tu pantalla de
           inicio.
@@ -140,9 +228,9 @@ export function DocsContent() {
           curva con tus datos reales.
         </p>
         <div className="mb-[22px] grid grid-cols-[repeat(auto-fit,minmax(150px,1fr))] gap-2.5">
-          {CHRONOTYPES.map(([emoji, name, desc]) => (
+          {CHRONOTYPES.map(([Icon, name, desc]) => (
             <div key={name} className={`p-3.5 ${softCard}`}>
-              <p className="mb-0.5 text-xl">{emoji}</p>
+              <Icon className="mb-1.5 h-[18px] w-[18px] text-[#a5b4fc]" aria-hidden />
               <p className="mb-0.5 text-sm font-semibold text-[#e4e4e7]">{name}</p>
               <p className="text-[12.5px] text-[#6b6b74]">{desc}</p>
             </div>
@@ -158,9 +246,9 @@ export function DocsContent() {
             sientes. Rápido, honesto, de 2 segundos.
           </li>
           <li className="text-[14.5px] text-[#c4c4ce]">
-            <strong className="text-[#e4e4e7]">Recaps de foco</strong> <Soon />: tras cada sesión
-            de timer, Kino te preguntará cómo fue tu energía para calibrar la curva contra tu
-            rendimiento real.
+            <strong className="text-[#e4e4e7]">Recaps de foco</strong>: al terminar una sesión de
+            timer, Kino te pregunta cómo fue tu energía y usa esa respuesta para calibrar la curva
+            contra tu rendimiento real.
           </li>
         </ul>
         <p className="mt-3.5 font-jetbrains text-[12.5px] text-[#6b6b74]">
@@ -168,24 +256,86 @@ export function DocsContent() {
         </p>
       </Section>
 
-      <Section id="sistemas" title="Sistemas y tipos" soon>
+      <Section id="sistemas" title="Sistemas y tipos">
         <p className="mb-4 text-[#c4c4ce]">
-          Un <strong className="text-[#e4e4e7]">sistema</strong> es un área de tu vida. La idea es
-          que cada tipo tenga su propia vista, sus estados y su lógica — pero todos comparten una
-          sola energía: la tuya.
+          Un <strong className="text-[#e4e4e7]">sistema</strong> es un área de tu vida: un
+          semestre, una novela, un negocio. Al crearlo eliges su{" "}
+          <strong className="text-[#e4e4e7]">tipo</strong>, y esa elección no es cosmética.
+          Decide cómo se llaman sus cosas, qué puedes crear dentro y en qué momento del día te
+          las propone Kino.
         </p>
-        <div className="mt-4 flex flex-col gap-2.5">
-          {SYSTEMS.map(([emoji, name, desc, states]) => (
-            <div key={name} className={`flex items-start gap-3.5 p-4 ${card}`}>
-              <span className="text-[22px]">{emoji}</span>
-              <div>
-                <p className="mb-1 font-semibold text-[#f4f4f5]">{name}</p>
-                <p className="mb-1.5 text-sm text-[#a1a1aa]">{desc}</p>
-                <p className="font-jetbrains text-[11px] text-[#52525b]">{states}</p>
+        <p className="mb-[22px] text-[#c4c4ce]">
+          Son siete. Lo único que no cambia entre ellos es la energía, porque sólo hay una: la
+          tuya. Un sistema no compite con otro por tu mejor hora — el plan del día los ordena
+          juntos.
+        </p>
+
+        <div className="flex flex-col gap-2.5">
+          {ARCHETYPES.map((a) => (
+            <div key={a.name} className={`flex items-start gap-3.5 p-4 ${card}`}>
+              <span className="flex h-9 w-9 flex-none items-center justify-center rounded-[10px] bg-[#818cf8]/[0.14]">
+                <a.icon className="h-[18px] w-[18px] text-[#a5b4fc]" aria-hidden />
+              </span>
+              <div className="min-w-0">
+                <p className="mb-1 font-semibold text-[#f4f4f5]">{a.name}</p>
+                <p className="mb-2 text-[14.5px] leading-[1.55] text-[#a1a1aa]">{a.forWhom}</p>
+                <p className="flex flex-wrap gap-1.5">
+                  <span className="rounded-full border border-white/[0.12] px-2.5 py-0.5 font-jetbrains text-[11px] text-[#c4c4ce]">
+                    agrupa por {a.groups}
+                  </span>
+                  {a.taskKinds.map((kind) => (
+                    <span
+                      key={kind}
+                      className="rounded-full border border-[#818cf8]/25 bg-[#818cf8]/[0.08] px-2.5 py-0.5 font-jetbrains text-[11px] text-[#c7d2fe]"
+                    >
+                      {kind}
+                    </span>
+                  ))}
+                </p>
               </div>
             </div>
           ))}
         </div>
+
+        <h3 className="mb-2 mt-7 font-display text-[19px] font-bold text-[#f4f4f5]">
+          Qué cambia de uno a otro
+        </h3>
+        <p className="mb-3.5 text-[15px] text-[#a1a1aa]">
+          Cada tipo guarda también sus páginas con su propio nombre, y le dice al advisor cuándo
+          conviene proponerte sus tareas.
+        </p>
+        <div className="-mx-4 overflow-x-auto px-4 sm:mx-0 sm:px-0">
+          <table className="w-full min-w-[440px] border-collapse text-left">
+            <thead>
+              <tr className="border-b border-white/[0.14]">
+                <th className="py-2 pr-4 font-jetbrains text-[11px] font-semibold uppercase tracking-wide text-[#6b6b74]">
+                  Tipo
+                </th>
+                <th className="py-2 pr-4 font-jetbrains text-[11px] font-semibold uppercase tracking-wide text-[#6b6b74]">
+                  Páginas
+                </th>
+                <th className="py-2 font-jetbrains text-[11px] font-semibold uppercase tracking-wide text-[#6b6b74]">
+                  Cuándo te lo propone
+                </th>
+              </tr>
+            </thead>
+            <tbody>
+              {ARCHETYPES.map((a) => (
+                <tr key={a.name} className="border-b border-white/[0.06] last:border-b-0">
+                  <td className="py-2.5 pr-4 text-[14px] font-semibold text-[#e4e4e7]">{a.name}</td>
+                  <td className="py-2.5 pr-4 text-[14px] text-[#a1a1aa]">{a.pages}</td>
+                  <td className="py-2.5 text-[14px] text-[#a1a1aa]">{a.agenda}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+
+        <Callout icon={Compass} tone="indigo">
+          <strong className="text-[#e0e7ff]">Escritura es el único</strong> que pone las páginas
+          por delante de las tareas: al abrirlo aterrizas en tu biblioteca de manuscritos, no en
+          una lista de pendientes. El resto abre en sus tareas.
+        </Callout>
       </Section>
 
       <Section id="plan" title="Plan de hoy vs. sugerencias">
@@ -215,7 +365,7 @@ export function DocsContent() {
             </p>
           </div>
         </div>
-        <Callout icon="🧭" tone="indigo">
+        <Callout icon={Compass} tone="indigo">
           El <strong className="text-[#e0e7ff]">Advisor</strong> conecta ambos: te dice, en
           lenguaje natural, qué tarea de tu plan encaja mejor con tu energía de este momento.
         </Callout>
@@ -226,9 +376,12 @@ export function DocsContent() {
           El timer no es solo un cronómetro: es como Kino aprende tu rendimiento real.
         </p>
         <div className="mt-4 grid grid-cols-[repeat(auto-fit,minmax(160px,1fr))] gap-2.5">
-          {TIMER_MODES.map(([title, desc]) => (
+          {TIMER_MODES.map(([Icon, title, desc]) => (
             <div key={title} className={`p-4 ${softCard}`}>
-              <p className="mb-1 text-[15px] font-semibold text-[#e4e4e7]">{title}</p>
+              <p className="mb-1 flex items-center gap-2 text-[15px] font-semibold text-[#e4e4e7]">
+                <Icon className="h-4 w-4 text-[#a5b4fc]" aria-hidden />
+                {title}
+              </p>
               <p className="text-[13px] text-[#6b6b74]">{desc}</p>
             </div>
           ))}
@@ -244,7 +397,7 @@ export function DocsContent() {
         <p className="mb-4 text-[#c4c4ce]">
           Para usuarios avanzados: Kino expone su funcionalidad vía API y a través del{" "}
           <strong className="text-[#e4e4e7]">Model Context Protocol</strong>, para que tu asistente
-          de IA gestione tus tareas y energía por ti. Son <strong className="text-[#e4e4e7]">~60
+          de IA gestione tus tareas y energía por ti. Son <strong className="text-[#e4e4e7]">64
           herramientas</strong> (<code className="font-jetbrains text-[13px] text-[#c4c4ce]">create_task</code>,{" "}
           <code className="font-jetbrains text-[13px] text-[#c4c4ce]">get_today_plan</code>,{" "}
           <code className="font-jetbrains text-[13px] text-[#c4c4ce]">get_energy_windows</code>,{" "}
