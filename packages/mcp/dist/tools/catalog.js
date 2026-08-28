@@ -1,9 +1,25 @@
-import { markdownToHtml } from "../utils/markdown.js";
+import { htmlToMarkdown, markdownToHtml } from "../utils/markdown.js";
 /** El agente escribe markdown; la página guarda el HTML que el editor renderiza. */
 function markdownContent(input) {
     return typeof input.content === "string"
         ? { ...input, content: markdownToHtml(input.content) }
         : input;
+}
+/**
+ * Y el viaje de vuelta, que es el que faltaba: la página se lee en markdown, no
+ * en el HTML con el que está guardada.
+ *
+ * `contentFormat` va explícito para que el agente no tenga que adivinar qué
+ * acaba de recibir, y `updatedAt` se queda tal cual porque es la versión que
+ * `update_page` espera de vuelta en `expectedUpdatedAt`.
+ */
+function markdownPage(result) {
+    if (!result || typeof result !== "object")
+        return result;
+    const page = result;
+    if (typeof page.content !== "string" && page.content !== null)
+        return result;
+    return { ...page, content: htmlToMarkdown(page.content), contentFormat: "markdown" };
 }
 export const CATALOG = {
     "account.changeEmail": null,
@@ -67,7 +83,11 @@ export const CATALOG = {
     "onboarding.complete": null,
     "onboarding.status": null,
     "pages.addTag": null,
-    "pages.byId": { name: "get_page", description: "Obtiene el contenido completo de una página (título, markdown, tasks vinculados)" },
+    "pages.byId": {
+        name: "get_page",
+        description: "Obtiene una página de Kino completa: título, contenido en markdown y tareas vinculadas. Devuelve también `updatedAt`, que es la versión que hay que pasarle a update_page para no pisar una edición posterior.",
+        mapResult: markdownPage,
+    },
     "pages.bySystem": null,
     "pages.create": {
         name: "create_page",
@@ -89,9 +109,13 @@ export const CATALOG = {
     "pages.unlinkTask": { name: "unlink_task_from_page", description: "Desvincula una tarea de una página de Kino (no elimina la tarea)" },
     "pages.update": {
         name: "update_page",
-        description: "Actualiza una página de Kino: título, contenido markdown, carpeta o estado de pin",
-        params: { content: "Contenido en markdown (se convierte a HTML al guardar)" },
+        description: "Actualiza una página de Kino: título, contenido markdown, carpeta o estado de pin. El contenido se reemplaza entero, así que para editar hay que leer la página primero con get_page.",
+        params: {
+            content: "Contenido en markdown (se convierte a HTML al guardar)",
+            expectedUpdatedAt: "El `updatedAt` que devolvió la última lectura. Si la página cambió desde entonces la escritura falla con 409 en vez de pisarla: vuelve a leerla, aplica el cambio sobre lo nuevo y reintenta. Mándalo siempre que estés reescribiendo contenido.",
+        },
         prepareInput: markdownContent,
+        mapResult: markdownPage,
     },
     "search.all": null,
     "settings.get": null,
