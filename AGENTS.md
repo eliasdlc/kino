@@ -76,9 +76,59 @@ Producción y desarrollo son **dos ramas de Neon** con cadenas de conexión dist
 
 Toda migración sigue teniendo que ser **compatible hacia atrás** con el código ya desplegado: el build migra antes de publicar, y entre una cosa y la otra el código viejo lee el schema nuevo.
 
-**Respaldo.** Neon Free guarda 6 horas de historial y nada más. Por eso `.github/workflows/backup.yml` vuelca producción a diario (05:00 UTC) a un bucket de Cloudflare R2: `pg_dump -Fc` cifrado con `age`, en `scripts/backup/dump.sh`. La clave privada no está en ningún servicio: vive en el gestor de contraseñas de Elias, y sin ella el volcado es ruido. Restaurar es `scripts/backup/restore.sh <archivo.dump.age>` contra la base destino y `scripts/backup/verify.sh` sobre origen y destino para hacer `diff`; ensayado contra una base de 12 MB: 8 s de volcado, 3 s de restauración. La base de producción cabe en el runner: si alguna vez el volcado supera lo que R2 regala (10 GB), es una decisión, no un ajuste.
+**Respaldo.** Neon Free guarda 6 horas de historial y nada más. `.github/workflows/backup.yml` vuelca producción a un bucket de Cloudflare R2 a las 05:23 UTC: `pg_dump -Fc` cifrado con `age`, en `scripts/backup/dump.sh`. La retención de 30 días es una regla de ciclo de vida del bucket, no lógica del workflow.
+
+Ese volcado ocurre sólo si se cumplen **dos condiciones que no son código**, y por eso este documento no afirma que esté ocurriendo:
+
+1. El workflow existe en `main`. GitHub dispara `schedule:` únicamente desde la rama por defecto, y `workflow_dispatch` tampoco aparece en la interfaz si el fichero no está allí. Tenerlo en `dev` no hace nada.
+2. Los seis secretos del repositorio están cargados: `BACKUP_DATABASE_URL` (cadena **directa**, sin `-pooler`), `BACKUP_AGE_RECIPIENT` (pública `age1...`), `R2_ACCOUNT_ID`, `R2_ACCESS_KEY_ID`, `R2_SECRET_ACCESS_KEY`, `R2_BUCKET`.
+
+Quién contesta si está corriendo de verdad, sin creerle a este párrafo:
+
+```bash
+gh run list --workflow=backup.yml
+```
+
+Sin ejecuciones ahí, el único respaldo de producción son las 6 horas de Neon. El workflow falla en rojo ante cualquier secreto ausente o vacío, y sólo se pone verde después de comprobar contra R2 que el objeto existe y mide lo que debe.
+
+La clave privada `age` no está en ningún servicio: vive en el gestor de contraseñas de Elias. Sin ella los volcados son ruido indescifrable, y es el único secreto del sistema que no se puede rotar sin invalidar todo lo guardado hasta ese momento. La base de producción cabe en el runner: si alguna vez el volcado supera lo que R2 regala (10 GB), es una decisión, no un ajuste.
 
 Las variables de entorno están documentadas en **`.env.example`**, una línea por clave con para qué sirve y si es obligatoria. Toda variable nueva se añade ahí en el mismo commit que la lee.
+
+### Restaurar un respaldo
+
+Los tres scripts de `scripts/backup/` están hechos para leerse en este orden y a las tres de la mañana. `restore.sh` aplica el volcado con `--clean --if-exists`: **borra y recrea cada objeto del destino**, no añade. Nunca lo apuntes a una base cuyo contenido te importe.
+
+```bash
+# 1. Requisitos: age, pg_restore 17 o más nuevo, y la clave privada.
+age --version && pg_restore --version
+export AGE_IDENTITY_FILE=~/.config/kino/backup-age.key   # la del gestor de contraseñas
+
+# 2. Credenciales de R2 y el objeto. La lista sale con el más reciente al final.
+export AWS_ACCESS_KEY_ID=...  AWS_SECRET_ACCESS_KEY=...  AWS_DEFAULT_REGION=auto
+export R2_ENDPOINT="https://<R2_ACCOUNT_ID>.r2.cloudflarestorage.com"
+aws s3 ls "s3://<R2_BUCKET>/" --endpoint-url "$R2_ENDPOINT" | sort | tail -5
+aws s3 cp "s3://<R2_BUCKET>/kino-<fecha>.dump.age" . --endpoint-url "$R2_ENDPOINT"
+
+# 3. El destino, siempre cadena DIRECTA (sin -pooler).
+export TARGET_URL='postgresql://...'
+
+# 4. Huella del origen, si todavía se puede leer.
+scripts/backup/verify.sh "$ORIGEN_URL" > origen.txt
+
+# 5. Restaurar. Imprime cuánto tardó, que es el tiempo de caída real.
+scripts/backup/restore.sh kino-<fecha>.dump.age
+
+# 6. Comprobar que llegó todo. Sin salida en el diff = restauración completa.
+scripts/backup/verify.sh "$TARGET_URL" > destino.txt
+diff origen.txt destino.txt
+```
+
+`verify.sh` sólo lee, y cuenta justo lo que un volcado incompleto pierde primero: filas por tabla, cuadernos con texto y sus bytes, entidades con relaciones, y tareas con sistema.
+
+**Para ensayar**, crea una rama nueva de Neon y restaura sobre ella. Un destino vacío no pasa por el camino de los `DROP`, y así el ensayo no toca la rama de desarrollo que alguien pueda estar usando. **En un desastre real** el origen ya no existe para comparar: corre `verify.sh` sólo sobre el destino y contrasta los números contra lo que esperabas.
+
+Ensayo local sobre el schema actual (35 tablas, 10 MB, 500 tareas, 120 cuadernos con 626 400 bytes de contenido, 80 entidades y 300 relaciones): volcado 1 s y 144 KB cifrados, restauración 2 s sobre base vacía y 5 s sobre base poblada, `diff` vacío en ambas. Lo que esos números **no** miden es Neon con la red de por medio y el tamaño real de producción; ese dato sale la primera vez que se restaure allí.
 
 ## Estructura — vertical slice
 
