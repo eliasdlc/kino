@@ -72,7 +72,7 @@ function register(server: McpServer, kinoFetch: KinoFetch, id: OperationId, spec
 
     const text = spec.confirmation
       ? spec.confirmation(input)
-      : JSON.stringify(result ?? { ok: true }, null, 2);
+      : JSON.stringify((spec.mapResult ? spec.mapResult(result) : result) ?? { ok: true }, null, 2);
 
     return { content: [{ type: 'text' as const, text }] };
   });
