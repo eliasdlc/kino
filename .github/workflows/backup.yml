@@ -2,29 +2,97 @@ name: Respaldo de producción
 
 # Volcado diario de la base de producción a Cloudflare R2, cifrado con age.
 # Neon Free sólo guarda 6 horas de historial: sin esto, un borrado que se
-# descubre al día siguiente ya no tiene vuelta. Restaurar: scripts/backup/restore.sh.
+# descubre al día siguiente ya no tiene vuelta. Restaurar: scripts/backup/restore.sh
+# y el runbook de AGENTS.md, sección "Entornos y base de datos".
 #
-# Secretos del repo: BACKUP_DATABASE_URL (cadena DIRECTA de producción, sin
-# -pooler), BACKUP_AGE_RECIPIENT (clave pública age1...), R2_ACCOUNT_ID,
-# R2_ACCESS_KEY_ID, R2_SECRET_ACCESS_KEY, R2_BUCKET. Sin ellos el job falla en
-# rojo a propósito: un respaldo que se salta en silencio no es un respaldo.
+# Para que esto corra de verdad hacen falta dos cosas, y ninguna es código:
+#
+#   1. Que el fichero esté en la rama por defecto (`main`). GitHub sólo dispara
+#      `schedule:` desde ahí, y `workflow_dispatch` tampoco aparece en la UI si
+#      el workflow no existe en esa rama.
+#   2. Los seis secretos del repositorio: BACKUP_DATABASE_URL (cadena DIRECTA de
+#      producción, sin `-pooler`), BACKUP_AGE_RECIPIENT (clave pública age1...),
+#      R2_ACCOUNT_ID, R2_ACCESS_KEY_ID, R2_SECRET_ACCESS_KEY, R2_BUCKET.
+#
+# Comprobar si está corriendo: `gh run list --workflow=backup.yml`.
+#
+# Todo lo que puede salir mal aquí falla en rojo a propósito y el job sólo se
+# pone verde cuando el objeto existe en R2 con el tamaño correcto. Un respaldo
+# que se salta en silencio no es un respaldo, es una creencia.
 
 on:
   schedule:
-    - cron: "0 5 * * *"
+    # 05:23 UTC y no 05:00: GitHub encola las tareas programadas y las que caen
+    # en punto son las que más compiten, así que son las que más se retrasan y
+    # las primeras que se descartan cuando hay cola. A un respaldo diario le da
+    # igual la hora exacta; que no corra, no.
+    - cron: "23 5 * * *"
   workflow_dispatch:
 
 concurrency:
   group: backup
   cancel-in-progress: false
 
+permissions:
+  contents: read
+
 jobs:
   dump:
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 20
+
+    defaults:
+      run:
+        # El shell por defecto de Actions es `bash -e`, SIN pipefail: con él,
+        # `dump.sh | tee` devuelve el código de `tee` y el job sigue en verde
+        # aunque el volcado haya fallado. Pedir `bash` explícitamente cambia el
+        # arranque a `-eo pipefail`, que es la diferencia entre enterarse y no.
+        shell: bash
 
     steps:
       - uses: actions/checkout@v5
+
+      # Un secreto ausente y uno vacío llegan igual a Actions: cadena vacía. Se
+      # comprueban los seis de golpe para que el fallo diga cuáles faltan, en vez
+      # de morir a mitad con un error de pg_dump o de la CLI de AWS.
+      - name: Comprobar los seis secretos
+        env:
+          BACKUP_DATABASE_URL: ${{ secrets.BACKUP_DATABASE_URL }}
+          BACKUP_AGE_RECIPIENT: ${{ secrets.BACKUP_AGE_RECIPIENT }}
+          R2_ACCOUNT_ID: ${{ secrets.R2_ACCOUNT_ID }}
+          R2_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
+          R2_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+          R2_BUCKET: ${{ secrets.R2_BUCKET }}
+        run: |
+          faltan=()
+          for nombre in BACKUP_DATABASE_URL BACKUP_AGE_RECIPIENT R2_ACCOUNT_ID \
+                        R2_ACCESS_KEY_ID R2_SECRET_ACCESS_KEY R2_BUCKET; do
+            [ -n "${!nombre}" ] || faltan+=("$nombre")
+          done
+          if [ ${#faltan[@]} -gt 0 ]; then
+            echo "::error::Faltan secretos del repositorio: ${faltan[*]}. Se cargan en Settings > Secrets and variables > Actions."
+            exit 1
+          fi
+
+          # pg_dump abre varias sesiones sobre un snapshot exportado y PgBouncer
+          # no lo soporta. La cadena pooled es la que el panel de Neon ofrece
+          # primero, así que es la que se pega por error.
+          case "$BACKUP_DATABASE_URL" in
+            *-pooler.*)
+              echo "::error::BACKUP_DATABASE_URL apunta al endpoint pooled (-pooler). pg_dump necesita la cadena directa."
+              exit 1
+              ;;
+          esac
+
+          # La pública empieza por age1. La privada empieza por AGE-SECRET-KEY-,
+          # y si acabó aquí es que se confundió el par entero.
+          case "$BACKUP_AGE_RECIPIENT" in
+            age1*) ;;
+            *)
+              echo "::error::BACKUP_AGE_RECIPIENT no es una clave pública age (debe empezar por age1)."
+              exit 1
+              ;;
+          esac
 
       # Producción corre Postgres 17 y pg_dump tiene que ser igual o más nuevo;
       # el cliente que trae Ubuntu es el 16.
@@ -43,12 +111,24 @@ jobs:
           BACKUP_AGE_RECIPIENT: ${{ secrets.BACKUP_AGE_RECIPIENT }}
         run: |
           mkdir -p out
-          scripts/backup/dump.sh out | tee dump.log
+          scripts/backup/dump.sh out
 
-      # R2 habla S3; la CLI de AWS ya viene en el runner. La retención (borrar
-      # lo de más de 30 días) es una regla de ciclo de vida del bucket, no
-      # lógica de aquí.
-      - name: Subir a R2
+          # No basta con que dump.sh devuelva 0: lo que se sube es un fichero, y
+          # el resto del job asume que hay exactamente uno.
+          shopt -s nullglob
+          volcados=(out/*.dump.age)
+          if [ ${#volcados[@]} -ne 1 ]; then
+            echo "::error::dump.sh terminó bien pero dejó ${#volcados[@]} ficheros .dump.age en out/, se esperaba 1."
+            exit 1
+          fi
+          echo "DUMP_PATH=${volcados[0]}" >> "$GITHUB_ENV"
+
+      # R2 habla S3; la CLI de AWS ya viene en el runner. La retención (borrar lo
+      # de más de 30 días) es una regla de ciclo de vida del bucket, no lógica de
+      # aquí. Se sube el fichero por su ruta exacta, no el directorio con
+      # `--recursive`: sobre un directorio vacío, `--recursive` no sube nada y
+      # devuelve 0.
+      - name: Subir a R2 y comprobar que el objeto llegó
         env:
           AWS_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
           AWS_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
@@ -58,6 +138,28 @@ jobs:
           R2_ENDPOINT: https://${{ secrets.R2_ACCOUNT_ID }}.r2.cloudflarestorage.com
           R2_BUCKET: ${{ secrets.R2_BUCKET }}
         run: |
-          : "${R2_BUCKET:?Falta el secreto R2_BUCKET}"
-          aws s3 cp out/ "s3://$R2_BUCKET/" --recursive --endpoint-url "$R2_ENDPOINT"
-          aws s3 ls "s3://$R2_BUCKET/" --endpoint-url "$R2_ENDPOINT" | tail -n 5
+          objeto="$(basename "$DUMP_PATH")"
+          aws s3 cp "$DUMP_PATH" "s3://$R2_BUCKET/$objeto" --endpoint-url "$R2_ENDPOINT"
+
+          # La única prueba que vale es preguntarle a R2. Un `s3 ls` decorativo
+          # deja el job verde aunque el bucket esté vacío.
+          bytes_local="$(stat -c%s "$DUMP_PATH")"
+          bytes_remoto="$(aws s3api head-object --bucket "$R2_BUCKET" --key "$objeto" \
+            --endpoint-url "$R2_ENDPOINT" --query ContentLength --output text)"
+
+          if [ "$bytes_local" != "$bytes_remoto" ]; then
+            echo "::error::El objeto $objeto en R2 mide $bytes_remoto bytes y el volcado local $bytes_local."
+            exit 1
+          fi
+
+          {
+            echo "### Respaldo subido"
+            echo
+            echo "| | |"
+            echo "|---|---|"
+            echo "| Objeto | \`$objeto\` |"
+            echo "| Tamaño | $bytes_local bytes |"
+            echo "| Bucket | \`$R2_BUCKET\` |"
+            echo
+            echo "Restaurar: runbook en \`AGENTS.md\`, sección *Entornos y base de datos*."
+          } >> "$GITHUB_STEP_SUMMARY"
