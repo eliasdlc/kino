@@ -49,11 +49,20 @@ const TASK_ID = "7b8c9d0e-1f2a-4b3c-8d4e-5f6a7b8c9d0e";
 const SYSTEM_ID = "5a2b3c4d-6e7f-4a8b-9c0d-1e2f3a4b5c6d";
 
 describe("tools del MCP · superficie", () => {
-  // 64 y no 62: el contrato distingue si una nota adhesiva cuelga de una página
-  // o de una carpeta, así que las dos tools que preguntaban "una u otra" pasaron
-  // a ser cuatro sin ambigüedad.
-  it("registra las 64 tools del catálogo", () => {
-    expect(mount().tools.size).toBe(64);
+  // 64 salen del catálogo, una por operación del contrato, y 5 son compuestas:
+  // las sesiones de aprendizaje, que son una secuencia sobre varios endpoints y
+  // por eso se registran aparte. Si el total baja, algo dejó de montarse.
+  it("registra las del catálogo y las compuestas", () => {
+    const names = [...mount().tools.keys()];
+
+    expect(names).toHaveLength(69);
+    expect(names.filter((name) => name.includes("learning"))).toHaveLength(5);
+  });
+
+  it("ninguna tool pisa el nombre de otra", () => {
+    const names = [...mount().tools.keys()];
+
+    expect(new Set(names).size).toBe(names.length);
   });
 
   it("cada una llega con su descripción", () => {
