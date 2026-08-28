@@ -83,7 +83,7 @@ Ese volcado ocurre sólo si se cumplen **dos condiciones que no son código**, y
 1. El workflow existe en `main`. GitHub dispara `schedule:` únicamente desde la rama por defecto, y `workflow_dispatch` tampoco aparece en la interfaz si el fichero no está allí. Tenerlo en `dev` no hace nada.
 2. Los seis secretos del repositorio están cargados: `BACKUP_DATABASE_URL` (cadena **directa**, sin `-pooler`), `BACKUP_AGE_RECIPIENT` (pública `age1...`), `R2_ACCOUNT_ID`, `R2_ACCESS_KEY_ID`, `R2_SECRET_ACCESS_KEY`, `R2_BUCKET`.
 
-Quién contesta si está corriendo de verdad, sin creerle a este párrafo:
+Cómo se comprueba si está corriendo de verdad, sin creerle a este párrafo:
 
 ```bash
 gh run list --workflow=backup.yml
@@ -126,7 +126,7 @@ diff origen.txt destino.txt
 
 `verify.sh` sólo lee, y cuenta justo lo que un volcado incompleto pierde primero: filas por tabla, cuadernos con texto y sus bytes, entidades con relaciones, y tareas con sistema.
 
-**Para ensayar**, crea una rama nueva de Neon y restaura sobre ella. Un destino vacío no pasa por el camino de los `DROP`, y así el ensayo no toca la rama de desarrollo que alguien pueda estar usando. **En un desastre real** el origen ya no existe para comparar: corre `verify.sh` sólo sobre el destino y contrasta los números contra lo que esperabas.
+**Para ensayar**, crea una rama nueva de Neon y restaura sobre ella. En un destino vacío los `DROP ... IF EXISTS` no borran nada, y así el ensayo no toca la rama de desarrollo que alguien pueda estar usando. **En un desastre real** el origen ya no existe para comparar: corre `verify.sh` sólo sobre el destino y contrasta los números contra lo que esperabas.
 
 Ensayo local sobre el schema actual (35 tablas, 10 MB, 500 tareas, 120 cuadernos con 626 400 bytes de contenido, 80 entidades y 300 relaciones): volcado 1 s y 144 KB cifrados, restauración 2 s sobre base vacía y 5 s sobre base poblada, `diff` vacío en ambas. Lo que esos números **no** miden es Neon con la red de por medio y el tamaño real de producción; ese dato sale la primera vez que se restaure allí.
 
