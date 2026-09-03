@@ -10,5 +10,7 @@
     "skipLibCheck": true
   },
   "include": ["src/**/*"],
-  "exclude": ["node_modules", "dist"]
+  // Los tests corren desde el vitest de la raíz y no se publican: `files` del
+  // package.json es sólo `dist`, y compilarlos ahí los metería en el paquete.
+  "exclude": ["node_modules", "dist", "src/**/*.test.ts"]
 }

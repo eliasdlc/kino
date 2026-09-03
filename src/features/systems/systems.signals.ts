@@ -104,7 +104,10 @@ export function computeSystemSignals(
  * Mensaje del advisor cuando un sistema está stale, interpolando el
  * `staleTemplate` del preset ({nombre}, {n}). null si el sistema no está stale.
  */
-export function formatStaleAdvisor(system: System, signals: SystemSignals): string | null {
+export function formatStaleAdvisor(
+  system: Pick<System, "templateType" | "name">,
+  signals: SystemSignals,
+): string | null {
   if (!signals.stale) return null;
   const config = SYSTEM_TYPE_CONFIG[(system.templateType ?? "custom") as SystemType];
   const n = signals.daysSinceLastActivity ?? 0;

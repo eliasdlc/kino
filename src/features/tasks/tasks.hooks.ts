@@ -15,7 +15,7 @@
  * - `tasks.today.hooks.ts`     el plan comprometido de hoy
  *
  * El patrón optimista canónico (Rumbo 05) no vive aquí: está en
- * `@/shared/hooks/useOptimisticListMutation`, con su test y su doc al lado.
+ * `@/shared/hooks/optimistic`, con su test y su doc al lado.
  * Ojo con los hooks que lo evitan a propósito —`useCreateTask` toca dos query
  * keys a la vez— y conservan el patrón inline con su comentario explicándolo.
  */

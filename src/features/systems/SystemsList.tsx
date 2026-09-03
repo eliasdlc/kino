@@ -10,7 +10,7 @@ import { EditSystemDialog } from "./EditSystemDialog";
 import { SystemCard } from "./SystemCard";
 import { CreateSystemDialog } from "./CreateSystemDialog";
 import { Button } from "@/components/ui/button";
-import type { System } from "./systems.types";
+import type { SystemTransport } from "./systems.types";
 
 function SystemCardSkeleton() {
   return (
@@ -21,8 +21,8 @@ function SystemCardSkeleton() {
 export function SystemsList() {
   const { data: systems, isLoading, isError } = useSystems();
   const { mutate: deleteSystem } = useDeleteSystem();
-  const [editTarget, setEditTarget] = useState<System | null>(null);
-  const [deleteTarget, setDeleteTarget] = useState<System | null>(null);
+  const [editTarget, setEditTarget] = useState<SystemTransport | null>(null);
+  const [deleteTarget, setDeleteTarget] = useState<SystemTransport | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
 
   if (isLoading) {

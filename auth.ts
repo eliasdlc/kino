@@ -1,18 +1,45 @@
 import { betterAuth } from "better-auth";
+import { APIError, createAuthMiddleware } from "better-auth/api";
 import { drizzleAdapter } from "better-auth/adapters/drizzle";
 import { jwt } from "better-auth/plugins";
 import { oauthProvider } from "@better-auth/oauth-provider";
 import { db } from "./src/shared/db";
 import * as schema from "./src/shared/db/schema";
 import { KINO_READ, KINO_WRITE } from "@/shared/lib/scopes";
+import { sendEmail } from "@/shared/email/send";
+import { changeEmailEmail, resetPasswordEmail, verifyEmailEmail } from "@/shared/email/templates";
+import { emailChangeTarget } from "@/shared/email/verification-intent";
+import { resolveTrustedOrigins } from "@/shared/lib/trusted-origins";
+import { clientIp } from "@/shared/rate-limit";
+import {
+  clearSignInAttempts,
+  didSignIn,
+  guardSignInAttempt,
+} from "@/shared/rate-limit/sign-in-attempts";
 
 const APP_URL = process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000";
+
+const SIGN_IN_PATH = "/sign-in/email";
+
+/** El correo tal y como llega en el cuerpo de un `sign-in/email`. */
+function signInEmail(body: unknown): string | null {
+  if (typeof body !== "object" || body === null) return null;
+  const email = (body as { email?: unknown }).email;
+  return typeof email === "string" && email.trim() ? email : null;
+}
 
 export const auth = betterAuth({
   // Pin the issuer so OAuth/OIDC token `iss` and JWKS URLs are deterministic
   // (request-derived origin is unreliable behind the Vercel proxy).
   baseURL: APP_URL,
-  trustedOrigins: [APP_URL],
+  // Un preview cambia de dominio por rama, así que nunca sería el origen fijo
+  // de arriba y Better Auth rechazaría el intento. `resolveTrustedOrigins` los
+  // añade sólo cuando el despliegue es un preview, sin tocar `baseURL`.
+  trustedOrigins: resolveTrustedOrigins(APP_URL, {
+    env: process.env.VERCEL_ENV,
+    branchUrl: process.env.VERCEL_BRANCH_URL,
+    deploymentUrl: process.env.VERCEL_URL,
+  }),
   database: drizzleAdapter(db, {
     provider: "pg",
     schema: {
@@ -62,6 +89,11 @@ export const auth = betterAuth({
       // nunca se implementó) hace fallar la creación de usuarios entera, o sea
       // todo el registro. No añadir aquí nada que no esté en schema.ts.
     },
+    // El correo cambia cuando la dirección nueva confirma el enlace; hasta
+    // entonces la cuenta sigue con la anterior. No se avisa a la vieja: quien
+    // tiene la sesión ya demostró ser el dueño, y una dirección que se perdió
+    // (por eso se cambia) no recibiría el aviso de todas formas.
+    changeEmail: { enabled: true },
   },
 
   session: {
@@ -80,6 +112,28 @@ export const auth = betterAuth({
 
   emailAndPassword: {
     enabled: true,
+    sendResetPassword: async ({ user, url }) => {
+      await sendEmail(resetPasswordEmail(user.email, url));
+    },
+    // La contraseña cambió porque la anterior se perdió o se filtró: cualquier
+    // sesión que siguiera abierta con ella deja de valer.
+    revokeSessionsOnPasswordReset: true,
+  },
+
+  // Verificar no bloquea nada: la cuenta entra y usa Kino completa. El aviso
+  // persistente vive en el layout de la app y desaparece al confirmar. Google
+  // y GitHub llegan con el correo ya verificado por el proveedor.
+  emailVerification: {
+    // El mismo hook cubre el alta y el cambio de correo; el token dice cuál es
+    // y en ambos casos `user.email` ya es la dirección a la que hay que escribir.
+    sendVerificationEmail: async ({ user, url, token }) => {
+      const message = emailChangeTarget(token)
+        ? changeEmailEmail(user.email, url)
+        : verifyEmailEmail(user.email, url);
+      await sendEmail(message);
+    },
+    sendOnSignUp: true,
+    autoSignInAfterVerification: true,
   },
 
   socialProviders: {
@@ -97,6 +151,46 @@ export const auth = betterAuth({
     database: {
       generateId: false,
     },
+  },
+
+  /**
+   * El límite de intentos por cuenta (KIN-161). El proxy cuenta por IP y no
+   * puede hacer más: contra qué cuenta se está probando viaja en el cuerpo de la
+   * request, y si la contraseña era la buena sólo se sabe al final.
+   *
+   * `before` cuenta el intento y corta; `after` borra el contador sólo si se
+   * entró de verdad. Ese "sólo" es la parte delicada: `after` corre también
+   * cuando la contraseña era mala, porque Better Auth captura el error y se lo
+   * pasa al hook antes de decidir que fue un error. Limpiar sin mirar dejaba el
+   * contador en cero tras cada fallo, que es lo mismo que no tener límite.
+   */
+  hooks: {
+    before: createAuthMiddleware(async (ctx) => {
+      if (ctx.path !== SIGN_IN_PATH) return;
+      const email = signInEmail(ctx.body);
+      if (!email) return;
+
+      const decision = await guardSignInAttempt(email, clientIp(ctx.headers ?? new Headers()));
+      if (!decision) return;
+
+      throw new APIError("TOO_MANY_REQUESTS", {
+        code: "RATE_LIMITED",
+        message: "Too many requests. Please try again later.",
+        // Mismo shape que el 429 del proxy, para que el cliente no tenga que
+        // distinguir cuál de los dos límites lo cortó.
+        retryAfter: decision.retryAfterSeconds,
+      });
+    }),
+
+    after: createAuthMiddleware(async (ctx) => {
+      if (ctx.path !== SIGN_IN_PATH) return;
+      if (!didSignIn(ctx.context.returned)) return;
+
+      const email = signInEmail(ctx.body);
+      if (!email) return;
+
+      await clearSignInAttempts(email, clientIp(ctx.headers ?? new Headers()));
+    }),
   },
 
   plugins: [

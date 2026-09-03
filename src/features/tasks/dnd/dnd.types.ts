@@ -1,4 +1,4 @@
-import type { Task } from "../tasks.types";
+import type { TaskTransport } from "../tasks.types";
 
 /**
  * Discriminated union for drag source context.
@@ -13,7 +13,7 @@ export type DragSourceType = "day" | "unscheduled" | "energy" | "priority" | "pr
  */
 export interface TaskDragData {
   /** The full task object — used by the DragOverlay to render a preview */
-  task: Task;
+  task: TaskTransport;
   /** Which view/column the task was dragged from */
   sourceType: DragSourceType;
   /**

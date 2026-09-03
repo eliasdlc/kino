@@ -20,7 +20,7 @@ import { useSystems } from "./systems.hooks";
 import { useTodayPlanTasks } from "@/features/tasks/tasks.hooks";
 import { CreateSystemDialog } from "./CreateSystemDialog";
 import { SidebarUserMenu } from "./SidebarUserMenu";
-import type { SystemWithSignals } from "./systems.types";
+import type { SystemWithSignalsTransport } from "./systems.types";
 import { useSystemsTreeStore } from "./systems.store";
 import { useCommandPaletteStore } from "@/features/command-palette/command-palette.store";
 import { SystemTreeItem } from "./SystemTreeItem";
@@ -143,7 +143,7 @@ export function SystemsSidebar({
   const pinnedSet = new Set(pinnedIds);
   const pinnedSystems = pinnedIds
     .map((id) => regularSystems.find((s) => s.id === id))
-    .filter((s): s is SystemWithSignals => Boolean(s));
+    .filter((s): s is SystemWithSignalsTransport => Boolean(s));
   const restSystems = regularSystems.filter((s) => !pinnedSet.has(s.id));
   const orderedSystems = [...pinnedSystems, ...restSystems];
 

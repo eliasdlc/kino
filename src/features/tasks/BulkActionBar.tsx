@@ -8,6 +8,8 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { useBulkMove, useBulkUpdate } from "./tasks.hooks";
+import { type TaskStatus } from "./tasks.state-machine";
+import { type TaskPriority } from "./tasks.types";
 
 interface BulkActionBarProps {
   selectedIds: Set<string>;
@@ -41,11 +43,11 @@ export function BulkActionBar({ selectedIds, onClear, onVaciar }: BulkActionBarP
 
   if (count === 0) return null;
 
-  function move(status: string) {
+  function move(status: TaskStatus) {
     bulkMove({ taskIds: ids, status }, { onSuccess: onClear });
   }
 
-  function update(priority: string) {
+  function update(priority: TaskPriority) {
     bulkUpdate({ taskIds: ids, priority }, { onSuccess: onClear });
   }
 

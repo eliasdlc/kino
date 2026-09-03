@@ -27,7 +27,7 @@ import {
   Plus,
   Sparkles,
 } from "lucide-react";
-import type { PageListItem } from "@/features/pages/pages.types";
+import type { PageListItemTransport } from "@/features/pages/pages.types";
 import type { FolderWithCounts } from "@/features/folders/folders.types";
 import type { WorkPulse } from "@/features/writing/writing.types";
 import type { SystemViewProps } from "./SystemDetailView";
@@ -59,7 +59,7 @@ function readWordGoal(meta: Record<string, unknown>): number | null {
 
 function ObraCard({ obra, manuscripts, systemId, pulse }: {
   obra: FolderWithCounts;
-  manuscripts: PageListItem[];
+  manuscripts: PageListItemTransport[];
   systemId: string;
   /** Pulso derivado de las sesiones reales; null si la obra nunca tuvo una. */
   pulse: WorkPulse | null;

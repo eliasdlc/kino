@@ -27,10 +27,10 @@ import {
   ContextMenuTrigger,
 } from "@/components/ui/context-menu";
 import { Button } from "@/components/ui/button";
-import type { SystemWithSignals } from "./systems.types";
+import type { SystemWithSignalsTransport } from "./systems.types";
 
 interface SystemCardProps {
-  system: SystemWithSignals;
+  system: SystemWithSignalsTransport;
   onEdit: () => void;
   onDelete: () => void;
 }

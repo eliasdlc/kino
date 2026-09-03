@@ -136,7 +136,7 @@ export function TasksViewsSection() {
                     id: "b1",
                     title: "Card en progreso, estancada",
                     boardStatus: "in_progress",
-                    boardStatusChangedAt: new Date(daysFromNow(-10)),
+                    boardStatusChangedAt: daysFromNow(-10),
                   })}
                   systemId={MOCK_SYSTEM_ID}
                   onToggle={noop}
@@ -149,7 +149,7 @@ export function TasksViewsSection() {
                     id: "b2",
                     title: "Card recién movida a review",
                     boardStatus: "review",
-                    boardStatusChangedAt: new Date(),
+                    boardStatusChangedAt: new Date().toISOString(),
                     priority: "high",
                   })}
                   systemId={MOCK_SYSTEM_ID}

@@ -1,6 +1,7 @@
 import { keepPreviousData, useQuery } from "@tanstack/react-query";
 import { useDebouncedValue } from "@/shared/hooks/useDebouncedValue";
-import { SEARCH_MIN_LENGTH, type SearchResult } from "./search.types";
+import { api } from "@/shared/api/client";
+import { SEARCH_MIN_LENGTH } from "./search.types";
 
 /**
  * Búsqueda global en vivo. Debouncea el término, solo consulta a partir de
@@ -11,13 +12,9 @@ export function useSearch(query: string) {
   const debounced = useDebouncedValue(query.trim(), 250);
   const enabled = debounced.length >= SEARCH_MIN_LENGTH;
 
-  return useQuery<SearchResult[]>({
+  return useQuery({
     queryKey: ["search", debounced],
-    queryFn: async () => {
-      const res = await fetch(`/api/search?q=${encodeURIComponent(debounced)}`);
-      if (!res.ok) throw new Error("Failed to search");
-      return res.json();
-    },
+    queryFn: () => api.search.all({ q: debounced }),
     enabled,
     placeholderData: keepPreviousData,
     staleTime: 30_000,

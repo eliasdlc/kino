@@ -33,6 +33,8 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { cn } from "@/lib/utils";
+import { useIsMobile } from "@/hooks/use-mobile";
+import { PlotSceneList } from "./PlotSceneList";
 import { usePlotGrid, usePlotOperation } from "./writing.hooks";
 import type { PlotChapter, PlotGrid, PlotScene } from "./writing.plot";
 
@@ -48,6 +50,11 @@ import type { PlotChapter, PlotGrid, PlotScene } from "./writing.plot";
  * Se arrastra, pero también se mueve con botones. No es solo por accesibilidad:
  * un arrastre accidental aquí reescribe el manuscrito, así que la vía explícita
  * tiene que existir siempre y funcionar igual en un móvil.
+ *
+ * En un teléfono la rejilla no cabe —columnas de 224px que sólo se alcanzan
+ * desplazando en horizontal— así que ahí se sirve `PlotSceneList`, la misma
+ * información en vertical y sin arrastre (KIN-170). Los datos y las operaciones
+ * se resuelven aquí para las dos: una sola fuente, un solo estado de carga.
  */
 
 const SIN_ARCO = "__sin_arco__";
@@ -69,6 +76,7 @@ export function PlotGridView({
   const { data, isLoading } = usePlotGrid(folderId);
   const { mutate: apply, isPending } = usePlotOperation(folderId);
   const [dragging, setDragging] = useState<SceneKey | null>(null);
+  const isMobile = useIsMobile();
 
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 8 } }),
@@ -143,6 +151,10 @@ export function PlotGridView({
         hint="Las escenas se derivan del texto: inserta un separador de escena en un capítulo y aparecerán aquí."
       />
     );
+  }
+
+  if (isMobile) {
+    return <PlotSceneList grid={data} systemId={systemId} busy={isPending} onApply={apply} />;
   }
 
   return (

@@ -26,7 +26,7 @@ import { downloadBlob, slugify } from "@/shared/utils/download";
 import { ManuscriptOutline } from "./mediums/ManuscriptOutline";
 import type { OutlineItem } from "./mediums/outline";
 import type { BreadcrumbItem } from "@/components/PageBreadcrumb";
-import type { PageDetail, PageListItem } from "./pages.types";
+import type { PageDetailTransport, PageListItemTransport } from "./pages.types";
 import type { WriterObra } from "./WriterStatusBar";
 import type { MediumManifest } from "@/shared/lib/mediums";
 
@@ -51,7 +51,7 @@ function ExportPanel({
   page,
   medium = null,
 }: {
-  page: PageDetail;
+  page: PageDetailTransport;
   medium?: MediumManifest | null;
 }) {
   // El medium decide el serializador: un guion sale en Fountain (.fountain), lo
@@ -108,15 +108,15 @@ function ExportPanel({
 }
 
 interface NotebookEditorLayoutProps {
-  page: PageDetail;
+  page: PageDetailTransport;
   systemId: string;
   systemName: string;
-  allPages: PageListItem[];
+  allPages: PageListItemTransport[];
   breadcrumbItems: BreadcrumbItem[];
   /** The root notebook — null if current page IS the root */
-  parentNotebook: PageListItem | null;
+  parentNotebook: PageListItemTransport | null;
   /** Sub-pages of the root notebook (pre-fetched server-side) */
-  initialSubPages: PageListItem[];
+  initialSubPages: PageListItemTransport[];
   /** Arquetipo Writing: activa el "writer feel" del editor (PLAN-11 §7). */
   writer?: boolean;
   /** Obra a la que pertenece el capítulo — alimenta el progreso de la status bar. */
@@ -139,7 +139,7 @@ function SubPagesSidebar({
   currentPageId: string;
   systemId: string;
   systemName: string;
-  initialSubPages: PageListItem[];
+  initialSubPages: PageListItemTransport[];
   medium?: MediumManifest | null;
 }) {
   const router = useRouter();
@@ -319,7 +319,13 @@ export function NotebookEditorLayout({
 
       {/* Floating right panel */}
       <Sheet open={rightOpen} onOpenChange={setRightOpen}>
-        <SheetContent side="right" className="!w-70 !h-[95%] !my-auto rounded-2xl shadow-2xl p-0 flex flex-col gap-0">
+        {/* La tarjeta flotante es de escritorio: en un teléfono un panel de 280px
+            al 95% de alto deja el contenido en una columna que no cabe. Debajo de
+            md el Sheet usa su forma normal, a toda altura. */}
+        <SheetContent
+          side="right"
+          className="p-0 flex flex-col gap-0 shadow-2xl md:!w-70 md:!h-[95%] md:!my-auto md:rounded-2xl"
+        >
           <SheetTitle className="sr-only">Panel del cuaderno</SheetTitle>
 
           <SubPagesSidebar

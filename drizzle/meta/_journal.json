@@ -134,6 +134,13 @@
       "when": 1787324412101,
       "tag": "0018_api_keys_ciclo_de_vida",
       "breakpoints": true
+    },
+    {
+      "idx": 19,
+      "version": "7",
+      "when": 1787801108728,
+      "tag": "0019_bitacora_de_crons",
+      "breakpoints": true
     }
   ]
 }

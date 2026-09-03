@@ -8,13 +8,14 @@ import { cn } from "@/lib/utils";
 import { useUpdatePage } from "./pages.hooks";
 import { useSharedEditor } from "./EditorContext";
 import { TableMenus } from "./TableMenus";
+import { CodexChips } from "@/features/entities/CodexChips";
 import { CodexSelectionActions } from "./CodexBubbleMenu";
 import { EntityFicheSheet } from "@/features/entities/EntityFicheSheet";
 import { StickyNoteCreator } from "@/features/sticky-notes/StickyNoteCreator";
-import type { PageDetail } from "./pages.types";
+import type { PageDetailTransport } from "./pages.types";
 
 interface NotebookEditorProps {
-  page: PageDetail;
+  page: PageDetailTransport;
   systemId: string;
   pageId?: string;
   /** Arquetipo Writing: activa la tipografía serif de lectura (PLAN-11 §7). */
@@ -114,6 +115,14 @@ export function NotebookEditor({ page, systemId, pageId, writer = false }: Noteb
           className="w-full bg-transparent text-3xl font-bold placeholder:text-muted-foreground/40 focus:outline-none border-none p-0"
           maxLength={500}
         />
+        {/* El codex a un toque mientras escribes. En escritorio no: ahí el rail
+            del panel derecho ya lo cubre y esta fila sería una segunda forma de
+            hacer lo mismo. */}
+        {writer && (
+          <div className="md:hidden">
+            <CodexChips pageId={page.id} systemId={systemId} />
+          </div>
+        )}
         <div className={cn("tiptap-editor flex-1 relative", writer && "tiptap-writer")}>
           {editor && (
             <BubbleMenu editor={editor}>

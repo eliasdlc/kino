@@ -12,6 +12,8 @@ import {
 } from 'react';
 import { toast } from 'sonner';
 import { useQueryClient } from '@tanstack/react-query';
+import { api } from "@/shared/api/client";
+import { ENERGY_LABELS } from "./task-detail.helpers";
 
 // ── Types ─────────────────────────────────────────────────────────────────
 
@@ -204,7 +206,7 @@ function RecapToast({ taskTitle, workedLabel, estimateMsg, writing = false, onEn
             onClick={() => onEnergy(level)}
             className="flex-1 py-1.5 rounded-lg text-sm border border-border hover:bg-accent transition-colors"
           >
-            {level === 'high' ? '🔥 Alta' : level === 'medium' ? '⚡ Media' : '🌙 Baja'}
+            {ENERGY_LABELS[level]}
           </button>
         ))}
       </div>
@@ -317,11 +319,18 @@ export function FocusTimerProvider({ children }: { children: ReactNode }) {
           .then(() => queryClient.invalidateQueries({ queryKey: ['writing'] }))
           .catch(() => {});
       }
-      return fetch(`/api/tasks/${taskId}/time-log`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ systemId, startedAt, endedAt, durationMinutes: workedMinutes, source: state.mode === 'pomodoro' ? 'pomodoro' : 'timer' }),
-      })
+      // Con `pageId` ya se volvió arriba, así que aquí hay tarea; el guard es
+      // para el compilador, que no puede saberlo desde el `if` de la línea 291.
+      if (!taskId) return Promise.resolve();
+      return api.tasks
+        .createTimeLog({
+          id: taskId,
+          systemId,
+          startedAt,
+          endedAt,
+          durationMinutes: workedMinutes,
+          source: state.mode === 'pomodoro' ? 'pomodoro' : 'timer',
+        })
         .then(() => queryClient.invalidateQueries({ queryKey: ['time-logs', taskId] }))
         .catch(() => {});
     };

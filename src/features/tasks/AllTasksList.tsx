@@ -22,7 +22,7 @@ import { useQuickAddStore } from './quick-add.store';
 import { BulkActionBar } from './BulkActionBar';
 import { CascadeInboxMode } from './CascadeInboxMode';
 import { OverdueGroup, getOverdueTasks } from './OverdueGroup';
-import type { Task } from './tasks.types';
+import type { TaskTransport } from './tasks.types';
 
 interface SystemInfo {
   id: string;
@@ -57,8 +57,8 @@ export function AllTasksList({ systems }: AllTasksListProps) {
 
   const filters = useMemo(() => parseFiltersFromParams(searchParams), [searchParams]);
   const [showFilters, setShowFilters] = useState(false);
-  const [selectedTask, setSelectedTask] = useState<Task | null>(null);
-  const [deleteTarget, setDeleteTarget] = useState<Task | null>(null);
+  const [selectedTask, setSelectedTask] = useState<TaskTransport | null>(null);
+  const [deleteTarget, setDeleteTarget] = useState<TaskTransport | null>(null);
   const [selectedTaskIds, setSelectedTaskIds] = useState<Set<string>>(new Set());
   const [cascadeOpen, setCascadeOpen] = useState(false);
 
@@ -126,7 +126,7 @@ export function AllTasksList({ systems }: AllTasksListProps) {
   // esc clears selection (only when something is selected, avoids conflicting with other esc handlers)
   useHotkey('escape', clearSelection, { enabled: selectedTaskIds.size > 0 });
 
-  function renderRows(items: Task[]) {
+  function renderRows(items: TaskTransport[]) {
     if (filters.view === 'grid') {
       return (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 px-4 py-3">
@@ -164,7 +164,7 @@ export function AllTasksList({ systems }: AllTasksListProps) {
     );
   }
 
-  function renderGrouped(items: Task[]) {
+  function renderGrouped(items: TaskTransport[]) {
     if (!filters.group) return renderRows(items);
     const grouped = groupTasks(items, filters.group);
     const keys = [...grouped.keys()].sort(
@@ -290,7 +290,7 @@ export function AllTasksList({ systems }: AllTasksListProps) {
           onVaciar={selectedTaskIds.size > 0 ? () => setCascadeOpen(true) : undefined}
         />
 
-        {/* Task list */}
+        {/* TaskTransport list */}
         {isLoading ? (
           <div className="px-4 py-3 space-y-2">
             {[...Array(5)].map((_, i) => (

@@ -49,6 +49,13 @@ export function createKinoFetch({
     if (res.status === 429) {
       throw new Error('Kino: rate limited. Wait a moment and try again.');
     }
+    // A 409 is the one error the agent can actually recover from on its own, so
+    // it says how instead of surfacing a bare status code.
+    if (res.status === 409) {
+      throw new Error(
+        `Kino: conflict (409) on ${path}. Something changed since you read it — read it again, apply your change on top of the new version, and retry. ${await res.text()}`,
+      );
+    }
     if (!res.ok) {
       const text = await res.text();
       throw new Error(`Kino: server error ${res.status} on ${path} — ${text}`);

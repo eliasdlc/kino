@@ -6,7 +6,7 @@ Plataforma de productividad construida alrededor de la gestión de energía cogn
 >
 > En Linear: los proyectos van numerados `01`–`07` en orden de ejecución. Los documentos del equipo *Norte, principios y estándares*, *Estado real del producto* e *Índice de decisiones D1–D16* son la fuente de verdad de qué se construye y por qué.
 >
-> **En este repo solo se aceptan tres Markdown:** `README.md`, `AGENTS.md` y `DESIGN.md`. Ningún plan, audit ni análisis. Las notas locales que no son código van a `~/Documents/Kino/dev/`.
+> **En este repo solo se aceptan dos Markdown:** `README.md` y `AGENTS.md`. Ningún plan, audit ni análisis. Un `DESIGN.md` sería el único tercero admisible, y sólo el día que el sistema de diseño necesite su propio documento; hoy no existe. Las notas locales que no son código van a `~/Documents/Kino/dev/`.
 
 ## Comandos
 
@@ -17,10 +17,12 @@ pnpm build                          # Build de producción
 pnpm lint                           # ESLint strict — debe pasar con 0 errores
 pnpm typecheck                      # tsc --noEmit — debe pasar
 pnpm db:generate                    # drizzle-kit generate (migraciones)
-pnpm db:migrate                     # Aplicar migraciones
+pnpm db:migrate                     # Aplicar migraciones a la base de DATABASE_URL (local: rama de desarrollo)
 pnpm db:studio                      # Drizzle Studio
-pnpm test                           # Suite completa
+pnpm test                           # Suite completa (lógica pura, sin base)
 pnpm test -- --run <path>           # Un solo archivo de test
+pnpm test:integration               # Batería de integración contra Postgres (PGlite, sin Docker)
+pnpm mcp:generate                   # Vuelca el contrato en las operaciones que ve el MCP
 ```
 
 **Siempre** correr `pnpm typecheck && pnpm lint` después de cualquier cambio. Si alguno falla, se arregla antes de commitear.
@@ -31,13 +33,19 @@ pnpm test -- --run <path>           # Un solo archivo de test
 - **Lenguaje**: TypeScript strict
 - **ORM**: Drizzle
 - **Base de datos**: PostgreSQL (Neon) con `uuid-ossp` y `ltree`
-- **Auth**: Better Auth — sesiones stateful en Postgres, cookies HttpOnly, **sin JWT**
+- **Auth**: Better Auth — sesiones stateful en Postgres, cookies HttpOnly. La sesión del navegador nunca es un JWT; el plugin `jwt` existe sólo para el OAuth 2.1 del MCP (ver restricción 5)
+- **Email transaccional**: Resend por API REST (`src/shared/email`, sin SDK). `RESEND_API_KEY` + `EMAIL_FROM`; sin la key, el correo se omite sin romper el flujo: en dev se imprime en consola y en producción queda un aviso en el log
 - **Server state**: TanStack Query v5
 - **Formularios**: react-hook-form + zodResolver
 - **Estilos**: Tailwind + shadcn/ui (Radix)
 - **Toasts**: sonner · **Gráficas**: Recharts · **Fechas**: date-fns · **Recurrencia**: rrule
 - **Editor**: Tiptap v3
 - **Background**: Lazy Evaluation (catch-up al entrar) + Vercel Cron + cron externo
+- **Errores**: Sentry en navegador, API y crons. Inerte sin `NEXT_PUBLIC_SENTRY_DSN`;
+  el recorte de datos personales vive en `src/shared/observability/sentry-options.ts`
+- **Analítica de producto**: PostHog sin cookies, sólo el funnel de registro.
+  Inerte sin `NEXT_PUBLIC_POSTHOG_KEY`; los eventos que existen y las propiedades
+  que cada uno puede llevar son una lista cerrada en `src/shared/observability/analytics.ts`
 - **Deploy**: Vercel + Neon
 - **Package manager**: pnpm (NO npm, NO yarn)
 
@@ -47,29 +55,104 @@ pnpm test -- --run <path>           # Un solo archivo de test
 2. **Sin Redis, sin BullMQ, sin servidor persistente.** 100% serverless.
 3. **Sin WebSockets.** Vercel Serverless no soporta conexiones persistentes. Lo que refresca hoy es `refetchOnWindowFocus`, el default de TanStack Query: con un solo usuario, volver a la pestaña llega a tiempo. `refetchInterval` no se usa en ningún sitio y no es la alternativa prescrita: cada intervalo activo es una invocación por usuario y por minuto contra el free tier. La señal que reabriría la decisión es el agente MCP escribiendo mientras miras el tablero.
 4. **10s por función, salvo excepción justificada.** Es el presupuesto por defecto y las rutas que lo declaran usan `export const maxDuration = 10`. La única excepción viva es `/api/mcp`, en 60s, porque el protocolo mantiene la petición abierta mientras el agente encadena herramientas. Subir el límite en una ruta nueva es una decisión, no un ajuste: escríbela en el comentario de la ruta. Paginar lo pesado sigue siendo la respuesta primero.
-5. **Sin JWT.** Better Auth con sesiones en Postgres.
+5. **La sesión del navegador no es un JWT.** Better Auth guarda sesiones con estado en Postgres y las entrega en una cookie HttpOnly, para que revocar una sesión la revoque de verdad. Un token de vida propia que el servidor no puede invalidar no vale como sesión, y eso es lo que la regla protege.
+
+   Lo que sí lleva JWT es el conector MCP: `auth.ts` monta el plugin `jwt` para firmar los access tokens del OAuth 2.1 y publicar el JWKS que los verifica. Son tokens de una aplicación cliente, con caducidad corta y su propia tabla, no la identidad de nadie en el navegador.
 6. **`system_id` es NOT NULL en tasks.** Toda tarea pertenece a un sistema; Inbox es el default. No hay tareas flotantes.
 7. **Timestamps en UTC** (TIMESTAMPTZ). El frontend convierte para mostrar.
 8. **Soft delete** en tasks y pages vía `deleted_at`. Siempre filtrar con `WHERE deleted_at IS NULL`.
 
-**Dato de operación crítico:** development y production **comparten la misma base Neon**. No hay branch de datos: `pnpm db:migrate` desde local escribe en producción. Toda migración debe ser compatible hacia atrás con el código ya desplegado.
+## Entornos y base de datos
+
+Producción y desarrollo son **dos ramas de Neon** con cadenas de conexión distintas. Ninguna laptop tiene la de producción.
+
+| Entorno | Quién la usa | `DATABASE_URL` |
+|---|---|---|
+| Producción | el deploy de `main` en Vercel | variable **Production** de Vercel, y en ningún otro sitio |
+| Desarrollo | los previews de Vercel (PRs y `dev`) y el `.env.local` de cada máquina | rama de desarrollo de Neon: variable **Preview** de Vercel y `.env.local` |
+| Local aislado | `docker compose up -d`, y la batería de integración cuando se la apunta ahí con `TEST_DATABASE_URL` (hace `TRUNCATE`) | `postgresql://kino:kino_dev_password@localhost:5433/kino` |
+
+**Las migraciones a producción las aplica sólo el despliegue.** El `buildCommand` de `vercel.json` corre `pnpm db:migrate` antes de `next build` con la variable del entorno que está construyendo: un preview migra la rama de desarrollo y el deploy de `main` migra producción. Si la migración falla, el build falla y el deploy anterior sigue arriba; el código nunca sale sin su schema. `pnpm db:migrate` desde local sólo llega a la base de `.env.local`.
+
+Toda migración sigue teniendo que ser **compatible hacia atrás** con el código ya desplegado: el build migra antes de publicar, y entre una cosa y la otra el código viejo lee el schema nuevo.
+
+**Respaldo.** Neon Free guarda 6 horas de historial y nada más. `.github/workflows/backup.yml` vuelca producción a un bucket de Cloudflare R2 a las 05:23 UTC: `pg_dump -Fc` cifrado con `age`, en `scripts/backup/dump.sh`. La retención de 30 días es una regla de ciclo de vida del bucket, no lógica del workflow.
+
+Ese volcado ocurre sólo si se cumplen **dos condiciones que no son código**, y por eso este documento no afirma que esté ocurriendo:
+
+1. El workflow existe en `main`. GitHub dispara `schedule:` únicamente desde la rama por defecto, y `workflow_dispatch` tampoco aparece en la interfaz si el fichero no está allí. Tenerlo en `dev` no hace nada.
+2. Los seis secretos del repositorio están cargados: `BACKUP_DATABASE_URL` (cadena **directa**, sin `-pooler`), `BACKUP_AGE_RECIPIENT` (pública `age1...`), `R2_ACCOUNT_ID`, `R2_ACCESS_KEY_ID`, `R2_SECRET_ACCESS_KEY`, `R2_BUCKET`.
+
+Cómo se comprueba si está corriendo de verdad, sin creerle a este párrafo:
+
+```bash
+gh run list --workflow=backup.yml
+```
+
+Sin ejecuciones ahí, el único respaldo de producción son las 6 horas de Neon. El workflow falla en rojo ante cualquier secreto ausente o vacío, y sólo se pone verde después de comprobar contra R2 que el objeto existe y mide lo que debe.
+
+La clave privada `age` no está en ningún servicio: vive en el gestor de contraseñas de Elias. Sin ella los volcados son ruido indescifrable, y es el único secreto del sistema que no se puede rotar sin invalidar todo lo guardado hasta ese momento. La base de producción cabe en el runner: si alguna vez el volcado supera lo que R2 regala (10 GB), es una decisión, no un ajuste.
+
+Las variables de entorno están documentadas en **`.env.example`**, una línea por clave con para qué sirve y si es obligatoria. Toda variable nueva se añade ahí en el mismo commit que la lee.
+
+### Restaurar un respaldo
+
+Los tres scripts de `scripts/backup/` están hechos para leerse en este orden y a las tres de la mañana. `restore.sh` aplica el volcado con `--clean --if-exists`: **borra y recrea cada objeto del destino**, no añade. Nunca lo apuntes a una base cuyo contenido te importe.
+
+```bash
+# 1. Requisitos: age, pg_restore 17 o más nuevo, y la clave privada.
+age --version && pg_restore --version
+export AGE_IDENTITY_FILE=~/.config/kino/backup-age.key   # la del gestor de contraseñas
+
+# 2. Credenciales de R2 y el objeto. La lista sale con el más reciente al final.
+export AWS_ACCESS_KEY_ID=...  AWS_SECRET_ACCESS_KEY=...  AWS_DEFAULT_REGION=auto
+export R2_ENDPOINT="https://<R2_ACCOUNT_ID>.r2.cloudflarestorage.com"
+aws s3 ls "s3://<R2_BUCKET>/" --endpoint-url "$R2_ENDPOINT" | sort | tail -5
+aws s3 cp "s3://<R2_BUCKET>/kino-<fecha>.dump.age" . --endpoint-url "$R2_ENDPOINT"
+
+# 3. El destino, siempre cadena DIRECTA (sin -pooler).
+export TARGET_URL='postgresql://...'
+
+# 4. Huella del origen, si todavía se puede leer.
+scripts/backup/verify.sh "$ORIGEN_URL" > origen.txt
+
+# 5. Restaurar. Imprime cuánto tardó, que es el tiempo de caída real.
+scripts/backup/restore.sh kino-<fecha>.dump.age
+
+# 6. Comprobar que llegó todo. Sin salida en el diff = restauración completa.
+scripts/backup/verify.sh "$TARGET_URL" > destino.txt
+diff origen.txt destino.txt
+```
+
+`verify.sh` sólo lee, y cuenta justo lo que un volcado incompleto pierde primero: filas por tabla, cuadernos con texto y sus bytes, entidades con relaciones, y tareas con sistema.
+
+**Para ensayar**, crea una rama nueva de Neon y restaura sobre ella. En un destino vacío los `DROP ... IF EXISTS` no borran nada, y así el ensayo no toca la rama de desarrollo que alguien pueda estar usando. **En un desastre real** el origen ya no existe para comparar: corre `verify.sh` sólo sobre el destino y contrasta los números contra lo que esperabas.
+
+Ensayo local sobre el schema actual (35 tablas, 10 MB, 500 tareas, 120 cuadernos con 626 400 bytes de contenido, 80 entidades y 300 relaciones): volcado 1 s y 144 KB cifrados, restauración 2 s sobre base vacía y 5 s sobre base poblada, `diff` vacío en ambas. Lo que esos números **no** miden es Neon con la red de por medio y el tamaño real de producción; ese dato sale la primera vez que se restaure allí.
 
 ## Estructura — vertical slice
 
 ```
 src/features/{feature}/
-├── {feature}.routes.ts      # Handlers de API Routes
+├── {feature}.contract.ts    # Qué entra, qué sale y por qué URL
+├── {feature}.router.ts      # Implementación del contrato
 ├── {feature}.service.ts     # Lógica de negocio (funciones puras donde se pueda)
-├── {feature}.queries.ts     # Queries Drizzle
 ├── {feature}.schemas.ts     # Schemas Zod + DTOs
-└── {feature}.types.ts       # Tipos propios del slice
+├── {feature}.types.ts       # Tipos propios del slice
+└── {feature}.queries.ts     # Opcional — ver abajo
 ```
+
+`.queries.ts` lo tienen 8 de los 27 slices, y es a propósito: se separa cuando el
+volumen de queries hace ilegible el servicio, no por norma. En los otros 19 las
+queries de Drizzle viven dentro del `.service.ts`, y eso es la forma correcta
+ahí. La regla real es que el acceso a datos no sale del slice, no en qué archivo
+está.
 
 Cada feature es autocontenida en lo que puede. Tipos, hooks y componentes cruzan entre slices cuando hace falta: `systems` renderiza las tarjetas de `tasks` porque un sistema enseña tareas, y eso no es acoplamiento accidental.
 
 Lo que sí es una decisión: **un `.service.ts` no importa el `.service.ts` de otro slice salvo que orquestar sea su trabajo.** `insights` y `scheduler` orquestan y por eso importan tres servicios cada uno; el resto no debería. Si un servicio necesita lógica de otro y no está orquestando, esa lógica va a `shared` (como `shared/lib/word-count`, que usaban `pages` y `writing` a la vez y creaba un ciclo entre los dos slices).
 
-No hay `index.ts` por slice ni regla de lint que lo verifique, y es a propósito: con dieciséis slices y un desarrollador, declarar una superficie pública por slice cuesta más de lo que evita.
+No hay `index.ts` por slice ni regla de lint que lo verifique, y es a propósito: con veintisiete slices y un desarrollador, declarar una superficie pública por slice cuesta más de lo que evita.
 
 ## Convenciones de código
 
@@ -81,15 +164,17 @@ Los query keys se declaran como **factory por feature** (`taskKeys`, `pageKeys`,
 
 ### Mutaciones — patrón optimista canónico
 
-**Todas** las mutaciones lo usan, sin excepción: UI optimista siempre, rollback en error, invalidate en settled.
+**Todas** las mutaciones lo usan, sin excepción: UI optimista siempre, rollback en error, invalidate en settled. El patrón no se escribe a mano: vive en `src/shared/hooks/optimistic.ts`, en tres formas según sobre qué se aplique.
 
-```ts
-onMutate:  cancelQueries → snapshot del cache → setQueryData optimista → return { prev }
-onError:   setQueryData(prev)  // rollback
-onSettled: invalidateQueries
-```
+| Hook | Para qué |
+|---|---|
+| `useOptimisticList` | Una lista bajo una key. Completar, borrar, editar o mover dentro de ella |
+| `useOptimisticRecord` | Un registro bajo una key. Ajustes, la rejilla de escenas, la cronología |
+| `useOptimisticScope` | Todas las listas de un prefijo. Una tarea se ve a la vez en el plan de hoy, en la lista global y en la de su sistema |
 
-La referencia canónica vive en `src/features/tasks/tasks.hooks.ts` (Rumbo 05). Si lo tocas, no rompas esa referencia.
+La invalidación es parte del hook, no una decisión por mutación: ahí estaba el riesgo real, con uno invalidando un prefijo y otro una clave exacta, y la diferencia notándose sólo con dos vistas abiertas.
+
+Lo que no cabe —leer de una cache y escribir en otra, o una creación encolable sin conexión— se escribe inline **con un comentario diciendo por qué**. Son cinco casos y los cinco lo llevan.
 
 ### Fechas y timezone
 
@@ -99,9 +184,51 @@ La referencia canónica vive en `src/features/tasks/tasks.hooks.ts` (Rumbo 05). 
 - `dueDate` y `startDate` son **`timestamptz` con hora opcional**, no columnas DATE. Cuidado con el off-by-one.
 - El cálculo de "hoy" y de slots para lógica de negocio se hace **en el servidor** con la timezone del usuario. El cliente solo pinta — así un reloj mal puesto en el cliente no corrompe el plan.
 
+### El contrato de la API
+
+Un slice migrado declara su API en `{feature}.contract.ts`: método, URL, schema de
+entrada y **schema de salida**. De ahí salen las dos puntas: `{feature}.router.ts`
+la implementa y `@/shared/api/client` la consume tipada. Cambiar la salida de un
+endpoint rompe el `typecheck` en el hook que la lee, que es justo lo que antes no
+pasaba porque el cliente afirmaba la respuesta con un cast.
+
+- **Un contrato por slice, al lado de sus schemas.** Lo único central es la
+  composición: `shared/api/contract.router.ts` (lo que importa el cliente) y
+  `shared/api/router.ts` (lo que sirve el servidor).
+- **Los schemas de entrada no se reescriben:** son los mismos de
+  `{feature}.schemas.ts`. Las rutas con params llevan el param dentro del schema
+  y oRPC lo saca de la URL.
+- **La salida se declara con `type<Fila, Transport<Fila>>(toTransport)`.** El tipo
+  del cliente se deriva de la tabla, y como la fila y su forma de transporte no
+  son el mismo tipo, el compilador exige la conversión.
+- **Los permisos salen del contrato:** el scope se deriva del método y `meta` es
+  la excepción (`{ scope }` para los POST que sólo leen, `{ sessionOnly: true }`
+  para lo que toca credenciales).
+- **Añadir un endpoint no toca `app/`.** `src/app/api/[...rest]/route.ts` es un
+  catch-all y sirve toda la API. Los pocos `route.ts` que quedan son los que no
+  caben en el contrato —el handler de Better Auth, `/api/mcp`, los cron, los dos
+  302 de GitHub, los dos ZIP de export y las dos de `uploads`— y cada uno tiene
+  su razón escrita en ese archivo. `route()` sobrevive sólo como la escotilla de
+  esos casos.
+- **Los códigos de error no cambian:** 401 `UNAUTHORIZED`, 403 `INSUFFICIENT_SCOPE`
+  / `SESSION_REQUIRED`, 404 `NOT_FOUND`, 400 `VALIDATION_ERROR` de schema, 422
+  `VALIDATION_ERROR` de regla de dominio, 409 `CONFLICT` cuando el recurso está
+  bien y quien falla es el momento (una versión vieja, un enlace repetido), 500
+  `INTERNAL_ERROR`. La traducción vive en `shared/api/handler.ts` y en
+  `shared/api/procedures.ts`.
+
+**Las tools del MCP salen de aquí.** `packages/mcp` se publica en npm y no puede importar `src/`, así que el contrato viaja hasta él como código generado (`pnpm mcp:generate` → `packages/mcp/src/generated/operations.ts`). El paquete sólo escribe a mano lo que el agente lee: el nombre y la descripción de cada tool, en `catalog.ts`, que es un mapa **exhaustivo** sobre las operaciones. Un endpoint nuevo no compila hasta que alguien decide si es una tool o un `null` explícito, y un test comprueba que lo commiteado coincide con el contrato.
+
+Lo que cruza la red no es una fila: `Transport<T>` (en `shared/api/transport.ts`)
+convierte las fechas en texto ISO, que es lo que sobrevive a un `JSON.stringify`.
+El cliente usa `TaskTransport`, no `Task`, y un Server Component que pase filas
+como `initialData` tiene que llamar a `toTransport` primero.
+
 ### Validación
 
 Una sola fuente Zod por entidad, importada por servidor y cliente. El backend **siempre** valida aunque el cliente ya lo hizo. `userId` **siempre** viene de la sesión, nunca del body. Los `metadata` jsonb se validan con Zod discriminado por `systemType` — metadata no es un saco.
+
+Las rutas que tocan credenciales o borran la cuenta (`/api/account/*`) llevan `sessionOnly: true` — en `route()` si el slice no está migrado, en el `meta` del contrato si lo está: sólo la sesión del navegador, nunca una clave API ni un token OAuth del MCP, aunque sean del mismo usuario.
 
 ### Estado
 
@@ -132,6 +259,25 @@ CSS puro — keyframes, transitions, Tailwind. **No instalar Framer Motion.** An
 - Todo cambio de UI se previsualiza en **`/system-design`** y añade su specimen.
 - Cada ruta con su `loading.tsx`, cubierta por un `error.tsx`.
 
+### Tests
+
+Dos baterías, y la diferencia es si hay base de por medio.
+
+- **`*.test.ts` / `*.test.tsx` → `pnpm test`.** Lógica pura y componentes. Mockean `@/shared/db`; no tocan Postgres y por eso la suite entera tarda segundos.
+- **`*.itest.ts` → `pnpm test:integration`.** Lo que sólo contesta una base: `ltree`, la búsqueda full-text, las transacciones, el aislamiento entre usuarios y el contrato de punta a punta (petición HTTP real con una clave API real). Un mock aquí sólo confirmaría que la consulta lleva el filtro, no que Postgres lo respete.
+
+La base de integración la levanta `src/shared/db/testing/setup.ts`, **una por archivo de test**: PGlite (Postgres en WASM, en memoria, con `ltree`, `uuid-ossp` y `unaccent`) hablando el protocolo de cable, así que el driver sigue siendo el `postgres-js` de producción. No hace falta Docker y los archivos corren en paralelo. Un `.itest.ts` nuevo no configura nada: pide sus dos usuarios a `resetAndSeedActors()` y ya.
+
+Para correr la misma batería contra el motor exacto de producción (PGlite va por Postgres 18; producción y el compose, por 17):
+
+```bash
+docker compose up -d
+DATABASE_URL="postgresql://kino:kino_dev_password@localhost:5433/kino" pnpm db:migrate
+TEST_DATABASE_URL="postgresql://kino:kino_dev_password@localhost:5433/kino" pnpm test:integration
+```
+
+Un test de integración vale lo que vale su versión rota: si se invierte el operador o se le quita el idioma a la consulta y la batería sigue verde, el test no estaba probando la consulta.
+
 ### El manifiesto de arquetipo
 
 `src/shared/lib/system-types.ts` es la fuente única de cómo se comporta cada `systemType`: vocabulario, `folderRole`, `pageRole`, `taskKinds`. **Nunca hardcodear un label o un comportamiento por tipo de sistema** — se lee del manifiesto. Añadir un arquetipo debe ser añadir una entrada, no un fork de código.
@@ -143,8 +289,8 @@ Lo mismo para los mediums de escritura en `src/shared/lib/mediums.ts`. Ojo: el m
 - **Ramas**: `main` → `dev` → rama de feature. Nunca push directo a `main`.
 - **Commits**: Conventional Commits, atómicos, **sin trailers de atribución a IA**.
 - Las ramas completadas son registro histórico: **no se borran**.
-- Antes de un PR: `pnpm typecheck && pnpm lint && pnpm test`.
-- Nunca commitear `.env` ni secretos.
+- Antes de un PR: `pnpm typecheck && pnpm lint && pnpm test && pnpm test:integration`.
+- Nunca commitear `.env` ni secretos. `.env.example` es el único `.env` versionado y no lleva valores reales.
 
 ## Definition of Done
 
@@ -159,7 +305,7 @@ Criterio de aceptación cumplido · `typecheck` limpio · `lint` en 0 · tests v
 - **No** introducir Redux ni Jotai, ni meter datos de servidor en un store de Zustand.
 - **No** implementar guards de Premium/subscripción — no existe código de payments.
 - **No** reimplementar cálculos de fecha fuera de `src/shared/time`.
-- **No** crear archivos Markdown en el repo más allá de `README.md`, `AGENTS.md` y `DESIGN.md`.
+- **No** crear archivos Markdown en el repo más allá de `README.md` y `AGENTS.md`.
 
 ## Features en el schema sin implementación activa
 
@@ -181,12 +327,4 @@ Un sistema `project` puede declarar un repositorio en `systems.metadata.github` 
 - **Columnas**: issue cerrado → columna terminal (que completa la tarea por el puente de `moveTaskBoard`); reabierto → sale de la terminal. Las columnas intermedias las mueve la persona y la sincronización no las toca.
 - **Refresco**: bajo demanda al abrir el board o con el botón. Sin cron — la única entrada de `vercel.json` del free tier está ocupada.
 
-Variables de entorno que necesita:
-
-```bash
-ENCRYPTION_KEY            # 32 bytes en base64: openssl rand -base64 32
-GITHUB_SYNC_CLIENT_ID     # OAuth App propio, distinto del de login
-GITHUB_SYNC_CLIENT_SECRET # callback: <NEXT_PUBLIC_APP_URL>/api/integrations/github/callback
-```
-
-Son un OAuth App aparte del login porque GitHub sólo admite **una** URL de callback por app y esa ya la ocupa Better Auth, y porque leer issues privados exige el scope `repo`. Sin estas variables la integración se oculta sola: no rompe nada, simplemente no aparece.
+Necesita `GITHUB_SYNC_CLIENT_ID`, `GITHUB_SYNC_CLIENT_SECRET` y `ENCRYPTION_KEY` (ver `.env.example`). Son un OAuth App aparte del login porque GitHub sólo admite **una** URL de callback por app y esa ya la ocupa Better Auth, y porque leer issues privados exige el scope `repo`. Sin estas variables la integración se oculta sola: no rompe nada, simplemente no aparece.

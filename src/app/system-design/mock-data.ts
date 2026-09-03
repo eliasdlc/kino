@@ -1,17 +1,17 @@
-import type { Task } from "@/features/tasks/tasks.types";
-import type { SystemWithSignals } from "@/features/systems/systems.types";
+import type { TaskTransport } from "@/features/tasks/tasks.types";
+import type { SystemWithSignalsTransport } from "@/features/systems/systems.types";
 import type { FolderWithCounts } from "@/features/folders/folders.types";
-import type { PageListItem, LinkedTask } from "@/features/pages/pages.types";
+import type { PageListItemTransport, LinkedTaskTransport } from "@/features/pages/pages.types";
 import type { StickyNoteItem } from "@/features/sticky-notes/sticky-notes.types";
-import type { Sprint } from "@/features/sprints/sprints.types";
+import type { SprintTransport } from "@/features/sprints/sprints.types";
 import type {
-  TodayCheckinRow,
+  TodayCheckinRowTransport,
   WeeklyTrend,
   LearningInsight,
 } from "@/features/energy/energy.service";
-import type { EnergyPlanItem } from "@/features/energy/energy.planner";
+import type { EnergyPlanItemTransport } from "@/features/energy/energy.planner";
 import type { AdvisorPattern } from "@/features/energy/energy.advisor";
-import type { MentionedEntity, EntityDetail } from "@/features/entities/entities.types";
+import type { MentionedEntityTransport, EntityDetailTransport } from "@/features/entities/entities.types";
 import type {
   WritingOverview,
   WritingSession,
@@ -30,13 +30,14 @@ import type { StudioReport } from "@/features/writing/writing.studio";
  * completas para que cada estado visual sea reproducible sin datos reales.
  */
 
-const NOW = new Date("2026-07-15T12:00:00Z");
+/** Instante fijo del catálogo, en la misma forma que llega por la red. */
+const NOW = "2026-07-15T12:00:00.000Z";
 const uuid = (n: number) => `00000000-0000-4000-8000-${String(n).padStart(12, "0")}`;
 
 export const MOCK_SYSTEM_ID = uuid(1);
 
-export function makeTask(overrides: Partial<Task> = {}): Task {
-  const base: Task = {
+export function makeTask(overrides: Partial<TaskTransport> = {}): TaskTransport {
+  const base: TaskTransport = {
     id: uuid(100),
     userId: uuid(2),
     systemId: MOCK_SYSTEM_ID,
@@ -66,11 +67,12 @@ export function makeTask(overrides: Partial<Task> = {}): Task {
     notifiedDueDay: false,
     reminderCount: 0,
     lastRemindedAt: null,
+    clientRequestId: null,
     completedAt: null,
     deletedAt: null,
     createdAt: NOW,
     updatedAt: NOW,
-  } as Task;
+  } as unknown as TaskTransport;
   return { ...base, ...overrides };
 }
 
@@ -81,8 +83,8 @@ export function daysFromNow(days: number): string {
   return d.toISOString();
 }
 
-export function makeSystem(overrides: Partial<SystemWithSignals> = {}): SystemWithSignals {
-  const base: SystemWithSignals = {
+export function makeSystem(overrides: Partial<SystemWithSignalsTransport> = {}): SystemWithSignalsTransport {
+  const base: SystemWithSignalsTransport = {
     id: uuid(1),
     userId: uuid(2),
     name: "Universidad",
@@ -99,10 +101,11 @@ export function makeSystem(overrides: Partial<SystemWithSignals> = {}): SystemWi
     sortOrder: 0,
     createdAt: NOW,
     updatedAt: NOW,
+    lastActivityAt: NOW,
     stale: false,
     daysSinceLastActivity: 1,
     activeTaskCount: 8,
-  } as SystemWithSignals;
+  } as SystemWithSignalsTransport;
   return { ...base, ...overrides };
 }
 
@@ -121,8 +124,8 @@ export function makeFolder(overrides: Partial<FolderWithCounts> = {}): FolderWit
   return { ...base, ...overrides };
 }
 
-export function makePage(overrides: Partial<PageListItem> = {}): PageListItem {
-  const base: PageListItem = {
+export function makePage(overrides: Partial<PageListItemTransport> = {}): PageListItemTransport {
+  const base: PageListItemTransport = {
     id: uuid(300),
     title: "Notas de la reunión",
     folderId: null,
@@ -136,7 +139,7 @@ export function makePage(overrides: Partial<PageListItem> = {}): PageListItem {
     wordCount: 482,
     tags: [],
     subPageCount: 0,
-  } as unknown as PageListItem;
+  } as unknown as PageListItemTransport;
   return { ...base, ...overrides };
 }
 
@@ -159,8 +162,8 @@ export function makeStickyNote(overrides: Partial<StickyNoteItem> = {}): StickyN
   return { ...base, ...overrides };
 }
 
-export function makeLinkedTask(overrides: Partial<LinkedTask> = {}): LinkedTask {
-  const base: LinkedTask = {
+export function makeLinkedTask(overrides: Partial<LinkedTaskTransport> = {}): LinkedTaskTransport {
+  const base: LinkedTaskTransport = {
     id: uuid(500),
     title: "Enviar borrador al profesor",
     status: "today",
@@ -174,26 +177,22 @@ export function makeLinkedTask(overrides: Partial<LinkedTask> = {}): LinkedTask 
     folderId: null,
     systemId: MOCK_SYSTEM_ID,
     parentTaskId: null,
-  } as LinkedTask;
+  } as LinkedTaskTransport;
   return { ...base, ...overrides };
 }
 
-export function makeSprint(overrides: Partial<Sprint> = {}): Sprint {
-  const base = {
+export function makeSprint(overrides: Partial<SprintTransport> = {}): SprintTransport {
+  const base: SprintTransport = {
     id: uuid(600),
-    userId: uuid(2),
     systemId: MOCK_SYSTEM_ID,
     name: "Sprint 3",
     goal: "Cerrar el flujo de onboarding",
-    startDate: new Date(daysFromNow(-7)),
-    endDate: new Date(daysFromNow(7)),
+    startDate: daysFromNow(-7),
+    endDate: daysFromNow(7),
     status: "active",
     completedAt: null,
     sortOrder: 0,
-    externalId: null,
-    createdAt: NOW,
-    updatedAt: NOW,
-  } as unknown as Sprint;
+  };
   return { ...base, ...overrides };
 }
 
@@ -205,24 +204,24 @@ export const MOCK_CURVE: number[] = [
   60, 50, 45, 40, 35,
 ];
 
-export function makeCheckin(overrides: Partial<TodayCheckinRow> = {}): TodayCheckinRow {
+export function makeCheckin(overrides: Partial<TodayCheckinRowTransport> = {}): TodayCheckinRowTransport {
   const morning = new Date();
   morning.setHours(9, 15, 0, 0);
-  const base: TodayCheckinRow = {
+  const base: TodayCheckinRowTransport = {
     id: uuid(700),
     slot: "morning",
     currentLevel: 72,
     sleepQuality: "good",
     predictionAccuracy: null,
-    createdAt: morning,
+    createdAt: morning.toISOString(),
   };
   return { ...base, ...overrides };
 }
 
 export function makeEnergyPlanItem(
-  task: Task,
-  overrides: Partial<Omit<EnergyPlanItem, "task">> = {}
-): EnergyPlanItem {
+  task: TaskTransport,
+  overrides: Partial<Omit<EnergyPlanItemTransport, "task">> = {}
+): EnergyPlanItemTransport {
   return {
     task,
     scheduledStartMinute: 9 * 60,
@@ -289,8 +288,8 @@ export const MOCK_PAGE_ID = uuid(3);
 export const MOCK_FOLDER_ID = uuid(4);
 
 export function makeMentionedEntity(
-  overrides: Partial<MentionedEntity> = {},
-): MentionedEntity {
+  overrides: Partial<MentionedEntityTransport> = {},
+): MentionedEntityTransport {
   return {
     id: uuid(300),
     name: "Aurelia Vance",
@@ -302,7 +301,7 @@ export function makeMentionedEntity(
   };
 }
 
-export function makeEntityDetail(overrides: Partial<EntityDetail> = {}): EntityDetail {
+export function makeEntityDetail(overrides: Partial<EntityDetailTransport> = {}): EntityDetailTransport {
   return {
     id: uuid(300),
     systemId: MOCK_SYSTEM_ID,
@@ -349,7 +348,7 @@ export function makeWritingOverview(
     dailyWordGoal: 1_000,
     peakWindow: { start: 9, end: 11 },
     currentHour: 10,
-    works: [{ folderId: MOCK_FOLDER_ID, lastSessionAt: NOW.toISOString(), daysSinceLastSession: 0 }],
+    works: [{ folderId: MOCK_FOLDER_ID, lastSessionAt: NOW, daysSinceLastSession: 0 }],
     ...overrides,
   };
 }

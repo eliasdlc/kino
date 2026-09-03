@@ -14,18 +14,15 @@ import {
   ResponsiveDialogTitle,
 } from '@/components/ui/responsive-dialog';
 import { taskKeys, allTasksKey } from '@/features/tasks/tasks.keys';
-import { WEEKDAY_LABELS, type WeeklyRitual, type RitualAssignment } from './energy.ritual';
+import { WEEKDAY_LABELS, type RitualAssignment } from './energy.ritual';
+import { api } from '@/shared/api/client';
 
 export const weeklyRitualKey = () => ['energy', 'weekly-ritual'] as const;
 
 export function useWeeklyRitual(enabled = true) {
-  return useQuery<WeeklyRitual>({
+  return useQuery({
     queryKey: weeklyRitualKey(),
-    queryFn: async () => {
-      const res = await fetch('/api/rituals/weekly');
-      if (!res.ok) throw new Error('No se pudo cargar la revisión semanal');
-      return res.json() as Promise<WeeklyRitual>;
-    },
+    queryFn: () => api.energy.weeklyRitual({}),
     enabled,
     staleTime: 5 * 60_000,
   });
@@ -65,17 +62,10 @@ export function WeeklyRitualDialog({ open, onOpenChange }: WeeklyRitualDialogPro
   );
 
   const { mutate: apply, isPending } = useMutation({
-    mutationFn: async () => {
-      const res = await fetch('/api/rituals/weekly', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          assignments: assignments.map((a) => ({ taskId: a.taskId, date: a.date })),
-        }),
-      });
-      if (!res.ok) throw new Error('No se pudo aplicar el reparto');
-      return res.json() as Promise<{ applied: unknown[]; failed: Array<{ message: string }> }>;
-    },
+    mutationFn: () =>
+      api.energy.applyWeeklyRitual({
+        assignments: assignments.map((a) => ({ taskId: a.taskId, date: a.date })),
+      }),
     onSuccess: (result) => {
       const n = result.applied.length;
       if (result.failed.length > 0) {

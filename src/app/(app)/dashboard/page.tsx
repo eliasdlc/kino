@@ -36,6 +36,7 @@ import { NotificationPromptCard } from "@/features/dashboard/NotificationPromptC
 import { WeeklyRitualPrompt } from "@/features/energy/WeeklyRitualPrompt";
 import { DashboardBottomRow } from "@/features/dashboard/DashboardBottomRow";
 import { getServerSession } from "@/shared/utils/session";
+import { toTransport } from "@/shared/api/transport";
 
 export const metadata = { title: "Inicio - Kino" };
 
@@ -62,7 +63,7 @@ export default async function DashboardPage() {
         <div className="dashboard-plan overflow-hidden motion-safe:animate-in motion-safe:fade-in motion-safe:slide-in-from-bottom-3 motion-safe:duration-500 motion-safe:fill-mode-both">
           <TodayPlanCard
             noProfile={dailyPlan.noProfile}
-            energyItems={dailyPlan.energyPlan?.items}
+            energyItems={toTransport(dailyPlan.energyPlan?.items)}
           />
         </div>
 
@@ -72,7 +73,7 @@ export default async function DashboardPage() {
           style={{ animationDelay: "80ms" }}
         >
           <EnergyTodayCard
-            initialCheckins={dailyPlan.checkins}
+            initialCheckins={toTransport(dailyPlan.checkins)}
             projectedCurve={dailyPlan.projectedCurve}
             chronotype={dailyPlan.chronotype}
             predictions={dailyPlan.predictions}
@@ -87,7 +88,7 @@ export default async function DashboardPage() {
               />
             ) : (
               <FocusNowCard
-                energyItems={dailyPlan.energyPlan?.items}
+                energyItems={toTransport(dailyPlan.energyPlan?.items)}
                 projectedCurve={dailyPlan.projectedCurve}
               />
             )}

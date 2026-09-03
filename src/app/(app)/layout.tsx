@@ -10,6 +10,7 @@ import { MobileHeader } from "@/components/MobileHeader";
 import { BottomNav } from "@/components/BottomNav";
 import { InstallPrompt } from "@/components/InstallPrompt";
 import { OfflineIndicator } from "@/features/offline/OfflineIndicator";
+import { EmailVerificationBanner } from "@/features/auth/EmailVerificationBanner";
 
 import { GlobalCommandPalette } from "@/features/command-palette/GlobalCommandPalette";
 import { GlobalQuickAddDialog } from "@/features/tasks/GlobalQuickAddDialog";
@@ -18,6 +19,7 @@ import { FocusTimerProvider } from "@/features/tasks/FocusTimerProvider";
 import { FocusTimerWidget } from "@/features/tasks/FocusTimerWidget";
 import { FocusTimerModeDialog } from "@/features/tasks/FocusTimerModeDialog";
 import { getServerSession } from "@/shared/utils/session";
+import { AnalyticsIdentity } from "@/shared/observability/AnalyticsIdentity";
 
 export default async function AppLayout({
   children,
@@ -46,6 +48,10 @@ export default async function AppLayout({
 
   return (
     <Providers initialTheme={theme}>
+      {/* Antes que `children`: sus efectos corren en ese orden, así que la
+          persona ya está identificada cuando la pantalla de debajo dispara su
+          primer evento del funnel. */}
+      <AnalyticsIdentity userId={session.user.id} />
       {/* Aplica el tema de la cuenta antes de la primera pintura cuando este
           dispositivo todavía no tiene uno propio. Ver `theme-script`. */}
       <script dangerouslySetInnerHTML={{ __html: accountThemeScript(theme) }} />
@@ -59,6 +65,9 @@ export default async function AppLayout({
             />
             <div className="flex flex-col flex-1 min-w-0 overflow-hidden">
               <MobileHeader />
+              {!session.user.emailVerified && (
+                <EmailVerificationBanner email={session.user.email} />
+              )}
               <main className="flex-1 overflow-y-auto bg-background pb-16 md:pb-0">
                 {children}
               </main>

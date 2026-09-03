@@ -6,18 +6,18 @@ import { ChevronDown, Zap } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useBulkMove } from "./tasks.hooks";
 import { parseDueDate } from "./tasks.utils";
-import type { Task } from "./tasks.types";
+import type { TaskTransport } from "./tasks.types";
 
 interface OverdueGroupProps {
-  tasks: Task[];
+  tasks: TaskTransport[];
   systemMap: Map<string, { id: string; name: string; color: string | null }>;
-  onOpen: (task: Task) => void;
+  onOpen: (task: TaskTransport) => void;
   onToggle: (taskId: string) => void;
 }
 
 const ACTIVE_STATUSES = new Set(["backlog", "week", "tomorrow", "today", "planning", "action"]);
 
-export function getOverdueTasks(tasks: Task[]): Task[] {
+export function getOverdueTasks(tasks: TaskTransport[]): TaskTransport[] {
   const today = startOfToday();
   return tasks.filter(
     (t) =>
@@ -83,7 +83,7 @@ export function OverdueGroup({ tasks, systemMap, onOpen, onToggle }: OverdueGrou
         </div>
       </div>
 
-      {/* Task rows */}
+      {/* TaskTransport rows */}
       {!collapsed && (
         <div className="divide-y divide-border/30">
           {tasks.map((t) => {

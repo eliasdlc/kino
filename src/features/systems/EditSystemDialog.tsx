@@ -17,12 +17,12 @@ import { COLOR_VALUES, ENERGY_LEVEL_VALUES, FREQUENCY_VALUES, TEMPLATE_TYPE_VALU
 import { getSystemColor } from "@/shared/utils/system-colors";
 import { ICON_MAP, DEFAULT_ICON } from "./system-icons";
 import { useUpdateSystem } from "./systems.hooks";
-import type { System } from "./systems.types";
+import type { SystemTransport } from "./systems.types";
 
 const ICON_KEYS = Object.keys(ICON_MAP);
 
 interface EditSystemDialogProps {
-  system: System;
+  system: SystemTransport;
   open: boolean;
   onOpenChange: (open: boolean) => void;
 }
@@ -52,7 +52,7 @@ export function EditSystemDialog({ system, open, onOpenChange }: EditSystemDialo
         data: {
           name: name.trim(),
           identityStatement,
-          color: color as System["color"],
+          color: color as SystemTransport["color"],
           icon,
           templateType: templateType as "academic" | "project" | "entrepreneurial" | "personal" | "custom",
           energyIdeal: energyIdeal as "high" | "medium" | "low",

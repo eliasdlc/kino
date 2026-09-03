@@ -1,6 +1,6 @@
 import { createMcpHandler, withMcpAuth } from "mcp-handler";
 import type { AuthInfo } from "@modelcontextprotocol/sdk/server/auth/types.js";
-import { createKinoFetch, registerAllKinoTools } from "@kino-app/mcp";
+import { createKinoFetch, registerAllKinoTools, MCP_SERVER_VERSION } from "@kino-app/mcp";
 import { verifyOAuthToken } from "@/shared/lib/oauth-resource";
 
 const APP_URL = process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000";
@@ -36,7 +36,7 @@ const mcpHandler = (req: Request) => {
     (server) => {
       registerAllKinoTools(server, kinoFetch);
     },
-    { serverInfo: { name: "kino", version: "2.4.0" } },
+    { serverInfo: { name: "kino", version: MCP_SERVER_VERSION } },
     { basePath: "/api", maxDuration: 60, disableSse: true },
   )(req);
 };

@@ -1397,3 +1397,44 @@ export const rateLimits = pgTable(
     index('idx_rate_limits_window').on(table.windowStart),
   ],
 );
+
+// ── cronRuns (tabla cron_runs) ──
+
+/**
+ * Bitácora de las tareas programadas (KIN-166).
+ *
+ * De los tres crons, `vercel.json` sólo registra el snapshot diario: el plan
+ * gratuito no da para más entradas, y los recordatorios necesitan correr cada
+ * quince minutos. Los otros dos los dispara un cron externo que no está en el
+ * repo, que nadie mira, y cuyo fallo es completamente silencioso: los
+ * recordatorios push dejan de llegar y el usuario cree que la app no tenía nada
+ * que decirle.
+ *
+ * Con una fila por ejecución, "no ha corrido" deja de ser la ausencia de
+ * evidencia y pasa a ser evidencia de la ausencia: el propio snapshot diario
+ * revisa esta tabla y avisa cuando un job lleva demasiado sin terminar bien.
+ *
+ * No lleva `userId`: es del sistema, no de nadie. La poda va colgada del mismo
+ * barrido diario que la de `rate_limits`.
+ */
+export const cronRuns = pgTable(
+  'cron_runs',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    /** Nombre del job, que es el último segmento de su ruta. */
+    job: varchar('job', { length: 64 }).notNull(),
+    startedAt: timestamp('started_at', { withTimezone: true }).notNull().defaultNow(),
+    /** Null mientras corre: una fila sin cerrar es una ejecución que se cayó. */
+    finishedAt: timestamp('finished_at', { withTimezone: true }),
+    ok: boolean('ok').notNull().default(false),
+    /** El mensaje del error, no su traza: la traza vive en Sentry. */
+    error: text('error'),
+    /** Lo que devolvió el job, para poder mirar qué hizo sin abrir los logs. */
+    result: jsonb('result'),
+  },
+  (table) => [
+    // La consulta de la vigilancia es siempre la misma: la última ejecución
+    // buena de un job.
+    index('idx_cron_runs_job_started').on(table.job, table.startedAt),
+  ],
+);

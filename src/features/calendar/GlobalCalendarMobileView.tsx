@@ -5,7 +5,7 @@ import { es } from "date-fns/locale";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
-import type { Task } from "@/features/tasks/tasks.types";
+import type { TaskTransport } from "@/features/tasks/tasks.types";
 import { parseDueDate } from "@/features/tasks/tasks.utils";
 
 const START_HOUR = 6;
@@ -22,8 +22,8 @@ const PRIORITY_CHIP: Record<string, string> = {
 interface GlobalCalendarMobileViewProps {
   selectedDay: Date;
   onSelectDay: (day: Date) => void;
-  byDayAllDay: Map<string, Task[]>;
-  byDayHour: Map<string, Task[]>;
+  byDayAllDay: Map<string, TaskTransport[]>;
+  byDayHour: Map<string, TaskTransport[]>;
 }
 
 function dayKey(date: Date) {

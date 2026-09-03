@@ -6,7 +6,7 @@ import { ImagePlus, X, Loader2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { uploadImageFile } from "@/features/uploads/uploads.client";
 import { useUpdateEntity } from "./entities.hooks";
-import type { EntityDetail } from "./entities.types";
+import type { EntityDetailTransport } from "./entities.types";
 
 /**
  * Cover + galería de referencias de una entidad (Writing W2, §5.3). Sube WebP
@@ -17,7 +17,7 @@ export function EntityImages({
   entity,
   systemId,
 }: {
-  entity: EntityDetail;
+  entity: EntityDetailTransport;
   systemId: string;
 }) {
   const update = useUpdateEntity(entity.id, systemId);

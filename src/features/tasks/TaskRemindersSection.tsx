@@ -8,12 +8,12 @@ import { Button } from '@/components/ui/button';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
-import type { Task } from './tasks.types';
+import type { TaskTransport } from './tasks.types';
 import { parseDueDate } from './tasks.utils';
 import { useTaskReminders, useCreateTaskReminder, useDeleteTaskReminder } from './tasks.hooks';
 
 interface Props {
-  task: Task;
+  task: TaskTransport;
 }
 
 const PRESETS = [

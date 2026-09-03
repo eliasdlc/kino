@@ -49,6 +49,10 @@ public/swe-worker-*.js
 # Salidas del worker propio y del fallback offline, con hash en el nombre (KIN-57).
 public/worker-*.js
 public/fallback-*.js
+# Los `.map` los empezó a emitir el build al activar Sentry (KIN-163): sin
+# `SENTRY_AUTH_TOKEN` no se suben a ninguna parte, así que `deleteSourcemapsAfterUpload`
+# no llega a borrarlos y se quedan aquí. No se versionan ni se publican.
+public/*.js.map
 
 # MD
 Kino_Especificaciones_Tecnicas_v2.3.md
@@ -57,4 +61,7 @@ kino_roadmap.md
 DISCOVERY.md
 PLAN.md
 .env*
-docs/
+!.env.example
+# Anclado a la raíz a propósito: sin la barra inicial esta regla también tapaba
+# src/features/marketing/docs y src/app/(marketing)/docs, que son código.
+/docs/

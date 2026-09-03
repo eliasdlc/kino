@@ -1,4 +1,4 @@
-import type { Task } from "../tasks.types";
+import type { TaskTransport } from "../tasks.types";
 
 /**
  * Contrato común de toda task card. Cada systemType puede tener su propio layout
@@ -6,11 +6,11 @@ import type { Task } from "../tasks.types";
  * el hook `useTaskCard`, así son intercambiables vía `TaskCardFor`.
  */
 export interface TaskCardProps {
-  task: Task;
+  task: TaskTransport;
   systemId: string;
   draggable?: boolean;
   isFocused?: boolean;
   onToggle: (taskId: string) => void;
-  onDelete: (task: Task) => void;
-  onEdit?: (task: Task) => void;
+  onDelete: (task: TaskTransport) => void;
+  onEdit?: (task: TaskTransport) => void;
 }

@@ -4,7 +4,7 @@ import { useDroppable, useDraggable } from "@dnd-kit/core";
 import { format, isToday } from "date-fns";
 import { GripVertical } from "lucide-react";
 import { cn } from "@/lib/utils";
-import type { Task } from "@/features/tasks/tasks.types";
+import type { TaskTransport } from "@/features/tasks/tasks.types";
 import { parseDueDate } from "@/features/tasks/tasks.utils";
 import type { TaskDragData } from "@/features/tasks/dnd/dnd.types";
 import {
@@ -30,7 +30,7 @@ export const PRIORITY_CHIP: Record<string, string> = {
   low: "bg-neutral-500/20 border-neutral-500/40 text-muted-foreground",
 };
 
-export function AllDayCell({ day, tasks }: { day: Date; tasks: Task[] }) {
+export function AllDayCell({ day, tasks }: { day: Date; tasks: TaskTransport[] }) {
   const { setNodeRef, isOver } = useDroppable({ id: `allday:${dayKey(day)}` });
   return (
     <div
@@ -81,9 +81,9 @@ export function DroppableSlot({
 }
 
 interface TaskBlockProps {
-  task: Task;
+  task: TaskTransport;
   overrideDuration?: number;
-  onResizeStart: (e: React.PointerEvent, task: Task, startMinutes: number) => void;
+  onResizeStart: (e: React.PointerEvent, task: TaskTransport, startMinutes: number) => void;
 }
 
 // Wrapper sin hooks: el early-return (tarea sin fecha ubicable) vive aquí, para
@@ -151,9 +151,9 @@ export function UnscheduledChip({
   suggestedHour,
   onAcceptSuggestion,
 }: {
-  task: Task;
+  task: TaskTransport;
   suggestedHour: number | null;
-  onAcceptSuggestion: (task: Task, hour: number) => void;
+  onAcceptSuggestion: (task: TaskTransport, hour: number) => void;
 }) {
   const dragData: TaskDragData = { task, sourceType: "unscheduled", sourceId: "unscheduled" };
   const { attributes, listeners, setNodeRef, isDragging } = useDraggable({

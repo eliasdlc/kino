@@ -1,43 +1,23 @@
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import type { KinoFetch } from '../client.js';
-
-import { registerTaskCrudTools } from './crud/tasks-crud.js';
-import { registerTaskBulkTools } from './crud/tasks-bulk.js';
-import { registerSystemCrudTools } from './crud/systems-crud.js';
-import { registerPageCrudTools } from './crud/pages-crud.js';
-import { registerFolderCrudTools } from './crud/folders-crud.js';
-import { registerStickyNoteCrudTools } from './crud/sticky-notes-crud.js';
-
-import { registerEnergyTools } from './energy.js';
-import { registerStoryTools } from './story.js';
-
-import { registerContextTools } from './intelligence/context.js';
-import { registerAnalyzeTools } from './intelligence/analyze.js';
-import { registerSuggestTools } from './intelligence/suggest.js';
-import { registerClassifyTools } from './intelligence/classify.js';
-
-import { registerDecomposeTools } from './decompose.js';
+import { registerContractTools } from './from-contract.js';
+import { registerLearningTools } from './learning.js';
 
 /**
- * Registers the full Kino tool set on an MCP server, wired to a given fetcher.
- * Shared by the stdio server (env-based fetcher) and the remote HTTP route
- * (per-request OAuth-token fetcher) so both expose an identical tool surface.
+ * Registra el set completo de tools de Kino sobre un servidor MCP, atado a un
+ * fetcher concreto. Lo comparten el servidor stdio (fetcher por variables de
+ * entorno) y la ruta HTTP remota (fetcher por token OAuth de cada petición), así
+ * que los dos exponen exactamente la misma superficie.
+ *
+ * Las tools ya no se escriben: salen del contrato de la API. Ver
+ * `from-contract.ts` y `catalog.ts`.
+ *
+ * La excepción son las tools compuestas, que no son un endpoint sino una
+ * secuencia sobre varios. Van aparte y no en el catálogo, para que la regla de
+ * arriba siga siendo cierta: el catálogo es exhaustivo sobre el contrato y nada
+ * más. Hoy la única familia son las sesiones de aprendizaje.
  */
 export function registerAllKinoTools(server: McpServer, kinoFetch: KinoFetch) {
-  registerTaskCrudTools(server, kinoFetch);
-  registerTaskBulkTools(server, kinoFetch);
-  registerSystemCrudTools(server, kinoFetch);
-  registerPageCrudTools(server, kinoFetch);
-  registerFolderCrudTools(server, kinoFetch);
-  registerStickyNoteCrudTools(server, kinoFetch);
-
-  registerEnergyTools(server, kinoFetch);
-  registerStoryTools(server, kinoFetch);
-
-  registerContextTools(server, kinoFetch);
-  registerAnalyzeTools(server, kinoFetch);
-  registerSuggestTools(server, kinoFetch);
-  registerClassifyTools(server, kinoFetch);
-
-  registerDecomposeTools(server, kinoFetch);
+  registerContractTools(server, kinoFetch);
+  registerLearningTools(server, kinoFetch);
 }

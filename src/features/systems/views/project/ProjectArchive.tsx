@@ -9,14 +9,14 @@ import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { useTasks, useToggleTask } from "@/features/tasks/tasks.hooks";
 import { useDeleteSprint } from "@/features/sprints/sprints.hooks";
 import { ProjectTaskCard } from "@/features/tasks/cards/ProjectTaskCard";
-import type { Task } from "@/features/tasks/tasks.types";
-import type { Sprint } from "@/features/sprints/sprints.types";
+import type { TaskTransport } from "@/features/tasks/tasks.types";
+import type { SprintTransport } from "@/features/sprints/sprints.types";
 
 interface ProjectArchiveProps {
   systemId: string;
-  initialData: Task[];
-  sprints: Sprint[];
-  onEdit?: (task: Task) => void;
+  initialData: TaskTransport[];
+  sprints: SprintTransport[];
+  onEdit?: (task: TaskTransport) => void;
 }
 
 function ProgressBar({ done, total }: { done: number; total: number }) {
@@ -38,11 +38,11 @@ function SprintAccordion({
   onEdit,
   onDelete,
 }: {
-  sprint: Sprint;
-  tasks: Task[];
+  sprint: SprintTransport;
+  tasks: TaskTransport[];
   systemId: string;
-  onEdit?: (task: Task) => void;
-  onDelete: (sprint: Sprint) => void;
+  onEdit?: (task: TaskTransport) => void;
+  onDelete: (sprint: SprintTransport) => void;
 }) {
   const [open, setOpen] = useState(false);
   const { mutate: toggleTask } = useToggleTask(systemId);
@@ -101,7 +101,7 @@ function SprintAccordion({
 export function ProjectArchive({ systemId, initialData, sprints, onEdit }: ProjectArchiveProps) {
   const { data: tasks = [] } = useTasks(systemId, initialData);
   const { mutate: deleteSprint } = useDeleteSprint(systemId);
-  const [deleteTarget, setDeleteTarget] = useState<Sprint | null>(null);
+  const [deleteTarget, setDeleteTarget] = useState<SprintTransport | null>(null);
   const completed = sprints.filter((s) => s.status === "completed");
 
   if (completed.length === 0) {

@@ -7,9 +7,9 @@ import { authClient } from "@/shared/lib/auth-client";
 import { useHydrated } from "@/shared/hooks/useHydrated";
 import { GoogleIcon, GitHubIcon } from "@/shared/components/OAuthIcons";
 import { identityFromLandingSlug } from "@/features/onboarding/onboarding.archetypes";
-
-const inputClass =
-  "w-full rounded-[11px] border border-white/10 bg-white/[0.04] px-3.5 py-3 text-[15px] text-[#f4f4f5] outline-none transition focus:border-[#818cf8]/60 focus:shadow-[0_0_0_3px_rgba(99,102,241,0.15)] placeholder:text-[#52525b]";
+import { TrackOnMount } from "@/shared/observability/TrackOnMount";
+import { clearPendingSignup, markPendingSignup } from "@/shared/observability/analytics.client";
+import { inputClass, cardClass, submitClass, errorClass } from "./form-styles";
 
 const COPY = {
   login: {
@@ -25,6 +25,38 @@ const COPY = {
     loading: "Creando cuenta…",
   },
 } as const;
+
+const OAUTH_LABEL = { google: "Google", github: "GitHub" } as const;
+
+const UNREACHABLE = "No se pudo hablar con el servidor. Revisa tu conexión y vuelve a intentarlo.";
+
+/**
+ * Resultado de una llamada al cliente de auth. Falla de dos formas y hay que
+ * contarlas distinto: devuelve `error` cuando el servidor responde con un
+ * status de error, y lanza cuando la petición ni siquiera llega (sin red, o
+ * bloqueada). Sin distinguirlas, la segunda se queda sin capturar y el
+ * formulario carga para siempre.
+ */
+type AuthAttempt =
+  | { ok: true }
+  | { ok: false; reason: "rejected"; message?: string }
+  | { ok: false; reason: "unreachable" };
+
+async function attempt(
+  call: () => Promise<{ error: { message?: string } | null }>,
+): Promise<AuthAttempt> {
+  try {
+    const { error } = await call();
+    return error ? { ok: false, reason: "rejected", message: error.message } : { ok: true };
+  } catch {
+    return { ok: false, reason: "unreachable" };
+  }
+}
+
+/** Quien llama pone el texto del rechazo; el fallo de red se explica igual siempre. */
+function messageFor(result: Extract<AuthAttempt, { ok: false }>, rejected: string) {
+  return result.reason === "unreachable" ? UNREACHABLE : (result.message ?? rejected);
+}
 
 function coachLine() {
   const h = new Date().getHours();
@@ -45,6 +77,10 @@ export function AuthForm({ mode }: { mode: "login" | "register" }) {
   // — un slug inventado no se propaga.
   const paraSlug = searchParams.get("para");
   const para = identityFromLandingSlug(paraSlug) ? paraSlug : null;
+  // Viene de /reset-password tras cambiar la contraseña con éxito.
+  const resetDone = searchParams.get("reset") === "1";
+  // Viene de Ajustes tras borrar la cuenta.
+  const accountDeleted = searchParams.get("deleted") === "1";
   const afterSignup = para ? `/onboarding?para=${encodeURIComponent(para)}` : "/dashboard";
   const withPara = (href: string) => (para ? `${href}?para=${encodeURIComponent(para)}` : href);
 
@@ -67,9 +103,9 @@ export function AuthForm({ mode }: { mode: "login" | "register" }) {
     setLoading(true);
 
     if (isLogin) {
-      const { error } = await authClient.signIn.email({ email, password });
-      if (error) {
-        setError(error.message ?? "No se pudo iniciar sesión");
+      const result = await attempt(() => authClient.signIn.email({ email, password }));
+      if (!result.ok) {
+        setError(messageFor(result, "No se pudo iniciar sesión"));
         setLoading(false);
         return;
       }
@@ -80,14 +116,28 @@ export function AuthForm({ mode }: { mode: "login" | "register" }) {
       return;
     }
 
-    const { error } = await authClient.signUp.email({ name, email, password });
-    if (error) {
-      setError(error.message ?? "No se pudo crear la cuenta");
+    // El callbackURL viaja en el correo de verificación: al pulsar el enlace
+    // se aterriza dentro de la app, no en el marketing.
+    const result = await attempt(() =>
+      authClient.signUp.email({
+        name,
+        email,
+        password,
+        callbackURL: "/dashboard",
+      }),
+    );
+    if (!result.ok) {
+      setError(messageFor(result, "No se pudo crear la cuenta"));
       setLoading(false);
       return;
     }
-    const setupRes = await fetch("/api/users/setup", { method: "POST" });
-    if (!setupRes.ok) {
+    // La cuenta ya existe. Quien anuncia el paso del funnel es la pantalla
+    // siguiente, que es la primera que tiene sesión montada.
+    markPendingSignup({ method: "email", segment: para });
+    const setupOk = await fetch("/api/users/setup", { method: "POST" })
+      .then((res) => res.ok)
+      .catch(() => false);
+    if (!setupOk) {
       setError("No se pudo configurar la cuenta");
       setLoading(false);
       return;
@@ -96,14 +146,35 @@ export function AuthForm({ mode }: { mode: "login" | "register" }) {
   }
 
   async function handleOAuth(provider: "google" | "github") {
+    setError(null);
     setOauthLoading(provider);
-    await authClient.signIn.social({ provider, callbackURL: isLogin ? next : afterSignup });
+    // El alta social se va a otro dominio y vuelve por un redirect: la nota es
+    // la única forma de que la pantalla de destino sepa que esto fue un alta.
+    if (!isLogin) markPendingSignup({ method: provider, segment: para });
+    const result = await attempt(() =>
+      authClient.signIn.social({ provider, callbackURL: isLogin ? next : afterSignup }),
+    );
+    // Salir bien significa que el navegador ya se está yendo al proveedor: el
+    // botón se queda en "Redirigiendo…" a propósito hasta que cambie la página.
+    if (result.ok) return;
+    // No hubo redirect. Sin borrar la nota, un login posterior en esta pestaña
+    // se contaría como cuenta creada.
+    if (!isLogin) clearPendingSignup();
+    // El motivo que devuelve el proveedor no le sirve de nada a quien lo lee
+    // ("Invalid origin"), y la salida siempre es la misma: entrar por correo.
+    setError(
+      result.reason === "unreachable"
+        ? UNREACHABLE
+        : `No se pudo conectar con ${OAUTH_LABEL[provider]}. Intenta con tu correo.`,
+    );
+    setOauthLoading(null);
   }
 
   const busy = loading || oauthLoading !== null;
 
   return (
     <div>
+      {!isLogin && <TrackOnMount event="signup_started" properties={{ segment: para }} />}
       <div className="mb-7 text-center">
         {para && (
           <p className="mb-3 inline-flex items-center gap-2 rounded-full border border-[#818cf8]/25 bg-[#818cf8]/[0.10] px-3 py-1 font-jetbrains text-[11px] text-[#a5b4fc]">
@@ -116,7 +187,17 @@ export function AuthForm({ mode }: { mode: "login" | "register" }) {
         <p className="text-[15px] text-[#6b6b74]">{copy.subheading}</p>
       </div>
 
-      <div className="rounded-[20px] border border-white/[0.09] bg-[#18181c] p-[26px] shadow-[0_24px_80px_rgba(0,0,0,0.5)]">
+      <div className={cardClass}>
+        {isLogin && resetDone && (
+          <p className="mb-[18px] rounded-[10px] border border-[#34d399]/20 bg-[#34d399]/[0.08] px-3 py-[9px] text-[13px] text-[#34d399]">
+            Contraseña cambiada. Entra con la nueva.
+          </p>
+        )}
+        {isLogin && accountDeleted && (
+          <p className="mb-[18px] rounded-[10px] border border-white/10 bg-white/[0.04] px-3 py-[9px] text-[13px] text-[#d4d4d8]">
+            Tu cuenta y todos sus datos se borraron. Gracias por probar Kino.
+          </p>
+        )}
         <div className="mb-[22px] flex gap-1 rounded-xl border border-white/[0.07] bg-white/[0.04] p-1">
           <Tab href={withPara("/login")} active={isLogin}>
             Entrar
@@ -178,17 +259,18 @@ export function AuthForm({ mode }: { mode: "login" | "register" }) {
             />
           </Field>
 
-          {error && (
-            <p className="rounded-[10px] border border-[#f87171]/20 bg-[#f87171]/[0.08] px-3 py-[9px] text-[13px] text-[#f87171]">
-              {error}
-            </p>
+          {isLogin && (
+            <Link
+              href="/forgot-password"
+              className="-mt-1.5 self-end text-[12.5px] text-[#818cf8] transition-colors hover:text-[#a5b4fc]"
+            >
+              ¿Olvidaste tu contraseña?
+            </Link>
           )}
 
-          <button
-            type="submit"
-            disabled={busy}
-            className="mt-1 cursor-pointer rounded-xl bg-[#818cf8] py-3 text-[15px] font-semibold text-[#0e0e11] transition-colors hover:bg-[#a5b4fc] disabled:opacity-60"
-          >
+          {error && <p className={errorClass}>{error}</p>}
+
+          <button type="submit" disabled={busy} className={submitClass}>
             {loading ? copy.loading : copy.submit}
           </button>
         </form>

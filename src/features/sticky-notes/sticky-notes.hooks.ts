@@ -10,6 +10,8 @@ import {
   type CreateStickyNoteVars,
 } from "@/features/offline/offline.mutations";
 import { useStampedMutation } from "@/features/offline/offline.hooks";
+import { api } from "@/shared/api/client";
+import { useOptimisticList } from "@/shared/hooks/optimistic";
 import type { StickyNoteItem } from "./sticky-notes.types";
 import type { UpdateStickyNoteInput, CreateStickyNoteInput } from "./sticky-notes.schemas";
 import { stickyNoteKeys } from "./sticky-notes.keys";
@@ -19,29 +21,30 @@ import { stickyNoteKeys } from "./sticky-notes.keys";
 export { stickyNoteKeys } from "./sticky-notes.keys";
 
 export function useStickyNotesByPage(pageId: string) {
-  return useQuery<StickyNoteItem[]>({
+  return useQuery({
     queryKey: stickyNoteKeys.byPage(pageId),
     enabled: !!pageId,
-    queryFn: async () => {
-      const res = await fetch(`/api/pages/${pageId}/sticky-notes`);
-      if (!res.ok) throw new Error("Failed to fetch sticky notes");
-      return res.json();
-    },
+    queryFn: () => api.stickyNotes.byPage({ pageId }),
     refetchOnWindowFocus: true,
   });
 }
 
 export function useStickyNotesByFolder(folderId: string) {
-  return useQuery<StickyNoteItem[]>({
+  return useQuery({
     queryKey: stickyNoteKeys.byFolder(folderId),
     enabled: !!folderId,
-    queryFn: async () => {
-      const res = await fetch(`/api/folders/${folderId}/sticky-notes`);
-      if (!res.ok) throw new Error("Failed to fetch sticky notes");
-      return res.json();
-    },
+    queryFn: () => api.stickyNotes.byFolder({ folderId }),
     refetchOnWindowFocus: true,
   });
+}
+
+/** Una nota cuelga de una página o de una carpeta, nunca de las dos. */
+type StickyScope = { pageId?: string; folderId?: string };
+
+function scopeKey(scope: StickyScope) {
+  return scope.pageId
+    ? stickyNoteKeys.byPage(scope.pageId)
+    : stickyNoteKeys.byFolder(scope.folderId!);
 }
 
 /** Lo que escribe el llamante; el destino (página o carpeta) lo pone el hook. */
@@ -108,110 +111,45 @@ export function useCreateStickyNoteForFolder(folderId: string) {
   return useCreateStickyNote({ folderId });
 }
 
-export function useUpdateStickyNote(context: { pageId?: string; folderId?: string }) {
-  const qc = useQueryClient();
-  return useMutation<StickyNoteItem, Error, { noteId: string; data: UpdateStickyNoteInput }>({
-    mutationFn: async ({ noteId, data }) => {
-      const res = await fetch(`/api/sticky-notes/${noteId}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(data),
-      });
-      if (!res.ok) throw new Error("Failed to update sticky note");
-      return res.json();
-    },
-    onMutate: async ({ noteId, data }) => {
-      const key = context.pageId
-        ? stickyNoteKeys.byPage(context.pageId)
-        : stickyNoteKeys.byFolder(context.folderId!);
-      await qc.cancelQueries({ queryKey: key });
-      const previous = qc.getQueryData<StickyNoteItem[]>(key);
-      qc.setQueryData<StickyNoteItem[]>(key, (old = []) =>
-        old.map((n) => (n.id === noteId ? { ...n, ...data } : n))
+export function useUpdateStickyNote(scope: StickyScope) {
+  return useOptimisticList<
+    StickyNoteItem,
+    Error,
+    { noteId: string; data: UpdateStickyNoteInput },
+    StickyNoteItem
+  >({
+    mutationFn: ({ noteId, data }) => api.stickyNotes.update({ id: noteId, ...data }),
+    queryKey: scopeKey(scope),
+    updater: (notes, { noteId, data }) =>
+      notes.map((n) => (n.id === noteId ? { ...n, ...data } : n)),
+  });
+}
+
+export function useStackStickyNotes(scope: StickyScope) {
+  return useOptimisticList<
+    { dragged: StickyNoteItem; target: StickyNoteItem },
+    Error,
+    { draggedId: string; targetId: string },
+    StickyNoteItem
+  >({
+    mutationFn: ({ draggedId, targetId }) => api.stickyNotes.stack({ draggedId, targetId }),
+    queryKey: scopeKey(scope),
+    updater: (notes, { draggedId, targetId }) => {
+      const target = notes.find((n) => n.id === targetId);
+      if (!target) return notes;
+      // La pila la nombra la nota que recibe; si no tenía, se estrena con la suya.
+      const stackId = target.stackId ?? target.id;
+      return notes.map((n) =>
+        n.id === draggedId || (n.id === targetId && !target.stackId) ? { ...n, stackId } : n,
       );
-      return { previous, key };
-    },
-    onError: (_err, _vars, context) => {
-      const ctx = context as { previous?: StickyNoteItem[]; key?: readonly string[] } | undefined;
-      if (ctx?.previous && ctx.key) {
-        qc.setQueryData(ctx.key, ctx.previous);
-      }
-    },
-    onSettled: () => {
-      if (context.pageId) qc.invalidateQueries({ queryKey: stickyNoteKeys.byPage(context.pageId) });
-      if (context.folderId) qc.invalidateQueries({ queryKey: stickyNoteKeys.byFolder(context.folderId) });
     },
   });
 }
 
-export function useStackStickyNotes(context: { pageId?: string; folderId?: string }) {
-  const qc = useQueryClient();
-  return useMutation<{ dragged: StickyNoteItem; target: StickyNoteItem }, Error, { draggedId: string; targetId: string }>({
-    mutationFn: async ({ draggedId, targetId }) => {
-      const res = await fetch("/api/sticky-notes/stack", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ draggedId, targetId }),
-      });
-      if (!res.ok) throw new Error("Failed to stack sticky notes");
-      return res.json();
-    },
-    onMutate: async ({ draggedId, targetId }) => {
-      const key = context.pageId
-        ? stickyNoteKeys.byPage(context.pageId)
-        : stickyNoteKeys.byFolder(context.folderId!);
-      await qc.cancelQueries({ queryKey: key });
-      const previous = qc.getQueryData<StickyNoteItem[]>(key);
-      qc.setQueryData<StickyNoteItem[]>(key, (old = []) => {
-        const target = old.find((n) => n.id === targetId);
-        if (!target) return old;
-        const stackId = target.stackId ?? target.id;
-        return old.map((n) => {
-          if (n.id === draggedId) return { ...n, stackId };
-          if (n.id === targetId && !target.stackId) return { ...n, stackId };
-          return n;
-        });
-      });
-      return { previous, key };
-    },
-    onError: (_err, _vars, ctx) => {
-      const c = ctx as { previous?: StickyNoteItem[]; key?: readonly string[] } | undefined;
-      if (c?.previous && c.key) qc.setQueryData(c.key, c.previous);
-    },
-    onSettled: () => {
-      if (context.pageId) qc.invalidateQueries({ queryKey: stickyNoteKeys.byPage(context.pageId) });
-      if (context.folderId) qc.invalidateQueries({ queryKey: stickyNoteKeys.byFolder(context.folderId) });
-    },
-  });
-}
-
-export function useDeleteStickyNote(context: { pageId?: string; folderId?: string }) {
-  const qc = useQueryClient();
-  return useMutation<void, Error, string>({
-    mutationFn: async (noteId) => {
-      const res = await fetch(`/api/sticky-notes/${noteId}`, { method: "DELETE" });
-      if (!res.ok) throw new Error("Failed to delete sticky note");
-    },
-    onMutate: async (noteId) => {
-      const key = context.pageId
-        ? stickyNoteKeys.byPage(context.pageId)
-        : stickyNoteKeys.byFolder(context.folderId!);
-      await qc.cancelQueries({ queryKey: key });
-      const previous = qc.getQueryData<StickyNoteItem[]>(key);
-      qc.setQueryData<StickyNoteItem[]>(key, (old = []) =>
-        old.filter((n) => n.id !== noteId)
-      );
-      return { previous, key };
-    },
-    onError: (_err, _vars, context) => {
-      const ctx = context as { previous?: StickyNoteItem[]; key?: readonly string[] } | undefined;
-      if (ctx?.previous && ctx.key) {
-        qc.setQueryData(ctx.key, ctx.previous);
-      }
-    },
-    onSettled: () => {
-      if (context.pageId) qc.invalidateQueries({ queryKey: stickyNoteKeys.byPage(context.pageId) });
-      if (context.folderId) qc.invalidateQueries({ queryKey: stickyNoteKeys.byFolder(context.folderId) });
-    },
+export function useDeleteStickyNote(scope: StickyScope) {
+  return useOptimisticList<void, Error, string, StickyNoteItem>({
+    mutationFn: (noteId) => api.stickyNotes.remove({ id: noteId }),
+    queryKey: scopeKey(scope),
+    updater: (notes, noteId) => notes.filter((n) => n.id !== noteId),
   });
 }

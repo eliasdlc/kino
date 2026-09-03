@@ -16,7 +16,7 @@ import { Label } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
 import { ChevronLeft, ChevronRight, Plus } from 'lucide-react';
 import { cn } from "@/lib/utils";
-import type { Task } from "./tasks.types";
+import type { TaskTransport } from "./tasks.types";
 import { useCreateTask } from "./tasks.hooks";
 import { useFolders } from "@/features/folders/folders.hooks";
 import { getTaskTypeConfig } from "./task-type-config";
@@ -26,7 +26,7 @@ import { toast } from "sonner";
 import { useOnlineStatus } from "@/features/offline/offline.hooks";
 import { type SystemType } from "@/shared/lib/system-types";
 import { resolveSystemManifest } from "@/shared/lib/system-manifest";
-import type { System } from "@/features/systems/systems.types";
+import type { SystemTransport } from "@/features/systems/systems.types";
 import { useSprints } from "@/features/sprints/sprints.hooks";
 import { TaskPlanningFields } from "./TaskPlanningFields";
 import { getTaskDialogFields } from "./task-dialog-config";
@@ -55,7 +55,7 @@ interface CreateTaskDialogProps {
   open?: boolean;
   onOpenChange?: (open: boolean) => void;
   header?: React.ReactNode;
-  onTaskCreated?: (task: Task) => void;
+  onTaskCreated?: (task: TaskTransport) => void;
 }
 
 export function CreateTaskDialog({
@@ -84,7 +84,7 @@ export function CreateTaskDialog({
   const queryClient = useQueryClient();
 
   // Derive energy default from system type (zero-cost: reads from cache)
-  const cachedSystems = queryClient.getQueryData<System[]>(['systems']);
+  const cachedSystems = queryClient.getQueryData<SystemTransport[]>(['systems']);
   const cachedSystem = cachedSystems?.find((s) => s.id === systemId);
   const systemTemplateType = cachedSystem?.templateType as SystemType | undefined;
   const isProjectSystem = systemTemplateType === 'project';

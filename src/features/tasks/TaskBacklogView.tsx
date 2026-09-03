@@ -1,5 +1,5 @@
 import { useState } from "react";
-import type { Task } from "./tasks.types";
+import type { TaskTransport } from "./tasks.types";
 import { useTasks, useFolderTasks, useToggleTask, useDeleteTaskWithUndo } from "./tasks.hooks";
 import { DefaultTaskCard } from "./cards/DefaultTaskCard";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
@@ -9,10 +9,10 @@ import { tasksEmptyCopy } from "@/shared/lib/archetype-copy";
 
 interface TaskBacklogViewProps {
     systemId: string;
-    initialData: Task[];
+    initialData: TaskTransport[];
     folderId?: string;
-    folderInitialData?: Task[];
-    onEdit?: (task: Task) => void;
+    folderInitialData?: TaskTransport[];
+    onEdit?: (task: TaskTransport) => void;
     keyboardDisabled?: boolean;
 }
 
@@ -33,7 +33,7 @@ export function TaskBacklogView({ systemId, initialData, folderId, folderInitial
 
     const backlogTasks = tasks.filter((t) => t.status === "backlog");
 
-    const [deleteTarget, setDeleteTarget] = useState<Task | null>(null);
+    const [deleteTarget, setDeleteTarget] = useState<TaskTransport | null>(null);
 
     const { focusedTaskId } = useTaskKeyboardNavigation(backlogTasks, {
         onSelect: onEdit,

@@ -2,7 +2,7 @@
 
 import { CalendarArrowUp, Play, X, Flame, Zap, Minus, Clock } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import type { Task } from '@/features/tasks/tasks.types';
+import type { TaskTransport } from '@/features/tasks/tasks.types';
 
 const PRIORITY_ICON: Record<string, React.ReactNode> = {
   critical: <Flame size={11} className="text-red-400 shrink-0" />,
@@ -28,7 +28,7 @@ function estimatedLabel(t: string | null | undefined): string {
 }
 
 interface PlanTaskRowProps {
-  task: Task;
+  task: TaskTransport;
   isFirst: boolean;
   onComplete: () => void;
   onMoveToTomorrow: () => void;

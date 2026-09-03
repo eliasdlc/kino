@@ -6,8 +6,7 @@ import { useTodayPlanTasks } from '@/features/tasks/tasks.hooks';
 import { useUserSettings } from '@/features/settings/settings.hooks';
 import { computeEnergyBudget, type EnergyBudget } from './energy.budget';
 import type { CreateCheckinClientInput, UpdateAccuracyInput } from './energy.schemas';
-import type { AdvisorWithAction, TodayEnergyPlanResult } from './energy.service';
-import type { TodayCheckinRow } from './energy.service';
+import { api } from '@/shared/api/client';
 
 export const energyKeys = {
   checkins: () => ['energy', 'checkins', 'today'] as const,
@@ -30,39 +29,27 @@ export function useEnergyBudget(): EnergyBudget | null {
 }
 
 export function useTodayEnergyPlan() {
-  return useQuery<TodayEnergyPlanResult>({
+  return useQuery({
     queryKey: energyKeys.plan(),
-    queryFn: async () => {
-      const res = await fetch('/api/energy/plan/today');
-      if (!res.ok) throw new Error('Failed to fetch energy plan');
-      return res.json() as Promise<TodayEnergyPlanResult>;
-    },
+    queryFn: () => api.energy.todayPlan({}),
     staleTime: 5 * 60_000,
     refetchOnWindowFocus: false,
   });
 }
 
 export function useTodayCheckins() {
-  return useQuery<TodayCheckinRow[]>({
+  return useQuery({
     queryKey: energyKeys.checkins(),
-    queryFn: async () => {
-      const res = await fetch('/api/energy/checkin');
-      if (!res.ok) throw new Error('Failed to fetch check-ins');
-      return res.json() as Promise<TodayCheckinRow[]>;
-    },
+    queryFn: () => api.energy.checkins({}),
     staleTime: 60_000,
     refetchOnWindowFocus: true,
   });
 }
 
 export function useEnergyAdvisor() {
-  return useQuery<AdvisorWithAction | null>({
+  return useQuery({
     queryKey: energyKeys.advisor(),
-    queryFn: async () => {
-      const res = await fetch('/api/energy/advisor');
-      if (!res.ok) throw new Error('Failed to fetch advisor');
-      return res.json() as Promise<AdvisorWithAction | null>;
-    },
+    queryFn: () => api.energy.advisor({}),
     staleTime: 5 * 60_000,
   });
 }
@@ -71,15 +58,7 @@ export function useCreateCheckin() {
   const queryClient = useQueryClient();
   const router = useRouter();
   return useMutation<unknown, Error, CreateCheckinClientInput>({
-    mutationFn: async (data) => {
-      const res = await fetch('/api/energy/checkin', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(data),
-      });
-      if (!res.ok) throw new Error('Failed to save check-in');
-      return res.json();
-    },
+    mutationFn: (data) => api.energy.createCheckin(data),
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: energyKeys.checkins() });
       void queryClient.invalidateQueries({ queryKey: energyKeys.plan() });
@@ -94,15 +73,7 @@ export function useCreateCheckin() {
 export function useUpdateCheckinAccuracy() {
   const queryClient = useQueryClient();
   return useMutation<unknown, Error, UpdateAccuracyInput>({
-    mutationFn: async (data) => {
-      const res = await fetch('/api/energy/checkin', {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(data),
-      });
-      if (!res.ok) throw new Error('Failed to update accuracy');
-      return res.json();
-    },
+    mutationFn: (data) => api.energy.updateAccuracy(data),
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: energyKeys.checkins() });
     },

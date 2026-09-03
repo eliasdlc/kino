@@ -1,5 +1,6 @@
 import { Node, mergeAttributes, ReactRenderer } from "@tiptap/react";
 import Suggestion from "@tiptap/suggestion";
+import { PluginKey } from "@tiptap/pm/state";
 import type {
   SuggestionKeyDownProps,
   SuggestionProps,
@@ -14,7 +15,7 @@ import {
   fetchSystemEntities,
   createEntityApi,
 } from "@/features/entities/entities.client";
-import type { EntityListItem } from "@/features/entities/entities.types";
+import type { EntityListItemTransport } from "@/features/entities/entities.types";
 
 /**
  * Nodo Mention del Codex (Writing W2). Trigger `@`: sugiere entidades del universo
@@ -22,6 +23,9 @@ import type { EntityListItem } from "@/features/entities/entities.types";
  * existe. El nodo guarda `entityId` — renombrar la entidad no rompe el enlace, y el
  * texto renderizado (`@nombre`) alimenta la auto-detección determinística al guardar.
  */
+
+/** Propia y distinta de la del menú de barra: ver `addProseMirrorPlugins`. */
+const CODEX_MENTION_KEY = new PluginKey("codexMention");
 
 export interface CodexMentionOptions {
   /** Sistema (universo) del que se sugieren/crean entidades. null → mención inerte. */
@@ -31,9 +35,9 @@ export interface CodexMentionOptions {
 
 // Cache corto por sistema para no golpear la API en cada tecla dentro de un `@`.
 const CACHE_TTL_MS = 4000;
-let cache: { systemId: string; at: number; data: EntityListItem[] } | null = null;
+let cache: { systemId: string; at: number; data: EntityListItemTransport[] } | null = null;
 
-async function getEntities(systemId: string): Promise<EntityListItem[]> {
+async function getEntities(systemId: string): Promise<EntityListItemTransport[]> {
   const now = Date.now();
   if (cache && cache.systemId === systemId && now - cache.at < CACHE_TTL_MS) {
     return cache.data;
@@ -187,6 +191,11 @@ export const CodexMention = Node.create<CodexMentionOptions>({
     const options = this.options;
     return [
       Suggestion<MentionItem, MentionItem>({
+        // `@tiptap/suggestion` registra su plugin bajo `PluginKey("suggestion")`
+        // si no le das uno. Con dos extensiones de sugerencia en el mismo editor
+        // —esta y el menú de barra— ProseMirror ve dos plugins distintos con la
+        // misma clave y se niega a montar el editor entero.
+        pluginKey: CODEX_MENTION_KEY,
         editor: this.editor,
         char: "@",
         allowSpaces: false,

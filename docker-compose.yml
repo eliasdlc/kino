@@ -1,7 +1,14 @@
 # docker-compose.yml
+#
+# La versión sigue a producción (Neon, Postgres 17). Un cluster creado por una
+# versión mayor anterior no lo abre el binario nuevo: al subir de versión hay
+# que recrear el volumen con `docker compose down -v`. No se pierde nada: esta
+# base sólo sirve para correr la batería de integración contra el motor exacto
+# de producción (`TEST_DATABASE_URL=... pnpm test:integration`), que la deja en
+# TRUNCATE de todas formas.
 services:
   postgres:
-    image: postgres:15-alpine
+    image: postgres:17-alpine
     container_name: kino-db
     restart: unless-stopped
     ports:

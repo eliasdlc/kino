@@ -63,7 +63,7 @@ export function NotebooksSection() {
               title: "Capítulo 3 — El regreso",
               isPinned: true,
               wordCount: 2431,
-              updatedAt: new Date(daysFromNow(-1)),
+              updatedAt: daysFromNow(-1),
               contentPreview: "La casa dormía cuando ella bajó a la cocina…",
               subPageCount: 2,
             })}

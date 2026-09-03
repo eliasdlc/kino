@@ -1,1 +1,0 @@
-export { GET } from "@/features/tasks/tasks.routes";

@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, type ComponentType } from "react";
-import type { Task } from "./tasks.types";
+import type { TaskTransport } from "./tasks.types";
 import { CreateTaskDialog } from "./CreateTaskDialog";
 import { TaskDetailSheet } from "./TaskDetailSheet";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -13,11 +13,11 @@ import { type SystemTabId, SYSTEM_TAB_LABELS, SYSTEM_TAB_SHORT_LABELS } from "@/
 
 interface TasksListProps {
   systemId: string;
-  initialData: Task[];
+  initialData: TaskTransport[];
   /** When set, tasks are scoped to this folder (folder detail view) */
   folderId?: string;
   /** SSR-fetched folder tasks — seeds useFolderTasks immediately to avoid loading flash */
-  folderInitialData?: Task[];
+  folderInitialData?: TaskTransport[];
   /** Tabs to show, in order. Defaults to the full funnel. */
   visibleTabs?: SystemTabId[];
   /** Tab open on mount (the system's "headspace"). */
@@ -26,10 +26,10 @@ interface TasksListProps {
 
 interface TabViewProps {
   systemId: string;
-  initialData: Task[];
+  initialData: TaskTransport[];
   folderId?: string;
-  folderInitialData?: Task[];
-  onEdit?: (task: Task) => void;
+  folderInitialData?: TaskTransport[];
+  onEdit?: (task: TaskTransport) => void;
   keyboardDisabled?: boolean;
 }
 
@@ -50,7 +50,7 @@ export function TasksList({
   visibleTabs = DEFAULT_TABS,
   defaultTab,
 }: TasksListProps) {
-  const [editTask, setEditTask] = useState<Task | null>(null);
+  const [editTask, setEditTask] = useState<TaskTransport | null>(null);
 
   const tabs = visibleTabs.length > 0 ? visibleTabs : DEFAULT_TABS;
   const initialTab = defaultTab && tabs.includes(defaultTab) ? defaultTab : tabs[0];

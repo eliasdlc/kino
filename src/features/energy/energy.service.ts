@@ -37,6 +37,7 @@ import { userToday as getTodayDate, calendarDayInTz } from '@/shared/time';
 import { getUserTimezone } from '@/shared/time/user-timezone';
 import { detectTopPattern } from './energy.advisor';
 import type { AdvisorPattern } from './energy.advisor';
+import type { Transport } from '@/shared/api/transport';
 import {
   computeEffectiveEnergy,
   computeImportance,
@@ -225,6 +226,9 @@ export interface TodayCheckinRow {
   predictionAccuracy: 'accurate' | 'partial' | 'inaccurate' | null;
   createdAt: Date;
 }
+
+/** El mismo check-in tal como lo recibe la tarjeta del dashboard. */
+export type TodayCheckinRowTransport = Transport<TodayCheckinRow>;
 
 export interface TodayEnergyPlanResult {
   energyPlan: EnergyPlanResult | null;

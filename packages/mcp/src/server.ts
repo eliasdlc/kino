@@ -3,6 +3,7 @@ import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js'
 
 import { createKinoFetch } from './client.js';
 import { registerAllKinoTools } from './tools/register-all.js';
+import { MCP_SERVER_VERSION } from './version.js';
 
 export async function startServer() {
   if (!process.env.KINO_API_KEY) {
@@ -12,7 +13,7 @@ export async function startServer() {
 
   const server = new McpServer({
     name: 'kino',
-    version: '2.6.0',
+    version: MCP_SERVER_VERSION,
   });
 
   const kinoFetch = createKinoFetch({

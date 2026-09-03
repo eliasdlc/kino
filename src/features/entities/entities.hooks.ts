@@ -1,12 +1,7 @@
 "use client";
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import type {
-  EntityListItem,
-  EntityDetail,
-  MentionedEntity,
-} from "./entities.types";
-import type { UniverseGraph } from "./entities.graph";
+import type { EntityListItemTransport } from "./entities.types";
 import {
   fetchSystemEntities,
   fetchEntity,
@@ -28,7 +23,7 @@ export const entityKeys = {
 };
 
 export function useUniverseGraph(systemId: string, enabled = true) {
-  return useQuery<UniverseGraph>({
+  return useQuery({
     queryKey: entityKeys.graph(systemId),
     queryFn: () => fetchUniverseGraph(systemId),
     enabled,
@@ -37,7 +32,7 @@ export function useUniverseGraph(systemId: string, enabled = true) {
 }
 
 export function useSystemEntities(systemId: string) {
-  return useQuery<EntityListItem[]>({
+  return useQuery({
     queryKey: entityKeys.bySystem(systemId),
     queryFn: () => fetchSystemEntities(systemId),
     staleTime: 30_000,
@@ -45,7 +40,7 @@ export function useSystemEntities(systemId: string) {
 }
 
 export function usePageEntities(pageId: string) {
-  return useQuery<MentionedEntity[]>({
+  return useQuery({
     queryKey: entityKeys.byPage(pageId),
     queryFn: () => fetchPageEntities(pageId),
     // El codex del capítulo se recalcula al guardar (autosave ~1.5s); refrescar al
@@ -56,7 +51,7 @@ export function usePageEntities(pageId: string) {
 }
 
 export function useEntity(entityId: string | null) {
-  return useQuery<EntityDetail>({
+  return useQuery({
     queryKey: entityKeys.detail(entityId ?? "none"),
     queryFn: () => fetchEntity(entityId!),
     enabled: !!entityId,
@@ -65,7 +60,7 @@ export function useEntity(entityId: string | null) {
 
 export function useCreateEntity(systemId: string) {
   const qc = useQueryClient();
-  return useMutation<EntityListItem, Error, CreateEntityBody>({
+  return useMutation<EntityListItemTransport, Error, CreateEntityBody>({
     mutationFn: (body) => createEntityApi(systemId, body),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: entityKeys.bySystem(systemId) });
@@ -77,7 +72,7 @@ export function useCreateEntity(systemId: string) {
 
 export function useUpdateEntity(entityId: string, systemId: string) {
   const qc = useQueryClient();
-  return useMutation<EntityListItem, Error, Partial<CreateEntityBody>>({
+  return useMutation<EntityListItemTransport, Error, Partial<CreateEntityBody>>({
     mutationFn: (body) => updateEntityApi(entityId, body),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: entityKeys.detail(entityId) });

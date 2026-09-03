@@ -1,5 +1,6 @@
 import { Extension, ReactRenderer } from "@tiptap/react";
 import Suggestion from "@tiptap/suggestion";
+import { PluginKey } from "@tiptap/pm/state";
 import type {
   SuggestionKeyDownProps,
   SuggestionProps,
@@ -199,6 +200,9 @@ function renderSlashMenu() {
   };
 }
 
+/** Propia y distinta de la de las menciones del codex. */
+const SLASH_COMMAND_KEY = new PluginKey("slashCommand");
+
 export interface SlashCommandOptions {
   /**
    * Bloques propios del medium de la obra (W3), añadidos arriba del menú base:
@@ -218,6 +222,9 @@ export const SlashCommand = Extension.create<SlashCommandOptions>({
     const options = this.options;
     return [
       Suggestion<SlashItem, SlashItem>({
+        // Sin `pluginKey` las dos extensiones de sugerencia comparten la clave
+        // por defecto y ProseMirror rechaza montar el editor. Ver la del codex.
+        pluginKey: SLASH_COMMAND_KEY,
         editor: this.editor,
         char: "/",
         allowSpaces: false,

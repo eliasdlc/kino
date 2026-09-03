@@ -1,4 +1,5 @@
 import { tasks } from "@/shared/db/schema";
+import type { Transport } from "@/shared/api/transport";
 import { z } from "zod";
 import { createTaskSchema, updateTaskSchema } from "./tasks.schemas";
 
@@ -25,6 +26,16 @@ export type TaskMetadata = {
 };
 
 export type Task = typeof tasks.$inferSelect;
+
+/**
+ * La tarea tal como llega al cliente: lo mismo que la fila, con las fechas como
+ * texto ISO porque eso es lo que sobrevive a un `JSON.stringify`. Es el tipo que
+ * usan los hooks y los componentes; `Task` se queda del lado del servidor.
+ */
+export type TaskTransport = Transport<Task>;
+
+/** Las cuatro prioridades, tal como las declara la columna. */
+export type TaskPriority = Task["priority"];
 
 export type CreateTaskInput = z.infer<typeof createTaskSchema>;
 

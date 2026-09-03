@@ -11,7 +11,7 @@ import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { SYSTEM_TYPE_CONFIG } from "@/shared/lib/system-types";
 import { ChevronDown, Target } from "lucide-react";
 import { cn } from "@/lib/utils";
-import type { Task } from "@/features/tasks/tasks.types";
+import type { TaskTransport } from "@/features/tasks/tasks.types";
 import type { SystemViewProps } from "./SystemDetailView";
 
 function ProgressBar({ done, total }: { done: number; total: number }) {
@@ -49,12 +49,12 @@ function MilestoneAccordion({
   onEdit,
 }: {
   label: string;
-  tasks: Task[];
+  tasks: TaskTransport[];
   systemId: string;
   targetDate?: string;
   onToggle: (taskId: string) => void;
-  onDelete: (task: Task) => void;
-  onEdit: (task: Task) => void;
+  onDelete: (task: TaskTransport) => void;
+  onEdit: (task: TaskTransport) => void;
 }) {
   const done = tasks.filter((t) => t.status === "done").length;
   // Un milestone 100% completado arranca colapsado para reducir ruido.
@@ -125,8 +125,8 @@ export function SystemEntrepreneurialView({ system, initialTasks }: SystemViewPr
   const { mutate: toggleTask } = useToggleTask(system.id);
   const { mutate: deleteTask } = useDeleteTaskWithUndo(system.id);
 
-  const [editTask, setEditTask] = useState<Task | null>(null);
-  const [deleteTarget, setDeleteTarget] = useState<Task | null>(null);
+  const [editTask, setEditTask] = useState<TaskTransport | null>(null);
+  const [deleteTarget, setDeleteTarget] = useState<TaskTransport | null>(null);
 
   const activeTasks = allTasks.filter((t) => !t.deletedAt);
 

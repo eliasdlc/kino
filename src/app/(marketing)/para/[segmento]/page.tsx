@@ -10,6 +10,7 @@ import {
   SegmentSwitch,
 } from "@/features/marketing/segments/SegmentSections";
 import { LANDING_SEGMENTS, getSegment } from "@/features/marketing/segments/segments.manifest";
+import { TrackOnMount } from "@/shared/observability/TrackOnMount";
 
 /**
  * Landing por arquetipo (D14). Una ruta, tres páginas: el contenido sale del
@@ -65,6 +66,7 @@ export default async function SegmentLandingPage({
 
   return (
     <>
+      <TrackOnMount event="segment_landing_viewed" properties={{ segment: segment.slug }} />
       <MarketingNav variant="segment" segmentSlug={segment.slug} />
       <SegmentHero segment={segment} />
       <SegmentPains segment={segment} />

@@ -1,10 +1,10 @@
-import type { Task } from "@/features/tasks/tasks.types";
+import type { TaskTransport } from "@/features/tasks/tasks.types";
 
 /** A partir de cuántos días en una columna no-terminal una tarjeta se considera estancada. */
 export const STALL_DAYS = 3;
 
 /** Días (enteros) que la tarjeta lleva en su columna actual del board. null si nunca se movió. */
-export function boardAgingDays(task: Task): number | null {
+export function boardAgingDays(task: TaskTransport): number | null {
   if (!task.boardStatusChangedAt) return null;
   const changed = new Date(task.boardStatusChangedAt).getTime();
   const days = Math.floor((Date.now() - changed) / 86_400_000);
@@ -12,7 +12,7 @@ export function boardAgingDays(task: Task): number | null {
 }
 
 /** ¿La tarjeta lleva demasiado tiempo sin avanzar en una columna no-terminal? */
-export function isStalled(task: Task): boolean {
+export function isStalled(task: TaskTransport): boolean {
   const col = task.boardStatus ?? "todo";
   if (col === "done" || task.status === "done") return false;
   const aging = boardAgingDays(task);
@@ -28,7 +28,7 @@ export interface BoardMetrics {
   stalled: number;
 }
 
-export function computeBoardMetrics(tasks: Task[]): BoardMetrics {
+export function computeBoardMetrics(tasks: TaskTransport[]): BoardMetrics {
   let active = 0;
   let done = 0;
   let stalled = 0;

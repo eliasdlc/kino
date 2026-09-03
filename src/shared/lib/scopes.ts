@@ -47,3 +47,15 @@ export function allowsScope(scopes: AuthScopes, required: KinoScope): boolean {
   }
   return scopes.granted.includes(KINO_WRITE);
 }
+
+/**
+ * El scope que exige una operación sale de su método, no de una anotación por
+ * ruta. Anotar cien operaciones a mano es cien sitios donde olvidarlo; derivarlo
+ * del verbo acierta por defecto y deja la anotación para las excepciones, que
+ * son los POST que en realidad sólo leen.
+ */
+const WRITE_METHODS = new Set(['POST', 'PUT', 'PATCH', 'DELETE']);
+
+export function scopeForMethod(method: string): KinoScope {
+  return WRITE_METHODS.has(method.toUpperCase()) ? KINO_WRITE : KINO_READ;
+}

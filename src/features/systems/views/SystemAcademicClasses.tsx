@@ -4,12 +4,12 @@ import { useFolders } from "@/features/folders/folders.hooks";
 import { NewFolderInline } from "@/features/folders/NewFolderInline";
 import { SYSTEM_TYPE_CONFIG } from "@/shared/lib/system-types";
 import { BookOpen, CalendarClock, GraduationCap, User } from "lucide-react";
-import type { Task } from "@/features/tasks/tasks.types";
+import type { TaskTransport } from "@/features/tasks/tasks.types";
 
 const folderRole = SYSTEM_TYPE_CONFIG.academic.folderRole!;
 
 /** Próxima entrega = la tarea pendiente con dueDate más cercano en la clase. */
-function nextDeadline(tasks: Task[]): string | null {
+function nextDeadline(tasks: TaskTransport[]): string | null {
   const upcoming = tasks
     .filter((t) => t.status !== "done" && !t.deletedAt && t.dueDate)
     .map((t) => Date.parse(t.dueDate as string))
@@ -22,7 +22,7 @@ function nextDeadline(tasks: Task[]): string | null {
 function ClassCard({ name, meta, tasks }: {
   name: string;
   meta: Record<string, unknown> | null;
-  tasks: Task[];
+  tasks: TaskTransport[];
 }) {
   const professor = typeof meta?.professor === "string" ? meta.professor : null;
   const schedule = typeof meta?.schedule === "string" ? meta.schedule : null;
@@ -72,7 +72,7 @@ function ClassCard({ name, meta, tasks }: {
  * clase agrupa sus tareas, muestra profesor/horario/semestre (metadata) y su
  * próxima entrega. Crear una clase captura esos campos vía el manifiesto.
  */
-export function SystemAcademicClasses({ systemId, tasks }: { systemId: string; tasks: Task[] }) {
+export function SystemAcademicClasses({ systemId, tasks }: { systemId: string; tasks: TaskTransport[] }) {
   const { data: folders = [] } = useFolders(systemId);
 
   return (

@@ -1,6 +1,6 @@
 import React from "react";
 import { format } from "date-fns";
-import type { Task } from "./tasks.types";
+import type { TaskTransport } from "./tasks.types";
 import { parseDueDate } from "./tasks.utils";
 import { cn } from "@/lib/utils";
 import { cva, type VariantProps } from "class-variance-authority";
@@ -23,8 +23,8 @@ const multiDayBarVariants = cva(
 );
 
 interface MultiDayTaskBarProps extends React.HTMLAttributes<HTMLDivElement>, VariantProps<typeof multiDayBarVariants> {
-  task: Task;
-  onEdit?: (task: Task) => void;
+  task: TaskTransport;
+  onEdit?: (task: TaskTransport) => void;
   startCol: number;
   span: number;
 }

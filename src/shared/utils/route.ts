@@ -1,40 +1,36 @@
 import { NextRequest, NextResponse } from 'next/server';
+import * as Sentry from '@sentry/nextjs';
 import { z } from 'zod';
 import { getAuthContext } from '@/shared/utils/auth-context';
-import { allowsScope, KINO_READ, KINO_WRITE, type KinoScope } from '@/shared/lib/scopes';
+import { allowsScope, scopeForMethod, type KinoScope } from '@/shared/lib/scopes';
 import { ForbiddenError, NotFoundError, ValidationError } from '@/shared/utils/error';
 
 /**
- * Wrapper de handlers de API (KIN-145 / BE-08 · AR-01).
+ * La escotilla de las rutas que no caben en el contrato.
  *
- * Centraliza el preámbulo que cada ruta repetía a mano — auth, parseo y
- * validación del body, mapeo de errores a status — para que no se pueda
- * olvidar una pieza. Lo que NO hace es decidir el shape de la respuesta feliz:
- * el handler devuelve su propia `Response`, porque los status y bodies
- * existentes son contrato con el frontend y el wrapper se adapta a ellos.
+ * Casi toda la API se sirve desde `src/shared/api/router.ts`, donde la entrada,
+ * la salida y el permiso están declarados. Este wrapper se queda para lo que no
+ * encaja ahí: hoy, las dos rutas de `uploads`, que necesitan el `request` crudo
+ * porque el cuerpo es la imagen. La lista completa de excepciones, con su razón,
+ * está en `src/app/api/[...rest]/route.ts`.
+ *
+ * Lo que resuelve: auth, scope por método, validación de body y query, y el
+ * mapeo de errores a status. Lo que NO hace es decidir el shape de la respuesta
+ * feliz: el handler devuelve su propia `Response`.
  *
  * El handler recibe `{ userId, body, query, params, request }` ya resueltos.
- * `request` queda expuesto para las rutas que necesitan el crudo (FormData en
- * uploads, por ejemplo) sin pelearse con el wrapper.
  */
 
 const UNAUTHORIZED = { code: 'UNAUTHORIZED', message: 'Unauthorized' };
 
-/**
- * El scope que exige una ruta sale del método, no de una anotación por ruta.
- * Anotar cien handlers a mano es cien sitios donde olvidarlo; derivarlo del
- * verbo acierta por defecto y deja `requiredScope` para las excepciones, que
- * son los POST que en realidad sólo leen.
- */
-const WRITE_METHODS = new Set(['POST', 'PUT', 'PATCH', 'DELETE']);
-
-function scopeForMethod(method: string): KinoScope {
-  return WRITE_METHODS.has(method.toUpperCase()) ? KINO_WRITE : KINO_READ;
-}
-
 type RouteParams = Record<string, string>;
 
-export interface RouteConfig<TBody, TQuery, TParams extends RouteParams> {
+export interface RouteConfig<
+  TBody,
+  TQuery,
+  TParams extends RouteParams,
+  TSessionOnly extends boolean = false,
+> {
   /** Schema del body JSON. Si se omite, el body no se lee ni se valida. */
   body?: z.ZodType<TBody>;
   /** Schema de los search params, recibidos como objeto plano de strings. */
@@ -51,10 +47,24 @@ export interface RouteConfig<TBody, TQuery, TParams extends RouteParams> {
    * sería mentir sobre lo que hace la ruta.
    */
   requiredScope?: KinoScope;
+  /**
+   * Exige la sesión del navegador: una clave API o un token OAuth del MCP
+   * recibe 403 aunque pertenezcan al mismo usuario. Es para lo que cambia
+   * credenciales, cierra sesiones o borra la cuenta, donde un token filtrado
+   * no debe bastar.
+   */
+  sessionOnly?: TSessionOnly;
 }
 
-export interface RouteHandlerArgs<TBody, TQuery, TParams extends RouteParams> {
+export interface RouteHandlerArgs<
+  TBody,
+  TQuery,
+  TParams extends RouteParams,
+  TSessionOnly extends boolean = false,
+> {
   userId: string;
+  /** Id de la sesión de navegador. Garantizado sólo con `sessionOnly`. */
+  sessionId: TSessionOnly extends true ? string : string | undefined;
   body: TBody;
   query: TQuery;
   params: TParams;
@@ -90,6 +100,9 @@ function mapError(error: unknown): NextResponse {
   if (error instanceof ValidationError) {
     return NextResponse.json({ code: 'VALIDATION_ERROR', message: error.message }, { status: 422 });
   }
+  // Un 500 aquí es siempre un bug. Va a Sentry además del log, porque los logs
+  // de Vercel sólo los lee quien ya sabe que algo se rompió.
+  Sentry.captureException(error, { tags: { layer: 'route' } });
   console.error('[route] unhandled error:', error);
   return NextResponse.json(
     { code: 'INTERNAL_ERROR', message: 'Internal server error' },
@@ -105,9 +118,15 @@ function mapError(error: unknown): NextResponse {
  * Rutas sin params: `route()({ … }, handler)`.
  */
 export function route<TParams extends RouteParams = RouteParams>() {
-  return function withConfig<TBody = undefined, TQuery = undefined>(
-    config: RouteConfig<TBody, TQuery, TParams>,
-    handler: (args: RouteHandlerArgs<TBody, TQuery, TParams>) => Promise<Response> | Response,
+  return function withConfig<
+    TBody = undefined,
+    TQuery = undefined,
+    TSessionOnly extends boolean = false,
+  >(
+    config: RouteConfig<TBody, TQuery, TParams, TSessionOnly>,
+    handler: (
+      args: RouteHandlerArgs<TBody, TQuery, TParams, TSessionOnly>,
+    ) => Promise<Response> | Response,
   ) {
     // Ni `context` ni `params` llevan `?`: Next 16 genera para cada ruta un tipo
     // que exige que el segundo parámetro acepte su `RouteContext`, y un
@@ -135,6 +154,22 @@ export function route<TParams extends RouteParams = RouteParams>() {
         );
       }
 
+      if (config.sessionOnly && !auth.sessionId) {
+        return NextResponse.json(
+          {
+            code: 'SESSION_REQUIRED',
+            message: 'Esta acción sólo se puede hacer desde la sesión del navegador',
+          },
+          { status: 403 },
+        );
+      }
+      const sessionId = auth.sessionId as RouteHandlerArgs<
+        TBody,
+        TQuery,
+        TParams,
+        TSessionOnly
+      >['sessionId'];
+
       const params = ((await context?.params) ?? {}) as TParams;
 
       let body = undefined as TBody;
@@ -160,7 +195,7 @@ export function route<TParams extends RouteParams = RouteParams>() {
       }
 
       try {
-        return await handler({ userId: auth.userId, body, query, params, request });
+        return await handler({ userId: auth.userId, sessionId, body, query, params, request });
       } catch (error) {
         return mapError(error);
       }

@@ -1,13 +1,13 @@
 import { useState } from "react";
 import { useHotkey } from "@/shared/hooks/useHotkey";
-import type { Task } from "./tasks.types";
+import type { TaskTransport } from "./tasks.types";
 
 export function useTaskKeyboardNavigation(
-  tasks: Task[],
+  tasks: TaskTransport[],
   handlers: {
-    onSelect?: (task: Task) => void;
+    onSelect?: (task: TaskTransport) => void;
     onToggle?: (taskId: string) => void;
-    onDelete?: (task: Task) => void;
+    onDelete?: (task: TaskTransport) => void;
     onSelectionToggle?: (taskId: string) => void;
   },
   options?: {

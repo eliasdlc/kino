@@ -7,10 +7,10 @@ import { useTodayPlanTasks } from '@/features/tasks/tasks.hooks';
 import { useFocusTimer } from '@/features/tasks/FocusTimerProvider';
 import { recommendSessions, demandLabel, type TaskDemand } from './focusSessions';
 import { interpretEnergy, levelColor } from './energyDisplay';
-import type { EnergyPlanItem } from '@/features/energy/energy.planner';
+import type { EnergyPlanItemTransport } from '@/features/energy/energy.planner';
 
 interface FocusNowCardProps {
-  energyItems?: EnergyPlanItem[];
+  energyItems?: EnergyPlanItemTransport[];
   projectedCurve: number[];
 }
 

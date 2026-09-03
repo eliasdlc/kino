@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { Link2, Plus } from "lucide-react";
+import { api } from "@/shared/api/client";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -15,8 +16,8 @@ import { useLinkedTasks, useLinkTask, useUnlinkTask } from "./pages.hooks";
 import { LinkedTaskCard } from "./LinkedTaskCard";
 import { TaskDetailSheet } from "@/features/tasks/TaskDetailSheet";
 import { CreateTaskDialog } from "@/features/tasks/CreateTaskDialog";
-import type { LinkedTask } from "./pages.types";
-import type { Task } from "@/features/tasks/tasks.types";
+import type { LinkedTaskTransport } from "./pages.types";
+import type { TaskTransport } from "@/features/tasks/tasks.types";
 import { Skeleton } from "@/components/ui/skeleton";
 
 const STATUS_VARIANT: Record<string, "default" | "secondary" | "outline"> = {
@@ -42,20 +43,17 @@ export function LinkedTasksPanel({ pageId, systemId }: LinkedTasksPanelProps) {
   const [createOpen, setCreateOpen] = useState(false);
 
   // Full task data for the edit sheet — fetched on-demand when user clicks edit
-  const [editTask, setEditTask] = useState<Task | null>(null);
+  const [editTask, setEditTask] = useState<TaskTransport | null>(null);
   const [editSheetOpen, setEditSheetOpen] = useState(false);
 
   const linkedIds = new Set(linked.map((t) => t.id));
   const visibleLinked = linked.filter((t) => t.status !== "archived");
   const available = allTasks.filter((t) => !linkedIds.has(t.id) && t.status !== "archived");
 
-  // When user clicks edit on a linked task, fetch the full Task object
-  async function handleEdit(linkedTask: LinkedTask) {
+  // When user clicks edit on a linked task, fetch the full TaskTransport object
+  async function handleEdit(linkedTask: LinkedTaskTransport) {
     try {
-      const res = await fetch(`/api/tasks/${linkedTask.id}`);
-      if (!res.ok) throw new Error("Failed to fetch task");
-      const fullTask = (await res.json()) as Task;
-      setEditTask(fullTask);
+      setEditTask(await api.tasks.byId({ id: linkedTask.id }));
       setEditSheetOpen(true);
     } catch {
       // Fallback: build a partial task from linked data to still open the sheet
@@ -67,17 +65,17 @@ export function LinkedTasksPanel({ pageId, systemId }: LinkedTasksPanelProps) {
         recurrenceParentId: null,
         externalSource: null,
         sortIndex: 0,
-        createdAt: new Date(),
-        updatedAt: new Date(),
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
         completedAt: null,
         deletedAt: null,
-      } as Task);
+      } as TaskTransport);
       setEditSheetOpen(true);
     }
   }
 
   // Auto-link a newly created task to this page
-  function handleTaskCreated(task: Task) {
+  function handleTaskCreated(task: TaskTransport) {
     linkTask(task.id);
   }
 
@@ -164,10 +162,10 @@ export function LinkedTasksPanel({ pageId, systemId }: LinkedTasksPanelProps) {
         </div>
       )}
 
-      {/* Task cards */}
+      {/* TaskTransport cards */}
       {!isLoading && visibleLinked.length > 0 && (
         <div className="flex flex-col gap-2">
-          {visibleLinked.map((task: LinkedTask) => (
+          {visibleLinked.map((task: LinkedTaskTransport) => (
             <LinkedTaskCard
               key={task.id}
               task={task}
@@ -179,7 +177,7 @@ export function LinkedTasksPanel({ pageId, systemId }: LinkedTasksPanelProps) {
         </div>
       )}
 
-      {/* Task detail sheet — opens when editing a linked task */}
+      {/* TaskTransport detail sheet — opens when editing a linked task */}
       <TaskDetailSheet
         task={editTask}
         systemId={systemId}

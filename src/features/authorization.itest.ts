@@ -1,5 +1,5 @@
-import { afterAll, beforeEach, describe, expect, it } from 'vitest';
-import { closeTestDb, resetAndSeedActors, type Actors } from '@/shared/db/isolation-harness';
+import { beforeEach, describe, expect, it } from 'vitest';
+import { resetAndSeedActors, type Actors } from '@/shared/db/testing/harness';
 
 import { createSystem, getSystemById, getUsersSystems, updateSystem, deactivateSystem } from '@/features/systems/systems.service';
 import { createTask, getTaskById, updateTask, deleteTask, queryTasks, getTasksBySystem, bulkUpdateTasks, bulkMoveTasks } from '@/features/tasks/tasks.service';
@@ -11,15 +11,15 @@ import { createStickyNote, updateStickyNote, deleteStickyNote, getStickyNotesByP
 import { generateApiKey, listApiKeys, deleteApiKey, revokeApiKey } from '@/features/api-keys/api-keys.service';
 
 /**
- * La garantía más importante del producto es la única que nadie verificaba
- * (KIN-190): que con la credencial de A no se pueda tocar nada de B.
+ * La garantía más importante del producto: que con la credencial de A no se
+ * pueda tocar nada de B.
  *
  * Cada bloque hace las mismas cuatro preguntas sobre un recurso con dueño:
  * leerlo, actualizarlo, borrarlo y listarlo desde la cuenta equivocada. La
  * respuesta correcta a las cuatro es "nada", y "nada" tiene que incluir no
  * filtrar que el recurso existe.
  *
- * Corre contra un Postgres real (`pnpm test:isolation`). Con `db` mockeado
+ * Corre contra un Postgres real (`pnpm test:integration`). Con `db` mockeado
  * sólo se comprobaría que la consulta lleva el filtro, no que la base lo
  * respete, y lo segundo es lo que importa aquí.
  */
@@ -29,8 +29,6 @@ let actors: Actors;
 beforeEach(async () => {
   actors = await resetAndSeedActors();
 });
-
-afterAll(closeTestDb);
 
 /**
  * Un servicio se niega de dos formas según el caso: lanzando `NotFoundError` o

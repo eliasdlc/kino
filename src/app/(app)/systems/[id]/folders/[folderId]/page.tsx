@@ -18,6 +18,7 @@ import { resolveSystemManifest } from "@/shared/lib/system-manifest";
 import { containerDetailEmptyCopy } from "@/shared/lib/archetype-copy";
 import { Separator } from "@/components/ui/separator";
 import { getServerSession } from "@/shared/utils/session";
+import { toTransport } from "@/shared/api/transport";
 
 interface FolderViewRouteProps {
   params: Promise<{ id: string; folderId: string }>;
@@ -93,7 +94,7 @@ export default async function FolderViewRoute({ params }: FolderViewRouteProps) 
               {folderPages.map((page) => (
                 <NotebookCard
                   key={page.id}
-                  page={page}
+                  page={toTransport(page)}
                   systemId={systemId}
                   href={`/systems/${systemId}/pages/${page.id}`}
                 />
@@ -110,7 +111,7 @@ export default async function FolderViewRoute({ params }: FolderViewRouteProps) 
         systemId={systemId}
         initialData={[]}
         folderId={folderId}
-        folderInitialData={folderTasks}
+        folderInitialData={toTransport(folderTasks)}
       />
 
       </div>
