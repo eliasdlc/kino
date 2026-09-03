@@ -103,7 +103,12 @@ jobs:
           echo "deb [signed-by=/usr/share/postgresql-common/pgdg/apt.postgresql.org.asc] https://apt.postgresql.org/pub/repos/apt $(lsb_release -cs)-pgdg main" | sudo tee /etc/apt/sources.list.d/pgdg.list
           sudo apt-get update -qq
           sudo apt-get install -y -qq postgresql-client-17 age
-          pg_dump --version && age --version
+          # El `pg_dump` de /usr/bin es el envoltorio de postgresql-common y,
+          # sin un clúster local que lo guíe, resuelve al 16 que trae Ubuntu
+          # aunque el 17 esté instalado. Se pone el binario 17 delante en PATH
+          # para este job y los siguientes pasos.
+          echo "/usr/lib/postgresql/17/bin" >> "$GITHUB_PATH"
+          /usr/lib/postgresql/17/bin/pg_dump --version && age --version
 
       - name: Volcar y cifrar
         env:
