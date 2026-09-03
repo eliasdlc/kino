@@ -30,7 +30,20 @@ export default defineConfig({
           globals: true,
           environment: "node",
           include: ["**/*.test.ts"],
-          exclude: [...defaultExclude, ...domTests],
+          exclude: [...defaultExclude, ...domTests, "convex/**"],
+        },
+      },
+      {
+        resolve: { alias },
+        test: {
+          name: "convex",
+          globals: true,
+          // Las funciones de Convex corren en un runtime sin Node; convex-test
+          // reproduce ese entorno y necesita ir sin transformar.
+          environment: "edge-runtime",
+          include: ["convex/**/*.test.ts"],
+          exclude: defaultExclude,
+          server: { deps: { inline: ["convex-test"] } },
         },
       },
       {
