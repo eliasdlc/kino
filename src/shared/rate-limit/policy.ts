@@ -31,10 +31,10 @@ export interface RateLimitDecision {
 const MINUTE_MS = 60 * 1000;
 
 /**
- * `/api/mcp` entra dos veces por cada llamada de herramienta: una por el
- * protocolo y otra por el loopback fetch que la herramienta hace contra la
- * REST con el mismo token. Por eso son buckets separados — con un contador
- * único el agente gastaría el doble de su cuota y se bloquearía a sí mismo.
+ * `/api/mcp` tiene su propio bucket: cada petición del protocolo cuenta una
+ * vez, y las tools llaman a Convex directamente sin volver a pasar por aquí.
+ * Separarlo de `mutation` evita que una ráfaga del agente bloquee al humano
+ * en la interfaz, y al revés.
  */
 export const MCP_POLICY: RateLimitPolicy = {
   bucket: 'mcp',

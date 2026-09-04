@@ -6,8 +6,8 @@ import {
   renderSession,
   writeSession,
   type Checkpoint,
-} from './learning-session.js';
-import { htmlToMarkdown, markdownToHtml } from './markdown.js';
+} from './learning-session';
+import { htmlToMarkdown, markdownToHtml } from './markdown';
 
 const SESSION_ID = '9b6f1f60-2f0a-4a4d-9b8e-8d5f1a2b3c4d';
 const AT = new Date('2026-08-28T04:00:00.000Z');

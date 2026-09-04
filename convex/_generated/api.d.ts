@@ -20,6 +20,7 @@ import type * as lib_errors from "../lib/errors.js";
 import type * as lib_fn from "../lib/fn.js";
 import type * as lib_fnFixture from "../lib/fnFixture.js";
 import type * as lib_lemas from "../lib/lemas.js";
+import type * as lib_mcpToken from "../lib/mcpToken.js";
 import type * as lib_mentions from "../lib/mentions.js";
 import type * as lib_scopes from "../lib/scopes.js";
 import type * as lib_tasks_row from "../lib/tasks/row.js";
@@ -61,6 +62,7 @@ declare const fullApi: ApiFromModules<{
   "lib/fn": typeof lib_fn;
   "lib/fnFixture": typeof lib_fnFixture;
   "lib/lemas": typeof lib_lemas;
+  "lib/mcpToken": typeof lib_mcpToken;
   "lib/mentions": typeof lib_mentions;
   "lib/scopes": typeof lib_scopes;
   "lib/tasks/row": typeof lib_tasks_row;
