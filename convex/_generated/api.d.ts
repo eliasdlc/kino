@@ -8,13 +8,19 @@
  * @module
  */
 
+import type * as lib_lemas from "../lib/lemas.js";
+import type * as migrate from "../migrate.js";
+
 import type {
   ApiFromModules,
   FilterApi,
   FunctionReference,
 } from "convex/server";
 
-declare const fullApi: ApiFromModules<{}>;
+declare const fullApi: ApiFromModules<{
+  "lib/lemas": typeof lib_lemas;
+  migrate: typeof migrate;
+}>;
 
 /**
  * A utility for referencing Convex functions in your app's public API.
