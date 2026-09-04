@@ -1,7 +1,6 @@
 import { NextResponse } from "next/server";
 import { route } from "@/shared/utils/route";
 import { getImageStorage, userKeyPrefix } from "./image-storage";
-import { sweepOrphanImagesForUser } from "./uploads.service";
 
 const MAX_BYTES = 4 * 1024 * 1024; // 4MB — tras compresión WebP client-side sobra.
 const EXT_BY_TYPE: Record<string, string> = {
@@ -59,21 +58,4 @@ export const uploadImage = route()({}, async ({ userId, request }) => {
       { status: 502 },
     );
   }
-});
-
-/**
- * POST /api/uploads/sweep: borra las imágenes del usuario que ya no referencia
- * ningún contenido vivo. Es la forma de recuperar el espacio que se perdió antes
- * de que existiera el barrido; el cron hace lo mismo a diario.
- */
-export const sweepOrphanImages = route()({}, async ({ userId }) => {
-  const result = await sweepOrphanImagesForUser(userId);
-  if (!result) {
-    return NextResponse.json(
-      { code: "STORAGE_UNAVAILABLE", message: "El almacenamiento de imágenes no está configurado" },
-      { status: 503 },
-    );
-  }
-
-  return NextResponse.json(result, { status: 200 });
 });

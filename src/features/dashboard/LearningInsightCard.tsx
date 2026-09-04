@@ -2,7 +2,7 @@ import { TrendingUp, TrendingDown, Minus, Sparkles, Target, Gauge, Crosshair, Ci
 import { cn } from '@/lib/utils';
 import { formatHourRange, CHRONOTYPE_LABELS } from '@/features/energy/energy.utils';
 import { VERDICT_LABELS, type PredictionVerdict, type VerificationLoop } from '@/features/energy/energy.prediction';
-import type { LearningInsight } from '@/features/energy/energy.service';
+import type { LearningInsight } from '@/features/energy/energy.types';
 import { SLOT_LABELS } from './energyDisplay';
 
 interface LearningInsightCardProps {

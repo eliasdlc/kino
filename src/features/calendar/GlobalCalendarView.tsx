@@ -82,7 +82,6 @@ export function GlobalCalendarView() {
           !t.dueDate &&
           !t.startDate &&
           t.status !== "done" &&
-          t.status !== "archived" &&
           !t.deletedAt,
       ),
     [allTasks],

@@ -11,6 +11,13 @@ import type { Id } from './_generated/dataModel';
 // siguiente cron.
 
 type Payload = { title: string; body: string; url?: string };
+type Delivery = {
+  userId: Id<'users'>;
+  dueToday: Array<{ id: Id<'tasks'>; title: string }>;
+  dueTomorrow: Array<{ id: Id<'tasks'>; title: string }>;
+  reminders: Array<{ id: Id<'taskReminders'>; label: string | null; taskTitle: string }>;
+  escalations: Array<{ id: Id<'tasks'>; title: string; priority: string }>;
+};
 
 const PRIORITY_LABEL: Record<string, string> = { critical: 'Crítico', high: 'Alta prioridad', medium: 'Pendiente', low: 'Pendiente' };
 
@@ -31,7 +38,8 @@ export const sendTaskReminders = internalAction({
   handler: async (ctx) => {
     if (!vapidConfigured()) return { notified: 0 };
     let notified = 0;
-    const pending = await ctx.runQuery(internal.notifications.pendingDeliveries, {});
+    // Anotado a mano: el tipo de `internal` incluye este módulo y sin él el compilador cicla.
+    const pending: Delivery[] = await ctx.runQuery(internal.notifications.pendingDeliveries, {});
     for (const entry of pending) {
       const delivered = { dueToday: [] as Id<'tasks'>[], dueTomorrow: [] as Id<'tasks'>[], reminders: [] as Id<'taskReminders'>[], escalations: [] as Id<'tasks'>[] };
       const send = (payload: Payload) => sendToUser(ctx, entry.userId, payload);
@@ -63,7 +71,7 @@ export const sendTaskReminders = internalAction({
 
 /** Un push a todas las suscripciones de la persona. `true` si alguna lo recibió. */
 async function sendToUser(ctx: Pick<ActionCtx, 'runQuery' | 'runMutation'>, userId: Id<'users'>, payload: Payload): Promise<boolean> {
-  const subscriptions = await ctx.runQuery(internal.notifications.subscriptionsOf, { userId });
+  const subscriptions: Array<{ endpoint: string; authKey: string; p256dhKey: string }> = await ctx.runQuery(internal.notifications.subscriptionsOf, { userId });
   const serialized = JSON.stringify(payload);
   let anyDelivered = false;
   for (const sub of subscriptions) {

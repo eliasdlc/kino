@@ -1,7 +1,6 @@
 import { redirect } from "next/navigation";
-import { eq } from "drizzle-orm";
-import { db } from "@/shared/db";
-import { users, userSettings } from "@/shared/db/schema";
+import { api } from "@convex/_generated/api";
+import { serverMutation, serverQuery } from "@/shared/convex/server";
 import { Providers } from "./providers";
 import { accountThemeScript } from "@/shared/lib/theme-script";
 import { SystemsSidebar } from "@/features/systems/SystemsSidebar";
@@ -26,31 +25,26 @@ export default async function AppLayout({
   children: React.ReactNode;
 }) {
   const session = await getServerSession();
-
   if (!session) redirect("/login");
 
-  // El tema sale en la misma consulta que el onboarding: el layout ya viajaba
-  // a la base y así el dispositivo estrenado no necesita un fetch después.
-  const [user] = await db
-    .select({
-      onboardingCompleted: users.onboardingCompleted,
-      theme: userSettings.theme,
-    })
-    .from(users)
-    .leftJoin(userSettings, eq(userSettings.userId, users.id))
-    .where(eq(users.id, session.user.id))
-    .limit(1);
+  // `ensure` crea el documento de la persona la primera vez que entra; después
+  // el tema y el onboarding salen de la misma lectura.
+  await serverMutation(api.users.ensure, {});
+  const [user, settings] = await Promise.all([
+    serverQuery(api.users.current, {}),
+    serverQuery(api.settings.get, {}),
+  ]);
 
-  if (!user?.onboardingCompleted) redirect("/onboarding");
+  if (!user.onboardingCompleted) redirect("/onboarding");
 
-  const theme = user.theme ?? "system";
+  const theme = settings.theme ?? "system";
 
   return (
     <Providers initialTheme={theme}>
       {/* Antes que `children`: sus efectos corren en ese orden, así que la
           persona ya está identificada cuando la pantalla de debajo dispara su
           primer evento del funnel. */}
-      <AnalyticsIdentity userId={session.user.id} />
+      <AnalyticsIdentity userId={user._id} />
       {/* Aplica el tema de la cuenta antes de la primera pintura cuando este
           dispositivo todavía no tiene uno propio. Ver `theme-script`. */}
       <script dangerouslySetInnerHTML={{ __html: accountThemeScript(theme) }} />
@@ -58,9 +52,9 @@ export default async function AppLayout({
         <SidebarProvider>
           <div className="flex h-screen w-full overflow-hidden">
             <SystemsSidebar
-              userName={session.user.name}
-              userEmail={session.user.email}
-              userImage={session.user.image}
+              userName={user.name}
+              userEmail={user.email}
+              userImage={user.image ?? null}
             />
             <div className="flex flex-col flex-1 min-w-0 overflow-hidden">
               <MobileHeader />

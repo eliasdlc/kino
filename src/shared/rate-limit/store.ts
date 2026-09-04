@@ -1,68 +1,28 @@
-import { and, eq, sql } from 'drizzle-orm';
-import { db } from '@/shared/db';
-import { rateLimits } from '@/shared/db/schema';
-
 /**
- * El contador compartido. Se importa dinámicamente desde el proxy para que una
- * navegación de página no cargue drizzle ni abra conexión a Neon.
+ * El contador de peticiones por identidad y cubo. Vive en memoria de la
+ * instancia: dos instancias serverless no comparten cuenta, así que el límite
+ * real es por instancia y el que de verdad protege el acceso es el de Clerk.
  */
 export interface RateLimitStore {
   /** Cuenta esta request y devuelve el total acumulado en la ventana. */
   hit(identity: string, bucket: string, windowStart: Date): Promise<number>;
-  /**
-   * Borra el contador. Sólo lo usa el acceso: acertar la contraseña no debe
-   * arrastrar los intentos fallidos de antes, o quien se equivoca cuatro veces
-   * pagaría por ello el resto del cuarto de hora.
-   */
+  /** Borra el contador. */
   reset(identity: string, bucket: string): Promise<void>;
 }
 
-/**
- * Un solo statement, atómico: el `ON CONFLICT DO UPDATE` toma lock de la fila,
- * así que dos instancias serverless concurrentes se serializan y la segunda ve
- * el incremento de la primera. Eso es exactamente lo que el `Map` en memoria no
- * podía dar.
- *
- * El SQL no sabe nada de la política — sólo compara el `window_start` que le
- * pasan contra el que ya tenía la fila: si coinciden suma, si no, arranca de
- * nuevo en 1. El tamaño de ventana y el límite viven en `policy.ts`.
- */
-export const postgresRateLimitStore: RateLimitStore = {
-  async hit(identity, bucket, windowStart) {
-    const [row] = await db
-      .insert(rateLimits)
-      .values({ identity, bucket, windowStart, hits: 1 })
-      .onConflictDoUpdate({
-        target: [rateLimits.identity, rateLimits.bucket],
-        set: {
-          hits: sql`case when ${rateLimits.windowStart} = excluded.window_start then ${rateLimits.hits} + 1 else 1 end`,
-          windowStart: sql`excluded.window_start`,
-        },
-      })
-      .returning({ hits: rateLimits.hits });
+const counters = new Map<string, { windowStart: number; hits: number }>();
 
-    return row.hits;
+export const memoryRateLimitStore: RateLimitStore = {
+  async hit(identity, bucket, windowStart) {
+    const key = `${identity}:${bucket}`;
+    const current = counters.get(key);
+    const start = windowStart.getTime();
+    const hits = current && current.windowStart === start ? current.hits + 1 : 1;
+    counters.set(key, { windowStart: start, hits });
+    return hits;
   },
 
   async reset(identity, bucket) {
-    await db
-      .delete(rateLimits)
-      .where(and(eq(rateLimits.identity, identity), eq(rateLimits.bucket, bucket)));
+    counters.delete(`${identity}:${bucket}`);
   },
 };
-
-/**
- * Poda las filas cuya ventana quedó atrás hace más de un día. La tabla no crece
- * con el tráfico (una fila por `identity` + `bucket`, reutilizada), pero las
- * cookies de sesión y los tokens OAuth rotan y dejan identidades huérfanas.
- * Va colgado del cron diario que ya existe para no gastar una entrada del free
- * tier de Vercel.
- */
-export async function pruneStaleRateLimits(): Promise<number> {
-  const deleted = await db
-    .delete(rateLimits)
-    .where(sql`${rateLimits.windowStart} < now() - interval '1 day'`)
-    .returning({ identity: rateLimits.identity });
-
-  return deleted.length;
-}

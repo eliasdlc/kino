@@ -1,5 +1,7 @@
 import { redirect } from "next/navigation";
-import { getTodayEnergyPlan, getTodayAdvisor, getWeeklyTrends, getLearningInsight } from "@/features/energy/energy.service";
+import { api } from "@convex/_generated/api";
+import { serverQuery } from "@/shared/convex/server";
+import { toTransport } from "@/shared/lib/transport";
 import { TodayPlanCard } from "@/features/dashboard/TodayPlanCard";
 import dynamic from "next/dynamic";
 
@@ -36,7 +38,6 @@ import { NotificationPromptCard } from "@/features/dashboard/NotificationPromptC
 import { WeeklyRitualPrompt } from "@/features/energy/WeeklyRitualPrompt";
 import { DashboardBottomRow } from "@/features/dashboard/DashboardBottomRow";
 import { getServerSession } from "@/shared/utils/session";
-import { toTransport } from "@/shared/api/transport";
 
 export const metadata = { title: "Inicio - Kino" };
 
@@ -44,13 +45,11 @@ export default async function DashboardPage() {
   const session = await getServerSession();
   if (!session) redirect("/login");
 
-  const userId = session.user.id;
-
   const [dailyPlan, topPattern, weeklyTrends, learningInsight] = await Promise.all([
-    getTodayEnergyPlan(userId),
-    getTodayAdvisor(userId),
-    getWeeklyTrends(userId),
-    getLearningInsight(userId),
+    serverQuery(api.energy.todayPlan, {}),
+    serverQuery(api.energy.advisor, {}),
+    serverQuery(api.energy.weeklyTrends, {}),
+    serverQuery(api.energy.learningInsight, {}),
   ]);
 
   return (
@@ -73,7 +72,7 @@ export default async function DashboardPage() {
           style={{ animationDelay: "80ms" }}
         >
           <EnergyTodayCard
-            initialCheckins={toTransport(dailyPlan.checkins)}
+            initialCheckins={dailyPlan.checkins}
             projectedCurve={dailyPlan.projectedCurve}
             chronotype={dailyPlan.chronotype}
             predictions={dailyPlan.predictions}

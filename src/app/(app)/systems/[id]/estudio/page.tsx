@@ -1,7 +1,8 @@
 import { notFound, redirect } from "next/navigation";
 import { PageBreadcrumb } from "@/components/PageBreadcrumb";
 import { PageWrapper } from "@/components/PageWrapper";
-import { getSystemById } from "@/features/systems/systems.service";
+import { api } from "@convex/_generated/api";
+import { serverQuery } from "@/shared/convex/server";
 import { Studio } from "@/features/writing/Studio";
 import { getServerSession } from "@/shared/utils/session";
 
@@ -15,7 +16,7 @@ export default async function StudioRoute({
   const session = await getServerSession();
   if (!session) redirect("/login");
 
-  const system = await getSystemById(id, session.user.id);
+  const system = await serverQuery(api.systems.byId, { id }).catch(() => null);
   if (!system) notFound();
 
   return (

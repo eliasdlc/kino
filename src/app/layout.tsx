@@ -8,6 +8,7 @@ import { Toaster } from "sonner";
 import { SITE_URL } from "@/shared/lib/site-url";
 import { rootThemeScript } from "@/shared/lib/theme-script";
 import { clerkAppearance } from "@/features/auth/clerk-appearance";
+import { ConvexClientProvider } from "@/shared/convex/client";
 
 const inter = Inter({subsets:['latin'],variable:'--font-sans'});
 
@@ -71,7 +72,7 @@ export default function RootLayout({
           signUpFallbackRedirectUrl="/onboarding"
           afterSignOutUrl="/login"
         >
-          {children}
+          <ConvexClientProvider>{children}</ConvexClientProvider>
         </ClerkProvider>
         <Toaster richColors position="bottom-right" />
       </body>

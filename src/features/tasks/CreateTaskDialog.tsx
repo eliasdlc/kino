@@ -21,12 +21,11 @@ import { useCreateTask } from "./tasks.hooks";
 import { useFolders } from "@/features/folders/folders.hooks";
 import { getTaskTypeConfig } from "./task-type-config";
 import { parseQuickInput, stripAccents } from "./quick-date-parse";
-import { useQueryClient } from "@tanstack/react-query";
+import { useSystems } from "@/features/systems/systems.hooks";
 import { toast } from "sonner";
 import { useOnlineStatus } from "@/features/offline/offline.hooks";
 import { type SystemType } from "@/shared/lib/system-types";
 import { resolveSystemManifest } from "@/shared/lib/system-manifest";
-import type { SystemTransport } from "@/features/systems/systems.types";
 import { useSprints } from "@/features/sprints/sprints.hooks";
 import { TaskPlanningFields } from "./TaskPlanningFields";
 import { getTaskDialogFields } from "./task-dialog-config";
@@ -81,10 +80,7 @@ export function CreateTaskDialog({
   const { mutateAsync: createTask, mutate: createTaskSync, isPending } = useCreateTask(systemId);
   const isOnline = useOnlineStatus();
   const { data: tags } = useTags(systemId);
-  const queryClient = useQueryClient();
-
-  // Derive energy default from system type (zero-cost: reads from cache)
-  const cachedSystems = queryClient.getQueryData<SystemTransport[]>(['systems']);
+  const { data: cachedSystems } = useSystems();
   const cachedSystem = cachedSystems?.find((s) => s.id === systemId);
   const systemTemplateType = cachedSystem?.templateType as SystemType | undefined;
   const isProjectSystem = systemTemplateType === 'project';

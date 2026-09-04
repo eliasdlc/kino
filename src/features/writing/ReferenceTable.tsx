@@ -29,7 +29,7 @@ export function ReferenceTable({
   const [query, setQuery] = useState("");
   const [openEntityId, setOpenEntityId] = useState<string | null>(null);
 
-  const byId = new Map(entities.map((e) => [e.id, e]));
+  const byId = new Map<string, EntityListItemTransport>(entities.map((e) => [e.id, e]));
   const pinned = pinnedIds
     .map((id) => byId.get(id))
     .filter((e): e is EntityListItemTransport => e !== undefined);

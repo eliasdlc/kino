@@ -7,7 +7,7 @@ import {
   CHRONOTYPE_CURVES,
 } from './energy.utils';
 import type { Task } from '@/features/tasks/tasks.types';
-import type { Transport } from '@/shared/api/transport';
+import type { Transport } from '@/shared/lib/transport';
 
 export interface PlanItem {
   task: Task;

@@ -108,6 +108,16 @@ export const bySystem = kinoZodQuery({
   },
 });
 
+/** Las páginas de un sistema con su contenido, para el export del workspace. */
+export const forExport = kinoZodQuery({
+  args: { systemId: zid('systems') },
+  handler: async (ctx, { systemId }) => {
+    const docs = await ctx.db.query('pages').withIndex('by_system', (q) => q.eq('systemId', systemId)).collect();
+    const own = docs.filter((doc) => doc.userId === ctx.user._id && alive(doc)).sort((a, b) => a.updatedAt - b.updatedAt);
+    return Promise.all(own.map(async (doc) => ({ ...(await pageListItem(ctx, doc)), content: doc.content ?? '' })));
+  },
+});
+
 export const subpages = kinoZodQuery({
   args: { id: zid('pages') },
   handler: async (ctx, { id }) => {

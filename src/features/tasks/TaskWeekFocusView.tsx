@@ -77,7 +77,7 @@ export function TaskWeekFocusView({ systemId, initialData, onEdit, highlight }: 
   }, [highlight]);
 
   const today = startOfToday();
-  const active = allTasks.filter((t) => !t.deletedAt && t.status !== "done" && t.status !== "archived");
+  const active = allTasks.filter((t) => !t.deletedAt && t.status !== "done");
 
   // Candidatas a "Hoy": vencidas o que vencen hoy. Vencidas primero, luego prioridad.
   const urgent = active

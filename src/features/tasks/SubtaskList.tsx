@@ -1,12 +1,11 @@
 "use client";
 
 import { useRef, useState } from "react";
-import { useQueryClient } from "@tanstack/react-query";
 import { Calendar, Plus, Trash2 } from "lucide-react";
 import { format } from "date-fns";
 import { cn } from "@/lib/utils";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
-import { useSubtasks, useToggleTask, useDeleteTaskWithUndo, useCreateTask, taskKeys } from "./tasks.hooks";
+import { useSubtasks, useToggleTask, useDeleteTaskWithUndo, useCreateTask } from "./tasks.hooks";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { Input } from "@/components/ui/input";
@@ -27,7 +26,6 @@ interface SubtaskListProps {
 }
 
 export function SubtaskList({ parentTaskId, systemId }: SubtaskListProps) {
-  const queryClient = useQueryClient();
   const [deleteTarget, setDeleteTarget] = useState<{ id: string; title: string } | null>(null);
   const [newTitle, setNewTitle] = useState("");
   const [editingSubtask, setEditingSubtask] = useState<TaskTransport | null>(null);
@@ -36,8 +34,6 @@ export function SubtaskList({ parentTaskId, systemId }: SubtaskListProps) {
   const { mutate: toggleTask } = useToggleTask(systemId);
   const { mutate: deleteTask } = useDeleteTaskWithUndo(systemId);
   const { mutate: createTask } = useCreateTask(systemId);
-
-  const subtaskQueryKey = taskKeys.subtasks(parentTaskId);
 
   function handleAddSubtask() {
     const raw = newTitle.trim();
@@ -58,8 +54,7 @@ export function SubtaskList({ parentTaskId, systemId }: SubtaskListProps) {
         systemId,
         ...(dueDate && { dueDate }),
         ...(priority && { priority }),
-      },
-      { onSuccess: () => queryClient.invalidateQueries({ queryKey: subtaskQueryKey }) }
+      }
     );
   }
 
@@ -112,9 +107,7 @@ export function SubtaskList({ parentTaskId, systemId }: SubtaskListProps) {
             <button
               type="button"
               onClick={() =>
-                toggleTask(subtask.id, {
-                  onSuccess: () => queryClient.invalidateQueries({ queryKey: subtaskQueryKey }),
-                })
+                toggleTask(subtask.id)
               }
               aria-label={isDone ? "Marcar como pendiente" : "Marcar como completada"}
               className={cn(
@@ -181,9 +174,7 @@ export function SubtaskList({ parentTaskId, systemId }: SubtaskListProps) {
         confirmLabel="Mover a la papelera"
         onConfirm={() => {
           if (deleteTarget) {
-            deleteTask(deleteTarget.id, {
-              onSuccess: () => queryClient.invalidateQueries({ queryKey: subtaskQueryKey }),
-            });
+            deleteTask(deleteTarget.id);
           }
           setDeleteTarget(null);
         }}
@@ -196,10 +187,7 @@ export function SubtaskList({ parentTaskId, systemId }: SubtaskListProps) {
         systemId={systemId}
         open={editingSubtask !== null}
         onOpenChange={(open) => {
-          if (!open) {
-            setEditingSubtask(null);
-            queryClient.invalidateQueries({ queryKey: subtaskQueryKey });
-          }
+          if (!open) setEditingSubtask(null);
         }}
       />
     </div>

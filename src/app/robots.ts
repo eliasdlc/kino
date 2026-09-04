@@ -20,7 +20,6 @@ export default function robots(): MetadataRoute.Robots {
         "/tasks",
         "/onboarding",
         "/consent",
-        "/system-design",
         "/offline",
       ],
     },

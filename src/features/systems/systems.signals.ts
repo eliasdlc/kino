@@ -38,7 +38,7 @@ function daysBetween(from: Date, to: Date): number {
 }
 
 const isActiveTask = (t: Task) =>
-  !t.deletedAt && t.status !== "done" && t.status !== "archived";
+  !t.deletedAt && t.status !== "done";
 
 /**
  * Deriva `stale` desde primitivas. stale = el sistema tiene trabajo pendiente

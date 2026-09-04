@@ -11,7 +11,7 @@ const aliases = z.array(z.string().trim().min(1).max(255)).max(50).optional();
 const images = z.array(z.string().url().max(2048)).max(100).optional();
 
 export const createEntitySchema = z.object({
-  systemId: z.string().uuid(),
+  systemId: z.string(),
   type: entityTypeSchema,
   name: z.string().trim().min(1).max(255),
   aliases,
@@ -32,7 +32,7 @@ export const updateEntitySchema = z.object({
 });
 
 export const createRelationSchema = z.object({
-  toEntityId: z.string().uuid(),
+  toEntityId: z.string(),
   label: z.string().trim().max(100).nullable().optional(),
   notes: z.string().max(2000).nullable().optional(),
 });

@@ -1,8 +1,6 @@
-import { contextTags } from "@/shared/db/schema";
+import type { FunctionReturnType } from "convex/server";
+import type { api } from "@convex/_generated/api";
 
-export type ContextTag = typeof contextTags.$inferSelect;
+export type ContextTagListItem = FunctionReturnType<typeof api.tags.bySystem>[number];
 
-export type ContextTagListItem = Pick<
-  ContextTag,
-  "id" | "title" | "color" | "systemId" | "isDefault"
->;
+export type ContextTag = ContextTagListItem;

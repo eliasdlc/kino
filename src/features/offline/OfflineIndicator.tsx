@@ -1,7 +1,7 @@
 "use client";
 
-import { CloudOff, RefreshCw } from "lucide-react";
-import { useOnlineStatus, usePendingCreationCount } from "./offline.hooks";
+import { CloudOff } from "lucide-react";
+import { useOnlineStatus } from "./offline.hooks";
 
 /**
  * Indicador de estado de red (KIN-57).
@@ -16,11 +16,8 @@ import { useOnlineStatus, usePendingCreationCount } from "./offline.hooks";
  */
 export function OfflineIndicator() {
   const isOnline = useOnlineStatus();
-  const pending = usePendingCreationCount();
 
-  if (isOnline && pending === 0) return null;
-
-  const syncing = isOnline && pending > 0;
+  if (isOnline) return null;
 
   return (
     <div
@@ -29,20 +26,8 @@ export function OfflineIndicator() {
       className="fixed bottom-20 left-4 z-40 md:bottom-4 pointer-events-none"
     >
       <div className="flex items-center gap-2 rounded-full border border-white/10 bg-background/90 px-3 py-1.5 text-xs text-muted-foreground shadow-sm backdrop-blur">
-        {syncing ? (
-          <>
-            <RefreshCw size={12} className="animate-spin" aria-hidden />
-            <span>Subiendo {pending}…</span>
-          </>
-        ) : (
-          <>
-            <CloudOff size={12} aria-hidden />
-            <span>
-              Sin conexión
-              {pending > 0 && ` · ${pending} por subir`}
-            </span>
-          </>
-        )}
+        <CloudOff size={12} aria-hidden />
+        <span>Sin conexión</span>
       </div>
     </div>
   );

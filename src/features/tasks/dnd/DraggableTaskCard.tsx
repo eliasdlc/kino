@@ -41,7 +41,7 @@ export function DraggableTaskCard({
   onDelete,
   onEdit,
 }: DraggableTaskCardProps) {
-  const isDoneOrArchived = task.status === "done" || task.status === "archived";
+  const isDoneOrArchived = task.status === "done";
 
   const dragData: TaskDragData = {
     task,

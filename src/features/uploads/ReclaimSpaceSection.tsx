@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { useMutation } from '@tanstack/react-query';
+import { useLocalMutation } from '@/shared/convex/hooks';
 import { Eraser } from 'lucide-react';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
@@ -42,8 +42,8 @@ function summarize(result: SweepResult): string {
 export function ReclaimSpaceSection() {
   const [lastResult, setLastResult] = useState<SweepResult | null>(null);
 
-  const { mutate, isPending } = useMutation({
-    mutationFn: async (): Promise<SweepResult> => {
+  const { mutate, isPending } = useLocalMutation(
+    async (): Promise<SweepResult> => {
       const res = await fetch('/api/uploads/sweep', { method: 'POST' });
       if (res.status === 503) {
         throw new Error('El almacenamiento de imágenes no está configurado');
@@ -51,13 +51,15 @@ export function ReclaimSpaceSection() {
       if (!res.ok) throw new Error('No se pudo liberar el espacio');
       return res.json();
     },
+    {
     onSuccess: (result) => {
       setLastResult(result);
       if (result.aborted) toast.warning(summarize(result));
       else toast.success(summarize(result));
     },
     onError: (error: Error) => toast.error(error.message),
-  });
+    },
+  );
 
   return (
     <div className="flex items-center justify-between gap-4 rounded-lg border p-4">

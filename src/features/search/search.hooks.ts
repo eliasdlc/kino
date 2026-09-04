@@ -1,7 +1,8 @@
-import { keepPreviousData, useQuery } from "@tanstack/react-query";
+import { useState } from "react";
+import { api } from "@convex/_generated/api";
+import { useConvexQuery } from "@/shared/convex/hooks";
 import { useDebouncedValue } from "@/shared/hooks/useDebouncedValue";
-import { api } from "@/shared/api/client";
-import { SEARCH_MIN_LENGTH } from "./search.types";
+import { SEARCH_MIN_LENGTH, type SearchResult } from "./search.types";
 
 /**
  * Búsqueda global en vivo. Debouncea el término, solo consulta a partir de
@@ -11,12 +12,10 @@ import { SEARCH_MIN_LENGTH } from "./search.types";
 export function useSearch(query: string) {
   const debounced = useDebouncedValue(query.trim(), 250);
   const enabled = debounced.length >= SEARCH_MIN_LENGTH;
-
-  return useQuery({
-    queryKey: ["search", debounced],
-    queryFn: () => api.search.all({ q: debounced }),
-    enabled,
-    placeholderData: keepPreviousData,
-    staleTime: 30_000,
-  });
+  const result = useConvexQuery(api.search.all, { q: debounced }, { enabled });
+  // Los últimos resultados que llegaron, guardados durante el render para no
+  // encadenar un efecto y un segundo render por cada tecla.
+  const [previous, setPrevious] = useState<SearchResult[] | undefined>(undefined);
+  if (result.data !== undefined && result.data !== previous) setPrevious(result.data);
+  return { ...result, data: result.data ?? (enabled ? previous : undefined) };
 }

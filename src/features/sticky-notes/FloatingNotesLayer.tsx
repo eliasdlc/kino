@@ -2,9 +2,8 @@
 
 import { useRef, useState, useEffect, useCallback } from "react";
 import type { RefObject } from "react";
-import { useQueryClient } from "@tanstack/react-query";
 import { StickyNoteCard } from "./StickyNoteCard";
-import { useUpdateStickyNote, stickyNoteKeys } from "./sticky-notes.hooks";
+import { useUpdateStickyNote } from "./sticky-notes.hooks";
 import { useSharedEditor } from "@/features/pages/EditorContext";
 import {
   removeAnchorMark,
@@ -73,7 +72,6 @@ function FloatingNoteItem({
   const [noteH, setNoteH] = useState(120);
 
   const { mutate: updateNote } = useUpdateStickyNote(context);
-  const qc = useQueryClient();
 
   const maxLeft = Math.max(0, metrics.containerW - NOTE_W);
   const maxTop = Math.max(0, metrics.containerH - noteH);
@@ -127,7 +125,6 @@ function FloatingNoteItem({
       leftPx,
       topPx,
     };
-    void qc.cancelQueries({ queryKey: stickyNoteKeys.byPage(context.pageId) });
   }
 
   function onPointerMove(e: React.PointerEvent<HTMLDivElement>) {

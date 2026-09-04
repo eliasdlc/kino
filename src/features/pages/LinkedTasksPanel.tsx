@@ -2,7 +2,8 @@
 
 import { useState } from "react";
 import { Link2, Plus } from "lucide-react";
-import { api } from "@/shared/api/client";
+import { api } from "@convex/_generated/api";
+import { getConvexClient } from "@/shared/convex/client";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -47,13 +48,13 @@ export function LinkedTasksPanel({ pageId, systemId }: LinkedTasksPanelProps) {
   const [editSheetOpen, setEditSheetOpen] = useState(false);
 
   const linkedIds = new Set(linked.map((t) => t.id));
-  const visibleLinked = linked.filter((t) => t.status !== "archived");
-  const available = allTasks.filter((t) => !linkedIds.has(t.id) && t.status !== "archived");
+  const visibleLinked = linked;
+  const available = allTasks.filter((t) => !linkedIds.has(t.id));
 
   // When user clicks edit on a linked task, fetch the full TaskTransport object
   async function handleEdit(linkedTask: LinkedTaskTransport) {
     try {
-      setEditTask(await api.tasks.byId({ id: linkedTask.id }));
+      setEditTask(await getConvexClient().query(api.tasks.byId, { id: linkedTask.id }));
       setEditSheetOpen(true);
     } catch {
       // Fallback: build a partial task from linked data to still open the sheet

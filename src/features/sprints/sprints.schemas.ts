@@ -6,7 +6,7 @@ const DATE = z.string().refine((s) => !Number.isNaN(Date.parse(s)), {
 });
 
 export const createSprintSchema = z.object({
-  systemId: z.string().uuid(),
+  systemId: z.string(),
   name: z.string().min(1).max(255),
   goal: z.string().max(500).optional(),
   startDate: DATE.optional(),

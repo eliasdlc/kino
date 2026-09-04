@@ -1,5 +1,6 @@
 import { v } from 'convex/values';
-import { internalQuery } from './_generated/server';
+import { internalMutation, internalQuery } from './_generated/server';
+import schema from './schema';
 import { kinoMutation, kinoQuery } from './lib/fn';
 
 // La identidad de Clerk llega en el JWT; el documento `users` es lo que Kino
@@ -29,4 +30,20 @@ export const byClerkId = internalQuery({
       .query('users')
       .withIndex('by_clerkId', (q) => q.eq('clerkId', clerkId))
       .unique(),
+});
+
+/** Borra todo documento de cualquier tabla que pertenezca al usuario, y al final el usuario. */
+export const purge = internalMutation({
+  args: { userId: v.id('users') },
+  handler: async (ctx, { userId }) => {
+    for (const table of Object.keys(schema.tables) as (keyof typeof schema.tables)[]) {
+      if (table === 'users') continue;
+      const docs = await ctx.db
+        .query(table)
+        .filter((q) => q.eq(q.field('userId'), userId))
+        .collect();
+      for (const doc of docs) await ctx.db.delete(doc._id);
+    }
+    await ctx.db.delete(userId);
+  },
 });

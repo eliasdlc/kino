@@ -566,9 +566,9 @@ export async function updateTaskDoc(
 export const remove = kinoZodMutation({
   args: { id: zid('tasks') },
   handler: async (ctx, { id }) => {
-    await ownTask(ctx, ctx.user._id, id);
+    const task = await ownTask(ctx, ctx.user._id, id);
     await ctx.db.patch(id, { deletedAt: Date.now() });
-    return null;
+    return { id: task._id, title: task.title };
   },
 });
 
@@ -614,11 +614,14 @@ export const bulkMove = kinoZodMutation({
     status: z.enum(['backlog', 'week', 'tomorrow', 'today', 'done']),
   },
   handler: async (ctx, { taskIds, status }) => {
+    // Devuelve el estado anterior de cada tarea: es lo que el deshacer necesita.
+    const previous: { id: Id<'tasks'>; status: TaskStatus }[] = [];
     for (const id of taskIds) {
       const task = await ownTask(ctx, ctx.user._id, id);
+      previous.push({ id: task._id, status: task.status });
       await applyTransition(ctx, task, moveTo(status));
     }
-    return null;
+    return { previous };
   },
 });
 
@@ -628,14 +631,16 @@ export const bulkUpdate = kinoZodMutation({
     priority: z.enum(['critical', 'high', 'medium', 'low']).optional(),
   },
   handler: async (ctx, { taskIds, priority }) => {
-    if (priority === undefined) return null;
+    const previous: { id: Id<'tasks'>; priority: TaskDoc['priority'] }[] = [];
+    if (priority === undefined) return { previous };
     const now = Date.now();
     for (const id of taskIds) {
       const task = await ownTask(ctx, ctx.user._id, id);
+      previous.push({ id: task._id, priority: task.priority });
       await ctx.db.patch(task._id, { priority, updatedAt: now });
       await syncAutoReminders(ctx, { ...task, priority }, now);
     }
-    return null;
+    return { previous };
   },
 });
 

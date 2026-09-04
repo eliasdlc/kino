@@ -8,6 +8,7 @@
  * @module
  */
 
+import type * as account from "../account.js";
 import type * as energy from "../energy.js";
 import type * as entities from "../entities.js";
 import type * as folders from "../folders.js";
@@ -48,6 +49,7 @@ import type {
 } from "convex/server";
 
 declare const fullApi: ApiFromModules<{
+  account: typeof account;
   energy: typeof energy;
   entities: typeof entities;
   folders: typeof folders;

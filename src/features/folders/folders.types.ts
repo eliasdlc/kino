@@ -1,25 +1,14 @@
-import { folders } from "@/shared/db/schema";
+import type { FunctionReturnType } from "convex/server";
+import type { api } from "@convex/_generated/api";
 
-export type Folder = typeof folders.$inferSelect;
+/** Una carpeta en una lista, con sus cuentas de contenido directo. */
+export type FolderWithCounts = FunctionReturnType<typeof api.folders.bySystem>[number];
 
-export type FolderListItem = Pick<
-  Folder,
-  "id" | "name" | "color" | "sortIndex" | "parentId" | "systemId" | "metadata"
->;
+export type FolderListItem = Omit<FolderWithCounts, "subfolderCount" | "pageCount">;
 
-/** A folder in a list, enriched with its direct-content counts for the card UI. */
-export type FolderWithCounts = FolderListItem & {
-  subfolderCount: number;
-  pageCount: number;
-};
+/** Una carpeta con su rastro de migas. */
+export type FolderDetail = FunctionReturnType<typeof api.folders.detail>;
 
-export type FolderDetail = Pick<
-  Folder,
-  "id" | "name" | "color" | "sortIndex" | "parentId" | "systemId" | "path" | "metadata"
->;
+export type BreadcrumbItem = FolderDetail["breadcrumb"][number];
 
-export type BreadcrumbItem = {
-  id: string;
-  name: string;
-  path: string;
-};
+export type FolderNode = FunctionReturnType<typeof api.folders.tree>[number];

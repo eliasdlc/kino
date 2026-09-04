@@ -1,6 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { PgDialect } from "drizzle-orm/pg-core";
-import { userToday, userDayRange, sqlUserDay, sqlUserToday, zonedDayHourToUtc } from "./index";
+import { userToday, userDayRange, zonedDayHourToUtc } from "./index";
 
 afterEach(() => {
   vi.useRealTimers();
@@ -97,19 +96,3 @@ describe("userDayRange", () => {
   });
 });
 
-describe("sqlUserDay / sqlUserToday", () => {
-  const dialect = new PgDialect();
-
-  it("sqlUserDay produce la medianoche local como timestamptz (::timestamp intermedio, no ::timestamptz)", () => {
-    const { sql: text } = dialect.sqlToQuery(sqlUserDay("America/Santo_Domingo"));
-    expect(text).toContain("::date::timestamp AT TIME ZONE");
-    // El bug viejo era `::date::timestamptz` (castea la fecha local como UTC).
-    expect(text).not.toContain("::date::timestamptz");
-  });
-
-  it("sqlUserToday produce la fecha local (DATE)", () => {
-    const { sql: text } = dialect.sqlToQuery(sqlUserToday("UTC"));
-    expect(text).toContain("AT TIME ZONE");
-    expect(text.trim().endsWith("::date")).toBe(true);
-  });
-});

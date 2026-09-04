@@ -751,3 +751,21 @@ export async function createEnergyProfile(
 }
 
 export type { SleepQuality };
+
+/** Los últimos siete días: instantáneas de conducta y check-ins, para las tendencias del dashboard. */
+export const weeklyTrends = kinoZodQuery({
+  args: {},
+  handler: async (ctx) => {
+    const user = ctx.user;
+    const now = Date.now();
+    const days = Array.from({ length: 7 }, (_, i) => userToday(user.timezone, now - i * 86_400_000));
+    const oldest = days[days.length - 1]!;
+    const snapshots = (
+      await ctx.db.query('behaviorSnapshots').withIndex('by_user_day', (q) => q.eq('userId', user._id)).collect()
+    )
+      .filter((row) => row.date >= oldest)
+      .map(snapshotItem);
+    const checkins = (await Promise.all(days.map((date) => checkinsOn(ctx, user._id, date)))).flat().map(checkinItem);
+    return { snapshots, checkins };
+  },
+});

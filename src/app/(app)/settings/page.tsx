@@ -16,7 +16,6 @@ import { Bell, BellOff, Download, Loader2, Monitor, Moon, Sun } from "lucide-rea
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 import { usePushNotifications } from "@/features/notifications/notifications.hooks";
-import { ApiKeysSection } from "@/features/api-keys/ApiKeysSection";
 import { GithubConnectionSection } from "@/features/github-sync/GithubConnectionSection";
 import { EnergyLimitSection } from "@/features/settings/EnergyLimitSection";
 import { TimezoneSection } from "@/features/settings/TimezoneSection";
@@ -254,7 +253,6 @@ export default function SettingsPage() {
         <WeeklyReviewDaySection />
 
         {/* API Keys */}
-        <ApiKeysSection />
 
         {/* GitHub — lee el resultado del callback de OAuth de la URL, así que
             necesita su propio límite de Suspense. */}

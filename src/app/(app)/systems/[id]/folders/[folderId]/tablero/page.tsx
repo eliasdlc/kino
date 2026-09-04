@@ -1,8 +1,8 @@
 import { notFound, redirect } from "next/navigation";
 import { PageBreadcrumb } from "@/components/PageBreadcrumb";
 import { PageWrapper } from "@/components/PageWrapper";
-import { getSystemById } from "@/features/systems/systems.service";
-import { getFolderById } from "@/features/folders/folders.service";
+import { api } from "@convex/_generated/api";
+import { serverQuery } from "@/shared/convex/server";
 import { PlotGridView } from "@/features/writing/PlotGridView";
 import { getServerSession } from "@/shared/utils/session";
 
@@ -17,8 +17,8 @@ export default async function PlotBoardRoute({
   if (!session) redirect("/login");
 
   const [folder, system] = await Promise.all([
-    getFolderById(folderId, session.user.id),
-    getSystemById(systemId, session.user.id),
+    serverQuery(api.folders.detail, { id: folderId }).catch(() => null),
+    serverQuery(api.systems.byId, { id: systemId }).catch(() => null),
   ]);
 
   if (!folder || !system) notFound();

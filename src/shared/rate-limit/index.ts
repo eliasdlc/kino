@@ -61,7 +61,7 @@ export async function guardApiRequest(
   if (!identity) return null;
 
   try {
-    const store = overrides.store ?? (await import('./store')).postgresRateLimitStore;
+    const store = overrides.store ?? (await import('./store')).memoryRateLimitStore;
     const decision = await enforceRateLimit({
       store,
       identity,

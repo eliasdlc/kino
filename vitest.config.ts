@@ -1,7 +1,7 @@
 import { defineConfig, defaultExclude } from "vitest/config";
 import path from "path";
 
-const alias = { "@": path.resolve(__dirname, "./src") };
+const alias = { "@": path.resolve(__dirname, "./src"), "@convex": path.resolve(__dirname, "./convex") };
 
 /**
  * Montar jsdom cuesta unas veinte veces más que correr los tests que lo necesitan,

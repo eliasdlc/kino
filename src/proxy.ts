@@ -17,7 +17,6 @@ function isPublicRoute(pathname: string): boolean {
     pathname.startsWith("/login") ||
     pathname.startsWith("/register") ||
     // Catálogo visual de la UI (sin datos de usuario, noindex)
-    pathname.startsWith("/system-design") ||
     // Pantalla de respaldo sin conexión. El service worker la precachea al
     // instalarse, y esa petición puede salir sin sesión: con el gate puesto
     // Workbox recibía el redirect a /login y guardaba eso. No lleva datos de

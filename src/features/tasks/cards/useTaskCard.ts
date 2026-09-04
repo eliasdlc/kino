@@ -10,7 +10,6 @@ import type { FolderWithCounts } from "@/features/folders/folders.types";
 
 export interface TaskCardState {
   isDone: boolean;
-  isArchived: boolean;
   isCritical: boolean;
   isHigh: boolean;
   isOverdue: boolean;
@@ -42,20 +41,18 @@ export function useTaskCard(
   const anotherRunning = timerState.phase !== "idle" && !isThisRunning;
 
   const isDone = task.status === "done";
-  const isArchived = task.status === "archived";
-  const isCritical = task.priority === "critical" && !isArchived && !isDone;
-  const isHigh = task.priority === "high" && !isArchived && !isDone;
+  const isCritical = task.priority === "critical" && !isDone;
+  const isHigh = task.priority === "high" && !isDone;
   const isOverdue =
     !!task.dueDate &&
     !isDone &&
-    !isArchived &&
     isBefore(parseDueDate(task.dueDate), startOfToday());
 
   const { data: folders } = useFolders(systemId);
   const folder = task.folderId ? folders?.find((f) => f.id === task.folderId) : undefined;
   const typeConfig = getTaskTypeConfig(task.taskType, task.metadata);
 
-  const showPriorityBadge = (isCritical || isHigh) && !isDone && !isArchived;
+  const showPriorityBadge = (isCritical || isHigh) && !isDone;
 
   const dueDays =
     task.dueDate && !isOverdue
@@ -71,7 +68,6 @@ export function useTaskCard(
     isExamOrQuiz && task.startDate && isBefore(new Date(), new Date(task.startDate));
 
   function handleToggle() {
-    if (isArchived) return;
     
     if (!isDone && isFutureEvent) {
       toast.error("No puedes completar este evento antes de que suceda.");
@@ -87,7 +83,6 @@ export function useTaskCard(
 
   return {
     isDone,
-    isArchived,
     isCritical,
     isHigh,
     isOverdue,

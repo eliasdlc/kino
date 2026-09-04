@@ -4,7 +4,6 @@ import { useState } from "react";
 import { format } from "date-fns";
 import { ChevronDown, Clock, Flag, Hourglass, MoreHorizontal, Timer, Trash2 } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { PendingSyncBadge } from "@/features/offline/PendingSyncBadge";
 import {
   ContextMenu,
   ContextMenuContent,
@@ -61,7 +60,7 @@ interface ProjectTaskCardProps extends TaskCardProps {
 export function ProjectTaskCard({ task, systemId, onToggle, onDelete, onEdit, showSprint, onMoveColumn }: ProjectTaskCardProps) {
   const [isExpanded, setIsExpanded] = useState(false);
   const state = useTaskCard(task, systemId, onToggle);
-  const { isDone, isArchived, isOverdue, dueDays, timerState, openModeDialog } = state;
+  const { isDone, isOverdue, dueDays, timerState, openModeDialog } = state;
 
   const isThisRunning = timerState.taskId === task.id && timerState.phase !== "idle";
   const anotherRunning = timerState.phase !== "idle" && !isThisRunning;
@@ -71,7 +70,7 @@ export function ProjectTaskCard({ task, systemId, onToggle, onDelete, onEdit, sh
   // En el board el "hecho" lo da la columna terminal (mover la tarjeta), no un
   // toggle: una tarea no puede estar en progreso y completada a la vez. Por eso
   // el menú solo ofrece foco/eliminar, nunca "completar".
-  const showActions = !isDone && !isArchived;
+  const showActions = !isDone;
 
   const { data: tags = [] } = useTags(systemId);
   const category = task.contextTagId ? tags.find((t) => t.id === task.contextTagId) : undefined;
@@ -95,7 +94,6 @@ export function ProjectTaskCard({ task, systemId, onToggle, onDelete, onEdit, sh
             "bg-card border border-border rounded-[18px] p-[18px] flex flex-col gap-3.5 shadow-sm",
             "motion-safe:transition-colors hover:border-foreground/20",
             isDone && "opacity-50",
-            isArchived && "opacity-40",
           )}
         >
           <div className="flex items-start justify-between gap-2">
@@ -172,8 +170,6 @@ export function ProjectTaskCard({ task, systemId, onToggle, onDelete, onEdit, sh
           >
             {task.title}
           </button>
-
-          <PendingSyncBadge id={task.id} className="mt-1" />
 
           {(task.dueDate || estimate) && (
             <div className="flex items-center gap-4 text-[13px] font-medium mt-0.5">

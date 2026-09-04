@@ -31,6 +31,6 @@ export const estimateTaskSchema = classifyTaskSchema;
 export const decomposeSchema = z.object({
   // Se valida como uuid para que un id mal formado sea un 400 y no el 500 que
   // devolvería Postgres al fallar el cast.
-  taskId: z.uuid(),
+  taskId: z.string(),
   count: z.number().finite().optional(),
 });

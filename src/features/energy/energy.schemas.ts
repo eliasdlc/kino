@@ -24,7 +24,7 @@ const DAY = z
 const HOUR = z.coerce.number().int().min(0).max(23);
 
 export const scheduleBlockSchema = z.object({
-  taskId: z.string().uuid(),
+  taskId: z.string(),
   date: DAY,
   hour: HOUR,
 });
@@ -36,7 +36,7 @@ export const blockProposalQuerySchema = z.object({
 
 export const applyRitualSchema = z.object({
   assignments: z
-    .array(z.object({ taskId: z.string().uuid(), date: DAY }))
+    .array(z.object({ taskId: z.string(), date: DAY }))
     .min(1, 'Hace falta al menos una tarea que reprogramar')
     .max(100),
 });

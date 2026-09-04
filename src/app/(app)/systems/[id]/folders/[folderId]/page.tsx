@@ -1,14 +1,8 @@
 import { notFound, redirect } from "next/navigation";
 import { Files } from "lucide-react";
+import { api } from "@convex/_generated/api";
+import { serverQuery } from "@/shared/convex/server";
 import { PageBreadcrumb } from "@/components/PageBreadcrumb";
-import {
-  getFolderById,
-  getFolderBreadcrumb,
-  getFolderChildren,
-} from "@/features/folders/folders.service";
-import { getSystemById } from "@/features/systems/systems.service";
-import { getPagesBySystem } from "@/features/pages/pages.service";
-import { getTasksByFolder } from "@/features/tasks/tasks.service";
 import { FolderCard } from "@/features/notebooks/FolderCard";
 import { NotebookCard } from "@/features/notebooks/NotebookCard";
 import { FolderViewToolbar } from "@/features/notebooks/FolderViewToolbar";
@@ -18,7 +12,6 @@ import { resolveSystemManifest } from "@/shared/lib/system-manifest";
 import { containerDetailEmptyCopy } from "@/shared/lib/archetype-copy";
 import { Separator } from "@/components/ui/separator";
 import { getServerSession } from "@/shared/utils/session";
-import { toTransport } from "@/shared/api/transport";
 
 interface FolderViewRouteProps {
   params: Promise<{ id: string; folderId: string }>;
@@ -31,17 +24,16 @@ export default async function FolderViewRoute({ params }: FolderViewRouteProps) 
   if (!session) redirect("/login");
 
   const [folder, system] = await Promise.all([
-    getFolderById(folderId, session.user.id),
-    getSystemById(systemId, session.user.id),
+    serverQuery(api.folders.detail, { id: folderId }).catch(() => null),
+    serverQuery(api.systems.byId, { id: systemId }).catch(() => null),
   ]);
 
   if (!folder || !system) notFound();
 
-  const [children, allPages, breadcrumb, folderTasks] = await Promise.all([
-    getFolderChildren(folderId, session.user.id),
-    getPagesBySystem(systemId, session.user.id),
-    getFolderBreadcrumb(folder.path, session.user.id),
-    getTasksByFolder(folderId, systemId, session.user.id),
+  const [children, allPages, folderTasks] = await Promise.all([
+    serverQuery(api.folders.children, { id: folderId }),
+    serverQuery(api.pages.bySystem, { systemId }),
+    serverQuery(api.tasks.byFolder, { systemId, folderId }),
   ]);
 
   const folderPages = allPages.filter((p) => p.folderId === folderId);
@@ -51,7 +43,7 @@ export default async function FolderViewRoute({ params }: FolderViewRouteProps) 
   const breadcrumbItems = [
     { label: "Sistemas", href: "/systems" },
     { label: system.name, href: `/systems/${systemId}` },
-    ...breadcrumb.map((crumb) => ({
+    ...folder.breadcrumb.map((crumb) => ({
       label: crumb.name,
       href: `/systems/${systemId}/folders/${crumb.id}`,
     })),
@@ -68,7 +60,7 @@ export default async function FolderViewRoute({ params }: FolderViewRouteProps) 
       {/* Toolbar */}
       <FolderViewToolbar systemId={systemId} folderId={folderId} />
 
-      {/* Documents section — folders + pages */}
+      {/* Documents section: folders and pages */}
       {!hasDocContent ? (
         <div className="rounded-lg border border-dashed p-10 text-center space-y-2">
           <Files className="size-8 text-muted-foreground/40 mx-auto" />
@@ -94,7 +86,7 @@ export default async function FolderViewRoute({ params }: FolderViewRouteProps) 
               {folderPages.map((page) => (
                 <NotebookCard
                   key={page.id}
-                  page={toTransport(page)}
+                  page={page}
                   systemId={systemId}
                   href={`/systems/${systemId}/pages/${page.id}`}
                 />
@@ -111,7 +103,7 @@ export default async function FolderViewRoute({ params }: FolderViewRouteProps) 
         systemId={systemId}
         initialData={[]}
         folderId={folderId}
-        folderInitialData={toTransport(folderTasks)}
+        folderInitialData={folderTasks}
       />
 
       </div>

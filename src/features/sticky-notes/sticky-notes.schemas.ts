@@ -24,8 +24,8 @@ export const createStickyNoteSchema = z.object({
   positionY: z.number().min(0).max(1).nullable().optional(),
   positionX: positionXField,
   anchorId: z.string().nullable().optional(),
-  pageId: z.string().uuid().optional(),
-  folderId: z.string().uuid().optional(),
+  pageId: z.string().optional(),
+  folderId: z.string().optional(),
   clientRequestId: clientRequestIdField,
 });
 
@@ -37,15 +37,15 @@ export const updateStickyNoteSchema = z.object({
   positionY: z.number().min(0).max(1).nullable().optional(),
   positionX: positionXField,
   anchorId: z.string().nullable().optional(),
-  stackId: z.string().uuid().nullable().optional(),
+  stackId: z.string().nullable().optional(),
   textAnchor: z.string().nullable().optional(),
   // Breakthrough del arquetipo Writing (PLAN-11 §9).
   isEureka: z.boolean().optional(),
 });
 
 export const stackStickyNotesSchema = z.object({
-  draggedId: z.string().uuid(),
-  targetId: z.string().uuid(),
+  draggedId: z.string(),
+  targetId: z.string(),
 });
 
 export type CreateStickyNoteInput = z.infer<typeof createStickyNoteSchema>;

@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import type { Loose } from "@/shared/convex/loose";
 import type { TaskTransport } from "@/features/tasks/tasks.types";
 import {
   END_HOUR,
@@ -25,7 +26,7 @@ import {
  * probar dónde cae un bloque sin montar el calendario entero.
  */
 
-function task(partial: Partial<TaskTransport>): TaskTransport {
+function task(partial: Partial<Loose<TaskTransport>>): TaskTransport {
   return { id: "t", title: "Tarea", ...partial } as TaskTransport;
 }
 

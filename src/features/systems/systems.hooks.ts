@@ -1,31 +1,18 @@
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useOptimisticList } from "@/shared/hooks/optimistic";
-import { api } from "@/shared/api/client";
-import type {
-  SystemTransport,
-  SystemWithSignalsTransport,
-  CreateSystemInput,
-  UpdateSystemInput,
-} from "./systems.types";
-import { folderKeys } from "@/features/folders/folders.hooks";
-import { pageKeys } from "@/features/pages/pages.hooks";
-import { taskKeys } from "@/features/tasks/tasks.hooks";
+import { api } from "@convex/_generated/api";
+import { useConvexMutation, useConvexQuery } from "@/shared/convex/hooks";
+import type { SystemTransport, UpdateSystemInput } from "./systems.types";
 import { resolveSystemManifest } from "@/shared/lib/system-manifest";
 import type { ArchetypeManifest } from "@/shared/lib/system-types";
 
 export function useSystems() {
-  return useQuery({
-    queryKey: ["systems"],
-    queryFn: () => api.systems.list({}),
-    refetchOnWindowFocus: true,
-  });
+  return useConvexQuery(api.systems.list, {});
 }
 
 /**
  * La versión viva de un sistema que llegó como prop de un server component.
  * Las vistas de detalle reciben la fila renderizada en el servidor y no se
- * re-renderizan al mutar; la lista `["systems"]` sí (mutación optimista), así
- * que componer un sistema se ve al instante en vez de al navegar.
+ * re-renderizan al mutar; la lista sí, así que componer un sistema se ve al
+ * instante en vez de al navegar.
  */
 export function useLiveSystem<T extends SystemTransport>(system: T): T {
   const { data } = useSystems();
@@ -44,38 +31,15 @@ export function useSystemManifest(systemId: string | null | undefined): Archetyp
 }
 
 export function useCreateSystem() {
-  const queryClient = useQueryClient();
-
-  return useMutation<SystemTransport, Error, CreateSystemInput>({
-    mutationFn: (data) => api.systems.create(data),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["systems"] });
-    },
-  });
+  return useConvexMutation(api.systems.create);
 }
 
 export function useUpdateSystem() {
-  return useOptimisticList<SystemTransport, Error, { systemId: string; data: UpdateSystemInput }, SystemWithSignalsTransport>({
-    mutationFn: ({ systemId, data }) => api.systems.update({ id: systemId, ...data }),
-    queryKey: ["systems"],
-    updater: (systems, { systemId, data }) =>
-      systems.map((s) => (s.id === systemId ? { ...s, ...data } : s)),
+  return useConvexMutation(api.systems.update, {
+    map: ({ systemId, data }: { systemId: string; data: UpdateSystemInput }) => ({ id: systemId, ...data }),
   });
 }
 
 export function useDeleteSystem() {
-  const queryClient = useQueryClient();
-
-  return useOptimisticList<void, Error, string, SystemWithSignalsTransport>({
-    mutationFn: (systemId) => api.systems.remove({ id: systemId }),
-    queryKey: ["systems"],
-    updater: (systems, systemId) => systems.filter((s) => s.id !== systemId),
-    // El helper invalida ['systems']; al borrar el sistema también purgamos sus
-    // tasks/pages/folders cacheadas.
-    onSettled: (_data, _error, systemId) => {
-      queryClient.invalidateQueries({ queryKey: taskKeys.bySystem(systemId) });
-      queryClient.invalidateQueries({ queryKey: pageKeys.bySystem(systemId) });
-      queryClient.invalidateQueries({ queryKey: folderKeys.bySystem(systemId) });
-    },
-  });
+  return useConvexMutation(api.systems.remove, { map: (systemId: string) => ({ id: systemId }) });
 }

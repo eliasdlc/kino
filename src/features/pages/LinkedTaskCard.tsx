@@ -35,7 +35,6 @@ interface LinkedTaskCardProps {
 
 export function LinkedTaskCard({ task, onToggle, onEdit, onUnlink }: LinkedTaskCardProps) {
   const isDone = task.status === "done";
-  const isArchived = task.status === "archived";
   const typeConfig = getTaskTypeConfig(task.taskType ?? undefined);
 
   // Due date urgency
@@ -54,7 +53,7 @@ export function LinkedTaskCard({ task, onToggle, onEdit, onUnlink }: LinkedTaskC
     <div
       className={cn(
         "group relative flex flex-col gap-1.5 px-3 py-2.5 rounded-lg border transition-colors",
-        isDone || isArchived
+        isDone
           ? "bg-zinc-900/30 border-white/[0.04] opacity-60"
           : "bg-[#1a1a1e] border-white/[0.07] hover:bg-[#1e1e23] hover:border-white/[0.13]"
       )}
