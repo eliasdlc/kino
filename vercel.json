@@ -1,9 +1,3 @@
 {
-  "buildCommand": "pnpm db:migrate && pnpm build",
-  "crons": [
-    {
-      "path": "/api/cron/daily-snapshot",
-      "schedule": "0 12 * * *"
-    }
-  ]
+  "buildCommand": "pnpm db:migrate && pnpm build"
 }

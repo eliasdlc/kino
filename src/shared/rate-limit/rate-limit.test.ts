@@ -175,10 +175,6 @@ describe('policyFor', () => {
     expect(policyFor('/api/tasks', 'HEAD')).toBeNull();
   });
 
-  it('exime /api/cron, que lo dispara Vercel con el CRON_SECRET', () => {
-    expect(policyFor('/api/cron/daily-snapshot', 'POST')).toBeNull();
-  });
-
   it('ignora las rutas que no son de API', () => {
     expect(policyFor('/today', 'POST')).toBeNull();
   });
