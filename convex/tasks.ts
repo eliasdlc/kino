@@ -95,7 +95,7 @@ async function aliveTasks(ctx: Ctx, userId: Id<'users'>) {
     .collect();
 }
 
-async function ownTask(ctx: Ctx, userId: Id<'users'>, id: Id<'tasks'>, { includeDeleted = false } = {}) {
+export async function ownTask(ctx: Ctx, userId: Id<'users'>, id: Id<'tasks'>, { includeDeleted = false } = {}) {
   const doc = await ctx.db.get(id);
   if (!doc || doc.userId !== userId || (!includeDeleted && !alive(doc))) notFound('Task not found');
   return doc;
@@ -492,8 +492,21 @@ export const bulkCreate = kinoZodMutation({
 
 export const update = kinoZodMutation({
   args: updateTaskSchema.extend({ id: zid('tasks') }),
-  handler: async (ctx, { id, ...data }) => {
-    const userId = ctx.user._id;
+  handler: async (ctx, { id, ...data }) => taskItem(await updateTaskDoc(ctx, ctx.user, id, data)),
+});
+
+/**
+ * La edición de una tarea, exportada para que energía y el ritual escriban
+ * `startDate` por el mismo camino que el calendario.
+ */
+export async function updateTaskDoc(
+  ctx: MutationCtx,
+  user: Doc<'users'>,
+  id: Id<'tasks'>,
+  data: z.infer<typeof updateTaskSchema>,
+): Promise<TaskDoc> {
+  {
+    const userId = user._id;
     const current = await ownTask(ctx, userId, id);
 
     const targetSystemId = data.systemId ?? current.systemId;
@@ -532,7 +545,7 @@ export const update = kinoZodMutation({
     } else if ((data.startDate !== undefined || data.taskType !== undefined) && current.status !== 'done') {
       const effectiveType = data.taskType === undefined ? current.taskType : data.taskType;
       if (effectiveType === 'idea') patch.status = 'backlog';
-      else if (data.startDate !== undefined) patch.status = deriveStatusFromDate(optMs(data.startDate), ctx.user.timezone);
+      else if (data.startDate !== undefined) patch.status = deriveStatusFromDate(optMs(data.startDate), user.timezone);
     }
 
     const dueChanged = data.dueDate !== undefined && optMs(data.dueDate) !== current.dueDate;
@@ -543,9 +556,9 @@ export const update = kinoZodMutation({
     await ctx.db.patch(id, patch);
     const task = (await ctx.db.get(id))!;
     if (dueChanged || data.priority !== undefined) await syncAutoReminders(ctx, task, Date.now());
-    return taskItem(task);
-  },
-});
+    return task;
+  }
+}
 
 export const remove = kinoZodMutation({
   args: { id: zid('tasks') },

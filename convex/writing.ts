@@ -22,7 +22,7 @@ import {
 } from '../src/features/writing/plot-grid';
 import { withDeltas } from '../src/features/writing/snapshots';
 import { buildExcerpts, toPlainText } from '../src/features/writing/story-text';
-import { buildSuggestions, type StudioSignals } from '../src/features/writing/studio';
+import { buildSuggestions, type StudioSignals } from '../src/features/writing/studio.js';
 import { keyTerms, summarize } from '../src/features/writing/summary';
 import { TIMELINE_ORDER_KEY, assignOrders, buildTimeline } from '../src/features/writing/timeline';
 import { buildJournal, computeStreak } from '../src/features/writing/writing.streak';
