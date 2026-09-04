@@ -1,5 +1,6 @@
 import { ConvexError } from 'convex/values';
 import { customAction, customCtx, customMutation, customQuery } from 'convex-helpers/server/customFunctions';
+import { zCustomMutation, zCustomQuery } from 'convex-helpers/server/zod4';
 import type { Auth, GenericDatabaseReader, GenericDatabaseWriter, UserIdentity } from 'convex/server';
 import { action, mutation, query, type ActionCtx, type MutationCtx, type QueryCtx } from '../_generated/server';
 import type { DataModel, Doc } from '../_generated/dataModel';
@@ -109,6 +110,26 @@ export const kinoMutation = customMutation(
 
 /** Escritura que sólo propone: un agente con `propose` llega, uno con `read` no. */
 export const kinoProposal = customMutation(
+  mutation,
+  customCtx(async (ctx) => callerForMutation(ctx, 'propose')),
+);
+
+// Las mismas tres puertas con argumentos en Zod, para los slices cuyo contrato
+// ya es un schema de Zod con refinamientos que `v` no sabe expresar. La
+// identidad y el alcance se resuelven igual: cambia sólo cómo se validan los
+// argumentos.
+
+export const kinoZodQuery = zCustomQuery(
+  query,
+  customCtx(async (ctx) => callerForQuery(ctx, 'read')),
+);
+
+export const kinoZodMutation = zCustomMutation(
+  mutation,
+  customCtx(async (ctx) => callerForMutation(ctx, 'write')),
+);
+
+export const kinoZodProposal = zCustomMutation(
   mutation,
   customCtx(async (ctx) => callerForMutation(ctx, 'propose')),
 );
