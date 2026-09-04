@@ -1,7 +1,7 @@
 import { createLocalJWKSet, exportJWK, generateKeyPair, jwtVerify } from "jose";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { MCP_TOKEN_AUDIENCE, MCP_TOKEN_ISSUER } from "@convex/lib/mcpToken";
-import { mintConvexToken, publicJwks, scopeFor } from "./auth";
+import { MCP_OAUTH_SCOPES, mintConvexToken, publicJwks, scopeFor } from "./auth";
 
 describe("scopeFor · de los scopes de Clerk al alcance de Convex", () => {
   it("sin ninguno de los tres, el conector sólo lee", () => {
@@ -15,8 +15,13 @@ describe("scopeFor · de los scopes de Clerk al alcance de Convex", () => {
     expect(scopeFor(["propose", "write", "openid"])).toBe("write");
   });
 
-  it("acepta la forma con prefijo", () => {
-    expect(scopeFor(["kino:propose"])).toBe("propose");
+  it("acepta la forma con el recurso de Clerk delante", () => {
+    expect(scopeFor(["documents:propose"])).toBe("propose");
+    expect(scopeFor(["openid", "documents:write"])).toBe("write");
+  });
+
+  it("anuncia los tres con el recurso, como los conoce Clerk", () => {
+    expect(MCP_OAUTH_SCOPES).toEqual(["openid", "email", "profile", "documents:read", "documents:propose", "documents:write"]);
   });
 });
 
