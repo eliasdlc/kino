@@ -98,7 +98,7 @@ export function TaskPlanningView({ systemId, initialData, folderId, folderInitia
 
   const visibleTasks = useMemo(() => {
     return tasks.filter((task) => {
-      if (task.status === "done" || task.status === "archived") return false;
+      if (task.status === "done") return false;
 
       // Multi-day task: has startDate and dueDate, and they are different
       if (task.startDate && task.dueDate && !sameDueDay(task.startDate, task.dueDate)) {

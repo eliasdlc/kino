@@ -1,11 +1,6 @@
-import { stickyNotes } from "@/shared/db/schema";
+import type { FunctionReturnType } from "convex/server";
+import type { api } from "@convex/_generated/api";
 
-export type StickyNote = typeof stickyNotes.$inferSelect;
+export type StickyNoteItem = FunctionReturnType<typeof api.stickyNotes.byPage>[number];
 
-export type StickyNoteItem = Pick<
-  StickyNote,
-  | "id" | "title" | "content" | "color" | "sortIndex"
-  | "pageId" | "folderId"
-  | "positionSide" | "positionY" | "positionX" | "anchorId" | "stackId" | "textAnchor"
-  | "isEureka"
->;
+export type StickyNote = StickyNoteItem;

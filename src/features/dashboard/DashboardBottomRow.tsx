@@ -4,7 +4,7 @@ import { WeeklyTrendsCard } from './WeeklyTrendsCard';
 import { LearningInsightCard } from './LearningInsightCard';
 import { CoachPanel } from '@/features/insights/CoachPanel';
 import { useTodayPlanTasks } from '@/features/tasks/tasks.hooks';
-import type { WeeklyTrend, LearningInsight } from '@/features/energy/energy.service';
+import type { WeeklyTrend, LearningInsight } from '@/features/energy/energy.types';
 
 interface Props {
   weeklyTrends: WeeklyTrend;

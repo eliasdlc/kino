@@ -1,6 +1,5 @@
 "use client";
 
-import { useQuery } from "@tanstack/react-query";
 import { format } from "date-fns";
 import { CalendarIcon, Download } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -11,7 +10,9 @@ import { Calendar } from "@/components/ui/calendar";
 import { TimePicker } from "@/components/ui/time-picker";
 import type { TaskTransport } from "./tasks.types";
 import { formatDuration, hasDueTime, taskJsonFilename, withDay, withTime } from "./task-detail.helpers";
-import { api } from "@/shared/api/client";
+import { api } from "@convex/_generated/api";
+import { useConvexQuery } from "@/shared/convex/hooks";
+import { getConvexClient } from "@/shared/convex/client";
 
 /**
  * Bloques del panel de detalle de tarea (KIN-146 · FE-05).
@@ -20,11 +21,7 @@ import { api } from "@/shared/api/client";
  */
 
 export function TimeLoggedSection({ taskId }: { taskId: string }) {
-  const { data } = useQuery({
-    queryKey: ['time-logs', taskId],
-    queryFn: () => api.tasks.timeLogSummary({ id: taskId }),
-    staleTime: 5 * 60_000,
-  });
+  const { data } = useConvexQuery(api.tasks.timeLogSummary, { id: taskId });
 
   if (!data || data.sessionCount === 0) return null;
 
@@ -132,7 +129,7 @@ export function ExportTaskJsonButton({ task }: { task: TaskTransport }) {
       size="sm"
       className="gap-1.5 text-muted-foreground"
       onClick={async () => {
-        const subtasks = await api.tasks.subtasks({ id: task.id }).catch(() => []);
+        const subtasks = await getConvexClient().query(api.tasks.subtasks, { id: task.id }).catch(() => []);
         const payload = { ...task, subtasks };
         const blob = new Blob([JSON.stringify(payload, null, 2)], {
           type: "application/json;charset=utf-8",

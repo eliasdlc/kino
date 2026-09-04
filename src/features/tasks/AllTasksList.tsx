@@ -100,7 +100,7 @@ export function AllTasksList({ systems }: AllTasksListProps) {
   // Apply filters + sort
   const filtered = useMemo(() => {
     const visible = applyFilters(
-      tasks.filter((t) => t.parentTaskId === null && t.status !== 'archived'),
+      tasks.filter((t) => t.parentTaskId === null),
       filters,
     );
     return [...visible].sort(SORTERS[filters.sort]);

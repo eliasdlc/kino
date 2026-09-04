@@ -1,20 +1,8 @@
-import type { Transport } from "@/shared/api/transport";
-import { sprints } from "@/shared/db/schema";
-
-export type Sprint = typeof sprints.$inferSelect;
-
-export type SprintListItem = Pick<
-  Sprint,
-  | "id"
-  | "name"
-  | "goal"
-  | "startDate"
-  | "endDate"
-  | "status"
-  | "completedAt"
-  | "sortOrder"
-  | "systemId"
->;
+import type { FunctionReturnType } from "convex/server";
+import type { api } from "@convex/_generated/api";
 
 /** El sprint tal como llega al cliente: las fechas, en texto. */
-export type SprintTransport = Transport<SprintListItem>;
+export type SprintListItem = FunctionReturnType<typeof api.sprints.bySystem>[number];
+
+export type Sprint = SprintListItem;
+export type SprintTransport = SprintListItem;

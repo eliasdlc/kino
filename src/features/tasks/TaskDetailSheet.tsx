@@ -39,9 +39,8 @@ import { TaskTypePicker } from "./TaskTypePicker";
 import { TagPicker } from "@/features/tags/TagPicker";
 import type { TaskTransport } from "./tasks.types";
 import { useFocusTimer } from "./FocusTimerProvider";
-import { useQueryClient } from "@tanstack/react-query";
+import { useSystems } from "@/features/systems/systems.hooks";
 import type { SystemType } from "@/shared/lib/system-types";
-import type { SystemTransport } from "@/features/systems/systems.types";
 import {
   ENERGY_LABELS,
   PRIORITY_LABELS,
@@ -78,7 +77,7 @@ function TaskDetailForm({ task, systemId, onClose }: TaskDetailFormProps) {
   const { state: timerState, openModeDialog } = useFocusTimer();
   const isThisRunning = timerState.taskId === task.id && timerState.phase !== 'idle';
   const anotherRunning = timerState.phase !== 'idle' && !isThisRunning;
-  const isDone = task.status === "done" || task.status === "archived";
+  const isDone = task.status === "done";
 
   const [title, setTitle] = useState(task.title);
   const [description, setDescription] = useState(task.description ?? "");
@@ -102,8 +101,7 @@ function TaskDetailForm({ task, systemId, onClose }: TaskDetailFormProps) {
   const [recurrenceRule, setRecurrenceRule] = useState<string | null>(task.recurrenceRule ?? null);
   const [saveStatus, setSaveStatus] = useState<"idle" | "saved">("idle");
 
-  const queryClient = useQueryClient();
-  const cachedSystems = queryClient.getQueryData<SystemTransport[]>(['systems']);
+  const { data: cachedSystems } = useSystems();
   const systemTemplateType = cachedSystems?.find((s) => s.id === systemId)?.templateType as SystemType | undefined;
 
   const isMountedRef = useRef(false);

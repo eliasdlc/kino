@@ -1,20 +1,18 @@
 import { NextRequest, NextResponse } from 'next/server';
 import * as Sentry from '@sentry/nextjs';
 import { z } from 'zod';
-import { getAuthContext } from '@/shared/utils/auth-context';
-import { allowsScope, scopeForMethod, type KinoScope } from '@/shared/lib/scopes';
+import { api } from '@convex/_generated/api';
+import { serverQuery } from '@/shared/convex/server';
+import { getServerSession } from '@/shared/utils/session';
 import { ForbiddenError, NotFoundError, ValidationError } from '@/shared/utils/error';
 
 /**
  * La escotilla de las rutas que no caben en el contrato.
  *
- * Casi toda la API se sirve desde `src/shared/api/router.ts`, donde la entrada,
- * la salida y el permiso están declarados. Este wrapper se queda para lo que no
- * encaja ahí: hoy, las dos rutas de `uploads`, que necesitan el `request` crudo
- * porque el cuerpo es la imagen. La lista completa de excepciones, con su razón,
- * está en `src/app/api/[...rest]/route.ts`.
+ * Casi todo va por Convex. Este wrapper se queda para lo que necesita el
+ * `request` crudo: hoy, la subida de imágenes, cuyo cuerpo es la imagen.
  *
- * Lo que resuelve: auth, scope por método, validación de body y query, y el
+ * Lo que resuelve: la sesión de Clerk, validación de body y query, y el
  * mapeo de errores a status. Lo que NO hace es decidir el shape de la respuesta
  * feliz: el handler devuelve su propia `Response`.
  *
@@ -29,7 +27,6 @@ export interface RouteConfig<
   TBody,
   TQuery,
   TParams extends RouteParams,
-  TSessionOnly extends boolean = false,
 > {
   /** Schema del body JSON. Si se omite, el body no se lee ni se valida. */
   body?: z.ZodType<TBody>;
@@ -41,30 +38,16 @@ export interface RouteConfig<
    * al crudo, antes de validar.
    */
   prepareBody?: (raw: unknown, params: TParams) => unknown;
-  /**
-   * Sobreescribe el scope que se deriva del método. Se usa en los POST que
-   * sólo leen (`/api/insights/estimate` y compañía), donde exigir `kino:write`
-   * sería mentir sobre lo que hace la ruta.
-   */
-  requiredScope?: KinoScope;
-  /**
-   * Exige la sesión del navegador: una clave API o un token OAuth del MCP
-   * recibe 403 aunque pertenezcan al mismo usuario. Es para lo que cambia
-   * credenciales, cierra sesiones o borra la cuenta, donde un token filtrado
-   * no debe bastar.
-   */
-  sessionOnly?: TSessionOnly;
 }
 
 export interface RouteHandlerArgs<
   TBody,
   TQuery,
   TParams extends RouteParams,
-  TSessionOnly extends boolean = false,
 > {
   userId: string;
-  /** Id de la sesión de navegador. Garantizado sólo con `sessionOnly`. */
-  sessionId: TSessionOnly extends true ? string : string | undefined;
+  /** Id de la sesión de Clerk. */
+  sessionId: string;
   body: TBody;
   query: TQuery;
   params: TParams;
@@ -121,11 +104,10 @@ export function route<TParams extends RouteParams = RouteParams>() {
   return function withConfig<
     TBody = undefined,
     TQuery = undefined,
-    TSessionOnly extends boolean = false,
   >(
-    config: RouteConfig<TBody, TQuery, TParams, TSessionOnly>,
+    config: RouteConfig<TBody, TQuery, TParams>,
     handler: (
-      args: RouteHandlerArgs<TBody, TQuery, TParams, TSessionOnly>,
+      args: RouteHandlerArgs<TBody, TQuery, TParams>,
     ) => Promise<Response> | Response,
   ) {
     // Ni `context` ni `params` llevan `?`: Next 16 genera para cada ruta un tipo
@@ -137,38 +119,10 @@ export function route<TParams extends RouteParams = RouteParams>() {
       request: NextRequest,
       context: { params: Promise<TParams> },
     ): Promise<Response> {
-      const auth = await getAuthContext(request);
-      if (!auth) return NextResponse.json(UNAUTHORIZED, { status: 401 });
-
-      // 403 y no 401: sabemos quién eres, lo que falta es el permiso. El
-      // cuerpo nombra el scope para que el cliente pueda pedirlo y reintentar.
-      const requiredScope = config.requiredScope ?? scopeForMethod(request.method);
-      if (!allowsScope(auth.scopes, requiredScope)) {
-        return NextResponse.json(
-          {
-            code: 'INSUFFICIENT_SCOPE',
-            message: `Este token no tiene el permiso ${requiredScope}`,
-            requiredScope,
-          },
-          { status: 403 },
-        );
-      }
-
-      if (config.sessionOnly && !auth.sessionId) {
-        return NextResponse.json(
-          {
-            code: 'SESSION_REQUIRED',
-            message: 'Esta acción sólo se puede hacer desde la sesión del navegador',
-          },
-          { status: 403 },
-        );
-      }
-      const sessionId = auth.sessionId as RouteHandlerArgs<
-        TBody,
-        TQuery,
-        TParams,
-        TSessionOnly
-      >['sessionId'];
+      const session = await getServerSession();
+      if (!session) return NextResponse.json(UNAUTHORIZED, { status: 401 });
+      const user = await serverQuery(api.users.current, {});
+      const sessionId = session.sessionId;
 
       const params = ((await context?.params) ?? {}) as TParams;
 
@@ -195,7 +149,7 @@ export function route<TParams extends RouteParams = RouteParams>() {
       }
 
       try {
-        return await handler({ userId: auth.userId, sessionId, body, query, params, request });
+        return await handler({ userId: user._id, sessionId, body, query, params, request });
       } catch (error) {
         return mapError(error);
       }

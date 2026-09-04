@@ -4,7 +4,7 @@ import { createCipheriv, createDecipheriv, randomBytes } from "node:crypto";
  * Cifrado simétrico para secretos de terceros que la app necesita **reutilizar**
  * en claro — hoy, el access token de GitHub en `sync_connections` (KIN-135).
  *
- * Por qué cifrado y no hash: un token de API keys se compara (`api-keys.service.ts`
+ * Por qué cifrado y no hash: un token de GitHub se compara (`github.ts`
  * hashea con SHA-256 y nunca lo recupera), pero un access token hay que
  * presentarlo íntegro a GitHub en cada llamada. Hashearlo lo haría inservible.
  *

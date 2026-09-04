@@ -1,15 +1,14 @@
-import { getSystemById } from "@/features/systems/systems.service";
 import { notFound, redirect } from "next/navigation";
-import { getTasksBySystem } from "@/features/tasks/tasks.service";
+import { api } from "@convex/_generated/api";
+import { serverQuery } from "@/shared/convex/server";
 import { PageWrapper } from "@/components/PageWrapper";
 import { PageBreadcrumb } from "@/components/PageBreadcrumb";
 import { SystemDetailHeader } from "@/features/systems/SystemDetailHeader";
-import { computeSystemSignals } from "@/features/systems/systems.signals";
+import type { SystemSignals } from "@/features/systems/systems.signals";
 import { SystemDetailView } from "@/features/systems/views/SystemDetailView";
 import { NotebooksView } from "@/features/notebooks/NotebooksView";
 import { landingSurface } from "@/shared/lib/system-manifest";
 import { getServerSession } from "@/shared/utils/session";
-import { toTransport } from "@/shared/api/transport";
 
 export default async function SystemPage({
   params,
@@ -24,12 +23,26 @@ export default async function SystemPage({
 
   if (!session) redirect("/login");
 
-  const system = await getSystemById(id, session.user.id);
-  const tasks = await getTasksBySystem(id, session.user.id);
+  // La lista ya trae las señales de cada sistema; el detalle es uno de ellos.
+  const [systems, tasks] = await Promise.all([
+    serverQuery(api.systems.list, {}),
+    serverQuery(api.tasks.bySystem, { systemId: id }).catch(() => null),
+  ]);
+  const system = systems.find((s) => s.id === id);
 
-  if (!system) notFound();
+  if (!system || !tasks) notFound();
 
-  const signals = computeSystemSignals(system, tasks);
+  const nextDue = tasks
+    .filter((t) => t.status !== "done" && t.dueDate)
+    .map((t) => t.dueDate!)
+    .sort()[0];
+  const signals: SystemSignals = {
+    status: system.stale ? "stale" : "active",
+    stale: system.stale,
+    daysSinceLastActivity: system.daysSinceLastActivity,
+    activeTaskCount: system.activeTaskCount,
+    nextDueDate: nextDue ?? null,
+  };
   // Sin `?tab=`, manda la composición: un sistema cuyas páginas son primarias
   // abre en su biblioteca, no en el funnel de tareas.
   const surface = tab === "docs" ? "docs" : tab === "tasks" ? "tasks" : landingSurface(system);
@@ -45,13 +58,13 @@ export default async function SystemPage({
         />
       </div>
       <PageWrapper className="w-full">
-        <SystemDetailHeader system={toTransport(system)} signals={signals} currentTab={surface} />
+        <SystemDetailHeader system={system} signals={signals} currentTab={surface} />
 
         <div className="mt-4">
           {surface === "docs" ? (
             <NotebooksView systemId={id} />
           ) : (
-            <SystemDetailView system={toTransport(system)} initialTasks={toTransport(tasks)} />
+            <SystemDetailView system={system} initialTasks={tasks} />
           )}
         </div>
       </PageWrapper>

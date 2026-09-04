@@ -63,14 +63,8 @@ function markdownPage(result: unknown): unknown {
 }
 
 export const CATALOG: Readonly<Record<OperationId, ToolSpec | readonly ToolSpec[] | null>> = {
-  "account.changeEmail": null,
-  "account.changePassword": null,
   "account.overview": null,
   "account.remove": null,
-  "account.rename": null,
-  "account.revokeOtherSessions": null,
-  "account.revokeSession": null,
-  "account.sessions": null,
   "apiKeys.create": null,
   "apiKeys.list": null,
   "apiKeys.remove": null,

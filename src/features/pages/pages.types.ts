@@ -1,38 +1,20 @@
-import type { Transport } from "@/shared/api/transport";
-import { pages, tasks } from "@/shared/db/schema";
-import type { ContextTagListItem } from "@/features/tags/tags.types";
+import type { FunctionReturnType } from "convex/server";
+import type { api } from "@convex/_generated/api";
 
-export type Page = typeof pages.$inferSelect;
+/** Una página en lista: sin el contenido, con su vista previa y sus etiquetas. */
+export type PageListItem = FunctionReturnType<typeof api.pages.bySystem>[number];
 
-export type PageListItem = Pick<
-  Page,
-  | "id" | "title" | "folderId" | "systemId" | "isPinned" | "parentPageId"
-  | "completedAt" | "createdAt" | "updatedAt"
-> & {
-  contentPreview: string | null;
-  /** Palabras derivadas del contenido Tiptap (arquetipo Writing). Nunca persistido. */
-  wordCount: number;
-  tags: ContextTagListItem[];
-  subPageCount: number;
-};
+/** La página entera, con contenido y tareas enlazadas. */
+export type PageDetail = FunctionReturnType<typeof api.pages.byId>;
 
-export type PageDetail = Page & {
-  linkedTasks: LinkedTask[];
-};
+export type Page = PageDetail;
 
-export type LinkedTask = Pick<
-  typeof tasks.$inferSelect,
-  | "id" | "title" | "status" | "priority" | "energyLevel" | "dueDate"
-  | "startDate" | "description" | "taskType" | "estimatedTime"
-  | "folderId" | "systemId" | "parentTaskId"
->;
+export type LinkedTask = FunctionReturnType<typeof api.pages.linkedTasks>[number];
 
-// updatePage returns content so the client cache stays consistent
-// after a PATCH (no stale gap until the next refetch).
-export type PageMutationResult = PageListItem & Pick<Page, "content">;
+/** Lo que devuelve un guardado: la lista más el contenido, para no dejar hueco en la caché. */
+export type PageMutationResult = FunctionReturnType<typeof api.pages.update>;
 
-/** Las mismas páginas tal como llegan al cliente: las fechas, en texto. */
-export type PageListItemTransport = Transport<PageListItem>;
-export type PageDetailTransport = Transport<PageDetail>;
-export type LinkedTaskTransport = Transport<LinkedTask>;
-export type PageMutationResultTransport = Transport<PageMutationResult>;
+export type PageListItemTransport = PageListItem;
+export type PageDetailTransport = PageDetail;
+export type LinkedTaskTransport = LinkedTask;
+export type PageMutationResultTransport = PageMutationResult;

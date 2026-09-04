@@ -7,7 +7,6 @@
  * módulo las colapsa: todo cálculo de día local pasa por aquí, en su sabor TS o
  * en su sabor SQL. Prohibido reimplementar "hoy en la tz del usuario" fuera.
  */
-import { sql, type SQL } from "drizzle-orm";
 
 /** Día calendario (yyyy-MM-dd) de `date` en la timezone dada. */
 export function calendarDayInTz(date: Date, tz: string): string {
@@ -87,19 +86,4 @@ export function userDayRange(tz: string): { start: Date; end: Date } {
   const nextDay = calendarDayInTz(new Date(start.getTime() + 86_400_000), tz);
   const end = zonedMidnightToUtc(nextDay, tz);
   return { start, end };
-}
-
-/**
- * Fragmento SQL: instante timestamptz de la medianoche local de hoy en `tz`.
- * Correcto: `(NOW() AT TIME ZONE tz)::date::timestamp AT TIME ZONE tz`.
- * El `::timestamp` intermedio (no `::timestamptz`) es lo que evita el bug de
- * interpretar la fecha local como medianoche UTC.
- */
-export function sqlUserDay(tz: string): SQL {
-  return sql`((NOW() AT TIME ZONE ${tz})::date::timestamp AT TIME ZONE ${tz})`;
-}
-
-/** Fragmento SQL: fecha (DATE) de hoy en la tz del usuario. */
-export function sqlUserToday(tz: string): SQL {
-  return sql`(NOW() AT TIME ZONE ${tz})::date`;
 }

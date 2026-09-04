@@ -1,12 +1,15 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
-import { api } from '@/shared/api/client';
+import { useMutation } from 'convex/react';
+import { api } from '@convex/_generated/api';
 
 type PushStatus = 'idle' | 'loading' | 'subscribed' | 'denied' | 'unsupported';
 
 export function usePushNotifications() {
   const [status, setStatus] = useState<PushStatus>('idle');
+  const subscribeOnServer = useMutation(api.notifications.subscribe);
+  const unsubscribeOnServer = useMutation(api.notifications.unsubscribe);
 
   const checkSubscription = useCallback(async () => {
     if (!('serviceWorker' in navigator) || !('PushManager' in window)) {
@@ -54,7 +57,7 @@ export function usePushNotifications() {
         endpoint: string;
         keys: { auth: string; p256dh: string };
       };
-      await api.notifications.subscribe({ endpoint: json.endpoint, keys: json.keys });
+      await subscribeOnServer({ endpoint: json.endpoint, keys: json.keys });
       setStatus('subscribed');
     } catch {
       await checkSubscription();
@@ -66,7 +69,7 @@ export function usePushNotifications() {
       const reg = await navigator.serviceWorker.ready;
       const sub = await reg.pushManager.getSubscription();
       if (sub) {
-        await api.notifications.unsubscribe({ endpoint: sub.endpoint });
+        await unsubscribeOnServer({ endpoint: sub.endpoint });
         await sub.unsubscribe();
       }
     } finally {

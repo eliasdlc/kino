@@ -3,12 +3,11 @@
 import { useState } from 'react';
 import Link from 'next/link';
 import { ArrowRight, BarChart2, Moon, Loader2 } from 'lucide-react';
-import { useQueryClient } from '@tanstack/react-query';
+import { useMutation } from 'convex/react';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
-import { taskKeys } from '@/features/tasks/tasks.keys';
-import { api } from "@/shared/api/client";
+import { api } from '@convex/_generated/api';
 import {
   useSuggestedTasks,
   useEnergyDistribution,
@@ -40,15 +39,14 @@ function EmptyState({ message }: { message: string }) {
 
 function SuggestionSlot() {
   const { data: tasks, isLoading } = useSuggestedTasks(3);
-  const queryClient = useQueryClient();
+  const bulkMove = useMutation(api.tasks.bulkMove);
   const [moving, setMoving] = useState<string | null>(null);
 
   async function moveToToday(taskId: string) {
     setMoving(taskId);
     try {
-      await api.tasks.bulkMove({ taskIds: [taskId], status: 'today' });
+      await bulkMove({ taskIds: [taskId as never], status: 'today' });
       toast.success('Tarea movida a hoy');
-      void queryClient.invalidateQueries({ queryKey: taskKeys.todayPlan() });
     } catch {
       toast.error('No se pudo mover la tarea');
     } finally {

@@ -16,10 +16,10 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 15
 
-    # Sin `env:` y sin `secrets:` a propósito. `pnpm test` es lógica pura o
-    # mockea `@/shared/db`, y `pnpm test:integration` se levanta su propia base
-    # PGlite en el proceso. Si algún test empieza a pedir una DATABASE_URL de
-    # fuera, este job tiene que fallar en rojo, no ganar una variable aquí.
+    # Sin `env:` y sin `secrets:` a propósito. `pnpm test` es lógica pura y
+    # las funciones de Convex corren contra `convex-test`, en el proceso. Si
+    # algún test empieza a pedir un despliegue o una clave de fuera, este job
+    # tiene que fallar en rojo, no ganar una variable aquí.
     steps:
       - uses: actions/checkout@v5
 
@@ -39,58 +39,3 @@ jobs:
       - run: pnpm lint
 
       - run: pnpm test
-
-      - run: pnpm test:integration
-
-  motor-real:
-    name: integración contra Postgres 17
-    runs-on: ubuntu-latest
-    timeout-minutes: 15
-
-    # La misma batería que el job de arriba, contra el motor exacto de
-    # producción. PGlite es Postgres de verdad pero va por su propia versión
-    # (18), y producción, el compose y este contenedor están en 17: si algo se
-    # comporta distinto entre las dos, aquí es donde se ve.
-    services:
-      postgres:
-        image: postgres:17-alpine
-        env:
-          POSTGRES_USER: kino
-          POSTGRES_PASSWORD: kino_dev_password
-          POSTGRES_DB: kino_test
-        ports:
-          - 5432:5432
-        options: >-
-          --health-cmd "pg_isready -U kino -d kino_test"
-          --health-interval 5s
-          --health-timeout 5s
-          --health-retries 10
-
-    env:
-      # `DATABASE_URL` es para drizzle-kit, que migra. `TEST_DATABASE_URL` es la
-      # que lee la batería, y es una variable propia a propósito: deja la base en
-      # TRUNCATE, así que nombrarla tiene que ser un acto deliberado y nunca algo
-      # que herede de una DATABASE_URL que ya estuviera en el entorno.
-      DATABASE_URL: postgresql://kino:kino_dev_password@localhost:5432/kino_test
-      TEST_DATABASE_URL: postgresql://kino:kino_dev_password@localhost:5432/kino_test
-
-    steps:
-      - uses: actions/checkout@v5
-
-      - uses: pnpm/action-setup@v4
-        with:
-          version: 11.20.0
-
-      - uses: actions/setup-node@v5
-        with:
-          node-version: 26
-          cache: pnpm
-
-      - run: pnpm install --frozen-lockfile
-
-      - name: Extensiones que el schema da por hechas
-        run: psql "$DATABASE_URL" -f init-db/01-extensions.sql
-
-      - run: pnpm db:migrate
-
-      - run: pnpm test:integration

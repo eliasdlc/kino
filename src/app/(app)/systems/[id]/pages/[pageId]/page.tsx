@@ -1,13 +1,10 @@
 import { notFound, redirect } from "next/navigation";
-import { getPageById, getPagesBySystem, getSubPages } from "@/features/pages/pages.service";
-import { getSystemById } from "@/features/systems/systems.service";
-import { getFolderById, getFolderBreadcrumb } from "@/features/folders/folders.service";
+import { api } from "@convex/_generated/api";
+import { serverQuery } from "@/shared/convex/server";
 import type { BreadcrumbItem } from "@/components/PageBreadcrumb";
 import { NotebookEditorLayout } from "@/features/pages/NotebookEditorLayout";
 import { MEDIUM_CONFIG, resolveMedium } from "@/shared/lib/mediums";
-import type { PageListItemTransport } from "@/features/pages/pages.types";
 import { getServerSession } from "@/shared/utils/session";
-import { toTransport } from "@/shared/api/transport";
 
 interface PageEditorRouteProps {
   params: Promise<{ id: string; pageId: string }>;
@@ -20,34 +17,31 @@ export default async function PageEditorRoute({ params }: PageEditorRouteProps) 
   if (!session) redirect("/login");
 
   const [page, system, allPages] = await Promise.all([
-    getPageById(pageId, session.user.id),
-    getSystemById(systemId, session.user.id),
-    getPagesBySystem(systemId, session.user.id),
+    serverQuery(api.pages.byId, { id: pageId }).catch(() => null),
+    serverQuery(api.systems.byId, { id: systemId }).catch(() => null),
+    serverQuery(api.pages.bySystem, { systemId }),
   ]);
 
   if (!page || !system) notFound();
 
   const folder = page.folderId
-    ? await getFolderById(page.folderId, session.user.id)
+    ? await serverQuery(api.folders.detail, { id: page.folderId }).catch(() => null)
     : null;
-  const folderAncestors =
-    folder ? await getFolderBreadcrumb(folder.path, session.user.id) : [];
+  const folderAncestors = folder?.breadcrumb ?? [];
 
-  // Determine root notebook and pre-fetch sub-pages
+  // La raíz del cuaderno y sus subpáginas, que llegan ya cargadas.
   const isSubPage = !!page.parentPageId;
   const rootPageId = isSubPage ? page.parentPageId! : pageId;
 
-  const parentNotebookData = isSubPage
+  const parentNotebook = isSubPage
     ? (allPages.find((p) => p.id === page.parentPageId) ?? null)
     : null;
-  const initialSubPages = await getSubPages(rootPageId, session.user.id);
+  const initialSubPages = await serverQuery(api.pages.subpages, { id: rootPageId });
 
-  const parentNotebook = parentNotebookData as PageListItemTransport | null;
-
-  // Writer feel (PLAN-11 §7): solo el arquetipo Writing. La "obra" es el folder al
-  // que pertenece el capítulo; su progreso = suma de palabras de sus pages (derivado).
+  // Writer feel: solo el arquetipo Writing. La "obra" es el folder al que
+  // pertenece el capítulo; su progreso es la suma de palabras de sus pages.
   const writer = system.templateType === "writing";
-  // El medium de la obra gobierna nodos, slash menu, plantilla y export (W3, §6).
+  // El medium de la obra gobierna nodos, slash menu, plantilla y export.
   // Un manuscrito suelto (sin obra) escribe en prosa con el medium por defecto.
   const medium = writer ? MEDIUM_CONFIG[resolveMedium(folder?.metadata)] : null;
   const wordGoalRaw = folder?.metadata?.wordGoal;
@@ -87,13 +81,13 @@ export default async function PageEditorRoute({ params }: PageEditorRouteProps) 
 
   return (
     <NotebookEditorLayout
-      page={toTransport(page)}
+      page={page}
       systemId={systemId}
       systemName={system.name}
-      allPages={toTransport(allPages)}
+      allPages={allPages}
       breadcrumbItems={breadcrumbItems}
       parentNotebook={parentNotebook}
-      initialSubPages={toTransport(initialSubPages)}
+      initialSubPages={initialSubPages}
       writer={writer}
       obra={obra}
       obraMetadata={writer ? (folder?.metadata ?? null) : null}

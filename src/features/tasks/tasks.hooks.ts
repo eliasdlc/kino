@@ -20,9 +20,6 @@
  * keys a la vez— y conservan el patrón inline con su comentario explicándolo.
  */
 
-// Query keys, desde el módulo sin dependencias de React.
-export { taskKeys, allTasksKey, suggestedTasksKey, reminderKeys } from "./tasks.keys";
-
 export {
   useTrashedTasks,
   useTasks,

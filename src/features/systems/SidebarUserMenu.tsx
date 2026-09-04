@@ -12,7 +12,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { authClient } from "@/shared/lib/auth-client";
+import { useClerk } from "@clerk/nextjs";
 import { cn } from "@/lib/utils";
 import { resetAnalytics } from "@/shared/observability/analytics.client";
 
@@ -30,6 +30,7 @@ export function SidebarUserMenu({
   collapsed,
 }: SidebarUserMenuProps) {
   const router = useRouter();
+  const { signOut } = useClerk();
 
   const initials = userName
     ? userName
@@ -41,9 +42,9 @@ export function SidebarUserMenu({
     : "?";
 
   async function handleSignOut() {
-    await authClient.signOut();
     resetAnalytics();
-    router.push("/login");
+    await signOut({ redirectUrl: "/login" });
+    router.refresh();
   }
 
   return (

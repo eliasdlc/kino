@@ -20,6 +20,8 @@ const eslintConfig = defineConfig([
     "public/swe-worker-*.js",
     "public/worker-*.js",
     "public/fallback-*.js",
+    // Lo escribe `npx convex dev` en cada cambio del schema o de una función.
+    "convex/_generated/**",
   ]),
 ]);
 

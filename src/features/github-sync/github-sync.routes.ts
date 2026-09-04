@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { cookies } from "next/headers";
-import { getAuthContext } from "@/shared/utils/auth-context";
-import { connectGithub } from "./github-sync.service";
+import { api } from "@convex/_generated/api";
+import { serverAction } from "@/shared/convex/server";
+import { getServerSession } from "@/shared/utils/session";
 import {
   authorizeUrl,
   exchangeCode,
@@ -37,7 +38,7 @@ function mapGithubError(error: unknown): NextResponse | null {
  * un 302 hacia GitHub, no JSON.
  */
 export async function startGithubOAuth(request: NextRequest) {
-  const auth = await getAuthContext(request);
+  const auth = await getServerSession();
   if (!auth) return NextResponse.redirect(`${APP_URL}/login`);
 
   let config;
@@ -75,7 +76,7 @@ export async function startGithubOAuth(request: NextRequest) {
 
 /** Vuelta de GitHub. Termina siempre en un redirect a la app, nunca en JSON. */
 export async function githubOAuthCallback(request: NextRequest) {
-  const auth = await getAuthContext(request);
+  const auth = await getServerSession();
   if (!auth) return NextResponse.redirect(`${APP_URL}/login`);
 
   const params = new URL(request.url).searchParams;
@@ -107,7 +108,7 @@ export async function githubOAuthCallback(request: NextRequest) {
   try {
     const config = readOAuthConfig();
     const { accessToken, refreshToken } = await exchangeCode(config, code);
-    await connectGithub(auth.userId, accessToken, refreshToken);
+    await serverAction(api.github.connect, { accessToken, refreshToken });
   } catch {
     return clear(fail("exchange"));
   }

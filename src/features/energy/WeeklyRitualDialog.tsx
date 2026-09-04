@@ -1,7 +1,6 @@
 'use client';
 
 import { useMemo, useState } from 'react';
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import { CalendarClock, Undo2, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -13,19 +12,12 @@ import {
   ResponsiveDialogHeader,
   ResponsiveDialogTitle,
 } from '@/components/ui/responsive-dialog';
-import { taskKeys, allTasksKey } from '@/features/tasks/tasks.keys';
 import { WEEKDAY_LABELS, type RitualAssignment } from './energy.ritual';
-import { api } from '@/shared/api/client';
-
-export const weeklyRitualKey = () => ['energy', 'weekly-ritual'] as const;
+import { api } from '@convex/_generated/api';
+import { useConvexMutation, useConvexQuery } from '@/shared/convex/hooks';
 
 export function useWeeklyRitual(enabled = true) {
-  return useQuery({
-    queryKey: weeklyRitualKey(),
-    queryFn: () => api.energy.weeklyRitual({}),
-    enabled,
-    staleTime: 5 * 60_000,
-  });
+  return useConvexQuery(api.energy.weeklyRitual, {}, { enabled });
 }
 
 interface WeeklyRitualDialogProps {
@@ -52,7 +44,6 @@ function groupByDay(assignments: RitualAssignment[]): Array<{ date: string; item
  */
 export function WeeklyRitualDialog({ open, onOpenChange }: WeeklyRitualDialogProps) {
   const { data: ritual, isLoading } = useWeeklyRitual(open);
-  const queryClient = useQueryClient();
 
   const [excluded, setExcluded] = useState<Set<string>>(new Set());
 
@@ -61,11 +52,8 @@ export function WeeklyRitualDialog({ open, onOpenChange }: WeeklyRitualDialogPro
     [ritual, excluded],
   );
 
-  const { mutate: apply, isPending } = useMutation({
-    mutationFn: () =>
-      api.energy.applyWeeklyRitual({
-        assignments: assignments.map((a) => ({ taskId: a.taskId, date: a.date })),
-      }),
+  const { mutate: apply, isPending } = useConvexMutation(api.energy.applyWeeklyRitual, {
+    map: () => ({ assignments: assignments.map((a) => ({ taskId: a.taskId, date: a.date })) }),
     onSuccess: (result) => {
       const n = result.applied.length;
       if (result.failed.length > 0) {
@@ -75,10 +63,6 @@ export function WeeklyRitualDialog({ open, onOpenChange }: WeeklyRitualDialogPro
       } else {
         toast.success(`${n} tarea${n !== 1 ? 's' : ''} repartida${n !== 1 ? 's' : ''} en la semana`);
       }
-      void queryClient.invalidateQueries({ queryKey: ['tasks'] });
-      void queryClient.invalidateQueries({ queryKey: allTasksKey() });
-      void queryClient.invalidateQueries({ queryKey: taskKeys.todayPlan() });
-      void queryClient.invalidateQueries({ queryKey: weeklyRitualKey() });
       onOpenChange(false);
     },
     onError: () => toast.error('No se pudo aplicar el reparto. Intenta de nuevo.'),

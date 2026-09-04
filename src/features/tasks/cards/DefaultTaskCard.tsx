@@ -9,7 +9,6 @@ import { SubtaskList } from "../SubtaskList";
 import { useSubtasks } from "../tasks.hooks";
 import { getSystemColor } from "@/shared/utils/system-colors";
 import { useTaskCard, type TaskCardState } from "./useTaskCard";
-import { PendingSyncBadge } from "@/features/offline/PendingSyncBadge";
 import type { TaskCardProps } from "./types";
 import type { SystemType } from "@/shared/lib/system-types";
 import {
@@ -271,7 +270,7 @@ function DefaultMeta({ task, state, systemType, systemId }: DefaultMetaProps) {
 export function DefaultTaskCard({ task, systemId, systemType, draggable, isFocused, onToggle, onDelete, onEdit, renderMeta, isSelected, onSelectionToggle, soft }: DefaultTaskCardProps) {
   const state = useTaskCard(task, systemId, onToggle);
   const {
-    isDone, isArchived, completing,
+    isDone, completing,
     isThisRunning, anotherRunning, isExpanded, setIsExpanded,
     handleToggle, openModeDialog,
   } = state;
@@ -290,7 +289,6 @@ export function DefaultTaskCard({ task, systemId, systemType, draggable, isFocus
         isCritical && "bg-task-critical/[0.13] border-task-critical/35 hover:border-task-critical/55 hover:bg-task-critical/[0.18]",
         isHigh && "bg-task-high/[0.13] border-task-high/35 hover:border-task-high/55 hover:bg-task-high/[0.18]",
         isDone && "opacity-45",
-        isArchived && "opacity-35",
         isFocused && "bg-primary/8 border-primary/60",
         isSelected && !isCritical && !isHigh && "bg-primary/5 border-primary/40",
         draggable && "cursor-grab active:cursor-grabbing"
@@ -315,15 +313,13 @@ export function DefaultTaskCard({ task, systemId, systemType, draggable, isFocus
       <button
         type="button"
         onClick={handleToggle}
-        disabled={isArchived}
         aria-label={isDone ? "Marcar como pendiente" : "Marcar como completada"}
         className={cn(
           "relative mt-0.5 size-6 shrink-0 rounded-full border-2 flex items-center justify-center",
-          isArchived && "cursor-default",
           "after:absolute after:inset-[-10px] after:content-['']",
           "motion-safe:transition-[colors,transform,box-shadow] motion-safe:duration-200",
           completing && "motion-safe:scale-125 motion-safe:shadow-[0_0_0_5px_color-mix(in_oklab,var(--task-done)_20%,transparent)]",
-          isDone || isArchived
+          isDone
             ? "border-task-done bg-task-done text-task-done-foreground"
             : isCritical
             ? "border-task-critical/50 hover:border-task-critical"
@@ -332,7 +328,7 @@ export function DefaultTaskCard({ task, systemId, systemType, draggable, isFocus
             : "border-muted-foreground/40 hover:border-muted-foreground/70"
         )}
       >
-        {(isDone || isArchived) && <CheckIcon />}
+        {isDone && <CheckIcon />}
       </button>
 
       <div className="flex-1 min-w-0">
@@ -347,9 +343,8 @@ export function DefaultTaskCard({ task, systemId, systemType, draggable, isFocus
           >
             {task.title}
           </button>
-          <PendingSyncBadge id={task.id} />
           <div className="flex items-center gap-1.5 shrink-0">
-            {!isDone && !isArchived && (
+            {!isDone && (
               <button
                 type="button"
                 onClick={() => !anotherRunning && openModeDialog({
@@ -416,7 +411,7 @@ export function DefaultTaskCard({ task, systemId, systemType, draggable, isFocus
     </div>
       </ContextMenuTrigger>
       <ContextMenuContent className="w-52">
-        {!isDone && !isArchived && (
+        {!isDone && (
           <>
             <ContextMenuItem
               disabled={anotherRunning}

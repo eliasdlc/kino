@@ -1,19 +1,22 @@
 import { cache } from 'react';
-import { headers } from 'next/headers';
-import { auth } from '@/auth';
+import { auth } from '@clerk/nextjs/server';
+import { api } from '@convex/_generated/api';
+import { serverMutation } from '@/shared/convex/server';
+
+export interface ServerSession {
+  clerkId: string;
+  sessionId: string;
+}
 
 /**
- * La sesión del request, resuelta una sola vez.
- *
- * Las sesiones son stateful en Postgres, así que cada `auth.api.getSession` es
- * una consulta real. Un layout y la página que renderiza dentro la pedían por
- * separado, o sea dos consultas por navegación para el mismo dato.
- *
- * `cache()` de React memoiza **por request**, no entre peticiones: dos
- * peticiones distintas nunca comparten resultado, así que esto no puede servir
- * la sesión de otro usuario ni sobrevivir a un cierre de sesión. No es un
- * caché entre peticiones y no debe usarse como tal.
+ * La sesión de Clerk del request, resuelta una sola vez. Lo que Kino sabe de
+ * esa persona vive en Convex (`users.current`); aquí se decide si hay alguien
+ * al otro lado y se garantiza que su documento existe antes de que layout y
+ * página, que Next renderiza en paralelo, lo lean.
  */
-export const getServerSession = cache(async () => {
-  return auth.api.getSession({ headers: await headers() });
+export const getServerSession = cache(async (): Promise<ServerSession | null> => {
+  const { userId: clerkId, sessionId } = await auth();
+  if (!clerkId || !sessionId) return null;
+  await serverMutation(api.users.ensure, {});
+  return { clerkId, sessionId };
 });

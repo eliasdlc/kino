@@ -16,15 +16,12 @@ import { Bell, BellOff, Download, Loader2, Monitor, Moon, Sun } from "lucide-rea
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 import { usePushNotifications } from "@/features/notifications/notifications.hooks";
-import { ApiKeysSection } from "@/features/api-keys/ApiKeysSection";
 import { GithubConnectionSection } from "@/features/github-sync/GithubConnectionSection";
 import { EnergyLimitSection } from "@/features/settings/EnergyLimitSection";
 import { TimezoneSection } from "@/features/settings/TimezoneSection";
 import { WeeklyReviewDaySection } from "@/features/settings/WeeklyReviewDaySection";
 import { ReclaimSpaceSection } from "@/features/uploads/ReclaimSpaceSection";
 import { AccountSection } from "@/features/account/AccountSection";
-import { EmailChangeResult } from "@/features/account/EmailChangeResult";
-import { SessionsSection } from "@/features/account/SessionsSection";
 import { DangerZoneSection } from "@/features/account/DangerZoneSection";
 import {
   useUserSettings,
@@ -81,16 +78,8 @@ export default function SettingsPage() {
       <Separator />
 
       <div className="space-y-8 pb-10">
-        {/* Cuenta: nombre, correo, contraseña y cierre de sesión. El resultado
-            del cambio de correo llega por la URL y necesita su propio límite
-            de Suspense. */}
-        <Suspense>
-          <EmailChangeResult />
-        </Suspense>
+        {/* Cuenta: nombre, correo, contraseña y sesiones, en el panel de Clerk. */}
         <AccountSection />
-
-        {/* Sesiones abiertas en otros dispositivos */}
-        <SessionsSection />
 
         {/* Appearance */}
         <div className="space-y-4">
@@ -264,7 +253,6 @@ export default function SettingsPage() {
         <WeeklyReviewDaySection />
 
         {/* API Keys */}
-        <ApiKeysSection />
 
         {/* GitHub — lee el resultado del callback de OAuth de la URL, así que
             necesita su propio límite de Suspense. */}

@@ -60,5 +60,5 @@ export const updateSystemSchema = createSystemSchema.partial().extend({
 });
 
 export const reorderSystemsSchema = z.object({
-  systemIds: z.array(z.string().uuid()),
+  systemIds: z.array(z.string()),
 });

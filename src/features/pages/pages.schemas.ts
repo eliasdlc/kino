@@ -2,9 +2,9 @@ import { z } from "zod";
 import { clientRequestIdField } from "@/shared/offline/client-request";
 
 export const createPageSchema = z.object({
-  systemId: z.string().uuid(),
-  folderId: z.string().uuid().optional(),
-  parentPageId: z.string().uuid().optional(),
+  systemId: z.string(),
+  folderId: z.string().optional(),
+  parentPageId: z.string().optional(),
   title: z.string().max(500).optional(),
   content: z.string().nullable().optional(),
   clientRequestId: clientRequestIdField,
@@ -13,7 +13,7 @@ export const createPageSchema = z.object({
 export const updatePageSchema = z.object({
   title: z.string().max(500).nullable().optional(),
   content: z.string().nullable().optional(),
-  folderId: z.string().uuid().nullable().optional(),
+  folderId: z.string().nullable().optional(),
   isPinned: z.boolean().optional(),
   /**
    * Versión optimista: el `updatedAt` que traía la página cuando se leyó. Si no
@@ -27,7 +27,7 @@ export const updatePageSchema = z.object({
 });
 
 export const linkTaskSchema = z.object({
-  taskId: z.string().uuid(),
+  taskId: z.string(),
 });
 
 export type CreatePageInput = z.infer<typeof createPageSchema>;
