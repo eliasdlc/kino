@@ -22,7 +22,6 @@ pnpm db:studio                      # Drizzle Studio
 pnpm test                           # Suite completa (lógica pura, sin base)
 pnpm test -- --run <path>           # Un solo archivo de test
 pnpm test:integration               # Batería de integración contra Postgres (PGlite, sin Docker)
-pnpm mcp:generate                   # Vuelca el contrato en las operaciones que ve el MCP
 ```
 
 **Siempre** correr `pnpm typecheck && pnpm lint` después de cualquier cambio. Si alguno falla, se arregla antes de commitear.
@@ -57,7 +56,7 @@ pnpm mcp:generate                   # Vuelca el contrato en las operaciones que 
 4. **10s por función, salvo excepción justificada.** Es el presupuesto por defecto y las rutas que lo declaran usan `export const maxDuration = 10`. La única excepción viva es `/api/mcp`, en 60s, porque el protocolo mantiene la petición abierta mientras el agente encadena herramientas. Subir el límite en una ruta nueva es una decisión, no un ajuste: escríbela en el comentario de la ruta. Paginar lo pesado sigue siendo la respuesta primero.
 5. **La sesión la emite y la revoca Clerk.** La cookie `__session` es un JWT corto que Clerk renueva cada minuto contra su backend, así que cerrar una sesión desde el panel la corta de verdad en ese plazo. Kino no guarda sesiones propias ni acepta otro token de navegador.
 
-   Lo que también lleva JWT es el conector MCP remoto, con el OAuth de Clerk; hasta que esa ruta se reescriba, `/api/mcp` rechaza todo Bearer y las claves `sk-kino-` siguen siendo la vía del CLI.
+   El conector MCP remoto (`/api/mcp`) entra por el OAuth de Clerk: el cliente se registra en dinámico, el usuario consiente en la pantalla de Clerk y la ruta verifica el access token con `@clerk/mcp-tools`. Convex no puede validar ese token (su `aud` cambia por cliente), así que la ruta firma uno propio de diez minutos con el alcance en `kino_scope` (`convex/lib/mcpToken.ts`, `src/features/mcp/auth.ts`) y Convex lo acepta por el provider `customJwt` de `auth.config.ts`. No hay claves API propias ni tabla `api_keys`.
 6. **`system_id` es NOT NULL en tasks.** Toda tarea pertenece a un sistema; Inbox es el default. No hay tareas flotantes.
 7. **Timestamps en UTC** (TIMESTAMPTZ). El frontend convierte para mostrar.
 8. **Soft delete** en tasks y pages vía `deleted_at`. Siempre filtrar con `WHERE deleted_at IS NULL`.
@@ -217,7 +216,7 @@ pasaba porque el cliente afirmaba la respuesta con un cast.
   `INTERNAL_ERROR`. La traducción vive en `shared/api/handler.ts` y en
   `shared/api/procedures.ts`.
 
-**Las tools del MCP salen de aquí.** `packages/mcp` se publica en npm y no puede importar `src/`, así que el contrato viaja hasta él como código generado (`pnpm mcp:generate` → `packages/mcp/src/generated/operations.ts`). El paquete sólo escribe a mano lo que el agente lee: el nombre y la descripción de cada tool, en `catalog.ts`, que es un mapa **exhaustivo** sobre las operaciones. Un endpoint nuevo no compila hasta que alguien decide si es una tool o un `null` explícito, y un test comprueba que lo commiteado coincide con el contrato.
+**Las tools del MCP son funciones de Convex con nombre.** Viven en `src/features/mcp/tools/catalog.ts`: cada `readTool`/`writeTool` apunta a una función de `api.*` y el compilador exige que la entrada del schema encaje en sus argumentos (o que la tool declare `args` para adaptarla), así que cambiar una función deja de compilar la tool que la usa. Lo escrito a mano es lo que el agente lee: el nombre y la descripción. `catalog.test.ts` fija la lista de nombres como contrato visible: quitar o añadir una tool pasa por ahí. Las sesiones de aprendizaje (`learning.ts`) son secuencias sobre varias funciones y van aparte.
 
 Lo que cruza la red no es una fila: `Transport<T>` (en `shared/api/transport.ts`)
 convierte las fechas en texto ISO, que es lo que sobrevive a un `JSON.stringify`.

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { htmlToMarkdown, markdownToHtml } from './markdown.js';
+import { htmlToMarkdown, markdownToHtml } from './markdown';
 
 /**
  * Lo que se prueba aquí es el viaje completo, no cada conversor por su lado: el

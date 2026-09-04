@@ -404,30 +404,29 @@ export function DocsContent() {
           <code className="font-jetbrains text-[13px] text-[#c4c4ce]">propose_day_blocks</code>,{" "}
           <code className="font-jetbrains text-[13px] text-[#c4c4ce]">suggest_next_action</code> …).
         </p>
-        <p className="mb-2 text-[15px] font-semibold text-[#e4e4e7]">Instalar en 2 pasos</p>
+        <p className="mb-2 text-[15px] font-semibold text-[#e4e4e7]">Conectar en 2 pasos</p>
         <ol className="mb-4 flex list-decimal flex-col gap-1.5 pl-[18px] text-[14.5px] text-[#c4c4ce]">
           <li>
-            Genera tu <strong className="text-[#e4e4e7]">API key</strong> en{" "}
-            <span className="font-jetbrains text-[13px] text-[#c7d2fe]">Ajustes → API</span>. Tiene
-            scopes y puedes revocarla cuando quieras.
+            Añade el conector con la URL{" "}
+            <span className="font-jetbrains text-[13px] text-[#c7d2fe]">https://www.usekino.dev/api/mcp</span>.
+            No hay claves que copiar: es un conector remoto.
           </li>
-          <li>Conecta tu cliente MCP con el comando de abajo (o configúralo a mano).</li>
+          <li>
+            Tu cliente abre la pantalla de autorización de Kino. Entras con tu cuenta, eliges qué
+            puede hacer el asistente (<strong className="text-[#e4e4e7]">leer</strong>,{" "}
+            <strong className="text-[#e4e4e7]">proponer</strong> o{" "}
+            <strong className="text-[#e4e4e7]">escribir</strong>) y listo. Puedes revocar el acceso
+            cuando quieras desde tu cuenta.
+          </li>
         </ol>
         <pre className="overflow-x-auto rounded-[14px] border border-white/[0.08] bg-[#131316] px-5 py-[18px] font-jetbrains text-[13px] leading-[1.7] text-[#a1a1aa]">
-          <span className="text-[#6b6b74]"># Opción rápida — configura tu cliente automáticamente</span>
+          <span className="text-[#6b6b74]"># Claude Code</span>
           {"\n"}
-          <span className="text-[#3ecf72]">npx</span> -y @kino-app/mcp setup
+          <span className="text-[#3ecf72]">claude</span> mcp add --transport http kino https://www.usekino.dev/api/mcp
           {"\n\n"}
-          <span className="text-[#6b6b74]"># O a mano en ~/.claude.json</span>
+          <span className="text-[#6b6b74]"># claude.ai y Claude Desktop: Ajustes → Conectores → Añadir conector personalizado</span>
           {"\n"}
-          {`"kino": {
-  "command": "npx",
-  "args": ["-y", "@kino-app/mcp"],
-  "env": {
-    "KINO_API_KEY": "sk-kino-…",
-    "KINO_BASE_URL": "https://www.usekino.dev"
-  }
-}`}
+          <span className="text-[#6b6b74]"># y pega la misma URL.</span>
         </pre>
       </Section>
 

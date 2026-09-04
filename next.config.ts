@@ -43,8 +43,6 @@ const nextConfig: NextConfig = {
 
   },
   reactStrictMode: true,
-  // Workspace package shipping ESM tool definitions reused by the /api/mcp route.
-  transpilePackages: ["@kino-app/mcp"],
 };
 
 // Sentry envuelve por fuera de next-pwa: su plugin de webpack tiene que ver el

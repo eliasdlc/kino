@@ -23,9 +23,9 @@ export async function enforceRateLimit(args: {
 }
 
 /**
- * `Retry-After` es lo que `packages/mcp/src/client.ts` necesita para que el
- * modelo reciba "wait a moment and try again" en vez de un error crudo. El
- * `code` mantiene el shape que el proxy ya devolvía en `/api/auth/*`.
+ * `Retry-After` es lo que un cliente MCP necesita para que el modelo reciba
+ * "wait a moment and try again" en vez de un error crudo. El `code` mantiene
+ * el shape que el proxy ya devolvía en `/api/auth/*`.
  */
 export function rateLimitedResponse(decision: RateLimitDecision): NextResponse {
   return NextResponse.json(

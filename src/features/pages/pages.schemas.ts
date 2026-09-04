@@ -19,9 +19,8 @@ export const updatePageSchema = z.object({
    * Versión optimista: el `updatedAt` que traía la página cuando se leyó. Si no
    * coincide con el guardado, la escritura no se aplica y responde 409.
    *
-   * Se queda en texto ISO a propósito. El schema viaja al MCP como JSON Schema
-   * (`pnpm mcp:generate`) y un `transform` no tiene forma allí: la fecha la
-   * construye el servicio, que es quien conoce la precisión de la columna.
+   * Se queda en texto ISO a propósito: es lo que la página devuelve al leerla
+   * y lo que el conector MCP manda de vuelta, sin conversión por el camino.
    */
   expectedUpdatedAt: z.iso.datetime({ offset: true }).optional(),
 });
