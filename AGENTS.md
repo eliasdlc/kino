@@ -39,8 +39,8 @@ pnpm test:integration               # Batería de integración contra Postgres (
 - **Estilos**: Tailwind + shadcn/ui (Radix)
 - **Toasts**: sonner · **Gráficas**: Recharts · **Fechas**: date-fns · **Recurrencia**: rrule
 - **Editor**: Tiptap v3
-- **Background**: Lazy Evaluation (catch-up al entrar) + Vercel Cron + cron externo
-- **Errores**: Sentry en navegador, API y crons. Inerte sin `NEXT_PUBLIC_SENTRY_DSN`;
+- **Background**: Lazy Evaluation (catch-up al entrar) + los crons de Convex (`convex/crons.ts`: snapshot diario y recordatorios cada quince minutos, con bitácora en `cronRuns`)
+- **Errores**: Sentry en navegador y API. Inerte sin `NEXT_PUBLIC_SENTRY_DSN`;
   el recorte de datos personales vive en `src/shared/observability/sentry-options.ts`
 - **Analítica de producto**: PostHog sin cookies, sólo el funnel de registro.
   Inerte sin `NEXT_PUBLIC_POSTHOG_KEY`; los eventos que existen y las propiedades
@@ -75,12 +75,12 @@ Producción y desarrollo son **dos ramas de Neon** con cadenas de conexión dist
 
 Toda migración sigue teniendo que ser **compatible hacia atrás** con el código ya desplegado: el build migra antes de publicar, y entre una cosa y la otra el código viejo lee el schema nuevo.
 
-**Respaldo.** Neon Free guarda 6 horas de historial y nada más. `.github/workflows/backup.yml` vuelca producción a un bucket de Cloudflare R2 a las 05:23 UTC: `pg_dump -Fc` cifrado con `age`, en `scripts/backup/dump.sh`. La retención de 30 días es una regla de ciclo de vida del bucket, no lógica del workflow.
+**Respaldo.** Convex guarda snapshots propios, pero viven en la misma cuenta que los datos: un borrado de cuenta, una clave comprometida o un `import --replace-all` contra el deployment equivocado se los lleva también. `.github/workflows/backup.yml` exporta producción a un bucket de Cloudflare R2 a las 05:23 UTC: `npx convex export --include-file-storage` cifrado con `age`, en `scripts/backup/dump.sh`. La retención de 30 días es una regla de ciclo de vida del bucket, no lógica del workflow.
 
 Ese volcado ocurre sólo si se cumplen **dos condiciones que no son código**, y por eso este documento no afirma que esté ocurriendo:
 
 1. El workflow existe en `main`. GitHub dispara `schedule:` únicamente desde la rama por defecto, y `workflow_dispatch` tampoco aparece en la interfaz si el fichero no está allí. Tenerlo en `dev` no hace nada.
-2. Los seis secretos del repositorio están cargados: `BACKUP_DATABASE_URL` (cadena **directa**, sin `-pooler`), `BACKUP_AGE_RECIPIENT` (pública `age1...`), `R2_ACCOUNT_ID`, `R2_ACCESS_KEY_ID`, `R2_SECRET_ACCESS_KEY`, `R2_BUCKET`.
+2. Los seis secretos del repositorio están cargados: `CONVEX_DEPLOY_KEY` (clave de deploy del deployment de **producción**, empieza por `prod:`), `BACKUP_AGE_RECIPIENT` (pública `age1...`), `R2_ACCOUNT_ID`, `R2_ACCESS_KEY_ID`, `R2_SECRET_ACCESS_KEY`, `R2_BUCKET`.
 
 Cómo se comprueba si está corriendo de verdad, sin creerle a este párrafo:
 
@@ -88,46 +88,48 @@ Cómo se comprueba si está corriendo de verdad, sin creerle a este párrafo:
 gh run list --workflow=backup.yml
 ```
 
-Sin ejecuciones ahí, el único respaldo de producción son las 6 horas de Neon. El workflow falla en rojo ante cualquier secreto ausente o vacío, y sólo se pone verde después de comprobar contra R2 que el objeto existe y mide lo que debe.
+Sin ejecuciones ahí, el único respaldo de producción son los snapshots de la propia cuenta de Convex. El workflow falla en rojo ante cualquier secreto ausente, vacío o de otro deployment, y sólo se pone verde después de comprobar contra R2 que el objeto existe y mide lo que debe.
 
-La clave privada `age` no está en ningún servicio: vive en el gestor de contraseñas de Elias. Sin ella los volcados son ruido indescifrable, y es el único secreto del sistema que no se puede rotar sin invalidar todo lo guardado hasta ese momento. La base de producción cabe en el runner: si alguna vez el volcado supera lo que R2 regala (10 GB), es una decisión, no un ajuste.
+La clave privada `age` no está en ningún servicio: vive en el gestor de contraseñas de Elias. Sin ella los volcados son ruido indescifrable, y es el único secreto del sistema que no se puede rotar sin invalidar todo lo guardado hasta ese momento. Si alguna vez el snapshot supera lo que R2 regala (10 GB), es una decisión, no un ajuste.
 
 Las variables de entorno están documentadas en **`.env.example`**, una línea por clave con para qué sirve y si es obligatoria. Toda variable nueva se añade ahí en el mismo commit que la lee.
 
 ### Restaurar un respaldo
 
-Los tres scripts de `scripts/backup/` están hechos para leerse en este orden y a las tres de la mañana. `restore.sh` aplica el volcado con `--clean --if-exists`: **borra y recrea cada objeto del destino**, no añade. Nunca lo apuntes a una base cuyo contenido te importe.
+Los tres scripts de `scripts/backup/` están hechos para leerse en este orden y a las tres de la mañana. `restore.sh` importa con `--replace-all`: **el deployment queda como el snapshot y lo que no venga en él se borra**, no añade. Exige que el nombre del deployment destino se escriba dos veces (dentro de la clave y en `CONFIRM_TARGET`) para que una clave pegada por error no borre nada.
 
 ```bash
-# 1. Requisitos: age, pg_restore 17 o más nuevo, y la clave privada.
-age --version && pg_restore --version
+# 1. Requisitos: age, la CLI de Convex del repo (pnpm install) y la clave privada.
+age --version && npx convex --version
 export AGE_IDENTITY_FILE=~/.config/kino/backup-age.key   # la del gestor de contraseñas
 
 # 2. Credenciales de R2 y el objeto. La lista sale con el más reciente al final.
 export AWS_ACCESS_KEY_ID=...  AWS_SECRET_ACCESS_KEY=...  AWS_DEFAULT_REGION=auto
 export R2_ENDPOINT="https://<R2_ACCOUNT_ID>.r2.cloudflarestorage.com"
 aws s3 ls "s3://<R2_BUCKET>/" --endpoint-url "$R2_ENDPOINT" | sort | tail -5
-aws s3 cp "s3://<R2_BUCKET>/kino-<fecha>.dump.age" . --endpoint-url "$R2_ENDPOINT"
+aws s3 cp "s3://<R2_BUCKET>/kino-<fecha>.zip.age" . --endpoint-url "$R2_ENDPOINT"
 
-# 3. El destino, siempre cadena DIRECTA (sin -pooler).
-export TARGET_URL='postgresql://...'
+# 3. Huella del snapshot que se va a restaurar.
+scripts/backup/verify.sh kino-<fecha>.zip.age > origen.txt
 
-# 4. Huella del origen, si todavía se puede leer.
-scripts/backup/verify.sh "$ORIGEN_URL" > origen.txt
+# 4. El destino: la clave de deploy de ese deployment, y su nombre repetido a mano.
+export CONVEX_DEPLOY_KEY='prod:<nombre>|...'
+export CONFIRM_TARGET=<nombre>
 
 # 5. Restaurar. Imprime cuánto tardó, que es el tiempo de caída real.
-scripts/backup/restore.sh kino-<fecha>.dump.age
+scripts/backup/restore.sh kino-<fecha>.zip.age
 
 # 6. Comprobar que llegó todo. Sin salida en el diff = restauración completa.
-scripts/backup/verify.sh "$TARGET_URL" > destino.txt
+npx convex export --include-file-storage --path despues.zip
+scripts/backup/verify.sh despues.zip > destino.txt
 diff origen.txt destino.txt
 ```
 
-`verify.sh` sólo lee, y cuenta justo lo que un volcado incompleto pierde primero: filas por tabla, cuadernos con texto y sus bytes, entidades con relaciones, y tareas con sistema.
+`verify.sh` sólo lee un snapshot, y cuenta justo lo que un volcado incompleto pierde primero: documentos por tabla, ficheros de `_storage`, cuadernos con texto y sus bytes, entidades con relaciones, y tareas con sistema.
 
-**Para ensayar**, crea una rama nueva de Neon y restaura sobre ella. En un destino vacío los `DROP ... IF EXISTS` no borran nada, y así el ensayo no toca la rama de desarrollo que alguien pueda estar usando. **En un desastre real** el origen ya no existe para comparar: corre `verify.sh` sólo sobre el destino y contrasta los números contra lo que esperabas.
+**Para ensayar**, usa el deployment de dev (`dev:` en la clave) o uno de preview: el snapshot pisa lo que haya. **En un desastre real** el origen ya no existe para comparar; la huella del paso 3 sale del propio fichero, así que el `diff` del paso 6 sigue valiendo. Lo que no vuelve con el snapshot son las funciones programadas en vuelo: los crons se registran solos en el siguiente `convex deploy`.
 
-Ensayo local sobre el schema actual (35 tablas, 10 MB, 500 tareas, 120 cuadernos con 626 400 bytes de contenido, 80 entidades y 300 relaciones): volcado 1 s y 144 KB cifrados, restauración 2 s sobre base vacía y 5 s sobre base poblada, `diff` vacío en ambas. Lo que esos números **no** miden es Neon con la red de por medio y el tamaño real de producción; ese dato sale la primera vez que se restaure allí.
+Ensayo sobre el deployment de dev (37 tablas, 550 documentos, 47 cuadernos con 255 106 bytes de contenido, 226 tareas): volcado 2 s y 192 KB cifrados, restauración 12 s, `diff` vacío. Lo que esos números **no** miden es el tamaño real de producción; ese dato sale la primera vez que se restaure allí.
 
 ## Estructura — vertical slice
 
@@ -205,7 +207,7 @@ pasaba porque el cliente afirmaba la respuesta con un cast.
   para lo que toca credenciales).
 - **Añadir un endpoint no toca `app/`.** `src/app/api/[...rest]/route.ts` es un
   catch-all y sirve toda la API. Los pocos `route.ts` que quedan son los que no
-  caben en el contrato —`/api/mcp`, los cron, los dos 302 de GitHub, los dos
+  caben en el contrato —`/api/mcp`, los dos 302 de GitHub, los dos
   ZIP de export y las dos de `uploads`— y cada uno tiene
   su razón escrita en ese archivo. `route()` sobrevive sólo como la escotilla de
   esos casos.
@@ -324,6 +326,6 @@ Un sistema `project` puede declarar un repositorio en `systems.metadata.github` 
 - **Idempotencia** por `uq_tasks_external` `(user_id, external_source, external_id)`, con `external_id` = id numérico global del issue. Los milestones mapean a sprints por `uq_sprints_external` `(system_id, external_id)`.
 - **Lo que un refresco nunca pisa**: `energyLevel`, `dueDate`, `startDate`, `inTodayPlan` y demás campos de `KINO_OWNED_FIELDS` (`github-sync.mapper.ts`). Son el valor que Kino añade sobre un issue; si un refresco los borrara, el feature destruiría trabajo.
 - **Columnas**: issue cerrado → columna terminal (que completa la tarea por el puente de `moveTaskBoard`); reabierto → sale de la terminal. Las columnas intermedias las mueve la persona y la sincronización no las toca.
-- **Refresco**: bajo demanda al abrir el board o con el botón. Sin cron — la única entrada de `vercel.json` del free tier está ocupada.
+- **Refresco**: bajo demanda al abrir el board o con el botón. Sin cron: un repo que nadie mira no gasta nada.
 
 Necesita `GITHUB_SYNC_CLIENT_ID`, `GITHUB_SYNC_CLIENT_SECRET` y `ENCRYPTION_KEY` (ver `.env.example`). Son un OAuth App aparte del login porque GitHub sólo admite **una** URL de callback por app y esa ya la ocupa Clerk, y porque leer issues privados exige el scope `repo`. Sin estas variables la integración se oculta sola: no rompe nada, simplemente no aparece.
