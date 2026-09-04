@@ -481,6 +481,9 @@ export const create = kinoZodMutation({
   handler: async (ctx, data) => taskItem(await createOne(ctx, ctx.user._id, ctx.user.timezone, data)),
 });
 
+/** Exportada para la siembra del onboarding, que crea tareas sin pasar por el cliente. */
+export const createTaskDoc = createOne;
+
 export const bulkCreate = kinoZodMutation({
   args: { tasks: z.array(createTaskSchema).min(1).max(50) },
   handler: async (ctx, { tasks }) => {

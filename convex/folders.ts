@@ -153,36 +153,41 @@ export const detail = kinoZodQuery({
 
 const metadataField = z.record(z.string(), z.unknown()).nullish();
 
+const createFields = {
+  systemId: zid('systems'),
+  name: z.string().min(1).max(255),
+  color: z.enum(COLORS).optional(),
+  parentId: zid('folders').optional(),
+  metadata: metadataField,
+};
+
+/** Crea la carpeta. Exportada para la siembra del onboarding. */
+export async function createFolderDoc(ctx: MutationCtx, userId: Id<'users'>, args: z.infer<z.ZodObject<typeof createFields>>) {
+  await ownSystem(ctx, userId, args.systemId);
+  if (args.parentId) {
+    const parent = await ownFolder(ctx, userId, args.parentId);
+    if (parent.systemId !== args.systemId) invalid('Parent folder belongs to another system');
+  }
+  const now = Date.now();
+  const id = await ctx.db.insert('folders', {
+    userId,
+    systemId: args.systemId,
+    parentId: args.parentId,
+    name: args.name,
+    color: (args.color ?? 'blue') as Doc<'folders'>['color'],
+    sortIndex: 0,
+    metadata: args.metadata ?? undefined,
+    createdBy: userId,
+    createdVia: 'session',
+    createdAt: now,
+    updatedAt: now,
+  });
+  return folderItem((await ctx.db.get(id))!);
+}
+
 export const create = kinoZodMutation({
-  args: {
-    systemId: zid('systems'),
-    name: z.string().min(1).max(255),
-    color: z.enum(COLORS).optional(),
-    parentId: zid('folders').optional(),
-    metadata: metadataField,
-  },
-  handler: async (ctx, args) => {
-    await ownSystem(ctx, ctx.user._id, args.systemId);
-    if (args.parentId) {
-      const parent = await ownFolder(ctx, ctx.user._id, args.parentId);
-      if (parent.systemId !== args.systemId) invalid('Parent folder belongs to another system');
-    }
-    const now = Date.now();
-    const id = await ctx.db.insert('folders', {
-      userId: ctx.user._id,
-      systemId: args.systemId,
-      parentId: args.parentId,
-      name: args.name,
-      color: (args.color ?? 'blue') as Doc<'folders'>['color'],
-      sortIndex: 0,
-      metadata: args.metadata ?? undefined,
-      createdBy: ctx.user._id,
-      createdVia: 'session',
-      createdAt: now,
-      updatedAt: now,
-    });
-    return folderItem((await ctx.db.get(id))!);
-  },
+  args: createFields,
+  handler: async (ctx, args) => createFolderDoc(ctx, ctx.user._id, args),
 });
 
 export const update = kinoZodMutation({

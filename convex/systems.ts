@@ -168,8 +168,12 @@ export const setup = kinoZodMutation({
 
 export const create = kinoZodMutation({
   args: systemFields,
-  handler: async (ctx, input) => {
-    const userId = ctx.user._id;
+  handler: async (ctx, input) => createSystemDoc(ctx, ctx.user._id, input),
+});
+
+/** Crea el sistema con sus etiquetas de proyecto. Exportada para el onboarding. */
+export async function createSystemDoc(ctx: MutationCtx, userId: Id<'users'>, input: z.infer<z.ZodObject<typeof systemFields>>) {
+  {
     const existing = await ctx.db
       .query('systems')
       .withIndex('by_user_sort', (q) => q.eq('userId', userId))
@@ -200,8 +204,8 @@ export const create = kinoZodMutation({
       }
     }
     return systemItem((await ctx.db.get(id))!);
-  },
-});
+  }
+}
 
 export const update = kinoZodMutation({
   args: {
