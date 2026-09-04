@@ -16,12 +16,10 @@ pnpm dev                            # Dev server (http://localhost:3000)
 pnpm build                          # Build de producción
 pnpm lint                           # ESLint strict — debe pasar con 0 errores
 pnpm typecheck                      # tsc --noEmit — debe pasar
-pnpm db:generate                    # drizzle-kit generate (migraciones)
-pnpm db:migrate                     # Aplicar migraciones a la base de DATABASE_URL (local: rama de desarrollo)
-pnpm db:studio                      # Drizzle Studio
+npx convex dev                      # Publica las funciones en el deployment de dev y regenera convex/_generated
 pnpm test                           # Suite completa (lógica pura, sin base)
 pnpm test -- --run <path>           # Un solo archivo de test
-pnpm test:integration               # Batería de integración contra Postgres (PGlite, sin Docker)
+pnpm migrate:convex                 # Importador Postgres → Convex (scripts/migrate-to-convex), sólo para el cutover
 ```
 
 **Siempre** correr `pnpm typecheck && pnpm lint` después de cualquier cambio. Si alguno falla, se arregla antes de commitear.
@@ -30,8 +28,7 @@ pnpm test:integration               # Batería de integración contra Postgres (
 
 - **Framework**: Next.js 16 (App Router, API Routes, Server Actions)
 - **Lenguaje**: TypeScript strict
-- **ORM**: Drizzle
-- **Base de datos**: PostgreSQL (Neon) con `uuid-ossp` y `ltree`
+- **Base de datos**: Convex (`convex/schema.ts`, treinta y cinco tablas con un test por tabla). El schema de Drizzle sigue en `src/shared/db/schema.ts` sólo como origen del importador
 - **Auth**: Clerk. Registro, sesiones, verificación de correo, recuperación de contraseña, proveedores sociales y el panel de cuenta son componentes de Clerk (`@clerk/nextjs`). `src/proxy.ts` monta `clerkMiddleware`; `getServerSession` traduce la identidad de Clerk al usuario de Kino por la fila `accounts` con `providerId = 'clerk'`, y la crea la primera vez. Convex valida el mismo JWT con la plantilla `convex` (`convex/auth.config.ts`)
 - **Email transaccional**: ninguno propio. Los correos de cuenta los manda Clerk
 - **Server state**: TanStack Query v5
@@ -45,12 +42,12 @@ pnpm test:integration               # Batería de integración contra Postgres (
 - **Analítica de producto**: PostHog sin cookies, sólo el funnel de registro.
   Inerte sin `NEXT_PUBLIC_POSTHOG_KEY`; los eventos que existen y las propiedades
   que cada uno puede llevar son una lista cerrada en `src/shared/observability/analytics.ts`
-- **Deploy**: Vercel + Neon
+- **Deploy**: Vercel + Convex
 - **Package manager**: pnpm (NO npm, NO yarn)
 
 ## Restricciones de arquitectura — no violar
 
-1. **$0/mes de infraestructura.** Todo dentro de free tiers de Vercel + Neon.
+1. **$0/mes de infraestructura.** Todo dentro de free tiers de Vercel + Convex.
 2. **Sin Redis, sin BullMQ, sin servidor persistente.** 100% serverless.
 3. **Sin WebSockets.** Vercel Serverless no soporta conexiones persistentes. Lo que refresca hoy es `refetchOnWindowFocus`, el default de TanStack Query: con un solo usuario, volver a la pestaña llega a tiempo. `refetchInterval` no se usa en ningún sitio y no es la alternativa prescrita: cada intervalo activo es una invocación por usuario y por minuto contra el free tier. La señal que reabriría la decisión es el agente MCP escribiendo mientras miras el tablero.
 4. **10s por función, salvo excepción justificada.** Es el presupuesto por defecto y las rutas que lo declaran usan `export const maxDuration = 10`. La única excepción viva es `/api/mcp`, en 60s, porque el protocolo mantiene la petición abierta mientras el agente encadena herramientas. Subir el límite en una ruta nueva es una decisión, no un ajuste: escríbela en el comentario de la ruta. Paginar lo pesado sigue siendo la respuesta primero.
@@ -61,19 +58,22 @@ pnpm test:integration               # Batería de integración contra Postgres (
 7. **Timestamps en UTC** (TIMESTAMPTZ). El frontend convierte para mostrar.
 8. **Soft delete** en tasks y pages vía `deleted_at`. Siempre filtrar con `WHERE deleted_at IS NULL`.
 
-## Entornos y base de datos
+## Entornos
 
-Producción y desarrollo son **dos ramas de Neon** con cadenas de conexión distintas. Ninguna laptop tiene la de producción.
+Producción y desarrollo son **dos deployments de Convex** del mismo proyecto, y cada uno tiene su instancia de Clerk. Ninguna laptop tiene la clave de deploy de producción.
 
-| Entorno | Quién la usa | `DATABASE_URL` |
-|---|---|---|
-| Producción | el deploy de `main` en Vercel | variable **Production** de Vercel, y en ningún otro sitio |
-| Desarrollo | los previews de Vercel (PRs y `dev`) y el `.env.local` de cada máquina | rama de desarrollo de Neon: variable **Preview** de Vercel y `.env.local` |
-| Local aislado | `docker compose up -d`, y la batería de integración cuando se la apunta ahí con `TEST_DATABASE_URL` (hace `TRUNCATE`) | `postgresql://kino:kino_dev_password@localhost:5433/kino` |
+| Entorno | Quién lo usa | Convex | Clerk |
+|---|---|---|---|
+| Producción | el deploy de `main` en Vercel | deployment `prod`: `CONVEX_DEPLOY_KEY` en la variable **Production** de Vercel, y en ningún otro sitio | instancia Production (`pk_live_` / `sk_live_`) |
+| Desarrollo | los previews de Vercel (PRs y `dev`) y el `.env.local` de cada máquina | deployment de dev: `NEXT_PUBLIC_CONVEX_URL` en la variable **Preview** de Vercel y en `.env.local`; las funciones las publica `npx convex dev` desde la laptop | instancia Development (`pk_test_` / `sk_test_`) |
 
-**Las migraciones a producción las aplica sólo el despliegue.** El `buildCommand` de `vercel.json` corre `pnpm db:migrate` antes de `next build` con la variable del entorno que está construyendo: un preview migra la rama de desarrollo y el deploy de `main` migra producción. Si la migración falla, el build falla y el deploy anterior sigue arriba; el código nunca sale sin su schema. `pnpm db:migrate` desde local sólo llega a la base de `.env.local`.
+**El schema y las funciones de producción los publica sólo el despliegue.** El `buildCommand` de `vercel.json` es `scripts/vercel-build.sh`: con `CONVEX_DEPLOY_KEY` en el entorno corre `npx convex deploy --cmd 'pnpm build'`, que publica las funciones y deja `NEXT_PUBLIC_CONVEX_URL` puesta para `next build`. Si el schema no valida contra los datos, el build falla y el deploy anterior sigue arriba; el código nunca sale sin sus funciones. Sin la clave (los previews) se construye sólo Next contra el deployment de dev.
 
-Toda migración sigue teniendo que ser **compatible hacia atrás** con el código ya desplegado: el build migra antes de publicar, y entre una cosa y la otra el código viejo lee el schema nuevo.
+Un cambio de schema sigue teniendo que ser **compatible hacia atrás** con el código ya desplegado: Convex valida los documentos existentes contra el schema nuevo antes de aceptarlo, y entre una cosa y la otra el cliente viejo habla con las funciones nuevas.
+
+Cada deployment lleva sus propias variables (`npx convex env set`): `CLERK_JWT_ISSUER_DOMAIN` de su instancia de Clerk, `KINO_MCP_JWKS` con la mitad pública de la clave con la que firma su Vercel, `ENCRYPTION_KEY` para la sincronización con GitHub y el par VAPID para los push. Están descritas en `.env.example`.
+
+Postgres ya no está en el camino de la app. El schema de Drizzle (`src/shared/db/schema.ts`) sigue en el repo como origen de `pnpm migrate:convex`, el importador con el que se movieron los datos; `scripts/migrate-to-convex/verify.mts` compara las dos bases.
 
 **Respaldo.** Convex guarda snapshots propios, pero viven en la misma cuenta que los datos: un borrado de cuenta, una clave comprometida o un `import --replace-all` contra el deployment equivocado se los lleva también. `.github/workflows/backup.yml` exporta producción a un bucket de Cloudflare R2 a las 05:23 UTC: `npx convex export --include-file-storage` cifrado con `age`, en `scripts/backup/dump.sh`. La retención de 30 días es una regla de ciclo de vida del bucket, no lógica del workflow.
 
@@ -262,22 +262,13 @@ CSS puro — keyframes, transitions, Tailwind. **No instalar Framer Motion.** An
 
 ### Tests
 
-Dos baterías, y la diferencia es si hay base de por medio.
+Una sola batería, `pnpm test`, en tres proyectos de Vitest según el entorno que necesitan (`vitest.config.ts`):
 
-- **`*.test.ts` / `*.test.tsx` → `pnpm test`.** Lógica pura y componentes. Mockean `@/shared/db`; no tocan Postgres y por eso la suite entera tarda segundos.
-- **`*.itest.ts` → `pnpm test:integration`.** Lo que sólo contesta una base: `ltree`, la búsqueda full-text, las transacciones, el aislamiento entre usuarios y el contrato de punta a punta (petición HTTP real con una clave API real). Un mock aquí sólo confirmaría que la consulta lleva el filtro, no que Postgres lo respete.
+- **`src/**/*.test.ts`** → lógica pura en Node. Sin base, sin red.
+- **`convex/**/*.test.ts`** → las funciones de Convex contra `convex-test`, en el proceso y con el schema real: aislamiento entre usuarios, máquinas de estado, crons. Es la batería que antes pedía Postgres y ya no pide nada.
+- **`*.test.tsx`** y los pocos `.test.ts` listados en `domTests` → jsdom, sólo para lo que toca el DOM.
 
-La base de integración la levanta `src/shared/db/testing/setup.ts`, **una por archivo de test**: PGlite (Postgres en WASM, en memoria, con `ltree`, `uuid-ossp` y `unaccent`) hablando el protocolo de cable, así que el driver sigue siendo el `postgres-js` de producción. No hace falta Docker y los archivos corren en paralelo. Un `.itest.ts` nuevo no configura nada: pide sus dos usuarios a `resetAndSeedActors()` y ya.
-
-Para correr la misma batería contra el motor exacto de producción (PGlite va por Postgres 18; producción y el compose, por 17):
-
-```bash
-docker compose up -d
-DATABASE_URL="postgresql://kino:kino_dev_password@localhost:5433/kino" pnpm db:migrate
-TEST_DATABASE_URL="postgresql://kino:kino_dev_password@localhost:5433/kino" pnpm test:integration
-```
-
-Un test de integración vale lo que vale su versión rota: si se invierte el operador o se le quita el idioma a la consulta y la batería sigue verde, el test no estaba probando la consulta.
+Un test de función vale lo que vale su versión rota: si se invierte la condición y la batería sigue verde, el test no estaba probando la función.
 
 ### El manifiesto de arquetipo
 
@@ -290,7 +281,7 @@ Lo mismo para los mediums de escritura en `src/shared/lib/mediums.ts`. Ojo: el m
 - **Ramas**: `main` → `dev` → rama de feature. Nunca push directo a `main`.
 - **Commits**: Conventional Commits, atómicos, **sin trailers de atribución a IA**.
 - Las ramas completadas son registro histórico: **no se borran**.
-- Antes de un PR: `pnpm typecheck && pnpm lint && pnpm test && pnpm test:integration`.
+- Antes de un PR: `pnpm typecheck && pnpm lint && pnpm test`.
 - Nunca commitear `.env` ni secretos. `.env.example` es el único `.env` versionado y no lleva valores reales.
 
 ## Definition of Done
