@@ -1,5 +1,5 @@
 import type { Doc, Id } from '../../_generated/dataModel';
-import type { MutationCtx } from '../../_generated/server';
+import type { MutationCtx, QueryCtx } from '../../_generated/server';
 import { countWords } from '../../../src/shared/lib/word-count';
 import { MAX_SNAPSHOTS_PER_PAGE } from '../../../src/features/writing/snapshots';
 
@@ -10,7 +10,7 @@ import { MAX_SNAPSHOTS_PER_PAGE } from '../../../src/features/writing/snapshots'
 export const SESSION_GAP_MINUTES = 20;
 
 /** Sesiones de escritura de una página, la más reciente primero. */
-export async function writingSessionsOf(ctx: MutationCtx, userId: Id<'users'>, pageId: Id<'pages'>) {
+export async function writingSessionsOf(ctx: QueryCtx | MutationCtx, userId: Id<'users'>, pageId: Id<'pages'>) {
   const logs = await ctx.db
     .query('timeLogs')
     .withIndex('by_user_page_started', (q) => q.eq('userId', userId).eq('pageId', pageId))
