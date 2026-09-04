@@ -19,7 +19,9 @@ const pglite = await PGlite.create({ dataDir, extensions: { ltree, unaccent, uui
 await pglite.exec(
   `CREATE EXTENSION IF NOT EXISTS "uuid-ossp"; CREATE EXTENSION IF NOT EXISTS "ltree"; CREATE EXTENSION IF NOT EXISTS "unaccent";`,
 );
-const server = new PGLiteSocketServer({ db: pglite, host: '127.0.0.1', port });
+// Varias conexiones a la vez (la app y un psql de comprobación): PGlite es
+// de una sola conexión y el servidor las multiplexa.
+const server = new PGLiteSocketServer({ db: pglite, host: '127.0.0.1', port, maxConnections: 4 });
 await server.start();
 console.log(`postgresql://postgres:postgres@${server.getServerConn()}/postgres`);
 

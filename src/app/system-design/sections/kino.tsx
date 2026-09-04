@@ -1,6 +1,6 @@
 "use client";
 
-import { Section, SubSection, Specimen, Seeded, ClientOnly } from "../helpers";
+import { Section, SubSection, Specimen, Seeded } from "../helpers";
 import { makeSystem, makeTask, daysFromNow, MOCK_SYSTEM_ID } from "../mock-data";
 import { SystemCard } from "@/features/systems/SystemCard";
 import { PhysicalCard } from "@/components/PhysicalCard";
@@ -20,52 +20,14 @@ import {
 } from "@/components/ui/sidebar";
 import { LayoutGrid, Inbox, Calendar, BookOpen, Rocket } from "lucide-react";
 import { GithubRepoPanelView } from "@/features/github-sync/GithubRepoPanelView";
-import { AccountSection } from "@/features/account/AccountSection";
-import { SessionsSection } from "@/features/account/SessionsSection";
 import { DangerZoneSection } from "@/features/account/DangerZoneSection";
-import { accountKeys, type ActiveSessionDto } from "@/features/account/account.hooks";
+import { accountKeys } from "@/features/account/account.hooks";
 import type { AccountOverview } from "@/features/account/account.service";
 
-const ACCOUNT_WITH_PASSWORD: AccountOverview = {
+const ACCOUNT: AccountOverview = {
   name: "Elias De La Cruz",
   email: "elias@kino.dev",
-  emailVerified: true,
-  hasPassword: true,
-  providers: [],
 };
-
-const ACCOUNT_GOOGLE_ONLY: AccountOverview = {
-  name: "Elias De La Cruz",
-  email: "elias@gmail.com",
-  emailVerified: false,
-  hasPassword: false,
-  providers: ["google"],
-};
-
-const HOUR = 60 * 60 * 1000;
-
-/** Fechas relativas al momento de pintar: el specimen se monta sólo en cliente. */
-function mockSessions(): ActiveSessionDto[] {
-  const now = Date.now();
-  return [
-    {
-      id: "s-actual",
-      current: true,
-      device: { browser: "Chrome", os: "Linux", mobile: false },
-      ipAddress: "190.166.12.4",
-      createdAt: new Date(now - 30 * HOUR).toISOString(),
-      lastActiveAt: new Date(now - 2 * 60 * 1000).toISOString(),
-    },
-    {
-      id: "s-telefono",
-      current: false,
-      device: { browser: "Safari", os: "iOS", mobile: true },
-      ipAddress: "190.166.12.9",
-      createdAt: new Date(now - 5 * 24 * HOUR).toISOString(),
-      lastActiveAt: new Date(now - 6 * HOUR).toISOString(),
-    },
-  ];
-}
 
 const noop = () => {};
 
@@ -274,35 +236,12 @@ export function KinoSection() {
       </SubSection>
 
       <SubSection
-        title="Cuenta y sesiones (Ajustes)"
-        description="Gestión de la cuenta desde Ajustes: nombre editable en línea, correo con cambio verificado en la dirección nueva, contraseña sólo cuando existe, sesiones abiertas y la zona de peligro. Sin contraseña (Google o GitHub) la fila dice con qué se entra en vez de ofrecer un cambio que fallaría."
+        title="Cuenta (Ajustes)"
+        description="Nombre, correo, contraseña y sesiones viven en el panel de Clerk, que necesita una sesión real y no cabe aquí. Lo propio de Kino es la zona de peligro: borrar la cuenta confirmando el correo."
       >
         <div className="grid max-w-5xl grid-cols-1 gap-4 lg:grid-cols-2">
-          <Specimen label="Cuenta con contraseña" hint="hasPassword: true">
-            <Seeded seed={(qc) => qc.setQueryData(accountKeys.overview, ACCOUNT_WITH_PASSWORD)}>
-              <div className="w-full">
-                <AccountSection />
-              </div>
-            </Seeded>
-          </Specimen>
-          <Specimen label="Sólo Google, correo sin confirmar" hint="hasPassword: false · emailVerified: false">
-            <Seeded seed={(qc) => qc.setQueryData(accountKeys.overview, ACCOUNT_GOOGLE_ONLY)}>
-              <div className="w-full">
-                <AccountSection />
-              </div>
-            </Seeded>
-          </Specimen>
-          <Specimen label="Sesiones activas" hint="la actual no se puede cerrar desde la lista">
-            <ClientOnly>
-              <Seeded seed={(qc) => qc.setQueryData(accountKeys.sessions, mockSessions())}>
-                <div className="w-full">
-                  <SessionsSection />
-                </div>
-              </Seeded>
-            </ClientOnly>
-          </Specimen>
           <Specimen label="Zona de peligro" hint="confirma escribiendo el correo">
-            <Seeded seed={(qc) => qc.setQueryData(accountKeys.overview, ACCOUNT_WITH_PASSWORD)}>
+            <Seeded seed={(qc) => qc.setQueryData(accountKeys.overview, ACCOUNT)}>
               <div className="w-full">
                 <DangerZoneSection />
               </div>

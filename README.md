@@ -14,7 +14,7 @@ No es otra lista de tareas ni un Notion genérico: Kino aprende tu curva de ener
 
 ## Stack
 
-Next.js 16 · TypeScript · Drizzle + PostgreSQL (Neon) · Better Auth · TanStack Query · Tailwind + shadcn/ui · Tiptap · Vercel
+Next.js 16 · TypeScript · Drizzle + PostgreSQL (Neon) · Clerk · TanStack Query · Tailwind + shadcn/ui · Tiptap · Vercel
 
 100% serverless, dentro de free tiers.
 

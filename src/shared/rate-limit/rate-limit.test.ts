@@ -1,10 +1,6 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
 import { NextRequest } from 'next/server';
 import {
-  AUTH_ACCOUNT_POLICY,
-  AUTH_CREDENTIAL_POLICY,
-  AUTH_POLICY,
-  clientIp,
   decide,
   enforceRateLimit,
   guardApiRequest,
@@ -16,11 +12,6 @@ import {
   type RateLimitPolicy,
   type RateLimitStore,
 } from '@/shared/rate-limit';
-import {
-  clearSignInAttempts,
-  didSignIn,
-  guardSignInAttempt,
-} from '@/shared/rate-limit/sign-in-attempts';
 
 const POLICY: RateLimitPolicy = { bucket: 'test', limit: 3, windowMs: 60_000 };
 
@@ -184,72 +175,12 @@ describe('policyFor', () => {
     expect(policyFor('/api/tasks', 'HEAD')).toBeNull();
   });
 
-  it('aprieta los endpoints donde se prueba una credencial', () => {
-    expect(policyFor('/api/auth/sign-in/email', 'POST')).toBe(AUTH_CREDENTIAL_POLICY);
-    expect(policyFor('/api/auth/sign-up/email', 'POST')).toBe(AUTH_CREDENTIAL_POLICY);
-    expect(policyFor('/api/auth/reset-password', 'POST')).toBe(AUTH_CREDENTIAL_POLICY);
-  });
-
-  it('deja el resto de /api/auth con el techo ancho, que también pasa el baile de OAuth', () => {
-    expect(policyFor('/api/auth/get-session', 'GET')).toBe(AUTH_POLICY);
-    expect(policyFor('/api/auth/callback/google', 'GET')).toBe(AUTH_POLICY);
-    expect(AUTH_POLICY.limit).toBeGreaterThan(AUTH_CREDENTIAL_POLICY.limit);
-  });
-
   it('exime /api/cron, que lo dispara Vercel con el CRON_SECRET', () => {
     expect(policyFor('/api/cron/daily-snapshot', 'POST')).toBeNull();
   });
 
   it('ignora las rutas que no son de API', () => {
     expect(policyFor('/today', 'POST')).toBeNull();
-  });
-});
-
-describe('policyFor · la clasificación de /api/auth/*', () => {
-  it('lo que presenta una credencial adivinable va al bucket estrecho', () => {
-    for (const path of [
-      '/api/auth/sign-in/email',
-      '/api/auth/sign-up/email',
-      '/api/auth/request-password-reset',
-      '/api/auth/forget-password',
-      '/api/auth/reset-password',
-      '/api/auth/reset-password/un-token',
-      '/api/auth/change-password',
-      '/api/auth/verify-password',
-    ]) {
-      expect(policyFor(path, 'POST')).toBe(AUTH_CREDENTIAL_POLICY);
-    }
-  });
-
-  it('lo que manda un correo también, porque se puede abusar del envío', () => {
-    expect(policyFor('/api/auth/send-verification-email', 'POST')).toBe(AUTH_CREDENTIAL_POLICY);
-    expect(policyFor('/api/auth/change-email', 'POST')).toBe(AUTH_CREDENTIAL_POLICY);
-  });
-
-  it('el handshake del MCP no compite con el login', () => {
-    for (const path of [
-      '/api/auth/oauth2/register',
-      '/api/auth/oauth2/authorize',
-      '/api/auth/oauth2/token',
-      '/api/auth/jwks',
-      '/api/auth/token',
-    ]) {
-      expect(policyFor(path, 'POST')).toBe(AUTH_POLICY);
-    }
-  });
-
-  it('el login social y su retorno tampoco: no presentan credencial', () => {
-    expect(policyFor('/api/auth/sign-in/social', 'POST')).toBe(AUTH_POLICY);
-    expect(policyFor('/api/auth/callback/google', 'GET')).toBe(AUTH_POLICY);
-  });
-
-  it('leer la sesión o salir no gasta la cuota de entrar', () => {
-    expect(policyFor('/api/auth/get-session', 'GET')).toBe(AUTH_POLICY);
-    expect(policyFor('/api/auth/sign-out', 'POST')).toBe(AUTH_POLICY);
-  });
-
-  it('el prefijo no se desborda fuera de /api/auth', () => {
-    expect(policyFor('/api/authorization', 'GET')).toBeNull();
   });
 });
 
@@ -338,7 +269,7 @@ describe('guardApiRequest', () => {
 
     await guardApiRequest(req('/api/tasks', { token: API_KEY }), { store, now });
     await guardApiRequest(
-      req('/api/tasks', { cookie: 'better-auth.session_token=abc123' }),
+      req('/api/tasks', { cookie: '__session=abc123' }),
       { store, now },
     );
 
@@ -356,213 +287,4 @@ describe('guardApiRequest', () => {
     expect(consoleError).toHaveBeenCalled();
     consoleError.mockRestore();
   });
-});
-
-describe('clientIp', () => {
-  it('se queda con el cliente, no con la cadena de proxies', () => {
-    const headers = new Headers({ 'x-forwarded-for': '203.0.113.9, 10.0.0.1, 10.0.0.2' });
-    expect(clientIp(headers)).toBe('203.0.113.9');
-  });
-
-  it('cae a x-real-ip y, sin nada, a loopback', () => {
-    expect(clientIp(new Headers({ 'x-real-ip': '203.0.113.9' }))).toBe('203.0.113.9');
-    expect(clientIp(new Headers())).toBe('127.0.0.1');
-  });
-});
-
-/**
- * El límite por IP del acceso (KIN-161). Lo que se afirma aquí es lo que el
- * `Map` en memoria no podía dar: que el contador es el mismo para todas las
- * instancias. El `fakeStore` representa ese Postgres compartido — dos requests
- * que en producción atendería otro arranque en frío ven el mismo contador.
- */
-describe('acceso · límite por IP', () => {
-  function signIn(ip: string) {
-    return new NextRequest('http://localhost/api/auth/sign-in/email', {
-      method: 'POST',
-      headers: new Headers({ 'x-forwarded-for': ip }),
-    });
-  }
-
-  it('cuenta el acceso aunque no haya credencial: es justo cuando no la hay', async () => {
-    const store = fakeStore();
-    const spy = vi.spyOn(store, 'hit');
-
-    await guardApiRequest(signIn('203.0.113.9'), { store, now: 1_000_000 });
-    expect(spy).toHaveBeenCalledOnce();
-  });
-
-  it('corta con 429 al rebasar la cuota desde la misma IP', async () => {
-    const store = fakeStore();
-    const now = 1_000_000;
-
-    for (let i = 0; i < AUTH_CREDENTIAL_POLICY.limit; i++) {
-      expect(await guardApiRequest(signIn('203.0.113.9'), { store, now })).toBeNull();
-    }
-
-    const res = await guardApiRequest(signIn('203.0.113.9'), { store, now });
-    expect(res?.status).toBe(429);
-  });
-
-  it('el bloqueo sobrevive al cambio de instancia, que es el ticket entero', async () => {
-    // Un store, dos "instancias": nada de estado en el módulo. Con el `Map` de
-    // antes, la segunda arrancaba con la cuota entera.
-    const shared = fakeStore();
-    const now = 1_000_000;
-
-    for (let i = 0; i <= AUTH_CREDENTIAL_POLICY.limit; i++) {
-      await guardApiRequest(signIn('203.0.113.9'), { store: shared, now });
-    }
-
-    const fromAnotherInstance = await guardApiRequest(signIn('203.0.113.9'), {
-      store: shared,
-      now,
-    });
-    expect(fromAnotherInstance?.status).toBe(429);
-  });
-
-  it('otra IP no hereda el bloqueo', async () => {
-    const store = fakeStore();
-    const now = 1_000_000;
-
-    for (let i = 0; i <= AUTH_CREDENTIAL_POLICY.limit; i++) {
-      await guardApiRequest(signIn('203.0.113.9'), { store, now });
-    }
-
-    expect(await guardApiRequest(signIn('198.51.100.4'), { store, now })).toBeNull();
-  });
-
-  it('la sesión del navegador no comparte cuota con el acceso', async () => {
-    const store = fakeStore();
-    const now = 1_000_000;
-
-    const mutation = new NextRequest('http://localhost/api/tasks', {
-      method: 'POST',
-      headers: new Headers({
-        'x-forwarded-for': '203.0.113.9',
-        cookie: 'better-auth.session_token=abc123',
-      }),
-    });
-
-    await guardApiRequest(signIn('203.0.113.9'), { store, now });
-    await guardApiRequest(mutation, { store, now });
-
-    expect(store.rows.size).toBe(2);
-  });
-});
-
-/**
- * El límite por cuenta. La pregunta que responde este bloque no es "¿corta?",
- * es "¿puede alguien usarlo para dejar fuera al dueño?". La respuesta tiene que
- * ser no, y por eso la clave lleva la IP dentro.
- */
-describe('acceso · límite por cuenta', () => {
-  const ATTACKER = '203.0.113.9';
-  const OWNER = '198.51.100.4';
-  const EMAIL = 'elias@usekino.dev';
-
-  async function exhaust(store: RateLimitStore, email: string, ip: string, now: number) {
-    for (let i = 0; i < AUTH_ACCOUNT_POLICY.limit; i++) {
-      expect(await guardSignInAttempt(email, ip, { store, now })).toBeNull();
-    }
-  }
-
-  it('corta tras agotar los intentos contra esa cuenta desde esa IP', async () => {
-    const store = fakeStore();
-    const now = 1_000_000;
-
-    await exhaust(store, EMAIL, ATTACKER, now);
-
-    const blocked = await guardSignInAttempt(EMAIL, ATTACKER, { store, now });
-    expect(blocked?.allowed).toBe(false);
-    expect(blocked?.retryAfterSeconds).toBeGreaterThan(0);
-  });
-
-  it('el dueño entra desde su IP aunque otra esté bloqueada contra su cuenta', async () => {
-    const store = fakeStore();
-    const now = 1_000_000;
-
-    await exhaust(store, EMAIL, ATTACKER, now);
-    expect((await guardSignInAttempt(EMAIL, ATTACKER, { store, now }))?.allowed).toBe(false);
-
-    expect(await guardSignInAttempt(EMAIL, OWNER, { store, now })).toBeNull();
-  });
-
-  it('no mezcla cuentas: agotar una no toca a la de al lado', async () => {
-    const store = fakeStore();
-    const now = 1_000_000;
-
-    await exhaust(store, EMAIL, ATTACKER, now);
-    expect(await guardSignInAttempt('otra@usekino.dev', ATTACKER, { store, now })).toBeNull();
-  });
-
-  it('el correo no distingue mayúsculas: Elias@ y elias@ son la misma cuota', async () => {
-    const store = fakeStore();
-    const now = 1_000_000;
-
-    await exhaust(store, EMAIL, ATTACKER, now);
-
-    const blocked = await guardSignInAttempt('  ELIAS@usekino.dev ', ATTACKER, { store, now });
-    expect(blocked?.allowed).toBe(false);
-  });
-
-  it('acertar borra los fallos previos: equivocarse cuatro veces no deja deuda', async () => {
-    const store = fakeStore();
-    const now = 1_000_000;
-
-    for (let i = 0; i < AUTH_ACCOUNT_POLICY.limit - 1; i++) {
-      await guardSignInAttempt(EMAIL, OWNER, { store, now });
-    }
-    await clearSignInAttempts(EMAIL, OWNER, { store });
-
-    // La cuota vuelve entera, no queda en el último intento.
-    await exhaust(store, EMAIL, OWNER, now);
-    expect((await guardSignInAttempt(EMAIL, OWNER, { store, now }))?.allowed).toBe(false);
-  });
-
-  it('deja entrar si el contador no responde, en vez de cerrar la app', async () => {
-    const consoleError = vi.spyOn(console, 'error').mockImplementation(() => {});
-    const broken: RateLimitStore = {
-      hit: () => Promise.reject(new Error('neon caído')),
-      reset: () => Promise.reject(new Error('neon caído')),
-    };
-
-    expect(await guardSignInAttempt(EMAIL, OWNER, { store: broken })).toBeNull();
-    // Y limpiar tampoco puede lanzar: el acceso ya ocurrió.
-    await expect(clearSignInAttempts(EMAIL, OWNER, { store: broken })).resolves.toBeUndefined();
-    expect(consoleError).toHaveBeenCalled();
-    consoleError.mockRestore();
-  });
-});
-
-/**
- * Cuándo se puede borrar el contador. El hook `after` de Better Auth corre
- * también cuando la contraseña era mala —el error se captura y se le pasa al
- * hook antes de decidir que fue un error—, así que limpiar sin mirar deja el
- * contador en cero tras cada fallo y el límite deja de existir.
- */
-describe('didSignIn', () => {
-  it('reconoce el acceso conseguido, que es lo único que limpia', () => {
-    expect(didSignIn({ redirect: false, token: 'abc', user: { id: 'u-1' } })).toBe(true);
-  });
-
-  it('no toma por acceso el error que devuelve una contraseña mala', () => {
-    const apiError = Object.assign(new Error('Invalid email or password'), {
-      status: 'UNAUTHORIZED',
-      body: { code: 'INVALID_EMAIL_OR_PASSWORD' },
-    });
-    expect(didSignIn(apiError)).toBe(false);
-  });
-
-  it('exige usuario: un shape que no reconoce no cuenta como acierto', () => {
-    expect(didSignIn({ redirect: false, token: 'abc' })).toBe(false);
-    expect(didSignIn({ user: null })).toBe(false);
-    expect(didSignIn(undefined)).toBe(false);
-    expect(didSignIn(null)).toBe(false);
-    expect(didSignIn('ok')).toBe(false);
-  });
-});
-
-beforeEach(() => {
-  vi.restoreAllMocks();
 });

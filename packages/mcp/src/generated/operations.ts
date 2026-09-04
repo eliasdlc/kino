@@ -10,45 +10,6 @@ export interface ContractOperation {
 }
 
 export const OPERATIONS = {
-  "account.changeEmail": {
-    "method": "POST",
-    "path": "/account/email",
-    "input": {
-      "$schema": "https://json-schema.org/draft/2020-12/schema",
-      "type": "object",
-      "properties": {
-        "newEmail": {
-          "type": "string"
-        }
-      },
-      "required": [
-        "newEmail"
-      ]
-    }
-  },
-  "account.changePassword": {
-    "method": "POST",
-    "path": "/account/password",
-    "input": {
-      "$schema": "https://json-schema.org/draft/2020-12/schema",
-      "type": "object",
-      "properties": {
-        "currentPassword": {
-          "type": "string",
-          "minLength": 1
-        },
-        "newPassword": {
-          "type": "string",
-          "minLength": 8,
-          "maxLength": 128
-        }
-      },
-      "required": [
-        "currentPassword",
-        "newPassword"
-      ]
-    }
-  },
   "account.overview": {
     "method": "GET",
     "path": "/account",
@@ -72,59 +33,6 @@ export const OPERATIONS = {
       "required": [
         "email"
       ]
-    }
-  },
-  "account.rename": {
-    "method": "PATCH",
-    "path": "/account",
-    "input": {
-      "$schema": "https://json-schema.org/draft/2020-12/schema",
-      "type": "object",
-      "properties": {
-        "name": {
-          "type": "string",
-          "minLength": 1,
-          "maxLength": 100
-        }
-      },
-      "required": [
-        "name"
-      ]
-    }
-  },
-  "account.revokeOtherSessions": {
-    "method": "POST",
-    "path": "/account/sessions/revoke-others",
-    "input": {
-      "type": "object",
-      "properties": {},
-      "additionalProperties": false
-    }
-  },
-  "account.revokeSession": {
-    "method": "DELETE",
-    "path": "/account/sessions/{id}",
-    "input": {
-      "$schema": "https://json-schema.org/draft/2020-12/schema",
-      "type": "object",
-      "properties": {
-        "id": {
-          "type": "string",
-          "minLength": 1
-        }
-      },
-      "required": [
-        "id"
-      ]
-    }
-  },
-  "account.sessions": {
-    "method": "GET",
-    "path": "/account/sessions",
-    "input": {
-      "type": "object",
-      "properties": {},
-      "additionalProperties": false
     }
   },
   "apiKeys.create": {

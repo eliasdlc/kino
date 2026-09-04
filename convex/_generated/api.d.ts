@@ -10,6 +10,7 @@
 
 import type * as lib_lemas from "../lib/lemas.js";
 import type * as migrate from "../migrate.js";
+import type * as users from "../users.js";
 
 import type {
   ApiFromModules,
@@ -20,6 +21,7 @@ import type {
 declare const fullApi: ApiFromModules<{
   "lib/lemas": typeof lib_lemas;
   migrate: typeof migrate;
+  users: typeof users;
 }>;
 
 /**

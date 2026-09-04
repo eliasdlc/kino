@@ -33,8 +33,8 @@ pnpm mcp:generate                   # Vuelca el contrato en las operaciones que 
 - **Lenguaje**: TypeScript strict
 - **ORM**: Drizzle
 - **Base de datos**: PostgreSQL (Neon) con `uuid-ossp` y `ltree`
-- **Auth**: Better Auth — sesiones stateful en Postgres, cookies HttpOnly. La sesión del navegador nunca es un JWT; el plugin `jwt` existe sólo para el OAuth 2.1 del MCP (ver restricción 5)
-- **Email transaccional**: Resend por API REST (`src/shared/email`, sin SDK). `RESEND_API_KEY` + `EMAIL_FROM`; sin la key, el correo se omite sin romper el flujo: en dev se imprime en consola y en producción queda un aviso en el log
+- **Auth**: Clerk. Registro, sesiones, verificación de correo, recuperación de contraseña, proveedores sociales y el panel de cuenta son componentes de Clerk (`@clerk/nextjs`). `src/proxy.ts` monta `clerkMiddleware`; `getServerSession` traduce la identidad de Clerk al usuario de Kino por la fila `accounts` con `providerId = 'clerk'`, y la crea la primera vez. Convex valida el mismo JWT con la plantilla `convex` (`convex/auth.config.ts`)
+- **Email transaccional**: ninguno propio. Los correos de cuenta los manda Clerk
 - **Server state**: TanStack Query v5
 - **Formularios**: react-hook-form + zodResolver
 - **Estilos**: Tailwind + shadcn/ui (Radix)
@@ -55,9 +55,9 @@ pnpm mcp:generate                   # Vuelca el contrato en las operaciones que 
 2. **Sin Redis, sin BullMQ, sin servidor persistente.** 100% serverless.
 3. **Sin WebSockets.** Vercel Serverless no soporta conexiones persistentes. Lo que refresca hoy es `refetchOnWindowFocus`, el default de TanStack Query: con un solo usuario, volver a la pestaña llega a tiempo. `refetchInterval` no se usa en ningún sitio y no es la alternativa prescrita: cada intervalo activo es una invocación por usuario y por minuto contra el free tier. La señal que reabriría la decisión es el agente MCP escribiendo mientras miras el tablero.
 4. **10s por función, salvo excepción justificada.** Es el presupuesto por defecto y las rutas que lo declaran usan `export const maxDuration = 10`. La única excepción viva es `/api/mcp`, en 60s, porque el protocolo mantiene la petición abierta mientras el agente encadena herramientas. Subir el límite en una ruta nueva es una decisión, no un ajuste: escríbela en el comentario de la ruta. Paginar lo pesado sigue siendo la respuesta primero.
-5. **La sesión del navegador no es un JWT.** Better Auth guarda sesiones con estado en Postgres y las entrega en una cookie HttpOnly, para que revocar una sesión la revoque de verdad. Un token de vida propia que el servidor no puede invalidar no vale como sesión, y eso es lo que la regla protege.
+5. **La sesión la emite y la revoca Clerk.** La cookie `__session` es un JWT corto que Clerk renueva cada minuto contra su backend, así que cerrar una sesión desde el panel la corta de verdad en ese plazo. Kino no guarda sesiones propias ni acepta otro token de navegador.
 
-   Lo que sí lleva JWT es el conector MCP: `auth.ts` monta el plugin `jwt` para firmar los access tokens del OAuth 2.1 y publicar el JWKS que los verifica. Son tokens de una aplicación cliente, con caducidad corta y su propia tabla, no la identidad de nadie en el navegador.
+   Lo que también lleva JWT es el conector MCP remoto, con el OAuth de Clerk; hasta que esa ruta se reescriba, `/api/mcp` rechaza todo Bearer y las claves `sk-kino-` siguen siendo la vía del CLI.
 6. **`system_id` es NOT NULL en tasks.** Toda tarea pertenece a un sistema; Inbox es el default. No hay tareas flotantes.
 7. **Timestamps en UTC** (TIMESTAMPTZ). El frontend convierte para mostrar.
 8. **Soft delete** en tasks y pages vía `deleted_at`. Siempre filtrar con `WHERE deleted_at IS NULL`.
@@ -206,8 +206,8 @@ pasaba porque el cliente afirmaba la respuesta con un cast.
   para lo que toca credenciales).
 - **Añadir un endpoint no toca `app/`.** `src/app/api/[...rest]/route.ts` es un
   catch-all y sirve toda la API. Los pocos `route.ts` que quedan son los que no
-  caben en el contrato —el handler de Better Auth, `/api/mcp`, los cron, los dos
-  302 de GitHub, los dos ZIP de export y las dos de `uploads`— y cada uno tiene
+  caben en el contrato —`/api/mcp`, los cron, los dos 302 de GitHub, los dos
+  ZIP de export y las dos de `uploads`— y cada uno tiene
   su razón escrita en ese archivo. `route()` sobrevive sólo como la escotilla de
   esos casos.
 - **Los códigos de error no cambian:** 401 `UNAUTHORIZED`, 403 `INSUFFICIENT_SCOPE`
@@ -327,4 +327,4 @@ Un sistema `project` puede declarar un repositorio en `systems.metadata.github` 
 - **Columnas**: issue cerrado → columna terminal (que completa la tarea por el puente de `moveTaskBoard`); reabierto → sale de la terminal. Las columnas intermedias las mueve la persona y la sincronización no las toca.
 - **Refresco**: bajo demanda al abrir el board o con el botón. Sin cron — la única entrada de `vercel.json` del free tier está ocupada.
 
-Necesita `GITHUB_SYNC_CLIENT_ID`, `GITHUB_SYNC_CLIENT_SECRET` y `ENCRYPTION_KEY` (ver `.env.example`). Son un OAuth App aparte del login porque GitHub sólo admite **una** URL de callback por app y esa ya la ocupa Better Auth, y porque leer issues privados exige el scope `repo`. Sin estas variables la integración se oculta sola: no rompe nada, simplemente no aparece.
+Necesita `GITHUB_SYNC_CLIENT_ID`, `GITHUB_SYNC_CLIENT_SECRET` y `ENCRYPTION_KEY` (ver `.env.example`). Son un OAuth App aparte del login porque GitHub sólo admite **una** URL de callback por app y esa ya la ocupa Clerk, y porque leer issues privados exige el scope `repo`. Sin estas variables la integración se oculta sola: no rompe nada, simplemente no aparece.

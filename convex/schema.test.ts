@@ -356,8 +356,9 @@ describe('convex/schema', () => {
           createdAt: NOW,
           updatedAt: NOW,
         });
-        const { title: _title, ...withoutTitle } = minimalTask(userId, systemId);
-        await ctx.db.insert('tasks', withoutTitle as unknown as Insert<'tasks'>);
+        const withoutTitle: Partial<Insert<'tasks'>> = minimalTask(userId, systemId);
+        delete withoutTitle.title;
+        await ctx.db.insert('tasks', withoutTitle as Insert<'tasks'>);
       }),
     ).rejects.toThrow();
   });

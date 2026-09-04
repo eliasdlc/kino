@@ -75,7 +75,7 @@ function DeleteAccountDialog({ email, onClose }: { email: string; onClose: () =>
         <form onSubmit={handleSubmit} className="space-y-4">
           <div className="space-y-1.5">
             <Label htmlFor="delete-account-email">
-              Escribe <span className="font-mono">{email}</span> para confirmar
+              Escribe <span className="font-mono break-all">{email}</span> para confirmar
             </Label>
             <Input
               id="delete-account-email"

@@ -1,7 +1,6 @@
 import { createMcpHandler, withMcpAuth } from "mcp-handler";
 import type { AuthInfo } from "@modelcontextprotocol/sdk/server/auth/types.js";
 import { createKinoFetch, registerAllKinoTools, MCP_SERVER_VERSION } from "@kino-app/mcp";
-import { verifyOAuthToken } from "@/shared/lib/oauth-resource";
 
 const APP_URL = process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000";
 
@@ -41,19 +40,9 @@ const mcpHandler = (req: Request) => {
   )(req);
 };
 
-const verifyToken = async (
-  _req: Request,
-  bearerToken?: string,
-): Promise<AuthInfo | undefined> => {
-  const claims = await verifyOAuthToken(bearerToken);
-  if (!claims) return undefined;
-  return {
-    token: bearerToken!,
-    clientId: claims.clientId,
-    scopes: claims.scopes,
-    extra: { userId: claims.userId },
-  };
-};
+// Sin emisor de tokens hasta que el MCP remoto se escriba sobre el OAuth de
+// Clerk: mientras tanto todo Bearer se rechaza y el conector responde 401.
+const verifyToken = async (): Promise<AuthInfo | undefined> => undefined;
 
 const handler = withMcpAuth(mcpHandler, verifyToken, {
   required: true,
