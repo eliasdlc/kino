@@ -18,6 +18,8 @@ import type * as lib_tasks_schemas from "../lib/tasks/schemas.js";
 import type * as lib_tasks_status from "../lib/tasks/status.js";
 import type * as lib_time from "../lib/time.js";
 import type * as migrate from "../migrate.js";
+import type * as stickyNotes from "../stickyNotes.js";
+import type * as systems from "../systems.js";
 import type * as tasks from "../tasks.js";
 import type * as users from "../users.js";
 
@@ -38,6 +40,8 @@ declare const fullApi: ApiFromModules<{
   "lib/tasks/status": typeof lib_tasks_status;
   "lib/time": typeof lib_time;
   migrate: typeof migrate;
+  stickyNotes: typeof stickyNotes;
+  systems: typeof systems;
   tasks: typeof tasks;
   users: typeof users;
 }>;
