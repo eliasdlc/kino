@@ -11,6 +11,8 @@
 import type * as energy from "../energy.js";
 import type * as entities from "../entities.js";
 import type * as folders from "../folders.js";
+import type * as github from "../github.js";
+import type * as githubData from "../githubData.js";
 import type * as insights from "../insights.js";
 import type * as lib_energy_curve from "../lib/energy/curve.js";
 import type * as lib_errors from "../lib/errors.js";
@@ -49,6 +51,8 @@ declare const fullApi: ApiFromModules<{
   energy: typeof energy;
   entities: typeof entities;
   folders: typeof folders;
+  github: typeof github;
+  githubData: typeof githubData;
   insights: typeof insights;
   "lib/energy/curve": typeof lib_energy_curve;
   "lib/errors": typeof lib_errors;

@@ -645,22 +645,25 @@ export const bulkUpdate = kinoZodMutation({
  */
 export const moveBoard = kinoZodMutation({
   args: { id: zid('tasks'), boardStatus: z.string().min(1).max(50) },
-  handler: async (ctx, { id, boardStatus }) => {
-    const task = await ownTask(ctx, ctx.user._id, id);
-    const system = await ownSystem(ctx, ctx.user._id, task.systemId);
-    const column = await ctx.db
-      .query('systemStatusDefinitions')
-      .withIndex('by_type_status', (q) => q.eq('systemType', system.templateType).eq('statusName', boardStatus))
-      .unique();
-    if (!column) invalid(`Invalid board column '${boardStatus}' for this system`);
-
-    const now = Date.now();
-    await ctx.db.patch(id, { boardStatus, boardStatusChangedAt: now, updatedAt: now });
-    const bridge = deriveBoardBridgeAction(task.status, task.boardStatus ?? null, boardStatus);
-    const moved = (await ctx.db.get(id))!;
-    return taskItem(bridge ? await applyTransition(ctx, moved, () => bridge) : moved);
-  },
+  handler: async (ctx, { id, boardStatus }) => taskItem(await moveTaskBoardDoc(ctx, ctx.user._id, id, boardStatus)),
 });
+
+/** El movimiento de columna, exportado para la sincronización con GitHub. */
+export async function moveTaskBoardDoc(ctx: MutationCtx, userId: Id<'users'>, id: Id<'tasks'>, boardStatus: string): Promise<TaskDoc> {
+  const task = await ownTask(ctx, userId, id);
+  const system = await ownSystem(ctx, userId, task.systemId);
+  const column = await ctx.db
+    .query('systemStatusDefinitions')
+    .withIndex('by_type_status', (q) => q.eq('systemType', system.templateType).eq('statusName', boardStatus))
+    .unique();
+  if (!column) invalid(`Invalid board column '${boardStatus}' for this system`);
+
+  const now = Date.now();
+  await ctx.db.patch(id, { boardStatus, boardStatusChangedAt: now, updatedAt: now });
+  const bridge = deriveBoardBridgeAction(task.status, task.boardStatus ?? null, boardStatus);
+  const moved = (await ctx.db.get(id))!;
+  return bridge ? await applyTransition(ctx, moved, () => bridge) : moved;
+}
 
 /** La posición de cada id es su nuevo `sortIndex`. Los ajenos se ignoran. */
 export const reorder = kinoZodMutation({
