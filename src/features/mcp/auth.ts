@@ -16,11 +16,18 @@ import { SITE_URL } from "@/shared/lib/site-url";
 export const MCP_RESOURCE_URL = `${SITE_URL}/api/mcp`;
 
 /**
+ * Clerk exige que un scope personalizado lleve un recurso delante
+ * (`documents:write`). El recurso es el que se dio al crearlos en la
+ * instancia; el alcance de Kino es lo que va después de los dos puntos.
+ */
+export const MCP_SCOPE_RESOURCE = "documents";
+
+/**
  * Lo que el recurso anuncia en su metadata. Los tres de Kino tienen que
  * existir como scopes personalizados en la instancia de Clerk; los de OIDC
  * son los que Clerk concede por defecto a un cliente registrado en dinámico.
  */
-export const MCP_OAUTH_SCOPES = ["openid", "email", "profile", ...SCOPES] as const;
+export const MCP_OAUTH_SCOPES = ["openid", "email", "profile", ...SCOPES.map((scope) => `${MCP_SCOPE_RESOURCE}:${scope}`)] as const;
 
 /** Vida del token que se firma para Convex. Cubre una petición del protocolo. */
 const TOKEN_TTL = "10m";
@@ -28,11 +35,11 @@ const KEY_ID = "kino-mcp";
 
 /**
  * El alcance efectivo de una concesión: el más fuerte de los tres que Kino
- * conoce, aceptando también la forma con prefijo (`kino:write`). Sin ninguno
- * el conector sólo lee: un cliente que no pidió escribir no escribe.
+ * conoce, con o sin el recurso delante. Sin ninguno el conector sólo lee: un
+ * cliente que no pidió escribir no escribe.
  */
 export function scopeFor(granted: readonly string[]): Scope {
-  const own = new Set(granted.map((scope) => scope.replace(/^kino:/, "")));
+  const own = new Set(granted.map((scope) => scope.slice(scope.lastIndexOf(":") + 1)));
   if (own.has("write")) return "write";
   if (own.has("propose")) return "propose";
   return "read";
