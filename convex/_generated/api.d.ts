@@ -8,7 +8,10 @@
  * @module
  */
 
+import type * as lib_fn from "../lib/fn.js";
+import type * as lib_fnFixture from "../lib/fnFixture.js";
 import type * as lib_lemas from "../lib/lemas.js";
+import type * as lib_scopes from "../lib/scopes.js";
 import type * as migrate from "../migrate.js";
 import type * as users from "../users.js";
 
@@ -19,7 +22,10 @@ import type {
 } from "convex/server";
 
 declare const fullApi: ApiFromModules<{
+  "lib/fn": typeof lib_fn;
+  "lib/fnFixture": typeof lib_fnFixture;
   "lib/lemas": typeof lib_lemas;
+  "lib/scopes": typeof lib_scopes;
   migrate: typeof migrate;
   users: typeof users;
 }>;

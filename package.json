@@ -54,6 +54,7 @@
     "clsx": "^2.1.1",
     "cmdk": "^1.1.1",
     "convex": "1.45.0",
+    "convex-helpers": "^0.1.123",
     "date-fns": "^4.1.0",
     "drizzle-orm": "^0.45.2",
     "idb-keyval": "^6.3.0",

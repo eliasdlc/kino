@@ -46,10 +46,10 @@ describe('users.ensure', () => {
     expect(doc?.onboardingCompleted).toBe(true);
   });
 
-  it('current devuelve el documento de quien llama y null para el resto', async () => {
+  it('current devuelve el documento de quien llama y rechaza al anónimo', async () => {
     const t = convexTest(schema, modules);
     await t.withIdentity(ana).mutation(api.users.ensure, {});
-    expect((await t.withIdentity(ana).query(api.users.current, {}))?.email).toBe('ana@usekino.dev');
-    expect(await t.query(api.users.current, {})).toBeNull();
+    expect((await t.withIdentity(ana).query(api.users.current, {})).email).toBe('ana@usekino.dev');
+    await expect(t.query(api.users.current, {})).rejects.toThrow();
   });
 });
