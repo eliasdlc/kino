@@ -3,7 +3,7 @@
 import { api } from "@convex/_generated/api";
 import { useConvexAction, useConvexMutation } from "@/shared/convex/hooks";
 import { useEffect, useState } from "react";
-import { useAction } from "convex/react";
+import { useAction, useConvexAuth } from "convex/react";
 import type { FunctionReturnType } from "convex/server";
 import type { GithubRepoRef, SyncResult } from "./github-sync.types";
 
@@ -15,9 +15,12 @@ export type ConnectionStatusResponse = FunctionReturnType<typeof api.github.stat
  */
 export function useGithubConnection() {
   const status = useAction(api.github.status);
+  const { isAuthenticated } = useConvexAuth();
   const [data, setData] = useState<ConnectionStatusResponse | undefined>(undefined);
   const [version, setVersion] = useState(0);
   useEffect(() => {
+    // Sin el token de Clerk todavía, la acción se rechazaría como anónima.
+    if (!isAuthenticated) return;
     let alive = true;
     void status({}).then((result) => {
       if (alive) setData(result);
@@ -25,7 +28,7 @@ export function useGithubConnection() {
     return () => {
       alive = false;
     };
-  }, [status, version]);
+  }, [status, version, isAuthenticated]);
   return { data, isLoading: data === undefined, refetch: async () => setVersion((v) => v + 1) };
 }
 

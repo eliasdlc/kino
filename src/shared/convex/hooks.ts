@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useState } from "react";
-import { useAction, useMutation, useQuery } from "convex/react";
+import { useAction, useConvexAuth, useMutation, useQuery } from "convex/react";
 import type { FunctionArgs, FunctionReference, FunctionReturnType } from "convex/server";
 import type { Args } from "./loose";
 
@@ -25,13 +25,18 @@ export interface QueryResult<T> {
   refetch: () => Promise<void>;
 }
 
-/** Una lectura reactiva. `enabled: false` o `"skip"` no se suscribe. */
+/**
+ * Una lectura reactiva. `enabled: false` o `"skip"` no se suscribe. Tampoco se
+ * suscribe hasta que el cliente tiene el token de Clerk: Convex manda las
+ * queries sin identidad mientras lo espera y el backend las rechaza.
+ */
 export function useConvexQuery<Q extends FunctionReference<"query">>(
   query: Q,
   args: Args<Q> | "skip",
   options: { enabled?: boolean } = {},
 ): QueryResult<FunctionReturnType<Q>> {
-  const skip = args === "skip" || options.enabled === false;
+  const { isAuthenticated } = useConvexAuth();
+  const skip = !isAuthenticated || args === "skip" || options.enabled === false;
   const data = useQuery(query, ...(skip ? (["skip"] as const) : ([args as FunctionArgs<Q>] as [FunctionArgs<Q>])));
   const isLoading = !skip && data === undefined;
   return {

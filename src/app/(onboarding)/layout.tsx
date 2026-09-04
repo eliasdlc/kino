@@ -1,6 +1,6 @@
 import { redirect } from 'next/navigation';
 import { api } from '@convex/_generated/api';
-import { serverMutation, serverQuery } from '@/shared/convex/server';
+import { serverQuery } from '@/shared/convex/server';
 import { getServerSession } from '@/shared/utils/session';
 import { AnalyticsIdentity } from '@/shared/observability/AnalyticsIdentity';
 
@@ -12,7 +12,6 @@ export default async function OnboardingLayout({
   const session = await getServerSession();
   if (!session) redirect('/login');
 
-  await serverMutation(api.users.ensure, {});
   const user = await serverQuery(api.users.current, {});
   if (user.onboardingCompleted) redirect('/dashboard');
 

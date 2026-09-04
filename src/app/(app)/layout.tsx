@@ -1,6 +1,6 @@
 import { redirect } from "next/navigation";
 import { api } from "@convex/_generated/api";
-import { serverMutation, serverQuery } from "@/shared/convex/server";
+import { serverQuery } from "@/shared/convex/server";
 import { Providers } from "./providers";
 import { accountThemeScript } from "@/shared/lib/theme-script";
 import { SystemsSidebar } from "@/features/systems/SystemsSidebar";
@@ -27,9 +27,7 @@ export default async function AppLayout({
   const session = await getServerSession();
   if (!session) redirect("/login");
 
-  // `ensure` crea el documento de la persona la primera vez que entra; después
-  // el tema y el onboarding salen de la misma lectura.
-  await serverMutation(api.users.ensure, {});
+  // El tema y el onboarding salen de la misma lectura.
   const [user, settings] = await Promise.all([
     serverQuery(api.users.current, {}),
     serverQuery(api.settings.get, {}),
