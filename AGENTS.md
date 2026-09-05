@@ -16,13 +16,10 @@ pnpm dev                            # Dev server (http://localhost:3000)
 pnpm build                          # Build de producción
 pnpm lint                           # ESLint strict — debe pasar con 0 errores
 pnpm typecheck                      # tsc --noEmit — debe pasar
-pnpm db:generate                    # drizzle-kit generate (migraciones)
-pnpm db:migrate                     # Aplicar migraciones a la base de DATABASE_URL (local: rama de desarrollo)
-pnpm db:studio                      # Drizzle Studio
+npx convex dev                      # Publica las funciones en el deployment de dev y regenera convex/_generated
 pnpm test                           # Suite completa (lógica pura, sin base)
 pnpm test -- --run <path>           # Un solo archivo de test
-pnpm test:integration               # Batería de integración contra Postgres (PGlite, sin Docker)
-pnpm mcp:generate                   # Vuelca el contrato en las operaciones que ve el MCP
+pnpm migrate:convex                 # Importador Postgres → Convex (scripts/migrate-to-convex), sólo para el cutover
 ```
 
 **Siempre** correr `pnpm typecheck && pnpm lint` después de cualquier cambio. Si alguno falla, se arregla antes de commitear.
@@ -31,57 +28,59 @@ pnpm mcp:generate                   # Vuelca el contrato en las operaciones que 
 
 - **Framework**: Next.js 16 (App Router, API Routes, Server Actions)
 - **Lenguaje**: TypeScript strict
-- **ORM**: Drizzle
-- **Base de datos**: PostgreSQL (Neon) con `uuid-ossp` y `ltree`
-- **Auth**: Better Auth — sesiones stateful en Postgres, cookies HttpOnly. La sesión del navegador nunca es un JWT; el plugin `jwt` existe sólo para el OAuth 2.1 del MCP (ver restricción 5)
-- **Email transaccional**: Resend por API REST (`src/shared/email`, sin SDK). `RESEND_API_KEY` + `EMAIL_FROM`; sin la key, el correo se omite sin romper el flujo: en dev se imprime en consola y en producción queda un aviso en el log
+- **Base de datos**: Convex (`convex/schema.ts`, treinta y cinco tablas con un test por tabla). El schema de Drizzle sigue en `src/shared/db/schema.ts` sólo como origen del importador
+- **Auth**: Clerk. Registro, sesiones, verificación de correo, recuperación de contraseña, proveedores sociales y el panel de cuenta son componentes de Clerk (`@clerk/nextjs`). `src/proxy.ts` monta `clerkMiddleware`; `getServerSession` traduce la identidad de Clerk al usuario de Kino por la fila `accounts` con `providerId = 'clerk'`, y la crea la primera vez. Convex valida el mismo JWT con la plantilla `convex` (`convex/auth.config.ts`)
+- **Email transaccional**: ninguno propio. Los correos de cuenta los manda Clerk
 - **Server state**: TanStack Query v5
 - **Formularios**: react-hook-form + zodResolver
 - **Estilos**: Tailwind + shadcn/ui (Radix)
 - **Toasts**: sonner · **Gráficas**: Recharts · **Fechas**: date-fns · **Recurrencia**: rrule
 - **Editor**: Tiptap v3
-- **Background**: Lazy Evaluation (catch-up al entrar) + Vercel Cron + cron externo
-- **Errores**: Sentry en navegador, API y crons. Inerte sin `NEXT_PUBLIC_SENTRY_DSN`;
+- **Background**: Lazy Evaluation (catch-up al entrar) + los crons de Convex (`convex/crons.ts`: snapshot diario y recordatorios cada quince minutos, con bitácora en `cronRuns`)
+- **Errores**: Sentry en navegador y API. Inerte sin `NEXT_PUBLIC_SENTRY_DSN`;
   el recorte de datos personales vive en `src/shared/observability/sentry-options.ts`
 - **Analítica de producto**: PostHog sin cookies, sólo el funnel de registro.
   Inerte sin `NEXT_PUBLIC_POSTHOG_KEY`; los eventos que existen y las propiedades
   que cada uno puede llevar son una lista cerrada en `src/shared/observability/analytics.ts`
-- **Deploy**: Vercel + Neon
+- **Deploy**: Vercel + Convex
 - **Package manager**: pnpm (NO npm, NO yarn)
 
 ## Restricciones de arquitectura — no violar
 
-1. **$0/mes de infraestructura.** Todo dentro de free tiers de Vercel + Neon.
+1. **$0/mes de infraestructura.** Todo dentro de free tiers de Vercel + Convex.
 2. **Sin Redis, sin BullMQ, sin servidor persistente.** 100% serverless.
 3. **Sin WebSockets.** Vercel Serverless no soporta conexiones persistentes. Lo que refresca hoy es `refetchOnWindowFocus`, el default de TanStack Query: con un solo usuario, volver a la pestaña llega a tiempo. `refetchInterval` no se usa en ningún sitio y no es la alternativa prescrita: cada intervalo activo es una invocación por usuario y por minuto contra el free tier. La señal que reabriría la decisión es el agente MCP escribiendo mientras miras el tablero.
 4. **10s por función, salvo excepción justificada.** Es el presupuesto por defecto y las rutas que lo declaran usan `export const maxDuration = 10`. La única excepción viva es `/api/mcp`, en 60s, porque el protocolo mantiene la petición abierta mientras el agente encadena herramientas. Subir el límite en una ruta nueva es una decisión, no un ajuste: escríbela en el comentario de la ruta. Paginar lo pesado sigue siendo la respuesta primero.
-5. **La sesión del navegador no es un JWT.** Better Auth guarda sesiones con estado en Postgres y las entrega en una cookie HttpOnly, para que revocar una sesión la revoque de verdad. Un token de vida propia que el servidor no puede invalidar no vale como sesión, y eso es lo que la regla protege.
+5. **La sesión la emite y la revoca Clerk.** La cookie `__session` es un JWT corto que Clerk renueva cada minuto contra su backend, así que cerrar una sesión desde el panel la corta de verdad en ese plazo. Kino no guarda sesiones propias ni acepta otro token de navegador.
 
-   Lo que sí lleva JWT es el conector MCP: `auth.ts` monta el plugin `jwt` para firmar los access tokens del OAuth 2.1 y publicar el JWKS que los verifica. Son tokens de una aplicación cliente, con caducidad corta y su propia tabla, no la identidad de nadie en el navegador.
+   El conector MCP remoto (`/api/mcp`) entra por el OAuth de Clerk: el cliente se registra en dinámico, el usuario consiente en la pantalla de Clerk y la ruta verifica el access token con `@clerk/mcp-tools`. Convex no puede validar ese token (su `aud` cambia por cliente), así que la ruta firma uno propio de diez minutos con el alcance en `kino_scope` (`convex/lib/mcpToken.ts`, `src/features/mcp/auth.ts`) y Convex lo acepta por el provider `customJwt` de `auth.config.ts`. No hay claves API propias ni tabla `api_keys`.
 6. **`system_id` es NOT NULL en tasks.** Toda tarea pertenece a un sistema; Inbox es el default. No hay tareas flotantes.
 7. **Timestamps en UTC** (TIMESTAMPTZ). El frontend convierte para mostrar.
 8. **Soft delete** en tasks y pages vía `deleted_at`. Siempre filtrar con `WHERE deleted_at IS NULL`.
 
-## Entornos y base de datos
+## Entornos
 
-Producción y desarrollo son **dos ramas de Neon** con cadenas de conexión distintas. Ninguna laptop tiene la de producción.
+Producción y desarrollo son **dos deployments de Convex** del mismo proyecto, y cada uno tiene su instancia de Clerk. Ninguna laptop tiene la clave de deploy de producción.
 
-| Entorno | Quién la usa | `DATABASE_URL` |
-|---|---|---|
-| Producción | el deploy de `main` en Vercel | variable **Production** de Vercel, y en ningún otro sitio |
-| Desarrollo | los previews de Vercel (PRs y `dev`) y el `.env.local` de cada máquina | rama de desarrollo de Neon: variable **Preview** de Vercel y `.env.local` |
-| Local aislado | `docker compose up -d`, y la batería de integración cuando se la apunta ahí con `TEST_DATABASE_URL` (hace `TRUNCATE`) | `postgresql://kino:kino_dev_password@localhost:5433/kino` |
+| Entorno | Quién lo usa | Convex | Clerk |
+|---|---|---|---|
+| Producción | el deploy de `main` en Vercel | deployment `prod`: `CONVEX_DEPLOY_KEY` en la variable **Production** de Vercel, y en ningún otro sitio | instancia Production (`pk_live_` / `sk_live_`) |
+| Desarrollo | los previews de Vercel (PRs y `dev`) y el `.env.local` de cada máquina | deployment de dev: `NEXT_PUBLIC_CONVEX_URL` en la variable **Preview** de Vercel y en `.env.local`; las funciones las publica `npx convex dev` desde la laptop | instancia Development (`pk_test_` / `sk_test_`) |
 
-**Las migraciones a producción las aplica sólo el despliegue.** El `buildCommand` de `vercel.json` corre `pnpm db:migrate` antes de `next build` con la variable del entorno que está construyendo: un preview migra la rama de desarrollo y el deploy de `main` migra producción. Si la migración falla, el build falla y el deploy anterior sigue arriba; el código nunca sale sin su schema. `pnpm db:migrate` desde local sólo llega a la base de `.env.local`.
+**El schema y las funciones de producción los publica sólo el despliegue.** El `buildCommand` de `vercel.json` es `scripts/vercel-build.sh`: con `CONVEX_DEPLOY_KEY` en el entorno corre `npx convex deploy --cmd 'pnpm build'`, que publica las funciones y deja `NEXT_PUBLIC_CONVEX_URL` puesta para `next build`. Si el schema no valida contra los datos, el build falla y el deploy anterior sigue arriba; el código nunca sale sin sus funciones. Sin la clave (los previews) se construye sólo Next contra el deployment de dev.
 
-Toda migración sigue teniendo que ser **compatible hacia atrás** con el código ya desplegado: el build migra antes de publicar, y entre una cosa y la otra el código viejo lee el schema nuevo.
+Un cambio de schema sigue teniendo que ser **compatible hacia atrás** con el código ya desplegado: Convex valida los documentos existentes contra el schema nuevo antes de aceptarlo, y entre una cosa y la otra el cliente viejo habla con las funciones nuevas.
 
-**Respaldo.** Neon Free guarda 6 horas de historial y nada más. `.github/workflows/backup.yml` vuelca producción a un bucket de Cloudflare R2 a las 05:23 UTC: `pg_dump -Fc` cifrado con `age`, en `scripts/backup/dump.sh`. La retención de 30 días es una regla de ciclo de vida del bucket, no lógica del workflow.
+Cada deployment lleva sus propias variables (`npx convex env set`): `CLERK_JWT_ISSUER_DOMAIN` de su instancia de Clerk, `KINO_MCP_JWKS` con la mitad pública de la clave con la que firma su Vercel, `ENCRYPTION_KEY` para la sincronización con GitHub y el par VAPID para los push. Están descritas en `.env.example`.
+
+Postgres ya no está en el camino de la app. El schema de Drizzle (`src/shared/db/schema.ts`) sigue en el repo como origen de `pnpm migrate:convex`, el importador con el que se movieron los datos; `scripts/migrate-to-convex/verify.mts` compara las dos bases.
+
+**Respaldo.** Convex guarda snapshots propios, pero viven en la misma cuenta que los datos: un borrado de cuenta, una clave comprometida o un `import --replace-all` contra el deployment equivocado se los lleva también. `.github/workflows/backup.yml` exporta producción a un bucket de Cloudflare R2 a las 05:23 UTC: `npx convex export --include-file-storage` cifrado con `age`, en `scripts/backup/dump.sh`. La retención de 30 días es una regla de ciclo de vida del bucket, no lógica del workflow.
 
 Ese volcado ocurre sólo si se cumplen **dos condiciones que no son código**, y por eso este documento no afirma que esté ocurriendo:
 
 1. El workflow existe en `main`. GitHub dispara `schedule:` únicamente desde la rama por defecto, y `workflow_dispatch` tampoco aparece en la interfaz si el fichero no está allí. Tenerlo en `dev` no hace nada.
-2. Los seis secretos del repositorio están cargados: `BACKUP_DATABASE_URL` (cadena **directa**, sin `-pooler`), `BACKUP_AGE_RECIPIENT` (pública `age1...`), `R2_ACCOUNT_ID`, `R2_ACCESS_KEY_ID`, `R2_SECRET_ACCESS_KEY`, `R2_BUCKET`.
+2. Los seis secretos del repositorio están cargados: `CONVEX_DEPLOY_KEY` (clave de deploy del deployment de **producción**, empieza por `prod:`), `BACKUP_AGE_RECIPIENT` (pública `age1...`), `R2_ACCOUNT_ID`, `R2_ACCESS_KEY_ID`, `R2_SECRET_ACCESS_KEY`, `R2_BUCKET`.
 
 Cómo se comprueba si está corriendo de verdad, sin creerle a este párrafo:
 
@@ -89,46 +88,48 @@ Cómo se comprueba si está corriendo de verdad, sin creerle a este párrafo:
 gh run list --workflow=backup.yml
 ```
 
-Sin ejecuciones ahí, el único respaldo de producción son las 6 horas de Neon. El workflow falla en rojo ante cualquier secreto ausente o vacío, y sólo se pone verde después de comprobar contra R2 que el objeto existe y mide lo que debe.
+Sin ejecuciones ahí, el único respaldo de producción son los snapshots de la propia cuenta de Convex. El workflow falla en rojo ante cualquier secreto ausente, vacío o de otro deployment, y sólo se pone verde después de comprobar contra R2 que el objeto existe y mide lo que debe.
 
-La clave privada `age` no está en ningún servicio: vive en el gestor de contraseñas de Elias. Sin ella los volcados son ruido indescifrable, y es el único secreto del sistema que no se puede rotar sin invalidar todo lo guardado hasta ese momento. La base de producción cabe en el runner: si alguna vez el volcado supera lo que R2 regala (10 GB), es una decisión, no un ajuste.
+La clave privada `age` no está en ningún servicio: vive en el gestor de contraseñas de Elias. Sin ella los volcados son ruido indescifrable, y es el único secreto del sistema que no se puede rotar sin invalidar todo lo guardado hasta ese momento. Si alguna vez el snapshot supera lo que R2 regala (10 GB), es una decisión, no un ajuste.
 
 Las variables de entorno están documentadas en **`.env.example`**, una línea por clave con para qué sirve y si es obligatoria. Toda variable nueva se añade ahí en el mismo commit que la lee.
 
 ### Restaurar un respaldo
 
-Los tres scripts de `scripts/backup/` están hechos para leerse en este orden y a las tres de la mañana. `restore.sh` aplica el volcado con `--clean --if-exists`: **borra y recrea cada objeto del destino**, no añade. Nunca lo apuntes a una base cuyo contenido te importe.
+Los tres scripts de `scripts/backup/` están hechos para leerse en este orden y a las tres de la mañana. `restore.sh` importa con `--replace-all`: **el deployment queda como el snapshot y lo que no venga en él se borra**, no añade. Exige que el nombre del deployment destino se escriba dos veces (dentro de la clave y en `CONFIRM_TARGET`) para que una clave pegada por error no borre nada.
 
 ```bash
-# 1. Requisitos: age, pg_restore 17 o más nuevo, y la clave privada.
-age --version && pg_restore --version
+# 1. Requisitos: age, la CLI de Convex del repo (pnpm install) y la clave privada.
+age --version && npx convex --version
 export AGE_IDENTITY_FILE=~/.config/kino/backup-age.key   # la del gestor de contraseñas
 
 # 2. Credenciales de R2 y el objeto. La lista sale con el más reciente al final.
 export AWS_ACCESS_KEY_ID=...  AWS_SECRET_ACCESS_KEY=...  AWS_DEFAULT_REGION=auto
 export R2_ENDPOINT="https://<R2_ACCOUNT_ID>.r2.cloudflarestorage.com"
 aws s3 ls "s3://<R2_BUCKET>/" --endpoint-url "$R2_ENDPOINT" | sort | tail -5
-aws s3 cp "s3://<R2_BUCKET>/kino-<fecha>.dump.age" . --endpoint-url "$R2_ENDPOINT"
+aws s3 cp "s3://<R2_BUCKET>/kino-<fecha>.zip.age" . --endpoint-url "$R2_ENDPOINT"
 
-# 3. El destino, siempre cadena DIRECTA (sin -pooler).
-export TARGET_URL='postgresql://...'
+# 3. Huella del snapshot que se va a restaurar.
+scripts/backup/verify.sh kino-<fecha>.zip.age > origen.txt
 
-# 4. Huella del origen, si todavía se puede leer.
-scripts/backup/verify.sh "$ORIGEN_URL" > origen.txt
+# 4. El destino: la clave de deploy de ese deployment, y su nombre repetido a mano.
+export CONVEX_DEPLOY_KEY='prod:<nombre>|...'
+export CONFIRM_TARGET=<nombre>
 
 # 5. Restaurar. Imprime cuánto tardó, que es el tiempo de caída real.
-scripts/backup/restore.sh kino-<fecha>.dump.age
+scripts/backup/restore.sh kino-<fecha>.zip.age
 
 # 6. Comprobar que llegó todo. Sin salida en el diff = restauración completa.
-scripts/backup/verify.sh "$TARGET_URL" > destino.txt
+npx convex export --include-file-storage --path despues.zip
+scripts/backup/verify.sh despues.zip > destino.txt
 diff origen.txt destino.txt
 ```
 
-`verify.sh` sólo lee, y cuenta justo lo que un volcado incompleto pierde primero: filas por tabla, cuadernos con texto y sus bytes, entidades con relaciones, y tareas con sistema.
+`verify.sh` sólo lee un snapshot, y cuenta justo lo que un volcado incompleto pierde primero: documentos por tabla, ficheros de `_storage`, cuadernos con texto y sus bytes, entidades con relaciones, y tareas con sistema.
 
-**Para ensayar**, crea una rama nueva de Neon y restaura sobre ella. En un destino vacío los `DROP ... IF EXISTS` no borran nada, y así el ensayo no toca la rama de desarrollo que alguien pueda estar usando. **En un desastre real** el origen ya no existe para comparar: corre `verify.sh` sólo sobre el destino y contrasta los números contra lo que esperabas.
+**Para ensayar**, usa el deployment de dev (`dev:` en la clave) o uno de preview: el snapshot pisa lo que haya. **En un desastre real** el origen ya no existe para comparar; la huella del paso 3 sale del propio fichero, así que el `diff` del paso 6 sigue valiendo. Lo que no vuelve con el snapshot son las funciones programadas en vuelo: los crons se registran solos en el siguiente `convex deploy`.
 
-Ensayo local sobre el schema actual (35 tablas, 10 MB, 500 tareas, 120 cuadernos con 626 400 bytes de contenido, 80 entidades y 300 relaciones): volcado 1 s y 144 KB cifrados, restauración 2 s sobre base vacía y 5 s sobre base poblada, `diff` vacío en ambas. Lo que esos números **no** miden es Neon con la red de por medio y el tamaño real de producción; ese dato sale la primera vez que se restaure allí.
+Ensayo sobre el deployment de dev (37 tablas, 550 documentos, 47 cuadernos con 255 106 bytes de contenido, 226 tareas): volcado 2 s y 192 KB cifrados, restauración 12 s, `diff` vacío. Lo que esos números **no** miden es el tamaño real de producción; ese dato sale la primera vez que se restaure allí.
 
 ## Estructura — vertical slice
 
@@ -206,8 +207,8 @@ pasaba porque el cliente afirmaba la respuesta con un cast.
   para lo que toca credenciales).
 - **Añadir un endpoint no toca `app/`.** `src/app/api/[...rest]/route.ts` es un
   catch-all y sirve toda la API. Los pocos `route.ts` que quedan son los que no
-  caben en el contrato —el handler de Better Auth, `/api/mcp`, los cron, los dos
-  302 de GitHub, los dos ZIP de export y las dos de `uploads`— y cada uno tiene
+  caben en el contrato —`/api/mcp`, los dos 302 de GitHub, los dos
+  ZIP de export y las dos de `uploads`— y cada uno tiene
   su razón escrita en ese archivo. `route()` sobrevive sólo como la escotilla de
   esos casos.
 - **Los códigos de error no cambian:** 401 `UNAUTHORIZED`, 403 `INSUFFICIENT_SCOPE`
@@ -217,7 +218,7 @@ pasaba porque el cliente afirmaba la respuesta con un cast.
   `INTERNAL_ERROR`. La traducción vive en `shared/api/handler.ts` y en
   `shared/api/procedures.ts`.
 
-**Las tools del MCP salen de aquí.** `packages/mcp` se publica en npm y no puede importar `src/`, así que el contrato viaja hasta él como código generado (`pnpm mcp:generate` → `packages/mcp/src/generated/operations.ts`). El paquete sólo escribe a mano lo que el agente lee: el nombre y la descripción de cada tool, en `catalog.ts`, que es un mapa **exhaustivo** sobre las operaciones. Un endpoint nuevo no compila hasta que alguien decide si es una tool o un `null` explícito, y un test comprueba que lo commiteado coincide con el contrato.
+**Las tools del MCP son funciones de Convex con nombre.** Viven en `src/features/mcp/tools/catalog.ts`: cada `readTool`/`writeTool` apunta a una función de `api.*` y el compilador exige que la entrada del schema encaje en sus argumentos (o que la tool declare `args` para adaptarla), así que cambiar una función deja de compilar la tool que la usa. Lo escrito a mano es lo que el agente lee: el nombre y la descripción. `catalog.test.ts` fija la lista de nombres como contrato visible: quitar o añadir una tool pasa por ahí. Las sesiones de aprendizaje (`learning.ts`) son secuencias sobre varias funciones y van aparte.
 
 Lo que cruza la red no es una fila: `Transport<T>` (en `shared/api/transport.ts`)
 convierte las fechas en texto ISO, que es lo que sobrevive a un `JSON.stringify`.
@@ -261,22 +262,13 @@ CSS puro — keyframes, transitions, Tailwind. **No instalar Framer Motion.** An
 
 ### Tests
 
-Dos baterías, y la diferencia es si hay base de por medio.
+Una sola batería, `pnpm test`, en tres proyectos de Vitest según el entorno que necesitan (`vitest.config.ts`):
 
-- **`*.test.ts` / `*.test.tsx` → `pnpm test`.** Lógica pura y componentes. Mockean `@/shared/db`; no tocan Postgres y por eso la suite entera tarda segundos.
-- **`*.itest.ts` → `pnpm test:integration`.** Lo que sólo contesta una base: `ltree`, la búsqueda full-text, las transacciones, el aislamiento entre usuarios y el contrato de punta a punta (petición HTTP real con una clave API real). Un mock aquí sólo confirmaría que la consulta lleva el filtro, no que Postgres lo respete.
+- **`src/**/*.test.ts`** → lógica pura en Node. Sin base, sin red.
+- **`convex/**/*.test.ts`** → las funciones de Convex contra `convex-test`, en el proceso y con el schema real: aislamiento entre usuarios, máquinas de estado, crons. Es la batería que antes pedía Postgres y ya no pide nada.
+- **`*.test.tsx`** y los pocos `.test.ts` listados en `domTests` → jsdom, sólo para lo que toca el DOM.
 
-La base de integración la levanta `src/shared/db/testing/setup.ts`, **una por archivo de test**: PGlite (Postgres en WASM, en memoria, con `ltree`, `uuid-ossp` y `unaccent`) hablando el protocolo de cable, así que el driver sigue siendo el `postgres-js` de producción. No hace falta Docker y los archivos corren en paralelo. Un `.itest.ts` nuevo no configura nada: pide sus dos usuarios a `resetAndSeedActors()` y ya.
-
-Para correr la misma batería contra el motor exacto de producción (PGlite va por Postgres 18; producción y el compose, por 17):
-
-```bash
-docker compose up -d
-DATABASE_URL="postgresql://kino:kino_dev_password@localhost:5433/kino" pnpm db:migrate
-TEST_DATABASE_URL="postgresql://kino:kino_dev_password@localhost:5433/kino" pnpm test:integration
-```
-
-Un test de integración vale lo que vale su versión rota: si se invierte el operador o se le quita el idioma a la consulta y la batería sigue verde, el test no estaba probando la consulta.
+Un test de función vale lo que vale su versión rota: si se invierte la condición y la batería sigue verde, el test no estaba probando la función.
 
 ### El manifiesto de arquetipo
 
@@ -289,7 +281,7 @@ Lo mismo para los mediums de escritura en `src/shared/lib/mediums.ts`. Ojo: el m
 - **Ramas**: `main` → `dev` → rama de feature. Nunca push directo a `main`.
 - **Commits**: Conventional Commits, atómicos, **sin trailers de atribución a IA**.
 - Las ramas completadas son registro histórico: **no se borran**.
-- Antes de un PR: `pnpm typecheck && pnpm lint && pnpm test && pnpm test:integration`.
+- Antes de un PR: `pnpm typecheck && pnpm lint && pnpm test`.
 - Nunca commitear `.env` ni secretos. `.env.example` es el único `.env` versionado y no lleva valores reales.
 
 ## Definition of Done
@@ -325,6 +317,6 @@ Un sistema `project` puede declarar un repositorio en `systems.metadata.github` 
 - **Idempotencia** por `uq_tasks_external` `(user_id, external_source, external_id)`, con `external_id` = id numérico global del issue. Los milestones mapean a sprints por `uq_sprints_external` `(system_id, external_id)`.
 - **Lo que un refresco nunca pisa**: `energyLevel`, `dueDate`, `startDate`, `inTodayPlan` y demás campos de `KINO_OWNED_FIELDS` (`github-sync.mapper.ts`). Son el valor que Kino añade sobre un issue; si un refresco los borrara, el feature destruiría trabajo.
 - **Columnas**: issue cerrado → columna terminal (que completa la tarea por el puente de `moveTaskBoard`); reabierto → sale de la terminal. Las columnas intermedias las mueve la persona y la sincronización no las toca.
-- **Refresco**: bajo demanda al abrir el board o con el botón. Sin cron — la única entrada de `vercel.json` del free tier está ocupada.
+- **Refresco**: bajo demanda al abrir el board o con el botón. Sin cron: un repo que nadie mira no gasta nada.
 
-Necesita `GITHUB_SYNC_CLIENT_ID`, `GITHUB_SYNC_CLIENT_SECRET` y `ENCRYPTION_KEY` (ver `.env.example`). Son un OAuth App aparte del login porque GitHub sólo admite **una** URL de callback por app y esa ya la ocupa Better Auth, y porque leer issues privados exige el scope `repo`. Sin estas variables la integración se oculta sola: no rompe nada, simplemente no aparece.
+Necesita `GITHUB_SYNC_CLIENT_ID`, `GITHUB_SYNC_CLIENT_SECRET` y `ENCRYPTION_KEY` (ver `.env.example`). Son un OAuth App aparte del login porque GitHub sólo admite **una** URL de callback por app y esa ya la ocupa Clerk, y porque leer issues privados exige el scope `repo`. Sin estas variables la integración se oculta sola: no rompe nada, simplemente no aparece.

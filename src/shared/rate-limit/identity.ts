@@ -1,5 +1,4 @@
 import type { NextRequest } from 'next/server';
-import { getSessionCookie } from 'better-auth/cookies';
 
 /**
  * Identidad para el rate limit (KIN-149 / BE-12): el hash de la credencial
@@ -17,7 +16,7 @@ import { getSessionCookie } from 'better-auth/cookies';
  */
 
 /** Prefijo por tipo de identidad: hace legible la tabla y evita colisiones. */
-type IdentityKind = 'key' | 'tok' | 'sess' | 'ip' | 'acct';
+type IdentityKind = 'key' | 'tok' | 'sess';
 
 async function sha256Hex(value: string): Promise<string> {
   const digest = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(value));
@@ -43,41 +42,8 @@ export async function identityFor(request: NextRequest): Promise<string | null> 
     return identity(token.startsWith('sk-kino-') ? 'key' : 'tok', token);
   }
 
-  const sessionCookie = getSessionCookie(request);
+  // La cookie de sesión de Clerk: un JWT corto que se renueva solo. Hashearlo
+  // entero es lo que hace que una sesión sea su propia identidad.
+  const sessionCookie = request.cookies.get('__session')?.value;
   return sessionCookie ? identity('sess', sessionCookie) : null;
-}
-
-/**
- * La IP del cliente. `x-forwarded-for` llega como la cadena de proxies que
- * atravesó la request, y el cliente es el primero: quedarse con la cadena entera
- * daría una clave distinta por cada ruta interna que tomara, o sea ninguna cuota.
- *
- * En local no hay cabecera y todo cae en la misma clave, que es lo correcto —
- * ahí todo viene de la misma máquina.
- */
-export function clientIp(headers: Headers): string {
-  const forwarded = headers.get('x-forwarded-for');
-  const first = forwarded?.split(',')[0]?.trim();
-  return first || headers.get('x-real-ip')?.trim() || '127.0.0.1';
-}
-
-/**
- * Identidad para las rutas donde todavía no hay credencial. Se hashea como las
- * demás: mantiene el shape de la columna, evita guardar direcciones en claro y
- * hace que una IPv6 larga no desborde los 96 caracteres.
- */
-export async function ipIdentityFor(request: NextRequest): Promise<string> {
-  return identity('ip', clientIp(request.headers));
-}
-
-/**
- * Identidad de un intento de contraseña: la cuenta **y** la IP desde la que se
- * prueba. Con la cuenta sola, agotar la cuota de otro sería tan fácil como
- * escribir mal su contraseña cinco veces.
- *
- * El correo se normaliza en minúsculas para que `Elias@` y `elias@` no sean dos
- * cuotas distintas contra la misma cuenta.
- */
-export async function signInIdentity(email: string, ip: string): Promise<string> {
-  return identity('acct', `${email.trim().toLowerCase()}|${ip}`);
 }

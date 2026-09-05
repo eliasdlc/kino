@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import { useAdvisorAction } from '@/features/tasks/tasks.hooks';
 import type { AdvisorPattern, PatternId } from '@/features/energy/energy.advisor';
-import type { AdvisorBulkAction } from '@/features/energy/energy.service';
+import type { AdvisorBulkAction } from '@/features/energy/energy.types';
 
 interface Props {
   pattern: AdvisorPattern | null;

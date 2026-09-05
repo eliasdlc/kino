@@ -43,15 +43,14 @@ function CheckIcon() {
  */
 export function PlanningTaskCard({ task, isFocused, onToggle, onDelete, onEdit }: PlanningTaskCardProps) {
   const isDone = task.status === "done";
-  const isArchived = task.status === "archived";
-  const isCritical = task.priority === "critical" && !isDone && !isArchived;
-  const isHigh = task.priority === "high" && !isDone && !isArchived;
+  const isCritical = task.priority === "critical" && !isDone;
+  const isHigh = task.priority === "high" && !isDone;
   const isEvent = task.taskType === "event";
   const typeConfig = getTaskTypeConfig(task.taskType, task.metadata);
   const TypeIcon = typeConfig.icon;
 
   const isOverdue =
-    !!task.dueDate && !isDone && !isArchived && isBefore(parseDueDate(task.dueDate), startOfToday());
+    !!task.dueDate && !isDone && isBefore(parseDueDate(task.dueDate), startOfToday());
   const dueDays = task.dueDate
     ? differenceInCalendarDays(parseDueDate(task.dueDate), startOfToday())
     : null;
@@ -66,20 +65,18 @@ export function PlanningTaskCard({ task, isFocused, onToggle, onDelete, onEdit }
         isHigh && "bg-task-high/[0.12] border-task-high/32",
         isFocused && "bg-primary/8 border-primary/60",
         isDone && "opacity-45",
-        isArchived && "opacity-35",
       )}
     >
       <div className="flex items-start gap-1.5">
         {/* Toggle */}
         <button
           type="button"
-          onClick={() => !isArchived && onToggle(task.id)}
-          disabled={isArchived}
+          onClick={() => onToggle(task.id)}
           aria-label={isDone ? "Marcar como pendiente" : "Marcar como completada"}
           className={cn(
             "relative mt-px size-3.5 shrink-0 rounded-full border-2 flex items-center justify-center",
             "after:absolute after:inset-[-8px] after:content-['']",
-            isDone || isArchived
+            isDone
               ? "border-task-done bg-task-done text-task-done-foreground"
               : isCritical
                 ? "border-task-critical/50 hover:border-task-critical"
@@ -88,7 +85,7 @@ export function PlanningTaskCard({ task, isFocused, onToggle, onDelete, onEdit }
                   : "border-muted-foreground/40 hover:border-muted-foreground/70",
           )}
         >
-          {(isDone || isArchived) && <CheckIcon />}
+          {isDone && <CheckIcon />}
         </button>
 
         {/* Título */}

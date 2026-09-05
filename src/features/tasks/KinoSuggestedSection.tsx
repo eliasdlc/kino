@@ -2,14 +2,13 @@
 
 import { useState } from 'react';
 import { Sparkles, RefreshCw, CalendarPlus, AlertCircle } from 'lucide-react';
-import { useQueryClient } from '@tanstack/react-query';
 import { isToday, isTomorrow, differenceInCalendarDays } from 'date-fns';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 import { EnergyBudgetBar } from '@/features/energy/EnergyBudgetBar';
 import { useEnergyBudget } from '@/features/energy/energy.hooks';
 import { crossesLimitWith } from '@/features/energy/energy.budget';
-import { useSuggestedTasks, useAddToTodayPlan, useToggleTodayTask, suggestedTasksKey, type SuggestedTask } from './tasks.hooks';
+import { useSuggestedTasks, useAddToTodayPlan, useToggleTodayTask, type SuggestedTask } from './tasks.hooks';
 import { TaskDetailSheet } from './TaskDetailSheet';
 import type { TaskTransport } from './tasks.types';
 import { parseDueDate } from './tasks.utils';
@@ -126,10 +125,9 @@ function SuggestedRow({ task, addedIds, onAdd, onComplete, onOpen }: SuggestedRo
 }
 
 export function KinoSuggestedSection() {
-  const { data: suggestions = [], isLoading, isError } = useSuggestedTasks();
+  const { data: suggestions = [], isLoading, isError, refetch } = useSuggestedTasks();
   const { mutate: addToPlan } = useAddToTodayPlan();
   const { mutate: complete } = useToggleTodayTask();
-  const queryClient = useQueryClient();
   const budget = useEnergyBudget();
 
   const [addedIds, setAddedIds] = useState<Set<string>>(new Set());
@@ -158,24 +156,11 @@ export function KinoSuggestedSection() {
   }
 
   function handleComplete(taskId: string) {
-    // Las sugerencias viven en ['suggested-tasks'], fuera del prefijo ['tasks']
-    // que toca useToggleTodayTask. Sin esta actualización optimista local el
-    // toggle ocurre en el server pero la fila nunca refleja el cambio.
-    const key = suggestedTasksKey();
-    const previous = queryClient.getQueryData<SuggestedTask[]>(key);
-    queryClient.setQueryData<SuggestedTask[]>(key, (old) =>
-      old?.map((t) =>
-        t.id === taskId ? { ...t, status: t.status === 'done' ? 'today' : 'done' } : t,
-      ),
-    );
-    complete(
-      { taskId },
-      { onError: () => { if (previous) queryClient.setQueryData(key, previous); } },
-    );
+    complete({ taskId });
   }
 
   function handleRegenerate() {
-    void queryClient.invalidateQueries({ queryKey: suggestedTasksKey() });
+    void refetch();
   }
 
   if (isLoading) {

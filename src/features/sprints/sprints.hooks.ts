@@ -1,88 +1,29 @@
 "use client";
 
-import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { api } from "@/shared/api/client";
-import { useOptimisticList } from "@/shared/hooks/optimistic";
+import { api } from "@convex/_generated/api";
+import { useConvexMutation, useConvexQuery } from "@/shared/convex/hooks";
 import type { CreateSprintInput, UpdateSprintInput } from "./sprints.schemas";
-import type { SprintTransport } from "./sprints.types";
-
-export const sprintKeys = {
-  bySystem: (systemId: string) => ["sprints", systemId] as const,
-};
 
 export function useSprints(systemId: string, options?: { enabled?: boolean }) {
-  return useQuery({
-    queryKey: sprintKeys.bySystem(systemId),
-    queryFn: () => api.sprints.bySystem({ systemId }),
-    refetchOnWindowFocus: true,
-    enabled: options?.enabled ?? true,
-  });
+  return useConvexQuery(api.sprints.bySystem, { systemId }, options);
 }
 
 export function useCreateSprint(systemId: string) {
-  return useOptimisticList<
-    SprintTransport,
-    Error,
-    Omit<CreateSprintInput, "systemId">,
-    SprintTransport
-  >({
-    mutationFn: (data) => api.sprints.create({ ...data, systemId }),
-    queryKey: sprintKeys.bySystem(systemId),
-    // El placeholder tiene los mismos campos que la lista, ni uno más: si
-    // llevara la fila entera, al confirmarse el sprint cambiaría de forma.
-    updater: (sprints, data) => [
-      ...sprints,
-      {
-        id: crypto.randomUUID(),
-        systemId,
-        name: data.name,
-        goal: data.goal ?? null,
-        startDate: data.startDate ?? null,
-        endDate: data.endDate ?? null,
-        status: "active",
-        completedAt: null,
-        sortOrder: 0,
-      },
-    ],
+  return useConvexMutation(api.sprints.create, {
+    map: (data: Omit<CreateSprintInput, "systemId">) => ({ ...data, systemId }),
   });
 }
 
-export function useUpdateSprint(systemId: string) {
-  return useOptimisticList<
-    SprintTransport,
-    Error,
-    { sprintId: string; data: UpdateSprintInput },
-    SprintTransport
-  >({
-    mutationFn: ({ sprintId, data }) => api.sprints.update({ id: sprintId, ...data }),
-    queryKey: sprintKeys.bySystem(systemId),
-    updater: (sprints, { sprintId, data }) =>
-      sprints.map((s) => (s.id === sprintId ? { ...s, ...data } : s)),
+export function useUpdateSprint(_systemId: string) {
+  return useConvexMutation(api.sprints.update, {
+    map: ({ sprintId, data }: { sprintId: string; data: UpdateSprintInput }) => ({ id: sprintId, ...data }),
   });
 }
 
-export function useCloseSprint(systemId: string) {
-  const qc = useQueryClient();
-  return useOptimisticList<SprintTransport, Error, string, SprintTransport>({
-    mutationFn: (sprintId) => api.sprints.close({ id: sprintId }),
-    queryKey: sprintKeys.bySystem(systemId),
-    updater: (sprints, sprintId) =>
-      sprints.map((s) =>
-        s.id === sprintId
-          ? { ...s, status: "completed", completedAt: new Date().toISOString() }
-          : s,
-      ),
-    // cerrar un sprint reordena/refresca tareas asociadas.
-    onSettled: () => qc.invalidateQueries({ queryKey: ["tasks"] }),
-  });
+export function useCloseSprint(_systemId: string) {
+  return useConvexMutation(api.sprints.close, { map: (sprintId: string) => ({ id: sprintId }) });
 }
 
-export function useDeleteSprint(systemId: string) {
-  const qc = useQueryClient();
-  return useOptimisticList<void, Error, string, SprintTransport>({
-    mutationFn: (sprintId) => api.sprints.remove({ id: sprintId }),
-    queryKey: sprintKeys.bySystem(systemId),
-    updater: (sprints, sprintId) => sprints.filter((s) => s.id !== sprintId),
-    onSettled: () => qc.invalidateQueries({ queryKey: ["tasks"] }),
-  });
+export function useDeleteSprint(_systemId: string) {
+  return useConvexMutation(api.sprints.remove, { map: (sprintId: string) => ({ id: sprintId }) });
 }

@@ -1,32 +1,15 @@
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { useOptimisticRecord } from '@/shared/hooks/optimistic';
 import { toast } from 'sonner';
+import { api } from '@convex/_generated/api';
+import { useConvexMutation, useConvexQuery, useLocalMutation } from '@/shared/convex/hooks';
 import { downloadBlob } from '@/shared/utils/download';
-import { api } from '@/shared/api/client';
-import type { UserSettings } from './settings.service';
-import type { UpdateUserSettingsInput } from './settings.schemas';
-
-export const userSettingsKey = () => ['user-settings'] as const;
 
 export function useUserSettings() {
-  return useQuery({
-    queryKey: userSettingsKey(),
-    queryFn: () => api.settings.get({}),
-    staleTime: 60_000,
-  });
+  return useConvexQuery(api.settings.get, {});
 }
 
 export function useUpdateUserSettings() {
-  const queryClient = useQueryClient();
-
-  return useOptimisticRecord<UserSettings, Error, UpdateUserSettingsInput, UserSettings>({
-    mutationFn: (input) => api.settings.update(input),
-    queryKey: userSettingsKey(),
-    updater: (previous, input) => ({ ...previous, ...input }),
-    onSuccess: (data) => {
-      queryClient.setQueryData(userSettingsKey(), data);
-      toast.success('Ajustes guardados');
-    },
+  return useConvexMutation(api.settings.update, {
+    onSuccess: () => toast.success('Ajustes guardados'),
     onError: () => toast.error('No se pudieron guardar los ajustes'),
   });
 }
@@ -40,8 +23,8 @@ export function useUpdateUserSettings() {
  * a pulsar y encadena invocaciones caras.
  */
 export function useExportWorkspace() {
-  return useMutation({
-    mutationFn: async () => {
+  return useLocalMutation(
+    async () => {
       const res = await fetch('/api/export/workspace');
       if (!res.ok) throw new Error('No se pudo generar el export');
       // El export nunca falla por una imagen: las que no cupieron en el
@@ -51,17 +34,19 @@ export function useExportWorkspace() {
       downloadBlob(await res.blob(), 'kino-workspace.zip');
       return { skipped };
     },
-    onSuccess: ({ skipped }) => {
-      if (skipped > 0) {
-        toast.warning(
-          `${skipped} ${skipped === 1 ? 'imagen quedó fuera' : 'imágenes quedaron fuera'} del ZIP y siguen apuntando a su URL original.`,
-        );
-        return;
-      }
-      toast.success('Export listo');
+    {
+      onSuccess: ({ skipped }) => {
+        if (skipped > 0) {
+          toast.warning(
+            `${skipped} ${skipped === 1 ? 'imagen quedó fuera' : 'imágenes quedaron fuera'} del ZIP y siguen apuntando a su URL original.`,
+          );
+          return;
+        }
+        toast.success('Export listo');
+      },
+      onError: () => {
+        toast.error('No se pudo generar el export');
+      },
     },
-    onError: () => {
-      toast.error('No se pudo generar el export');
-    },
-  });
+  );
 }

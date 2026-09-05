@@ -9,7 +9,7 @@ export const createTagSchema = z.object({
   title: z.string().min(1).max(24),
   color: z.enum(colorValues).optional(),
   // null/ausente → tag global del usuario; con valor → tag específico del sistema.
-  systemId: z.string().uuid().nullable().optional(),
+  systemId: z.string().nullable().optional(),
 });
 
 export const updateTagSchema = z.object({

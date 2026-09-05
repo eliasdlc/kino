@@ -1,6 +1,5 @@
 import Link from "next/link";
-import { headers } from "next/headers";
-import { auth } from "@/auth";
+import { auth } from "@clerk/nextjs/server";
 import { KinoMark } from "./KinoMark";
 import { btnPrimary, btnGhost } from "./styles";
 import { getSegment, segmentRegisterHref } from "./segments/segments.manifest";
@@ -27,7 +26,8 @@ export async function MarketingNav({
   /** Slug de la landing por arquetipo, sólo en `variant="segment"`. */
   segmentSlug?: string;
 }) {
-  const session = await auth.api.getSession({ headers: await headers() });
+  const { userId } = await auth();
+  const session = userId !== null;
   const appHref = session ? "/dashboard" : "/login";
   const segment = segmentSlug ? getSegment(segmentSlug) : null;
   // Desde una landing por segmento, "Crear cuenta" no puede perder el segmento:

@@ -29,11 +29,11 @@ function eventoConTodo(): ErrorEvent {
       method: "PATCH",
       data: { content: `<p>${CAPITULO}</p>`, title: "Capítulo dos" },
       query_string: `q=${encodeURIComponent(CAPITULO)}`,
-      cookies: { "better-auth.session_token": TOKEN },
+      cookies: { "__session": TOKEN },
       headers: {
         "user-agent": "Mozilla/5.0",
         referer: "https://usekino.dev/systems/1",
-        cookie: `better-auth.session_token=${TOKEN}`,
+        cookie: `__session=${TOKEN}`,
         authorization: `Bearer ${TOKEN}`,
         "content-type": "application/json",
       },

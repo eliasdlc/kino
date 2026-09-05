@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import type { Loose } from "@/shared/convex/loose";
 import type { TaskTransport } from "./tasks.types";
 import {
   buildDirtyTaskData,
@@ -18,7 +19,7 @@ import {
  * fecha, y no incluir una fecha que no cambió para no resetear recordatorios.
  */
 
-function task(partial: Partial<TaskTransport> = {}): TaskTransport {
+function task(partial: Partial<Loose<TaskTransport>> = {}): TaskTransport {
   return {
     id: "task-1",
     title: "Original",

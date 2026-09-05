@@ -2,6 +2,8 @@
 
 import { useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
+import { useMutation } from 'convex/react';
+import { api } from '@convex/_generated/api';
 import { Progress } from '@/components/ui/progress';
 import { StepHook } from './steps/StepHook';
 import { StepIdentity } from './steps/StepIdentity';
@@ -61,6 +63,7 @@ export function OnboardingWizard({
   segment?: string | null;
 }) {
   const router = useRouter();
+  const completeOnboarding = useMutation(api.onboarding.complete);
   const [step, setStep] = useState(0);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -111,21 +114,16 @@ export function OnboardingWizard({
     setIsLoading(true);
     setError(null);
     try {
-      const res = await fetch('/api/onboarding/complete', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          identity,
-          chronotype,
-          sleepTypicalHours: sleepHours,
-          availableHoursPerDay: availableHours,
-          rechargePresets,
-          firstSystemName: systemName,
-          seedUnits: units.filter((u) => u.name.trim().length > 0),
-          timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
-        }),
+      await completeOnboarding({
+        identity,
+        chronotype,
+        sleepTypicalHours: sleepHours,
+        availableHoursPerDay: availableHours,
+        rechargePresets,
+        firstSystemName: systemName,
+        seedUnits: units.filter((u) => u.name.trim().length > 0),
+        timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
       });
-      if (!res.ok) throw new Error('Failed');
       track('onboarding_completed', { segment, identity });
       router.push('/dashboard');
     } catch {

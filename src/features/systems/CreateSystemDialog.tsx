@@ -14,7 +14,7 @@ import {
   ResponsiveDialogTitle,
   ResponsiveDialogTrigger,
 } from "@/components/ui/responsive-dialog";
-import { useQueryClient } from "@tanstack/react-query";
+import { useCreateSystem } from "./systems.hooks";
 import { COLOR_VALUES, ENERGY_LEVEL_VALUES, FREQUENCY_VALUES, TEMPLATE_TYPE_VALUES } from "@/shared/types/enums";
 import { getSystemColor } from "@/shared/utils/system-colors";
 import { ICON_MAP, DEFAULT_ICON } from "./system-icons";
@@ -40,7 +40,7 @@ export function CreateSystemDialog({
   collapsed?: boolean;
   trigger?: ReactNode;
 }) {
-  const queryClient = useQueryClient();
+  const { mutateAsync: createSystem } = useCreateSystem();
   const [open, setOpen] = useState(false);
   const [showAdvanced, setShowAdvanced] = useState(false);
   const [isPending, setIsPending] = useState(false);
@@ -85,13 +85,7 @@ export function CreateSystemDialog({
         expectedFrequency,
         triggerContext,
       };
-      const res = await fetch("/api/systems", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(data),
-      });
-      if (!res.ok) throw new Error("No se pudo crear el sistema");
-      await queryClient.invalidateQueries({ queryKey: ["systems"] });
+      await createSystem(data);
       handleOpenChange(false);
     } catch (e) {
       setError((e as Error).message || "Ocurrió un error inesperado");

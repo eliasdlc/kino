@@ -12,7 +12,7 @@ import type { PlotGrid } from "./writing.plot";
  */
 
 const GRID: PlotGrid = {
-  folderId: "obra-1",
+  folderId: "obra-1" as never,
   folderName: "La casa junto al río",
   arcs: ["Duelo", "Herencia"],
   chapters: [

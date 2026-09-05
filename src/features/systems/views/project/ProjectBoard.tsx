@@ -54,7 +54,7 @@ export function ProjectBoard({ systemId, initialData, sprintFilter, onEdit, keyb
   );
 
   const visible = tasks.filter((t) => {
-    if (t.deletedAt || t.status === "archived") return false;
+    if (t.deletedAt) return false;
     if (sprintFilter === null) return true;
     if (sprintFilter === "none") return t.sprintId === null;
     return t.sprintId === sprintFilter;

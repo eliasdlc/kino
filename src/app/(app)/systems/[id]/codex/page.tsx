@@ -1,5 +1,6 @@
 import { notFound, redirect } from "next/navigation";
-import { getSystemById } from "@/features/systems/systems.service";
+import { api } from "@convex/_generated/api";
+import { serverQuery } from "@/shared/convex/server";
 import { PageWrapper } from "@/components/PageWrapper";
 import { PageBreadcrumb } from "@/components/PageBreadcrumb";
 import { CodexLibrary } from "@/features/entities/CodexLibrary";
@@ -9,7 +10,6 @@ import { LooseThreads } from "@/features/writing/LooseThreads";
 import { InWorldTimeline } from "@/features/writing/InWorldTimeline";
 import { resolveCodexView } from "@/features/entities/codex.views";
 import { getServerSession } from "@/shared/utils/session";
-import { toTransport } from "@/shared/api/transport";
 
 export default async function CodexPage({
   params,
@@ -23,7 +23,7 @@ export default async function CodexPage({
   const session = await getServerSession();
   if (!session) redirect("/login");
 
-  const system = await getSystemById(id, session.user.id);
+  const system = await serverQuery(api.systems.byId, { id }).catch(() => null);
   if (!system) notFound();
 
   const view = resolveCodexView(rawView);
@@ -54,7 +54,7 @@ export default async function CodexPage({
           {view === "grafo" ? (
             <UniverseGraphLazy systemId={id} />
           ) : view === "hilos" ? (
-            <LooseThreads system={toTransport(system)} />
+            <LooseThreads system={system} />
           ) : view === "cronologia" ? (
             <InWorldTimeline systemId={id} />
           ) : (

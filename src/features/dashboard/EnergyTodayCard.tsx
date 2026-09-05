@@ -12,8 +12,8 @@ import {
 import { findPeakRange, formatHourRange, CHRONOTYPE_LABELS } from '@/features/energy/energy.utils';
 import type { CheckinSlot } from '@/features/energy/energy.schemas';
 import type { Chronotype } from '@/features/energy/energy.utils';
-import type { TodayCheckinRowTransport } from '@/features/energy/energy.service';
-import type { PredictionRow } from '@/features/energy/energy.queries';
+import type { TodayCheckinRowTransport } from '@/features/energy/energy.types';
+import type { PredictionRow } from '@/features/energy/energy.types';
 import { EnergyChart, type ChartEntry } from './EnergyChart';
 import { EnergyCheckinForm, type CheckinValues } from './EnergyCheckinForm';
 import {

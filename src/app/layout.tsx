@@ -1,10 +1,14 @@
 import type { Metadata, Viewport } from "next";
+import { ClerkProvider } from "@clerk/nextjs";
+import { esES } from "@clerk/localizations";
 import { Geist_Mono, Inter, Literata } from "next/font/google";
 import "./globals.css";
 import { cn } from "@/lib/utils";
 import { Toaster } from "sonner";
 import { SITE_URL } from "@/shared/lib/site-url";
 import { rootThemeScript } from "@/shared/lib/theme-script";
+import { clerkAppearance } from "@/features/auth/clerk-appearance";
+import { ConvexClientProvider } from "@/shared/convex/client";
 
 const inter = Inter({subsets:['latin'],variable:'--font-sans'});
 
@@ -56,7 +60,20 @@ export default function RootLayout({
         <script dangerouslySetInnerHTML={{ __html: rootThemeScript }} />
       </head>
       <body className="min-h-full flex flex-col">
-        {children}
+        {/* Dentro de body a propósito: Clerk inyecta su script ahí. Las rutas
+            de entrada y a dónde vuelve cada una se declaran aquí y no en
+            variables de entorno, para que un preview no dependa de Vercel. */}
+        <ClerkProvider
+          localization={esES}
+          appearance={clerkAppearance}
+          signInUrl="/login"
+          signUpUrl="/register"
+          signInFallbackRedirectUrl="/dashboard"
+          signUpFallbackRedirectUrl="/onboarding"
+          afterSignOutUrl="/login"
+        >
+          <ConvexClientProvider>{children}</ConvexClientProvider>
+        </ClerkProvider>
         <Toaster richColors position="bottom-right" />
       </body>
     </html>

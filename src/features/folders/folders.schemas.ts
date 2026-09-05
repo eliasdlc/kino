@@ -10,9 +10,9 @@ export const colorValues = [
 // arquetipo del sistema dueño.
 export const createFolderSchema = z.object({
   name: z.string().min(1).max(255),
-  systemId: z.string().uuid(),
+  systemId: z.string(),
   color: z.enum(colorValues).optional(),
-  parentId: z.string().uuid().optional(),
+  parentId: z.string().optional(),
   metadata: z.record(z.string(), z.unknown()).nullish(),
 });
 

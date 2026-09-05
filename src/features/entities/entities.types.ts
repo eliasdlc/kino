@@ -1,58 +1,22 @@
-import type { Transport } from "@/shared/api/transport";
-import type { EntityAttributes, EntityType } from "./entities.attributes";
+import type { FunctionReturnType } from "convex/server";
+import type { api } from "@convex/_generated/api";
 
-export interface EntityListItem {
-  id: string;
-  systemId: string;
-  type: EntityType;
-  name: string;
-  aliases: string[];
-  summary: string | null;
-  coverImageUrl: string | null;
-  createdAt: Date;
-  updatedAt: Date;
-}
+/** Una entidad del codex en lista, tal como llega al cliente. */
+export type EntityListItem = FunctionReturnType<typeof api.entities.bySystem>[number];
+
+/** La ficha entera: atributos, imágenes, relaciones y apariciones. */
+export type EntityDetail = FunctionReturnType<typeof api.entities.byId>;
 
 /** Relación resuelta hacia la otra entidad, lista para pintar en la ficha. */
-export interface EntityRelationItem {
-  id: string;
-  label: string | null;
-  notes: string | null;
-  /** La entidad al otro extremo de la relación (siempre la que no es la ficha actual). */
-  other: { id: string; name: string; type: EntityType };
-  /** true si la ficha actual es el `from` (dirección de la relación). */
-  outgoing: boolean;
-}
+export type EntityRelationItem = EntityDetail["relations"][number];
 
 /** Un capítulo donde aparece la entidad, en orden de obra. */
-export interface EntityAppearance {
-  pageId: string;
-  pageTitle: string | null;
-  mentionCount: number;
-}
+export type EntityAppearance = EntityDetail["appearances"][number];
 
-export interface EntityDetail extends EntityListItem {
-  attributes: EntityAttributes | null;
-  images: string[];
-  relations: EntityRelationItem[];
-  appearances: EntityAppearance[];
-}
+/** Entidad mencionada en un capítulo: alimenta el codex rail contextual. */
+export type MentionedEntity = FunctionReturnType<typeof api.entities.byPage>[number];
 
-/** Entidad mencionada en un capítulo — alimenta el codex rail contextual. */
-export interface MentionedEntity {
-  id: string;
-  name: string;
-  type: EntityType;
-  summary: string | null;
-  coverImageUrl: string | null;
-  mentionCount: number;
-}
-
-/**
- * Las mismas entidades tal como llegan al cliente: las fechas, en texto. El
- * codex se pinta con estas, no con las filas.
- */
-export type EntityListItemTransport = Transport<EntityListItem>;
-export type EntityDetailTransport = Transport<EntityDetail>;
-export type EntityRelationItemTransport = Transport<EntityRelationItem>;
-export type MentionedEntityTransport = Transport<MentionedEntity>;
+export type EntityListItemTransport = EntityListItem;
+export type EntityDetailTransport = EntityDetail;
+export type EntityRelationItemTransport = EntityRelationItem;
+export type MentionedEntityTransport = MentionedEntity;

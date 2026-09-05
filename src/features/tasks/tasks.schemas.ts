@@ -40,7 +40,7 @@ export const taskMetadataSchema = z.object({
 }).catchall(z.unknown());
 
 export const createTaskSchema = z.object({
-  systemId: z.string().uuid(),
+  systemId: z.string(),
   title: z.string().min(1).max(500),
   description: z.string().optional(),
   status: STATUS.optional(),
@@ -50,10 +50,10 @@ export const createTaskSchema = z.object({
   dueDate: DUE_DATE.optional(),
   startDate: START_DATE.optional(),
   estimatedTime: z.string().time().optional(),
-  parentTaskId: z.string().uuid().optional(),
-  contextTagId: z.string().uuid().optional(),
-  folderId: z.string().uuid().optional(),
-  sprintId: z.string().uuid().optional(),
+  parentTaskId: z.string().optional(),
+  contextTagId: z.string().optional(),
+  folderId: z.string().optional(),
+  sprintId: z.string().optional(),
   boardStatus: z.string().max(50).optional(),
   recurrenceRule: RECURRENCE_RULE.nullable().optional(),
   metadata: taskMetadataSchema.optional(),
@@ -80,11 +80,11 @@ export const updateTaskSchema = z.object({
   dueDate: DUE_DATE.optional().nullable(),
   startDate: START_DATE.optional().nullable(),
   estimatedTime: z.string().time().optional(),
-  parentTaskId: z.string().uuid().optional(),
-  contextTagId: z.string().uuid().nullable().optional(),
-  folderId: z.string().uuid().nullable().optional(),
-  sprintId: z.string().uuid().nullable().optional(),
-  systemId: z.string().uuid().optional(),
+  parentTaskId: z.string().optional(),
+  contextTagId: z.string().nullable().optional(),
+  folderId: z.string().nullable().optional(),
+  sprintId: z.string().nullable().optional(),
+  systemId: z.string().optional(),
   inTodayPlan: z.boolean().optional(),
   recurrenceRule: RECURRENCE_RULE.nullable().optional(),
   metadata: taskMetadataSchema.optional().nullable(),
@@ -110,16 +110,16 @@ export const moveBoardSchema = z.object({
 });
 
 export const reorderTasksSchema = z.object({
-  ids: z.array(z.string().uuid()).min(1),
+  ids: z.array(z.string()).min(1),
 });
 
 export const bulkMoveSchema = z.object({
-  taskIds: z.array(z.string().uuid()).min(1).max(50),
+  taskIds: z.array(z.string()).min(1).max(50),
   status: STATUS,
 });
 
 export const bulkUpdateSchema = z.object({
-  taskIds: z.array(z.string().uuid()).min(1).max(50),
+  taskIds: z.array(z.string()).min(1).max(50),
   priority: z.enum(["critical", "high", "medium", "low"]).optional(),
 });
 
@@ -128,7 +128,7 @@ export const bulkCreateTaskSchema = z.object({
 });
 
 export const listTasksQuerySchema = z.object({
-  systemId: z.string().uuid().optional(),
+  systemId: z.string().optional(),
   energyLevel: z.enum(["high", "medium", "low"]).optional(),
   status: STATUS.optional(),
   // Cuando es true, lista la papelera (deleted_at IS NOT NULL) en vez de activas.
@@ -157,7 +157,7 @@ export const calendarRangeSchema = z.object({
 });
 
 export const createTimeLogSchema = z.object({
-  systemId: z.string().uuid(),
+  systemId: z.string(),
   startedAt: z.string().datetime(),
   endedAt: z.string().datetime(),
   durationMinutes: z.number().int().min(0),

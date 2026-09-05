@@ -1,7 +1,7 @@
 import { parseISO } from 'date-fns';
 import { cn } from '@/lib/utils';
 import { calendarDayInTz } from '@/shared/time';
-import type { WeeklyTrend } from '@/features/energy/energy.service';
+import type { WeeklyTrend } from '@/features/energy/energy.types';
 
 interface Props {
   trends: WeeklyTrend;

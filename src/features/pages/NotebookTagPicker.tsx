@@ -31,7 +31,7 @@ export function NotebookTagPicker({ pageId, systemId }: NotebookTagPickerProps) 
 
   if (allTags.length === 0) return null;
 
-  const activeIds = new Set(pageTags.map((t) => t.id));
+  const activeIds = new Set<string>(pageTags.map((t) => t.id));
 
   function toggle(tagId: string) {
     if (activeIds.has(tagId)) {

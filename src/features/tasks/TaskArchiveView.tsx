@@ -27,7 +27,7 @@ export function TaskArchiveView({ systemId, initialData, folderId, folderInitial
     const manifest = useSystemManifest(systemId);
     const empty = tasksEmptyCopy(manifest, "archive");
     
-    const archivedTasks = tasks.filter((task) => task.status === "done" || task.status === "archived");
+    const archivedTasks = tasks.filter((task) => task.status === "done");
 
     const [deleteTarget, setDeleteTarget] = useState<TaskTransport | null>(null);
 

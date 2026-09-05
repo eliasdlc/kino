@@ -13,6 +13,9 @@ allowBuilds:
   # el token de Sentry entre en Vercel las trazas llegarían minificadas y el
   # motivo no se vería por ninguna parte.
   '@sentry/cli': true
+  # Aceleradores nativos opcionales de `ws`, que arrastra Clerk. Sin compilar
+  # `ws` usa su versión en JS y nada cambia.
+  bufferutil: false
   # Lo arrastra posthog-js. Su script de instalación sólo imprime un mensaje de
   # patrocinio: no genera nada que el build necesite.
   core-js: false
@@ -20,3 +23,8 @@ allowBuilds:
   msw: true
   sharp: true
   unrs-resolver: true
+  utf-8-validate: false
+minimumReleaseAgeExclude:
+  - '@clerk/nextjs@7.9.1'
+  - '@clerk/react@6.15.1'
+  - '@clerk/ui@1.32.2'

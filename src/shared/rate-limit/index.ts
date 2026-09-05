@@ -1,10 +1,9 @@
 import { NextResponse, type NextRequest } from 'next/server';
-import { identityFor, ipIdentityFor } from './identity';
+import { identityFor } from './identity';
 import { decide, policyFor, windowStartFor, type RateLimitDecision, type RateLimitPolicy } from './policy';
 import type { RateLimitStore } from './store';
 
 export * from './policy';
-export { clientIp } from './identity';
 export type { RateLimitStore } from './store';
 
 /**
@@ -24,9 +23,9 @@ export async function enforceRateLimit(args: {
 }
 
 /**
- * `Retry-After` es lo que `packages/mcp/src/client.ts` necesita para que el
- * modelo reciba "wait a moment and try again" en vez de un error crudo. El
- * `code` mantiene el shape que el proxy ya devolvía en `/api/auth/*`.
+ * `Retry-After` es lo que un cliente MCP necesita para que el modelo reciba
+ * "wait a moment and try again" en vez de un error crudo. El `code` mantiene
+ * el shape que el proxy ya devolvía en `/api/auth/*`.
  */
 export function rateLimitedResponse(decision: RateLimitDecision): NextResponse {
   return NextResponse.json(
@@ -58,12 +57,11 @@ export async function guardApiRequest(
   const policy = policyFor(request.nextUrl.pathname, request.method);
   if (!policy) return null;
 
-  const identity =
-    policy.keyBy === 'ip' ? await ipIdentityFor(request) : await identityFor(request);
+  const identity = await identityFor(request);
   if (!identity) return null;
 
   try {
-    const store = overrides.store ?? (await import('./store')).postgresRateLimitStore;
+    const store = overrides.store ?? (await import('./store')).memoryRateLimitStore;
     const decision = await enforceRateLimit({
       store,
       identity,

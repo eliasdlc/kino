@@ -1,18 +1,21 @@
 name: Respaldo de producción
 
-# Volcado diario de la base de producción a Cloudflare R2, cifrado con age.
-# Neon Free sólo guarda 6 horas de historial: sin esto, un borrado que se
-# descubre al día siguiente ya no tiene vuelta. Restaurar: scripts/backup/restore.sh
-# y el runbook de AGENTS.md, sección "Entornos y base de datos".
+# Snapshot diario del deployment de producción de Convex a Cloudflare R2,
+# cifrado con age. Convex guarda sus propios snapshots, pero viven en la misma
+# cuenta que los datos: un borrado de cuenta, una clave comprometida o un
+# `import --replace-all` contra el deployment equivocado se los lleva también.
+# Restaurar: scripts/backup/restore.sh y el runbook de AGENTS.md, sección
+# "Respaldo".
 #
 # Para que esto corra de verdad hacen falta dos cosas, y ninguna es código:
 #
 #   1. Que el fichero esté en la rama por defecto (`main`). GitHub sólo dispara
 #      `schedule:` desde ahí, y `workflow_dispatch` tampoco aparece en la UI si
 #      el workflow no existe en esa rama.
-#   2. Los seis secretos del repositorio: BACKUP_DATABASE_URL (cadena DIRECTA de
-#      producción, sin `-pooler`), BACKUP_AGE_RECIPIENT (clave pública age1...),
-#      R2_ACCOUNT_ID, R2_ACCESS_KEY_ID, R2_SECRET_ACCESS_KEY, R2_BUCKET.
+#   2. Los seis secretos del repositorio: CONVEX_DEPLOY_KEY (clave de deploy del
+#      deployment de PRODUCCIÓN, empieza por `prod:`), BACKUP_AGE_RECIPIENT
+#      (clave pública age1...), R2_ACCOUNT_ID, R2_ACCESS_KEY_ID,
+#      R2_SECRET_ACCESS_KEY, R2_BUCKET.
 #
 # Comprobar si está corriendo: `gh run list --workflow=backup.yml`.
 #
@@ -54,10 +57,10 @@ jobs:
 
       # Un secreto ausente y uno vacío llegan igual a Actions: cadena vacía. Se
       # comprueban los seis de golpe para que el fallo diga cuáles faltan, en vez
-      # de morir a mitad con un error de pg_dump o de la CLI de AWS.
+      # de morir a mitad con un error de la CLI de Convex o de la de AWS.
       - name: Comprobar los seis secretos
         env:
-          BACKUP_DATABASE_URL: ${{ secrets.BACKUP_DATABASE_URL }}
+          CONVEX_DEPLOY_KEY: ${{ secrets.CONVEX_DEPLOY_KEY }}
           BACKUP_AGE_RECIPIENT: ${{ secrets.BACKUP_AGE_RECIPIENT }}
           R2_ACCOUNT_ID: ${{ secrets.R2_ACCOUNT_ID }}
           R2_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
@@ -65,7 +68,7 @@ jobs:
           R2_BUCKET: ${{ secrets.R2_BUCKET }}
         run: |
           faltan=()
-          for nombre in BACKUP_DATABASE_URL BACKUP_AGE_RECIPIENT R2_ACCOUNT_ID \
+          for nombre in CONVEX_DEPLOY_KEY BACKUP_AGE_RECIPIENT R2_ACCOUNT_ID \
                         R2_ACCESS_KEY_ID R2_SECRET_ACCESS_KEY R2_BUCKET; do
             [ -n "${!nombre}" ] || faltan+=("$nombre")
           done
@@ -74,12 +77,13 @@ jobs:
             exit 1
           fi
 
-          # pg_dump abre varias sesiones sobre un snapshot exportado y PgBouncer
-          # no lo soporta. La cadena pooled es la que el panel de Neon ofrece
-          # primero, así que es la que se pega por error.
-          case "$BACKUP_DATABASE_URL" in
-            *-pooler.*)
-              echo "::error::BACKUP_DATABASE_URL apunta al endpoint pooled (-pooler). pg_dump necesita la cadena directa."
+          # La clave lleva el deployment delante. Una de dev (`dev:`) o de
+          # preview (`preview:`) exportaría otra base y el job saldría verde
+          # respaldando lo que no es.
+          case "$CONVEX_DEPLOY_KEY" in
+            prod:*) ;;
+            *)
+              echo "::error::CONVEX_DEPLOY_KEY no es una clave del deployment de producción (debe empezar por prod:)."
               exit 1
               ;;
           esac
@@ -94,25 +98,27 @@ jobs:
               ;;
           esac
 
-      # Producción corre Postgres 17 y pg_dump tiene que ser igual o más nuevo;
-      # el cliente que trae Ubuntu es el 16.
-      - name: Instalar pg_dump 17 y age
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 11.20.0
+
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 26
+          cache: pnpm
+
+      # La CLI de Convex es la del repo, la misma versión que despliega.
+      - run: pnpm install --frozen-lockfile
+
+      - name: Instalar age
         run: |
-          sudo install -d /usr/share/postgresql-common/pgdg
-          sudo curl -fsSo /usr/share/postgresql-common/pgdg/apt.postgresql.org.asc https://www.postgresql.org/media/keys/ACCC4CF8.asc
-          echo "deb [signed-by=/usr/share/postgresql-common/pgdg/apt.postgresql.org.asc] https://apt.postgresql.org/pub/repos/apt $(lsb_release -cs)-pgdg main" | sudo tee /etc/apt/sources.list.d/pgdg.list
           sudo apt-get update -qq
-          sudo apt-get install -y -qq postgresql-client-17 age
-          # El `pg_dump` de /usr/bin es el envoltorio de postgresql-common y,
-          # sin un clúster local que lo guíe, resuelve al 16 que trae Ubuntu
-          # aunque el 17 esté instalado. Se pone el binario 17 delante en PATH
-          # para este job y los siguientes pasos.
-          echo "/usr/lib/postgresql/17/bin" >> "$GITHUB_PATH"
-          /usr/lib/postgresql/17/bin/pg_dump --version && age --version
+          sudo apt-get install -y -qq age
+          age --version && npx convex --version
 
       - name: Volcar y cifrar
         env:
-          DATABASE_URL: ${{ secrets.BACKUP_DATABASE_URL }}
+          CONVEX_DEPLOY_KEY: ${{ secrets.CONVEX_DEPLOY_KEY }}
           BACKUP_AGE_RECIPIENT: ${{ secrets.BACKUP_AGE_RECIPIENT }}
         run: |
           mkdir -p out
@@ -121,9 +127,9 @@ jobs:
           # No basta con que dump.sh devuelva 0: lo que se sube es un fichero, y
           # el resto del job asume que hay exactamente uno.
           shopt -s nullglob
-          volcados=(out/*.dump.age)
+          volcados=(out/*.zip.age)
           if [ ${#volcados[@]} -ne 1 ]; then
-            echo "::error::dump.sh terminó bien pero dejó ${#volcados[@]} ficheros .dump.age en out/, se esperaba 1."
+            echo "::error::dump.sh terminó bien pero dejó ${#volcados[@]} ficheros .zip.age en out/, se esperaba 1."
             exit 1
           fi
           echo "DUMP_PATH=${volcados[0]}" >> "$GITHUB_ENV"
@@ -166,5 +172,5 @@ jobs:
             echo "| Tamaño | $bytes_local bytes |"
             echo "| Bucket | \`$R2_BUCKET\` |"
             echo
-            echo "Restaurar: runbook en \`AGENTS.md\`, sección *Entornos y base de datos*."
+            echo "Restaurar: runbook en \`AGENTS.md\`, sección *Respaldo*."
           } >> "$GITHUB_STEP_SUMMARY"

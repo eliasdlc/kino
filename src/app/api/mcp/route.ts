@@ -1,9 +1,11 @@
-import { createMcpHandler, withMcpAuth } from "mcp-handler";
+import { verifyClerkToken } from "@clerk/mcp-tools/next";
+import { auth } from "@clerk/nextjs/server";
 import type { AuthInfo } from "@modelcontextprotocol/sdk/server/auth/types.js";
-import { createKinoFetch, registerAllKinoTools, MCP_SERVER_VERSION } from "@kino-app/mcp";
-import { verifyOAuthToken } from "@/shared/lib/oauth-resource";
-
-const APP_URL = process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000";
+import { createMcpHandler, withMcpAuth } from "mcp-handler";
+import { mintConvexToken, scopeFor } from "@/features/mcp/auth";
+import { registerAllTools } from "@/features/mcp/tools";
+import { convexCall } from "@/features/mcp/tools/define";
+import { SITE_URL } from "@/shared/lib/site-url";
 
 // La única ruta que se sale del presupuesto de 10s. El protocolo mantiene la
 // petición abierta mientras el agente encadena herramientas, así que el límite
@@ -11,53 +13,43 @@ const APP_URL = process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000";
 // como la excepción viva. El handler corre stateless (sin SSE, sin Redis).
 export const maxDuration = 60;
 
-/**
- * Each request gets a fresh MCP server whose tools are wired to a loopback
- * fetcher carrying the caller's OAuth token. The REST layer re-validates that
- * token (getAuthContext) and isolates every query by user_id.
- *
- * El loopback tiene un coste que conviene tener escrito: cada llamada de
- * herramienta son **dos** invocaciones de función y dos viajes por internet,
- * una por el protocolo y otra por la API pública. Por eso `policy.ts` mantiene
- * buckets separados de rate limit (`mcp` y `mutation`): con un contador único
- * el agente se bloquearía a sí mismo.
- *
- * Se paga a cambio de que las herramientas pasen por la misma validación Zod,
- * la misma autorización y el mismo `getAuthContext` que el navegador. No hay
- * una segunda puerta a los datos con reglas propias, y `packages/mcp` sigue
- * sirviendo como cliente contra cualquier despliegue, que es lo que hace
- * funcionar el CLI y el MCP por stdio.
- */
-const mcpHandler = (req: Request) => {
-  const token = req.auth?.token ?? "";
-  const kinoFetch = createKinoFetch({ baseUrl: APP_URL, token });
+const SERVER_VERSION = "3.0.0";
 
+/**
+ * El conector MCP remoto. Cada petición monta un servidor nuevo cuyas tools
+ * llaman a Convex con un token firmado para el usuario que autorizó el cliente
+ * OAuth. Convex aplica la misma identidad, el mismo documento `users` y el
+ * mismo alcance que al navegador: no hay una segunda puerta a los datos.
+ */
+const mcp = (req: Request) => {
+  const token = req.auth?.extra?.convexToken;
+  if (typeof token !== "string") return new Response("Unauthorized", { status: 401 });
   return createMcpHandler(
-    (server) => {
-      registerAllKinoTools(server, kinoFetch);
-    },
-    { serverInfo: { name: "kino", version: MCP_SERVER_VERSION } },
-    { basePath: "/api", maxDuration: 60, disableSse: true },
+    (server) => registerAllTools(server, convexCall(token)),
+    { serverInfo: { name: "kino", version: SERVER_VERSION } },
+    { basePath: "/api", maxDuration, disableSse: true },
   )(req);
 };
 
-const verifyToken = async (
-  _req: Request,
-  bearerToken?: string,
-): Promise<AuthInfo | undefined> => {
-  const claims = await verifyOAuthToken(bearerToken);
-  if (!claims) return undefined;
-  return {
-    token: bearerToken!,
-    clientId: claims.clientId,
-    scopes: claims.scopes,
-    extra: { userId: claims.userId },
-  };
+/**
+ * Clerk verifica el access token OAuth (JWT u opaco) y dice quién es y qué
+ * scopes concedió. Con eso se firma el token que Convex acepta; viaja en
+ * `extra` porque es lo único que las tools necesitan del caller.
+ */
+const verify = async (_req: Request, bearer?: string): Promise<AuthInfo | undefined> => {
+  const info = verifyClerkToken(await auth({ acceptsToken: "oauth_token" }), bearer);
+  if (!info) return undefined;
+  const clerkId = info.extra?.userId;
+  if (typeof clerkId !== "string") return undefined;
+  const scope = scopeFor(info.scopes);
+  const convexToken = await mintConvexToken({ clerkId, scope });
+  return { ...info, extra: { ...info.extra, scope, convexToken } };
 };
 
-const handler = withMcpAuth(mcpHandler, verifyToken, {
+const handler = withMcpAuth(mcp, verify, {
   required: true,
-  resourceMetadataPath: "/.well-known/oauth-protected-resource",
+  resourceMetadataPath: "/.well-known/oauth-protected-resource/api/mcp",
+  resourceUrl: SITE_URL,
 });
 
 export { handler as GET, handler as POST, handler as DELETE };

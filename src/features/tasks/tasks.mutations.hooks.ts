@@ -1,297 +1,100 @@
 "use client";
 
-import { onlineManager, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useMutation } from "convex/react";
 import { toast } from "sonner";
-import { api } from "@/shared/api/client";
-import { type TaskTransport, type CreateTaskInput, type UpdateTaskInput } from "./tasks.types";
-import { useOptimisticList } from "@/shared/hooks/optimistic";
-import {
-  applyCreated,
-  applyOptimistic,
-  createTaskSpec,
-  revertOptimistic,
-} from "@/features/offline/offline.mutations";
-import { useStampedMutation } from "@/features/offline/offline.hooks";
-import { taskKeys, allTasksKey } from "./tasks.keys";
+import { api } from "@convex/_generated/api";
+import { useConvexMutation } from "@/shared/convex/hooks";
+import { type UpdateTaskInput } from "./tasks.types";
 import { trackOnce } from "@/shared/observability/analytics.client";
 
 /**
  * Mutaciones de una tarea: crear, editar, completar, borrar y restaurar.
- *
- * Todas hablan por `api.tasks.*`, así que el cuerpo que mandan y lo que reciben
- * los decide el contrato. Lo que la caché guarda es la forma de transporte, con
- * las fechas en texto: un `new Date()` en un updater optimista dejaría un valor
- * que el siguiente refetch no puede reproducir.
+ * Las listas son suscripciones, así que aquí no hay caché que corregir a mano:
+ * cada mutación escribe y Convex empuja el cambio a todas las vistas.
  */
-interface ToggleTaskResult {
-  status: string;
-}
 
+const statusLabel: Record<string, string> = {
+  today: "Hoy",
+  tomorrow: "Mañana",
+  week: "Esta semana",
+  backlog: "Backlog",
+  done: "Completadas",
+  archived: "Archivadas",
+};
 
-/**
- * Crear tarea — la única mutación que sobrevive a la falta de red (KIN-57).
- *
- * Caso multi-key: toca `bySystem` y `folderTasks` a la vez, así que no usa
- * `useOptimisticList` (pensado para una sola lista). Lo que antes estaba
- * inline aquí —el `mutationFn`, el placeholder optimista y las keys que toca—
- * vive ahora en `createTaskSpec`, porque la cola offline necesita reproducir todo
- * eso **sin este componente montado**, después de cerrar y reabrir el navegador.
- *
- * El rollback ya no restaura un snapshot de la lista entera: retira sólo el
- * placeholder de esta creación. Con varias capturas en vuelo a la vez —justo lo
- * que pasa al vaciar la cola— restaurar el snapshot borraría las otras.
- */
-export function useCreateTask(systemId: string, folderId?: string) {
-  const queryClient = useQueryClient();
-
-  const mutation = useMutation<TaskTransport, Error, CreateTaskInput>({
-    mutationKey: createTaskSpec.mutationKey,
-    mutationFn: createTaskSpec.mutationFn,
-    // Intenta la petición aunque el navegador se crea sin red, y sólo se pausa
-    // cuando falla de verdad. Ver `registerOfflineMutationDefaults`.
-    networkMode: "offlineFirst",
-    onMutate: async (data) => {
-      const keys = [
-        ...createTaskSpec.queryKeys(data),
-        ...(folderId ? [taskKeys.folderTasks(systemId, folderId)] : []),
-      ];
-      await Promise.all(
-        keys.map((queryKey) => queryClient.cancelQueries({ queryKey })),
-      );
-      applyOptimistic(queryClient, createTaskSpec, data);
-
-      if (!onlineManager.isOnline()) {
-        toast.success(`"${data.title}" guardada sin conexión · se subirá al volver la red`);
-      }
-    },
-    onSuccess: (newTask, data) => {
-      applyCreated(queryClient, createTaskSpec, data, newTask);
-
-      // Último paso del funnel de registro (KIN-165): mide que alguien llegó a
-      // usar el producto, así que sólo cuenta la primera vez. Ver `trackOnce`.
+export function useCreateTask(_systemId: string, _folderId?: string) {
+  return useConvexMutation(api.tasks.create, {
+    onSuccess: (newTask) => {
+      // Último paso del funnel de registro: mide que alguien llegó a usar el
+      // producto, así que sólo cuenta la primera vez. Ver `trackOnce`.
       trackOnce("first_task_created");
-
-      // Al reconectar, la confirmación de algo capturado hace rato no debe
-      // repetir el toast de creación: ya se avisó al guardarlo.
-      if (data.clientRequestId && !onlineManager.isOnline()) return;
-
       // Mensaje neutro con el destino real (sirve desde QuickAdd global o desde
       // un sistema): no asume que haya un "Action tab" en pantalla.
-      const statusLabel: Record<string, string> = {
-        today: "Hoy",
-        tomorrow: "Mañana",
-        week: "Esta semana",
-        backlog: "Backlog",
-        done: "Completadas",
-        archived: "Archivadas",
-      };
       const where = statusLabel[newTask.status] ?? "tu lista";
       toast.success(`"${newTask.title}" creada · ${where}`);
     },
-    onError: (err, data) => {
-      revertOptimistic(queryClient, createTaskSpec, data);
-      toast.error(err.message ?? "No se pudo crear la tarea");
-    },
-    onSettled: () => {
-      // Invalidating bySystem also covers folderTasks via TanStack Query prefix matching
-      queryClient.invalidateQueries({ queryKey: taskKeys.bySystem(systemId) });
-    },
+    onError: (err) => toast.error(err.message ?? "No se pudo crear la tarea"),
   });
-
-  return useStampedMutation(mutation);
 }
 
-
-export function useToggleTask(systemId: string, folderId?: string) {
-  return useOptimisticList<ToggleTaskResult, Error, string, TaskTransport>({
-    mutationFn: (taskId) => api.tasks.toggle({ id: taskId }),
-    queryKey: folderId ? taskKeys.folderTasks(systemId, folderId) : taskKeys.bySystem(systemId),
-    updater: (tasks, taskId) =>
-      tasks.map((t) => (t.id === taskId ? { ...t, status: t.status === "done" ? "today" : "done" } : t)),
-    // Invalida el prefijo completo ['tasks'] → system, folder, today-plan y all
-    // refetchan, dejando consistentes las tres vistas tras completar.
-    invalidateKey: ["tasks"],
+export function useToggleTask(_systemId: string, _folderId?: string) {
+  return useConvexMutation(api.tasks.toggle, {
+    map: (taskId: string) => ({ id: taskId }),
     onError: (err) => toast.error(err.message ?? "No se pudo actualizar la tarea"),
   });
 }
 
-
-export function useDeleteTask(systemId: string, folderId?: string) {
-  return useOptimisticList<void, Error, string, TaskTransport>({
-    mutationFn: (taskId) => api.tasks.remove({ id: taskId }),
-    queryKey: folderId ? taskKeys.folderTasks(systemId, folderId) : taskKeys.bySystem(systemId),
-    updater: (tasks, taskId) => tasks.filter((t) => t.id !== taskId),
-    // bySystem es prefijo de folderTasks → invalidarla cubre ambas vistas.
-    invalidateKey: taskKeys.bySystem(systemId),
-  });
+export function useDeleteTask(_systemId: string, _folderId?: string) {
+  return useConvexMutation(api.tasks.remove, { map: (taskId: string) => ({ id: taskId }) });
 }
 
-
-export function useDeleteTaskWithUndo(systemId: string, folderId?: string) {
-  const queryClient = useQueryClient();
-
-  const { mutate: restore } = useMutation({
-    mutationFn: (taskId: string) => api.tasks.restore({ id: taskId }),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: taskKeys.bySystem(systemId) });
-      if (folderId) {
-        queryClient.invalidateQueries({ queryKey: taskKeys.folderTasks(systemId, folderId) });
-      }
-    },
-  });
-
-  return useOptimisticList<void, Error, string, TaskTransport>({
-    mutationFn: (taskId) => api.tasks.remove({ id: taskId }),
-    queryKey: folderId ? taskKeys.folderTasks(systemId, folderId) : taskKeys.bySystem(systemId),
-    updater: (tasks, taskId) => tasks.filter((t) => t.id !== taskId),
-    // bySystem es prefijo de folderTasks → invalidarla cubre las dos vistas.
-    invalidateKey: taskKeys.bySystem(systemId),
-    // El título para el toast sale del snapshot: la tarea ya no está en la lista.
-    onSuccess: (_data, taskId, context) => {
-      const title = context?.previous?.find((t) => t.id === taskId)?.title ?? "Tarea";
+/** Borra a la papelera y ofrece deshacer desde el toast. El título viene de la propia mutación. */
+function useDeleteWithUndo(errorMessage: string) {
+  const restore = useMutation(api.tasks.restore);
+  return useConvexMutation(api.tasks.remove, {
+    map: (taskId: string) => ({ id: taskId }),
+    onSuccess: ({ id, title }) => {
       toast(`"${title}" movida a la papelera`, {
-        action: { label: "Deshacer", onClick: () => restore(taskId) },
+        action: { label: "Deshacer", onClick: () => void restore({ id }) },
         duration: 5000,
       });
     },
-    onError: () => toast.error("No se pudo mover a la papelera"),
+    onError: () => toast.error(errorMessage),
   });
 }
 
+export function useDeleteTaskWithUndo(_systemId: string, _folderId?: string) {
+  return useDeleteWithUndo("No se pudo mover a la papelera");
+}
 
-/**
- * Borrado con undo no ligado a un sistema — para la vista global /tasks, donde
- * cada tarea tiene su propio systemId. Optimista sobre la lista global e
- * invalida todo el prefijo ['tasks'] al asentar.
- */
+/** Borrado con deshacer para la vista global /tasks, donde cada tarea tiene su propio sistema. */
 export function useDeleteAnyTaskWithUndo() {
-  const queryClient = useQueryClient();
-
-  const { mutate: restore } = useMutation({
-    mutationFn: (taskId: string) => api.tasks.restore({ id: taskId }),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["tasks"] }),
-  });
-
-  return useOptimisticList<void, Error, string, TaskTransport>({
-    mutationFn: (taskId) => api.tasks.remove({ id: taskId }),
-    queryKey: allTasksKey(),
-    updater: (tasks, taskId) => tasks.filter((t) => t.id !== taskId),
-    invalidateKey: ["tasks"],
-    onSuccess: (_data, taskId, context) => {
-      const title = context?.previous?.find((t) => t.id === taskId)?.title ?? "Tarea";
-      toast(`"${title}" movida a la papelera`, {
-        action: { label: "Deshacer", onClick: () => restore(taskId) },
-        duration: 5000,
-      });
-    },
-    onError: () => toast.error("No se pudo borrar la tarea"),
-  });
+  return useDeleteWithUndo("No se pudo borrar la tarea");
 }
-
 
 export function useRestoreTask() {
-  const queryClient = useQueryClient();
-
-  return useMutation<TaskTransport, Error, string>({
-    mutationFn: (taskId: string) => api.tasks.restore({ id: taskId }),
-    onSuccess: (task) => {
-      toast.success(`"${task.title}" restaurada`);
-      // Refresca papelera y todas las vistas de tareas.
-      queryClient.invalidateQueries({ queryKey: ["tasks"] });
-    },
+  return useConvexMutation(api.tasks.restore, {
+    map: (taskId: string) => ({ id: taskId }),
+    onSuccess: (task) => toast.success(`"${task.title}" restaurada`),
     onError: () => toast.error("No se pudo restaurar la tarea"),
   });
 }
 
-
-export function useUpdateTask(systemId: string) {
-  const queryClient = useQueryClient();
-
-  return useOptimisticList<
-    TaskTransport,
-    Error,
-    { taskId: string; data: UpdateTaskInput },
-    TaskTransport
-  >({
-    mutationFn: ({ taskId, data }) => api.tasks.update({ id: taskId, ...data }),
-    queryKey: taskKeys.bySystem(systemId),
-    updater: (tasks, { taskId, data }) =>
-      tasks.map((t) => (t.id === taskId ? { ...t, ...data } : t)),
-    onSettled: () => {
-      // Invalidate linked tasks so any panel showing this task updates
-      // (la invalidación de bySystem la hace el helper por defecto).
-      queryClient.invalidateQueries({ queryKey: ["pages", "tasks"] });
-    },
+export function useUpdateTask(_systemId: string) {
+  return useConvexMutation(api.tasks.update, {
+    map: ({ taskId, data }: { taskId: string; data: UpdateTaskInput }) => ({ id: taskId, ...data }),
   });
 }
 
-
-/** Mueve una tarjeta de columna del board (systemType `project`). Optimista:
- * refleja la nueva columna y, si entra/sale de la terminal, el done de scheduling. */
-export function useMoveTaskBoard(systemId: string) {
-  return useOptimisticList<TaskTransport, Error, { taskId: string; boardStatus: string }, TaskTransport>({
-    mutationFn: ({ taskId, boardStatus }) => api.tasks.moveBoard({ id: taskId, boardStatus }),
-    queryKey: taskKeys.bySystem(systemId),
-    updater: (tasks, { taskId, boardStatus }) =>
-      tasks.map((t) => {
-        if (t.id !== taskId) return t;
-        const enteringDone = boardStatus === "done" && t.status !== "done";
-        const leavingDone = boardStatus !== "done" && t.boardStatus === "done" && t.status === "done";
-        return {
-          ...t,
-          boardStatus,
-          boardStatusChangedAt: new Date().toISOString(),
-          ...(enteringDone ? { status: "done", completedAt: new Date().toISOString() } : {}),
-          ...(leavingDone ? { status: "today", completedAt: null } : {}),
-        } as TaskTransport;
-      }),
-    invalidateKey: ["tasks"],
+/** Mueve una tarjeta de columna del board (systemType `project`). */
+export function useMoveTaskBoard(_systemId: string) {
+  return useConvexMutation(api.tasks.moveBoard, {
+    map: ({ taskId, boardStatus }: { taskId: string; boardStatus: string }) => ({ id: taskId, boardStatus }),
   });
 }
 
-/**
- * Se queda inline: no toca una lista, lee de una y escribe en otra. Al programar
- * una tarea que todavía no estaba en el calendario hay que ir a buscarla a la
- * lista global, y ninguno de los tres hooks optimistas expresa eso sin volverse
- * una abstracción que nadie entiende al leerla.
- */
-export function useUpdateCalendarTask(from: string, to: string) {
-  const queryClient = useQueryClient();
-
-  return useMutation<TaskTransport, Error, { taskId: string; data: UpdateTaskInput }>({
-    mutationFn: ({ taskId, data }) => api.tasks.update({ id: taskId, ...data }),
-    onMutate: async ({ taskId, data }) => {
-      const calKey = taskKeys.calendarTasks(from, to);
-      await queryClient.cancelQueries({ queryKey: calKey });
-      await queryClient.cancelQueries({ queryKey: allTasksKey() });
-
-      const previousCal = queryClient.getQueryData<TaskTransport[]>(calKey);
-      const previousAll = queryClient.getQueryData<TaskTransport[]>(allTasksKey());
-
-      queryClient.setQueryData<TaskTransport[]>(calKey, (old = []) => {
-        const exists = old.some((t) => t.id === taskId);
-        if (exists) return old.map((t) => (t.id === taskId ? { ...t, ...data } : t));
-        // Adding a previously unscheduled task — pull from allTasks cache
-        const allTasks = queryClient.getQueryData<TaskTransport[]>(allTasksKey()) ?? [];
-        const task = allTasks.find((t) => t.id === taskId);
-        if (task) return [...old, { ...task, ...data }];
-        return old;
-      });
-      queryClient.setQueryData<TaskTransport[]>(allTasksKey(), (old = []) =>
-        old.map((t) => (t.id === taskId ? { ...t, ...data } : t)),
-      );
-
-      return { previousCal, previousAll };
-    },
-    onError: (_err, _vars, context) => {
-      const ctx = context as { previousCal?: TaskTransport[]; previousAll?: TaskTransport[] } | undefined;
-      if (ctx?.previousCal !== undefined) queryClient.setQueryData(taskKeys.calendarTasks(from, to), ctx.previousCal);
-      if (ctx?.previousAll !== undefined) queryClient.setQueryData(allTasksKey(), ctx.previousAll);
-    },
-    onSettled: () => {
-      queryClient.invalidateQueries({ queryKey: ["tasks", "calendar"] });
-      queryClient.invalidateQueries({ queryKey: allTasksKey() });
-    },
+export function useUpdateCalendarTask(_from: string, _to: string) {
+  return useConvexMutation(api.tasks.update, {
+    map: ({ taskId, data }: { taskId: string; data: UpdateTaskInput }) => ({ id: taskId, ...data }),
   });
 }
-

@@ -1,12 +1,6 @@
-import { oauthProviderAuthServerMetadata } from "@better-auth/oauth-provider";
-import { metadataCorsOptionsRequestHandler } from "mcp-handler";
-import { auth } from "@/auth";
+import { authServerMetadataHandlerClerk, metadataCorsOptionsRequestHandler } from "@clerk/mcp-tools/next";
 
-// RFC 8414 — re-exposes Better Auth's OAuth metadata at the well-known root
-// (Better Auth otherwise serves it under /api/auth). CORS allows browser-based
-// MCP clients (Claude) to discover it.
-export const GET = oauthProviderAuthServerMetadata(auth, {
-  headers: { "Access-Control-Allow-Origin": "*" },
-});
-
+// RFC 8414 en el dominio de Kino, para los clientes MCP que buscan el servidor
+// OAuth aquí en vez de seguir la metadata del recurso. Reexpone la de Clerk.
+export const GET = authServerMetadataHandlerClerk();
 export const OPTIONS = metadataCorsOptionsRequestHandler();

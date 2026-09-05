@@ -11,8 +11,8 @@ import {
   type ReactNode,
 } from 'react';
 import { toast } from 'sonner';
-import { useQueryClient } from '@tanstack/react-query';
-import { api } from "@/shared/api/client";
+import { useMutation } from 'convex/react';
+import { api } from '@convex/_generated/api';
 import { ENERGY_LABELS } from "./task-detail.helpers";
 
 // ── Types ─────────────────────────────────────────────────────────────────
@@ -258,7 +258,9 @@ export function FocusTimerProvider({ children }: { children: ReactNode }) {
   const audioCtxRef = useRef<AudioContext | null>(null);
   const prevPhaseRef = useRef<TimerPhase>('idle');
   const recapShownRef = useRef(false);
-  const queryClient = useQueryClient();
+  const closeWritingSession = useMutation(api.writing.closeSession);
+  const createTimeLog = useMutation(api.tasks.createTimeLog);
+  const createCheckin = useMutation(api.energy.createCheckin);
 
   // Tick: re-evaluate expiry every second while timer is running
   useEffect(() => {
@@ -311,27 +313,22 @@ export function FocusTimerProvider({ children }: { children: ReactNode }) {
     const logTime = () => {
       if (workedMinutes <= 0) return Promise.resolve();
       if (pageId) {
-        return fetch(`/api/pages/${pageId}/session`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ startedAt, endedAt, durationMinutes: workedMinutes }),
-        })
-          .then(() => queryClient.invalidateQueries({ queryKey: ['writing'] }))
+        return closeWritingSession({ id: pageId as never, startedAt, endedAt, durationMinutes: workedMinutes })
+          .then(() => {})
           .catch(() => {});
       }
       // Con `pageId` ya se volvió arriba, así que aquí hay tarea; el guard es
       // para el compilador, que no puede saberlo desde el `if` de la línea 291.
       if (!taskId) return Promise.resolve();
-      return api.tasks
-        .createTimeLog({
-          id: taskId,
-          systemId,
-          startedAt,
-          endedAt,
-          durationMinutes: workedMinutes,
-          source: state.mode === 'pomodoro' ? 'pomodoro' : 'timer',
-        })
-        .then(() => queryClient.invalidateQueries({ queryKey: ['time-logs', taskId] }))
+      return createTimeLog({
+        id: taskId as never,
+        systemId: systemId as never,
+        startedAt,
+        endedAt,
+        durationMinutes: workedMinutes,
+        source: state.mode === 'pomodoro' ? 'pomodoro' : 'timer',
+      })
+        .then(() => {})
         .catch(() => {});
     };
 
@@ -350,11 +347,7 @@ export function FocusTimerProvider({ children }: { children: ReactNode }) {
           onEnergy={async (level) => {
             toast.dismiss(id);
             await Promise.allSettled([
-              fetch('/api/energy/checkin', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ currentLevel: ENERGY_MAP[level] }),
-              }).then(() => queryClient.invalidateQueries({ queryKey: ['energy'] })),
+              createCheckin({ currentLevel: ENERGY_MAP[level] }),
               logTime(),
             ]);
             reset();

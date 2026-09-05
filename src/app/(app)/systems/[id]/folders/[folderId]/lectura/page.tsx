@@ -1,7 +1,7 @@
 import { notFound, redirect } from "next/navigation";
 import { PageBreadcrumb } from "@/components/PageBreadcrumb";
-import { getSystemById } from "@/features/systems/systems.service";
-import { getManuscript } from "@/features/writing/writing.manuscript";
+import { api } from "@convex/_generated/api";
+import { serverQuery } from "@/shared/convex/server";
 import { ReadingView } from "@/features/writing/ReadingView";
 import { getServerSession } from "@/shared/utils/session";
 
@@ -23,8 +23,8 @@ export default async function ReadingRoute({
   if (!session) redirect("/login");
 
   const [manuscript, system] = await Promise.all([
-    getManuscript(session.user.id, folderId),
-    getSystemById(systemId, session.user.id),
+    serverQuery(api.writing.manuscript, { id: folderId }).catch(() => null),
+    serverQuery(api.systems.byId, { id: systemId }).catch(() => null),
   ]);
 
   if (!manuscript || !system) notFound();

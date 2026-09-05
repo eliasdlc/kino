@@ -19,18 +19,6 @@ export interface RateLimitPolicy {
   windowMs: number;
 }
 
-/**
- * Una política que el proxy aplica por path, y de dónde saca la clave con la
- * que cuenta.
- *
- * `credential` es el hash de la credencial presentada. `ip` es para el acceso,
- * donde todavía no hay ninguna: quien prueba contraseñas no tiene sesión ni
- * token que hashear, y la IP es lo único que queda.
- */
-export interface ProxyRateLimitPolicy extends RateLimitPolicy {
-  keyBy: 'credential' | 'ip';
-}
-
 export interface RateLimitDecision {
   allowed: boolean;
   limit: number;
@@ -43,115 +31,33 @@ export interface RateLimitDecision {
 const MINUTE_MS = 60 * 1000;
 
 /**
- * `/api/mcp` entra dos veces por cada llamada de herramienta: una por el
- * protocolo y otra por el loopback fetch que la herramienta hace contra la
- * REST con el mismo token. Por eso son buckets separados — con un contador
- * único el agente gastaría el doble de su cuota y se bloquearía a sí mismo.
+ * `/api/mcp` tiene su propio bucket: cada petición del protocolo cuenta una
+ * vez, y las tools llaman a Convex directamente sin volver a pasar por aquí.
+ * Separarlo de `mutation` evita que una ráfaga del agente bloquee al humano
+ * en la interfaz, y al revés.
  */
-export const MCP_POLICY: ProxyRateLimitPolicy = {
+export const MCP_POLICY: RateLimitPolicy = {
   bucket: 'mcp',
   limit: 60,
   windowMs: MINUTE_MS,
-  keyBy: 'credential',
 };
 
-export const MUTATION_POLICY: ProxyRateLimitPolicy = {
+export const MUTATION_POLICY: RateLimitPolicy = {
   bucket: 'mutation',
   limit: 120,
   windowMs: MINUTE_MS,
-  keyBy: 'credential',
-};
-
-/**
- * Techo de abuso sobre `/api/auth/*` entero. Generoso a propósito: por aquí pasa
- * también el baile de OAuth del conector MCP, y varias personas detrás de un
- * mismo NAT comparten IP. Lo que corta de verdad la fuerza bruta es
- * `AUTH_CREDENTIAL_POLICY`.
- */
-export const AUTH_POLICY: ProxyRateLimitPolicy = {
-  bucket: 'auth',
-  limit: 60,
-  windowMs: MINUTE_MS,
-  keyBy: 'ip',
-};
-
-/**
- * Los endpoints donde se presenta una credencial o se dispara un correo. Es la
- * superficie que se prueba a ciegas, y la que aguanta el límite estrecho.
- */
-export const AUTH_CREDENTIAL_POLICY: ProxyRateLimitPolicy = {
-  bucket: 'auth-credential',
-  limit: 10,
-  windowMs: MINUTE_MS,
-  keyBy: 'ip',
-};
-
-/**
- * Intentos de contraseña contra una cuenta concreta, contados por `(cuenta, IP)`
- * y no por cuenta a secas. Esa distinción es el ticket entero: con la clave sólo
- * por cuenta, cualquiera deja fuera al dueño legítimo fallando su contraseña
- * veinte veces, y la defensa se convierte en el ataque.
- *
- * La ventana es larga porque adivinar una contraseña es un juego de volumen: diez
- * por minuto durante una hora son seiscientos intentos, cinco cada cuarto de hora
- * son veinte. El acierto borra el contador (`clearSignInAttempts`), así que
- * equivocarse cuatro veces y acertar a la quinta no deja rastro.
- */
-export const AUTH_ACCOUNT_POLICY: RateLimitPolicy = {
-  bucket: 'auth-account',
-  limit: 5,
-  windowMs: 15 * MINUTE_MS,
 };
 
 const MUTATING_METHODS = new Set(['POST', 'PATCH', 'PUT', 'DELETE']);
 
 /**
- * Donde se presenta algo adivinable o se dispara un correo a una dirección que el
- * visitante elige. Better Auth expone `request-password-reset` y mantiene
- * `forget-password` como alias, así que están los dos.
- *
- * Son prefijos y no rutas exactas porque `sign-up` tiene más de una forma, y
- * porque el resto de `/api/auth/*` no queda sin límite: cae en el bucket ancho,
- * donde no compite con el login.
+ * Se limita lo caro: MCP y las mutaciones. Las lecturas pasan sin roundtrip
+ * añadido, que es la condición bajo la que la vía Postgres sale a cuenta frente
+ * a un Redis. El acceso ya no pasa por aquí: lo sirve y lo limita Clerk.
  */
-const CREDENTIAL_PREFIXES = [
-  '/api/auth/sign-in/email',
-  '/api/auth/sign-up/',
-  '/api/auth/forget-password',
-  '/api/auth/request-password-reset',
-  '/api/auth/reset-password',
-  '/api/auth/change-password',
-  '/api/auth/verify-password',
-  '/api/auth/change-email',
-  '/api/auth/send-verification-email',
-];
-
-/**
- * `sign-in/social` queda fuera de esa lista a propósito: sólo devuelve la URL
- * del proveedor, no presenta credencial, y meterlo con el login significaba que
- * reintentar Google cinco veces te dejaba sin poder entrar por correo. Lo mismo
- * vale para el handshake OAuth del conector MCP, que entra por aquí y antes
- * gastaba la cuota de quien sólo quería acceder.
- */
-function isCredentialPath(pathname: string): boolean {
-  return CREDENTIAL_PREFIXES.some((prefix) => pathname.startsWith(prefix));
-}
-
-/**
- * Se limita lo caro y lo que se puede probar a ciegas: MCP, las mutaciones y el
- * acceso. Las lecturas pasan sin roundtrip añadido, que es la condición bajo la
- * que la vía Postgres sale a cuenta frente a un Redis.
- *
- * `/api/cron/*` queda fuera: lo dispara Vercel con el `CRON_SECRET`, no un
- * usuario.
- */
-export function policyFor(pathname: string, method: string): ProxyRateLimitPolicy | null {
+export function policyFor(pathname: string, method: string): RateLimitPolicy | null {
   if (pathname.startsWith('/api/mcp')) return MCP_POLICY;
   if (!pathname.startsWith('/api/')) return null;
-  if (pathname.startsWith('/api/cron/')) return null;
-  if (pathname.startsWith('/api/auth/')) {
-    return isCredentialPath(pathname) ? AUTH_CREDENTIAL_POLICY : AUTH_POLICY;
-  }
   return MUTATING_METHODS.has(method.toUpperCase()) ? MUTATION_POLICY : null;
 }
 

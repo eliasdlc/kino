@@ -1,10 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import JSZip from "jszip";
-import { getAuthContext } from "@/shared/utils/auth-context";
-import { getUsersSystems } from "@/features/systems/systems.service";
-import { getTasksBySystem } from "@/features/tasks/tasks.service";
-import { getFoldersBySystem } from "@/features/folders/folders.service";
-import { getPagesBySystemForExport } from "@/features/pages/pages.service";
+import { api } from "@convex/_generated/api";
+import { serverQuery } from "@/shared/convex/server";
+import { getServerSession } from "@/shared/utils/session";
 import { htmlToMarkdown } from "@/features/pages/export/html-to-markdown";
 import { getImageStorage } from "@/features/uploads/image-storage";
 import { extractImageUrlsFromHtml, rewriteImageUrls } from "@/features/uploads/image-refs";
@@ -28,22 +26,22 @@ function uniqueSlug(base: string, used: Set<string>): string {
   return candidate;
 }
 
-export async function GET(request: NextRequest) {
-  const ctx = await getAuthContext(request);
-  if (!ctx) {
+export async function GET(_request: NextRequest) {
+  const session = await getServerSession();
+  if (!session) {
     return NextResponse.json({ code: "UNAUTHORIZED" }, { status: 401 });
   }
 
-  const systems = await getUsersSystems(ctx.userId);
+  const systems = await serverQuery(api.systems.list, {});
 
   // Primera pasada: leer todo y juntar las imágenes referenciadas. Hay que conocer
   // el mapa completo de URL → archivo antes de serializar ningún Markdown.
   const loaded = await Promise.all(
     systems.map(async (system) => {
       const [tasks, folders, pages] = await Promise.all([
-        getTasksBySystem(system.id, ctx.userId),
-        getFoldersBySystem(system.id, ctx.userId),
-        getPagesBySystemForExport(system.id, ctx.userId),
+        serverQuery(api.tasks.bySystem, { systemId: system.id }),
+        serverQuery(api.folders.bySystem, { systemId: system.id }),
+        serverQuery(api.pages.forExport, { systemId: system.id }),
       ]);
       return { system, tasks, folders, pages };
     }),

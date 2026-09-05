@@ -1,89 +1,57 @@
 "use client";
 
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { taskKeys } from "@/features/tasks/tasks.keys";
-import { sprintKeys } from "@/features/sprints/sprints.hooks";
-import { api } from "@/shared/api/client";
-import type {
-  GithubConnectionStatus,
-  GithubRepoRef,
-  SyncResult,
-} from "./github-sync.types";
+import { api } from "@convex/_generated/api";
+import { useConvexAction, useConvexMutation } from "@/shared/convex/hooks";
+import { useEffect, useState } from "react";
+import { useAction, useConvexAuth } from "convex/react";
+import type { FunctionReturnType } from "convex/server";
+import type { GithubRepoRef, SyncResult } from "./github-sync.types";
 
-export interface ConnectionStatusResponse extends GithubConnectionStatus {
-  /** false si el despliegue no tiene registrado el OAuth App de sincronización. */
-  configured: boolean;
-}
+export type ConnectionStatusResponse = FunctionReturnType<typeof api.github.status>;
 
-export const githubKeys = {
-  connection: ["github", "connection"] as const,
-};
-
+/**
+ * El estado de la conexión sale de una acción (habla con GitHub para validar el
+ * token), así que no es una suscripción: se pide al montar y tras cada cambio.
+ */
 export function useGithubConnection() {
-  return useQuery({
-    queryKey: githubKeys.connection,
-    queryFn: async () => {
-      return api.github.status({});
-    },
-    staleTime: 60_000,
-  });
+  const status = useAction(api.github.status);
+  const { isAuthenticated } = useConvexAuth();
+  const [data, setData] = useState<ConnectionStatusResponse | undefined>(undefined);
+  const [version, setVersion] = useState(0);
+  useEffect(() => {
+    // Sin el token de Clerk todavía, la acción se rechazaría como anónima.
+    if (!isAuthenticated) return;
+    let alive = true;
+    void status({}).then((result) => {
+      if (alive) setData(result);
+    });
+    return () => {
+      alive = false;
+    };
+  }, [status, version, isAuthenticated]);
+  return { data, isLoading: data === undefined, refetch: async () => setVersion((v) => v + 1) };
 }
 
 export function useDisconnectGithub() {
-  const qc = useQueryClient();
-  return useMutation<void, Error, void>({
-    mutationFn: async () => {
-      await api.github.disconnect({});
-    },
-    onSettled: () => {
-      qc.invalidateQueries({ queryKey: githubKeys.connection });
-    },
-  });
+  return useConvexMutation(api.githubData.disconnect);
 }
 
 export function useLinkRepo(systemId: string) {
-  const qc = useQueryClient();
-  return useMutation<{ fullName: string }, Error, { fullName: string }>({
-    mutationFn: async (body) => {
-      return api.github.linkRepo({ ...body, id: systemId });
-    },
-    onSettled: () => {
-      qc.invalidateQueries({ queryKey: ["systems"] });
+  return useConvexAction(api.github.linkRepo, {
+    map: ({ fullName }: { fullName: string }) => {
+      const [owner, repo] = fullName.split('/');
+      return { id: systemId, owner: owner ?? '', repo: repo ?? '' };
     },
   });
 }
 
 export function useUnlinkRepo(systemId: string) {
-  const qc = useQueryClient();
-  return useMutation<void, Error, void>({
-    mutationFn: async () => {
-      await api.github.unlinkRepo({ id: systemId });
-    },
-    onSettled: () => {
-      qc.invalidateQueries({ queryKey: ["systems"] });
-    },
-  });
+  return useConvexMutation(api.githubData.unlinkRepo, { map: () => ({ id: systemId }) });
 }
 
-/**
- * Dispara la sincronización y refresca el board.
- *
- * Sin mutación optimista a propósito, que es la excepción a la regla del repo:
- * el resultado depende de lo que devuelva GitHub, así que no hay nada que
- * adelantar — pintar tarjetas que quizá no existan sería mentir.
- */
+/** Dispara la sincronización. Las tareas y sprints del board llegan solos por suscripción. */
 export function useSyncGithub(systemId: string) {
-  const qc = useQueryClient();
-  return useMutation<SyncResult, Error, void>({
-    mutationFn: async () => {
-      return api.github.sync({ id: systemId });
-    },
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: taskKeys.bySystem(systemId) });
-      qc.invalidateQueries({ queryKey: sprintKeys.bySystem(systemId) });
-      qc.invalidateQueries({ queryKey: githubKeys.connection });
-    },
-  });
+  return useConvexAction(api.github.sync, { map: () => ({ id: systemId }) });
 }
 
 /** Texto del resultado, para el toast. Separado para poder probarlo aparte. */
