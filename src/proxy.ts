@@ -26,7 +26,6 @@ function isPublicRoute(pathname: string): boolean {
     // porque el fallo más importante que puede reportar, un login roto, ocurre
     // justo cuando todavía no hay sesión.
     pathname.startsWith("/monitoring") ||
-    pathname.startsWith("/api/cron/") ||
     // El conector MCP remoto se autentica solo dentro de la ruta.
     pathname.startsWith("/api/mcp") ||
     // Lo que Clerk sirve por el mismo dominio.

@@ -9,12 +9,15 @@
  */
 
 import type * as account from "../account.js";
+import type * as cronRuns from "../cronRuns.js";
+import type * as crons from "../crons.js";
 import type * as energy from "../energy.js";
 import type * as entities from "../entities.js";
 import type * as folders from "../folders.js";
 import type * as github from "../github.js";
 import type * as githubData from "../githubData.js";
 import type * as insights from "../insights.js";
+import type * as lib_cronHealth from "../lib/cronHealth.js";
 import type * as lib_energy_curve from "../lib/energy/curve.js";
 import type * as lib_errors from "../lib/errors.js";
 import type * as lib_fn from "../lib/fn.js";
@@ -33,6 +36,7 @@ import type * as notifications from "../notifications.js";
 import type * as onboarding from "../onboarding.js";
 import type * as pages from "../pages.js";
 import type * as pushSend from "../pushSend.js";
+import type * as scheduler from "../scheduler.js";
 import type * as search from "../search.js";
 import type * as settings from "../settings.js";
 import type * as sprints from "../sprints.js";
@@ -51,12 +55,15 @@ import type {
 
 declare const fullApi: ApiFromModules<{
   account: typeof account;
+  cronRuns: typeof cronRuns;
+  crons: typeof crons;
   energy: typeof energy;
   entities: typeof entities;
   folders: typeof folders;
   github: typeof github;
   githubData: typeof githubData;
   insights: typeof insights;
+  "lib/cronHealth": typeof lib_cronHealth;
   "lib/energy/curve": typeof lib_energy_curve;
   "lib/errors": typeof lib_errors;
   "lib/fn": typeof lib_fn;
@@ -75,6 +82,7 @@ declare const fullApi: ApiFromModules<{
   onboarding: typeof onboarding;
   pages: typeof pages;
   pushSend: typeof pushSend;
+  scheduler: typeof scheduler;
   search: typeof search;
   settings: typeof settings;
   sprints: typeof sprints;

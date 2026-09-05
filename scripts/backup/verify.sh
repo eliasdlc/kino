@@ -1,29 +1,55 @@
 #!/usr/bin/env bash
-# Huella de contenido de una base: filas por tabla y los datos que un volcado
-# incompleto perdería primero (cuadernos con texto, entidades con relaciones).
+# Huella de contenido de un snapshot de Convex: documentos por tabla, ficheros
+# de _storage y los datos que un volcado incompleto perdería primero (cuadernos
+# con texto, entidades con relaciones).
 #
-# Corre igual sobre la base origen y la restaurada; si `diff` no dice nada,
-# la restauración trajo todo. Sólo lee.
+# Corre igual sobre el snapshot que se respaldó y sobre uno exportado del
+# deployment restaurado; si `diff` no dice nada, la restauración trajo todo.
+# Sólo lee. Acepta el .zip en claro o el .zip.age (entonces necesita
+# AGE_IDENTITY_FILE).
 #
-# Uso: scripts/backup/verify.sh <DATABASE_URL>
+# Uso: scripts/backup/verify.sh <snapshot.zip | snapshot.zip.age>
 set -euo pipefail
-url="${1:?Falta la URL de la base}"
+snapshot="${1:?Falta el snapshot (.zip o .zip.age)}"
 
-psql "$url" --no-psqlrc --tuples-only --no-align --field-separator=' ' <<'SQL'
-select 'tabla ' || tablename || ' ' || (xpath('/row/c/text()', query_to_xml(format('select count(*) as c from %I', tablename), false, true, '')))[1]::text
-from pg_tables where schemaname = 'public' order by tablename;
-select 'pages_con_contenido ' || count(*) from pages where content is not null and length(content) > 0;
-select 'pages_bytes_contenido ' || coalesce(sum(length(content)), 0) from pages;
-select 'entidades_con_relaciones ' || count(distinct from_entity_id) from entity_relations;
-select 'tareas_con_sistema ' || count(*) from tasks where system_id is not null;
--- El libro de migraciones vive en el esquema `drizzle`, fuera de `public`, así que
--- las cuentas de arriba no lo ven. Sin él, el siguiente deploy reintenta migraciones
--- ya aplicadas: es justo lo que una huella de restauración tiene que delatar.
--- Se pregunta por `to_regclass` primero porque una base sin el esquema `drizzle` es
--- justo el caso que hay que delatar, y un `select` directo sobre una tabla ausente
--- aborta el script en vez de escribir la línea que lo dice.
-select 'migraciones_aplicadas ' || case
-  when to_regclass('drizzle.__drizzle_migrations') is null then 'ausente'
-  else (xpath('/row/c/text()', query_to_xml('select count(*) as c from drizzle.__drizzle_migrations', false, true, '')))[1]::text
-end;
-SQL
+case "$snapshot" in
+  *.age)
+    : "${AGE_IDENTITY_FILE:?Falta AGE_IDENTITY_FILE para descifrar $snapshot}"
+    plain="$(mktemp --suffix=.zip)"
+    trap 'rm -f "$plain"' EXIT
+    age --decrypt --identity "$AGE_IDENTITY_FILE" --output "$plain" "$snapshot"
+    ;;
+  *) plain="$snapshot" ;;
+esac
+
+python3 - "$plain" <<'PY'
+import json, sys, zipfile
+
+with zipfile.ZipFile(sys.argv[1]) as z:
+    names = z.namelist()
+    tables = sorted(n[: -len("/documents.jsonl")] for n in names if n.endswith("/documents.jsonl") and not n.startswith("_tables/"))
+
+    def docs(table):
+        with z.open(f"{table}/documents.jsonl") as f:
+            for line in f:
+                line = line.strip()
+                if line:
+                    yield json.loads(line)
+
+    for table in tables:
+        print(f"tabla {table} {sum(1 for _ in docs(table))}")
+
+    storage = [n for n in names if n.startswith("_storage/") and not n.endswith("/") and not n.endswith("documents.jsonl")]
+    print(f"ficheros_storage {len(storage)}")
+
+    pages = list(docs("pages")) if "pages" in tables else []
+    with_text = [p for p in pages if p.get("content")]
+    print(f"pages_con_contenido {len(with_text)}")
+    print(f"pages_bytes_contenido {sum(len(p['content'].encode()) for p in with_text)}")
+
+    relations = list(docs("entityRelations")) if "entityRelations" in tables else []
+    print(f"entidades_con_relaciones {len({r['fromEntityId'] for r in relations})}")
+
+    tasks = list(docs("tasks")) if "tasks" in tables else []
+    print(f"tareas_con_sistema {sum(1 for t in tasks if t.get('systemId'))}")
+PY

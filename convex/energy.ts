@@ -453,6 +453,18 @@ export const ensureYesterdaySnapshot = kinoZodMutation({
   },
 });
 
+/**
+ * Lo que el cron diario hace por cada persona activa: el snapshot de ayer si
+ * falta y la recalibración de la curva con las señales de los últimos 90 días.
+ */
+export async function nightlyRefresh(ctx: MutationCtx, user: Doc<'users'>, now = Date.now()) {
+  const yesterday = calendarDayInTz(now - DAY_MS, user.timezone);
+  const existing = await ctx.db.query('behaviorSnapshots').withIndex('by_user_day', (q) => q.eq('userId', user._id).eq('date', yesterday)).unique();
+  if (!existing) await saveBehaviorSnapshot(ctx, user, yesterday);
+  const profile = await profileOf(ctx, user._id);
+  if (profile) await calibrate(ctx, user, profile, now);
+}
+
 // ── El consejo del día ──────────────────────────────────────────────────────
 
 export type AdvisorBulkAction = 'move-tomorrow' | 'move-today' | 'lower-priority' | 'none';

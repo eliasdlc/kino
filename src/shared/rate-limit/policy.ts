@@ -54,14 +54,10 @@ const MUTATING_METHODS = new Set(['POST', 'PATCH', 'PUT', 'DELETE']);
  * Se limita lo caro: MCP y las mutaciones. Las lecturas pasan sin roundtrip
  * añadido, que es la condición bajo la que la vía Postgres sale a cuenta frente
  * a un Redis. El acceso ya no pasa por aquí: lo sirve y lo limita Clerk.
- *
- * `/api/cron/*` queda fuera: lo dispara Vercel con el `CRON_SECRET`, no un
- * usuario.
  */
 export function policyFor(pathname: string, method: string): RateLimitPolicy | null {
   if (pathname.startsWith('/api/mcp')) return MCP_POLICY;
   if (!pathname.startsWith('/api/')) return null;
-  if (pathname.startsWith('/api/cron/')) return null;
   return MUTATING_METHODS.has(method.toUpperCase()) ? MUTATION_POLICY : null;
 }
 
