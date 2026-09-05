@@ -151,3 +151,27 @@ describe('tasks', () => {
     expect((await asAna.query(api.tasks.list, {})).map((i) => i.id)).toEqual([first.id]);
   });
 });
+
+describe('metadata de tarea', () => {
+  async function academicSystem() {
+    const { t, asAna, userId } = await seed();
+    const systemId = await t.run((ctx) =>
+      ctx.db.insert('systems', {
+        userId, name: 'Semestre', color: 'green', templateType: 'academic', icon: 'book', isActive: true, isInbox: false, sortOrder: 1, createdAt: 1, updatedAt: 1,
+      }),
+    );
+    return { asAna, systemId };
+  }
+
+  it('acepta el kind del manifiesto junto a otras claves libres', async () => {
+    const { asAna, systemId } = await academicSystem();
+    const task = await asAna.mutation(api.tasks.create, { systemId, title: 'Entrega 1', metadata: { kind: 'assignment', course: 'Redes' } });
+    expect(task.metadata).toEqual({ kind: 'assignment', course: 'Redes' });
+  });
+
+  it('rechaza un kind que el sistema no define y un eventSubtype inventado', async () => {
+    const { asAna, systemId } = await academicSystem();
+    await expect(asAna.mutation(api.tasks.create, { systemId, title: 'x', metadata: { kind: 'sprint' } })).rejects.toThrow();
+    await expect(asAna.mutation(api.tasks.create, { systemId, title: 'x', metadata: { eventSubtype: 'party' } })).rejects.toThrow();
+  });
+});

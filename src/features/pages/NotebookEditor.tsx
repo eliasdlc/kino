@@ -52,8 +52,10 @@ export function NotebookEditor({ page, systemId, pageId, writer = false }: Noteb
       pendingPatch.current = { ...pendingPatch.current, ...patch };
       if (saveTimer.current) clearTimeout(saveTimer.current);
       saveTimer.current = setTimeout(() => {
-        updatePage(pendingPatch.current!);
+        saveTimer.current = null;
+        const pending = pendingPatch.current;
         pendingPatch.current = null;
+        if (pending) updatePage(pending);
       }, 1500);
     },
     [updatePage]
@@ -67,15 +69,24 @@ export function NotebookEditor({ page, systemId, pageId, writer = false }: Noteb
     return () => { editor.off("update", handler); };
   }, [editor, scheduleSave]);
 
-  // Flush pending save on unmount
+  // Lo pendiente se guarda al desmontar, y sólo al desmontar: un efecto que
+  // dependiera de `updatePage` correría su limpieza en cada render y volvería
+  // a mandar el mismo parche en bucle. Por eso la función se lee por ref.
+  const updatePageRef = useRef(updatePage);
+  useEffect(() => {
+    updatePageRef.current = updatePage;
+  }, [updatePage]);
   useEffect(() => {
     return () => {
       if (saveTimer.current) {
         clearTimeout(saveTimer.current);
-        if (pendingPatch.current) updatePage(pendingPatch.current);
+        saveTimer.current = null;
       }
+      const pending = pendingPatch.current;
+      pendingPatch.current = null;
+      if (pending) updatePageRef.current(pending);
     };
-  }, [updatePage]);
+  }, []);
 
   function handleTitleChange(e: React.ChangeEvent<HTMLInputElement>) {
     setTitle(e.target.value);

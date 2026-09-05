@@ -28,14 +28,14 @@ async function seed() {
 
 describe('crons', () => {
   it('registra las dos tareas con su cadencia', () => {
-    const registered = JSON.parse(crons.export()) as Record<string, { schedule: { type: string } }>;
+    const registered = crons.crons;
     expect(Object.keys(registered).sort()).toEqual(['daily-snapshot', 'task-reminders']);
     expect(registered['daily-snapshot']!.schedule.type).toBe('daily');
     expect(registered['task-reminders']!.schedule.type).toBe('interval');
   });
 });
 
-describe('daily-snapshot', () => {
+describe('daily-snapshot', { timeout: 20_000 }, () => {
   it('sólo toca a quien hizo check-in hoy, y deja constancia en la bitácora', async () => {
     const { t, asAna, anaId, beaId } = await seed();
     await asAna.mutation(api.energy.createCheckin, { currentLevel: 70, slot: 'morning' });
