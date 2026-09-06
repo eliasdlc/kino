@@ -19,10 +19,16 @@ export function TypographySection() {
       id="tipografia"
       number="02"
       title="Tipografía"
-      description="Tres familias activas en la app: Inter para toda la UI, Literata para la superficie de escritura (arquetipo Writing) y Geist Mono para código y datos. Marketing/auth cargan además Bricolage Grotesque, Instrument Sans y JetBrains Mono en sus propios layouts."
+      description="Dos caras y una mono, cargadas una sola vez para la app y el marketing: Bricolage Grotesque sólo para la cifra y los títulos de pantalla, Inter para todo lo demás (botones, chips, pestañas y etiquetas nunca llevan la display), JetBrains Mono para datos y código. Literata queda como serif de lectura del arquetipo Writing."
     >
       <SubSection title="Familias">
         <SpecimenGrid cols={3}>
+          <Specimen label="Bricolage Grotesque" hint="font-display · la cifra del día y los títulos de pantalla">
+            <div className="font-display">
+              <p className="text-5xl font-bold tracking-tight text-primary">52</p>
+              <p className="mt-1 text-2xl font-bold tracking-tight">Trabaja con tu energía</p>
+            </div>
+          </Specimen>
           <Specimen label="Inter" hint="font-sans · --font-sans · toda la UI">
             <div>
               <p className="text-2xl">Aa Bb Cc 0123</p>
@@ -31,10 +37,7 @@ export function TypographySection() {
               </p>
             </div>
           </Specimen>
-          <Specimen
-            label="Literata"
-            hint="font-serif · --font-literata · editor Writing (llega con plan-11 W1; hasta el merge se ve la serif del sistema)"
-          >
+          <Specimen label="Literata" hint="font-serif · --font-literata · leer y escribir prosa">
             <div className="font-serif">
               <p className="text-2xl">Aa Bb Cc 0123</p>
               <p className="mt-1 text-sm text-muted-foreground">
@@ -42,7 +45,7 @@ export function TypographySection() {
               </p>
             </div>
           </Specimen>
-          <Specimen label="Geist Mono" hint="font-mono · --font-geist-mono · código, kbd, datos">
+          <Specimen label="JetBrains Mono" hint="font-mono · --font-mono · código, kbd, datos">
             <div className="font-mono">
               <p className="text-2xl">Aa Bb Cc 0123</p>
               <p className="mt-1 text-sm text-muted-foreground">
@@ -51,11 +54,6 @@ export function TypographySection() {
             </div>
           </Specimen>
         </SpecimenGrid>
-        <p className="mt-3 text-xs text-muted-foreground">
-          Nota: Bricolage Grotesque (display), Instrument Sans (body) y JetBrains Mono solo
-          existen dentro de los layouts de marketing y auth — aquí no están cargadas, por eso
-          no se muestran.
-        </p>
       </SubSection>
 
       <SubSection

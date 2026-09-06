@@ -70,7 +70,7 @@ const TONE_TEXT: Record<string, string> = {
   peak: 'text-emerald-500 dark:text-emerald-400',
   before: 'text-amber-500 dark:text-amber-400',
   after: 'text-muted-foreground',
-  rest: 'text-indigo-400',
+  rest: 'text-muted-foreground',
 };
 
 function Sparkline({ values }: { values: number[] }) {

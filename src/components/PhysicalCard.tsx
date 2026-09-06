@@ -59,7 +59,7 @@ export function PhysicalCard({
       {/* Options menu: sibling of the target so it sits above the click area */}
       {menu && (
         <div
-          className="absolute right-2 top-2 z-30 sm:right-2.5 sm:top-2.5"
+          className="absolute right-2 top-2 z-(--z-overlay) sm:right-2.5 sm:top-2.5"
           onClick={(e) => e.stopPropagation()}
         >
           {menu}

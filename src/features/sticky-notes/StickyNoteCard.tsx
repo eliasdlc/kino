@@ -76,10 +76,10 @@ function EditOverlay({
   return (
     <>
       {/* Backdrop transparente: cierra al hacer click fuera sin tapar la página. */}
-      <div className="fixed inset-0 z-40" onClick={onClose} />
+      <div className="fixed inset-0 z-(--z-modal)" onClick={onClose} />
 
       <div
-        className="fixed z-50 rounded-2xl shadow-2xl border border-border bg-white dark:bg-card p-3 space-y-3"
+        className="fixed z-(--z-modal) rounded-2xl shadow-2xl border border-border bg-white dark:bg-card p-3 space-y-3"
         style={editPopoverStyle(anchorPoint)}
         onClick={(e) => e.stopPropagation()}
       >

@@ -40,9 +40,9 @@ function Section({ id, title, children }: { id: string; title: string; children:
   );
 }
 
-function Callout({ icon: Icon, tone = "indigo", children }: { icon: LucideIcon; tone?: "indigo" | "amber"; children: React.ReactNode }) {
+function Callout({ icon: Icon, tone = "brand", children }: { icon: LucideIcon; tone?: "brand" | "amber"; children: React.ReactNode }) {
   const tones = {
-    indigo: "border-[#6366f1]/[0.18] bg-[#6366f1]/[0.07] text-[#c7d2fe]",
+    brand: "border-primary/20 bg-primary/8 text-foreground",
     amber: "border-[#fbbf24]/20 bg-[#fbbf24]/[0.06] text-[#fcd34d]",
   };
   return (
@@ -206,7 +206,7 @@ export function DocsContent() {
             </div>
           ))}
         </div>
-        <Callout icon={Lightbulb} tone="indigo">
+        <Callout icon={Lightbulb} tone="brand">
           <strong className="text-[#e0e7ff]">Tip:</strong> instala Kino como app (PWA) desde el
           menú del navegador. Funciona offline y los check-ins son un toque desde tu pantalla de
           inicio.
@@ -331,7 +331,7 @@ export function DocsContent() {
           </table>
         </div>
 
-        <Callout icon={Compass} tone="indigo">
+        <Callout icon={Compass} tone="brand">
           <strong className="text-[#e0e7ff]">Escritura es el único</strong> que pone las páginas
           por delante de las tareas: al abrirlo aterrizas en tu biblioteca de manuscritos, no en
           una lista de pendientes. El resto abre en sus tareas.
@@ -365,7 +365,7 @@ export function DocsContent() {
             </p>
           </div>
         </div>
-        <Callout icon={Compass} tone="indigo">
+        <Callout icon={Compass} tone="brand">
           El <strong className="text-[#e0e7ff]">Advisor</strong> conecta ambos: te dice, en
           lenguaje natural, qué tarea de tu plan encaja mejor con tu energía de este momento.
         </Callout>

@@ -272,7 +272,7 @@ export function NotebookEditorLayout({
       {/* Breadcrumb bar: oculta en modo focus para dejar solo el texto */}
       <div
         className={cn(
-          "sticky top-0 z-10 bg-background border-b px-4 md:px-3 py-2.5 shrink-0 flex items-center gap-2",
+          "sticky top-0 z-(--z-raised) bg-background border-b px-4 md:px-3 py-2.5 shrink-0 flex items-center gap-2",
           focusMode && "hidden"
         )}
       >

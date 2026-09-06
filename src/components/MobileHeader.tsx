@@ -10,7 +10,7 @@ export function MobileHeader() {
   const setOpen = useQuickAddStore((s) => s.setOpen);
 
   return (
-    <header className="sticky top-0 z-20 flex md:hidden items-center justify-between h-14 px-2 bg-background/95 backdrop-blur-sm border-b border-border">
+    <header className="sticky top-0 z-(--z-overlay) flex md:hidden items-center justify-between h-14 px-2 bg-background/95 backdrop-blur-sm border-b border-border">
       <button
         onClick={() => setOpenMobile(true)}
         className="p-2 rounded-md hover:bg-accent transition-colors"

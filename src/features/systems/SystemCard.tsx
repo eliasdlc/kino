@@ -108,14 +108,14 @@ export function SystemCard({ system, onEdit, onDelete }: SystemCardProps) {
           style={{ background: openColor }}
         />
         {/* pull tab: slides down on hover */}
-        <div className="absolute left-1/2 top-[6%] z-10 flex -translate-x-1/2 flex-col items-center transition-all duration-300 ease-out group-hover:top-[30%]">
+        <div className="absolute left-1/2 top-[6%] z-(--z-raised) flex -translate-x-1/2 flex-col items-center transition-all duration-300 ease-out group-hover:top-[30%]">
           <div className="h-4 w-5 rounded-[3px] bg-zinc-100 shadow-md ring-1 ring-black/15" />
           <div className="h-3 w-1.5 rounded-b-full bg-zinc-300" />
         </div>
       </div>
 
       {/* Label band: flat-topped (no folder tab), with a system-colour accent */}
-      <div className="absolute inset-x-0 bottom-0 z-20 h-[42%] rounded-b-[20px] bg-card shadow-[0_-3px_10px_rgba(0,0,0,0.10)] sm:rounded-b-[28px]">
+      <div className="absolute inset-x-0 bottom-0 z-(--z-overlay) h-[42%] rounded-b-[20px] bg-card shadow-[0_-3px_10px_rgba(0,0,0,0.10)] sm:rounded-b-[28px]">
         <div className="absolute inset-x-0 top-0 h-[3px]" style={{ background: colorHex }} />
         <div className="absolute inset-0 flex flex-col justify-between p-3 sm:p-4">
           <div className="min-w-0">

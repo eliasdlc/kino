@@ -1,7 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import { ClerkProvider } from "@clerk/nextjs";
 import { esES } from "@clerk/localizations";
-import { Geist_Mono, Inter, Literata } from "next/font/google";
+import { Bricolage_Grotesque, Inter, JetBrains_Mono, Literata } from "next/font/google";
 import "./globals.css";
 import { cn } from "@/lib/utils";
 import { Toaster } from "sonner";
@@ -10,15 +10,13 @@ import { rootThemeScript } from "@/shared/lib/theme-script";
 import { clerkAppearance } from "@/features/auth/clerk-appearance";
 import { ConvexClientProvider } from "@/shared/convex/client";
 
-const inter = Inter({subsets:['latin'],variable:'--font-sans'});
-
-// Serif de lectura del arquetipo Writing: la "sensación de escritor" del editor.
+// Las caras del producto, cargadas una sola vez para la app y el marketing:
+// Inter para el texto, Bricolage para la cifra y los títulos, JetBrains para
+// datos y código. Literata es la serif de lectura del arquetipo Writing.
+const inter = Inter({ subsets: ["latin"], variable: "--font-inter" });
+const bricolage = Bricolage_Grotesque({ subsets: ["latin"], variable: "--font-bricolage", display: "swap" });
+const jetbrainsMono = JetBrains_Mono({ subsets: ["latin"], variable: "--font-jetbrains-mono", display: "swap" });
 const literata = Literata({ subsets: ["latin"], variable: "--font-literata" });
-
-const geistMono = Geist_Mono({
-  variable: "--font-geist-mono",
-  subsets: ["latin"],
-});
 
 
 export const metadata: Metadata = {
@@ -54,7 +52,7 @@ export default function RootLayout({
     <html
       lang="es"
       suppressHydrationWarning
-      className={cn("h-full", "antialiased", geistMono.variable, "font-sans", inter.variable, literata.variable)}
+      className={cn("h-full", "antialiased", "font-sans", inter.variable, bricolage.variable, jetbrainsMono.variable, literata.variable)}
     >
       <head>
         <script dangerouslySetInnerHTML={{ __html: rootThemeScript }} />

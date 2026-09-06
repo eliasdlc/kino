@@ -35,7 +35,7 @@ export async function MarketingNav({
   const registerHref = segment ? segmentRegisterHref(segment) : "/register";
 
   return (
-    <nav className="sticky top-0 z-50 border-b border-white/[0.07] bg-[#0e0e11]/85 backdrop-blur-md">
+    <nav className="sticky top-0 z-(--z-modal) border-b border-white/[0.07] bg-[#0e0e11]/85 backdrop-blur-md">
       <div className="mx-auto flex min-h-16 max-w-[1120px] flex-wrap items-center gap-4 px-6 py-2.5">
         <Link href="/" className="flex items-center">
           <KinoMark size={28} glow={variant === "landing"} />

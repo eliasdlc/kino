@@ -6,7 +6,7 @@ export default function SystemLoading() {
   return (
     <div className="w-full">
       {/* Sticky breadcrumb */}
-      <div className="sticky top-0 z-10 bg-background border-b px-6 py-2.5">
+      <div className="sticky top-0 z-(--z-raised) bg-background border-b px-6 py-2.5">
         <BreadcrumbSkeleton segments={2} />
       </div>
 
