@@ -8,6 +8,23 @@ import {
   paperStyle,
 } from "@/features/sticky-notes/sticky-note-colors";
 
+/** Los roles: un valor por modo, sin nombre de color. Todo lo demás se mapea aquí. */
+const ROLE_TOKENS: Array<{ token: string; usage: string }> = [
+  { token: "bg", usage: "Fondo de pantalla, teñido con el hue del acento" },
+  { token: "sf", usage: "Superficie: card, sheet, panel" },
+  { token: "sf2", usage: "Superficie sobre superficie: chip, ghost, contador" },
+  { token: "ink", usage: "Títulos, valores, texto principal" },
+  { token: "body", usage: "Texto corrido" },
+  { token: "mute", usage: "Meta, etiquetas, estados inactivos" },
+  { token: "ac", usage: "Acento: acción y selección, nada más" },
+  { token: "on", usage: "Texto e icono sobre el acento" },
+  { token: "warn", usage: "Vencida, siempre con la palabra delante" },
+  { token: "ok", usage: "Hecho, siempre con el glifo" },
+  { token: "danger", usage: "Sólo borrar y cerrar: lo irreversible" },
+  { token: "ln", usage: "Hairline al 8 %" },
+  { token: "ln2", usage: "Borde de selección al 16 %" },
+];
+
 const SEMANTIC_TOKENS: Array<{ token: string; usage: string }> = [
   { token: "background", usage: "Fondo base de la app" },
   { token: "foreground", usage: "Texto principal" },
@@ -73,8 +90,19 @@ export function ColorsSection() {
       id="colores"
       number="01"
       title="Colores"
-      description="Todos los colores de Kino salen de tokens semánticos (globals.css, oklch). Los componentes nunca usan colores directos salvo las tres paletas físicas de abajo: colores de sistema, sticky notes y energía."
+      description="Todo color de Kino sale de un rol (globals.css). El acento es el ámbar y la escala neutra va teñida con su hue. Los componentes nunca usan colores directos salvo las tres paletas físicas de abajo: colores de sistema, sticky notes y energía."
     >
+      <SubSection
+        title="Roles"
+        description="El contrato de la identidad. Los tokens de shadcn de abajo no declaran ningún color: cada uno vale var(--rol)."
+      >
+        <TokenGrid tokens={ROLE_TOKENS} />
+      </SubSection>
+
+      <SubSection title="Roles en oscuro" description="Los mismos roles forzados a .dark. La elevación es un paso de tono: bg, sf, sf2, y ninguna sombra.">
+        <DarkPreview tokens={ROLE_TOKENS} />
+      </SubSection>
+
       <SubSection
         title="Tokens semánticos — tema actual"
         description="Cambia el tema con el control de arriba para comparar. Cada swatch lee la variable CSS en vivo: lo que ves es exactamente lo que renderiza la app."

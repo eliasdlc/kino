@@ -179,7 +179,7 @@ export function AllTasksList({ systems }: AllTasksListProps) {
             : key;
           return (
             <div key={key}>
-              <div className="px-4 py-1.5 bg-muted/30 sticky top-0 z-10">
+              <div className="px-4 py-1.5 bg-muted/30 sticky top-0 z-(--z-raised)">
                 <span className="text-xs font-semibold text-muted-foreground">{groupName}</span>
                 <span className="ml-2 text-xs text-muted-foreground/50">{groupItems.length}</span>
               </div>

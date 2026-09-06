@@ -99,7 +99,7 @@ export function WriterStatusBar({
     // queda debajo del teclado o encima de la línea que estás escribiendo. Lo
     // que lleva (recuento y modo focus) se consulta entre frases, no mientras
     // se teclea, así que baja con el texto y deja de competir.
-    <div className="z-10 flex flex-wrap items-center gap-x-4 gap-y-1 border-t bg-background/80 px-4 py-1.5 text-xs text-muted-foreground backdrop-blur md:flex-nowrap md:sticky md:bottom-0 md:px-6">
+    <div className="z-(--z-raised) flex flex-wrap items-center gap-x-4 gap-y-1 border-t bg-background/80 px-4 py-1.5 text-xs text-muted-foreground backdrop-blur md:flex-nowrap md:sticky md:bottom-0 md:px-6">
       <span className="font-mono">
         Cap: <span className="text-foreground">{chapterWords.toLocaleString("es")}</span> palabras
       </span>

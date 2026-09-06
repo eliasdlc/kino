@@ -52,7 +52,7 @@ export default async function FolderViewRoute({ params }: FolderViewRouteProps) 
 
   return (
     <div className="w-full">
-      <div className="sticky top-0 z-10 bg-background border-b px-4 md:px-6 py-2.5">
+      <div className="sticky top-0 z-(--z-raised) bg-background border-b px-4 md:px-6 py-2.5">
         <PageBreadcrumb items={breadcrumbItems} />
       </div>
       <div className="p-4 md:p-6 space-y-6">

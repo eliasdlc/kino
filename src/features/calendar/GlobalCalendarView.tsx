@@ -292,7 +292,7 @@ export function GlobalCalendarView() {
             <div className="min-w-[400px]">
               {/* Day headers */}
               <div
-                className="grid border-b sticky top-0 bg-background z-10"
+                className="grid border-b sticky top-0 bg-background z-(--z-raised)"
                 style={{ gridTemplateColumns: `56px repeat(${colCount}, 1fr)` }}
               >
                 <div className="border-r" />

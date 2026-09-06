@@ -6,7 +6,7 @@ export default function PageEditorLoading() {
   return (
     <div className="flex h-screen overflow-hidden flex-col">
       {/* Sticky breadcrumb */}
-      <div className="sticky top-0 z-10 bg-background border-b px-6 py-2.5 shrink-0">
+      <div className="sticky top-0 z-(--z-raised) bg-background border-b px-6 py-2.5 shrink-0">
         <BreadcrumbSkeleton segments={3} />
       </div>
 

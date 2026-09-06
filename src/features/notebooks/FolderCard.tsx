@@ -126,7 +126,7 @@ export function FolderCard({ folder, systemId, onClick, href }: FolderCardProps)
 
         {/* Papers: peek above the flap and fan out on hover */}
         {hasContent && (
-          <div className="absolute left-1/2 top-[15%] z-10 h-[42%] w-[54%] -translate-x-1/2">
+          <div className="absolute left-1/2 top-[15%] z-(--z-raised) h-[42%] w-[54%] -translate-x-1/2">
             <PaperSheet className="group-hover:-translate-x-3 group-hover:-translate-y-1.5 group-hover:-rotate-[9deg]" />
             <PaperSheet className="group-hover:translate-x-3 group-hover:-translate-y-1.5 group-hover:rotate-[7deg]" />
             <PaperSheet className="translate-y-[3px] group-hover:-translate-y-2" />
@@ -135,9 +135,9 @@ export function FolderCard({ folder, systemId, onClick, href }: FolderCardProps)
 
         {/* Folder front: tabbed flap sitting over the back (tab + shadow seam = the folder).
             Taller on mobile so a 2-line name + counts never collide on narrow phones. */}
-        <div className="absolute inset-x-0 bottom-0 z-20 h-[58%] sm:h-[54%]">
+        <div className="absolute inset-x-0 bottom-0 z-(--z-overlay) h-[58%] sm:h-[54%]">
           {/* tab sticking up on the left */}
-          <div className="absolute bottom-full h-[16px] w-[42%] z-10 translate-y-px rounded-t-[12px] bg-card shadow-[0_-4px_10px_-3px_rgba(0,0,0,0.25)] sm:h-[18px] sm:rounded-t-[20px]" />
+          <div className="absolute bottom-full h-[16px] w-[42%] z-(--z-raised) translate-y-px rounded-t-[12px] bg-card shadow-[0_-4px_10px_-3px_rgba(0,0,0,0.25)] sm:h-[18px] sm:rounded-t-[20px]" />
           {/* flap face */}
           <div className="absolute inset-0 rounded-b-[20px] rounded-tr-[14px] border-t border-foreground/10 bg-card shadow-[0_-7px_18px_-4px_rgba(0,0,0,0.28)] sm:rounded-b-[28px]" />
 

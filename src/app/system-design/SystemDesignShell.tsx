@@ -74,7 +74,7 @@ export function SystemDesignShell() {
         <FocusTimerProvider>
           <TooltipProvider>
             <div className="min-h-screen bg-background text-foreground">
-              <header className="sticky top-0 z-40 border-b border-border bg-background/80 backdrop-blur-sm">
+              <header className="sticky top-0 z-(--z-modal) border-b border-border bg-background/80 backdrop-blur-sm">
                 <div className="mx-auto flex max-w-7xl items-center justify-between gap-4 px-4 py-3 sm:px-6">
                   <div className="min-w-0">
                     <h1 className="truncate text-sm font-semibold tracking-tight">

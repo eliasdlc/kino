@@ -54,7 +54,7 @@ export function FocusTimerWidget() {
   const desktopWidget = (
     <div
       className={cn(
-        'hidden md:flex fixed bottom-4 right-4 z-50',
+        'hidden md:flex fixed bottom-4 right-4 z-(--z-modal)',
         'items-center gap-3 rounded-xl border bg-card shadow-lg px-4 py-3 max-w-xs',
         isBreak && 'border-blue-500/30 bg-blue-950/20',
         isExpired && 'border-amber-500/50',
@@ -110,7 +110,7 @@ export function FocusTimerWidget() {
   const mobileWidget = (
     <div
       className={cn(
-        'md:hidden fixed bottom-14 left-0 right-0 z-20',
+        'md:hidden fixed bottom-14 left-0 right-0 z-(--z-overlay)',
         'flex items-center gap-3 border-t bg-card/95 backdrop-blur-sm px-4 py-2.5',
         isBreak ? 'border-blue-500/20 bg-blue-950/10' : 'border-border',
         isExpired && 'border-amber-500/30',

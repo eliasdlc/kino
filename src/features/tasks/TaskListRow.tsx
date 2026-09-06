@@ -47,7 +47,7 @@ const PRIORITY_SHORT: Record<string, string> = {
 
 const STATUS_BADGE: Record<string, string> = {
   backlog:  'bg-muted text-muted-foreground/85',
-  week:     'bg-indigo-500/15 text-indigo-700 dark:text-indigo-400',
+  week:     'bg-primary/15 text-primary',
   today:    'bg-emerald-500/15 text-emerald-700 dark:text-emerald-400',
   tomorrow: 'bg-amber-500/15 text-amber-700 dark:text-amber-400',
   done:     'bg-emerald-500/10 text-emerald-700 dark:text-emerald-600',

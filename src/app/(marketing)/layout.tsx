@@ -1,4 +1,3 @@
-import { marketingFontVars } from "@/features/marketing/fonts";
 import { MarketingFooter } from "@/features/marketing/MarketingFooter";
 
 /**
@@ -13,7 +12,7 @@ export default function MarketingLayout({
 }) {
   return (
     <div
-      className={`${marketingFontVars} font-body min-h-screen bg-[#0e0e11] text-base leading-relaxed text-[#a1a1aa]`}
+      className={`min-h-screen bg-[#0e0e11] text-base leading-relaxed text-[#a1a1aa]`}
     >
       {children}
       <MarketingFooter />

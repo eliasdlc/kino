@@ -33,7 +33,7 @@ interface DefaultTaskCardProps extends TaskCardProps {
 
 const STATUS_BADGE: Record<string, string> = {
   backlog:  "bg-muted text-muted-foreground",
-  week:     "bg-indigo-500/18 text-indigo-700 dark:text-indigo-300",
+  week:     "bg-primary/15 text-primary",
   today:    "bg-emerald-500/18 text-emerald-700 dark:text-emerald-300",
   tomorrow: "bg-amber-500/18 text-amber-700 dark:text-amber-300",
   done:     "bg-task-done/15 text-emerald-700 dark:text-emerald-300",

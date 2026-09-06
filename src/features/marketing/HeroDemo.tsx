@@ -223,7 +223,7 @@ export function HeroDemo() {
 function Confetti() {
   const colors = ["#3ecf72", "#818cf8", "#fbbf24", "#f87171", "#a5b4fc"];
   return (
-    <div className="pointer-events-none absolute inset-0 z-10">
+    <div className="pointer-events-none absolute inset-0 z-(--z-raised)">
       {Array.from({ length: 16 }).map((_, i) => {
         const angle = (i / 16) * Math.PI * 2;
         const dist = 70 + (i % 4) * 22;
