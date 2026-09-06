@@ -229,7 +229,7 @@ export const SlashCommand = Extension.create<SlashCommandOptions>({
         char: "/",
         allowSpaces: false,
         startOfLine: false,
-        // No `/` menu inside code blocks — there `/` is literal.
+        // No `/` menu inside code blocks: there `/` is literal.
         allow: ({ editor }) => !editor.isActive("codeBlock"),
         items: ({ query }) =>
           getSlashItems([...options.mediumItems, ...SLASH_ITEMS], query),

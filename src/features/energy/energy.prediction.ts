@@ -21,7 +21,7 @@ export const SLOT_HOUR_RANGES: Record<CheckinSlot, readonly number[]> = {
 /**
  * Nivel que Kino espera para un slot: el promedio de la curva en sus horas.
  *
- * Neutral al sueño a propósito — al predecir todavía no se sabe cómo durmió el
+ * Neutral al sueño a propósito: al predecir todavía no se sabe cómo durmió el
  * usuario, así que la predicción asume la capacidad plena de la curva y el sueño
  * reportado después explica parte del error en vez de contaminar la predicción.
  */

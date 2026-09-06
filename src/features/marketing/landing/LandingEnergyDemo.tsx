@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useMemo } from "react";
+import { BarChart3, Flame, Mail, Moon, TrendingUp, Users, Zap, type LucideIcon } from "lucide-react";
 import { eyebrow } from "../styles";
 
 function curve(h: number) {
@@ -20,25 +21,25 @@ function getLevel(pct: number): EnergyLevel {
 
 const LEVEL_META: Record<
   EnergyLevel,
-  { emoji: string; label: string; color: string; tip: string }
+  { Icon: LucideIcon; label: string; color: string; tip: string }
 > = {
   alta: {
-    emoji: "🔥",
+    Icon: Flame,
     label: "Alta",
     color: "#f97316",
-    tip: "Pico de energía — empieza por lo más difícil.",
+    tip: "Pico de energía: empieza por lo más difícil.",
   },
   media: {
-    emoji: "⚡",
+    Icon: Zap,
     label: "Media",
     color: "#818cf8",
-    tip: "Buen ritmo — reuniones y trabajo en equipo.",
+    tip: "Buen ritmo: reuniones y trabajo en equipo.",
   },
   baja: {
-    emoji: "🌙",
+    Icon: Moon,
     label: "Baja",
     color: "#6b7280",
-    tip: "Cuida tu energía — lo pesado puede esperar.",
+    tip: "Cuida tu energía: lo pesado puede esperar.",
   },
 };
 
@@ -47,12 +48,12 @@ const TASKS: {
   title: string;
   requires: EnergyLevel;
   time: string;
-  icon: string;
+  Icon: LucideIcon;
 }[] = [
-  { id: "a", title: "Preparar la presentación", requires: "alta", time: "~45m", icon: "📊" },
-  { id: "b", title: "Revisar métricas del sprint", requires: "media", time: "~25m", icon: "📈" },
-  { id: "c", title: "Reunión de equipo", requires: "media", time: "~30m", icon: "👥" },
-  { id: "d", title: "Responder correos pendientes", requires: "baja", time: "~15m", icon: "✉️" },
+  { id: "a", title: "Preparar la presentación", requires: "alta", time: "~45m", Icon: BarChart3 },
+  { id: "b", title: "Revisar métricas del sprint", requires: "media", time: "~25m", Icon: TrendingUp },
+  { id: "c", title: "Reunión de equipo", requires: "media", time: "~30m", Icon: Users },
+  { id: "d", title: "Responder correos pendientes", requires: "baja", time: "~15m", Icon: Mail },
 ];
 
 const HOURS = Array.from({ length: 18 }, (_, i) => i + 6);
@@ -92,7 +93,7 @@ export function LandingEnergyDemo() {
             Tu energía decide el orden
           </h2>
           <p className="text-[16px] text-[#a1a1aa]">
-            Toca cualquier hora — Kino reorganiza tu día en tiempo real.
+            Toca cualquier hora: Kino reorganiza tu día en tiempo real.
           </p>
         </div>
 
@@ -113,7 +114,7 @@ export function LandingEnergyDemo() {
                   key={h}
                   type="button"
                   onClick={() => setHour(h)}
-                  aria-label={`${h}:00 — energía ${barPct}%`}
+                  aria-label={`${h}:00: energía ${barPct}%`}
                   aria-pressed={isNow}
                   className="relative flex flex-1 cursor-pointer items-end"
                   style={{ height: "100%" }}
@@ -161,7 +162,7 @@ export function LandingEnergyDemo() {
           }}
         >
           <div className="flex items-center gap-3">
-            <span className="text-2xl">{meta.emoji}</span>
+            <meta.Icon className="size-6" style={{ color: meta.color }} aria-hidden />
             <div>
               <p className="font-semibold text-[#e4e4e7]">
                 Energía {meta.label} · {hour}:00
@@ -195,7 +196,7 @@ export function LandingEnergyDemo() {
               >
                 {i + 1}
               </span>
-              <span className="text-lg">{t.icon}</span>
+              <t.Icon className="size-[18px] text-[#a1a1aa]" aria-hidden />
               <span
                 className="flex-1 text-[14px] font-medium transition-colors duration-500"
                 style={{ color: t.available ? "#e4e4e7" : "#4a4a52" }}

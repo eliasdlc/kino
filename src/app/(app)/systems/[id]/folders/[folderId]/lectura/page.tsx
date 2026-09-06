@@ -7,7 +7,7 @@ import { getServerSession } from "@/shared/utils/session";
 
 /**
  * Modo lectura de una obra (KIN-138). Server component: el manuscrito entero se
- * resuelve de una vez y llega renderizado — leer no necesita ni un fetch del
+ * resuelve de una vez y llega renderizado: leer no necesita ni un fetch del
  * cliente ni estado de servidor que invalidar.
  */
 export default async function ReadingRoute({

@@ -147,10 +147,10 @@ describe('tasks', () => {
     const again = await asAna.mutation(api.tasks.create, { systemId, title: 'Una', clientRequestId: 'req-1' });
     expect(again.id).toBe(first.id);
     await asAna.mutation(api.tasks.remove, { id: first.id });
-    expect(await asAna.query(api.tasks.list, {})).toEqual([]);
-    expect((await asAna.query(api.tasks.list, { deleted: true })).map((i) => i.id)).toEqual([first.id]);
+    expect((await asAna.query(api.tasks.list, {})).items).toEqual([]);
+    expect((await asAna.query(api.tasks.list, { deleted: true })).items.map((i) => i.id)).toEqual([first.id]);
     await asAna.mutation(api.tasks.restore, { id: first.id });
-    expect((await asAna.query(api.tasks.list, {})).map((i) => i.id)).toEqual([first.id]);
+    expect((await asAna.query(api.tasks.list, {})).items.map((i) => i.id)).toEqual([first.id]);
   });
 });
 

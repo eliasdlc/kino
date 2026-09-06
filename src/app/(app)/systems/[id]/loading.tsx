@@ -11,7 +11,7 @@ export default function SystemLoading() {
       </div>
 
       <PageWrapper className="w-full">
-        {/* System header — mirrors SystemDetailHeader (tinted card, collapsible) */}
+        {/* System header: mirrors SystemDetailHeader (tinted card, collapsible) */}
         <div className="rounded-lg bg-muted/30 px-4 py-3 w-full space-y-2.5">
           {/* Title row */}
           <div className="flex items-start justify-between gap-4">

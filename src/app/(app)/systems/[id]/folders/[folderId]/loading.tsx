@@ -10,13 +10,13 @@ export default function FolderLoading() {
       </div>
 
       <div className="p-6 space-y-6">
-        {/* Toolbar — buttons aligned left */}
+        {/* Toolbar: buttons aligned left */}
         <div className="flex items-center gap-2">
           <Skeleton className="h-9 w-28 rounded-md border border-white/[0.08]" />
           <Skeleton className="h-9 w-24 rounded-md border border-white/[0.08]" />
         </div>
 
-        {/* Documents grid — matches grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3 */}
+        {/* Documents grid: matches grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3 */}
         <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
           {[1, 2, 3, 4].map((i) => (
             <div

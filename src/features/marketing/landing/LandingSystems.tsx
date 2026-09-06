@@ -1,10 +1,11 @@
+import { FolderKanban, GraduationCap, Rocket, Settings, Star, Target, type LucideIcon } from "lucide-react";
 import { cardSurface, eyebrow } from "../styles";
 
 const vizBox = "h-14 rounded-[10px] border border-white/[0.06] bg-white/[0.03]";
 
-const SYSTEMS: { emoji: string; title: string; desc: string; states: string; viz: React.ReactNode }[] = [
+const SYSTEMS: { Icon: LucideIcon; title: string; desc: string; states: string; viz: React.ReactNode }[] = [
   {
-    emoji: "🎓",
+    Icon: GraduationCap,
     title: "Académico",
     desc: "Timeline de entregas. Kino te dice cuándo empezar a estudiar.",
     states: "estudiando → borrador → entregado",
@@ -18,7 +19,7 @@ const SYSTEMS: { emoji: string; title: string; desc: string; states: string; viz
     ),
   },
   {
-    emoji: "🗂️",
+    Icon: FolderKanban,
     title: "Proyecto",
     desc: "Board, sprints y epics. Mueve tarjetas por su flujo sin perder tu plan del día.",
     states: "por hacer → en progreso → review → hecho",
@@ -40,7 +41,7 @@ const SYSTEMS: { emoji: string; title: string; desc: string; states: string; viz
     ),
   },
   {
-    emoji: "🚀",
+    Icon: Rocket,
     title: "Emprendedor",
     desc: "Milestones con KPIs e hipótesis. Mide tu velocidad real.",
     states: "validando → construyendo → lanzado",
@@ -52,7 +53,7 @@ const SYSTEMS: { emoji: string; title: string; desc: string; states: string; viz
     ),
   },
   {
-    emoji: "🌟",
+    Icon: Star,
     title: "Personal",
     desc: 'Lista flexible con tu "por qué" siempre visible. Sin presión.',
     states: "idea → activo → pausado → completado",
@@ -65,7 +66,7 @@ const SYSTEMS: { emoji: string; title: string; desc: string; states: string; viz
     ),
   },
   {
-    emoji: "⚙️",
+    Icon: Settings,
     title: "Custom",
     desc: "Tus estados, tus campos, tu vista. Tu sistema, tus reglas.",
     states: "defínelo todo tú",
@@ -94,14 +95,14 @@ export function LandingSystems() {
         </h2>
         <p className="mb-12 max-w-[600px] text-[17px] text-[#a1a1aa]">
           Tu tesis no se organiza como tu trabajo, ni tu trabajo como tu startup. Cada sistema
-          tiene su vista, sus estados y su lógica — compartiendo una sola energía: la tuya.
+          tiene su vista, sus estados y su lógica, compartiendo una sola energía: la tuya.
         </p>
 
         <div className="grid grid-cols-[repeat(auto-fit,minmax(210px,1fr))] gap-4">
           {SYSTEMS.map((s) => (
             <div key={s.title} className={`${cardSurface} flex flex-col gap-3 p-[22px]`}>
               <div className="flex items-center gap-2.5">
-                <span className="text-[22px]">{s.emoji}</span>
+                <s.Icon className="size-[22px] text-[#818cf8]" aria-hidden />
                 <h3 className="font-display text-[17px] font-bold text-[#f4f4f5]">{s.title}</h3>
               </div>
               {s.viz}
@@ -118,7 +119,7 @@ export function LandingSystems() {
 function MilestoneRow({ pct, color, label }: { pct: number; color: string; label: string }) {
   return (
     <div className="flex items-center gap-[7px]">
-      <span className="text-[10px]">🎯</span>
+      <Target className="size-2.5 text-[#6b6b74]" aria-hidden />
       <div className="h-[7px] flex-1 overflow-hidden rounded-full bg-white/[0.08]">
         <div className="h-full" style={{ width: `${pct}%`, background: color }} />
       </div>

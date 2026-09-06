@@ -111,7 +111,7 @@ export function BulkActionBar({ selectedIds, onClear, onVaciar }: BulkActionBarP
         </button>
       )}
 
-      {/* Eliminar — pending bulk-delete endpoint */}
+      {/* Eliminar: pending bulk-delete endpoint */}
       <button
         disabled
         title="Próximamente"

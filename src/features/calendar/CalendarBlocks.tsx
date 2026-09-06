@@ -183,7 +183,7 @@ export function UnscheduledChip({
           className="w-full text-left px-2 pb-1 text-[10px] text-primary/80 hover:text-primary flex items-center gap-1 leading-tight"
           onClick={() => onAcceptSuggestion(task, suggestedHour)}
         >
-          <span>Kino sugiere {format(new Date(2000, 0, 1, suggestedHour), "HH:mm")}</span>
+          <span>Sugerido a las {format(new Date(2000, 0, 1, suggestedHour), "HH:mm")}</span>
           <span className="text-primary/50">→</span>
         </button>
       )}

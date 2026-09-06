@@ -146,7 +146,7 @@ export function KinoSuggestedSection() {
       const { crosses, overBy, next } = crossesLimitWith(budget, task);
       if (crosses) {
         toast('Este plan pasa tu presupuesto de energía', {
-          description: `Quedaría en ${next}/${budget.limit} pts (+${overBy}). Kino no te frena — solo que lo sepas.`,
+          description: `Quedaría en ${next}/${budget.limit} pts (+${overBy}). Nada te frena: es para que lo sepas.`,
         });
       }
     }
@@ -168,7 +168,7 @@ export function KinoSuggestedSection() {
       <div className="rounded-xl border bg-card">
         <div className="px-4 py-3 border-b flex items-center gap-2">
           <Sparkles className="w-3.5 h-3.5 text-amber-400" />
-          <span className="text-xs font-semibold">Kino sugiere para hoy</span>
+          <span className="text-xs font-semibold">Sugerido para hoy</span>
         </div>
         <div className="px-4 py-3 space-y-2">
           {[...Array(3)].map((_, i) => (
@@ -194,7 +194,7 @@ export function KinoSuggestedSection() {
         <div className="px-4 py-3 border-b flex items-center justify-between">
           <div className="flex items-center gap-2">
             <Sparkles className="w-3.5 h-3.5 text-amber-400" />
-            <span className="text-xs font-semibold">Kino sugiere para hoy</span>
+            <span className="text-xs font-semibold">Sugerido para hoy</span>
             <span className="text-xs text-muted-foreground">· basado en tu energía y urgencia</span>
           </div>
           <button

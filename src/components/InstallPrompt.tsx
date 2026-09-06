@@ -18,7 +18,7 @@ export function InstallPrompt() {
   useEffect(() => {
     if (localStorage.getItem(DISMISSED_KEY) === "true") return;
 
-    // PWA is already installed — don't show
+    // PWA is already installed: don't show
     if (window.matchMedia("(display-mode: standalone)").matches) return;
 
     function handler(e: Event) {

@@ -387,12 +387,6 @@
   }
 }
 
-/* ── Halo "respirando" del número de energía (EnergyTodayCard) ────────────── */
-@keyframes breath {
-  0%, 100% { opacity: 0.45; transform: scale(0.94); }
-  50%      { opacity: 1;    transform: scale(1.06); }
-}
-
 /* ── Landing (marketing): confetti del demo + punto "ahora" pulsante ──────── */
 @keyframes marketing-confetti {
   0%   { transform: translate(-50%, -50%) rotate(0deg) scale(1); opacity: 1; }
@@ -616,8 +610,24 @@
 .reading-paged .panel {
   break-inside: avoid;
 }
+/* Movimiento apagado, de una vez y para todo el producto.
+   `motion-safe:` sólo alcanza las clases de Tailwind, y seis animaciones de la
+   landing se declaran dentro de un `style` inline, donde por construcción no
+   llega. Un bloque sobre `*` las cubre todas, incluidas las que se escriban
+   mañana, y es la línea de mayor efecto por carácter de este fichero.
+
+   La duración es 0.01ms y no 0: una animación de duración cero no dispara
+   `animationend`, y el código que espera ese evento para limpiar se queda
+   colgado. */
 @media (prefers-reduced-motion: reduce) {
-  .reading-paged { scroll-behavior: auto; }
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
 }
 
 /* Impresión: el manuscrito y nada más. Es también la vía honesta al PDF sin

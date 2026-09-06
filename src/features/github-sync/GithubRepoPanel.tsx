@@ -41,7 +41,7 @@ export function GithubRepoPanel({ systemId, metadata }: GithubRepoPanelProps) {
    * Refresco bajo demanda al abrir el board, no por cron: la única entrada de
    * cron del free tier de Vercel está ocupada, y bajo demanda es más barato y
    * suficiente para validar si el feature se usa. El ref evita que un segundo
-   * render — o el doble montaje de React en desarrollo — dispare dos veces.
+   * render ( o el doble montaje de React en desarrollo ) dispare dos veces.
    */
   const yaSincronizado = React.useRef(false);
   React.useEffect(() => {

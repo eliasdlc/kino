@@ -21,10 +21,10 @@ function message(
   committed: number,
 ): string {
   if (state === 'over') {
-    return `Sobregiro de ${overBy} pt${overBy !== 1 ? 's' : ''} — nada te frena, pero el día ya está sobrevendido.`;
+    return `Sobregiro de ${overBy} pt${overBy !== 1 ? 's' : ''}: nada te frena, pero el día ya está sobrevendido.`;
   }
   if (state === 'tight') {
-    return remaining === 0 ? 'Presupuesto justo: el día está lleno.' : `Casi lleno — quedan ${remaining} pts.`;
+    return remaining === 0 ? 'Presupuesto justo: el día está lleno.' : `Casi lleno: quedan ${remaining} pts.`;
   }
   // El día vacío se reconoce por lo comprometido, no por lo que queda: con un
   // límite válido, `remaining === 0` implica pct >= 100, que ya no es estado ok.

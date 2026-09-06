@@ -3,10 +3,20 @@ import { api } from "@convex/_generated/api";
 import { serverQuery } from "@/shared/convex/server";
 import { getServerSession } from "@/shared/utils/session";
 
+/**
+ * El presupuesto de la restricción 4 de `AGENTS.md`, declarado. Sin esta línea
+ * la ruta corre con el default de la plataforma, y un export que tarda de más
+ * se nota como lentitud silenciosa en vez de como un 504 que se puede leer.
+ */
+export const maxDuration = 10;
+
 export async function GET(
   _request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  // Ruta fuera de Convex: no hereda el modelo de alcances, así que la
+  // comprobación es explícita. `getServerSession` exige sesión de navegador,
+  // que es lo que deja fuera a un token del conector MCP.
   const session = await getServerSession();
   if (!session) {
     return NextResponse.json({ code: "UNAUTHORIZED" }, { status: 401 });
@@ -24,5 +34,5 @@ export async function GET(
     serverQuery(api.pages.bySystem, { systemId: id }),
   ]);
 
-  return NextResponse.json({ system, tasks, folders, pages });
+  return NextResponse.json({ system, tasks, folders, pages: pages.items });
 }

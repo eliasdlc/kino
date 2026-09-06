@@ -1,8 +1,8 @@
-# Kino — Plataforma de productividad por energía
+# Kino: Plataforma de productividad por energía
 
 Plataforma de productividad construida alrededor de la gestión de energía cognitiva y sistemas basados en identidad. Fullstack Next.js 16, 100% serverless.
 
-> **Los planes, el estado y el orden de trabajo viven en Linear**, no en este repo. Este archivo cubre comandos, stack y convenciones de código — nada de roadmap.
+> **Los planes, el estado y el orden de trabajo viven en Linear**, no en este repo. Este archivo cubre comandos, stack y convenciones de código: nada de roadmap.
 >
 > En Linear: los proyectos van numerados `01`–`07` en orden de ejecución. Los documentos del equipo *Norte, principios y estándares*, *Estado real del producto* e *Índice de decisiones D1–D16* son la fuente de verdad de qué se construye y por qué.
 >
@@ -14,8 +14,8 @@ Plataforma de productividad construida alrededor de la gestión de energía cogn
 pnpm install                        # Instalar dependencias
 pnpm dev                            # Dev server (http://localhost:3000)
 pnpm build                          # Build de producción
-pnpm lint                           # ESLint strict — debe pasar con 0 errores
-pnpm typecheck                      # tsc --noEmit — debe pasar
+pnpm lint                           # ESLint strict ( debe pasar con 0 errores
+pnpm typecheck                      # tsc --noEmit ) debe pasar
 npx convex dev                      # Publica las funciones en el deployment de dev y regenera convex/_generated
 npx convex run migrations/<fichero>:run   # Corre una migración de datos contra dev (ver «Migraciones de datos»)
 pnpm test                           # Suite completa (lógica pura, sin base)
@@ -46,12 +46,17 @@ pnpm migrate:convex                 # Importador Postgres → Convex (scripts/mi
 - **Deploy**: Vercel + Convex
 - **Package manager**: pnpm (NO npm, NO yarn)
 
-## Restricciones de arquitectura — no violar
+## Restricciones de arquitectura: no violar
 
 1. **$0/mes de infraestructura.** Todo dentro de free tiers de Vercel + Convex.
 2. **Sin Redis, sin BullMQ, sin servidor persistente.** 100% serverless.
 3. **Sin WebSockets.** Vercel Serverless no soporta conexiones persistentes. Lo que refresca hoy es `refetchOnWindowFocus`, el default de TanStack Query: con un solo usuario, volver a la pestaña llega a tiempo. `refetchInterval` no se usa en ningún sitio y no es la alternativa prescrita: cada intervalo activo es una invocación por usuario y por minuto contra el free tier. La señal que reabriría la decisión es el agente MCP escribiendo mientras miras el tablero.
-4. **10s por función, salvo excepción justificada.** Es el presupuesto por defecto y las rutas que lo declaran usan `export const maxDuration = 10`. La única excepción viva es `/api/mcp`, en 60s, porque el protocolo mantiene la petición abierta mientras el agente encadena herramientas. Subir el límite en una ruta nueva es una decisión, no un ajuste: escríbela en el comentario de la ruta. Paginar lo pesado sigue siendo la respuesta primero.
+4. **10s por función, salvo excepción justificada.** El presupuesto está declarado en dos sitios y no es prosa en ninguno de los dos:
+
+   - **En Convex**, `DEFAULT_BUDGET_MS` de `convex/lib/fn.ts`. Una acción nace acotada a 10 s sin que su autor tenga que acordarse; `kinoAction(30_000)` es la única por encima hoy (borrar la cuenta) y lo dice en su comentario.
+   - **En Next**, `export const maxDuration`. Lo declaran las tres rutas que hacen trabajo pesado: los dos ZIP de export en 10 s, y `/api/mcp` en 60 s. Esa es **la única excepción viva**, y existe porque el protocolo mantiene la petición abierta mientras el agente encadena herramientas.
+
+   Subir el límite es una decisión, no un ajuste: se escribe en el comentario de la función o la ruta. Y **acotar lo pesado sigue siendo la respuesta primero**: `tasks.list` y `pages.bySystem` devuelven `{ items, restantes }` con un tope duro (`TASK_LIST_LIMIT`, `PAGE_LIST_LIMIT`), y una lectura nueva que pueda crecer sin límite nace igual.
 5. **La sesión la emite y la revoca Clerk.** La cookie `__session` es un JWT corto que Clerk renueva cada minuto contra su backend, así que cerrar una sesión desde el panel la corta de verdad en ese plazo. Kino no guarda sesiones propias ni acepta otro token de navegador.
 
    El conector MCP remoto (`/api/mcp`) entra por el OAuth de Clerk: el cliente se registra en dinámico, el usuario consiente en la pantalla de Clerk y la ruta verifica el access token con `@clerk/mcp-tools`. Convex no puede validar ese token (su `aud` cambia por cliente), así que la ruta firma uno propio de diez minutos con el alcance en `kino_scope` (`convex/lib/mcpToken.ts`, `src/features/mcp/auth.ts`) y Convex lo acepta por el provider `customJwt` de `auth.config.ts`. No hay claves API propias ni tabla `api_keys`.
@@ -132,7 +137,7 @@ diff origen.txt destino.txt
 
 Ensayo sobre el deployment de dev (37 tablas, 550 documentos, 47 cuadernos con 255 106 bytes de contenido, 226 tareas): volcado 2 s y 192 KB cifrados, restauración 12 s, `diff` vacío. Lo que esos números **no** miden es el tamaño real de producción; ese dato sale la primera vez que se restaure allí.
 
-## Estructura — vertical slice
+## Estructura: vertical slice
 
 ```
 src/features/{feature}/
@@ -141,7 +146,7 @@ src/features/{feature}/
 ├── {feature}.service.ts     # Lógica de negocio (funciones puras donde se pueda)
 ├── {feature}.schemas.ts     # Schemas Zod + DTOs
 ├── {feature}.types.ts       # Tipos propios del slice
-└── {feature}.queries.ts     # Opcional — ver abajo
+└── {feature}.queries.ts     # Opcional: ver abajo
 ```
 
 `.queries.ts` lo tienen 8 de los 27 slices, y es a propósito: se separa cuando el
@@ -164,7 +169,7 @@ Toda lectura de servidor pasa por TanStack Query. Cero `fetch` suelto en compone
 
 Los query keys se declaran como **factory por feature** (`taskKeys`, `pageKeys`, …), nunca como strings inline. No hay factory central: cada slice expone el suyo.
 
-### Mutaciones — patrón optimista canónico
+### Mutaciones: patrón optimista canónico
 
 **Todas** las mutaciones lo usan, sin excepción: UI optimista siempre, rollback en error, invalidate en settled. El patrón no se escribe a mano: vive en `src/shared/hooks/optimistic.ts`, en tres formas según sobre qué se aplique.
 
@@ -176,7 +181,7 @@ Los query keys se declaran como **factory por feature** (`taskKeys`, `pageKeys`,
 
 La invalidación es parte del hook, no una decisión por mutación: ahí estaba el riesgo real, con uno invalidando un prefijo y otro una clave exacta, y la diferencia notándose sólo con dos vistas abiertas.
 
-Lo que no cabe —leer de una cache y escribir en otra, o una creación encolable sin conexión— se escribe inline **con un comentario diciendo por qué**. Son cinco casos y los cinco lo llevan.
+Lo que no cabe (leer de una cache y escribir en otra, o una creación encolable sin conexión) se escribe inline **con un comentario diciendo por qué**. Son cinco casos y los cinco lo llevan.
 
 ### Fechas y timezone
 
@@ -184,7 +189,7 @@ Lo que no cabe —leer de una cache y escribir en otra, o una creación encolabl
 
 - Todo pasa por **`src/shared/time`** (`userToday`, `userDayRange`, `sqlUserDay`, `dayToLocalISO`, `zonedDayHourToUtc`). **Está prohibido reimplementar "hoy en la timezone del usuario"** en cualquier otro lado.
 - `dueDate` y `startDate` son **`timestamptz` con hora opcional**, no columnas DATE. Cuidado con el off-by-one.
-- El cálculo de "hoy" y de slots para lógica de negocio se hace **en el servidor** con la timezone del usuario. El cliente solo pinta — así un reloj mal puesto en el cliente no corrompe el plan.
+- El cálculo de "hoy" y de slots para lógica de negocio se hace **en el servidor** con la timezone del usuario. El cliente solo pinta: así un reloj mal puesto en el cliente no corrompe el plan.
 
 ### El contrato de la API
 
@@ -208,8 +213,8 @@ pasaba porque el cliente afirmaba la respuesta con un cast.
   para lo que toca credenciales).
 - **Añadir un endpoint no toca `app/`.** `src/app/api/[...rest]/route.ts` es un
   catch-all y sirve toda la API. Los pocos `route.ts` que quedan son los que no
-  caben en el contrato —`/api/mcp`, los dos 302 de GitHub, los dos
-  ZIP de export y las dos de `uploads`— y cada uno tiene
+  caben en el contrato (`/api/mcp`, los dos 302 de GitHub, los dos
+  ZIP de export y las dos de `uploads`) y cada uno tiene
   su razón escrita en ese archivo. `route()` sobrevive sólo como la escotilla de
   esos casos.
 - **Los códigos de error no cambian:** 401 `UNAUTHORIZED`, 403 `INSUFFICIENT_SCOPE`
@@ -226,11 +231,41 @@ convierte las fechas en texto ISO, que es lo que sobrevive a un `JSON.stringify`
 El cliente usa `TaskTransport`, no `Task`, y un Server Component que pase filas
 como `initialData` tiene que llamar a `toTransport` primero.
 
+### Rutas fuera de Convex
+
+Una ruta de Next **no hereda el modelo de alcances**. El envoltorio de `convex/lib/fn.ts` es quien resuelve la identidad y comprueba `kino_scope`, y una ruta que no llama a Convex por él no pasa por ninguna de las dos cosas.
+
+Así que **toda ruta fuera de Convex comprueba a mano quién llama, o escribe en su comentario por qué no hace falta**. Hoy son seis y cada una lo dice:
+
+| Ruta | Qué exige |
+|---|---|
+| `/api/export/workspace`, `/api/systems/[id]/export` | sesión de navegador (`getServerSession`). Un token del conector MCP trae `userId` y nunca `sessionId`: ahí se corta, y `export.test.ts` lo prueba |
+| `/api/mcp` | el access token de Clerk, verificado con `@clerk/mcp-tools`; de ahí sale el `kino_scope` que Convex recibe |
+| `/api/uploads` | sesión de navegador |
+| `/api/integrations/github/{connect,callback}` | sesión de navegador, más el `state` del OAuth |
+
+Comprobar la sesión **no** es lo mismo que comprobar el alcance. Una ruta que quiera dejar entrar a un agente tiene que mirar su alcance ella misma.
+
 ### Validación
 
-Una sola fuente Zod por entidad, importada por servidor y cliente. El backend **siempre** valida aunque el cliente ya lo hizo. `userId` **siempre** viene de la sesión, nunca del body. Los `metadata` jsonb se validan con Zod discriminado por `systemType` — metadata no es un saco.
+Una sola fuente Zod por entidad, importada por servidor y cliente. El backend **siempre** valida aunque el cliente ya lo hizo. `userId` **siempre** viene de la sesión, nunca del body. Los `metadata` jsonb se validan con Zod discriminado por `systemType`: metadata no es un saco.
 
-Las rutas que tocan credenciales o borran la cuenta (`/api/account/*`) llevan `sessionOnly: true` — en `route()` si el slice no está migrado, en el `meta` del contrato si lo está: sólo la sesión del navegador, nunca una clave API ni un token OAuth del MCP, aunque sean del mismo usuario.
+**Todo campo de texto libre lleva `.max()` con su cifra y su motivo escritos al lado.** Sin tope, un solo `create` agota el plan gratuito. Los tres que lo necesitaban están en `PAGE_CONTENT_MAX` (500.000), `TASK_DESCRIPTION_MAX` (10.000) y `TEXT_ANCHOR_MAX` (2.000). El tope es **de escritura**: lo que ya está guardado por encima se lee igual, porque un tope nuevo no puede dejar a nadie sin su texto.
+
+### El alcance de cada función
+
+Cuánto llega un agente a hacer no lo decide su token, lo decide la función. Son cuatro, y se declaran eligiendo el constructor de `convex/lib/fn.ts`:
+
+| Alcance | Constructor | Qué es |
+|---|---|---|
+| `readOnly` | `kinoQuery`, `kinoZodQuery` | leer. Cualquier conector llega |
+| `direct` | `kinoMutation`, `kinoZodMutation`, `kinoAction()` | escribir algo reversible |
+| `proposed` | `kinoProposal`, `kinoZodProposal` | proponer, no escribir |
+| `closed` | `kinoClosed`, `kinoZodClosed`, `kinoAction(ms, 'closed')` | sólo desde el navegador. Ningún alcance del conector lo abre |
+
+Es el principio de la casa escrito donde se aplica: se escribe lo reversible, se propone lo que suplanta tu voz, y lo irreversible o lo que toca credenciales no se toca desde fuera. `closed` exige sesión, no alcance: un token del conector trae `userId` y nunca `sessionId`.
+
+`convex/reach.test.ts` recorre las funciones públicas, falla si alguna no declara alcance, imprime la cuenta y comprueba que el catálogo del MCP no publica ninguna cerrada. El tipo generado de `api.*` no conserva esa marca, así que **ese test es la comprobación, no el compilador**: quitarlo deja la regla sin nadie que la sostenga.
 
 ### Estado
 
@@ -252,7 +287,12 @@ Todo scoring de energía, urgencia e importancia vive en el **backend** (`*.serv
 
 ### Animaciones
 
-CSS puro — keyframes, transitions, Tailwind. **No instalar Framer Motion.** Animar solo `transform` y `opacity` (GPU), nunca `top`/`left`. Respetar `prefers-reduced-motion`.
+CSS puro: keyframes, transitions, Tailwind. **No instalar Framer Motion.**
+
+- Animar `transform`, `opacity` y color. Nunca una propiedad de layout (`width`, `height`, `top`, `left`), y nunca un desenfoque en bucle: clava la GPU en pantallas de refresco alto.
+- **`prefers-reduced-motion` lo apaga todo desde `globals.css`**, en un bloque sobre `*`. Es global a propósito: `motion-safe:` sólo alcanza las clases de Tailwind, y seis animaciones de la landing se declaran dentro de un `style` inline, donde por construcción no llega.
+- Una animación que corre en JavaScript (una cuenta, un desplazamiento suave) no la apaga ese bloque: tiene que preguntar por la preferencia ella misma, como hace `EnergyTodayCard`.
+- `transition-all` ya no está en ninguna de las primitivas de `components/ui`: cada una declara las propiedades que de verdad transiciona. Quedan 34 en código de feature, y cada pasada de UI convierte las suyas; no se añaden nuevas.
 
 ### UI
 
@@ -271,11 +311,17 @@ Una sola batería, `pnpm test`, en tres proyectos de Vitest según el entorno qu
 
 Un test de función vale lo que vale su versión rota: si se invierte la condición y la batería sigue verde, el test no estaba probando la función.
 
+**Todo `.test.tsx` renderiza desde `@/shared/testing/render`** (`renderWithProviders`, `renderMobile`, `makeTestConvexClient`). Uno que monte su propio árbol de proveedores se rechaza en revisión: cinco copias del árbol se quedan viejas de una en una sin que nada falle. Los polyfills que jsdom no trae viven en `src/shared/testing/jsdom-setup.ts`, cada uno con el componente que lo llama escrito al lado, y `next/navigation` se finge desde `@/shared/testing/navigation`, nunca a mano.
+
+Un `.test.tsx` abre con un comentario de tres a cinco líneas que dice **qué criterio** prueba. Si ese comentario no se puede escribir, el test no vale: un test de humo por pasada convierte la regla en un trámite. Y las aserciones son de `jest-dom` (`toBeVisible`, `toBeDisabled`, `toBeInTheDocument`), nunca `toBeDefined()`, que pasa aunque el elemento esté oculto.
+
+`pnpm test:coverage` imprime el número. No hay umbral que rompa el CI: la mitad `.tsx` arranca cerca de cero y un umbral puesto hoy sólo se cumpliría bajándolo.
+
 ### El manifiesto de arquetipo
 
-`src/shared/lib/system-types.ts` es la fuente única de cómo se comporta cada `systemType`: vocabulario, `folderRole`, `pageRole`, `taskKinds`. **Nunca hardcodear un label o un comportamiento por tipo de sistema** — se lee del manifiesto. Añadir un arquetipo debe ser añadir una entrada, no un fork de código.
+`src/shared/lib/system-types.ts` es la fuente única de cómo se comporta cada `systemType`: vocabulario, `folderRole`, `pageRole`, `taskKinds`. **Nunca hardcodear un label o un comportamiento por tipo de sistema**: se lee del manifiesto. Añadir un arquetipo debe ser añadir una entrada, no un fork de código.
 
-Lo mismo para los mediums de escritura en `src/shared/lib/mediums.ts`. Ojo: el manifiesto gobierna lo que el editor **ofrece** (slash menu, plantilla, export), no lo que el schema admite — los nodos se montan siempre para que cambiar de medium nunca degrade contenido ya escrito.
+Lo mismo para los mediums de escritura en `src/shared/lib/mediums.ts`. Ojo: el manifiesto gobierna lo que el editor **ofrece** (slash menu, plantilla, export), no lo que el schema admite: los nodos se montan siempre para que cambiar de medium nunca degrade contenido ya escrito.
 
 ## Git
 
@@ -296,7 +342,7 @@ Criterio de aceptación cumplido · `typecheck` limpio · `lint` en 0 · tests v
 - **No** usar `any`.
 - **No** saltarse Zod en ningún input de endpoint.
 - **No** introducir Redux ni Jotai, ni meter datos de servidor en un store de Zustand.
-- **No** implementar guards de Premium/subscripción — no existe código de payments.
+- **No** implementar guards de Premium/subscripción: no existe código de payments.
 - **No** reimplementar cálculos de fecha fuera de `src/shared/time`.
 - **No** crear archivos Markdown en el repo más allá de `README.md` y `AGENTS.md`.
 

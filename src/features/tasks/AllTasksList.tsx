@@ -115,7 +115,7 @@ export function AllTasksList({ systems }: AllTasksListProps) {
 
   const overdueTasks = useMemo(() => getOverdueTasks(tasks), [tasks]);
 
-  // Keyboard navigation — j/k move focus, x toggles selection, shift+j/k range-select
+  // Keyboard navigation: j/k move focus, x toggles selection, shift+j/k range-select
   const { focusedTaskId } = useTaskKeyboardNavigation(filtered, {
     onSelect: setSelectedTask,
     onSelectionToggle: toggleSelection,
@@ -273,7 +273,7 @@ export function AllTasksList({ systems }: AllTasksListProps) {
           </div>
         )}
 
-        {/* Overdue group — KIN-29, 30, 31 */}
+        {/* Overdue group: KIN-29, 30, 31 */}
         {selectedTaskIds.size === 0 && (
           <OverdueGroup
             tasks={overdueTasks}

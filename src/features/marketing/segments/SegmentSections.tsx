@@ -6,7 +6,7 @@ import { SegmentHeroViz } from "./SegmentHeroViz";
 import { otherSegments, segmentRegisterHref, type LandingSegment } from "./segments.manifest";
 
 /**
- * Secciones de una landing por segmento. Todas leen del manifiesto — ninguna
+ * Secciones de una landing por segmento. Todas leen del manifiesto: ninguna
  * decide nada por slug salvo la maqueta del hero. Reutilizan los tokens de la
  * identidad dark del route group `(marketing)`: mismo índigo, misma superficie
  * de tarjeta, mismo eyebrow monoespaciado que la landing genérica.
@@ -224,7 +224,7 @@ export function SegmentCta({ segment }: { segment: LandingSegment }) {
 }
 
 /**
- * Puente entre landings. Que alguien llegue a la equivocada es lo normal — aquí
+ * Puente entre landings. Que alguien llegue a la equivocada es lo normal: aquí
  * se corrige sin volver al inicio, y de paso las tres rutas quedan enlazadas
  * entre sí para que se descubran solas.
  */

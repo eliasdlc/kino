@@ -37,7 +37,7 @@ export default async function PlotBoardRoute({
       </div>
       <PageWrapper className="w-full">
         <div className="mb-4">
-          <h1 className="text-xl font-semibold">Tablero — {folder.name}</h1>
+          <h1 className="text-xl font-semibold">Tablero: {folder.name}</h1>
           <p className="text-sm text-muted-foreground">
             Las escenas de la obra por capítulo y arco narrativo.
           </p>

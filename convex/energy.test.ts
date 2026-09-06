@@ -68,6 +68,62 @@ describe('energy', () => {
     expect(applied.failed).toHaveLength(0);
   });
 
+  it('el ritual con cien tareas cabe en el presupuesto y deja un evento, no cien', async () => {
+    const { t, asAna, systemId } = await seed();
+
+    const tareas = await t.run(async (ctx) => {
+      const userId = (await ctx.db.query('users').first())!._id;
+      const ids = [];
+      for (let i = 0; i < 100; i++) {
+        ids.push(
+          await ctx.db.insert('tasks', {
+            userId, systemId, createdBy: userId, createdVia: 'session', title: `Vencida ${i}`,
+            status: 'backlog', priority: 'medium', energyLevel: 'medium', inTodayPlan: false, sortIndex: i,
+            notifiedBeforeDay: false, notifiedDueDay: false, reminderCount: 0,
+            dueDate: Date.parse('2026-01-01T12:00:00Z'), createdAt: 1, updatedAt: 1,
+          }),
+        );
+      }
+      return ids;
+    });
+
+    // El presupuesto de la restricción 4, como techo. La cifra que vale está en
+    // el PR y se midió aparte, con los módulos ya cargados: 46 ms el camino
+    // largo, 13 ms este, para las mismas cien asignaciones. Aquí el número
+    // incluye el import del módulo, así que sólo sirve para ver que no se
+    // dispara; el guardián real de este test es el evento.
+    const inicio = Date.now();
+    const applied = await asAna.mutation(api.energy.applyWeeklyRitual, {
+      assignments: tareas.map((taskId, i) => ({ taskId, date: `2026-09-${String(8 + (i % 5)).padStart(2, '0')}` })),
+    });
+    const tardo = Date.now() - inicio;
+
+    expect(applied.applied).toHaveLength(100);
+    expect(applied.failed).toHaveLength(0);
+    expect(tardo).toBeLessThan(10_000);
+
+    const eventos = await t.run((ctx) => ctx.db.query('eventLog').collect());
+    expect(eventos).toHaveLength(1);
+    expect(eventos[0]!.action).toBe('energy.applyWeeklyRitual');
+    // Cien fechas anteriores no caben en los 2.048 bytes del payload, así que
+    // el reparto grande deja la cuenta y dice que omitió el resto.
+    expect(eventos[0]!.payload).toMatchObject({ reprogramadas: 100, anteriorOmitido: true });
+
+    const una = await asAna.query(api.tasks.byId, { id: tareas[0]! });
+    expect(una.startDate).not.toBeNull();
+  });
+
+  it('un reparto pequeño se lleva las fechas anteriores, para poder deshacerlo', async () => {
+    const { t, asAna, systemId } = await seed();
+    const task = await asAna.mutation(api.tasks.create, { systemId, title: 'Vencida', dueDate: '2026-01-01T12:00:00Z' });
+
+    await asAna.mutation(api.energy.applyWeeklyRitual, { assignments: [{ taskId: task.id, date: '2026-09-12' }] });
+
+    const eventos = await t.run((ctx) => ctx.db.query('eventLog').collect());
+    expect(eventos).toHaveLength(1);
+    expect(eventos[0]!.payload).toMatchObject({ reprogramadas: 1, anterior: [{ taskId: task.id, startDate: null }] });
+  });
+
   it('insights: sugiere por importancia y clasifica por palabras del sistema', async () => {
     const { asAna, systemId } = await seed();
     await asAna.mutation(api.tasks.create, { systemId, title: 'Baja', priority: 'low', startDate: new Date().toISOString() });

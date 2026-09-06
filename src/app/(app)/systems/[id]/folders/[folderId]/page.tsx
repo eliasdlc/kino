@@ -36,7 +36,7 @@ export default async function FolderViewRoute({ params }: FolderViewRouteProps) 
     serverQuery(api.tasks.byFolder, { systemId, folderId }),
   ]);
 
-  const folderPages = allPages.filter((p) => p.folderId === folderId);
+  const folderPages = allPages.items.filter((p) => p.folderId === folderId);
   const emptyCopy = containerDetailEmptyCopy(resolveSystemManifest(system));
   const hasDocContent = children.length > 0 || folderPages.length > 0;
 

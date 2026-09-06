@@ -94,7 +94,7 @@ export function PlanTaskRow({
         )}
       </div>
 
-      {/* Actions — visible on hover (always visible on touch) */}
+      {/* Actions: visible on hover (always visible on touch) */}
       {!isDone && (
         <div className="flex items-center gap-1 shrink-0 md:opacity-0 md:group-hover:opacity-100 md:transition-opacity">
           <button

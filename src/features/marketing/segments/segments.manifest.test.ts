@@ -15,7 +15,7 @@ import {
  * El manifiesto de segmentos es contenido, pero sostiene un contrato: el slug de
  * la URL, el `landingSlug` de la identidad y el `?para=` que llega al onboarding
  * tienen que ser la misma cadena. Si se desalinean, la landing sigue pintándose
- * — y el usuario cae en un onboarding que le vuelve a preguntar quién es.
+ *: y el usuario cae en un onboarding que le vuelve a preguntar quién es.
  */
 describe('manifiesto de segmentos', () => {
   it('cubre los tres segmentos de la fase y no repite slugs', () => {

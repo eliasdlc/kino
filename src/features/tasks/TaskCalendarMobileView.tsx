@@ -42,7 +42,7 @@ function TaskRow({ task, onClick }: { task: TaskTransport; onClick?: () => void 
 
 /**
  * Variante mobile del calendario: grid compacto con dots por día (patrón
- * agenda) + lista de tareas del día seleccionado debajo. Sin drag & drop —
+ * agenda) + lista de tareas del día seleccionado debajo. Sin drag & drop:
  * en touch se asigna fecha desde el detalle de la tarea.
  */
 export function TaskCalendarMobileView({

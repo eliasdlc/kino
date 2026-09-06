@@ -15,7 +15,7 @@ import { TrackOnMount } from "@/shared/observability/TrackOnMount";
 /**
  * Landing por arquetipo (D14). Una ruta, tres páginas: el contenido sale del
  * manifiesto de segmentos, así que añadir un segmento no toca este archivo.
- * Estáticas y prerenderizadas — son la puerta de entrada indexable de cada
+ * Estáticas y prerenderizadas: son la puerta de entrada indexable de cada
  * segmento, no una vista de app.
  */
 

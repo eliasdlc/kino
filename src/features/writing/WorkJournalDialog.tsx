@@ -76,7 +76,7 @@ function JournalDayRow({ entry }: { entry: JournalDay }) {
 
 /**
  * Diario de la obra (PLAN-11 §9): el histórico de sesiones e hitos. Nada de esto
- * se guarda como evento — se reconstruye de las sesiones y de los capítulos
+ * se guarda como evento: se reconstruye de las sesiones y de los capítulos
  * terminados, así que también existe para el pasado que aún no se registraba.
  */
 export function WorkJournalDialog({

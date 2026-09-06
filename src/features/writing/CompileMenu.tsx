@@ -32,7 +32,7 @@ import { useManuscript } from "./writing.hooks";
  * un `.docx` es un zip de XML que arma `jszip`, que ya es dependencia: así una
  * novela larga no se pelea con el límite de 10s de la función serverless. El PDF
  * lo hace el propio navegador imprimiendo el modo lectura, que ya tiene su hoja
- * de estilos — un motor de PDF en el bundle haría peor lo que ya se hace bien.
+ * de estilos: un motor de PDF en el bundle haría peor lo que ya se hace bien.
  */
 export function CompileMenu({
   folderId,

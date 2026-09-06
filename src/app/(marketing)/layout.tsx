@@ -3,7 +3,7 @@ import { MarketingFooter } from "@/features/marketing/MarketingFooter";
 
 /**
  * Shell del sitio público (landing + docs). Tema dark propio y fuentes
- * exclusivas de marketing — no carga ninguno de los providers de la app.
+ * exclusivas de marketing: no carga ninguno de los providers de la app.
  * Cada página monta su propia <MarketingNav variant=.../>; el footer es común.
  */
 export default function MarketingLayout({

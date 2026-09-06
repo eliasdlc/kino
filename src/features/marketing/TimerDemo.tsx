@@ -54,7 +54,7 @@ export function TimerDemo() {
       </button>
       <div className="min-w-0 flex-1">
         <p className="mb-0.5 text-sm font-semibold text-[#e4e4e7]">
-          {on ? "Sesión en curso — toca para pausar" : "Toca el timer para probarlo"}
+          {on ? "Sesión en curso: toca para pausar" : "Toca el timer para probarlo"}
         </p>
         <p className="text-[13px] text-[#6b6b74]">
           Pomodoro, estimado o libre. Al parar, un toque registra cómo fue tu energía.

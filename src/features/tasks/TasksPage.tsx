@@ -24,7 +24,7 @@ export function TasksPageClient({ systems }: TasksPageProps) {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-lg font-semibold">Tareas</h1>
-          <p className="text-sm text-muted-foreground">El cerebro de Kino — qué deberías hacer hoy.</p>
+          <p className="text-sm text-muted-foreground">El cerebro de Kino: qué deberías hacer hoy.</p>
         </div>
         <Button variant="outline" className="w-fit" onClick={() => setOpen(true)}>
           <Plus size={16} className="mr-1" />

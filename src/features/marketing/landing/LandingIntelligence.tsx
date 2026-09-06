@@ -3,7 +3,7 @@ import { TimerDemo } from "../TimerDemo";
 import { cardSurface, eyebrow } from "../styles";
 
 const COACH_LINES = [
-  "Son las 14h. Tu pico empieza en 2h — ahora toca lo liviano.",
+  "Son las 14h. Tu pico empieza en 2h: ahora toca lo liviano.",
   "Hiciste todo lo de hoy. Te queda energía media: ¿una más o descansamos?",
 ];
 
@@ -36,11 +36,11 @@ export function LandingIntelligence() {
               Tu curva, aprendida
             </h3>
             <p className="flex-1 text-[15px] text-[#a1a1aa]">
-              Check-ins de 2 segundos + sesiones de foco = una predicción que mejora sola. Kino
-              sabe si eres alondra, búho o algo intermedio.
+              Dices si eres alondra, búho o algo intermedio. A partir de ahí, check-ins de 2
+              segundos y sesiones de foco afinan la predicción sola.
             </p>
             <p className="mt-2 font-jetbrains text-xs text-[#6b6b74]">
-              → cronotipo detectado automáticamente
+              → la curva se afina con cada check-in
             </p>
           </div>
 

@@ -23,7 +23,7 @@ import type { Suggestion, SuggestionKind } from "./studio";
  *
  * Cada sugerencia enseña el dato del que sale. Esa es toda la diferencia entre
  * una señal y una corazonada, y es la promesa del proyecto: inteligencia real
- * que no miente. Nada de esto se inventa nada — sale de sesiones, menciones y
+ * que no miente. Nada de esto se inventa nada: sale de sesiones, menciones y
  * capítulos que Kino ya tenía.
  */
 

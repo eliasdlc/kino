@@ -94,7 +94,7 @@ function mapError(error: unknown): NextResponse {
 }
 
 /**
- * Se usa en dos pasos —`route<{ id: string }>()({ … }, handler)`— y el paréntesis
+ * Se usa en dos pasos (`route<{ id: string }>()({ … }, handler)`) y el paréntesis
  * vacío no es un capricho: TypeScript no infiere los genéricos a medias. Así el
  * único que se escribe a mano es el de `params`, mientras `body` y `query` se
  * deducen de sus schemas Zod y no pueden declararse distintos de lo que valida.

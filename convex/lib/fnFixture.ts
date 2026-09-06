@@ -1,5 +1,5 @@
 import { v } from 'convex/values';
-import { kinoAction, kinoMutation, kinoProposal, kinoQuery } from './fn';
+import { kinoAction, kinoClosed, kinoMutation, kinoProposal, kinoQuery } from './fn';
 
 // Sondas del envoltorio para `convex/fn.test.ts`. Devuelven lo mínimo y sólo a quien
 // tiene sesión; existen para que el test llame a una función real de cada clase.
@@ -17,6 +17,16 @@ export const write = kinoMutation({
 export const propose = kinoProposal({
   args: {},
   handler: async (ctx) => ({ userId: ctx.user._id, scope: ctx.scope }),
+});
+
+export const close = kinoClosed({
+  args: {},
+  handler: async (ctx) => ({ userId: ctx.user._id, scope: ctx.scope, channel: ctx.channel }),
+});
+
+export const actClosed = kinoAction(50, 'closed')({
+  args: {},
+  handler: async (ctx) => ({ userId: ctx.user._id, channel: ctx.channel }),
 });
 
 export const act = kinoAction(50)({

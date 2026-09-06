@@ -6,7 +6,7 @@ import { useUpdateFolder } from "@/features/folders/folders.hooks";
 /**
  * Mesa de referencias (PLAN-11 §7): las entidades que el autor quiere a la vista
  * mientras escribe. Se guardan en `folders.metadata.pinnedEntityIds` de la obra
- * — es estado de la obra, no del capítulo, porque la referencia visual de un
+ *: es estado de la obra, no del capítulo, porque la referencia visual de un
  * personaje sirve en todos sus capítulos.
  */
 

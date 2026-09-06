@@ -27,7 +27,7 @@ function isWithinWindow(peak: { start: number; end: number }, hour: number): boo
  */
 function advisorText(overview: WritingOverview): string {
   if (!overview.peakWindow) {
-    return "Kino todavía está aprendiendo tu ventana creativa — registra tu energía unos días y aparecerá aquí.";
+    return "Tu ventana creativa todavía no tiene datos suficientes: registra tu energía unos días y aparecerá aquí.";
   }
   const window = formatWindow(overview.peakWindow);
   return isWithinWindow(overview.peakWindow, overview.currentHour)
@@ -136,7 +136,7 @@ export function WritingPulse({ systemId }: { systemId: string }) {
     return (
       <div className="flex items-center gap-2 rounded-lg border border-primary/20 bg-primary/5 px-3 py-2 text-sm text-muted-foreground">
         <Sunrise size={15} className="shrink-0 text-primary" />
-        <span>Escribí en tu mejor ventana creativa — tu pico de energía.</span>
+        <span>Escribí en tu mejor ventana creativa: tu pico de energía.</span>
       </div>
     );
   }

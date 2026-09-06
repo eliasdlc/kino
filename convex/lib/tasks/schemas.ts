@@ -43,11 +43,27 @@ export const taskMetadataSchema = z.record(z.string(), z.unknown()).superRefine(
   }
 });
 
+/**
+ * Tope de la descripción de una tarea, en caracteres.
+ *
+ * Una tarea es un renglón con contexto, no un documento: para eso está la
+ * página, que tiene su propio tope y su editor. Diez mil caracteres son unas
+ * mil quinientas palabras, más de lo que nadie escribe en el detalle de una
+ * tarea, y cortan la vía por la que un agente vuelca ahí un texto entero.
+ *
+ * **Sólo se comprueba al escribir.** Lo guardado por encima se lee igual.
+ */
+export const TASK_DESCRIPTION_MAX = 10_000;
+
+const taskDescription = z
+  .string()
+  .max(TASK_DESCRIPTION_MAX, `La descripción pasa de ${TASK_DESCRIPTION_MAX.toLocaleString('es')} caracteres. Lo largo va en una página.`);
+
 export const createTaskSchema = z
   .object({
     systemId: zid('systems'),
     title: z.string().min(1).max(500),
-    description: z.string().optional(),
+    description: taskDescription.optional(),
     status: STATUS.optional(),
     energyLevel: ENERGY.optional(),
     priority: PRIORITY.optional(),
@@ -79,7 +95,7 @@ export const createTaskSchema = z
 export const updateTaskSchema = z
   .object({
     title: z.string().min(1).max(500).optional(),
-    description: z.string().optional(),
+    description: taskDescription.optional(),
     status: STATUS.optional(),
     energyLevel: ENERGY.optional(),
     priority: PRIORITY.optional(),

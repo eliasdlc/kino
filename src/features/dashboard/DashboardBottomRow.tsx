@@ -28,14 +28,14 @@ export function DashboardBottomRow({ weeklyTrends, insight }: Props) {
   return (
     <div className="flex flex-col md:flex-row gap-3 md:h-full md:min-h-0">
 
-      {/* Coach — sugerencias, energía por sistema, sistemas dormidos */}
+      {/* Coach: sugerencias, energía por sistema, sistemas dormidos */}
       <BottomCard title="Coach">
         <CoachPanel />
       </BottomCard>
 
-      {/* Kino te conoce */}
+      {/* Tu patrón: cronotipo aprendido y el bucle de predicción */}
       {insight.chronotype && (
-        <BottomCard title="Kino te conoce">
+        <BottomCard title="Tu patrón">
           <LearningInsightCard insight={insight} />
         </BottomCard>
       )}

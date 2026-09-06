@@ -192,7 +192,7 @@ function TaskDetailForm({ task, systemId, onClose }: TaskDetailFormProps) {
         />
       </div>
 
-      {/* Categoría (context_tag) — permite crear categorías inline. */}
+      {/* Categoría (context_tag): permite crear categorías inline. */}
       <TagPicker systemId={systemId} value={contextTagId} onChange={setContextTagId} label="Categoría" allowCreate />
 
       <div className="space-y-1.5">

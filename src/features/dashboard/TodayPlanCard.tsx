@@ -19,7 +19,7 @@ interface TodayPlanCardProps {
   energyItems?: EnergyPlanItemTransport[];
 }
 
-// Confetti burst — 12 spans, CSS keyframes, GPU-only
+// Confetti burst: 12 spans, CSS keyframes, GPU-only
 function ConfettiBurst() {
   const colors = ['#10b981', '#f59e0b', '#3b82f6', '#ec4899', '#8b5cf6'];
   const spans = Array.from({ length: 12 }, (_, i) => {

@@ -27,7 +27,7 @@ interface DefaultTaskCardProps extends TaskCardProps {
   renderMeta?: (state: TaskCardState) => React.ReactNode;
   isSelected?: boolean;
   onSelectionToggle?: (taskId: string) => void;
-  /** Personal: la card no grita prioridad — sin badge ni bordes rojo/naranja. */
+  /** Personal, la card que no grita prioridad: sin badge ni bordes rojo/naranja. */
   soft?: boolean;
 }
 

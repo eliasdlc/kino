@@ -25,7 +25,7 @@ export function LandingHowItWorks() {
             </h3>
             <p className="text-[15px] text-[#a1a1aa]">
               Tres toques al día: mañana, tarde y noche. Kino detecta tu cronotipo y construye
-              tu curva real — no una genérica.
+              tu curva real: no una genérica.
             </p>
           </div>
 
@@ -33,12 +33,12 @@ export function LandingHowItWorks() {
             <p className="mb-[18px] font-jetbrains text-[13px] font-semibold text-[#818cf8]">02</p>
             <div className="mb-[22px] flex flex-col gap-1.5">
               <PlanRow dot="#f87171" title="Entregar informe" tag="vence hoy" tagColor="#f87171" />
-              <PlanRow dot="#818cf8" title="Diseñar propuesta" tag="🔥 a las 10h" tagColor="#6b6b74" />
-              <PlanRow dot="#52525b" title="Ordenar inbox" tag="🌙 a las 16h" tagColor="#6b6b74" />
+              <PlanRow dot="#818cf8" title="Diseñar propuesta" tag="alta, a las 10h" tagColor="#6b6b74" />
+              <PlanRow dot="#52525b" title="Ordenar inbox" tag="baja, a las 16h" tagColor="#6b6b74" />
             </div>
             <h3 className="mb-2 font-display text-xl font-bold text-[#f4f4f5]">Kino arma tu plan</h3>
             <p className="text-[15px] text-[#a1a1aa]">
-              Urgencia + prioridad + tu energía por hora. Entre 3 y 7 tareas — lo difícil en tu
+              Urgencia + prioridad + tu energía por hora. Entre 3 y 7 tareas: lo difícil en tu
               pico, lo liviano en tus valles.
             </p>
           </div>

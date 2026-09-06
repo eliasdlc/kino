@@ -1,5 +1,5 @@
 /**
- * Marca de Kino — el cuadrado con gradiente índigo y dos "barritas" (energía),
+ * Marca de Kino: el cuadrado con gradiente índigo y dos "barritas" (energía),
  * opcionalmente con el wordmark "kino". Reutilizado en nav, footer y CTAs.
  */
 export function KinoMark({

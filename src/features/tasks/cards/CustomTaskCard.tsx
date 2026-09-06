@@ -10,7 +10,7 @@ import type { TaskCardState } from "./useTaskCard";
 import type { TaskTransport } from "../tasks.types";
 
 /**
- * Custom — la única card cuyo vocabulario no está en el código: el kind sale de
+ * Custom, la única card cuyo vocabulario no está en el código: el kind sale de
  * lo que el usuario compuso para SU sistema (D16). Sin composición se comporta
  * exactamente como la fila genérica.
  */

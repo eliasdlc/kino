@@ -14,7 +14,7 @@ export function LandingFinalCta() {
           Tu energía ya tiene un plan.
         </h2>
         <p className="mb-9 text-[17px] text-[#a1a1aa]">
-          Dos semanas de check-ins y Kino te conocerá mejor que tu agenda.
+          Dos semanas de check-ins y tu curva deja de ser una suposición.
         </p>
         <Link
           href="/register"

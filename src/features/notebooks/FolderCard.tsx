@@ -119,12 +119,12 @@ export function FolderCard({ folder, systemId, onClick, href }: FolderCardProps)
           </DropdownMenu>
         }
       >
-        {/* Folder back — solid neutral, floating inside a background-coloured outline */}
+        {/* Folder back: solid neutral, floating inside a background-coloured outline */}
         <div className="absolute inset-0 rounded-[20px] bg-zinc-200 dark:bg-zinc-600 sm:rounded-[28px]">
           <div className="absolute inset-0 rounded-[20px] shadow-[inset_0_0_0_4px_var(--background)] sm:rounded-[28px] sm:shadow-[inset_0_0_0_5px_var(--background)]" />
         </div>
 
-        {/* Papers — peek above the flap and fan out on hover */}
+        {/* Papers: peek above the flap and fan out on hover */}
         {hasContent && (
           <div className="absolute left-1/2 top-[15%] z-10 h-[42%] w-[54%] -translate-x-1/2">
             <PaperSheet className="group-hover:-translate-x-3 group-hover:-translate-y-1.5 group-hover:-rotate-[9deg]" />
@@ -133,7 +133,7 @@ export function FolderCard({ folder, systemId, onClick, href }: FolderCardProps)
           </div>
         )}
 
-        {/* Folder front — tabbed flap sitting over the back (tab + shadow seam = the folder).
+        {/* Folder front: tabbed flap sitting over the back (tab + shadow seam = the folder).
             Taller on mobile so a 2-line name + counts never collide on narrow phones. */}
         <div className="absolute inset-x-0 bottom-0 z-20 h-[58%] sm:h-[54%]">
           {/* tab sticking up on the left */}

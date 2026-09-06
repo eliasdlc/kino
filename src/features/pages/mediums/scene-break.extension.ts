@@ -2,7 +2,7 @@ import { Node, mergeAttributes, nodeInputRule } from "@tiptap/react";
 
 /**
  * Separador de escena de la novela (PLAN-11 §6). Es el corte visible dentro de un
- * capítulo — la unidad que el navegador del manuscrito convierte en escenas
+ * capítulo: la unidad que el navegador del manuscrito convierte en escenas
  * navegables (derivadas del contenido, nunca una lista mantenida a mano).
  *
  * Se renderiza como `<div data-scene-break>` en vez de reutilizar el `<hr>` de

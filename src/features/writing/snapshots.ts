@@ -30,7 +30,7 @@ export interface SnapshotDetail extends SnapshotListItem {
 /**
  * Añade el delta de palabras de cada versión contra la anterior. La lista llega
  * de la más nueva a la más vieja, así que "la anterior" es la siguiente del
- * array — el sitio donde es fácil equivocarse de signo.
+ * array: el sitio donde es fácil equivocarse de signo.
  */
 export function withDeltas(
   rows: Array<Omit<SnapshotListItem, "wordsDelta">>,

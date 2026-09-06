@@ -32,7 +32,7 @@ let starting = false;
 
 /**
  * Lo que se disparó antes de que la librería terminara de cargar. El primer
- * evento del funnel es el que ocurre más pronto —la visita a la landing— y
+ * evento del funnel es el que ocurre más pronto (la visita a la landing) y
  * perderlo sesgaría justo el número que se quiere leer.
  */
 const pending: ((posthog: PostHog) => void)[] = [];

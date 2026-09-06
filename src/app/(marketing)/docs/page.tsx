@@ -3,7 +3,7 @@ import { MarketingNav } from "@/features/marketing/MarketingNav";
 import { DocsContent, DOCS_NAV } from "@/features/marketing/docs/DocsContent";
 
 export const metadata: Metadata = {
-  title: "Docs — Cómo funciona Kino",
+  title: "Docs · Cómo funciona Kino",
   description:
     "Aprende Kino en 10 minutos: curva de energía, sistemas, plan diario, focus timer y cómo conectar el MCP a tu asistente de IA.",
 };

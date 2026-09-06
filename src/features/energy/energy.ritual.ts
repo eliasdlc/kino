@@ -23,7 +23,7 @@ import type { Task } from '@/features/tasks/tasks.types';
 export interface RitualDay {
   /** yyyy-MM-dd en la tz del usuario. */
   date: string;
-  /** 'mon' … 'sun' — para etiquetar sin recalcular fechas en el cliente. */
+  /** 'mon' … 'sun': para etiquetar sin recalcular fechas en el cliente. */
   weekday: Weekday;
   /** Puntos de energía ya comprometidos ese día. */
   committedPoints: number;
@@ -84,7 +84,7 @@ const LEFTOVER_EXPLANATION: Record<LeftoverReason, string> = {
  *
  * Función pura: recibe los días con su carga y devuelve el reparto propuesto sin
  * escribir nada. El orden es por importancia (urgencia + prioridad + antigüedad),
- * y cada tarea va al **primer día donde entra** — repartir lo urgente lo más
+ * y cada tarea va al **primer día donde entra**: repartir lo urgente lo más
  * temprano posible es el punto del ritual; balancear la carga a costa de retrasar
  * lo vencido sería resolver el problema contrario.
  */

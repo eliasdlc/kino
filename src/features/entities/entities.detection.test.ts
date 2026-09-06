@@ -52,7 +52,7 @@ describe("detectMentions", () => {
   });
 
   it("prefiere el término más largo y no doble-cuenta solapes", () => {
-    // "Kael Draven" contiene el alias "Kael" — debe contar una sola vez.
+    // "Kael Draven" contiene el alias "Kael": debe contar una sola vez.
     const draven: DetectableEntity = { id: "e-d", name: "Kael Draven", aliases: ["Kael"] };
     const counts = detectMentions("Kael Draven llegó.", [draven]);
     expect(counts.get("e-d")).toBe(1);

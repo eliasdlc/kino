@@ -5,14 +5,14 @@ import { btnPrimary, btnGhost } from "../styles";
 export function LandingHero() {
   return (
     <header className="relative overflow-hidden">
-      {/* Primary energy blob — breathing */}
+      {/* Primary energy blob: breathing */}
       <div className="pointer-events-none absolute -top-[180px] left-1/2 -translate-x-1/2">
         <div
           className="h-[420px] w-[760px] bg-[radial-gradient(ellipse_at_center,rgba(99,102,241,0.18),transparent_70%)]"
           style={{ animation: "energy-breathe 5s ease-in-out infinite" }}
         />
       </div>
-      {/* Warm accent blob — offset, slower */}
+      {/* Warm accent blob: offset, slower */}
       <div className="pointer-events-none absolute -bottom-[80px] right-[5%]">
         <div
           className="h-[320px] w-[500px] bg-[radial-gradient(ellipse_at_center,rgba(249,115,22,0.07),transparent_70%)]"
@@ -35,7 +35,7 @@ export function LandingHero() {
             <strong className="font-semibold text-[#e4e4e7]">
               qué hacer, cuándo hacerlo y cuándo descansar
             </strong>
-            . Un plan diario corto y accionable — no otra lista infinita.
+            . Un plan diario corto y accionable: no otra lista infinita.
           </p>
           <div className="flex flex-wrap items-center gap-3.5">
             <Link
@@ -50,7 +50,7 @@ export function LandingHero() {
           </div>
         </div>
 
-        {/* Hero card — gentle float */}
+        {/* Hero card: gentle float */}
         <div
           className="min-w-[min(100%,360px)] shrink grow-0 basis-[440px]"
           style={{ animation: "hero-float 6s ease-in-out infinite" }}

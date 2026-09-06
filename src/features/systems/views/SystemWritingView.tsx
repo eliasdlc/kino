@@ -74,7 +74,7 @@ function ObraCard({ obra, manuscripts, systemId, pulse }: {
   const wordGoal = readWordGoal(meta);
   const totalWords = manuscripts.reduce((sum, p) => sum + p.wordCount, 0);
   // Días sin escribir: se mide contra sesiones reales, no contra `updatedAt` de
-  // las pages — renombrar un capítulo no debería resucitar una obra parada.
+  // las pages: renombrar un capítulo no debería resucitar una obra parada.
   const stale = pulse?.daysSinceLastSession ?? null;
 
   /** Reescribe la metadata con las claves del manifiesto (el legacy `kind` sale). */
@@ -204,7 +204,7 @@ function ObraCard({ obra, manuscripts, systemId, pulse }: {
 }
 
 /**
- * Writing — el único arquetipo pages-first: abre en la biblioteca de obras
+ * Writing. El único arquetipo pages-first: abre en la biblioteca de obras
  * (folders) con sus manuscritos (pages). El progreso de palabras se deriva del
  * contenido Tiptap (nunca un contador persistido). La prueba del manifiesto: un
  * arquetipo radicalmente distinto montado con un manifiesto + esta vista.
@@ -214,7 +214,7 @@ export function SystemWritingView({ system }: SystemViewProps) {
   const { data: pages = [] } = usePages(system.id);
   const { data: overview } = useWritingOverview(system.id);
 
-  // Manuscritos sueltos (sin obra) — se muestran aparte para no perderlos.
+  // Manuscritos sueltos (sin obra): se muestran aparte para no perderlos.
   const looseManuscripts = pages.filter((p) => !p.folderId);
   const pulseByFolder = new Map((overview?.works ?? []).map((w) => [w.folderId, w]));
 
@@ -252,7 +252,7 @@ export function SystemWritingView({ system }: SystemViewProps) {
         <div className="rounded-lg border border-dashed p-8 text-center space-y-2">
           <Feather className="mx-auto size-8 text-muted-foreground/40" />
           <p className="text-sm text-muted-foreground">
-            Crea una obra —un libro, un blog, un cómic— y ponle una meta de palabras.
+            Crea una obra (un libro, un blog, un cómic) y ponle una meta de palabras.
           </p>
         </div>
       ) : (

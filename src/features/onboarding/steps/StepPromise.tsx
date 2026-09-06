@@ -69,7 +69,7 @@ export function StepPromise({
 
         {preview.length === 0 ? (
           <p className="text-sm text-muted-foreground py-2">
-            Arrancas en blanco. Kino ordena lo primero que escribas.
+            Arrancas en blanco. Lo primero que escribas queda ordenado.
           </p>
         ) : (
           preview.map((task, i) => (

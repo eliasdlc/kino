@@ -114,7 +114,7 @@ export function TaskFilterPanel({ filters, systems, onChange }: TaskFilterPanelP
       <PillGroup label="Energía" options={ENERGY_OPTIONS} selected={filters.energy} onToggle={(v) => set('energy', toggle(filters.energy, v))} />
       <PillGroup label="Tipo" options={TYPE_OPTIONS} selected={filters.type} onToggle={(v) => set('type', toggle(filters.type, v))} />
 
-      {/* Fecha — single select */}
+      {/* Fecha: single select */}
       <div className="space-y-1.5">
         <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wide">Fecha</p>
         <div className="flex flex-wrap gap-1.5">

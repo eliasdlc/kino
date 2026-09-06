@@ -16,11 +16,12 @@ export default async function PageEditorRoute({ params }: PageEditorRouteProps) 
 
   if (!session) redirect("/login");
 
-  const [page, system, allPages] = await Promise.all([
+  const [page, system, todas] = await Promise.all([
     serverQuery(api.pages.byId, { id: pageId }).catch(() => null),
     serverQuery(api.systems.byId, { id: systemId }).catch(() => null),
     serverQuery(api.pages.bySystem, { systemId }),
   ]);
+  const allPages = todas.items;
 
   if (!page || !system) notFound();
 

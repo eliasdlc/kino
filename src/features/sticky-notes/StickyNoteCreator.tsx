@@ -120,7 +120,7 @@ export function StickyNoteCreator({
         style={popoverStyle(anchorPoint)}
         onClick={(e) => e.stopPropagation()}
       >
-        {/* La nota — compacta, editable */}
+        {/* La nota: compacta, editable */}
         <div
           className="rounded-lg p-3 flex flex-col gap-1"
           style={{ ...paperStyle(colors.hex), color: colors.textHex }}
@@ -181,7 +181,7 @@ export function StickyNoteCreator({
           })}
         </div>
 
-        {/* Colocación — solo cuando no viene una posición fija */}
+        {/* Colocación: solo cuando no viene una posición fija */}
         {showPlacement && (
           <div className="grid grid-cols-3 gap-1.5">
             {(

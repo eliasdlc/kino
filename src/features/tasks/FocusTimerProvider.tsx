@@ -285,7 +285,7 @@ export function FocusTimerProvider({ children }: { children: ReactNode }) {
     prevPhaseRef.current = state.phase;
   }, [state.expired, state.phase]);
 
-  // Session recap toast — fires once when phase becomes 'recap'
+  // Session recap toast: fires once when phase becomes 'recap'
   useEffect(() => {
     if (state.phase !== 'recap' || recapShownRef.current) return;
     recapShownRef.current = true;
@@ -302,7 +302,7 @@ export function FocusTimerProvider({ children }: { children: ReactNode }) {
     let estimateMsg = '';
     if (estimatedMinutes && workedMinutes > 0) {
       if (workedMinutes <= Math.round(estimatedMinutes * 1.1)) {
-        estimateMsg = `Estimaste ${estimatedMinutes} min — ¡buen ojo!`;
+        estimateMsg = `Estimaste ${estimatedMinutes} min: ¡buen ojo!`;
       } else if (workedMinutes > Math.round(estimatedMinutes * 1.5)) {
         estimateMsg = `Estimaste ${estimatedMinutes} min, trabajaste ${workedMinutes} min`;
       }

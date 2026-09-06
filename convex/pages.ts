@@ -99,12 +99,33 @@ async function linkedTasksOf(ctx: Ctx, userId: Id<'users'>, pageId: Id<'pages'>)
 
 // ── Lecturas ────────────────────────────────────────────────────────────────
 
+/**
+ * Tope de páginas por respuesta.
+ *
+ * Cada página de la lista cuesta dos consultas más (sus etiquetas y sus
+ * subpáginas), así que sin tope un sistema de escritura grande convierte una
+ * lectura en varios cientos de operaciones dentro de una sola invocación. El
+ * número sale de que el sistema más grande del deployment de dev tiene 47
+ * cuadernos: doscientas deja sitio para crecer un orden de magnitud antes de
+ * que nadie vea un recorte.
+ *
+ * Lo que la lista devuelve no lleva `content` y nunca lo llevó: `PageListItem`
+ * manda `contentPreview`, recortado a 300 caracteres. Lo que el tope acota es
+ * el abanico de consultas, no el tamaño del payload.
+ */
+export const PAGE_LIST_LIMIT = 200;
+
 export const bySystem = kinoZodQuery({
   args: { systemId: zid('systems') },
   handler: async (ctx, { systemId }) => {
     const docs = await ctx.db.query('pages').withIndex('by_system', (q) => q.eq('systemId', systemId)).collect();
     const own = docs.filter((doc) => doc.userId === ctx.user._id && alive(doc)).sort((a, b) => a.updatedAt - b.updatedAt);
-    return Promise.all(own.map((doc) => pageListItem(ctx, doc)));
+    const pagina = own.slice(0, PAGE_LIST_LIMIT);
+    return {
+      items: await Promise.all(pagina.map((doc) => pageListItem(ctx, doc))),
+      /** Cuántas quedaron fuera del tope. Cero es la respuesta normal. */
+      restantes: own.length - pagina.length,
+    };
   },
 });
 
@@ -187,12 +208,30 @@ export const search = kinoZodQuery({
 
 // ── Escrituras ──────────────────────────────────────────────────────────────
 
+/**
+ * Tope del contenido de una página, en caracteres.
+ *
+ * Es la única vía por la que una persona agota el plan gratuito en una sola
+ * petición, y también el campo donde un tope corto se nota: aquí vive un
+ * capítulo entero. La cifra sale de que un documento de Convex no pasa de 1 MB
+ * y `content` es sólo uno de sus campos; medio millón de caracteres es un
+ * capítulo de quince mil palabras con todo su HTML de Tiptap y aún deja sitio.
+ *
+ * **Sólo se comprueba al escribir.** Lo que ya está guardado por encima del
+ * tope se lee igual: un tope nuevo no puede dejar a nadie sin su texto.
+ */
+export const PAGE_CONTENT_MAX = 500_000;
+
+const pageContent = z
+  .string()
+  .max(PAGE_CONTENT_MAX, `El contenido pasa de ${PAGE_CONTENT_MAX.toLocaleString('es')} caracteres. Pártelo en varias páginas.`);
+
 const createFields = {
   systemId: zid('systems'),
   folderId: zid('folders').optional(),
   parentPageId: zid('pages').optional(),
   title: z.string().max(500).optional(),
-  content: z.string().nullable().optional(),
+  content: pageContent.nullable().optional(),
   clientRequestId: z.string().min(1).max(64).optional(),
 };
 
@@ -253,7 +292,7 @@ export const update = kinoZodMutation({
   args: {
     id: zid('pages'),
     title: z.string().max(500).nullable().optional(),
-    content: z.string().nullable().optional(),
+    content: pageContent.nullable().optional(),
     folderId: zid('folders').nullable().optional(),
     isPinned: z.boolean().optional(),
     /** Versión optimista: el `updatedAt` que traía la página al leerla. */
