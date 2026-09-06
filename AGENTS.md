@@ -231,11 +231,41 @@ convierte las fechas en texto ISO, que es lo que sobrevive a un `JSON.stringify`
 El cliente usa `TaskTransport`, no `Task`, y un Server Component que pase filas
 como `initialData` tiene que llamar a `toTransport` primero.
 
+### Rutas fuera de Convex
+
+Una ruta de Next **no hereda el modelo de alcances**. El envoltorio de `convex/lib/fn.ts` es quien resuelve la identidad y comprueba `kino_scope`, y una ruta que no llama a Convex por él no pasa por ninguna de las dos cosas.
+
+Así que **toda ruta fuera de Convex comprueba a mano quién llama, o escribe en su comentario por qué no hace falta**. Hoy son seis y cada una lo dice:
+
+| Ruta | Qué exige |
+|---|---|
+| `/api/export/workspace`, `/api/systems/[id]/export` | sesión de navegador (`getServerSession`). Un token del conector MCP trae `userId` y nunca `sessionId`: ahí se corta, y `export.test.ts` lo prueba |
+| `/api/mcp` | el access token de Clerk, verificado con `@clerk/mcp-tools`; de ahí sale el `kino_scope` que Convex recibe |
+| `/api/uploads` | sesión de navegador |
+| `/api/integrations/github/{connect,callback}` | sesión de navegador, más el `state` del OAuth |
+
+Comprobar la sesión **no** es lo mismo que comprobar el alcance. Una ruta que quiera dejar entrar a un agente tiene que mirar su alcance ella misma.
+
 ### Validación
 
 Una sola fuente Zod por entidad, importada por servidor y cliente. El backend **siempre** valida aunque el cliente ya lo hizo. `userId` **siempre** viene de la sesión, nunca del body. Los `metadata` jsonb se validan con Zod discriminado por `systemType`: metadata no es un saco.
 
-Las rutas que tocan credenciales o borran la cuenta (`/api/account/*`) llevan `sessionOnly: true`: en `route()` si el slice no está migrado, en el `meta` del contrato si lo está: sólo la sesión del navegador, nunca una clave API ni un token OAuth del MCP, aunque sean del mismo usuario.
+**Todo campo de texto libre lleva `.max()` con su cifra y su motivo escritos al lado.** Sin tope, un solo `create` agota el plan gratuito. Los tres que lo necesitaban están en `PAGE_CONTENT_MAX` (500.000), `TASK_DESCRIPTION_MAX` (10.000) y `TEXT_ANCHOR_MAX` (2.000). El tope es **de escritura**: lo que ya está guardado por encima se lee igual, porque un tope nuevo no puede dejar a nadie sin su texto.
+
+### El alcance de cada función
+
+Cuánto llega un agente a hacer no lo decide su token, lo decide la función. Son cuatro, y se declaran eligiendo el constructor de `convex/lib/fn.ts`:
+
+| Alcance | Constructor | Qué es |
+|---|---|---|
+| `readOnly` | `kinoQuery`, `kinoZodQuery` | leer. Cualquier conector llega |
+| `direct` | `kinoMutation`, `kinoZodMutation`, `kinoAction()` | escribir algo reversible |
+| `proposed` | `kinoProposal`, `kinoZodProposal` | proponer, no escribir |
+| `closed` | `kinoClosed`, `kinoZodClosed`, `kinoAction(ms, 'closed')` | sólo desde el navegador. Ningún alcance del conector lo abre |
+
+Es el principio de la casa escrito donde se aplica: se escribe lo reversible, se propone lo que suplanta tu voz, y lo irreversible o lo que toca credenciales no se toca desde fuera. `closed` exige sesión, no alcance: un token del conector trae `userId` y nunca `sessionId`.
+
+`convex/reach.test.ts` recorre las funciones públicas, falla si alguna no declara alcance, imprime la cuenta y comprueba que el catálogo del MCP no publica ninguna cerrada. El tipo generado de `api.*` no conserva esa marca, así que **ese test es la comprobación, no el compilador**: quitarlo deja la regla sin nadie que la sostenga.
 
 ### Estado
 

@@ -34,6 +34,9 @@ function uniqueSlug(base: string, used: Set<string>): string {
 }
 
 export async function GET(_request: NextRequest) {
+  // Ruta fuera de Convex: no hereda el modelo de alcances, así que la
+  // comprobación es explícita. `getServerSession` exige sesión de navegador,
+  // que es lo que deja fuera a un token del conector MCP.
   const session = await getServerSession();
   if (!session) {
     return NextResponse.json({ code: "UNAUTHORIZED" }, { status: 401 });
