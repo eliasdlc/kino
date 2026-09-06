@@ -208,12 +208,30 @@ export const search = kinoZodQuery({
 
 // ── Escrituras ──────────────────────────────────────────────────────────────
 
+/**
+ * Tope del contenido de una página, en caracteres.
+ *
+ * Es la única vía por la que una persona agota el plan gratuito en una sola
+ * petición, y también el campo donde un tope corto se nota: aquí vive un
+ * capítulo entero. La cifra sale de que un documento de Convex no pasa de 1 MB
+ * y `content` es sólo uno de sus campos; medio millón de caracteres es un
+ * capítulo de quince mil palabras con todo su HTML de Tiptap y aún deja sitio.
+ *
+ * **Sólo se comprueba al escribir.** Lo que ya está guardado por encima del
+ * tope se lee igual: un tope nuevo no puede dejar a nadie sin su texto.
+ */
+export const PAGE_CONTENT_MAX = 500_000;
+
+const pageContent = z
+  .string()
+  .max(PAGE_CONTENT_MAX, `El contenido pasa de ${PAGE_CONTENT_MAX.toLocaleString('es')} caracteres. Pártelo en varias páginas.`);
+
 const createFields = {
   systemId: zid('systems'),
   folderId: zid('folders').optional(),
   parentPageId: zid('pages').optional(),
   title: z.string().max(500).optional(),
-  content: z.string().nullable().optional(),
+  content: pageContent.nullable().optional(),
   clientRequestId: z.string().min(1).max(64).optional(),
 };
 
@@ -274,7 +292,7 @@ export const update = kinoZodMutation({
   args: {
     id: zid('pages'),
     title: z.string().max(500).nullable().optional(),
-    content: z.string().nullable().optional(),
+    content: pageContent.nullable().optional(),
     folderId: zid('folders').nullable().optional(),
     isPinned: z.boolean().optional(),
     /** Versión optimista: el `updatedAt` que traía la página al leerla. */

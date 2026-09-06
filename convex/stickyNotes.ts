@@ -43,11 +43,28 @@ async function ownNote(ctx: QueryCtx | MutationCtx, userId: Id<'users'>, id: Id<
   return doc;
 }
 
+/**
+ * Tope del ancla de texto de una nota, en caracteres.
+ *
+ * El ancla es el fragmento del texto al que la nota se pega, y entra al índice
+ * de lemas de la búsqueda: sin tope, pegar una nota a un capítulo entero mete
+ * el capítulo entero en el índice dos veces. Dos mil caracteres son varios
+ * párrafos, que es más de lo que ancla nadie.
+ *
+ * **Sólo se comprueba al escribir.** Lo guardado por encima se lee igual, y
+ * sigue entrando al índice como estaba.
+ */
+export const TEXT_ANCHOR_MAX = 2_000;
+
+const textAnchor = z
+  .string()
+  .max(TEXT_ANCHOR_MAX, `El ancla pasa de ${TEXT_ANCHOR_MAX.toLocaleString('es')} caracteres. Ancla un párrafo, no el capítulo.`);
+
 const noteFields = {
   title: z.string().max(200).optional(),
   content: z.string().max(500).optional(),
   color: z.enum(COLORS).optional(),
-  textAnchor: z.string().nullable().optional(),
+  textAnchor: textAnchor.nullable().optional(),
   positionSide: z.enum(POSITION_SIDES).nullable().optional(),
   positionY: z.number().min(0).max(1).nullable().optional(),
   // Fracción relativa a la columna de texto; negativa o mayor que 1 es el margen.
@@ -155,7 +172,7 @@ export const update = kinoZodMutation({
     positionX: z.number().min(-5).max(5).nullable().optional(),
     anchorId: z.string().nullable().optional(),
     stackId: z.string().nullable().optional(),
-    textAnchor: z.string().nullable().optional(),
+    textAnchor: textAnchor.nullable().optional(),
     isEureka: z.boolean().optional(),
   },
   handler: async (ctx, { id, ...data }) => {

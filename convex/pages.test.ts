@@ -1,7 +1,7 @@
 import { convexTest } from 'convex-test';
 import { describe, expect, it } from 'vitest';
 import { api } from './_generated/api';
-import { PAGE_LIST_LIMIT } from './pages';
+import { PAGE_CONTENT_MAX, PAGE_LIST_LIMIT } from './pages';
 import schema from './schema';
 
 // La lista de páginas de un sistema. Lo que se prueba aquí es el tope: sin él,
@@ -77,5 +77,40 @@ describe('pages.bySystem', () => {
 
     expect(items).toHaveLength(PAGE_LIST_LIMIT);
     expect(restantes).toBe(3);
+  });
+});
+
+describe('el tope del contenido', () => {
+  it('un capítulo largo de verdad entra sin problema', async () => {
+    const { asAna, systemId } = await seed();
+    // Quince mil palabras con su HTML: el capítulo más largo que nadie escribe.
+    const capitulo = `<p>${'palabra '.repeat(15_000)}</p>`;
+    expect(capitulo.length).toBeLessThan(PAGE_CONTENT_MAX);
+
+    const pagina = await asAna.mutation(api.pages.create, { systemId, title: 'Capítulo 1', content: capitulo });
+
+    expect((await asAna.query(api.pages.byId, { id: pagina.id })).content).toHaveLength(capitulo.length);
+  });
+
+  it('pasarse del tope se rechaza al escribir, con el límite en el mensaje', async () => {
+    const { asAna, systemId } = await seed();
+
+    await expect(
+      asAna.mutation(api.pages.create, { systemId, title: 'Demasiado', content: 'x'.repeat(PAGE_CONTENT_MAX + 1) }),
+    ).rejects.toThrow(String(PAGE_CONTENT_MAX.toLocaleString('es')));
+  });
+
+  it('lo guardado por encima del tope se sigue leyendo: el tope es de escritura', async () => {
+    const { asAna, t, userId, systemId } = await seed();
+    const enorme = 'y'.repeat(PAGE_CONTENT_MAX + 100);
+
+    const id = await t.run((ctx) =>
+      ctx.db.insert('pages', {
+        userId: userId as never, systemId: systemId as never, createdBy: userId as never, createdVia: 'session',
+        title: 'Vieja', content: enorme, isPinned: false, lemas: 'vieja', createdAt: 1, updatedAt: 1,
+      }),
+    );
+
+    expect((await asAna.query(api.pages.byId, { id })).content).toHaveLength(enorme.length);
   });
 });
