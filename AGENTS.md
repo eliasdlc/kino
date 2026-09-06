@@ -302,6 +302,7 @@ CSS puro: keyframes, transitions, Tailwind. **No instalar Framer Motion.**
 - **Mobile**: `ResponsiveDialog` (Dialog en desktop, Drawer en móvil), vistas `*MobileView`, **sin drag and drop en touch**, acciones hover con `md:opacity-0`.
 - Todo cambio de UI se previsualiza en **`/system-design`** y añade su specimen.
 - Cada ruta con su `loading.tsx`, cubierta por un `error.tsx`.
+- **Verificar mirando**: `node scripts/capturas/run.mjs` (con `pnpm dev` corriendo) captura las 19 rutas con la cuenta sembrada a 393x852, 430x748, 1131x686 y 1440x900, en claro y oscuro; `scripts/capturas/sembrar.mjs` le da densidad a esa cuenta en el deployment de dev. Nada visible se da por hecho sin esas capturas.
 
 ### Tests
 
