@@ -83,7 +83,7 @@
 // lector ni escritor; la fase 1 decide su forma final y quién las rellena.
 
 import { defineSchema, defineTable } from 'convex/server';
-import { v, type VLiteral } from 'convex/values';
+import { v, type Infer, type VLiteral } from 'convex/values';
 
 // ============================================================================
 // Helpers de tipo
@@ -180,6 +180,7 @@ export const entityType = literals([
 export const taskStatus = literals(['backlog', 'week', 'tomorrow', 'today', 'done']);
 /** Por qué puerta entró la escritura: sesión, cliente OAuth, sincronización o el sistema. */
 export const actorChannel = literals(['session', 'oauth', 'sync', 'system']);
+export type ActorChannel = Infer<typeof actorChannel>;
 export const memberRole = literals(['owner', 'member']);
 export const planTier = literals(['free', 'paid']);
 /** Los siete tipos de objeto que un evento o una arista pueden señalar. */

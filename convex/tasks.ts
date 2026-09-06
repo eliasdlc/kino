@@ -13,7 +13,8 @@ import {
 import { resolveManifest } from '../src/shared/lib/system-manifest';
 import type { SystemMetadata } from '../src/shared/lib/system-types';
 import { invalid, notFound } from './lib/errors';
-import { kinoZodMutation, kinoZodQuery } from './lib/fn';
+import { kinoZodMutation, kinoZodQuery, type Channel } from './lib/fn';
+import type { ActorChannel } from './schema';
 import { lematizar } from './lib/lemas';
 import {
   createTaskSchema,
@@ -183,10 +184,15 @@ async function syncAutoReminders(ctx: MutationCtx, task: TaskDoc, now: number) {
 
 // ── Transiciones ────────────────────────────────────────────────────────────
 
-/** Valida y aplica una transición de la máquina de estados. `null` es no-op. */
+/**
+ * Valida y aplica una transición de la máquina de estados. `null` es no-op.
+ * `actor` firma el cierre: completar escribe quién y por qué puerta,
+ * deshacerlo los borra, porque un cierre deshecho no tiene autor.
+ */
 async function applyTransition(
   ctx: MutationCtx,
   task: TaskDoc,
+  actor: { userId: Id<'users'>; channel: ActorChannel },
   getAction: (current: TaskDoc) => TransitionAction | null,
 ): Promise<TaskDoc> {
   const action = getAction(task);
@@ -206,8 +212,16 @@ async function applyTransition(
   if (transition.newStatus === 'today') patch.inTodayPlan = true;
   else if (transition.newStatus !== 'done') patch.inTodayPlan = false;
   for (const effect of transition.sideEffects ?? []) {
-    if (effect.type === 'set_completed_at') patch.completedAt = now;
-    if (effect.type === 'clear_completed_at') patch.completedAt = undefined;
+    if (effect.type === 'set_completed_at') {
+      patch.completedAt = now;
+      patch.completedBy = actor.userId;
+      patch.completedVia = actor.channel;
+    }
+    if (effect.type === 'clear_completed_at') {
+      patch.completedAt = undefined;
+      patch.completedBy = undefined;
+      patch.completedVia = undefined;
+    }
   }
   await ctx.db.patch(task._id, patch);
   const updated = (await ctx.db.get(task._id))!;
@@ -398,7 +412,13 @@ export const timeLogSummary = kinoZodQuery({
 
 // ── Escrituras ──────────────────────────────────────────────────────────────
 
-async function createOne(ctx: MutationCtx, userId: Id<'users'>, timezone: string, data: CreateTaskInput) {
+async function createOne(
+  ctx: MutationCtx,
+  userId: Id<'users'>,
+  channel: Channel,
+  timezone: string,
+  data: CreateTaskInput,
+) {
   // Reintento de la cola offline: la misma petición devuelve la misma tarea.
   if (data.clientRequestId) {
     const existing = await ctx.db
@@ -456,7 +476,7 @@ async function createOne(ctx: MutationCtx, userId: Id<'users'>, timezone: string
     reminderCount: 0,
     lemas: lematizar(data.title, data.description),
     createdBy: userId,
-    createdVia: 'session',
+    createdVia: channel,
     createdAt: now,
     updatedAt: now,
   });
@@ -478,7 +498,7 @@ async function createOne(ctx: MutationCtx, userId: Id<'users'>, timezone: string
 
 export const create = kinoZodMutation({
   args: createTaskSchema,
-  handler: async (ctx, data) => taskItem(await createOne(ctx, ctx.user._id, ctx.user.timezone, data)),
+  handler: async (ctx, data) => taskItem(await createOne(ctx, ctx.user._id, ctx.channel, ctx.user.timezone, data)),
 });
 
 /** Exportada para la siembra del onboarding, que crea tareas sin pasar por el cliente. */
@@ -488,7 +508,7 @@ export const bulkCreate = kinoZodMutation({
   args: { tasks: z.array(createTaskSchema).min(1).max(50) },
   handler: async (ctx, { tasks }) => {
     const created = [];
-    for (const item of tasks) created.push(await createOne(ctx, ctx.user._id, ctx.user.timezone, item));
+    for (const item of tasks) created.push(await createOne(ctx, ctx.user._id, ctx.channel, ctx.user.timezone, item));
     return created.map(taskItem);
   },
 });
@@ -586,7 +606,7 @@ export const toggle = kinoZodMutation({
   args: { id: zid('tasks') },
   handler: async (ctx, { id }) => {
     const task = await ownTask(ctx, ctx.user._id, id);
-    const updated = await applyTransition(ctx, task, (current) =>
+    const updated = await applyTransition(ctx, task, { userId: ctx.user._id, channel: ctx.channel }, (current) =>
       current.status === 'done' ? 'undo_done' : 'toggle_done',
     );
     return { status: updated.status };
@@ -604,7 +624,7 @@ export const move = kinoZodMutation({
   args: { id: zid('tasks'), status: z.enum(['backlog', 'week', 'tomorrow', 'today', 'done']) },
   handler: async (ctx, { id, status }) => {
     const task = await ownTask(ctx, ctx.user._id, id);
-    return taskItem(await applyTransition(ctx, task, moveTo(status)));
+    return taskItem(await applyTransition(ctx, task, { userId: ctx.user._id, channel: ctx.channel }, moveTo(status)));
   },
 });
 
@@ -619,7 +639,7 @@ export const bulkMove = kinoZodMutation({
     for (const id of taskIds) {
       const task = await ownTask(ctx, ctx.user._id, id);
       previous.push({ id: task._id, status: task.status });
-      await applyTransition(ctx, task, moveTo(status));
+      await applyTransition(ctx, task, { userId: ctx.user._id, channel: ctx.channel }, moveTo(status));
     }
     return { previous };
   },
@@ -650,11 +670,17 @@ export const bulkUpdate = kinoZodMutation({
  */
 export const moveBoard = kinoZodMutation({
   args: { id: zid('tasks'), boardStatus: z.string().min(1).max(50) },
-  handler: async (ctx, { id, boardStatus }) => taskItem(await moveTaskBoardDoc(ctx, ctx.user._id, id, boardStatus)),
+  handler: async (ctx, { id, boardStatus }) => taskItem(await moveTaskBoardDoc(ctx, ctx.user._id, ctx.channel, id, boardStatus)),
 });
 
 /** El movimiento de columna, exportado para la sincronización con GitHub. */
-export async function moveTaskBoardDoc(ctx: MutationCtx, userId: Id<'users'>, id: Id<'tasks'>, boardStatus: string): Promise<TaskDoc> {
+export async function moveTaskBoardDoc(
+  ctx: MutationCtx,
+  userId: Id<'users'>,
+  channel: ActorChannel,
+  id: Id<'tasks'>,
+  boardStatus: string,
+): Promise<TaskDoc> {
   const task = await ownTask(ctx, userId, id);
   const system = await ownSystem(ctx, userId, task.systemId);
   const column = await ctx.db
@@ -667,7 +693,7 @@ export async function moveTaskBoardDoc(ctx: MutationCtx, userId: Id<'users'>, id
   await ctx.db.patch(id, { boardStatus, boardStatusChangedAt: now, updatedAt: now });
   const bridge = deriveBoardBridgeAction(task.status, task.boardStatus ?? null, boardStatus);
   const moved = (await ctx.db.get(id))!;
-  return bridge ? await applyTransition(ctx, moved, () => bridge) : moved;
+  return bridge ? await applyTransition(ctx, moved, { userId, channel }, () => bridge) : moved;
 }
 
 /** La posición de cada id es su nuevo `sortIndex`. Los ajenos se ignoran. */

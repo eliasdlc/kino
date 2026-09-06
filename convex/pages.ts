@@ -5,7 +5,7 @@ import type { Doc, Id } from './_generated/dataModel';
 import type { MutationCtx, QueryCtx } from './_generated/server';
 import { countWords } from '../src/shared/lib/word-count';
 import { forbidden, notFound } from './lib/errors';
-import { kinoZodMutation, kinoZodQuery } from './lib/fn';
+import { kinoZodMutation, kinoZodQuery, type Channel } from './lib/fn';
 import { lematizar } from './lib/lemas';
 import { recomputePageMentions } from './lib/mentions';
 import { recordWritingActivity } from './lib/writing/activity';
@@ -196,7 +196,12 @@ const createFields = {
   clientRequestId: z.string().min(1).max(64).optional(),
 };
 
-async function createOne(ctx: MutationCtx, userId: Id<'users'>, input: z.infer<z.ZodObject<typeof createFields>>) {
+async function createOne(
+  ctx: MutationCtx,
+  userId: Id<'users'>,
+  channel: Channel,
+  input: z.infer<z.ZodObject<typeof createFields>>,
+) {
   if (input.clientRequestId) {
     const existing = await ctx.db
       .query('pages')
@@ -228,7 +233,7 @@ async function createOne(ctx: MutationCtx, userId: Id<'users'>, input: z.infer<z
     clientRequestId: input.clientRequestId,
     lemas: lematizar(input.title, input.content),
     createdBy: userId,
-    createdVia: 'session',
+    createdVia: channel,
     createdAt: now,
     updatedAt: now,
   });
@@ -238,7 +243,7 @@ async function createOne(ctx: MutationCtx, userId: Id<'users'>, input: z.infer<z
 
 export const create = kinoZodMutation({
   args: createFields,
-  handler: async (ctx, input) => createOne(ctx, ctx.user._id, input),
+  handler: async (ctx, input) => createOne(ctx, ctx.user._id, ctx.channel, input),
 });
 
 /** Exportada para la siembra del onboarding, que crea páginas sin pasar por el cliente. */
