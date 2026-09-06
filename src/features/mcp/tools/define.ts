@@ -46,6 +46,16 @@ export interface Tool {
   readonly name: string;
   readonly description: string;
   readonly input: z.ZodObject<z.ZodRawShape>;
+  /**
+   * La función de Convex que hay detrás. Está aquí para que se pueda auditar
+   * el catálogo sin ejecutarlo: `convex/reach.test.ts` la usa para comprobar
+   * que ninguna tool publica una función cerrada.
+   *
+   * Ausente sólo en las secuencias de aprendizaje, que encadenan varias
+   * funciones y no tienen una sola detrás. Ese test las nombra una a una para
+   * que la excepción no crezca sin que nadie la vea.
+   */
+  readonly ref?: Fn;
   run(call: Call, input: Record<string, unknown>): Promise<unknown>;
 }
 
@@ -54,6 +64,7 @@ function define<F extends Fn, S extends z.ZodRawShape>(kind: F["_type"], fn: F, 
     name: spec.name,
     description: spec.description,
     input: spec.input,
+    ref: fn,
     async run(call, raw) {
       const input = spec.input.parse(raw);
       const args = (spec.args ? spec.args(input) : input) as FunctionArgs<F>;

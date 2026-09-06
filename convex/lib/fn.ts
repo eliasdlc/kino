@@ -7,7 +7,7 @@ import type { DataModel, Doc } from '../_generated/dataModel';
 import { internal } from '../_generated/api';
 import type { ActorChannel } from '../schema';
 import { MCP_TOKEN_ISSUER } from './mcpToken';
-import { allows, isScope, type Scope } from './scopes';
+import { allows, isScope, SCOPE_FOR_REACH, type Reach, type Scope } from './scopes';
 
 // De aquí salen todas las funciones públicas de Kino. Cada una nace con la
 // identidad de Clerk ya resuelta, el documento `users` cargado y el alcance del
@@ -114,43 +114,110 @@ async function callerForMutation(ctx: MutationCtx, required: Scope): Promise<Cal
   return { user, clerkId: identity.subject, scope, channel: channelOf(identity) };
 }
 
-/** Lectura. Exige `read`. */
-export const kinoQuery = customQuery(
-  query,
-  customCtx(async (ctx) => callerForQuery(ctx, 'read')),
+/**
+ * La marca del alcance en la función ya registrada. No es enumerable, así que
+ * no viaja a ningún sitio ni cambia lo que Convex publica; existe para que
+ * `reach.test.ts` pueda recorrer los módulos y decir, función por función,
+ * hasta dónde llega un agente en ella. El tipo generado de `api.*` no la
+ * conserva, así que la comprobación es de test y no de compilador, y por eso
+ * el test es obligatorio.
+ */
+export const REACH_KEY = Symbol.for('kino.reach');
+
+/**
+ * El alcance de una función registrada, o `undefined` si no pasó por aquí. Lo
+ * que Convex registra es una función, no un objeto, y la marca vive en ella.
+ */
+export function reachOf(fn: unknown): Reach | undefined {
+  if (fn === null || (typeof fn !== 'object' && typeof fn !== 'function')) return undefined;
+  return (fn as Record<symbol, Reach | undefined>)[REACH_KEY];
+}
+
+/**
+ * Envuelve un constructor de Convex para que marque lo que registra. El único
+ * `as` de este fichero: por dentro la función es variádica, y por fuera tiene
+ * exactamente la firma del constructor que envuelve, con sus genéricos.
+ */
+function marcando<B>(reach: Reach, builder: B): B {
+  const marcador = (...args: unknown[]) => {
+    const fn = (builder as (...a: unknown[]) => object)(...args);
+    Object.defineProperty(fn, REACH_KEY, { value: reach, enumerable: false });
+    return fn;
+  };
+  return marcador as B;
+}
+
+/** Sesión de navegador. Un token del conector no la tiene, ni con `write`. */
+async function callerForClosed(ctx: MutationCtx): Promise<Caller> {
+  const caller = await callerForMutation(ctx, SCOPE_FOR_REACH.closed);
+  if (caller.channel !== 'session') fail('FORBIDDEN_SCOPE', { required: 'session', granted: caller.channel });
+  return caller;
+}
+
+/** `readOnly`: lectura. Exige `read`, que es lo que tiene cualquier conector. */
+export const kinoQuery = marcando(
+  'readOnly',
+  customQuery(
+    query,
+    customCtx(async (ctx) => callerForQuery(ctx, SCOPE_FOR_REACH.readOnly)),
+  ),
 );
 
-/** Escritura directa. Exige `write`; crea el documento `users` si falta. */
-export const kinoMutation = customMutation(
-  mutation,
-  customCtx(async (ctx) => callerForMutation(ctx, 'write')),
+/** `direct`: escritura reversible. Exige `write`; crea el documento `users` si falta. */
+export const kinoMutation = marcando(
+  'direct',
+  customMutation(
+    mutation,
+    customCtx(async (ctx) => callerForMutation(ctx, SCOPE_FOR_REACH.direct)),
+  ),
 );
 
-/** Escritura que sólo propone: un agente con `propose` llega, uno con `read` no. */
-export const kinoProposal = customMutation(
-  mutation,
-  customCtx(async (ctx) => callerForMutation(ctx, 'propose')),
+/** `proposed`: escritura que sólo propone. Un agente con `propose` llega, uno con `read` no. */
+export const kinoProposal = marcando(
+  'proposed',
+  customMutation(
+    mutation,
+    customCtx(async (ctx) => callerForMutation(ctx, SCOPE_FOR_REACH.proposed)),
+  ),
 );
 
-// Las mismas tres puertas con argumentos en Zod, para los slices cuyo contrato
-// ya es un schema de Zod con refinamientos que `v` no sabe expresar. La
-// identidad y el alcance se resuelven igual: cambia sólo cómo se validan los
+/**
+ * `closed`: lo que no se toca desde fuera. Exige `write` **y** sesión de
+ * navegador, así que ningún alcance del conector la alcanza. Es para lo que no
+ * se puede deshacer o lo que suplanta la voz de quien manda.
+ */
+export const kinoClosed = marcando('closed', customMutation(mutation, customCtx(callerForClosed)));
+
+// Las mismas puertas con argumentos en Zod, para los slices cuyo contrato ya es
+// un schema de Zod con refinamientos que `v` no sabe expresar. La identidad, el
+// alcance y la marca se resuelven igual: cambia sólo cómo se validan los
 // argumentos.
 
-export const kinoZodQuery = zCustomQuery(
-  query,
-  customCtx(async (ctx) => callerForQuery(ctx, 'read')),
+export const kinoZodQuery = marcando(
+  'readOnly',
+  zCustomQuery(
+    query,
+    customCtx(async (ctx) => callerForQuery(ctx, SCOPE_FOR_REACH.readOnly)),
+  ),
 );
 
-export const kinoZodMutation = zCustomMutation(
-  mutation,
-  customCtx(async (ctx) => callerForMutation(ctx, 'write')),
+export const kinoZodMutation = marcando(
+  'direct',
+  zCustomMutation(
+    mutation,
+    customCtx(async (ctx) => callerForMutation(ctx, SCOPE_FOR_REACH.direct)),
+  ),
 );
 
-export const kinoZodProposal = zCustomMutation(
-  mutation,
-  customCtx(async (ctx) => callerForMutation(ctx, 'propose')),
+export const kinoZodProposal = marcando(
+  'proposed',
+  zCustomMutation(
+    mutation,
+    customCtx(async (ctx) => callerForMutation(ctx, SCOPE_FOR_REACH.proposed)),
+  ),
 );
+
+export const kinoZodClosed = marcando('closed', zCustomMutation(mutation, customCtx(callerForClosed)));
 
 /** Lo que una acción recibe para no pasarse de su presupuesto. */
 export type Budget = {
@@ -192,14 +259,20 @@ export const DEFAULT_BUDGET_MS = 10_000;
 
 /**
  * Acción, que es lo único que llama fuera. Nace con el presupuesto por defecto
- * y puede declarar otro: `kinoAction(5_000)({ ... })`. Exige `write`, porque
- * una acción sin escritura sería una query.
+ * y con alcance `direct`; los dos se declaran en la definición cuando hacen
+ * falta otros: `kinoAction(5_000, 'closed')({ ... })`.
  */
-export const kinoAction = (budgetMs: number = DEFAULT_BUDGET_MS) =>
-  customAction(
+export const kinoAction = (budgetMs: number = DEFAULT_BUDGET_MS, reach: Reach = 'direct') =>
+  marcando(
+    reach,
+    customAction(
     action,
     customCtx(async (ctx: ActionCtx) => {
-      const { identity, scope } = await authorize(ctx.auth, 'write');
+      const { identity, scope } = await authorize(ctx.auth, SCOPE_FOR_REACH[reach]);
+      const channel = channelOf(identity);
+      if (reach === 'closed' && channel !== 'session') {
+        fail('FORBIDDEN_SCOPE', { required: 'session', granted: channel });
+      }
       // Anotado a mano: el tipo de `internal` depende de todos los módulos,
       // este incluido, y sin la anotación el compilador entra en bucle.
       const user: Doc<'users'> | null = await ctx.runQuery(internal.users.byClerkId, {
@@ -210,9 +283,10 @@ export const kinoAction = (budgetMs: number = DEFAULT_BUDGET_MS) =>
         user,
         clerkId: identity.subject,
         scope,
-        channel: channelOf(identity),
+        channel,
         budget: budgetFrom(budgetMs),
       };
       return caller;
-    }),
+      }),
+    ),
   );
