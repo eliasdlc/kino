@@ -26,8 +26,7 @@ import { PAYLOAD_MAX_BYTES, recordEvent } from './eventLog';
 import { invalid, notFound } from './lib/errors';
 import { kinoZodMutation, kinoZodQuery } from './lib/fn';
 import { toTaskRow } from './lib/tasks/row';
-import { deriveStatusFromDate } from './lib/tasks/status';
-import { calendarDayInTz, userToday } from './lib/time';
+import { calendarDayInTz, userToday, userTomorrow } from './lib/time';
 import { defaultSettings } from './settings';
 import { ownTask, updateTaskDoc } from './tasks';
 
@@ -744,6 +743,21 @@ export const applyWeeklyRitual = kinoZodMutation({
     const timezone = ctx.user.timezone;
     const now = Date.now();
 
+    // La zona horaria se resuelve una vez y no por tarea: cada conversión
+    // construye un `Intl.DateTimeFormat`, y el camino largo montaba cuatro por
+    // tarea. Aquí se monta uno por día distinto del reparto (siete como mucho)
+    // más dos para hoy y mañana.
+    const hoy = userToday(timezone, now);
+    const manana = userTomorrow(timezone, now);
+    const medianocheDe = new Map<string, number>();
+    const inicioDe = (date: string) => {
+      const cacheado = medianocheDe.get(date);
+      if (cacheado !== undefined) return cacheado;
+      const ms = zonedHourToMs(date, 0, timezone);
+      medianocheDe.set(date, ms);
+      return ms;
+    };
+
     const docs = await Promise.all(assignments.map(({ taskId }) => ctx.db.get(taskId)));
 
     const applied: Array<{ taskId: string; date: string }> = [];
@@ -756,10 +770,12 @@ export const applyWeeklyRitual = kinoZodMutation({
         failed.push({ taskId, message: 'Task not found' });
         continue;
       }
-      const startDate = zonedHourToMs(date, 0, timezone);
-      const status = doc.status === 'done' ? doc.status : deriveStatusFromDate(startDate, timezone);
+      // `date` **es** el día calendario del instante que se va a escribir, que
+      // es la medianoche local de ese mismo día: comparar cadenas da el mismo
+      // estado que `deriveStatusFromDate` sin volver a convertir nada.
+      const status = doc.status === 'done' ? doc.status : date === hoy ? 'today' : date === manana ? 'tomorrow' : 'week';
       anterior.push({ taskId, startDate: doc.startDate === undefined ? null : new Date(doc.startDate).toISOString() });
-      await ctx.db.patch(doc._id, { startDate, status, updatedAt: now });
+      await ctx.db.patch(doc._id, { startDate: inicioDe(date), status, updatedAt: now });
       applied.push({ taskId, date });
     }
 

@@ -87,10 +87,11 @@ describe('energy', () => {
       return ids;
     });
 
-    // El presupuesto de la restricción 4. Lo que de verdad se está midiendo es
-    // el número de idas y vueltas a la base: `convex-test` corre en el proceso
-    // y no reproduce la latencia, así que la cifra de aquí es un techo flojo y
-    // la del evento es el guardián real.
+    // El presupuesto de la restricción 4, como techo. La cifra que vale está en
+    // el PR y se midió aparte, con los módulos ya cargados: 46 ms el camino
+    // largo, 13 ms este, para las mismas cien asignaciones. Aquí el número
+    // incluye el import del módulo, así que sólo sirve para ver que no se
+    // dispara; el guardián real de este test es el evento.
     const inicio = Date.now();
     const applied = await asAna.mutation(api.energy.applyWeeklyRitual, {
       assignments: tareas.map((taskId, i) => ({ taskId, date: `2026-09-${String(8 + (i % 5)).padStart(2, '0')}` })),
