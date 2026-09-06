@@ -27,11 +27,12 @@ async function seed() {
 }
 
 describe('crons', () => {
-  it('registra las dos tareas con su cadencia', () => {
+  it('registra las tres tareas con su cadencia', () => {
     const registered = crons.crons;
-    expect(Object.keys(registered).sort()).toEqual(['daily-snapshot', 'task-reminders']);
+    expect(Object.keys(registered).sort()).toEqual(['daily-snapshot', 'event-log-prune', 'task-reminders']);
     expect(registered['daily-snapshot']!.schedule.type).toBe('daily');
     expect(registered['task-reminders']!.schedule.type).toBe('interval');
+    expect(registered['event-log-prune']!.schedule.type).toBe('daily');
   });
 });
 

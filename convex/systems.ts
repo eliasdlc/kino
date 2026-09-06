@@ -196,6 +196,9 @@ export async function createSystemDoc(
       isInbox: false,
       expectedFrequency: input.expectedFrequency ?? 'daily',
       triggerContext: input.triggerContext ?? '',
+      // Los agentes de un miembro invitado no escriben aquí hasta que el dueño
+      // lo permita a mano.
+      memberAgentsAllowed: false,
       sortOrder: Math.max(-1, ...existing.map((s) => s.sortOrder)) + 1,
       createdBy: userId,
       createdVia: channel,
