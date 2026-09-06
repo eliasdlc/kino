@@ -12,6 +12,7 @@
     "test:watch": "vitest",
     "test:coverage": "vitest run --coverage",
     "check:voz": "bash scripts/check-voz.sh",
+    "check:bundle": "node scripts/check-bundle.mjs",
     "migrate:convex": "tsx scripts/migrate-to-convex/index.mts",
     "db:generate": "drizzle-kit generate",
     "db:migrate": "drizzle-kit migrate",
