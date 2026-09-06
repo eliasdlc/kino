@@ -19,7 +19,7 @@ async function seed() {
       userId, onboardingVersion: 1, weeklyReviewDay: 'sun', dailyResetTime: '00:00', dailyEnergyLimit: 50,
       focusTimeoutHours: 3, theme: 'system', notificationsEnabled: true, createdAt: 1, updatedAt: 1,
     });
-    return ctx.db.insert('systems', { userId, name: 'Kino', color: 'blue', templateType: 'project', icon: 'x', isActive: true, isInbox: false, sortOrder: 0, createdAt: 1, updatedAt: 1 });
+    return ctx.db.insert('systems', { userId, createdBy: userId, createdVia: 'session', name: 'Kino', color: 'blue', templateType: 'project', icon: 'x', isActive: true, isInbox: false, sortOrder: 0, createdAt: 1, updatedAt: 1 });
   });
   return { t, asAna, userId, systemId };
 }

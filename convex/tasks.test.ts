@@ -28,6 +28,8 @@ async function seed() {
     await ctx.db.insert('systemStatusDefinitions', { systemType: 'project', statusName: 'done', label: 'Hecho', position: 1 });
     return ctx.db.insert('systems', {
       userId,
+      createdBy: userId,
+      createdVia: 'session',
       name: 'Kino',
       color: 'blue',
       templateType: 'project',
@@ -103,7 +105,7 @@ describe('tasks', () => {
     const bob = t.withIdentity({ subject: 'user_bob', email: 'bob@usekino.dev' });
     const bobSystem = await t.run(async (ctx) => {
       const bobId = await ctx.db.insert('users', { clerkId: 'user_bob', email: 'bob@usekino.dev', name: 'Bob', onboardingCompleted: true, status: 'active', timezone: 'UTC', createdAt: 1, updatedAt: 1 });
-      return ctx.db.insert('systems', { userId: bobId, name: 'Bob', color: 'red', templateType: 'custom', icon: 'x', isActive: true, isInbox: false, sortOrder: 0, createdAt: 1, updatedAt: 1 });
+      return ctx.db.insert('systems', { userId: bobId, createdBy: bobId, createdVia: 'session', name: 'Bob', color: 'red', templateType: 'custom', icon: 'x', isActive: true, isInbox: false, sortOrder: 0, createdAt: 1, updatedAt: 1 });
     });
     const foreign = await bob.mutation(api.tasks.create, { systemId: bobSystem, title: 'De Bob' });
 
@@ -158,6 +160,8 @@ describe('metadata de tarea', () => {
     const systemId = await t.run((ctx) =>
       ctx.db.insert('systems', {
         userId, name: 'Semestre', color: 'green', templateType: 'academic', icon: 'book', isActive: true, isInbox: false, sortOrder: 1, createdAt: 1, updatedAt: 1,
+        createdBy: userId,
+        createdVia: 'session',
       }),
     );
     return { asAna, systemId };

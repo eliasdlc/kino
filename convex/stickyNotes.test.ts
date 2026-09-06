@@ -11,9 +11,9 @@ async function seed() {
   const asAna = t.withIdentity(ana);
   const userId = await asAna.mutation(api.users.ensure, {});
   const { systemId, folderId, pageId } = await t.run(async (ctx) => {
-    const systemId = await ctx.db.insert('systems', { userId, name: 'Novela', color: 'purple', templateType: 'writing', icon: 'book', isActive: true, isInbox: false, sortOrder: 0, createdAt: 1, updatedAt: 1 });
-    const folderId = await ctx.db.insert('folders', { userId, systemId, name: 'Parte 1', color: 'blue', sortIndex: 0, createdAt: 1, updatedAt: 1 });
-    const pageId = await ctx.db.insert('pages', { userId, systemId, folderId, isPinned: false, createdAt: 1, updatedAt: 1 });
+    const systemId = await ctx.db.insert('systems', { userId, createdBy: userId, createdVia: 'session', name: 'Novela', color: 'purple', templateType: 'writing', icon: 'book', isActive: true, isInbox: false, sortOrder: 0, createdAt: 1, updatedAt: 1 });
+    const folderId = await ctx.db.insert('folders', { userId, createdBy: userId, createdVia: 'session', systemId, name: 'Parte 1', color: 'blue', sortIndex: 0, createdAt: 1, updatedAt: 1 });
+    const pageId = await ctx.db.insert('pages', { userId, createdBy: userId, createdVia: 'session', systemId, folderId, isPinned: false, createdAt: 1, updatedAt: 1 });
     return { systemId, folderId, pageId };
   });
   return { t, asAna, systemId, folderId, pageId };

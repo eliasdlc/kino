@@ -26,6 +26,8 @@ function sixtyFolders(userId: Id<'users'>, systemId: Id<'systems'>) {
       parentId: parent?._id,
       name: `Carpeta ${index}`,
       color: 'blue',
+      createdBy: userId,
+      createdVia: 'session',
       sortIndex: index % 7,
       createdAt: index,
       updatedAt: index,
@@ -93,6 +95,8 @@ describe('folders sobre convex-test', () => {
     const systemId = await t.run((ctx) =>
       ctx.db.insert('systems', {
         userId,
+        createdBy: userId,
+        createdVia: 'session',
         name: 'Novela',
         color: 'purple',
         templateType: 'writing',
@@ -117,8 +121,8 @@ describe('folders sobre convex-test', () => {
       parentId: parte.id,
     });
     await t.run(async (ctx) => {
-      await ctx.db.insert('pages', { userId, folderId: capitulo.id, systemId, isPinned: false, createdAt: 1, updatedAt: 1 });
-      await ctx.db.insert('stickyNotes', { userId, folderId: capitulo.id, color: 'yellow', sortIndex: 0, isEureka: false, createdAt: 1, updatedAt: 1 });
+      await ctx.db.insert('pages', { userId, createdBy: userId, createdVia: 'session', folderId: capitulo.id, systemId, isPinned: false, createdAt: 1, updatedAt: 1 });
+      await ctx.db.insert('stickyNotes', { userId, createdBy: userId, createdVia: 'session', folderId: capitulo.id, color: 'yellow', sortIndex: 0, isEureka: false, createdAt: 1, updatedAt: 1 });
     });
 
     const roots = await asAna.query(api.folders.bySystem, { systemId });

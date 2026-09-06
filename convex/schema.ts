@@ -199,10 +199,14 @@ export const proposalKind = literals(['archive', 'cancel', 'rewrite']);
 export const captureStatus = literals(['pending', 'confirmed', 'discarded', 'expired']);
 export const captureKind = literals(['voice', 'photo', 'link', 'text']);
 
-/** Campos de autoría que la fase 1 vuelve obligatorios. */
+/**
+ * Autoría. Obligatoria desde que la migración `autoriaYPapelera` la rellenó en
+ * todos los documentos y los seis creadores la escriben: quién creó la cosa y
+ * por qué puerta entró nunca vuelve a faltar.
+ */
 const authorship = {
-  createdBy: v.optional(v.id('users')),
-  createdVia: v.optional(actorChannel),
+  createdBy: v.id('users'),
+  createdVia: actorChannel,
 };
 
 /** Firma del cierre: quién completó y por qué vía. Solo tasks y pages tienen cierre. */

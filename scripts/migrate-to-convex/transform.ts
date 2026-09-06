@@ -178,6 +178,8 @@ export function system(row: Row<typeof pg.systems>, refs: Refs): Insert<'systems
     triggerContext: opt(row.triggerContext),
     metadata: jsonObject(row.metadata),
     sortOrder: row.sortOrder,
+    createdBy: refs.id('users', row.userId),
+    createdVia: row.isInbox ? 'system' : 'session',
     createdAt: ms(row.createdAt),
     updatedAt: ms(row.updatedAt),
   };
@@ -218,6 +220,8 @@ export function task(row: Row<typeof pg.tasks>, refs: Refs): Insert<'tasks'> {
     completedAt: optMs(row.completedAt),
     deletedAt: optMs(row.deletedAt),
     lemas: lematizar(row.title, row.description),
+    createdBy: refs.id('users', row.userId),
+    createdVia: row.externalSource ? 'sync' : 'session',
     createdAt: ms(row.createdAt),
     updatedAt: ms(row.updatedAt),
   };
@@ -292,6 +296,8 @@ export function folder(row: Row<typeof pg.folders>, refs: Refs): Insert<'folders
     color: oneOf(color, row.color),
     sortIndex: row.sortIndex,
     metadata: jsonObject(row.metadata),
+    createdBy: refs.id('users', row.userId),
+    createdVia: 'session',
     createdAt: ms(row.createdAt),
     updatedAt: ms(row.updatedAt),
   };
@@ -311,6 +317,8 @@ export function page(row: Row<typeof pg.pages>, refs: Refs): Insert<'pages'> {
     deletedAt: optMs(row.deletedAt),
     clientRequestId: opt(row.clientRequestId),
     lemas: lematizar(row.title, row.content),
+    createdBy: refs.id('users', row.userId),
+    createdVia: 'session',
     createdAt: ms(row.createdAt),
     updatedAt: ms(row.updatedAt),
   };
@@ -335,6 +343,8 @@ export function stickyNote(row: Row<typeof pg.stickyNotes>, refs: Refs): Insert<
     textAnchor: opt(row.textAnchor),
     clientRequestId: opt(row.clientRequestId),
     lemas: lematizar(row.title, row.content, row.textAnchor),
+    createdBy: refs.id('users', row.userId),
+    createdVia: 'session',
     createdAt: ms(row.createdAt),
     updatedAt: ms(row.updatedAt),
   };
@@ -366,6 +376,8 @@ export function entity(row: Row<typeof pg.entities>, refs: Refs): Insert<'entiti
     images: row.images,
     threadResolvedMentions: opt(row.threadResolvedMentions),
     deletedAt: optMs(row.deletedAt),
+    createdBy: refs.id('users', row.userId),
+    createdVia: 'session',
     createdAt: ms(row.createdAt),
     updatedAt: ms(row.updatedAt),
   };
