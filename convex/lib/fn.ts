@@ -5,6 +5,8 @@ import type { Auth, GenericDatabaseReader, GenericDatabaseWriter, UserIdentity }
 import { action, mutation, query, type ActionCtx, type MutationCtx, type QueryCtx } from '../_generated/server';
 import type { DataModel, Doc } from '../_generated/dataModel';
 import { internal } from '../_generated/api';
+import type { ActorChannel } from '../schema';
+import { MCP_TOKEN_ISSUER } from './mcpToken';
 import { allows, isScope, type Scope } from './scopes';
 
 // De aquí salen todas las funciones públicas de Kino. Cada una nace con la
@@ -19,12 +21,28 @@ function fail(code: FnErrorCode, extra: Record<string, unknown> = {}): never {
   throw new ConvexError({ code, ...extra });
 }
 
+/**
+ * Por qué puerta entró la escritura. Es el `createdVia` y el `completedVia`
+ * que cada documento guarda: sólo el emisor del token lo sabe, así que se
+ * resuelve aquí y viaja en el contexto. `sync` y `system` no llegan por esta
+ * vía porque nadie los llama con identidad; los escriben a mano el importador
+ * de GitHub y las funciones internas.
+ */
+export type Channel = Extract<ActorChannel, 'session' | 'oauth'>;
+
+/** Quién llama: el navegador con la sesión de Clerk, o un cliente OAuth del MCP. */
+function channelOf(identity: UserIdentity): Channel {
+  return identity.issuer === MCP_TOKEN_ISSUER ? 'oauth' : 'session';
+}
+
 /** Lo que el envoltorio deja en el contexto de cada función. */
 export type Caller = {
   user: Doc<'users'>;
   clerkId: string;
   /** Alcance efectivo de quien llama; `write` para el dueño. */
   scope: Scope;
+  /** Puerta por la que entró, para la autoría de lo que escriba. */
+  channel: Channel;
 };
 
 /**
@@ -87,13 +105,13 @@ async function callerForQuery(ctx: QueryCtx, required: Scope): Promise<Caller> {
   const { identity, scope } = await authorize(ctx.auth, required);
   const user = await findUser(ctx.db, identity.subject);
   if (!user) fail('NO_USER');
-  return { user, clerkId: identity.subject, scope };
+  return { user, clerkId: identity.subject, scope, channel: channelOf(identity) };
 }
 
 async function callerForMutation(ctx: MutationCtx, required: Scope): Promise<Caller> {
   const { identity, scope } = await authorize(ctx.auth, required);
   const user = await ensureUser(ctx.db, identity);
-  return { user, clerkId: identity.subject, scope };
+  return { user, clerkId: identity.subject, scope, channel: channelOf(identity) };
 }
 
 /** Lectura. Exige `read`. */
@@ -182,6 +200,7 @@ export const kinoAction = (budgetMs: number) =>
         user,
         clerkId: identity.subject,
         scope,
+        channel: channelOf(identity),
         budget: budgetFrom(budgetMs),
       };
       return caller;

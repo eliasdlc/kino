@@ -17,6 +17,7 @@ pnpm build                          # Build de producción
 pnpm lint                           # ESLint strict — debe pasar con 0 errores
 pnpm typecheck                      # tsc --noEmit — debe pasar
 npx convex dev                      # Publica las funciones en el deployment de dev y regenera convex/_generated
+npx convex run migrations/<fichero>:run   # Corre una migración de datos contra dev (ver «Migraciones de datos»)
 pnpm test                           # Suite completa (lógica pura, sin base)
 pnpm test -- --run <path>           # Un solo archivo de test
 pnpm migrate:convex                 # Importador Postgres → Convex (scripts/migrate-to-convex), sólo para el cutover
@@ -298,6 +299,73 @@ Criterio de aceptación cumplido · `typecheck` limpio · `lint` en 0 · tests v
 - **No** implementar guards de Premium/subscripción — no existe código de payments.
 - **No** reimplementar cálculos de fecha fuera de `src/shared/time`.
 - **No** crear archivos Markdown en el repo más allá de `README.md` y `AGENTS.md`.
+
+## Migraciones de datos
+
+Convex valida el schema contra los documentos que ya existen: si un campo pasa
+a obligatorio y hay una sola fila sin él, el deploy se rechaza y el anterior
+sigue arriba. De ahí la única regla que gobierna esta parte, **expand y
+contract**: un campo nace opcional, una migración lo rellena en todos los
+documentos, todo escritor lo escribe, y sólo entonces, **en otro deploy**,
+deja de ser opcional. Nunca las dos cosas a la vez.
+
+Las migraciones viven en `convex/migrations/`, una por fichero, sobre el
+componente oficial `@convex-dev/migrations` que registra `convex/convex.config.ts`.
+El componente guarda el estado de cada una (lote, cursor, si terminó), así que
+una que muere a mitad retoma donde iba y una segunda pasada no repite trabajo.
+Además cada paso comprueba antes de escribir: reejecutar una migración
+completa no toca ningún documento.
+
+La cabecera de cada fichero enumera campo por campo qué rellena y de dónde sale
+cada valor. Es lo que hay que leer antes de correrla, y lo que hay que
+actualizar si cambia.
+
+```bash
+npx convex run migrations/autoriaYPapelera:run        # todas las de un fichero, en orden
+npx convex run migrations/autoriaYPapelera:tasksAutoria   # una suelta
+```
+
+Contra producción **nunca a mano**: el `convex deploy` del build las publica, y
+correrlas es una decisión aparte que se toma con el respaldo del día delante.
+
+### Retenciones
+
+Cada tabla que caduca dice aquí quién la poda. Una tabla nueva sin esta línea
+está incompleta.
+
+| Tabla | Retención | Quién la dispara |
+|---|---|---|
+| `eventLog` | 30 días desde `occurredAt` | cron `event-log-prune`, por lotes de 1.000 que se reprograman solos (`convex/eventLog.ts`) |
+| `itemLinks` | 30 días desde `lastSeenAt` | el mismo cron, cuando exista quien las escriba |
+| `proposals` | 14 días desde `expiresAt` | nadie: pasan a `expired` al mirarlas, no se borran |
+| `captures` | 48 h sin confirmar | caducan con aviso; el blob se va con la fila |
+| `systemMembers`, `systemInvites`, `sessionDigests` | no se podan | son estado y rastro, no historia |
+| `cronRuns` | ver `convex/cronRuns.ts` | el snapshot diario |
+
+### Borrados y cascadas
+
+Convex no tiene `ON DELETE`: cada cascada es un paso explícito dentro de la
+mutación que borra, o no ocurre. La lista completa de las que heredamos de
+Postgres está en `scripts/migrate-to-convex/cascadas.ts`, y un test la mantiene
+igual a lo que declaraba el schema de Drizzle.
+
+Casi todos los borrados de Kino son **blandos** (`deletedAt`), y eso decide la
+forma de la cascada: **una cascada blanda no destruye lo que cuelga**. Marca a
+los hijos que también tienen `deletedAt` (subtareas, subcapítulos, subcarpetas,
+notas) y deja intacto lo que sólo se alcanza a través del padre (recordatorios,
+tiempo, versiones, enlaces), porque restaurar tiene que devolver la cosa
+entera y sus lectores ya filtran por el padre borrado.
+
+Las excepciones, y por qué:
+
+- **Derivadas** (`pageEntityMentions`): se borran de verdad; se recalculan al
+  guardar el texto.
+- **Etiquetas** (`tags.remove`): destruye de verdad. Sólo el dueño del sistema,
+  desetiqueta únicamente dentro de su alcance, y deja fila en `eventLog`.
+- **Sistemas** (`systems.remove`): no borra, archiva (`isActive: false`). Sus
+  siete cascadas de Postgres no ocurren a propósito.
+- **Cuenta** (`users.purge`): el único borrado duro de todo, sobre las
+  dieciocho tablas con `userId`.
 
 ## Features en el schema sin implementación activa
 

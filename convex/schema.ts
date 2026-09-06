@@ -83,7 +83,7 @@
 // lector ni escritor; la fase 1 decide su forma final y quién las rellena.
 
 import { defineSchema, defineTable } from 'convex/server';
-import { v, type VLiteral } from 'convex/values';
+import { v, type Infer, type VLiteral } from 'convex/values';
 
 // ============================================================================
 // Helpers de tipo
@@ -180,9 +180,10 @@ export const entityType = literals([
 export const taskStatus = literals(['backlog', 'week', 'tomorrow', 'today', 'done']);
 /** Por qué puerta entró la escritura: sesión, cliente OAuth, sincronización o el sistema. */
 export const actorChannel = literals(['session', 'oauth', 'sync', 'system']);
+export type ActorChannel = Infer<typeof actorChannel>;
 export const memberRole = literals(['owner', 'member']);
 export const planTier = literals(['free', 'paid']);
-/** Los siete tipos de objeto que un evento o una arista pueden señalar. */
+/** Los ocho tipos de objeto que un evento o una arista pueden señalar. */
 export const itemType = literals([
   'task',
   'page',
@@ -191,16 +192,21 @@ export const itemType = literals([
   'system',
   'entity',
   'sprint',
+  'tag',
 ]);
 export const proposalStatus = literals(['pending', 'applied', 'dismissed', 'expired']);
 export const proposalKind = literals(['archive', 'cancel', 'rewrite']);
 export const captureStatus = literals(['pending', 'confirmed', 'discarded', 'expired']);
 export const captureKind = literals(['voice', 'photo', 'link', 'text']);
 
-/** Campos de autoría que la fase 1 vuelve obligatorios. */
+/**
+ * Autoría. Obligatoria desde que la migración `autoriaYPapelera` la rellenó en
+ * todos los documentos y los seis creadores la escriben: quién creó la cosa y
+ * por qué puerta entró nunca vuelve a faltar.
+ */
 const authorship = {
-  createdBy: v.optional(v.id('users')),
-  createdVia: v.optional(actorChannel),
+  createdBy: v.id('users'),
+  createdVia: actorChannel,
 };
 
 /** Firma del cierre: quién completó y por qué vía. Solo tasks y pages tienen cierre. */

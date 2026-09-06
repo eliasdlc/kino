@@ -607,7 +607,12 @@ export const setCompleted = kinoZodMutation({
   handler: async (ctx, { id, completed }) => {
     await ownPage(ctx, ctx.user._id, id);
     const now = Date.now();
-    await ctx.db.patch(id, { completedAt: completed ? now : undefined, updatedAt: now });
+    await ctx.db.patch(id, {
+      completedAt: completed ? now : undefined,
+      completedBy: completed ? ctx.user._id : undefined,
+      completedVia: completed ? ctx.channel : undefined,
+      updatedAt: now,
+    });
     return { id, completedAt: completed ? iso(now) : null };
   },
 });

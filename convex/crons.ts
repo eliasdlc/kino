@@ -14,4 +14,9 @@ crons.daily('daily-snapshot', { hourUTC: 12, minuteUTC: 0 }, internal.scheduler.
 
 crons.interval('task-reminders', { minutes: 15 }, internal.scheduler.taskReminders);
 
+// 12:20 UTC: veinte minutos después del snapshot, para no competir con él. La
+// poda va por lotes y se reprograma sola mientras queden filas de más de
+// treinta días (`convex/eventLog.ts`).
+crons.daily('event-log-prune', { hourUTC: 12, minuteUTC: 20 }, internal.eventLog.podar, {});
+
 export default crons;
