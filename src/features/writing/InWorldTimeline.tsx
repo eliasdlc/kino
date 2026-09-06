@@ -27,7 +27,7 @@ import { moveWithin, type TimelineEntry } from "./timeline";
 
 /**
  * Cronología in-world (KIN-140): los eventos en el tiempo de la historia, no en
- * el del manuscrito. Lo que se viene a ver es la diferencia entre las dos — un
+ * el del manuscrito. Lo que se viene a ver es la diferencia entre las dos: un
  * evento marcado como flashback es uno que se cuenta después de algo que pasa
  * más tarde.
  *
@@ -103,7 +103,7 @@ export function InWorldTimeline({ systemId }: { systemId: string }) {
       ) : placed.length === 0 && unplaced.length === 0 ? (
         <Empty
           title="No hay eventos en el codex"
-          hint="Crea entidades de tipo Evento —un asedio, una coronación, la noche en que todo cambió— y ordénalas aquí en el tiempo de la historia."
+          hint="Crea entidades de tipo Evento (un asedio, una coronación, la noche en que todo cambió) y ordénalas aquí en el tiempo de la historia."
         />
       ) : (
         <>

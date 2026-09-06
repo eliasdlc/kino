@@ -41,7 +41,7 @@ export default async function CodexPage({
       </div>
       <PageWrapper className="w-full">
         <div className="mb-4">
-          <h1 className="text-xl font-semibold">Codex — {system.name}</h1>
+          <h1 className="text-xl font-semibold">Codex: {system.name}</h1>
           <p className="text-sm text-muted-foreground">
             El universo de tu historia: personajes, lugares, objetos y todo lo que
             crece desde el texto.

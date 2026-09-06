@@ -13,7 +13,7 @@ import type { MediumBlockId, MediumManifest } from "@/shared/lib/mediums";
 
 /**
  * Bloques que cada medium suma al slash menu (PLAN-11 §6: "el slash menu existente
- * se extiende por medium"). El menú base —títulos, listas, tabla, imagen— no
+ * se extiende por medium"). El menú base (títulos, listas, tabla, imagen) no
  * cambia; esto es lo propio de la forma de la obra.
  */
 const MEDIUM_BLOCKS: Record<MediumBlockId, SlashItem> = {

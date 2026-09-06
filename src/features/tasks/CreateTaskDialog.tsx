@@ -119,7 +119,7 @@ export function CreateTaskDialog({
   const taskType = form.watch('taskType');
   const typeConfig = getTaskTypeConfig(taskType);
 
-  // Parser reactivo en tiempo real — detecta tokens en el título mientras el usuario escribe.
+  // Parser reactivo en tiempo real: detecta tokens en el título mientras el usuario escribe.
   const rawNlParsed = parseQuickInput(form.watch('title'));
 
   function dismissNlField(field: string) {
@@ -136,7 +136,7 @@ export function CreateTaskDialog({
     // Limpiar el título quitando todos los tokens detectados
     form.setValue('title', rawNlParsed.title);
 
-    // Fecha/hora — solo aplicar si no hay fecha ya puesta (evita pisar edición manual en paso 2)
+    // Fecha/hora: solo aplicar si no hay fecha ya puesta (evita pisar edición manual en paso 2)
     if (rawNlParsed.dueDate && !nlIgnoredFields.has('dueDate') &&
         !form.getValues('startDate') && !form.getValues('dueDate')) {
       const day = new Date(rawNlParsed.dueDate + 'T00:00:00');
@@ -156,7 +156,7 @@ export function CreateTaskDialog({
       form.setValue('estimatedMinutes', rawNlParsed.estimatedMinutes);
     }
 
-    // Etiqueta — resolver tagHint → contextTagId por nombre (insensible a mayúsculas/acentos)
+    // Etiqueta: resolver tagHint → contextTagId por nombre (insensible a mayúsculas/acentos)
     if (rawNlParsed.tagHint && !nlIgnoredFields.has('tagHint') &&
         !form.getValues('contextTagId') && tags) {
       const norm = (s: string) => stripAccents(s).toLowerCase();
@@ -207,7 +207,7 @@ export function CreateTaskDialog({
     //
     // Lo que se degrada a propósito: subtareas y plan de estudio. Ambos cuelgan
     // del id real que devuelve el servidor, y offline ese id todavía no existe.
-    // La tarea principal —lo que el usuario vino a capturar— sí se guarda.
+    // La tarea principal (lo que el usuario vino a capturar) sí se guarda.
     if (!isOnline) {
       createTaskSync(payload);
       const pendientes = subtasks.filter((s) => s.title.trim()).length;

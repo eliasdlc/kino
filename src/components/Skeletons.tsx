@@ -2,7 +2,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { ChevronRight } from "lucide-react";
 
 /**
- * Breadcrumb skeleton — mirrors PageBreadcrumb's layout exactly.
+ * Breadcrumb skeleton: mirrors PageBreadcrumb's layout exactly.
  */
 export function BreadcrumbSkeleton({ segments = 2 }: { segments?: number }) {
   return (
@@ -21,7 +21,7 @@ export function BreadcrumbSkeleton({ segments = 2 }: { segments?: number }) {
 }
 
 /**
- * Task card skeleton — matches TaskCard's visual structure exactly.
+ * Task card skeleton: matches TaskCard's visual structure exactly.
  */
 export function TaskCardSkeleton() {
   return (
@@ -49,7 +49,7 @@ export function TaskCardSkeleton() {
 }
 
 /**
- * Section card skeleton — matches the rounded-lg border bg-card p-6 pattern.
+ * Section card skeleton: matches the rounded-lg border bg-card p-6 pattern.
  */
 export function CardSkeleton({
   children,

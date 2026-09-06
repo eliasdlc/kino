@@ -1,28 +1,29 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import { Check, Flame, Moon, Zap, type LucideIcon } from "lucide-react";
 import { KinoMark } from "./KinoMark";
 import { useHydrated } from "@/shared/hooks/useHydrated";
 
 type Level = "alta" | "media" | "baja";
 
 const TASK_DEFS = [
-  { id: "t1", title: "Preparar la presentación", meta: "🔥 alta · ~45m · Proyecto" },
-  { id: "t2", title: "Revisar el PR del equipo", meta: "⚡ media · ~30m · Proyecto" },
-  { id: "t3", title: "Leer 10 páginas", meta: "🌙 baja · ~15m · Personal" },
+  { id: "t1", title: "Preparar la presentación", meta: "alta · ~45m · Proyecto" },
+  { id: "t2", title: "Revisar el PR del equipo", meta: "media · ~30m · Proyecto" },
+  { id: "t3", title: "Leer 10 páginas", meta: "baja · ~15m · Personal" },
 ] as const;
 
 const ADVISOR_LINES: Record<Level | "none", string> = {
   none: "Soy Kino. Registra tu energía y ajusto tu plan en tiempo real:",
-  alta: "Energía alta registrada — ahora es el momento para lo difícil. Empieza por la presentación.",
-  media: "Energía media — buen momento para el PR. Lo pesado, mejor en tu próximo pico.",
-  baja: "Energía baja — sé amable contigo. Lee 10 páginas y considera una pausa.",
+  alta: "Energía alta registrada: ahora es el momento para lo difícil. Empieza por la presentación.",
+  media: "Energía media: buen momento para el PR. Lo pesado, mejor en tu próximo pico.",
+  baja: "Energía baja: sé amable contigo. Lee 10 páginas y considera una pausa.",
 };
 
-const CHECKIN_LEVELS: { key: Level; label: string }[] = [
-  { key: "alta", label: "🔥 Alta" },
-  { key: "media", label: "⚡ Media" },
-  { key: "baja", label: "🌙 Baja" },
+const CHECKIN_LEVELS: { key: Level; label: string; Icon: LucideIcon }[] = [
+  { key: "alta", label: "Alta", Icon: Flame },
+  { key: "media", label: "Media", Icon: Zap },
+  { key: "baja", label: "Baja", Icon: Moon },
 ];
 
 function curve(h: number) {
@@ -86,7 +87,7 @@ export function HeroDemo() {
   const progressPct = Math.round((doneCount / 3) * 100);
   const advisorLine =
     doneCount === 3
-      ? "¡Plan completado! 🎉 Te queda energía — ¿una tarea más o cerramos el día?"
+      ? "¡Plan completado! Te queda energía: ¿una tarea más o cerramos el día?"
       : ADVISOR_LINES[checkin ?? "none"];
 
   return (
@@ -134,7 +135,7 @@ export function HeroDemo() {
                     background: done ? "#3ecf72" : "transparent",
                   }}
                 >
-                  {done ? "✓" : ""}
+                  {done && <Check className="size-3.5" strokeWidth={3} aria-hidden />}
                 </button>
                 <div className="min-w-0 flex-1">
                   <p
@@ -204,6 +205,7 @@ export function HeroDemo() {
                       color: sel ? "#c7d2fe" : "#a1a1aa",
                     }}
                   >
+                    <l.Icon className="mr-1 inline size-3.5 align-[-2px]" aria-hidden />
                     {l.label}
                   </button>
                 );

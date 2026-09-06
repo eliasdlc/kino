@@ -73,7 +73,7 @@ export function SystemDetailHeader({ system, signals, currentTab = "tasks" }: Sy
 
   return (
     <div className={`rounded-lg px-4 py-3 w-full bg-${cls}/10`}>
-      {/* Title row — toggles the detail */}
+      {/* Title row: toggles the detail */}
       <div className="flex items-start justify-between gap-3 min-w-0">
         <button
           type="button"
@@ -187,7 +187,7 @@ export function SystemDetailHeader({ system, signals, currentTab = "tasks" }: Sy
         )}
       </div>
 
-      {/* Trigger context — collapsible */}
+      {/* Trigger context: collapsible */}
       {system.triggerContext && (
         <div className="pl-6">
           <button
@@ -216,7 +216,7 @@ export function SystemDetailHeader({ system, signals, currentTab = "tasks" }: Sy
         <span>{activityLabel(signals.daysSinceLastActivity)}</span>
       </div>
 
-      {/* Advisor — solo cuando stale */}
+      {/* Advisor: solo cuando stale */}
       {staleAdvisor && (
         <div className="flex items-start gap-2 ml-6 rounded-md border border-amber-500/30 bg-amber-500/5 px-3 py-2 text-xs text-amber-700 dark:text-amber-500">
           <AlertTriangle className="size-3.5 shrink-0 mt-0.5" />

@@ -1,11 +1,12 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { Flame, Moon, Zap } from "lucide-react";
 
 const LEVELS = [
-  { key: "alta", label: "🔥 Alta", color: "#f97316" },
-  { key: "media", label: "⚡ Media", color: "#818cf8" },
-  { key: "baja", label: "🌙 Baja", color: "#6b7280" },
+  { key: "alta", label: "Alta", Icon: Flame, color: "#f97316" },
+  { key: "media", label: "Media", Icon: Zap, color: "#818cf8" },
+  { key: "baja", label: "Baja", Icon: Moon, color: "#6b7280" },
 ] as const;
 
 export function EnergyBadgeCycle() {
@@ -31,6 +32,7 @@ export function EnergyBadgeCycle() {
               boxShadow: sel ? `0 0 14px ${l.color}35` : "none",
             }}
           >
+            <l.Icon className="mr-1.5 inline size-3.5 align-[-2px]" aria-hidden />
             {l.label}
           </span>
         );

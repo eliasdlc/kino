@@ -4,7 +4,7 @@ import { SITE_URL } from "@/shared/lib/site-url";
 
 /**
  * Sitemap del sitio público. Sólo lo que se quiere indexado: la landing, los
- * docs y una entrada por landing de arquetipo (D14) — generadas desde el
+ * docs y una entrada por landing de arquetipo (D14): generadas desde el
  * manifiesto de segmentos, así que un segmento nuevo entra al sitemap solo.
  * Todo lo autenticado queda fuera y bloqueado en `robots.ts`.
  */

@@ -9,8 +9,8 @@ export interface ServerSession {
 }
 
 /**
- * La sesión de Clerk del request, resuelta una sola vez. Lo que Kino sabe de
- * esa persona vive en Convex (`users.current`); aquí se decide si hay alguien
+ * La sesión de Clerk del request, resuelta una sola vez. Lo que hay guardado
+ * de esa persona vive en Convex (`users.current`); aquí se decide si hay alguien
  * al otro lado y se garantiza que su documento existe antes de que layout y
  * página, que Next renderiza en paralelo, lo lean.
  */

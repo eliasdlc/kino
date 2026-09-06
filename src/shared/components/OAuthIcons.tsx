@@ -1,5 +1,5 @@
 /**
- * Shared OAuth provider icons — extracted from LoginPage/RegisterPage
+ * Shared OAuth provider icons: extracted from LoginPage/RegisterPage
  * to avoid duplication across auth pages.
  */
 

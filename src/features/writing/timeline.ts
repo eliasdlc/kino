@@ -4,8 +4,8 @@
  * capítulos.
  *
  * De ahí sale lo que hace que valga la pena: comparar las dos líneas. Cualquier
- * narración no lineal —flashbacks, tramas paralelas, un misterio que revela el
- * pasado por partes— vive de que el autor tenga clara la cronología real
+ * narración no lineal (flashbacks, tramas paralelas, un misterio que revela el
+ * pasado por partes) vive de que el autor tenga clara la cronología real
  * mientras escribe una distinta. Hoy eso vive en la cabeza o en un documento
  * aparte; aquí se deriva de datos que ya existen (`entities` de tipo `event` y
  * sus menciones) más un solo campo nuevo: el orden.
@@ -142,7 +142,7 @@ export function buildTimeline(
 /**
  * Marca los eventos que se cuentan antes de tiempo. Un evento está fuera de
  * orden si algún evento **posterior** en la cronología interna se narra antes
- * que él — la definición literal de contar el futuro primero.
+ * que él: la definición literal de contar el futuro primero.
  */
 function markOutOfOrder(placed: TimelineEntry[]): void {
   // Recorriendo de atrás hacia delante, `minLater` es el capítulo más temprano

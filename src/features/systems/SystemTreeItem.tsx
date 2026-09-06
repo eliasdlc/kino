@@ -257,7 +257,7 @@ export function SystemTreeItem({
               </Link>
             ))}
 
-          {/* Empty state — solo en arquetipos que ofrecen carpetas */}
+          {/* Empty state: solo en arquetipos que ofrecen carpetas */}
           {folderRole && !foldersLoading && (!folders || folders.length === 0) && !isCreating && (
             <p className="px-2 py-1 text-xs text-muted-foreground/60">
               Sin {folderRole.nounPlural}

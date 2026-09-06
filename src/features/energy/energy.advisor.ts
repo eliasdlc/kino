@@ -78,7 +78,7 @@ function detectDisorganization(
     return makePattern(
       'disorganization',
       'Prioridades planas',
-      'Casi todo está marcado como crítico — no todo puede serlo. ¿Elegimos las 2 reales?',
+      'Casi todo está marcado como crítico: no todo puede serlo. ¿Elegimos las 2 reales?',
       2, 2, 3,
     );
   }

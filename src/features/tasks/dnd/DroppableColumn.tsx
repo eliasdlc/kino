@@ -5,7 +5,7 @@ import { cn } from "@/lib/utils";
 import type { ReactNode } from "react";
 
 interface DroppableColumnProps {
-  /** Unique droppable ID — ISO date, "unscheduled", or energy level */
+  /** Unique droppable ID: ISO date, "unscheduled", or energy level */
   id: string;
   children: ReactNode;
   className?: string;

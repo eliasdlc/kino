@@ -3,7 +3,7 @@
  *
  * Dirección: **sólo lectura, GitHub manda**. Es una decisión, no una etapa: la
  * bidireccional obliga a resolver conflictos de escritura y a pelearse con el
- * rate limit de la API, y el valor del feature no está en escribir en GitHub —
+ * rate limit de la API, y el valor del feature no está en escribir en GitHub:
  * está en meter los issues al motor de energía de Kino.
  */
 

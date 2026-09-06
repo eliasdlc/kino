@@ -178,7 +178,7 @@ export function EnergyTodayCard({
           />
         ) : (
           <>
-            {/* Lectura "ahora" — la medición */}
+            {/* Lectura "ahora": la medición */}
             <div className="flex items-center gap-3 motion-safe:animate-in motion-safe:fade-in motion-safe:slide-in-from-bottom-1 motion-safe:duration-300 motion-safe:fill-mode-both">
               <div className="relative shrink-0">
                 <div
@@ -309,9 +309,9 @@ export function EnergyTodayCard({
                 <p className="text-xs text-muted-foreground">¿Acertó la predicción de hoy?</p>
                 <div className="flex gap-2">
                   {[
-                    { key: 'accurate' as const, label: '✓ Sí' },
+                    { key: 'accurate' as const, label: 'Sí' },
                     { key: 'partial' as const, label: '~ Más o menos' },
-                    { key: 'inaccurate' as const, label: '✗ No' },
+                    { key: 'inaccurate' as const, label: 'No' },
                   ].map(({ key, label }) => (
                     <button
                       key={key}

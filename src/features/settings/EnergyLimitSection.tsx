@@ -49,7 +49,7 @@ export function EnergyLimitSection() {
               Límite de energía diario
             </Label>
             <p className="text-xs text-muted-foreground">
-              Al superarlo, Kino te avisa del sobregiro — nunca te bloquea. Cada tarea
+              Al superarlo verás el aviso de sobregiro, y nada se bloquea. Cada tarea
               pesa según su energía: alta 5, media 3, baja 1.
             </p>
           </div>

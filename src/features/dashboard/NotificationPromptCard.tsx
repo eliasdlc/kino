@@ -36,7 +36,7 @@ export function NotificationPromptCard() {
       <div className="flex-1 min-w-0 space-y-2">
         <p className="text-sm font-medium">Activa los recordatorios</p>
         <p className="text-xs text-muted-foreground">
-          Kino te avisará antes de que venza una tarea, incluso si no tienes la app abierta.
+          Recibirás un aviso antes de que venza una tarea, incluso sin la app abierta.
         </p>
         <Button
           size="sm"

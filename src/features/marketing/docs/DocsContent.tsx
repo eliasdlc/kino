@@ -58,7 +58,7 @@ const softCard = "rounded-xl border border-white/[0.07] bg-white/[0.03]";
 
 const STEPS = [
   ["Crea tu cuenta", "Email y contraseña. Kino te preguntará tu nombre porque te va a hablar como un coach, no como una base de datos."],
-  ["Haz tu primer check-in de energía", "¿Cómo estás ahora — alta, media o baja? Un toque. Hazlo unas veces al día y la curva empieza a tomar forma."],
+  ["Haz tu primer check-in de energía", "¿Cómo estás ahora: alta, media o baja? Un toque. Hazlo unas veces al día y la curva empieza a tomar forma."],
   ["Crea tu primer sistema y añade tareas", "Elige un tipo (académico, profesional…), suelta 3-5 tareas con su energía estimada, y mira tu primer Plan de hoy."],
 ];
 
@@ -190,7 +190,7 @@ export function DocsContent() {
 
       <Section id="primeros-pasos" title="Primeros pasos">
         <p className="mb-[22px] text-[#c4c4ce]">
-          Tres pasos y estás dentro. No necesitas configurarlo todo el primer día — Kino aprende
+          Tres pasos y estás dentro. No necesitas configurarlo todo el primer día: Kino aprende
           sobre la marcha.
         </p>
         <div className="flex flex-col gap-3">
@@ -266,7 +266,7 @@ export function DocsContent() {
         </p>
         <p className="mb-[22px] text-[#c4c4ce]">
           Son siete. Lo único que no cambia entre ellos es la energía, porque sólo hay una: la
-          tuya. Un sistema no compite con otro por tu mejor hora — el plan del día los ordena
+          tuya. Un sistema no compite con otro por tu mejor hora: el plan del día los ordena
           juntos.
         </p>
 

@@ -45,7 +45,7 @@ export function BottomNav() {
           </Link>
         ))}
 
-        {/* FAB — create task */}
+        {/* FAB: create task */}
         <button
           onClick={() => setOpen(true)}
           className="relative -top-3 flex items-center justify-center size-12 rounded-full bg-primary text-primary-foreground shadow-lg hover:bg-primary/90 active:scale-95 transition-transform shrink-0"

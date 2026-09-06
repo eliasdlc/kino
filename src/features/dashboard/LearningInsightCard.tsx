@@ -24,8 +24,8 @@ const VERDICT_TONE: Record<PredictionVerdict, string> = {
 /**
  * El ciclo del día: predije X, confirmaste Y, mi modelo mejoró Z.
  *
- * Todo sale de datos guardados —la predicción se escribió antes del check-in y el
- * alpha se guardó antes y después de recalibrar— así que ninguna de las tres
+ * Todo sale de datos guardados (la predicción se escribió antes del check-in y el
+ * alpha se guardó antes y después de recalibrar) así que ninguna de las tres
  * cifras se reconstruye a posteriori.
  */
 function VerificationLoopBlock({ loop }: { loop: VerificationLoop }) {
@@ -51,15 +51,15 @@ function VerificationLoopBlock({ loop }: { loop: VerificationLoop }) {
 
       <p className="text-[11px] text-muted-foreground">
         {loop.improvementPct !== null
-          ? `Con ese dato mi modelo de ti mejoró ${loop.improvementPct} % — personalización ${loop.alphaAfterPct} %.`
+          ? `Con ese dato mi modelo de ti mejoró ${loop.improvementPct} %: personalización ${loop.alphaAfterPct} %.`
           : loop.alphaAfterPct !== null
-            ? `Mi modelo no se movió con ese dato: ya te esperaba así — personalización ${loop.alphaAfterPct} %.`
+            ? `Mi modelo no se movió con ese dato, ya te esperaba así: personalización ${loop.alphaAfterPct} %.`
             : 'Ese check-in es anterior a que empezara a medir cuánto mejoro con cada dato.'}
       </p>
 
       {!loop.fromLearnedCurve && (
         <p className="text-[10px] text-muted-foreground/70">
-          Esa predicción salió de tu cronotipo — todavía no tenía curva aprendida tuya.
+          Esa predicción salió de tu cronotipo: todavía no tenía curva aprendida tuya.
         </p>
       )}
     </div>
@@ -116,7 +116,7 @@ export function LearningInsightCard({ insight }: LearningInsightCardProps) {
         <p className={cn('text-xs font-medium', TONE_TEXT[advice.tone])}>{advice.text}</p>
       </div>
 
-      {/* El ciclo del día — predicción guardada vs. lo que confirmaste (4.2) */}
+      {/* El ciclo del día: predicción guardada vs. lo que confirmaste (4.2) */}
       {loop && <VerificationLoopBlock loop={loop} />}
 
       {/* Insights: correlación + precisión */}

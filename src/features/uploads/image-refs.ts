@@ -46,7 +46,7 @@ export function extractImageUrlsFromHtml(html: string | null | undefined): strin
 
 /**
  * Reescribe los `src` del HTML según el mapa dado. Lo que no aparezca en el mapa se
- * queda intacto — así una imagen que no se pudo empaquetar conserva su URL remota en
+ * queda intacto: así una imagen que no se pudo empaquetar conserva su URL remota en
  * vez de romperse.
  */
 export function rewriteImageUrls(html: string, replacements: Map<string, string>): string {

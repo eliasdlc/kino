@@ -24,7 +24,7 @@ import {
 
 /**
  * Mapa visual del universo (KIN-136). Es **solo render**: nada que capturar, nada
- * que migrar — las relaciones ya están en `entity_relations` desde W2.
+ * que migrar: las relaciones ya están en `entity_relations` desde W2.
  *
  * Monocromo a propósito, como el resto del sistema de diseño: el tipo de entidad
  * se lee por su icono, no por un color; el peso, por el tamaño del nodo. Una

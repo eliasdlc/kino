@@ -12,7 +12,7 @@ export default function DashboardLoading() {
       {/* Bento grid */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
 
-        {/* Plan de hoy — grande */}
+        {/* Plan de hoy: grande */}
         <div className="lg:col-span-2 lg:row-span-2 min-h-[420px]">
           <div className="rounded-xl border bg-card overflow-hidden h-full flex flex-col">
             <div className="px-4 py-4 border-b flex items-center justify-between shrink-0">

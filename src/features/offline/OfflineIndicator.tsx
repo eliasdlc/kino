@@ -7,7 +7,7 @@ import { useOnlineStatus } from "./offline.hooks";
  * Indicador de estado de red (KIN-57).
  *
  * Discreto a propósito: una píldora pequeña abajo a la izquierda que **sólo
- * aparece cuando hay algo que decir** — no hay red, o hay capturas esperando a
+ * aparece cuando hay algo que decir**: no hay red, o hay capturas esperando a
  * subir. Un aviso permanente y grande convertiría una degradación menor (seguís
  * pudiendo capturar) en algo que parece una avería.
  *

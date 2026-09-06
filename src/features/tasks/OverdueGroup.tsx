@@ -71,14 +71,14 @@ export function OverdueGroup({ tasks, systemMap, onOpen, onToggle }: OverdueGrou
             );
           })}
 
-          {/* KIN-31: energy suggestion hook — disabled, visual only */}
+          {/* KIN-31: energy suggestion hook: disabled, visual only */}
           <button
             disabled
             title="Próximamente: sugerencia por energía de Kino"
             className="inline-flex items-center gap-1 text-[11px] px-2 py-0.5 rounded border border-border text-muted-foreground/30 cursor-not-allowed"
           >
             <Zap className="w-3 h-3" />
-            Kino sugiere
+            Sugerido
           </button>
         </div>
       </div>

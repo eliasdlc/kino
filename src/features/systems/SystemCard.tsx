@@ -86,11 +86,11 @@ export function SystemCard({ system, onEdit, onDelete }: SystemCardProps) {
         </DropdownMenu>
       }
     >
-      {/* Archive body — solid system color with a faint top sheen for depth */}
+      {/* Archive body: solid system color with a faint top sheen for depth */}
       <div className="absolute inset-0 rounded-[20px] sm:rounded-[28px]" style={{ background: colorHex }} />
       <div className="absolute inset-x-0 top-0 h-2/5 rounded-t-[20px] bg-gradient-to-b from-white/10 to-transparent sm:rounded-t-[28px]" />
 
-      {/* Zipper — runs down the centre to the label band */}
+      {/* Zipper: runs down the centre to the label band */}
       <div className="absolute bottom-[42%] left-1/2 top-[12%] w-[11px] -translate-x-1/2">
         {/* closed channel */}
         <div className="absolute inset-0 rounded-full" style={{ background: trackColor }} />
@@ -102,19 +102,19 @@ export function SystemCard({ system, onEdit, onDelete }: SystemCardProps) {
               "repeating-linear-gradient(to bottom, rgba(255,255,255,0.55) 0px, rgba(255,255,255,0.55) 2px, transparent 2px, transparent 4.5px)",
           }}
         />
-        {/* opening — grows downward on hover */}
+        {/* opening: grows downward on hover */}
         <div
           className="absolute left-1/2 top-0 h-[8%] w-[5px] -translate-x-1/2 rounded-full transition-all duration-300 ease-out group-hover:h-[28%]"
           style={{ background: openColor }}
         />
-        {/* pull tab — slides down on hover */}
+        {/* pull tab: slides down on hover */}
         <div className="absolute left-1/2 top-[6%] z-10 flex -translate-x-1/2 flex-col items-center transition-all duration-300 ease-out group-hover:top-[30%]">
           <div className="h-4 w-5 rounded-[3px] bg-zinc-100 shadow-md ring-1 ring-black/15" />
           <div className="h-3 w-1.5 rounded-b-full bg-zinc-300" />
         </div>
       </div>
 
-      {/* Label band — flat-topped (no folder tab), with a system-colour accent */}
+      {/* Label band: flat-topped (no folder tab), with a system-colour accent */}
       <div className="absolute inset-x-0 bottom-0 z-20 h-[42%] rounded-b-[20px] bg-card shadow-[0_-3px_10px_rgba(0,0,0,0.10)] sm:rounded-b-[28px]">
         <div className="absolute inset-x-0 top-0 h-[3px]" style={{ background: colorHex }} />
         <div className="absolute inset-0 flex flex-col justify-between p-3 sm:p-4">

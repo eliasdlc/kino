@@ -2,7 +2,7 @@ import { Extension, InputRule, Node, mergeAttributes } from "@tiptap/react";
 
 /**
  * Formato de guion (PLAN-11 §6): encabezado de escena, acción, personaje,
- * paréntesis y diálogo, con Tab para ciclar tipos — el patrón de Final Draft.
+ * paréntesis y diálogo, con Tab para ciclar tipos: el patrón de Final Draft.
  *
  * Los cinco nodos se renderizan como `<p data-sp="…">`, así que si el contenido se
  * abre sin la extensión (otro medium, export genérico) degrada a párrafos y no se
@@ -151,7 +151,7 @@ export const ScreenplayKeys = Extension.create({
         handler: ({ range, match, chain }) => {
           // El carácter recién tecleado no está en el documento todavía: el
           // input rule debe reescribir el rango con el texto completo o "INT."
-          // se quedaría en "INT". El texto se conserva — es el encabezado.
+          // se quedaría en "INT". El texto se conserva: es el encabezado.
           chain().insertContentAt(range, match[0]).setNode("sceneHeading").run();
         },
       }),

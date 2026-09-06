@@ -12,7 +12,7 @@ const menuButton =
 
 /**
  * Contextual table toolbar (KIN-65): a BubbleMenu shown while the cursor is
- * inside a table — add/remove rows & columns, toggle header row, delete table.
+ * inside a table: add/remove rows & columns, toggle header row, delete table.
  * Table insertion lives in the slash menu (KIN-67).
  */
 export function TableMenus({ editor }: { editor: Editor }) {

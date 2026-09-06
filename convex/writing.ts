@@ -203,7 +203,7 @@ export const journal = kinoZodQuery({
       (note) => note.isEureka && (note.folderId === id || (note.pageId !== undefined && chapterIds.has(note.pageId))),
     );
     const breakthroughs = notes
-      .map((n) => ({ noteId: n._id, text: [n.title, n.content].filter(Boolean).join(' — ').trim(), day: calendarDayInTz(n.createdAt, timezone) }))
+      .map((n) => ({ noteId: n._id, text: [n.title, n.content].filter(Boolean).join(': ').trim(), day: calendarDayInTz(n.createdAt, timezone) }))
       .filter((n) => n.text.length > 0);
 
     const totalWords = chapters.reduce((sum, c) => sum + countWords(c.content ?? null), 0);

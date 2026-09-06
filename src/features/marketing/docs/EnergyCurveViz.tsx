@@ -13,7 +13,7 @@ const BARS = Array.from({ length: 18 }, (_, i) => {
   };
 });
 
-/** Curva de energía típica (cronotipo intermedio) — ilustración estática de docs. */
+/** Curva de energía típica (cronotipo intermedio): ilustración estática de docs. */
 export function EnergyCurveViz() {
   return (
     <div className="mb-5 rounded-2xl border border-white/[0.08] bg-[#18181c] p-[22px]">

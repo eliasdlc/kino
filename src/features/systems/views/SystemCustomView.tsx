@@ -11,8 +11,8 @@ import type { SystemViewProps } from "./SystemDetailView";
 
 /**
  * Custom es el arquetipo sin opiniones: lo que otros traen en su manifiesto,
- * aquí lo pone el usuario desde "Componer" (D16). Todo lo que se ve —tabs,
- * vocabulario, clases de tarea— sale del manifiesto ya resuelto con esa
+ * aquí lo pone el usuario desde "Componer" (D16). Todo lo que se ve (tabs,
+ * vocabulario, clases de tarea) sale del manifiesto ya resuelto con esa
  * composición, no de constantes de este archivo.
  */
 export function SystemCustomView({ system: initialSystem, initialTasks }: SystemViewProps) {

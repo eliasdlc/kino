@@ -16,7 +16,7 @@ import type { PageDetailTransport } from "./pages.types";
 /**
  * The Tiptap editing surface, isolated so it can be loaded with `next/dynamic`
  * ({ ssr: false }) from the layout (KIN-73). All heavy editor extensions
- * (StarterKit, table, suggestion, list — and image in Sprint 3) live behind this
+ * (StarterKit, table, suggestion, list: and image in Sprint 3) live behind this
  * boundary, so they land in a deferred client chunk instead of the route's
  * initial JS. Client-only load also sidesteps Tiptap's SSR hydration warning.
  */

@@ -17,7 +17,7 @@ export function useTaskKeyboardNavigation(
   const [focusedIndex, setFocusedIndex] = useState<number>(-1);
   const enabled = options?.enabled ?? true;
 
-  // Clamp on read — avoids setState-in-effect and unnecessary re-renders
+  // Clamp on read: avoids setState-in-effect and unnecessary re-renders
   const safeIndex = focusedIndex >= tasks.length ? tasks.length - 1 : focusedIndex;
 
   useHotkey(["j", "ArrowDown"], (e) => {

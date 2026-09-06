@@ -51,8 +51,8 @@ import type { PlotChapter, PlotGrid, PlotScene } from "./writing.plot";
  * un arrastre accidental aquí reescribe el manuscrito, así que la vía explícita
  * tiene que existir siempre y funcionar igual en un móvil.
  *
- * En un teléfono la rejilla no cabe —columnas de 224px que sólo se alcanzan
- * desplazando en horizontal— así que ahí se sirve `PlotSceneList`, la misma
+ * En un teléfono la rejilla no cabe (columnas de 224px que sólo se alcanzan
+ * desplazando en horizontal) así que ahí se sirve `PlotSceneList`, la misma
  * información en vertical y sin arrastre (KIN-170). Los datos y las operaciones
  * se resuelven aquí para las dos: una sola fuente, un solo estado de carga.
  */
@@ -162,7 +162,7 @@ export function PlotGridView({
       <div className="space-y-3">
         <div className="flex items-center justify-between gap-3">
           <p className="text-xs text-muted-foreground">
-            Las escenas salen del texto. Mover una tarjeta reescribe el capítulo —
+            Las escenas salen del texto. Mover una tarjeta reescribe el capítulo:
             no hay un orden aparte que se pueda desincronizar.
           </p>
           {isPending && <Loader2 className="size-4 shrink-0 animate-spin text-muted-foreground" />}
@@ -289,7 +289,7 @@ function Cell({
         ))}
         {scenes.length === 0 && (
           <p className="px-1 py-3 text-center text-[11px] text-muted-foreground/50">
-            —
+            Sin escenas
           </p>
         )}
       </div>

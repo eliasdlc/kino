@@ -58,7 +58,7 @@ export default async function DashboardPage() {
       <WeeklyRitualPrompt />
 
       <div className="dashboard-grid h-full">
-        {/* ── Plan de hoy — client component, fetches its own tasks ── */}
+        {/* ── Plan de hoy: client component, fetches its own tasks ── */}
         <div className="dashboard-plan overflow-hidden motion-safe:animate-in motion-safe:fade-in motion-safe:slide-in-from-bottom-3 motion-safe:duration-500 motion-safe:fill-mode-both">
           <TodayPlanCard
             noProfile={dailyPlan.noProfile}

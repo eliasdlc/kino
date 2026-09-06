@@ -17,7 +17,7 @@ interface TaskBacklogViewProps {
 }
 
 /**
- * Backlog tab — shows tasks without a startDate (status = "backlog").
+ * Backlog tab: shows tasks without a startDate (status = "backlog").
  * These are ideas / brain dumps that haven't been scheduled yet.
  */
 export function TaskBacklogView({ systemId, initialData, folderId, folderInitialData, onEdit, keyboardDisabled }: TaskBacklogViewProps) {

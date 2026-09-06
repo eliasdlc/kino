@@ -164,7 +164,7 @@ export function buildEnergyPlan(options: EnergyPlanOptions): EnergyPlanResult {
     // Solo las tareas 'high' se difieren por energía insuficiente
     if (demand === 'high' && effectiveEnergy < ENERGY_THRESHOLDS.high) {
       deferred.push({ task, reason: 'energy' });
-      continue; // no avanzar el reloj — la ranura sigue libre para la siguiente tarea
+      continue; // no avanzar el reloj: la ranura sigue libre para la siguiente tarea
     }
 
     items.push({

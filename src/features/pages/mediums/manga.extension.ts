@@ -8,7 +8,7 @@ import type { ResolvedPos } from "@tiptap/pm/model";
  * SFX escritos como párrafos.
  *
  * La numeración NO se persiste: se dibuja con contadores CSS y se recalcula por
- * posición al exportar. Un panel insertado en medio renumera solo — es la regla
+ * posición al exportar. Un panel insertado en medio renumera solo: es la regla
  * "derivar > mantener" (D12) aplicada a la estructura del guion.
  *
  * El webtoon (scroll vertical, sin páginas) usa `panel` suelto en el documento:
@@ -113,7 +113,7 @@ export const Panel = Node.create({
           const panel = state.schema.nodes.panel?.createAndFill();
           if (!panel) return false;
 
-          // Dentro de un panel, el nuevo va detrás como hermano — nunca anidado.
+          // Dentro de un panel, el nuevo va detrás como hermano: nunca anidado.
           const { $from } = state.selection;
           const depth = panelDepthAt($from);
           if (depth === null) {
@@ -139,7 +139,7 @@ export const Panel = Node.create({
        * Enter dentro de un panel nunca te saca del guion por sorpresa: en el
        * párrafo vacío final encadena el siguiente panel (PLAN-11 §6), y si ese
        * párrafo era lo único del panel, sale a prosa. En cualquier otro punto
-       * parte la línea dentro del panel — sin esto, el `liftEmptyBlock` del
+       * parte la línea dentro del panel: sin esto, el `liftEmptyBlock` del
        * keymap base expulsaría el párrafo vacío fuera de la página entera.
        */
       Enter: () =>
@@ -159,7 +159,7 @@ export const Panel = Node.create({
           if (!panelType || !paragraphType) return false;
 
           // Párrafo vacío en medio del panel: línea nueva, se queda dentro. Se
-          // usa el `commands` del propio comando —no el del editor— para no
+          // usa el `commands` del propio comando (no el del editor) para no
           // despachar una transacción paralela a la que ya está en curso.
           if ($from.index(panelDepth) !== panel.childCount - 1) {
             return commands.splitBlock();

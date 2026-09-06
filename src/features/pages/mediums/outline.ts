@@ -1,6 +1,6 @@
 /**
  * Navegador del manuscrito (PLAN-11 §7): el índice del capítulo abierto se
- * *deriva* del contenido — separadores de escena, páginas y paneles del guion,
+ * *deriva* del contenido: separadores de escena, páginas y paneles del guion,
  * encabezados de escena y títulos. No hay lista paralela que mantener ni renumerar:
  * insertar una escena en el medio reordena el índice solo (D12, derivar > mantener).
  *
@@ -11,7 +11,7 @@
 export type OutlineKind = "heading" | "scene" | "page" | "panel";
 
 export interface OutlineItem {
-  /** Posición absoluta del bloque en el documento — destino del salto. */
+  /** Posición absoluta del bloque en el documento: destino del salto. */
   pos: number;
   kind: OutlineKind;
   label: string;
@@ -59,7 +59,7 @@ export function deriveOutline(doc: OutlineDoc): OutlineItem[] {
     switch (node.type.name) {
       case "sceneBreak": {
         // El corte guía del plot grid (KIN-141) abre el capítulo: no separa dos
-        // escenas, así que no numera una nueva — solo etiqueta la primera.
+        // escenas, así que no numera una nueva: solo etiqueta la primera.
         if (node.attrs?.leading === true && offset === 0) {
           openScene = firstScene;
           firstScene.pos = offset;

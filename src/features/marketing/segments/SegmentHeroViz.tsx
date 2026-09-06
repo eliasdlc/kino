@@ -2,7 +2,7 @@ import { KinoMark } from "../KinoMark";
 
 /**
  * Prueba visual del hero de cada landing por segmento: una maqueta estática de
- * cómo se ve *su* sistema en Kino. No son componentes de producción — son la
+ * cómo se ve *su* sistema en Kino. No son componentes de producción: son la
  * promesa dibujada, con el vocabulario del arquetipo (clase/obra/tarjeta) para
  * que el segmento se reconozca antes de leer una línea de copy.
  */
@@ -79,7 +79,7 @@ function StudentViz() {
         ))}
       </div>
       <AdvisorLine>
-        La entrega de Cálculo II vence en 2 días. Tu pico es a las 10h — empieza el borrador ahí,
+        La entrega de Cálculo II vence en 2 días. Tu pico es a las 10h: empieza el borrador ahí,
         no esta noche.
       </AdvisorLine>
     </div>
@@ -130,7 +130,7 @@ function WriterViz() {
         </div>
       </div>
       <AdvisorLine>
-        Tu mejor ventana creativa es ahora — dale a La casa del faro. La revisión del capítulo 3
+        Tu mejor ventana creativa es ahora: dale a La casa del faro. La revisión del capítulo 3
         puede esperar a la tarde.
       </AdvisorLine>
     </div>
