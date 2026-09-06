@@ -29,10 +29,17 @@ const PRESUPUESTO_KB = {
 
 const RAIZ = ".next";
 
+// El catálogo visual (/system-design) monta todos los componentes del producto
+// una segunda vez en una ruta propia, sin datos de usuario y sin indexar.
+// Contarlo duplicaría el JavaScript que ya paga cada pantalla; el presupuesto
+// mide lo que el usuario descarga, y el usuario no abre el catálogo.
+const FUERA_DEL_TOTAL = new Set([join(RAIZ, "static", "chunks", "app", "system-design")]);
+
 function jsBytes(dir) {
   let total = 0;
   for (const entry of readdirSync(dir, { withFileTypes: true })) {
     const ruta = join(dir, entry.name);
+    if (FUERA_DEL_TOTAL.has(ruta)) continue;
     if (entry.isDirectory()) total += jsBytes(ruta);
     else if (entry.name.endsWith(".js")) total += statSync(ruta).size;
   }

@@ -2,12 +2,12 @@
 /**
  * Captura las pantallas de Kino sin tocar la pantalla de nadie.
  *
- * Recorre las 19 rutas de `src/app` con la cuenta sembrada y guarda una
+ * Recorre las 19 rutas de `src/app` con la cuenta sembrada, más el catálogo y guarda una
  * captura por ruta, viewport y tema. Usa el `playwright` instalado en la
  * laptop (no es dependencia del repo) contra un `pnpm dev` que ya corre.
  *
  *   pnpm dev                                  # en otra terminal
- *   node scripts/capturas/run.mjs             # 19 rutas x 4 viewports x 2 temas
+ *   node scripts/capturas/run.mjs             # 20 rutas x 4 viewports x 2 temas
  *   node scripts/capturas/run.mjs dashboard   # sólo las rutas cuyo nombre contenga "dashboard"
  *
  * Entorno:
@@ -73,7 +73,7 @@ const VIEWPORTS = [
 ];
 const TEMAS = ["light", "dark"];
 
-/** Las 19 rutas de `src/app`, con el nombre del fichero de salida. */
+/** Las 19 rutas de `src/app` más `/system-design`, con el nombre del fichero de salida. */
 function rutas(ids) {
   const s = `/systems/${ids.systemId}`;
   const f = `${s}/folders/${ids.folderId}`;
@@ -97,6 +97,7 @@ function rutas(ids) {
     { nombre: "docs", url: "/docs", anonima: true },
     { nombre: "para-estudiantes", url: "/para/estudiantes", anonima: true },
     { nombre: "offline", url: "/offline", anonima: true },
+    { nombre: "system-design", url: "/system-design", anonima: true },
   ];
 }
 
@@ -199,6 +200,8 @@ async function capturar(browser, storageState, ids) {
           // Los datos de Convex llegan por websocket después de networkidle.
           await page.waitForTimeout(2500);
           await page.evaluate(() => document.fonts.ready);
+          // Un autofocus (la paleta de comandos del catálogo) desplaza la página; la captura es del inicio.
+          await page.evaluate(() => window.scrollTo(0, 0));
           await page.addStyleTag({ content: "nextjs-portal { display: none !important; }" });
           const final = new URL(page.url()).pathname;
           const status = res?.status();
