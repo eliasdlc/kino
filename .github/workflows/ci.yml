@@ -38,4 +38,10 @@ jobs:
 
       - run: pnpm lint
 
+      # La voz del producto. Falla en rojo con la ruta y la línea de cada
+      # hallazgo; las excepciones están declaradas dentro del script.
+      - run: bash scripts/check-voz.test.sh
+
+      - run: pnpm check:voz
+
       - run: pnpm test
