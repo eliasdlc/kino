@@ -45,3 +45,39 @@ jobs:
       - run: pnpm check:voz
 
       - run: pnpm test
+
+  bundle:
+    name: presupuesto de JavaScript
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    # Job aparte, y no un paso más de `verify`, para no romper lo que ese job
+    # promete: correr sin una sola variable. Medir el bundle exige construir, y
+    # construir exige saber a qué deployment de Convex apunta el cliente.
+    #
+    # `NEXT_PUBLIC_CONVEX_URL` es una variable del repositorio y no un secreto:
+    # viaja al navegador en cada despliegue, así que esconderla aquí no
+    # escondería nada. Es la única que el build necesita; comprobado quitando
+    # todas las demás.
+    env:
+      NEXT_PUBLIC_CONVEX_URL: ${{ vars.NEXT_PUBLIC_CONVEX_URL }}
+
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 11.20.0
+
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 26
+          cache: pnpm
+
+      - run: pnpm install --frozen-lockfile
+
+      - run: pnpm build
+
+      # Falla en rojo si el JavaScript que se le manda al navegador pasa su
+      # tope. Subirlo es una decisión que se escribe en el PR, no un ajuste.
+      - run: pnpm check:bundle

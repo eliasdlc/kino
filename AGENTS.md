@@ -19,6 +19,8 @@ pnpm typecheck                      # tsc --noEmit ) debe pasar
 npx convex dev                      # Publica las funciones en el deployment de dev y regenera convex/_generated
 npx convex run migrations/<fichero>:run   # Corre una migración de datos contra dev (ver «Migraciones de datos»)
 pnpm test                           # Suite completa (lógica pura, sin base)
+pnpm check:voz                      # La voz del producto: cinco reglas de grep. Falla en rojo
+pnpm check:bundle                   # El JavaScript que se le manda al navegador, contra su tope (exige `pnpm build` antes)
 pnpm test -- --run <path>           # Un solo archivo de test
 pnpm migrate:convex                 # Importador Postgres → Convex (scripts/migrate-to-convex), sólo para el cutover
 ```
