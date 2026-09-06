@@ -3,7 +3,7 @@ import { zid } from 'convex-helpers/server/zod4';
 import type { Doc, Id } from './_generated/dataModel';
 import type { MutationCtx, QueryCtx } from './_generated/server';
 import { notFound } from './lib/errors';
-import { kinoZodMutation, kinoZodQuery } from './lib/fn';
+import { kinoZodMutation, kinoZodQuery, type Channel } from './lib/fn';
 import { lematizar } from './lib/lemas';
 import { color } from './schema';
 
@@ -86,6 +86,7 @@ export const byFolder = kinoZodQuery({
 async function createOne(
   ctx: MutationCtx,
   userId: Id<'users'>,
+  channel: Channel,
   owner: { pageId: Id<'pages'> } | { folderId: Id<'folders'> },
   data: NoteFields,
 ) {
@@ -126,7 +127,7 @@ async function createOne(
     clientRequestId: data.clientRequestId,
     lemas: lematizar(data.title, data.content, data.textAnchor),
     createdBy: userId,
-    createdVia: 'session',
+    createdVia: channel,
     createdAt: now,
     updatedAt: now,
   });
@@ -135,12 +136,12 @@ async function createOne(
 
 export const createOnPage = kinoZodMutation({
   args: { ...noteFields, pageId: zid('pages') },
-  handler: async (ctx, { pageId, ...data }) => createOne(ctx, ctx.user._id, { pageId }, data),
+  handler: async (ctx, { pageId, ...data }) => createOne(ctx, ctx.user._id, ctx.channel, { pageId }, data),
 });
 
 export const createOnFolder = kinoZodMutation({
   args: { ...noteFields, folderId: zid('folders') },
-  handler: async (ctx, { folderId, ...data }) => createOne(ctx, ctx.user._id, { folderId }, data),
+  handler: async (ctx, { folderId, ...data }) => createOne(ctx, ctx.user._id, ctx.channel, { folderId }, data),
 });
 
 export const update = kinoZodMutation({
@@ -199,11 +200,12 @@ export const stack = kinoZodMutation({
   },
 });
 
+/** Borrado blando: la nota queda con `deletedAt` y desaparece de toda lectura. */
 export const remove = kinoZodMutation({
   args: { id: zid('stickyNotes') },
   handler: async (ctx, { id }) => {
     await ownNote(ctx, ctx.user._id, id);
-    await ctx.db.delete(id);
+    await ctx.db.patch(id, { deletedAt: Date.now(), updatedAt: Date.now() });
     return null;
   },
 });

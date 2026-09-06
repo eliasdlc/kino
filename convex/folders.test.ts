@@ -132,9 +132,14 @@ describe('folders sobre convex-test', () => {
     const left = await t.run(async (ctx) => ({
       pages: await ctx.db.query('pages').collect(),
       notes: await ctx.db.query('stickyNotes').collect(),
+      folders: await ctx.db.query('folders').collect(),
     }));
     expect(left.pages[0].folderId).toBeUndefined();
-    expect(left.notes).toHaveLength(0);
+    // El borrado es blando: la nota y las carpetas siguen ahí, marcadas.
+    expect(left.notes).toHaveLength(1);
+    expect(left.notes[0].deletedAt).toEqual(expect.any(Number));
+    expect(left.folders).toHaveLength(2);
+    expect(left.folders.every((doc) => doc.deletedAt !== undefined)).toBe(true);
   });
 
   it('una carpeta ajena no existe para quien no es su dueño', async () => {

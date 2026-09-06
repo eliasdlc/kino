@@ -3,7 +3,7 @@ import { zid } from 'convex-helpers/server/zod4';
 import type { Doc, Id } from './_generated/dataModel';
 import type { MutationCtx, QueryCtx } from './_generated/server';
 import { invalid, notFound } from './lib/errors';
-import { kinoZodMutation, kinoZodQuery } from './lib/fn';
+import { kinoZodMutation, kinoZodQuery, type Channel } from './lib/fn';
 import { color } from './schema';
 
 // Las carpetas de un sistema. No hay `path`: el árbol se arma en memoria a
@@ -162,7 +162,12 @@ const createFields = {
 };
 
 /** Crea la carpeta. Exportada para la siembra del onboarding. */
-export async function createFolderDoc(ctx: MutationCtx, userId: Id<'users'>, args: z.infer<z.ZodObject<typeof createFields>>) {
+export async function createFolderDoc(
+  ctx: MutationCtx,
+  userId: Id<'users'>,
+  channel: Channel,
+  args: z.infer<z.ZodObject<typeof createFields>>,
+) {
   await ownSystem(ctx, userId, args.systemId);
   if (args.parentId) {
     const parent = await ownFolder(ctx, userId, args.parentId);
@@ -178,7 +183,7 @@ export async function createFolderDoc(ctx: MutationCtx, userId: Id<'users'>, arg
     sortIndex: 0,
     metadata: args.metadata ?? undefined,
     createdBy: userId,
-    createdVia: 'session',
+    createdVia: channel,
     createdAt: now,
     updatedAt: now,
   });
@@ -187,7 +192,7 @@ export async function createFolderDoc(ctx: MutationCtx, userId: Id<'users'>, arg
 
 export const create = kinoZodMutation({
   args: createFields,
-  handler: async (ctx, args) => createFolderDoc(ctx, ctx.user._id, args),
+  handler: async (ctx, args) => createFolderDoc(ctx, ctx.user._id, ctx.channel, args),
 });
 
 export const update = kinoZodMutation({
@@ -211,8 +216,10 @@ export const update = kinoZodMutation({
 
 /**
  * Borra la carpeta y todo su subárbol. Lo que Postgres hacía por cascada va
- * aquí: las subcarpetas se van, las notas adhesivas de cada una se van, y las
- * tareas y páginas que estaban dentro se quedan sin carpeta pero vivas.
+ * aquí: las subcarpetas se marcan borradas, las notas adhesivas de cada una
+ * también, y las tareas y páginas que estaban dentro se quedan sin carpeta
+ * pero vivas. El borrado es blando: `deletedAt` puesto, documento intacto, y
+ * toda lectura de carpetas y notas filtra por él.
  */
 export const remove = kinoZodMutation({
   args: { id: zid('folders') },
@@ -242,7 +249,7 @@ async function removeOne(ctx: MutationCtx, folderId: Id<'folders'>) {
     .query('stickyNotes')
     .withIndex('by_folder', (q) => q.eq('folderId', folderId))
     .collect()) {
-    await ctx.db.delete(note._id);
+    if (note.deletedAt === undefined) await ctx.db.patch(note._id, { deletedAt: now, updatedAt: now });
   }
-  await ctx.db.delete(folderId);
+  await ctx.db.patch(folderId, { deletedAt: now, updatedAt: now });
 }
