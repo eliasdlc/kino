@@ -271,6 +271,12 @@ Una sola batería, `pnpm test`, en tres proyectos de Vitest según el entorno qu
 
 Un test de función vale lo que vale su versión rota: si se invierte la condición y la batería sigue verde, el test no estaba probando la función.
 
+**Todo `.test.tsx` renderiza desde `@/shared/testing/render`** (`renderWithProviders`, `renderMobile`, `makeTestConvexClient`). Uno que monte su propio árbol de proveedores se rechaza en revisión: cinco copias del árbol se quedan viejas de una en una sin que nada falle. Los polyfills que jsdom no trae viven en `src/shared/testing/jsdom-setup.ts`, cada uno con el componente que lo llama escrito al lado, y `next/navigation` se finge desde `@/shared/testing/navigation`, nunca a mano.
+
+Un `.test.tsx` abre con un comentario de tres a cinco líneas que dice **qué criterio** prueba. Si ese comentario no se puede escribir, el test no vale: un test de humo por pasada convierte la regla en un trámite. Y las aserciones son de `jest-dom` (`toBeVisible`, `toBeDisabled`, `toBeInTheDocument`), nunca `toBeDefined()`, que pasa aunque el elemento esté oculto.
+
+`pnpm test:coverage` imprime el número. No hay umbral que rompa el CI: la mitad `.tsx` arranca cerca de cero y un umbral puesto hoy sólo se cumpliría bajándolo.
+
 ### El manifiesto de arquetipo
 
 `src/shared/lib/system-types.ts` es la fuente única de cómo se comporta cada `systemType`: vocabulario, `folderRole`, `pageRole`, `taskKinds`. **Nunca hardcodear un label o un comportamiento por tipo de sistema** — se lee del manifiesto. Añadir un arquetipo debe ser añadir una entrada, no un fork de código.
