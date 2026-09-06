@@ -2,7 +2,7 @@
 
 La app de planificación que entiende tu energía.
 
-No es otra lista de tareas ni un Notion genérico: Kino aprende tu curva de energía real a partir de tus check-ins y tu actividad, y organiza tu día —o tu semestre, o tu novela— alrededor de ella. Un agente puede operarla por ti vía MCP.
+No es otra lista de tareas ni un Notion genérico: Kino aprende tu curva de energía real a partir de tus check-ins y tu actividad, y organiza tu día (o tu semestre, o tu novela) alrededor de ella. Un agente puede operarla por ti vía MCP.
 
 ## Qué la hace distinta
 
@@ -34,4 +34,4 @@ Con `NEXT_PUBLIC_CONVEX_URL` y las dos claves de Clerk la app arranca. El resto 
 
 Las convenciones de código, restricciones de arquitectura y el flujo de trabajo están en [`AGENTS.md`](./AGENTS.md).
 
-La planificación —qué se está construyendo, en qué orden y por qué— vive en Linear, no en este repositorio.
+La planificación (qué se está construyendo, en qué orden y por qué) vive en Linear, no en este repositorio.

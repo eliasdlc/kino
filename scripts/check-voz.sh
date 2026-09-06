@@ -56,9 +56,12 @@ reportar "Nombre de tipo dentro de texto visible" "$(
 
 # ── 2. Guion largo
 #
-# En todas partes, no sólo en copy: la casa no lo usa ni en comentarios.
+# En todas partes, no sólo en copy: la casa no lo usa ni en comentarios ni en
+# los tres Markdown del repo. `check-voz.test.sh` queda fuera porque lleva a
+# propósito las cadenas que las reglas prohíben.
 reportar "Guion largo (U+2014)" "$(
-  grep -rnP '\x{2014}' src convex scripts "${COMUNES[@]}" --include=*.sh --exclude=*.test.sh 2>/dev/null
+  grep -rnP '\x{2014}' src convex scripts AGENTS.md README.md \
+    "${COMUNES[@]}" --include=*.sh --include=*.md --exclude=*.test.sh 2>/dev/null
 )"
 
 # ── 3. Emojis y glifos decorativos
@@ -83,7 +86,7 @@ reportar "Emoji o glifo decorativo" "$(
 #                       que lee una persona; las cierra *Retirar las dieciséis
 #                       tools y acotar el alcance de la clave* (fase 5).
 reportar "Kino como sujeto de la frase" "$(
-  grep -rnPi '\bKino (te |se |no te |ya |todavía |siempre |nunca )?(avisa|avisará|frena|sugiere|sabe|conoce|ordena|empuja|reserva|dice|aprende|aprendió|detecta|decide|elige|piensa|entiende|recuerda|encarga|envía|enviará|está aprendiendo)' \
+  grep -rnPi '\bKino (te |se |no te |ya |todavía |siempre |nunca )?(avisa|avisará|frena|sugiere|sabe|conoce|ordena|empuja|reserva|dice|dijo|aprende|aprendió|detecta|decide|elige|piensa|entiende|recuerda|encarga|envía|enviará|está aprendiendo)' \
     src "${COMUNES[@]}" "${MARKETING[@]}" --exclude-dir=mcp
 )"
 
