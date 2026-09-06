@@ -181,11 +181,21 @@ function budgetFrom(budgetMs: number): Budget {
 }
 
 /**
- * Acción, que es lo único que llama fuera. El presupuesto es obligatorio y
- * queda escrito en la definición: `kinoAction(5_000)({ ... })`. Exige `write`,
- * porque una acción sin escritura sería una query.
+ * El presupuesto por defecto de cualquier cosa que llame fuera. Es la
+ * restricción 4 de `AGENTS.md` escrita donde se aplica: una acción nueva nace
+ * acotada sin que su autor tenga que acordarse.
+ *
+ * Pasar otro número es una decisión, no un ajuste, y se escribe en el
+ * comentario de esa acción. Hoy sólo hay una por encima: borrar la cuenta.
  */
-export const kinoAction = (budgetMs: number) =>
+export const DEFAULT_BUDGET_MS = 10_000;
+
+/**
+ * Acción, que es lo único que llama fuera. Nace con el presupuesto por defecto
+ * y puede declarar otro: `kinoAction(5_000)({ ... })`. Exige `write`, porque
+ * una acción sin escritura sería una query.
+ */
+export const kinoAction = (budgetMs: number = DEFAULT_BUDGET_MS) =>
   customAction(
     action,
     customCtx(async (ctx: ActionCtx) => {

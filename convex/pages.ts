@@ -99,12 +99,33 @@ async function linkedTasksOf(ctx: Ctx, userId: Id<'users'>, pageId: Id<'pages'>)
 
 // ── Lecturas ────────────────────────────────────────────────────────────────
 
+/**
+ * Tope de páginas por respuesta.
+ *
+ * Cada página de la lista cuesta dos consultas más (sus etiquetas y sus
+ * subpáginas), así que sin tope un sistema de escritura grande convierte una
+ * lectura en varios cientos de operaciones dentro de una sola invocación. El
+ * número sale de que el sistema más grande del deployment de dev tiene 47
+ * cuadernos: doscientas deja sitio para crecer un orden de magnitud antes de
+ * que nadie vea un recorte.
+ *
+ * Lo que la lista devuelve no lleva `content` y nunca lo llevó: `PageListItem`
+ * manda `contentPreview`, recortado a 300 caracteres. Lo que el tope acota es
+ * el abanico de consultas, no el tamaño del payload.
+ */
+export const PAGE_LIST_LIMIT = 200;
+
 export const bySystem = kinoZodQuery({
   args: { systemId: zid('systems') },
   handler: async (ctx, { systemId }) => {
     const docs = await ctx.db.query('pages').withIndex('by_system', (q) => q.eq('systemId', systemId)).collect();
     const own = docs.filter((doc) => doc.userId === ctx.user._id && alive(doc)).sort((a, b) => a.updatedAt - b.updatedAt);
-    return Promise.all(own.map((doc) => pageListItem(ctx, doc)));
+    const pagina = own.slice(0, PAGE_LIST_LIMIT);
+    return {
+      items: await Promise.all(pagina.map((doc) => pageListItem(ctx, doc))),
+      /** Cuántas quedaron fuera del tope. Cero es la respuesta normal. */
+      restantes: own.length - pagina.length,
+    };
   },
 });
 

@@ -22,9 +22,11 @@ import {
   type Chronotype,
   type SleepQuality,
 } from '../src/features/energy/energy.utils';
+import { PAYLOAD_MAX_BYTES, recordEvent } from './eventLog';
 import { invalid, notFound } from './lib/errors';
 import { kinoZodMutation, kinoZodQuery } from './lib/fn';
 import { toTaskRow } from './lib/tasks/row';
+import { deriveStatusFromDate } from './lib/tasks/status';
 import { calendarDayInTz, userToday } from './lib/time';
 import { defaultSettings } from './settings';
 import { ownTask, updateTaskDoc } from './tasks';
@@ -718,20 +720,67 @@ export const weeklyRitual = kinoZodQuery({
   },
 });
 
-/** Reprograma cada tarea a la medianoche local de su día. La fecha límite no se toca. */
+/**
+ * Reprograma cada tarea a la medianoche local de su día. La fecha límite no se
+ * toca.
+ *
+ * No pasa por `updateTaskDoc`, y eso es la mitad del ticket del presupuesto:
+ * ese camino resuelve el sistema, valida el `kind`, comprueba el padre, revisa
+ * las referencias, relematiza y sincroniza recordatorios, y con cien
+ * asignaciones eso son entre cuatrocientas y ochocientas idas y vueltas a la
+ * base en una sola invocación. Aquí sólo se mueve `startDate`, así que la
+ * validación que hace falta es la de propiedad: se leen las cien tareas de
+ * golpe y se escribe el parche mínimo.
+ *
+ * **Deja un evento, no cien.** El deshacer campo a campo necesita una fila por
+ * cambio, y el reparto semanal no la puede dar sin volver al bucle. La salida
+ * es un evento de tipo inverso: guarda en su `payload` la lista de ids con su
+ * fecha anterior, y deshacerlo es reponerlas todas, no revertir un campo.
+ */
 export const applyWeeklyRitual = kinoZodMutation({
   args: { assignments: z.array(z.object({ taskId: zid('tasks'), date: z.string().regex(DAY_PATTERN) })).min(1).max(100) },
   handler: async (ctx, { assignments }) => {
+    const userId = ctx.user._id;
+    const timezone = ctx.user.timezone;
+    const now = Date.now();
+
+    const docs = await Promise.all(assignments.map(({ taskId }) => ctx.db.get(taskId)));
+
     const applied: Array<{ taskId: string; date: string }> = [];
     const failed: Array<{ taskId: string; message: string }> = [];
-    for (const { taskId, date } of assignments) {
-      try {
-        await updateTaskDoc(ctx, ctx.user, taskId, { startDate: new Date(zonedHourToMs(date, 0, ctx.user.timezone)).toISOString() });
-        applied.push({ taskId, date });
-      } catch (error) {
-        failed.push({ taskId, message: error instanceof Error ? error.message : 'No se pudo reprogramar' });
+    const anterior: Array<{ taskId: string; startDate: string | null }> = [];
+
+    for (const [i, { taskId, date }] of assignments.entries()) {
+      const doc = docs[i];
+      if (!doc || doc.userId !== userId || doc.deletedAt !== undefined) {
+        failed.push({ taskId, message: 'Task not found' });
+        continue;
       }
+      const startDate = zonedHourToMs(date, 0, timezone);
+      const status = doc.status === 'done' ? doc.status : deriveStatusFromDate(startDate, timezone);
+      anterior.push({ taskId, startDate: doc.startDate === undefined ? null : new Date(doc.startDate).toISOString() });
+      await ctx.db.patch(doc._id, { startDate, status, updatedAt: now });
+      applied.push({ taskId, date });
     }
+
+    if (applied.length > 0) {
+      // El payload va acotado a 2.048 bytes y ahí no caben cien fechas
+      // anteriores. `boundPayload` sustituiría el objeto entero y el evento
+      // perdería también la cuenta, así que la comprobación se hace aquí: el
+      // reparto grande deja constancia de cuántas movió, el pequeño deja
+      // además con qué reponerlas.
+      const completo = { reprogramadas: applied.length, anterior };
+      const cabe = new TextEncoder().encode(JSON.stringify(completo)).byteLength <= PAYLOAD_MAX_BYTES;
+      await recordEvent(ctx, {
+        userId,
+        actorChannel: ctx.channel,
+        action: 'energy.applyWeeklyRitual',
+        targetType: 'task',
+        targetId: applied[0]!.taskId,
+        payload: cabe ? completo : { reprogramadas: applied.length, anteriorOmitido: true },
+      });
+    }
+
     return { applied, failed };
   },
 });

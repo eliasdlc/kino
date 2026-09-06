@@ -285,6 +285,21 @@ async function spawnNextRecurrence(ctx: MutationCtx, task: TaskDoc, now: number)
 
 // ── Lecturas ────────────────────────────────────────────────────────────────
 
+/**
+ * Tope de tareas por respuesta.
+ *
+ * Es un tope duro, no un cursor, y eso es una decisión con fecha: el orden de
+ * la lista es `sortIndex`, que no tiene índice propio, así que un cursor
+ * correcto exige uno nuevo en `convex/schema.ts` y esta fase no tiene el turno
+ * del carril de schema. Con el tope, lo que cruza la red y lo que se recorre en
+ * memoria quedan acotados; lo que sigue sin acotar es la lectura de la base.
+ *
+ * El número sale de que el deployment de dev tiene 226 tareas: quinientas deja
+ * el doble de margen antes de que nadie vea un recorte, y `restantes` lo dice
+ * cuando pasa.
+ */
+export const TASK_LIST_LIMIT = 500;
+
 export const list = kinoZodQuery({
   args: listTasksSchema,
   handler: async (ctx, filters) => {
@@ -298,13 +313,18 @@ export const list = kinoZodQuery({
     } else {
       docs = await aliveTasks(ctx, ctx.user._id);
     }
-    return docs
+    const filtradas = docs
       .filter(topLevel)
       .filter((doc) => !filters.systemId || doc.systemId === filters.systemId)
       .filter((doc) => !filters.energyLevel || doc.energyLevel === filters.energyLevel)
       .filter((doc) => !filters.status || doc.status === filters.status)
-      .sort(bySort)
-      .map(taskItem);
+      .sort(bySort);
+    const pagina = filtradas.slice(0, TASK_LIST_LIMIT);
+    return {
+      items: pagina.map(taskItem),
+      /** Cuántas quedaron fuera del tope. Cero es la respuesta normal. */
+      restantes: filtradas.length - pagina.length,
+    };
   },
 });
 

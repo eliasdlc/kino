@@ -109,9 +109,9 @@ describe('borrar una tarea', () => {
     const { as, systemId } = await base(t);
     const task = await as.mutation(api.tasks.create, { systemId, title: 'Vuelve' });
     await as.mutation(api.tasks.remove, { id: task.id });
-    expect(await as.query(api.tasks.list, {})).toHaveLength(0);
+    expect((await as.query(api.tasks.list, {})).items).toHaveLength(0);
     await as.mutation(api.tasks.restore, { id: task.id });
-    expect((await as.query(api.tasks.list, {})).map((x) => x.title)).toEqual(['Vuelve']);
+    expect((await as.query(api.tasks.list, {})).items.map((x) => x.title)).toEqual(['Vuelve']);
   });
 });
 
