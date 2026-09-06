@@ -30,9 +30,18 @@ export function dueBeforeStart(dueDate: string, startDate: string): boolean {
   return dayKey(dueDate) < dayKey(startDate);
 }
 
-export const taskMetadataSchema = z
-  .object({ eventSubtype: z.enum(['exam', 'quiz', 'practice']).optional() })
-  .catchall(z.unknown());
+const EVENT_SUBTYPE = z.enum(['exam', 'quiz', 'practice']);
+
+// Un saco de claves (`kind`, `course`, `eventSubtype`, ...) del que el schema
+// sólo fija `eventSubtype`; `kind` lo valida la mutación contra el manifiesto
+// del sistema. Es un record y no un objeto con catchall a propósito: el
+// validador de Convex se deriva de este Zod y un objeto rechaza toda clave
+// que no declare.
+export const taskMetadataSchema = z.record(z.string(), z.unknown()).superRefine((metadata, ctx) => {
+  if (metadata.eventSubtype !== undefined && !EVENT_SUBTYPE.safeParse(metadata.eventSubtype).success) {
+    ctx.addIssue({ code: 'custom', path: ['eventSubtype'], message: 'Invalid event subtype' });
+  }
+});
 
 export const createTaskSchema = z
   .object({
