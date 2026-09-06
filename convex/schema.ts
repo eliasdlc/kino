@@ -183,7 +183,7 @@ export const actorChannel = literals(['session', 'oauth', 'sync', 'system']);
 export type ActorChannel = Infer<typeof actorChannel>;
 export const memberRole = literals(['owner', 'member']);
 export const planTier = literals(['free', 'paid']);
-/** Los siete tipos de objeto que un evento o una arista pueden señalar. */
+/** Los ocho tipos de objeto que un evento o una arista pueden señalar. */
 export const itemType = literals([
   'task',
   'page',
@@ -192,6 +192,7 @@ export const itemType = literals([
   'system',
   'entity',
   'sprint',
+  'tag',
 ]);
 export const proposalStatus = literals(['pending', 'applied', 'dismissed', 'expired']);
 export const proposalKind = literals(['archive', 'cancel', 'rewrite']);

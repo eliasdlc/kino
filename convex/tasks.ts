@@ -583,14 +583,57 @@ export async function updateTaskDoc(
   }
 }
 
+/**
+ * Borra la tarea. Es blando, y por eso su cascada también lo es: lo que
+ * Postgres destruía con ON DELETE CASCADE aquí se marca, para que `restore`
+ * devuelva la tarea con todo lo que colgaba de ella.
+ *
+ *   tasks.parentTaskId       cascade   → las subtareas se marcan igual.
+ *   tasks.recurrenceParentId set null  → la serie pierde su raíz y sigue viva.
+ *   taskPageLinks, timeLogs, taskReminders  cascade en Postgres → se quedan.
+ *   Sólo se llega a ellos por la tarea, y sus lectores ya filtran por
+ *   `deletedAt` (`notifications.pending`), así que destruirlos sólo serviría
+ *   para que restaurar devolviera una tarea a medias.
+ */
 export const remove = kinoZodMutation({
   args: { id: zid('tasks') },
   handler: async (ctx, { id }) => {
     const task = await ownTask(ctx, ctx.user._id, id);
-    await ctx.db.patch(id, { deletedAt: Date.now() });
+    const now = Date.now();
+    for (const subId of await subtaskTree(ctx, id)) {
+      await ctx.db.patch(subId, { deletedAt: now, updatedAt: now });
+    }
+    // La serie no muere con su raíz: las ocurrencias siguientes se quedan
+    // huérfanas y vivas, que es lo que hacía el `set null` de Postgres.
+    for (const hija of await ctx.db
+      .query('tasks')
+      .withIndex('by_recurrenceParent', (q) => q.eq('recurrenceParentId', id))
+      .collect()) {
+      await ctx.db.patch(hija._id, { recurrenceParentId: undefined, updatedAt: now });
+    }
+    await ctx.db.patch(id, { deletedAt: now });
     return { id: task._id, title: task.title };
   },
 });
+
+/** La tarea y todas sus subtareas vivas, en profundidad. */
+async function subtaskTree(ctx: MutationCtx, rootId: Id<'tasks'>): Promise<Id<'tasks'>[]> {
+  const out: Id<'tasks'>[] = [];
+  const stack: Id<'tasks'>[] = [rootId];
+  while (stack.length) {
+    const current = stack.pop()!;
+    const hijas = await ctx.db
+      .query('tasks')
+      .withIndex('by_parent', (q) => q.eq('parentTaskId', current))
+      .collect();
+    for (const hija of hijas) {
+      if (hija.deletedAt !== undefined) continue;
+      out.push(hija._id);
+      stack.push(hija._id);
+    }
+  }
+  return out;
+}
 
 export const restore = kinoZodMutation({
   args: { id: zid('tasks') },

@@ -301,14 +301,61 @@ export const update = kinoZodMutation({
   },
 });
 
+/**
+ * Borra el capítulo. Blando, y su cascada con él:
+ *
+ *   pages.parentPageId    cascade → los subcapítulos se marcan igual.
+ *   stickyNotes.pageId    cascade → sus notas se marcan igual.
+ *   pageEntityMentions    cascade → se van de verdad: son derivadas, se
+ *                                   recalculan al guardar el texto.
+ *   taskPageLinks, pageTags, pageSnapshots, timeLogs  cascade en Postgres →
+ *                                   se quedan. Sólo se llega a ellos por el
+ *                                   capítulo y sus lectores ya lo filtran;
+ *                                   destruirlos haría que restaurar devolviera
+ *                                   un capítulo sin sus versiones ni su tiempo.
+ */
 export const remove = kinoZodMutation({
   args: { id: zid('pages') },
   handler: async (ctx, { id }) => {
     await ownPage(ctx, ctx.user._id, id);
-    await ctx.db.patch(id, { deletedAt: Date.now() });
+    const now = Date.now();
+    for (const pageId of [id, ...(await subPageTree(ctx, id))]) {
+      for (const note of await ctx.db
+        .query('stickyNotes')
+        .withIndex('by_page', (q) => q.eq('pageId', pageId))
+        .collect()) {
+        if (note.deletedAt === undefined) await ctx.db.patch(note._id, { deletedAt: now, updatedAt: now });
+      }
+      for (const mention of await ctx.db
+        .query('pageEntityMentions')
+        .withIndex('by_page_entity', (q) => q.eq('pageId', pageId))
+        .collect()) {
+        await ctx.db.delete(mention._id);
+      }
+      await ctx.db.patch(pageId, { deletedAt: now, updatedAt: now });
+    }
     return null;
   },
 });
+
+/** Los subcapítulos vivos que cuelgan de uno, en profundidad. */
+async function subPageTree(ctx: MutationCtx, rootId: Id<'pages'>): Promise<Id<'pages'>[]> {
+  const out: Id<'pages'>[] = [];
+  const stack: Id<'pages'>[] = [rootId];
+  while (stack.length) {
+    const current = stack.pop()!;
+    const hijas = await ctx.db
+      .query('pages')
+      .withIndex('by_parent', (q) => q.eq('parentPageId', current))
+      .collect();
+    for (const hija of hijas) {
+      if (hija.deletedAt !== undefined) continue;
+      out.push(hija._id);
+      stack.push(hija._id);
+    }
+  }
+  return out;
+}
 
 export const linkTask = kinoZodMutation({
   args: { id: zid('pages'), taskId: zid('tasks') },
