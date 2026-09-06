@@ -29,7 +29,7 @@ interface EnergyTodayCardProps {
   initialCheckins: TodayCheckinRowTransport[];
   projectedCurve: number[];
   chronotype: Chronotype | null;
-  /** Predicciones guardadas de hoy: lo que Kino dijo antes de conocer el resultado (4.2). */
+  /** Predicciones guardadas de hoy: lo previsto antes de conocer el resultado (4.2). */
   predictions?: PredictionRow[];
 }
 
@@ -181,11 +181,12 @@ export function EnergyTodayCard({
             {/* Lectura "ahora": la medición */}
             <div className="flex items-center gap-3 motion-safe:animate-in motion-safe:fade-in motion-safe:slide-in-from-bottom-1 motion-safe:duration-300 motion-safe:fill-mode-both">
               <div className="relative shrink-0">
+                {/* Halo fijo. Antes respiraba en bucle con `blur-md`: un
+                    desenfoque animado sin fin clava la GPU en pantallas de
+                    refresco alto, y esta es la tarjeta que se abre todos los
+                    días. El color del tono ya dice lo que decía el latido. */}
                 <div
-                  className={cn(
-                    'absolute inset-0 rounded-xl blur-md motion-safe:animate-[breath_3.5s_ease-in-out_infinite]',
-                    TONE_GLOW[reading.tone],
-                  )}
+                  className={cn('absolute inset-0 rounded-xl blur-md', TONE_GLOW[reading.tone])}
                   aria-hidden
                 />
                 <div

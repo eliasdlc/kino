@@ -14,47 +14,15 @@
 import "@testing-library/jest-dom/vitest";
 
 import { beforeEach } from "vitest";
+import { installMatchMedia, resetMediaPreferences } from "./media";
 import { resetNavigation } from "./navigation";
 
 /**
- * `useIsMobile` y `ThemeProvider` preguntan por media queries al montarse, y
- * jsdom no implementa `matchMedia`.
- *
- * La respuesta sale de `window.innerWidth`, que jsdom sí mantiene (1024 por
- * defecto), así que un test que quiera una pantalla de móvil lo asigna antes de
- * renderizar. Sólo entiende `max-width` y `min-width` en píxeles, que es lo único
- * que el proyecto consulta; cualquier otra query responde que no casa, porque
- * una respuesta inventada sería peor que una negativa.
+ * `matchMedia`: lo preguntan `useIsMobile` y `ThemeProvider` al montarse, y
+ * `EnergyTodayCard` para saber si tiene que animar la cifra. El polyfill vive
+ * en `./media` porque un test necesita cambiar las preferencias.
  */
-const WIDTH_QUERY = /\((max|min)-width:\s*(\d+(?:\.\d+)?)px\)/;
-
-function matchesWidth(query: string): boolean {
-  const found = WIDTH_QUERY.exec(query);
-  if (!found) return false;
-  const [, kind, px] = found;
-  return kind === "max" ? window.innerWidth <= Number(px) : window.innerWidth >= Number(px);
-}
-
-if (typeof window !== "undefined" && !window.matchMedia) {
-  window.matchMedia = (query: string): MediaQueryList => {
-    // Registrar y quitar oyentes no hace nada a propósito: jsdom no cambia de
-    // tamaño solo, así que un cambio de media query no llega a ocurrir nunca.
-    // Guardarlos daría a entender que alguien los va a llamar, y no es cierto.
-    const ignore = () => {};
-    return {
-      media: query,
-      get matches() {
-        return matchesWidth(query);
-      },
-      onchange: null,
-      addEventListener: ignore,
-      removeEventListener: ignore,
-      addListener: ignore,
-      removeListener: ignore,
-      dispatchEvent: () => false,
-    };
-  };
-}
+installMatchMedia();
 
 /**
  * `localStorage`: lo escribe `ThemeProvider` para recordar el tema de este
@@ -132,14 +100,15 @@ if (typeof Element !== "undefined") {
 
 /**
  * El estado que un test le puede dejar al siguiente: el ancho de la ventana lo
- * mueve `renderMobile`, y la URL la mueve `setNavigation`. Los dos vuelven a su
- * sitio antes de cada test para que el orden de los ficheros no cambie el
- * resultado.
+ * mueve `renderMobile`, la URL la mueve `setNavigation` y las preferencias del
+ * sistema las mueve `setReducedMotion`. Todo vuelve a su sitio antes de cada
+ * test para que el orden de los ficheros no cambie el resultado.
  */
 const DEFAULT_WIDTH = 1024;
 
 beforeEach(() => {
   window.innerWidth = DEFAULT_WIDTH;
   window.localStorage.clear();
+  resetMediaPreferences();
   resetNavigation();
 });
