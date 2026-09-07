@@ -30,6 +30,10 @@ interface SystemDetailHeaderProps {
   currentTab?: "tasks" | "docs";
 }
 
+/** Los valores del enum, en español y en minúscula: van en una línea de meta. */
+const ENERGY_LABEL: Record<string, string> = { high: "energía alta", medium: "energía media", low: "energía baja" };
+const FREQUENCY_LABEL: Record<string, string> = { daily: "diario", weekly: "semanal", monthly: "mensual" };
+
 /** Texto legible de la última actividad relativa a hoy. */
 function activityLabel(daysSinceLastActivity: number | null): string {
   if (daysSinceLastActivity === null) return "sin actividad aún";
@@ -72,7 +76,7 @@ export function SystemDetailHeader({ system, signals, currentTab = "tasks" }: Sy
   const nextDue = signals.nextDueDate ? new Date(signals.nextDueDate) : null;
 
   return (
-    <div className={`rounded-lg px-4 py-3 w-full bg-${cls}/10`}>
+    <div className="w-full">
       {/* Title row: toggles the detail */}
       <div className="flex items-start justify-between gap-3 min-w-0">
         <button
@@ -88,7 +92,7 @@ export function SystemDetailHeader({ system, signals, currentTab = "tasks" }: Sy
             )}
           />
           <span className={`size-3 rounded-full shrink-0 bg-${cls}`} />
-          <h1 className="text-xl md:text-2xl font-bold tracking-tight truncate">
+          <h1 className="truncate font-display text-[1.41rem] font-bold tracking-[-0.02em]">
             {system.name}
           </h1>
           {system.isInbox && (
@@ -98,22 +102,19 @@ export function SystemDetailHeader({ system, signals, currentTab = "tasks" }: Sy
             <Badge variant="destructive" className="shrink-0">Inactivo</Badge>
           )}
           {!system.isInbox && signals.stale && (
-            <Badge
-              variant="outline"
-              className="shrink-0 gap-1 border-amber-500/40 text-amber-600 dark:text-amber-500"
-            >
+            <Badge variant="warn" className="shrink-0 gap-1">
               <AlertTriangle className="size-3" />
-              Stale
+              dormido
             </Badge>
           )}
         </button>
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <Button
-              variant="outline"
-              size="icon"
+              variant="secondary"
+              size="icon-sm"
               aria-label={`Acciones de ${system.name}`}
-              className="shrink-0 size-9"
+              className="shrink-0"
             >
               <MoreHorizontal className="size-4" />
             </Button>
@@ -168,24 +169,20 @@ export function SystemDetailHeader({ system, signals, currentTab = "tasks" }: Sy
       <div className="mt-3 space-y-2.5">
       {/* Identity statement */}
       {system.identityStatement && (
-        <p className="text-sm text-muted-foreground italic pl-6">
-          &ldquo;{system.identityStatement}&rdquo;
+        <p className="pl-6 text-[0.95rem] text-foreground/80">
+          {system.identityStatement}
         </p>
       )}
 
-      {/* Type + metadata badges */}
-      <div className="flex items-center gap-2 flex-wrap pl-6">
-        <Badge variant="secondary" className="flex items-center gap-1.5">
-          <TypeIcon className="size-3" />
+      {/* Una línea de meta: el tipo, la energía ideal y la frecuencia, en texto */}
+      <p className="flex flex-wrap items-center gap-x-1.5 pl-6 text-xs text-muted-foreground">
+        <span className="inline-flex items-center gap-1">
+          <TypeIcon className="size-3.5" />
           {typeConfig.label}
-        </Badge>
-        {system.energyIdeal && (
-          <Badge variant="secondary">{system.energyIdeal}</Badge>
-        )}
-        {system.expectedFrequency && (
-          <Badge variant="secondary">{system.expectedFrequency}</Badge>
-        )}
-      </div>
+        </span>
+        {system.energyIdeal && <span>· {ENERGY_LABEL[system.energyIdeal] ?? system.energyIdeal}</span>}
+        {system.expectedFrequency && <span>· {FREQUENCY_LABEL[system.expectedFrequency] ?? system.expectedFrequency}</span>}
+      </p>
 
       {/* Trigger context: collapsible */}
       {system.triggerContext && (
@@ -218,40 +215,35 @@ export function SystemDetailHeader({ system, signals, currentTab = "tasks" }: Sy
 
       {/* Advisor: solo cuando stale */}
       {staleAdvisor && (
-        <div className="flex items-start gap-2 ml-6 rounded-md border border-amber-500/30 bg-amber-500/5 px-3 py-2 text-xs text-amber-700 dark:text-amber-500">
-          <AlertTriangle className="size-3.5 shrink-0 mt-0.5" />
+        <div className="ml-6 flex items-center gap-2 rounded-xl border border-border bg-card px-3 py-2 text-xs text-foreground/80">
+          <AlertTriangle className="size-3.5 shrink-0 text-task-overdue" />
           <span>{staleAdvisor}</span>
         </div>
       )}
       </div>
       )}
 
-      {/* Tabs / Segmented Control */}
-      <div className="mt-4 flex items-center gap-1 border-b border-border/50 pb-0 w-full pl-0">
-        <Link
-          href={`/systems/${system.id}?tab=tasks`}
-          className={cn(
-            "px-4 py-2 text-sm font-medium transition-colors hover:text-foreground relative",
-            currentTab === "tasks" ? "text-foreground" : "text-muted-foreground"
-          )}
-        >
-          Tareas
-          {currentTab === "tasks" && (
-            <div className={`absolute bottom-0 left-0 right-0 h-0.5 bg-${cls} rounded-t-full`} />
-          )}
-        </Link>
-        <Link
-          href={`/systems/${system.id}?tab=docs`}
-          className={cn(
-            "px-4 py-2 text-sm font-medium transition-colors hover:text-foreground relative",
-            currentTab === "docs" ? "text-foreground" : "text-muted-foreground"
-          )}
-        >
-          {capitalize(typeConfig.pageRole.nounPlural)}
-          {currentTab === "docs" && (
-            <div className={`absolute bottom-0 left-0 right-0 h-0.5 bg-${cls} rounded-t-full`} />
-          )}
-        </Link>
+      {/* Las pestañas: un segmento pill fuera de la cabecera; el elegido es el acento */}
+      <div className="mt-4 inline-flex rounded-full bg-secondary p-1" role="tablist" aria-label="Contenido del sistema">
+        {(
+          [
+            { tab: "tasks", label: "Tareas" },
+            { tab: "docs", label: capitalize(typeConfig.pageRole.nounPlural) },
+          ] as const
+        ).map(({ tab, label }) => (
+          <Link
+            key={tab}
+            role="tab"
+            aria-selected={currentTab === tab}
+            href={`/systems/${system.id}?tab=${tab}`}
+            className={cn(
+              "flex h-10 items-center rounded-full px-4 text-sm font-semibold transition-colors",
+              currentTab === tab ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground",
+            )}
+          >
+            {label}
+          </Link>
+        ))}
       </div>
 
       <ConfirmDialog

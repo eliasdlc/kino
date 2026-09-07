@@ -105,7 +105,7 @@ export function FolderCard({ folder, systemId, onClick, href }: FolderCardProps)
                 }}
               >
                 <Pencil className="size-3.5" />
-                Rename
+                Renombrar
               </DropdownMenuItem>
               <DropdownMenuSeparator />
               <DropdownMenuItem
@@ -113,7 +113,7 @@ export function FolderCard({ folder, systemId, onClick, href }: FolderCardProps)
                 onClick={() => setConfirmDelete(true)}
               >
                 <Trash2 className="size-3.5" />
-                Delete
+                Eliminar
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
@@ -162,11 +162,11 @@ export function FolderCard({ folder, systemId, onClick, href }: FolderCardProps)
         </ContextMenuTrigger>
         <ContextMenuContent className="w-36">
           <ContextMenuItem className="gap-2" onSelect={() => { setNewName(folder.name); setRenameOpen(true); }}>
-            <Pencil className="size-3.5" /> Rename
+            <Pencil className="size-3.5" /> Renombrar
           </ContextMenuItem>
           <ContextMenuSeparator />
           <ContextMenuItem variant="destructive" className="gap-2" onSelect={() => setConfirmDelete(true)}>
-            <Trash2 className="size-3.5" /> Delete
+            <Trash2 className="size-3.5" /> Eliminar
           </ContextMenuItem>
         </ContextMenuContent>
       </ContextMenu>
@@ -201,7 +201,7 @@ export function FolderCard({ folder, systemId, onClick, href }: FolderCardProps)
       <ConfirmDialog
         open={confirmDelete}
         title="Eliminar carpeta"
-        description={`"${folder.name}" and all its contents will be permanently deleted.`}
+        description={`"${folder.name}" y todo lo que contiene se eliminarán para siempre.`}
         onConfirm={() => {
           setConfirmDelete(false);
           deleteFolder(folder.id);
