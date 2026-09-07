@@ -42,18 +42,18 @@ const CARDS = [
 
 export function LandingDocsTeaser() {
   return (
-    <section id="docs" className="scroll-mt-20 border-t border-white/[0.06] bg-[#131316]">
+    <section id="docs" className="scroll-mt-20 border-t border-border bg-card">
       <div className="mx-auto max-w-[1120px] px-6 py-[88px]">
         <div className="mb-12 flex flex-wrap items-end justify-between gap-5">
           <div>
             <p className={`mb-3.5 ${eyebrow}`}>Documentación</p>
-            <h2 className="font-display text-[clamp(30px,4vw,44px)] font-bold tracking-[-0.025em] text-[#f4f4f5]">
+            <h2 className="font-display text-[clamp(30px,4vw,44px)] font-bold tracking-[-0.025em] text-foreground">
               Aprende Kino en 10 minutos
             </h2>
           </div>
           <Link
             href="/docs"
-            className="pb-1.5 text-[15px] font-semibold text-[#818cf8] transition-colors hover:text-[#a5b4fc]"
+            className="pb-1.5 text-[15px] font-semibold text-primary transition-colors hover:text-primary"
           >
             Ver toda la documentación →
           </Link>
@@ -64,11 +64,11 @@ export function LandingDocsTeaser() {
             <Link
               key={c.href}
               href={c.href}
-              className={`${cardSurface} flex flex-col gap-2 p-[22px] transition-colors hover:border-[#818cf8]/45`}
+              className={`${cardSurface} flex flex-col gap-2 p-[22px] transition-colors hover:border-primary/45`}
             >
-              <p className="font-jetbrains text-[11px] text-[#6b6b74]">{c.kicker}</p>
-              <h3 className="font-display text-[18px] font-bold text-[#f4f4f5]">{c.title}</h3>
-              <p className="text-sm text-[#a1a1aa]">{c.desc}</p>
+              <p className="font-jetbrains text-[11px] text-muted-foreground">{c.kicker}</p>
+              <h3 className="font-display text-[18px] font-bold text-foreground">{c.title}</h3>
+              <p className="text-sm text-muted-foreground">{c.desc}</p>
             </Link>
           ))}
         </div>

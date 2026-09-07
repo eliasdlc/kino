@@ -45,18 +45,18 @@ export function TimerDemo() {
         aria-label="Probar el timer"
         className="flex h-[74px] w-[74px] flex-none items-center justify-center rounded-full"
         style={{
-          background: `conic-gradient(#818cf8 ${pct}%, rgba(255,255,255,0.09) 0)`,
+          background: `conic-gradient(var(--ac) ${pct}%, color-mix(in srgb, var(--ink) 9%, transparent) 0)`,
         }}
       >
-        <span className="flex h-[60px] w-[60px] items-center justify-center rounded-full bg-[#18181c] font-jetbrains text-sm font-semibold text-[#f4f4f5]">
+        <span className="flex h-[60px] w-[60px] items-center justify-center rounded-full bg-card font-jetbrains text-sm font-semibold text-foreground">
           {mm}:{ss}
         </span>
       </button>
       <div className="min-w-0 flex-1">
-        <p className="mb-0.5 text-sm font-semibold text-[#e4e4e7]">
+        <p className="mb-0.5 text-sm font-semibold text-foreground/85">
           {on ? "Sesión en curso: toca para pausar" : "Toca el timer para probarlo"}
         </p>
-        <p className="text-[13px] text-[#6b6b74]">
+        <p className="text-[13px] text-muted-foreground">
           Pomodoro, estimado o libre. Al parar, un toque registra cómo fue tu energía.
         </p>
       </div>

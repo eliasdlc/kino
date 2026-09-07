@@ -12,7 +12,7 @@ export default function MarketingLayout({
 }) {
   return (
     <div
-      className={`min-h-screen bg-[#0e0e11] text-base leading-relaxed text-[#a1a1aa]`}
+      className={`min-h-screen bg-background text-base leading-relaxed text-muted-foreground`}
     >
       {children}
       <MarketingFooter />
