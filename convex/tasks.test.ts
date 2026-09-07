@@ -175,8 +175,8 @@ describe('la firma del cierre', () => {
     // 3. Un issue de GitHub que se cierra fuera y llega por el puente del
     // tablero: la via queda, el autor no, porque no lo cerro nadie en Kino.
     const issue = { id: 7, number: 7, title: 'Abierto', body: null, state: 'open' as const, htmlUrl: 'https://x/7', milestone: null };
-    await t.mutation(internal.githubData.applySync, { userId, systemId, truncated: false, issues: [issue] });
-    await t.mutation(internal.githubData.applySync, { userId, systemId, truncated: false, issues: [{ ...issue, state: 'closed' as const }] });
+    await t.mutation(internal.githubData.applySync, { userId, systemId, truncated: false, syncedThrough: Date.now(), issues: [issue] });
+    await t.mutation(internal.githubData.applySync, { userId, systemId, truncated: false, syncedThrough: Date.now(), issues: [{ ...issue, state: 'closed' as const }] });
     const importada = (await t.run((ctx) => ctx.db.query('tasks').collect())).find((doc) => doc.externalId)!;
     expect(importada.status).toBe('done');
     expect(importada.completedVia).toBe('sync');

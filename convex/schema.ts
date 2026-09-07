@@ -711,6 +711,9 @@ export default defineSchema({
     refreshTokenEncrypted: v.optional(v.string()),
     feedUrl: v.optional(v.string()),
     lastSyncedAt: v.optional(ts),
+    // Hasta dónde llegó el último refresco. El siguiente pide sólo lo que
+    // cambió después, en vez de traerse el repositorio entero cada vez.
+    syncedThrough: v.optional(ts),
     createdAt: ts,
     updatedAt: ts,
   })

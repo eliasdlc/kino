@@ -121,14 +121,22 @@ export async function fetchViewerLogin(token: string): Promise<string> {
 export async function fetchIssues(
   ref: GithubRepoRef,
   token: string,
+  /**
+   * Instante desde el que pedir. Con él GitHub devuelve sólo los issues
+   * tocados después, que es lo que convierte el refresco en incremental: un
+   * repositorio de mil issues sin cambios devuelve cero en una sola página.
+   * Sin él se trae todo, que es lo que hace el primer refresco.
+   */
+  since?: number,
 ): Promise<{ issues: GithubIssue[]; truncated: boolean }> {
   const issues: GithubIssue[] = [];
   let truncated = false;
+  const desde = since === undefined ? '' : `&since=${encodeURIComponent(new Date(since).toISOString())}`;
 
   for (let page = 1; page <= MAX_PAGES; page++) {
     const response = await request(
       `/repos/${encodeURIComponent(ref.owner)}/${encodeURIComponent(ref.repo)}` +
-        `/issues?state=all&per_page=${PER_PAGE}&page=${page}&sort=updated&direction=desc`,
+        `/issues?state=all&per_page=${PER_PAGE}&page=${page}&sort=updated&direction=desc${desde}`,
       token,
     );
     const raw = (await response.json()) as RawIssue[];

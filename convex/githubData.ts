@@ -40,15 +40,6 @@ export async function requireProjectSystem(ctx: { db: import('./_generated/serve
 
 // ── Públicas que no necesitan GitHub ────────────────────────────────────────
 
-export const disconnect = kinoZodMutation({
-  args: {},
-  handler: async (ctx) => {
-    const row = await connectionRow(ctx, ctx.user._id);
-    if (row) await ctx.db.delete(row._id);
-    return null;
-  },
-});
-
 export const unlinkRepo = kinoZodMutation({
   args: { id: zid('systems') },
   handler: async (ctx, { id }) => {
@@ -67,7 +58,9 @@ export const connectionOf = internalQuery({
   args: { userId: v.id('users') },
   handler: async (ctx, { userId }) => {
     const row = await connectionRow(ctx, userId);
-    return row ? { accessTokenEncrypted: row.accessTokenEncrypted, lastSyncedAt: row.lastSyncedAt ?? null } : null;
+    return row
+      ? { accessTokenEncrypted: row.accessTokenEncrypted, lastSyncedAt: row.lastSyncedAt ?? null, syncedThrough: row.syncedThrough ?? null }
+      : null;
   },
 });
 
@@ -118,8 +111,8 @@ const issueValidator = v.object({
  * declara y esta función no lo escribe.
  */
 export const applySync = internalMutation({
-  args: { userId: v.id('users'), systemId: v.id('systems'), issues: v.array(issueValidator), truncated: v.boolean() },
-  handler: async (ctx, { userId, systemId, issues, truncated }) => {
+  args: { userId: v.id('users'), systemId: v.id('systems'), issues: v.array(issueValidator), truncated: v.boolean(), syncedThrough: v.number() },
+  handler: async (ctx, { userId, systemId, issues, truncated, syncedThrough }) => {
     await requireProjectSystem(ctx, userId, systemId);
     const now = Date.now();
     const typed = issues as GithubIssue[];
@@ -218,7 +211,10 @@ export const applySync = internalMutation({
     }
 
     const connection = await connectionRow(ctx, userId);
-    if (connection) await ctx.db.patch(connection._id, { lastSyncedAt: now, updatedAt: now });
+    // El cursor avanza al instante en que arrancó la llamada, no al de ahora:
+    // un issue tocado mientras la sincronización corría entra en la siguiente
+    // en vez de caerse por el hueco.
+    if (connection) await ctx.db.patch(connection._id, { lastSyncedAt: now, syncedThrough, updatedAt: now });
     return { imported, updated, unchanged, sprintsCreated, truncated, syncedAt: new Date(now).toISOString() };
   },
 });

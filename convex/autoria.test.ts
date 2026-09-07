@@ -119,6 +119,7 @@ describe('autoría al crear', () => {
       userId,
       systemId: system.id,
       truncated: false,
+      syncedThrough: Date.now(),
       issues: [
         { id: 1, number: 1, title: 'Abierto', body: null, state: 'open', htmlUrl: 'https://x/1', milestone: null },
         { id: 2, number: 2, title: 'Cerrado', body: null, state: 'closed', htmlUrl: 'https://x/2', milestone: null },
