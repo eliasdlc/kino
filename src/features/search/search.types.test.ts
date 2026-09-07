@@ -1,45 +1,8 @@
 import { describe, expect, it } from "vitest";
-import {
-  SNIPPET_CLOSE,
-  SNIPPET_OPEN,
-  splitSnippet,
-  toTsQueryText,
-} from "./search.types";
+import { SNIPPET_CLOSE, SNIPPET_OPEN, splitSnippet } from "./search.types";
 
-/** Igual que lo monta `ts_headline` con las opciones del servicio. */
+/** Igual que lo monta el servicio alrededor de la coincidencia. */
 const mark = (text: string) => `${SNIPPET_OPEN}${text}${SNIPPET_CLOSE}`;
-
-describe("toTsQueryText", () => {
-  it("marca la última palabra como prefijo, que es lo que sirve al Cmd+K", () => {
-    expect(toTsQueryText("esc")).toBe("esc:*");
-  });
-
-  it("combina varias palabras con AND y deja el prefijo sólo en la última", () => {
-    expect(toTsQueryText("ana cancion")).toBe("ana & cancion:*");
-  });
-
-  // Sin esto, un término del usuario podría inyectar operadores de tsquery.
-  it("descarta todo lo que no sea letra o dígito", () => {
-    expect(toTsQueryText("ana & cancion:*")).toBe("ana & cancion:*");
-    expect(toTsQueryText("uno | dos")).toBe("uno & dos:*");
-    expect(toTsQueryText("!(nada)")).toBe("nada:*");
-  });
-
-  it("conserva acentos y eñes: el unaccent lo aplica Postgres, no esto", () => {
-    expect(toTsQueryText("canción")).toBe("canción:*");
-    expect(toTsQueryText("año")).toBe("año:*");
-  });
-
-  it("colapsa los espacios de más", () => {
-    expect(toTsQueryText("  ana   cancion  ")).toBe("ana & cancion:*");
-  });
-
-  // Quien llama tiene que cortar aquí: `to_tsquery('')` es un error en Postgres.
-  it("devuelve cadena vacía cuando no queda nada buscable", () => {
-    expect(toTsQueryText("!!!")).toBe("");
-    expect(toTsQueryText("   ")).toBe("");
-  });
-});
 
 describe("splitSnippet", () => {
   it("separa el tramo resaltado del resto", () => {

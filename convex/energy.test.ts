@@ -134,7 +134,7 @@ describe('energy', () => {
     const classified = await asAna.query(api.insights.classify, { title: 'Arreglar Kino urgente' });
     expect(classified).toMatchObject({ systemId, suggestedPriority: 'critical' });
     const found = await asAna.query(api.search.all, { q: 'critica' });
-    expect(found.map((r) => r.id)).toContain(critical.id);
+    expect(found.items.map((r) => r.id)).toContain(critical.id);
   });
 });
 
