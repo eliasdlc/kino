@@ -1,16 +1,20 @@
 "use client";
 
 import Link from "next/link";
-import { Menu, Plus } from "lucide-react";
+import { Menu } from "lucide-react";
 import { useSidebar } from "@/components/ui/sidebar";
-import { useQuickAddStore } from "@/features/tasks/quick-add.store";
 
+/**
+ * La cabecera del teléfono: el menú y el nombre. Nada más. El "+" que vivía a
+ * la derecha se fue con el orbe de la barra inferior: eran dos botones para el
+ * mismo gesto a 56 px de distancia vertical, y el de abajo es el que cae bajo
+ * el pulgar.
+ */
 export function MobileHeader() {
   const { setOpenMobile } = useSidebar();
-  const setOpen = useQuickAddStore((s) => s.setOpen);
 
   return (
-    <header className="sticky top-0 z-(--z-overlay) flex md:hidden items-center justify-between h-14 px-2 bg-background/95 backdrop-blur-sm border-b border-border">
+    <header className="sticky top-0 z-(--z-overlay) flex md:hidden items-center gap-2 h-14 px-2 bg-background/95 backdrop-blur-sm border-b border-border">
       <button
         onClick={() => setOpenMobile(true)}
         className="p-2 rounded-md hover:bg-accent transition-colors"
@@ -25,14 +29,6 @@ export function MobileHeader() {
       >
         Kino
       </Link>
-
-      <button
-        onClick={() => setOpen(true)}
-        className="p-2 rounded-md hover:bg-accent transition-colors"
-        aria-label="Nueva tarea"
-      >
-        <Plus className="size-5" />
-      </button>
     </header>
   );
 }
