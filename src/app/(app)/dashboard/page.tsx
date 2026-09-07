@@ -6,8 +6,7 @@ import { TodayPlanCard } from "@/features/dashboard/TodayPlanCard";
 import { EnergyTodayCard } from "@/features/dashboard/EnergyTodayCard";
 import { AdvisorCard } from "@/features/dashboard/AdvisorCard";
 import { FocusNowCard } from "@/features/dashboard/FocusNowCard";
-import { NotificationPromptCard } from "@/features/dashboard/NotificationPromptCard";
-import { WeeklyRitualPrompt } from "@/features/energy/WeeklyRitualPrompt";
+import { InterruptionLine } from "@/features/today/InterruptionLine";
 import { DashboardBottomRow } from "@/features/dashboard/DashboardBottomRow";
 import { getServerSession } from "@/shared/utils/session";
 
@@ -19,6 +18,14 @@ export const metadata = { title: "Hoy - Kino" };
  * dos niveles. Los avisos son una línea al pie, nunca una tarjeta antes de la
  * cifra, y nada vacío ocupa espacio. En laptop la energía va a la izquierda y
  * el plan a la derecha; en el teléfono es la misma pantalla, estrecha.
+ *
+ * Encima del plan hay como mucho **una** línea, la que el servidor elige entre
+ * todos los candidatos del día (`convex/today.ts`). Antes había dos tarjetas
+ * que se pintaban a la vez y sin orden: el ritual semanal y la petición de
+ * permiso para los avisos. El ritual pasó a ser un candidato de la cola; la
+ * puerta al permiso de avisos vive ahora sólo en Ajustes, en su sección de
+ * Notificaciones, porque pedir un permiso es una pregunta y la cola tiene
+ * candidatos mejores para la única del día.
  */
 export default async function DashboardPage() {
   const session = await getServerSession();
@@ -35,6 +42,8 @@ export default async function DashboardPage() {
 
   return (
     <div className="mx-auto max-w-6xl px-5 py-5 md:px-8 md:py-6">
+      <InterruptionLine />
+
       <div className="md:grid md:grid-cols-[minmax(0,1fr)_minmax(0,1.25fr)] md:gap-10">
         <section aria-label="Energía de hoy" className="md:border-r md:border-border md:pr-10">
           <EnergyTodayCard
@@ -59,9 +68,7 @@ export default async function DashboardPage() {
             <FocusNowCard energyItems={energyItems} projectedCurve={dailyPlan.projectedCurve} />
           )}
 
-          <WeeklyRitualPrompt />
           <DashboardBottomRow weeklyTrends={weeklyTrends} insight={learningInsight} />
-          <NotificationPromptCard />
         </div>
       </div>
     </div>

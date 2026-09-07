@@ -33,6 +33,7 @@ import type * as lib_tasks_row from "../lib/tasks/row.js";
 import type * as lib_tasks_schemas from "../lib/tasks/schemas.js";
 import type * as lib_tasks_status from "../lib/tasks/status.js";
 import type * as lib_time from "../lib/time.js";
+import type * as lib_today_queue from "../lib/today/queue.js";
 import type * as lib_writing_activity from "../lib/writing/activity.js";
 import type * as migrate from "../migrate.js";
 import type * as migrations_autoriaYPapelera from "../migrations/autoriaYPapelera.js";
@@ -50,6 +51,7 @@ import type * as stickyNotes from "../stickyNotes.js";
 import type * as systems from "../systems.js";
 import type * as tags from "../tags.js";
 import type * as tasks from "../tasks.js";
+import type * as today from "../today.js";
 import type * as users from "../users.js";
 import type * as writing from "../writing.js";
 
@@ -85,6 +87,7 @@ declare const fullApi: ApiFromModules<{
   "lib/tasks/schemas": typeof lib_tasks_schemas;
   "lib/tasks/status": typeof lib_tasks_status;
   "lib/time": typeof lib_time;
+  "lib/today/queue": typeof lib_today_queue;
   "lib/writing/activity": typeof lib_writing_activity;
   migrate: typeof migrate;
   "migrations/autoriaYPapelera": typeof migrations_autoriaYPapelera;
@@ -102,6 +105,7 @@ declare const fullApi: ApiFromModules<{
   systems: typeof systems;
   tags: typeof tags;
   tasks: typeof tasks;
+  today: typeof today;
   users: typeof users;
   writing: typeof writing;
 }>;
