@@ -168,15 +168,15 @@ export function PlotGridView({
           {isPending && <Loader2 className="size-4 shrink-0 animate-spin text-muted-foreground" />}
         </div>
 
-        <div className="overflow-x-auto pb-2">
-          <table className="w-full min-w-max border-separate border-spacing-2">
+        <div className="overflow-x-auto pb-3 [scrollbar-gutter:stable]">
+          <table className="w-max border-separate border-spacing-2">
             <thead>
               <tr>
                 <th className="w-28 text-left text-xs font-semibold uppercase tracking-wider text-muted-foreground">
                   Arco
                 </th>
                 {data.chapters.map((chapter, i) => (
-                  <th key={chapter.chapterId} className="min-w-56 text-left">
+                  <th key={chapter.chapterId} className="w-64 min-w-64 max-w-64 text-left align-top">
                     <Link
                       href={`/systems/${systemId}/pages/${chapter.chapterId}`}
                       className="text-sm font-medium hover:underline"
@@ -347,7 +347,7 @@ function SceneCard({
           aria-label={`Arrastrar la escena ${scene.index + 1} de ${chapter.title ?? "el capítulo"}`}
           className="min-w-0 flex-1 cursor-grab text-left active:cursor-grabbing"
         >
-          <span className="mb-1 block font-mono text-[10px] text-muted-foreground">
+          <span className="mb-1 block text-[0.7rem] font-semibold text-muted-foreground">
             Escena {scene.index + 1} · {scene.wordCount.toLocaleString("es")} palabras
           </span>
           <span className="line-clamp-4 text-muted-foreground">
