@@ -11,6 +11,7 @@ import { digestsPorSemana, leerTranscripciones, promptsDeTranscripcion, semanaDe
 //   bash scripts/digest/hook.sh --dry-run          la imprime y no sube nada
 //   bash scripts/digest/hook.sh --dry-run <fichero> lo mismo, de una sola transcripción
 //   bash scripts/digest/hook.sh --medir            cuenta el corpus entero
+//   bash scripts/digest/hook.sh --relleno          sube todas las semanas que haya
 //   bash scripts/digest/hook.sh --install          lo engancha al final de cada sesión
 //
 // Se instala como hook `SessionEnd` de Claude Code, que es lo que hace que no
@@ -72,6 +73,7 @@ async function main(): Promise<void> {
   }
 
   const seco = modo === '--dry-run';
+  const relleno = modo === '--relleno';
   const fichero = seco ? args[1] : undefined;
 
   const prompts = fichero
@@ -80,9 +82,11 @@ async function main(): Promise<void> {
 
   const semanaActual = semanaDe(Date.now());
   const todas = digestsPorSemana(prompts);
-  // En seco sobre un fichero suelto se enseña lo que haya; sin fichero, la
-  // semana en curso, que es la única que puede haber cambiado.
-  const objetivo = fichero ? todas : todas.filter((d) => d.externalId === semanaActual);
+  // El hook normal sube sólo la semana en curso, que es la única que puede
+  // haber cambiado. El relleno sube las que ya estaban en el disco el día que
+  // se instaló, y se corre una vez: sin él, la primera línea del lunes no
+  // tendría la semana anterior que citar.
+  const objetivo = fichero || relleno ? todas : todas.filter((d) => d.externalId === semanaActual);
 
   if (objetivo.length === 0) {
     console.log(`Nada que subir: no hay sesiones en ${semanaActual}.`);

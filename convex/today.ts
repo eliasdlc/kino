@@ -1,5 +1,9 @@
 import { v } from 'convex/values';
-import { kinoMutation, kinoQuery } from './lib/fn';
+import { z } from 'zod';
+import { zid } from 'convex-helpers/server/zod4';
+import { kinoMutation, kinoQuery, kinoZodMutation } from './lib/fn';
+import { invalid, notFound } from './lib/errors';
+import { createTaskDoc } from './tasks';
 import type { Doc, Id } from './_generated/dataModel';
 import type { MutationCtx, QueryCtx } from './_generated/server';
 import { interruptionKind, type InterruptionKind } from './schema';
@@ -36,6 +40,46 @@ async function mostradas(ctx: Ctx, userId: Id<'users'>) {
     .withIndex('by_user_surfaced', (q) => q.eq('userId', userId))
     .collect();
   return new Map(rows.map((row) => [`${row.kind}:${row.key}`, row]));
+}
+
+/**
+ * La semana ISO anterior a un día, en UTC. Es la que la línea del lunes cita:
+ * el lunes por la mañana lo que hay que contar es lo que pasó la semana que
+ * acaba de cerrarse, no la que empieza hoy.
+ */
+export function semanaAnterior(instante: number): string {
+  const d = new Date(instante - 7 * 86_400_000);
+  const jueves = new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate()));
+  jueves.setUTCDate(jueves.getUTCDate() + 4 - (jueves.getUTCDay() || 7));
+  const anio = jueves.getUTCFullYear();
+  const semana = Math.ceil(((jueves.getTime() - Date.UTC(anio, 0, 1)) / 86_400_000 + 1) / 7);
+  return `${anio}-W${String(semana).padStart(2, '0')}`;
+}
+
+/**
+ * La línea del lunes: lo que hiciste la semana pasada, con una frase tuya
+ * literal delante.
+ *
+ * Sólo el lunes, y sólo si el hook del laptop subió el digest de esa semana. No
+ * se inventa nada cuando no hay: una semana sin trabajo no tiene línea, que es
+ * distinto de tener una línea que diga que no hubo trabajo.
+ */
+async function candidatoLunes(ctx: Ctx, user: Doc<'users'>, now: number): Promise<Candidato | null> {
+  if (weekdayOf(userToday(user.timezone, now)) !== 'mon') return null;
+
+  const semana = semanaAnterior(now);
+  const digest = await ctx.db
+    .query('sessionDigests')
+    .withIndex('by_user_source_external', (q) => q.eq('userId', user._id).eq('source', 'claude-code').eq('externalId', semana))
+    .unique();
+  if (!digest) return null;
+
+  const { summary, quote } = digest.digest as { summary?: string; quote?: string };
+  return {
+    kind: 'lunes',
+    key: semana,
+    payload: { digestId: digest._id, semana, summary: summary ?? '', quote: quote ?? '' },
+  };
 }
 
 /**
@@ -78,8 +122,9 @@ async function candidatoRitual(ctx: Ctx, user: Doc<'users'>, now: number): Promi
  */
 async function candidatos(ctx: Ctx, user: Doc<'users'>, now: number): Promise<Candidato[]> {
   const historial = await mostradas(ctx, user._id);
-  const ritual = await candidatoRitual(ctx, user, now);
-  const crudos = ritual ? [ritual] : [];
+  const crudos = [await candidatoLunes(ctx, user, now), await candidatoRitual(ctx, user, now)].filter(
+    (candidato): candidato is Candidato => candidato !== null,
+  );
 
   return crudos.map((candidato) => {
     const previo = historial.get(`${candidato.kind}:${candidato.key}`);
@@ -190,5 +235,42 @@ export const acknowledge = kinoMutation({
     if (fila) await ctx.db.patch(fila._id, { acknowledgedAt: now });
     else await ctx.db.insert('interruptions', { userId: ctx.user._id, kind, key, surfacedAt: now, acknowledgedAt: now });
     return null;
+  },
+});
+
+/**
+ * Convierte la línea del lunes en una tarea, y deja escrito de qué digest
+ * salió.
+ *
+ * `digestId` es lo que hace que la puerta de muerte del diario cuente **acción
+ * real** y no pulsaciones de botón (D-05): dentro de diez semanas la consulta
+ * cuenta tareas con digest tocadas en 24 horas, no acuses. Por eso crear la
+ * tarea y acusar la línea son la misma mutación: si fueran dos, una podría
+ * ocurrir sin la otra y el conteo mediría otra cosa.
+ */
+export const taskFromDigest = kinoZodMutation({
+  args: { key: z.string().min(1), title: z.string().min(1).max(500), digestId: zid('sessionDigests') },
+  handler: async (ctx, { key, title, digestId }) => {
+    const digest = await ctx.db.get(digestId);
+    if (!digest || digest.userId !== ctx.user._id) notFound('Digest not found');
+
+    const inbox = await ctx.db
+      .query('systems')
+      .withIndex('by_user_inbox', (q) => q.eq('userId', ctx.user._id).eq('isInbox', true))
+      .unique();
+    if (!inbox) invalid('No hay bandeja donde poner la tarea.');
+
+    const task = await createTaskDoc(ctx, ctx.user._id, ctx.channel, ctx.user.timezone, {
+      systemId: inbox._id,
+      title,
+    });
+    await ctx.db.patch(task._id, { digestId });
+
+    const now = Date.now();
+    const fila = await filaDe(ctx, ctx.user._id, 'lunes', key);
+    if (fila) await ctx.db.patch(fila._id, { acknowledgedAt: now });
+    else await ctx.db.insert('interruptions', { userId: ctx.user._id, kind: 'lunes', key, surfacedAt: now, acknowledgedAt: now });
+
+    return { id: task._id };
   },
 });

@@ -1,7 +1,8 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { CalendarClock } from 'lucide-react';
+import { CalendarClock, NotebookPen } from 'lucide-react';
+import { InterruptionBody } from './InterruptionBody';
 import { api } from '@convex/_generated/api';
 import { Button } from '@/components/ui/button';
 import { useConvexMutation, useConvexQuery } from '@/shared/convex/hooks';
@@ -22,9 +23,19 @@ import { WeeklyRitualDialog } from '@/features/energy/WeeklyRitualDialog';
  */
 
 /** Lo que cada clase dice y qué hace su acción. Una clase sin línea no se pinta. */
-type Contenido = { texto: React.ReactNode; accion: string };
+type Contenido = { texto: React.ReactNode; accion: string; icono: typeof CalendarClock };
+
+const texto = (payload: Record<string, unknown>, clave: string) =>
+  typeof payload[clave] === 'string' ? (payload[clave] as string) : '';
 
 function contenidoDe(kind: string, payload: Record<string, unknown>): Contenido | null {
+  if (kind === 'lunes') {
+    return {
+      texto: <InterruptionBody summary={texto(payload, 'summary')} quote={texto(payload, 'quote')} />,
+      accion: 'Convertir en tarea',
+      icono: NotebookPen,
+    };
+  }
   if (kind === 'ritual') {
     const vencidas = typeof payload.vencidas === 'number' ? payload.vencidas : 0;
     return {
@@ -37,6 +48,7 @@ function contenidoDe(kind: string, payload: Record<string, unknown>): Contenido 
         </>
       ),
       accion: 'Repartir',
+      icono: CalendarClock,
     };
   }
   return null;
@@ -46,6 +58,7 @@ export function InterruptionLine() {
   const { data: interrupcion } = useConvexQuery(api.today.interruption, {});
   const { mutate: marcarMostrada } = useConvexMutation(api.today.markSurfaced);
   const { mutate: acusar } = useConvexMutation(api.today.acknowledge);
+  const { mutate: convertir } = useConvexMutation(api.today.taskFromDigest);
   const [abierto, setAbierto] = useState(false);
 
   const kind = interrupcion?.kind;
@@ -64,19 +77,31 @@ export function InterruptionLine() {
 
   const responder = () => acusar({ kind: interrupcion.kind, key: interrupcion.key });
 
+  // La acción de cada clase. La del lunes crea la tarea y acusa en la misma
+  // mutación, porque es `tasks.digestId` lo que la puerta de muerte del diario
+  // cuenta, y no la pulsación.
+  const actuar = () => {
+    if (interrupcion.kind === 'lunes') {
+      const { digestId, quote } = interrupcion.payload as { digestId?: string; quote?: string };
+      if (digestId && quote) {
+        convertir({ key: interrupcion.key, title: quote.slice(0, 200), digestId });
+        return;
+      }
+    }
+    setAbierto(true);
+    responder();
+  };
+
   return (
     <>
       <div className="mb-4 flex items-center gap-3 rounded-xl border border-border bg-card px-4 py-3">
-        <CalendarClock className="size-4 shrink-0 text-muted-foreground" />
+        <contenido.icono className="size-4 shrink-0 text-muted-foreground" />
         <p className="min-w-0 flex-1 line-clamp-2 text-sm text-foreground/80">{contenido.texto}</p>
         <Button
           variant="link"
           size="sm"
           className="h-auto px-0"
-          onClick={() => {
-            setAbierto(true);
-            responder();
-          }}
+          onClick={actuar}
         >
           {contenido.accion}
         </Button>
