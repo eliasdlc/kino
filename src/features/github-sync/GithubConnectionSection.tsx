@@ -35,7 +35,10 @@ export function GithubConnectionSection() {
   return (
     <div className="space-y-4">
       <div>
-        <h2 className="text-lg font-semibold">GitHub</h2>
+        {/* Un nivel por debajo de Conexiones, que es quien la monta: dos
+            títulos del mismo peso uno encima de otro leen como dos secciones
+            hermanas y no como una fuente dentro de su lista. */}
+        <h3 className="text-base font-medium">GitHub</h3>
         <p className="text-sm text-muted-foreground">
           Conecta tu cuenta para traer los issues de un repositorio al board de un
           sistema de tipo proyecto. Kino sólo lee: nunca escribe en GitHub.
