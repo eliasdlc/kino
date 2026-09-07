@@ -16,15 +16,19 @@ const CITA_MAX = 280;
 export function InterruptionBody({ summary, quote }: { summary: string; quote: string }) {
   const recortada = quote.length >= CITA_MAX;
 
+  // El resumen va delante aunque la cita sea lo que importa: la línea se recorta
+  // a dos líneas, y una cita larga se comía el resumen entero. Así la línea
+  // siempre dice de qué semana habla, y lo que se recorta es el final de la
+  // cita, que es donde menos duele.
   return (
     <span className="min-w-0">
+      <span className="text-muted-foreground">{summary} </span>
       {quote ? (
         <q className="font-medium text-foreground">{quote}</q>
       ) : (
         <span className="text-muted-foreground">Sin ninguna frase que citar de esa semana.</span>
       )}
       {recortada && <span className="text-muted-foreground"> (recortada)</span>}
-      <span className="text-muted-foreground"> · {summary}</span>
     </span>
   );
 }
