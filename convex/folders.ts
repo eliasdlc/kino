@@ -226,13 +226,13 @@ export const remove = kinoZodMutation({
   handler: async (ctx, { id }) => {
     await ownFolder(ctx, ctx.user._id, id);
     const all = await aliveFolders(ctx, ctx.user._id);
-    for (const folderId of subtreeIds(all, id)) await removeOne(ctx, folderId);
+    const now = await stampFor(ctx, ctx.user._id);
+    for (const folderId of subtreeIds(all, id)) await removeOne(ctx, folderId, now);
     return null;
   },
 });
 
-async function removeOne(ctx: MutationCtx, folderId: Id<'folders'>) {
-  const now = Date.now();
+async function removeOne(ctx: MutationCtx, folderId: Id<'folders'>, now: number) {
   for (const task of await ctx.db
     .query('tasks')
     .withIndex('by_folder_alive', (q) => q.eq('folderId', folderId))
@@ -253,3 +253,99 @@ async function removeOne(ctx: MutationCtx, folderId: Id<'folders'>) {
   }
   await ctx.db.patch(folderId, { deletedAt: now, updatedAt: now });
 }
+
+// ── La papelera ─────────────────────────────────────────────────────────────
+
+/**
+ * El instante que marca un borrado, y que hace de identificador del gesto: un
+ * solo valor para toda la cascada, y `restore` devuelve lo que lo lleva y deja
+ * donde estaba lo que ya se había borrado por su cuenta. Dos borrados dentro
+ * del mismo milisegundo se confundirían, así que el segundo corre uno.
+ */
+async function stampFor(ctx: MutationCtx, userId: Id<'users'>) {
+  const usados = new Set((await deletedFolders(ctx, userId)).map((doc) => doc.deletedAt));
+  let now = Date.now();
+  while (usados.has(now)) now += 1;
+  return now;
+}
+
+/** Carpetas del usuario con `deletedAt` puesto. */
+async function deletedFolders(ctx: QueryCtx, userId: Id<'users'>) {
+  const docs = await ctx.db
+    .query('folders')
+    .withIndex('by_user_alive', (q) => q.eq('userId', userId))
+    .collect();
+  return docs.filter((doc) => doc.deletedAt !== undefined);
+}
+
+/**
+ * La carpeta y las que se fueron con ella, que son las de su subárbol marcadas
+ * en el mismo instante. Una hija que ya estaba en la papelera por su cuenta
+ * lleva otro `deletedAt` y se queda donde su dueño la dejó.
+ */
+function deletedWith(docs: Doc<'folders'>[], root: Doc<'folders'>): Doc<'folders'>[] {
+  const childrenOf = new Map<string, Doc<'folders'>[]>();
+  for (const doc of docs) {
+    if (doc.parentId) childrenOf.set(doc.parentId, [...(childrenOf.get(doc.parentId) ?? []), doc]);
+  }
+  const out = [root];
+  const stack = [root];
+  while (stack.length) {
+    for (const child of childrenOf.get(stack.pop()!._id) ?? []) {
+      if (child.deletedAt !== root.deletedAt) continue;
+      out.push(child);
+      stack.push(child);
+    }
+  }
+  return out;
+}
+
+/**
+ * Lo que la papelera enseña: sólo la raíz de cada borrado. Listar también las
+ * subcarpetas que se fueron con su madre convertiría un gesto en cuatro filas
+ * y haría creer que hay que restaurarlas una a una.
+ */
+export const trashed = kinoZodQuery({
+  args: {},
+  handler: async (ctx) => {
+    const docs = await deletedFolders(ctx, ctx.user._id);
+    const byId = new Map(docs.map((doc) => [doc._id, doc]));
+    return docs
+      .filter((doc) => (doc.parentId ? byId.get(doc.parentId)?.deletedAt !== doc.deletedAt : true))
+      .sort((a, b) => b.deletedAt! - a.deletedAt!)
+      .map((doc) => ({
+        ...folderItem(doc),
+        deletedAt: new Date(doc.deletedAt!).toISOString(),
+        /** Cuántas subcarpetas vuelven con ella. Cero es una carpeta sola. */
+        subfolderCount: deletedWith(docs, doc).length - 1,
+      }));
+  },
+});
+
+/**
+ * Devuelve la carpeta entera: ella, las subcarpetas que se fueron en el mismo
+ * gesto y las notas que colgaban de todas ellas. Las tareas y páginas que
+ * estaban dentro no vuelven a su carpeta porque nunca se borraron: el borrado
+ * las dejó vivas y sin carpeta, y eso ya es un estado que su dueño puede ver.
+ */
+export const restore = kinoZodMutation({
+  args: { id: zid('folders') },
+  handler: async (ctx, { id }) => {
+    const doc = await ctx.db.get(id);
+    if (!doc || doc.userId !== ctx.user._id || doc.deletedAt === undefined) notFound('Folder not found');
+    const parent = doc.parentId ? await ctx.db.get(doc.parentId) : null;
+    if (parent && parent.deletedAt !== undefined) invalid('Restaura antes la carpeta que la contenía');
+    const stamp = doc.deletedAt;
+    const now = Date.now();
+    for (const folder of deletedWith(await deletedFolders(ctx, ctx.user._id), doc)) {
+      for (const note of await ctx.db
+        .query('stickyNotes')
+        .withIndex('by_folder', (q) => q.eq('folderId', folder._id))
+        .collect()) {
+        if (note.deletedAt === stamp) await ctx.db.patch(note._id, { deletedAt: undefined, updatedAt: now });
+      }
+      await ctx.db.patch(folder._id, { deletedAt: undefined, updatedAt: now });
+    }
+    return folderItem((await ctx.db.get(id))!);
+  },
+});

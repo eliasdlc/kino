@@ -19,6 +19,7 @@ import { EnergyLimitSection } from "@/features/settings/EnergyLimitSection";
 import { TimezoneSection } from "@/features/settings/TimezoneSection";
 import { WeeklyReviewDaySection } from "@/features/settings/WeeklyReviewDaySection";
 import { DigestsSection } from "@/features/settings/DigestsSection";
+import { TrashSection } from "@/features/settings/TrashSection";
 import { ConnectionsSection } from "@/features/settings/ConnectionsSection";
 import { ReclaimSpaceSection } from "@/features/uploads/ReclaimSpaceSection";
 import { AccountSection } from "@/features/account/AccountSection";
@@ -257,6 +258,8 @@ export default function SettingsPage() {
         <ConnectionsSection />
 
         <DigestsSection />
+
+        <TrashSection />
 
         {/* Datos y portabilidad */}
         <div className="space-y-4">

@@ -4,7 +4,7 @@ import { ConvexError } from 'convex/values';
 import type { Doc, Id } from './_generated/dataModel';
 import type { MutationCtx, QueryCtx } from './_generated/server';
 import { countWords } from '../src/shared/lib/word-count';
-import { forbidden, notFound } from './lib/errors';
+import { forbidden, invalid, notFound } from './lib/errors';
 import { kinoZodMutation, kinoZodQuery, type Channel } from './lib/fn';
 import { lematizar } from './lib/lemas';
 import { recomputePageMentions } from './lib/mentions';
@@ -357,7 +357,7 @@ export const remove = kinoZodMutation({
   args: { id: zid('pages') },
   handler: async (ctx, { id }) => {
     await ownPage(ctx, ctx.user._id, id);
-    const now = Date.now();
+    const now = await stampFor(ctx, ctx.user._id);
     for (const pageId of [id, ...(await subPageTree(ctx, id))]) {
       for (const note of await ctx.db
         .query('stickyNotes')
@@ -446,5 +446,99 @@ export const removeTag = kinoZodMutation({
     const link = await ctx.db.query('pageTags').withIndex('by_page_tag', (q) => q.eq('pageId', id).eq('tagId', tagId)).unique();
     if (link) await ctx.db.delete(link._id);
     return null;
+  },
+});
+
+// ── La papelera ─────────────────────────────────────────────────────────────
+
+/**
+ * El instante que marca un borrado, y que hace de identificador del gesto: un
+ * solo valor para toda la cascada, y `restore` devuelve lo que lo lleva y deja
+ * donde estaba lo que ya se había borrado por su cuenta. Dos borrados dentro
+ * del mismo milisegundo se confundirían, así que el segundo corre uno.
+ */
+async function stampFor(ctx: MutationCtx, userId: Id<'users'>) {
+  const usados = new Set((await deletedPages(ctx, userId)).map((doc) => doc.deletedAt));
+  let now = Date.now();
+  while (usados.has(now)) now += 1;
+  return now;
+}
+
+/** Páginas del usuario con `deletedAt` puesto. */
+async function deletedPages(ctx: Ctx, userId: Id<'users'>) {
+  const docs = await ctx.db
+    .query('pages')
+    .withIndex('by_user_alive', (q) => q.eq('userId', userId))
+    .collect();
+  return docs.filter((doc) => doc.deletedAt !== undefined);
+}
+
+/**
+ * La página y los subcapítulos que se fueron con ella: el subárbol marcado en
+ * el mismo instante. Uno que ya estaba en la papelera lleva otro y se queda.
+ */
+function deletedWith(docs: Doc<'pages'>[], root: Doc<'pages'>): Doc<'pages'>[] {
+  const childrenOf = new Map<string, Doc<'pages'>[]>();
+  for (const doc of docs) {
+    if (doc.parentPageId) childrenOf.set(doc.parentPageId, [...(childrenOf.get(doc.parentPageId) ?? []), doc]);
+  }
+  const out = [root];
+  const stack = [root];
+  while (stack.length) {
+    for (const child of childrenOf.get(stack.pop()!._id) ?? []) {
+      if (child.deletedAt !== root.deletedAt) continue;
+      out.push(child);
+      stack.push(child);
+    }
+  }
+  return out;
+}
+
+/** Sólo la raíz de cada borrado: los subcapítulos vuelven con su capítulo. */
+export const trashed = kinoZodQuery({
+  args: {},
+  handler: async (ctx) => {
+    const docs = await deletedPages(ctx, ctx.user._id);
+    const byId = new Map(docs.map((doc) => [doc._id, doc]));
+    return docs
+      .filter((doc) => (doc.parentPageId ? byId.get(doc.parentPageId)?.deletedAt !== doc.deletedAt : true))
+      .sort((a, b) => b.deletedAt! - a.deletedAt!)
+      .map((doc) => ({
+        id: doc._id,
+        title: doc.title ?? null,
+        systemId: doc.systemId ?? null,
+        deletedAt: iso(doc.deletedAt)!,
+        /** Cuántos subcapítulos vuelven con ella. */
+        subpageCount: deletedWith(docs, doc).length - 1,
+      }));
+  },
+});
+
+/**
+ * Devuelve la página con sus subcapítulos y las notas que colgaban de ellos.
+ * Las menciones del codex se recalculan aquí porque el borrado las destruye:
+ * son derivadas, y sin este paso la entidad no vuelve a contar la página hasta
+ * que alguien la guarde otra vez.
+ */
+export const restore = kinoZodMutation({
+  args: { id: zid('pages') },
+  handler: async (ctx, { id }) => {
+    const doc = await ctx.db.get(id);
+    if (!doc || doc.userId !== ctx.user._id || doc.deletedAt === undefined) notFound('Page not found');
+    const parent = doc.parentPageId ? await ctx.db.get(doc.parentPageId) : null;
+    if (parent && parent.deletedAt !== undefined) invalid('Restaura antes el capítulo que la contenía');
+    const stamp = doc.deletedAt;
+    const now = Date.now();
+    for (const page of deletedWith(await deletedPages(ctx, ctx.user._id), doc)) {
+      for (const note of await ctx.db
+        .query('stickyNotes')
+        .withIndex('by_page', (q) => q.eq('pageId', page._id))
+        .collect()) {
+        if (note.deletedAt === stamp) await ctx.db.patch(note._id, { deletedAt: undefined, updatedAt: now });
+      }
+      await ctx.db.patch(page._id, { deletedAt: undefined, updatedAt: now });
+      await recomputePageMentions(ctx, ctx.user._id, page._id, page.systemId, page.content);
+    }
+    return pageListItem(ctx, (await ctx.db.get(id))!);
   },
 });

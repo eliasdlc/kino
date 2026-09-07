@@ -2,7 +2,7 @@ import { z } from 'zod';
 import { zid } from 'convex-helpers/server/zod4';
 import type { Doc, Id } from './_generated/dataModel';
 import type { MutationCtx, QueryCtx } from './_generated/server';
-import { notFound } from './lib/errors';
+import { invalid, notFound } from './lib/errors';
 import { kinoZodMutation, kinoZodQuery, type Channel } from './lib/fn';
 import { lematizar } from './lib/lemas';
 import { color } from './schema';
@@ -224,5 +224,45 @@ export const remove = kinoZodMutation({
     await ownNote(ctx, ctx.user._id, id);
     await ctx.db.patch(id, { deletedAt: Date.now(), updatedAt: Date.now() });
     return null;
+  },
+});
+
+// ── La papelera ─────────────────────────────────────────────────────────────
+
+/** Si el dueño de la nota está vivo. Una nota que se fue con su capítulo o su carpeta vuelve con él, no sola. */
+async function ownerAlive(ctx: QueryCtx | MutationCtx, doc: Doc<'stickyNotes'>) {
+  const owner = doc.pageId ? await ctx.db.get(doc.pageId) : doc.folderId ? await ctx.db.get(doc.folderId) : null;
+  return owner !== null && owner.deletedAt === undefined;
+}
+
+/**
+ * Notas en la papelera. Sólo las que se borraron solas: la que cayó con su
+ * cuaderno o su capítulo no se lista, porque restaurarla dejaría una nota
+ * pegada a algo que sigue borrado.
+ */
+export const trashed = kinoZodQuery({
+  args: {},
+  handler: async (ctx) => {
+    const docs = await ctx.db
+      .query('stickyNotes')
+      .withIndex('by_user_alive', (q) => q.eq('userId', ctx.user._id))
+      .collect();
+    const out = [];
+    for (const doc of docs.filter((d) => d.deletedAt !== undefined).sort((a, b) => b.deletedAt! - a.deletedAt!)) {
+      if (await ownerAlive(ctx, doc)) out.push({ ...noteItem(doc), deletedAt: new Date(doc.deletedAt!).toISOString() });
+    }
+    return out;
+  },
+});
+
+/** Devuelve la nota a su margen. Con el dueño borrado no hay margen al que volver. */
+export const restore = kinoZodMutation({
+  args: { id: zid('stickyNotes') },
+  handler: async (ctx, { id }) => {
+    const doc = await ctx.db.get(id);
+    if (!doc || doc.userId !== ctx.user._id || doc.deletedAt === undefined) notFound('Sticky note not found');
+    if (!(await ownerAlive(ctx, doc))) invalid('Restaura antes el cuaderno o el capítulo donde estaba');
+    await ctx.db.patch(id, { deletedAt: undefined, updatedAt: Date.now() });
+    return noteItem((await ctx.db.get(id))!);
   },
 });
