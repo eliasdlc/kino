@@ -32,9 +32,9 @@ export const DIGEST_BYTES_MAX = 8_192;
 /**
  * Lo que el hook sube. La granularidad la decide él y no el servidor: con
  * `externalId` como id de sesión hay una fila por sesión, y con la clave de la
- * semana hay una por semana. La idempotencia se aplica sobre
- * `(userId, source, externalId)`, así que las dos formas caben sin cambiar nada
- * aquí, y reintentar una subida nunca deja una segunda fila.
+ * semana hay una por semana (D-15, decidida el 7 de septiembre: por semana).
+ * La identidad es `(userId, source, externalId)`, así que las dos formas caben
+ * sin cambiar nada aquí.
  */
 export const digestSchema = z.object({
   source: z.string().min(1).max(64),
@@ -64,7 +64,16 @@ export const digestBytes = (digest: unknown) => new TextEncoder().encode(JSON.st
  * Valida y guarda un digest. Interna: la única entrada es la ruta HTTP, que es
  * quien comprueba la credencial del hook antes de llegar aquí.
  *
- * Devuelve si creó la fila, para que la ruta distinga un 201 de un reintento.
+ * **Reemplaza, no duplica ni congela.** Con el digest por semana (D-15), el
+ * hook vuelve a subir la misma semana cada vez que Elias cierra una sesión, y
+ * cada envío trae la semana entera recalculada: dejar la primera versión
+ * clavada dejaría el lunes citando el martes anterior. Lo que la identidad
+ * `(userId, source, externalId)` garantiza es que nunca hay dos filas de la
+ * misma semana, y eso vale igual si algún día el hook sube por sesión.
+ *
+ * `createdAt` es de la fila y no del envío: la semana empezó cuando empezó.
+ *
+ * Devuelve si la fila nació ahora, para que la ruta distinga un 201 de un 200.
  */
 export const record = internalMutation({
   args: { userId: v.id('users'), source: v.string(), externalId: v.string(), digest: v.record(v.string(), v.any()) },
@@ -75,7 +84,10 @@ export const record = internalMutation({
       .query('sessionDigests')
       .withIndex('by_user_source_external', (q) => q.eq('userId', userId).eq('source', source).eq('externalId', externalId))
       .unique();
-    if (existing) return { created: false, bytes: digestBytes(existing.digest) };
+    if (existing) {
+      await ctx.db.patch(existing._id, { digest });
+      return { created: false, bytes };
+    }
 
     await ctx.db.insert('sessionDigests', { userId, source, externalId, digest, createdAt: Date.now() });
     return { created: true, bytes };
