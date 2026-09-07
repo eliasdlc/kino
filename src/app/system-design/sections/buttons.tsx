@@ -16,7 +16,7 @@ export function ButtonsSection() {
       id="botones"
       number="05"
       title="Botones, badges y teclas"
-      description="Button tiene 6 variantes × 8 tamaños (4 de texto + 4 de icono). Estados: hover, focus (Tab), active (pressed baja 1px), disabled y loading. Badge comparte variantes con forma pill."
+      description="Toda acción es un pill. Button tiene 6 variantes × 8 tamaños en rem: default 2.85rem (el táctil mínimo), lg 3.2rem para la acción primaria, que lleva el glow del acento en vez de sombra. Estados: hover, focus (Tab), active (baja 1px), disabled y loading."
     >
       <SubSection title="Matriz de variantes × tamaños">
         <div className="overflow-x-auto rounded-lg border border-border">
