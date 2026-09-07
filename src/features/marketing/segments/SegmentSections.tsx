@@ -20,6 +20,44 @@ const h2 =
 export function SegmentHero({ segment }: { segment: LandingSegment }) {
   return (
     <header className="relative overflow-hidden">
+
+      <div className="relative mx-auto flex max-w-[1120px] flex-wrap items-center gap-14 px-6 pb-24 pt-[88px]">
+        <div className="min-w-[min(100%,420px)] shrink grow basis-[460px]">
+          <p className={`mb-5 flex items-center gap-2 ${eyebrow}`}>
+            <segment.icon className="h-4 w-4" aria-hidden />
+            {segment.eyebrow}
+          </p>
+          <h1 className="mb-6 text-balance font-display text-[clamp(40px,5.2vw,64px)] font-extrabold leading-[1.04] tracking-[-0.03em] text-foreground">
+            {segment.headline.lead}{" "}
+            <span className="text-primary">{segment.headline.accent}</span>{" "}
+            {segment.headline.tail}
+          </h1>
+          <p className="mb-9 max-w-[520px] text-pretty text-[18px] leading-[1.65] text-muted-foreground">
+            {segment.subheadline}
+          </p>
+          <div className="flex flex-wrap items-center gap-3.5">
+            <Link
+              href={segmentRegisterHref(segment)}
+              className={`${btnPrimary} px-[26px] py-3.5 text-base shadow-[0_8px_32px_color-mix(in srgb, var(--ac) 35%, transparent)]`}
+            >
+              {segment.heroCta}
+            </Link>
+            <a href="#lo-que-hace" className={`${btnGhost} px-[22px] py-3.5 text-base`}>
+              Ver qué hace
+            </a>
+          </div>
+          <p className="mt-5 font-jetbrains text-[11.5px] text-muted-foreground">
+            gratis · sin tarjeta · dos minutos de configuración
+          </p>
+        </div>
+
+        <div
+          className="min-w-[min(100%,360px)] shrink grow-0 basis-[440px]"
+          style={{ animation: "hero-float 6s ease-in-out infinite" }}
+        >
+          <SegmentHeroViz slug={segment.slug} />
+        </div>
+      </div>
     </header>
   );
 }
