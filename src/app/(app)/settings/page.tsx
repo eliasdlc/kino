@@ -20,6 +20,7 @@ import { GithubConnectionSection } from "@/features/github-sync/GithubConnection
 import { EnergyLimitSection } from "@/features/settings/EnergyLimitSection";
 import { TimezoneSection } from "@/features/settings/TimezoneSection";
 import { WeeklyReviewDaySection } from "@/features/settings/WeeklyReviewDaySection";
+import { DigestsSection } from "@/features/settings/DigestsSection";
 import { ReclaimSpaceSection } from "@/features/uploads/ReclaimSpaceSection";
 import { AccountSection } from "@/features/account/AccountSection";
 import { DangerZoneSection } from "@/features/account/DangerZoneSection";
@@ -259,6 +260,8 @@ export default function SettingsPage() {
         <Suspense>
           <GithubConnectionSection />
         </Suspense>
+
+        <DigestsSection />
 
         {/* Datos y portabilidad */}
         <div className="space-y-4">
