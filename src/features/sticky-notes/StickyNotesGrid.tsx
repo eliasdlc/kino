@@ -129,9 +129,9 @@ export function StickyNotesGrid(props: Props) {
     <>
       <div className="space-y-3">
         <div className="flex items-center justify-between">
-          <div className="flex items-center gap-1.5 text-sm font-medium text-muted-foreground">
+          <div className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-[0.06em] text-muted-foreground">
             <StickyNote className="size-4" />
-            Sticky notes
+            Notas
           </div>
           <Button
             variant="ghost"
@@ -140,7 +140,7 @@ export function StickyNotesGrid(props: Props) {
             onClick={(e) => setCreatorAnchor({ x: e.clientX, y: e.clientY })}
           >
             <Plus className="size-3" />
-            Add
+            Añadir
           </Button>
         </div>
 

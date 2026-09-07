@@ -183,8 +183,9 @@ export default function NotebookEditorSurface({
                 writer ? "max-w-[46rem] md:my-6 md:px-10" : "max-w-3xl"
               )}
             >
-              <StickyNotesGrid pageId={page.id} />
               <NotebookEditor page={page} systemId={systemId} pageId={page.id} writer={writer} />
+              {/* Las notas van después del texto: la página escribe primero. */}
+              <StickyNotesGrid pageId={page.id} />
             </div>
             <FloatingNotesLayer
               notes={floatingNotes}

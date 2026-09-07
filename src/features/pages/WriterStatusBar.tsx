@@ -99,14 +99,14 @@ export function WriterStatusBar({
     // queda debajo del teclado o encima de la línea que estás escribiendo. Lo
     // que lleva (recuento y modo focus) se consulta entre frases, no mientras
     // se teclea, así que baja con el texto y deja de competir.
-    <div className="z-(--z-raised) flex flex-wrap items-center gap-x-4 gap-y-1 border-t bg-background/80 px-4 py-1.5 text-xs text-muted-foreground backdrop-blur md:flex-nowrap md:sticky md:bottom-0 md:px-6">
-      <span className="font-mono">
-        Cap: <span className="text-foreground">{chapterWords.toLocaleString("es")}</span> palabras
+    <div className="z-(--z-raised) flex flex-wrap items-center gap-x-4 gap-y-1 border-t border-border bg-background/80 px-4 py-2 text-xs text-muted-foreground backdrop-blur md:flex-nowrap md:sticky md:bottom-0 md:px-6">
+      <span className="tabular-nums">
+        <span className="font-semibold text-foreground">{chapterWords.toLocaleString("es")}</span> palabras en el capítulo
       </span>
 
       {obra && !focusMode && (
         <div className="flex w-full min-w-0 items-center gap-2 md:w-auto md:flex-1">
-          <span className="shrink-0 truncate font-mono">
+          <span className="shrink-0 truncate tabular-nums">
             {obra.name}: {obraWords!.toLocaleString("es")}
             {goal ? ` / ${goal.toLocaleString("es")}` : ""}
           </span>
