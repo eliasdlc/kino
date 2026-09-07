@@ -4,7 +4,8 @@ function Skeleton({ className, ...props }: React.ComponentProps<"div">) {
   return (
     <div
       data-slot="skeleton"
-      className={cn("motion-safe:animate-pulse rounded-md bg-muted", className)}
+      // Sin latido: un esqueleto es un tono de superficie que espera, no una animación.
+      className={cn("rounded-md bg-muted", className)}
       {...props}
     />
   )
