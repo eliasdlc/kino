@@ -20,7 +20,7 @@ type Tab = 'suggestion' | 'energy' | 'stale';
 
 function SlotSkeleton({ rows }: { rows: number }) {
   return (
-    <div className="space-y-2.5 animate-pulse">
+    <div className="space-y-2.5 ">
       {Array.from({ length: rows }).map((_, i) => (
         <div key={i} className="space-y-1">
           <div className="h-2.5 w-3/4 bg-muted rounded" />
@@ -107,7 +107,7 @@ function EnergySlot() {
           </div>
           <div className="h-1 rounded-full bg-muted overflow-hidden">
             <div
-              className="h-full rounded-full bg-amber-400/80 transition-all duration-500"
+              className="h-full rounded-full bg-primary/70 transition-all duration-500"
               style={{ width: `${s.percentage}%` }}
             />
           </div>

@@ -7,6 +7,10 @@ import { usePushNotifications } from "@/features/notifications/notifications.hoo
 
 const DISMISSED_KEY = "kino-notif-prompt-dismissed";
 
+/**
+ * Una línea al pie de Hoy, no una tarjeta antes de la cifra: pide activar los
+ * recordatorios y se va con la X o con el permiso concedido.
+ */
 export function NotificationPromptCard() {
   const { status, subscribe } = usePushNotifications();
   // useSyncExternalStore guarantees SSR/Hydration returns false, and client post-hydration returns true.
@@ -31,28 +35,17 @@ export function NotificationPromptCard() {
   if (!isClient || status !== "idle" || dismissed) return null;
 
   return (
-    <div className="relative flex items-start gap-3 rounded-lg border border-primary/20 bg-primary/5 p-4">
-      <Bell className="size-5 text-primary mt-0.5 shrink-0" />
-      <div className="flex-1 min-w-0 space-y-2">
-        <p className="text-sm font-medium">Activa los recordatorios</p>
-        <p className="text-xs text-muted-foreground">
-          Recibirás un aviso antes de que venza una tarea, incluso sin la app abierta.
-        </p>
-        <Button
-          size="sm"
-          onClick={subscribe}
-          className="h-7 text-xs"
-        >
-          Activar notificaciones
-        </Button>
-      </div>
-      <button
-        onClick={dismiss}
-        className="text-muted-foreground hover:text-foreground transition-colors shrink-0"
-        aria-label="Descartar"
-      >
+    <div className="flex items-center gap-3 rounded-xl border border-border bg-card px-4 py-3">
+      <Bell className="size-4 shrink-0 text-muted-foreground" />
+      <p className="min-w-0 flex-1 text-sm text-foreground/80">
+        Un aviso antes de que venza una tarea, incluso sin la app abierta.
+      </p>
+      <Button variant="link" size="sm" className="h-auto px-0" onClick={subscribe}>
+        Activar
+      </Button>
+      <Button variant="ghost" size="icon-xs" onClick={dismiss} aria-label="Descartar">
         <X className="size-4" />
-      </button>
+      </Button>
     </div>
   );
 }

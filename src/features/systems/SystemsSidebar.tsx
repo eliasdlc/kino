@@ -225,7 +225,7 @@ export function SystemsSidebar({
         <NavItem
           href="/dashboard"
           icon={LayoutDashboard}
-          label="Dashboard"
+          label="Hoy"
           active={pathname === "/dashboard"}
           collapsed={effectiveCollapsed}
           onNavigate={closeOnMobile}

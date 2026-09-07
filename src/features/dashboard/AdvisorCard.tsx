@@ -23,14 +23,14 @@ const ICONS: Record<PatternId, React.FC<{ className?: string }>> = {
 };
 
 function severityColor(severity: number): string {
-  if (severity >= 3) return 'text-red-500 dark:text-red-400';
-  if (severity >= 2) return 'text-amber-500 dark:text-amber-400';
+  if (severity >= 3) return 'text-task-overdue';
+  if (severity >= 2) return 'text-primary';
   return 'text-muted-foreground';
 }
 
 function severityBg(severity: number): string {
-  if (severity >= 3) return 'border-red-500/20 bg-red-500/5';
-  if (severity >= 2) return 'border-amber-500/20 bg-amber-500/5';
+  if (severity >= 3) return 'border-task-overdue/20 bg-task-overdue/10';
+  if (severity >= 2) return 'border-primary/20 bg-primary';
   return 'border-border bg-card';
 }
 
@@ -51,7 +51,7 @@ export function AdvisorCard({ pattern, actionTaskIds, actionLabel, bulkAction }:
   }
 
   return (
-    <div className={cn('rounded-xl border p-4 space-y-3', severityBg(pattern.severity))}>
+    <div className={cn('rounded-2xl border p-4 space-y-3 shadow-(--shadow)', severityBg(pattern.severity))}>
       <div className="flex items-start gap-3">
         <div className={cn('shrink-0 mt-0.5', severityColor(pattern.severity))}>
           <Icon className="w-4 h-4" />
