@@ -19,9 +19,6 @@ import { ASSETS_DIR } from "@/features/pages/export/workspace-layout";
  */
 export const maxDuration = 10;
 
-/** Dónde pedir las imágenes. Lo escribe el manifiesto del ZIP de datos. */
-export const IMAGES_PATH = "/api/export/images";
-
 export async function GET() {
   const session = await getServerSession();
   if (!session) {

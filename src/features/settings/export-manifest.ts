@@ -67,3 +67,10 @@ export const EXPORTED_TABLES = EXPORT_TABLES.filter((t) => t.formato !== null);
 
 /** Carpeta del ZIP donde va un JSON por tabla, tal cual, para reimportar. */
 export const DATA_DIR = "datos";
+
+/**
+ * Dónde pedir el segundo ZIP, el de las imágenes. Vive aquí y no en la propia
+ * ruta porque un fichero `route.ts` sólo puede exportar los nombres que Next
+ * conoce: cualquier otro rompe el build, y el typecheck local no lo ve.
+ */
+export const IMAGES_PATH = "/api/export/images";

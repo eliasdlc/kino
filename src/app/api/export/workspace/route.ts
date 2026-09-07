@@ -6,8 +6,7 @@ import { getServerSession } from "@/shared/utils/session";
 import { htmlToMarkdown } from "@/features/pages/export/html-to-markdown";
 import { extractImageUrlsFromHtml, rewriteImageUrls, assetFileName } from "@/features/uploads/image-refs";
 import { pageDir, assetPathFromPage } from "@/features/pages/export/workspace-layout";
-import { DATA_DIR, EXPORT_TABLES } from "@/features/settings/export-manifest";
-import { IMAGES_PATH } from "../images/route";
+import { DATA_DIR, EXPORT_TABLES, IMAGES_PATH } from "@/features/settings/export-manifest";
 
 /**
  * El ZIP de datos: un JSON por tabla, tal cual sale de la base, y un Markdown
