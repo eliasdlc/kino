@@ -5,10 +5,10 @@
  * prueba par a par en `convex/lib/today/queue.test.ts`, sin base delante.
  */
 import { convexTest } from 'convex-test';
-import { describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { api } from './_generated/api';
 import type { Doc } from './_generated/dataModel';
-import { DIAS_DE_AUSENCIA } from './today';
+import { DIAS_DE_AUSENCIA, semanaAnterior } from './today';
 import { DIAS_ANTES_DE_CEDER } from './lib/today/queue';
 import schema from './schema';
 
@@ -246,5 +246,93 @@ describe('el estado de regreso', () => {
     await beto.mutation(api.users.ensure, {});
     expect(await beto.query(api.today.returnNotice, {})).toBeNull();
     expect(await asAna.query(api.today.returnNotice, {})).not.toBeNull();
+  });
+});
+
+describe('la linea del lunes', () => {
+  /** Deja el digest de la semana que la linea del lunes de hoy citaria. */
+  const conDigestDeLaSemanaPasada = (
+    t: ReturnType<typeof convexTest>,
+    userId: Awaited<ReturnType<typeof seed>>['userId'],
+    digest: Record<string, unknown> = { summary: '8 sesiones en 4 dias, sobre kino.', quote: 'la firma vive en el servicio y no en el router' },
+  ) =>
+    t.run((ctx) =>
+      ctx.db.insert('sessionDigests', {
+        userId,
+        source: 'claude-code',
+        externalId: semanaAnterior(Date.now()),
+        digest,
+        createdAt: Date.now(),
+      }),
+    );
+
+  /**
+   * Un lunes de verdad, para que estos tests corran los siete días de la
+   * semana. Sin el reloj fijo sólo probarían los lunes, que es lo mismo que no
+   * probar nada de martes a domingo.
+   */
+  const UN_LUNES = Date.parse('2026-09-07T13:00:00Z');
+  const enLunes = () => vi.useFakeTimers({ shouldAdvanceTime: true }).setSystemTime(UN_LUNES);
+  afterEach(() => vi.useRealTimers());
+
+  it('cita la semana anterior y no la que empieza hoy', () => {
+    // El lunes 7 de septiembre de 2026 cita la semana 36, que acaba de cerrarse.
+    expect(semanaAnterior(Date.parse('2026-09-07T09:00:00Z'))).toBe('2026-W36');
+    expect(semanaAnterior(Date.parse('2026-01-05T09:00:00Z'))).toBe('2026-W01');
+  });
+
+  it('sin digest de esa semana no hay linea, aunque sea lunes', async () => {
+    enLunes();
+    const { asAna } = await seed();
+    expect(await asAna.query(api.today.interruption, {})).toBeNull();
+  });
+
+  it('el lunes con digest desaloja al ritual y trae la cita', async () => {
+    enLunes();
+    const { t, asAna, userId, systemId } = await seed({ reviewDay: 'mon' });
+    await conVencida(asAna, systemId);
+    await conDigestDeLaSemanaPasada(t, userId);
+
+    const elegida = await asAna.query(api.today.interruption, {});
+    expect(elegida).toMatchObject({
+      kind: 'lunes',
+      payload: { quote: 'la firma vive en el servicio y no en el router' },
+    });
+  });
+
+  it('convertirla en tarea escribe digestId y retira la linea de una vez', async () => {
+    enLunes();
+    const { t, asAna, userId } = await seed();
+    await asAna.mutation(api.systems.setup, {});
+    const digestId = await conDigestDeLaSemanaPasada(t, userId);
+    const elegida = (await asAna.query(api.today.interruption, {}))!;
+
+    const creada = await asAna.mutation(api.today.taskFromDigest, {
+      key: elegida.key,
+      title: 'Terminar la firma del cierre',
+      digestId,
+    });
+
+    // La tarea lleva de que digest salio: es lo que la puerta de muerte cuenta.
+    const task = (await t.run((ctx) => ctx.db.get(creada.id)))!;
+    expect(task.digestId).toBe(digestId);
+    expect(task.title).toBe('Terminar la firma del cierre');
+    // Y la linea se fue en la misma mutacion, sin un segundo acuse.
+    expect(await asAna.query(api.today.interruption, {})).toBeNull();
+  });
+
+  it('el digest de otra persona no se puede citar ni convertir', async () => {
+    enLunes();
+    const { t, asAna, userId } = await seed();
+    await asAna.mutation(api.systems.setup, {});
+    const digestId = await conDigestDeLaSemanaPasada(t, userId);
+
+    const beto = t.withIdentity({ subject: 'user_beto', email: 'beto@usekino.dev', name: 'Beto' });
+    await beto.mutation(api.users.ensure, {});
+    await beto.mutation(api.systems.setup, {});
+    expect(await beto.query(api.today.interruption, {})).toBeNull();
+    await expect(
+      beto.mutation(api.today.taskFromDigest, { key: semanaAnterior(Date.now()), title: 'Ajena', digestId }),
+    ).rejects.toThrow();
   });
 });

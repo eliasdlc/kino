@@ -6,6 +6,8 @@ import { Section, SubSection, Specimen, SpecimenGrid, Seeded, ClientOnly, seedQu
 import { mockLearningInsight } from "../mock-data";
 import { EnergyBudgetBar } from "@/features/energy/EnergyBudgetBar";
 import { InterruptionLine } from "@/features/today/InterruptionLine";
+import { InterruptionBody } from "@/features/today/InterruptionBody";
+import { CeilingProposalBody } from "@/features/today/CeilingProposalBody";
 import { LearningInsightCard } from "@/features/dashboard/LearningInsightCard";
 import { WeeklyReviewDaySection } from "@/features/settings/WeeklyReviewDaySection";
 import { WEEKDAY_ORDER } from "@/features/energy/energy.ritual";
@@ -307,6 +309,33 @@ export function EnergyBudgetSection() {
             </Seeded>
           </ClientOnly>
         </div>
+      </SubSection>
+
+      <SubSection
+        title="Los cuerpos de la interrupción"
+        description="Cada clase de candidato trae su propio cuerpo dentro de la misma línea. El del lunes cita una frase de Elias literal, y dice cuándo no encontró ninguna; el del techo enseña las cifras con su evidencia detrás, y no se pinta si la evidencia desapareció."
+      >
+        <SpecimenGrid>
+          <Specimen label="Lunes, con cita" hint="quote + summary">
+            <InterruptionBody
+              summary="8 sesiones en 4 días, sobre kino y ConoceRD."
+              quote="Quiero que la firma del cierre viva en el servicio y no en el router, porque hay tres caminos"
+            />
+          </Specimen>
+          <Specimen label="Lunes, sin nada que citar" hint="quote vacío">
+            <InterruptionBody summary="2 sesiones en 1 día, sobre kino." quote="" />
+          </Specimen>
+          <Specimen label="Techo al séptimo día" hint="siete cierres firmados por una persona">
+            <CeilingProposalBody
+              propuesta={{ cierres: 9, dias: 4, horasObservadas: 14.5, propuesto: 3.5, actual: 6, evidencia: ["t1", "t2"] }}
+            />
+          </Specimen>
+          <Specimen label="Techo sin evidencia" hint="las filas que lo sostenían ya no están">
+            <CeilingProposalBody
+              propuesta={{ cierres: 9, dias: 4, horasObservadas: 14.5, propuesto: 3.5, actual: 6, evidencia: [] }}
+            />
+          </Specimen>
+        </SpecimenGrid>
       </SubSection>
 
       <SubSection

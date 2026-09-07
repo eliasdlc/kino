@@ -91,18 +91,24 @@ describe('la entrada del diario', () => {
     expect(await t.run((ctx) => ctx.db.query('sessionDigests').collect())).toEqual([]);
   });
 
-  it('dos envíos del mismo digest dejan una sola fila', async () => {
+  it('dos envíos de la misma semana dejan una fila, y la segunda versión manda', async () => {
     const t = await conCuentas();
 
     expect((await subir(t, digestValido())).status).toBe(201);
-    const reintento = await subir(t, { ...digestValido(), digest: { summary: 'Otro texto', quote: 'otra cita' } });
-    expect(reintento.status).toBe(200);
-    expect(await reintento.json()).toMatchObject({ created: false });
+    const creada = await t.run((ctx) => ctx.db.query('sessionDigests').first());
+
+    const segundo = await subir(t, { ...digestValido(), digest: { summary: 'Y además cerré el techo', quote: 'otra cita' } });
+    expect(segundo.status).toBe(200);
+    expect(await segundo.json()).toMatchObject({ created: false });
 
     const filas = await t.run((ctx) => ctx.db.query('sessionDigests').collect());
     expect(filas).toHaveLength(1);
-    // El reintento no pisa lo guardado: la fila sigue siendo la primera.
-    expect(filas[0].digest.summary).toBe('Cerré el carril de migraciones');
+    // La semana crece según avanza: el hook la recalcula entera cada vez que
+    // Elias cierra una sesión, y la última versión es la que vale.
+    expect(filas[0].digest.summary).toBe('Y además cerré el techo');
+    // Pero la fila es la misma y su fecha es la de la primera subida.
+    expect(filas[0]._id).toBe(creada!._id);
+    expect(filas[0].createdAt).toBe(creada!.createdAt);
   });
 
   it('sin las dos variables del deployment la ruta no acepta nada', async () => {

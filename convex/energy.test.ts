@@ -137,3 +137,110 @@ describe('energy', () => {
     expect(found.map((r) => r.id)).toContain(critical.id);
   });
 });
+
+describe('el techo propuesto al septimo dia', () => {
+  const DIA = 86_400_000;
+
+  /**
+   * Cierra `cuantos` tareas firmadas por una persona, repartidas en dias
+   * distintos, con una hora de trabajo observado cada una.
+   */
+  async function cerrar(
+    t: ReturnType<typeof convexTest>,
+    userId: Awaited<ReturnType<typeof seed>>['userId'],
+    systemId: Awaited<ReturnType<typeof seed>>['systemId'],
+    cuantos: number,
+    via: 'session' | 'sync' = 'session',
+  ) {
+    return t.run(async (ctx) => {
+      for (let i = 0; i < cuantos; i++) {
+        const cuando = Date.now() - (i % 4) * DIA - 3_600_000;
+        const taskId = await ctx.db.insert('tasks', {
+          userId, systemId, createdBy: userId, createdVia: 'session',
+          title: `Cerrada ${i}`, status: 'done', energyLevel: 'medium', priority: 'medium',
+          sortIndex: i, inTodayPlan: false, notifiedBeforeDay: false, notifiedDueDay: false,
+          reminderCount: 0, createdAt: 1, updatedAt: 1,
+          completedAt: cuando,
+          completedBy: via === 'session' ? userId : undefined,
+          completedVia: via,
+        });
+        await ctx.db.insert('timeLogs', {
+          userId, taskId, systemId, startedAt: cuando - 3_600_000, endedAt: cuando,
+          durationMinutes: 60, source: 'timer', createdAt: cuando,
+        });
+      }
+      return null;
+    });
+  }
+
+  it('con seis cierres firmados no se emite nada, con siete si', async () => {
+    const { t, asAna, userId, systemId } = await seed();
+
+    await cerrar(t, userId, systemId, 6);
+    expect(await asAna.query(api.today.interruption, {})).toBeNull();
+
+    await cerrar(t, userId, systemId, 1);
+    expect(await asAna.query(api.today.interruption, {})).toMatchObject({ kind: 'techo' });
+  });
+
+  it('los cierres de la sincronizacion no cuentan: no los cerro una persona', async () => {
+    const { t, asAna, userId, systemId } = await seed();
+    // Nueve cierres, pero ninguno con persona detras.
+    await cerrar(t, userId, systemId, 9, 'sync');
+    expect(await asAna.query(api.today.interruption, {})).toBeNull();
+  });
+
+  it('la propuesta sale de las filas reales y trae su evidencia', async () => {
+    const { t, asAna, userId, systemId } = await seed();
+    await cerrar(t, userId, systemId, 8);
+
+    const linea = (await asAna.query(api.today.interruption, {}))!;
+    expect(linea.payload).toMatchObject({ cierres: 8, dias: 4, horasObservadas: 8, actual: 8 });
+    // Ocho horas observadas en cuatro dias: dos horas al dia, no las ocho que
+    // el perfil tenia puestas.
+    expect(linea.payload.propuesto).toBe(2);
+    expect((linea.payload.evidencia as string[]).length).toBe(8);
+  });
+
+  it('aceptarla escribe el techo y deja un evento con el valor anterior', async () => {
+    const { t, asAna, userId, systemId } = await seed();
+    await cerrar(t, userId, systemId, 8);
+
+    const resultado = await asAna.mutation(api.energy.applyCeiling, { horas: 2 });
+    expect(resultado).toEqual({ anterior: 8, horas: 2 });
+
+    const perfil = await t.run((ctx) => ctx.db.query('userEnergyProfile').first());
+    expect(perfil!.availableHoursPerDay).toBe(2);
+
+    const eventos = await t.run((ctx) => ctx.db.query('eventLog').collect());
+    const evento = eventos.find((e) => e.action === 'energy.applyCeiling')!;
+    // El valor anterior viaja en el evento: eso es lo que hace el deshacer.
+    expect(evento.payload).toEqual({ anterior: 8, horas: 2 });
+  });
+
+  it('proponer el techo que ya tiene es no proponer nada', async () => {
+    const { t, asAna, userId, systemId } = await seed();
+    await cerrar(t, userId, systemId, 8);
+    await asAna.mutation(api.energy.applyCeiling, { horas: 2 });
+    expect(await asAna.query(api.today.interruption, {})).toBeNull();
+  });
+
+  it('descartarla la retira y no vuelve', async () => {
+    const { t, asAna, userId, systemId } = await seed();
+    await cerrar(t, userId, systemId, 8);
+    const linea = (await asAna.query(api.today.interruption, {}))!;
+
+    await asAna.mutation(api.today.acknowledge, { kind: 'techo', key: linea.key });
+    expect(await asAna.query(api.today.interruption, {})).toBeNull();
+  });
+
+  it('el techo de una persona no se propone desde la cuenta de otra', async () => {
+    const { t, asAna, userId, systemId } = await seed();
+    await cerrar(t, userId, systemId, 8);
+
+    const beto = t.withIdentity({ subject: 'user_beto', email: 'beto@usekino.dev', name: 'Beto' });
+    await beto.mutation(api.users.ensure, {});
+    expect(await beto.query(api.today.interruption, {})).toBeNull();
+    expect(await asAna.query(api.today.interruption, {})).not.toBeNull();
+  });
+});
