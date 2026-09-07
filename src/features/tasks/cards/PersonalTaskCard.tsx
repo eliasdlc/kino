@@ -27,7 +27,7 @@ function PersonalMeta({ task }: { task: TaskTransport; state: TaskCardState }) {
         </span>
       )}
       {recurrence && (
-        <span className="inline-flex items-center gap-1 text-purple-700 dark:text-purple-300">
+        <span className="inline-flex items-center gap-1 text-primary">
           <Repeat size={13} />
           {recurrence}
         </span>

@@ -43,9 +43,9 @@ export function minutesToTimeString(minutes: number): string {
 
 /** Nivel de energía 0–100 → clase de fondo del overlay. */
 export function energyBgClass(capacity: number): string {
-  if (capacity >= 60) return "bg-emerald-500/8";
-  if (capacity >= 30) return "bg-amber-500/8";
-  return "bg-rose-500/8";
+  if (capacity >= 60) return "bg-task-done/8";
+  if (capacity >= 30) return "bg-primary/8";
+  return "bg-task-overdue/8";
 }
 
 /**

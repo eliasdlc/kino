@@ -21,7 +21,7 @@ export function SubtaskProgressBars({ taskId, systemId }: { taskId: string; syst
         {subtasks.map((s, i) => (
           <div
             key={s.id ?? i}
-            className={cn("w-[2.5px] h-3.5 rounded-sm", i < done ? "bg-blue-600 dark:bg-[#3c5deb]" : "bg-muted-foreground/25")}
+            className={cn("w-[2.5px] h-3.5 rounded-sm", i < done ? "bg-secondary dark:bg-[#3c5deb]" : "bg-muted-foreground/25")}
           />
         ))}
       </div>

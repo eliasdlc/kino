@@ -330,10 +330,10 @@ function TaskDetailForm({ task, systemId, onClose }: TaskDetailFormProps) {
             disabled={anotherRunning}
             className={cn(
               "gap-1.5",
-              isThisRunning && "border-amber-500/50 text-amber-400",
+              isThisRunning && "border-primary/50 text-primary",
             )}
           >
-            <Timer size={14} className={cn(isThisRunning && "animate-pulse")} />
+            <Timer size={14} className={cn(isThisRunning && "")} />
             {isThisRunning ? "En foco" : "Iniciar foco"}
           </Button>
         )}

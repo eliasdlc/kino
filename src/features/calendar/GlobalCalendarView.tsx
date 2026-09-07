@@ -188,6 +188,10 @@ export function GlobalCalendarView() {
         onSelectDay={handleSelectDay}
         byDayAllDay={byDayAllDay}
         byDayHour={timedByDay}
+        unscheduledTasks={unscheduledTasks}
+        onScheduleOnDay={(task) =>
+          updateTask({ taskId: task.id, data: { startDate: null, dueDate: dayToLocalISO(dayKey(selectedDay)) } })
+        }
       />
     );
   }
@@ -210,7 +214,7 @@ export function GlobalCalendarView() {
       <div className="flex h-full">
         {/* Unscheduled panel */}
         <div className="w-44 shrink-0 border-r flex flex-col overflow-hidden">
-          <div className="px-2 pt-3 pb-1.5 text-[10px] uppercase tracking-wider text-muted-foreground font-medium shrink-0">
+          <div className="px-2 pt-3 pb-1.5 text-xs uppercase tracking-[0.06em] text-muted-foreground font-semibold shrink-0">
             Sin programar
           </div>
           <div className="flex-1 overflow-y-auto px-2 pb-2 space-y-1">

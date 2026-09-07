@@ -23,9 +23,9 @@ function CustomMeta({ task, state, systemId }: { task: TaskTransport; state: Tas
   if (!kind && !folder) return null;
 
   return (
-    <div className="flex items-center gap-2 flex-wrap text-xs md:text-sm text-zinc-400">
+    <div className="flex items-center gap-2 flex-wrap text-xs md:text-sm text-muted-foreground">
       {kind && KindIcon && (
-        <span className="inline-flex items-center gap-1 rounded-md bg-white/[0.06] px-2 py-0.5 text-zinc-300">
+        <span className="inline-flex items-center gap-1 rounded-md bg-white/[0.06] px-2 py-0.5 text-muted-foreground">
           <KindIcon size={13} />
           {kind.label}
         </span>
