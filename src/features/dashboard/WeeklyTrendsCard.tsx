@@ -64,13 +64,13 @@ export function WeeklyTrendsCard({ trends }: Props) {
                   <div
                     className={cn(
                       'w-full rounded-sm',
-                      rate !== null ? 'bg-emerald-500/70' : 'bg-muted/30',
+                      rate !== null ? 'bg-task-done' : 'bg-muted/30',
                     )}
                     style={{ height: `${height}%` }}
                     title={rate !== null ? `${Math.round(rate * 100)}%` : 'Sin datos'}
                   />
                 </div>
-                <span className="text-[9px] text-muted-foreground/60 font-medium">{label}</span>
+                <span className="text-[0.6rem] text-muted-foreground/60 font-medium">{label}</span>
               </div>
             );
           })}
@@ -86,10 +86,10 @@ export function WeeklyTrendsCard({ trends }: Props) {
             const filled = level !== null;
             const dotColor = filled
               ? level >= 70
-                ? 'bg-amber-400'
+                ? 'bg-primary'
                 : level >= 40
-                  ? 'bg-amber-300/70'
-                  : 'bg-red-400/70'
+                  ? 'bg-primary/70'
+                  : 'bg-task-overdue'
               : 'bg-muted/30';
             return (
               <div key={date} className="flex-1 flex items-center justify-center h-full">

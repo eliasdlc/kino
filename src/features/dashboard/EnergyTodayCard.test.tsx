@@ -19,6 +19,7 @@ vi.mock("@/features/energy/energy.hooks", () => ({
   useTodayCheckins: () => ({ data: undefined }),
   useCreateCheckin: () => ({ mutate: vi.fn(), isPending: false }),
   useUpdateCheckinAccuracy: () => ({ mutate: vi.fn(), isPending: false }),
+  useEnergyBudget: () => null,
 }));
 
 const { EnergyTodayCard } = await import("./EnergyTodayCard");

@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { CheckCircle2, AlertCircle, Coffee, Sparkles } from 'lucide-react';
+import { Coffee } from 'lucide-react';
 import Link from 'next/link';
 import {
   useTodayPlanTasks,
@@ -10,9 +10,10 @@ import {
   useRemoveFromPlan,
 } from '@/features/tasks/tasks.hooks';
 import { useFocusTimer } from '@/features/tasks/FocusTimerProvider';
+import { Skeleton } from '@/components/ui/skeleton';
 import { PlanTaskRow } from './PlanTaskRow';
-import { EnergyBudgetBar } from '@/features/energy/EnergyBudgetBar';
 import type { EnergyPlanItemTransport } from '@/features/energy/energy.planner';
+import type { TaskTransport } from '@/features/tasks/tasks.types';
 
 interface TodayPlanCardProps {
   noProfile: boolean;
@@ -21,20 +22,14 @@ interface TodayPlanCardProps {
 
 // Confetti burst: 12 spans, CSS keyframes, GPU-only
 function ConfettiBurst() {
-  const colors = ['#10b981', '#f59e0b', '#3b82f6', '#ec4899', '#8b5cf6'];
-  const spans = Array.from({ length: 12 }, (_, i) => {
-    const angle = (i / 12) * 360;
-    const color = colors[i % colors.length];
-    return { id: i, angle, color };
-  });
+  const spans = Array.from({ length: 12 }, (_, i) => ({ id: i, angle: (i / 12) * 360 }));
   return (
     <div className="pointer-events-none absolute inset-0 overflow-hidden">
-      {spans.map(({ id, angle, color }) => (
+      {spans.map(({ id, angle }) => (
         <span
           key={id}
-          className="absolute left-1/2 top-1/2 w-2 h-2 rounded-full will-change-transform"
+          className="absolute top-1/2 left-1/2 size-2 rounded-full bg-primary will-change-transform"
           style={{
-            background: color,
             animation: `confetti-fly 700ms ease-out forwards`,
             animationDelay: `${id * 30}ms`,
             '--angle': `${angle}deg`,
@@ -56,6 +51,29 @@ function tomorrowKey(): string {
   return `${y}-${m}-${day}`;
 }
 
+/** Suma de las estimaciones pendientes, como "4:15"; vacío si nadie estimó. */
+export function totalEstimated(tasks: readonly TaskTransport[]): string {
+  const minutes = tasks.reduce((sum, t) => {
+    if (!t.estimatedTime) return sum;
+    const [h = '0', m = '0'] = t.estimatedTime.split(':');
+    return sum + parseInt(h, 10) * 60 + parseInt(m, 10);
+  }, 0);
+  if (minutes === 0) return '';
+  return `${Math.floor(minutes / 60)}:${String(minutes % 60).padStart(2, '0')}`;
+}
+
+/** Una línea de estado: lo que antes era una tarjeta vacía. */
+function Line({ children }: { children: React.ReactNode }) {
+  return (
+    <div className="rounded-xl border border-border bg-card px-4 py-3 text-sm text-foreground/80">{children}</div>
+  );
+}
+
+/**
+ * El plan de hoy: una lista de dos niveles sin bordes entre filas más que la
+ * hairline. La cabecera dice cuántas tareas y cuánto suman; el vacío y el
+ * "todo hecho" son una línea, no una tarjeta.
+ */
 export function TodayPlanCard({ noProfile, energyItems }: TodayPlanCardProps) {
   const { data: planTasks = [], isLoading } = useTodayPlanTasks();
   const { mutate: toggle } = useToggleTodayTask();
@@ -87,7 +105,6 @@ export function TodayPlanCard({ noProfile, energyItems }: TodayPlanCardProps) {
     }
   }
 
-  // Build a set of energy-ordered IDs if energyItems are provided
   const energyOrderMap = new Map(energyItems?.map((item, i) => [item.task.id, i]));
   const breakBeforeIds = new Set(
     energyItems?.filter((item) => item.breakBefore).map((item) => item.task.id) ?? [],
@@ -99,113 +116,81 @@ export function TodayPlanCard({ noProfile, energyItems }: TodayPlanCardProps) {
       )
     : pendingTasks;
 
+  const duration = totalEstimated(pendingTasks);
+  const summary = [
+    totalToday > 0 ? `${totalToday} tarea${totalToday === 1 ? '' : 's'}` : null,
+    doneCount > 0 ? `${doneCount} hecha${doneCount === 1 ? '' : 's'}` : null,
+    duration,
+  ]
+    .filter(Boolean)
+    .join(' · ');
+
   return (
-    <div className="rounded-xl border bg-card overflow-hidden flex flex-col h-full relative">
+    <section aria-label="Plan de hoy" className="relative">
       {showConfetti && <ConfettiBurst />}
 
-      {/* Header */}
-      <div className="px-4 py-3.5 border-b flex items-center justify-between shrink-0">
-        <div>
-          <h2 className="font-semibold text-sm">Plan de hoy</h2>
-          {totalToday > 0 && (
-            <p className="text-xs text-muted-foreground mt-0.5">
-              {doneCount} de {totalToday} completada{totalToday !== 1 ? 's' : ''}
-            </p>
-          )}
-        </div>
-        {totalToday > 0 && (
-          <span className="text-xs font-mono font-medium text-muted-foreground tabular-nums">
-            {progressPct}%
-          </span>
-        )}
+      <div className="flex items-baseline justify-between gap-3">
+        <h2 className="text-[1.06rem] font-bold tracking-[-0.01em]">Plan de hoy</h2>
+        {summary && <span className="text-xs text-muted-foreground tabular-nums">{summary}</span>}
       </div>
 
-      {/* Progress bar */}
       {totalToday > 0 && (
-        <div className="h-0.5 w-full bg-muted shrink-0">
-          <div
-            className="h-full bg-emerald-500 transition-[width] duration-300 ease-out"
-            style={{ width: `${progressPct}%` }}
-          />
+        <div className="mt-2 h-1 w-full overflow-hidden rounded-full bg-secondary" aria-hidden>
+          <div className="h-full bg-primary transition-[width] duration-300 ease-out" style={{ width: `${progressPct}%` }} />
         </div>
       )}
 
-      {/* Presupuesto de energía: lo comprometido del día, no lo producido (4.1 · D2).
-          Se muestra también con el plan vacío: el momento en que saber cuánto
-          cabe hoy más sirve es antes de comprometer nada, y la barra tiene un
-          mensaje escrito para ese estado. `EnergyBudgetBar` ya se oculta sola
-          si todavía no hay límite en cache. */}
-      <div className="px-4 py-2.5 border-b shrink-0">
-        <EnergyBudgetBar />
-      </div>
-
-      {/* Content */}
-      <div className="flex-1 overflow-y-auto min-h-0">
+      <div className="mt-2">
         {isLoading && (
-          <div className="flex items-center justify-center py-10">
-            <div className="w-5 h-5 border-2 border-border border-t-muted-foreground rounded-full animate-spin" />
+          <div className="space-y-3 py-2">
+            {[0, 1, 2].map((i) => (
+              <div key={i} className="grid grid-cols-[1.3rem_1fr] gap-3">
+                <Skeleton className="size-[1.3rem] rounded-full" />
+                <Skeleton className={i === 0 ? 'h-4 w-4/5' : i === 1 ? 'h-4 w-3/5' : 'h-4 w-2/3'} />
+              </div>
+            ))}
           </div>
         )}
 
         {!isLoading && noProfile && (
-          <div className="flex items-start gap-3 p-4">
-            <AlertCircle className="w-4 h-4 text-muted-foreground mt-0.5 shrink-0" />
-            <div className="space-y-1">
-              <p className="text-sm font-medium">Perfil de energía no configurado</p>
-              <p className="text-xs text-muted-foreground">
-                Kino necesita tu perfil para proponer un plan.
-              </p>
-              <Link href="/onboarding" className="text-xs text-primary hover:underline">
-                Configurar perfil →
-              </Link>
-            </div>
-          </div>
+          <Line>
+            Kino necesita tu perfil de energía para proponer un plan.{' '}
+            <Link href="/onboarding" className="font-semibold text-primary">
+              Configurarlo
+            </Link>
+          </Line>
         )}
 
         {!isLoading && !noProfile && allDone && (
-          <div className="flex flex-col items-center justify-center py-10 gap-3 text-center px-4">
-            <Sparkles className="w-8 h-8 text-emerald-500" />
-            <div>
-              <p className="text-sm font-semibold text-emerald-500">¡Todo listo por hoy!</p>
-              <p className="text-xs text-muted-foreground mt-0.5">
-                {doneCount} tarea{doneCount !== 1 ? 's' : ''} completada{doneCount !== 1 ? 's' : ''}.
-              </p>
-            </div>
-            <p className="text-xs text-muted-foreground">
-              Podés{' '}
-              <Link href="/tasks" className="underline underline-offset-2 hover:text-foreground">
-                ver más sugerencias de Kino
-              </Link>
-              .
-            </p>
-          </div>
+          <Line>
+            Todo hecho por hoy: {doneCount} tarea{doneCount === 1 ? '' : 's'}.{' '}
+            <Link href="/tasks" className="font-semibold text-primary">
+              Ver sugerencias
+            </Link>
+          </Line>
         )}
 
         {!isLoading && !noProfile && isEmpty && (
-          <div className="flex flex-col items-center justify-center py-10 gap-2 text-center px-4">
-            <p className="text-sm text-muted-foreground">
-              No hay tareas en el plan de hoy.{' '}
-              <Link href="/tasks" className="underline underline-offset-2 hover:text-foreground">
-                Ver sugerencias de Kino
-              </Link>
-              .
-            </p>
-          </div>
+          <Line>
+            No hay tareas en el plan de hoy.{' '}
+            <Link href="/tasks" className="font-semibold text-primary">
+              Ver sugerencias de Kino
+            </Link>
+          </Line>
         )}
 
         {!isLoading && !noProfile && !allDone && !isEmpty && (
-          <div className="divide-y">
+          <div className="divide-y divide-border">
             {orderedPending.map((task, i) => (
               <div key={task.id}>
                 {breakBeforeIds.has(task.id) && i > 0 && (
-                  <div className="flex items-center gap-2 px-4 py-2 bg-muted/30 text-xs text-muted-foreground">
-                    <Coffee className="w-3 h-3 shrink-0" />
+                  <div className="flex items-center gap-2 py-2 text-xs text-muted-foreground">
+                    <Coffee className="size-3.5 shrink-0" />
                     <span>Pausa sugerida aquí</span>
                   </div>
                 )}
                 <PlanTaskRow
                   task={task}
-                  isFirst={i === 0}
                   onComplete={() => handleComplete(task.id)}
                   onMoveToTomorrow={() => moveToTomorrow({ taskId: task.id, tomorrow: tomorrowKey() })}
                   onRemove={() => removeFromPlan({ taskId: task.id })}
@@ -213,18 +198,14 @@ export function TodayPlanCard({ noProfile, energyItems }: TodayPlanCardProps) {
                 />
               </div>
             ))}
-
             {doneCount > 0 && (
-              <div className="flex items-center gap-2.5 px-4 py-2.5 opacity-40">
-                <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500 shrink-0" />
-                <p className="text-xs text-muted-foreground">
-                  {doneCount} completada{doneCount !== 1 ? 's' : ''} hoy
-                </p>
-              </div>
+              <p className="py-2.5 text-xs text-muted-foreground">
+                {doneCount} hecha{doneCount === 1 ? '' : 's'} hoy
+              </p>
             )}
           </div>
         )}
       </div>
-    </div>
+    </section>
   );
 }

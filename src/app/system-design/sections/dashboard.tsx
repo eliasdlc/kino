@@ -35,7 +35,7 @@ export function DashboardSection() {
       id="dashboard"
       number="10"
       title="Dashboard"
-      description="Las cards del dashboard con datos de muestra. La grid real usa .dashboard-grid (áreas plan/side/bottom con altura fija, ver esquema al final)."
+      description="Las piezas de Hoy con datos de muestra: la cota, el plan de dos niveles, el enfoque y la fila de lo que Kino sabe. En laptop la energía va a la izquierda y el plan a la derecha; en el teléfono es la misma pantalla, estrecha."
     >
       <SubSection
         title="EnergyTodayCard"
@@ -95,7 +95,6 @@ export function DashboardSection() {
         <div className="max-w-xl divide-y divide-border rounded-lg border border-border bg-card">
           <PlanTaskRow
             task={makeTask({ title: "Terminar informe de laboratorio", priority: "critical", estimatedTime: "01:30:00" })}
-            isFirst
             onComplete={noop}
             onMoveToTomorrow={noop}
             onRemove={noop}
@@ -103,7 +102,6 @@ export function DashboardSection() {
           />
           <PlanTaskRow
             task={makeTask({ id: mid("p2"), title: "Revisar correos de la beca", estimatedTime: "00:30:00" })}
-            isFirst={false}
             onComplete={noop}
             onMoveToTomorrow={noop}
             onRemove={noop}
@@ -111,7 +109,6 @@ export function DashboardSection() {
           />
           <PlanTaskRow
             task={makeTask({ id: mid("p3"), title: "Salir a caminar", priority: "low", energyLevel: "low" })}
-            isFirst={false}
             onComplete={noop}
             onMoveToTomorrow={noop}
             onRemove={noop}
@@ -175,22 +172,6 @@ export function DashboardSection() {
         </div>
       </SubSection>
 
-      <SubSection
-        title="Esquema .dashboard-grid"
-        description="La grid del dashboard desktop: plan (1.6fr) + side (1fr) arriba, fila bottom de altura clamp(168px, 26vh, 220px). En móvil colapsa a una columna."
-      >
-        <div className="dashboard-grid h-80 rounded-lg border border-dashed border-border p-3 text-xs text-muted-foreground">
-          <div className="dashboard-plan flex items-center justify-center rounded-md border border-border bg-muted/40">
-            plan — TodayPlanCard
-          </div>
-          <div className="dashboard-side flex items-center justify-center rounded-md border border-border bg-muted/40">
-            side — EnergyTodayCard
-          </div>
-          <div className="dashboard-bottom flex items-center justify-center rounded-md border border-border bg-muted/40">
-            bottom — WeeklyTrends · LearningInsight · QuickAccess
-          </div>
-        </div>
-      </SubSection>
     </Section>
   );
 }

@@ -16,9 +16,9 @@ const VERDICT_ICON: Record<PredictionVerdict, typeof Target> = {
 };
 
 const VERDICT_TONE: Record<PredictionVerdict, string> = {
-  hit: 'text-emerald-500 dark:text-emerald-400',
-  close: 'text-amber-500 dark:text-amber-400',
-  miss: 'text-red-500 dark:text-red-400',
+  hit: 'text-task-done',
+  close: 'text-primary',
+  miss: 'text-task-overdue',
 };
 
 /**
@@ -37,7 +37,7 @@ function VerificationLoopBlock({ loop }: { loop: VerificationLoop }) {
       <div className="flex items-center gap-1.5">
         <Icon className={cn('w-3.5 h-3.5 shrink-0', tone)} />
         <span className={cn('text-xs font-semibold', tone)}>{VERDICT_LABELS[loop.verdict]}</span>
-        <span className="text-[11px] text-muted-foreground">· {SLOT_LABELS[loop.slot].toLowerCase()}</span>
+        <span className="text-xs text-muted-foreground">· {SLOT_LABELS[loop.slot].toLowerCase()}</span>
       </div>
 
       <p className="text-xs">
@@ -49,7 +49,7 @@ function VerificationLoopBlock({ loop }: { loop: VerificationLoop }) {
         </span>
       </p>
 
-      <p className="text-[11px] text-muted-foreground">
+      <p className="text-xs text-muted-foreground">
         {loop.improvementPct !== null
           ? `Con ese dato mi modelo de ti mejoró ${loop.improvementPct} %: personalización ${loop.alphaAfterPct} %.`
           : loop.alphaAfterPct !== null
@@ -58,7 +58,7 @@ function VerificationLoopBlock({ loop }: { loop: VerificationLoop }) {
       </p>
 
       {!loop.fromLearnedCurve && (
-        <p className="text-[10px] text-muted-foreground/70">
+        <p className="text-[0.65rem] text-muted-foreground/70">
           Esa predicción salió de tu cronotipo: todavía no tenía curva aprendida tuya.
         </p>
       )}
@@ -67,8 +67,8 @@ function VerificationLoopBlock({ loop }: { loop: VerificationLoop }) {
 }
 
 const TONE_TEXT: Record<string, string> = {
-  peak: 'text-emerald-500 dark:text-emerald-400',
-  before: 'text-amber-500 dark:text-amber-400',
+  peak: 'text-task-done',
+  before: 'text-primary',
   after: 'text-muted-foreground',
   rest: 'text-muted-foreground',
 };
@@ -76,11 +76,11 @@ const TONE_TEXT: Record<string, string> = {
 function Sparkline({ values }: { values: number[] }) {
   if (values.length < 2) return null;
   return (
-    <div className="flex items-end gap-[3px] h-5" aria-hidden>
+    <div className="flex items-end gap-0.5 h-5" aria-hidden>
       {values.map((v, i) => (
         <div
           key={i}
-          className="w-1 rounded-sm bg-amber-400/70 transition-[height] duration-500"
+          className="w-1 rounded-sm bg-primary/70 transition-[height] duration-500"
           style={{ height: `${Math.max(8, v)}%` }}
         />
       ))}
@@ -94,7 +94,7 @@ export function LearningInsightCard({ insight }: LearningInsightCardProps) {
 
   const TrendIcon = trend === 'up' ? TrendingUp : trend === 'down' ? TrendingDown : Minus;
   const trendColor =
-    trend === 'up' ? 'text-emerald-500' : trend === 'down' ? 'text-red-400' : 'text-muted-foreground';
+    trend === 'up' ? 'text-task-done' : trend === 'down' ? 'text-task-overdue' : 'text-muted-foreground';
 
   return (
     <div className="px-4 py-2.5 space-y-2">
@@ -103,7 +103,7 @@ export function LearningInsightCard({ insight }: LearningInsightCardProps) {
         {peak ? (
           <p className="text-sm">
             Rindes mejor entre{' '}
-            <span className="font-semibold text-amber-500 dark:text-amber-400">
+            <span className="font-semibold text-primary">
               {formatHourRange(peak.start, peak.end)}
             </span>
             {chronotype && (
@@ -123,13 +123,13 @@ export function LearningInsightCard({ insight }: LearningInsightCardProps) {
       {(correlationFactor !== null || accuracy !== null) && (
         <div className="flex flex-wrap gap-1.5">
           {correlationFactor !== null && (
-            <span className="inline-flex items-center gap-1 text-[11px] rounded-md bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 px-2 py-1">
+            <span className="inline-flex items-center gap-1 text-xs rounded-md bg-task-done/15 text-task-done px-2 py-1">
               <Target className="w-3 h-3 shrink-0" />
               {correlationFactor}× más tareas los días que registras
             </span>
           )}
           {accuracy !== null && (
-            <span className="inline-flex items-center gap-1 text-[11px] rounded-md bg-muted px-2 py-1 text-muted-foreground">
+            <span className="inline-flex items-center gap-1 text-xs rounded-md bg-muted px-2 py-1 text-muted-foreground">
               <Gauge className="w-3 h-3 shrink-0" />
               Según tu feedback: acertada {accuracy.rate}%
             </span>
@@ -147,7 +147,7 @@ export function LearningInsightCard({ insight }: LearningInsightCardProps) {
           <div className="flex items-center gap-2">
             <Sparkline values={sparkline} />
             <span className="text-xs font-semibold tabular-nums">{personalizationPct}%</span>
-            <span className={cn('inline-flex items-center gap-0.5 text-[11px] tabular-nums', trendColor)}>
+            <span className={cn('inline-flex items-center gap-0.5 text-xs tabular-nums', trendColor)}>
               <TrendIcon className="w-3 h-3" />
               {trend !== 'flat' && `${trendDelta > 0 ? '+' : ''}${trendDelta}`}
             </span>
@@ -155,11 +155,11 @@ export function LearningInsightCard({ insight }: LearningInsightCardProps) {
         </div>
         <div className="h-1.5 rounded-full bg-muted overflow-hidden">
           <div
-            className="h-full rounded-full bg-amber-400 transition-all duration-700 ease-out"
+            className="h-full rounded-full bg-primary transition-all duration-700 ease-out"
             style={{ width: `${personalizationPct}%` }}
           />
         </div>
-        <p className="text-[10px] text-muted-foreground/60">Basado en tus hábitos reales de trabajo</p>
+        <p className="text-[0.65rem] text-muted-foreground/60">Basado en tus hábitos reales de trabajo</p>
       </div>
     </div>
   );

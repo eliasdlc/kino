@@ -103,7 +103,7 @@ export function WeeklyRitualDialog({ open, onOpenChange }: WeeklyRitualDialogPro
                       <span className="ml-1.5 font-normal text-muted-foreground">{date.slice(5)}</span>
                     </p>
                     {day && (
-                      <span className="font-mono text-[11px] tabular-nums text-muted-foreground">
+                      <span className="font-mono text-xs tabular-nums text-muted-foreground">
                         {day.committedPoints}/{ritual.dailyLimit} pts
                       </span>
                     )}
@@ -113,7 +113,7 @@ export function WeeklyRitualDialog({ open, onOpenChange }: WeeklyRitualDialogPro
                     {items.map((a) => (
                       <div key={a.taskId} className="flex items-center gap-2 px-3 py-2 group">
                         <span className="flex-1 min-w-0 truncate text-sm">{a.title}</span>
-                        <span className="font-mono text-[11px] tabular-nums text-muted-foreground shrink-0">
+                        <span className="font-mono text-xs tabular-nums text-muted-foreground shrink-0">
                           {a.energyPoints} pt{a.energyPoints !== 1 ? 's' : ''}
                         </span>
                         <button
@@ -139,7 +139,7 @@ export function WeeklyRitualDialog({ open, onOpenChange }: WeeklyRitualDialogPro
                   {leftovers.map((l) => (
                     <div key={l.taskId} className="px-3 py-2">
                       <p className="truncate text-sm">{l.title}</p>
-                      <p className="text-[11px] text-muted-foreground">{l.explanation}</p>
+                      <p className="text-xs text-muted-foreground">{l.explanation}</p>
                     </div>
                   ))}
                 </div>

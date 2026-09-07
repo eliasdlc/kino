@@ -11,39 +11,39 @@ interface Props {
   insight: LearningInsight;
 }
 
-function BottomCard({ title, children }: { title: string; children: React.ReactNode }) {
+/** Un bloque con su eyebrow. Sin tarjeta: el espacio separa. */
+function Block({ title, children }: { title: string; children: React.ReactNode }) {
   return (
-    <div className="rounded-xl border bg-card overflow-hidden flex flex-col min-h-0 md:flex-1 transition-[border-color,box-shadow] hover:border-foreground/15 hover:shadow-sm">
-      <div className="px-3 py-1.5 border-b shrink-0">
-        <span className="text-[11px] font-semibold text-muted-foreground">{title}</span>
-      </div>
-      <div className="min-h-0 flex-1 overflow-hidden">{children}</div>
-    </div>
+    <section aria-label={title} className="min-w-0">
+      <p className="text-xs font-semibold uppercase tracking-[0.06em] text-muted-foreground">{title}</p>
+      <div className="mt-2">{children}</div>
+    </section>
   );
 }
 
+/**
+ * Lo aprendido de ti, debajo del plan: el coach, tu patrón y los últimos
+ * siete días. Cada bloque es un eyebrow y su contenido; el que no tiene datos
+ * lo dice en una línea.
+ */
 export function DashboardBottomRow({ weeklyTrends, insight }: Props) {
   useTodayPlanTasks();
 
   return (
-    <div className="flex flex-col md:flex-row gap-3 md:h-full md:min-h-0">
-
-      {/* Coach: sugerencias, energía por sistema, sistemas dormidos */}
-      <BottomCard title="Coach">
+    <div className="grid gap-6 border-t border-border pt-5 lg:grid-cols-2">
+      <Block title="Coach">
         <CoachPanel />
-      </BottomCard>
+      </Block>
 
-      {/* Tu patrón: cronotipo aprendido y el bucle de predicción */}
       {insight.chronotype && (
-        <BottomCard title="Tu patrón">
+        <Block title="Tu patrón">
           <LearningInsightCard insight={insight} />
-        </BottomCard>
+        </Block>
       )}
 
-      {/* Últimos 7 días */}
-      <BottomCard title="Últimos 7 días">
+      <Block title="Últimos 7 días">
         <WeeklyTrendsCard trends={weeklyTrends} />
-      </BottomCard>
+      </Block>
     </div>
   );
 }

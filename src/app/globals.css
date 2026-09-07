@@ -504,31 +504,6 @@
   opacity: 0.75;
 }
 
-/* ── Dashboard fixed-height grid — layout sin scroll ─────────────────────── */
-.dashboard-grid {
-  display: grid;
-  height: 100%;
-  grid-template-columns: minmax(0, 1.6fr) minmax(280px, 1fr);
-  grid-template-rows: minmax(0, 1fr) clamp(168px, 26vh, 220px);
-  grid-template-areas: "plan side" "bottom bottom";
-  gap: clamp(0.75rem, 1.5vw, 1.25rem);
-}
-
-/* Gotcha: each scrollable child needs min-h/min-w: 0 or the container overflows */
-.dashboard-plan  { grid-area: plan;   min-height: 0; }
-.dashboard-side  { grid-area: side;   min-height: 0; }
-.dashboard-bottom { grid-area: bottom; min-height: 0; }
-
-@media (max-width: 767px) {
-  .dashboard-grid {
-    grid-template-columns: 1fr;
-    grid-template-rows: auto;
-    grid-template-areas: "plan" "side" "bottom";
-    height: auto;
-    overflow-y: visible;
-  }
-}
-
 /* ── Modo lectura (KIN-138) ───────────────────────────────────────────────
    La obra como la vería quien la lee. Es la cuarta salida del MediumManifest:
    los bloques por medium (páginas, paneles, guion) se comparten con el editor
