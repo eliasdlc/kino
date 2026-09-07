@@ -19,7 +19,7 @@ export const INITIAL_BOARD_COLUMN =
  * Campos que la sincronización **nunca** escribe sobre una tarea que ya existe.
  * Son exactamente el valor que Kino añade sobre GitHub: el nivel de energía, la
  * fecha, el plan de hoy y el bloque del calendario (`startDate`). Si un refresco
- * los borrase, el feature pasaría de útil a dañino — sería más barato mirar los
+ * los borrase, el feature pasaría de útil a dañino: sería más barato mirar los
  * issues en GitHub.
  *
  * Está aquí como lista explícita, y no implícito en el `UPDATE`, para que se vea

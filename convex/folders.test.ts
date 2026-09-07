@@ -26,6 +26,8 @@ function sixtyFolders(userId: Id<'users'>, systemId: Id<'systems'>) {
       parentId: parent?._id,
       name: `Carpeta ${index}`,
       color: 'blue',
+      createdBy: userId,
+      createdVia: 'session',
       sortIndex: index % 7,
       createdAt: index,
       updatedAt: index,
@@ -93,6 +95,8 @@ describe('folders sobre convex-test', () => {
     const systemId = await t.run((ctx) =>
       ctx.db.insert('systems', {
         userId,
+        createdBy: userId,
+        createdVia: 'session',
         name: 'Novela',
         color: 'purple',
         templateType: 'writing',
@@ -117,8 +121,8 @@ describe('folders sobre convex-test', () => {
       parentId: parte.id,
     });
     await t.run(async (ctx) => {
-      await ctx.db.insert('pages', { userId, folderId: capitulo.id, systemId, isPinned: false, createdAt: 1, updatedAt: 1 });
-      await ctx.db.insert('stickyNotes', { userId, folderId: capitulo.id, color: 'yellow', sortIndex: 0, isEureka: false, createdAt: 1, updatedAt: 1 });
+      await ctx.db.insert('pages', { userId, createdBy: userId, createdVia: 'session', folderId: capitulo.id, systemId, isPinned: false, createdAt: 1, updatedAt: 1 });
+      await ctx.db.insert('stickyNotes', { userId, createdBy: userId, createdVia: 'session', folderId: capitulo.id, color: 'yellow', sortIndex: 0, isEureka: false, createdAt: 1, updatedAt: 1 });
     });
 
     const roots = await asAna.query(api.folders.bySystem, { systemId });
@@ -132,9 +136,14 @@ describe('folders sobre convex-test', () => {
     const left = await t.run(async (ctx) => ({
       pages: await ctx.db.query('pages').collect(),
       notes: await ctx.db.query('stickyNotes').collect(),
+      folders: await ctx.db.query('folders').collect(),
     }));
     expect(left.pages[0].folderId).toBeUndefined();
-    expect(left.notes).toHaveLength(0);
+    // El borrado es blando: la nota y las carpetas siguen ahí, marcadas.
+    expect(left.notes).toHaveLength(1);
+    expect(left.notes[0].deletedAt).toEqual(expect.any(Number));
+    expect(left.folders).toHaveLength(2);
+    expect(left.folders.every((doc) => doc.deletedAt !== undefined)).toBe(true);
   });
 
   it('una carpeta ajena no existe para quien no es su dueño', async () => {

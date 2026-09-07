@@ -50,7 +50,7 @@ function Section({
 }
 
 /**
- * EstaSemanaTab — la vista por defecto de Academic. Responde "¿estoy bien?"
+ * EstaSemanaTab: la vista por defecto de Academic. Responde "¿estoy bien?"
  * con un runway simple (días hasta la entrega), no un calendario. Hoy se limita
  * a 3; lo demás tiene tiempo. La línea de arriba da la certeza emocional.
  */
@@ -106,10 +106,10 @@ export function TaskWeekFocusView({ systemId, initialData, onEdit, highlight }: 
 
   const reassurance =
     overdueCount > 0
-      ? `Tienes ${overdueCount} atrasada${overdueCount !== 1 ? "s" : ""} — arranquemos por ahí, con calma.`
+      ? `Tienes ${overdueCount} atrasada${overdueCount !== 1 ? "s" : ""}: arranquemos por ahí, con calma.`
       : urgent.length === 0
         ? "Nada vence hoy. Vas con tiempo."
-        : `Vas al día — ${hoy.length} para hoy, lo demás tiene espacio.`;
+        : `Vas al día: ${hoy.length} para hoy, lo demás tiene espacio.`;
 
   function renderTask(task: TaskTransport) {
     return (
@@ -135,7 +135,7 @@ export function TaskWeekFocusView({ systemId, initialData, onEdit, highlight }: 
 
   return (
     <div className="space-y-5">
-      {/* Línea cálida — la certeza emocional */}
+      {/* Línea cálida: la certeza emocional */}
       <div className="rounded-xl border bg-muted/30 px-4 py-3">
         <p className="text-sm font-medium">{reassurance}</p>
       </div>

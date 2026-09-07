@@ -2,7 +2,7 @@
  * Recorte de fragmentos para `search_story` (PLAN-11 §10). Puro y aparte del
  * servicio para poder probarlo: el filtrado grueso lo hace Postgres sobre el
  * HTML, pero la coincidencia que se le muestra al agente se confirma aquí, sobre
- * el texto ya limpio — buscar "la daga" no puede fallar porque en el HTML haya
+ * el texto ya limpio: buscar "la daga" no puede fallar porque en el HTML haya
  * un `<em>` en medio.
  */
 

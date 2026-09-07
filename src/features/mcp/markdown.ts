@@ -31,7 +31,7 @@ export function markdownToHtml(input: string | null | undefined): string | null 
 /**
  * El viaje de vuelta: el HTML guardado, otra vez en markdown.
  *
- * Sin esto el round trip está a medias — el agente escribe markdown, la página
+ * Sin esto el round trip está a medias: el agente escribe markdown, la página
  * guarda HTML, y al leerla recibiría HTML que al reescribir acabaría anidado
  * dentro de más HTML. Lo que sale de aquí es lo que el agente puede editar y
  * devolver por `update_page` sin que el documento se degrade en cada pasada.
@@ -42,7 +42,7 @@ export function markdownToHtml(input: string | null | undefined): string | null 
  * `li[data-checked]` la otra), así que se cubren las dos.
  *
  * Lo que **no** hace es la serialización por medium del arquetipo Writing
- * —Fountain, páginas y paneles de manga—, que vive en el export de la app y sabe
+ * (Fountain, páginas y paneles de manga), que vive en el export de la app y sabe
  * de qué obra es cada página. Aquí se habla markdown a secas.
  */
 function converter(): TurndownService {

@@ -8,7 +8,7 @@
  * Y resulta que es casi toda: qué obra lleva parada, qué capítulo quedó a medias,
  * cuánto falta para la meta del día, si es tu ventana creativa, qué hilos están
  * sueltos. Todo eso sale de datos que Kino ya captura. Cada sugerencia lleva el
- * **porqué** al lado — la promesa del proyecto es inteligencia que no miente, y
+ * **porqué** al lado: la promesa del proyecto es inteligencia que no miente, y
  * una razón verificable es lo que separa una señal de una corazonada.
  */
 

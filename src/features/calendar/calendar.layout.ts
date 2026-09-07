@@ -6,7 +6,7 @@ import { parseDueDate, dueDateHasTime, parseTaskDay } from "@/features/tasks/tas
  * Cálculo puro de la rejilla del calendario (KIN-146 · FE-05).
  *
  * Extraído de `GlobalCalendarView` sin cambiar comportamiento: aquí vive la
- * geometría — dónde cae un bloque, cuánto mide, en qué día entra cada tarea —
+ * geometría: dónde cae un bloque, cuánto mide, en qué día entra cada tarea:
  * que antes estaba entrelazada con la vista y por tanto no se podía testear.
  * Nada de este archivo toca React.
  */
@@ -43,9 +43,9 @@ export function minutesToTimeString(minutes: number): string {
 
 /** Nivel de energía 0–100 → clase de fondo del overlay. */
 export function energyBgClass(capacity: number): string {
-  if (capacity >= 60) return "bg-emerald-500/8";
-  if (capacity >= 30) return "bg-amber-500/8";
-  return "bg-rose-500/8";
+  if (capacity >= 60) return "bg-task-done/8";
+  if (capacity >= 30) return "bg-primary/8";
+  return "bg-task-overdue/8";
 }
 
 /**
@@ -106,7 +106,7 @@ export function resizedMinutes(startMinutes: number, deltaY: number): number {
 /**
  * Reparte tareas por día. `timed: true` devuelve las que tienen hora, ubicadas
  * por su instante exacto; `timed: false` las de todo el día, ubicadas por su
- * día calendario — son dos parseos distintos a propósito, por el off-by-one de
+ * día calendario: son dos parseos distintos a propósito, por el off-by-one de
  * timezone que arrastran las fechas sin hora.
  */
 export function groupTasksByDay(tasks: TaskTransport[], options: { timed: boolean }): Map<string, TaskTransport[]> {

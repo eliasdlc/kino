@@ -21,7 +21,7 @@ export default async function StudioRoute({
 
   return (
     <div className="w-full">
-      <div className="sticky top-0 z-10 border-b bg-background px-4 py-2.5 md:px-6">
+      <div className="sticky top-0 z-(--z-raised) border-b bg-background px-4 py-2.5 md:px-6">
         <PageBreadcrumb
           items={[
             { label: "Sistemas", href: "/systems" },
@@ -32,7 +32,7 @@ export default async function StudioRoute({
       </div>
       <PageWrapper className="w-full max-w-3xl">
         <div className="mb-5">
-          <h1 className="text-xl font-semibold">Estudio — {system.name}</h1>
+          <h1 className="text-xl font-semibold">Estudio: {system.name}</h1>
           <p className="text-sm text-muted-foreground">
             Lo que tus datos ya dicen sobre dónde seguir. Cada señal enseña de
             dónde sale.

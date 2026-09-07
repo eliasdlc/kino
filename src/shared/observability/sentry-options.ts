@@ -7,7 +7,7 @@ import { stripQuery } from "./strip-query";
  * Un informe de error trae, por defecto, mucho más de lo que hace falta para
  * arreglar el error: el cuerpo de la petición, las cookies, las migas de pan de
  * cada `fetch`. En una app de tareas eso sería molesto; en una que guarda
- * cuadernos —una novela a medias, las notas de una terapia— es material
+ * cuadernos (una novela a medias, las notas de una terapia) es material
  * personal saliendo del servidor de su dueño. Aquí se recorta antes de enviar.
  *
  * La regla es la contraria a la habitual: no se quita lo que parece sensible,

@@ -34,7 +34,7 @@ const WEEKDAY_INDEX: Record<string, number> = {
 
 // "a las 5", "a la 1:30", con am/pm opcional.
 const TIME_PREFIXED_RE = /\ba\s+las?\s+(\d{1,2})(?::(\d{2}))?\s*(am|pm)?\b/i;
-// "5pm", "5:30 am" — sin "a las" exigimos am/pm para no comerse números sueltos.
+// "5pm", "5:30 am": sin "a las" exigimos am/pm para no comerse números sueltos.
 const TIME_MERIDIEM_RE = /\b(\d{1,2})(?::(\d{2}))?\s*(am|pm)\b/i;
 
 export function stripAccents(s: string): string {
@@ -67,7 +67,7 @@ function parsePriority(
 
   const normalized = stripAccents(rest).toLowerCase();
   const candidates: Array<[string, "critical" | "high" | "medium" | "low"]> = [
-    // Critical — EN
+    // Critical: EN
     ["emergency", "critical"],
     ["panic", "critical"],
     ["crash", "critical"],
@@ -76,38 +76,38 @@ function parsePriority(
     ["urgent", "critical"],
     ["breach", "critical"],
     ["severe", "critical"],
-    // Critical — ES
+    // Critical: ES
     ["critico", "critical"],
     ["emergencia", "critical"],
     ["urgente", "critical"],
     ["caida", "critical"],
     ["bloqueo", "critical"],
-    // High — EN (longer variants first to avoid partial matches)
+    // High: EN (longer variants first to avoid partial matches)
     ["vulnerability", "high"],
     ["exception", "high"],
     ["failure", "high"],
     ["denied", "high"],
     ["error", "high"],
     ["alert", "high"],
-    // High — ES
+    // High: ES
     ["excepcion", "high"],
     ["denegado", "high"],
     ["fallo", "high"],
     ["alerta", "high"],
-    // Medium — EN (longer variants first)
+    // Medium: EN (longer variants first)
     ["warning", "medium"],
     ["timeout", "medium"],
     ["degraded", "medium"],
     ["anomaly", "medium"],
     ["retry", "medium"],
     ["issue", "medium"],
-    // Medium — ES
+    // Medium: ES
     ["advertencia", "medium"],
     ["reintento", "medium"],
     ["anomalia", "medium"],
     ["retraso", "medium"],
     ["problema", "medium"],
-    // Low — EN
+    // Low: EN
     ["routine", "low"],
     ["trivial", "low"],
     ["success", "low"],
@@ -115,7 +115,7 @@ function parsePriority(
     ["debug", "low"],
     ["trace", "low"],
     ["info", "low"],
-    // Low — ES
+    // Low: ES
     ["rutina", "low"],
     ["exito", "low"],
     ["aviso", "low"],
@@ -150,7 +150,7 @@ function parseTag(rest: string): { tagHint: string; rest: string } | null {
 }
 
 function parseDuration(rest: string): { estimatedMinutes: number; rest: string } | null {
-  // "1h30", "1h30min", "1h 30min" — horas + minutos
+  // "1h30", "1h30min", "1h 30min": horas + minutos
   const combined = rest.match(/\b(\d+)\s*h(?:oras?)?\s*(\d{1,3})\s*(?:min(?:utos?)?)?\b/i);
   if (combined) {
     return {

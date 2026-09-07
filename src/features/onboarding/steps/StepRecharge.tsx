@@ -77,7 +77,7 @@ export function StepRecharge({ value, onChange, onNext, onBack }: Props) {
       </div>
 
       <p className="text-xs text-muted-foreground">
-        {value.length === 0 ? 'Ninguno seleccionado — puedes ajustarlo después.' : `${value.length} seleccionado${value.length > 1 ? 's' : ''}`}
+        {value.length === 0 ? 'Ninguno seleccionado: puedes ajustarlo después.' : `${value.length} seleccionado${value.length > 1 ? 's' : ''}`}
       </p>
 
       <div className="flex gap-3">

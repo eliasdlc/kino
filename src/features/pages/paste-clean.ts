@@ -7,8 +7,8 @@
  * this pre-pass mainly removes attribute soup that would otherwise leak through.
  *
  * Inline styles are dropped *except* the few that carry semantics ProseMirror's
- * marks read from `style` — font-weight (bold), font-style (italic),
- * text-decoration (strike) — so bold/italic/strike from sources like Google Docs
+ * marks read from `style`: font-weight (bold), font-style (italic),
+ * text-decoration (strike): so bold/italic/strike from sources like Google Docs
  * (which use styled <span>s instead of <b>/<i>) survive.
  *
  * Plain-text paste (Shift+paste) goes through `transformPastedText`, not this, so

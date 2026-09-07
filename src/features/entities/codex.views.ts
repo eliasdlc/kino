@@ -2,7 +2,7 @@ import { Hourglass, Library, Network, Scissors, type LucideIcon } from "lucide-r
 
 /**
  * Las lecturas del codex. El universo es uno solo; lo que cambia es desde dónde
- * se mira — la biblioteca lo lista, el grafo lo dibuja. Añadir una lectura nueva
+ * se mira: la biblioteca lo lista, el grafo lo dibuja. Añadir una lectura nueva
  * es añadir una entrada aquí, no un fork en la página.
  */
 export const CODEX_VIEWS = [

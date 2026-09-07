@@ -20,7 +20,7 @@ import type { EntityListItemTransport } from "@/features/entities/entities.types
 /**
  * Nodo Mention del Codex (Writing W2). Trigger `@`: sugiere entidades del universo
  * (fuzzy por name + aliases) y ofrece crear personaje/lugar/objeto inline si no
- * existe. El nodo guarda `entityId` — renombrar la entidad no rompe el enlace, y el
+ * existe. El nodo guarda `entityId`: renombrar la entidad no rompe el enlace, y el
  * texto renderizado (`@nombre`) alimenta la auto-detección determinística al guardar.
  */
 
@@ -193,7 +193,7 @@ export const CodexMention = Node.create<CodexMentionOptions>({
       Suggestion<MentionItem, MentionItem>({
         // `@tiptap/suggestion` registra su plugin bajo `PluginKey("suggestion")`
         // si no le das uno. Con dos extensiones de sugerencia en el mismo editor
-        // —esta y el menú de barra— ProseMirror ve dos plugins distintos con la
+        // (esta y el menú de barra) ProseMirror ve dos plugins distintos con la
         // misma clave y se niega a montar el editor entero.
         pluginKey: CODEX_MENTION_KEY,
         editor: this.editor,

@@ -10,7 +10,7 @@ import type { TaskCardState } from "./useTaskCard";
 import type { TaskTransport } from "../tasks.types";
 
 /**
- * Custom — la única card cuyo vocabulario no está en el código: el kind sale de
+ * Custom, la única card cuyo vocabulario no está en el código: el kind sale de
  * lo que el usuario compuso para SU sistema (D16). Sin composición se comporta
  * exactamente como la fila genérica.
  */
@@ -23,9 +23,9 @@ function CustomMeta({ task, state, systemId }: { task: TaskTransport; state: Tas
   if (!kind && !folder) return null;
 
   return (
-    <div className="flex items-center gap-2 flex-wrap text-xs md:text-sm text-zinc-400">
+    <div className="flex items-center gap-2 flex-wrap text-xs md:text-sm text-muted-foreground">
       {kind && KindIcon && (
-        <span className="inline-flex items-center gap-1 rounded-md bg-white/[0.06] px-2 py-0.5 text-zinc-300">
+        <span className="inline-flex items-center gap-1 rounded-md bg-white/[0.06] px-2 py-0.5 text-muted-foreground">
           <KindIcon size={13} />
           {kind.label}
         </span>

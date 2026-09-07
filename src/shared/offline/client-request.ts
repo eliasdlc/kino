@@ -1,7 +1,7 @@
 import { z } from "zod";
 
 /**
- * Id de petición del cliente — la pieza que hace idempotente la captura offline
+ * Id de petición del cliente: la pieza que hace idempotente la captura offline
  * (KIN-57).
  *
  * Lo genera el navegador en el momento de pulsar "crear", **antes** de saber si
@@ -12,8 +12,8 @@ import { z } from "zod";
  *
  * En el servidor cada tabla que lo acepta tiene un índice único parcial sobre
  * `(user_id, client_request_id)`, y el INSERT hace `onConflictDoNothing` +
- * relectura. Con eso, reproducir dos veces la misma creación —o que el INSERT
- * llegue y la respuesta se pierda por el camino— devuelve la fila original en vez
+ * relectura. Con eso, reproducir dos veces la misma creación (o que el INSERT
+ * llegue y la respuesta se pierda por el camino) devuelve la fila original en vez
  * de duplicarla.
  *
  * Es opcional a propósito: todo lo que crea online sin pasar por la cola (el MCP,

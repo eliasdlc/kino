@@ -7,7 +7,7 @@ import { SanitizedHtml } from "./SanitizedHtml";
  *
  * `sanitize.test.ts` afirma cosas sobre una cadena; esto afirma que lo que
  * termina en el DOM está limpio, que es lo que de hecho corre. Cubre los dos
- * puntos de render —el modo lectura y la vista previa del historial—, porque los
+ * puntos de render (el modo lectura y la vista previa del historial), porque los
  * dos pasan por aquí y no hay otra forma de pintar `pages.content`.
  */
 

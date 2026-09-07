@@ -9,7 +9,7 @@ export function validTaskKinds(manifest: ArchetypeManifest): string[] {
  * Valida la capa semántica `metadata.kind` contra los taskKinds del sistema
  * (D11). Solo mira la clave `kind`; el resto de metadata (course, eventSubtype,
  * generateStudyPlan…) sigue siendo passthrough laxo. Un kind que el manifiesto
- * no declara se rechaza — metadata no es un saco.
+ * no declara se rechaza: metadata no es un saco.
  *
  * Recibe el manifiesto ya resuelto y no el systemType porque un sistema `custom`
  * puede haber compuesto sus propios kinds (D16): el arquetipo solo no alcanza

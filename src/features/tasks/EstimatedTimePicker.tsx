@@ -113,7 +113,7 @@ export function EstimatedTimePicker({ value, onChange }: EstimatedTimePickerProp
           onClick={() => onChange(null)}
           className="px-2.5 py-1 rounded-md text-xs font-medium border border-border text-muted-foreground hover:border-muted-foreground/50 transition-colors"
         >
-          —
+          Sin estimar
         </button>
       )}
     </div>

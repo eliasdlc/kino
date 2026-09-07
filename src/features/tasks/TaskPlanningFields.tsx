@@ -272,7 +272,7 @@ export function TaskPlanningFields({
         if (activeSprints.length === 0) return null;
         return (
           <div className="space-y-2">
-            <Label>SprintTransport</Label>
+            <Label>Sprint</Label>
             <Controller
               control={form.control}
               name="sprintId"

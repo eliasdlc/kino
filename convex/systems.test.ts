@@ -44,6 +44,8 @@ describe('systems', () => {
       await ctx.db.patch(doc._id, { createdAt: tenDaysAgo });
       await ctx.db.insert('tasks', {
         userId: doc.userId, systemId: doc._id, title: 'Pendiente', status: 'backlog', energyLevel: 'medium', priority: 'medium',
+        createdBy: doc.userId,
+        createdVia: 'session',
         sortIndex: 0, inTodayPlan: false, notifiedBeforeDay: false, notifiedDueDay: false, reminderCount: 0, createdAt: tenDaysAgo, updatedAt: tenDaysAgo,
       });
     });

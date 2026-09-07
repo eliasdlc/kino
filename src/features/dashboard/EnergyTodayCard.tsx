@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useRef, useState, useSyncExternalStore } from 'react';
-import { Battery, Moon } from 'lucide-react';
+import { Moon } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import {
@@ -14,13 +14,13 @@ import type { CheckinSlot } from '@/features/energy/energy.schemas';
 import type { Chronotype } from '@/features/energy/energy.utils';
 import type { TodayCheckinRowTransport } from '@/features/energy/energy.types';
 import type { PredictionRow } from '@/features/energy/energy.types';
+import { EnergyBudgetBar } from '@/features/energy/EnergyBudgetBar';
 import { EnergyChart, type ChartEntry } from './EnergyChart';
 import { EnergyCheckinForm, type CheckinValues } from './EnergyCheckinForm';
 import {
   SLOT_LABELS,
   SLEEP_LABELS,
   SLEEP_COLORS,
-  levelColor,
   getCurrentSlot,
   interpretEnergy,
 } from './energyDisplay';
@@ -29,23 +29,11 @@ interface EnergyTodayCardProps {
   initialCheckins: TodayCheckinRowTransport[];
   projectedCurve: number[];
   chronotype: Chronotype | null;
-  /** Predicciones guardadas de hoy: lo que Kino dijo antes de conocer el resultado (4.2). */
+  /** Predicciones guardadas de hoy: lo previsto antes de conocer el resultado (4.2). */
   predictions?: PredictionRow[];
 }
 
 const SLOT_MIDPOINT: Record<CheckinSlot, number> = { morning: 9, afternoon: 15, evening: 20 };
-
-const TONE_RING: Record<string, string> = {
-  high: 'ring-emerald-500/40',
-  medium: 'ring-amber-400/40',
-  low: 'ring-red-400/40',
-};
-
-const TONE_GLOW: Record<string, string> = {
-  high: 'bg-emerald-500/25',
-  medium: 'bg-amber-400/25',
-  low: 'bg-red-400/25',
-};
 
 function buildChartData(curve: number[], checkins: TodayCheckinRowTransport[]): ChartEntry[] {
   return Array.from({ length: 24 }, (_, hour) => {
@@ -96,6 +84,21 @@ function useCountUp(target: number, enabled: boolean, durationMs = 550): number 
   return enabled ? val : target;
 }
 
+/** La fecha de hoy en la zona del dispositivo; sólo en cliente para no discrepar con el servidor. */
+function useTodayLabel(): string {
+  return useSyncExternalStore(
+    () => () => {},
+    () => new Date().toLocaleDateString('es', { weekday: 'long', day: 'numeric', month: 'long' }),
+    () => '',
+  );
+}
+
+/**
+ * La cota del día: la cifra de energía a 4.18em compartiendo renglón con la
+ * palabra y la frase que la explican, y debajo de dónde sale (previsto o
+ * registrado). Es la única cifra de este tamaño en el producto. La curva, el
+ * check-in en línea y el presupuesto cuelgan de ella.
+ */
 export function EnergyTodayCard({
   initialCheckins,
   projectedCurve,
@@ -112,6 +115,7 @@ export function EnergyTodayCard({
   const hasCurve = projectedCurve.length === 24;
 
   const animate = !usePrefersReducedMotion();
+  const todayLabel = useTodayLabel();
 
   const [selectedSlot, setSelectedSlot] = useState<CheckinSlot>(currentSlot);
   const [showForm, setShowForm] = useState(false);
@@ -136,7 +140,6 @@ export function EnergyTodayCard({
   const storedPrediction = predictions.find((p) => p.slot === selectedSlot) ?? null;
   const diff = isReal && storedPrediction ? slotCheckin.currentLevel - storedPrediction.predictedLevel : null;
 
-  const hasAnyCheckin = checkins.length > 0;
   const showPredictionFeedback =
     currentSlotCheckin !== null && currentSlotCheckin.predictionAccuracy === null && hasCurve;
 
@@ -147,188 +150,167 @@ export function EnergyTodayCard({
     );
   }
 
+  const origin = [
+    isReal ? 'registrado' : 'previsto',
+    `${checkins.length} check-in${checkins.length === 1 ? '' : 's'} hoy`,
+    chronotype ? CHRONOTYPE_LABELS[chronotype] : null,
+  ]
+    .filter(Boolean)
+    .join(' · ');
+
   return (
-    <div className="rounded-xl border bg-card overflow-hidden flex flex-col shrink-0">
-      <div className="px-5 py-3 border-b flex items-center justify-between shrink-0">
-        <div className="flex items-center gap-2">
-          <Battery className="w-4 h-4 text-muted-foreground" />
-          <p className="font-semibold text-sm">Energía de hoy</p>
-          {chronotype && (
-            <span className="text-xs text-muted-foreground">· {CHRONOTYPE_LABELS[chronotype]}</span>
-          )}
-        </div>
-        {hasAnyCheckin && !showForm && (
-          <button
-            onClick={() => { setSelectedSlot(currentSlot); setShowForm(true); }}
-            className="text-xs text-muted-foreground hover:text-foreground transition-colors"
-          >
-            Actualizar
-          </button>
-        )}
-      </div>
+    <div className="flex flex-col gap-4">
+      <p className="text-xs font-semibold uppercase tracking-[0.06em] text-muted-foreground first-letter:uppercase">
+        {todayLabel}
+      </p>
 
-      <div className="px-5 py-3.5 space-y-3.5">
-        {showForm ? (
-          <EnergyCheckinForm
-            defaultLevel={Math.max(1, projectedValue || 70)}
-            initialSlot={currentSlot}
-            isPending={isPending}
-            onSubmit={handleSubmit}
-            onCancel={() => setShowForm(false)}
-          />
-        ) : (
-          <>
-            {/* Lectura "ahora" — la medición */}
-            <div className="flex items-center gap-3 motion-safe:animate-in motion-safe:fade-in motion-safe:slide-in-from-bottom-1 motion-safe:duration-300 motion-safe:fill-mode-both">
-              <div className="relative shrink-0">
-                <div
-                  className={cn(
-                    'absolute inset-0 rounded-xl blur-md motion-safe:animate-[breath_3.5s_ease-in-out_infinite]',
-                    TONE_GLOW[reading.tone],
-                  )}
-                  aria-hidden
-                />
-                <div
-                  key={heroValue}
-                  className={cn(
-                    'relative flex items-center justify-center w-[68px] h-[68px] rounded-xl bg-card ring-2 transition-shadow',
-                    'motion-safe:animate-in motion-safe:zoom-in-95 motion-safe:duration-300',
-                    TONE_RING[reading.tone],
-                  )}
-                >
-                  <span className={cn('text-3xl font-bold tabular-nums', levelColor(heroValue))}>
-                    {animatedValue}
-                  </span>
-                </div>
-              </div>
-              <div className="min-w-0">
-                <div className="flex items-center gap-1.5">
-                  <p className="text-sm font-semibold">
-                    {isCurrent ? 'Ahora' : SLOT_LABELS[selectedSlot]} · {reading.label}
-                  </p>
-                  <span className="text-[10px] uppercase tracking-wide text-muted-foreground/70">
-                    {isReal ? 'registrado' : 'previsto'}
-                  </span>
-                </div>
-                <p className="text-xs text-muted-foreground mt-0.5">{reading.hint}</p>
-                {isReal && diff !== null && storedPrediction && (
-                  <p className="text-[11px] text-muted-foreground mt-1">
-                    Predije {storedPrediction.predictedLevel} ·{' '}
-                    <span className={cn(Math.abs(diff) <= 10 ? 'text-emerald-500' : 'text-amber-500')}>
-                      {diff > 0 ? '+' : ''}{diff} vs predicción
-                    </span>
-                  </p>
-                )}
-              </div>
-            </div>
-
-            {/* Gráfico + leyenda */}
-            {chartData && (
-              <div
-                className="space-y-1.5 motion-safe:animate-in motion-safe:fade-in motion-safe:duration-300 motion-safe:fill-mode-both"
-                style={{ animationDelay: '60ms' }}
-              >
-                <EnergyChart data={chartData} peak={peak} currentHour={currentHour} animate={animate} />
-                <div className="flex items-center justify-between text-[10px] text-muted-foreground/70">
-                  <span className="inline-flex items-center gap-1">
-                    <span className="w-2 h-2 rounded-sm bg-amber-400" aria-hidden />
-                    {peak ? `Pico ${formatHourRange(peak.start, peak.end)}` : 'Tu pico'}
-                  </span>
-                  <span className="inline-flex items-center gap-1">
-                    <span className="w-2 h-2 rounded-full bg-foreground ring-1 ring-background" aria-hidden />
-                    Registrado
-                  </span>
-                  <span className="inline-flex items-center gap-1">
-                    <span
-                      className="inline-block w-3 border-t border-dashed border-foreground/60 motion-safe:animate-pulse"
-                      aria-hidden
-                    />
-                    Ahora
-                  </span>
-                </div>
-              </div>
-            )}
-
-            {/* Selector de slots */}
-            <div
-              className="flex gap-1.5 motion-safe:animate-in motion-safe:fade-in motion-safe:duration-300 motion-safe:fill-mode-both"
-              style={{ animationDelay: '120ms' }}
+      {showForm ? (
+        <EnergyCheckinForm
+          defaultLevel={Math.max(1, projectedValue || 70)}
+          initialSlot={currentSlot}
+          isPending={isPending}
+          onSubmit={handleSubmit}
+          onCancel={() => setShowForm(false)}
+        />
+      ) : (
+        <>
+          {/* La cota: cifra y frase en el mismo renglón */}
+          <div className="grid grid-cols-[auto_1fr] items-center gap-4">
+            <span
+              key={heroValue}
+              className="font-display text-[4.18rem] leading-[0.86] font-bold tracking-[-0.03em] text-primary tabular-nums"
             >
-              {(Object.keys(SLOT_LABELS) as CheckinSlot[]).map((slot) => {
-                const hasCheckin = checkins.some((c) => c.slot === slot);
-                const isNow = slot === currentSlot;
-                return (
-                  <button
-                    key={slot}
-                    onClick={() => setSelectedSlot(slot)}
-                    className={cn(
-                      'flex-1 text-xs py-1 rounded-md border transition-all active:scale-95 relative',
-                      selectedSlot === slot
-                        ? 'border-primary bg-primary/10 text-primary'
-                        : 'border-border hover:bg-accent/50 text-muted-foreground',
-                      isNow && selectedSlot !== slot && 'border-dashed',
-                    )}
-                  >
-                    {SLOT_LABELS[slot]}
-                    {hasCheckin && (
-                      <span className="absolute -top-1 -right-1 w-2 h-2 rounded-full bg-emerald-500" />
-                    )}
-                  </button>
-                );
-              })}
+              {animatedValue}
+            </span>
+            <div className="min-w-0">
+              <p className="text-[1.06rem] font-bold leading-tight tracking-[-0.01em]">
+                {isCurrent ? 'Ahora' : SLOT_LABELS[selectedSlot]} · {reading.label}
+              </p>
+              <p className="mt-0.5 text-sm text-foreground/80">{reading.hint}</p>
+              <p className="mt-1 text-xs text-muted-foreground">{origin}</p>
+              {isReal && diff !== null && storedPrediction && (
+                <p className="mt-1 text-xs text-muted-foreground">
+                  Predije {storedPrediction.predictedLevel} ·{' '}
+                  <span className={cn(Math.abs(diff) <= 10 ? 'text-task-done' : 'text-task-overdue')}>
+                    {diff > 0 ? '+' : ''}
+                    {diff} frente a lo previsto
+                  </span>
+                </p>
+              )}
             </div>
+          </div>
 
-            {/* Sueño del slot mañana */}
-            {slotCheckin && selectedSlot === 'morning' && (
-              <div className="flex items-center justify-between">
-                <span className="text-xs text-muted-foreground">Sueño</span>
-                <span
-                  className={cn(
-                    'text-xs px-2 py-0.5 rounded-full font-medium ring-1',
-                    SLEEP_COLORS[slotCheckin.sleepQuality] ?? SLEEP_COLORS.good,
-                  )}
-                >
-                  <Moon className="inline w-3 h-3 mr-1" />
-                  {SLEEP_LABELS[slotCheckin.sleepQuality] ?? slotCheckin.sleepQuality}
+          {/* La curva del día y su leyenda */}
+          {chartData && (
+            <div className="space-y-1.5">
+              <EnergyChart data={chartData} peak={peak} currentHour={currentHour} animate={animate} />
+              <div className="flex items-center justify-between text-[0.7rem] text-muted-foreground">
+                <span className="inline-flex items-center gap-1">
+                  <span className="size-2 rounded-xs bg-primary" aria-hidden />
+                  {peak ? `Pico ${formatHourRange(peak.start, peak.end)}` : 'Tu pico'}
+                </span>
+                <span className="inline-flex items-center gap-1">
+                  <span className="size-2 rounded-full bg-foreground ring-1 ring-background" aria-hidden />
+                  Registrado
+                </span>
+                <span className="inline-flex items-center gap-1">
+                  <span className="inline-block w-3 border-t border-dashed border-foreground/60" aria-hidden />
+                  Ahora
                 </span>
               </div>
-            )}
+            </div>
+          )}
 
-            {/* CTA sin check-in del slot actual */}
-            {!currentSlotCheckin && (
-              <div className="space-y-2">
-                <Button size="sm" onClick={() => { setSelectedSlot(currentSlot); setShowForm(true); }}>
-                  Registrar energía · {SLOT_LABELS[currentSlot]}
-                </Button>
+          {/* El check-in en línea: el tramo se elige y se registra aquí mismo */}
+          <div className="flex gap-2" role="tablist" aria-label="Tramo del día">
+            {(Object.keys(SLOT_LABELS) as CheckinSlot[]).map((slot) => {
+              const hasCheckin = checkins.some((c) => c.slot === slot);
+              const selected = selectedSlot === slot;
+              return (
+                <button
+                  key={slot}
+                  type="button"
+                  role="tab"
+                  aria-selected={selected}
+                  onClick={() => setSelectedSlot(slot)}
+                  className={cn(
+                    'relative h-[2.8rem] flex-1 rounded-full text-sm font-semibold transition-colors',
+                    selected
+                      ? 'bg-primary text-primary-foreground shadow-[0_0.5em_1.4em_-0.4em_var(--glow)]'
+                      : 'bg-secondary text-foreground hover:bg-secondary/70',
+                    slot === currentSlot && !selected && 'ring-1 ring-inset ring-input',
+                  )}
+                >
+                  {SLOT_LABELS[slot]}
+                  {hasCheckin && (
+                    <span
+                      className={cn(
+                        'absolute top-2 right-3 size-1.5 rounded-full',
+                        selected ? 'bg-primary-foreground' : 'bg-primary',
+                      )}
+                      aria-label="con check-in"
+                    />
+                  )}
+                </button>
+              );
+            })}
+          </div>
+
+          {currentSlotCheckin ? (
+            <Button
+              variant="secondary"
+              onClick={() => { setSelectedSlot(currentSlot); setShowForm(true); }}
+            >
+              Actualizar el check-in
+            </Button>
+          ) : (
+            <Button size="lg" onClick={() => { setSelectedSlot(currentSlot); setShowForm(true); }}>
+              Registrar energía · {SLOT_LABELS[currentSlot]}
+            </Button>
+          )}
+
+          {slotCheckin && selectedSlot === 'morning' && (
+            <div className="flex items-center justify-between">
+              <span className="text-xs text-muted-foreground">Sueño</span>
+              <span
+                className={cn(
+                  'inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-xs font-semibold',
+                  SLEEP_COLORS[slotCheckin.sleepQuality] ?? SLEEP_COLORS.good,
+                )}
+              >
+                <Moon className="size-3" />
+                {SLEEP_LABELS[slotCheckin.sleepQuality] ?? slotCheckin.sleepQuality}
+              </span>
+            </div>
+          )}
+
+          {showPredictionFeedback && (
+            <div className="space-y-2 border-t border-border pt-3">
+              <p className="text-xs text-muted-foreground">¿Acertó la predicción de hoy?</p>
+              <div className="flex gap-2">
+                {[
+                  { key: 'accurate' as const, label: 'Sí' },
+                  { key: 'partial' as const, label: 'Más o menos' },
+                  { key: 'inaccurate' as const, label: 'No' },
+                ].map(({ key, label }) => (
+                  <Button
+                    key={key}
+                    size="sm"
+                    variant="secondary"
+                    className="flex-1"
+                    onClick={() => updateAccuracy({ accuracy: key, slot: currentSlot })}
+                    disabled={isUpdatingAccuracy}
+                  >
+                    {label}
+                  </Button>
+                ))}
               </div>
-            )}
+            </div>
+          )}
+        </>
+      )}
 
-            {/* Feedback de precisión */}
-            {showPredictionFeedback && (
-              <div className="space-y-1.5 pt-1 border-t">
-                <p className="text-xs text-muted-foreground">¿Acertó la predicción de hoy?</p>
-                <div className="flex gap-2">
-                  {[
-                    { key: 'accurate' as const, label: '✓ Sí' },
-                    { key: 'partial' as const, label: '~ Más o menos' },
-                    { key: 'inaccurate' as const, label: '✗ No' },
-                  ].map(({ key, label }) => (
-                    <button
-                      key={key}
-                      onClick={() => updateAccuracy({ accuracy: key, slot: currentSlot })}
-                      disabled={isUpdatingAccuracy}
-                      className="flex-1 text-xs py-1 rounded-md border border-border hover:bg-accent/50 text-muted-foreground transition-colors"
-                    >
-                      {label}
-                    </button>
-                  ))}
-                </div>
-              </div>
-            )}
-
-          </>
-        )}
-      </div>
+      <EnergyBudgetBar className="pt-2" />
     </div>
   );
 }

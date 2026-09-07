@@ -20,7 +20,7 @@ import type { Manuscript } from "./writing.manuscript";
 /**
  * Modo lectura (KIN-138): la obra como la vería quien la lee, no quien la
  * escribe. Cambiar la presentación rompe la ceguera del autor sobre su propio
- * texto — es una técnica de revisión de verdad, no un adorno.
+ * texto: es una técnica de revisión de verdad, no un adorno.
  *
  * La presentación la dicta `readingLayout` del MediumManifest: no hay nada nuevo
  * que decidir sobre qué es cada medium, solo cómo se enseña cuando ya no se está

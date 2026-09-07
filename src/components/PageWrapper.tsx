@@ -15,7 +15,7 @@ export function PageHeader({ title, description, actions }: PageHeaderProps) {
   return (
     <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
       <div className="space-y-1 min-w-0">
-        <h1 className="text-2xl sm:text-3xl font-bold tracking-tight">{title}</h1>
+        <h1 className="font-display text-[1.41rem] font-bold tracking-[-0.02em]">{title}</h1>
         {description && (
           <p className="text-sm sm:text-base text-muted-foreground">{description}</p>
         )}
@@ -27,7 +27,7 @@ export function PageHeader({ title, description, actions }: PageHeaderProps) {
 
 export function PageWrapper({ children, className }: PageWrapperProps) {
   return (
-    <div className={cn("p-4 md:p-6 w-full space-y-4 md:space-y-6", className)}>
+    <div className={cn("w-full space-y-5 px-5 py-5 md:px-8 md:py-6", className)}>
       {children}
     </div>
   );

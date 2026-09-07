@@ -9,7 +9,7 @@ import type { TaskCardState } from "./useTaskCard";
 import type { TaskTransport } from "../tasks.types";
 
 /**
- * Personal — fila suave: sin prioridad agresiva (soft), muestra el kind
+ * Personal, la fila suave: sin prioridad agresiva (soft), muestra el kind
  * (hábito/recado/evento), la recurrencia si la hay y la franja de energía. Lo
  * que importa aquí es la constancia, no la urgencia.
  */
@@ -27,7 +27,7 @@ function PersonalMeta({ task }: { task: TaskTransport; state: TaskCardState }) {
         </span>
       )}
       {recurrence && (
-        <span className="inline-flex items-center gap-1 text-purple-700 dark:text-purple-300">
+        <span className="inline-flex items-center gap-1 text-primary">
           <Repeat size={13} />
           {recurrence}
         </span>

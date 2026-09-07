@@ -25,7 +25,7 @@ export default async function PlotBoardRoute({
 
   return (
     <div className="w-full">
-      <div className="sticky top-0 z-10 border-b bg-background px-4 py-2.5 md:px-6">
+      <div className="sticky top-0 z-(--z-raised) border-b bg-background px-4 py-2.5 md:px-6">
         <PageBreadcrumb
           items={[
             { label: "Sistemas", href: "/systems" },
@@ -37,7 +37,7 @@ export default async function PlotBoardRoute({
       </div>
       <PageWrapper className="w-full">
         <div className="mb-4">
-          <h1 className="text-xl font-semibold">Tablero — {folder.name}</h1>
+          <h1 className="text-xl font-semibold">Tablero: {folder.name}</h1>
           <p className="text-sm text-muted-foreground">
             Las escenas de la obra por capítulo y arco narrativo.
           </p>

@@ -17,7 +17,7 @@ import { useRestoreSnapshot, useSnapshot, useSnapshots } from "./writing.hooks";
 import { MAX_SNAPSHOTS_PER_PAGE } from "./snapshots";
 
 /**
- * Historial del capítulo (KIN-142). Una versión por sesión de escritura — el
+ * Historial del capítulo (KIN-142). Una versión por sesión de escritura: el
  * corte lo pone el mismo detector que alimenta la racha desde W4.
  *
  * Restaurar guarda antes el estado actual, así que volver atrás nunca es la
@@ -71,7 +71,7 @@ function HistoryBody({ pageId }: { pageId: string }) {
     return (
       <p className="py-6 text-center text-sm text-muted-foreground">
         Todavía no hay versiones. Se guarda una cada vez que vuelves al capítulo
-        después de un rato — el mismo corte que usa la racha para saber que fue
+        después de un rato: el mismo corte que usa la racha para saber que fue
         otra sesión.
       </p>
     );

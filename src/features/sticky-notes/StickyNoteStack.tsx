@@ -76,7 +76,7 @@ export function StickyNoteStack({ notes, context }: StickyNoteStackProps) {
         )}
 
         {/* Count badge */}
-        <div className="absolute -top-2 -right-2 size-6 rounded-full bg-foreground text-background text-[10px] font-bold flex items-center justify-center shadow-md z-10">
+        <div className="absolute -top-2 -right-2 size-6 rounded-full bg-foreground text-background text-[10px] font-bold flex items-center justify-center shadow-md z-(--z-raised)">
           {notes.length}
         </div>
       </div>

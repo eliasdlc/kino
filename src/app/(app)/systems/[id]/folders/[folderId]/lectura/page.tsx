@@ -7,7 +7,7 @@ import { getServerSession } from "@/shared/utils/session";
 
 /**
  * Modo lectura de una obra (KIN-138). Server component: el manuscrito entero se
- * resuelve de una vez y llega renderizado — leer no necesita ni un fetch del
+ * resuelve de una vez y llega renderizado: leer no necesita ni un fetch del
  * cliente ni estado de servidor que invalidar.
  */
 export default async function ReadingRoute({
@@ -31,7 +31,7 @@ export default async function ReadingRoute({
 
   return (
     <div className="w-full">
-      <div className="reading-no-print sticky top-0 z-10 border-b bg-background px-4 py-2.5 md:px-6">
+      <div className="reading-no-print sticky top-0 z-(--z-raised) border-b bg-background px-4 py-2.5 md:px-6">
         <PageBreadcrumb
           items={[
             { label: "Sistemas", href: "/systems" },

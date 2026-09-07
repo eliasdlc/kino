@@ -120,7 +120,7 @@ export function TaskKanbanView({ systemId, initialData, folderId, folderInitialD
 
             const targetId = over.id as string;
 
-            // Same column — no-op
+            // Same column: no-op
             if (targetId === data.sourceId) return;
 
             updateTask({

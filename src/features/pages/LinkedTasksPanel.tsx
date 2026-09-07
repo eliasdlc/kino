@@ -43,7 +43,7 @@ export function LinkedTasksPanel({ pageId, systemId }: LinkedTasksPanelProps) {
   const [linkPopoverOpen, setLinkPopoverOpen] = useState(false);
   const [createOpen, setCreateOpen] = useState(false);
 
-  // Full task data for the edit sheet — fetched on-demand when user clicks edit
+  // Full task data for the edit sheet: fetched on-demand when user clicks edit
   const [editTask, setEditTask] = useState<TaskTransport | null>(null);
   const [editSheetOpen, setEditSheetOpen] = useState(false);
 
@@ -58,7 +58,7 @@ export function LinkedTasksPanel({ pageId, systemId }: LinkedTasksPanelProps) {
       setEditSheetOpen(true);
     } catch {
       // Fallback: build a partial task from linked data to still open the sheet
-      // This covers network issues — the sheet will still work for most fields
+      // This covers network issues: the sheet will still work for most fields
       setEditTask({
         ...linkedTask,
         userId: "",
@@ -178,7 +178,7 @@ export function LinkedTasksPanel({ pageId, systemId }: LinkedTasksPanelProps) {
         </div>
       )}
 
-      {/* TaskTransport detail sheet — opens when editing a linked task */}
+      {/* TaskTransport detail sheet: opens when editing a linked task */}
       <TaskDetailSheet
         task={editTask}
         systemId={systemId}

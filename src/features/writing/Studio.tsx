@@ -7,7 +7,6 @@ import {
   CheckCircle2,
   Clock,
   Flame,
-  Loader2,
   PenLine,
   Scissors,
   Sparkles,
@@ -23,7 +22,7 @@ import type { Suggestion, SuggestionKind } from "./studio";
  *
  * Cada sugerencia enseña el dato del que sale. Esa es toda la diferencia entre
  * una señal y una corazonada, y es la promesa del proyecto: inteligencia real
- * que no miente. Nada de esto se inventa nada — sale de sesiones, menciones y
+ * que no miente. Nada de esto se inventa nada: sale de sesiones, menciones y
  * capítulos que Kino ya tenía.
  */
 
@@ -42,8 +41,9 @@ export function Studio({ systemId }: { systemId: string }) {
 
   if (isLoading) {
     return (
-      <div className="flex h-40 items-center justify-center rounded-lg border border-dashed">
-        <Loader2 className="size-5 animate-spin text-muted-foreground" />
+      <div className="space-y-3">
+        <div className="h-5 w-40 rounded-md bg-muted" />
+        <div className="h-16 w-full rounded-xl bg-muted" />
       </div>
     );
   }
@@ -54,17 +54,17 @@ export function Studio({ systemId }: { systemId: string }) {
   return (
     <div className="space-y-6">
       <section className="space-y-2">
-        <div className="flex items-baseline justify-between gap-3">
-          <h2 className="text-sm font-semibold">Qué escribir hoy</h2>
+        <div className="flex flex-col gap-1 sm:flex-row sm:items-baseline sm:justify-between sm:gap-3">
+          <h2 className="text-[1.06rem] font-bold tracking-[-0.01em]">Qué escribir hoy</h2>
           <p className="text-xs text-muted-foreground">
             Derivado de tus sesiones y tu texto. Sin IA.
           </p>
         </div>
 
         {suggestions.length === 0 ? (
-          <div className="rounded-lg border border-dashed p-8 text-center">
-            <CheckCircle2 className="mx-auto size-7 text-muted-foreground/40" />
-            <p className="mt-2 text-sm font-medium">Nada que señalar</p>
+          <div className="flex items-center gap-3 rounded-xl border border-border bg-card px-4 py-3">
+            <CheckCircle2 className="size-4 shrink-0 text-muted-foreground" />
+            <p className="text-sm font-medium">Nada que señalar</p>
             <p className="mt-1 text-sm text-muted-foreground">
               Ninguna obra parada, ningún capítulo a medias y ningún hilo suelto.
               Escribe lo que te apetezca.
@@ -85,7 +85,7 @@ export function Studio({ systemId }: { systemId: string }) {
 
       {gaps.length > 0 && (
         <section className="space-y-2">
-          <h2 className="text-sm font-semibold">Fichas por escribir</h2>
+          <h2 className="text-[1.06rem] font-bold tracking-[-0.01em]">Fichas por escribir</h2>
           <p className="text-xs text-muted-foreground">
             Aparecen en el texto y no tienen ni una línea que las describa. Es el
             hueco de continuidad más barato de tapar.
@@ -99,12 +99,12 @@ export function Studio({ systemId }: { systemId: string }) {
                 <button
                   type="button"
                   onClick={() => setOpenEntityId(gap.entityId)}
-                  className="flex min-h-11 w-full flex-col items-start gap-0.5 rounded-lg border bg-card px-3 py-2 text-left transition-colors hover:border-primary/40 sm:flex-row sm:items-center sm:gap-3"
+                  className="flex min-h-11 w-full flex-col items-start gap-0.5 rounded-xl border border-border bg-card px-3 py-2 text-left transition-colors hover:bg-accent/40 sm:flex-row sm:items-center sm:gap-3"
                 >
                   <span className="min-w-0 max-w-full flex-1 truncate text-sm font-medium">
                     {gap.name}
                   </span>
-                  <span className="shrink-0 font-mono text-xs text-muted-foreground">
+                  <span className="shrink-0 text-xs text-muted-foreground tabular-nums">
                     {gap.mentions} menciones · {gap.chapters}{" "}
                     {gap.chapters === 1 ? "capítulo" : "capítulos"}
                   </span>
@@ -152,12 +152,12 @@ function SuggestionRow({
       {href ? (
         <Link
           href={href}
-          className="flex items-start gap-3 rounded-lg border bg-card p-3 transition-colors hover:border-primary/40"
+          className="flex items-start gap-3 rounded-xl border border-border bg-card p-3 transition-colors hover:bg-accent/40"
         >
           {body}
         </Link>
       ) : (
-        <div className="flex items-start gap-3 rounded-lg border bg-card p-3">{body}</div>
+        <div className="flex items-start gap-3 rounded-xl border border-border bg-card p-3">{body}</div>
       )}
     </li>
   );

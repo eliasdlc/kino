@@ -6,7 +6,7 @@ import { assetFileName } from "./image-refs";
  *
  * El presupuesto no es opcional: la función corre en el free tier de Vercel con un
  * techo de 10s, y descargar imágenes es lo único del export que depende de la red.
- * Cuando se agota el presupuesto se para y se devuelve lo conseguido — el llamador
+ * Cuando se agota el presupuesto se para y se devuelve lo conseguido: el llamador
  * deja las imágenes restantes con su URL remota, que es peor que empaquetarlas pero
  * mucho mejor que devolver un 504 y ningún ZIP.
  */

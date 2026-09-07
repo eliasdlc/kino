@@ -22,6 +22,17 @@ const domTests = [
 export default defineConfig({
   resolve: { alias },
   test: {
+    /**
+     * `pnpm test:coverage`. No hay umbral que rompa el CI a propósito: la
+     * mitad `.tsx` arranca cerca de cero y un umbral puesto hoy sólo se
+     * cumpliría bajándolo. El número está para mirarlo, no para negociarlo.
+     */
+    coverage: {
+      provider: "v8",
+      reporter: ["text-summary", "html"],
+      include: ["src/**/*.{ts,tsx}", "convex/**/*.ts"],
+      exclude: ["**/*.test.{ts,tsx}", "convex/_generated/**", "src/shared/testing/**"],
+    },
     projects: [
       {
         resolve: { alias },

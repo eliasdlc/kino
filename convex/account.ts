@@ -10,7 +10,12 @@ import { invalid } from './lib/errors';
 // que cierra todas sus sesiones; después los documentos. Si Clerk falla no se
 // ha tocado nada más y se puede reintentar.
 
-export const remove = kinoAction(30_000)({
+/**
+ * `closed`, y treinta segundos: borrar la cuenta no se deshace, así que ningún
+ * alcance del conector la alcanza, y el presupuesto está por encima del
+ * defecto porque son dos sistemas en cadena.
+ */
+export const remove = kinoAction(30_000, 'closed')({
   args: {},
   returns: v.null(),
   handler: async (ctx): Promise<null> => {

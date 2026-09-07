@@ -113,14 +113,14 @@ export function StickyNoteCreator({
   return (
     <>
       {/* Backdrop transparente: cierra al hacer click fuera pero deja ver la página. */}
-      <div className="fixed inset-0 z-40" onClick={onClose} />
+      <div className="fixed inset-0 z-(--z-modal)" onClick={onClose} />
 
       <div
-        className="fixed z-50 rounded-2xl shadow-2xl border border-border bg-white dark:bg-card p-3 space-y-3"
+        className="fixed z-(--z-modal) rounded-2xl shadow-2xl border border-border bg-white dark:bg-card p-3 space-y-3"
         style={popoverStyle(anchorPoint)}
         onClick={(e) => e.stopPropagation()}
       >
-        {/* La nota — compacta, editable */}
+        {/* La nota: compacta, editable */}
         <div
           className="rounded-lg p-3 flex flex-col gap-1"
           style={{ ...paperStyle(colors.hex), color: colors.textHex }}
@@ -181,7 +181,7 @@ export function StickyNoteCreator({
           })}
         </div>
 
-        {/* Colocación — solo cuando no viene una posición fija */}
+        {/* Colocación: solo cuando no viene una posición fija */}
         {showPlacement && (
           <div className="grid grid-cols-3 gap-1.5">
             {(

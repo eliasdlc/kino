@@ -91,7 +91,7 @@ export function LinkedTaskCard({ task, onToggle, onEdit, onUnlink }: LinkedTaskC
           {task.title}
         </button>
 
-        {/* Actions — visible on hover */}
+        {/* Actions: visible on hover */}
         <div className="flex items-center gap-0.5 shrink-0">
           <TooltipProvider>
             <Tooltip>
@@ -146,7 +146,7 @@ export function LinkedTaskCard({ task, onToggle, onEdit, onUnlink }: LinkedTaskC
           {task.status}
         </span>
 
-        {/* Priority — only show for high/critical */}
+        {/* Priority: only show for high/critical */}
         {(task.priority === "critical" || task.priority === "high") && (
           <span className={cn(
             "font-mono text-xs font-semibold uppercase",

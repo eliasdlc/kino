@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { exportFileMeta, htmlToMarkdown } from "./html-to-markdown";
 import { rewriteImageUrls } from "@/features/uploads/image-refs";
 
-describe("htmlToMarkdown — prosa", () => {
+describe("htmlToMarkdown: prosa", () => {
   it("mantiene el comportamiento base del editor", () => {
     const md = htmlToMarkdown(
       '<h1>Capítulo 1</h1><p>Kael cruzó el <strong>puente</strong>.</p>' +
@@ -29,7 +29,7 @@ describe("htmlToMarkdown — prosa", () => {
   });
 });
 
-describe("htmlToMarkdown — guion de manga", () => {
+describe("htmlToMarkdown: guion de manga", () => {
   const html =
     "<section data-manga-page>" +
     "<article data-panel><p>Kael entra al dojo.</p></article>" +
@@ -53,7 +53,7 @@ describe("htmlToMarkdown — guion de manga", () => {
   });
 });
 
-describe("htmlToMarkdown — guion audiovisual (Fountain)", () => {
+describe("htmlToMarkdown: guion audiovisual (Fountain)", () => {
   const html =
     '<p data-sp="sceneHeading">int. casa de kael - noche</p>' +
     '<p data-sp="action">Kael cierra la puerta.</p>' +
@@ -102,7 +102,7 @@ describe("htmlToMarkdown — guion audiovisual (Fountain)", () => {
 
 // Lo que hace el export del workspace: reescribir los `src` a la copia local y
 // entonces serializar. Es la composición que decide si el ZIP abre con imágenes.
-describe("htmlToMarkdown — imágenes empaquetadas", () => {
+describe("htmlToMarkdown: imágenes empaquetadas", () => {
   const BLOB = "https://abc.public.blob.vercel-storage.com/u/user-1/foto.webp";
 
   it("emite la ruta relativa al assets del ZIP", () => {

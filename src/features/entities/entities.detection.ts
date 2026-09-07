@@ -3,7 +3,7 @@
  *
  * Escanea el texto plano de un capítulo contra los `name` + `aliases` de las
  * entidades del universo y devuelve cuántas veces aparece cada una. Es la fuente
- * de verdad que materializa `page_entity_mentions` al guardar la page — captura
+ * de verdad que materializa `page_entity_mentions` al guardar la page: captura
  * tanto las menciones explícitas `@` (que se renderizan con el nombre) como las
  * apariciones textuales sueltas.
  *

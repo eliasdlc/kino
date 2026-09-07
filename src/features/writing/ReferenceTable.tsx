@@ -10,7 +10,7 @@ import type { EntityListItemTransport } from "@/features/entities/entities.types
 
 /**
  * Mesa de referencias (PLAN-11 §7): las fichas que el autor deja fijadas para
- * tenerlas delante mientras escribe — esencial en manga, donde la referencia
+ * tenerlas delante mientras escribe: esencial en manga, donde la referencia
  * visual del personaje va junto al guion.
  */
 export function ReferenceTable({

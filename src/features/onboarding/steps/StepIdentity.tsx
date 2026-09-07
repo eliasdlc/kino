@@ -14,7 +14,7 @@ interface Props {
 /**
  * La bifurcación por identidad (D14). Va temprano a propósito: lo que se elija
  * aquí decide el vocabulario del resto del wizard y con qué contenido real sale
- * la persona — no es un selector cosmético de tema.
+ * la persona: no es un selector cosmético de tema.
  */
 export function StepIdentity({ value, onChange, onNext, onBack }: Props) {
   return (

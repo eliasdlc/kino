@@ -122,18 +122,17 @@ export function NotebooksView({ systemId }: NotebooksViewProps) {
       )}
 
       {isLoading && (
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-          {Array.from({ length: 8 }).map((_, i) => (
-            <Skeleton key={i} className="aspect-square rounded-2xl w-full" />
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
+          {Array.from({ length: 6 }).map((_, i) => (
+            <Skeleton key={i} className="h-28 w-full rounded-2xl" />
           ))}
         </div>
       )}
 
       {!isLoading && isEmpty && (
-        <div className="rounded-lg border border-dashed p-10 text-center space-y-2">
-          <Files className="size-8 text-muted-foreground/40 mx-auto" />
-          <p className="text-sm font-medium">{empty.title}</p>
-          <p className="text-sm text-muted-foreground">{empty.hint}</p>
+        <div className="flex items-center gap-3 rounded-xl border border-border bg-card px-4 py-3 text-sm">
+          <Files className="size-4 shrink-0 text-muted-foreground" />
+          <span><b className="font-semibold">{empty.title}</b> <span className="text-muted-foreground">{empty.hint}</span></span>
         </div>
       )}
 
@@ -163,7 +162,7 @@ export function NotebooksView({ systemId }: NotebooksViewProps) {
               {capitalize(pageRole.nounPlural)}
             </p>
           )}
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+          <div className="grid grid-cols-1 items-start gap-3 sm:grid-cols-2 lg:grid-cols-3">
             {rootPages.map((page) => (
               <NotebookCard
                 key={page.id}

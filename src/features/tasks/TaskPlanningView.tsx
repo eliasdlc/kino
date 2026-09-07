@@ -111,7 +111,7 @@ export function TaskPlanningView({ systemId, initialData, folderId, folderInitia
       }
 
       // Single-day: se ancla en startDate (cuándo se trabaja) o, si solo hay
-      // fecha límite, en dueDate — así un deadline sin programar igual aparece.
+      // fecha límite, en dueDate: así un deadline sin programar igual aparece.
       const anchor = task.startDate ?? task.dueDate;
       if (anchor) {
         const date = parseTaskDay(anchor);
@@ -155,14 +155,14 @@ export function TaskPlanningView({ systemId, initialData, folderId, folderInitia
       setActiveTask(null);
 
       const { active, over } = event;
-      if (!over) return; // Dropped outside any droppable — no-op
+      if (!over) return; // Dropped outside any droppable: no-op
 
       const data = active.data.current as TaskDragData | undefined;
       if (!data) return;
 
       const targetId = over.id as string;
 
-      // Same column — no-op
+      // Same column: no-op
       if (targetId === data.sourceId) return;
 
       // startDate es timestamptz: enviar medianoche LOCAL (no el día pelado, que
@@ -242,7 +242,7 @@ export function TaskPlanningView({ systemId, initialData, folderId, folderInitia
             <h2 className="text-2xl font-bold capitalize">
               {monthHeading}
               <span className="text-base font-normal text-muted-foreground ml-2">
-                — Week {weekNumber}
+               : Week {weekNumber}
               </span>
             </h2>
             <Button
@@ -338,7 +338,7 @@ export function TaskPlanningView({ systemId, initialData, folderId, folderInitia
                 <div className="flex flex-col gap-2">
                   {dayTasks.length === 0 ? (
                     <div className="flex justify-center py-3 opacity-30">
-                      <span className="text-xs text-muted-foreground">—</span>
+                      <span className="text-xs text-muted-foreground">Sin tareas</span>
                     </div>
                   ) : (
                     dayTasks.map((task) => (
@@ -363,7 +363,7 @@ export function TaskPlanningView({ systemId, initialData, folderId, folderInitia
         </div>
       </div>
 
-      {/* Floating drag preview — rendered in a portal, follows cursor */}
+      {/* Floating drag preview: rendered in a portal, follows cursor */}
       <TaskDragOverlay activeTask={activeTask} systemId={systemId} />
 
       <ConfirmDialog

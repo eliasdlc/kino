@@ -20,9 +20,9 @@ function estimatedLabel(estimatedTime: string | null | undefined): string {
 }
 
 const ENERGY_PILL: Record<string, string> = {
-  high: 'bg-amber-500/15 text-amber-600 dark:text-amber-400',
-  medium: 'bg-sky-500/15 text-sky-600 dark:text-sky-400',
-  low: 'bg-zinc-500/15 text-zinc-400',
+  high: 'bg-primary/15 text-primary',
+  medium: 'bg-secondary text-foreground',
+  low: 'bg-secondary text-muted-foreground',
 };
 
 const ENERGY_LABEL: Record<string, string> = {

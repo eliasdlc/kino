@@ -1,7 +1,7 @@
 /**
  * Layout del grafo del universo (KIN-136). El grafo es **solo render**: las
  * relaciones ya viven en `entity_relations` desde W2, así que aquí no se captura
- * nada — solo se decide dónde cae cada nodo.
+ * nada: solo se decide dónde cae cada nodo.
  *
  * El layout es una Fruchterman-Reingold recortada, escrita a mano a propósito:
  * meter una librería de grafos costaría entre 40 y 100 kB de bundle para dibujar
@@ -18,7 +18,7 @@ export interface GraphNode {
   id: string;
   name: string;
   type: EntityType;
-  /** Menciones totales en el texto — dicta el tamaño del nodo. */
+  /** Menciones totales en el texto: dicta el tamaño del nodo. */
   mentionCount: number;
   /** Obras (folders) donde la entidad aparece, para el filtro por obra. */
   workIds: string[];
@@ -41,7 +41,7 @@ export interface UniverseGraph {
 export interface LaidOutNode extends GraphNode {
   x: number;
   y: number;
-  /** Aristas que tocan el nodo — un 0 es una entidad suelta del universo. */
+  /** Aristas que tocan el nodo: un 0 es una entidad suelta del universo. */
   degree: number;
 }
 
@@ -200,7 +200,7 @@ function clamp(value: number): number {
 
 /**
  * Reencuadra el resultado con un margen: la simulación ya cabe en el lienzo,
- * pero rara vez lo llena — sin esto el grafo se dibuja pequeño y descentrado.
+ * pero rara vez lo llena: sin esto el grafo se dibuja pequeño y descentrado.
  */
 function normalize(
   nodes: GraphNode[],
@@ -238,7 +238,7 @@ function normalize(
   }));
 }
 
-/** Radio del nodo según sus menciones — lo que más se nombra pesa más. */
+/** Radio del nodo según sus menciones: lo que más se nombra pesa más. */
 export function nodeRadius(mentionCount: number): number {
   const base = 14;
   const grown = base + Math.sqrt(Math.max(0, mentionCount)) * 4;

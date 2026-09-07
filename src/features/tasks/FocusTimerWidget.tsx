@@ -54,22 +54,22 @@ export function FocusTimerWidget() {
   const desktopWidget = (
     <div
       className={cn(
-        'hidden md:flex fixed bottom-4 right-4 z-50',
+        'hidden md:flex fixed bottom-4 right-4 z-(--z-modal)',
         'items-center gap-3 rounded-xl border bg-card shadow-lg px-4 py-3 max-w-xs',
-        isBreak && 'border-blue-500/30 bg-blue-950/20',
-        isExpired && 'border-amber-500/50',
+        isBreak && 'border-secondary bg-secondary',
+        isExpired && 'border-primary/50',
       )}
     >
       <div
         className={cn(
           'flex items-center gap-2 shrink-0',
-          isBreak ? 'text-blue-400' : isExpired ? 'text-amber-400' : 'text-amber-500',
+          isBreak ? 'text-foreground' : isExpired ? 'text-primary' : 'text-primary',
         )}
       >
         {isBreak ? (
           <Coffee className="size-4" />
         ) : (
-          <Timer className={cn('size-4', !isExpired && !isFree && 'animate-pulse')} />
+          <Timer className={cn('size-4', !isExpired && !isFree && '')} />
         )}
         <span className="text-sm font-bold tabular-nums">
           {isExpired ? 'Tiempo agotado' : timeDisplay}
@@ -89,7 +89,7 @@ export function FocusTimerWidget() {
         {!isBreak && !state.pageId && (
           <button
             onClick={() => dispatch({ type: 'COMPLETE_TASK' })}
-            className="p-1.5 rounded-md text-muted-foreground hover:text-green-400 hover:bg-green-400/10 transition-colors"
+            className="p-1.5 rounded-md text-muted-foreground hover:text-task-done hover:bg-task-done/10 transition-colors"
             aria-label="Completar tarea"
           >
             <CheckCircle2 className="size-3.5" />
@@ -106,18 +106,18 @@ export function FocusTimerWidget() {
     </div>
   );
 
-  // Mobile banner above BottomNav (bottom-14 = h-14 of BottomNav)
+  // Banner móvil encima de la barra flotante (la barra ocupa 5.4rem contando su margen).
   const mobileWidget = (
     <div
       className={cn(
-        'md:hidden fixed bottom-14 left-0 right-0 z-20',
+        'md:hidden fixed bottom-[5.6rem] left-0 right-0 z-(--z-overlay)',
         'flex items-center gap-3 border-t bg-card/95 backdrop-blur-sm px-4 py-2.5',
-        isBreak ? 'border-blue-500/20 bg-blue-950/10' : 'border-border',
-        isExpired && 'border-amber-500/30',
+        isBreak ? 'border-secondary bg-secondary' : 'border-border',
+        isExpired && 'border-primary/30',
       )}
     >
-      <div className={cn('flex items-center gap-2 shrink-0', isBreak ? 'text-blue-400' : 'text-amber-500')}>
-        {isBreak ? <Coffee className="size-4" /> : <Timer className="size-4 animate-pulse" />}
+      <div className={cn('flex items-center gap-2 shrink-0', isBreak ? 'text-foreground' : 'text-primary')}>
+        {isBreak ? <Coffee className="size-4" /> : <Timer className="size-4 " />}
         <span className="text-sm font-bold tabular-nums">
           {isExpired ? 'Agotado' : timeDisplay}
         </span>
@@ -131,7 +131,7 @@ export function FocusTimerWidget() {
         {!isBreak && !state.pageId && (
           <button
             onClick={() => dispatch({ type: 'COMPLETE_TASK' })}
-            className="p-1.5 rounded-md text-muted-foreground hover:text-green-400 transition-colors"
+            className="p-1.5 rounded-md text-muted-foreground hover:text-task-done transition-colors"
             aria-label="Completar"
           >
             <CheckCircle2 className="size-4" />

@@ -3,7 +3,7 @@ import { zid } from 'convex-helpers/server/zod4';
 import type { Doc, Id } from './_generated/dataModel';
 import type { MutationCtx, QueryCtx } from './_generated/server';
 import { notFound } from './lib/errors';
-import { kinoZodMutation, kinoZodQuery } from './lib/fn';
+import { kinoZodMutation, kinoZodQuery, type Channel } from './lib/fn';
 import { lematizar } from './lib/lemas';
 import { color } from './schema';
 
@@ -43,11 +43,28 @@ async function ownNote(ctx: QueryCtx | MutationCtx, userId: Id<'users'>, id: Id<
   return doc;
 }
 
+/**
+ * Tope del ancla de texto de una nota, en caracteres.
+ *
+ * El ancla es el fragmento del texto al que la nota se pega, y entra al índice
+ * de lemas de la búsqueda: sin tope, pegar una nota a un capítulo entero mete
+ * el capítulo entero en el índice dos veces. Dos mil caracteres son varios
+ * párrafos, que es más de lo que ancla nadie.
+ *
+ * **Sólo se comprueba al escribir.** Lo guardado por encima se lee igual, y
+ * sigue entrando al índice como estaba.
+ */
+export const TEXT_ANCHOR_MAX = 2_000;
+
+const textAnchor = z
+  .string()
+  .max(TEXT_ANCHOR_MAX, `El ancla pasa de ${TEXT_ANCHOR_MAX.toLocaleString('es')} caracteres. Ancla un párrafo, no el capítulo.`);
+
 const noteFields = {
   title: z.string().max(200).optional(),
   content: z.string().max(500).optional(),
   color: z.enum(COLORS).optional(),
-  textAnchor: z.string().nullable().optional(),
+  textAnchor: textAnchor.nullable().optional(),
   positionSide: z.enum(POSITION_SIDES).nullable().optional(),
   positionY: z.number().min(0).max(1).nullable().optional(),
   // Fracción relativa a la columna de texto; negativa o mayor que 1 es el margen.
@@ -86,6 +103,7 @@ export const byFolder = kinoZodQuery({
 async function createOne(
   ctx: MutationCtx,
   userId: Id<'users'>,
+  channel: Channel,
   owner: { pageId: Id<'pages'> } | { folderId: Id<'folders'> },
   data: NoteFields,
 ) {
@@ -126,7 +144,7 @@ async function createOne(
     clientRequestId: data.clientRequestId,
     lemas: lematizar(data.title, data.content, data.textAnchor),
     createdBy: userId,
-    createdVia: 'session',
+    createdVia: channel,
     createdAt: now,
     updatedAt: now,
   });
@@ -135,12 +153,12 @@ async function createOne(
 
 export const createOnPage = kinoZodMutation({
   args: { ...noteFields, pageId: zid('pages') },
-  handler: async (ctx, { pageId, ...data }) => createOne(ctx, ctx.user._id, { pageId }, data),
+  handler: async (ctx, { pageId, ...data }) => createOne(ctx, ctx.user._id, ctx.channel, { pageId }, data),
 });
 
 export const createOnFolder = kinoZodMutation({
   args: { ...noteFields, folderId: zid('folders') },
-  handler: async (ctx, { folderId, ...data }) => createOne(ctx, ctx.user._id, { folderId }, data),
+  handler: async (ctx, { folderId, ...data }) => createOne(ctx, ctx.user._id, ctx.channel, { folderId }, data),
 });
 
 export const update = kinoZodMutation({
@@ -154,7 +172,7 @@ export const update = kinoZodMutation({
     positionX: z.number().min(-5).max(5).nullable().optional(),
     anchorId: z.string().nullable().optional(),
     stackId: z.string().nullable().optional(),
-    textAnchor: z.string().nullable().optional(),
+    textAnchor: textAnchor.nullable().optional(),
     isEureka: z.boolean().optional(),
   },
   handler: async (ctx, { id, ...data }) => {
@@ -199,11 +217,12 @@ export const stack = kinoZodMutation({
   },
 });
 
+/** Borrado blando: la nota queda con `deletedAt` y desaparece de toda lectura. */
 export const remove = kinoZodMutation({
   args: { id: zid('stickyNotes') },
   handler: async (ctx, { id }) => {
     await ownNote(ctx, ctx.user._id, id);
-    await ctx.db.delete(id);
+    await ctx.db.patch(id, { deletedAt: Date.now(), updatedAt: Date.now() });
     return null;
   },
 });

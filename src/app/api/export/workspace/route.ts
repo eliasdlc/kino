@@ -9,6 +9,13 @@ import { extractImageUrlsFromHtml, rewriteImageUrls } from "@/features/uploads/i
 import { bundleImages } from "@/features/uploads/image-bundle";
 import { ASSETS_DIR, pageDir, assetPathFromPage } from "@/features/pages/export/workspace-layout";
 
+/**
+ * El presupuesto de la restricción 4 de `AGENTS.md`, declarado. Sin esta línea
+ * la ruta corre con el default de la plataforma, y un export que tarda de más
+ * se nota como lentitud silenciosa en vez de como un 504 que se puede leer.
+ */
+export const maxDuration = 10;
+
 function slugify(str: string): string {
   return (str || "sin-nombre")
     .toLowerCase()
@@ -27,6 +34,9 @@ function uniqueSlug(base: string, used: Set<string>): string {
 }
 
 export async function GET(_request: NextRequest) {
+  // Ruta fuera de Convex: no hereda el modelo de alcances, así que la
+  // comprobación es explícita. `getServerSession` exige sesión de navegador,
+  // que es lo que deja fuera a un token del conector MCP.
   const session = await getServerSession();
   if (!session) {
     return NextResponse.json({ code: "UNAUTHORIZED" }, { status: 401 });

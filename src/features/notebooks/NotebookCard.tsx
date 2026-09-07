@@ -58,17 +58,10 @@ function formatNoteDate(date: Date | string | null): string {
   const cardDay = new Date(d.getFullYear(), d.getMonth(), d.getDate());
   const diffDays = Math.round((today.getTime() - cardDay.getTime()) / 86_400_000);
 
-  if (diffDays === 0) return "TODAY";
-  if (diffDays === 1) return "YESTERDAY";
+  if (diffDays === 0) return "hoy";
+  if (diffDays === 1) return "ayer";
 
-  return d
-    .toLocaleDateString("en-US", {
-      weekday: "short",
-      day: "numeric",
-      month: "short",
-      year: "2-digit",
-    })
-    .toUpperCase();
+  return d.toLocaleDateString("es", { day: "numeric", month: "short" }).replace(".", "");
 }
 
 export function NotebookCard({ page, systemId, href }: NotebookCardProps) {
@@ -90,17 +83,17 @@ export function NotebookCard({ page, systemId, href }: NotebookCardProps) {
     <>
     <ContextMenu>
       <ContextMenuTrigger asChild>
-    <div className="aspect-square group relative">
+    <div className="group relative">
       <Link
           href={href}
-          className="flex flex-col h-full overflow-hidden rounded-2xl bg-card border border-border/40 p-5 hover:border-border/80 transition-colors"
+          className="flex h-full flex-col overflow-hidden rounded-2xl border border-border bg-card p-4 shadow-(--shadow) transition-colors hover:bg-accent/40"
         >
           {page.tags.length > 0 && (
             <div className="flex flex-wrap gap-1.5 mb-3">
               {page.tags.map((tag) => (
                 <span
                   key={tag.id}
-                  className={`text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full ${TAG_PILL[tag.color] ?? TAG_PILL.gray}`}
+                  className={`rounded-full px-2 py-0.5 text-[0.65rem] font-semibold ${TAG_PILL[tag.color] ?? TAG_PILL.gray}`}
                 >
                   {tag.title}
                 </span>
@@ -108,22 +101,18 @@ export function NotebookCard({ page, systemId, href }: NotebookCardProps) {
             </div>
           )}
 
-          <h3 className="text-xl font-bold leading-tight text-foreground mb-2 line-clamp-2">
-            {page.title ?? (
-              <span className="text-muted-foreground font-normal italic">Untitled</span>
-            )}
+          <h3 className="mb-1 line-clamp-2 text-[1.06rem] font-bold leading-snug tracking-[-0.01em] text-foreground">
+            {page.title ?? <span className="font-normal text-muted-foreground">Sin título</span>}
           </h3>
 
           {page.contentPreview && (
-            <p className="text-sm text-muted-foreground leading-relaxed line-clamp-3">
+            <p className="line-clamp-2 text-sm leading-relaxed text-muted-foreground">
               {page.contentPreview}
             </p>
           )}
 
-          <div className="flex items-center mt-auto pt-3 pr-7">
-            <span className="text-[11px] font-semibold tracking-widest text-muted-foreground/60 uppercase">
-              {formatNoteDate(page.createdAt)}
-            </span>
+          <div className="mt-3 flex items-center pr-8">
+            <span className="text-xs text-muted-foreground">{formatNoteDate(page.createdAt)}</span>
           </div>
         </Link>
 
@@ -131,8 +120,8 @@ export function NotebookCard({ page, systemId, href }: NotebookCardProps) {
           <DropdownMenuTrigger asChild>
             <Button
               variant="ghost"
-              size="icon"
-              className="absolute bottom-3 right-3 size-6 rounded md:opacity-0 md:group-hover:opacity-100 transition-opacity"
+              size="icon-xs"
+              className="absolute right-2 bottom-2 md:opacity-0 md:transition-opacity md:group-hover:opacity-100"
               aria-label={`Acciones de ${page.title ?? "la nota"}`}
               onClick={(e) => e.preventDefault()}
             >
@@ -148,7 +137,7 @@ export function NotebookCard({ page, systemId, href }: NotebookCardProps) {
               }}
             >
               <Pencil className="size-3.5" />
-              Rename
+              Renombrar
             </DropdownMenuItem>
             <DropdownMenuSeparator />
             <DropdownMenuItem
@@ -156,7 +145,7 @@ export function NotebookCard({ page, systemId, href }: NotebookCardProps) {
               onClick={() => setConfirmDelete(true)}
             >
               <Trash2 className="size-3.5" />
-              Delete
+              Eliminar
             </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
@@ -164,11 +153,11 @@ export function NotebookCard({ page, systemId, href }: NotebookCardProps) {
       </ContextMenuTrigger>
       <ContextMenuContent className="w-36">
         <ContextMenuItem className="gap-2" onSelect={() => { setNewTitle(page.title ?? ""); setRenameOpen(true); }}>
-          <Pencil className="size-3.5" /> Rename
+          <Pencil className="size-3.5" /> Renombrar
         </ContextMenuItem>
         <ContextMenuSeparator />
         <ContextMenuItem variant="destructive" className="gap-2" onSelect={() => setConfirmDelete(true)}>
-          <Trash2 className="size-3.5" /> Delete
+          <Trash2 className="size-3.5" /> Eliminar
         </ContextMenuItem>
       </ContextMenuContent>
     </ContextMenu>
@@ -203,7 +192,7 @@ export function NotebookCard({ page, systemId, href }: NotebookCardProps) {
       <ConfirmDialog
         open={confirmDelete}
         title="Eliminar notebook"
-        description={`"${page.title ?? "Sin título"}" será eliminado permanentemente.`}
+        description={`"${page.title ?? "Sin título"}" se eliminará para siempre.`}
         onConfirm={() => {
           setConfirmDelete(false);
           deletePage(page.id);

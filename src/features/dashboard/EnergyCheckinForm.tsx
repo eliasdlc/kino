@@ -6,7 +6,7 @@ import { Slider } from '@/components/ui/slider';
 import { cn } from '@/lib/utils';
 import type { CheckinSlot } from '@/features/energy/energy.schemas';
 import type { SleepQuality } from '@/features/energy/energy.utils';
-import { SLOT_LABELS, SLOT_HOURS, SLEEP_LABELS, levelColor } from './energyDisplay';
+import { SLOT_LABELS, SLOT_HOURS, SLEEP_LABELS } from './energyDisplay';
 
 export interface CheckinValues {
   level: number;
@@ -22,38 +22,64 @@ interface EnergyCheckinFormProps {
   onCancel: () => void;
 }
 
+/** Una fila de pills de una sola elección: el elegido es el acento. */
+function Choice<T extends string>({
+  options,
+  value,
+  onChange,
+  label,
+}: {
+  options: { value: T; label: string; hint?: string }[];
+  value: T;
+  onChange: (v: T) => void;
+  label: string;
+}) {
+  return (
+    <div className="flex gap-2" role="radiogroup" aria-label={label}>
+      {options.map((o) => {
+        const selected = o.value === value;
+        return (
+          <button
+            key={o.value}
+            type="button"
+            role="radio"
+            aria-checked={selected}
+            onClick={() => onChange(o.value)}
+            className={cn(
+              'flex h-[2.8rem] flex-1 flex-col items-center justify-center rounded-full text-sm font-semibold leading-none transition-colors',
+              selected ? 'bg-primary text-primary-foreground' : 'bg-secondary text-foreground hover:bg-secondary/70',
+            )}
+          >
+            {o.label}
+            {o.hint && <span className={cn('mt-0.5 text-[0.65rem] font-medium', selected ? 'opacity-80' : 'text-muted-foreground')}>{o.hint}</span>}
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
 export function EnergyCheckinForm({ defaultLevel, initialSlot, isPending, onSubmit, onCancel }: EnergyCheckinFormProps) {
   const [slot, setSlot] = useState<CheckinSlot>(initialSlot);
   const [level, setLevel] = useState(defaultLevel);
   const [sleep, setSleep] = useState<SleepQuality>('good');
 
   return (
-    <div className="space-y-4">
-      <div className="flex gap-1.5">
-        {(Object.keys(SLOT_LABELS) as CheckinSlot[]).map((s) => {
+    <div className="space-y-5">
+      <Choice
+        label="Tramo del día"
+        value={slot}
+        onChange={setSlot}
+        options={(Object.keys(SLOT_LABELS) as CheckinSlot[]).map((s) => {
           const [start, end] = SLOT_HOURS[s];
-          return (
-            <button
-              key={s}
-              onClick={() => setSlot(s)}
-              className={cn(
-                'flex-1 text-xs py-1 rounded-md border transition-colors',
-                slot === s
-                  ? 'border-primary bg-primary/10 text-primary'
-                  : 'border-border hover:bg-accent/50 text-muted-foreground',
-              )}
-            >
-              {SLOT_LABELS[s]}
-              <span className="block text-[10px] opacity-60">{start}–{end}h</span>
-            </button>
-          );
+          return { value: s, label: SLOT_LABELS[s], hint: `${start} a ${end}h` };
         })}
-      </div>
+      />
 
-      <div className="space-y-2">
-        <div className="flex items-center justify-between">
-          <p className="text-xs text-muted-foreground">¿Cómo está tu energía? (1–100)</p>
-          <span className={cn('text-sm font-bold tabular-nums', levelColor(level))}>{level}</span>
+      <div className="space-y-3">
+        <div className="flex items-baseline justify-between">
+          <p className="text-sm text-foreground/80">¿Cómo está tu energía?</p>
+          <span className="font-display text-2xl font-bold text-primary tabular-nums">{level}</span>
         </div>
         <Slider
           min={1}
@@ -61,42 +87,28 @@ export function EnergyCheckinForm({ defaultLevel, initialSlot, isPending, onSubm
           step={1}
           value={[level]}
           onValueChange={([v]) => v !== undefined && setLevel(v)}
+          aria-label="Nivel de energía"
           className="w-full"
         />
       </div>
 
       {slot === 'morning' && (
         <div className="space-y-2">
-          <p className="text-xs text-muted-foreground">¿Cómo dormiste?</p>
-          <div className="flex gap-2">
-            {(['good', 'partial', 'poor'] as const).map((q) => (
-              <button
-                key={q}
-                onClick={() => setSleep(q)}
-                className={cn(
-                  'flex-1 text-xs py-1.5 rounded-md border font-medium transition-colors',
-                  sleep === q
-                    ? 'border-primary bg-primary/10 text-primary'
-                    : 'border-border hover:bg-accent/50 text-muted-foreground',
-                )}
-              >
-                {SLEEP_LABELS[q]}
-              </button>
-            ))}
-          </div>
+          <p className="text-sm text-foreground/80">¿Cómo dormiste?</p>
+          <Choice
+            label="Sueño"
+            value={sleep}
+            onChange={setSleep}
+            options={(['good', 'partial', 'poor'] as const).map((q) => ({ value: q, label: SLEEP_LABELS[q] ?? q }))}
+          />
         </div>
       )}
 
       <div className="flex gap-2">
-        <Button
-          size="sm"
-          onClick={() => onSubmit({ level, slot, sleep })}
-          disabled={isPending}
-          className="flex-1"
-        >
+        <Button size="lg" onClick={() => onSubmit({ level, slot, sleep })} disabled={isPending} className="flex-1">
           {isPending ? 'Guardando…' : 'Guardar'}
         </Button>
-        <Button size="sm" variant="outline" onClick={onCancel} disabled={isPending}>
+        <Button size="lg" variant="secondary" onClick={onCancel} disabled={isPending}>
           Cancelar
         </Button>
       </div>

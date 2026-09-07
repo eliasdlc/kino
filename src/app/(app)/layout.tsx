@@ -18,6 +18,7 @@ import { FocusTimerWidget } from "@/features/tasks/FocusTimerWidget";
 import { FocusTimerModeDialog } from "@/features/tasks/FocusTimerModeDialog";
 import { getServerSession } from "@/shared/utils/session";
 import { AnalyticsIdentity } from "@/shared/observability/AnalyticsIdentity";
+import { ActiveSince } from "@/features/account/ActiveSince";
 
 export default async function AppLayout({
   children,
@@ -43,6 +44,8 @@ export default async function AppLayout({
           persona ya está identificada cuando la pantalla de debajo dispara su
           primer evento del funnel. */}
       <AnalyticsIdentity userId={user._id} />
+      {/* Deja constancia de que la cuenta sigue viva; como mucho una vez al día. */}
+      <ActiveSince />
       {/* Aplica el tema de la cuenta antes de la primera pintura cuando este
           dispositivo todavía no tiene uno propio. Ver `theme-script`. */}
       <script dangerouslySetInnerHTML={{ __html: accountThemeScript(theme) }} />
@@ -56,7 +59,7 @@ export default async function AppLayout({
             />
             <div className="flex flex-col flex-1 min-w-0 overflow-hidden">
               <MobileHeader />
-              <main className="flex-1 overflow-y-auto bg-background pb-16 md:pb-0">
+              <main className="flex-1 overflow-y-auto bg-background pb-[5.4rem] md:pb-0">
                 {children}
               </main>
               <BottomNav />

@@ -11,7 +11,7 @@ async function seed() {
   const asAna = t.withIdentity(ana);
   const userId = await asAna.mutation(api.users.ensure, {});
   const systemId = await t.run((ctx) =>
-    ctx.db.insert('systems', { userId, name: 'Novela', color: 'purple', templateType: 'writing', icon: 'book', isActive: true, isInbox: false, sortOrder: 0, createdAt: 1, updatedAt: 1 }),
+    ctx.db.insert('systems', { userId, createdBy: userId, createdVia: 'session', name: 'Novela', color: 'purple', templateType: 'writing', icon: 'book', isActive: true, isInbox: false, sortOrder: 0, createdAt: 1, updatedAt: 1 }),
   );
   const work = await asAna.mutation(api.folders.create, { systemId, name: 'La obra' });
   const chapter = await asAna.mutation(api.pages.create, { systemId, folderId: work.id, title: 'Capítulo 1', content: '<p>Luffy zarpa.</p>' });

@@ -1,5 +1,5 @@
 /**
- * Marca de Kino — el cuadrado con gradiente índigo y dos "barritas" (energía),
+ * Marca de Kino: el cuadrado en el acento, plano, con dos barras (energía) en el color de fondo,
  * opcionalmente con el wordmark "kino". Reutilizado en nav, footer y CTAs.
  */
 export function KinoMark({
@@ -19,26 +19,26 @@ export function KinoMark({
   return (
     <span className="inline-flex items-center gap-2.5">
       <span
-        className="inline-flex items-center justify-center gap-1 bg-gradient-to-br from-[#818cf8] to-[#6366f1]"
+        className="inline-flex items-center justify-center gap-1 bg-primary"
         style={{
           width: size,
           height: size,
           borderRadius: Math.round(size * 0.32),
-          boxShadow: glow ? "0 0 18px rgba(99,102,241,0.45)" : undefined,
+          boxShadow: glow ? "0 0.5em 1.4em -0.4em var(--glow)" : undefined,
         }}
       >
         <span
-          className="rounded-[2px] bg-[#0e0e11]"
+          className="rounded-[2px] bg-background"
           style={{ width: barW, height: barH }}
         />
         <span
-          className="rounded-[2px] bg-[#0e0e11]"
+          className="rounded-[2px] bg-background"
           style={{ width: barW, height: barH }}
         />
       </span>
       {withWordmark && (
         <span
-          className="font-display font-bold tracking-[-0.02em] text-[#f4f4f5]"
+          className="font-display font-bold tracking-[-0.02em] text-foreground"
           style={{ fontSize: wordmarkSize }}
         >
           kino

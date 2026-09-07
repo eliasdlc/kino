@@ -32,7 +32,7 @@ import type { SystemMetadata } from '@/shared/lib/system-types';
 
 /**
  * PostgreSQL ltree extension type.
- * Drizzle has no native ltree support — we define it as a customType.
+ * Drizzle has no native ltree support: we define it as a customType.
  * Queries using ltree operators (<@, @>, ~, etc.) must use sql`` escape hatch.
  */
 const ltree = customType<{ data: string }>({
@@ -108,7 +108,7 @@ export const taskTypeEnum = pgEnum('task_type', [
   'reminder',
   // epic: tarea multi-paso que se descompone en subtasks (parent_task_id).
   'epic',
-  // legacy values — kept for DB compat, no longer offered in UI
+  // legacy values: kept for DB compat, no longer offered in UI
   'habit',
   'todo',
   'project',
@@ -177,7 +177,7 @@ export const predictionAccuracyEnum = pgEnum('prediction_accuracy', [
 /**
  * Tipo de entidad del Codex (Writing W2). El universo se comparte a nivel de
  * sistema; cada entidad declara qué es y eso gobierna sus `attributes` (Zod
- * discriminado en entities.schemas.ts). Ampliable — al añadir un valor, recordar
+ * discriminado en entities.schemas.ts). Ampliable: al añadir un valor, recordar
  * que Postgres no tiene DROP VALUE (DB-06).
  */
 export const entityTypeEnum = pgEnum('entity_type', [
@@ -235,7 +235,7 @@ export const userSettings = pgTable('user_settings', {
     .references(() => users.id, { onDelete: 'cascade' }),
   profileType: profileTypeEnum('profile_type'),
   // Identidad elegida en la bifurcación del onboarding (D14): estudiante,
-  // builder, emprendedor, escritor o propio. varchar y no enum a propósito —
+  // builder, emprendedor, escritor o propio. varchar y no enum a propósito:
   // los segmentos de go-to-market cambian más rápido que un tipo de Postgres.
   // null → cuenta anterior al onboarding segmentado.
   archetypeIdentity: varchar('archetype_identity', { length: 20 }),
@@ -287,7 +287,7 @@ export const sessions = pgTable(
 
 // ── accounts (Better Auth) ──
 // Stores OAuth provider credentials and email/password credential references.
-// Better Auth manages this table — do not manually insert rows.
+// Better Auth manages this table: do not manually insert rows.
 
 export const accounts = pgTable(
   'accounts',
@@ -324,7 +324,7 @@ export const accounts = pgTable(
 
 // ── verifications (Better Auth) ──
 // Stores email verification tokens and password reset tokens.
-// Better Auth manages this table — do not manually insert rows.
+// Better Auth manages this table: do not manually insert rows.
 
 export const verifications = pgTable(
   'verifications',
@@ -345,7 +345,7 @@ export const verifications = pgTable(
   ],
 );
 
-// ── jwks (Better Auth — jwt plugin) ──
+// ── jwks (Better Auth: jwt plugin) ──
 // Signing keys for OAuth/OIDC access tokens. Better Auth manages this table.
 
 export const jwks = pgTable('jwks', {
@@ -358,7 +358,7 @@ export const jwks = pgTable('jwks', {
   expiresAt: timestamp('expires_at', { withTimezone: true }),
 });
 
-// ── oauth_clients (Better Auth — oauth-provider plugin) ──
+// ── oauth_clients (Better Auth: oauth-provider plugin) ──
 // OAuth 2.1 clients (model "oauthClient"). Includes dynamically-registered
 // public clients such as Claude's MCP connector. Better Auth manages this table.
 
@@ -407,7 +407,7 @@ export const oauthClients = pgTable(
   (table) => [index('idx_oauth_clients_user').on(table.userId)],
 );
 
-// ── oauth_refresh_tokens (Better Auth — oauth-provider plugin) ──
+// ── oauth_refresh_tokens (Better Auth: oauth-provider plugin) ──
 
 export const oauthRefreshTokens = pgTable(
   'oauth_refresh_tokens',
@@ -439,7 +439,7 @@ export const oauthRefreshTokens = pgTable(
   ],
 );
 
-// ── oauth_access_tokens (Better Auth — oauth-provider plugin) ──
+// ── oauth_access_tokens (Better Auth: oauth-provider plugin) ──
 
 export const oauthAccessTokens = pgTable(
   'oauth_access_tokens',
@@ -473,7 +473,7 @@ export const oauthAccessTokens = pgTable(
   ],
 );
 
-// ── oauth_consents (Better Auth — oauth-provider plugin) ──
+// ── oauth_consents (Better Auth: oauth-provider plugin) ──
 
 export const oauthConsents = pgTable(
   'oauth_consents',
@@ -617,7 +617,7 @@ export const tasks = pgTable(
     // acumularía valores muertos. El guard vive en el CHECK `tasks_status_valid`.
     status: varchar('status', { length: 50 }).notNull().default('backlog'),
     // Segundo eje (solo systemType `project`): columna del board kanban. null en
-    // sistemas que no son project. Separado de `status` (scheduling) a propósito —
+    // sistemas que no son project. Separado de `status` (scheduling) a propósito:
     // ver migración 0006 y el plan. La columna terminal sincroniza con status='done'.
     boardStatus: varchar('board_status', { length: 50 }),
     boardStatusChangedAt: timestamp('board_status_changed_at', {
@@ -653,7 +653,7 @@ export const tasks = pgTable(
     // KIN-57 · Idempotencia de la captura offline. Lo genera el cliente al pulsar
     // "crear" y viaja en las variables de la mutación encolada, así que sobrevive
     // al cierre del navegador. Si la cola reproduce dos veces la misma creación
-    // —o si el INSERT llegó y la respuesta se perdió— el índice único de abajo
+    // (o si el INSERT llegó y la respuesta se perdió) el índice único de abajo
     // convierte el segundo intento en la misma fila, no en una tarea duplicada.
     clientRequestId: uuid('client_request_id'),
     sortIndex: integer('sort_index').notNull().default(0),
@@ -674,7 +674,7 @@ export const tasks = pgTable(
   },
   (table) => [
     // `status` es el eje de scheduling: set cerrado y universal (la state machine).
-    // Guard a nivel DB — el Zod ya lo valida, pero un INSERT por SQL directo o un
+    // Guard a nivel DB: el Zod ya lo valida, pero un INSERT por SQL directo o un
     // tool MCP futuro no deben poder meter un status fuera de la máquina de estados.
     check(
       'tasks_status_valid',
@@ -725,7 +725,7 @@ export const tasks = pgTable(
       .where(sql`${table.sprintId} IS NOT NULL`),
     // Lo que hace idempotente la importación desde GitHub: reimportar el mismo
     // issue actualiza en vez de duplicar. Lleva `user_id` porque `external_source`
-    // es 'github' para todo el mundo — sin él, dos usuarios sincronizando el mismo
+    // es 'github' para todo el mundo: sin él, dos usuarios sincronizando el mismo
     // repositorio chocarían en el mismo par (KIN-135).
     uniqueIndex('uq_tasks_external')
       .on(table.userId, table.externalSource, table.externalId)
@@ -808,7 +808,7 @@ export const folders = pgTable(
       .defaultNow(),
   },
   (table) => [
-    // GiST index for ltree — must be applied via raw migration:
+    // GiST index for ltree: must be applied via raw migration:
     //   CREATE INDEX idx_folders_path ON folders USING GIST (path);
     // Drizzle does not support USING GIST on custom types declaratively.
     index('idx_folders_user').on(table.userId),
@@ -911,7 +911,7 @@ export const pageTags = pgTable(
   ],
 );
 
-// ── entities (Codex — Writing W2) ──
+// ── entities (Codex: Writing W2) ──
 // El universo de la historia: personajes, lugares, objetos, conceptos, eventos,
 // facciones. Scope = sistema (universo compartido entre obras). Nace del texto
 // (mención @) y se enriquece después. Borrado vía papelera única (deletedAt, D3).
@@ -946,7 +946,7 @@ export const entities = pgTable(
       .default(sql`'[]'::jsonb`),
     // Detector de hilos sueltos (KIN-137): menciones que la entidad tenía cuando
     // el autor dio el hilo por cerrado. NULL = nunca se cerró. Se guarda el
-    // conteo y no una fecha a propósito — si la entidad vuelve a nombrarse, el
+    // conteo y no una fecha a propósito: si la entidad vuelve a nombrarse, el
     // número de hoy supera al de entonces y el hilo se reabre solo.
     threadResolvedMentions: integer('thread_resolved_mentions'),
     deletedAt: timestamp('deleted_at', { withTimezone: true }),

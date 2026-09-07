@@ -4,7 +4,7 @@ import { MEDIUM_CONFIG, type MediumId } from "@/shared/lib/mediums";
 /**
  * Serialización del manuscrito por medium (PLAN-11 §6). Un mismo editor produce
  * tres salidas: prosa en Markdown, guion de manga/cómic numerado por página y
- * panel, y guion audiovisual en **Fountain** — el formato de texto plano que
+ * panel, y guion audiovisual en **Fountain**: el formato de texto plano que
  * importan Final Draft, Highland y compañía.
  *
  * La numeración de páginas y paneles se recalcula por posición en el DOM, igual
@@ -60,7 +60,7 @@ function baseService(): TurndownService {
     bulletListMarker: "-",
   });
 
-  // Strip sticky-anchor <span data-anchor-id="…"> — keep the inner text
+  // Strip sticky-anchor <span data-anchor-id="…">: keep the inner text
   td.addRule("stickyAnchor", {
     filter: (node) => node.nodeName === "SPAN" && node.hasAttribute("data-anchor-id"),
     replacement: (content) => content,

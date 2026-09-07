@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useAction, useConvexAuth, useMutation, useQuery } from "convex/react";
 import type { FunctionArgs, FunctionReference, FunctionReturnType } from "convex/server";
 import type { Args } from "./loose";
@@ -78,17 +78,36 @@ type State<TData, TVariables> = {
   variables: TVariables | undefined;
 };
 
+/** El último valor de un render, legible desde un callback estable. */
+function useLatest<T>(value: T) {
+  const ref = useRef(value);
+  useEffect(() => {
+    ref.current = value;
+  });
+  return ref;
+}
+
+/**
+ * `mutate` y `mutateAsync` tienen identidad estable: los componentes los ponen
+ * en dependencias de efectos y un efecto que se rearma en cada render puede
+ * volver a disparar la mutación en su limpieza, en bucle. `run` y los callbacks
+ * se leen por ref, así que siempre son los del último render sin cambiar la
+ * identidad de la función.
+ */
 function useMutationState<TData, TVariables>(
   run: (variables: TVariables) => Promise<TData>,
   callbacks: MutationCallbacks<TData, TVariables>,
 ): MutationResult<TData, TVariables> {
   const [state, setState] = useState<State<TData, TVariables>>({ status: "idle", data: undefined, error: null, variables: undefined });
+  const runRef = useLatest(run);
+  const callbacksRef = useLatest(callbacks);
 
   const mutateAsync = useCallback(
     async (variables: TVariables = {} as TVariables, local: MutationCallbacks<TData, TVariables> = {}) => {
+      const callbacks = callbacksRef.current;
       setState({ status: "pending", data: undefined, error: null, variables });
       try {
-        const data = await run(variables);
+        const data = await runRef.current(variables);
         setState({ status: "success", data, error: null, variables });
         await callbacks.onSuccess?.(data, variables);
         await local.onSuccess?.(data, variables);
@@ -105,9 +124,7 @@ function useMutationState<TData, TVariables>(
         throw error;
       }
     },
-    // Los callbacks se leen en cada llamada a propósito: cambian con cada render.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [run],
+    [runRef, callbacksRef],
   );
 
   const mutate = useCallback(
@@ -139,11 +156,7 @@ export function useConvexMutation<M extends FunctionReference<"mutation">, TVari
 ): MutationResult<FunctionReturnType<M>, TVariables> {
   const fn = useMutation(mutation);
   const { map } = options;
-  const run = useCallback(
-    (variables: TVariables) => fn((map ? map(variables) : variables) as FunctionArgs<M>),
-    [fn, map],
-  );
-  return useMutationState(run, options);
+  return useMutationState((variables: TVariables) => fn((map ? map(variables) : variables) as FunctionArgs<M>), options);
 }
 
 /** Una acción, con la misma forma. */
@@ -153,11 +166,7 @@ export function useConvexAction<A extends FunctionReference<"action">, TVariable
 ): MutationResult<FunctionReturnType<A>, TVariables> {
   const fn = useAction(action);
   const { map } = options;
-  const run = useCallback(
-    (variables: TVariables) => fn((map ? map(variables) : variables) as FunctionArgs<A>),
-    [fn, map],
-  );
-  return useMutationState(run, options);
+  return useMutationState((variables: TVariables) => fn((map ? map(variables) : variables) as FunctionArgs<A>), options);
 }
 
 /** Una mutación que no es una función de Convex: una descarga, una llamada a una ruta propia. */

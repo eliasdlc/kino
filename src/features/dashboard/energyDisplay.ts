@@ -20,16 +20,18 @@ export const SLEEP_LABELS: Record<string, string> = {
   poor: 'Mal',
 };
 
+/** Pares tintados: el color acompaña a la palabra del sueño, nunca la sustituye. */
 export const SLEEP_COLORS: Record<string, string> = {
-  good: 'bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 ring-emerald-500/30',
-  partial: 'bg-amber-500/15 text-amber-600 dark:text-amber-400 ring-amber-500/30',
-  poor: 'bg-red-500/15 text-red-500 dark:text-red-400 ring-red-500/30',
+  good: 'bg-task-done/15 text-task-done',
+  partial: 'bg-secondary text-foreground',
+  poor: 'bg-task-overdue/15 text-task-overdue',
 };
 
+/** El tono de un nivel como color de texto; va siempre junto a la cifra o la palabra. */
 export function levelColor(level: number): string {
-  if (level >= 70) return 'text-emerald-500';
-  if (level >= 40) return 'text-amber-400';
-  return 'text-red-400';
+  if (level >= 70) return 'text-task-done';
+  if (level >= 40) return 'text-foreground';
+  return 'text-task-overdue';
 }
 
 export function getCurrentSlot(hour: number = new Date().getHours()): CheckinSlot {

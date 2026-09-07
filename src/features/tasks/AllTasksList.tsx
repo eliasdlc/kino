@@ -115,7 +115,7 @@ export function AllTasksList({ systems }: AllTasksListProps) {
 
   const overdueTasks = useMemo(() => getOverdueTasks(tasks), [tasks]);
 
-  // Keyboard navigation — j/k move focus, x toggles selection, shift+j/k range-select
+  // Keyboard navigation: j/k move focus, x toggles selection, shift+j/k range-select
   const { focusedTaskId } = useTaskKeyboardNavigation(filtered, {
     onSelect: setSelectedTask,
     onSelectionToggle: toggleSelection,
@@ -129,7 +129,7 @@ export function AllTasksList({ systems }: AllTasksListProps) {
   function renderRows(items: TaskTransport[]) {
     if (filters.view === 'grid') {
       return (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 px-4 py-3">
+        <div className="grid grid-cols-1 gap-3 px-4 py-3 sm:grid-cols-2 lg:grid-cols-3">
           {items.map((t) => (
             <DefaultTaskCard
               key={t.id}
@@ -147,7 +147,7 @@ export function AllTasksList({ systems }: AllTasksListProps) {
       );
     }
     return (
-      <div className="divide-y divide-border/50">
+      <div className="divide-y divide-border">
         {items.map((t) => (
           <TaskListRow
             key={t.id}
@@ -179,9 +179,9 @@ export function AllTasksList({ systems }: AllTasksListProps) {
             : key;
           return (
             <div key={key}>
-              <div className="px-4 py-1.5 bg-muted/30 sticky top-0 z-10">
-                <span className="text-xs font-semibold text-muted-foreground">{groupName}</span>
-                <span className="ml-2 text-xs text-muted-foreground/50">{groupItems.length}</span>
+              <div className="sticky top-0 z-(--z-raised) bg-card/90 px-4 py-2 backdrop-blur-sm">
+                <span className="text-xs font-semibold uppercase tracking-[0.06em] text-muted-foreground">{groupName}</span>
+                <span className="ml-2 text-xs text-muted-foreground tabular-nums">{groupItems.length}</span>
               </div>
               {renderRows(groupItems)}
             </div>
@@ -193,11 +193,11 @@ export function AllTasksList({ systems }: AllTasksListProps) {
 
   return (
     <>
-      <div className="rounded-xl border bg-card overflow-hidden">
+      <section aria-label="Todas las tareas" className="overflow-hidden rounded-2xl border border-border bg-card shadow-(--shadow)">
         {/* Header */}
-        <div className="px-4 py-3 border-b flex items-center justify-between gap-3">
+        <div className="flex items-center justify-between gap-3 border-b border-border px-4 py-3">
           <div className="flex items-center gap-2">
-            <span className="text-sm font-semibold">Todas las tareas</span>
+            <span className="text-[1.06rem] font-bold tracking-[-0.01em]">Todas las tareas</span>
             <span className="text-xs text-muted-foreground">
               {filtered.length}
               {filterCount > 0 && ` · ${filterCount} filtro${filterCount > 1 ? 's' : ''}`}
@@ -210,39 +210,31 @@ export function AllTasksList({ systems }: AllTasksListProps) {
           </div>
 
           <div className="flex items-center gap-1.5">
-            <button
+            <Button
+              size="sm"
+              variant={showFilters ? 'default' : 'secondary'}
               onClick={() => setShowFilters((v) => !v)}
-              className={cn(
-                'flex items-center gap-1.5 text-xs px-2.5 py-1 rounded-md border transition-colors',
-                showFilters
-                  ? 'border-primary bg-primary/10 text-primary'
-                  : 'border-border text-muted-foreground hover:bg-accent/50',
-              )}
             >
-              <SlidersHorizontal className="w-3.5 h-3.5" />
+              <SlidersHorizontal className="size-4" />
               Filtros
-              {filterCount > 0 && (
-                <span className="bg-primary text-primary-foreground rounded-full w-4 h-4 text-[10px] flex items-center justify-center">
-                  {filterCount}
-                </span>
-              )}
-            </button>
+              {filterCount > 0 && <span className="tabular-nums">{filterCount}</span>}
+            </Button>
 
-            {/* View toggle */}
-            <div className="flex rounded-md border overflow-hidden">
+            {/* View toggle: un segmento pill, el elegido es el acento */}
+            <div className="flex rounded-full bg-secondary p-1" role="group" aria-label="Vista">
               {(['list', 'grid'] as const).map((v) => (
                 <button
                   key={v}
+                  type="button"
                   onClick={() => handleViewToggle(v)}
+                  aria-pressed={filters.view === v}
                   className={cn(
-                    'px-2 py-1 text-xs transition-colors',
-                    filters.view === v
-                      ? 'bg-primary/10 text-primary'
-                      : 'text-muted-foreground hover:bg-accent/50',
+                    'flex size-8 items-center justify-center rounded-full transition-colors',
+                    filters.view === v ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:text-foreground',
                   )}
                   title={v === 'list' ? 'Vista lista' : 'Vista grid'}
                 >
-                  {v === 'list' ? <LayoutList className="w-3.5 h-3.5" /> : <LayoutGrid className="w-3.5 h-3.5" />}
+                  {v === 'list' ? <LayoutList className="size-4" /> : <LayoutGrid className="size-4" />}
                 </button>
               ))}
             </div>
@@ -251,11 +243,11 @@ export function AllTasksList({ systems }: AllTasksListProps) {
 
         {/* Filter chips */}
         {activeChips.length > 0 && (
-          <div className="px-4 py-2 border-b flex flex-wrap gap-1.5">
+          <div className="flex flex-wrap gap-1.5 border-b border-border px-4 py-2">
             {activeChips.map((key) => (
               <span
                 key={key}
-                className="flex items-center gap-1 text-xs bg-primary/10 text-primary px-2 py-0.5 rounded-full"
+                className="flex items-center gap-1 rounded-full bg-primary/15 px-2.5 py-0.5 text-xs font-semibold text-primary"
               >
                 {FILTER_CHIP_LABELS[key]}
                 <button onClick={() => removeFilterChip(key)} className="hover:text-primary/70">
@@ -268,12 +260,12 @@ export function AllTasksList({ systems }: AllTasksListProps) {
 
         {/* Filter panel */}
         {showFilters && (
-          <div className="p-4 border-b">
+          <div className="border-b border-border p-4">
             <TaskFilterPanel filters={filters} systems={systems} onChange={handleFiltersChange} />
           </div>
         )}
 
-        {/* Overdue group — KIN-29, 30, 31 */}
+        {/* Overdue group: KIN-29, 30, 31 */}
         {selectedTaskIds.size === 0 && (
           <OverdueGroup
             tasks={overdueTasks}
@@ -292,9 +284,9 @@ export function AllTasksList({ systems }: AllTasksListProps) {
 
         {/* TaskTransport list */}
         {isLoading ? (
-          <div className="px-4 py-3 space-y-2">
+          <div className="space-y-3 px-4 py-3">
             {[...Array(5)].map((_, i) => (
-              <div key={i} className="h-9 rounded bg-muted/40 animate-pulse" />
+              <div key={i} className="h-10 rounded-md bg-muted" />
             ))}
           </div>
         ) : filtered.length === 0 ? (
@@ -325,7 +317,7 @@ export function AllTasksList({ systems }: AllTasksListProps) {
         ) : (
           renderGrouped(filtered)
         )}
-      </div>
+      </section>
 
       {selectedTask && (
         <TaskDetailSheet

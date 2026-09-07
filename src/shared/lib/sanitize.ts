@@ -33,8 +33,8 @@ const WIDTH = /^\d+(?:\.\d+)?(?:px|%)$/;
 const TABLE_SIZING = { width: [WIDTH], "min-width": [WIDTH] };
 
 /**
- * Una `data:` URL que de verdad es una imagen. El editor nunca las produce —el
- * nodo `image` sólo acepta http(s)— pero pegar desde Docs u Office sí puede
+ * Una `data:` URL que de verdad es una imagen. El editor nunca las produce (el
+ * nodo `image` sólo acepta http(s)) pero pegar desde Docs u Office sí puede
  * traerlas, y esas tienen que seguir viéndose.
  */
 const DATA_IMAGE = /^data:image\/(png|jpeg|jpg|gif|webp|avif|bmp);/i;

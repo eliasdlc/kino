@@ -32,7 +32,7 @@ interface Props {
 /**
  * El paso donde el onboarding deja de ser un cuestionario: nombre del primer
  * sistema y, debajo, las unidades reales del arquetipo (clases, milestones, la
- * obra, lo que estás construyendo). Todo el vocabulario sale del manifiesto —
+ * obra, lo que estás construyendo). Todo el vocabulario sale del manifiesto:
  * este componente no sabe qué es una "clase".
  */
 export function StepFirstSystem({

@@ -35,20 +35,20 @@ export async function MarketingNav({
   const registerHref = segment ? segmentRegisterHref(segment) : "/register";
 
   return (
-    <nav className="sticky top-0 z-50 border-b border-white/[0.07] bg-[#0e0e11]/85 backdrop-blur-md">
-      <div className="mx-auto flex min-h-16 max-w-[1120px] flex-wrap items-center gap-4 px-6 py-2.5">
+    <nav className="sticky top-0 z-(--z-modal) border-b border-border bg-background/85 backdrop-blur-md">
+      <div className="mx-auto flex min-h-16 max-w-[1120px] items-center gap-3 px-5 py-2.5 md:px-6">
         <Link href="/" className="flex items-center">
           <KinoMark size={28} glow={variant === "landing"} />
         </Link>
 
         {variant === "docs" && (
-          <span className="rounded-md border border-white/10 px-2 py-0.5 font-jetbrains text-xs text-[#52525b]">
+          <span className="hidden rounded-full bg-secondary px-2.5 py-0.5 text-xs font-semibold text-muted-foreground sm:inline-flex">
             docs
           </span>
         )}
 
         {segment && (
-          <span className="rounded-md border border-[#818cf8]/25 bg-[#818cf8]/[0.10] px-2 py-0.5 font-jetbrains text-xs text-[#a5b4fc]">
+          <span className="hidden rounded-full bg-primary/15 px-2.5 py-0.5 text-xs font-semibold text-primary sm:inline-flex">
             para {segment.navLabel.toLowerCase()}
           </span>
         )}
@@ -61,7 +61,7 @@ export async function MarketingNav({
               <Link
                 key={l.href}
                 href={l.href}
-                className="text-sm font-medium text-[#a1a1aa] transition-colors hover:text-[#f4f4f5]"
+                className="text-sm font-medium text-muted-foreground transition-colors hover:text-foreground"
               >
                 {l.label}
               </Link>
@@ -73,9 +73,9 @@ export async function MarketingNav({
           {variant !== "landing" && (
             <Link
               href="/"
-              className="text-sm font-medium text-[#a1a1aa] transition-colors hover:text-[#f4f4f5]"
+              className="text-sm font-medium text-muted-foreground transition-colors hover:text-foreground"
             >
-              ← Inicio
+              Inicio
             </Link>
           )}
 

@@ -118,7 +118,7 @@ export default function SettingsPage() {
           </div>
         </div>
 
-        {/* Keyboard Shortcuts — sin sentido en touch */}
+        {/* Keyboard Shortcuts: sin sentido en touch */}
         <div className="hidden md:block space-y-4">
           <div>
             <h2 className="text-lg font-semibold">Atajos de teclado</h2>
@@ -196,7 +196,7 @@ export default function SettingsPage() {
             <div className="space-y-0.5">
               <Label className="text-sm font-medium">Recibir recordatorios</Label>
               <p className="text-xs text-muted-foreground">
-                Controla si Kino te envía recordatorios de tareas y alertas de energía.
+                Controla si recibes recordatorios de tareas y alertas de energía.
               </p>
             </div>
             <Switch
@@ -214,8 +214,8 @@ export default function SettingsPage() {
               <div className="space-y-0.5">
                 <Label className="text-sm font-medium">Notificaciones push en este dispositivo</Label>
                 <p className="text-xs text-muted-foreground">
-                  {status === 'subscribed'   && 'Activas — recibirás alertas en este dispositivo'}
-                  {status === 'denied'       && 'Bloqueadas — actívalas en los permisos del navegador'}
+                  {status === 'subscribed'   && 'Activas: recibirás alertas en este dispositivo'}
+                  {status === 'denied'       && 'Bloqueadas: actívalas en los permisos del navegador'}
                   {status === 'unsupported'  && 'No soportado en este navegador'}
                   {(status === 'idle' || status === 'loading') && 'Inactivas'}
                 </p>
@@ -254,7 +254,7 @@ export default function SettingsPage() {
 
         {/* API Keys */}
 
-        {/* GitHub — lee el resultado del callback de OAuth de la URL, así que
+        {/* GitHub: lee el resultado del callback de OAuth de la URL, así que
             necesita su propio límite de Suspense. */}
         <Suspense>
           <GithubConnectionSection />

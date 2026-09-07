@@ -2,7 +2,7 @@ import type { JournalDay, WorkMilestone, WritingSession } from "./writing.types"
 
 /**
  * Lógica pura de motivación: racha y diario. Vive aparte del servicio para que
- * se pueda probar sin DB — es donde están las reglas que el usuario ve (cuándo
+ * se pueda probar sin DB: es donde están las reglas que el usuario ve (cuándo
  * una racha sigue viva, cuándo se cruzó una meta), no el acceso a datos.
  */
 
@@ -74,7 +74,7 @@ export interface JournalInput {
  * Arma el diario de la obra: un día por fecha con actividad, sus sesiones y los
  * hitos que ocurrieron ahí.
  *
- * Los hitos no se persisten — se reconstruyen. La curva de palabras sale de
+ * Los hitos no se persisten: se reconstruyen. La curva de palabras sale de
  * acumular los deltas de las sesiones sobre una línea base (`totalWords` menos
  * todo lo registrado), así una obra que ya tenía texto antes de W4 no aparece
  * cruzando su meta el primer día que se registró una sesión.
@@ -150,7 +150,7 @@ export function buildJournal({
   return ascending.reverse();
 }
 
-/** Texto sobrio de un hito para el diario (sin emojis — regla de UI del proyecto). */
+/** Texto sobrio de un hito para el diario (sin emojis: regla de UI del proyecto). */
 export function milestoneLabel(milestone: WorkMilestone): string {
   switch (milestone.kind) {
     case "chapter-completed":

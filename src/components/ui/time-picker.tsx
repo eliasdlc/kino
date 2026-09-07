@@ -82,11 +82,11 @@ export function TimePicker({ value, onChange, className, placeholder = "Elegir h
             className
           )}
         >
-          <Clock className="mr-2 h-4 w-4 shrink-0 opacity-50" />
+          <Clock className="mr-2 size-4 shrink-0 opacity-50" />
           {value || placeholder}
         </Button>
       </PopoverTrigger>
-      <PopoverContent className="w-[200px] p-0" align="start">
+      <PopoverContent className="w-[12.5rem] p-0" align="start">
         <Command onKeyDown={handleKeyDown}>
           <CommandInput
             placeholder="Ej. 08:30 o 830..."
@@ -106,7 +106,7 @@ export function TimePicker({ value, onChange, className, placeholder = "Elegir h
                     setOpen(false);
                   }}
                 >
-                  <Clock className="mr-2 h-4 w-4 opacity-50" />
+                  <Clock className="mr-2 size-4 opacity-50" />
                   {time.label}
                 </CommandItem>
               ))}

@@ -4,7 +4,7 @@
  *
  * **La tensión de diseño y cómo se resolvió.** Las escenas son derivadas del
  * texto (por `sceneBreak`) y eso es deliberado: nada que se desincronice. Un
- * tablero que permite reordenar tiene dos salidas — escribir de vuelta en el
+ * tablero que permite reordenar tiene dos salidas: escribir de vuelta en el
  * contenido, o persistir un orden paralelo que puede divergir del texto. Aquí se
  * escribe de vuelta en el contenido, siempre. Mover una tarjeta reescribe el HTML
  * de los capítulos implicados; el arco vive como atributo del propio corte de
@@ -12,7 +12,7 @@
  *
  * Todo es manipulación de strings, sin DOM: el corte de escena es un átomo
  * (`<div data-scene-break>* * *</div>`) sin nada anidado, así que partir por él es
- * seguro y el mismo código sirve en el servidor —donde no hay `DOMParser`— y en
+ * seguro y el mismo código sirve en el servidor (donde no hay `DOMParser`) y en
  * los tests.
  */
 
@@ -111,7 +111,7 @@ export function splitScenes(html: string | null): Scene[] {
 /**
  * Rehace el HTML del capítulo. Normaliza los cortes por posición: la primera
  * escena nunca enseña separador (si lleva corte, es solo para cargar su arco) y
- * el resto siempre lo lleva — así el texto no puede quedar con un `* * *` de más
+ * el resto siempre lo lleva: así el texto no puede quedar con un `* * *` de más
  * o de menos después de mover una tarjeta.
  */
 export function joinScenes(scenes: Scene[]): string {

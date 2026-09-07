@@ -14,7 +14,7 @@ export type EnergyLevel = 'high' | 'medium' | 'low';
 /**
  * Peso de cada nivel de energía. Fuente única en TypeScript.
  * `insights.queries.ts` replica estos pesos como CASE SQL para agregar en la
- * base — si cambian aquí, hay que cambiarlos allá.
+ * base: si cambian aquí, hay que cambiarlos allá.
  */
 export const ENERGY_POINTS: Record<EnergyLevel, number> = {
   high: 5,
@@ -64,7 +64,7 @@ export interface BudgetTask {
  *
  * `tasks` son las del plan de hoy (`inTodayPlan`), incluidas las completadas:
  * el presupuesto mide **lo que prometiste**, y por dentro muestra cuánto ya
- * cumpliste. Medir solo lo hecho —como hacía el límite duro anterior— castiga
+ * cumpliste. Medir solo lo hecho (como hacía el límite duro anterior) castiga
  * producir en vez de avisar de sobre-prometer.
  */
 export function computeEnergyBudget(tasks: BudgetTask[], limit: number): EnergyBudget {

@@ -5,7 +5,7 @@ import { archetypeEnergyIdeal, ARCHETYPE_IDENTITIES, DEFAULT_IDENTITY, getArchet
 import { buildSeedPlan, type SeedPlan, type SeedTask } from '../src/features/onboarding/onboarding.seed';
 import { createEnergyProfile } from './energy';
 import { createFolderDoc } from './folders';
-import { kinoZodMutation, kinoZodQuery } from './lib/fn';
+import { kinoZodMutation, kinoZodQuery, type Channel } from './lib/fn';
 import { userToday } from './lib/time';
 import { createPageDoc } from './pages';
 import { upsertSettings } from './settings';
@@ -56,13 +56,20 @@ function toTaskInput(systemId: Id<'systems'>, folderId: Id<'folders'> | undefine
   };
 }
 
-async function applySeedPlan(ctx: MutationCtx, userId: Id<'users'>, timezone: string, systemId: Id<'systems'>, plan: SeedPlan) {
+async function applySeedPlan(
+  ctx: MutationCtx,
+  userId: Id<'users'>,
+  channel: Channel,
+  timezone: string,
+  systemId: Id<'systems'>,
+  plan: SeedPlan,
+) {
   const todayStartIso = zonedHourIso(userToday(timezone), SEED_START_HOUR, timezone);
-  for (const task of plan.tasks) await createTaskDoc(ctx, userId, timezone, toTaskInput(systemId, undefined, task, todayStartIso));
+  for (const task of plan.tasks) await createTaskDoc(ctx, userId, channel, timezone, toTaskInput(systemId, undefined, task, todayStartIso));
   for (const folder of plan.folders) {
-    const created = await createFolderDoc(ctx, userId, { systemId, name: folder.name, ...(folder.metadata ? { metadata: folder.metadata } : {}) });
-    for (const task of folder.tasks) await createTaskDoc(ctx, userId, timezone, toTaskInput(systemId, created.id, task, todayStartIso));
-    if (folder.page) await createPageDoc(ctx, userId, { systemId, folderId: created.id, title: folder.page.title, content: folder.page.content });
+    const created = await createFolderDoc(ctx, userId, channel, { systemId, name: folder.name, ...(folder.metadata ? { metadata: folder.metadata } : {}) });
+    for (const task of folder.tasks) await createTaskDoc(ctx, userId, channel, timezone, toTaskInput(systemId, created.id, task, todayStartIso));
+    if (folder.page) await createPageDoc(ctx, userId, channel, { systemId, folderId: created.id, title: folder.page.title, content: folder.page.content });
   }
 }
 
@@ -77,7 +84,7 @@ export const complete = kinoZodMutation({
     if (input.timezone) await ctx.db.patch(userId, { timezone, updatedAt: now });
     await createEnergyProfile(ctx, userId, input);
     const energyIdeal = archetypeEnergyIdeal(archetype);
-    const system = await createSystemDoc(ctx, userId, {
+    const system = await createSystemDoc(ctx, userId, ctx.channel, {
       name: input.firstSystemName,
       color: archetype.systemColor,
       icon: archetype.systemIcon,
@@ -85,7 +92,7 @@ export const complete = kinoZodMutation({
       ...(energyIdeal ? { energyIdeal } : {}),
       ...(archetype.identityStatement ? { identityStatement: archetype.identityStatement } : {}),
     });
-    await applySeedPlan(ctx, userId, timezone, system.id, buildSeedPlan(input.identity, input.firstSystemName, input.seedUnits));
+    await applySeedPlan(ctx, userId, ctx.channel, timezone, system.id, buildSeedPlan(input.identity, input.firstSystemName, input.seedUnits));
     await upsertSettings(ctx, userId, { archetypeIdentity: input.identity });
     await ctx.db.patch(userId, { onboardingCompleted: true, updatedAt: now });
     return { ok: true as const };

@@ -43,6 +43,8 @@ const minimalTask = (
 ): Insert<'tasks'> => ({
   userId,
   systemId,
+  createdBy: userId,
+  createdVia: 'session',
   title: 'Escribir el schema',
   status: 'backlog',
   energyLevel: 'medium',
@@ -93,6 +95,8 @@ async function seedOnePerTable(ctx: MutationCtx) {
 
   const systemId = await ctx.db.insert('systems', {
     userId,
+    createdBy: userId,
+    createdVia: 'session',
     name: 'Inbox',
     color: 'blue',
     templateType: 'inbox',
@@ -136,6 +140,8 @@ async function seedOnePerTable(ctx: MutationCtx) {
 
   const folderId = await ctx.db.insert('folders', {
     userId,
+    createdBy: userId,
+    createdVia: 'session',
     name: 'Notas',
     color: 'blue',
     sortIndex: 0,
@@ -144,12 +150,16 @@ async function seedOnePerTable(ctx: MutationCtx) {
   });
   const pageId = await ctx.db.insert('pages', {
     userId,
+    createdBy: userId,
+    createdVia: 'session',
     isPinned: false,
     createdAt: NOW,
     updatedAt: NOW,
   });
   await ctx.db.insert('stickyNotes', {
     userId,
+    createdBy: userId,
+    createdVia: 'session',
     folderId,
     color: 'yellow',
     sortIndex: 0,
@@ -165,6 +175,8 @@ async function seedOnePerTable(ctx: MutationCtx) {
   });
   const entityId = await ctx.db.insert('entities', {
     userId,
+    createdBy: userId,
+    createdVia: 'session',
     systemId,
     type: 'character',
     name: 'Luffy',
@@ -346,6 +358,8 @@ describe('convex/schema', () => {
         });
         const systemId = await ctx.db.insert('systems', {
           userId,
+          createdBy: userId,
+          createdVia: 'session',
           name: 'S',
           color: 'blue',
           templateType: 'custom',

@@ -82,7 +82,7 @@ export function GithubRepoPanelView({
         {state.repo.owner}/{state.repo.repo}
         {state.revoked && (
           <span className="ml-2 text-xs text-destructive">
-            token caducado — reconecta en Ajustes
+            token caducado: reconecta en Ajustes
           </span>
         )}
       </span>

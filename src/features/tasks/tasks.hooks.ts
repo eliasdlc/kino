@@ -4,7 +4,7 @@
  * Punto de entrada de los hooks de tareas.
  *
  * El archivo tenía 898 líneas y se partió por dominio en KIN-146 (FE-05). Sigue
- * siendo el import canónico —`from "./tasks.hooks"`— para no tocar los ~40
+ * siendo el import canónico (`from "./tasks.hooks"`) para no tocar los ~40
  * consumidores: aquí sólo se reexporta, no vive lógica.
  *
  * Dónde está cada cosa:
@@ -16,8 +16,8 @@
  *
  * El patrón optimista canónico (Rumbo 05) no vive aquí: está en
  * `@/shared/hooks/optimistic`, con su test y su doc al lado.
- * Ojo con los hooks que lo evitan a propósito —`useCreateTask` toca dos query
- * keys a la vez— y conservan el patrón inline con su comentario explicándolo.
+ * Ojo con los hooks que lo evitan a propósito (`useCreateTask` toca dos query
+ * keys a la vez) y conservan el patrón inline con su comentario explicándolo.
  */
 
 export {

@@ -19,7 +19,7 @@ export function StepHook({ onNext }: Props) {
           Kino arma tu día según tu energía
         </h1>
         <p className="text-muted-foreground text-lg leading-relaxed">
-          No solo tu lista de tareas — la app propone qué hacer, en qué orden,
+          No solo tu lista de tareas: la app propone qué hacer, en qué orden,
           y cuándo descansar para que puedas trabajar sin quemarte.
         </p>
       </div>
@@ -46,7 +46,7 @@ export function StepHook({ onNext }: Props) {
       </div>
 
       <Button size="lg" onClick={onNext} className="w-full">
-        Empezar — tarda 2 minutos
+        Empezar: tarda 2 minutos
       </Button>
     </div>
   );

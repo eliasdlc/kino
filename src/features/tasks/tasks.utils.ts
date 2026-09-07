@@ -2,7 +2,7 @@ import { calendarDayInTz } from "@/shared/time";
 
 /**
  * Scheduling statuses that are auto-derived from startDate.
- * "done" and "archived" are intentionally excluded — those are
+ * "done" and "archived" are intentionally excluded: those are
  * explicit user actions that should never be overwritten by date logic.
  */
 export type ScheduleStatus = "backlog" | "today" | "tomorrow" | "week";
@@ -40,7 +40,7 @@ export async function findParentViolation(
  *   - A daily reconciliation job catches stale statuses (e.g. yesterday's "today").
  *
  * `timezone` define qué cuenta como "hoy"/"mañana": comparar el día calendario
- * del usuario, no el reloj UTC del server (Vercel) — si no, crear una tarea
+ * del usuario, no el reloj UTC del server (Vercel): si no, crear una tarea
  * "para hoy" después de las 20:00 hora local la derivaba a `week`.
  */
 export function deriveStatusFromDate(

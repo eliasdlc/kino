@@ -48,7 +48,7 @@ function applyThemeClass(mode: ThemeMode) {
  * Se renderiza una vez en el árbol de la app, dentro de Providers.
  *
  * La clase `dark` de la primera pintura no la pone este componente sino los
- * scripts inline de `shared/lib/theme-script` — un efecto siempre corre después
+ * scripts inline de `shared/lib/theme-script`: un efecto siempre corre después
  * de pintar y produciría un destello. Aquí sólo se mantiene sincronizada a
  * partir de ese punto: cambios del usuario y cambios del tema del SO.
  *

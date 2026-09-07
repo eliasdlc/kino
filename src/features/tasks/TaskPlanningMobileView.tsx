@@ -37,7 +37,7 @@ interface TaskPlanningMobileViewProps {
 
 /**
  * Variante mobile de Planificación: un día a la vez con pills de la semana
- * arriba. Sin drag & drop — mover de día se hace desde el menú "⋮" de cada
+ * arriba. Sin drag & drop: mover de día se hace desde el menú "⋮" de cada
  * tarea, que en touch es mucho más fiable que arrastrar.
  */
 export function TaskPlanningMobileView({
@@ -88,7 +88,7 @@ export function TaskPlanningMobileView({
         </Button>
         <h2 className="text-base font-bold capitalize truncate">
           {monthHeading}
-          <span className="text-sm font-normal text-muted-foreground ml-1.5">— S{weekNumber}</span>
+          <span className="text-sm font-normal text-muted-foreground ml-1.5">· S{weekNumber}</span>
         </h2>
         <div className="flex items-center gap-1 shrink-0">
           {weekOffset !== 0 && (

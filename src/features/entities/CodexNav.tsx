@@ -15,7 +15,8 @@ export function CodexNav({
   current: CodexViewId;
 }) {
   return (
-    <div className="flex items-center gap-1 border-b border-border/50">
+    // En el teléfono las cuatro lecturas no caben: la fila hace scroll horizontal y ninguna etiqueta se parte.
+    <div className="-mx-1 flex items-center gap-1 overflow-x-auto px-1 [scrollbar-width:none]" role="tablist">
       {CODEX_VIEWS.map((view) => {
         const Icon = view.icon;
         const active = view.id === current;
@@ -23,16 +24,15 @@ export function CodexNav({
           <Link
             key={view.id}
             href={`/systems/${systemId}/codex?view=${view.id}`}
+            role="tab"
+            aria-selected={active}
             className={cn(
-              "relative flex items-center gap-1.5 px-3 py-2 text-sm font-medium transition-colors hover:text-foreground",
-              active ? "text-foreground" : "text-muted-foreground",
+              "flex h-10 shrink-0 items-center gap-1.5 rounded-full px-4 text-sm font-semibold whitespace-nowrap transition-colors",
+              active ? "bg-primary text-primary-foreground" : "bg-secondary text-muted-foreground hover:text-foreground",
             )}
           >
             <Icon className="size-4" />
             {view.label}
-            {active && (
-              <span className="absolute inset-x-0 bottom-0 h-0.5 rounded-t-full bg-primary" />
-            )}
           </Link>
         );
       })}

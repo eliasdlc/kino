@@ -11,7 +11,8 @@ import { type TaskTransport } from "./tasks.types";
 
 /** Tareas en la papelera de un sistema. */
 export function useTrashedTasks(systemId: string, enabled = true) {
-  return useConvexQuery(api.tasks.list, { systemId, deleted: true }, { enabled });
+  const result = useConvexQuery(api.tasks.list, { systemId, deleted: true }, { enabled });
+  return { ...result, data: result.data?.items };
 }
 
 /** La lista de un sistema. `initialData` es lo que pintó el servidor, hasta que llega la suscripción. */
@@ -29,8 +30,13 @@ export function useSubtasks(taskId: string, _systemId: string, options?: { enabl
   return useConvexQuery(api.tasks.subtasks, { id: taskId }, options);
 }
 
+/**
+ * Todas las tareas raíz, hasta `TASK_LIST_LIMIT`. `restantes` dice cuántas
+ * quedaron fuera; hoy es 0 para cualquier cuenta real.
+ */
 export function useAllTasks() {
-  return useConvexQuery(api.tasks.list, {});
+  const result = useConvexQuery(api.tasks.list, {});
+  return { ...result, data: result.data?.items, restantes: result.data?.restantes ?? 0 };
 }
 
 export type { SuggestedTask } from "@/features/insights/insights.hooks";

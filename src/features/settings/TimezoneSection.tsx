@@ -33,8 +33,8 @@ export function TimezoneSection() {
               <p className="text-xs text-muted-foreground truncate">
                 {data?.timezone}
                 {mismatch
-                  ? ` — tu dispositivo está en ${deviceTz}`
-                  : ' — coincide con tu dispositivo'}
+                  ? `: tu dispositivo está en ${deviceTz}`
+                  : ': coincide con tu dispositivo'}
               </p>
             )}
           </div>

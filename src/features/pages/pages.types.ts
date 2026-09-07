@@ -2,7 +2,7 @@ import type { FunctionReturnType } from "convex/server";
 import type { api } from "@convex/_generated/api";
 
 /** Una página en lista: sin el contenido, con su vista previa y sus etiquetas. */
-export type PageListItem = FunctionReturnType<typeof api.pages.bySystem>[number];
+export type PageListItem = FunctionReturnType<typeof api.pages.bySystem>["items"][number];
 
 /** La página entera, con contenido y tareas enlazadas. */
 export type PageDetail = FunctionReturnType<typeof api.pages.byId>;

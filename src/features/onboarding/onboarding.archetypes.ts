@@ -8,7 +8,7 @@ import type { ColorValue, EnergyLevelValue, TemplateTypeValue } from '@/shared/t
  * ahí sale con qué vocabulario, qué contenedores y qué contenido real arranca.
  *
  * Encima del manifiesto de arquetipo (`system-types.ts`), no en paralelo: aquí solo
- * vive lo propio del primer contacto — copy de la bifurcación, defaults del primer
+ * vive lo propio del primer contacto: copy de la bifurcación, defaults del primer
  * sistema y la siembra. El vocabulario (clase / milestone / obra), los task kinds y
  * la energía se leen de `SYSTEM_TYPE_CONFIG`. Añadir una identidad es añadir una
  * entrada a `ONBOARDING_ARCHETYPES`, nunca un `if` por tipo.
@@ -29,7 +29,7 @@ export const DEFAULT_IDENTITY: ArchetypeIdentity = 'propio';
 /**
  * Tarea sembrada. `{unidad}` se interpola con el nombre de la unidad y `{sistema}`
  * con el del sistema. `kind` debe estar declarado en los `taskKinds` del arquetipo
- * — el test del manifiesto lo verifica, y `createTask` lo rechaza en runtime.
+ *: el test del manifiesto lo verifica, y `createTask` lo rechaza en runtime.
  */
 export interface SeedTaskSpec {
   title: string;
@@ -38,7 +38,7 @@ export interface SeedTaskSpec {
   priority?: 'critical' | 'high' | 'medium' | 'low';
   /**
    * Arranca hoy: la tarea nace con `startDate` en el día local del usuario, lo
-   * que la coloca en el plan de hoy. No se siembra un `status` a mano — en Kino
+   * que la coloca en el plan de hoy. No se siembra un `status` a mano: en Kino
    * el status de scheduling se deriva de la fecha y el reconciliador devuelve a
    * backlog cualquier tarea sin `start_date`. Como mucho una por arquetipo: el
    * primer paso, no una lista que ya llega vencida.
@@ -152,7 +152,7 @@ export const ONBOARDING_ARCHETYPES: Record<ArchetypeIdentity, OnboardingArchetyp
     identityStatement: 'Envío cosas terminadas, no ramas a medias.',
     systemIcon: 'code',
     systemColor: 'teal',
-    promise: 'Tu board arranca con trabajo real y Kino te dice qué tocar en tu pico de energía.',
+    promise: 'Tu board arranca con trabajo real y sabes qué tocar en tu pico de energía.',
     seed: {
       unitKind: 'task',
       title: '¿Qué estás construyendo ahora?',
@@ -184,7 +184,7 @@ export const ONBOARDING_ARCHETYPES: Record<ArchetypeIdentity, OnboardingArchetyp
     identityStatement: 'Avanzo con experimentos, no con intuiciones.',
     systemIcon: 'rocket',
     systemColor: 'orange',
-    promise: 'Kino te empuja a tus milestones cuando estás en pico, no cuando estás fundido.',
+    promise: 'Tus milestones caen cuando estás en pico, no cuando estás fundido.',
     seed: {
       unitKind: 'folder',
       title: '¿Cuáles son tus próximos milestones?',
@@ -218,7 +218,7 @@ export const ONBOARDING_ARCHETYPES: Record<ArchetypeIdentity, OnboardingArchetyp
     identityStatement: 'Escribo en mi mejor ventana creativa, no en la que sobra.',
     systemIcon: 'feather',
     systemColor: 'purple',
-    promise: 'Tu obra ya existe: Kino te reserva el pico creativo del día para ella.',
+    promise: 'Tu obra ya existe: el pico creativo del día queda reservado para ella.',
     seed: {
       unitKind: 'folder',
       title: '¿Qué estás escribiendo?',
@@ -249,11 +249,11 @@ export const ONBOARDING_ARCHETYPES: Record<ArchetypeIdentity, OnboardingArchetyp
     identityStatement: '',
     systemIcon: 'folder',
     systemColor: 'blue',
-    promise: 'Kino ordena lo que ya tienes encima y te dice por dónde empezar hoy.',
+    promise: 'Lo que ya tienes encima queda ordenado, y sabes por dónde empezar hoy.',
     seed: {
       unitKind: 'task',
       title: '¿Qué tienes pendiente ahora mismo?',
-      subtitle: 'Escríbelo como lo dirías en voz alta. Kino se encarga de ordenarlo.',
+      subtitle: 'Escríbelo como lo dirías en voz alta. Ordenarlo viene después.',
       placeholders: ['Llamar al banco', 'Terminar la propuesta', 'Comprar los pasajes'],
       maxUnits: 6,
       unitTasks: [],
@@ -298,7 +298,7 @@ export function archetypeEnergyIdeal(
 
 /**
  * Definición del campo extra que se pide por unidad, resuelta contra el
- * `folderRole` del arquetipo. Devuelve `null` si el arquetipo no pide ninguno —
+ * `folderRole` del arquetipo. Devuelve `null` si el arquetipo no pide ninguno:
  * el formulario no inventa campos que el manifiesto no declare.
  */
 export function seedUnitField(archetype: OnboardingArchetype): ArchetypeFieldDef | null {

@@ -4,7 +4,7 @@
  * No escribe nada: **elige frases del propio texto**. Esa es la diferencia que
  * importa, y es la razón por la que esto puede existir sin un LLM y sin costo.
  * Un resumen generado suena mejor, pero puede inventarse un detalle que el
- * capítulo no dice; uno extractivo, como mucho, elige mal — y el autor lo ve al
+ * capítulo no dice; uno extractivo, como mucho, elige mal: y el autor lo ve al
  * instante porque son sus propias palabras, literales.
  *
  * El criterio es TF clásico: pesan más las frases que concentran el vocabulario
@@ -127,7 +127,7 @@ export function summarize({
         entities.length * 0.35 +
         // La frase que abre el capítulo casi siempre lo sitúa.
         (i === 0 ? 0.5 : 0),
-      // Una frase de tres palabras ("—No.") no resume nada.
+      // Una frase de tres palabras (una raya de diálogo y una negación) no resume nada.
       eligible: wordCount >= MIN_WORDS,
     };
   });

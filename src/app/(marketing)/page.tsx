@@ -9,7 +9,7 @@ import { LandingDocsTeaser } from "@/features/marketing/landing/LandingDocsTease
 import { LandingFinalCta } from "@/features/marketing/landing/LandingFinalCta";
 
 export const metadata: Metadata = {
-  title: "Kino — Trabaja con tu energía, no contra ella",
+  title: "Kino · Trabaja con tu energía, no contra ella",
   description:
     "Kino aprende tu curva de energía y arma un plan diario corto y accionable: qué hacer, cuándo hacerlo y cuándo descansar.",
 };

@@ -5,7 +5,7 @@ import { RotateCcw, Trash2 } from "lucide-react";
 
 /**
  * Papelera: lista las tareas con deleted_at IS NOT NULL del sistema y permite
- * restaurarlas. "Borrar" = deletedAt (papelera); "archivar" = status terminal —
+ * restaurarlas. "Borrar" = deletedAt (papelera); "archivar" = status terminal:
  * son conceptos separados (PLAN-09 F2.3).
  */
 export function TaskTrashSection({ systemId }: { systemId: string }) {

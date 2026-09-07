@@ -32,7 +32,7 @@ export interface EntityAttributeField {
 export type EntityAttributeValue = string | number;
 
 /**
- * Campos de `attributes` por tipo (PLAN-11 §5.1). Todo opcional — la ficha vacía
+ * Campos de `attributes` por tipo (PLAN-11 §5.1). Todo opcional: la ficha vacía
  * es válida; se enriquece después de crear la entidad desde el texto. La UI de la
  * ficha renderiza estos campos directamente desde el manifiesto, igual que el
  * folderRole de los arquetipos (folders.metadata.ts).
@@ -65,7 +65,7 @@ export const ENTITY_ATTRIBUTE_FIELDS: Record<EntityType, EntityAttributeField[]>
     // La cronología in-world (KIN-140) necesita algo *ordenable*, y una fecha
     // inventada no lo es: no hay forma de comparar "Año 1023" con "la Segunda
     // Era". El orden va aparte, como número, y lo escribe la vista de
-    // cronología reordenando — nadie tiene que teclear posiciones a mano.
+    // cronología reordenando: nadie tiene que teclear posiciones a mano.
     { id: "timelineOrder", label: "Orden in-world", input: "number", hidden: true },
   ],
   faction: [
@@ -120,7 +120,7 @@ function stripEmpty(raw: unknown): Record<string, unknown> | null {
 
 /**
  * Valida y normaliza los `attributes` entrantes contra el manifiesto del tipo.
- * Descarta vacíos y devuelve `null` si no queda nada — no persistimos objetos
+ * Descarta vacíos y devuelve `null` si no queda nada: no persistimos objetos
  * vacíos. Mismo contrato que parseFolderMetadata.
  */
 export function parseEntityAttributes(

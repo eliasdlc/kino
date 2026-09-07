@@ -8,7 +8,7 @@ import type { TaskCardState } from "./useTaskCard";
 import type { TaskTransport } from "../tasks.types";
 
 /**
- * Emprendimiento — la card ancla la tarea a su milestone (folder) y su kind
+ * Emprendimiento: la card ancla la tarea a su milestone (folder) y su kind
  * (experimento/build/learning), con la hipótesis en una línea. Se prioriza el
  * "por qué" del experimento sobre la fecha.
  */

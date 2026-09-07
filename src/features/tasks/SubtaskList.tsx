@@ -15,9 +15,9 @@ import { parseDueDate } from "./tasks.utils";
 import type { TaskTransport } from "./tasks.types";
 
 const ENERGY_DOT: Record<string, string> = {
-  high: "bg-amber-400",
-  medium: "bg-sky-400",
-  low: "bg-zinc-400",
+  high: "bg-primary",
+  medium: "bg-secondary",
+  low: "bg-muted",
 };
 
 interface SubtaskListProps {
@@ -113,7 +113,7 @@ export function SubtaskList({ parentTaskId, systemId }: SubtaskListProps) {
               className={cn(
                 "size-4 shrink-0 rounded-full border-2 transition-colors",
                 isDone
-                  ? "border-green-500 bg-green-500"
+                  ? "border-task-done bg-task-done"
                   : "border-muted-foreground/40 hover:border-primary"
               )}
             />
@@ -123,7 +123,7 @@ export function SubtaskList({ parentTaskId, systemId }: SubtaskListProps) {
               type="button"
               onClick={() => setEditingSubtask(subtask)}
               className={cn(
-                "text-sm flex-1 min-w-0 truncate text-left hover:text-zinc-100 transition-colors",
+                "text-sm flex-1 min-w-0 truncate text-left hover:text-muted-foreground transition-colors",
                 isDone && "line-through text-muted-foreground"
               )}
             >
@@ -132,7 +132,7 @@ export function SubtaskList({ parentTaskId, systemId }: SubtaskListProps) {
 
             {/* KIN-74: show dueDate chip if present */}
             {subtask.dueDate && (
-              <span className="hidden sm:inline-flex items-center gap-1 text-xs text-zinc-500 shrink-0">
+              <span className="hidden sm:inline-flex items-center gap-1 text-xs text-muted-foreground shrink-0">
                 <Calendar size={11} />
                 {format(parseDueDate(subtask.dueDate), "MMM d")}
               </span>

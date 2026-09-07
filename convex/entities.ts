@@ -211,7 +211,7 @@ export const create = kinoZodMutation({
       coverImageUrl: input.coverImageUrl ?? undefined,
       images: input.images ?? [],
       createdBy: userId,
-      createdVia: 'session',
+      createdVia: ctx.channel,
       createdAt: now,
       updatedAt: now,
     });

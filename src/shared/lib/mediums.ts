@@ -1,7 +1,7 @@
 /**
  * Manifiesto de medium (PLAN-11 §6, Sprint W3). Mismo patrón que el manifiesto de
  * arquetipo (`system-types.ts`): la obra declara su medium al crearse y el medium
- * define estructura real, no una etiqueta — vocabulario de la unidad, bloques
+ * define estructura real, no una etiqueta: vocabulario de la unidad, bloques
  * propios que ofrece el editor, plantilla inicial y formato de export.
  *
  * Vive en `shared` porque lo leen las tres capas: el server (validación de
@@ -41,7 +41,7 @@ export type MediumExportFormat = 'prose' | 'script' | 'screenplay';
  * junto al vocabulario, los bloques y el export: nada nuevo que decidir sobre qué
  * es cada medium, solo cómo se presenta cuando ya no se está escribiendo.
  *
- * - `book`: página paginada, serif, sangría y justificado — se lee como un libro.
+ * - `book`: página paginada, serif, sangría y justificado: se lee como un libro.
  * - `script`: guion limpio de manga/cómic, con sus páginas y paneles numerados.
  * - `screenplay`: formato de guion audiovisual, con sus sangrías estándar.
  */
@@ -117,7 +117,7 @@ export const MEDIUM_CONFIG: Record<MediumId, MediumManifest> = {
     readingLayout: 'script',
   },
   webtoon: {
-    // Scroll vertical: sin páginas, solo beats — el panel es la unidad de dibujo.
+    // Scroll vertical, sin páginas, solo beats: el panel es la unidad de dibujo.
     id: 'webtoon',
     label: 'Webtoon',
     unit: { noun: 'episodio', nounPlural: 'episodios', newLabel: 'Nuevo episodio' },
@@ -181,7 +181,7 @@ export const DEFAULT_MEDIUM: MediumId = 'novel';
  * Sinónimos aceptados al normalizar. W1/W2 guardaron `medium` (y antes `kind`)
  * como texto libre en español: "novela", "cómic", "guión"… W3 lo convierte en
  * selección tipada, así que las obras viejas se leen a través de este mapa en vez
- * de migrarse — la metadata es jsonb y el valor legacy sigue siendo legible.
+ * de migrarse: la metadata es jsonb y el valor legacy sigue siendo legible.
  */
 const MEDIUM_ALIASES: Record<string, MediumId> = {
   novela: 'novel',

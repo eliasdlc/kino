@@ -30,15 +30,40 @@ export function dueBeforeStart(dueDate: string, startDate: string): boolean {
   return dayKey(dueDate) < dayKey(startDate);
 }
 
-export const taskMetadataSchema = z
-  .object({ eventSubtype: z.enum(['exam', 'quiz', 'practice']).optional() })
-  .catchall(z.unknown());
+const EVENT_SUBTYPE = z.enum(['exam', 'quiz', 'practice']);
+
+// Un saco de claves (`kind`, `course`, `eventSubtype`, ...) del que el schema
+// sólo fija `eventSubtype`; `kind` lo valida la mutación contra el manifiesto
+// del sistema. Es un record y no un objeto con catchall a propósito: el
+// validador de Convex se deriva de este Zod y un objeto rechaza toda clave
+// que no declare.
+export const taskMetadataSchema = z.record(z.string(), z.unknown()).superRefine((metadata, ctx) => {
+  if (metadata.eventSubtype !== undefined && !EVENT_SUBTYPE.safeParse(metadata.eventSubtype).success) {
+    ctx.addIssue({ code: 'custom', path: ['eventSubtype'], message: 'Invalid event subtype' });
+  }
+});
+
+/**
+ * Tope de la descripción de una tarea, en caracteres.
+ *
+ * Una tarea es un renglón con contexto, no un documento: para eso está la
+ * página, que tiene su propio tope y su editor. Diez mil caracteres son unas
+ * mil quinientas palabras, más de lo que nadie escribe en el detalle de una
+ * tarea, y cortan la vía por la que un agente vuelca ahí un texto entero.
+ *
+ * **Sólo se comprueba al escribir.** Lo guardado por encima se lee igual.
+ */
+export const TASK_DESCRIPTION_MAX = 10_000;
+
+const taskDescription = z
+  .string()
+  .max(TASK_DESCRIPTION_MAX, `La descripción pasa de ${TASK_DESCRIPTION_MAX.toLocaleString('es')} caracteres. Lo largo va en una página.`);
 
 export const createTaskSchema = z
   .object({
     systemId: zid('systems'),
     title: z.string().min(1).max(500),
-    description: z.string().optional(),
+    description: taskDescription.optional(),
     status: STATUS.optional(),
     energyLevel: ENERGY.optional(),
     priority: PRIORITY.optional(),
@@ -70,7 +95,7 @@ export const createTaskSchema = z
 export const updateTaskSchema = z
   .object({
     title: z.string().min(1).max(500).optional(),
-    description: z.string().optional(),
+    description: taskDescription.optional(),
     status: STATUS.optional(),
     energyLevel: ENERGY.optional(),
     priority: PRIORITY.optional(),

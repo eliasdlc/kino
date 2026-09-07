@@ -24,7 +24,7 @@ import {
 
 /**
  * Mapa visual del universo (KIN-136). Es **solo render**: nada que capturar, nada
- * que migrar — las relaciones ya están en `entity_relations` desde W2.
+ * que migrar: las relaciones ya están en `entity_relations` desde W2.
  *
  * Monocromo a propósito, como el resto del sistema de diseño: el tipo de entidad
  * se lee por su icono, no por un color; el peso, por el tamaño del nodo. Una
@@ -232,7 +232,7 @@ export function GraphCanvas({ layout, onOpen }: GraphCanvasProps) {
 
   return (
     <div className="relative overflow-hidden rounded-lg border bg-muted/10">
-      <div className="absolute right-2 top-2 z-10 flex flex-col gap-1">
+      <div className="absolute right-2 top-2 z-(--z-raised) flex flex-col gap-1">
         <Button variant="outline" size="icon" className="size-8" onClick={() => zoom(ZOOM_STEP)} aria-label="Acercar">
           <Plus className="size-4" />
         </Button>

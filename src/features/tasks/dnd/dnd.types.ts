@@ -12,7 +12,7 @@ export type DragSourceType = "day" | "unscheduled" | "energy" | "priority" | "pr
  * dnd-kit passes this through `active.data.current`.
  */
 export interface TaskDragData {
-  /** The full task object — used by the DragOverlay to render a preview */
+  /** The full task object: used by the DragOverlay to render a preview */
   task: TaskTransport;
   /** Which view/column the task was dragged from */
   sourceType: DragSourceType;

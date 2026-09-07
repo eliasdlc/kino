@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { route } from "@/shared/utils/route";
 import { getImageStorage, userKeyPrefix } from "./image-storage";
 
-const MAX_BYTES = 4 * 1024 * 1024; // 4MB — tras compresión WebP client-side sobra.
+const MAX_BYTES = 4 * 1024 * 1024; // 4MB: tras compresión WebP client-side sobra.
 const EXT_BY_TYPE: Record<string, string> = {
   "image/webp": "webp",
   "image/png": "png",

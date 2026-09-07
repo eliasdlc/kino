@@ -137,7 +137,7 @@ describe("layoutGraph", () => {
   });
 
   it("los relacionados quedan más cerca que los ajenos", () => {
-    // a—b relacionados; c y d sueltos. La atracción tiene que notarse.
+    // a-b relacionados; c y d sueltos. La atracción tiene que notarse.
     const nodes = [node("a"), node("b"), node("c"), node("d")];
     const layout = layoutGraph(nodes, [edge("r1", "a", "b")]);
     const byId = new Map(layout.nodes.map((n) => [n.id, n]));

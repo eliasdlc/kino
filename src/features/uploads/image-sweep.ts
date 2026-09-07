@@ -6,7 +6,7 @@ import { userKeyPrefix } from "./image-storage";
  *
  * Una imagen queda huérfana cuando el usuario la quita del editor o borra la página
  * que la contenía: el blob sigue ocupando cuota sin que nada apunte a él. No se borra
- * en el momento de quitarla, y es deliberado — la misma imagen puede estar en dos
+ * en el momento de quitarla, y es deliberado: la misma imagen puede estar en dos
  * páginas, y un `Ctrl+Z` justo después de guardar la devolvería apuntando a un blob
  * ya muerto. Barrer aparte, comparando contra *todo* el contenido vivo a la vez, es
  * la única forma de decidir bien con una sola pasada.
@@ -107,7 +107,7 @@ const DELETE_BATCH = 100;
  *
  * Se escanea entero **antes** de borrar nada. Cuesta memoria (acotada por el tope
  * de borrados) y a cambio permite mirar el resultado completo y negarse si no tiene
- * sentido — algo imposible si se va borrando página a página.
+ * sentido: algo imposible si se va borrando página a página.
  *
  * `incomplete: true` significa que se quedó a medias por presupuesto; volver a
  * llamar sigue por donde tocaba, porque lo ya borrado deja de aparecer en el listado.

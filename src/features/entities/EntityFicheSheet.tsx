@@ -94,7 +94,7 @@ function EntityFicheForm({
   const [type, setType] = useState<EntityType>(entity.type);
   const [aliases, setAliases] = useState((entity.aliases ?? []).join(", "));
   const [summary, setSummary] = useState(entity.summary ?? "");
-  // El form trabaja siempre con strings —es lo que devuelven los inputs— y el
+  // El form trabaja siempre con strings (es lo que devuelven los inputs) y el
   // Zod del manifiesto vuelve a coercionar los numéricos al guardar.
   const [attributes, setAttributes] = useState<Record<string, string>>(() =>
     Object.fromEntries(

@@ -23,7 +23,7 @@ export const updateUserSettingsSchema = z
     weeklyReviewDay: z.enum(['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun']).optional(),
   })
   // Zod ya descartó las claves desconocidas, así que contar las que quedan es
-  // equivalente a enumerarlas — y no se olvida de actualizarse al añadir un campo.
+  // equivalente a enumerarlas: y no se olvida de actualizarse al añadir un campo.
   .refine((d) => Object.keys(d).length > 0, 'Debe incluir al menos un campo');
 
 export type UpdateUserSettingsInput = z.infer<typeof updateUserSettingsSchema>;

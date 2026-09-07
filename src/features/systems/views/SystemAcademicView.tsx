@@ -14,7 +14,7 @@ import type { TaskTransport } from "@/features/tasks/tasks.types";
 import type { SystemViewProps } from "./SystemDetailView";
 
 /**
- * Academic — el semestre con el alma de Kino: foco con runway por defecto
+ * Academic. El semestre con el alma de Kino: foco con runway por defecto
  * (Esta Semana), calendario como zoom-out, y el funnel de planificación/archivo
  * reutilizado. El headspace lo da abrir en "Esta Semana", no en el calendario.
  */

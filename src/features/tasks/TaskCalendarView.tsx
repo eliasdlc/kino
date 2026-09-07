@@ -82,7 +82,7 @@ function TaskChip({
 }
 
 /**
- * CalendarTab — grid de mes (zoom-out). Arrastra una tarea sin fecha a un día
+ * CalendarTab: grid de mes (zoom-out). Arrastra una tarea sin fecha a un día
  * para asignarle dueDate; el click en una tarea lleva a la action view, donde
  * realmente se actúa. No es la vista por defecto de Academic.
  */
@@ -173,7 +173,7 @@ export function TaskCalendarView({ systemId, initialData, onNavigateToAction }: 
       onDragEnd={handleDragEnd}
     >
       <div className="flex gap-4">
-        {/* Panel sin fecha — origen de arrastre */}
+        {/* Panel sin fecha: origen de arrastre */}
         <div className="w-44 shrink-0">
           <h3 className="text-xs font-semibold uppercase tracking-widest text-muted-foreground mb-2 px-1">
             Sin fecha
@@ -181,7 +181,7 @@ export function TaskCalendarView({ systemId, initialData, onNavigateToAction }: 
           <div className="space-y-1.5">
             {withoutDate.length === 0 ? (
               <p className="text-xs text-muted-foreground/50 text-center py-4">
-                Todas tienen fecha ✓
+                Todas tienen fecha
               </p>
             ) : (
               withoutDate.map((task) => (

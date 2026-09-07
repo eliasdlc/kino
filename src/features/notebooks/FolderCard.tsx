@@ -105,7 +105,7 @@ export function FolderCard({ folder, systemId, onClick, href }: FolderCardProps)
                 }}
               >
                 <Pencil className="size-3.5" />
-                Rename
+                Renombrar
               </DropdownMenuItem>
               <DropdownMenuSeparator />
               <DropdownMenuItem
@@ -113,31 +113,31 @@ export function FolderCard({ folder, systemId, onClick, href }: FolderCardProps)
                 onClick={() => setConfirmDelete(true)}
               >
                 <Trash2 className="size-3.5" />
-                Delete
+                Eliminar
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
         }
       >
-        {/* Folder back — solid neutral, floating inside a background-coloured outline */}
+        {/* Folder back: solid neutral, floating inside a background-coloured outline */}
         <div className="absolute inset-0 rounded-[20px] bg-zinc-200 dark:bg-zinc-600 sm:rounded-[28px]">
           <div className="absolute inset-0 rounded-[20px] shadow-[inset_0_0_0_4px_var(--background)] sm:rounded-[28px] sm:shadow-[inset_0_0_0_5px_var(--background)]" />
         </div>
 
-        {/* Papers — peek above the flap and fan out on hover */}
+        {/* Papers: peek above the flap and fan out on hover */}
         {hasContent && (
-          <div className="absolute left-1/2 top-[15%] z-10 h-[42%] w-[54%] -translate-x-1/2">
+          <div className="absolute left-1/2 top-[15%] z-(--z-raised) h-[42%] w-[54%] -translate-x-1/2">
             <PaperSheet className="group-hover:-translate-x-3 group-hover:-translate-y-1.5 group-hover:-rotate-[9deg]" />
             <PaperSheet className="group-hover:translate-x-3 group-hover:-translate-y-1.5 group-hover:rotate-[7deg]" />
             <PaperSheet className="translate-y-[3px] group-hover:-translate-y-2" />
           </div>
         )}
 
-        {/* Folder front — tabbed flap sitting over the back (tab + shadow seam = the folder).
+        {/* Folder front: tabbed flap sitting over the back (tab + shadow seam = the folder).
             Taller on mobile so a 2-line name + counts never collide on narrow phones. */}
-        <div className="absolute inset-x-0 bottom-0 z-20 h-[58%] sm:h-[54%]">
+        <div className="absolute inset-x-0 bottom-0 z-(--z-overlay) h-[58%] sm:h-[54%]">
           {/* tab sticking up on the left */}
-          <div className="absolute bottom-full h-[16px] w-[42%] z-10 translate-y-px rounded-t-[12px] bg-card shadow-[0_-4px_10px_-3px_rgba(0,0,0,0.25)] sm:h-[18px] sm:rounded-t-[20px]" />
+          <div className="absolute bottom-full h-[16px] w-[42%] z-(--z-raised) translate-y-px rounded-t-[12px] bg-card shadow-[0_-4px_10px_-3px_rgba(0,0,0,0.25)] sm:h-[18px] sm:rounded-t-[20px]" />
           {/* flap face */}
           <div className="absolute inset-0 rounded-b-[20px] rounded-tr-[14px] border-t border-foreground/10 bg-card shadow-[0_-7px_18px_-4px_rgba(0,0,0,0.28)] sm:rounded-b-[28px]" />
 
@@ -162,11 +162,11 @@ export function FolderCard({ folder, systemId, onClick, href }: FolderCardProps)
         </ContextMenuTrigger>
         <ContextMenuContent className="w-36">
           <ContextMenuItem className="gap-2" onSelect={() => { setNewName(folder.name); setRenameOpen(true); }}>
-            <Pencil className="size-3.5" /> Rename
+            <Pencil className="size-3.5" /> Renombrar
           </ContextMenuItem>
           <ContextMenuSeparator />
           <ContextMenuItem variant="destructive" className="gap-2" onSelect={() => setConfirmDelete(true)}>
-            <Trash2 className="size-3.5" /> Delete
+            <Trash2 className="size-3.5" /> Eliminar
           </ContextMenuItem>
         </ContextMenuContent>
       </ContextMenu>
@@ -201,7 +201,7 @@ export function FolderCard({ folder, systemId, onClick, href }: FolderCardProps)
       <ConfirmDialog
         open={confirmDelete}
         title="Eliminar carpeta"
-        description={`"${folder.name}" and all its contents will be permanently deleted.`}
+        description={`"${folder.name}" y todo lo que contiene se eliminarán para siempre.`}
         onConfirm={() => {
           setConfirmDelete(false);
           deleteFolder(folder.id);

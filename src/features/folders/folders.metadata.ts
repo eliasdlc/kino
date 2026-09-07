@@ -13,7 +13,7 @@ import {
  * D1–D16" de Linear.
  *
  * Todos los campos son opcionales (una clase puede no tener profesor cargado);
- * el schema es `.strict()` para rechazar claves fuera del manifiesto — metadata
+ * el schema es `.strict()` para rechazar claves fuera del manifiesto: metadata
  * no es un saco de basura.
  */
 function fieldToZod(field: ArchetypeFieldDef): z.ZodTypeAny {
@@ -70,7 +70,7 @@ export type FolderMetadataParse =
 /**
  * Valida y normaliza la metadata entrante de un folder contra el manifiesto de
  * su arquetipo. Descarta valores vacíos (form manda "" en inputs no tocados) y
- * devuelve `null` si no queda nada — así no persistimos objetos vacíos.
+ * devuelve `null` si no queda nada: así no persistimos objetos vacíos.
  */
 export function parseFolderMetadata(
   systemType: SystemType,

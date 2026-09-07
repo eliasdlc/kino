@@ -93,7 +93,7 @@ export function BulkActionBar({ selectedIds, onClear, onVaciar }: BulkActionBarP
       <button
         onClick={() => move("done")}
         disabled={isPending}
-        className="inline-flex items-center gap-1.5 text-xs px-2.5 py-1 rounded-md border border-border hover:bg-emerald-500/10 hover:border-emerald-500/40 hover:text-emerald-400 transition-colors disabled:opacity-40"
+        className="inline-flex items-center gap-1.5 text-xs px-2.5 py-1 rounded-md border border-border hover:bg-task-done/10 hover:border-task-done/40 hover:text-task-done transition-colors disabled:opacity-40"
       >
         <Check className="w-3.5 h-3.5" />
         Completar
@@ -111,7 +111,7 @@ export function BulkActionBar({ selectedIds, onClear, onVaciar }: BulkActionBarP
         </button>
       )}
 
-      {/* Eliminar — pending bulk-delete endpoint */}
+      {/* Eliminar: pending bulk-delete endpoint */}
       <button
         disabled
         title="Próximamente"

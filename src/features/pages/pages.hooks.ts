@@ -4,8 +4,14 @@ import { api } from "@convex/_generated/api";
 import { useConvexMutation, useConvexQuery } from "@/shared/convex/hooks";
 import type { CreatePageInput, UpdatePageInput } from "./pages.schemas";
 
+/**
+ * Las páginas de un sistema. La query trae hasta `PAGE_LIST_LIMIT` y dice
+ * cuántas quedaron fuera; el componente recibe la lista, y `restantes` está
+ * ahí para el día que un sistema pase del tope.
+ */
 export function usePages(systemId: string) {
-  return useConvexQuery(api.pages.bySystem, { systemId });
+  const result = useConvexQuery(api.pages.bySystem, { systemId });
+  return { ...result, data: result.data?.items, restantes: result.data?.restantes ?? 0 };
 }
 
 export function usePage(pageId: string) {

@@ -8,7 +8,7 @@ import { useChapterSummary } from "./writing.hooks";
 /**
  * Resumen del capítulo (KIN-143). No lo escribe Kino: **son frases del propio
  * capítulo**, elegidas por peso. Un resumen generado suena mejor pero puede
- * inventarse un detalle; este, como mucho, elige mal — y se nota al instante,
+ * inventarse un detalle; este, como mucho, elige mal: y se nota al instante,
  * porque son las palabras del autor, literales.
  *
  * Se pide bajo demanda: la mayoría de las veces que se abre un capítulo es para

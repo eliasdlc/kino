@@ -29,7 +29,7 @@ export function PhysicalCard({
   menu,
   className,
 }: PhysicalCardProps) {
-  // Shadow, focus ring and the hover transform live on the click target — never
+  // Shadow, focus ring and the hover transform live on the click target: never
   // on the clipping element, so the rounded clip is never re-rasterised while it
   // scales.
   const targetClasses = cn(
@@ -56,10 +56,10 @@ export function PhysicalCard({
         </button>
       )}
 
-      {/* Options menu — sibling of the target so it sits above the click area */}
+      {/* Options menu: sibling of the target so it sits above the click area */}
       {menu && (
         <div
-          className="absolute right-2 top-2 z-30 sm:right-2.5 sm:top-2.5"
+          className="absolute right-2 top-2 z-(--z-overlay) sm:right-2.5 sm:top-2.5"
           onClick={(e) => e.stopPropagation()}
         >
           {menu}

@@ -63,7 +63,7 @@ export function TaskArchiveView({ systemId, initialData, folderId, folderInitial
                 )}
             </div>
 
-            {/* Papelera: tareas borradas (deletedAt) — restaurables */}
+            {/* Papelera: tareas borradas (deletedAt): restaurables */}
             <TaskTrashSection systemId={systemId} />
 
             <ConfirmDialog

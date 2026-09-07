@@ -19,11 +19,11 @@ import { getArchetype, type ArchetypeIdentity } from '@/features/onboarding/onbo
  * adquisición de Kino es hablarle a cada segmento en su idioma en vez de vender
  * "gestión de tareas": el estudiante lee semestre y entregas, el escritor lee obra
  * y codex, el builder lee board y sprint. Todas cierran con el mismo diferenciador
- * — y además entiende tu energía.
+ *: y además entiende tu energía.
  *
  * Esto es contenido, no código: la ruta se genera desde `LANDING_SEGMENTS` y añadir
  * un segmento es añadir una entrada, nunca un `if` por slug. El `slug` debe coincidir
- * con el `landingSlug` de su identidad en el manifiesto de onboarding — es lo que
+ * con el `landingSlug` de su identidad en el manifiesto de onboarding: es lo que
  * hace que el CTA (`/register?para=<slug>`) desemboque en el onboarding ya
  * preseleccionado. El test del manifiesto verifica ese contrato.
  */
@@ -82,13 +82,13 @@ const SEGMENT_CONTENT: Omit<LandingSegment, 'icon'>[] = [
     identity: 'estudiante',
     navLabel: 'Estudiantes',
     audience: 'estudiante',
-    metaTitle: 'Kino para estudiantes — Llega a la entrega sin la madrugada de pánico',
+    metaTitle: 'Kino para estudiantes: Llega a la entrega sin la madrugada de pánico',
     metaDescription:
       'Tus clases, tus entregas y tus exámenes en una línea de tiempo que ves todos los días. Kino te dice cuándo empezar a estudiar, no solo cuándo entregar.',
     eyebrow: 'Para estudiantes',
     headline: { lead: 'Llega a la entrega', accent: 'sin la madrugada', tail: 'de pánico.' },
     subheadline:
-      'Kino conoce tus clases, tus entregas y tus exámenes — y cada mañana te dice qué toca antes de que la fecha te alcance.',
+      'Kino conoce tus clases, tus entregas y tus exámenes: y cada mañana te dice qué toca antes de que la fecha te alcance.',
     heroCta: 'Montar mi semestre →',
     painsTitle: 'El semestre no falla por falta de ganas',
     painsLead: 'Falla porque las fechas viven en un PDF y tu energía no aparece en ningún plan.',
@@ -103,7 +103,7 @@ const SEGMENT_CONTENT: Omit<LandingSegment, 'icon'>[] = [
       },
       {
         title: 'Cinco clases compitiendo por la misma cabeza.',
-        body: 'Una lista única las mezcla todas y la más ruidosa gana — casi nunca la más urgente.',
+        body: 'Una lista única las mezcla todas y la más ruidosa gana: casi nunca la más urgente.',
       },
     ],
     featuresTitle: 'Un sistema que habla de clases, no de proyectos',
@@ -148,13 +148,13 @@ const SEGMENT_CONTENT: Omit<LandingSegment, 'icon'>[] = [
     identity: 'escritor',
     navLabel: 'Escritores',
     audience: 'escritor',
-    metaTitle: 'Kino para escritores — Escribe en tu mejor ventana creativa',
+    metaTitle: 'Kino para escritores: Escribe en tu mejor ventana creativa',
     metaDescription:
       'Tu obra declara su forma y el editor se monta para ella. Codex de personajes, sesiones que se cuentan solas y el pico creativo del día reservado para escribir.',
     eyebrow: 'Para escritores',
     headline: { lead: 'Escribe en tu', accent: 'mejor ventana', tail: 'creativa.' },
     subheadline:
-      'Kino conoce tu obra, su forma y su gente. Te reserva el pico creativo del día — y cuenta las palabras que escribiste sin que se lo pidas.',
+      'Kino conoce tu obra, su forma y su gente. Te reserva el pico creativo del día: y cuenta las palabras que escribiste sin que se lo pidas.',
     heroCta: 'Abrir mi obra →',
     painsTitle: 'Escribir no compite de igual a igual',
     painsLead:
@@ -204,7 +204,7 @@ const SEGMENT_CONTENT: Omit<LandingSegment, 'icon'>[] = [
     ],
     energyTitle: 'Y además entiende tu energía',
     energyBody:
-      'De todos los sistemas de Kino, el de escritura es el único que pide el pico: la página nueva se agenda en tu mejor ventana creativa y la revisión cae donde la energía ya no da para inventar. Si la obra lleva días sin una sesión, Kino te lo dice cuando estás en pico — no cuando estás fundido.',
+      'De todos los sistemas de Kino, el de escritura es el único que pide el pico: la página nueva se agenda en tu mejor ventana creativa y la revisión cae donde la energía ya no da para inventar. Si la obra lleva días sin una sesión, Kino te lo dice cuando estás en pico: no cuando estás fundido.',
     closingTitle: 'Tu obra empieza a existir hoy.',
     closingBody:
       'Dinos qué estás escribiendo y en qué forma. Sales con la obra creada, su primer manuscrito abierto en la plantilla de su medium y la primera sesión de escritura en el plan de hoy.',
@@ -215,11 +215,11 @@ const SEGMENT_CONTENT: Omit<LandingSegment, 'icon'>[] = [
     identity: 'builder',
     navLabel: 'Builders',
     audience: 'builder',
-    metaTitle: 'Kino para builders — Envía cosas terminadas, no ramas a medias',
+    metaTitle: 'Kino para builders: Envía cosas terminadas, no ramas a medias',
     metaDescription:
       'Board de doble eje, sprints y epics para tu proyecto. Y un plan diario que sabe cuál de esas tarjetas puedes de verdad con la energía que te queda hoy.',
     eyebrow: 'Para builders',
-    headline: { lead: 'Envía cosas', accent: 'terminadas', tail: '— no ramas a medias.' },
+    headline: { lead: 'Envía cosas', accent: 'terminadas', tail: ', no ramas a medias.' },
     subheadline:
       'Board, sprints y epics para el proyecto. Y un plan diario que sabe cuál de esas tarjetas puedes de verdad con la energía que te queda hoy.',
     heroCta: 'Montar mi board →',
@@ -270,10 +270,10 @@ const SEGMENT_CONTENT: Omit<LandingSegment, 'icon'>[] = [
     ],
     energyTitle: 'Y además entiende tu energía',
     energyBody:
-      'Kino aprende tu curva real y ordena el board según ella: la feature que exige cabeza entra en tu pico, el triage de bugs y la actualización del changelog en el valle. El plan del día sale corto y accionable — entre tres y siete tarjetas, no el backlog entero.',
+      'Kino aprende tu curva real y ordena el board según ella: la feature que exige cabeza entra en tu pico, el triage de bugs y la actualización del changelog en el valle. El plan del día sale corto y accionable: entre tres y siete tarjetas, no el backlog entero.',
     closingTitle: 'Tu board arranca con trabajo real.',
     closingBody:
-      'Escribe lo que estás construyendo ahora mismo y entra como tarjetas en "Por hacer" — más la única pregunta que ordena un proyecto de verdad: qué significa "terminado" en este.',
+      'Escribe lo que estás construyendo ahora mismo y entra como tarjetas en "Por hacer": más la única pregunta que ordena un proyecto de verdad: qué significa "terminado" en este.',
     ctaLabel: 'Montar mi board gratis →',
   },
 ];

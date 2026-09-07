@@ -14,7 +14,7 @@ import {
 /**
  * El manifiesto de identidad es datos, no código: estas pruebas son su
  * validación. Un kind que el arquetipo no declara o un icono con typo no
- * revientan en runtime — degradan en silencio. Aquí no.
+ * revientan en runtime: degradan en silencio. Aquí no.
  */
 describe('manifiesto de identidad', () => {
   it('cubre todas las identidades y cada entrada conoce su propia clave', () => {
@@ -124,7 +124,7 @@ describe('manifiesto de identidad', () => {
 
   it('deriva la energía ideal del manifiesto y descarta la que la columna no admite', () => {
     // `writing` es high en el manifiesto; `custom` no declara nada y `personal`
-    // sería `flexible` — ninguno de esos dos puede entrar en energy_ideal.
+    // sería `flexible`: ninguno de esos dos puede entrar en energy_ideal.
     expect(archetypeEnergyIdeal(ONBOARDING_ARCHETYPES.escritor)).toBe('high');
     expect(archetypeEnergyIdeal(ONBOARDING_ARCHETYPES.estudiante)).toBe('medium');
     expect(archetypeEnergyIdeal(ONBOARDING_ARCHETYPES.propio)).toBeUndefined();

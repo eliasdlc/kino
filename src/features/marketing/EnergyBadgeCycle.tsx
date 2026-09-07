@@ -1,11 +1,12 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { Flame, Moon, Zap } from "lucide-react";
 
 const LEVELS = [
-  { key: "alta", label: "🔥 Alta", color: "#f97316" },
-  { key: "media", label: "⚡ Media", color: "#818cf8" },
-  { key: "baja", label: "🌙 Baja", color: "#6b7280" },
+  { key: "alta", label: "Alta", Icon: Flame, color: "var(--warn)" },
+  { key: "media", label: "Media", Icon: Zap, color: "var(--ac)" },
+  { key: "baja", label: "Baja", Icon: Moon, color: "var(--mute)" },
 ] as const;
 
 export function EnergyBadgeCycle() {
@@ -25,12 +26,13 @@ export function EnergyBadgeCycle() {
             key={l.key}
             className="rounded-full border px-3.5 py-[7px] font-jetbrains text-xs transition-all duration-500"
             style={{
-              borderColor: sel ? `${l.color}55` : "rgba(255,255,255,0.10)",
-              background: sel ? `${l.color}18` : "rgba(255,255,255,0.05)",
-              color: sel ? "#e4e4e7" : "#52525b",
+              borderColor: sel ? `${l.color}55` : "color-mix(in srgb, var(--ink) 10%, transparent)",
+              background: sel ? `${l.color}18` : "color-mix(in srgb, var(--ink) 5%, transparent)",
+              color: sel ? "var(--body)" : "var(--mute)",
               boxShadow: sel ? `0 0 14px ${l.color}35` : "none",
             }}
           >
+            <l.Icon className="mr-1.5 inline size-3.5 align-[-2px]" aria-hidden />
             {l.label}
           </span>
         );

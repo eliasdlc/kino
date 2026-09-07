@@ -297,7 +297,7 @@ export const classify = kinoZodQuery({
       systemName: best?.name ?? 'Inbox',
       confidence: bestScore > 0 ? ('medium' as const) : ('low' as const),
       suggestedPriority,
-      note: bestScore === 0 ? 'No encontré palabras clave claras — asignado al sistema más probable por defecto.' : undefined,
+      note: bestScore === 0 ? 'No encontré palabras clave claras: asignado al sistema más probable por defecto.' : undefined,
     };
   },
 });

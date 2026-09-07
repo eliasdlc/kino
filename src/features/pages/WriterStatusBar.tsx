@@ -9,22 +9,22 @@ import { useWritingOverview } from "@/features/writing/writing.hooks";
 import { useCelebrateOnce } from "@/features/writing/celebrate";
 
 export interface WriterObra {
-  /** Folder de la obra — ancla las celebraciones a una obra concreta. */
+  /** Folder de la obra: ancla las celebraciones a una obra concreta. */
   id: string;
   name: string;
   /** Meta de palabras de la obra (folders.metadata.wordGoal), o null si no tiene. */
   wordGoal: number | null;
-  /** Palabras de la obra SIN contar el capítulo abierto — el capítulo se cuenta en vivo. */
+  /** Palabras de la obra SIN contar el capítulo abierto: el capítulo se cuenta en vivo. */
   wordsExcludingCurrent: number;
 }
 
-/** Rachas que merecen celebración — mismas que marca el diario de la obra. */
+/** Rachas que merecen celebración: mismas que marca el diario de la obra. */
 const STREAK_MILESTONES = [7, 30, 100, 365];
 
 /**
  * Status bar del arquetipo Writing (PLAN-11 §7): palabras del capítulo en vivo,
  * progreso de la obra contra su meta y racha. El conteo se deriva del contenido
- * Tiptap — nunca un contador persistido (D12: derivar > mantener).
+ * Tiptap: nunca un contador persistido (D12: derivar > mantener).
  */
 export function WriterStatusBar({
   obra,
@@ -97,16 +97,16 @@ export function WriterStatusBar({
     // Pegajosa sólo desde md. En un teléfono `bottom-0` pelea con el teclado
     // virtual: el viewport de layout no encoge al abrirse, así que la barra se
     // queda debajo del teclado o encima de la línea que estás escribiendo. Lo
-    // que lleva —recuento y modo focus— se consulta entre frases, no mientras
+    // que lleva (recuento y modo focus) se consulta entre frases, no mientras
     // se teclea, así que baja con el texto y deja de competir.
-    <div className="z-10 flex flex-wrap items-center gap-x-4 gap-y-1 border-t bg-background/80 px-4 py-1.5 text-xs text-muted-foreground backdrop-blur md:flex-nowrap md:sticky md:bottom-0 md:px-6">
-      <span className="font-mono">
-        Cap: <span className="text-foreground">{chapterWords.toLocaleString("es")}</span> palabras
+    <div className="z-(--z-raised) flex flex-wrap items-center gap-x-4 gap-y-1 border-t border-border bg-background/80 px-4 py-2 text-xs text-muted-foreground backdrop-blur md:flex-nowrap md:sticky md:bottom-0 md:px-6">
+      <span className="tabular-nums">
+        <span className="font-semibold text-foreground">{chapterWords.toLocaleString("es")}</span> palabras en el capítulo
       </span>
 
       {obra && !focusMode && (
         <div className="flex w-full min-w-0 items-center gap-2 md:w-auto md:flex-1">
-          <span className="shrink-0 truncate font-mono">
+          <span className="shrink-0 truncate tabular-nums">
             {obra.name}: {obraWords!.toLocaleString("es")}
             {goal ? ` / ${goal.toLocaleString("es")}` : ""}
           </span>

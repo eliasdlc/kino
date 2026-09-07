@@ -8,7 +8,7 @@ import type { TaskTypeValue } from "@/shared/types/enums";
  * Extraído de `TaskDetailSheet` sin cambiar comportamiento. Lo que más importa
  * aquí es `buildDirtyTaskData`: decide qué campos viajan al servidor en cada
  * autosave y vivía dentro del componente, así que no había forma de probar sus
- * reglas — y son reglas con historia (ver los comentarios).
+ * reglas: y son reglas con historia (ver los comentarios).
  */
 
 export const PRIORITY_LABELS: Record<string, string> = {

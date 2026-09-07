@@ -38,8 +38,12 @@ export const status = kinoAction(GITHUB_BUDGET_MS)({
   },
 });
 
-/** Guarda el token cifrado tras comprobarlo contra GitHub. Lo llama la vuelta del OAuth. */
-export const connect = kinoAction(GITHUB_BUDGET_MS)({
+/**
+ * Guarda el token cifrado tras comprobarlo contra GitHub. Lo llama la vuelta
+ * del OAuth. `closed`: toca una credencial, y una credencial que entra por un
+ * canal que no es el navegador no se puede atribuir a nadie.
+ */
+export const connect = kinoAction(GITHUB_BUDGET_MS, 'closed')({
   args: { accessToken: v.string(), refreshToken: v.union(v.string(), v.null()) },
   handler: async (ctx, { accessToken, refreshToken }): Promise<null> => {
     if (!isEncryptionConfigured()) invalid('Falta ENCRYPTION_KEY en el entorno: sin ella no se puede guardar el token cifrado.');
@@ -54,8 +58,12 @@ export const connect = kinoAction(GITHUB_BUDGET_MS)({
 });
 
 
-/** Enlaza un repositorio, comprobando antes que existe y es accesible. */
-export const linkRepo = kinoAction(GITHUB_BUDGET_MS)({
+/**
+ * Enlaza un repositorio, comprobando antes que existe y es accesible.
+ * `closed`: decide contra qué repositorio se sincroniza un sistema entero, y
+ * equivocarse ahí reescribe un tablero.
+ */
+export const linkRepo = kinoAction(GITHUB_BUDGET_MS, 'closed')({
   args: { id: v.id('systems'), owner: v.string(), repo: v.string() },
   handler: async (ctx, { id, owner, repo }): Promise<{ fullName: string }> => {
     const stored: StoredConnection = await ctx.runQuery(internal.githubData.connectionOf, { userId: ctx.user._id });

@@ -65,7 +65,7 @@ export function splitSnippet(
  * por prefijo en la última palabra.
  *
  * Por qué no `websearch_to_tsquery` directo: el Cmd+K busca mientras escribes, y
- * `websearch_to_tsquery('escrib')` no encuentra "escribir" — sólo casa lexemas
+ * `websearch_to_tsquery('escrib')` no encuentra "escribir": sólo casa lexemas
  * completos. Sin el `:*` la búsqueda se sentiría peor que el `ILIKE` que sustituye
  * justo en el caso más común, que es el término a medio teclear. Se conserva la
  * semántica de `websearch_to_tsquery` para varias palabras: se combinan con AND.
@@ -74,7 +74,7 @@ export function splitSnippet(
  * antes de montar la expresión: los únicos metacaracteres que llegan a
  * `to_tsquery` son el ` & ` y el `:*` que pone esta función. Devuelve cadena
  * vacía si no queda nada buscable, y quien la llama debe cortar antes de
- * consultar — `to_tsquery('')` es un error en Postgres.
+ * consultar: `to_tsquery('')` es un error en Postgres.
  */
 export function toTsQueryText(term: string): string {
   const words = term

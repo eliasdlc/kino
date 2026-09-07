@@ -6,8 +6,8 @@ import { SYSTEM_TYPE_CONFIG } from "@/shared/lib/system-types";
 
 /**
  * Lanza una sesión de escritura cronometrada sobre el capítulo abierto (§9). Es
- * el mismo focus timer de las tareas — mismos modos, mismo widget, mismo recap
- * de energía — apuntando a una page en vez de a un task.
+ * el mismo focus timer de las tareas: mismos modos, mismo widget, mismo recap
+ * de energía: apuntando a una page en vez de a un task.
  *
  * El registro de palabras no depende de este botón: el server detecta la sesión
  * al guardar. Esto añade el ritual (cuenta regresiva, campana, cierre), que es

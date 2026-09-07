@@ -12,14 +12,18 @@
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  --font-sans: var(--font-sans);
-  --font-mono: var(--font-geist-mono);
-  --font-heading: var(--font-sans);
-  --font-serif: var(--font-literata);
-  /* Marketing/auth-only fonts — variables defined by next/font inside those layouts */
+  /* Dos caras y una mono, cargadas una sola vez en el layout raíz: Bricolage
+     para la cifra y los títulos, Inter para todo lo demás, JetBrains para
+     datos y código. Literata queda sólo para leer prosa (font-serif). Los
+     alias body y jetbrains sostienen las clases del marketing hasta su fase. */
+  --font-sans: var(--font-inter);
+  --font-mono: var(--font-jetbrains-mono);
   --font-display: var(--font-bricolage);
-  --font-body: var(--font-instrument);
-  --font-jetbrains: var(--font-jb-mono);
+  /* heading es el subhead de la gramática: cara de texto en 700, no la display. */
+  --font-heading: var(--font-inter);
+  --font-serif: var(--font-literata);
+  --font-body: var(--font-inter);
+  --font-jetbrains: var(--font-jetbrains-mono);
   --color-sidebar-ring: var(--sidebar-ring);
   --color-sidebar-border: var(--sidebar-border);
   --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
@@ -59,111 +63,124 @@
   --color-task-critical-foreground: var(--task-critical-foreground);
   --color-task-high: var(--task-high);
   --color-task-high-foreground: var(--task-high-foreground);
-  --radius-sm: calc(var(--radius) * 0.6);
-  --radius-md: calc(var(--radius) * 0.8);
-  --radius-lg: var(--radius);
-  --radius-xl: calc(var(--radius) * 1.4);
-  --radius-2xl: calc(var(--radius) * 1.8);
-  --radius-3xl: calc(var(--radius) * 2.2);
-  --radius-4xl: calc(var(--radius) * 2.6);
+  /* La escala de radios de la gramática, por clase de tamaño: 8 detalle,
+     12 chip, 16 control, 18 bloque, 22 superficie. El interior es el exterior
+     menos su padding, nunca mayor. Toda acción va a 999 (rounded-full). */
+  --radius-sm: 0.5rem;
+  --radius-md: 0.75rem;
+  --radius-lg: 1rem;
+  --radius-xl: 1.125rem;
+  --radius-2xl: 1.375rem;
+  --radius-3xl: 1.375rem;
+  --radius-4xl: 2rem;
 }
 
+/* Los roles. Cada uno tiene un valor por modo y ninguno lleva nombre de
+   color: el acento es el ámbar (hue 38) y la escala neutra entera va teñida
+   con ese hue, saturación 4 en claro y 6 en oscuro. Los tokens de shadcn de
+   más abajo se mapean a estos roles; nadie declara un color dos veces.
+   Contrastes medidos sobre --bg: ink 15,4 · body 8,7 · mute 4,7 · ac 5,4. */
 :root {
-  /* Light theme — indigo brand, warm-tinted grays */
-  --card: oklch(1 0 0);
-  --card-foreground: oklch(0.145 0 0);
-  --popover: oklch(1 0 0);
-  --popover-foreground: oklch(0.145 0 0);
-  --primary: oklch(0.205 0 0);
-  --primary-foreground: oklch(0.985 0 0);
-  --secondary: oklch(0.97 0 0);
-  --secondary-foreground: oklch(0.205 0 0);
-  --muted: oklch(0.97 0 0);
-  --muted-foreground: oklch(0.556 0 0);
-  --accent: oklch(0.97 0 0);
-  --accent-foreground: oklch(0.205 0 0);
-  --destructive: oklch(0.577 0.245 27.325);
-  --border: oklch(0.922 0 0);
-  --input: oklch(0.922 0 0);
-  --ring: oklch(0.708 0 0);
-  --chart-1: oklch(0.87 0 0);
-  --chart-2: oklch(0.556 0 0);
-  --chart-3: oklch(0.439 0 0);
-  --chart-4: oklch(0.371 0 0);
-  --chart-5: oklch(0.269 0 0);
-  --radius: 0.625rem;
-  --sidebar: oklch(0.985 0 0);
-  --sidebar-foreground: oklch(0.145 0 0);
-  --sidebar-primary: oklch(0.205 0 0);
-  --sidebar-primary-foreground: oklch(0.985 0 0);
-  --sidebar-accent: oklch(0.97 0 0);
-  --sidebar-accent-foreground: oklch(0.205 0 0);
-  --sidebar-border: oklch(0.922 0 0);
-  --sidebar-ring: oklch(0.708 0 0);
-  --background: oklch(1 0 0);
-  --foreground: oklch(0.145 0 0);
+  --bg: #f5f5f4;
+  --sf: #ffffff;
+  --sf2: #ecebea;
+  --ink: #1f1c18;
+  --body: #46423c;
+  --mute: #6d685f;
+  --ac: #8a5a00;
+  --on: #ffffff;
+  --warn: #a83f22;
+  --ok: #1e7a45;
+  --danger: #b3123a;
+  --ln: color-mix(in srgb, var(--ink) 8%, transparent);
+  --ln2: color-mix(in srgb, var(--ink) 16%, transparent);
+  --glow: color-mix(in srgb, var(--ac) 35%, transparent);
+  --glass: color-mix(in srgb, var(--sf) 84%, transparent);
+  --glass-ln: color-mix(in srgb, var(--ink) 8%, transparent);
+  --glass-on: color-mix(in srgb, var(--ac) 14%, transparent);
+  --shadow: 0 10px 30px color-mix(in srgb, var(--ink) 8%, transparent);
 
-  /* Estados de tarea, claro. Cada valor cumple AA como texto sobre --card
-     blanco; los tonos 500/600 del oscuro no llegaban a 4.5:1 y por eso aquí
-     bajan un paso. Los que llevan sufijo -foreground son el texto que va
-     encima del relleno o del badge de su mismo nombre. */
-  --task-overdue: #b91c1c;             /* red-700  · 6,2:1 sobre blanco */
-  --task-due-soon: #b45309;            /* amber-700 · 4,8:1 */
-  --task-done: #15803d;                /* green-700 · 4,9:1 */
-  --task-done-foreground: #ffffff;
-  --task-critical: #dc2626;            /* red-600, relleno y borde con alfa */
-  --task-critical-foreground: #b91c1c; /* red-700  · 6,2:1 */
-  --task-high: #ea580c;                /* orange-600 */
-  --task-high-foreground: #c2410c;     /* orange-700 · 5,1:1 */
+  /* Cinco capas con nombre. Un z-index suelto en un componente es un bug. */
+  --z-base: 0;
+  --z-raised: 10;
+  --z-overlay: 20;
+  --z-modal: 30;
+  --z-toast: 40;
+
+  --radius: 0.625rem;
+
+  /* shadcn lee estos; el valor vive en el rol. */
+  --background: var(--bg);
+  --foreground: var(--ink);
+  --card: var(--sf);
+  --card-foreground: var(--ink);
+  --popover: var(--sf);
+  --popover-foreground: var(--ink);
+  --primary: var(--ac);
+  --primary-foreground: var(--on);
+  --secondary: var(--sf2);
+  --secondary-foreground: var(--ink);
+  --muted: var(--sf2);
+  --muted-foreground: var(--mute);
+  --accent: var(--sf2);
+  --accent-foreground: var(--ink);
+  --destructive: var(--danger);
+  --border: var(--ln);
+  --input: var(--ln2);
+  --ring: var(--ac);
+  --chart-1: var(--ac);
+  --chart-2: var(--ok);
+  --chart-3: var(--warn);
+  --chart-4: var(--mute);
+  --chart-5: var(--sf2);
+  --sidebar: var(--sf);
+  --sidebar-foreground: var(--ink);
+  --sidebar-primary: var(--ac);
+  --sidebar-primary-foreground: var(--on);
+  --sidebar-accent: var(--sf2);
+  --sidebar-accent-foreground: var(--ink);
+  --sidebar-border: var(--ln);
+  --sidebar-ring: var(--ac);
+
+  /* Estados de tarea. El color acompaña a la palabra, nunca la sustituye:
+     vencida es --warn con "vencida" delante; hecha es --ok con el check;
+     crítica y alta son peso y orden, así que van en tinta, no en color. */
+  --task-overdue: var(--warn);
+  --task-due-soon: var(--mute);
+  --task-done: var(--ok);
+  --task-done-foreground: var(--on);
+  --task-critical: var(--ink);
+  --task-critical-foreground: var(--ink);
+  --task-high: var(--body);
+  --task-high-foreground: var(--body);
 }
 
 .dark {
-  /* Dark theme — deep blue-black, violet accents */
-  --background: oklch(0.200 0 0);
-  --foreground: oklch(0.985 0 0);
-  --card: oklch(0.205 0 0);
-  --card-foreground: oklch(0.985 0 0);
-  --popover: oklch(0.205 0 0);
-  --popover-foreground: oklch(0.985 0 0);
-  --primary: oklch(0.922 0 0);
-  --primary-foreground: oklch(0.205 0 0);
-  --secondary: oklch(0.269 0 0);
-  --secondary-foreground: oklch(0.985 0 0);
-  --muted: oklch(0.269 0 0);
-  --muted-foreground: oklch(0.708 0 0);
-  --accent: oklch(0.269 0 0);
-  --accent-foreground: oklch(0.985 0 0);
-  --destructive: oklch(0.704 0.191 22.216);
-  --border: oklch(1 0 0 / 10%);
-  --input: oklch(1 0 0 / 15%);
-  --ring: oklch(0.556 0 0);
-  --chart-1: oklch(0.87 0 0);
-  --chart-2: oklch(0.556 0 0);
-  --chart-3: oklch(0.439 0 0);
-  --chart-4: oklch(0.371 0 0);
-  --chart-5: oklch(0.269 0 0);
-  --sidebar: oklch(0.240 0 0);
-  --sidebar-foreground: oklch(0.985 0 0);
-  --sidebar-primary: oklch(0.488 0.243 264.376);
-  --sidebar-primary-foreground: oklch(0.985 0 0);
-  --sidebar-accent: oklch(0.269 0 0);
-  --sidebar-accent-foreground: oklch(0.985 0 0);
-  --sidebar-border: oklch(1 0 0 / 10%);
-  --sidebar-ring: oklch(0.556 0 0);
-
-  /* Estados de tarea, oscuro: los valores que ya tenían las tarjetas. El tema
-     oscuro es el diseño aprobado y no cambia ni un tono. */
-  --task-overdue: #f87171;
-  --task-due-soon: #fbbf24;
-  --task-done: #3ecf72;
-  --task-done-foreground: #0e0e10;
-  --task-critical: #dc3232;
-  --task-critical-foreground: #f87171;
-  --task-high: #e6731e;
-  --task-high-foreground: #fb923c;
+  --bg: #131211;
+  --sf: #1e1c1a;
+  --sf2: #2b2926;
+  --ink: #f6f5f3;
+  --body: #d8d5d0;
+  --mute: #9f9a92;
+  --ac: #e8b04b;
+  --on: #1a1204;
+  --warn: #e8836a;
+  --ok: #5fcb8a;
+  --danger: #ff5c7a;
+  --glow: color-mix(in srgb, var(--ac) 55%, transparent);
+  --glass: color-mix(in srgb, var(--sf) 82%, transparent);
+  --glass-ln: color-mix(in srgb, var(--ink) 9%, transparent);
+  /* En oscuro la elevación es un paso de tono, nunca una sombra. */
+  --shadow: none;
+  --task-done-foreground: var(--bg);
 }
 
 @layer base {
+  /* La raíz es 17 px: todo lo que está en rem crece con el tamaño de letra
+     del sistema, y el táctil mínimo de 48 sale de 2.85rem sin fijarlo. */
+  html {
+    font-size: 17px;
+  }
   * {
     @apply border-border outline-ring/50;
   }
@@ -387,12 +404,6 @@
   }
 }
 
-/* ── Halo "respirando" del número de energía (EnergyTodayCard) ────────────── */
-@keyframes breath {
-  0%, 100% { opacity: 0.45; transform: scale(0.94); }
-  50%      { opacity: 1;    transform: scale(1.06); }
-}
-
 /* ── Landing (marketing): confetti del demo + punto "ahora" pulsante ──────── */
 @keyframes marketing-confetti {
   0%   { transform: translate(-50%, -50%) rotate(0deg) scale(1); opacity: 1; }
@@ -404,14 +415,6 @@
 }
 
 /* ── Landing animations: hero blob + floating card ───────────────────────── */
-@keyframes energy-breathe {
-  0%, 100% { opacity: 0.8; transform: scale(1); }
-  50%      { opacity: 1;   transform: scale(1.18); }
-}
-@keyframes energy-breathe-warm {
-  0%, 100% { opacity: 0.6; transform: scale(1); }
-  50%      { opacity: 1;   transform: scale(1.22); }
-}
 @keyframes hero-float {
   0%, 100% { transform: translateY(0px); }
   50%      { transform: translateY(-10px); }
@@ -491,31 +494,6 @@
 .sticky-anchor-mark {
   border-bottom: 1.5px dashed currentColor;
   opacity: 0.75;
-}
-
-/* ── Dashboard fixed-height grid — layout sin scroll ─────────────────────── */
-.dashboard-grid {
-  display: grid;
-  height: 100%;
-  grid-template-columns: minmax(0, 1.6fr) minmax(280px, 1fr);
-  grid-template-rows: minmax(0, 1fr) clamp(168px, 26vh, 220px);
-  grid-template-areas: "plan side" "bottom bottom";
-  gap: clamp(0.75rem, 1.5vw, 1.25rem);
-}
-
-/* Gotcha: each scrollable child needs min-h/min-w: 0 or the container overflows */
-.dashboard-plan  { grid-area: plan;   min-height: 0; }
-.dashboard-side  { grid-area: side;   min-height: 0; }
-.dashboard-bottom { grid-area: bottom; min-height: 0; }
-
-@media (max-width: 767px) {
-  .dashboard-grid {
-    grid-template-columns: 1fr;
-    grid-template-rows: auto;
-    grid-template-areas: "plan" "side" "bottom";
-    height: auto;
-    overflow-y: visible;
-  }
 }
 
 /* ── Modo lectura (KIN-138) ───────────────────────────────────────────────
@@ -616,8 +594,24 @@
 .reading-paged .panel {
   break-inside: avoid;
 }
+/* Movimiento apagado, de una vez y para todo el producto.
+   `motion-safe:` sólo alcanza las clases de Tailwind, y seis animaciones de la
+   landing se declaran dentro de un `style` inline, donde por construcción no
+   llega. Un bloque sobre `*` las cubre todas, incluidas las que se escriban
+   mañana, y es la línea de mayor efecto por carácter de este fichero.
+
+   La duración es 0.01ms y no 0: una animación de duración cero no dispara
+   `animationend`, y el código que espera ese evento para limpiar se queda
+   colgado. */
 @media (prefers-reduced-motion: reduce) {
-  .reading-paged { scroll-behavior: auto; }
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
 }
 
 /* Impresión: el manuscrito y nada más. Es también la vía honesta al PDF sin

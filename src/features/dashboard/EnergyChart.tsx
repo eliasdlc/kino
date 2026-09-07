@@ -32,7 +32,7 @@ function EnergyTooltip({ active, payload, label }: any) {
   const predicted = payload.find((p: { dataKey: string }) => p.dataKey === 'predicted')?.value as number | undefined;
   const actual = payload.find((p: { dataKey: string }) => p.dataKey === 'actual')?.value as number | undefined;
   return (
-    <div className="rounded-md border bg-popover px-2 py-1 text-xs shadow">
+    <div className="rounded-md border border-border bg-popover px-2 py-1 text-xs shadow-(--shadow)">
       <p className="text-muted-foreground mb-0.5">{formatHour(label)}</p>
       {predicted != null && <p>Previsto: <span className="font-medium">{predicted}</span></p>}
       {actual != null && <p>Registrado: <span className="font-medium">{actual}</span></p>}
@@ -51,7 +51,7 @@ export function EnergyChart({ data, peak, currentHour, animate }: EnergyChartPro
         <Bar
           dataKey="predicted"
           barSize={5}
-          radius={[2, 2, 0, 0]}
+          radius={[3, 3, 0, 0]}
           isAnimationActive={animate}
           animationDuration={600}
           animationEasing="ease-out"
@@ -62,8 +62,8 @@ export function EnergyChart({ data, peak, currentHour, animate }: EnergyChartPro
             return (
               <Cell
                 key={d.hour}
-                fill={peakHour ? '#fbbf24' : isNow ? '#cbd5e1' : '#94a3b8'}
-                fillOpacity={peakHour ? 0.95 : isNow ? 0.6 : 0.3}
+                fill={peakHour ? 'var(--ac)' : isNow ? 'var(--ink)' : 'var(--mute)'}
+                fillOpacity={peakHour ? 1 : isNow ? 0.9 : 0.35}
               />
             );
           })}
@@ -80,8 +80,8 @@ export function EnergyChart({ data, peak, currentHour, animate }: EnergyChartPro
                 cx={cx}
                 cy={cy}
                 r={4}
-                fill="#fafafa"
-                stroke="#1c1917"
+                fill="var(--bg)"
+                stroke="var(--ink)"
                 strokeWidth={1.5}
               />
             );
@@ -91,11 +91,11 @@ export function EnergyChart({ data, peak, currentHour, animate }: EnergyChartPro
         />
         <ReferenceLine
           x={currentHour}
-          stroke="rgba(255,255,255,0.5)"
+          stroke="var(--mute)"
           strokeDasharray="3 3"
           strokeWidth={1.5}
         />
-        <Tooltip content={<EnergyTooltip />} cursor={{ fill: 'rgba(255,255,255,0.04)' }} />
+        <Tooltip content={<EnergyTooltip />} cursor={{ fill: 'var(--ln)' }} />
       </ComposedChart>
     </ResponsiveContainer>
   );

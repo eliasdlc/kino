@@ -6,7 +6,7 @@ import { githubRepoRefSchema } from '../src/features/github-sync/github-sync.sch
 import { deriveStale } from '../src/features/systems/systems.signals';
 import { TEMPLATE_TYPE_VALUES } from '../src/shared/types/enums';
 import { forbidden, notFound } from './lib/errors';
-import { kinoZodMutation, kinoZodQuery } from './lib/fn';
+import { kinoZodMutation, kinoZodQuery, type Channel } from './lib/fn';
 import { color } from './schema';
 
 // Los sistemas: el segundo hub del schema. Borrar es desactivar, así que las
@@ -168,11 +168,16 @@ export const setup = kinoZodMutation({
 
 export const create = kinoZodMutation({
   args: systemFields,
-  handler: async (ctx, input) => createSystemDoc(ctx, ctx.user._id, input),
+  handler: async (ctx, input) => createSystemDoc(ctx, ctx.user._id, ctx.channel, input),
 });
 
 /** Crea el sistema con sus etiquetas de proyecto. Exportada para el onboarding. */
-export async function createSystemDoc(ctx: MutationCtx, userId: Id<'users'>, input: z.infer<z.ZodObject<typeof systemFields>>) {
+export async function createSystemDoc(
+  ctx: MutationCtx,
+  userId: Id<'users'>,
+  channel: Channel,
+  input: z.infer<z.ZodObject<typeof systemFields>>,
+) {
   {
     const existing = await ctx.db
       .query('systems')
@@ -191,9 +196,12 @@ export async function createSystemDoc(ctx: MutationCtx, userId: Id<'users'>, inp
       isInbox: false,
       expectedFrequency: input.expectedFrequency ?? 'daily',
       triggerContext: input.triggerContext ?? '',
+      // Los agentes de un miembro invitado no escriben aquí hasta que el dueño
+      // lo permita a mano.
+      memberAgentsAllowed: false,
       sortOrder: Math.max(-1, ...existing.map((s) => s.sortOrder)) + 1,
       createdBy: userId,
-      createdVia: 'session',
+      createdVia: channel,
       createdAt: now,
       updatedAt: now,
     });

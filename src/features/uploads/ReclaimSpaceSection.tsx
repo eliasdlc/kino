@@ -7,7 +7,7 @@ import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import type { SweepResult } from './image-sweep';
 
-/** 1,2 MB — un tamaño se lee mejor que un número de bytes. */
+/** 1,2 MB: un tamaño se lee mejor que un número de bytes. */
 function formatBytes(bytes: number): string {
   if (bytes < 1024) return `${bytes} B`;
   const units = ['KB', 'MB', 'GB'];

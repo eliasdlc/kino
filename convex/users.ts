@@ -2,6 +2,7 @@ import { v } from 'convex/values';
 import { internalMutation, internalQuery } from './_generated/server';
 import schema from './schema';
 import { kinoMutation, kinoQuery } from './lib/fn';
+import { calendarDayInTz, userToday } from './lib/time';
 
 // La identidad de Clerk llega en el JWT; el documento `users` es lo que Kino
 // sabe de esa persona. El envoltorio de `lib/fn` es quien los une.
@@ -20,6 +21,25 @@ export const ensure = kinoMutation({
   args: {},
   returns: v.id('users'),
   handler: async (ctx) => ctx.user._id,
+});
+
+/**
+ * Marca la cuenta como vista hoy. El cliente la llama al montar el layout de
+ * la app; escribe como mucho una vez por día natural del usuario, así que
+ * abrir Kino veinte veces en una tarde es una sola escritura. Es el dato con
+ * el que se sabe quién sigue usando la aplicación.
+ */
+export const touch = kinoMutation({
+  args: {},
+  returns: v.boolean(),
+  handler: async (ctx) => {
+    const now = Date.now();
+    const today = userToday(ctx.user.timezone, now);
+    const last = ctx.user.lastActiveAt;
+    if (last !== undefined && calendarDayInTz(last, ctx.user.timezone) === today) return false;
+    await ctx.db.patch(ctx.user._id, { lastActiveAt: now });
+    return true;
+  },
 });
 
 /** Para las acciones, que no tienen base a mano y lo piden por aquí. */

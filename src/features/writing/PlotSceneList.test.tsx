@@ -5,8 +5,8 @@ import { PlotSceneList } from "./PlotSceneList";
 import type { PlotGrid } from "./writing.plot";
 
 /**
- * El tablero de escenas tiene dos vistas —la rejilla en escritorio y esta lista
- * en el teléfono— y las dos reescriben el manuscrito. Lo que se prueba aquí es
+ * El tablero de escenas tiene dos vistas (la rejilla en escritorio y esta lista
+ * en el teléfono) y las dos reescriben el manuscrito. Lo que se prueba aquí es
  * que emiten **la misma operación**: si divergen, mover una escena significaría
  * una cosa distinta según la pantalla desde la que se mueva.
  */

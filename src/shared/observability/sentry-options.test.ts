@@ -11,8 +11,8 @@ import {
  *
  * La afirmación central no es campo por campo, es global: se arma un evento con
  * el capítulo de una novela metido en todos los sitios por donde Sentry lo
- * arrastraría —el cuerpo de la petición, la cookie de sesión, la query, las
- * migas de pan— y se comprueba que la cadena no aparece en el evento ya
+ * arrastraría (el cuerpo de la petición, la cookie de sesión, la query, las
+ * migas de pan) y se comprueba que la cadena no aparece en el evento ya
  * recortado, en ninguna parte. Un test que enumerara campos se quedaría corto el
  * día que el SDK añada uno nuevo; éste no.
  */
