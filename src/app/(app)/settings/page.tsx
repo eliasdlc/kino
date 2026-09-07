@@ -11,8 +11,7 @@ import {
 } from "@/components/ui/select";
 import { useThemeStore } from "@/components/ThemeProvider";
 import { Separator } from "@/components/ui/separator";
-import { Bell, BellOff, Download, Loader2, Monitor, Moon, Sun } from "lucide-react";
-import { Button } from "@/components/ui/button";
+import { Bell, BellOff, Monitor, Moon, Sun } from "lucide-react";
 import { Switch } from "@/components/ui/switch";
 import { usePushNotifications } from "@/features/notifications/notifications.hooks";
 import { EnergyLimitSection } from "@/features/settings/EnergyLimitSection";
@@ -21,13 +20,12 @@ import { WeeklyReviewDaySection } from "@/features/settings/WeeklyReviewDaySecti
 import { DigestsSection } from "@/features/settings/DigestsSection";
 import { TrashSection } from "@/features/settings/TrashSection";
 import { ConnectionsSection } from "@/features/settings/ConnectionsSection";
-import { ReclaimSpaceSection } from "@/features/uploads/ReclaimSpaceSection";
+import { DataPortabilitySection } from "@/features/settings/DataPortabilitySection";
 import { AccountSection } from "@/features/account/AccountSection";
 import { DangerZoneSection } from "@/features/account/DangerZoneSection";
 import {
   useUserSettings,
   useUpdateUserSettings,
-  useExportWorkspace,
 } from "@/features/settings/settings.hooks";
 
 import { Kbd } from "@/components/ui/kbd";
@@ -58,7 +56,6 @@ export default function SettingsPage() {
   const { status, subscribe, unsubscribe } = usePushNotifications();
   const { data: settings } = useUserSettings();
   const { mutate: updateSettings } = useUpdateUserSettings();
-  const exportWorkspace = useExportWorkspace();
 
   // Cambiar el tema aplica al instante (store + localStorage) y lo persiste en
   // la cuenta para que viaje entre dispositivos.
@@ -261,46 +258,7 @@ export default function SettingsPage() {
 
         <TrashSection />
 
-        {/* Datos y portabilidad */}
-        <div className="space-y-4">
-          <div>
-            <h2 className="text-lg font-semibold">Datos y portabilidad</h2>
-            <p className="text-sm text-muted-foreground">
-              Exporta todo tu workspace para tener una copia local o migrar a otra herramienta.
-            </p>
-          </div>
-
-          <div className="flex items-center justify-between gap-4 rounded-lg border p-4">
-            <div className="space-y-0.5">
-              <p className="text-sm font-medium">Exportar workspace completo</p>
-              <p className="text-xs text-muted-foreground">
-                Descarga un ZIP con todos tus sistemas, tareas, carpetas y cuadernos en Markdown y
-                JSON, con las imágenes incluidas.
-              </p>
-            </div>
-            <Button
-              variant="outline"
-              size="sm"
-              className="gap-2 shrink-0"
-              disabled={exportWorkspace.isPending}
-              onClick={() => exportWorkspace.mutate()}
-            >
-              {exportWorkspace.isPending ? (
-                <>
-                  <Loader2 className="size-4 animate-spin" />
-                  Preparando el ZIP
-                </>
-              ) : (
-                <>
-                  <Download className="size-4" />
-                  Exportar ZIP
-                </>
-              )}
-            </Button>
-          </div>
-
-          <ReclaimSpaceSection />
-        </div>
+        <DataPortabilitySection />
 
         {/* Va al final, después de la exportación: es el orden natural de irse. */}
         <DangerZoneSection />

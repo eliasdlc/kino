@@ -42,6 +42,7 @@ import type * as migrations_tablasDelRework from "../migrations/tablasDelRework.
 import type * as notifications from "../notifications.js";
 import type * as onboarding from "../onboarding.js";
 import type * as pages from "../pages.js";
+import type * as portabilidad from "../portabilidad.js";
 import type * as proposals from "../proposals.js";
 import type * as pushSend from "../pushSend.js";
 import type * as scheduler from "../scheduler.js";
@@ -97,6 +98,7 @@ declare const fullApi: ApiFromModules<{
   notifications: typeof notifications;
   onboarding: typeof onboarding;
   pages: typeof pages;
+  portabilidad: typeof portabilidad;
   proposals: typeof proposals;
   pushSend: typeof pushSend;
   scheduler: typeof scheduler;
