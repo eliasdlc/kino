@@ -9,6 +9,7 @@ import type { MutationCtx, QueryCtx } from './_generated/server';
 import { interruptionKind, type InterruptionKind } from './schema';
 import { laInterrupcion, type Candidato } from './lib/today/queue';
 import { calendarDayInTz, userToday } from './lib/time';
+import { techoPropuesto } from './energy';
 import { weekdayOf } from '../src/features/energy/energy.ritual';
 
 // Hoy: lo único que Kino pregunta en todo el día.
@@ -83,6 +84,27 @@ async function candidatoLunes(ctx: Ctx, user: Doc<'users'>, now: number): Promis
 }
 
 /**
+ * El techo del séptimo día, como candidato.
+ *
+ * Es el consumidor que la ventana de siete días no tenía: la cola listaba el
+ * techo entre sus candidatos y nadie lo emitía. La evidencia son ids de tareas
+ * reales, y el cuerpo de la línea las resuelve al pintarlas: si alguna dejó de
+ * existir, la propuesta no se pinta en vez de enseñar una cifra que ya no se
+ * sostiene.
+ */
+async function candidatoTecho(ctx: Ctx, user: Doc<'users'>, now: number): Promise<Candidato | null> {
+  const techo = await techoPropuesto(ctx, user, now);
+  if (!techo) return null;
+  // Proponer el techo que ya tiene es no proponer nada.
+  if (techo.propuesto === techo.actual) return null;
+  return {
+    kind: 'techo',
+    key: `${techo.cierres}-${techo.propuesto}`,
+    payload: { ...techo, evidencia: techo.evidencia },
+  };
+}
+
+/**
  * El ritual semanal, como candidato. Sólo el día que la persona eligió y sólo
  * si hay algo vencido que repartir: un ritual sin vencidas no tiene nada que
  * preguntar. La clave es el día, así que el ritual de esta semana y el de la
@@ -122,9 +144,11 @@ async function candidatoRitual(ctx: Ctx, user: Doc<'users'>, now: number): Promi
  */
 async function candidatos(ctx: Ctx, user: Doc<'users'>, now: number): Promise<Candidato[]> {
   const historial = await mostradas(ctx, user._id);
-  const crudos = [await candidatoLunes(ctx, user, now), await candidatoRitual(ctx, user, now)].filter(
-    (candidato): candidato is Candidato => candidato !== null,
-  );
+  const crudos = [
+    await candidatoLunes(ctx, user, now),
+    await candidatoTecho(ctx, user, now),
+    await candidatoRitual(ctx, user, now),
+  ].filter((candidato): candidato is Candidato => candidato !== null);
 
   return crudos.map((candidato) => {
     const previo = historial.get(`${candidato.kind}:${candidato.key}`);

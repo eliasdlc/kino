@@ -846,3 +846,114 @@ export const weeklyTrends = kinoZodQuery({
     return { snapshots, checkins };
   },
 });
+
+// ── El techo propuesto al séptimo día ───────────────────────────────────────
+
+/**
+ * Cierres que hizo una persona, no una máquina.
+ *
+ * `completedVia === 'session'` es el navegador y `completedBy` presente es que
+ * hubo alguien. Un issue cerrado en GitHub llega con la vía de sincronización y
+ * sin autor, así que no cuenta: si contara, el techo se propondría a partir de
+ * trabajo que no hiciste.
+ */
+export const CIERRES_PARA_PROPONER = 7;
+
+/** Cuántos días de observación hacen falta para que una media signifique algo. */
+const DIAS_MINIMOS = 3;
+
+export interface TechoPropuesto {
+  readonly cierres: number;
+  readonly dias: number;
+  readonly horasObservadas: number;
+  readonly propuesto: number;
+  readonly actual: number;
+  /** Las tareas que lo sostienen. El servidor las resuelve; nadie afirma la cifra. */
+  readonly evidencia: readonly Id<'tasks'>[];
+}
+
+/**
+ * El techo que las últimas semanas de trabajo sugieren, o `null` si todavía no
+ * hay con qué.
+ *
+ * Se propone, no se aplica: cambiar el techo del día sin que la persona lo
+ * acepte es exactamente lo que el principio 2 prohíbe, y además destruiría el
+ * único dato honesto contra el que el interruptor de honestidad se mide
+ * después.
+ *
+ * Con menos de siete cierres firmados **no devuelve nada**, y eso también es una
+ * decisión: un "todavía no tengo datos" en la cola gasta la única apertura del
+ * día para no decir nada.
+ */
+export async function techoPropuesto(ctx: Ctx, user: Doc<'users'>, now = Date.now()): Promise<TechoPropuesto | null> {
+  const profile = await profileOf(ctx, user._id);
+  if (!profile) return null;
+
+  const tareas = await ctx.db
+    .query('tasks')
+    .withIndex('by_user_alive_status', (q) => q.eq('userId', user._id).eq('deletedAt', undefined))
+    .collect();
+  const firmados = tareas.filter(
+    (t) => t.completedAt !== undefined && t.completedBy !== undefined && t.completedVia === 'session',
+  );
+  if (firmados.length < CIERRES_PARA_PROPONER) return null;
+
+  const dias = new Set(firmados.map((t) => calendarDayInTz(t.completedAt!, user.timezone)));
+  if (dias.size < DIAS_MINIMOS) return null;
+
+  // El tiempo observado sale de `timeLogs`, que es la única fuente de tiempo
+  // real que el producto tiene, y nunca de la estimación.
+  //
+  // La ventana son **los días en que cerraste algo**, no el intervalo desde el
+  // primer cierre: una sesión que empezó una hora antes del cierre más antiguo
+  // es trabajo de ese mismo día, y medir por instante la dejaba fuera y bajaba
+  // el techo propuesto sin motivo.
+  const logs = await ctx.db
+    .query('timeLogs')
+    .withIndex('by_user_started', (q) => q.eq('userId', user._id))
+    .collect();
+  const minutos = logs
+    .filter((log) => log.startedAt <= now && dias.has(calendarDayInTz(log.startedAt, user.timezone)))
+    .reduce((suma, log) => suma + log.durationMinutes, 0);
+  if (minutos === 0) return null;
+
+  const horasObservadas = Math.round((minutos / 60) * 10) / 10;
+  // Media por día trabajado, redondeada a media hora: un techo con dos decimales
+  // finge una precisión que estas cifras no tienen.
+  const propuesto = Math.max(0.5, Math.round((horasObservadas / dias.size) * 2) / 2);
+
+  return {
+    cierres: firmados.length,
+    dias: dias.size,
+    horasObservadas,
+    propuesto,
+    actual: profile.availableHoursPerDay,
+    evidencia: firmados.map((t) => t._id).sort(),
+  };
+}
+
+/**
+ * Acepta el techo propuesto. Deja su evento, que es lo que hace el deshacer
+ * posible: el payload guarda el valor anterior, y reponerlo es escribirlo de
+ * vuelta.
+ */
+export const applyCeiling = kinoZodMutation({
+  args: { horas: z.number().min(0.5).max(16) },
+  handler: async (ctx, { horas }) => {
+    const profile = await profileOf(ctx, ctx.user._id);
+    if (!profile) invalid('Todavía no hay perfil de energía.');
+    const anterior = profile.availableHoursPerDay;
+    if (anterior === horas) return { anterior, horas };
+
+    await ctx.db.patch(profile._id, { availableHoursPerDay: horas, updatedAt: Date.now() });
+    await recordEvent(ctx, {
+      userId: ctx.user._id,
+      actorChannel: ctx.channel,
+      action: 'energy.applyCeiling',
+      targetType: 'task',
+      targetId: profile._id,
+      payload: { anterior, horas },
+    });
+    return { anterior, horas };
+  },
+});

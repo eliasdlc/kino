@@ -1,8 +1,9 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { CalendarClock, NotebookPen } from 'lucide-react';
+import { CalendarClock, Gauge, NotebookPen } from 'lucide-react';
 import { InterruptionBody } from './InterruptionBody';
+import { CeilingProposalBody, type CeilingProposal } from './CeilingProposalBody';
 import { api } from '@convex/_generated/api';
 import { Button } from '@/components/ui/button';
 import { useConvexMutation, useConvexQuery } from '@/shared/convex/hooks';
@@ -36,6 +37,14 @@ function contenidoDe(kind: string, payload: Record<string, unknown>): Contenido 
       icono: NotebookPen,
     };
   }
+  if (kind === 'techo') {
+    const propuesta = payload as unknown as CeilingProposal;
+    return {
+      texto: <CeilingProposalBody propuesta={propuesta} />,
+      accion: 'Ajustar el techo',
+      icono: Gauge,
+    };
+  }
   if (kind === 'ritual') {
     const vencidas = typeof payload.vencidas === 'number' ? payload.vencidas : 0;
     return {
@@ -59,6 +68,7 @@ export function InterruptionLine() {
   const { mutate: marcarMostrada } = useConvexMutation(api.today.markSurfaced);
   const { mutate: acusar } = useConvexMutation(api.today.acknowledge);
   const { mutate: convertir } = useConvexMutation(api.today.taskFromDigest);
+  const { mutate: ajustarTecho } = useConvexMutation(api.energy.applyCeiling);
   const [abierto, setAbierto] = useState(false);
 
   const kind = interrupcion?.kind;
@@ -85,6 +95,14 @@ export function InterruptionLine() {
       const { digestId, quote } = interrupcion.payload as { digestId?: string; quote?: string };
       if (digestId && quote) {
         convertir({ key: interrupcion.key, title: quote.slice(0, 200), digestId });
+        return;
+      }
+    }
+    if (interrupcion.kind === 'techo') {
+      const { propuesto } = interrupcion.payload as { propuesto?: number };
+      if (typeof propuesto === 'number') {
+        ajustarTecho({ horas: propuesto });
+        responder();
         return;
       }
     }
