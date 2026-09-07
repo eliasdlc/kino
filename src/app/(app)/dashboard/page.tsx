@@ -9,6 +9,7 @@ import { FocusNowCard } from "@/features/dashboard/FocusNowCard";
 import { InterruptionLine } from "@/features/today/InterruptionLine";
 import { ReturnNotice } from "@/features/today/ReturnNotice";
 import { DashboardBottomRow } from "@/features/dashboard/DashboardBottomRow";
+import { QuickAddFromUrl } from "@/features/tasks/QuickAddFromUrl";
 import { getServerSession } from "@/shared/utils/session";
 
 export const metadata = { title: "Hoy - Kino" };
@@ -43,6 +44,7 @@ export default async function DashboardPage() {
 
   return (
     <div className="mx-auto max-w-6xl px-5 py-5 md:px-8 md:py-6">
+      <QuickAddFromUrl />
       <InterruptionLine />
 
       <div className="md:grid md:grid-cols-[minmax(0,1fr)_minmax(0,1.25fr)] md:gap-10">

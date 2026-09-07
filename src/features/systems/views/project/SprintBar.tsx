@@ -76,7 +76,7 @@ export function SprintBar({ systemId, sprints, tasks, sprintFilter, onSelectFilt
       })}
 
       <button type="button" onClick={() => onSelectFilter("none")} className={chipClass(sprintFilter === "none")}>
-        Sin sprint
+        Sin ciclo
       </button>
 
       {adding ? (
@@ -91,12 +91,12 @@ export function SprintBar({ systemId, sprints, tasks, sprintFilter, onSelectFilt
           onBlur={() => {
             if (!name.trim()) setAdding(false);
           }}
-          placeholder="Nombre del sprint"
+          placeholder="Nombre del ciclo"
           className="text-xs bg-muted rounded-md px-2 py-1 border outline-none focus:ring-1 focus:ring-primary/40"
         />
       ) : (
         <Button size="sm" variant="ghost" onClick={() => setAdding(true)} disabled={creating} className="h-7 text-xs gap-1">
-          <Plus size={12} /> SprintTransport
+          <Plus size={12} /> Nuevo ciclo
         </Button>
       )}
 
@@ -108,14 +108,14 @@ export function SprintBar({ systemId, sprints, tasks, sprintFilter, onSelectFilt
             className="h-7 text-xs gap-1"
             onClick={() => setCloseTarget(selectedActive)}
           >
-            <CheckCircle2 size={12} /> Cerrar sprint
+            <CheckCircle2 size={12} /> Cerrar ciclo
           </Button>
           <Button
             size="sm"
             variant="ghost"
             className="h-7 w-7 p-0 text-muted-foreground hover:text-destructive"
             onClick={() => setDeleteTarget(selectedActive)}
-            aria-label="Eliminar sprint"
+            aria-label="Eliminar ciclo"
           >
             <Trash2 size={14} />
           </Button>
@@ -124,9 +124,9 @@ export function SprintBar({ systemId, sprints, tasks, sprintFilter, onSelectFilt
 
       <ConfirmDialog
         open={closeTarget !== null}
-        title="Cerrar sprint"
+        title="Cerrar ciclo"
         description={`"${closeTarget?.name}" se marcará como completado y se moverá a Archivadas con sus tarjetas.`}
-        confirmLabel="Cerrar sprint"
+        confirmLabel="Cerrar ciclo"
         onConfirm={() => {
           if (closeTarget) closeSprint(closeTarget.id);
           if (closeTarget && sprintFilter === closeTarget.id) onSelectFilter(null);
@@ -137,8 +137,8 @@ export function SprintBar({ systemId, sprints, tasks, sprintFilter, onSelectFilt
 
       <ConfirmDialog
         open={deleteTarget !== null}
-        title="Eliminar sprint"
-        description={`"${deleteTarget?.name}" se eliminará. Sus tarjetas no se borran: quedan sin sprint asignado.`}
+        title="Eliminar ciclo"
+        description={`"${deleteTarget?.name}" se eliminará. Sus tarjetas no se borran: quedan sin ciclo asignado.`}
         confirmLabel="Eliminar"
         onConfirm={() => {
           if (deleteTarget) deleteSprint(deleteTarget.id);

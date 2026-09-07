@@ -272,15 +272,15 @@ export function TaskPlanningFields({
         if (activeSprints.length === 0) return null;
         return (
           <div className="space-y-2">
-            <Label>Sprint</Label>
+            <Label>Ciclo</Label>
             <Controller
               control={form.control}
               name="sprintId"
               render={({ field }) => (
                 <Select value={field.value ?? 'none'} onValueChange={(v) => field.onChange(v === 'none' ? null : v)}>
-                  <SelectTrigger><SelectValue placeholder="Sin sprint" /></SelectTrigger>
+                  <SelectTrigger><SelectValue placeholder="Sin ciclo" /></SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="none"><span className="text-muted-foreground">Sin sprint</span></SelectItem>
+                    <SelectItem value="none"><span className="text-muted-foreground">Sin ciclo</span></SelectItem>
                     {activeSprints.map((s) => (
                       <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>
                     ))}

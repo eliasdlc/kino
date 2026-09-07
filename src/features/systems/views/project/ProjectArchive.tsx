@@ -69,7 +69,7 @@ function SprintAccordion({
           type="button"
           onClick={() => onDelete(sprint)}
           className="shrink-0 px-3 self-stretch text-muted-foreground hover:text-destructive"
-          aria-label="Eliminar sprint"
+          aria-label="Eliminar ciclo"
         >
           <Trash2 size={16} />
         </button>
@@ -78,7 +78,7 @@ function SprintAccordion({
       {open && (
         <div className="px-4 pb-4 space-y-2 border-t border-border/50 pt-3">
           {tasks.length === 0 ? (
-            <p className="text-xs text-muted-foreground text-center py-3">Este sprint no tenía tarjetas.</p>
+            <p className="text-xs text-muted-foreground text-center py-3">Este ciclo no tenía tarjetas.</p>
           ) : (
             tasks.map((task) => (
               <ProjectTaskCard
@@ -97,7 +97,7 @@ function SprintAccordion({
   );
 }
 
-/** Archivadas navegables POR sprint cerrado (no todo mezclado). */
+/** Archivadas navegables por ciclo cerrado, no todo mezclado. */
 export function ProjectArchive({ systemId, initialData, sprints, onEdit }: ProjectArchiveProps) {
   const { data: tasks = [] } = useTasks(systemId, initialData);
   const { mutate: deleteSprint } = useDeleteSprint(systemId);
@@ -110,7 +110,7 @@ export function ProjectArchive({ systemId, initialData, sprints, onEdit }: Proje
         <Archive size={24} className="text-muted-foreground" />
         <p className="text-base font-medium">Aún no hay sprints cerrados</p>
         <p className="text-sm text-muted-foreground max-w-sm">
-          Cuando cierres un sprint desde el board, aparecerá aquí con sus tarjetas agrupadas.
+          Cuando cierres un ciclo desde el board, aparecerá aquí con sus tarjetas agrupadas.
         </p>
       </div>
     );
@@ -131,8 +131,8 @@ export function ProjectArchive({ systemId, initialData, sprints, onEdit }: Proje
 
       <ConfirmDialog
         open={deleteTarget !== null}
-        title="Eliminar sprint"
-        description={`"${deleteTarget?.name}" se eliminará del archivo. Sus tarjetas no se borran: quedan sin sprint asignado.`}
+        title="Eliminar ciclo"
+        description={`"${deleteTarget?.name}" se eliminará del archivo. Sus tarjetas no se borran: quedan sin ciclo asignado.`}
         confirmLabel="Eliminar"
         onConfirm={() => {
           if (deleteTarget) deleteSprint(deleteTarget.id);

@@ -263,14 +263,14 @@ function TaskDetailForm({ task, systemId, onClose }: TaskDetailFormProps) {
 
       {activeSprints.length > 0 && (
         <div className="space-y-1.5">
-          <Label>Sprint</Label>
+          <Label>Ciclo</Label>
           <Select value={sprintId} onValueChange={setSprintId}>
             <SelectTrigger>
-              <SelectValue placeholder="Sin sprint" />
+              <SelectValue placeholder="Sin ciclo" />
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="none">
-                <span className="text-muted-foreground">Sin sprint</span>
+                <span className="text-muted-foreground">Sin ciclo</span>
               </SelectItem>
               {activeSprints.map((sprint) => (
                 <SelectItem key={sprint.id} value={sprint.id}>
