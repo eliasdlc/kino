@@ -3,7 +3,7 @@ import { zid } from 'convex-helpers/server/zod4';
 import { v } from 'convex/values';
 import type { Doc, Id } from './_generated/dataModel';
 import { internalMutation, internalQuery, type MutationCtx, type QueryCtx } from './_generated/server';
-import { notFound } from './lib/errors';
+import { forbidden, notFound } from './lib/errors';
 import { kinoZodMutation, kinoZodQuery } from './lib/fn';
 import { calendarDayInTz, userToday, userTomorrow } from './lib/time';
 
@@ -31,7 +31,11 @@ export const subscribe = kinoZodMutation({
   args: { endpoint: z.string().url(), keys: z.object({ auth: z.string().min(1), p256dh: z.string().min(1) }) },
   handler: async (ctx, { endpoint, keys }) => {
     const existing = await ctx.db.query('pushSubscriptions').withIndex('by_endpoint', (q) => q.eq('endpoint', endpoint)).unique();
-    if (existing) await ctx.db.patch(existing._id, { userId: ctx.user._id, authKey: keys.auth, p256dhKey: keys.p256dh });
+    // `endpoint` es único global, así que sin esta comprobación suscribirse con
+    // el endpoint de otra cuenta le pisaba sus claves VAPID y le robaba sus
+    // avisos. Un endpoint pertenece a quien lo registró y a nadie más.
+    if (existing && existing.userId !== ctx.user._id) forbidden('Ese endpoint ya pertenece a otra cuenta');
+    if (existing) await ctx.db.patch(existing._id, { authKey: keys.auth, p256dhKey: keys.p256dh });
     else await ctx.db.insert('pushSubscriptions', { userId: ctx.user._id, endpoint, authKey: keys.auth, p256dhKey: keys.p256dh, createdAt: Date.now() });
     return { ok: true as const };
   },

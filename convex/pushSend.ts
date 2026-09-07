@@ -5,10 +5,11 @@ import { v } from 'convex/values';
 import { internalAction, type ActionCtx } from './_generated/server';
 import { internal } from './_generated/api';
 import type { Id } from './_generated/dataModel';
+import { repartir, type Delivery, type Payload } from './lib/reparto';
 
-// El envío de push corre en Node porque `web-push` lo exige. Sólo marca como
-// avisado lo que de verdad se entregó; lo que falla se reintenta en el
-// siguiente cron.
+// El envío de push corre en Node porque `web-push` lo exige. Quién recibe qué y
+// con qué texto lo decide `lib/reparto`, que no sabe de red: aquí sólo queda
+// pedir la tanda, mandarla y dejar constancia de lo que sí salió.
 //
 // ── Por qué estos avisos no pasan por la cola de una sola interrupción ──────
 // La cola de `convex/today.ts` gobierna lo único que Kino pregunta dentro de
@@ -16,32 +17,14 @@ import type { Id } from './_generated/dataModel';
 // es un hecho con hora que sólo sirve cuando ocurre. Guardarlo para la apertura
 // del día siguiente lo convierte en un aviso de algo que ya venció.
 //
-// Quedan por tanto **exentos a propósito**, y la exención tiene su propio
-// límite: que una pasada del cron no mande cuatro avisos seguidos a la misma
-// persona es un problema de agrupación, y lo cierra *Agrupar la escalación de
-// recordatorios y dejar de marcar lo que no llegó* (fase 4), que es quien toca
-// este reparto.
-
-type Payload = { title: string; body: string; url?: string };
-type Delivery = {
-  userId: Id<'users'>;
-  dueToday: Array<{ id: Id<'tasks'>; title: string }>;
-  dueTomorrow: Array<{ id: Id<'tasks'>; title: string }>;
-  reminders: Array<{ id: Id<'taskReminders'>; label: string | null; taskTitle: string }>;
-  escalations: Array<{ id: Id<'tasks'>; title: string; priority: string }>;
-};
-
-const PRIORITY_LABEL: Record<string, string> = { critical: 'Crítico', high: 'Alta prioridad', medium: 'Pendiente', low: 'Pendiente' };
+// Quedan por tanto **exentos a propósito**, y el límite de la exención es que
+// una pasada del cron no mande cuatro avisos seguidos a la misma persona: por
+// eso las escaladas viajan agrupadas en uno solo.
 
 function vapidConfigured(): boolean {
   if (!process.env.VAPID_PUBLIC_KEY || !process.env.VAPID_PRIVATE_KEY) return false;
   webpush.setVapidDetails(process.env.VAPID_SUBJECT ?? 'mailto:admin@kino.app', process.env.VAPID_PUBLIC_KEY, process.env.VAPID_PRIVATE_KEY);
   return true;
-}
-
-function summary(items: Array<{ title: string }>): string {
-  const rest = items.length - 1;
-  return items.length === 1 ? items[0]!.title : `${items[0]!.title} y ${rest} tarea${rest > 1 ? 's' : ''} más`;
 }
 
 export const sendTaskReminders = internalAction({
@@ -53,29 +36,9 @@ export const sendTaskReminders = internalAction({
     // Anotado a mano: el tipo de `internal` incluye este módulo y sin él el compilador cicla.
     const pending: Delivery[] = await ctx.runQuery(internal.notifications.pendingDeliveries, {});
     for (const entry of pending) {
-      const delivered = { dueToday: [] as Id<'tasks'>[], dueTomorrow: [] as Id<'tasks'>[], reminders: [] as Id<'taskReminders'>[], escalations: [] as Id<'tasks'>[] };
-      const send = (payload: Payload) => sendToUser(ctx, entry.userId, payload);
-      if (entry.dueToday.length && (await send({ title: `Vence hoy${entry.dueToday.length > 1 ? ` · ${entry.dueToday.length}` : ''}`, body: summary(entry.dueToday), url: '/tasks' }))) {
-        delivered.dueToday = entry.dueToday.map((t) => t.id);
-        notified += entry.dueToday.length;
-      }
-      if (entry.dueTomorrow.length && (await send({ title: `Vence mañana${entry.dueTomorrow.length > 1 ? ` · ${entry.dueTomorrow.length}` : ''}`, body: summary(entry.dueTomorrow), url: '/tasks' }))) {
-        delivered.dueTomorrow = entry.dueTomorrow.map((t) => t.id);
-        notified += entry.dueTomorrow.length;
-      }
-      for (const reminder of entry.reminders) {
-        if (await send({ title: reminder.label ?? 'Recordatorio', body: reminder.taskTitle, url: '/tasks' })) {
-          delivered.reminders.push(reminder.id);
-          notified += 1;
-        }
-      }
-      for (const task of entry.escalations) {
-        // El título viaja a la pantalla de bloqueo del teléfono: la urgencia va en palabras.
-        await send({ title: `${PRIORITY_LABEL[task.priority] ?? 'Pendiente'} · sin completar`, body: task.title, url: '/tasks' });
-        delivered.escalations.push(task.id);
-        notified += 1;
-      }
-      await ctx.runMutation(internal.notifications.markDelivered, delivered);
+      const tanda = await repartir(entry, (payload) => sendToUser(ctx, entry.userId, payload));
+      notified += tanda.notified;
+      await ctx.runMutation(internal.notifications.markDelivered, tanda.delivered);
     }
     return { notified };
   },
