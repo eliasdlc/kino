@@ -22,7 +22,7 @@ function Block({ title, children }: { title: string; children: React.ReactNode }
 }
 
 /**
- * Lo que Kino sabe de ti, debajo del plan: el coach, tu patrón y los últimos
+ * Lo aprendido de ti, debajo del plan: el coach, tu patrón y los últimos
  * siete días. Cada bloque es un eyebrow y su contenido; el que no tiene datos
  * lo dice en una línea.
  */
