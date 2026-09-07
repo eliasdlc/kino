@@ -101,6 +101,59 @@ export const interruption = kinoQuery({
   },
 });
 
+/**
+ * Días fuera a partir de los cuales vale la pena decir algo al volver.
+ *
+ * Menos de una semana no cambia el techo del día ni deja vencimientos que
+ * contar, así que la fila no tendría ninguna cifra que enseñar y sería una
+ * frase por cortesía. Con siete, cuando aparece, trae números.
+ */
+export const DIAS_DE_AUSENCIA = 7;
+
+/**
+ * Lo que pasó mientras no estabas. **No es una interrupción**: no pide ninguna
+ * decisión, así que no pasa por la cola, no gasta la apertura del día y vive
+ * bajo el plan. Si hoy además hay una interrupción, salen las dos.
+ *
+ * Devuelve `null` cuando no hubo ausencia. Las tres cifras salen de una
+ * consulta de verdad, y cuando una de ellas no existe (no hay datos de energía
+ * de esos días) se dice, no se calla.
+ */
+export const returnNotice = kinoQuery({
+  args: {},
+  handler: async (ctx) => {
+    const desde = ctx.user.previousActiveAt;
+    if (desde === undefined) return null;
+
+    const now = Date.now();
+    const dias = Math.floor((now - desde) / 86_400_000);
+    if (dias < DIAS_DE_AUSENCIA) return null;
+
+    const tareas = await ctx.db
+      .query('tasks')
+      .withIndex('by_user_alive_status', (q) => q.eq('userId', ctx.user._id).eq('deletedAt', undefined))
+      .collect();
+
+    // Venció mientras no estabas: la fecha límite cae dentro del hueco y la
+    // tarea sigue sin completarse.
+    const vencidas = tareas.filter(
+      (t) => t.status !== 'done' && t.dueDate !== undefined && t.dueDate >= desde && t.dueDate <= now,
+    ).length;
+    // Se repitió sola: la sembró la recurrencia, que firma como `system`.
+    const repetidas = tareas.filter(
+      (t) => t.recurrenceParentId !== undefined && t.createdVia === 'system' && t.createdAt >= desde,
+    ).length;
+
+    const checkins = await ctx.db
+      .query('energyCheckins')
+      .withIndex('by_user_day_slot', (q) => q.eq('userId', ctx.user._id))
+      .collect();
+    const conEnergia = checkins.some((checkin) => checkin.createdAt >= desde && checkin.createdAt <= now);
+
+    return { dias, ultimaSesion: new Date(desde).toISOString(), vencidas, repetidas, conEnergia };
+  },
+});
+
 async function filaDe(ctx: MutationCtx, userId: Id<'users'>, kind: InterruptionKind, key: string) {
   return ctx.db
     .query('interruptions')

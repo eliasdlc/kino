@@ -7,6 +7,7 @@ import { EnergyTodayCard } from "@/features/dashboard/EnergyTodayCard";
 import { AdvisorCard } from "@/features/dashboard/AdvisorCard";
 import { FocusNowCard } from "@/features/dashboard/FocusNowCard";
 import { InterruptionLine } from "@/features/today/InterruptionLine";
+import { ReturnNotice } from "@/features/today/ReturnNotice";
 import { DashboardBottomRow } from "@/features/dashboard/DashboardBottomRow";
 import { getServerSession } from "@/shared/utils/session";
 
@@ -68,6 +69,7 @@ export default async function DashboardPage() {
             <FocusNowCard energyItems={energyItems} projectedCurve={dailyPlan.projectedCurve} />
           )}
 
+          <ReturnNotice />
           <DashboardBottomRow weeklyTrends={weeklyTrends} insight={learningInsight} />
         </div>
       </div>

@@ -8,6 +8,7 @@ import { convexTest } from 'convex-test';
 import { describe, expect, it } from 'vitest';
 import { api } from './_generated/api';
 import type { Doc } from './_generated/dataModel';
+import { DIAS_DE_AUSENCIA } from './today';
 import { DIAS_ANTES_DE_CEDER } from './lib/today/queue';
 import schema from './schema';
 
@@ -163,5 +164,87 @@ describe('la interrupción del día', () => {
     await beto.mutation(api.today.acknowledge, { kind: 'ritual', key: elegida.key });
 
     expect(await asAna.query(api.today.interruption, {})).toMatchObject({ key: elegida.key });
+  });
+});
+
+describe('el estado de regreso', () => {
+  /** Deja la cuenta como si la visita anterior hubiera sido hace `dias` días. */
+  const volviendoTras = (t: ReturnType<typeof convexTest>, userId: Awaited<ReturnType<typeof seed>>['userId'], dias: number) =>
+    t.run(async (ctx) => {
+      await ctx.db.patch(userId, { lastActiveAt: Date.now(), previousActiveAt: Date.now() - dias * MS_POR_DIA });
+      return null;
+    });
+
+  it('sin visita anterior, y con una ausencia corta, no hay nada que decir', async () => {
+    const { t, asAna, userId } = await seed();
+    expect(await asAna.query(api.today.returnNotice, {})).toBeNull();
+
+    await volviendoTras(t, userId, DIAS_DE_AUSENCIA - 1);
+    expect(await asAna.query(api.today.returnNotice, {})).toBeNull();
+  });
+
+  it('a los siete dias cuenta lo que vencio y lo que se repitio solo, de una consulta real', async () => {
+    const { t, asAna, userId, systemId } = await seed();
+
+    // Venció durante la ausencia y sigue sin completarse.
+    const vencida = await asAna.mutation(api.tasks.create, { systemId, title: 'Entregar' });
+    await asAna.mutation(api.tasks.update, { id: vencida.id, dueDate: new Date(Date.now() - 3 * MS_POR_DIA).toISOString() });
+    // Venció antes de irse: no cuenta.
+    const vieja = await asAna.mutation(api.tasks.create, { systemId, title: 'Vieja' });
+    await asAna.mutation(api.tasks.update, { id: vieja.id, dueDate: new Date(Date.now() - 30 * MS_POR_DIA).toISOString() });
+    // Una recurrente completada siembra la siguiente, que firma el sistema.
+    const serie = await asAna.mutation(api.tasks.create, {
+      systemId,
+      title: 'Regar las plantas',
+      dueDate: new Date(Date.now() + MS_POR_DIA).toISOString(),
+      recurrenceRule: 'FREQ=DAILY',
+    });
+    await asAna.mutation(api.tasks.toggle, { id: serie.id });
+
+    await volviendoTras(t, userId, 14);
+    expect(await asAna.query(api.today.returnNotice, {})).toMatchObject({
+      dias: 14,
+      vencidas: 1,
+      repetidas: 1,
+      conEnergia: false,
+    });
+  });
+
+  it('con un check-in dentro del hueco deja de decir que no hay datos de energia', async () => {
+    const { t, asAna, userId } = await seed();
+    await volviendoTras(t, userId, 14);
+    expect(await asAna.query(api.today.returnNotice, {})).toMatchObject({ conEnergia: false });
+
+    await t.run(async (ctx) => {
+      await ctx.db.insert('energyCheckins', {
+        userId,
+        date: '2026-09-01',
+        slot: 'morning',
+        currentLevel: 3,
+        sleepQuality: 'good',
+        createdAt: Date.now() - 5 * MS_POR_DIA,
+      });
+      return null;
+    });
+    expect(await asAna.query(api.today.returnNotice, {})).toMatchObject({ conEnergia: true });
+  });
+
+  it('no ocupa la interrupcion del dia: si hay linea arriba, salen las dos', async () => {
+    const { t, asAna, userId, systemId } = await seed({ reviewDay: hoyWeekday() });
+    await conVencida(asAna, systemId);
+    await volviendoTras(t, userId, 14);
+
+    expect(await asAna.query(api.today.interruption, {})).toMatchObject({ kind: 'ritual' });
+    expect(await asAna.query(api.today.returnNotice, {})).not.toBeNull();
+  });
+
+  it('la ausencia de una persona no se lee desde la cuenta de otra', async () => {
+    const { t, asAna, userId } = await seed();
+    await volviendoTras(t, userId, 14);
+
+    const beto = t.withIdentity({ subject: 'user_beto', email: 'beto@usekino.dev', name: 'Beto' });
+    await beto.mutation(api.users.ensure, {});
+    expect(await beto.query(api.today.returnNotice, {})).toBeNull();
+    expect(await asAna.query(api.today.returnNotice, {})).not.toBeNull();
   });
 });

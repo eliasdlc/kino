@@ -243,6 +243,10 @@ export default defineSchema({
     timezone: v.string(),
     // Última sesión, escrita como mucho una vez al día.
     lastActiveAt: v.optional(ts),
+    // La visita anterior a esa. Existe porque la fila de regreso mide el hueco
+    // que la persona estuvo fuera, y para cuando esa pantalla se pinta la
+    // visita de hoy ya machacó `lastActiveAt`.
+    previousActiveAt: v.optional(ts),
     createdAt: ts,
     updatedAt: ts,
   })

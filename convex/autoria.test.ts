@@ -248,9 +248,12 @@ describe('la cuenta activa', () => {
     expect(await asAna.mutation(api.users.touch, {})).toBe(false);
     expect((await t.run((ctx) => ctx.db.get(userId)))!.lastActiveAt).toBe(primera);
 
-    // Con la última visita en otro día natural vuelve a escribir.
-    await t.run((ctx) => ctx.db.patch(userId, { lastActiveAt: Date.now() - 3 * 86_400_000 }));
+    // Con la última visita en otro día natural vuelve a escribir, y la que se
+    // va queda guardada: es contra ella que la fila de regreso mide el hueco.
+    const hace3Dias = Date.now() - 3 * 86_400_000;
+    await t.run((ctx) => ctx.db.patch(userId, { lastActiveAt: hace3Dias }));
     expect(await asAna.mutation(api.users.touch, {})).toBe(true);
+    expect((await t.run((ctx) => ctx.db.get(userId)))!.previousActiveAt).toBe(hace3Dias);
   });
 });
 
