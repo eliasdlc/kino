@@ -9,7 +9,7 @@
  */
 
 import { describe, expect, it, vi } from "vitest";
-import { screen, waitFor } from "@testing-library/react";
+import { act, screen } from "@testing-library/react";
 import { renderWithProviders } from "@/shared/testing/render";
 import { setReducedMotion } from "@/shared/testing/media";
 import type { TodayCheckinRowTransport } from "@/features/energy/energy.types";
@@ -62,10 +62,32 @@ describe("EnergyTodayCard", () => {
 
   it("con el movimiento encendido cuenta, y aterriza en la misma cifra", async () => {
     setReducedMotion(false);
-    pintar();
 
-    // La cuenta dura 550ms y jsdom sirve los fotogramas más lentos que un
-    // navegador; el margen es para eso, no para esconder que no llegue.
-    await waitFor(() => expect(screen.getByText("82")).toBeVisible(), { timeout: 3000 });
+    // Los fotogramas se sirven a mano en vez de esperar a los de jsdom, que
+    // llegan cuando el proceso puede y no cuando toca: con la suite entera en
+    // paralelo la espera fallaba por hambre de CPU y no por la cuenta. La
+    // cuenta interpola por tiempo transcurrido, así que darle su marca de
+    // tiempo prueba lo mismo y además deja mirar por dónde va a mitad de
+    // camino, que antes no se podía.
+    const fotogramas: FrameRequestCallback[] = [];
+    vi.stubGlobal("requestAnimationFrame", (cb: FrameRequestCallback) => fotogramas.push(cb));
+    vi.stubGlobal("cancelAnimationFrame", () => {});
+
+    try {
+      const { container } = pintar();
+      const arranque = performance.now();
+
+      // A mitad de la cuenta va por el camino: ni en cero ni en la cifra final.
+      await act(async () => void fotogramas.shift()?.(arranque + 275));
+      const enCamino = Number(container.querySelector(".tabular-nums")?.textContent);
+      expect(enCamino).toBeGreaterThan(0);
+      expect(enCamino).toBeLessThan(82);
+
+      // Pasados los 550ms aterriza, y se queda ahí.
+      await act(async () => void fotogramas.shift()?.(arranque + 600));
+      expect(screen.getByText("82")).toBeVisible();
+    } finally {
+      vi.unstubAllGlobals();
+    }
   });
 });
