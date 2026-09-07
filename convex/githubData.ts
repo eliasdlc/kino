@@ -178,7 +178,9 @@ export const applySync = internalMutation({
           boardStatus: base.boardStatus,
           boardStatusChangedAt: now,
           completedAt: base.status === 'done' ? now : undefined,
-          completedBy: base.status === 'done' ? userId : undefined,
+          // La vía se firma, el autor no: el issue lo cerró alguien en GitHub,
+          // no una persona en Kino, y el conteo de cierres firmados que propone
+          // el techo del día mediría trabajo ajeno si esto escribiera `userId`.
           completedVia: base.status === 'done' ? ('sync' as const) : undefined,
           energyLevel: 'medium',
           priority: 'medium',

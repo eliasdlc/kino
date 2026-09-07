@@ -131,11 +131,12 @@ describe('autoría al crear', () => {
       expect(task.createdBy).toBe(userId);
       expect(task.createdVia).toBe('sync');
     }
-    // El que llegó cerrado trae su cierre firmado; el abierto no tiene ninguno.
+    // El que llegó cerrado trae la vía de su cierre y ningún autor: lo cerró
+    // alguien en GitHub, no una persona en Kino. El abierto no tiene ninguno.
     // El título lleva el número del issue delante: `#2 Cerrado`.
     const cerrado = tasks.find((task) => task.title.endsWith('Cerrado'))!;
     const abierto = tasks.find((task) => task.title.endsWith('Abierto'))!;
-    expect(cerrado.completedBy).toBe(userId);
+    expect(cerrado.completedBy).toBeUndefined();
     expect(cerrado.completedVia).toBe('sync');
     expect(abierto.completedBy).toBeUndefined();
     expect(abierto.completedVia).toBeUndefined();
