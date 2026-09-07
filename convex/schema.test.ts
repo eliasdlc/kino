@@ -266,6 +266,13 @@ async function seedOnePerTable(ctx: MutationCtx) {
     hits: 1,
   });
 
+  await ctx.db.insert('interruptions', {
+    userId,
+    kind: 'ritual',
+    key: '2026-W37',
+    surfacedAt: NOW,
+  });
+
   const proposalId = await ctx.db.insert('proposals', {
     userId,
     status: 'pending',
@@ -326,8 +333,8 @@ async function seedOnePerTable(ctx: MutationCtx) {
 }
 
 describe('convex/schema', () => {
-  it('declara las treinta y cinco tablas', () => {
-    expect(TABLE_NAMES).toHaveLength(35);
+  it('declara las treinta y seis tablas', () => {
+    expect(TABLE_NAMES).toHaveLength(36);
   });
 
   it('acepta un documento mínimo en cada tabla', async () => {

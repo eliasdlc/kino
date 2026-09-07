@@ -31,6 +31,27 @@ export function formatDuration(minutes: number): string {
   return m > 0 ? `${h}h ${m}min` : `${h}h`;
 }
 
+/**
+ * Quién cerró una tarea, en la voz del producto: el sujeto es la persona, no
+ * el producto. Una tarea que llegó cerrada por la sincronización con GitHub no
+ * tiene autor, y una cerrada antes de que la firma existiera tampoco: las dos
+ * lo dicen en vez de dejar la línea vacía.
+ */
+export function closedByPhrase(completedVia: string | null): string {
+  switch (completedVia) {
+    case "session":
+      return "La cerraste tú, desde el navegador";
+    case "oauth":
+      return "La cerró tu agente";
+    case "sync":
+      return "La cerró la sincronización con GitHub";
+    case "system":
+      return "La cerró una tarea programada";
+    default:
+      return "Se cerró antes de que existiera la firma";
+  }
+}
+
 /** true si dueDate tiene hora significativa (no medianoche local). */
 export function hasDueTime(d: Date): boolean {
   return d.getHours() !== 0 || d.getMinutes() !== 0;

@@ -119,6 +119,7 @@ describe('autoría al crear', () => {
       userId,
       systemId: system.id,
       truncated: false,
+      syncedThrough: Date.now(),
       issues: [
         { id: 1, number: 1, title: 'Abierto', body: null, state: 'open', htmlUrl: 'https://x/1', milestone: null },
         { id: 2, number: 2, title: 'Cerrado', body: null, state: 'closed', htmlUrl: 'https://x/2', milestone: null },
@@ -131,11 +132,12 @@ describe('autoría al crear', () => {
       expect(task.createdBy).toBe(userId);
       expect(task.createdVia).toBe('sync');
     }
-    // El que llegó cerrado trae su cierre firmado; el abierto no tiene ninguno.
+    // El que llegó cerrado trae la vía de su cierre y ningún autor: lo cerró
+    // alguien en GitHub, no una persona en Kino. El abierto no tiene ninguno.
     // El título lleva el número del issue delante: `#2 Cerrado`.
     const cerrado = tasks.find((task) => task.title.endsWith('Cerrado'))!;
     const abierto = tasks.find((task) => task.title.endsWith('Abierto'))!;
-    expect(cerrado.completedBy).toBe(userId);
+    expect(cerrado.completedBy).toBeUndefined();
     expect(cerrado.completedVia).toBe('sync');
     expect(abierto.completedBy).toBeUndefined();
     expect(abierto.completedVia).toBeUndefined();
@@ -247,9 +249,12 @@ describe('la cuenta activa', () => {
     expect(await asAna.mutation(api.users.touch, {})).toBe(false);
     expect((await t.run((ctx) => ctx.db.get(userId)))!.lastActiveAt).toBe(primera);
 
-    // Con la última visita en otro día natural vuelve a escribir.
-    await t.run((ctx) => ctx.db.patch(userId, { lastActiveAt: Date.now() - 3 * 86_400_000 }));
+    // Con la última visita en otro día natural vuelve a escribir, y la que se
+    // va queda guardada: es contra ella que la fila de regreso mide el hueco.
+    const hace3Dias = Date.now() - 3 * 86_400_000;
+    await t.run((ctx) => ctx.db.patch(userId, { lastActiveAt: hace3Dias }));
     expect(await asAna.mutation(api.users.touch, {})).toBe(true);
+    expect((await t.run((ctx) => ctx.db.get(userId)))!.previousActiveAt).toBe(hace3Dias);
   });
 });
 

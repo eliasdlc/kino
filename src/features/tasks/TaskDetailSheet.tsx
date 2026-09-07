@@ -51,6 +51,7 @@ import {
   DateTimeField,
   ExportTaskJsonButton,
   GradeField,
+  ClosingSignature,
   TimeLoggedSection,
 } from "./TaskDetailFields";
 
@@ -320,6 +321,8 @@ function TaskDetailForm({ task, systemId, onClose }: TaskDetailFormProps) {
       <TaskRemindersSection task={task} />
 
       <TimeLoggedSection taskId={task.id} />
+
+      <ClosingSignature task={task} />
 
       <div className="mt-auto flex items-center justify-between gap-3">
         {!isDone && (

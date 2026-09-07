@@ -9,6 +9,18 @@ import type { Id } from './_generated/dataModel';
 // El envío de push corre en Node porque `web-push` lo exige. Sólo marca como
 // avisado lo que de verdad se entregó; lo que falla se reintenta en el
 // siguiente cron.
+//
+// ── Por qué estos avisos no pasan por la cola de una sola interrupción ──────
+// La cola de `convex/today.ts` gobierna lo único que Kino pregunta dentro de
+// Hoy, una vez al día. Un push no pregunta nada: dice que algo vence hoy, y eso
+// es un hecho con hora que sólo sirve cuando ocurre. Guardarlo para la apertura
+// del día siguiente lo convierte en un aviso de algo que ya venció.
+//
+// Quedan por tanto **exentos a propósito**, y la exención tiene su propio
+// límite: que una pasada del cron no mande cuatro avisos seguidos a la misma
+// persona es un problema de agrupación, y lo cierra *Agrupar la escalación de
+// recordatorios y dejar de marcar lo que no llegó* (fase 4), que es quien toca
+// este reparto.
 
 type Payload = { title: string; body: string; url?: string };
 type Delivery = {

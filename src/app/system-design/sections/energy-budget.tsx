@@ -5,7 +5,7 @@ import { api } from "@convex/_generated/api";
 import { Section, SubSection, Specimen, SpecimenGrid, Seeded, ClientOnly, seedQuery } from "../helpers";
 import { mockLearningInsight } from "../mock-data";
 import { EnergyBudgetBar } from "@/features/energy/EnergyBudgetBar";
-import { WeeklyRitualPrompt } from "@/features/energy/WeeklyRitualPrompt";
+import { InterruptionLine } from "@/features/today/InterruptionLine";
 import { LearningInsightCard } from "@/features/dashboard/LearningInsightCard";
 import { WeeklyReviewDaySection } from "@/features/settings/WeeklyReviewDaySection";
 import { WEEKDAY_ORDER } from "@/features/energy/energy.ritual";
@@ -14,7 +14,7 @@ import type { VerificationLoop } from "@/features/energy/energy.prediction";
 /**
  * Las superficies de Fase 4 (energía visible).
  *
- * `EnergyBudgetBar` y `WeeklyRitualPrompt` no reciben datos por props: los
+ * `EnergyBudgetBar` e `InterruptionLine` no reciben datos por props: los
  * derivan del cache de react-query, igual que en el dashboard. Para poder
  * mostrar varios estados en la misma página cada specimen monta su propio
  * QueryClient sembrado — así lo que se ve aquí sale del mismo cálculo que ve el
@@ -114,6 +114,14 @@ function seedRitual() {
     WEEKDAY_ORDER[(new Date(Date.now() + n * 86_400_000).getDay() + 6) % 7]!;
 
   return [
+    // La línea la elige el servidor: el specimen siembra la que el ritual
+    // ocuparía hoy, y el diálogo que abre lee las dos queries de abajo.
+    seedQuery(api.today.interruption, {
+      kind: "ritual",
+      key: today,
+      surfacedAt: null,
+      payload: { vencidas: 4 },
+    } as never),
     seedQuery(api.settings.get, {
     dailyEnergyLimit: 50,
     timezone: "America/Santo_Domingo",
@@ -289,13 +297,13 @@ export function EnergyBudgetSection() {
       </SubSection>
 
       <SubSection
-        title="Ritual semanal"
-        description="La tira aparece solo el día de revisión elegido (weeklyReviewDay). «Repartir» abre el diálogo con el reparto propuesto: cada tarea vencida cae en el primer día donde cabe según el presupuesto, y lo que no entra se dice con el motivo."
+        title="La interrupción del día"
+        description="Encima del plan hay como mucho una línea, y el servidor decide cuál de los candidatos la ocupa. Aquí se ve la del ritual semanal: «Repartir» abre el diálogo con el reparto propuesto, y los dos botones acusan recibo, así que la línea no vuelve. Sin ningún candidato no se pinta nada."
       >
         <div className="max-w-xl">
           <ClientOnly>
             <Seeded stubs={seedRitual()}>
-              <WeeklyRitualPrompt />
+              <InterruptionLine />
             </Seeded>
           </ClientOnly>
         </div>

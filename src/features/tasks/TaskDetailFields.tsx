@@ -9,7 +9,7 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { Calendar } from "@/components/ui/calendar";
 import { TimePicker } from "@/components/ui/time-picker";
 import type { TaskTransport } from "./tasks.types";
-import { formatDuration, hasDueTime, taskJsonFilename, withDay, withTime } from "./task-detail.helpers";
+import { closedByPhrase, formatDuration, hasDueTime, taskJsonFilename, withDay, withTime } from "./task-detail.helpers";
 import { api } from "@convex/_generated/api";
 import { useConvexQuery } from "@/shared/convex/hooks";
 import { getConvexClient } from "@/shared/convex/client";
@@ -31,6 +31,34 @@ export function TimeLoggedSection({ taskId }: { taskId: string }) {
       <p className="text-sm font-medium">
         {formatDuration(data.totalMinutes)}
         <span className="text-muted-foreground font-normal"> · {data.sessionCount} sesión{data.sessionCount !== 1 ? 'es' : ''}</span>
+      </p>
+    </div>
+  );
+}
+
+/**
+ * La firma del cierre: quién cerró la tarea, por qué vía y cuánto tiempo de
+ * trabajo observado tiene. El tiempo sale de los time logs, que es la única
+ * fuente de tiempo real del producto, y nunca de la estimación.
+ *
+ * Cuando falta un dato se dice con el mismo tamaño de letra que cuando lo hay:
+ * una tarea cerrada sin firma y una sin tiempo registrado no se esconden en
+ * gris pequeño.
+ */
+export function ClosingSignature({ task }: { task: TaskTransport }) {
+  const { data } = useConvexQuery(api.tasks.timeLogSummary, task.completedAt ? { id: task.id } : "skip");
+
+  if (!task.completedAt) return null;
+
+  return (
+    <div className="mt-4 pt-4 border-t">
+      <p className="text-xs text-muted-foreground mb-1">Firma del cierre</p>
+      <p className="text-sm">
+        {closedByPhrase(task.completedVia)}
+        {" · "}
+        {data && data.totalMinutes > 0
+          ? `${formatDuration(data.totalMinutes)} de trabajo observado`
+          : "sin tiempo observado"}
       </p>
     </div>
   );

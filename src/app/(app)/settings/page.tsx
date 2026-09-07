@@ -1,6 +1,5 @@
 "use client";
 
-import { Suspense } from "react";
 import { PageWrapper, PageHeader } from "@/components/PageWrapper";
 import { Label } from "@/components/ui/label";
 import {
@@ -16,10 +15,11 @@ import { Bell, BellOff, Download, Loader2, Monitor, Moon, Sun } from "lucide-rea
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 import { usePushNotifications } from "@/features/notifications/notifications.hooks";
-import { GithubConnectionSection } from "@/features/github-sync/GithubConnectionSection";
 import { EnergyLimitSection } from "@/features/settings/EnergyLimitSection";
 import { TimezoneSection } from "@/features/settings/TimezoneSection";
 import { WeeklyReviewDaySection } from "@/features/settings/WeeklyReviewDaySection";
+import { DigestsSection } from "@/features/settings/DigestsSection";
+import { ConnectionsSection } from "@/features/settings/ConnectionsSection";
 import { ReclaimSpaceSection } from "@/features/uploads/ReclaimSpaceSection";
 import { AccountSection } from "@/features/account/AccountSection";
 import { DangerZoneSection } from "@/features/account/DangerZoneSection";
@@ -254,11 +254,9 @@ export default function SettingsPage() {
 
         {/* API Keys */}
 
-        {/* GitHub: lee el resultado del callback de OAuth de la URL, así que
-            necesita su propio límite de Suspense. */}
-        <Suspense>
-          <GithubConnectionSection />
-        </Suspense>
+        <ConnectionsSection />
+
+        <DigestsSection />
 
         {/* Datos y portabilidad */}
         <div className="space-y-4">

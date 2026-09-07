@@ -1,11 +1,14 @@
 import { convexTest } from 'convex-test';
 import { describe, expect, it } from 'vitest';
-import { api } from './_generated/api';
+import { api, internal } from './_generated/api';
 import type { Id } from './_generated/dataModel';
+import { MCP_TOKEN_ISSUER } from './lib/mcpToken';
 import schema from './schema';
 
 const modules = import.meta.glob('./**/*.*s');
 const ana = { subject: 'user_ana', email: 'ana@usekino.dev', name: 'Ana' };
+/** La misma persona, entrando por un cliente OAuth del MCP en vez del navegador. */
+const anaPorMcp = { ...ana, issuer: MCP_TOKEN_ISSUER };
 
 async function seed() {
   const t = convexTest(schema, modules);
@@ -72,8 +75,8 @@ describe('tasks', () => {
   it('la máquina de estados: toggle completa, undo vuelve a hoy, y un salto inválido se rechaza', async () => {
     const { asAna, systemId } = await seed();
     const task = await asAna.mutation(api.tasks.create, { systemId, title: 'Una' });
-    expect(await asAna.mutation(api.tasks.toggle, { id: task.id })).toEqual({ status: 'done' });
-    expect(await asAna.mutation(api.tasks.toggle, { id: task.id })).toEqual({ status: 'today' });
+    expect(await asAna.mutation(api.tasks.toggle, { id: task.id })).toMatchObject({ status: 'done' });
+    expect(await asAna.mutation(api.tasks.toggle, { id: task.id })).toMatchObject({ status: 'today' });
     await asAna.mutation(api.tasks.move, { id: task.id, status: 'week' });
     await expect(asAna.mutation(api.tasks.move, { id: task.id, status: 'done' })).resolves.toMatchObject({ status: 'done' });
     // Desde hecho sólo se puede deshacer, no mover a mañana.
@@ -151,6 +154,69 @@ describe('tasks', () => {
     expect((await asAna.query(api.tasks.list, { deleted: true })).items.map((i) => i.id)).toEqual([first.id]);
     await asAna.mutation(api.tasks.restore, { id: first.id });
     expect((await asAna.query(api.tasks.list, {})).items.map((i) => i.id)).toEqual([first.id]);
+  });
+});
+
+describe('la firma del cierre', () => {
+  it('el navegador y el conector firman el cierre; la sincronizacion firma la via y deja el autor vacio', async () => {
+    const { t, asAna, userId, systemId } = await seed();
+
+    // 1. Navegador. La salida de `toggle` trae la firma sin una segunda lectura.
+    const propia = await asAna.mutation(api.tasks.create, { systemId, title: 'Cerrar desde el navegador' });
+    const cerrada = await asAna.mutation(api.tasks.toggle, { id: propia.id });
+    expect(cerrada).toMatchObject({ status: 'done', completedBy: userId, completedVia: 'session' });
+
+    // 2. Conector del MCP. Misma persona, otra puerta.
+    const porMcp = t.withIdentity(anaPorMcp);
+    const delAgente = await porMcp.mutation(api.tasks.create, { systemId, title: 'Cerrar desde el conector' });
+    const cerradaPorMcp = await porMcp.mutation(api.tasks.toggle, { id: delAgente.id });
+    expect(cerradaPorMcp).toMatchObject({ status: 'done', completedBy: userId, completedVia: 'oauth' });
+
+    // 3. Un issue de GitHub que se cierra fuera y llega por el puente del
+    // tablero: la via queda, el autor no, porque no lo cerro nadie en Kino.
+    const issue = { id: 7, number: 7, title: 'Abierto', body: null, state: 'open' as const, htmlUrl: 'https://x/7', milestone: null };
+    await t.mutation(internal.githubData.applySync, { userId, systemId, truncated: false, syncedThrough: Date.now(), issues: [issue] });
+    await t.mutation(internal.githubData.applySync, { userId, systemId, truncated: false, syncedThrough: Date.now(), issues: [{ ...issue, state: 'closed' as const }] });
+    const importada = (await t.run((ctx) => ctx.db.query('tasks').collect())).find((doc) => doc.externalId)!;
+    expect(importada.status).toBe('done');
+    expect(importada.completedVia).toBe('sync');
+    expect(importada.completedBy).toBeUndefined();
+  });
+
+  it('deshacer un cierre borra la firma, y la siguiente ocurrencia de una serie nace sin ella', async () => {
+    const { t, asAna, systemId } = await seed();
+    const serie = await asAna.mutation(api.tasks.create, {
+      systemId,
+      title: 'Regar las plantas',
+      dueDate: new Date(Date.now() + 86_400_000).toISOString(),
+      recurrenceRule: 'FREQ=DAILY',
+    });
+    await asAna.mutation(api.tasks.toggle, { id: serie.id });
+
+    const siguiente = (await t.run((ctx) => ctx.db.query('tasks').collect())).find((doc) => doc._id !== serie.id)!;
+    expect(siguiente.completedBy).toBeUndefined();
+    expect(siguiente.completedVia).toBeUndefined();
+
+    const reabierta = await asAna.mutation(api.tasks.toggle, { id: serie.id });
+    expect(reabierta).toMatchObject({ completedBy: null, completedVia: null });
+  });
+
+  it('el tiempo observado sale de los time logs y no de la estimacion', async () => {
+    const { asAna, systemId } = await seed();
+    const task = await asAna.mutation(api.tasks.create, { systemId, title: 'Escribir', estimatedTime: '03:00' });
+    const inicio = new Date(Date.now() - 3_600_000).toISOString();
+    await asAna.mutation(api.tasks.createTimeLog, { id: task.id, systemId, startedAt: inicio, endedAt: new Date().toISOString(), durationMinutes: 25 });
+    await asAna.mutation(api.tasks.createTimeLog, { id: task.id, systemId, startedAt: inicio, endedAt: new Date().toISOString(), durationMinutes: 15 });
+
+    const cerrada = await asAna.mutation(api.tasks.toggle, { id: task.id });
+    expect(cerrada.observedMinutes).toBe(40);
+  });
+
+  it('una tarea sin cerrar no tiene firma y la lectura lo dice con null, no omitiendo el campo', async () => {
+    const { asAna, systemId } = await seed();
+    const task = await asAna.mutation(api.tasks.create, { systemId, title: 'Sin cerrar' });
+    const leida = await asAna.query(api.tasks.byId, { id: task.id });
+    expect(leida).toMatchObject({ completedBy: null, completedVia: null, completedAt: null });
   });
 });
 

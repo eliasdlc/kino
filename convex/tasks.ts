@@ -77,6 +77,8 @@ export function taskItem(doc: TaskDoc) {
     reminderCount: doc.reminderCount,
     lastRemindedAt: iso(doc.lastRemindedAt),
     completedAt: iso(doc.completedAt),
+    completedBy: doc.completedBy ?? null,
+    completedVia: doc.completedVia ?? null,
     deletedAt: iso(doc.deletedAt),
     createdAt: iso(doc.createdAt)!,
     updatedAt: iso(doc.updatedAt)!,
@@ -185,6 +187,33 @@ async function syncAutoReminders(ctx: MutationCtx, task: TaskDoc, now: number) {
 // ── Transiciones ────────────────────────────────────────────────────────────
 
 /**
+ * Los dos canales con una persona detrás. `sync` y `system` cierran tareas sin
+ * que nadie las cierre, así que firman la vía y dejan el autor vacío: el techo
+ * del día se propone contando cierres firmados por una persona, y una firma de
+ * la sincronización con GitHub haría subir ese conteo sin que nadie trabajara.
+ */
+const canalConPersona: readonly ActorChannel[] = ['session', 'oauth'];
+
+/** El autor de un cierre, o nadie cuando lo cerró una máquina. */
+const firmante = (channel: ActorChannel, userId: Id<'users'>) =>
+  canalConPersona.includes(channel) ? userId : undefined;
+
+/**
+ * El tiempo de trabajo observado de una tarea: la suma de sus `timeLogs`. Es
+ * la única fuente de tiempo real que el producto tiene, y nunca la estimación.
+ */
+async function timeObserved(ctx: Ctx, id: Id<'tasks'>) {
+  const logs = await ctx.db
+    .query('timeLogs')
+    .withIndex('by_task', (q) => q.eq('taskId', id))
+    .collect();
+  return {
+    totalMinutes: logs.reduce((sum, log) => sum + log.durationMinutes, 0),
+    sessionCount: logs.length,
+  };
+}
+
+/**
  * Valida y aplica una transición de la máquina de estados. `null` es no-op.
  * `actor` firma el cierre: completar escribe quién y por qué puerta,
  * deshacerlo los borra, porque un cierre deshecho no tiene autor.
@@ -214,7 +243,7 @@ async function applyTransition(
   for (const effect of transition.sideEffects ?? []) {
     if (effect.type === 'set_completed_at') {
       patch.completedAt = now;
-      patch.completedBy = actor.userId;
+      patch.completedBy = firmante(actor.channel, actor.userId);
       patch.completedVia = actor.channel;
     }
     if (effect.type === 'clear_completed_at') {
@@ -419,14 +448,7 @@ export const timeLogSummary = kinoZodQuery({
   args: { id: zid('tasks') },
   handler: async (ctx, { id }) => {
     await ownTask(ctx, ctx.user._id, id, { includeDeleted: true });
-    const logs = await ctx.db
-      .query('timeLogs')
-      .withIndex('by_task', (q) => q.eq('taskId', id))
-      .collect();
-    return {
-      totalMinutes: logs.reduce((sum, log) => sum + log.durationMinutes, 0),
-      sessionCount: logs.length,
-    };
+    return timeObserved(ctx, id);
   },
 });
 
@@ -672,7 +694,15 @@ export const toggle = kinoZodMutation({
     const updated = await applyTransition(ctx, task, { userId: ctx.user._id, channel: ctx.channel }, (current) =>
       current.status === 'done' ? 'undo_done' : 'toggle_done',
     );
-    return { status: updated.status };
+    // La firma viaja con el resultado en vez de pedir una segunda lectura: el
+    // detalle la pinta al cerrar, y el agente que cierra por el conector sabe
+    // con qué quedó firmada su propia escritura.
+    return {
+      status: updated.status,
+      completedBy: updated.completedBy ?? null,
+      completedVia: updated.completedVia ?? null,
+      observedMinutes: (await timeObserved(ctx, id)).totalMinutes,
+    };
   },
 });
 

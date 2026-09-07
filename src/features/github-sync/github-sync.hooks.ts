@@ -33,7 +33,10 @@ export function useGithubConnection() {
 }
 
 export function useDisconnectGithub() {
-  return useConvexMutation(api.githubData.disconnect);
+  // Pasa por `connections`, que es el slice de las fuentes conectadas: olvidar
+  // una conexión es la misma operación para todas, y el proveedor se valida
+  // contra los que de verdad tienen código.
+  return useConvexMutation(api.connections.forget, { map: () => ({ provider: 'github' as const }) });
 }
 
 export function useLinkRepo(systemId: string) {

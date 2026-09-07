@@ -1,6 +1,7 @@
 "use client";
 
-import { Section, SubSection, Specimen, SpecimenGrid } from "../helpers";
+import { api } from "@convex/_generated/api";
+import { Section, SubSection, Specimen, SpecimenGrid, Seeded, seedQuery } from "../helpers";
 import {
   makeTask,
   makeCheckin,
@@ -19,9 +20,29 @@ import { LearningInsightCard } from "@/features/dashboard/LearningInsightCard";
 import { AdvisorCard } from "@/features/dashboard/AdvisorCard";
 import { QuickAccessCard } from "@/features/dashboard/QuickAccessCard";
 import { EnergyAdvisorBanner } from "@/components/EnergyAdvisorBanner";
+import { ReturnNotice } from "@/features/today/ReturnNotice";
+import { ClosingSignature } from "@/features/tasks/TaskDetailFields";
+import type { TaskTransport } from "@/features/tasks/tasks.types";
 import { Moon } from "lucide-react";
 
 const noop = () => {};
+
+/** La ausencia que el estado de regreso mide, con y sin datos de energía. */
+const regreso = (conEnergia: boolean) => [
+  seedQuery(api.today.returnNotice, {
+    dias: 14,
+    ultimaSesion: new Date(Date.now() - 14 * 86_400_000).toISOString(),
+    vencidas: 9,
+    repetidas: 2,
+    conEnergia,
+  }),
+];
+
+/** Una tarea cerrada por cada vía, más una cerrada antes de que la firma existiera. */
+const cerrada = (completedVia: string | null) =>
+  ({ id: mid("t1"), title: "Entregar el informe", completedAt: new Date().toISOString(), completedVia }) as unknown as TaskTransport;
+
+const conTiempo = (totalMinutes: number) => [seedQuery(api.tasks.timeLogSummary, { totalMinutes, sessionCount: 3 })];
 
 const chartData = MOCK_CURVE.map((predicted, hour) => ({
   hour,
@@ -156,6 +177,47 @@ export function DashboardSection() {
                 action={{ label: "Ver plan", onClick: noop }}
               />
             </div>
+          </Specimen>
+        </SpecimenGrid>
+      </SubSection>
+
+      <SubSection
+        title="La firma del cierre"
+        description="En el detalle de una tarea cerrada: quién la cerró, por qué vía y cuánto trabajo observado tiene, que sale de los time logs y nunca de la estimación. Los tres estados van al mismo tamaño de letra a propósito: lo que no se sabe pesa lo mismo que lo que se sabe."
+      >
+        <SpecimenGrid>
+          <Specimen label="Desde el navegador" hint="completedVia: session">
+            <Seeded stubs={conTiempo(95)}>
+              <ClosingSignature task={cerrada("session")} />
+            </Seeded>
+          </Specimen>
+          <Specimen label="Cerrada en GitHub" hint="completedVia: sync, sin persona">
+            <Seeded stubs={conTiempo(0)}>
+              <ClosingSignature task={cerrada("sync")} />
+            </Seeded>
+          </Specimen>
+          <Specimen label="Sin firma" hint="anterior al registro de autoría">
+            <Seeded stubs={conTiempo(0)}>
+              <ClosingSignature task={cerrada(null)} />
+            </Seeded>
+          </Specimen>
+        </SpecimenGrid>
+      </SubSection>
+
+      <SubSection
+        title="El estado de regreso"
+        description="Bajo el plan al volver después de más de siete días. No pide ninguna decisión, así que no gasta la única interrupción del día: si hoy además hay línea arriba, salen las dos."
+      >
+        <SpecimenGrid>
+          <Specimen label="Con datos de energía" hint="conEnergia: true">
+            <Seeded stubs={regreso(true)}>
+              <ReturnNotice />
+            </Seeded>
+          </Specimen>
+          <Specimen label="Sin datos del periodo" hint="lo dice en la misma frase y al mismo tamaño">
+            <Seeded stubs={regreso(false)}>
+              <ReturnNotice />
+            </Seeded>
           </Specimen>
         </SpecimenGrid>
       </SubSection>

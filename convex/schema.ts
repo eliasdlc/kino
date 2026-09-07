@@ -196,6 +196,13 @@ export const itemType = literals([
 ]);
 export const proposalStatus = literals(['pending', 'applied', 'dismissed', 'expired']);
 export const proposalKind = literals(['archive', 'cancel', 'rewrite']);
+/**
+ * Las siete clases que pueden ocupar la única interrupción del día. El orden
+ * entre ellas no vive aquí sino en `convex/lib/today/queue.ts`, que es donde se
+ * puede probar par a par.
+ */
+export const interruptionKind = literals(['lunes', 'autoArchivo', 'techo', 'cronotipo', 'ritual', 'agente', 'empujeSistema']);
+export type InterruptionKind = Infer<typeof interruptionKind>;
 export const captureStatus = literals(['pending', 'confirmed', 'discarded', 'expired']);
 export const captureKind = literals(['voice', 'photo', 'link', 'text']);
 
@@ -236,6 +243,10 @@ export default defineSchema({
     timezone: v.string(),
     // Última sesión, escrita como mucho una vez al día.
     lastActiveAt: v.optional(ts),
+    // La visita anterior a esa. Existe porque la fila de regreso mide el hueco
+    // que la persona estuvo fuera, y para cuando esa pantalla se pinta la
+    // visita de hoy ya machacó `lastActiveAt`.
+    previousActiveAt: v.optional(ts),
     createdAt: ts,
     updatedAt: ts,
   })
@@ -700,6 +711,9 @@ export default defineSchema({
     refreshTokenEncrypted: v.optional(v.string()),
     feedUrl: v.optional(v.string()),
     lastSyncedAt: v.optional(ts),
+    // Hasta dónde llegó el último refresco. El siguiente pide sólo lo que
+    // cambió después, en vez de traerse el repositorio entero cada vez.
+    syncedThrough: v.optional(ts),
     createdAt: ts,
     updatedAt: ts,
   })
@@ -850,6 +864,22 @@ export default defineSchema({
   })
     .index('by_user_status', ['userId', 'status'])
     .index('by_expires', ['expiresAt']),
+
+  // Una interrupción mostrada. Es la memoria de la cola de una sola
+  // interrupción al día: sin ella, una propuesta que la persona no acusa
+  // porque cerró la pestaña se queda delante para siempre y ninguna otra
+  // llega nunca. `key` identifica al candidato dentro de su clase (el id de un
+  // digest, el de una propuesta, la semana del ritual), de modo que las siete
+  // clases guardan su estado igual, incluidas las que no tienen fila propia.
+  interruptions: defineTable({
+    userId: v.id('users'),
+    kind: interruptionKind,
+    key: v.string(),
+    surfacedAt: ts,
+    acknowledgedAt: v.optional(ts),
+  })
+    .index('by_user_kind_key', ['userId', 'kind', 'key'])
+    .index('by_user_surfaced', ['userId', 'surfacedAt']),
 
   // Lo compartido desde fuera, entre que llega y que se confirma. Caduca con
   // aviso, nunca en silencio.
