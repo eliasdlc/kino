@@ -23,11 +23,12 @@ import {
  * geometría la resuelve `calendar.layout.ts`.
  */
 
+/** El bloque es superficie con hairline; la prioridad es peso, no color. */
 export const PRIORITY_CHIP: Record<string, string> = {
-  critical: "bg-red-500/20 border-red-500/40 text-red-700 dark:text-red-400",
-  high: "bg-orange-500/20 border-orange-500/40 text-orange-700 dark:text-orange-400",
-  medium: "bg-blue-500/20 border-blue-500/40 text-blue-700 dark:text-blue-400",
-  low: "bg-neutral-500/20 border-neutral-500/40 text-muted-foreground",
+  critical: "bg-card border-border font-semibold",
+  high: "bg-card border-border",
+  medium: "bg-card border-border",
+  low: "bg-card border-border text-muted-foreground",
 };
 
 export function AllDayCell({ day, tasks }: { day: Date; tasks: TaskTransport[] }) {

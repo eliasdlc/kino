@@ -12,10 +12,10 @@ const WEEKDAYS = ["L", "M", "X", "J", "V", "S", "D"];
 const MAX_DOTS = 3;
 
 const PRIORITY_DOT: Record<string, string> = {
-  critical: "bg-red-500",
-  high: "bg-orange-500",
-  medium: "bg-blue-500",
-  low: "bg-neutral-400",
+  critical: "bg-task-overdue",
+  high: "bg-primary",
+  medium: "bg-secondary",
+  low: "bg-muted",
 };
 
 interface TaskCalendarMobileViewProps {

@@ -99,7 +99,7 @@ export function CascadeInboxMode({ tasks, open, onOpenChange }: CascadeInboxMode
         <div className="flex gap-2">
           <button
             onClick={() => schedule("done")}
-            className={cn(SLOT_BTN, "hover:bg-emerald-500/10 hover:border-emerald-500/40 hover:text-emerald-400")}
+            className={cn(SLOT_BTN, "hover:bg-task-done/10 hover:border-task-done/40 hover:text-task-done")}
           >
             <span className="text-muted-foreground mr-1 font-mono">[C]</span> Completar
           </button>

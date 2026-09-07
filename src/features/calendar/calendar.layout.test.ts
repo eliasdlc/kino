@@ -126,12 +126,12 @@ describe("resizedMinutes", () => {
 });
 
 describe("energyBgClass", () => {
-  it("verde arriba de 60, ámbar en el medio, rojo abajo de 30", () => {
-    expect(energyBgClass(80)).toContain("emerald");
-    expect(energyBgClass(60)).toContain("emerald");
-    expect(energyBgClass(45)).toContain("amber");
-    expect(energyBgClass(30)).toContain("amber");
-    expect(energyBgClass(10)).toContain("rose");
+  it("hecho arriba de 60, acento en el medio, vencida abajo de 30", () => {
+    expect(energyBgClass(80)).toContain("task-done");
+    expect(energyBgClass(60)).toContain("task-done");
+    expect(energyBgClass(45)).toContain("primary");
+    expect(energyBgClass(30)).toContain("primary");
+    expect(energyBgClass(10)).toContain("task-overdue");
   });
 });
 

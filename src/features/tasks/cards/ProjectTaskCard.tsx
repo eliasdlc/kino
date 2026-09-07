@@ -132,7 +132,7 @@ export function ProjectTaskCard({ task, systemId, onToggle, onDelete, onEdit, sh
               <DropdownMenuContent align="end" className="w-52">
                 {showActions && (
                   <DropdownMenuItem disabled={anotherRunning} onSelect={startFocus}>
-                    <Timer className={cn(isThisRunning && "text-amber-600 dark:text-amber-400")} />
+                    <Timer className={cn(isThisRunning && "text-primary")} />
                     {isThisRunning ? "Timer en curso" : "Iniciar foco"}
                   </DropdownMenuItem>
                 )}
@@ -214,7 +214,7 @@ export function ProjectTaskCard({ task, systemId, onToggle, onDelete, onEdit, sh
         {showActions && (
           <>
             <ContextMenuItem disabled={anotherRunning} onSelect={startFocus}>
-              <Timer className={cn(isThisRunning && "text-amber-600 dark:text-amber-400")} />
+              <Timer className={cn(isThisRunning && "text-primary")} />
               {isThisRunning ? "Timer en curso" : "Iniciar foco"}
             </ContextMenuItem>
             <ContextMenuSeparator />
