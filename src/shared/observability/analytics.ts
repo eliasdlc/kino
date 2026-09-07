@@ -10,15 +10,15 @@ import { stripQuery } from "./strip-query";
  * sesiones y no sabe qué escribe nadie.
  *
  * El criterio es el mismo de `sentry-options`: no se enumera lo peligroso, se
- * manda sólo lo que sirve. Aquí eso son dos listas cerradas —los eventos y, por
- * cada evento, sus propiedades— y todo lo que no esté en ellas se cae antes de
+ * manda sólo lo que sirve. Aquí eso son dos listas cerradas (los eventos y, por
+ * cada evento, sus propiedades) y todo lo que no esté en ellas se cae antes de
  * salir del navegador. Un evento nuevo no se puede mandar sin declararlo, que es
  * justo lo que impide que un título de tarea acabe en un panel.
  *
  * Sobre la privacidad: se mide sin cookies (`cookieless_mode`), así que no hay
  * banner que aceptar y el identificador anónimo lo calcula PostHog en su
  * servidor y rota cada día. El precio es que un funnel que cruce días se
- * rompería solo, y por eso —y sólo después del registro, cuando ya hay cuenta—
+ * rompería solo, y por eso (y sólo después del registro, cuando ya hay cuenta)
  * se llama a `identify()` con el `userId` que la app ya tiene. Es el id propio
  * del producto: no sirve en ningún otro sitio y no sigue a nadie entre webs.
  * PostHog desaconseja identificar en este modo, y tiene razón para una web
@@ -79,7 +79,7 @@ export function isAnalyticsEvent(name: string): name is AnalyticsEvent {
  * PostHog añade a cada evento de dónde se disparó. En una landing eso es
  * inofensivo, pero dentro de la app la URL lleva ids de páginas y el término de
  * búsqueda de la lista, así que las que sobran no se mandan. El referente sí se
- * queda —dice de dónde llegó la visita, que es media pregunta del ticket— pero
+ * queda (dice de dónde llegó la visita, que es media pregunta del ticket) pero
  * sin query, igual que en el reporte de errores.
  *
  * Ojo con el alcance: `property_denylist` sólo cubre las propiedades del evento.
@@ -193,8 +193,8 @@ export function scrubCapture(capture: CaptureResult | null): CaptureResult | nul
 
 /**
  * Todo lo que PostHog hace por su cuenta está apagado a propósito. La captura
- * automática guarda el texto del elemento pulsado —el título de una tarea, el
- * nombre de un sistema—, la grabación de sesión graba la pantalla de alguien
+ * automática guarda el texto del elemento pulsado (el título de una tarea, el
+ * nombre de un sistema), la grabación de sesión graba la pantalla de alguien
  * escribiendo su novela, y ninguna de las dos contesta la pregunta del ticket.
  */
 export const analyticsOptions: Partial<PostHogConfig> = {

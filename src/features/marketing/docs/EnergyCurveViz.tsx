@@ -9,15 +9,15 @@ const BARS = Array.from({ length: 18 }, (_, i) => {
   return {
     pct,
     color:
-      pct > 70 ? "#818cf8" : pct > 40 ? "rgba(129,140,248,0.45)" : "rgba(255,255,255,0.12)",
+      pct > 70 ? "var(--ac)" : pct > 40 ? "color-mix(in srgb, var(--ac) 45%, transparent)" : "color-mix(in srgb, var(--ink) 12%, transparent)",
   };
 });
 
-/** Curva de energía típica (cronotipo intermedio) — ilustración estática de docs. */
+/** Curva de energía típica (cronotipo intermedio): ilustración estática de docs. */
 export function EnergyCurveViz() {
   return (
-    <div className="mb-5 rounded-2xl border border-white/[0.08] bg-[#18181c] p-[22px]">
-      <p className="mb-3.5 font-jetbrains text-[11px] font-semibold uppercase tracking-[0.1em] text-[#6b6b74]">
+    <div className="mb-5 rounded-2xl border border-border bg-card p-[22px]">
+      <p className="mb-3.5 font-jetbrains text-[11px] font-semibold uppercase tracking-[0.1em] text-muted-foreground">
         Curva típica · cronotipo intermedio
       </p>
       <div className="flex h-[90px] items-end gap-[3px]">
@@ -29,7 +29,7 @@ export function EnergyCurveViz() {
           />
         ))}
       </div>
-      <div className="mt-1.5 flex justify-between font-jetbrains text-[10px] text-[#52525b]">
+      <div className="mt-1.5 flex justify-between font-jetbrains text-[10px] text-muted-foreground">
         <span>6h</span>
         <span>pico ~10–11h</span>
         <span>valle ~15h</span>

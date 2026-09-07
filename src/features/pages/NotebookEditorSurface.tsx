@@ -16,7 +16,7 @@ import type { PageDetailTransport } from "./pages.types";
 /**
  * The Tiptap editing surface, isolated so it can be loaded with `next/dynamic`
  * ({ ssr: false }) from the layout (KIN-73). All heavy editor extensions
- * (StarterKit, table, suggestion, list — and image in Sprint 3) live behind this
+ * (StarterKit, table, suggestion, list: and image in Sprint 3) live behind this
  * boundary, so they land in a deferred client chunk instead of the route's
  * initial JS. Client-only load also sidesteps Tiptap's SSR hydration warning.
  */
@@ -183,8 +183,9 @@ export default function NotebookEditorSurface({
                 writer ? "max-w-[46rem] md:my-6 md:px-10" : "max-w-3xl"
               )}
             >
-              <StickyNotesGrid pageId={page.id} />
               <NotebookEditor page={page} systemId={systemId} pageId={page.id} writer={writer} />
+              {/* Las notas van después del texto: la página escribe primero. */}
+              <StickyNotesGrid pageId={page.id} />
             </div>
             <FloatingNotesLayer
               notes={floatingNotes}

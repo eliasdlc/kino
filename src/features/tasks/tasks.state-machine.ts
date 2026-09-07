@@ -74,7 +74,7 @@ export function actionForTransition(from: TaskStatus, to: TaskStatus): Transitio
  *
  * Hasta Fase 4.1 esta función rechazaba `move_to_today` cuando el día pasaba de
  * `dailyEnergyLimit` (→ 422). Se eliminó por D2: el sobregiro **avisa, jamás
- * bloquea**. Además el chequeo era doblemente mentiroso — sumaba los puntos de
+ * bloquea**. Además el chequeo era doblemente mentiroso: sumaba los puntos de
  * las tareas ya completadas (castigaba trabajar, no sobre-prometer) y solo
  * corría por este camino, así que `PATCH { inTodayPlan: true }` nunca lo tocaba.
  * El presupuesto real vive en `energy.budget.ts` y se muestra, no se impone.

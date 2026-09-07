@@ -8,7 +8,7 @@
  *
  * La ventana es fija, alineada a múltiplos de `windowMs`. El costo conocido es
  * el borde: entre dos ventanas contiguas pueden colarse hasta 2N requests. Se
- * acepta — el objetivo es cortar abuso sostenido, no una ráfaga de un segundo.
+ * acepta: el objetivo es cortar abuso sostenido, no una ráfaga de un segundo.
  */
 
 export interface RateLimitPolicy {

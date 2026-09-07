@@ -13,6 +13,7 @@ import type * as cronRuns from "../cronRuns.js";
 import type * as crons from "../crons.js";
 import type * as energy from "../energy.js";
 import type * as entities from "../entities.js";
+import type * as eventLog from "../eventLog.js";
 import type * as folders from "../folders.js";
 import type * as github from "../github.js";
 import type * as githubData from "../githubData.js";
@@ -32,9 +33,12 @@ import type * as lib_tasks_status from "../lib/tasks/status.js";
 import type * as lib_time from "../lib/time.js";
 import type * as lib_writing_activity from "../lib/writing/activity.js";
 import type * as migrate from "../migrate.js";
+import type * as migrations_autoriaYPapelera from "../migrations/autoriaYPapelera.js";
+import type * as migrations_tablasDelRework from "../migrations/tablasDelRework.js";
 import type * as notifications from "../notifications.js";
 import type * as onboarding from "../onboarding.js";
 import type * as pages from "../pages.js";
+import type * as proposals from "../proposals.js";
 import type * as pushSend from "../pushSend.js";
 import type * as scheduler from "../scheduler.js";
 import type * as search from "../search.js";
@@ -59,6 +63,7 @@ declare const fullApi: ApiFromModules<{
   crons: typeof crons;
   energy: typeof energy;
   entities: typeof entities;
+  eventLog: typeof eventLog;
   folders: typeof folders;
   github: typeof github;
   githubData: typeof githubData;
@@ -78,9 +83,12 @@ declare const fullApi: ApiFromModules<{
   "lib/time": typeof lib_time;
   "lib/writing/activity": typeof lib_writing_activity;
   migrate: typeof migrate;
+  "migrations/autoriaYPapelera": typeof migrations_autoriaYPapelera;
+  "migrations/tablasDelRework": typeof migrations_tablasDelRework;
   notifications: typeof notifications;
   onboarding: typeof onboarding;
   pages: typeof pages;
+  proposals: typeof proposals;
   pushSend: typeof pushSend;
   scheduler: typeof scheduler;
   search: typeof search;
@@ -120,4 +128,6 @@ export declare const internal: FilterApi<
   FunctionReference<any, "internal">
 >;
 
-export declare const components: {};
+export declare const components: {
+  migrations: import("@convex-dev/migrations/_generated/component.js").ComponentApi<"migrations">;
+};

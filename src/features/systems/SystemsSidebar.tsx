@@ -225,7 +225,7 @@ export function SystemsSidebar({
         <NavItem
           href="/dashboard"
           icon={LayoutDashboard}
-          label="Dashboard"
+          label="Hoy"
           active={pathname === "/dashboard"}
           collapsed={effectiveCollapsed}
           onNavigate={closeOnMobile}
@@ -318,7 +318,7 @@ export function SystemsSidebar({
         )}
       </nav>
 
-      {/* Footer — user */}
+      {/* Footer: user */}
       <div className="p-2 border-t border-sidebar-border shrink-0">
         <SidebarUserMenu
           userName={userName}

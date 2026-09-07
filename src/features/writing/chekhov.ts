@@ -6,7 +6,7 @@ import type { EntityType } from "@/features/entities/entities.attributes";
  *
  * Continuidad narrativa **sin LLM**: es aritmética sobre `page_entity_mentions`,
  * que existe desde W2. Una entidad que se nombró poco y hace mucho es un hilo
- * suelto candidato — y el escritor puede verificar cada señalamiento en un clic,
+ * suelto candidato: y el escritor puede verificar cada señalamiento en un clic,
  * porque el detector dice exactamente en qué capítulo fue.
  *
  * Todo aquí es puro: recibe los capítulos en orden y las apariciones, y devuelve
@@ -24,7 +24,7 @@ export interface ChekhovSettings {
 /**
  * Un umbral que grita demasiado se ignora, y un detector ignorado no existe. El
  * default es deliberadamente conservador: hasta 3 menciones y 3 capítulos de
- * silencio. Una entidad de fondo nombrada una vez a propósito seguirá saliendo —
+ * silencio. Una entidad de fondo nombrada una vez a propósito seguirá saliendo:
  * para eso está poder cerrarla a mano.
  */
 export const DEFAULT_CHEKHOV: ChekhovSettings = {

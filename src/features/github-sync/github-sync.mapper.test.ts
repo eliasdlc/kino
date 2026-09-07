@@ -203,7 +203,7 @@ describe("taskPatchFromIssue · re-sincronizar", () => {
   });
 
   // GitHub sin milestone no está diciendo "sácalo del sprint", está diciendo que
-  // no opina — y la asignación pudo hacerla la persona desde Kino.
+  // no opina: y la asignación pudo hacerla la persona desde Kino.
   it("un issue sin milestone no limpia el sprint asignado a mano", () => {
     const patch = taskPatchFromIssue(
       issue({ milestone: null }),

@@ -10,7 +10,7 @@ export interface WritingSession {
   wordsWritten: number;
 }
 
-/** Hito del diario de la obra — todos derivados, ninguno persistido como tal. */
+/** Hito del diario de la obra: todos derivados, ninguno persistido como tal. */
 export type WorkMilestone =
   | { kind: "chapter-completed"; pageId: string; pageTitle: string | null }
   | { kind: "goal-reached"; goal: number }
@@ -49,13 +49,13 @@ export interface WorkPulse {
 export interface WritingOverview {
   /** Días consecutivos escribiendo, contando hasta hoy (o hasta ayer si hoy aún no). */
   streakDays: number;
-  /** La racha ya incluye hoy — cambia el tono del mensaje ("vas" vs "no la pierdas"). */
+  /** La racha ya incluye hoy: cambia el tono del mensaje ("vas" vs "no la pierdas"). */
   streakIncludesToday: boolean;
   wordsToday: number;
   dailyWordGoal: number | null;
   /** Ventana creativa aprendida del perfil de energía, en horas locales. */
   peakWindow: { start: number; end: number } | null;
-  /** Hora local actual del usuario — decide si la ventana es "ahora". */
+  /** Hora local actual del usuario: decide si la ventana es "ahora". */
   currentHour: number;
   works: WorkPulse[];
 }

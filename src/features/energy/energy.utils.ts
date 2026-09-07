@@ -173,7 +173,7 @@ export function formatHourRange(start: number, end: number): string {
 
 /**
  * Ventana de 2h consecutivas de mayor capacidad en una curva de 24 valores.
- * Fuente única de "tu pico" — la usan el gráfico y "Kino te conoce".
+ * Fuente única de "tu pico": la usan el gráfico y la tarjeta "Tu patrón".
  */
 export function findPeakRange(curve: readonly number[]): { start: number; end: number } {
   let bestScore = -1;
@@ -205,21 +205,21 @@ export function buildPeakAdvice(
     return { tone: 'rest', text: 'Hora de bajar el ritmo y recargar para mañana.' };
   }
   if (!peak) {
-    return { tone: 'after', text: 'Aún estoy aprendiendo tu ritmo — registra tu energía para afinar.' };
+    return { tone: 'after', text: 'Aún estoy aprendiendo tu ritmo: registra tu energía para afinar.' };
   }
   if (h >= peak.start && h < peak.end) {
-    return { tone: 'peak', text: 'Estás en tu pico — aprovéchalo para lo más difícil.' };
+    return { tone: 'peak', text: 'Estás en tu pico: aprovéchalo para lo más difícil.' };
   }
   if (h < peak.start) {
     const left = peak.start - h;
     return {
       tone: 'before',
-      text: `Tu pico llega en ${left} h (${formatHourRange(peak.start, peak.end)}) — guarda lo difícil para entonces.`,
+      text: `Tu pico llega en ${left} h (${formatHourRange(peak.start, peak.end)}): guarda lo difícil para entonces.`,
     };
   }
   return {
     tone: 'after',
-    text: `Tu pico (${formatHourRange(peak.start, peak.end)}) ya pasó — buen momento para tareas ligeras.`,
+    text: `Tu pico (${formatHourRange(peak.start, peak.end)}) ya pasó: buen momento para tareas ligeras.`,
   };
 }
 
@@ -232,8 +232,8 @@ const ENERGY_WEIGHTS: Record<string, number> = { high: 3, medium: 2, low: 1 };
 const TIMER_MULTIPLIER = 1.5;
 
 /**
- * Peso de una sesión de escritura. No declara nivel de energía —un capítulo no
- * tiene `energyLevel`— pero es trabajo profundo por definición, así que cuenta
+ * Peso de una sesión de escritura. No declara nivel de energía (un capítulo no
+ * tiene `energyLevel`) pero es trabajo profundo por definición, así que cuenta
  * como un timer de tarea media. Sin esto, escribir todos los días no movía la
  * curva de la que el propio arquetipo Writing deriva su ventana creativa.
  */

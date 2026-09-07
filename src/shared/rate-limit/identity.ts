@@ -5,7 +5,7 @@ import type { NextRequest } from 'next/server';
  * presentada, no el `userId`.
  *
  * Resolver el `userId` aquí costaría un lookup extra o verificar el JWT contra
- * el JWKS. Leer el `sub` del JWT sin verificarlo — la vía barata — sería un
+ * el JWKS. Leer el `sub` del JWT sin verificarlo ( la vía barata ) sería un
  * agujero: cualquiera podría forjar un token con el `sub` de otro usuario y
  * agotarle la cuota, porque el contador se incrementa antes de que el 401
  * llegue. Hashear la credencial cruda es a prueba de eso: una credencial

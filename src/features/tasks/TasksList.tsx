@@ -16,7 +16,7 @@ interface TasksListProps {
   initialData: TaskTransport[];
   /** When set, tasks are scoped to this folder (folder detail view) */
   folderId?: string;
-  /** SSR-fetched folder tasks — seeds useFolderTasks immediately to avoid loading flash */
+  /** SSR-fetched folder tasks: seeds useFolderTasks immediately to avoid loading flash */
   folderInitialData?: TaskTransport[];
   /** Tabs to show, in order. Defaults to the full funnel. */
   visibleTabs?: SystemTabId[];

@@ -39,7 +39,7 @@ function Countdown({ task, state }: { task: TaskTransport; state: TaskCardState 
 }
 
 /**
- * Académico — la card muestra lo que importa en una clase: qué clase (chip del
+ * Académico. La card muestra lo que importa en una clase: qué clase (chip del
  * folder con su color), qué kind de tarea (entrega/examen…) y el countdown a la
  * entrega. Compone la fila base vía renderMeta.
  */

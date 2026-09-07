@@ -10,8 +10,8 @@ import { EntityFicheSheet } from "./EntityFicheSheet";
  *
  * En escritorio el codex vive en el rail del panel derecho, y llegar a una ficha
  * desde ahí cuesta un click. En un teléfono ese mismo camino son tres capas
- * —abrir el panel, buscar en una lista larga, y una hoja que se abre encima de
- * otra— justo cuando estás escribiendo y no quieres perder el sitio.
+ * (abrir el panel, buscar en una lista larga, y una hoja que se abre encima de
+ * otra) justo cuando estás escribiendo y no quieres perder el sitio.
  *
  * Aquí las mismas entidades y la misma ficha, a un toque y sin tapar el texto.
  * Es una fila que se desplaza en horizontal a propósito: son pocos elementos, el

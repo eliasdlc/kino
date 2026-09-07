@@ -1,0 +1,348 @@
+"use client";
+
+import { api } from "@convex/_generated/api";
+
+import { useState } from "react";
+import { Flame, PartyPopper, Target } from "lucide-react";
+import { Section, SubSection, Specimen, SpecimenGrid, Seeded, ClientOnly, seedQuery } from "../helpers";
+import {
+  MOCK_SYSTEM_ID,
+  MOCK_FOLDER_ID,
+  makeWritingOverview,
+  makeWorkJournal,
+  makeLooseThreadsReport,
+  makeTimelineReport,
+  makePlotGrid,
+  makeSnapshots,
+  makeStudioReport,
+  MOCK_PAGE_ID,
+  makeFolder,
+  makeSystem, mid } from "../mock-data";
+import { Button } from "@/components/ui/button";
+import { WritingPulse } from "@/features/writing/WritingPulse";
+import { WorkJournalDialog } from "@/features/writing/WorkJournalDialog";
+import { LooseThreads } from "@/features/writing/LooseThreads";
+import { InWorldTimeline } from "@/features/writing/InWorldTimeline";
+import { PlotGridView } from "@/features/writing/PlotGridView";
+import { ChapterHistory } from "@/features/writing/ChapterHistory";
+import { Studio } from "@/features/writing/Studio";
+import { celebrate } from "@/features/writing/celebrate";
+import type { WritingOverview } from "@/features/writing/writing.types";
+import type { LooseThreadsReport } from "@/features/writing/chekhov";
+import type { TimelineReport } from "@/features/writing/timeline";
+import type { PlotGrid } from "@/features/writing/writing.plot";
+import type { SnapshotListItem } from "@/features/writing/snapshots";
+import type { StudioReport } from "../mock-data";
+
+/**
+ * El panel de motivación de escritura (PLAN-11 W4).
+ *
+ * `WritingPulse` decide qué decir con la hora local actual, así que sus specimens
+ * van dentro de `ClientOnly`: aquí el cache está sembrado antes del primer render
+ * y sin el guard el servidor y el cliente pueden discrepar de hora y romper la
+ * hidratación. Es un artefacto del catálogo, no del componente.
+ *
+ * Los hitos del diario son todos derivados — ninguno se guarda como tal.
+ */
+
+function seedOverview(overview: WritingOverview) {
+  return [
+    seedQuery(api.writing.overview, overview),
+  ];
+}
+
+function PulseSpecimen({ overview }: { overview: WritingOverview }) {
+  return (
+    <ClientOnly>
+      <Seeded stubs={seedOverview(overview)}>
+        <div className="w-full">
+          <WritingPulse systemId={MOCK_SYSTEM_ID} />
+        </div>
+      </Seeded>
+    </ClientOnly>
+  );
+}
+
+/** El diario solo pinta con `open`, así que el specimen trae su propio disparador. */
+function JournalSpecimen() {
+  const [open, setOpen] = useState(false);
+  const journal = makeWorkJournal();
+
+  return (
+    <Seeded
+      stubs={[
+        seedQuery(api.writing.journal, journal),
+      ]}
+    >
+      <Button variant="outline" size="sm" onClick={() => setOpen(true)}>
+        Abrir diario de la obra
+      </Button>
+      <WorkJournalDialog
+        folderId={MOCK_FOLDER_ID}
+        folderName={journal.folderName}
+        open={open}
+        onOpenChange={setOpen}
+      />
+    </Seeded>
+  );
+}
+
+export function MotivationSection() {
+  return (
+    <Section id="motivacion" number="17" title="Motivación de escritura">
+      <SubSection
+        title="WritingPulse"
+        description="Racha, meta diaria y ventana creativa. Sin curva aprendida no inventa una hora: dice qué le falta."
+      >
+        {/* Dos columnas y no tres: a ~300px el mensaje del advisor se parte a una
+            palabra por línea y el specimen deja de parecerse a lo que ve el autor,
+            que lo tiene en el ancho del panel de escritura. */}
+        <SpecimenGrid cols={2}>
+          <Specimen label="Racha viva, dentro de la ventana" hint="streakIncludesToday: true">
+            <PulseSpecimen overview={makeWritingOverview()} />
+          </Specimen>
+
+          <Specimen label="Racha en riesgo" hint="aún no ha escrito hoy">
+            <PulseSpecimen
+              overview={makeWritingOverview({
+                streakIncludesToday: false,
+                wordsToday: 0,
+                currentHour: 16,
+              })}
+            />
+          </Specimen>
+
+          <Specimen label="Meta diaria cumplida" hint="wordsToday ≥ dailyWordGoal">
+            <PulseSpecimen overview={makeWritingOverview({ wordsToday: 1_240 })} />
+          </Specimen>
+
+          <Specimen label="Sin ventana aprendida" hint="peakWindow: null">
+            <PulseSpecimen
+              overview={makeWritingOverview({ peakWindow: null, streakDays: 0, wordsToday: 0 })}
+            />
+          </Specimen>
+
+          <Specimen label="Sin meta configurada" hint="dailyWordGoal: null">
+            <PulseSpecimen overview={makeWritingOverview({ dailyWordGoal: null })} />
+          </Specimen>
+
+          <Specimen label="Fuera de la ventana" hint="currentHour fuera de peakWindow">
+            <PulseSpecimen overview={makeWritingOverview({ currentHour: 22 })} />
+          </Specimen>
+        </SpecimenGrid>
+      </SubSection>
+
+      <SubSection
+        title="Celebraciones"
+        description="Toast propio, no el genérico. Se dispara una sola vez por sesión para que no se vuelva ruido."
+      >
+        <SpecimenGrid>
+          <Specimen label="Meta diaria" hint="celebrate({ icon: Target })">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() =>
+                celebrate({
+                  icon: Target,
+                  title: "Meta diaria cumplida",
+                  detail: "1.000 palabras. La obra va por 24.310.",
+                })
+              }
+            >
+              Disparar
+            </Button>
+          </Specimen>
+
+          <Specimen label="Racha" hint="celebrate({ icon: Flame })">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() =>
+                celebrate({ icon: Flame, title: "12 días seguidos", detail: "Tu racha más larga." })
+              }
+            >
+              Disparar
+            </Button>
+          </Specimen>
+
+          <Specimen label="Capítulo terminado" hint="sin detail">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => celebrate({ icon: PartyPopper, title: "Capítulo 1 terminado" })}
+            >
+              Disparar
+            </Button>
+          </Specimen>
+        </SpecimenGrid>
+      </SubSection>
+
+      <SubSection
+        title="Diario de la obra"
+        description="Sesiones por día con sus hitos. Todos derivados sobre la línea base: ninguno se persiste como hito."
+      >
+        <Specimen label="Diario con hitos" hint="WorkJournalDialog">
+          <JournalSpecimen />
+        </Specimen>
+      </SubSection>
+
+      <SubSection
+        title="Hilos sueltos"
+        description="Continuidad narrativa sin LLM: aritmética sobre las menciones ya indexadas. Cada hallazgo dice en qué capítulo fue, así que se verifica en un clic. Cerrar un hilo lo silencia hasta que la entidad vuelva a nombrarse."
+      >
+        <SpecimenGrid>
+          <Specimen label="Con hallazgos" hint="LooseThreads · uno retomado, uno cerrado">
+            <ThreadsSpecimen report={makeLooseThreadsReport()} />
+          </Specimen>
+
+          <Specimen label="Nada olvidado" hint="ningún hilo cumple el criterio">
+            <ThreadsSpecimen report={makeLooseThreadsReport({ threads: [] })} />
+          </Specimen>
+
+          <Specimen label="Obra sin capítulos" hint="el silencio se cuenta en capítulos">
+            <ThreadsSpecimen
+              report={makeLooseThreadsReport({ threads: [], chapterCount: 0 })}
+            />
+          </Specimen>
+        </SpecimenGrid>
+      </SubSection>
+
+      <SubSection
+        title="Cronología in-world"
+        description="Los eventos en el tiempo de la historia, no en el del manuscrito. El capítulo dice dónde se cuenta cada uno, y lo que se narra antes de tiempo queda marcado — un flashback se ve sin buscarlo. Se reordena con flechas, no arrastrando: el proyecto no usa drag and drop en touch."
+      >
+        <SpecimenGrid>
+          <Specimen label="Con flashback" hint="InWorldTimeline · uno fuera de orden, uno sin ubicar">
+            <TimelineSpecimen report={makeTimelineReport()} />
+          </Specimen>
+
+          <Specimen label="Universo sin eventos" hint="placed y unplaced vacíos">
+            <TimelineSpecimen report={makeTimelineReport({ placed: [], unplaced: [] })} />
+          </Specimen>
+        </SpecimenGrid>
+      </SubSection>
+
+      <SubSection
+        title="Plot grid"
+        description="Las escenas por capítulo y arco. Se derivan del texto y mover una tarjeta reescribe el capítulo: no hay un orden persistido en paralelo que pueda divergir de lo escrito. Se arrastra, y también se mueve con botones — un arrastre accidental aquí reescribe el manuscrito."
+      >
+        <Specimen
+          label="Tres capítulos, dos arcos"
+          hint="PlotGridView"
+          className="flex-col items-stretch"
+        >
+          <PlotSpecimen grid={makePlotGrid()} />
+        </Specimen>
+
+        <Specimen label="Obra sin escenas" hint="capítulos sin separadores">
+          <PlotSpecimen
+            grid={makePlotGrid({
+              arcs: [],
+              chapters: [{ chapterId: mid("vacio"), title: "Capítulo 1", scenes: [] }],
+            })}
+          />
+        </Specimen>
+      </SubSection>
+
+      <SubSection
+        title="Historial del capítulo"
+        description="Una versión por sesión de escritura: el corte lo pone el mismo detector que alimenta la racha. Restaurar guarda antes el estado actual, así que volver atrás siempre se puede deshacer."
+      >
+        <SpecimenGrid>
+          <Specimen label="Con versiones" hint="ChapterHistory · abre el diálogo">
+            <HistorySpecimen snapshots={makeSnapshots()} />
+          </Specimen>
+
+          <Specimen label="Sin historial todavía" hint="capítulo recién creado">
+            <HistorySpecimen snapshots={[]} />
+          </Specimen>
+        </SpecimenGrid>
+      </SubSection>
+
+      <SubSection
+        title="Estudio"
+        description="Qué escribir hoy, sin LLM: sale de sesiones, menciones y capítulos que Kino ya tenía. Cada sugerencia enseña el dato del que viene — eso es lo que separa una señal de una corazonada."
+      >
+        <SpecimenGrid>
+          <Specimen label="Con señales" hint="Studio · sugerencias y huecos del codex">
+            <StudioSpecimen report={makeStudioReport()} />
+          </Specimen>
+
+          <Specimen label="Nada que señalar" hint="ninguna señal activa">
+            <StudioSpecimen
+              report={makeStudioReport({ suggestions: [], codexGaps: [], looseThreadCount: 0 })}
+            />
+          </Specimen>
+        </SpecimenGrid>
+      </SubSection>
+    </Section>
+  );
+}
+
+function StudioSpecimen({ report }: { report: StudioReport }) {
+  return (
+    <Seeded stubs={[seedQuery(api.writing.studio, report)]}>
+      <div className="w-full">
+        <Studio systemId={MOCK_SYSTEM_ID} />
+      </div>
+    </Seeded>
+  );
+}
+
+function HistorySpecimen({ snapshots }: { snapshots: SnapshotListItem[] }) {
+  return (
+    <Seeded stubs={[seedQuery(api.writing.snapshots, snapshots)]}>
+      <ChapterHistory pageId={MOCK_PAGE_ID} />
+    </Seeded>
+  );
+}
+
+function PlotSpecimen({ grid }: { grid: PlotGrid }) {
+  return (
+    <Seeded stubs={[seedQuery(api.writing.plot, grid)]}>
+      <div className="w-full">
+        <PlotGridView systemId={MOCK_SYSTEM_ID} folderId={MOCK_FOLDER_ID} />
+      </div>
+    </Seeded>
+  );
+}
+
+const MOCK_WRITING_SYSTEM = makeSystem({
+  id: MOCK_SYSTEM_ID,
+  name: "Escritura",
+  templateType: "writing",
+});
+
+function ThreadsSpecimen({ report }: { report: LooseThreadsReport }) {
+  return (
+    <Seeded
+      stubs={[
+        seedQuery(api.folders.bySystem, [
+          makeFolder({ id: MOCK_FOLDER_ID, name: report.folderName }),
+        ]),
+        seedQuery(api.writing.threads, report),
+      ]}
+    >
+      <div className="w-full">
+        <LooseThreads system={MOCK_WRITING_SYSTEM} />
+      </div>
+    </Seeded>
+  );
+}
+
+function TimelineSpecimen({ report }: { report: TimelineReport }) {
+  return (
+    <Seeded
+      stubs={[
+        seedQuery(api.folders.bySystem, [
+          makeFolder({ id: MOCK_FOLDER_ID, name: report.folderName }),
+        ]),
+        seedQuery(api.writing.timeline, report),
+      ]}
+    >
+      <div className="w-full">
+        <InWorldTimeline systemId={MOCK_SYSTEM_ID} />
+      </div>
+    </Seeded>
+  );
+}

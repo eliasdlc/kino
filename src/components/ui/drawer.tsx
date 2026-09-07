@@ -37,7 +37,7 @@ function DrawerOverlay({
     <DrawerPrimitive.Overlay
       data-slot="drawer-overlay"
       className={cn(
-        "fixed inset-0 z-50 bg-black/40 data-open:animate-in data-open:fade-in-0 data-closed:animate-out data-closed:fade-out-0",
+        "fixed inset-0 z-(--z-modal) bg-black/40 data-open:animate-in data-open:fade-in-0 data-closed:animate-out data-closed:fade-out-0",
         className
       )}
       {...props}
@@ -56,12 +56,12 @@ function DrawerContent({
       <DrawerPrimitive.Content
         data-slot="drawer-content"
         className={cn(
-          "fixed inset-x-0 bottom-0 z-50 flex max-h-[92dvh] flex-col rounded-t-xl bg-popover text-sm text-popover-foreground ring-1 ring-foreground/10 outline-none",
+          "fixed inset-x-0 bottom-0 z-(--z-modal) flex max-h-[92dvh] flex-col rounded-t-2xl border-t border-border bg-popover text-sm text-popover-foreground outline-none",
           className
         )}
         {...props}
       >
-        <div className="mx-auto mt-3 h-1.5 w-10 shrink-0 rounded-full bg-muted-foreground/20" />
+        <div className="mx-auto mt-3 h-1.5 w-10 shrink-0 rounded-full bg-border" />
         {children}
       </DrawerPrimitive.Content>
     </DrawerPortal>
@@ -95,7 +95,7 @@ function DrawerTitle({
   return (
     <DrawerPrimitive.Title
       data-slot="drawer-title"
-      className={cn("font-heading text-base leading-none font-medium", className)}
+      className={cn("font-heading text-base leading-none font-semibold", className)}
       {...props}
     />
   )

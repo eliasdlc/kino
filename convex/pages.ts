@@ -5,7 +5,7 @@ import type { Doc, Id } from './_generated/dataModel';
 import type { MutationCtx, QueryCtx } from './_generated/server';
 import { countWords } from '../src/shared/lib/word-count';
 import { forbidden, notFound } from './lib/errors';
-import { kinoZodMutation, kinoZodQuery } from './lib/fn';
+import { kinoZodMutation, kinoZodQuery, type Channel } from './lib/fn';
 import { lematizar } from './lib/lemas';
 import { recomputePageMentions } from './lib/mentions';
 import { recordWritingActivity } from './lib/writing/activity';
@@ -99,12 +99,33 @@ async function linkedTasksOf(ctx: Ctx, userId: Id<'users'>, pageId: Id<'pages'>)
 
 // ── Lecturas ────────────────────────────────────────────────────────────────
 
+/**
+ * Tope de páginas por respuesta.
+ *
+ * Cada página de la lista cuesta dos consultas más (sus etiquetas y sus
+ * subpáginas), así que sin tope un sistema de escritura grande convierte una
+ * lectura en varios cientos de operaciones dentro de una sola invocación. El
+ * número sale de que el sistema más grande del deployment de dev tiene 47
+ * cuadernos: doscientas deja sitio para crecer un orden de magnitud antes de
+ * que nadie vea un recorte.
+ *
+ * Lo que la lista devuelve no lleva `content` y nunca lo llevó: `PageListItem`
+ * manda `contentPreview`, recortado a 300 caracteres. Lo que el tope acota es
+ * el abanico de consultas, no el tamaño del payload.
+ */
+export const PAGE_LIST_LIMIT = 200;
+
 export const bySystem = kinoZodQuery({
   args: { systemId: zid('systems') },
   handler: async (ctx, { systemId }) => {
     const docs = await ctx.db.query('pages').withIndex('by_system', (q) => q.eq('systemId', systemId)).collect();
     const own = docs.filter((doc) => doc.userId === ctx.user._id && alive(doc)).sort((a, b) => a.updatedAt - b.updatedAt);
-    return Promise.all(own.map((doc) => pageListItem(ctx, doc)));
+    const pagina = own.slice(0, PAGE_LIST_LIMIT);
+    return {
+      items: await Promise.all(pagina.map((doc) => pageListItem(ctx, doc))),
+      /** Cuántas quedaron fuera del tope. Cero es la respuesta normal. */
+      restantes: own.length - pagina.length,
+    };
   },
 });
 
@@ -187,16 +208,39 @@ export const search = kinoZodQuery({
 
 // ── Escrituras ──────────────────────────────────────────────────────────────
 
+/**
+ * Tope del contenido de una página, en caracteres.
+ *
+ * Es la única vía por la que una persona agota el plan gratuito en una sola
+ * petición, y también el campo donde un tope corto se nota: aquí vive un
+ * capítulo entero. La cifra sale de que un documento de Convex no pasa de 1 MB
+ * y `content` es sólo uno de sus campos; medio millón de caracteres es un
+ * capítulo de quince mil palabras con todo su HTML de Tiptap y aún deja sitio.
+ *
+ * **Sólo se comprueba al escribir.** Lo que ya está guardado por encima del
+ * tope se lee igual: un tope nuevo no puede dejar a nadie sin su texto.
+ */
+export const PAGE_CONTENT_MAX = 500_000;
+
+const pageContent = z
+  .string()
+  .max(PAGE_CONTENT_MAX, `El contenido pasa de ${PAGE_CONTENT_MAX.toLocaleString('es')} caracteres. Pártelo en varias páginas.`);
+
 const createFields = {
   systemId: zid('systems'),
   folderId: zid('folders').optional(),
   parentPageId: zid('pages').optional(),
   title: z.string().max(500).optional(),
-  content: z.string().nullable().optional(),
+  content: pageContent.nullable().optional(),
   clientRequestId: z.string().min(1).max(64).optional(),
 };
 
-async function createOne(ctx: MutationCtx, userId: Id<'users'>, input: z.infer<z.ZodObject<typeof createFields>>) {
+async function createOne(
+  ctx: MutationCtx,
+  userId: Id<'users'>,
+  channel: Channel,
+  input: z.infer<z.ZodObject<typeof createFields>>,
+) {
   if (input.clientRequestId) {
     const existing = await ctx.db
       .query('pages')
@@ -228,7 +272,7 @@ async function createOne(ctx: MutationCtx, userId: Id<'users'>, input: z.infer<z
     clientRequestId: input.clientRequestId,
     lemas: lematizar(input.title, input.content),
     createdBy: userId,
-    createdVia: 'session',
+    createdVia: channel,
     createdAt: now,
     updatedAt: now,
   });
@@ -238,7 +282,7 @@ async function createOne(ctx: MutationCtx, userId: Id<'users'>, input: z.infer<z
 
 export const create = kinoZodMutation({
   args: createFields,
-  handler: async (ctx, input) => createOne(ctx, ctx.user._id, input),
+  handler: async (ctx, input) => createOne(ctx, ctx.user._id, ctx.channel, input),
 });
 
 /** Exportada para la siembra del onboarding, que crea páginas sin pasar por el cliente. */
@@ -248,7 +292,7 @@ export const update = kinoZodMutation({
   args: {
     id: zid('pages'),
     title: z.string().max(500).nullable().optional(),
-    content: z.string().nullable().optional(),
+    content: pageContent.nullable().optional(),
     folderId: zid('folders').nullable().optional(),
     isPinned: z.boolean().optional(),
     /** Versión optimista: el `updatedAt` que traía la página al leerla. */
@@ -296,14 +340,61 @@ export const update = kinoZodMutation({
   },
 });
 
+/**
+ * Borra el capítulo. Blando, y su cascada con él:
+ *
+ *   pages.parentPageId    cascade → los subcapítulos se marcan igual.
+ *   stickyNotes.pageId    cascade → sus notas se marcan igual.
+ *   pageEntityMentions    cascade → se van de verdad: son derivadas, se
+ *                                   recalculan al guardar el texto.
+ *   taskPageLinks, pageTags, pageSnapshots, timeLogs  cascade en Postgres →
+ *                                   se quedan. Sólo se llega a ellos por el
+ *                                   capítulo y sus lectores ya lo filtran;
+ *                                   destruirlos haría que restaurar devolviera
+ *                                   un capítulo sin sus versiones ni su tiempo.
+ */
 export const remove = kinoZodMutation({
   args: { id: zid('pages') },
   handler: async (ctx, { id }) => {
     await ownPage(ctx, ctx.user._id, id);
-    await ctx.db.patch(id, { deletedAt: Date.now() });
+    const now = Date.now();
+    for (const pageId of [id, ...(await subPageTree(ctx, id))]) {
+      for (const note of await ctx.db
+        .query('stickyNotes')
+        .withIndex('by_page', (q) => q.eq('pageId', pageId))
+        .collect()) {
+        if (note.deletedAt === undefined) await ctx.db.patch(note._id, { deletedAt: now, updatedAt: now });
+      }
+      for (const mention of await ctx.db
+        .query('pageEntityMentions')
+        .withIndex('by_page_entity', (q) => q.eq('pageId', pageId))
+        .collect()) {
+        await ctx.db.delete(mention._id);
+      }
+      await ctx.db.patch(pageId, { deletedAt: now, updatedAt: now });
+    }
     return null;
   },
 });
+
+/** Los subcapítulos vivos que cuelgan de uno, en profundidad. */
+async function subPageTree(ctx: MutationCtx, rootId: Id<'pages'>): Promise<Id<'pages'>[]> {
+  const out: Id<'pages'>[] = [];
+  const stack: Id<'pages'>[] = [rootId];
+  while (stack.length) {
+    const current = stack.pop()!;
+    const hijas = await ctx.db
+      .query('pages')
+      .withIndex('by_parent', (q) => q.eq('parentPageId', current))
+      .collect();
+    for (const hija of hijas) {
+      if (hija.deletedAt !== undefined) continue;
+      out.push(hija._id);
+      stack.push(hija._id);
+    }
+  }
+  return out;
+}
 
 export const linkTask = kinoZodMutation({
   args: { id: zid('pages'), taskId: zid('tasks') },

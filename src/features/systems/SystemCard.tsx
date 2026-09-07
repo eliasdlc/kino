@@ -1,16 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import {
-  MoreHorizontal,
-  Eye,
-  Pencil,
-  Trash2,
-  ListTodo,
-  AlertTriangle,
-} from "lucide-react";
-import { getSystemColorHex, darkenHex } from "@/shared/utils/system-colors";
-import { PhysicalCard } from "@/components/PhysicalCard";
+import { AlertTriangle, MoreHorizontal, Pencil, Trash2 } from "lucide-react";
+import { getSystemColor } from "@/shared/utils/system-colors";
 import { SYSTEM_TYPE_CONFIG, type SystemType } from "@/shared/lib/system-types";
 import {
   DropdownMenu,
@@ -27,6 +19,7 @@ import {
   ContextMenuTrigger,
 } from "@/components/ui/context-menu";
 import { Button } from "@/components/ui/button";
+import { cn } from "@/lib/utils";
 import type { SystemWithSignalsTransport } from "./systems.types";
 
 interface SystemCardProps {
@@ -35,10 +28,21 @@ interface SystemCardProps {
   onDelete: () => void;
 }
 
+/** "hoy", "ayer", "hace 12 días", o nada si nunca hubo actividad. */
+function activityLabel(days: number | null): string {
+  if (days === null) return "sin actividad";
+  if (days === 0) return "activo hoy";
+  if (days === 1) return "activo ayer";
+  return `hace ${days} días`;
+}
+
+/**
+ * Un sistema es una fila, no una tarjeta con ilustración: el punto de color
+ * como categoría, el nombre, el tipo en texto, la actividad y las tareas
+ * activas, y el menú a la derecha. Mucha información sin ruido.
+ */
 export function SystemCard({ system, onEdit, onDelete }: SystemCardProps) {
-  const colorHex = getSystemColorHex(system.color);
-  const trackColor = darkenHex(colorHex, 22);
-  const openColor = darkenHex(colorHex, 45);
+  const color = getSystemColor(system.color);
   const typeLabel =
     SYSTEM_TYPE_CONFIG[system.templateType as SystemType]?.label ?? system.templateType;
   const count = system.activeTaskCount;
@@ -46,117 +50,49 @@ export function SystemCard({ system, onEdit, onDelete }: SystemCardProps) {
   return (
     <ContextMenu>
       <ContextMenuTrigger asChild>
-        <div>
-    <PhysicalCard
-      href={`/systems/${system.id}`}
-      ariaLabel={`Abrir sistema ${system.name}`}
-      className={system.stale ? "ring-1 ring-amber-500/50" : undefined}
-      menu={
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <Button
-              variant="ghost"
-              size="icon"
-              className="size-7 rounded-full bg-background/70 text-foreground shadow-sm backdrop-blur-sm hover:bg-background"
-              aria-label="Opciones de sistema"
-            >
-              <MoreHorizontal className="size-4" />
-            </Button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="end" className="w-36">
-            <DropdownMenuItem asChild>
-              <Link href={`/systems/${system.id}`} className="flex items-center gap-2">
-                <Eye className="size-4" />
-                View
-              </Link>
-            </DropdownMenuItem>
-            <DropdownMenuItem className="gap-2" onClick={onEdit}>
-              <Pencil className="size-3.5" />
-              Edit
-            </DropdownMenuItem>
-            <DropdownMenuSeparator />
-            <DropdownMenuItem
-              className="gap-2 text-destructive focus:text-destructive"
-              onClick={onDelete}
-            >
-              <Trash2 className="size-3.5" />
-              Delete
-            </DropdownMenuItem>
-          </DropdownMenuContent>
-        </DropdownMenu>
-      }
-    >
-      {/* Archive body — solid system color with a faint top sheen for depth */}
-      <div className="absolute inset-0 rounded-[20px] sm:rounded-[28px]" style={{ background: colorHex }} />
-      <div className="absolute inset-x-0 top-0 h-2/5 rounded-t-[20px] bg-gradient-to-b from-white/10 to-transparent sm:rounded-t-[28px]" />
-
-      {/* Zipper — runs down the centre to the label band */}
-      <div className="absolute bottom-[42%] left-1/2 top-[12%] w-[11px] -translate-x-1/2">
-        {/* closed channel */}
-        <div className="absolute inset-0 rounded-full" style={{ background: trackColor }} />
-        {/* teeth */}
-        <div
-          className="absolute inset-0 rounded-full opacity-80"
-          style={{
-            background:
-              "repeating-linear-gradient(to bottom, rgba(255,255,255,0.55) 0px, rgba(255,255,255,0.55) 2px, transparent 2px, transparent 4.5px)",
-          }}
-        />
-        {/* opening — grows downward on hover */}
-        <div
-          className="absolute left-1/2 top-0 h-[8%] w-[5px] -translate-x-1/2 rounded-full transition-all duration-300 ease-out group-hover:h-[28%]"
-          style={{ background: openColor }}
-        />
-        {/* pull tab — slides down on hover */}
-        <div className="absolute left-1/2 top-[6%] z-10 flex -translate-x-1/2 flex-col items-center transition-all duration-300 ease-out group-hover:top-[30%]">
-          <div className="h-4 w-5 rounded-[3px] bg-zinc-100 shadow-md ring-1 ring-black/15" />
-          <div className="h-3 w-1.5 rounded-b-full bg-zinc-300" />
-        </div>
-      </div>
-
-      {/* Label band — flat-topped (no folder tab), with a system-colour accent */}
-      <div className="absolute inset-x-0 bottom-0 z-20 h-[42%] rounded-b-[20px] bg-card shadow-[0_-3px_10px_rgba(0,0,0,0.10)] sm:rounded-b-[28px]">
-        <div className="absolute inset-x-0 top-0 h-[3px]" style={{ background: colorHex }} />
-        <div className="absolute inset-0 flex flex-col justify-between p-3 sm:p-4">
-          <div className="min-w-0">
-            <h3 className="truncate text-[13px] font-semibold leading-tight text-foreground sm:text-sm">
-              {system.name}
-            </h3>
-            <p className="mt-0.5 truncate text-[10px] text-muted-foreground sm:text-[11px]">
-              {typeLabel}
+        <div className="group grid grid-cols-[auto_1fr_auto] items-center gap-3 px-4 py-3 transition-colors hover:bg-accent/40">
+          <span className={cn("size-2.5 shrink-0 rounded-full", color)} aria-hidden />
+          <Link href={`/systems/${system.id}`} className="min-w-0" aria-label={`Abrir sistema ${system.name}`}>
+            <p className="truncate text-[0.95rem] font-semibold leading-snug">{system.name}</p>
+            <p className="mt-0.5 flex flex-wrap gap-x-1.5 text-xs text-muted-foreground">
+              <span>{typeLabel}</span>
+              <span>· {count} {count === 1 ? "tarea activa" : "tareas activas"}</span>
+              <span>· {activityLabel(system.daysSinceLastActivity)}</span>
+              {system.stale && (
+                <span className="inline-flex items-center gap-1 font-semibold text-task-overdue">
+                  <AlertTriangle className="size-3" />
+                  dormido
+                </span>
+              )}
             </p>
-          </div>
-          <div className="flex items-center gap-1.5 text-muted-foreground">
-            <ListTodo size={14} strokeWidth={2.2} />
-            <span className="text-[11px] font-medium tabular-nums sm:text-xs">
-              {count} {count === 1 ? "tarea" : "tareas"}
-            </span>
-            {system.stale && (
-              <span
-                className="ml-auto inline-flex items-center text-amber-600 dark:text-amber-500"
-                title="Sistema inactivo"
-              >
-                <AlertTriangle size={12} />
-              </span>
-            )}
-          </div>
-        </div>
-      </div>
-    </PhysicalCard>
+          </Link>
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="ghost" size="icon-sm" aria-label={`Opciones de ${system.name}`}>
+                <MoreHorizontal className="size-4" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="w-40">
+              <DropdownMenuItem className="gap-2" onClick={onEdit}>
+                <Pencil className="size-4" />
+                Editar
+              </DropdownMenuItem>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem variant="destructive" className="gap-2" onClick={onDelete}>
+                <Trash2 className="size-4" />
+                Eliminar
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
         </div>
       </ContextMenuTrigger>
-      <ContextMenuContent className="w-36">
-        <ContextMenuItem asChild>
-          <Link href={`/systems/${system.id}`} className="flex items-center gap-2">
-            <Eye className="size-4" /> View
-          </Link>
-        </ContextMenuItem>
+      <ContextMenuContent className="w-40">
         <ContextMenuItem className="gap-2" onSelect={onEdit}>
-          <Pencil className="size-3.5" /> Edit
+          <Pencil className="size-4" /> Editar
         </ContextMenuItem>
         <ContextMenuSeparator />
         <ContextMenuItem variant="destructive" className="gap-2" onSelect={onDelete}>
-          <Trash2 className="size-3.5" /> Delete
+          <Trash2 className="size-4" /> Eliminar
         </ContextMenuItem>
       </ContextMenuContent>
     </ContextMenu>

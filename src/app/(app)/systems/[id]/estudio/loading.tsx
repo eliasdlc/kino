@@ -5,7 +5,7 @@ import { BreadcrumbSkeleton } from "@/components/Skeletons";
 export default function StudioLoading() {
   return (
     <div className="w-full">
-      <div className="sticky top-0 z-10 border-b bg-background px-4 py-2.5 md:px-6">
+      <div className="sticky top-0 z-(--z-raised) border-b bg-background px-4 py-2.5 md:px-6">
         <BreadcrumbSkeleton segments={3} />
       </div>
       <div className="mx-auto w-full max-w-3xl space-y-6 p-4 md:p-6">

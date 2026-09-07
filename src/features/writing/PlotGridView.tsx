@@ -51,8 +51,8 @@ import type { PlotChapter, PlotGrid, PlotScene } from "./writing.plot";
  * un arrastre accidental aquí reescribe el manuscrito, así que la vía explícita
  * tiene que existir siempre y funcionar igual en un móvil.
  *
- * En un teléfono la rejilla no cabe —columnas de 224px que sólo se alcanzan
- * desplazando en horizontal— así que ahí se sirve `PlotSceneList`, la misma
+ * En un teléfono la rejilla no cabe (columnas de 224px que sólo se alcanzan
+ * desplazando en horizontal) así que ahí se sirve `PlotSceneList`, la misma
  * información en vertical y sin arrastre (KIN-170). Los datos y las operaciones
  * se resuelven aquí para las dos: una sola fuente, un solo estado de carga.
  */
@@ -162,21 +162,21 @@ export function PlotGridView({
       <div className="space-y-3">
         <div className="flex items-center justify-between gap-3">
           <p className="text-xs text-muted-foreground">
-            Las escenas salen del texto. Mover una tarjeta reescribe el capítulo —
+            Las escenas salen del texto. Mover una tarjeta reescribe el capítulo:
             no hay un orden aparte que se pueda desincronizar.
           </p>
           {isPending && <Loader2 className="size-4 shrink-0 animate-spin text-muted-foreground" />}
         </div>
 
-        <div className="overflow-x-auto pb-2">
-          <table className="w-full min-w-max border-separate border-spacing-2">
+        <div className="overflow-x-auto pb-3 [scrollbar-gutter:stable]">
+          <table className="w-max border-separate border-spacing-2">
             <thead>
               <tr>
                 <th className="w-28 text-left text-xs font-semibold uppercase tracking-wider text-muted-foreground">
                   Arco
                 </th>
                 {data.chapters.map((chapter, i) => (
-                  <th key={chapter.chapterId} className="min-w-56 text-left">
+                  <th key={chapter.chapterId} className="w-64 min-w-64 max-w-64 text-left align-top">
                     <Link
                       href={`/systems/${systemId}/pages/${chapter.chapterId}`}
                       className="text-sm font-medium hover:underline"
@@ -289,7 +289,7 @@ function Cell({
         ))}
         {scenes.length === 0 && (
           <p className="px-1 py-3 text-center text-[11px] text-muted-foreground/50">
-            —
+            Sin escenas
           </p>
         )}
       </div>
@@ -347,7 +347,7 @@ function SceneCard({
           aria-label={`Arrastrar la escena ${scene.index + 1} de ${chapter.title ?? "el capítulo"}`}
           className="min-w-0 flex-1 cursor-grab text-left active:cursor-grabbing"
         >
-          <span className="mb-1 block font-mono text-[10px] text-muted-foreground">
+          <span className="mb-1 block text-[0.7rem] font-semibold text-muted-foreground">
             Escena {scene.index + 1} · {scene.wordCount.toLocaleString("es")} palabras
           </span>
           <span className="line-clamp-4 text-muted-foreground">

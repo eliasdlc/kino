@@ -94,7 +94,7 @@ describe("SceneBreak", () => {
   });
 });
 
-describe("Panel — Enter encadena el guion", () => {
+describe("Panel: Enter encadena el guion", () => {
   it("Enter en el párrafo vacío final abre el siguiente panel", () => {
     const editor = makeEditor(
       "<section data-manga-page><article data-panel><p>Kael entra.</p><p></p></article></section>",
@@ -216,7 +216,7 @@ describe("Panel — Enter encadena el guion", () => {
   });
 });
 
-describe("Screenplay — Tab cicla y Enter encadena", () => {
+describe("Screenplay: Tab cicla y Enter encadena", () => {
   function currentType(editor: Editor): string {
     return editor.state.selection.$from.parent.type.name;
   }
@@ -256,7 +256,7 @@ describe("Screenplay — Tab cicla y Enter encadena", () => {
     editor.destroy();
   });
 
-  it("Enter en un bloque vacío vuelve a acción — la salida del flujo", () => {
+  it("Enter en un bloque vacío vuelve a acción: la salida del flujo", () => {
     const editor = makeEditor('<p data-sp="character"></p>', true);
     editor.commands.focus("end");
 

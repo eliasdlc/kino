@@ -10,10 +10,10 @@ const multiDayBarVariants = cva(
   {
     variants: {
       priority: {
-        critical: "bg-red-500/10 text-red-700 border-red-500/20 hover:bg-red-500/20 dark:text-red-400",
-        high: "bg-orange-500/10 text-orange-700 border-orange-500/20 hover:bg-orange-500/20 dark:text-orange-400",
-        medium: "bg-blue-500/10 text-blue-700 border-blue-500/20 hover:bg-blue-500/20 dark:text-blue-400",
-        low: "bg-neutral-500/10 text-neutral-700 border-neutral-500/20 hover:bg-neutral-500/20 dark:text-neutral-400",
+        critical: "bg-task-overdue/10 text-task-overdue border-task-overdue/20 hover:bg-task-overdue/20",
+        high: "bg-primary/10 text-primary border-primary/20 hover:bg-primary/20",
+        medium: "bg-secondary text-foreground border-secondary hover:bg-secondary",
+        low: "bg-muted text-muted-foreground border-muted hover:bg-muted",
       },
     },
     defaultVariants: {

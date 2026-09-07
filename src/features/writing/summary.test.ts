@@ -81,7 +81,7 @@ describe("summarize", () => {
 
   it("nombrar a alguien del codex pesa: esa frase entra antes", () => {
     // Las dos candidatas van después de la apertura, para que lo único que las
-    // distinga sea la entidad — si no, ganaría el plus de la primera frase.
+    // distinga sea la entidad: si no, ganaría el plus de la primera frase.
     const text = [
       "El invierno llegó antes de tiempo aquel año en la ciudad.",
       "Llovía sobre los tejados de la ciudad y el agua bajaba por las calles.",

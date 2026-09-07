@@ -32,7 +32,7 @@ import type { SystemTransport } from "@/features/systems/systems.types";
  * nunca más."*
  *
  * No inventa nada: cada señalamiento dice en qué capítulo fue y se verifica en un
- * clic. Y se puede cerrar a mano — una entidad de fondo nombrada una vez a
+ * clic. Y se puede cerrar a mano: una entidad de fondo nombrada una vez a
  * propósito no es un cabo suelto, y un detector que grita demasiado se ignora.
  */
 export function LooseThreads({ system }: { system: SystemTransport }) {
@@ -97,7 +97,7 @@ export function LooseThreads({ system }: { system: SystemTransport }) {
       ) : open.length === 0 ? (
         <Empty
           title="Ningún hilo suelto"
-          hint={`Con el criterio actual —hasta ${data?.settings.maxMentions} menciones y ${data?.settings.minSilentChapters} capítulos de silencio— no hay nada olvidado en esta obra.`}
+          hint={`Con el criterio actual (hasta ${data?.settings.maxMentions} menciones y ${data?.settings.minSilentChapters} capítulos de silencio) no hay nada olvidado en esta obra.`}
           celebratory
         />
       ) : (

@@ -28,6 +28,8 @@ async function seed() {
     await ctx.db.insert('systemStatusDefinitions', { systemType: 'project', statusName: 'done', label: 'Hecho', position: 1 });
     return ctx.db.insert('systems', {
       userId,
+      createdBy: userId,
+      createdVia: 'session',
       name: 'Kino',
       color: 'blue',
       templateType: 'project',
@@ -103,7 +105,7 @@ describe('tasks', () => {
     const bob = t.withIdentity({ subject: 'user_bob', email: 'bob@usekino.dev' });
     const bobSystem = await t.run(async (ctx) => {
       const bobId = await ctx.db.insert('users', { clerkId: 'user_bob', email: 'bob@usekino.dev', name: 'Bob', onboardingCompleted: true, status: 'active', timezone: 'UTC', createdAt: 1, updatedAt: 1 });
-      return ctx.db.insert('systems', { userId: bobId, name: 'Bob', color: 'red', templateType: 'custom', icon: 'x', isActive: true, isInbox: false, sortOrder: 0, createdAt: 1, updatedAt: 1 });
+      return ctx.db.insert('systems', { userId: bobId, createdBy: bobId, createdVia: 'session', name: 'Bob', color: 'red', templateType: 'custom', icon: 'x', isActive: true, isInbox: false, sortOrder: 0, createdAt: 1, updatedAt: 1 });
     });
     const foreign = await bob.mutation(api.tasks.create, { systemId: bobSystem, title: 'De Bob' });
 
@@ -145,9 +147,35 @@ describe('tasks', () => {
     const again = await asAna.mutation(api.tasks.create, { systemId, title: 'Una', clientRequestId: 'req-1' });
     expect(again.id).toBe(first.id);
     await asAna.mutation(api.tasks.remove, { id: first.id });
-    expect(await asAna.query(api.tasks.list, {})).toEqual([]);
-    expect((await asAna.query(api.tasks.list, { deleted: true })).map((i) => i.id)).toEqual([first.id]);
+    expect((await asAna.query(api.tasks.list, {})).items).toEqual([]);
+    expect((await asAna.query(api.tasks.list, { deleted: true })).items.map((i) => i.id)).toEqual([first.id]);
     await asAna.mutation(api.tasks.restore, { id: first.id });
-    expect((await asAna.query(api.tasks.list, {})).map((i) => i.id)).toEqual([first.id]);
+    expect((await asAna.query(api.tasks.list, {})).items.map((i) => i.id)).toEqual([first.id]);
+  });
+});
+
+describe('metadata de tarea', () => {
+  async function academicSystem() {
+    const { t, asAna, userId } = await seed();
+    const systemId = await t.run((ctx) =>
+      ctx.db.insert('systems', {
+        userId, name: 'Semestre', color: 'green', templateType: 'academic', icon: 'book', isActive: true, isInbox: false, sortOrder: 1, createdAt: 1, updatedAt: 1,
+        createdBy: userId,
+        createdVia: 'session',
+      }),
+    );
+    return { asAna, systemId };
+  }
+
+  it('acepta el kind del manifiesto junto a otras claves libres', async () => {
+    const { asAna, systemId } = await academicSystem();
+    const task = await asAna.mutation(api.tasks.create, { systemId, title: 'Entrega 1', metadata: { kind: 'assignment', course: 'Redes' } });
+    expect(task.metadata).toEqual({ kind: 'assignment', course: 'Redes' });
+  });
+
+  it('rechaza un kind que el sistema no define y un eventSubtype inventado', async () => {
+    const { asAna, systemId } = await academicSystem();
+    await expect(asAna.mutation(api.tasks.create, { systemId, title: 'x', metadata: { kind: 'sprint' } })).rejects.toThrow();
+    await expect(asAna.mutation(api.tasks.create, { systemId, title: 'x', metadata: { eventSubtype: 'party' } })).rejects.toThrow();
   });
 });

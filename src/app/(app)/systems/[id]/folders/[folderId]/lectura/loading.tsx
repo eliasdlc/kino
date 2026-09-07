@@ -4,7 +4,7 @@ import { BreadcrumbSkeleton } from "@/components/Skeletons";
 export default function ReadingLoading() {
   return (
     <div className="w-full">
-      <div className="sticky top-0 z-10 border-b bg-background px-4 py-2.5 md:px-6">
+      <div className="sticky top-0 z-(--z-raised) border-b bg-background px-4 py-2.5 md:px-6">
         <BreadcrumbSkeleton segments={4} />
       </div>
       <div className="mx-auto w-full max-w-4xl p-4 md:p-8">

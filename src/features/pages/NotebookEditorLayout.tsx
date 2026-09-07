@@ -113,15 +113,15 @@ interface NotebookEditorLayoutProps {
   systemName: string;
   allPages: PageListItemTransport[];
   breadcrumbItems: BreadcrumbItem[];
-  /** The root notebook — null if current page IS the root */
+  /** The root notebook: null if current page IS the root */
   parentNotebook: PageListItemTransport | null;
   /** Sub-pages of the root notebook (pre-fetched server-side) */
   initialSubPages: PageListItemTransport[];
   /** Arquetipo Writing: activa el "writer feel" del editor (PLAN-11 §7). */
   writer?: boolean;
-  /** Obra a la que pertenece el capítulo — alimenta el progreso de la status bar. */
+  /** Obra a la que pertenece el capítulo: alimenta el progreso de la status bar. */
   obra?: WriterObra | null;
-  /** Metadata de la obra — de ahí sale la mesa de referencias (W4). */
+  /** Metadata de la obra: de ahí sale la mesa de referencias (W4). */
   obraMetadata?: Record<string, unknown> | null;
   /** Medium de la obra (W3): estructura del editor, vocabulario y export. */
   medium?: MediumManifest | null;
@@ -269,10 +269,10 @@ export function NotebookEditorLayout({
 
   return (
     <div className="flex h-full overflow-hidden flex-col">
-      {/* Breadcrumb bar — oculta en modo focus para dejar solo el texto */}
+      {/* Breadcrumb bar: oculta en modo focus para dejar solo el texto */}
       <div
         className={cn(
-          "sticky top-0 z-10 bg-background border-b px-4 md:px-3 py-2.5 shrink-0 flex items-center gap-2",
+          "sticky top-0 z-(--z-raised) bg-background border-b px-4 md:px-3 py-2.5 shrink-0 flex items-center gap-2",
           focusMode && "hidden"
         )}
       >
@@ -303,7 +303,7 @@ export function NotebookEditorLayout({
       </div>
 
       <div className="flex flex-1 overflow-hidden">
-        {/* Main editor — centered content with free-floating margin notes overlay */}
+        {/* Main editor: centered content with free-floating margin notes overlay */}
         <NotebookEditorSurface
           page={page}
           systemId={systemId}

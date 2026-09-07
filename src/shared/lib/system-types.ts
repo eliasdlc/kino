@@ -65,7 +65,7 @@ export type Gender = 'f' | 'm';
 /**
  * Composición que el usuario define para UN sistema concreto, persistida en
  * `systems.metadata.composition`. Solo la lee el arquetipo `custom` (D16): los
- * demás traen opinión propia y no se dejan renombrar — si alguien quiere que sus
+ * demás traen opinión propia y no se dejan renombrar: si alguien quiere que sus
  * clases se llamen "asignaturas", el camino es un arquetipo nuevo, no editar
  * Academic desde la UI y romper el vocabulario compartido con el advisor.
  */
@@ -88,21 +88,21 @@ export interface SystemMetadata {
   composition?: SystemComposition;
   /**
    * Solo Writing: meta diaria de palabras del sistema (PLAN-11 §9). Vive aquí y
-   * no en la obra porque el hábito es del escritor, no del manuscrito — escribas
+   * no en la obra porque el hábito es del escritor, no del manuscrito: escribas
    * donde escribas, el día cuenta.
    */
   dailyWordGoal?: number;
   /**
    * Solo Writing: sensibilidad del detector de hilos sueltos (KIN-137). Vive en
    * el sistema porque es una preferencia del escritor sobre cuánto quiere que le
-   * hablen — un detector que grita demasiado se ignora y deja de existir.
+   * hablen: un detector que grita demasiado se ignora y deja de existir.
    */
   chekhov?: { maxMentions: number; minSilentChapters: number };
   /**
    * Solo Project: repositorio de GitHub cuyos issues alimentan el board
    * (KIN-135). Vive en el sistema y no en la conexión porque la cuenta de GitHub
    * es una sola por usuario, mientras que el repositorio es de este proyecto
-   * concreto — un usuario puede tener varios sistemas `project`, cada uno con el
+   * concreto: un usuario puede tener varios sistemas `project`, cada uno con el
    * suyo.
    */
   github?: { owner: string; repo: string };
@@ -113,7 +113,7 @@ export type SchedulingPreference = 'lowSlot' | 'peak' | 'highMedium';
 /**
  * Campo declarado por el arquetipo, persistido en la columna `metadata` (jsonb)
  * de folders (rol de carpeta) o tasks (task kind). El server valida contra el
- * Zod derivado de estas declaraciones — nada entra a metadata sin schema.
+ * Zod derivado de estas declaraciones: nada entra a metadata sin schema.
  */
 export interface ArchetypeFieldDef {
   id: string;
@@ -124,7 +124,7 @@ export interface ArchetypeFieldDef {
   /**
    * El campo se valida pero no se pinta en los formularios. Para estado que la
    * UI escribe sola (referencias pineadas de una obra) y que igual debe pasar
-   * por el schema — metadata sigue sin ser un saco.
+   * por el schema: metadata sigue sin ser un saco.
    */
   hidden?: boolean;
 }
@@ -137,7 +137,7 @@ export interface ArchetypeFieldDef {
 export interface FolderRole {
   noun: string;
   nounPlural: string;
-  /** Género del sustantivo — lo consume el copy derivado (estados vacíos). */
+  /** Género del sustantivo: lo consume el copy derivado (estados vacíos). */
   gender: Gender;
   /** CTA de creación, p.ej. "Nueva clase". */
   newLabel: string;
@@ -151,7 +151,7 @@ export interface FolderRole {
 export interface PageRole {
   noun: string;
   nounPlural: string;
-  /** Género del sustantivo — lo consume el copy derivado (estados vacíos). */
+  /** Género del sustantivo: lo consume el copy derivado (estados vacíos). */
   gender: Gender;
   /** true → el sistema abre en la biblioteca de pages, no en tasks (writing). */
   primary: boolean;
@@ -171,7 +171,7 @@ export interface TaskKindDef {
 
 /**
  * Manifiesto de arquetipo: la única fuente de verdad de cómo se comporta un
- * systemType — vocabulario, rol de folders/pages, kinds de tarea, preset de
+ * systemType: vocabulario, rol de folders/pages, kinds de tarea, preset de
  * vista y defaults de energía. Los componentes compartidos leen esto en vez de
  * hardcodear por tipo; añadir un arquetipo = escribir un manifiesto.
  * Ver D9–D13 en el doc "Índice de decisiones D1–D16" de Linear.
@@ -245,7 +245,7 @@ export const SYSTEM_TYPE_CONFIG: Record<SystemType, ArchetypeManifest> = {
     ],
     energyDefault: 'medium',
     schedulingPreference: 'highMedium',
-    advisorTemplate: 'Energía media — ideal para avanzar en {nombre}.',
+    advisorTemplate: 'Energía media: ideal para avanzar en {nombre}.',
     staleTemplate: '{n} días desde última tarea en {nombre}.',
     focusMinutes: 90,
     tabs: UNIVERSAL_TABS,
@@ -261,7 +261,7 @@ export const SYSTEM_TYPE_CONFIG: Record<SystemType, ArchetypeManifest> = {
     taskKinds: [],
     energyDefault: 'high',
     schedulingPreference: 'highMedium',
-    advisorTemplate: '{nombre} lleva {n} días sin actividad — estás en tu ventana de alta energía.',
+    advisorTemplate: '{nombre} lleva {n} días sin actividad: estás en tu ventana de alta energía.',
     staleTemplate: '{n} días desde última tarea en {nombre}.',
     focusMinutes: 25,
     tabs: UNIVERSAL_TABS,
@@ -293,7 +293,7 @@ export const SYSTEM_TYPE_CONFIG: Record<SystemType, ArchetypeManifest> = {
     ],
     energyDefault: 'high',
     schedulingPreference: 'peak',
-    advisorTemplate: '{nombre} espera hace {n} días. Ahora estás en pico — ¿saltás?',
+    advisorTemplate: '{nombre} espera hace {n} días. Ahora estás en pico: ¿saltás?',
     staleTemplate: '{n} días desde última tarea en {nombre}.',
     focusMinutes: 25,
     tabs: UNIVERSAL_TABS,
@@ -354,7 +354,7 @@ export const SYSTEM_TYPE_CONFIG: Record<SystemType, ArchetypeManifest> = {
     label: 'Escritura',
     view: 'list',
     // Obras: libro/blog/cómic/serie con meta de palabras. El progreso de palabras
-    // se deriva del contenido Tiptap de las pages — nunca un contador persistido.
+    // se deriva del contenido Tiptap de las pages: nunca un contador persistido.
     folderRole: {
       noun: 'obra',
       nounPlural: 'obras',
@@ -391,7 +391,7 @@ export const SYSTEM_TYPE_CONFIG: Record<SystemType, ArchetypeManifest> = {
     energyDefault: 'high',
     // El diferenciador: escribir en tu mejor ventana creativa (pico de energía).
     schedulingPreference: 'peak',
-    advisorTemplate: 'Tu mejor ventana creativa es ahora — dale a {nombre}.',
+    advisorTemplate: 'Tu mejor ventana creativa es ahora: dale a {nombre}.',
     staleTemplate: '{nombre} lleva {n} días sin una sesión de escritura.',
     focusMinutes: 45,
     tabs: UNIVERSAL_TABS,

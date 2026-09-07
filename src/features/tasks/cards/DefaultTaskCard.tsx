@@ -27,28 +27,28 @@ interface DefaultTaskCardProps extends TaskCardProps {
   renderMeta?: (state: TaskCardState) => React.ReactNode;
   isSelected?: boolean;
   onSelectionToggle?: (taskId: string) => void;
-  /** Personal: la card no grita prioridad — sin badge ni bordes rojo/naranja. */
+  /** Personal, la card que no grita prioridad: sin badge ni bordes rojo/naranja. */
   soft?: boolean;
 }
 
 const STATUS_BADGE: Record<string, string> = {
   backlog:  "bg-muted text-muted-foreground",
-  week:     "bg-indigo-500/18 text-indigo-700 dark:text-indigo-300",
-  today:    "bg-emerald-500/18 text-emerald-700 dark:text-emerald-300",
-  tomorrow: "bg-amber-500/18 text-amber-700 dark:text-amber-300",
-  done:     "bg-task-done/15 text-emerald-700 dark:text-emerald-300",
+  week:     "bg-primary/15 text-primary",
+  today:    "bg-task-done/18 text-task-done",
+  tomorrow: "bg-primary/18 text-primary",
+  done:     "bg-task-done/15 text-task-done",
   archived: "bg-muted/60 text-muted-foreground/65",
 };
 
 const TYPE_BADGE: Record<string, string> = {
   task:     "bg-muted text-muted-foreground",
-  idea:     "bg-amber-500/15 text-amber-700 dark:text-amber-400",
-  event:    "bg-sky-500/15 text-sky-700 dark:text-sky-300",
-  reminder: "bg-orange-500/15 text-orange-700 dark:text-orange-400",
-  epic:     "bg-violet-500/18 text-violet-700 dark:text-violet-300",
-  habit:    "bg-purple-500/15 text-purple-700 dark:text-purple-300",
+  idea:     "bg-primary/15 text-primary",
+  event:    "bg-secondary text-foreground",
+  reminder: "bg-primary/15 text-primary",
+  epic:     "bg-primary/18 text-primary",
+  habit:    "bg-primary/15 text-primary",
   todo:     "bg-muted text-muted-foreground",
-  project:  "bg-blue-500/18 text-blue-700 dark:text-blue-300",
+  project:  "bg-secondary text-foreground",
 };
 
 function CalendarIcon() {
@@ -359,14 +359,14 @@ export function DefaultTaskCard({ task, systemId, systemType, draggable, isFocus
                 className={cn(
                   "md:opacity-0 md:group-hover:opacity-100 motion-safe:transition-opacity",
                   isThisRunning
-                    ? "text-amber-600 dark:text-amber-400 md:opacity-100"
+                    ? "text-primary md:opacity-100"
                     : anotherRunning
                       ? "text-muted-foreground/45 cursor-not-allowed"
-                      : "text-muted-foreground/85 hover:text-amber-600 dark:hover:text-amber-400",
+                      : "text-muted-foreground/85 hover:text-primary dark:hover:text-primary",
                 )}
                 aria-label={isThisRunning ? "Timer en curso" : "Iniciar foco"}
               >
-                <Timer size={16} className={cn(isThisRunning && "animate-pulse")} />
+                <Timer size={16} className={cn(isThisRunning && "")} />
               </button>
             )}
             <button
@@ -417,7 +417,7 @@ export function DefaultTaskCard({ task, systemId, systemType, draggable, isFocus
               disabled={anotherRunning}
               onSelect={() => openModeDialog({ id: task.id, title: task.title, systemId, estimatedDuration: task.estimatedTime ? (() => { const [h, m] = task.estimatedTime!.split(":").map(Number); return h * 60 + m; })() : null })}
             >
-              <Timer className={cn("mr-2 size-4", isThisRunning && "text-amber-600 dark:text-amber-400")} />
+              <Timer className={cn("mr-2 size-4", isThisRunning && "text-primary")} />
               {isThisRunning ? "Timer en curso" : "Iniciar foco"}
             </ContextMenuItem>
             <ContextMenuSeparator />

@@ -1,28 +1,29 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import { Check, Flame, Moon, Zap, type LucideIcon } from "lucide-react";
 import { KinoMark } from "./KinoMark";
 import { useHydrated } from "@/shared/hooks/useHydrated";
 
 type Level = "alta" | "media" | "baja";
 
 const TASK_DEFS = [
-  { id: "t1", title: "Preparar la presentación", meta: "🔥 alta · ~45m · Proyecto" },
-  { id: "t2", title: "Revisar el PR del equipo", meta: "⚡ media · ~30m · Proyecto" },
-  { id: "t3", title: "Leer 10 páginas", meta: "🌙 baja · ~15m · Personal" },
+  { id: "t1", title: "Preparar la presentación", meta: "alta · ~45m · Proyecto" },
+  { id: "t2", title: "Revisar el PR del equipo", meta: "media · ~30m · Proyecto" },
+  { id: "t3", title: "Leer 10 páginas", meta: "baja · ~15m · Personal" },
 ] as const;
 
 const ADVISOR_LINES: Record<Level | "none", string> = {
   none: "Soy Kino. Registra tu energía y ajusto tu plan en tiempo real:",
-  alta: "Energía alta registrada — ahora es el momento para lo difícil. Empieza por la presentación.",
-  media: "Energía media — buen momento para el PR. Lo pesado, mejor en tu próximo pico.",
-  baja: "Energía baja — sé amable contigo. Lee 10 páginas y considera una pausa.",
+  alta: "Energía alta registrada: ahora es el momento para lo difícil. Empieza por la presentación.",
+  media: "Energía media: buen momento para el PR. Lo pesado, mejor en tu próximo pico.",
+  baja: "Energía baja: sé amable contigo. Lee 10 páginas y considera una pausa.",
 };
 
-const CHECKIN_LEVELS: { key: Level; label: string }[] = [
-  { key: "alta", label: "🔥 Alta" },
-  { key: "media", label: "⚡ Media" },
-  { key: "baja", label: "🌙 Baja" },
+const CHECKIN_LEVELS: { key: Level; label: string; Icon: LucideIcon }[] = [
+  { key: "alta", label: "Alta", Icon: Flame },
+  { key: "media", label: "Media", Icon: Zap },
+  { key: "baja", label: "Baja", Icon: Moon },
 ];
 
 function curve(h: number) {
@@ -73,10 +74,10 @@ export function HeroDemo() {
       out.push({
         pct: curve(h),
         color: isNow
-          ? "#818cf8"
+          ? "var(--ac)"
           : h < hourNow
-            ? "rgba(129,140,248,0.28)"
-            : "rgba(255,255,255,0.10)",
+            ? "color-mix(in srgb, var(--ac) 28%, transparent)"
+            : "color-mix(in srgb, var(--ink) 10%, transparent)",
       });
     }
     return out;
@@ -86,32 +87,32 @@ export function HeroDemo() {
   const progressPct = Math.round((doneCount / 3) * 100);
   const advisorLine =
     doneCount === 3
-      ? "¡Plan completado! 🎉 Te queda energía — ¿una tarea más o cerramos el día?"
+      ? "¡Plan completado! Te queda energía: ¿una tarea más o cerramos el día?"
       : ADVISOR_LINES[checkin ?? "none"];
 
   return (
     <div className="relative">
-      <div className="relative overflow-hidden rounded-[20px] border border-white/[0.09] bg-[#18181c] shadow-[0_24px_80px_rgba(0,0,0,0.55)]">
+      <div className="relative overflow-hidden rounded-[20px] border border-border bg-card shadow-[0_24px_80px_rgba(0,0,0,0.55)]">
         {confetti && <Confetti />}
 
-        <div className="flex items-baseline justify-between gap-3 border-b border-white/[0.07] px-5 pb-3.5 pt-[18px]">
+        <div className="flex items-baseline justify-between gap-3 border-b border-border px-5 pb-3.5 pt-[18px]">
           <div>
-            <p className="font-display text-[17px] font-bold text-[#f4f4f5]">Plan de hoy</p>
-            <p className="mt-0.5 text-[12.5px] capitalize text-[#6b6b74]">
+            <p className="font-display text-[17px] font-bold text-foreground">Plan de hoy</p>
+            <p className="mt-0.5 text-[12.5px] capitalize text-muted-foreground">
               {mounted ? dateLabel : " "}
             </p>
           </div>
           <span
             className="font-jetbrains text-[13px] font-semibold"
-            style={{ color: doneCount === 3 ? "#3ecf72" : "#a1a1aa" }}
+            style={{ color: doneCount === 3 ? "var(--ok)" : "var(--mute)" }}
           >
             {doneCount}/3
           </span>
         </div>
 
-        <div className="h-[3px] bg-white/[0.06]">
+        <div className="h-[3px] bg-foreground/10">
           <div
-            className="h-full bg-[#3ecf72] transition-all duration-300"
+            className="h-full bg-task-done transition-all duration-300"
             style={{ width: `${progressPct}%` }}
           />
         </div>
@@ -122,31 +123,31 @@ export function HeroDemo() {
             return (
               <div
                 key={t.id}
-                className="flex items-center gap-3 border-b border-white/[0.05] px-5 py-3"
+                className="flex items-center gap-3 border-b border-border px-5 py-3"
               >
                 <button
                   type="button"
                   onClick={() => toggleTask(t.id)}
                   aria-label="Completar tarea"
-                  className="flex h-6 w-6 flex-none items-center justify-center rounded-full border-2 text-[13px] font-extrabold leading-none text-[#0e0e11] transition-all"
+                  className="flex h-6 w-6 flex-none items-center justify-center rounded-full border-2 text-[13px] font-extrabold leading-none text-background transition-all"
                   style={{
-                    borderColor: done ? "#3ecf72" : "rgba(255,255,255,0.28)",
-                    background: done ? "#3ecf72" : "transparent",
+                    borderColor: done ? "var(--ok)" : "color-mix(in srgb, var(--ink) 28%, transparent)",
+                    background: done ? "var(--ok)" : "transparent",
                   }}
                 >
-                  {done ? "✓" : ""}
+                  {done && <Check className="size-3.5" strokeWidth={3} aria-hidden />}
                 </button>
                 <div className="min-w-0 flex-1">
                   <p
                     className="truncate text-[14.5px] font-medium"
                     style={{
-                      color: done ? "#6b6b74" : "#e4e4e7",
+                      color: done ? "var(--mute)" : "var(--body)",
                       textDecoration: done ? "line-through" : "none",
                     }}
                   >
                     {t.title}
                   </p>
-                  <p className="mt-px font-jetbrains text-[11px] text-[#6b6b74]">{t.meta}</p>
+                  <p className="mt-px font-jetbrains text-[11px] text-muted-foreground">{t.meta}</p>
                 </div>
               </div>
             );
@@ -155,12 +156,12 @@ export function HeroDemo() {
 
         <div className="px-5 pb-1.5 pt-3.5">
           <div className="mb-2.5 flex items-center justify-between">
-            <p className="font-jetbrains text-[11px] font-semibold uppercase tracking-[0.1em] text-[#6b6b74]">
+            <p className="font-jetbrains text-[11px] font-semibold uppercase tracking-[0.1em] text-muted-foreground">
               Tu curva de hoy
             </p>
-            <span className="inline-flex items-center gap-1.5 font-jetbrains text-[11px] text-[#818cf8]">
+            <span className="inline-flex items-center gap-1.5 font-jetbrains text-[11px] text-primary">
               <span
-                className="h-1.5 w-1.5 rounded-full bg-[#818cf8]"
+                className="h-1.5 w-1.5 rounded-full bg-primary"
                 style={{ animation: "pulse-now 1.6s ease-in-out infinite" }}
               />
               ahora
@@ -175,7 +176,7 @@ export function HeroDemo() {
               />
             ))}
           </div>
-          <div className="mt-1.5 flex justify-between font-jetbrains text-[9.5px] text-[#52525b]">
+          <div className="mt-1.5 flex justify-between font-jetbrains text-[9.5px] text-muted-foreground">
             <span>6h</span>
             <span>12h</span>
             <span>18h</span>
@@ -183,12 +184,12 @@ export function HeroDemo() {
           </div>
         </div>
 
-        <div className="mx-5 mb-[18px] mt-2.5 flex items-start gap-2.5 rounded-[14px] border border-[#6366f1]/[0.18] bg-[#6366f1]/[0.08] px-3.5 py-3">
+        <div className="mx-5 mb-[18px] mt-2.5 flex items-start gap-2.5 rounded-[14px] border border-primary/[0.18] bg-primary/[0.08] px-3.5 py-3">
           <span className="mt-px flex-none">
             <KinoMark size={22} withWordmark={false} />
           </span>
           <div className="min-w-0 flex-1">
-            <p className="mb-2.5 text-[13px] leading-[1.5] text-[#c7d2fe]">{advisorLine}</p>
+            <p className="mb-2.5 text-[13px] leading-[1.5] text-primary">{advisorLine}</p>
             <div className="flex flex-wrap gap-[7px]">
               {CHECKIN_LEVELS.map((l) => {
                 const sel = checkin === l.key;
@@ -199,11 +200,12 @@ export function HeroDemo() {
                     onClick={() => setCheckin(sel ? null : l.key)}
                     className="cursor-pointer rounded-full border px-[11px] py-[5px] font-jetbrains text-[11.5px] font-semibold transition-all"
                     style={{
-                      borderColor: sel ? "rgba(129,140,248,0.7)" : "rgba(255,255,255,0.14)",
-                      background: sel ? "rgba(129,140,248,0.2)" : "rgba(255,255,255,0.04)",
-                      color: sel ? "#c7d2fe" : "#a1a1aa",
+                      borderColor: sel ? "color-mix(in srgb, var(--ac) 70%, transparent)" : "color-mix(in srgb, var(--ink) 14%, transparent)",
+                      background: sel ? "color-mix(in srgb, var(--ac) 20%, transparent)" : "color-mix(in srgb, var(--ink) 4%, transparent)",
+                      color: sel ? "var(--ac)" : "var(--mute)",
                     }}
                   >
+                    <l.Icon className="mr-1 inline size-3.5 align-[-2px]" aria-hidden />
                     {l.label}
                   </button>
                 );
@@ -212,16 +214,16 @@ export function HeroDemo() {
           </div>
         </div>
       </div>
-      <p className="mt-3 text-center font-jetbrains text-[11px] text-[#52525b]">
+      <p className="mt-3 text-center font-jetbrains text-[11px] text-muted-foreground">
       </p>
     </div>
   );
 }
 
 function Confetti() {
-  const colors = ["#3ecf72", "#818cf8", "#fbbf24", "#f87171", "#a5b4fc"];
+  const colors = ["var(--ok)", "var(--ac)", "var(--ac)", "var(--warn)", "var(--ac)"];
   return (
-    <div className="pointer-events-none absolute inset-0 z-10">
+    <div className="pointer-events-none absolute inset-0 z-(--z-raised)">
       {Array.from({ length: 16 }).map((_, i) => {
         const angle = (i / 16) * Math.PI * 2;
         const dist = 70 + (i % 4) * 22;

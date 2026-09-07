@@ -1,28 +1,29 @@
 import Link from "next/link";
-import { marketingFontVars } from "@/features/marketing/fonts";
+import { ArrowLeft } from "lucide-react";
 import { KinoMark } from "@/features/marketing/KinoMark";
 
+/**
+ * Entrar y registrarse van sobre el fondo del producto y siguen el tema del
+ * dispositivo, como cualquier otra pantalla: las de Clerk leen los tokens.
+ */
 export default function AuthLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
   return (
-    // `dark` a mano: esta pantalla es siempre oscura como el sitio público, y
-    // las de Clerk leen los tokens de shadcn, que cambian con esa clase.
-    <div
-      className={`${marketingFontVars} dark font-body relative flex min-h-screen flex-col overflow-hidden bg-[#0e0e11] text-[#a1a1aa]`}
-    >
-      <div className="pointer-events-none absolute -top-[220px] left-1/2 h-[460px] w-[820px] -translate-x-1/2 bg-[radial-gradient(ellipse_at_center,rgba(99,102,241,0.14),transparent_70%)]" />
-
-      <div className="relative px-6 py-5">
-        <Link href="/" className="inline-flex items-center gap-2.5">
+    <div className="relative flex min-h-screen flex-col bg-background text-foreground">
+      <div className="flex items-center justify-between px-5 py-4 md:px-8">
+        <Link href="/" className="inline-flex items-center gap-2.5" aria-label="Kino, volver al inicio">
           <KinoMark size={26} wordmarkSize={18} />
-          <span className="font-jetbrains text-[11px] text-[#52525b]">← volver</span>
+        </Link>
+        <Link href="/" className="inline-flex items-center gap-1.5 text-sm font-semibold text-primary">
+          <ArrowLeft className="size-4" />
+          Volver
         </Link>
       </div>
 
-      <div className="relative flex flex-1 items-center justify-center px-6 pb-12">
+      <div className="flex flex-1 items-center justify-center px-5 pb-12">
         <div className="w-[min(100%,420px)]">{children}</div>
       </div>
     </div>

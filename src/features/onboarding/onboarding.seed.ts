@@ -11,7 +11,7 @@ import type { SeedUnitInput } from './onboarding.schemas';
 /**
  * Planificador de la siembra: traduce lo que el usuario escribió en el onboarding
  * a la estructura concreta que se va a escribir (carpetas, tareas, primer
- * manuscrito). Función **pura** a propósito — el servicio solo la ejecuta, así que
+ * manuscrito). Función **pura** a propósito: el servicio solo la ejecuta, así que
  * el "qué se crea por arquetipo" se testea sin base de datos.
  */
 

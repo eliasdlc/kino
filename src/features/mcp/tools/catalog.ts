@@ -291,7 +291,8 @@ const insights: Tool[] = [
 const pages: Tool[] = [
   readTool(api.pages.bySystem, {
     name: "list_pages",
-    description: "Lista las páginas (notas markdown) de un sistema en Kino.",
+    description:
+      "Lista las páginas (notas markdown) de un sistema en Kino. Devuelve `items` y `restantes`: si `restantes` es mayor que cero, la lista viene recortada.",
     input: z.object({ systemId: id }),
   }),
   readTool(api.pages.byId, {
@@ -435,7 +436,8 @@ const systems: Tool[] = [
 const tasks: Tool[] = [
   readTool(api.tasks.list, {
     name: "list_tasks",
-    description: "Lista tareas del usuario en Kino con filtros opcionales.",
+    description:
+      "Lista tareas del usuario en Kino con filtros opcionales. Devuelve `items` y `restantes`: si `restantes` es mayor que cero, la lista viene recortada y hay que filtrar más para verlo todo.",
     input: z.object({
       systemId: id.optional(),
       energyLevel: ENERGY.optional(),

@@ -178,6 +178,8 @@ export const applySync = internalMutation({
           boardStatus: base.boardStatus,
           boardStatusChangedAt: now,
           completedAt: base.status === 'done' ? now : undefined,
+          completedBy: base.status === 'done' ? userId : undefined,
+          completedVia: base.status === 'done' ? ('sync' as const) : undefined,
           energyLevel: 'medium',
           priority: 'medium',
           sprintId,
@@ -209,7 +211,7 @@ export const applySync = internalMutation({
       if (patch.title !== undefined || patch.description !== undefined) changes.lemas = lematizar(patch.title ?? task.title, patch.description ?? task.description);
       await ctx.db.patch(task._id, changes);
       // El movimiento de columna pasa por tasks: es quien aplica el puente con el scheduling.
-      if (patch.boardStatus) await moveTaskBoardDoc(ctx, userId, task._id, patch.boardStatus);
+      if (patch.boardStatus) await moveTaskBoardDoc(ctx, userId, 'sync', task._id, patch.boardStatus);
       updated += 1;
     }
 

@@ -195,7 +195,7 @@ export function DescriptionField({
         <div className="flex items-center justify-between gap-2 p-3 mt-2 border rounded-lg bg-muted/20">
           <div className="space-y-0.5">
             <Label className="flex items-center gap-1.5">
-              <Sparkles size={14} className="text-amber-500" /> Plan de Estudio
+              <Sparkles size={14} className="text-primary" /> Plan de Estudio
             </Label>
             <p className="text-[11px] text-muted-foreground">
               Auto-generar tareas de repaso antes de la fecha.

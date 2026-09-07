@@ -20,14 +20,11 @@ export function TasksPageClient({ systems }: TasksPageProps) {
   const { setOpen } = useQuickAddStore();
 
   return (
-    <div className="flex flex-col gap-4 p-4 md:p-6 max-w-4xl mx-auto w-full">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-lg font-semibold">Tareas</h1>
-          <p className="text-sm text-muted-foreground">El cerebro de Kino — qué deberías hacer hoy.</p>
-        </div>
-        <Button variant="outline" className="w-fit" onClick={() => setOpen(true)}>
-          <Plus size={16} className="mr-1" />
+    <div className="mx-auto flex w-full max-w-4xl flex-col gap-5 px-5 py-5 md:px-8 md:py-6">
+      <div className="flex items-center justify-between gap-3">
+        <h1 className="font-display text-[1.41rem] font-bold tracking-[-0.02em]">Tareas</h1>
+        <Button onClick={() => setOpen(true)}>
+          <Plus className="size-5" />
           Nueva tarea
         </Button>
       </div>

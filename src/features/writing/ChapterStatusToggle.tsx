@@ -9,7 +9,7 @@ import { useCelebrateOnce } from "./celebrate";
 /**
  * El check de estado del capítulo (PLAN-11 §7). Terminar un capítulo es el hito
  * más frecuente de una obra larga, así que se marca desde el propio editor y
- * entra solo al diario — no hay un formulario de hitos en ninguna parte.
+ * entra solo al diario: no hay un formulario de hitos en ninguna parte.
  */
 export function ChapterStatusToggle({
   pageId,

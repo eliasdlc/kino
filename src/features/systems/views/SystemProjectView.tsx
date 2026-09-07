@@ -15,7 +15,7 @@ import type { TaskTransport } from "@/features/tasks/tasks.types";
 import type { SystemViewProps } from "./SystemDetailView";
 
 /**
- * Project — un proyecto en progreso: board kanban (eje workflow), planificación
+ * Project. Un proyecto en progreso: board kanban (eje workflow), planificación
  * semanal (eje scheduling, reutilizada de Academic) y archivadas por sprint.
  */
 export function SystemProjectView({ system, initialTasks }: SystemViewProps) {

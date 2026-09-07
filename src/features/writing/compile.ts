@@ -2,8 +2,8 @@ import type { MediumId } from "@/shared/lib/mediums";
 import { MEDIUM_CONFIG } from "@/shared/lib/mediums";
 
 /**
- * Compilación del manuscrito completo (KIN-139): la obra entera —todos sus
- * capítulos en orden— en **un solo archivo** con portada, listo para mandárselo
+ * Compilación del manuscrito completo (KIN-139): la obra entera (todos sus
+ * capítulos en orden) en **un solo archivo** con portada, listo para mandárselo
  * a alguien.
  *
  * La decisión pendiente del ticket era dónde generar `docx` y `pdf`: una
@@ -92,7 +92,7 @@ function yamlValue(raw: string): string {
 
 /**
  * La obra entera en un archivo de texto. `toText` serializa el HTML de cada
- * capítulo — se inyecta para que este módulo no dependa del DOM ni de turndown y
+ * capítulo: se inyecta para que este módulo no dependa del DOM ni de turndown y
  * se pueda probar con una función trivial.
  */
 export function compileManuscript(
@@ -119,7 +119,7 @@ export function compileManuscript(
   });
 
   // Un capítulo vacío sigue siendo un capítulo: aparece con su título y nada
-  // debajo, que es información — no se salta en silencio.
+  // debajo, que es información: no se salta en silencio.
   return `${parts.join("\n\n")}\n`;
 }
 
@@ -180,7 +180,7 @@ function blockXml(block: DocxBlock): string {
 const DOCUMENT_NS =
   'xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main"';
 
-/** A4 con márgenes de 2,5 cm — lo que espera quien recibe un manuscrito. */
+/** A4 con márgenes de 2,5 cm: lo que espera quien recibe un manuscrito. */
 const SECTION =
   '<w:sectPr><w:pgSz w:w="11906" w:h="16838"/>' +
   '<w:pgMar w:top="1418" w:right="1418" w:bottom="1418" w:left="1418" w:header="709" w:footer="709" w:gutter="0"/>' +

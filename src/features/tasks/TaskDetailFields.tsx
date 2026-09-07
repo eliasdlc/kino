@@ -97,8 +97,8 @@ export function GradeField({
   onChange: (next: Record<string, unknown> | null) => void;
 }) {
   return (
-    <div className="space-y-1.5 p-3 rounded-lg bg-emerald-500/10 border border-emerald-500/20">
-      <Label className="text-emerald-600 dark:text-emerald-400 font-medium">Calificación obtenida</Label>
+    <div className="space-y-1.5 p-3 rounded-lg bg-task-done/10 border border-task-done/20">
+      <Label className="text-task-done font-medium">Calificación obtenida</Label>
       <Input
         type="number"
         min={0}

@@ -5,7 +5,7 @@ import { put, del, list } from "@vercel/blob";
  *
  * Vive aquí y no en el llamador porque lo comparten dos operaciones opuestas: la
  * subida escribe bajo este prefijo y el barrido de huérfanas lista por él. Si los
- * dos dejaran de coincidir, el barrido no vería nada del usuario — o, peor, vería
+ * dos dejaran de coincidir, el barrido no vería nada del usuario: o, peor, vería
  * lo de otro.
  */
 export function userKeyPrefix(userId: string): string {

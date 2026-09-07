@@ -4,7 +4,7 @@ import type { ArchetypeManifest, Gender, SystemTabId } from './system-types';
  * Copy derivado del manifiesto. Un sistema académico vacío no dice "no hay
  * carpetas": dice "todavía no tienes clases" (D16).
  *
- * Todo sale de `folderRole`/`pageRole` — nada de tablas paralelas de textos por
+ * Todo sale de `folderRole`/`pageRole`: nada de tablas paralelas de textos por
  * arquetipo, que es exactamente la duplicación que el manifiesto vino a matar.
  * Lo único que se añadió al manifiesto para esto es el género del sustantivo:
  * sin él el español sale en neutro de traductor ("crear primero clase").
@@ -21,7 +21,7 @@ export function article(gender: Gender, plural = false): string {
   return gender === 'f' ? 'la' : 'el';
 }
 
-/** "la primera" / "el primer" — el ordinal apocopado que pide el masculino. */
+/** "la primera" / "el primer": el ordinal apocopado que pide el masculino. */
 export function firstOne(gender: Gender): string {
   return gender === 'f' ? 'la primera' : 'el primer';
 }

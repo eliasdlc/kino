@@ -6,12 +6,12 @@ export default function SystemLoading() {
   return (
     <div className="w-full">
       {/* Sticky breadcrumb */}
-      <div className="sticky top-0 z-10 bg-background border-b px-6 py-2.5">
+      <div className="sticky top-0 z-(--z-raised) bg-background border-b px-6 py-2.5">
         <BreadcrumbSkeleton segments={2} />
       </div>
 
       <PageWrapper className="w-full">
-        {/* System header — mirrors SystemDetailHeader (tinted card, collapsible) */}
+        {/* System header: mirrors SystemDetailHeader (tinted card, collapsible) */}
         <div className="rounded-lg bg-muted/30 px-4 py-3 w-full space-y-2.5">
           {/* Title row */}
           <div className="flex items-start justify-between gap-4">

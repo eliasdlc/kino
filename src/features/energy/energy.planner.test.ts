@@ -80,7 +80,7 @@ describe('buildBudgetPlan', () => {
     expect(plan).toHaveLength(0);
   });
 
-  it('respects budget — stops when full', () => {
+  it('respects budget: stops when full', () => {
     // 8 hours = 480 min. Each task = 30 min → max 16 tasks.
     const tasks = Array.from({ length: 20 }, (_, i) =>
       makeTask({ id: String(i), estimatedTime: '00:30:00' }),
@@ -187,7 +187,7 @@ describe('buildEnergyPlan', () => {
       startHour: 5,
       tasks: [medium, low],
     });
-    // medium and low are not deferred — floor kicks in
+    // medium and low are not deferred: floor kicks in
     expect(result.deferred).toHaveLength(0);
     expect(result.items).toHaveLength(2);
   });
@@ -205,7 +205,7 @@ describe('buildEnergyPlan', () => {
     expect(result.totalBreakMinutes).toBeGreaterThan(0);
   });
 
-  it('respects budget — excess tasks go to deferred', () => {
+  it('respects budget: excess tasks go to deferred', () => {
     const tasks = Array.from({ length: 20 }, (_, i) =>
       makeTask({ id: String(i), estimatedTime: '00:30:00' }),
     );
