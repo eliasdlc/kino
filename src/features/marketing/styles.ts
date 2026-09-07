@@ -1,13 +1,13 @@
-/** Clases compartidas para los botones del sitio de marketing/auth. */
+/** Clases compartidas para los botones del sitio público: las mismas primitivas que la app, en pill. */
 export const btnPrimary =
-  "inline-flex items-center justify-center gap-2 rounded-xl bg-[#818cf8] font-semibold text-[#0e0e11] transition-colors hover:bg-[#a5b4fc]";
+  "inline-flex items-center justify-center gap-2 rounded-full bg-primary font-semibold text-primary-foreground shadow-[0_0.5em_1.4em_-0.4em_var(--glow)] transition-colors hover:bg-primary/90";
 
 export const btnGhost =
-  "inline-flex items-center justify-center gap-2 rounded-xl border border-white/[0.12] font-semibold text-[#f4f4f5] transition-colors hover:border-white/30";
+  "inline-flex items-center justify-center gap-2 rounded-full bg-secondary font-semibold text-foreground transition-colors hover:bg-secondary/70";
 
-/** Superficie de tarjeta dark del sitio (añade el padding según el contexto). */
-export const cardSurface = "rounded-[18px] border border-white/[0.08] bg-[#18181c]";
+/** Superficie de tarjeta del sitio (añade el padding según el contexto). */
+export const cardSurface = "rounded-2xl border border-border bg-card shadow-(--shadow)";
 
-/** Etiqueta "eyebrow" monoespaciada que encabeza cada sección. */
+/** Etiqueta "eyebrow" que encabeza cada sección: caption en la cara de texto, con el acento. */
 export const eyebrow =
-  "font-jetbrains text-xs font-semibold uppercase tracking-[0.14em] text-[#818cf8]";
+  "text-xs font-semibold uppercase tracking-[0.06em] text-primary";

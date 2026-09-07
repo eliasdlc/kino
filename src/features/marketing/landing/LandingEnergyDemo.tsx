@@ -26,19 +26,19 @@ const LEVEL_META: Record<
   alta: {
     Icon: Flame,
     label: "Alta",
-    color: "#f97316",
+    color: "var(--warn)",
     tip: "Pico de energía: empieza por lo más difícil.",
   },
   media: {
     Icon: Zap,
     label: "Media",
-    color: "#818cf8",
+    color: "var(--ac)",
     tip: "Buen ritmo: reuniones y trabajo en equipo.",
   },
   baja: {
     Icon: Moon,
     label: "Baja",
-    color: "#6b7280",
+    color: "var(--mute)",
     tip: "Cuida tu energía: lo pesado puede esperar.",
   },
 };
@@ -59,9 +59,9 @@ const TASKS: {
 const HOURS = Array.from({ length: 18 }, (_, i) => i + 6);
 
 function barColor(pct: number) {
-  if (pct >= 65) return "#f97316";
-  if (pct >= 38) return "#818cf8";
-  return "#6b7280";
+  if (pct >= 65) return "var(--warn)";
+  if (pct >= 38) return "var(--ac)";
+  return "var(--mute)";
 }
 
 export function LandingEnergyDemo() {
@@ -82,17 +82,17 @@ export function LandingEnergyDemo() {
 
   return (
     <section
-      className="border-t border-white/[0.06] overflow-hidden"
-      style={{ background: "linear-gradient(to bottom, #0d0d10, #131316)" }}
+      className="border-t border-border overflow-hidden"
+      style={{ background: "linear-gradient(to bottom, var(--bg), var(--sf))" }}
     >
       <div className="mx-auto max-w-[860px] px-6 py-[88px]">
         {/* Header */}
         <div className="mb-10 text-center">
           <p className={`mb-3 ${eyebrow}`}>Pruébalo</p>
-          <h2 className="mb-4 font-display text-[clamp(26px,4vw,40px)] font-bold tracking-[-0.025em] text-[#f4f4f5]">
+          <h2 className="mb-4 font-display text-[clamp(26px,4vw,40px)] font-bold tracking-[-0.025em] text-foreground">
             Tu energía decide el orden
           </h2>
-          <p className="text-[16px] text-[#a1a1aa]">
+          <p className="text-[16px] text-muted-foreground">
             Toca cualquier hora: Kino reorganiza tu día en tiempo real.
           </p>
         </div>
@@ -134,7 +134,7 @@ export function LandingEnergyDemo() {
                   />
                   {isNow && (
                     <span
-                      className="pointer-events-none absolute -top-8 left-1/2 -translate-x-1/2 whitespace-nowrap rounded-full border border-white/10 bg-[#1a1a1f] px-2.5 py-1 font-jetbrains text-[11px] text-[#f4f4f5]"
+                      className="pointer-events-none absolute -top-8 left-1/2 -translate-x-1/2 whitespace-nowrap rounded-full border border-border bg-card px-2.5 py-1 font-jetbrains text-[11px] text-foreground"
                       style={{ boxShadow: `0 0 16px ${color}40` }}
                     >
                       {h}:00
@@ -144,7 +144,7 @@ export function LandingEnergyDemo() {
               );
             })}
           </div>
-          <div className="mt-2 flex justify-between px-1 font-jetbrains text-[10px] text-[#52525b]">
+          <div className="mt-2 flex justify-between px-1 font-jetbrains text-[10px] text-muted-foreground">
             <span>6h</span>
             <span>10h</span>
             <span>14h</span>
@@ -164,10 +164,10 @@ export function LandingEnergyDemo() {
           <div className="flex items-center gap-3">
             <meta.Icon className="size-6" style={{ color: meta.color }} aria-hidden />
             <div>
-              <p className="font-semibold text-[#e4e4e7]">
+              <p className="font-semibold text-foreground/85">
                 Energía {meta.label} · {hour}:00
               </p>
-              <p className="text-[13px] text-[#a1a1aa]">{meta.tip}</p>
+              <p className="text-[13px] text-muted-foreground">{meta.tip}</p>
             </div>
           </div>
           <div
@@ -186,24 +186,24 @@ export function LandingEnergyDemo() {
               className="flex items-center gap-3 rounded-2xl border px-4 py-3.5 transition-all duration-500"
               style={{
                 opacity: t.available ? 1 : 0.32,
-                borderColor: i === 0 ? `${meta.color}50` : "rgba(255,255,255,0.06)",
-                background: i === 0 ? `${meta.color}07` : "rgba(255,255,255,0.02)",
+                borderColor: i === 0 ? `${meta.color}50` : "color-mix(in srgb, var(--ink) 6%, transparent)",
+                background: i === 0 ? `${meta.color}07` : "color-mix(in srgb, var(--ink) 2%, transparent)",
               }}
             >
               <span
                 className="w-5 text-center font-jetbrains text-xs font-bold transition-colors duration-500"
-                style={{ color: i === 0 ? meta.color : "#52525b" }}
+                style={{ color: i === 0 ? meta.color : "var(--mute)" }}
               >
                 {i + 1}
               </span>
-              <t.Icon className="size-[18px] text-[#a1a1aa]" aria-hidden />
+              <t.Icon className="size-[18px] text-muted-foreground" aria-hidden />
               <span
                 className="flex-1 text-[14px] font-medium transition-colors duration-500"
-                style={{ color: t.available ? "#e4e4e7" : "#4a4a52" }}
+                style={{ color: t.available ? "var(--body)" : "var(--mute)" }}
               >
                 {t.title}
               </span>
-              <span className="font-jetbrains text-[11px] text-[#52525b]">{t.time}</span>
+              <span className="font-jetbrains text-[11px] text-muted-foreground">{t.time}</span>
               {i === 0 ? (
                 <span
                   className="rounded-full px-2.5 py-1 font-jetbrains text-[10px] font-semibold transition-all duration-500"
@@ -212,7 +212,7 @@ export function LandingEnergyDemo() {
                   ahora
                 </span>
               ) : !t.available ? (
-                <span className="rounded-full border border-white/[0.08] bg-white/[0.03] px-2.5 py-1 font-jetbrains text-[10px] text-[#52525b]">
+                <span className="rounded-full border border-border bg-foreground/10 px-2.5 py-1 font-jetbrains text-[10px] text-muted-foreground">
                   + tarde
                 </span>
               ) : null}
