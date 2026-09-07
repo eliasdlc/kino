@@ -15,6 +15,9 @@
  *                       entorno el script lee ese fichero él mismo.
  *   KINO_URL            base del servidor, por defecto http://localhost:3000
  *   KINO_CUENTA         correo de la cuenta sembrada, por defecto prueba@usekino.dev
+ *   KINO_CUENTA_ONBOARDING
+ *                       una cuenta que no completó el onboarding, por defecto
+ *                       onboarding@usekino.dev; con ella se captura /onboarding
  *   KINO_CAPTURAS_DIR   salida, por defecto ~/Documents/Kino/dev/auditorias/<fecha>-capturas
  *   KINO_SYSTEM_ID, KINO_FOLDER_ID, KINO_PAGE_ID
  *                       ids a capturar; si faltan se toman del primer sistema
@@ -58,6 +61,7 @@ async function cargarSecreto(nombre) {
 
 const BASE = process.env.KINO_URL ?? "http://localhost:3000";
 const CUENTA = process.env.KINO_CUENTA ?? "prueba@usekino.dev";
+const CUENTA_ONBOARDING = process.env.KINO_CUENTA_ONBOARDING ?? "onboarding@usekino.dev";
 const FECHA = new Date().toISOString().slice(0, 10);
 const SALIDA =
   process.env.KINO_CAPTURAS_DIR ??
@@ -90,7 +94,7 @@ function rutas(ids) {
     { nombre: "folder-tablero", url: `${f}/tablero` },
     { nombre: "page", url: `${s}/pages/${ids.pageId}` },
     { nombre: "settings", url: "/settings" },
-    { nombre: "onboarding", url: "/onboarding" },
+    { nombre: "onboarding", url: "/onboarding", onboarding: true },
     { nombre: "login", url: "/login", anonima: true },
     { nombre: "register", url: "/register", anonima: true },
     { nombre: "landing", url: "/", anonima: true },
@@ -110,9 +114,9 @@ async function clerk(ruta, secreto, init = {}) {
   return res.json();
 }
 
-async function ticketDeSesion(secreto) {
-  const usuarios = await clerk(`/users?email_address=${encodeURIComponent(CUENTA)}`, secreto);
-  if (usuarios.length !== 1) throw new Error(`Clerk devolvió ${usuarios.length} usuarios para ${CUENTA}`);
+async function ticketDeSesion(secreto, cuenta = CUENTA) {
+  const usuarios = await clerk(`/users?email_address=${encodeURIComponent(cuenta)}`, secreto);
+  if (usuarios.length !== 1) throw new Error(`Clerk devolvió ${usuarios.length} usuarios para ${cuenta}`);
   const token = await clerk("/sign_in_tokens", secreto, {
     method: "POST",
     body: JSON.stringify({ user_id: usuarios[0].id, expires_in_seconds: 600 }),
@@ -162,7 +166,7 @@ async function resolverIds(context) {
   throw new Error(`Ningún sistema de ${sistemas.length} tiene carpeta y página; pasa KINO_SYSTEM_ID, KINO_FOLDER_ID y KINO_PAGE_ID`);
 }
 
-async function capturar(browser, storageState, ids) {
+async function capturar(browser, storageState, ids, storageOnboarding) {
   await mkdir(SALIDA, { recursive: true });
   const lista = rutas(ids).filter((r) => !FILTRO || r.nombre.includes(FILTRO));
   let hechas = 0;
@@ -187,12 +191,21 @@ async function capturar(browser, storageState, ids) {
           colorScheme: tema,
           reducedMotion: "reduce",
         }),
+        onboarding: await browser.newContext({
+          storageState: storageOnboarding ?? storageState,
+          viewport: vp,
+          isMobile: vp.movil,
+          hasTouch: vp.movil,
+          deviceScaleFactor: 2,
+          colorScheme: tema,
+          reducedMotion: "reduce",
+        }),
       };
       for (const ctx of Object.values(contextos)) {
         await ctx.addInitScript((t) => localStorage.setItem("kino-theme", t), tema);
       }
       for (const ruta of lista) {
-        const ctx = ruta.anonima ? contextos.anonimo : contextos.sesion;
+        const ctx = ruta.anonima ? contextos.anonimo : ruta.onboarding ? contextos.onboarding : contextos.sesion;
         const page = await ctx.newPage();
         const fichero = join(SALIDA, `${ruta.nombre}-${vp.width}x${vp.height}-${tema}.png`);
         try {
@@ -219,6 +232,7 @@ async function capturar(browser, storageState, ids) {
       }
       await contextos.sesion.close();
       await contextos.anonimo.close();
+      await contextos.onboarding.close();
       console.log(`${tema} ${vp.width}x${vp.height}: ${hechas} capturas acumuladas`);
     }
   }
@@ -250,10 +264,22 @@ async function main() {
     const ids = await resolverIds(login);
     const storageState = await login.storageState();
     await login.close();
+
+    // La cuenta sin onboarding, si existe: sin ella /onboarding redirige a Hoy.
+    let storageOnboarding = null;
+    try {
+      const ticket2 = await ticketDeSesion(secreto, CUENTA_ONBOARDING);
+      const login2 = await browser.newContext({ viewport: VIEWPORTS[3] });
+      await iniciarSesion(login2, ticket2);
+      storageOnboarding = await login2.storageState();
+      await login2.close();
+    } catch (e) {
+      console.log(`Sin cuenta de onboarding (${e.message.split("\n")[0]}); /onboarding se captura con la principal.`);
+    }
     console.log(`Sesión de ${CUENTA}. Sistema ${ids.systemId}, carpeta ${ids.folderId}, página ${ids.pageId}`);
     console.log(`Salida: ${SALIDA}`);
 
-    const { hechas, fallos } = await capturar(browser, storageState, ids);
+    const { hechas, fallos } = await capturar(browser, storageState, ids, storageOnboarding);
     console.log(`\n${hechas} capturas en ${SALIDA}`);
     if (fallos.length) {
       console.log(`${fallos.length} fallos:`);

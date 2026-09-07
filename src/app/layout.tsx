@@ -1,13 +1,12 @@
 import type { Metadata, Viewport } from "next";
 import { ClerkProvider } from "@clerk/nextjs";
-import { esES } from "@clerk/localizations";
 import { Bricolage_Grotesque, Inter, JetBrains_Mono, Literata } from "next/font/google";
 import "./globals.css";
 import { cn } from "@/lib/utils";
 import { Toaster } from "sonner";
 import { SITE_URL } from "@/shared/lib/site-url";
 import { rootThemeScript } from "@/shared/lib/theme-script";
-import { clerkAppearance } from "@/features/auth/clerk-appearance";
+import { clerkAppearance, clerkLocalization } from "@/features/auth/clerk-appearance";
 import { ConvexClientProvider } from "@/shared/convex/client";
 
 // Las caras del producto, cargadas una sola vez para la app y el marketing:
@@ -62,7 +61,7 @@ export default function RootLayout({
             de entrada y a dónde vuelve cada una se declaran aquí y no en
             variables de entorno, para que un preview no dependa de Vercel. */}
         <ClerkProvider
-          localization={esES}
+          localization={clerkLocalization}
           appearance={clerkAppearance}
           signInUrl="/login"
           signUpUrl="/register"
