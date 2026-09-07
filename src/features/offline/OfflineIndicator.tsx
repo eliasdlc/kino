@@ -23,7 +23,7 @@ export function OfflineIndicator() {
     <div
       role="status"
       aria-live="polite"
-      className="fixed bottom-20 left-4 z-(--z-modal) md:bottom-4 pointer-events-none"
+      className="fixed bottom-[5.6rem] left-4 z-(--z-modal) md:bottom-4 pointer-events-none"
     >
       <div className="flex items-center gap-2 rounded-full border border-white/10 bg-background/90 px-3 py-1.5 text-xs text-muted-foreground shadow-sm backdrop-blur">
         <CloudOff size={12} aria-hidden />

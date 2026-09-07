@@ -176,6 +176,11 @@
 }
 
 @layer base {
+  /* La raíz es 17 px: todo lo que está en rem crece con el tamaño de letra
+     del sistema, y el táctil mínimo de 48 sale de 2.85rem sin fijarlo. */
+  html {
+    font-size: 17px;
+  }
   * {
     @apply border-border outline-ring/50;
   }
