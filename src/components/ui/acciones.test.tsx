@@ -47,9 +47,9 @@ describe("las primitivas de formulario", () => {
       </>,
     );
     const campo = screen.getByLabelText("Título");
-    expect(campo.className).toContain("rounded-2xl");
+    expect(campo.className).toContain("rounded-lg");
     expect(campo.className).toContain("h-[2.85rem]");
-    expect(screen.getByLabelText("Notas").className).toContain("rounded-2xl");
+    expect(screen.getByLabelText("Notas").className).toContain("rounded-lg");
     expect(screen.getByText("Título").className).toContain("font-semibold");
   });
 

@@ -63,13 +63,16 @@
   --color-task-critical-foreground: var(--task-critical-foreground);
   --color-task-high: var(--task-high);
   --color-task-high-foreground: var(--task-high-foreground);
-  --radius-sm: calc(var(--radius) * 0.6);
-  --radius-md: calc(var(--radius) * 0.8);
-  --radius-lg: var(--radius);
-  --radius-xl: calc(var(--radius) * 1.4);
-  --radius-2xl: calc(var(--radius) * 1.8);
-  --radius-3xl: calc(var(--radius) * 2.2);
-  --radius-4xl: calc(var(--radius) * 2.6);
+  /* La escala de radios de la gramática, por clase de tamaño: 8 detalle,
+     12 chip, 16 control, 18 bloque, 22 superficie. El interior es el exterior
+     menos su padding, nunca mayor. Toda acción va a 999 (rounded-full). */
+  --radius-sm: 0.5rem;
+  --radius-md: 0.75rem;
+  --radius-lg: 1rem;
+  --radius-xl: 1.125rem;
+  --radius-2xl: 1.375rem;
+  --radius-3xl: 1.375rem;
+  --radius-4xl: 2rem;
 }
 
 /* Los roles. Cada uno tiene un valor por modo y ninguno lleva nombre de
