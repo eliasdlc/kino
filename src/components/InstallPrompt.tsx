@@ -49,7 +49,7 @@ export function InstallPrompt() {
   if (!visible) return null;
 
   return (
-    <div className="fixed bottom-20 md:bottom-6 left-4 right-4 md:left-auto md:right-6 md:w-80 z-(--z-overlay) rounded-xl border bg-card shadow-lg p-4 flex items-start gap-3">
+    <div className="fixed bottom-[5.6rem] md:bottom-6 left-4 right-4 md:left-auto md:right-6 md:w-80 z-(--z-overlay) rounded-xl border bg-card shadow-lg p-4 flex items-start gap-3">
       <div className="flex-1 min-w-0 space-y-1">
         <p className="text-sm font-medium">Instalar Kino</p>
         <p className="text-xs text-muted-foreground">

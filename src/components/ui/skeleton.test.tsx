@@ -1,11 +1,9 @@
 /**
- * Qué se prueba: que la primitiva de esqueleto no anima si el sistema pide
- * menos movimiento. De ella cuelgan los doce `loading.tsx` de la app, así que
- * un `animate-pulse` suelto aquí es un latido en cada pantalla que carga.
- *
- * El apagado lo hace CSS (`motion-safe:` y el bloque global de `globals.css`),
- * que jsdom no evalúa. Lo que sí se puede comprobar, y es la regresión real,
- * es que la clase de animación nunca sale sin su prefijo.
+ * Qué se prueba: que la primitiva de esqueleto no anima, nunca. De ella
+ * cuelgan los doce `loading.tsx` de la app, así que un `animate-pulse` aquí
+ * es un latido en cada pantalla que carga, y la identidad no admite ninguna
+ * animación en bucle. Lo que se comprueba es que ninguna clase de animación
+ * sale de la primitiva, con o sin prefijo.
  */
 
 import { describe, expect, it } from "vitest";
@@ -17,20 +15,19 @@ function clases(el: HTMLElement): string[] {
 }
 
 describe("Skeleton", () => {
-  it("su animación va detrás de motion-safe, nunca suelta", () => {
+  it("no lleva ninguna animación", () => {
     const { container } = renderWithProviders(<Skeleton />);
     const skeleton = container.querySelector<HTMLElement>('[data-slot="skeleton"]');
 
     expect(skeleton).not.toBeNull();
-    expect(skeleton!).toHaveClass("motion-safe:animate-pulse");
-    expect(clases(skeleton!).filter((c) => c.startsWith("animate-"))).toEqual([]);
+    expect(clases(skeleton!).filter((c) => c.includes("animate-"))).toEqual([]);
   });
 
-  it("una clase que le pasen encima no cuela una animación sin prefijo", () => {
+  it("conserva las clases que le pasan y sigue sin animar", () => {
     const { container } = renderWithProviders(<Skeleton className="h-4 w-32" />);
     const skeleton = container.querySelector<HTMLElement>('[data-slot="skeleton"]');
 
-    expect(skeleton!).toHaveClass("h-4", "w-32", "motion-safe:animate-pulse");
-    expect(clases(skeleton!).filter((c) => c.startsWith("animate-"))).toEqual([]);
+    expect(skeleton!).toHaveClass("h-4", "w-32", "bg-muted");
+    expect(clases(skeleton!).filter((c) => c.includes("animate-"))).toEqual([]);
   });
 });

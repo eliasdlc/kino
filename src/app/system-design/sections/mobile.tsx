@@ -11,11 +11,11 @@ export function MobileSection() {
       id="mobile"
       number="14"
       title="Mobile"
-      description="El chrome móvil de la app. Ambos componentes son md:hidden y BottomNav es fixed; aquí van dentro de un marco de teléfono con overrides de display/posición para poder verlos en desktop."
+      description="El chrome móvil de la app: el header y, abajo, la barra flotante de vidrio con el orbe de crear al lado. Ambos son md:hidden; aquí van dentro de un marco de teléfono con overrides de display/posición para poder verlos en desktop."
     >
       <SubSection
         title="MobileHeader + BottomNav"
-        description="Header con trigger de sidebar y quick-add; nav inferior de 5 destinos con estado activo (resalta la ruta actual)."
+        description="Header con trigger de sidebar y quick-add; barra de cuatro destinos con el activo en acento sobre su pill, y el orbe aparte. Ninguno toca un borde."
       >
         <div className="w-[360px] overflow-hidden rounded-[24px] border border-border bg-background shadow-lg">
           <SidebarProvider className="block min-h-0 w-auto">
@@ -25,7 +25,7 @@ export function MobileSection() {
             <div className="flex h-48 items-center justify-center text-xs text-muted-foreground">
               contenido de la vista
             </div>
-            <div className="[&_nav]:static! [&_nav]:block!">
+            <div className="px-[0.9rem] pb-[1.25rem] [&_nav]:static! [&_nav]:inset-x-auto!">
               <BottomNav />
             </div>
           </SidebarProvider>

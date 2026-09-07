@@ -106,11 +106,11 @@ export function FocusTimerWidget() {
     </div>
   );
 
-  // Mobile banner above BottomNav (bottom-14 = h-14 of BottomNav)
+  // Banner móvil encima de la barra flotante (la barra ocupa 5.4rem contando su margen).
   const mobileWidget = (
     <div
       className={cn(
-        'md:hidden fixed bottom-14 left-0 right-0 z-(--z-overlay)',
+        'md:hidden fixed bottom-[5.6rem] left-0 right-0 z-(--z-overlay)',
         'flex items-center gap-3 border-t bg-card/95 backdrop-blur-sm px-4 py-2.5',
         isBreak ? 'border-blue-500/20 bg-blue-950/10' : 'border-border',
         isExpired && 'border-amber-500/30',

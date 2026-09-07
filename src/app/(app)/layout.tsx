@@ -59,7 +59,7 @@ export default async function AppLayout({
             />
             <div className="flex flex-col flex-1 min-w-0 overflow-hidden">
               <MobileHeader />
-              <main className="flex-1 overflow-y-auto bg-background pb-16 md:pb-0">
+              <main className="flex-1 overflow-y-auto bg-background pb-[5.4rem] md:pb-0">
                 {children}
               </main>
               <BottomNav />
