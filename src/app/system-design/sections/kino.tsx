@@ -8,6 +8,7 @@ import { SystemCard } from "@/features/systems/SystemCard";
 import { PhysicalCard } from "@/components/PhysicalCard";
 import { TaskCardFor } from "@/features/tasks/cards/TaskCardFor";
 import { ItemEventList } from "@/features/tasks/ItemEventList";
+import { ProposalBody } from "@/features/today/ProposalBody";
 import {
   SidebarProvider,
   SidebarGroup,
@@ -337,6 +338,30 @@ export function KinoSection() {
             </SidebarGroup>
           </div>
         </SidebarProvider>
+      </SubSection>
+
+      <SubSection
+        title="ProposalBody"
+        description="El cuerpo de la línea de una propuesta del agente, en Hoy. La evidencia es un enlace a la fila que la justifica: es la diferencia entre una propuesta y una afirmación."
+      >
+        <Specimen label="Cancelar" hint="la única vía por la que un borrado sale del agente">
+          <ProposalBody
+            propuesta={{
+              kind: "cancel",
+              motivo: "Lleva dos meses sin tocarse",
+              evidencia: { tipo: "task", id: mid("tasks"), titulo: "Revisar marco teórico", systemId: MOCK_SYSTEM_ID },
+            }}
+          />
+        </Specimen>
+        <Specimen label="Reescribir" hint="suplantar tu voz se propone, no se ejecuta">
+          <ProposalBody
+            propuesta={{
+              kind: "rewrite",
+              motivo: null,
+              evidencia: { tipo: "page", id: mid("pages"), titulo: "Capítulo 1", systemId: MOCK_SYSTEM_ID },
+            }}
+          />
+        </Specimen>
       </SubSection>
 
       <SubSection

@@ -80,7 +80,7 @@ async function authorize(auth: Auth, required: Scope): Promise<{ identity: UserI
  */
 function salidaPara(granted: Scope, required: Scope): string {
   if (granted === 'propose' && required === 'write') {
-    return 'Tu alcance llega a proponer, no a escribir directo. Llama a `proposals.create` con la fila que te sirve de evidencia: la propuesta aparece en Hoy y la persona decide.';
+    return 'Tu alcance llega a proponer, no a escribir directo. Usa `propose_change` con la fila que te sirve de evidencia: la propuesta aparece en Hoy y la persona decide.';
   }
   if (granted === 'read') {
     return 'Tu alcance es de sólo lectura. Quien te autorizó tiene que concederte `documents:propose` o `documents:write` para que escribas algo.';

@@ -109,7 +109,7 @@ describe('el rechazo dice qué sí se puede hacer', () => {
     expect(datos.code).toBe('FORBIDDEN_SCOPE');
     // Un 403 seco deja al agente sin más salida que reintentar o rendirse. El
     // principio 2 no es sólo una prohibición: es una redirección.
-    expect(datos.salida).toContain('proposals.create');
+    expect(datos.salida).toContain('propose_change');
   });
 
   it('a quien sólo lee, le dice qué alcance le falta y quién se lo da', async () => {
@@ -133,7 +133,7 @@ describe('el cliente OAuth lo pone el servidor', () => {
     const tarea = await t.withIdentity(ana).mutation(api.tasks.create, { systemId, title: 'Marco teórico' });
 
     const { id } = await comoAgente.mutation(api.proposals.create, {
-      kind: 'rewrite',
+      kind: 'cancel',
       evidenceType: 'task',
       evidenceId: tarea.id,
     });

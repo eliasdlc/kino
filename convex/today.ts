@@ -10,6 +10,7 @@ import { interruptionKind, type InterruptionKind } from './schema';
 import { laInterrupcion, type Candidato } from './lib/today/queue';
 import { calendarDayInTz, userToday } from './lib/time';
 import { techoPropuesto } from './energy';
+import { caducada, evidenciaViva, type Cancelable } from './proposals';
 import { weekdayOf } from '../src/features/energy/energy.ritual';
 
 // Hoy: lo único que Kino pregunta en todo el día.
@@ -130,17 +131,53 @@ async function candidatoRitual(ctx: Ctx, user: Doc<'users'>, now: number): Promi
 }
 
 /**
+ * La propuesta del agente que espera decisión, como candidato.
+ *
+ * La más vieja primero, y sólo si su evidencia sigue viva: una propuesta sobre
+ * algo que ya no está no describe nada, así que no gasta la apertura del día.
+ * Las caducadas tampoco compiten; se ven en su sitio, no interrumpiendo.
+ */
+async function candidatoPropuesta(ctx: Ctx, user: Doc<'users'>, now: number): Promise<Candidato | null> {
+  const filas = await ctx.db
+    .query('proposals')
+    .withIndex('by_user_status', (q) => q.eq('userId', user._id).eq('status', 'pending'))
+    .collect();
+
+  for (const fila of filas.sort((a, b) => a.createdAt - b.createdAt)) {
+    if (caducada(fila, now)) continue;
+    const evidencia = await evidenciaViva(ctx, user._id, fila.evidenceType as Cancelable, fila.evidenceId);
+    if (!evidencia) continue;
+    return {
+      kind: 'agente',
+      key: fila._id,
+      payload: {
+        proposalId: fila._id,
+        kind: fila.kind,
+        motivo: (fila.payload.motivo as string | undefined) ?? null,
+        evidencia: {
+          tipo: fila.evidenceType,
+          id: fila.evidenceId,
+          titulo: evidencia.titulo,
+          systemId: evidencia.systemId,
+        },
+      },
+    };
+  }
+  return null;
+}
+
+/**
  * Todos los candidatos vivos, con el estado de lo que ya se mostró pegado a
  * cada uno.
  *
- * Hoy sólo hay un productor, el ritual, y eso es deliberado: una clase entra en
- * esta lista cuando su línea puede hacer algo. Las propuestas del agente ya se
- * guardan (`convex/proposals.ts`) pero nadie sabe aplicarlas todavía, así que
- * emitirlas aquí pondría en Hoy una línea con dos botones que no llevan a
- * ningún sitio. Entran con *Retirar las dieciséis tools y acotar el alcance de
- * la clave del agente*, que es quien les da pantalla. Lo mismo para el lunes,
- * el auto-archivo, el techo, el cronotipo y el empuje de un sistema: la cola ya
- * sabe dónde ponerlas y lo prueba par a par, y cada ticket engancha la suya.
+ * Una clase entra en esta lista cuando su línea puede hacer algo. Hoy son el
+ * lunes, el techo, el ritual y la propuesta del agente.
+ *
+ * `autoArchivo` sigue sin productor y va a seguir sin él: archivar no existe en
+ * Kino (D-09), así que nada lo puede emitir. El nivel se queda en la cola
+ * porque quitarlo es tocar el schema por nada; el día que archivar vuelva, lo
+ * único que falta es quien lo produzca. El cronotipo y el empuje de un sistema
+ * enganchan la suya en sus propios tickets.
  */
 async function candidatos(ctx: Ctx, user: Doc<'users'>, now: number): Promise<Candidato[]> {
   const historial = await mostradas(ctx, user._id);
@@ -148,6 +185,7 @@ async function candidatos(ctx: Ctx, user: Doc<'users'>, now: number): Promise<Ca
     await candidatoLunes(ctx, user, now),
     await candidatoTecho(ctx, user, now),
     await candidatoRitual(ctx, user, now),
+    await candidatoPropuesta(ctx, user, now),
   ].filter((candidato): candidato is Candidato => candidato !== null);
 
   return crudos.map((candidato) => {

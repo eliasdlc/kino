@@ -500,8 +500,26 @@ const ITEM_TYPES = ["task", "page", "folder", "stickyNote", "system", "entity", 
  * deshacer es el gesto de la persona sobre lo que el agente escribió, y darle
  * al agente el botón de deshacer su propio rastro es devolverle el control que
  * el log existe para quitarle. Leer el log sí puede, y por eso `porItem` está.
+ *
+ * Por lo mismo, de `proposals` sólo se publica `create`. Listar, aplicar,
+ * descartar y caducar son la mitad humana de la conversación: un agente que
+ * pudiera aceptar sus propias propuestas habría convertido el permiso de
+ * proponer en el de escribir.
  */
 const events: Tool[] = [
+  writeTool(api.proposals.create, {
+    name: "propose_change",
+    description:
+      "Propón un cambio que no puedes hacer tú: mandar algo a la papelera (`cancel`) o sustituir el cuerpo de un capítulo (`rewrite`). La propuesta aparece en Hoy con la fila que la justifica y la persona la acepta o la descarta; caduca a los catorce días. Úsala cuando quieras borrar o reescribir: son las dos cosas que Kino no te deja hacer directamente.",
+    input: z.object({
+      kind: z.enum(["cancel", "rewrite"]),
+      evidenceType: z.enum(["task", "page"]).describe("Qué clase de fila propones cambiar"),
+      evidenceId: id.describe("La fila que justifica la propuesta y sobre la que se aplica"),
+      contenido: z.string().optional().describe("Sólo en `rewrite`: el cuerpo propuesto, en markdown"),
+      motivo: z.string().max(500).optional().describe("Una frase para la persona: por qué lo propones"),
+    }),
+    args: ({ contenido, ...rest }) => (contenido === undefined ? rest : { ...rest, contenido: markdownToHtml(contenido) ?? undefined }),
+  }),
   readTool(api.eventLog.porItem, {
     name: "list_item_events",
     description:
