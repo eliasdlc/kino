@@ -15,3 +15,11 @@ export const MCP_TOKEN_AUDIENCE = 'convex';
 
 /** Algoritmo de firma. La clave pública viaja a Convex como JWKS en `KINO_MCP_JWKS`. */
 export const MCP_TOKEN_ALGORITHM = 'ES256' as const;
+
+/**
+ * El claim con el cliente OAuth que actúa. Lo pone la ruta desde lo que Clerk
+ * verificó, **nunca el cliente**: si el agente pudiera declarar su propio
+ * origen, podría firmar sus propuestas con el nombre de otro y la salida de
+ * grupo («descartar todas las de este origen») dejaría de significar nada.
+ */
+export const MCP_CLIENT_CLAIM = 'kino_client';

@@ -10,6 +10,15 @@ const modules = import.meta.glob('./**/*.*s');
 
 const ana = { subject: 'user_ana', email: 'ana@usekino.dev', name: 'Ana' };
 
+async function dataOf(promise: Promise<unknown>): Promise<Record<string, unknown>> {
+  try {
+    await promise;
+    return {};
+  } catch (error) {
+    return error instanceof ConvexError ? (error.data as Record<string, unknown>) : { raw: String(error) };
+  }
+}
+
 async function codeOf(promise: Promise<unknown>): Promise<string | undefined> {
   try {
     await promise;
@@ -87,5 +96,75 @@ describe('ninguna función de convex/ sale a pelo', () => {
       return match[1].split(',').some((name) => /^\s*(query|mutation|action)\s*(,|$)/.test(name.trim() + ','));
     });
     expect(offenders.map((path) => path.replace(root, 'convex'))).toEqual([]);
+  });
+});
+
+describe('el rechazo dice qué sí se puede hacer', () => {
+  it('a quien puede proponer, el rechazo de una escritura directa le nombra la propuesta', async () => {
+    const t = convexTest(schema, modules);
+    await t.withIdentity(ana).mutation(api.lib.fnFixture.write, {});
+
+    const datos = await dataOf(t.withIdentity({ ...ana, kino_scope: 'propose' }).mutation(api.lib.fnFixture.write, {}));
+
+    expect(datos.code).toBe('FORBIDDEN_SCOPE');
+    // Un 403 seco deja al agente sin más salida que reintentar o rendirse. El
+    // principio 2 no es sólo una prohibición: es una redirección.
+    expect(datos.salida).toContain('proposals.create');
+  });
+
+  it('a quien sólo lee, le dice qué alcance le falta y quién se lo da', async () => {
+    const t = convexTest(schema, modules);
+    await t.withIdentity(ana).mutation(api.lib.fnFixture.write, {});
+
+    const datos = await dataOf(t.withIdentity({ ...ana, kino_scope: 'read' }).mutation(api.lib.fnFixture.propose, {}));
+
+    expect(datos.salida).toContain('documents:propose');
+    expect(datos.salida).toContain('Quien te autorizó');
+  });
+});
+
+describe('el cliente OAuth lo pone el servidor', () => {
+  it('la propuesta se firma con el cliente del token, no con lo que el agente diga', async () => {
+    const t = convexTest(schema, modules);
+    const comoAgente = t.withIdentity({ ...ana, kino_scope: 'propose', kino_client: 'claude_desktop' });
+    const systemId = await t.withIdentity(ana).mutation(api.systems.create, {
+      name: 'Tesis', color: 'blue', templateType: 'project', icon: 'rocket',
+    }).then((s) => s.id);
+    const tarea = await t.withIdentity(ana).mutation(api.tasks.create, { systemId, title: 'Marco teórico' });
+
+    const { id } = await comoAgente.mutation(api.proposals.create, {
+      kind: 'rewrite',
+      evidenceType: 'task',
+      evidenceId: tarea.id,
+    });
+
+    const fila = (await t.run((ctx) => ctx.db.query('proposals').collect())).find((p) => p._id === id)!;
+    expect(fila.sourceClientId).toBe('claude_desktop');
+  });
+
+  it('el log guarda el cliente sin que ninguna llamada se lo pase', async () => {
+    const t = convexTest(schema, modules);
+    const comoAgente = t.withIdentity({ ...ana, kino_client: 'claude_code' });
+    const systemId = await comoAgente.mutation(api.systems.create, {
+      name: 'Tesis', color: 'blue', templateType: 'project', icon: 'rocket',
+    }).then((s) => s.id);
+
+    await comoAgente.mutation(api.tasks.create, { systemId, title: 'Del agente' });
+
+    const filas = await t.run((ctx) => ctx.db.query('eventLog').collect());
+    expect(filas.every((f) => f.clientId === 'claude_code')).toBe(true);
+  });
+
+  it('desde el navegador no hay cliente que guardar', async () => {
+    const t = convexTest(schema, modules);
+    const asAna = t.withIdentity(ana);
+    const systemId = await asAna.mutation(api.systems.create, {
+      name: 'Tesis', color: 'blue', templateType: 'project', icon: 'rocket',
+    }).then((s) => s.id);
+
+    await asAna.mutation(api.tasks.create, { systemId, title: 'Mía' });
+
+    const filas = await t.run((ctx) => ctx.db.query('eventLog').collect());
+    expect(filas.every((f) => f.clientId === undefined)).toBe(true);
   });
 });
