@@ -13,7 +13,7 @@ import { SystemTypeProvider } from "@/components/SystemTypeProvider";
 import { ThemeProvider, type ThemeMode } from "@/components/ThemeProvider";
 import { makeTestConvexClient, useTestAuth, type TestConvexClient } from "./convex-client";
 
-export { makeTestConvexClient, stubQuery, TestConvexClient } from "./convex-client";
+export { makeTestConvexClient, stubMutation, stubQuery, TestConvexClient } from "./convex-client";
 export type { ConvexCall, QueryStub } from "./convex-client";
 
 /** El ancho de un iPhone 15, el mismo de las capturas de revisión. */

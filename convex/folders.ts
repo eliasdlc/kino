@@ -3,6 +3,7 @@ import { zid } from 'convex-helpers/server/zod4';
 import type { Doc, Id } from './_generated/dataModel';
 import type { MutationCtx, QueryCtx } from './_generated/server';
 import { invalid, notFound } from './lib/errors';
+import { diferencias, recordEvent } from './eventLog';
 import { kinoZodMutation, kinoZodQuery, type Channel } from './lib/fn';
 import { color } from './schema';
 
@@ -187,6 +188,15 @@ export async function createFolderDoc(
     createdAt: now,
     updatedAt: now,
   });
+  await recordEvent(ctx, {
+    userId,
+    systemId: args.systemId,
+    actorChannel: channel,
+    action: 'folder.create',
+    targetType: 'folder',
+    targetId: id,
+    payload: { name: args.name },
+  });
   return folderItem((await ctx.db.get(id))!);
 }
 
@@ -203,14 +213,24 @@ export const update = kinoZodMutation({
     metadata: metadataField,
   },
   handler: async (ctx, { id, ...data }) => {
-    await ownFolder(ctx, ctx.user._id, id);
+    const antes = await ownFolder(ctx, ctx.user._id, id);
     await ctx.db.patch(id, {
       ...(data.name !== undefined ? { name: data.name } : {}),
       ...(data.color !== undefined ? { color: data.color as Doc<'folders'>['color'] } : {}),
       ...(data.metadata !== undefined ? { metadata: data.metadata ?? undefined } : {}),
       updatedAt: Date.now(),
     });
-    return folderItem((await ctx.db.get(id))!);
+    const folder = (await ctx.db.get(id))!;
+    await recordEvent(ctx, {
+      userId: ctx.user._id,
+      systemId: folder.systemId,
+      actorChannel: ctx.channel,
+      action: 'folder.update',
+      targetType: 'folder',
+      targetId: id,
+      payload: diferencias(antes, folder),
+    });
+    return folderItem(folder);
   },
 });
 
@@ -224,10 +244,21 @@ export const update = kinoZodMutation({
 export const remove = kinoZodMutation({
   args: { id: zid('folders') },
   handler: async (ctx, { id }) => {
-    await ownFolder(ctx, ctx.user._id, id);
+    const folder = await ownFolder(ctx, ctx.user._id, id);
     const all = await aliveFolders(ctx, ctx.user._id);
     const now = await stampFor(ctx, ctx.user._id);
     for (const folderId of subtreeIds(all, id)) await removeOne(ctx, folderId, now);
+    // Una fila por el gesto. Las subcarpetas, sus notas y las tareas que se
+    // quedaron sin carpeta son la cascada de éste.
+    await recordEvent(ctx, {
+      userId: ctx.user._id,
+      systemId: folder.systemId,
+      actorChannel: ctx.channel,
+      action: 'folder.remove',
+      targetType: 'folder',
+      targetId: id,
+      payload: { name: folder.name },
+    });
     return null;
   },
 });
@@ -346,6 +377,15 @@ export const restore = kinoZodMutation({
       }
       await ctx.db.patch(folder._id, { deletedAt: undefined, updatedAt: now });
     }
+    await recordEvent(ctx, {
+      userId: ctx.user._id,
+      systemId: doc.systemId,
+      actorChannel: ctx.channel,
+      action: 'folder.restore',
+      targetType: 'folder',
+      targetId: id,
+      payload: { name: doc.name },
+    });
     return folderItem((await ctx.db.get(id))!);
   },
 });

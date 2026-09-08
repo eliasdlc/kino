@@ -29,6 +29,7 @@ import {
 } from "@/shared/types/enums";
 import type { TaskTypeValue } from "@/shared/types/enums";
 import { SubtaskList } from "./SubtaskList";
+import { ItemEventList } from "./ItemEventList";
 import { TaskRemindersSection } from "./TaskRemindersSection";
 import { useUpdateTask } from "./tasks.hooks";
 import { RecurrencePicker } from "./RecurrencePicker";
@@ -323,6 +324,11 @@ function TaskDetailForm({ task, systemId, onClose }: TaskDetailFormProps) {
       <TimeLoggedSection taskId={task.id} />
 
       <ClosingSignature task={task} />
+
+      <div className="space-y-2">
+        <Label>Actividad</Label>
+        <ItemEventList targetType="task" targetId={task.id} />
+      </div>
 
       <div className="mt-auto flex items-center justify-between gap-3">
         {!isDone && (

@@ -546,6 +546,28 @@ const tasks: Tool[] = [
   }),
 ];
 
+// ── El log ───────────────────────────────────────────────────────────────────
+
+const ITEM_TYPES = ["task", "page", "folder", "stickyNote", "system", "entity", "sprint", "tag"] as const;
+
+/**
+ * `eventLog.deshacer` se clasifica aquí como **no publicada, a propósito**: el
+ * deshacer es el gesto de la persona sobre lo que el agente escribió, y darle
+ * al agente el botón de deshacer su propio rastro es devolverle el control que
+ * el log existe para quitarle. Leer el log sí puede, y por eso `porItem` está.
+ */
+const events: Tool[] = [
+  readTool(api.eventLog.porItem, {
+    name: "list_item_events",
+    description:
+      "Lo que le ha pasado a un item: quién lo escribió, por qué vía (el navegador de la persona o un conector como tú) y cuándo, lo más reciente primero. Léelo antes de proponer reescribir algo: si la persona lo tocó hace un rato, tu propuesta llega tarde. Los nombres de otras personas no vienen; la vía sí.",
+    input: z.object({
+      targetType: z.enum(ITEM_TYPES).describe("Qué clase de item"),
+      targetId: id,
+    }),
+  }),
+];
+
 // ── Escritura ────────────────────────────────────────────────────────────────
 
 const writing: Tool[] = [
@@ -571,4 +593,4 @@ const writing: Tool[] = [
   }),
 ];
 
-export const CATALOG: readonly Tool[] = [...energy, ...entities, ...folders, ...insights, ...pages, ...stickyNotes, ...systems, ...tasks, ...writing];
+export const CATALOG: readonly Tool[] = [...energy, ...entities, ...events, ...folders, ...insights, ...pages, ...stickyNotes, ...systems, ...tasks, ...writing];

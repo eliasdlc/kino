@@ -289,7 +289,9 @@ describe('borrar una etiqueta', () => {
       pageTags: await ctx.db.query('pageTags').collect(),
       dentro: await ctx.db.get(dentro.id as Id<'tasks'>),
       fuera: await ctx.db.get(fuera.id as Id<'tasks'>),
-      eventos: await ctx.db.query('eventLog').collect(),
+      // Sólo el del borrado: crear la etiqueta, las tareas y la página dejan
+      // los suyos, y este caso es sobre el de `tags.remove`.
+      eventos: (await ctx.db.query('eventLog').collect()).filter((e) => e.action === 'tag.remove'),
     }));
     expect(left.tags.find((x) => x._id === tag.id)).toBeUndefined();
     expect(left.pageTags).toHaveLength(0);

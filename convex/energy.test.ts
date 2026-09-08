@@ -105,9 +105,10 @@ describe('energy', () => {
     const eventos = await t.run((ctx) => ctx.db.query('eventLog').collect());
     expect(eventos).toHaveLength(1);
     expect(eventos[0]!.action).toBe('energy.applyWeeklyRitual');
-    // Cien fechas anteriores no caben en los 2.048 bytes del payload, así que
-    // el reparto grande deja la cuenta y dice que omitió el resto.
-    expect(eventos[0]!.payload).toMatchObject({ reprogramadas: 100, anteriorOmitido: true });
+    // Las cien fechas anteriores viajan: son lo único con lo que se puede
+    // deshacer el reparto, y por eso este evento tiene su propio tope.
+    expect(eventos[0]!.payload).toMatchObject({ reprogramadas: 100 });
+    expect(eventos[0]!.payload.anterior).toHaveLength(100);
 
     const una = await asAna.query(api.tasks.byId, { id: tareas[0]! });
     expect(una.startDate).not.toBeNull();
@@ -119,7 +120,11 @@ describe('energy', () => {
 
     await asAna.mutation(api.energy.applyWeeklyRitual, { assignments: [{ taskId: task.id, date: '2026-09-12' }] });
 
-    const eventos = await t.run((ctx) => ctx.db.query('eventLog').collect());
+    // Uno solo para todo el reparto, y las creaciones de antes no cuentan: el
+    // ritual es un gesto, no cien.
+    const eventos = await t.run((ctx) =>
+      ctx.db.query('eventLog').collect().then((filas) => filas.filter((e) => e.action === 'energy.applyWeeklyRitual')),
+    );
     expect(eventos).toHaveLength(1);
     expect(eventos[0]!.payload).toMatchObject({ reprogramadas: 1, anterior: [{ taskId: task.id, startDate: null }] });
   });

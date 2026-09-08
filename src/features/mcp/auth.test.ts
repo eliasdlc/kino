@@ -1,7 +1,8 @@
 import { createLocalJWKSet, exportJWK, generateKeyPair, jwtVerify } from "jose";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { MCP_TOKEN_AUDIENCE, MCP_TOKEN_ISSUER } from "@convex/lib/mcpToken";
-import { MCP_OAUTH_SCOPES, mintConvexToken, publicJwks, scopeFor } from "./auth";
+import { allows, SCOPES } from "@convex/lib/scopes";
+import { MCP_OAUTH_SCOPES, MCP_SCOPE_RESOURCE, mintConvexToken, publicJwks, scopeFor } from "./auth";
 
 describe("scopeFor · de los scopes de Clerk al alcance de Convex", () => {
   it("sin ninguno de los tres, el conector sólo lee", () => {
@@ -22,6 +23,33 @@ describe("scopeFor · de los scopes de Clerk al alcance de Convex", () => {
 
   it("anuncia los tres con el recurso, como los conoce Clerk", () => {
     expect(MCP_OAUTH_SCOPES).toEqual(["openid", "email", "profile", "documents:read", "documents:propose", "documents:write"]);
+  });
+});
+
+describe("el documento de recurso protegido", () => {
+  it("publica exactamente los alcances que el envoltorio aplica, recorriendo SCOPES y no una lista a mano", () => {
+    // La lista de arriba es el contrato visible; ésta es la comprobación de que
+    // sale del mismo sitio que `allows`. Si mañana nace un cuarto alcance en
+    // `convex/lib/scopes.ts`, la de arriba falla y ésta sigue verde: una dice
+    // qué se publica hoy y la otra que no se publica nada que no se aplique.
+    const publicados = MCP_OAUTH_SCOPES.filter((scope) => scope.startsWith(`${MCP_SCOPE_RESOURCE}:`));
+    expect(publicados).toEqual(SCOPES.map((scope) => `${MCP_SCOPE_RESOURCE}:${scope}`));
+
+    for (const scope of SCOPES) {
+      // Publicado y aplicable son lo mismo: cada uno concede exactamente su
+      // propio alcance y ninguno más fuerte.
+      expect(scopeFor([`${MCP_SCOPE_RESOURCE}:${scope}`]), scope).toBe(scope);
+      expect(allows(scope, scope), scope).toBe(true);
+    }
+  });
+
+  it("la ruta sirve esa misma lista y no otra", async () => {
+    process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY ??= "pk_test_ZXhhbXBsZS5jbGVyay5hY2NvdW50cy5kZXYk";
+    const { GET } = await import("@/app/.well-known/oauth-protected-resource/[[...path]]/route");
+
+    const documento = (await (await GET()).json()) as { scopes_supported: string[] };
+
+    expect(documento.scopes_supported).toEqual([...MCP_OAUTH_SCOPES]);
   });
 });
 
