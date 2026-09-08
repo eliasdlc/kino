@@ -95,15 +95,6 @@ const energy: Tool[] = [
     description: "Obtiene los check-ins de energía del usuario de hoy (nivel y calidad de sueño), si ya registró alguno.",
     input: z.object({}),
   }),
-  writeTool(api.energy.createCheckin, {
-    name: "create_energy_checkin",
-    description: "Registra el check-in de energía del usuario para hoy. currentLevel es 1-100 y sleepQuality es good/partial/poor.",
-    input: z.object({
-      currentLevel: z.number().int().min(1).max(100),
-      sleepQuality: z.enum(["good", "partial", "poor"]).optional(),
-      slot: z.enum(["morning", "afternoon", "evening"]).optional(),
-    }),
-  }),
   readTool(api.energy.todayPlan, {
     name: "get_today_plan",
     description: "Obtiene el plan de energía de hoy: tareas recomendadas ajustadas al nivel de energía y límite diario del usuario.",
@@ -220,11 +211,6 @@ const folders: Tool[] = [
     description: "Actualiza el nombre, color o metadata (campos del rol de carpeta según el arquetipo) de una carpeta en Kino.",
     input: z.object({ id, name: z.string().min(1).max(255).optional(), color: z.string().optional(), metadata: folderMetadata }),
   }),
-  writeTool(api.folders.remove, {
-    name: "delete_folder",
-    description: "Elimina una carpeta de Kino.",
-    input: z.object({ id }),
-  }),
   writeTool(api.folders.restore, {
     name: "restore_folder",
     description:
@@ -320,31 +306,6 @@ const pages: Tool[] = [
     }),
     args: withHtmlContent,
   }),
-  writeTool(api.pages.update, {
-    name: "update_page",
-    description:
-      "Actualiza una página de Kino: título, contenido markdown, carpeta o estado de pin. El contenido se reemplaza entero, así que para editar hay que leer la página primero con get_page.",
-    input: z.object({
-      id,
-      title: z.string().max(500).nullable().optional(),
-      content: pageContent,
-      folderId: id.nullable().optional(),
-      isPinned: z.boolean().optional(),
-      expectedUpdatedAt: z.iso
-        .datetime({ offset: true })
-        .optional()
-        .describe(
-          "El `updatedAt` que devolvió la última lectura. Si la página cambió desde entonces la escritura falla con CONFLICT en vez de pisarla: vuelve a leerla, aplica el cambio sobre lo nuevo y reintenta. Mándalo siempre que estés reescribiendo contenido.",
-        ),
-    }),
-    args: withHtmlContent,
-    result: asMarkdownPage,
-  }),
-  writeTool(api.pages.remove, {
-    name: "delete_page",
-    description: "Elimina (soft-delete) una página de Kino.",
-    input: z.object({ id }),
-  }),
   writeTool(api.pages.restore, {
     name: "restore_page",
     description:
@@ -402,11 +363,6 @@ const stickyNotes: Tool[] = [
     description: "Actualiza el título, contenido o color de una nota adhesiva en Kino.",
     input: z.object({ id, title: z.string().max(200).nullable().optional(), content: z.string().max(500).nullable().optional(), color: z.string().optional() }),
   }),
-  writeTool(api.stickyNotes.remove, {
-    name: "delete_sticky_note",
-    description: "Elimina una nota adhesiva de Kino.",
-    input: z.object({ id }),
-  }),
   writeTool(api.stickyNotes.restore, {
     name: "restore_sticky_note",
     description:
@@ -441,11 +397,6 @@ const systems: Tool[] = [
     name: "update_system",
     description: "Actualiza propiedades de un sistema existente en Kino (nombre, color, ícono, propósito, etc.).",
     input: z.object({ id, name: z.string().min(1).max(255).optional(), color: z.string().optional(), ...systemFields }),
-  }),
-  writeTool(api.systems.remove, {
-    name: "delete_system",
-    description: "Desactiva (soft-delete) un sistema en Kino. No puede eliminarse el Inbox.",
-    input: z.object({ id }),
   }),
 ];
 
@@ -494,12 +445,6 @@ const tasks: Tool[] = [
     name: "update_task",
     description: "Actualiza campos de una tarea existente en Kino.",
     input: updateTask,
-  }),
-  writeTool(api.tasks.remove, {
-    name: "delete_task",
-    description: "Elimina una tarea de Kino (borrado lógico: la tarea queda en papelera, no se destruye).",
-    input: z.object({ id }),
-    result: (removed) => `Tarea "${removed.title}" (${removed.id}) eliminada correctamente.`,
   }),
   writeTool(api.tasks.restore, {
     name: "restore_task",

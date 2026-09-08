@@ -99,6 +99,10 @@ export type EventInput = {
   actorId?: Id<'users'>;
   actorChannel: ActorChannel;
   systemId?: Id<'systems'>;
+  /**
+   * El cliente OAuth que actuó. No hace falta pasarlo: `recordEvent` lo toma
+   * del contexto, que es donde el envoltorio lo dejó ya verificado.
+   */
   clientId?: string;
   action: string;
   targetType: Doc<'eventLog'>['targetType'];
@@ -125,13 +129,16 @@ export type EventInput = {
  * Deja una fila en el log. Es el único escritor: todo lo que quiera registrar
  * algo pasa por aquí, para que el recorte del payload no dependa del llamante.
  */
-export async function recordEvent(ctx: MutationCtx, input: EventInput): Promise<Id<'eventLog'>> {
+export async function recordEvent(
+  ctx: MutationCtx & { clientId?: string },
+  input: EventInput,
+): Promise<Id<'eventLog'>> {
   return ctx.db.insert('eventLog', {
     userId: input.userId,
     systemId: input.systemId,
     actorId: input.actorId ?? input.userId,
     actorChannel: input.actorChannel,
-    clientId: input.clientId,
+    clientId: input.clientId ?? ctx.clientId,
     action: input.action,
     targetType: input.targetType,
     targetId: input.targetId,

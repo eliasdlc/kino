@@ -42,7 +42,9 @@ const verify = async (_req: Request, bearer?: string): Promise<AuthInfo | undefi
   const clerkId = info.extra?.userId;
   if (typeof clerkId !== "string") return undefined;
   const scope = scopeFor(info.scopes);
-  const convexToken = await mintConvexToken({ clerkId, scope });
+  // El cliente OAuth sale de lo que Clerk verificó, no de lo que el agente
+  // diga: es lo que firma sus propuestas y sus filas del log.
+  const convexToken = await mintConvexToken({ clerkId, scope, clientId: info.clientId });
   return { ...info, extra: { ...info.extra, scope, convexToken } };
 };
 

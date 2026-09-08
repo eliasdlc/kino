@@ -37,6 +37,11 @@ export async function pendingCount(ctx: MutationCtx, userId: Id<'users'>): Promi
 /**
  * Crea una propuesta. Es `kinoZodProposal` y no `kinoZodMutation` a propósito:
  * un agente con alcance `propose` llega hasta aquí y no más allá.
+ *
+ * **El origen no es un argumento.** `sourceClientId` sale del token que la ruta
+ * firmó con lo que Clerk verificó: si el agente pudiera declararlo, podría
+ * firmar sus propuestas con el nombre de otro cliente y «descartar todas las de
+ * este origen» dejaría de ser una salida y pasaría a ser una trampa.
  */
 export const create = kinoZodProposal({
   args: {
@@ -44,7 +49,6 @@ export const create = kinoZodProposal({
     evidenceType: z.enum(['task', 'page', 'folder', 'stickyNote', 'system', 'entity', 'sprint']),
     evidenceId: z.string().min(1).max(64),
     systemId: zid('systems').optional(),
-    sourceClientId: z.string().max(255).optional(),
     payload: z.record(z.string(), z.unknown()).optional(),
   },
   handler: async (ctx, input) => {
@@ -58,7 +62,7 @@ export const create = kinoZodProposal({
       systemId: input.systemId,
       status: 'pending',
       kind: input.kind,
-      sourceClientId: input.sourceClientId,
+      sourceClientId: ctx.clientId,
       evidenceType: input.evidenceType,
       evidenceId: input.evidenceId,
       payload: input.payload ?? {},
