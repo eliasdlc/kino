@@ -22,7 +22,7 @@ import {
   type Chronotype,
   type SleepQuality,
 } from '../src/features/energy/energy.utils';
-import { PAYLOAD_MAX_BYTES, recordEvent } from './eventLog';
+import { recordEvent } from './eventLog';
 import { invalid, notFound } from './lib/errors';
 import { kinoZodMutation, kinoZodQuery } from './lib/fn';
 import { toTaskRow } from './lib/tasks/row';
@@ -720,6 +720,13 @@ export const weeklyRitual = kinoZodQuery({
 });
 
 /**
+ * Lo que le cabe al evento del ritual. Cien pares de id y fecha rondan los
+ * 5 KB; se redondea al alza para que un reparto en el tope no pierda con qué
+ * deshacerse por unos bytes.
+ */
+export const RITUAL_PAYLOAD_MAX_BYTES = 16_384;
+
+/**
  * Reprograma cada tarea a la medianoche local de su día. La fecha límite no se
  * toca.
  *
@@ -780,20 +787,21 @@ export const applyWeeklyRitual = kinoZodMutation({
     }
 
     if (applied.length > 0) {
-      // El payload va acotado a 2.048 bytes y ahí no caben cien fechas
-      // anteriores. `boundPayload` sustituiría el objeto entero y el evento
-      // perdería también la cuenta, así que la comprobación se hace aquí: el
-      // reparto grande deja constancia de cuántas movió, el pequeño deja
-      // además con qué reponerlas.
-      const completo = { reprogramadas: applied.length, anterior };
-      const cabe = new TextEncoder().encode(JSON.stringify(completo)).byteLength <= PAYLOAD_MAX_BYTES;
+      // Las fechas anteriores de las cien tareas son lo único con lo que se
+      // puede deshacer el reparto, así que el evento las lleva aunque pasen de
+      // los 2.048 bytes del tope general. La excepción se sostiene por la
+      // aritmética: el tope sale de multiplicar la fila por las 120 mutaciones
+      // por minuto que el rate limit permite, y esto es **una fila por persona
+      // y semana**. Cien entradas rondan los 5 KB, y con treinta días de
+      // retención son cuatro filas por persona.
       await recordEvent(ctx, {
         userId,
         actorChannel: ctx.channel,
         action: 'energy.applyWeeklyRitual',
         targetType: 'task',
         targetId: applied[0]!.taskId,
-        payload: cabe ? completo : { reprogramadas: applied.length, anteriorOmitido: true },
+        payload: { reprogramadas: applied.length, anterior },
+        payloadMaxBytes: RITUAL_PAYLOAD_MAX_BYTES,
       });
     }
 

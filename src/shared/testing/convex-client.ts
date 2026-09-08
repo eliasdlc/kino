@@ -22,6 +22,16 @@ export function stubQuery<Q extends FunctionReference<"query">>(query: Q, value:
   return { name: getFunctionName(query), value };
 }
 
+/**
+ * Lo que una mutación devolverá. Existe porque hay componentes cuyo siguiente
+ * paso depende de la respuesta y no de que la escritura ocurriera: el deshacer
+ * de una fila del log contesta si pudo o no, con su motivo. Sin esto un test
+ * sólo puede comprobar que se llamó, no lo que la persona ve después.
+ */
+export function stubMutation<M extends FunctionReference<"mutation">>(mutation: M, value: FunctionReturnType<M>): QueryStub {
+  return { name: getFunctionName(mutation), value };
+}
+
 /** Una escritura que el componente disparó. */
 export interface ConvexCall {
   readonly kind: "mutation" | "action";
@@ -37,12 +47,14 @@ export interface ConvexCall {
  */
 export class TestConvexClient {
   readonly #results = new Map<string, unknown>();
+  readonly #writeResults = new Map<string, unknown>();
   readonly #listeners = new Map<string, Set<() => void>>();
   /** Las mutaciones y acciones que el componente disparó, en orden. */
   readonly calls: ConvexCall[] = [];
 
-  constructor(stubs: readonly QueryStub[] = []) {
+  constructor(stubs: readonly QueryStub[] = [], writeStubs: readonly QueryStub[] = []) {
     for (const stub of stubs) this.#results.set(stub.name, stub.value);
+    for (const stub of writeStubs) this.#writeResults.set(stub.name, stub.value);
   }
 
   /**
@@ -73,14 +85,16 @@ export class TestConvexClient {
     };
   }
 
-  mutation(mutation: FunctionReference<"mutation">, args: Record<string, unknown>): Promise<undefined> {
-    this.calls.push({ kind: "mutation", name: getFunctionName(mutation), args });
-    return Promise.resolve(undefined);
+  mutation(mutation: FunctionReference<"mutation">, args: Record<string, unknown>): Promise<unknown> {
+    const name = getFunctionName(mutation);
+    this.calls.push({ kind: "mutation", name, args });
+    return Promise.resolve(this.#writeResults.get(name));
   }
 
-  action(action: FunctionReference<"action">, args: Record<string, unknown>): Promise<undefined> {
-    this.calls.push({ kind: "action", name: getFunctionName(action), args });
-    return Promise.resolve(undefined);
+  action(action: FunctionReference<"action">, args: Record<string, unknown>): Promise<unknown> {
+    const name = getFunctionName(action);
+    this.calls.push({ kind: "action", name, args });
+    return Promise.resolve(this.#writeResults.get(name));
   }
 
   /**
@@ -96,9 +110,9 @@ export class TestConvexClient {
   clearAuth(): void {}
 }
 
-/** El cliente con las queries que este test o specimen necesita respondidas. */
-export function makeTestConvexClient(stubs: readonly QueryStub[] = []): TestConvexClient {
-  return new TestConvexClient(stubs);
+/** El cliente con las queries (y, si hacen falta, las escrituras) respondidas. */
+export function makeTestConvexClient(stubs: readonly QueryStub[] = [], writeStubs: readonly QueryStub[] = []): TestConvexClient {
+  return new TestConvexClient(stubs, writeStubs);
 }
 
 /**

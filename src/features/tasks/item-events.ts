@@ -78,6 +78,8 @@ export const VERBOS: Record<string, string> = {
 
   "energy.applyWeeklyRitual": "repartió lo vencido en el ritual semanal",
   "energy.applyCeiling": "cambió tu techo del día",
+
+  "log.deshacer": "deshizo un cambio de aquí",
 };
 
 const RELATIVO = new Intl.RelativeTimeFormat("es-DO", { numeric: "auto" });

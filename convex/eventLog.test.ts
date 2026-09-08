@@ -312,3 +312,172 @@ describe('la fila cabe en su presupuesto', () => {
     }
   });
 });
+
+describe('deshacer', () => {
+  it('devuelve exactamente los campos que la edición tocó, y ninguno más', async () => {
+    const t = convexTest(schema, modules);
+    const { as, systemId } = await base(t);
+    const tarea = await as.mutation(api.tasks.create, { systemId, title: 'Original', priority: 'low' });
+    await as.mutation(api.tasks.update, { id: tarea.id, title: 'Reescrita por el agente', priority: 'critical' });
+
+    const [edicion] = await conAccion(t, 'task.update');
+    const resultado = await as.mutation(api.eventLog.deshacer, { id: edicion!._id });
+
+    expect(resultado).toEqual({ deshecho: true, campos: expect.arrayContaining(['title', 'priority']) });
+    const vuelta = await as.query(api.tasks.byId, { id: tarea.id });
+    expect(vuelta.title).toBe('Original');
+    expect(vuelta.priority).toBe('low');
+  });
+
+  it('un campo que cambió después de la edición se queda como está', async () => {
+    const t = convexTest(schema, modules);
+    const { as, systemId } = await base(t);
+    const tarea = await as.mutation(api.tasks.create, { systemId, title: 'Original', energyLevel: 'medium' });
+    // El agente reescribe el título; después la persona ajusta la energía a mano.
+    await as.mutation(api.tasks.update, { id: tarea.id, title: 'Reescrita' });
+    await as.mutation(api.tasks.update, { id: tarea.id, energyLevel: 'high' });
+
+    const [primera] = await conAccion(t, 'task.update');
+    await as.mutation(api.eventLog.deshacer, { id: primera!._id });
+
+    const vuelta = await as.query(api.tasks.byId, { id: tarea.id });
+    expect(vuelta.title).toBe('Original');
+    // Deshacer la fila entera habría destruido un cambio que nadie pidió deshacer.
+    expect(vuelta.energyLevel).toBe('high');
+  });
+
+  it('la edición de un cuaderno vuelve desde la versión guardada, no desde el diff', async () => {
+    const t = convexTest(schema, modules);
+    const as = t.withIdentity(ana);
+    await as.mutation(api.users.ensure, {});
+    // Un sistema de proyecto, no de escritura: las versiones son de los siete
+    // arquetipos desde que el escritor vive con `pages`.
+    const system = await as.mutation(api.systems.create, { name: 'Tesis', color: 'blue', templateType: 'project', icon: 'rocket' });
+    const largo = `<p>${'palabra '.repeat(2_000)}</p>`;
+    const pagina = await as.mutation(api.pages.create, { systemId: system.id, title: 'Marco teórico', content: largo });
+
+    await as.mutation(api.pages.update, { id: pagina.id, title: 'Marco', content: '<p>Reescrito por el agente.</p>' });
+
+    const [edicion] = await conAccion(t, 'page.update');
+    // El cuerpo no está en el payload: por eso el deshacer tiene que ir a la versión.
+    expect(edicion!.payload).not.toHaveProperty('content');
+    expect(edicion!.snapshotId).toEqual(expect.any(String));
+
+    expect(await as.mutation(api.eventLog.deshacer, { id: edicion!._id })).toMatchObject({ deshecho: true });
+    const vuelta = await as.query(api.pages.byId, { id: pagina.id });
+    expect(vuelta.content).toBe(largo);
+    expect(vuelta.title).toBe('Marco teórico');
+  });
+
+  it('el reparto del ritual se deshace al revés y devuelve las cien tareas', async () => {
+    const t = convexTest(schema, modules);
+    const { as, systemId } = await base(t);
+    const tareas = [];
+    for (let i = 0; i < 100; i += 1) {
+      const tarea = await as.mutation(api.tasks.create, { systemId, title: `Vencida ${i}`, dueDate: '2026-01-01T12:00:00Z' });
+      tareas.push(tarea.id);
+    }
+
+    await as.mutation(api.energy.applyWeeklyRitual, {
+      assignments: tareas.map((taskId, i) => ({ taskId, date: `2026-09-${String(8 + (i % 5)).padStart(2, '0')}` })),
+    });
+    expect((await as.query(api.tasks.byId, { id: tareas[0]! })).startDate).not.toBeNull();
+
+    const [reparto] = await conAccion(t, 'energy.applyWeeklyRitual');
+    expect(await as.mutation(api.eventLog.deshacer, { id: reparto!._id })).toEqual({ deshecho: true, campos: ['startDate'] });
+
+    for (const id of [tareas[0]!, tareas[50]!, tareas[99]!]) {
+      expect((await as.query(api.tasks.byId, { id })).startDate, id).toBeNull();
+    }
+  }, 120_000);
+
+  it('lo que no se deshace responde con el motivo, no con un error', async () => {
+    const t = convexTest(schema, modules);
+    const { as, systemId } = await base(t);
+    const tarea = await as.mutation(api.tasks.create, { systemId, title: 'Trabajada' });
+    await as.mutation(api.tasks.createTimeLog, {
+      id: tarea.id,
+      systemId,
+      startedAt: '2026-09-08T10:00:00Z',
+      endedAt: '2026-09-08T10:45:00Z',
+      durationMinutes: 45,
+    });
+
+    const [apunte] = await conAccion(t, 'task.createTimeLog');
+    expect(await as.mutation(api.eventLog.deshacer, { id: apunte!._id })).toEqual({
+      deshecho: false,
+      motivo: 'El tiempo trabajado es un hecho, no una edición: borrarlo sería borrar que trabajaste.',
+    });
+  });
+
+  it('deja su propio evento, marca el original y no se deja deshacer dos veces', async () => {
+    const t = convexTest(schema, modules);
+    const { as, systemId } = await base(t);
+    const tarea = await as.mutation(api.tasks.create, { systemId, title: 'Original' });
+    await as.mutation(api.tasks.update, { id: tarea.id, title: 'Cambiada' });
+
+    const [edicion] = await conAccion(t, 'task.update');
+    await as.mutation(api.eventLog.deshacer, { id: edicion!._id });
+
+    const original = (await conAccion(t, 'task.update'))[0]!;
+    expect(original.undoneAt).toEqual(expect.any(Number));
+    expect(original.undoneFields).toEqual(['title']);
+
+    const [suyo] = await conAccion(t, 'log.deshacer');
+    expect(suyo).toMatchObject({ targetType: 'task', targetId: tarea.id, payload: { deshace: 'task.update', campos: ['title'] } });
+
+    expect(await as.mutation(api.eventLog.deshacer, { id: edicion!._id })).toEqual({ deshecho: false, motivo: 'Esto ya se deshizo.' });
+  });
+
+  it('la creación se deshace mandando a la papelera, y el borrado sacándola', async () => {
+    const t = convexTest(schema, modules);
+    const { as, systemId } = await base(t);
+    const tarea = await as.mutation(api.tasks.create, { systemId, title: 'Del agente' });
+
+    const [creacion] = await conAccion(t, 'task.create');
+    const borrada = () => t.run((ctx) => ctx.db.query('tasks').collect().then((filas) => filas.find((f) => f._id === tarea.id)!.deletedAt));
+
+    expect(await as.mutation(api.eventLog.deshacer, { id: creacion!._id })).toEqual({ deshecho: true, campos: ['deletedAt'] });
+    expect(await borrada()).toEqual(expect.any(Number));
+
+    await as.mutation(api.tasks.restore, { id: tarea.id });
+    const [restauracion] = await conAccion(t, 'task.restore');
+    await as.mutation(api.eventLog.deshacer, { id: restauracion!._id });
+    expect(await borrada()).toEqual(expect.any(Number));
+  });
+
+  it('el cambio de otra persona no se deshace desde tu cuenta', async () => {
+    const t = convexTest(schema, modules);
+    const { as: comoAna, systemId } = await base(t, ana);
+    const comoBob = t.withIdentity(bob);
+    await comoBob.mutation(api.users.ensure, {});
+    await comoAna.mutation(api.tasks.create, { systemId, title: 'De Ana' });
+
+    const [creacion] = await conAccion(t, 'task.create');
+    expect(await comoBob.mutation(api.eventLog.deshacer, { id: creacion!._id })).toEqual({
+      deshecho: false,
+      motivo: 'Ese cambio no es tuyo.',
+    });
+  });
+
+  it('la fila dice si trae botón antes de que nadie lo pulse, con la misma función', async () => {
+    const t = convexTest(schema, modules);
+    const { as, systemId } = await base(t);
+    const tarea = await as.mutation(api.tasks.create, { systemId, title: 'Con historia' });
+    await as.mutation(api.tasks.createTimeLog, {
+      id: tarea.id,
+      systemId,
+      startedAt: '2026-09-08T10:00:00Z',
+      endedAt: '2026-09-08T10:45:00Z',
+      durationMinutes: 45,
+    });
+
+    const { items } = await as.query(api.eventLog.porItem, { targetType: 'task', targetId: tarea.id });
+    const porAccion = new Map(items.map((item) => [item.action, item.deshacer]));
+    expect(porAccion.get('task.create')).toEqual({ forma: 'inverse' });
+    expect(porAccion.get('task.createTimeLog')).toEqual({
+      forma: 'no',
+      motivo: 'El tiempo trabajado es un hecho, no una edición: borrarlo sería borrar que trabajaste.',
+    });
+  });
+});

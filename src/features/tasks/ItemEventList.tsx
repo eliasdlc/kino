@@ -2,7 +2,8 @@
 
 import { api } from "@convex/_generated/api";
 import { useConvexQuery } from "@/shared/convex/hooks";
-import { cuandoDe, sujetoDe, VERBOS, type ItemType } from "./item-events";
+import { type ItemType } from "./item-events";
+import { UndoableEventRow } from "./UndoableEventRow";
 
 /**
  * Lo que le ha pasado a un item, lo más reciente primero.
@@ -10,10 +11,8 @@ import { cuandoDe, sujetoDe, VERBOS, type ItemType } from "./item-events";
  * Es la lista **por item**, la que se abre desde el propio item. La fila diaria
  * de lo que hizo tu agente es otra cosa y vive en Hoy.
  *
- * **La autoría del agente no lleva punto de color ni insignia**, y es una
- * decisión: un punto pide que lo pulses, y hoy pulsarlo no lleva a ningún
- * sitio. Lo que parece control es control, así que la vía se dice con las
- * mismas palabras que el resto de la frase.
+ * Cada fila la pinta `UndoableEventRow`, que es quien decide si lleva botón de
+ * deshacer o el motivo por el que no.
  */
 
 export function ItemEventList({ targetType, targetId }: { targetType: ItemType; targetId: string }) {
@@ -38,10 +37,7 @@ export function ItemEventList({ targetType, targetId }: { targetType: ItemType; 
     <div className="space-y-2">
       <ul className="space-y-2">
         {items.map((evento) => (
-          <li key={evento.id} className="text-sm text-foreground/80">
-            {sujetoDe(evento.actor)} {VERBOS[evento.action] ?? "hizo un cambio"} · {cuandoDe(evento.occurredAt)}
-            {evento.undoneAt !== null && " · deshecho después"}
-          </li>
+          <UndoableEventRow key={evento.id} evento={evento} />
         ))}
       </ul>
       {(data?.restantes ?? 0) > 0 && (

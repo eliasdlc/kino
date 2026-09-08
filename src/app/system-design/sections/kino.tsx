@@ -39,6 +39,7 @@ const EVENTOS = [
     undoneAt: null,
     undoneFields: null,
     desdePropuesta: false,
+    deshacer: { forma: "inverse" as const },
   },
   {
     id: mid("eventLog"),
@@ -48,6 +49,7 @@ const EVENTOS = [
     undoneAt: null,
     undoneFields: null,
     desdePropuesta: false,
+    deshacer: { forma: "no" as const, motivo: "Ese cambio no es tuyo." },
   },
   {
     id: mid("eventLog"),
@@ -57,6 +59,7 @@ const EVENTOS = [
     undoneAt: new Date(Date.now() - 8 * 86_400_000).toISOString(),
     undoneFields: ["status"],
     desdePropuesta: true,
+    deshacer: { forma: "no" as const, motivo: "Esto ya se deshizo." },
   },
 ];
 
@@ -340,7 +343,7 @@ export function KinoSection() {
         title="ItemEventList"
         description="Lo que le ha pasado a un item, en la hoja del propio item. El sujeto va delante, la vía se dice con palabras y la autoría del agente no pinta ningún control: hoy no hay nada que pulsar."
       >
-        <Specimen label="Con actividad" hint="quién, por qué vía y cuándo">
+        <Specimen label="Con actividad" hint="quién, por qué vía y cuándo; botón cuando se deshace, motivo cuando no">
           <Seeded stubs={[seedQuery(api.eventLog.porItem, { items: EVENTOS, restantes: 0 })]}>
             <ItemEventList targetType="task" targetId={mid("tasks")} />
           </Seeded>

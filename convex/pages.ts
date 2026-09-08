@@ -8,6 +8,7 @@ import { forbidden, invalid, notFound } from './lib/errors';
 import { kinoZodMutation, kinoZodQuery, type Channel } from './lib/fn';
 import { lematizar } from './lib/lemas';
 import { recomputePageMentions } from './lib/mentions';
+import { archivarVersion } from './lib/pages/snapshots';
 import { diferencias, recordEvent } from './eventLog';
 import { recordWritingActivity } from './lib/writing/activity';
 import { tagItem } from './tags';
@@ -334,17 +335,19 @@ export const update = kinoZodMutation({
     await ctx.db.patch(id, patch);
     const updated = (await ctx.db.get(id))!;
 
+    // El texto de antes se archiva **siempre** que el cuerpo cambie, y desde
+    // aquí: es el soporte del deshacer de los siete arquetipos, no una pieza
+    // del de escritura. Las quince versiones que sobreviven por capítulo son lo
+    // que mantiene plano el coste, y el evento apunta a la que le toca.
     let snapshotId: Id<'pageSnapshots'> | undefined;
     if (data.content !== undefined) {
       await recomputePageMentions(ctx, userId, id, updated.systemId, updated.content);
-      const system = updated.systemId ? await ctx.db.get(updated.systemId) : null;
-      if (system?.templateType === 'writing' && current.content !== updated.content) {
-        snapshotId = await recordWritingActivity(
-          ctx,
-          updated,
-          countWords(updated.content ?? null) - countWords(current.content ?? null),
-          current.content,
-        );
+      if (current.content !== updated.content) {
+        snapshotId = await archivarVersion(ctx, updated, current.content, undefined);
+        const system = updated.systemId ? await ctx.db.get(updated.systemId) : null;
+        if (system?.templateType === 'writing') {
+          await recordWritingActivity(ctx, updated, countWords(updated.content ?? null) - countWords(current.content ?? null));
+        }
       }
     }
 

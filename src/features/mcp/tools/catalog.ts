@@ -550,6 +550,12 @@ const tasks: Tool[] = [
 
 const ITEM_TYPES = ["task", "page", "folder", "stickyNote", "system", "entity", "sprint", "tag"] as const;
 
+/**
+ * `eventLog.deshacer` se clasifica aquí como **no publicada, a propósito**: el
+ * deshacer es el gesto de la persona sobre lo que el agente escribió, y darle
+ * al agente el botón de deshacer su propio rastro es devolverle el control que
+ * el log existe para quitarle. Leer el log sí puede, y por eso `porItem` está.
+ */
 const events: Tool[] = [
   readTool(api.eventLog.porItem, {
     name: "list_item_events",

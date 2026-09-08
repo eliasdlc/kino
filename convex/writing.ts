@@ -34,7 +34,8 @@ import { forbidden, notFound } from './lib/errors';
 import { kinoZodMutation, kinoZodQuery } from './lib/fn';
 import { recomputePageMentions } from './lib/mentions';
 import { calendarDayInTz, userToday } from './lib/time';
-import { captureSnapshot, writingSessionsOf } from './lib/writing/activity';
+import { archivarVersion } from './lib/pages/snapshots';
+import { writingSessionsOf } from './lib/writing/activity';
 
 // El arquetipo de escritura: racha, diario de la obra, manuscrito, hilos
 // sueltos, cronología, rejilla de escenas, versiones y el estudio. Todo lo que
@@ -553,7 +554,7 @@ export const restoreSnapshot = kinoZodMutation({
     const target = await snapshotDetail(ctx, ctx.user._id, id);
     const page = await ownPage(ctx, ctx.user._id, target.pageId);
     if ((page.content ?? null) === target.content) return { pageId: page._id, content: page.content ?? null };
-    await captureSnapshot(ctx, page, page.content, undefined);
+    await archivarVersion(ctx, page, page.content, undefined);
     await ctx.db.patch(page._id, { content: target.content ?? undefined, updatedAt: Date.now() });
     return { pageId: page._id, content: target.content };
   },
