@@ -29,6 +29,7 @@ import type * as lib_fnFixture from "../lib/fnFixture.js";
 import type * as lib_lemas from "../lib/lemas.js";
 import type * as lib_mcpToken from "../lib/mcpToken.js";
 import type * as lib_mentions from "../lib/mentions.js";
+import type * as lib_reparto from "../lib/reparto.js";
 import type * as lib_scopes from "../lib/scopes.js";
 import type * as lib_tasks_row from "../lib/tasks/row.js";
 import type * as lib_tasks_schemas from "../lib/tasks/schemas.js";
@@ -42,6 +43,7 @@ import type * as migrations_tablasDelRework from "../migrations/tablasDelRework.
 import type * as notifications from "../notifications.js";
 import type * as onboarding from "../onboarding.js";
 import type * as pages from "../pages.js";
+import type * as portabilidad from "../portabilidad.js";
 import type * as proposals from "../proposals.js";
 import type * as pushSend from "../pushSend.js";
 import type * as scheduler from "../scheduler.js";
@@ -84,6 +86,7 @@ declare const fullApi: ApiFromModules<{
   "lib/lemas": typeof lib_lemas;
   "lib/mcpToken": typeof lib_mcpToken;
   "lib/mentions": typeof lib_mentions;
+  "lib/reparto": typeof lib_reparto;
   "lib/scopes": typeof lib_scopes;
   "lib/tasks/row": typeof lib_tasks_row;
   "lib/tasks/schemas": typeof lib_tasks_schemas;
@@ -97,6 +100,7 @@ declare const fullApi: ApiFromModules<{
   notifications: typeof notifications;
   onboarding: typeof onboarding;
   pages: typeof pages;
+  portabilidad: typeof portabilidad;
   proposals: typeof proposals;
   pushSend: typeof pushSend;
   scheduler: typeof scheduler;

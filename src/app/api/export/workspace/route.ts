@@ -1,18 +1,27 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextResponse } from "next/server";
 import JSZip from "jszip";
 import { api } from "@convex/_generated/api";
 import { serverQuery } from "@/shared/convex/server";
 import { getServerSession } from "@/shared/utils/session";
 import { htmlToMarkdown } from "@/features/pages/export/html-to-markdown";
-import { getImageStorage } from "@/features/uploads/image-storage";
-import { extractImageUrlsFromHtml, rewriteImageUrls } from "@/features/uploads/image-refs";
-import { bundleImages } from "@/features/uploads/image-bundle";
-import { ASSETS_DIR, pageDir, assetPathFromPage } from "@/features/pages/export/workspace-layout";
+import { extractImageUrlsFromHtml, rewriteImageUrls, assetFileName } from "@/features/uploads/image-refs";
+import { pageDir, assetPathFromPage } from "@/features/pages/export/workspace-layout";
+import { DATA_DIR, EXPORT_TABLES, IMAGES_PATH } from "@/features/settings/export-manifest";
 
 /**
- * El presupuesto de la restricción 4 de `AGENTS.md`, declarado. Sin esta línea
- * la ruta corre con el default de la plataforma, y un export que tarda de más
- * se nota como lentitud silenciosa en vez de como un 504 que se puede leer.
+ * El ZIP de datos: un JSON por tabla, tal cual sale de la base, y un Markdown
+ * por capítulo para que otra herramienta lo lea sin Kino delante.
+ *
+ * **Las imágenes viajan por su propio enlace** (`/api/export/images`). Antes
+ * salían aquí dentro, y con las veintidós tablas y las versiones de capítulo en
+ * memoria eso ya no cabe en el presupuesto de diez segundos: el export dejaba de
+ * ser lento en silencio para pasar a ser un 504 que se lee. Partirlo es lo que
+ * mantiene el ZIP de datos por debajo del tope, y el manifiesto lo dice para que
+ * nadie crea que las imágenes se perdieron.
+ *
+ * Los `.md` referencian las imágenes con la misma ruta relativa de siempre, así
+ * que descomprimir el segundo ZIP al lado del primero deja las imágenes en su
+ * sitio sin tocar un solo enlace.
  */
 export const maxDuration = 10;
 
@@ -33,7 +42,9 @@ function uniqueSlug(base: string, used: Set<string>): string {
   return candidate;
 }
 
-export async function GET(_request: NextRequest) {
+type Fila = Record<string, unknown>;
+
+export async function GET() {
   // Ruta fuera de Convex: no hereda el modelo de alcances, así que la
   // comprobación es explícita. `getServerSession` exige sesión de navegador,
   // que es lo que deja fuera a un token del conector MCP.
@@ -42,76 +53,63 @@ export async function GET(_request: NextRequest) {
     return NextResponse.json({ code: "UNAUTHORIZED" }, { status: 401 });
   }
 
-  const systems = await serverQuery(api.systems.list, {});
-
-  // Primera pasada: leer todo y juntar las imágenes referenciadas. Hay que conocer
-  // el mapa completo de URL → archivo antes de serializar ningún Markdown.
-  const loaded = await Promise.all(
-    systems.map(async (system) => {
-      const [tasks, folders, pages] = await Promise.all([
-        serverQuery(api.tasks.bySystem, { systemId: system.id }),
-        serverQuery(api.folders.bySystem, { systemId: system.id }),
-        serverQuery(api.pages.forExport, { systemId: system.id }),
-      ]);
-      return { system, tasks, folders, pages };
-    }),
-  );
-
-  const referenced = new Set<string>();
-  for (const { pages } of loaded) {
-    for (const page of pages) {
-      for (const url of extractImageUrlsFromHtml(page.content)) {
-        referenced.add(url);
-      }
-    }
-  }
-
-  const storage = getImageStorage();
-  const bundled =
-    storage && referenced.size > 0
-      ? await bundleImages([...referenced], storage)
-      : { files: [], byUrl: new Map<string, string>(), skipped: 0 };
-
-  // Las rutas del Markdown son relativas al archivo `.md`, no al ZIP.
-  const rewrites = new Map(
-    [...bundled.byUrl].map(([url, name]) => [url, assetPathFromPage(name)]),
-  );
-
-  // Segunda pasada: montar el ZIP.
+  const { tablas, topadas, tope } = await serverQuery(api.portabilidad.workspace, {});
   const zip = new JSZip();
 
-  if (bundled.files.length > 0) {
-    const assets = zip.folder(ASSETS_DIR)!;
-    for (const file of bundled.files) {
-      // Sin DEFLATE: WebP, PNG y JPEG ya vienen comprimidos, así que volver a
-      // pasarlos por el compresor gasta del presupuesto de 10s sin ganar bytes.
-      assets.file(file.name, file.data, { compression: "STORE" });
-    }
+  const datos = zip.folder(DATA_DIR)!;
+  for (const { tabla } of EXPORT_TABLES) {
+    if (!(tabla in tablas)) continue;
+    datos.file(`${tabla}.json`, JSON.stringify(tablas[tabla], null, 2));
   }
 
-  const usedSystemSlugs = new Set<string>();
-  for (const { system, tasks, folders, pages } of loaded) {
-    const systemSlug = uniqueSlug(slugify(system.name), usedSystemSlugs);
-    const folder = zip.folder(systemSlug)!;
-
-    folder.file("system.json", JSON.stringify(system, null, 2));
-    folder.file("tasks.json", JSON.stringify(tasks, null, 2));
-    folder.file("folders.json", JSON.stringify(folders, null, 2));
-
-    // Vía `pageDir` y no `folder.folder("pages")`: la profundidad de esta carpeta
-    // es la misma que calcula `assetPathFromPage`, y deben salir del mismo sitio.
-    const pagesFolder = zip.folder(pageDir(systemSlug))!;
-    const usedPageSlugs = new Set<string>();
-    for (const page of pages) {
-      const slug = uniqueSlug(slugify(page.title ?? "sin-titulo"), usedPageSlugs);
-      // El JSON conserva las URLs originales a propósito: es la copia cruda del
-      // dato, y reimportarlo no debería depender de dónde cayó el archivo.
-      pagesFolder.file(`${slug}.json`, JSON.stringify(page, null, 2));
-      if (page.content) {
-        pagesFolder.file(`${slug}.md`, htmlToMarkdown(rewriteImageUrls(page.content, rewrites)));
-      }
-    }
+  // El Markdown, para leerlo fuera: una carpeta por sistema y un archivo por
+  // capítulo, con las imágenes apuntando a donde caerán al descomprimir el
+  // segundo ZIP.
+  const sistemas = (tablas.systems ?? []) as Fila[];
+  const paginas = (tablas.pages ?? []) as Fila[];
+  const slugPorSistema = new Map<string, string>();
+  const usadosSistema = new Set<string>();
+  for (const sistema of sistemas) {
+    slugPorSistema.set(String(sistema._id), uniqueSlug(slugify(String(sistema.name ?? "")), usadosSistema));
   }
+
+  const usadosPagina = new Map<string, Set<string>>();
+  let imagenes = 0;
+  for (const pagina of paginas) {
+    const contenido = typeof pagina.content === "string" ? pagina.content : "";
+    const sistemaSlug = slugPorSistema.get(String(pagina.systemId)) ?? "sin-sistema";
+    const usados = usadosPagina.get(sistemaSlug) ?? new Set<string>();
+    usadosPagina.set(sistemaSlug, usados);
+    const slug = uniqueSlug(slugify(String(pagina.title ?? "sin-titulo")), usados);
+    if (!contenido) continue;
+    const urls = extractImageUrlsFromHtml(contenido);
+    imagenes += urls.length;
+    const rewrites = new Map(urls.map((url) => [url, assetPathFromPage(assetFileName(url))]));
+    zip.folder(pageDir(sistemaSlug))!.file(`${slug}.md`, htmlToMarkdown(rewriteImageUrls(contenido, rewrites)));
+  }
+
+  zip.file(
+    "manifiesto.json",
+    JSON.stringify(
+      {
+        generado: new Date().toISOString(),
+        tablas: EXPORT_TABLES.map(({ tabla, etiqueta, formato, motivo }) => ({
+          tabla,
+          etiqueta,
+          viaja: formato !== null,
+          formato,
+          ...(motivo ? { motivo } : {}),
+          ...(formato !== null ? { filas: (tablas[tabla] ?? []).length } : {}),
+        })),
+        /** Tablas que llegaron al tope de documentos: su JSON está recortado. */
+        recortadas: topadas,
+        tope,
+        imagenes: { referenciadas: imagenes, enlace: IMAGES_PATH },
+      },
+      null,
+      2,
+    ),
+  );
 
   const uint8 = await zip.generateAsync({ type: "uint8array", compression: "DEFLATE" });
   const buffer = uint8.buffer.slice(uint8.byteOffset, uint8.byteOffset + uint8.byteLength);
@@ -121,9 +119,9 @@ export async function GET(_request: NextRequest) {
     headers: {
       "Content-Type": "application/zip",
       "Content-Disposition": 'attachment; filename="kino-workspace.zip"',
-      // Permite a la UI avisar de que el export salió incompleto sin abrir el ZIP.
-      "X-Kino-Images-Bundled": String(bundled.files.length),
-      "X-Kino-Images-Skipped": String(bundled.skipped),
+      // Permite a la UI avisar de un export recortado sin abrir el ZIP.
+      "X-Kino-Tables": String(EXPORT_TABLES.filter((t) => t.formato !== null).length),
+      "X-Kino-Truncated": topadas.join(",") || "none",
     },
   });
 }

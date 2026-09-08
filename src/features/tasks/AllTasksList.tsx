@@ -36,7 +36,7 @@ interface AllTasksListProps {
 
 const FILTER_CHIP_LABELS: Partial<Record<keyof TaskFilters, string>> = {
   status: 'Estado', system: 'Sistema', priority: 'Prioridad',
-  energy: 'Energía', type: 'Tipo', dateRange: 'Fecha',
+  energy: 'Energía', type: 'Tipo', tag: 'Etiqueta', dateRange: 'Fecha',
   group: 'Agrupar', sort: 'Orden',
 };
 

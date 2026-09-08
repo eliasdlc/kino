@@ -1,11 +1,29 @@
-export type SearchResultType = "task" | "page" | "system";
+export type SearchResultType = "task" | "page" | "note" | "tag" | "system";
+
+/**
+ * Las cinco fuentes, en el orden en que salen en la lista y en que el vacío las
+ * nombra. Sale de aquí y no de un array por pantalla para que añadir una sexta
+ * sea una línea y no tres sitios que se quedan viejos de uno en uno.
+ */
+export const SEARCH_SOURCES: ReadonlyArray<{ type: SearchResultType; heading: string; fuente: string }> = [
+  { type: "task", heading: "Tareas", fuente: "tareas" },
+  { type: "page", heading: "Capítulos", fuente: "capítulos" },
+  { type: "note", heading: "Notas adhesivas", fuente: "notas adhesivas" },
+  { type: "tag", heading: "Etiquetas", fuente: "etiquetas" },
+  { type: "system", heading: "Sistemas", fuente: "nombres de sistema" },
+];
+
+/** Cuántos resultados enseña cada fuente. El resto se cuenta, no se pagina. */
+export const SEARCH_PER_SOURCE = 8;
 
 export interface SearchResult {
   type: SearchResultType;
   id: string;
   title: string;
-  /** Sistema al que pertenece el resultado; null para páginas huérfanas. */
+  /** Sistema al que pertenece el resultado; null para etiquetas globales. */
   systemId: string | null;
+  /** A dónde lleva. Un resultado sin sitio al que ir no se devuelve. */
+  href: string;
   /**
    * Fragmento del cuerpo donde apareció el término, con la coincidencia marcada
    * por {@link SNIPPET_OPEN} y {@link SNIPPET_CLOSE}. Es null cuando la
@@ -58,33 +76,4 @@ export function splitSnippet(
   }
 
   return parts;
-}
-
-/**
- * Convierte el término del usuario en el texto de un `tsquery` con coincidencia
- * por prefijo en la última palabra.
- *
- * Por qué no `websearch_to_tsquery` directo: el Cmd+K busca mientras escribes, y
- * `websearch_to_tsquery('escrib')` no encuentra "escribir": sólo casa lexemas
- * completos. Sin el `:*` la búsqueda se sentiría peor que el `ILIKE` que sustituye
- * justo en el caso más común, que es el término a medio teclear. Se conserva la
- * semántica de `websearch_to_tsquery` para varias palabras: se combinan con AND.
- *
- * Es seguro frente a inyección porque cada palabra se reduce a letras y dígitos
- * antes de montar la expresión: los únicos metacaracteres que llegan a
- * `to_tsquery` son el ` & ` y el `:*` que pone esta función. Devuelve cadena
- * vacía si no queda nada buscable, y quien la llama debe cortar antes de
- * consultar: `to_tsquery('')` es un error en Postgres.
- */
-export function toTsQueryText(term: string): string {
-  const words = term
-    .split(/\s+/)
-    .map((word) => word.replace(/[^\p{L}\p{N}]+/gu, ""))
-    .filter((word) => word.length > 0);
-
-  if (words.length === 0) return "";
-
-  return words
-    .map((word, i) => (i === words.length - 1 ? `${word}:*` : word))
-    .join(" & ");
 }

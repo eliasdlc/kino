@@ -7,6 +7,7 @@ import { SystemsSidebar } from "@/features/systems/SystemsSidebar";
 import { SidebarProvider } from "@/components/ui/sidebar";
 import { MobileHeader } from "@/components/MobileHeader";
 import { BottomNav } from "@/components/BottomNav";
+import { AppMain } from "@/components/AppMain";
 import { InstallPrompt } from "@/components/InstallPrompt";
 import { OfflineIndicator } from "@/features/offline/OfflineIndicator";
 
@@ -59,9 +60,7 @@ export default async function AppLayout({
             />
             <div className="flex flex-col flex-1 min-w-0 overflow-hidden">
               <MobileHeader />
-              <main className="flex-1 overflow-y-auto bg-background pb-[5.4rem] md:pb-0">
-                {children}
-              </main>
+              <AppMain>{children}</AppMain>
               <BottomNav />
             </div>
           </div>

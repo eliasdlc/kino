@@ -193,7 +193,7 @@ export function makeSprint(overrides: Partial<SprintTransport> = {}): SprintTran
   const base: SprintTransport = {
     id: uuid(600),
     systemId: MOCK_SYSTEM_ID,
-    name: "Sprint 3",
+    name: "Ciclo 3",
     goal: "Cerrar el flujo de onboarding",
     startDate: daysFromNow(-7),
     endDate: daysFromNow(7),

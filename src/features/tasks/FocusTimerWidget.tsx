@@ -23,6 +23,13 @@ function formatElapsed(ms: number): string {
 
 const MODE_LABELS = { pomodoro: 'Pomodoro', estimated: 'Estimado', free: 'Libre' } as const;
 
+/**
+ * Lo que el banner del móvil le suma al chrome inferior mientras corre. Va a
+ * `--kino-bottom-chrome` por la misma vía que la barra, así que con el timer
+ * puesto la última fila de una lista sigue quedando a la vista.
+ */
+const ALTO_DEL_BANNER = '3.2rem';
+
 export function FocusTimerWidget() {
   const { state, dispatch, remainingMs, elapsedMs } = useFocusTimer();
 
@@ -34,7 +41,17 @@ export function FocusTimerWidget() {
     return () => clearInterval(id);
   }, [state.phase]);
 
-  if (state.phase === 'idle' || state.phase === 'recap') return null;
+  const activo = state.phase !== 'idle' && state.phase !== 'recap';
+  useEffect(() => {
+    const raiz = document.documentElement;
+    if (activo) raiz.style.setProperty('--kino-bottom-timer', ALTO_DEL_BANNER);
+    else raiz.style.removeProperty('--kino-bottom-timer');
+    return () => {
+      raiz.style.removeProperty('--kino-bottom-timer');
+    };
+  }, [activo]);
+
+  if (!activo) return null;
 
   const isBreak = state.phase === 'break';
   const rem = remainingMs();
@@ -106,11 +123,12 @@ export function FocusTimerWidget() {
     </div>
   );
 
-  // Banner móvil encima de la barra flotante (la barra ocupa 5.4rem contando su margen).
+  // Banner móvil encima de la barra flotante, cuya altura sale de la misma
+  // variable que la reserva de `<main>`: nadie repite el número.
   const mobileWidget = (
     <div
       className={cn(
-        'md:hidden fixed bottom-[5.6rem] left-0 right-0 z-(--z-overlay)',
+        'md:hidden fixed bottom-[calc(var(--kino-bottom-nav)+0.2rem)] left-0 right-0 z-(--z-overlay)',
         'flex items-center gap-3 border-t bg-card/95 backdrop-blur-sm px-4 py-2.5',
         isBreak ? 'border-secondary bg-secondary' : 'border-border',
         isExpired && 'border-primary/30',

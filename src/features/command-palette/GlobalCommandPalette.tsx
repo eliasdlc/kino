@@ -16,8 +16,9 @@ import { useHotkey } from "@/shared/hooks/useHotkey";
 import { useSystems } from "@/features/systems/systems.hooks";
 import { useQuickAddStore } from "@/features/tasks/quick-add.store";
 import { useSearch } from "@/features/search/search.hooks";
-import { SEARCH_MIN_LENGTH } from "@/features/search/search.types";
+import { SEARCH_MIN_LENGTH, SEARCH_SOURCES, type SearchResultType } from "@/features/search/search.types";
 import { SearchSnippet } from "@/features/search/SearchSnippet";
+import { SearchEmptyState } from "@/features/search/SearchEmptyState";
 import { useCommandPaletteStore } from "./command-palette.store";
 import {
   Calendar,
@@ -29,8 +30,19 @@ import {
   Plus,
   Settings,
   Layers,
+  Hash,
+  StickyNote,
 } from "lucide-react";
 import { getSystemColor } from "@/shared/utils/system-colors";
+
+/** Un glifo por fuente: sin él la clase del resultado sólo la diría su grupo. */
+const ICONO: Record<SearchResultType, typeof ListChecks> = {
+  task: ListChecks,
+  page: FileText,
+  note: StickyNote,
+  tag: Hash,
+  system: Layers,
+};
 
 export function GlobalCommandPalette() {
   const open = useCommandPaletteStore((s) => s.open);
@@ -42,14 +54,11 @@ export function GlobalCommandPalette() {
 
   const [query, setQuery] = React.useState("");
   const isSearching = query.trim().length >= SEARCH_MIN_LENGTH;
-  const { data: results = [], isFetching } = useSearch(query);
+  const { data: page, isFetching } = useSearch(query);
+  const results = page?.items ?? [];
 
   const inboxSystem = systems?.find((s) => s.isInbox);
   const regularSystems = systems?.filter((s) => !s.isInbox) ?? [];
-
-  const taskResults = results.filter((r) => r.type === "task");
-  const pageResults = results.filter((r) => r.type === "page");
-  const systemResults = results.filter((r) => r.type === "system");
 
   useHotkey(["mod+k"], (e) => {
     e.preventDefault();
@@ -90,68 +99,36 @@ export function GlobalCommandPalette() {
               Buscando…
             </div>
           ) : results.length === 0 ? (
-            <div className="py-6 text-center text-sm text-muted-foreground">
-              Sin resultados.
-            </div>
+            <SearchEmptyState query={query.trim()} />
           ) : (
             <>
-              {taskResults.length > 0 && (
-                <CommandGroup heading="Tareas">
-                  {taskResults.map((r) => (
-                    <CommandItem
-                      key={`task-${r.id}`}
-                      value={`task-${r.id}`}
-                      onSelect={() =>
-                        runCommand(() => router.push(`/systems/${r.systemId}`))
-                      }
-                    >
-                      <ListChecks className="mr-2 h-4 w-4 shrink-0 self-start text-muted-foreground" />
-                      <span className="min-w-0 flex-1">
-                        <span className="block truncate">{r.title}</span>
-                        {r.snippet && <SearchSnippet snippet={r.snippet} />}
-                      </span>
-                    </CommandItem>
-                  ))}
-                </CommandGroup>
-              )}
-              {pageResults.length > 0 && (
-                <CommandGroup heading="Páginas">
-                  {pageResults.map((r) => (
-                    <CommandItem
-                      key={`page-${r.id}`}
-                      value={`page-${r.id}`}
-                      disabled={!r.systemId}
-                      onSelect={() =>
-                        r.systemId &&
-                        runCommand(() =>
-                          router.push(`/systems/${r.systemId}/pages/${r.id}`),
-                        )
-                      }
-                    >
-                      <FileText className="mr-2 h-4 w-4 shrink-0 self-start text-muted-foreground" />
-                      <span className="min-w-0 flex-1">
-                        <span className="block truncate">{r.title}</span>
-                        {r.snippet && <SearchSnippet snippet={r.snippet} />}
-                      </span>
-                    </CommandItem>
-                  ))}
-                </CommandGroup>
-              )}
-              {systemResults.length > 0 && (
-                <CommandGroup heading="Sistemas">
-                  {systemResults.map((r) => (
-                    <CommandItem
-                      key={`system-${r.id}`}
-                      value={`system-${r.id}`}
-                      onSelect={() =>
-                        runCommand(() => router.push(`/systems/${r.id}`))
-                      }
-                    >
-                      <Layers className="mr-2 h-4 w-4 text-muted-foreground" />
-                      <span className="truncate">{r.title}</span>
-                    </CommandItem>
-                  ))}
-                </CommandGroup>
+              {SEARCH_SOURCES.map(({ type, heading }) => {
+                const filas = results.filter((r) => r.type === type);
+                if (filas.length === 0) return null;
+                const Icono = ICONO[type];
+                return (
+                  <CommandGroup key={type} heading={heading}>
+                    {filas.map((r) => (
+                      <CommandItem
+                        key={`${type}-${r.id}`}
+                        value={`${type}-${r.id}`}
+                        onSelect={() => runCommand(() => router.push(r.href))}
+                      >
+                        <Icono className="mr-2 h-4 w-4 shrink-0 self-start text-muted-foreground" />
+                        <span className="min-w-0 flex-1">
+                          <span className="block truncate">{r.title}</span>
+                          {r.snippet && <SearchSnippet snippet={r.snippet} />}
+                        </span>
+                      </CommandItem>
+                    ))}
+                  </CommandGroup>
+                );
+              })}
+              {page !== undefined && page.restantes > 0 && (
+                <p className="px-4 py-3 text-xs text-muted-foreground">
+                  Quedan {page.tope ? "más de " : ""}
+                  {page.restantes} fuera de esta lista. Afina el término para verlos.
+                </p>
               )}
             </>
           )

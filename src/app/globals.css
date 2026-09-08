@@ -107,6 +107,16 @@
   --z-modal: 30;
   --z-toast: 40;
 
+  /* Lo que el chrome inferior le quita a la pantalla del teléfono: la barra
+     flotante con su margen, el banner del timer cuando corre y el área segura
+     del dispositivo. Se suma aquí y en ningún otro sitio; `<main>` reserva
+     leyendo la variable, nunca un número, así que mover la barra es cambiar
+     una línea. En escritorio no hay chrome abajo y vale cero. `BottomNav` la
+     pone a cero mientras el teclado está abierto. */
+  --kino-bottom-nav: 5.4rem;
+  --kino-bottom-timer: 0rem;
+  --kino-bottom-chrome: 0px;
+
   --radius: 0.625rem;
 
   /* shadcn lee estos; el valor vive en el rol. */
@@ -153,6 +163,12 @@
   --task-critical-foreground: var(--ink);
   --task-high: var(--body);
   --task-high-foreground: var(--body);
+}
+
+@media (max-width: 767px) {
+  :root {
+    --kino-bottom-chrome: calc(var(--kino-bottom-nav) + var(--kino-bottom-timer) + env(safe-area-inset-bottom));
+  }
 }
 
 .dark {

@@ -225,6 +225,12 @@ const folders: Tool[] = [
     description: "Elimina una carpeta de Kino.",
     input: z.object({ id }),
   }),
+  writeTool(api.folders.restore, {
+    name: "restore_folder",
+    description:
+      "Restaura una carpeta que estaba en la papelera de Kino, con las subcarpetas y las notas adhesivas que se borraron con ella. Falla si la carpeta que la contenía sigue borrada.",
+    input: z.object({ id }),
+  }),
 ];
 
 // ── Insights ─────────────────────────────────────────────────────────────────
@@ -339,6 +345,12 @@ const pages: Tool[] = [
     description: "Elimina (soft-delete) una página de Kino.",
     input: z.object({ id }),
   }),
+  writeTool(api.pages.restore, {
+    name: "restore_page",
+    description:
+      "Restaura una página que estaba en la papelera de Kino, con los subcapítulos y las notas adhesivas que se borraron con ella.",
+    input: z.object({ id }),
+  }),
   writeTool(api.pages.linkTask, {
     name: "link_task_to_page",
     description: "Vincula una tarea existente a una página de Kino (relación de referencia, no cambia la ubicación de la tarea).",
@@ -393,6 +405,12 @@ const stickyNotes: Tool[] = [
   writeTool(api.stickyNotes.remove, {
     name: "delete_sticky_note",
     description: "Elimina una nota adhesiva de Kino.",
+    input: z.object({ id }),
+  }),
+  writeTool(api.stickyNotes.restore, {
+    name: "restore_sticky_note",
+    description:
+      "Restaura una nota adhesiva que estaba en la papelera de Kino. Falla si el cuaderno o el capítulo donde estaba pegada sigue borrado.",
     input: z.object({ id }),
   }),
 ];
