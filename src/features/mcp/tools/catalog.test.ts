@@ -54,6 +54,7 @@ const CONTRACT = [
   "list_folder_sticky_notes",
   "list_folder_tasks",
   "list_folders",
+  "list_item_events",
   "list_page_sticky_notes",
   "list_page_tasks",
   "list_pages",

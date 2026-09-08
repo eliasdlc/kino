@@ -7,6 +7,7 @@ import { makeSystem, makeTask, daysFromNow, MOCK_SYSTEM_ID, mid } from "../mock-
 import { SystemCard } from "@/features/systems/SystemCard";
 import { PhysicalCard } from "@/components/PhysicalCard";
 import { TaskCardFor } from "@/features/tasks/cards/TaskCardFor";
+import { ItemEventList } from "@/features/tasks/ItemEventList";
 import {
   SidebarProvider,
   SidebarGroup,
@@ -27,6 +28,37 @@ import { DangerZoneSection } from "@/features/account/DangerZoneSection";
 const ACCOUNT = { name: "Elias De La Cruz", email: "elias@kino.dev" };
 
 const noop = () => {};
+
+/** Tres filas del log: el agente, otra persona y algo ya deshecho. */
+const EVENTOS = [
+  {
+    id: mid("eventLog"),
+    action: "task.create",
+    actor: { kind: "propio" as const, channel: "oauth" as const, name: ACCOUNT.name },
+    occurredAt: new Date(Date.now() - 120_000).toISOString(),
+    undoneAt: null,
+    undoneFields: null,
+    desdePropuesta: false,
+  },
+  {
+    id: mid("eventLog"),
+    action: "task.update",
+    actor: { kind: "redactado" as const, channel: "session" as const },
+    occurredAt: new Date(Date.now() - 3 * 3_600_000).toISOString(),
+    undoneAt: null,
+    undoneFields: null,
+    desdePropuesta: false,
+  },
+  {
+    id: mid("eventLog"),
+    action: "task.move",
+    actor: { kind: "propio" as const, channel: "oauth" as const, name: ACCOUNT.name },
+    occurredAt: new Date(Date.now() - 9 * 86_400_000).toISOString(),
+    undoneAt: new Date(Date.now() - 8 * 86_400_000).toISOString(),
+    undoneFields: ["status"],
+    desdePropuesta: true,
+  },
+];
 
 export function KinoSection() {
   return (
@@ -302,6 +334,27 @@ export function KinoSection() {
             </SidebarGroup>
           </div>
         </SidebarProvider>
+      </SubSection>
+
+      <SubSection
+        title="ItemEventList"
+        description="Lo que le ha pasado a un item, en la hoja del propio item. El sujeto va delante, la vía se dice con palabras y la autoría del agente no pinta ningún control: hoy no hay nada que pulsar."
+      >
+        <Specimen label="Con actividad" hint="quién, por qué vía y cuándo">
+          <Seeded stubs={[seedQuery(api.eventLog.porItem, { items: EVENTOS, restantes: 0 })]}>
+            <ItemEventList targetType="task" targetId={mid("tasks")} />
+          </Seeded>
+        </Specimen>
+        <Specimen label="Sin actividad" hint="lo dice con palabras, no deja un hueco">
+          <Seeded stubs={[seedQuery(api.eventLog.porItem, { items: [], restantes: 0 })]}>
+            <ItemEventList targetType="task" targetId={mid("tasks")} />
+          </Seeded>
+        </Specimen>
+        <Specimen label="Con más de los que caben" hint="dice cuántos quedan y hasta dónde llega el log">
+          <Seeded stubs={[seedQuery(api.eventLog.porItem, { items: [EVENTOS[0]], restantes: 12 })]}>
+            <ItemEventList targetType="task" targetId={mid("tasks")} />
+          </Seeded>
+        </Specimen>
       </SubSection>
 
       <Specimen

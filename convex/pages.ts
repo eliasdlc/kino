@@ -8,6 +8,7 @@ import { forbidden, invalid, notFound } from './lib/errors';
 import { kinoZodMutation, kinoZodQuery, type Channel } from './lib/fn';
 import { lematizar } from './lib/lemas';
 import { recomputePageMentions } from './lib/mentions';
+import { diferencias, recordEvent } from './eventLog';
 import { recordWritingActivity } from './lib/writing/activity';
 import { tagItem } from './tags';
 
@@ -277,6 +278,15 @@ async function createOne(
     updatedAt: now,
   });
   if (input.content) await recomputePageMentions(ctx, userId, id, input.systemId, input.content);
+  await recordEvent(ctx, {
+    userId,
+    systemId: input.systemId,
+    actorChannel: channel,
+    action: 'page.create',
+    targetType: 'page',
+    targetId: id,
+    payload: { title: input.title },
+  });
   return pageListItem(ctx, (await ctx.db.get(id))!, { tags: false, subPages: false });
 }
 
@@ -324,11 +334,12 @@ export const update = kinoZodMutation({
     await ctx.db.patch(id, patch);
     const updated = (await ctx.db.get(id))!;
 
+    let snapshotId: Id<'pageSnapshots'> | undefined;
     if (data.content !== undefined) {
       await recomputePageMentions(ctx, userId, id, updated.systemId, updated.content);
       const system = updated.systemId ? await ctx.db.get(updated.systemId) : null;
       if (system?.templateType === 'writing' && current.content !== updated.content) {
-        await recordWritingActivity(
+        snapshotId = await recordWritingActivity(
           ctx,
           updated,
           countWords(updated.content ?? null) - countWords(current.content ?? null),
@@ -336,6 +347,23 @@ export const update = kinoZodMutation({
         );
       }
     }
+
+    // El cuerpo no viaja en el payload: un capítulo largo lo desbordaría y
+    // `boundPayload` sustituiría el objeto entero, llevándose también el
+    // título anterior. Lo que viaja es la marca de que cambió y el id de la
+    // versión con el texto de antes.
+    const cambios = diferencias(current, updated);
+    delete cambios.content;
+    await recordEvent(ctx, {
+      userId,
+      systemId: updated.systemId,
+      actorChannel: ctx.channel,
+      action: 'page.update',
+      targetType: 'page',
+      targetId: id,
+      payload: current.content === updated.content ? cambios : { ...cambios, contenidoCambiado: true },
+      snapshotId,
+    });
     return { ...(await pageListItem(ctx, updated, { subPages: false })), content: updated.content ?? null };
   },
 });
@@ -356,7 +384,7 @@ export const update = kinoZodMutation({
 export const remove = kinoZodMutation({
   args: { id: zid('pages') },
   handler: async (ctx, { id }) => {
-    await ownPage(ctx, ctx.user._id, id);
+    const page = await ownPage(ctx, ctx.user._id, id);
     const now = await stampFor(ctx, ctx.user._id);
     for (const pageId of [id, ...(await subPageTree(ctx, id))]) {
       for (const note of await ctx.db
@@ -373,6 +401,17 @@ export const remove = kinoZodMutation({
       }
       await ctx.db.patch(pageId, { deletedAt: now, updatedAt: now });
     }
+    // Una fila por el gesto. Los subcapítulos, sus notas y las menciones que
+    // se recalculan son la cascada de éste.
+    await recordEvent(ctx, {
+      userId: ctx.user._id,
+      systemId: page.systemId,
+      actorChannel: ctx.channel,
+      action: 'page.remove',
+      targetType: 'page',
+      targetId: id,
+      payload: { title: page.title },
+    });
     return null;
   },
 });
@@ -410,6 +449,15 @@ export const linkTask = kinoZodMutation({
       .withIndex('by_task_page', (q) => q.eq('taskId', taskId).eq('pageId', id))
       .unique();
     if (!existing) await ctx.db.insert('taskPageLinks', { taskId, pageId: id });
+    await recordEvent(ctx, {
+      userId: ctx.user._id,
+      systemId: page.systemId,
+      actorChannel: ctx.channel,
+      action: 'page.linkTask',
+      targetType: 'page',
+      targetId: id,
+      payload: { taskId, title: task.title },
+    });
     return null;
   },
 });
@@ -417,12 +465,21 @@ export const linkTask = kinoZodMutation({
 export const unlinkTask = kinoZodMutation({
   args: { id: zid('pages'), taskId: zid('tasks') },
   handler: async (ctx, { id, taskId }) => {
-    await ownPage(ctx, ctx.user._id, id);
+    const page = await ownPage(ctx, ctx.user._id, id);
     const link = await ctx.db
       .query('taskPageLinks')
       .withIndex('by_task_page', (q) => q.eq('taskId', taskId).eq('pageId', id))
       .unique();
     if (link) await ctx.db.delete(link._id);
+    await recordEvent(ctx, {
+      userId: ctx.user._id,
+      systemId: page.systemId,
+      actorChannel: ctx.channel,
+      action: 'page.unlinkTask',
+      targetType: 'page',
+      targetId: id,
+      payload: { taskId },
+    });
     return null;
   },
 });
@@ -430,11 +487,20 @@ export const unlinkTask = kinoZodMutation({
 export const addTag = kinoZodMutation({
   args: { id: zid('pages'), tagId: zid('contextTags') },
   handler: async (ctx, { id, tagId }) => {
-    await ownPage(ctx, ctx.user._id, id);
+    const page = await ownPage(ctx, ctx.user._id, id);
     const tag = await ctx.db.get(tagId);
     if (!tag || tag.userId !== ctx.user._id) notFound('Tag not found');
     const existing = await ctx.db.query('pageTags').withIndex('by_page_tag', (q) => q.eq('pageId', id).eq('tagId', tagId)).unique();
     if (!existing) await ctx.db.insert('pageTags', { pageId: id, tagId });
+    await recordEvent(ctx, {
+      userId: ctx.user._id,
+      systemId: page.systemId,
+      actorChannel: ctx.channel,
+      action: 'page.addTag',
+      targetType: 'page',
+      targetId: id,
+      payload: { tagId, title: tag.title },
+    });
     return null;
   },
 });
@@ -442,9 +508,18 @@ export const addTag = kinoZodMutation({
 export const removeTag = kinoZodMutation({
   args: { id: zid('pages'), tagId: zid('contextTags') },
   handler: async (ctx, { id, tagId }) => {
-    await ownPage(ctx, ctx.user._id, id);
+    const page = await ownPage(ctx, ctx.user._id, id);
     const link = await ctx.db.query('pageTags').withIndex('by_page_tag', (q) => q.eq('pageId', id).eq('tagId', tagId)).unique();
     if (link) await ctx.db.delete(link._id);
+    await recordEvent(ctx, {
+      userId: ctx.user._id,
+      systemId: page.systemId,
+      actorChannel: ctx.channel,
+      action: 'page.removeTag',
+      targetType: 'page',
+      targetId: id,
+      payload: { tagId },
+    });
     return null;
   },
 });
@@ -539,6 +614,15 @@ export const restore = kinoZodMutation({
       await ctx.db.patch(page._id, { deletedAt: undefined, updatedAt: now });
       await recomputePageMentions(ctx, ctx.user._id, page._id, page.systemId, page.content);
     }
+    await recordEvent(ctx, {
+      userId: ctx.user._id,
+      systemId: doc.systemId,
+      actorChannel: ctx.channel,
+      action: 'page.restore',
+      targetType: 'page',
+      targetId: id,
+      payload: { title: doc.title },
+    });
     return pageListItem(ctx, (await ctx.db.get(id))!);
   },
 });

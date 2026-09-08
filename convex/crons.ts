@@ -17,6 +17,13 @@ crons.interval('task-reminders', { minutes: 15 }, internal.scheduler.taskReminde
 // 12:20 UTC: veinte minutos después del snapshot, para no competir con él. La
 // poda va por lotes y se reprograma sola mientras queden filas de más de
 // treinta días (`convex/eventLog.ts`).
+//
+// **Los diez segundos son de la entrada, no de cada poda.** Hoy sólo hay una
+// aquí, y `convex/eventLog.test.ts` mide su lote de producción con margen de
+// sobra. La segunda que entre (la de `itemLinks`, cuando exista quien las
+// escriba) comparte ese presupuesto: se mide la suma, no cada una por su
+// lado, o cuatro podas de diez segundos acabarán sin caber en una función de
+// diez.
 crons.daily('event-log-prune', { hourUTC: 12, minuteUTC: 20 }, internal.eventLog.podar, {});
 
 export default crons;

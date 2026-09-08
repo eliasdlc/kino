@@ -21,19 +21,23 @@ export async function writingSessionsOf(ctx: QueryCtx | MutationCtx, userId: Id<
 /**
  * Guarda cómo quedó el capítulo al cerrarse una sesión. Un capítulo en blanco
  * o idéntico a la última versión no genera otra; sobreviven las últimas N.
+ *
+ * Devuelve el id de la versión que escribió, o `undefined` si no escribió
+ * ninguna: es lo que el evento de la edición guarda en `snapshotId`, porque un
+ * capítulo de veinte mil caracteres no cabe en un payload de 2.048 bytes.
  */
 export async function captureSnapshot(
   ctx: MutationCtx,
   page: Doc<'pages'>,
   content: string | undefined,
   sessionStartedAt: number | undefined,
-) {
-  if (!content || content.trim() === '') return;
+): Promise<Id<'pageSnapshots'> | undefined> {
+  if (!content || content.trim() === '') return undefined;
   const existing = (await ctx.db.query('pageSnapshots').withIndex('by_page_created', (q) => q.eq('pageId', page._id)).collect()).sort(
     (a, b) => b.createdAt - a.createdAt,
   );
-  if (existing[0]?.content === content) return;
-  await ctx.db.insert('pageSnapshots', {
+  if (existing[0]?.content === content) return undefined;
+  const id = await ctx.db.insert('pageSnapshots', {
     pageId: page._id,
     userId: page.userId,
     systemId: page.systemId,
@@ -43,6 +47,7 @@ export async function captureSnapshot(
     createdAt: Date.now(),
   });
   for (const old of existing.slice(MAX_SNAPSHOTS_PER_PAGE - 1)) await ctx.db.delete(old._id);
+  return id;
 }
 
 /**
@@ -55,8 +60,8 @@ export async function recordWritingActivity(
   page: Doc<'pages'>,
   wordsDelta: number,
   previousContent: string | undefined,
-) {
-  if (!page.systemId) return;
+): Promise<Id<'pageSnapshots'> | undefined> {
+  if (!page.systemId) return undefined;
   const now = Date.now();
   const cutoff = now - SESSION_GAP_MINUTES * 60_000;
   const [open] = (await writingSessionsOf(ctx, page.userId, page._id)).filter((log) => (log.endedAt ?? 0) >= cutoff);
@@ -66,9 +71,9 @@ export async function recordWritingActivity(
       durationMinutes: Math.max(0, Math.round((now - open.startedAt) / 60_000)),
       wordsWritten: (open.wordsWritten ?? 0) + wordsDelta,
     });
-    return;
+    return undefined;
   }
-  await captureSnapshot(ctx, page, previousContent, undefined);
+  const snapshotId = await captureSnapshot(ctx, page, previousContent, undefined);
   await ctx.db.insert('timeLogs', {
     userId: page.userId,
     systemId: page.systemId,
@@ -80,4 +85,5 @@ export async function recordWritingActivity(
     source: 'writing',
     createdAt: now,
   });
+  return snapshotId;
 }

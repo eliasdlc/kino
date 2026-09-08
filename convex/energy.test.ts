@@ -119,7 +119,11 @@ describe('energy', () => {
 
     await asAna.mutation(api.energy.applyWeeklyRitual, { assignments: [{ taskId: task.id, date: '2026-09-12' }] });
 
-    const eventos = await t.run((ctx) => ctx.db.query('eventLog').collect());
+    // Uno solo para todo el reparto, y las creaciones de antes no cuentan: el
+    // ritual es un gesto, no cien.
+    const eventos = await t.run((ctx) =>
+      ctx.db.query('eventLog').collect().then((filas) => filas.filter((e) => e.action === 'energy.applyWeeklyRitual')),
+    );
     expect(eventos).toHaveLength(1);
     expect(eventos[0]!.payload).toMatchObject({ reprogramadas: 1, anterior: [{ taskId: task.id, startDate: null }] });
   });

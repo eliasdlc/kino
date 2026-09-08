@@ -13,6 +13,7 @@ import {
 import { resolveManifest } from '../src/shared/lib/system-manifest';
 import type { SystemMetadata } from '../src/shared/lib/system-types';
 import { invalid, notFound } from './lib/errors';
+import { diferencias, recordEvent } from './eventLog';
 import { kinoZodMutation, kinoZodQuery, type Channel } from './lib/fn';
 import type { ActorChannel } from './schema';
 import { lematizar } from './lib/lemas';
@@ -535,6 +536,15 @@ async function createOne(
       createdAt: now,
     });
   }
+  await recordEvent(ctx, {
+    userId,
+    systemId: task.systemId,
+    actorChannel: channel,
+    action: 'task.create',
+    targetType: 'task',
+    targetId: id,
+    payload: { title: task.title, status: task.status },
+  });
   return task;
 }
 
@@ -557,7 +567,20 @@ export const bulkCreate = kinoZodMutation({
 
 export const update = kinoZodMutation({
   args: updateTaskSchema.extend({ id: zid('tasks') }),
-  handler: async (ctx, { id, ...data }) => taskItem(await updateTaskDoc(ctx, ctx.user, id, data)),
+  handler: async (ctx, { id, ...data }) => {
+    const antes = await ownTask(ctx, ctx.user._id, id);
+    const task = await updateTaskDoc(ctx, ctx.user, id, data);
+    await recordEvent(ctx, {
+      userId: ctx.user._id,
+      systemId: task.systemId,
+      actorChannel: ctx.channel,
+      action: 'task.update',
+      targetType: 'task',
+      targetId: id,
+      payload: diferencias(antes, task),
+    });
+    return taskItem(task);
+  },
 });
 
 /**
@@ -654,6 +677,17 @@ export const remove = kinoZodMutation({
       await ctx.db.patch(hija._id, { recurrenceParentId: undefined, updatedAt: now });
     }
     await ctx.db.patch(id, { deletedAt: now });
+    // Una fila por el borrado que se pidió, no una por cada subtarea ni por
+    // cada hija de la serie: ésas son la cascada de éste.
+    await recordEvent(ctx, {
+      userId: ctx.user._id,
+      systemId: task.systemId,
+      actorChannel: ctx.channel,
+      action: 'task.remove',
+      targetType: 'task',
+      targetId: id,
+      payload: { title: task.title },
+    });
     return { id: task._id, title: task.title };
   },
 });
@@ -680,8 +714,17 @@ async function subtaskTree(ctx: MutationCtx, rootId: Id<'tasks'>): Promise<Id<'t
 export const restore = kinoZodMutation({
   args: { id: zid('tasks') },
   handler: async (ctx, { id }) => {
-    await ownTask(ctx, ctx.user._id, id, { includeDeleted: true });
+    const task = await ownTask(ctx, ctx.user._id, id, { includeDeleted: true });
     await ctx.db.patch(id, { deletedAt: undefined });
+    await recordEvent(ctx, {
+      userId: ctx.user._id,
+      systemId: task.systemId,
+      actorChannel: ctx.channel,
+      action: 'task.restore',
+      targetType: 'task',
+      targetId: id,
+      payload: { title: task.title },
+    });
     return taskItem((await ctx.db.get(id))!);
   },
 });
@@ -694,6 +737,15 @@ export const toggle = kinoZodMutation({
     const updated = await applyTransition(ctx, task, { userId: ctx.user._id, channel: ctx.channel }, (current) =>
       current.status === 'done' ? 'undo_done' : 'toggle_done',
     );
+    await recordEvent(ctx, {
+      userId: ctx.user._id,
+      systemId: task.systemId,
+      actorChannel: ctx.channel,
+      action: 'task.toggle',
+      targetType: 'task',
+      targetId: id,
+      payload: diferencias(task, updated),
+    });
     // La firma viaja con el resultado en vez de pedir una segunda lectura: el
     // detalle la pinta al cerrar, y el agente que cierra por el conector sabe
     // con qué quedó firmada su propia escritura.
@@ -717,7 +769,17 @@ export const move = kinoZodMutation({
   args: { id: zid('tasks'), status: z.enum(['backlog', 'week', 'tomorrow', 'today', 'done']) },
   handler: async (ctx, { id, status }) => {
     const task = await ownTask(ctx, ctx.user._id, id);
-    return taskItem(await applyTransition(ctx, task, { userId: ctx.user._id, channel: ctx.channel }, moveTo(status)));
+    const updated = await applyTransition(ctx, task, { userId: ctx.user._id, channel: ctx.channel }, moveTo(status));
+    await recordEvent(ctx, {
+      userId: ctx.user._id,
+      systemId: task.systemId,
+      actorChannel: ctx.channel,
+      action: 'task.move',
+      targetType: 'task',
+      targetId: id,
+      payload: diferencias(task, updated),
+    });
+    return taskItem(updated);
   },
 });
 
@@ -732,7 +794,19 @@ export const bulkMove = kinoZodMutation({
     for (const id of taskIds) {
       const task = await ownTask(ctx, ctx.user._id, id);
       previous.push({ id: task._id, status: task.status });
-      await applyTransition(ctx, task, { userId: ctx.user._id, channel: ctx.channel }, moveTo(status));
+      const updated = await applyTransition(ctx, task, { userId: ctx.user._id, channel: ctx.channel }, moveTo(status));
+      // Una fila por tarea, no una por lote: el log se lee desde el item, y un
+      // evento apuntando a la primera dejaría a las otras sin rastro de
+      // haberse movido. El ritual semanal es la excepción y dice por qué.
+      await recordEvent(ctx, {
+        userId: ctx.user._id,
+        systemId: task.systemId,
+        actorChannel: ctx.channel,
+        action: 'task.move',
+        targetType: 'task',
+        targetId: task._id,
+        payload: diferencias(task, updated),
+      });
     }
     return { previous };
   },
@@ -752,6 +826,15 @@ export const bulkUpdate = kinoZodMutation({
       previous.push({ id: task._id, priority: task.priority });
       await ctx.db.patch(task._id, { priority, updatedAt: now });
       await syncAutoReminders(ctx, { ...task, priority }, now);
+      await recordEvent(ctx, {
+        userId: ctx.user._id,
+        systemId: task.systemId,
+        actorChannel: ctx.channel,
+        action: 'task.update',
+        targetType: 'task',
+        targetId: task._id,
+        payload: { priority: task.priority },
+      });
     }
     return { previous };
   },
@@ -786,10 +869,29 @@ export async function moveTaskBoardDoc(
   await ctx.db.patch(id, { boardStatus, boardStatusChangedAt: now, updatedAt: now });
   const bridge = deriveBoardBridgeAction(task.status, task.boardStatus ?? null, boardStatus);
   const moved = (await ctx.db.get(id))!;
-  return bridge ? await applyTransition(ctx, moved, { userId, channel }, () => bridge) : moved;
+  const final = bridge ? await applyTransition(ctx, moved, { userId, channel }, () => bridge) : moved;
+  // El evento vive aquí y no en la mutación para que el refresco de GitHub
+  // también deje fila: mueve columnas con canal `sync` y nada más lo cuenta.
+  await recordEvent(ctx, {
+    userId,
+    systemId: task.systemId,
+    actorChannel: channel,
+    action: 'task.moveBoard',
+    targetType: 'task',
+    targetId: id,
+    payload: diferencias(task, final),
+  });
+  return final;
 }
 
-/** La posición de cada id es su nuevo `sortIndex`. Los ajenos se ignoran. */
+/**
+ * La posición de cada id es su nuevo `sortIndex`. Los ajenos se ignoran.
+ *
+ * **Sin fila en el log**, y es una decisión: `sortIndex` es el orden de una
+ * lista en pantalla, no una propiedad de la tarea. Un solo arrastre escribiría
+ * veinte filas que dicen que veinte tareas cambiaron de número, y ninguna
+ * merece un deshacer propio.
+ */
 export const reorder = kinoZodMutation({
   args: { ids: z.array(zid('tasks')).min(1) },
   handler: async (ctx, { ids }) => {
@@ -818,6 +920,15 @@ export const createTimeLog = kinoZodMutation({
       source: data.source,
       createdAt: Date.now(),
     });
+    await recordEvent(ctx, {
+      userId: ctx.user._id,
+      systemId: task.systemId,
+      actorChannel: ctx.channel,
+      action: 'task.createTimeLog',
+      targetType: 'task',
+      targetId: id,
+      payload: { durationMinutes: data.durationMinutes, source: data.source },
+    });
     return null;
   },
 });
@@ -838,6 +949,11 @@ async function reconcileStatuses(ctx: MutationCtx, docs: TaskDoc[], timezone: st
 }
 
 /**
+ * **Sin fila en el log**: nadie pide un rollover, ocurre al entrar. Lo que se
+ * reconcilia aquí es consecuencia de fechas que ya se escribieron con su
+ * evento, y una fila por tarea recolocada convertiría el log en el rastro del
+ * cron en vez del de la persona.
+ *
  * Rollover diario del plan de hoy. Si la marca `todayPlanDate` es de otro día:
  * reconcilia estados, vacía el plan anterior, lo repuebla con lo que empieza
  * hoy y guarda la marca. Dentro del mismo día no toca nada.

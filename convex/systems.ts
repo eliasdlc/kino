@@ -6,6 +6,7 @@ import { githubRepoRefSchema } from '../src/features/github-sync/github-sync.sch
 import { deriveStale } from '../src/features/systems/systems.signals';
 import { TEMPLATE_TYPE_VALUES } from '../src/shared/types/enums';
 import { forbidden, notFound } from './lib/errors';
+import { diferencias, recordEvent } from './eventLog';
 import { kinoZodMutation, kinoZodQuery, type Channel } from './lib/fn';
 import { color } from './schema';
 
@@ -211,6 +212,15 @@ export async function createSystemDoc(
         await ctx.db.insert('contextTags', { userId, systemId: id, title, color: tint, isDefault: true, createdAt: now });
       }
     }
+    await recordEvent(ctx, {
+      userId,
+      systemId: id,
+      actorChannel: channel,
+      action: 'system.create',
+      targetType: 'system',
+      targetId: id,
+      payload: { name: input.name, templateType: input.templateType ?? 'custom' },
+    });
     return systemItem((await ctx.db.get(id))!);
   }
 }
@@ -242,7 +252,17 @@ export const update = kinoZodMutation({
     if (data.triggerContext !== undefined) patch.triggerContext = data.triggerContext;
     if (data.metadata !== undefined) patch.metadata = data.metadata ?? undefined;
     await ctx.db.patch(id, patch);
-    return systemItem((await ctx.db.get(id))!);
+    const actualizado = (await ctx.db.get(id))!;
+    await recordEvent(ctx, {
+      userId: ctx.user._id,
+      systemId: id,
+      actorChannel: ctx.channel,
+      action: 'system.update',
+      targetType: 'system',
+      targetId: id,
+      payload: diferencias(system, actualizado),
+    });
+    return systemItem(actualizado);
   },
 });
 
@@ -252,10 +272,26 @@ export const remove = kinoZodMutation({
     const system = await ownSystem(ctx, ctx.user._id, id);
     if (system.isInbox) forbidden('Cannot deactivate Inbox');
     await ctx.db.patch(id, { isActive: false, updatedAt: Date.now() });
+    // Archivar, no borrar: apagar `isActive` es todo lo que pasa, y sus siete
+    // cascadas de Postgres no ocurren a propósito.
+    await recordEvent(ctx, {
+      userId: ctx.user._id,
+      systemId: id,
+      actorChannel: ctx.channel,
+      action: 'system.remove',
+      targetType: 'system',
+      targetId: id,
+      payload: { name: system.name, isActive: true },
+    });
     return null;
   },
 });
 
+/**
+ * **Sin fila en el log**, por lo mismo que el reorden de tareas: `sortOrder` es
+ * el orden de una lista en pantalla y no una propiedad del sistema, y un solo
+ * arrastre escribiría una fila por sistema sin nada que deshacer en ninguna.
+ */
 export const reorder = kinoZodMutation({
   args: { systemIds: z.array(zid('systems')) },
   handler: async (ctx, { systemIds }) => {
