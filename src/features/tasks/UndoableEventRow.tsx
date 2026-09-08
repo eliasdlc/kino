@@ -30,19 +30,23 @@ export function UndoableEventRow({ evento }: { evento: ItemEvent }) {
   const motivo = rechazo ?? (evento.deshacer.forma === "no" ? evento.deshacer.motivo : null);
 
   return (
-    <li className="flex items-start justify-between gap-3 text-sm text-foreground/80">
+    // En el teléfono la frase y su afordancia van una debajo de otra: en línea,
+    // el sujeto se estruja en media columna y hay que leer en zigzag. Desde
+    // `sm` caben al lado, y el ancho se acota para que el motivo no acabe a
+    // novecientos píxeles de la fila que explica.
+    <li className="flex max-w-[46rem] flex-col gap-1 py-2 text-sm text-foreground/80 first:pt-0 last:pb-0 sm:flex-row sm:items-start sm:justify-between sm:gap-4">
       <span>
         {frase}
         {evento.undoneAt !== null && ` · deshecho ${cuandoDe(evento.undoneAt)}`}
       </span>
 
       {motivo !== null ? (
-        <span className="shrink-0 text-right text-foreground/80">{motivo}</span>
+        <span className="text-foreground/80 sm:shrink-0 sm:text-right">{motivo}</span>
       ) : (
         <Button
           variant="outline"
           size="sm"
-          className="shrink-0"
+          className="self-start sm:shrink-0"
           disabled={isPending}
           onClick={() =>
             deshacer(

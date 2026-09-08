@@ -35,7 +35,9 @@ export function ItemEventList({ targetType, targetId }: { targetType: ItemType; 
 
   return (
     <div className="space-y-2">
-      <ul className="space-y-2">
+      {/* Hairline arriba en las filas a partir de la segunda: sin él, la frase y
+          el motivo de una fila se leen como dos filas distintas. */}
+      <ul className="divide-y divide-border/60">
         {items.map((evento) => (
           <UndoableEventRow key={evento.id} evento={evento} />
         ))}
