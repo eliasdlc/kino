@@ -95,7 +95,11 @@ export interface OnboardingArchetype {
    * tiene landing propia; se llega a ella eligiéndola en el onboarding.
    */
   landingSlug: string | null;
-  /** Nombre propuesto para el primer sistema. Vacío → se pide en blanco. */
+  /**
+   * Nombre con el que nace el primer sistema. El alta ya no lo pregunta, así que
+   * no puede estar vacío: es el nombre que la persona va a ver en Hoy antes de
+   * tocar nada, y renombrarlo es un gesto de un toque desde la cabecera.
+   */
   systemNameDefault: string;
   systemNamePlaceholder: string;
   systemNameSuggestions: string[];
@@ -243,7 +247,9 @@ export const ONBOARDING_ARCHETYPES: Record<ArchetypeIdentity, OnboardingArchetyp
     tagline: 'Ninguna de las anteriores. Tú pones el vocabulario.',
     icon: Settings,
     landingSlug: null,
-    systemNameDefault: '',
+    // Neutro a propósito: quien elige "ninguna de las anteriores" no ha dicho
+    // en qué trabaja, así que Kino no lo adivina.
+    systemNameDefault: 'Mi sistema',
     systemNamePlaceholder: 'ej. Trabajo',
     systemNameSuggestions: ['Trabajo', 'Salud', 'Finanzas', 'Casa'],
     identityStatement: '',
