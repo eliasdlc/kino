@@ -8,7 +8,7 @@ import { convexTest } from 'convex-test';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { api } from './_generated/api';
 import type { Doc } from './_generated/dataModel';
-import { DIAS_DE_AUSENCIA, semanaAnterior } from './today';
+import { DIAS_DE_AUSENCIA, ITEMS_PARA_PROPONER_CARPETA, semanaAnterior } from './today';
 import { DIAS_ANTES_DE_CEDER } from './lib/today/queue';
 import schema from './schema';
 
@@ -142,6 +142,108 @@ describe('la interrupción del día', () => {
 
     expect(await asAna.query(api.today.interruption, {})).toEqual(sinBandeja);
     expect(sinBandeja).toMatchObject({ kind: 'ritual' });
+  });
+
+  it('veinte items en un sistema sin carpetas proponen una, con el sustantivo de su arquetipo', async () => {
+    const { t, asAna, userId } = await seed();
+    const semestre = await t.run((ctx) =>
+      ctx.db.insert('systems', {
+        userId,
+        createdBy: userId,
+        createdVia: 'session',
+        name: 'Semestre actual',
+        color: 'blue',
+        templateType: 'academic',
+        icon: 'graduation',
+        isActive: true,
+        isInbox: false,
+        sortOrder: 1,
+        createdAt: 1,
+        updatedAt: 1,
+      }),
+    );
+
+    for (let i = 0; i < ITEMS_PARA_PROPONER_CARPETA - 1; i++) {
+      await asAna.mutation(api.tasks.create, { systemId: semestre, title: `Pendiente ${i + 1}` });
+    }
+    // Uno por debajo del umbral todavía no propone nada.
+    expect(await asAna.query(api.today.interruption, {})).toBeNull();
+
+    await asAna.mutation(api.tasks.create, { systemId: semestre, title: 'La que cruza el umbral' });
+
+    const empuje = await asAna.query(api.today.interruption, {});
+    expect(empuje).toMatchObject({
+      kind: 'empujeSistema',
+      key: semestre,
+      // En un sistema académico se propone una clase, no "una carpeta": el
+      // sustantivo sale del manifiesto y no de un `if` por tipo.
+      payload: { nombre: 'Semestre actual', items: ITEMS_PARA_PROPONER_CARPETA, contenedor: 'clase' },
+    });
+  });
+
+  it('el empuje pierde contra el ritual, que es tercera prioridad', async () => {
+    const { t, asAna, userId, systemId } = await seed({ reviewDay: hoyWeekday() });
+    await conVencida(asAna, systemId);
+    const semestre = await t.run((ctx) =>
+      ctx.db.insert('systems', {
+        userId,
+        createdBy: userId,
+        createdVia: 'session',
+        name: 'Semestre actual',
+        color: 'blue',
+        templateType: 'academic',
+        icon: 'graduation',
+        isActive: true,
+        isInbox: false,
+        sortOrder: 1,
+        createdAt: 1,
+        updatedAt: 1,
+      }),
+    );
+    for (let i = 0; i < ITEMS_PARA_PROPONER_CARPETA; i++) {
+      await asAna.mutation(api.tasks.create, { systemId: semestre, title: `Pendiente ${i + 1}` });
+    }
+
+    // Los dos candidatos existen y la cola sigue devolviendo uno: el de arriba.
+    expect(await asAna.query(api.today.interruption, {})).toMatchObject({ kind: 'ritual' });
+  });
+
+  it('un sistema que ya organiza con carpetas no recibe la propuesta', async () => {
+    const { t, asAna, userId } = await seed();
+    const semestre = await t.run(async (ctx) => {
+      const id = await ctx.db.insert('systems', {
+        userId,
+        createdBy: userId,
+        createdVia: 'session',
+        name: 'Semestre actual',
+        color: 'blue',
+        templateType: 'academic',
+        icon: 'graduation',
+        isActive: true,
+        isInbox: false,
+        sortOrder: 1,
+        createdAt: 1,
+        updatedAt: 1,
+      });
+      await ctx.db.insert('folders', {
+        userId,
+        createdBy: userId,
+        createdVia: 'session',
+        systemId: id,
+        name: 'Cálculo II',
+        color: 'blue',
+        sortIndex: 0,
+        createdAt: 1,
+        updatedAt: 1,
+      });
+      return id;
+    });
+    for (let i = 0; i < ITEMS_PARA_PROPONER_CARPETA; i++) {
+      await asAna.mutation(api.tasks.create, { systemId: semestre, title: `Pendiente ${i + 1}` });
+    }
+
+    // Proponer una carpeta a quien ya tiene una es no proponer nada.
+    expect(await asAna.query(api.today.interruption, {})).toBeNull();
   });
 
   it('la interrupción de una persona no se ve desde la cuenta de otra', async () => {

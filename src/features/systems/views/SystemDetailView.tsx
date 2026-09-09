@@ -10,6 +10,8 @@ import { SystemProjectView } from "./SystemProjectView";
 import { SystemEntrepreneurialView } from "./SystemEntrepreneurialView";
 import { SystemCustomView } from "./SystemCustomView";
 import { SystemWritingView } from "./SystemWritingView";
+import { InboxView } from "./InboxView";
+import { PersonalView } from "./PersonalView";
 
 export interface SystemViewProps {
   system: SystemTransport;
@@ -17,9 +19,8 @@ export interface SystemViewProps {
 }
 
 /**
- * Routes a system to its view. inbox/personal montan el funnel universal
- * componible desde su preset; custom deja al usuario elegir tabs; los demás
- * tipos conservan su vista dedicada hasta la Fase 3.
+ * Manda un sistema a su vista. Los seis arquetipos elegibles tienen la suya;
+ * `custom` es el único que deja al usuario componer sus tabs.
  */
 export function SystemDetailView({ system, initialTasks }: SystemViewProps) {
   const systemType = (system.templateType ?? "custom") as SystemType;
@@ -36,12 +37,18 @@ export function SystemDetailView({ system, initialTasks }: SystemViewProps) {
   if (systemType === "writing") {
     return <SystemWritingView system={system} initialTasks={initialTasks} />;
   }
+  if (systemType === "personal") {
+    return <PersonalView system={system} initialTasks={initialTasks} />;
+  }
+  if (systemType === "inbox") {
+    return <InboxView system={system} initialTasks={initialTasks} />;
+  }
   if (systemType === "custom") {
     return <SystemCustomView system={system} initialTasks={initialTasks} />;
   }
 
-  // inbox + personal → funnel universal desde el preset (más los tabs que el
-  // usuario haya guardado para ese sistema)
+  // Un `templateType` que el manifiesto no conoce: el funnel universal desde el
+  // preset, que es lo único que se puede montar sin saber de qué habla.
   const config = resolveSystemManifest(system);
   return (
     <TasksList

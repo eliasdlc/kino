@@ -12,6 +12,7 @@ import { calendarDayInTz, userToday } from './lib/time';
 import { techoPropuesto } from './energy';
 import { caducada, evidenciaViva, type Cancelable } from './proposals';
 import { weekdayOf } from '../src/features/energy/energy.ritual';
+import { SYSTEM_TYPE_CONFIG, type SystemType } from '../src/shared/lib/system-types';
 
 // Hoy: lo único que Kino pregunta en todo el día.
 //
@@ -167,17 +168,81 @@ async function candidatoPropuesta(ctx: Ctx, user: Doc<'users'>, now: number): Pr
 }
 
 /**
+ * Items vivos en un sistema a partir de los cuales una carpeta deja de ser una
+ * idea y pasa a ser una necesidad. Veinte es lo que cabe en una pantalla larga
+ * sin que buscar algo concreto se convierta en leerlo todo.
+ */
+export const ITEMS_PARA_PROPONER_CARPETA = 20;
+
+/**
+ * El empuje de un sistema lleno, como candidato.
+ *
+ * Es el segundo de los dos empujes del principio 7, y el único de los dos que
+ * entra en la cola (D-18): propone crear una carpeta, así que pide una
+ * decisión. El de Bandeja no, porque Bandeja no tiene carpetas a propósito y su
+ * fila sólo informa.
+ *
+ * Prioridad cuarta, así que pierde contra cualquier otra cosa. Y sólo apunta a
+ * sistemas que **pueden** tener carpetas y todavía no tienen ninguna: proponer
+ * una carpeta a quien ya organiza con carpetas es no proponer nada.
+ *
+ * La clave es el sistema y no su cuenta de items: con la cuenta, cada tarea
+ * nueva resucitaría la propuesta y sería la insistencia que el producto no
+ * hace. Una vez por sistema.
+ */
+async function candidatoEmpujeSistema(ctx: Ctx, user: Doc<'users'>): Promise<Candidato | null> {
+  const sistemas = await ctx.db
+    .query('systems')
+    .withIndex('by_user_active', (q) => q.eq('userId', user._id).eq('isActive', true))
+    .collect();
+
+  for (const sistema of sistemas.sort((a, b) => a.sortOrder - b.sortOrder)) {
+    if (sistema.isInbox) continue;
+    const tipo = sistema.templateType as SystemType | undefined;
+    if (!tipo || SYSTEM_TYPE_CONFIG[tipo]?.folderRole === null) continue;
+
+    const carpetas = await ctx.db
+      .query('folders')
+      .withIndex('by_system', (q) => q.eq('systemId', sistema._id))
+      .collect();
+    if (carpetas.some((carpeta) => carpeta.deletedAt === undefined)) continue;
+
+    const tareas = await ctx.db
+      .query('tasks')
+      .withIndex('by_system_alive_status', (q) => q.eq('systemId', sistema._id).eq('deletedAt', undefined))
+      .collect();
+    const vivas = tareas.filter((tarea) => tarea.status !== 'done').length;
+    if (vivas < ITEMS_PARA_PROPONER_CARPETA) continue;
+
+    return {
+      kind: 'empujeSistema',
+      key: sistema._id,
+      payload: {
+        systemId: sistema._id,
+        nombre: sistema.name,
+        items: vivas,
+        // El sustantivo sale del manifiesto: en un sistema académico se propone
+        // una clase y en uno de escritura una obra, sin un `if` por tipo.
+        contenedor: SYSTEM_TYPE_CONFIG[tipo].folderRole?.noun ?? 'carpeta',
+      },
+    };
+  }
+  return null;
+}
+
+/**
  * Todos los candidatos vivos, con el estado de lo que ya se mostró pegado a
  * cada uno.
  *
  * Una clase entra en esta lista cuando su línea puede hacer algo. Hoy son el
- * lunes, el techo, el ritual y la propuesta del agente.
+ * lunes, el techo, el ritual, la propuesta del agente y el empuje de un
+ * sistema lleno.
  *
  * `autoArchivo` sigue sin productor y va a seguir sin él: archivar no existe en
  * Kino (D-09), así que nada lo puede emitir. El nivel se queda en la cola
  * porque quitarlo es tocar el schema por nada; el día que archivar vuelva, lo
- * único que falta es quien lo produzca. El cronotipo y el empuje de un sistema
- * enganchan la suya en sus propios tickets.
+ * único que falta es quien lo produzca. El cronotipo engancha la suya en su
+ * propio ticket.
  */
 async function candidatos(ctx: Ctx, user: Doc<'users'>, now: number): Promise<Candidato[]> {
   const historial = await mostradas(ctx, user._id);
@@ -186,6 +251,7 @@ async function candidatos(ctx: Ctx, user: Doc<'users'>, now: number): Promise<Ca
     await candidatoTecho(ctx, user, now),
     await candidatoRitual(ctx, user, now),
     await candidatoPropuesta(ctx, user, now),
+    await candidatoEmpujeSistema(ctx, user),
   ].filter((candidato): candidato is Candidato => candidato !== null);
 
   return crudos.map((candidato) => {

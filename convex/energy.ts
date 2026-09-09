@@ -835,6 +835,11 @@ export const profile = kinoZodQuery({
 /**
  * Cambiar lo que declaraste de tu energía. Es lo que queda en Ajustes de los
  * cuatro pasos que salieron del alta: se guarda lo que se toca y nada más.
+ *
+ * **No se publica como tool**, y es la misma razón por la que D-23 retiró
+ * `create_energy_checkin`: lo que dices de ti es el dato más honesto que Kino
+ * tiene, y una máquina escribiéndolo lo contamina. `energy.profile` tampoco,
+ * porque el agente ya lee el cronotipo por `get_user_context`.
  */
 export const updateProfile = kinoZodMutation({
   args: updateEnergyProfileSchema,

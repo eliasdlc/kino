@@ -128,6 +128,27 @@ export const list = kinoZodQuery({
   },
 });
 
+/**
+ * La Bandeja de esta persona, resuelta en el servidor.
+ *
+ * Existe porque `/bandeja` es una entrada de navegación y no puede depender de
+ * que el cliente cargue la lista de sistemas para saber a dónde va: hasta ahora
+ * el id salía de un `systems.find((s) => s.isInbox)` repetido en cuatro sitios,
+ * y meterlo en la barra inferior habría sido el quinto. Devuelve `null` cuando
+ * la cuenta todavía no tiene Bandeja, que es lo que pasa entre el registro y
+ * `systems.setup`.
+ */
+export const inbox = kinoZodQuery({
+  args: {},
+  handler: async (ctx) => {
+    const doc = await ctx.db
+      .query('systems')
+      .withIndex('by_user_inbox', (q) => q.eq('userId', ctx.user._id).eq('isInbox', true))
+      .first();
+    return doc && doc.isActive ? systemItem(doc) : null;
+  },
+});
+
 export const byId = kinoZodQuery({
   args: { id: zid('systems') },
   handler: async (ctx, { id }) => {
