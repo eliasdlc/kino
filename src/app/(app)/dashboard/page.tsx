@@ -6,6 +6,7 @@ import { TodayPlanCard } from "@/features/dashboard/TodayPlanCard";
 import { EnergyTodayCard } from "@/features/dashboard/EnergyTodayCard";
 import { AdvisorCard } from "@/features/dashboard/AdvisorCard";
 import { OverBudgetExit } from "@/features/energy/OverBudgetExit";
+import { CeilingMutedNotice } from "@/features/energy/CeilingMutedNotice";
 import { FocusNowCard } from "@/features/dashboard/FocusNowCard";
 import { InterruptionLine } from "@/features/today/InterruptionLine";
 import { AgentActivityRow } from "@/features/today/AgentActivityRow";
@@ -65,6 +66,10 @@ export default async function DashboardPage() {
           {/* El día que no cabe. Decide solo si se pinta, leyendo el
               presupuesto real, y se va cuando el día vuelve a caber. */}
           <OverBudgetExit />
+
+          {/* El instrumento descalibrado. No pide nada, así que no gasta la
+              apertura del día: informa y enseña sus catorce mediciones. */}
+          <CeilingMutedNotice />
 
           {topPattern ? (
             <AdvisorCard

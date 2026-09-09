@@ -243,6 +243,16 @@ export const DESHACER: Record<string, FormaDeDeshacer> = {
   'energy.applyWeeklyRitual': { forma: 'inverse' },
   'energy.applyCeiling': { forma: 'inverse' },
   'energy.updateProfile': { forma: 'inverse' },
+  'energy.unmuteCeiling': {
+    forma: 'no',
+    motivo:
+      'Encender el techo lo aceptaste tú desde la línea de Hoy. Para volver a apagarlo no hace falta deshacer nada: el instrumento lo apaga solo en cuanto vuelva a fallar catorce días.',
+  },
+  'energy.muteCeiling': {
+    forma: 'no',
+    motivo:
+      'El techo se apagó porque el instrumento llevaba catorce días fallando. Vuelve cuando vuelva a acertar, y esa vuelta se propone: deshacerla desde aquí sería saltarse la cola.',
+  },
 
   'log.deshacer': {
     forma: 'no',

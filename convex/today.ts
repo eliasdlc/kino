@@ -9,10 +9,12 @@ import type { MutationCtx, QueryCtx } from './_generated/server';
 import { interruptionKind, type InterruptionKind } from './schema';
 import { laInterrupcion, type Candidato } from './lib/today/queue';
 import { calendarDayInTz, userToday } from './lib/time';
-import { techoPropuesto } from './energy';
+import { estadoDeHonestidad, techoPropuesto } from './energy';
 import { caducada, evidenciaViva, type Cancelable } from './proposals';
 import { weekdayOf } from '../src/features/energy/energy.ritual';
 import { SYSTEM_TYPE_CONFIG, type SystemType } from '../src/shared/lib/system-types';
+import { cronotipoDePico, DIAS_DE_ERROR, VOLVER_POR_DEBAJO_DE } from '../src/features/energy/energy.honesty';
+import { findPeakRange } from '../src/features/energy/energy.utils';
 
 // Hoy: lo único que Kino pregunta en todo el día.
 //
@@ -103,6 +105,53 @@ async function candidatoTecho(ctx: Ctx, user: Doc<'users'>, now: number): Promis
     kind: 'techo',
     key: `${techo.cierres}-${techo.propuesto}`,
     payload: { ...techo, evidencia: techo.evidencia },
+  };
+}
+
+/**
+ * La vuelta del techo, como candidato.
+ *
+ * Apagarlo lo hace Kino solo porque apagar es la dirección segura; encenderlo
+ * es volver a opinar sobre el día de alguien, así que se propone. La clave lleva
+ * el error medido: si el instrumento mejora más, vuelve a preguntar con la cifra
+ * nueva en vez de quedarse callado con una vieja acusada.
+ */
+async function candidatoVueltaDelTecho(ctx: Ctx, user: Doc<'users'>, now: number): Promise<Candidato | null> {
+  const estado = await estadoDeHonestidad(ctx, user, now);
+  if (!estado || estado.decision !== 'proponerVuelta' || estado.error === null) return null;
+  return {
+    kind: 'techo',
+    key: `vuelta:${estado.error}`,
+    payload: { vuelta: true, error: estado.error, dias: estado.dias, umbral: VOLVER_POR_DEBAJO_DE },
+  };
+}
+
+/**
+ * El cronotipo diferido, como candidato.
+ *
+ * El alta sacó esta pregunta del camino de entrada con el argumento de que un
+ * perfil declarado el día 1 es una suposición. Este es el "después, cuando haya
+ * datos que lo justifiquen": catorce días de curva medida, y la pregunta llega
+ * con esa curva delante.
+ *
+ * **No se pregunta con el techo apagado.** Pedirle a la persona que arregle a
+ * mano el cronotipo mientras el instrumento acaba de admitir que no sabe medir
+ * es pedirle que tape el fallo de Kino.
+ */
+async function candidatoCronotipo(ctx: Ctx, user: Doc<'users'>, now: number): Promise<Candidato | null> {
+  const estado = await estadoDeHonestidad(ctx, user, now);
+  if (!estado || estado.apagado) return null;
+  if (estado.dias < DIAS_DE_ERROR || !estado.curva) return null;
+
+  const pico = findPeakRange(estado.curva);
+  const medido = cronotipoDePico(pico.start);
+  // Proponer el que ya tiene es no proponer nada.
+  if (medido === estado.chronotypeDeclarado) return null;
+
+  return {
+    kind: 'cronotipo',
+    key: medido,
+    payload: { medido, declarado: estado.chronotypeDeclarado, dias: estado.dias, pico },
   };
 }
 
@@ -235,20 +284,22 @@ async function candidatoEmpujeSistema(ctx: Ctx, user: Doc<'users'>): Promise<Can
  * cada uno.
  *
  * Una clase entra en esta lista cuando su línea puede hacer algo. Hoy son el
- * lunes, el techo, el ritual, la propuesta del agente y el empuje de un
+ * lunes, el techo (su propuesta del séptimo día y su vuelta tras apagarse), el
+ * cronotipo diferido, el ritual, la propuesta del agente y el empuje de un
  * sistema lleno.
  *
  * `autoArchivo` sigue sin productor y va a seguir sin él: archivar no existe en
  * Kino (D-09), así que nada lo puede emitir. El nivel se queda en la cola
  * porque quitarlo es tocar el schema por nada; el día que archivar vuelva, lo
- * único que falta es quien lo produzca. El cronotipo engancha la suya en su
- * propio ticket.
+ * único que falta es quien lo produzca.
  */
 async function candidatos(ctx: Ctx, user: Doc<'users'>, now: number): Promise<Candidato[]> {
   const historial = await mostradas(ctx, user._id);
   const crudos = [
     await candidatoLunes(ctx, user, now),
     await candidatoTecho(ctx, user, now),
+    await candidatoVueltaDelTecho(ctx, user, now),
+    await candidatoCronotipo(ctx, user, now),
     await candidatoRitual(ctx, user, now),
     await candidatoPropuesta(ctx, user, now),
     await candidatoEmpujeSistema(ctx, user),

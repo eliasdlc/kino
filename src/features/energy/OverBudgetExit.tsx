@@ -42,9 +42,9 @@ export function OverBudgetExit() {
       aria-labelledby="sobregiro"
       className="space-y-3 rounded-2xl border border-primary bg-primary/8 p-4"
     >
-      <p id="sobregiro" className="font-display text-xl font-bold tracking-[-0.02em] text-primary">
+      <h2 id="sobregiro" className="font-display text-xl font-bold tracking-[-0.02em] text-primary">
         El día queda en {exit.committed} de {exit.limit} puntos.
-      </p>
+      </h2>
 
       {exit.mover.length > 0 && (
         <>

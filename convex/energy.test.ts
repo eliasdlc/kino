@@ -44,6 +44,160 @@ describe('energy', () => {
     expect(insight.chronotype).toBe('morning');
   });
 
+  /** `dias` dias de prediccion verificada, cada uno errando `error` puntos. */
+  async function conMediciones(
+    t: Awaited<ReturnType<typeof seed>>['t'],
+    userId: Awaited<ReturnType<typeof seed>>['userId'],
+    dias: number,
+    error: number,
+  ) {
+    await t.run(async (ctx) => {
+      for (let i = 1; i <= dias; i++) {
+        const date = new Date(Date.now() - i * 86_400_000).toISOString().slice(0, 10);
+        await ctx.db.insert('energyPredictions', {
+          userId, date, slot: 'morning', predictedLevel: 50, alphaAtPrediction: 0.5, createdAt: 1,
+        });
+        await ctx.db.insert('energyCheckins', {
+          userId, date, slot: 'morning', currentLevel: 50 - error, sleepQuality: 'partial', createdAt: 1,
+        });
+      }
+      return null;
+    });
+  }
+
+  const techoApagado = (t: Awaited<ReturnType<typeof seed>>['t'], userId: Awaited<ReturnType<typeof seed>>['userId']) =>
+    t.run(async (ctx) => {
+      const perfil = await ctx.db
+        .query('userEnergyProfile')
+        .withIndex('by_user', (q) => q.eq('userId', userId))
+        .unique();
+      return perfil?.ceilingMutedAt !== undefined;
+    });
+
+  it('con trece dias de error el interruptor no puede dispararse', async () => {
+    const { t, asAna, userId } = await seed();
+    await conMediciones(t, userId, 13, 40);
+
+    await asAna.mutation(api.energy.ensureTodayPredictions, {});
+
+    expect(await techoApagado(t, userId)).toBe(false);
+    expect(await asAna.query(api.energy.ceilingHonesty, {})).toBeNull();
+  });
+
+  it('con catorce dias y el error por encima de 25 el techo se apaga solo, y lo dice', async () => {
+    const { t, asAna, userId } = await seed();
+    await conMediciones(t, userId, 14, 31);
+
+    await asAna.mutation(api.energy.ensureTodayPredictions, {});
+
+    expect(await techoApagado(t, userId)).toBe(true);
+    const confesion = await asAna.query(api.energy.ceilingHonesty, {});
+    expect(confesion).toMatchObject({ errorMedio: 31, dias: 14, umbral: 25 });
+    // Cada una de las catorce señala su fila: su dia, lo que Kino dijo y lo que paso.
+    expect(confesion!.predicciones).toHaveLength(14);
+    for (const p of confesion!.predicciones) {
+      expect(p.predicted).toBe(50);
+      expect(p.reported).toBe(19);
+      expect(p.error).toBe(31);
+    }
+  });
+
+  it('la vuelta se propone y no se aplica sola', async () => {
+    const { t, asAna, userId } = await seed();
+    await conMediciones(t, userId, 14, 5);
+    await t.run(async (ctx) => {
+      const perfil = await ctx.db
+        .query('userEnergyProfile')
+        .withIndex('by_user', (q) => q.eq('userId', userId))
+        .unique();
+      await ctx.db.patch(perfil!._id, { ceilingMutedAt: Date.now() - 86_400_000 });
+      return null;
+    });
+
+    await asAna.mutation(api.energy.ensureTodayPredictions, {});
+
+    // Sigue apagado: encenderlo es volver a opinar sobre el dia de alguien.
+    expect(await techoApagado(t, userId)).toBe(true);
+    // Y aparece como propuesta en la cola, no como un hecho consumado.
+    expect(await asAna.query(api.today.interruption, {})).toMatchObject({
+      kind: 'techo',
+      payload: { vuelta: true, error: 5, dias: 14 },
+    });
+
+    // Aceptarla es lo que lo enciende.
+    await asAna.mutation(api.energy.unmuteCeiling, {});
+    expect(await techoApagado(t, userId)).toBe(false);
+  });
+
+  it('entre los dos umbrales el techo no parpadea', async () => {
+    const { t, asAna, userId } = await seed();
+    await conMediciones(t, userId, 14, 20);
+    await t.run(async (ctx) => {
+      const perfil = await ctx.db
+        .query('userEnergyProfile')
+        .withIndex('by_user', (q) => q.eq('userId', userId))
+        .unique();
+      await ctx.db.patch(perfil!._id, { ceilingMutedAt: Date.now() - 86_400_000 });
+      return null;
+    });
+
+    await asAna.mutation(api.energy.ensureTodayPredictions, {});
+
+    // Ni se enciende (20 no baja de 15) ni se propone encenderlo.
+    expect(await techoApagado(t, userId)).toBe(true);
+    const linea = await asAna.query(api.today.interruption, {});
+    expect(linea === null || linea.payload.vuelta !== true).toBe(true);
+  });
+
+  it('con el techo apagado no se pregunta el cronotipo', async () => {
+    const { t, asAna, userId } = await seed();
+    await conMediciones(t, userId, 14, 31);
+    await t.run(async (ctx) => {
+      const perfil = await ctx.db
+        .query('userEnergyProfile')
+        .withIndex('by_user', (q) => q.eq('userId', userId))
+        .unique();
+      // Una curva medida cuyo pico es de tarde, contra un cronotipo de mañana.
+      await ctx.db.patch(perfil!._id, {
+        learnedCurve: Array.from({ length: 24 }, (_, h) => (h >= 18 && h <= 21 ? 90 : 20)),
+        learningAlpha: 0.6,
+      });
+      return null;
+    });
+
+    await asAna.mutation(api.energy.ensureTodayPredictions, {});
+
+    // Pedirle que arregle a mano el cronotipo mientras el instrumento acaba de
+    // admitir que no sabe medir es pedirle que tape el fallo de Kino.
+    expect(await techoApagado(t, userId)).toBe(true);
+    const linea = await asAna.query(api.today.interruption, {});
+    expect(linea?.kind).not.toBe('cronotipo');
+  });
+
+  it('con el techo bien y catorce dias, el cronotipo se pregunta con la curva delante', async () => {
+    const { t, asAna, userId } = await seed();
+    await conMediciones(t, userId, 14, 5);
+    await t.run(async (ctx) => {
+      const perfil = await ctx.db
+        .query('userEnergyProfile')
+        .withIndex('by_user', (q) => q.eq('userId', userId))
+        .unique();
+      await ctx.db.patch(perfil!._id, {
+        learnedCurve: Array.from({ length: 24 }, (_, h) => (h >= 18 && h <= 21 ? 90 : 20)),
+        learningAlpha: 0.6,
+      });
+      return null;
+    });
+
+    await asAna.mutation(api.energy.ensureTodayPredictions, {});
+
+    expect(await asAna.query(api.today.interruption, {})).toMatchObject({
+      kind: 'cronotipo',
+      key: 'evening',
+      payload: { medido: 'evening', declarado: 'morning', dias: 14 },
+    });
+  });
+
   it('la salida del sobregiro no existe mientras el dia cabe', async () => {
     const { asAna, systemId } = await seed();
     await asAna.mutation(api.tasks.create, { systemId, title: 'Una sola', energyLevel: 'high', startDate: new Date().toISOString() });

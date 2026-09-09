@@ -7,6 +7,15 @@ import { computeEnergyBudget, energyPointsFor } from '../src/features/energy/ene
 import { buildBudgetPlan, buildEnergyPlan, type DeferralReason } from '../src/features/energy/energy.planner';
 import { buildVerificationLoop, predictLevelForSlot, SLOT_HOUR_RANGES } from '../src/features/energy/energy.prediction';
 import { buildWeeklyRitual, nextDays, weekdayOf, type RitualDay } from '../src/features/energy/energy.ritual';
+import {
+  APAGAR_POR_ENCIMA_DE,
+  decisionDelTecho,
+  DIAS_DE_ERROR,
+  diasMedidos,
+  errorDe,
+  errorMedio,
+  type PrediccionVerificada,
+} from '../src/features/energy/energy.honesty';
 import { updateEnergyProfileSchema } from '../src/features/energy/energy.schemas';
 import {
   buildPeakAdvice,
@@ -25,7 +34,7 @@ import {
 } from '../src/features/energy/energy.utils';
 import { recordEvent } from './eventLog';
 import { invalid, notFound } from './lib/errors';
-import { kinoZodMutation, kinoZodQuery } from './lib/fn';
+import { kinoZodMutation, kinoZodQuery, type Channel } from './lib/fn';
 import { toTaskRow } from './lib/tasks/row';
 import { calendarDayInTz, userToday, userTomorrow } from './lib/time';
 import { defaultSettings } from './settings';
@@ -151,11 +160,144 @@ async function ensurePredictions(ctx: MutationCtx, user: Doc<'users'>, profile: 
   }
 }
 
-export const ensureTodayPredictions = kinoZodMutation({
+/**
+ * Las predicciones de los últimos catorce días que ya tienen su comprobación.
+ *
+ * Sólo cuentan las que se pueden verificar: una predicción sin check-in no dice
+ * nada de si Kino acertó, y meterla como acierto o como fallo sería inventarse
+ * el dato con el que el producto va a admitir que se equivoca.
+ */
+async function prediccionesVerificadas(
+  ctx: Ctx,
+  user: Doc<'users'>,
+  now = Date.now(),
+): Promise<PrediccionVerificada[]> {
+  const desde = calendarDayInTz(now - DIAS_DE_ERROR * DAY_MS, user.timezone);
+  const [predicciones, checkins] = await Promise.all([
+    ctx.db
+      .query('energyPredictions')
+      .withIndex('by_user_day_slot', (q) => q.eq('userId', user._id).gte('date', desde))
+      .collect(),
+    ctx.db
+      .query('energyCheckins')
+      .withIndex('by_user_day_slot', (q) => q.eq('userId', user._id).gte('date', desde))
+      .collect(),
+  ]);
+
+  const reportado = new Map(checkins.map((c) => [`${c.date}:${c.slot}`, c.currentLevel]));
+  const verificadas: PrediccionVerificada[] = [];
+  for (const p of predicciones) {
+    const reported = reportado.get(`${p.date}:${p.slot}`);
+    if (reported === undefined) continue;
+    verificadas.push({ date: p.date, slot: p.slot, predicted: p.predictedLevel, reported });
+  }
+  return verificadas.sort((a, b) => a.date.localeCompare(b.date));
+}
+
+/**
+ * El interruptor de honestidad, evaluado al abrir el día.
+ *
+ * Apagar el techo es la única escritura automática del producto sobre un dato
+ * de la persona, y se justifica porque apagar es la dirección segura: un techo
+ * que miente sigue midiendo el día, un techo apagado sólo deja de opinar.
+ * Volver a encenderlo no se escribe aquí: se propone, y pasa por la cola.
+ */
+async function evaluarHonestidad(ctx: MutationCtx, user: Doc<'users'>, channel: Channel, now: number) {
+  const profile = await profileOf(ctx, user._id);
+  if (!profile) return;
+
+  const verificadas = await prediccionesVerificadas(ctx, user, now);
+  if (decisionDelTecho(verificadas, profile.ceilingMutedAt !== undefined) !== 'apagar') return;
+
+  await ctx.db.patch(profile._id, { ceilingMutedAt: now, updatedAt: now });
+  await recordEvent(ctx, {
+    userId: user._id,
+    actorChannel: channel,
+    action: 'energy.muteCeiling',
+    targetType: 'task',
+    targetId: profile._id,
+    payload: { errorMedio: errorMedio(verificadas), dias: diasMedidos(verificadas) },
+  });
+}
+
+/**
+ * Lo que el aviso del techo apagado necesita: la cifra, sobre cuántos días, y
+ * las catorce predicciones que lo demuestran, cada una con su fila.
+ *
+ * `null` cuando el techo está encendido: no hay nada que confesar.
+ */
+/**
+ * Encender el techo otra vez.
+ *
+ * Apagarlo lo hace Kino solo, porque apagar es la dirección segura. Encenderlo
+ * no: eso es volver a opinar sobre el día de alguien, así que se propone y pasa
+ * por la cola. Esta mutación es lo que esa propuesta ejecuta cuando se acepta.
+ */
+export const unmuteCeiling = kinoZodMutation({
   args: {},
   handler: async (ctx) => {
     const profile = await profileOf(ctx, ctx.user._id);
-    if (profile) await ensurePredictions(ctx, ctx.user, profile, Date.now());
+    if (!profile) invalid('Todavía no hay perfil de energía.');
+    if (profile.ceilingMutedAt === undefined) return { ok: true as const };
+
+    await ctx.db.patch(profile._id, { ceilingMutedAt: undefined, updatedAt: Date.now() });
+    await recordEvent(ctx, {
+      userId: ctx.user._id,
+      actorChannel: ctx.channel,
+      action: 'energy.unmuteCeiling',
+      targetType: 'task',
+      targetId: profile._id,
+      payload: {},
+    });
+    return { ok: true as const };
+  },
+});
+
+/**
+ * El estado del interruptor para la cola: cuántos días medidos, cuánto error, y
+ * si el techo está apagado ahora mismo. Lo consumen los dos candidatos de la
+ * tercera prioridad que esta ventana de datos desbloquea.
+ */
+export async function estadoDeHonestidad(ctx: Ctx, user: Doc<'users'>, now = Date.now()) {
+  const profile = await profileOf(ctx, user._id);
+  if (!profile) return null;
+  const verificadas = await prediccionesVerificadas(ctx, user, now);
+  return {
+    apagado: profile.ceilingMutedAt !== undefined,
+    dias: diasMedidos(verificadas),
+    error: errorMedio(verificadas),
+    decision: decisionDelTecho(verificadas, profile.ceilingMutedAt !== undefined),
+    chronotypeDeclarado: profile.chronotype,
+    curva: learnedOf(profile)?.curve ?? null,
+  };
+}
+
+export const ceilingHonesty = kinoZodQuery({
+  args: {},
+  handler: async (ctx) => {
+    const profile = await profileOf(ctx, ctx.user._id);
+    if (!profile || profile.ceilingMutedAt === undefined) return null;
+
+    const verificadas = await prediccionesVerificadas(ctx, ctx.user);
+    return {
+      mutedAt: iso(profile.ceilingMutedAt),
+      errorMedio: errorMedio(verificadas),
+      dias: diasMedidos(verificadas),
+      umbral: APAGAR_POR_ENCIMA_DE,
+      // Cada una señala su fila: día, slot, lo que Kino dijo y lo que pasó.
+      predicciones: verificadas.map((p) => ({ ...p, error: errorDe(p) })),
+    };
+  },
+});
+
+export const ensureTodayPredictions = kinoZodMutation({
+  args: {},
+  handler: async (ctx) => {
+    const now = Date.now();
+    const profile = await profileOf(ctx, ctx.user._id);
+    if (profile) await ensurePredictions(ctx, ctx.user, profile, now);
+    // Abrir el día es cuando el instrumento se mira a sí mismo.
+    await evaluarHonestidad(ctx, ctx.user, ctx.channel, now);
     return null;
   },
 });
