@@ -68,12 +68,21 @@ describe('kinoQuery, kinoMutation y kinoAction', () => {
     expect(await codeOf(t.withIdentity(ana).query(api.lib.fnFixture.read, {}))).toBe('NO_USER');
   });
 
-  it('una acción lleva su presupuesto y sabe cuánto le queda', async () => {
+  it('una acción lleva su presupuesto y lo va gastando', async () => {
     const t = convexTest(schema, modules);
     const asAna = t.withIdentity(ana);
     await asAna.mutation(api.lib.fnFixture.write, {});
-    const result = await asAna.action(api.lib.fnFixture.act, { waitMs: 20 });
-    expect(result.remainingMs).toBeLessThanOrEqual(30);
+
+    // La fixture nace con 50 ms. Lo que se comprueba es la propiedad, no la
+    // resta exacta: `setTimeout` puede despertar un milisegundo antes de lo que
+    // `Date.now()` cuenta, y contra ese ruido un techo de 30 falla en CI sin
+    // que nada esté roto.
+    const corto = await asAna.action(api.lib.fnFixture.act, { waitMs: 5 });
+    const largo = await asAna.action(api.lib.fnFixture.act, { waitMs: 30 });
+
+    expect(corto.remainingMs).toBeLessThanOrEqual(50);
+    expect(largo.remainingMs).toBeGreaterThanOrEqual(0);
+    expect(largo.remainingMs).toBeLessThan(corto.remainingMs);
   });
 });
 
