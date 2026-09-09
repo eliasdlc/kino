@@ -6,8 +6,10 @@
  * una salida de grupo que no obliga a resolverlas de una en una.
  */
 import { convexTest } from 'convex-test';
+import { ConvexError } from 'convex/values';
 import { describe, expect, it } from 'vitest';
 import { api } from './_generated/api';
+import { MCP_TOKEN_ISSUER } from './lib/mcpToken';
 import { EXPIRES_IN_DAYS, MAX_PENDING, REWRITE_MAX_BYTES } from './proposals';
 import schema from './schema';
 
@@ -275,5 +277,51 @@ describe('la propuesta en Hoy', () => {
     const bob = t.withIdentity({ subject: 'user_bob', email: 'bob@usekino.dev', name: 'Bob' });
     await bob.mutation(api.users.ensure, {});
     await expect(bob.mutation(api.proposals.aplicar, { id })).rejects.toThrow();
+  });
+});
+
+describe('las dos ramas del agente que sólo propone', () => {
+  it('la escritura directa se rechaza nombrando la salida, y la propuesta que crea aparece en Hoy con su evidencia', async () => {
+    const t = convexTest(schema, modules);
+    const { asAna, systemId } = await seed(t);
+    const tarea = await asAna.mutation(api.tasks.create, { systemId, title: 'Marco teórico' });
+    const agente = t.withIdentity({ ...ana, issuer: MCP_TOKEN_ISSUER, kino_scope: 'propose', kino_client: 'claude_desktop' });
+
+    // Rama uno: lo que el catálogo ya no publica, y que además el alcance no
+    // alcanza. El error no es un 403 seco: dice qué hacer en su lugar.
+    const error = await agente.mutation(api.tasks.remove, { id: tarea.id }).catch((e: unknown) => e);
+    expect(error).toBeInstanceOf(ConvexError);
+    const datos = (error as ConvexError<{ code: string; salida: string }>).data;
+    expect(datos.code).toBe('FORBIDDEN_SCOPE');
+    expect(datos.salida).toContain('propose_change');
+    const sigueViva = await t.run((ctx) => ctx.db.query('tasks').collect().then((f) => f.find((x) => x._id === tarea.id)!));
+    expect(sigueViva.deletedAt).toBeUndefined();
+
+    // Rama dos: la salida que el error nombra sí funciona, y termina en Hoy.
+    const { id } = await agente.mutation(api.proposals.create, {
+      kind: 'cancel',
+      evidenceType: 'task',
+      evidenceId: tarea.id,
+      motivo: 'Lleva dos meses sin tocarse',
+    });
+
+    expect(await asAna.query(api.today.interruption, {})).toMatchObject({
+      kind: 'agente',
+      key: id,
+      payload: { kind: 'cancel', motivo: 'Lleva dos meses sin tocarse', evidencia: { titulo: 'Marco teórico' } },
+    });
+  });
+
+  it('quien sólo lee no llega ni a proponer, y el error dice qué alcance le falta', async () => {
+    const t = convexTest(schema, modules);
+    const { asAna, systemId } = await seed(t);
+    const tarea = await asAna.mutation(api.tasks.create, { systemId, title: 'Marco teórico' });
+    const lector = t.withIdentity({ ...ana, issuer: MCP_TOKEN_ISSUER, kino_scope: 'read', kino_client: 'claude_desktop' });
+
+    const error = await lector
+      .mutation(api.proposals.create, { kind: 'cancel', evidenceType: 'task', evidenceId: tarea.id })
+      .catch((e: unknown) => e);
+
+    expect((error as ConvexError<{ salida: string }>).data.salida).toContain('documents:propose');
   });
 });
