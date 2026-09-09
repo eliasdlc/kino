@@ -2,7 +2,13 @@ import { describe, it, expect } from 'vitest';
 import { detectTopPattern } from './energy.advisor';
 import type { SnapshotLike } from './energy.advisor';
 
-const AVAILABLE_HOURS = 8;
+/**
+ * Los dos patrones que quedan. Los otros dos se fueron y no vuelven, y por eso
+ * hay un test que lo dice: `underuse` se borró el 8 de septiembre (D-22) porque
+ * apuntaba a una ausencia y no a una fila, y su señal ya la da el estado de
+ * regreso; `overload` dejó de ser una heurística sobre la instantánea de ayer y
+ * pasó a ser la salida del sobregiro, que lee el presupuesto real del día.
+ */
 
 function makeSnapshot(overrides: Partial<SnapshotLike> = {}): SnapshotLike {
   return {
@@ -17,89 +23,55 @@ function makeSnapshot(overrides: Partial<SnapshotLike> = {}): SnapshotLike {
 }
 
 describe('detectTopPattern', () => {
-  it('returns null when all metrics are healthy', () => {
-    const today = makeSnapshot();
-    const result = detectTopPattern(today, [], AVAILABLE_HOURS);
-    expect(result).toBeNull();
+  it('no dice nada cuando no hay nada que decir', () => {
+    expect(detectTopPattern(makeSnapshot(), [])).toBeNull();
   });
 
-  it('detects overload when criticalCount > 5', () => {
-    const today = makeSnapshot({ criticalCount: 8, activeCount: 10 });
-    const result = detectTopPattern(today, [], AVAILABLE_HOURS);
-    expect(result?.id).toBe('overload');
+  it('ve el abandono con más de diez vencidas', () => {
+    expect(detectTopPattern(makeSnapshot({ tasksOverdue: 15 }), [])?.id).toBe('abandonment');
   });
 
-  it('detects overload when activeCount exceeds 2× availableHoursPerDay', () => {
-    const today = makeSnapshot({ activeCount: 17, criticalCount: 0 });
-    const result = detectTopPattern(today, [], AVAILABLE_HOURS);
-    expect(result?.id).toBe('overload');
-  });
-
-  it('detects abandonment when tasksOverdue > 10', () => {
-    const today = makeSnapshot({ tasksOverdue: 15 });
-    const result = detectTopPattern(today, [], AVAILABLE_HOURS);
-    expect(result?.id).toBe('abandonment');
-  });
-
-  it('detects abandonment when recent completion rate is consistently low', () => {
-    const today = makeSnapshot({ tasksOverdue: 2 });
+  it('ve el abandono cuando la tasa de cierre lleva días baja', () => {
     const recent = [
       makeSnapshot({ completionRate: 0.1 }),
       makeSnapshot({ completionRate: 0.15 }),
       makeSnapshot({ completionRate: 0.2 }),
     ];
-    const result = detectTopPattern(today, recent, AVAILABLE_HOURS);
-    expect(result?.id).toBe('abandonment');
+    expect(detectTopPattern(makeSnapshot({ tasksOverdue: 2 }), recent)?.id).toBe('abandonment');
   });
 
-  it('detects disorganization when >70% of active tasks are critical', () => {
-    const today = makeSnapshot({ criticalCount: 9, activeCount: 10 });
-    const result = detectTopPattern(today, [], AVAILABLE_HOURS);
-    // overload (criticalCount > 5) has higher score than disorganization
-    // score overload = 3×3×3=27, disorg = 2×2×3=12 → overload wins
-    expect(result?.id).toBe('overload');
-  });
-
-  it('detects disorganization exclusively when only that pattern applies', () => {
-    // criticalCount=4 (<5 → no overload), ratio=4/5=0.8 → disorganization
-    const today = makeSnapshot({ criticalCount: 4, activeCount: 5 });
-    const result = detectTopPattern(today, [], AVAILABLE_HOURS);
-    expect(result?.id).toBe('disorganization');
-  });
-
-  it('detects underuse when recent activity is consistently low', () => {
-    const today = makeSnapshot({ tasksCreated: 1, tasksCompleted: 0 });
-    const recent = Array.from({ length: 5 }, () =>
-      makeSnapshot({ tasksCreated: 1, tasksCompleted: 0 }),
+  it('ve el desorden cuando casi todo está marcado como crítico', () => {
+    expect(detectTopPattern(makeSnapshot({ criticalCount: 4, activeCount: 5 }), [])?.id).toBe(
+      'disorganization',
     );
-    const result = detectTopPattern(today, recent, AVAILABLE_HOURS);
-    expect(result?.id).toBe('underuse');
   });
 
-  it('returns the highest-scoring pattern when multiple are active', () => {
-    // Both overload and abandonment apply: overload score=27, abandonment score=18
-    const today = makeSnapshot({ criticalCount: 8, activeCount: 10, tasksOverdue: 15 });
-    const result = detectTopPattern(today, [], AVAILABLE_HOURS);
-    expect(result?.id).toBe('overload');
-    expect(result?.score).toBe(27);
+  it('con los dos activos gana el de más score', () => {
+    const today = makeSnapshot({ criticalCount: 9, activeCount: 10, tasksOverdue: 15 });
+    const result = detectTopPattern(today, []);
+    expect(result?.id).toBe('abandonment');
+    expect(result?.score).toBe(18);
   });
 
-  it('does not crash with empty recent array (cold start)', () => {
-    const today = makeSnapshot();
-    expect(() => detectTopPattern(today, [], AVAILABLE_HOURS)).not.toThrow();
+  it('un día lleno de críticas ya no se llama sobrecarga aquí', () => {
+    // El día que no cabe lo dice `energy.overBudgetExit` con la cifra del
+    // presupuesto real. Si alguien reintroduce la heurística, esto falla.
+    const today = makeSnapshot({ criticalCount: 8, activeCount: 17 });
+    expect(detectTopPattern(today, [])?.id).not.toBe('overload');
   });
 
-  it('does not detect underuse without sufficient recent history (< 3 days)', () => {
-    const today = makeSnapshot({ tasksCreated: 0, tasksCompleted: 0 });
-    const recent = [makeSnapshot({ tasksCreated: 0, tasksCompleted: 0 })];
-    const result = detectTopPattern(today, recent, AVAILABLE_HOURS);
-    // underuse requires >= 3 snapshots in recent
-    expect(result?.id).not.toBe('underuse');
+  it('poco movimiento no es un patrón: eso lo dice el estado de regreso', () => {
+    const quieto = makeSnapshot({ tasksCreated: 1, tasksCompleted: 0, criticalCount: 0, activeCount: 1 });
+    const recent = Array.from({ length: 5 }, () => quieto);
+    expect(detectTopPattern(quieto, recent)).toBeNull();
   });
 
-  it('score equals severity × urgency × actionability', () => {
-    const today = makeSnapshot({ criticalCount: 8, activeCount: 10 });
-    const result = detectTopPattern(today, [], AVAILABLE_HOURS);
+  it('no revienta el primer día, sin historial ninguno', () => {
+    expect(() => detectTopPattern(makeSnapshot(), [])).not.toThrow();
+  });
+
+  it('el score es severidad por urgencia por accionabilidad', () => {
+    const result = detectTopPattern(makeSnapshot({ tasksOverdue: 15 }), []);
     expect(result).not.toBeNull();
     expect(result!.score).toBe(result!.severity * result!.urgency * result!.actionability);
   });

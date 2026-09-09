@@ -5,6 +5,8 @@ import { toTransport } from "@/shared/lib/transport";
 import { TodayPlanCard } from "@/features/dashboard/TodayPlanCard";
 import { EnergyTodayCard } from "@/features/dashboard/EnergyTodayCard";
 import { AdvisorCard } from "@/features/dashboard/AdvisorCard";
+import { OverBudgetExit } from "@/features/energy/OverBudgetExit";
+import { CeilingMutedNotice } from "@/features/energy/CeilingMutedNotice";
 import { FocusNowCard } from "@/features/dashboard/FocusNowCard";
 import { InterruptionLine } from "@/features/today/InterruptionLine";
 import { AgentActivityRow } from "@/features/today/AgentActivityRow";
@@ -59,6 +61,14 @@ export default async function DashboardPage() {
         </section>
 
         <div className="mt-8 flex flex-col gap-6 md:mt-0">
+          {/* Los dos van antes del plan y no después: los dos hablan de la
+              cifra del día, y detrás de un plan de doce tareas el que dice que
+              el día no cabe queda a un scroll de la cifra que lo dice. Ninguno
+              pide una decisión, así que no gastan la apertura del día: deciden
+              solos si se pintan y se van cuando su motivo desaparece. */}
+          <OverBudgetExit />
+          <CeilingMutedNotice />
+
           <TodayPlanCard noProfile={dailyPlan.noProfile} energyItems={energyItems} />
 
           {topPattern ? (

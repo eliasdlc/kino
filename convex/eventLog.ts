@@ -242,6 +242,17 @@ export const DESHACER: Record<string, FormaDeDeshacer> = {
 
   'energy.applyWeeklyRitual': { forma: 'inverse' },
   'energy.applyCeiling': { forma: 'inverse' },
+  'energy.updateProfile': { forma: 'inverse' },
+  'energy.unmuteCeiling': {
+    forma: 'no',
+    motivo:
+      'Encender el techo lo aceptaste tú desde la línea de Hoy. Para volver a apagarlo no hace falta deshacer nada: el instrumento lo apaga solo en cuanto vuelva a fallar catorce días.',
+  },
+  'energy.muteCeiling': {
+    forma: 'no',
+    motivo:
+      'El techo se apagó porque el instrumento llevaba catorce días fallando. Vuelve cuando vuelva a acertar, y esa vuelta se propone: deshacerla desde aquí sería saltarse la cola.',
+  },
 
   'log.deshacer': {
     forma: 'no',
@@ -348,6 +359,21 @@ const INVERSOS: Record<string, (ctx: MutationCtx, fila: Doc<'eventLog'>) => Prom
     if (!perfil) return [];
     await ctx.db.patch(perfil._id, { availableHoursPerDay: fila.payload.anterior as number, updatedAt: Date.now() });
     return ['availableHoursPerDay'];
+  },
+
+  // Sólo los campos que aquel cambio tocó: el resto del perfil pudo moverse
+  // después y devolverlo entero pisaría cambios que nadie pidió deshacer.
+  'energy.updateProfile': async (ctx, fila) => {
+    const perfil = await ctx.db
+      .query('userEnergyProfile')
+      .withIndex('by_user', (q) => q.eq('userId', fila.userId))
+      .unique();
+    if (!perfil) return [];
+    const anterior = fila.payload.anterior;
+    if (typeof anterior !== 'object' || anterior === null) return [];
+    const campos = anterior as Record<string, unknown>;
+    await ctx.db.patch(perfil._id, { ...campos, updatedAt: Date.now() });
+    return Object.keys(campos);
   },
 };
 

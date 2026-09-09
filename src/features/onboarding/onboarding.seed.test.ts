@@ -92,13 +92,15 @@ describe('siembra por arquetipo', () => {
     expect(plan.folders.map((f) => f.name)).not.toContain('Sobrante');
   });
 
-  it('sin unidades, el sistema arranca solo con lo que el arquetipo promete', () => {
-    expect(buildSeedPlan('estudiante', 'Semestre', []).tasks).toHaveLength(1);
-    // `propio` no declara tareas de sistema: si no escribes nada, no se inventa
-    // un tutorial de relleno.
-    const propio = buildSeedPlan('propio', 'Trabajo', []);
-    expect(propio.tasks).toHaveLength(0);
-    expect(propio.folders).toHaveLength(0);
+  it('sin unidades, cada arquetipo estrena el día con una tarea y ni una más', () => {
+    // Es el único caso que existe con el alta de dos pantallas: nadie escribe
+    // unidades, así que lo que se siembra sale entero del manifiesto y tiene
+    // que bastar para que Hoy no llegue en blanco.
+    for (const identity of ARCHETYPE_IDENTITIES) {
+      const plan = buildSeedPlan(identity, 'Sistema', []);
+      expect(plan.folders, identity).toHaveLength(0);
+      expect(plan.tasks.filter((t) => t.startsToday), identity).toHaveLength(1);
+    }
   });
 
   it('nunca estrena el día con más de una tarea, sean cuantas sean las unidades', () => {
@@ -121,8 +123,11 @@ describe('siembra por arquetipo', () => {
   it('lo que escribe quien elige "algo mío" queda tal cual como tarea', () => {
     const plan = buildSeedPlan('propio', 'Trabajo', [{ name: 'Llamar al banco' }]);
     expect(plan.folders).toHaveLength(0);
-    expect(plan.tasks).toEqual([
-      { title: 'Llamar al banco', startsToday: false, metadata: null },
-    ]);
+    // Su texto entra sin tocar y detrás de lo que el manifiesto siembra.
+    expect(plan.tasks).toContainEqual({
+      title: 'Llamar al banco',
+      startsToday: false,
+      metadata: null,
+    });
   });
 });

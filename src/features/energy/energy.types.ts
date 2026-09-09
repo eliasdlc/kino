@@ -10,3 +10,12 @@ export type LearningInsight = FunctionReturnType<typeof api.energy.learningInsig
 export type WeeklyTrend = FunctionReturnType<typeof api.energy.weeklyTrends>;
 export type TodayAdvisor = FunctionReturnType<typeof api.energy.advisor>;
 export type { AdvisorBulkAction } from "@convex/energy";
+
+/**
+ * Algo que te sube o te baja la energía, con cuánto. Se declara en Ajustes y
+ * viaja tal cual a `userEnergyProfile.rechargePresets`.
+ */
+export interface RechargePreset {
+  label: string;
+  delta: number;
+}

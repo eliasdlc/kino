@@ -128,8 +128,11 @@ export function KinoSuggestedSection() {
     if (budget && task) {
       const { crosses, overBy, next } = crossesLimitWith(budget, task);
       if (crosses) {
-        toast('Este plan pasa tu presupuesto de energía', {
-          description: `Quedaría en ${next}/${budget.limit} pts (+${overBy}). Nada te frena: es para que lo sepas.`,
+        // La cifra delante y el día como sujeto, igual que la salida del
+        // sobregiro: Kino no se presenta como una autoridad que elige no
+        // ejercerse.
+        toast(`El día quedaría en ${next} de ${budget.limit} puntos`, {
+          description: `${overBy} por encima. Nada se bloquea.`,
         });
       }
     }

@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { Bot, CalendarClock, Gauge, NotebookPen } from 'lucide-react';
+import { Bot, CalendarClock, Gauge, NotebookPen, Sunrise } from 'lucide-react';
 import { InterruptionBody } from './InterruptionBody';
 import { CeilingProposalBody, type CeilingProposal } from './CeilingProposalBody';
 import { ProposalBody, type Proposal } from './ProposalBody';
@@ -10,6 +10,7 @@ import type { Id } from '@convex/_generated/dataModel';
 import { Button } from '@/components/ui/button';
 import { useConvexMutation, useConvexQuery } from '@/shared/convex/hooks';
 import { WeeklyRitualDialog } from '@/features/energy/WeeklyRitualDialog';
+import { ChronotypeAsk, type ChronotypeMeasurement } from '@/features/energy/ChronotypeAsk';
 
 /**
  * La única interrupción del día, encima del plan.
@@ -46,11 +47,37 @@ function contenidoDe(kind: string, payload: Record<string, unknown>): Contenido 
     };
   }
   if (kind === 'techo') {
+    // La misma clase cubre las dos cosas que se pueden proponer del techo: el
+    // del séptimo día, y su vuelta después de que el instrumento se apagara
+    // solo por llevar catorce días fallando.
+    if (payload.vuelta === true) {
+      const error = typeof payload.error === 'number' ? payload.error : 0;
+      const dias = typeof payload.dias === 'number' ? payload.dias : 0;
+      return {
+        texto: (
+          <>
+            <b className="font-semibold text-foreground">
+              Vuelvo a acertar: {error} puntos de error en {dias} días
+            </b>
+            . Puedo volver a decirte cuánto cabe en tu día.
+          </>
+        ),
+        accion: 'Encender el techo',
+        icono: Gauge,
+      };
+    }
     const propuesta = payload as unknown as CeilingProposal;
     return {
       texto: <CeilingProposalBody propuesta={propuesta} />,
       accion: 'Ajustar el techo',
       icono: Gauge,
+    };
+  }
+  if (kind === 'cronotipo') {
+    return {
+      texto: <ChronotypeAsk medicion={payload as unknown as ChronotypeMeasurement} />,
+      accion: 'Usar el medido',
+      icono: Sunrise,
     };
   }
   if (kind === 'ritual') {
@@ -85,6 +112,8 @@ export function InterruptionLine() {
   const { mutate: acusar } = useConvexMutation(api.today.acknowledge);
   const { mutate: convertir } = useConvexMutation(api.today.taskFromDigest);
   const { mutate: ajustarTecho } = useConvexMutation(api.energy.applyCeiling);
+  const { mutate: encenderTecho } = useConvexMutation(api.energy.unmuteCeiling);
+  const { mutate: guardarPerfil } = useConvexMutation(api.energy.updateProfile);
   const { mutate: aplicarPropuesta } = useConvexMutation(api.proposals.aplicar);
   const { mutate: descartarPropuesta } = useConvexMutation(api.proposals.descartar);
   const [abierto, setAbierto] = useState(false);
@@ -122,9 +151,22 @@ export function InterruptionLine() {
       }
     }
     if (interrupcion.kind === 'techo') {
+      if (interrupcion.payload.vuelta === true) {
+        encenderTecho({});
+        responder();
+        return;
+      }
       const { propuesto } = interrupcion.payload as { propuesto?: number };
       if (typeof propuesto === 'number') {
         ajustarTecho({ horas: propuesto });
+        responder();
+        return;
+      }
+    }
+    if (interrupcion.kind === 'cronotipo') {
+      const { medido } = interrupcion.payload as { medido?: 'morning' | 'intermediate' | 'evening' };
+      if (medido) {
+        guardarPerfil({ chronotype: medido });
         responder();
         return;
       }

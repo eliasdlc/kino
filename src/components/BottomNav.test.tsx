@@ -29,17 +29,31 @@ describe("BottomNav", () => {
     expect(screen.getByRole("button", { name: "Nueva tarea" }).className).toContain("rounded-full");
   });
 
-  it("las cinco posiciones son Hoy, Tareas, Buscar, Sistemas y Ajustes, en ese orden", () => {
+  it("las cinco posiciones son Hoy, Bandeja, Buscar, Tareas y Sistemas, en ese orden", () => {
     renderMobile(<BottomNav />);
 
     const barra = screen.getByRole("navigation", { name: "Secciones" }).firstElementChild!;
     expect([...barra.children].map((slot) => slot.textContent)).toEqual([
       "Hoy",
-      "Tareas",
+      "Bandeja",
       "Buscar",
+      "Tareas",
       "Sistemas",
-      "Ajustes",
     ]);
+  });
+
+  it("Bandeja llega en un toque y a su propia URL, no al id de un sistema", () => {
+    renderMobile(<BottomNav />);
+
+    // El id del inbox se resuelve en el servidor: una entrada de navegación no
+    // puede depender de que el cliente cargue la lista de sistemas.
+    expect(screen.getByRole("link", { name: "Bandeja" })).toHaveAttribute("href", "/bandeja");
+  });
+
+  it("Ajustes sale de la barra, y no se queda sin puerta", () => {
+    renderMobile(<BottomNav />);
+
+    expect(screen.queryByRole("link", { name: "Ajustes" })).not.toBeInTheDocument();
   });
 
   it("ninguna posición es un affordance sin destino: Buscar abre la paleta", () => {

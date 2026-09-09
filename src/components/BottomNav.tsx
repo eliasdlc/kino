@@ -3,16 +3,16 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Box, LayoutDashboard, List, Plus, Search, Settings } from "lucide-react";
+import { Box, Inbox, LayoutDashboard, List, Plus, Search } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useQuickAddStore } from "@/features/tasks/quick-add.store";
 import { useCommandPaletteStore } from "@/features/command-palette/command-palette.store";
 
 const DESTINOS = [
   { href: "/dashboard", icon: LayoutDashboard, label: "Hoy" },
+  { href: "/bandeja", icon: Inbox, label: "Bandeja" },
   { href: "/tasks", icon: List, label: "Tareas" },
   { href: "/systems", icon: Box, label: "Sistemas" },
-  { href: "/settings", icon: Settings, label: "Ajustes" },
 ] as const;
 
 /**
@@ -31,6 +31,11 @@ const UMBRAL_TECLADO = 150;
  * Cinco posiciones, y la del medio no es un sitio: es Buscar, que en el
  * teléfono no tiene otra puerta porque el atajo de teclado no existe en touch.
  * Sin ella la búsqueda sencillamente no existía en el móvil.
+ *
+ * La segunda es Bandeja y la quinta Sistemas (D-10 y D-11). Ajustes sale de la
+ * barra: cinco posiciones son cinco, y de las seis candidatas Ajustes es la que
+ * menos se visita en un día normal y la única que ya tiene otra puerta, el menú
+ * lateral que abre la cabecera.
  *
  * Lo que la barra le quita a la pantalla vive en `--kino-bottom-chrome`, que
  * `<main>` reserva. Con el teclado abierto la barra se retira y la variable se

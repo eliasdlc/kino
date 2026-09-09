@@ -15,6 +15,7 @@ import { Bell, BellOff, Monitor, Moon, Sun } from "lucide-react";
 import { Switch } from "@/components/ui/switch";
 import { usePushNotifications } from "@/features/notifications/notifications.hooks";
 import { EnergyLimitSection } from "@/features/settings/EnergyLimitSection";
+import { EnergyProfileSection } from "@/features/settings/EnergyProfileSection";
 import { TimezoneSection } from "@/features/settings/TimezoneSection";
 import { WeeklyReviewDaySection } from "@/features/settings/WeeklyReviewDaySection";
 import { DigestsSection } from "@/features/settings/DigestsSection";
@@ -246,6 +247,9 @@ export default function SettingsPage() {
 
         {/* Energía */}
         <EnergyLimitSection />
+
+        {/* Perfil de energía: los cuatro que salieron del alta */}
+        <EnergyProfileSection />
 
         {/* Revisión semanal */}
         <WeeklyReviewDaySection />

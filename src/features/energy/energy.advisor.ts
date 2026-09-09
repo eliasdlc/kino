@@ -1,4 +1,17 @@
-export type PatternId = 'overload' | 'abandonment' | 'disorganization' | 'underuse';
+/**
+ * Los patrones que el advisor sabe leer.
+ *
+ * Faltan dos, y las dos ausencias son decisiones:
+ *
+ *  * `underuse` se borró el 8 de septiembre (D-22). Su señal, "poca actividad",
+ *    ya la dice el estado de regreso después de una ausencia (`convex/today.ts`)
+ *    con sus tres cifras, viviendo bajo el plan y sin gastar la apertura del
+ *    día. Y apuntaba a una ausencia, no a una fila. No vuelve.
+ *  * `overload` dejó de ser un patrón del advisor: el día que no cabe lo dice
+ *    `energy.overBudgetExit` con la cifra del presupuesto real, no con una
+ *    heurística sobre la instantánea de ayer.
+ */
+export type PatternId = 'abandonment' | 'disorganization';
 
 export interface SnapshotLike {
   tasksCreated: number;
@@ -35,22 +48,6 @@ function makePattern(
   return { id, label, message, severity, urgency, actionability, score: severity * urgency * actionability };
 }
 
-function detectOverload(
-  today: SnapshotLike,
-  availableHoursPerDay: number,
-): AdvisorPattern | null {
-  const capacityThreshold = availableHoursPerDay * 2;
-  if (today.criticalCount > 5 || today.activeCount > capacityThreshold) {
-    return makePattern(
-      'overload',
-      'Sobrecarga detectada',
-      'Hoy hay más de lo que tu energía puede sostener. ¿Muevo las 3 menos urgentes a mañana?',
-      3, 3, 3,
-    );
-  }
-  return null;
-}
-
 function detectAbandonment(
   today: SnapshotLike,
   recent: SnapshotLike[],
@@ -85,24 +82,6 @@ function detectDisorganization(
   return null;
 }
 
-function detectUnderuse(
-  recent: SnapshotLike[],
-): AdvisorPattern | null {
-  const window = recent.slice(0, 5);
-  if (window.length < 3) return null; // sin historial suficiente
-  const avgCreated = avg(window.map((s) => s.tasksCreated));
-  const avgCompleted = avg(window.map((s) => s.tasksCompleted));
-  if (avgCreated < 2 && avgCompleted < 1) {
-    return makePattern(
-      'underuse',
-      'Poco movimiento',
-      'Esta semana hay poca actividad. ¿Quieres revisar tu sistema más activo?',
-      1, 1, 2,
-    );
-  }
-  return null;
-}
-
 /**
  * Detecta los patrones activos y devuelve el de mayor score.
  * Retorna null si ningún patrón aplica.
@@ -110,13 +89,10 @@ function detectUnderuse(
 export function detectTopPattern(
   today: SnapshotLike,
   recent: SnapshotLike[],
-  availableHoursPerDay: number,
 ): AdvisorPattern | null {
   const candidates: AdvisorPattern[] = [
-    detectOverload(today, availableHoursPerDay),
     detectAbandonment(today, recent),
     detectDisorganization(today),
-    detectUnderuse(recent),
   ].filter((p): p is AdvisorPattern => p !== null);
 
   if (candidates.length === 0) return null;
