@@ -4,6 +4,7 @@ import { internalMutation, type MutationCtx, type QueryCtx } from './_generated/
 import type { Doc, Id } from './_generated/dataModel';
 import { notFound } from './lib/errors';
 import { kinoMutation, kinoQuery } from './lib/fn';
+import { calendarDayInTz } from './lib/time';
 import { itemType, type ActorChannel } from './schema';
 
 // El registro de lo que el usuario pidió que se escribiera. Sostiene el log de
@@ -392,28 +393,38 @@ export const deshacer = kinoMutation({
   handler: async (ctx, { id }) => {
     const fila = await ctx.db.get(id);
     if (!fila) notFound('Ese cambio ya no está en el registro.');
-
-    const motivo = impedimento(fila, ctx.user._id);
-    if (motivo !== null) return { deshecho: false as const, motivo };
-
-    const como = DESHACER[fila.action]!;
-    const campos = await revertir(ctx, fila, como);
-    if (campos === null) return { deshecho: false as const, motivo: 'Eso ya no existe.' };
-
-    const ahora = Date.now();
-    await ctx.db.patch(fila._id, { undoneAt: ahora, undoneFields: campos });
-    await recordEvent(ctx, {
-      userId: ctx.user._id,
-      systemId: fila.systemId,
-      actorChannel: ctx.channel,
-      action: ACCION_DESHACER,
-      targetType: fila.targetType,
-      targetId: fila.targetId,
-      payload: { deshace: fila.action, campos },
-    });
-    return { deshecho: true as const, campos };
+    const motivo = await deshacerUno(ctx, fila);
+    return motivo === null ? { deshecho: true as const } : { deshecho: false as const, motivo };
   },
 });
+
+/**
+ * Deshace una fila y deja su rastro, o devuelve el motivo por el que no.
+ * Es el paso que comparten el botón de una fila y el deshacer en bloque: con
+ * dos copias, el deshacer en bloque acabaría siendo el que se salta una regla.
+ */
+async function deshacerUno(
+  ctx: MutationCtx & { clientId?: string; user: Doc<'users'>; channel: ActorChannel },
+  fila: Doc<'eventLog'>,
+): Promise<string | null> {
+  const motivo = impedimento(fila, ctx.user._id);
+  if (motivo !== null) return motivo;
+
+  const campos = await revertir(ctx, fila, DESHACER[fila.action]!);
+  if (campos === null) return 'Eso ya no existe.';
+
+  await ctx.db.patch(fila._id, { undoneAt: Date.now(), undoneFields: campos });
+  await recordEvent(ctx, {
+    userId: ctx.user._id,
+    systemId: fila.systemId,
+    actorChannel: ctx.channel,
+    action: ACCION_DESHACER,
+    targetType: fila.targetType,
+    targetId: fila.targetId,
+    payload: { deshace: fila.action, campos },
+  });
+  return null;
+}
 
 /** Aplica la forma que le toca. `null` si el objetivo ya no existe. */
 async function revertir(ctx: MutationCtx, fila: Doc<'eventLog'>, como: FormaDeDeshacer): Promise<string[] | null> {
@@ -444,6 +455,108 @@ async function revertir(ctx: MutationCtx, fila: Doc<'eventLog'>, como: FormaDeDe
   await ctx.db.patch(objetivo._id, parche);
   return campos;
 }
+
+// ── Lo que hizo tu agente hoy ───────────────────────────────────────────────
+
+/**
+ * El día natural de la persona en milisegundos. Se calcula aquí y no en el
+ * navegador porque un reloj mal puesto en el cliente cambiaría la cifra que la
+ * fila afirma, y la fila afirma cosas.
+ */
+function diaDe(user: Doc<'users'>, now = Date.now()) {
+  const hoy = calendarDayInTz(now, user.timezone);
+  // El día de ayer a la misma hora da el mismo texto salvo en la frontera, así
+  // que el arranque se busca hacia atrás en pasos de una hora: es exacto con
+  // cualquier desplazamiento, incluidos los de media hora.
+  let desde = now;
+  while (calendarDayInTz(desde - 3_600_000, user.timezone) === hoy) desde -= 3_600_000;
+  while (calendarDayInTz(desde - 60_000, user.timezone) === hoy) desde -= 60_000;
+  return { desde, hasta: now + 1 };
+}
+
+/**
+ * Los eventos de hoy cuyo actor entró por el conector, agrupados por acción.
+ *
+ * Es la fila diaria de Hoy, y es **otra cosa** que la lista por item: aquélla
+ * contesta «qué le pasó a esto», ésta contesta «qué hizo mientras no miraba».
+ * Sin ella, la única forma de saberlo es abrir item por item.
+ *
+ * «Hoy» lo decide el servidor con la zona de la persona, no el reloj del
+ * navegador: es la regla de la casa, y aquí importa el doble porque de esa
+ * cuenta sale una cifra que la fila afirma.
+ */
+export const delAgenteHoy = kinoQuery({
+  args: {},
+  handler: async (ctx) => {
+    const { desde, hasta } = diaDe(ctx.user);
+    const filas = await ctx.db
+      .query('eventLog')
+      .withIndex('by_user_occurred', (q) => q.eq('userId', ctx.user._id).gte('occurredAt', desde).lt('occurredAt', hasta))
+      .collect();
+
+    // El propio deshacer no cuenta como actividad del agente: si contara, la
+    // fila diría que hizo más cosas justo después de que las deshicieras.
+    const suyos = filas.filter((fila) => fila.actorChannel === 'oauth' && fila.action !== ACCION_DESHACER && fila.undoneAt === undefined);
+    if (suyos.length === 0) return null;
+
+    const porAccion = new Map<string, number>();
+    for (const fila of suyos) porAccion.set(fila.action, (porAccion.get(fila.action) ?? 0) + 1);
+
+    const sistemas = new Set<Id<'systems'>>();
+    for (const fila of suyos) if (fila.systemId) sistemas.add(fila.systemId);
+    const nombres: string[] = [];
+    for (const systemId of sistemas) {
+      const sistema = await ctx.db.get(systemId);
+      if (sistema) nombres.push(sistema.name);
+    }
+
+    return {
+      total: suyos.length,
+      // Lo más hecho primero: la frase empieza por lo que más pesa.
+      acciones: [...porAccion.entries()]
+        .map(([action, cuantas]) => ({ action, cuantas }))
+        .sort((a, b) => b.cuantas - a.cuantas || a.action.localeCompare(b.action)),
+      sistemas: nombres.sort(),
+      ids: suyos.sort((a, b) => b.occurredAt - a.occurredAt).map((fila) => fila._id),
+    };
+  },
+});
+
+/**
+ * Deshace de golpe lo que el agente hizo en un rango, y **deja un evento de
+ * deshacer por cada acción**.
+ *
+ * Un deshacer en bloque que no se pueda auditar acción por acción es
+ * exactamente la clase de escritura opaca que el log existe para evitar: por
+ * eso no hay un atajo, se recorre la lista y cada una pasa por su propia forma.
+ * Lo que no se pueda deshacer se cuenta aparte en vez de fallar entero: que una
+ * de las cinco no vuelva no es razón para que las otras cuatro tampoco.
+ */
+export const deshacerDelAgente = kinoMutation({
+  args: {},
+  handler: async (ctx) => {
+    const { desde, hasta } = diaDe(ctx.user);
+    const filas = await ctx.db
+      .query('eventLog')
+      .withIndex('by_user_occurred', (q) => q.eq('userId', ctx.user._id).gte('occurredAt', desde).lt('occurredAt', hasta))
+      .collect();
+
+    // De la más nueva a la más vieja: deshacer una creación antes que la
+    // edición que vino después dejaría la edición sobre una fila en la papelera.
+    const suyos = filas
+      .filter((fila) => fila.actorChannel === 'oauth' && fila.action !== ACCION_DESHACER && fila.undoneAt === undefined)
+      .sort((a, b) => b.occurredAt - a.occurredAt);
+
+    let deshechas = 0;
+    const sinDeshacer: string[] = [];
+    for (const fila of suyos) {
+      const resultado = await deshacerUno(ctx, fila);
+      if (resultado === null) deshechas += 1;
+      else sinDeshacer.push(resultado);
+    }
+    return { deshechas, sinDeshacer };
+  },
+});
 
 // ── La lectura por item ─────────────────────────────────────────────────────
 

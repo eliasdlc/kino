@@ -37,49 +37,58 @@ export function sujetoDe(actor: ItemEvent["actor"]): string {
 }
 
 /**
- * Qué hizo. En pasado y sin el sujeto, que lo pone `sujetoDe`. Las ediciones no
- * enumeran campos: eso es del deshacer, que es quien tiene que ser preciso.
+ * Qué hizo cada acción, en las dos formas en que el producto la lee.
+ *
+ * `item` es la frase de la lista de un item, en pasado y sin sujeto (lo pone
+ * `sujetoDe`). `verbo`, `clase` y `resumen` son la fila diaria de Hoy, donde lo que
+ * importa es la cifra y por eso va delante: «creó 4 tareas», no «creó tareas
+ * (4)». Las dos formas viven en la misma entrada para que no puedan
+ * describir cosas distintas, que es lo que pasa con dos tablas paralelas.
+ *
+ * `clase` está aparte del resumen a propósito: es lo que permite ver que dos
+ * tramos seguidos hablan de lo mismo, y «tarea» y «tareas» no se parecen lo
+ * suficiente para deducirlo del texto ya declinado.
  */
-export const VERBOS: Record<string, string> = {
-  "task.create": "creó esta tarea",
-  "task.update": "editó esta tarea",
-  "task.remove": "la mandó a la papelera",
-  "task.restore": "la sacó de la papelera",
-  "task.toggle": "cambió si está hecha",
-  "task.move": "la movió de estado",
-  "task.moveBoard": "la movió de columna",
-  "task.createTimeLog": "apuntó tiempo trabajado",
+export const FRASES: Record<string, { item: string; verbo: string; clase: string; resumen: (n: number) => string }> = {
+  "task.create": { item: "creó esta tarea", clase: "tarea", resumen: (n) => `${n} ${n === 1 ? "tarea" : "tareas"}`, verbo: "creó" },
+  "task.update": { item: "editó esta tarea", clase: "tarea", resumen: (n) => `${n} ${n === 1 ? "tarea" : "tareas"}`, verbo: "editó" },
+  "task.remove": { item: "la mandó a la papelera", clase: "tarea", resumen: (n) => `${n} ${n === 1 ? "tarea" : "tareas"}`, verbo: "mandó a la papelera" },
+  "task.restore": { item: "la sacó de la papelera", clase: "tarea", resumen: (n) => `${n} ${n === 1 ? "tarea" : "tareas"}`, verbo: "sacó de la papelera" },
+  "task.toggle": { item: "cambió si está hecha", clase: "tarea", resumen: (n) => `${n} ${n === 1 ? "tarea" : "tareas"}`, verbo: "marcó" },
+  "task.move": { item: "la movió de estado", clase: "tarea", resumen: (n) => `${n} ${n === 1 ? "tarea" : "tareas"}`, verbo: "movió" },
+  "task.moveBoard": { item: "la movió de columna", clase: "tarea", resumen: (n) => `${n} ${n === 1 ? "tarea" : "tareas"}`, verbo: "cambió de columna" },
+  "task.createTimeLog": { item: "apuntó tiempo trabajado", clase: "tarea", resumen: (n) => `${n} ${n === 1 ? "tarea" : "tareas"}`, verbo: "apuntó tiempo en" },
 
-  "page.create": "creó este capítulo",
-  "page.update": "editó este capítulo",
-  "page.remove": "lo mandó a la papelera",
-  "page.restore": "lo sacó de la papelera",
-  "page.linkTask": "le enlazó una tarea",
-  "page.unlinkTask": "le quitó una tarea",
-  "page.addTag": "le puso una etiqueta",
-  "page.removeTag": "le quitó una etiqueta",
+  "page.create": { item: "creó este capítulo", clase: "capítulo", resumen: (n) => `${n} ${n === 1 ? "capítulo" : "capítulos"}`, verbo: "creó" },
+  "page.update": { item: "editó este capítulo", clase: "capítulo", resumen: (n) => `${n} ${n === 1 ? "capítulo" : "capítulos"}`, verbo: "editó" },
+  "page.remove": { item: "lo mandó a la papelera", clase: "capítulo", resumen: (n) => `${n} ${n === 1 ? "capítulo" : "capítulos"}`, verbo: "mandó a la papelera" },
+  "page.restore": { item: "lo sacó de la papelera", clase: "capítulo", resumen: (n) => `${n} ${n === 1 ? "capítulo" : "capítulos"}`, verbo: "sacó de la papelera" },
+  "page.linkTask": { item: "le enlazó una tarea", clase: "capítulo", resumen: (n) => `${n} ${n === 1 ? "capítulo" : "capítulos"}`, verbo: "enlazó una tarea a" },
+  "page.unlinkTask": { item: "le quitó una tarea", clase: "capítulo", resumen: (n) => `${n} ${n === 1 ? "capítulo" : "capítulos"}`, verbo: "quitó una tarea de" },
+  "page.addTag": { item: "le puso una etiqueta", clase: "capítulo", resumen: (n) => `${n} ${n === 1 ? "capítulo" : "capítulos"}`, verbo: "etiquetó" },
+  "page.removeTag": { item: "le quitó una etiqueta", clase: "capítulo", resumen: (n) => `${n} ${n === 1 ? "capítulo" : "capítulos"}`, verbo: "desetiquetó" },
 
-  "folder.create": "creó esta carpeta",
-  "folder.update": "editó esta carpeta",
-  "folder.remove": "la mandó a la papelera",
-  "folder.restore": "la sacó de la papelera",
+  "folder.create": { item: "creó esta carpeta", clase: "carpeta", resumen: (n) => `${n} ${n === 1 ? "carpeta" : "carpetas"}`, verbo: "creó" },
+  "folder.update": { item: "editó esta carpeta", clase: "carpeta", resumen: (n) => `${n} ${n === 1 ? "carpeta" : "carpetas"}`, verbo: "editó" },
+  "folder.remove": { item: "la mandó a la papelera", clase: "carpeta", resumen: (n) => `${n} ${n === 1 ? "carpeta" : "carpetas"}`, verbo: "mandó a la papelera" },
+  "folder.restore": { item: "la sacó de la papelera", clase: "carpeta", resumen: (n) => `${n} ${n === 1 ? "carpeta" : "carpetas"}`, verbo: "sacó de la papelera" },
 
-  "stickyNote.create": "escribió esta nota",
-  "stickyNote.update": "editó esta nota",
-  "stickyNote.remove": "la mandó a la papelera",
-  "stickyNote.restore": "la sacó de la papelera",
-  "stickyNote.stack": "la apiló sobre otra",
+  "stickyNote.create": { item: "escribió esta nota", clase: "nota", resumen: (n) => `${n} ${n === 1 ? "nota" : "notas"}`, verbo: "escribió" },
+  "stickyNote.update": { item: "editó esta nota", clase: "nota", resumen: (n) => `${n} ${n === 1 ? "nota" : "notas"}`, verbo: "editó" },
+  "stickyNote.remove": { item: "la mandó a la papelera", clase: "nota", resumen: (n) => `${n} ${n === 1 ? "nota" : "notas"}`, verbo: "mandó a la papelera" },
+  "stickyNote.restore": { item: "la sacó de la papelera", clase: "nota", resumen: (n) => `${n} ${n === 1 ? "nota" : "notas"}`, verbo: "sacó de la papelera" },
+  "stickyNote.stack": { item: "la apiló sobre otra", clase: "nota", resumen: (n) => `${n} ${n === 1 ? "nota" : "notas"}`, verbo: "apiló" },
 
-  "system.create": "creó este sistema",
-  "system.update": "editó este sistema",
-  "system.remove": "lo archivó",
+  "system.create": { item: "creó este sistema", clase: "sistema", resumen: (n) => `${n} ${n === 1 ? "sistema" : "sistemas"}`, verbo: "creó" },
+  "system.update": { item: "editó este sistema", clase: "sistema", resumen: (n) => `${n} ${n === 1 ? "sistema" : "sistemas"}`, verbo: "editó" },
+  "system.remove": { item: "lo archivó", clase: "sistema", resumen: (n) => `${n} ${n === 1 ? "sistema" : "sistemas"}`, verbo: "archivó" },
 
-  "tag.remove": "borró esta etiqueta",
+  "tag.remove": { item: "borró esta etiqueta", clase: "etiqueta", resumen: (n) => `${n} ${n === 1 ? "etiqueta" : "etiquetas"}`, verbo: "borró" },
 
-  "energy.applyWeeklyRitual": "repartió lo vencido en el ritual semanal",
-  "energy.applyCeiling": "cambió tu techo del día",
+  "energy.applyWeeklyRitual": { item: "repartió lo vencido en el ritual semanal", clase: "vencida en el ritual", resumen: (n) => `${n} ${n === 1 ? "vencida en el ritual" : "vencidas en el ritual"}`, verbo: "repartió" },
+  "energy.applyCeiling": { item: "cambió tu techo del día", clase: "vez tu techo del día", resumen: (n) => `${n} ${n === 1 ? "vez tu techo del día" : "veces tu techo del día"}`, verbo: "cambió" },
 
-  "log.deshacer": "deshizo un cambio de aquí",
+  "log.deshacer": { item: "deshizo un cambio de aquí", clase: "cambio", resumen: (n) => `${n} ${n === 1 ? "cambio" : "cambios"}`, verbo: "deshizo" },
 };
 
 const RELATIVO = new Intl.RelativeTimeFormat("es-DO", { numeric: "auto" });

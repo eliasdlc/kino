@@ -8,6 +8,7 @@ import { SystemCard } from "@/features/systems/SystemCard";
 import { PhysicalCard } from "@/components/PhysicalCard";
 import { TaskCardFor } from "@/features/tasks/cards/TaskCardFor";
 import { ItemEventList } from "@/features/tasks/ItemEventList";
+import { AgentActivityRow } from "@/features/today/AgentActivityRow";
 import { ProposalBody } from "@/features/today/ProposalBody";
 import {
   SidebarProvider,
@@ -338,6 +339,34 @@ export function KinoSection() {
             </SidebarGroup>
           </div>
         </SidebarProvider>
+      </SubSection>
+
+      <SubSection
+        title="AgentActivityRow"
+        description="Lo que hizo tu agente hoy, bajo el plan. No pide una decisión, así que no gasta la única apertura del día. Con cero acciones no se pinta nada."
+      >
+        <Specimen label="Con actividad" hint="la cifra delante de la clase, el agente de sujeto">
+          <Seeded
+            stubs={[
+              seedQuery(api.eventLog.delAgenteHoy, {
+                total: 5,
+                acciones: [
+                  { action: "task.create", cuantas: 4 },
+                  { action: "task.move", cuantas: 1 },
+                ],
+                sistemas: ["Tesis"],
+                ids: [],
+              }),
+            ]}
+          >
+            <AgentActivityRow />
+          </Seeded>
+        </Specimen>
+        <Specimen label="Sin actividad" hint="no deja hueco ni dice «sin actividad»">
+          <Seeded stubs={[seedQuery(api.eventLog.delAgenteHoy, null)]}>
+            <AgentActivityRow />
+          </Seeded>
+        </Specimen>
       </SubSection>
 
       <SubSection

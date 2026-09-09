@@ -7,6 +7,7 @@ import { EnergyTodayCard } from "@/features/dashboard/EnergyTodayCard";
 import { AdvisorCard } from "@/features/dashboard/AdvisorCard";
 import { FocusNowCard } from "@/features/dashboard/FocusNowCard";
 import { InterruptionLine } from "@/features/today/InterruptionLine";
+import { AgentActivityRow } from "@/features/today/AgentActivityRow";
 import { ReturnNotice } from "@/features/today/ReturnNotice";
 import { DashboardBottomRow } from "@/features/dashboard/DashboardBottomRow";
 import { QuickAddFromUrl } from "@/features/tasks/QuickAddFromUrl";
@@ -72,6 +73,9 @@ export default async function DashboardPage() {
           )}
 
           <ReturnNotice />
+          {/* Bajo el plan y no arriba: informa, no pregunta, así que no gasta
+              la única apertura del día. */}
+          <AgentActivityRow />
           <DashboardBottomRow weeklyTrends={weeklyTrends} insight={learningInsight} />
         </div>
       </div>
