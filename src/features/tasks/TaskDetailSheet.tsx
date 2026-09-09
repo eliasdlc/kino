@@ -38,6 +38,12 @@ import { useSprints } from "@/features/sprints/sprints.hooks";
 import { getSystemColor } from "@/shared/utils/system-colors";
 import { TaskTypePicker } from "./TaskTypePicker";
 import { TagPicker } from "@/features/tags/TagPicker";
+import { TagAffordance } from "@/features/tags/TagAffordance";
+import { BodyGate } from "./BodyGate";
+import { useCreateTag } from "@/features/tags/tags.hooks";
+import { useMutation } from "convex/react";
+import { api } from "@convex/_generated/api";
+import { toast } from "sonner";
 import type { TaskTransport } from "./tasks.types";
 import { useFocusTimer } from "./FocusTimerProvider";
 import { useSystems } from "@/features/systems/systems.hooks";
@@ -102,6 +108,30 @@ function TaskDetailForm({ task, systemId, onClose }: TaskDetailFormProps) {
   const [contextTagId, setContextTagId] = useState<string | null>(task.contextTagId ?? null);
   const [recurrenceRule, setRecurrenceRule] = useState<string | null>(task.recurrenceRule ?? null);
   const [saveStatus, setSaveStatus] = useState<"idle" | "saved">("idle");
+
+  // Las dos puertas del vocabulario que viven en este campo. Se crean con las
+  // mutaciones crudas porque las dos encadenan dos escrituras y necesitan el id
+  // que devuelve la primera.
+  const createPage = useMutation(api.pages.create);
+  const linkPage = useMutation(api.pages.linkTask);
+  const { mutate: createTag } = useCreateTag(systemId);
+
+  /** El cuerpo se va a una página del sistema y queda enlazado a esta tarea. */
+  async function convertBodyToPage() {
+    const body = description;
+    const page = await createPage({ systemId, title: title.trim() || undefined, content: body });
+    await linkPage({ id: page.id, taskId: task.id });
+    setDescription("");
+    toast.success("El cuerpo vive en una página, enlazada a esta tarea");
+  }
+
+  /** La almohadilla se vuelve una etiqueta de verdad, ya puesta en la tarea. */
+  function createTagFromHash(name: string) {
+    createTag(
+      { title: name },
+      { onSuccess: (tag: { id: string }) => setContextTagId(tag.id) },
+    );
+  }
 
   const { data: cachedSystems } = useSystems();
   const systemTemplateType = cachedSystems?.find((s) => s.id === systemId)?.templateType as SystemType | undefined;
@@ -206,6 +236,9 @@ function TaskDetailForm({ task, systemId, onClose }: TaskDetailFormProps) {
           placeholder="Notas opcionales..."
           className="resize-none min-h-[80px]"
         />
+        {/* Las palabras aparecen donde ocurrió el gesto, no en Hoy. */}
+        <BodyGate body={description} onConvert={() => void convertBodyToPage()} />
+        <TagAffordance text={description} onCreate={createTagFromHash} />
       </div>
 
       <div className="grid grid-cols-2 gap-3">

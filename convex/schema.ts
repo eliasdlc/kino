@@ -203,6 +203,14 @@ export const proposalKind = literals(['archive', 'cancel', 'rewrite']);
  */
 export const interruptionKind = literals(['lunes', 'autoArchivo', 'techo', 'cronotipo', 'ritual', 'agente', 'empujeSistema']);
 export type InterruptionKind = Infer<typeof interruptionKind>;
+/**
+ * Las palabras del producto que aparecen atadas a un gesto en vez de
+ * explicarse. Cada una sale **una vez** y no vuelve: insistir sería un tercer
+ * empuje del sistema, y el producto tiene dos.
+ */
+export const vocabularyWord = literals(['pagina', 'notaAdhesiva', 'etiqueta']);
+export type VocabularyWord = Infer<typeof vocabularyWord>;
+
 export const captureStatus = literals(['pending', 'confirmed', 'discarded', 'expired']);
 export const captureKind = literals(['voice', 'photo', 'link', 'text']);
 
@@ -263,6 +271,8 @@ export default defineSchema({
     // más rápido que un enum.
     archetypeIdentity: v.optional(v.string()),
     onboardingVersion: v.number(),
+    /** Las palabras del vocabulario que ya se enseñaron. Nace vacío. */
+    wordsSeen: v.optional(v.array(vocabularyWord)),
     weeklyReviewDay: weekday,
     dailyResetTime: clockStr,
     // Día (en la zona del usuario) del último rollover del plan de hoy.

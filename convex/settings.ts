@@ -1,6 +1,7 @@
 import { z } from 'zod';
 import type { Doc } from './_generated/dataModel';
 import { kinoZodMutation, kinoZodQuery, type Caller } from './lib/fn';
+import { vocabularyWord, type VocabularyWord } from './schema';
 import type { MutationCtx, QueryCtx } from './_generated/server';
 
 // Los ajustes editables. La zona horaria vive en `users` porque la leen los
@@ -38,6 +39,7 @@ async function settingsOf(ctx: QueryCtx | MutationCtx, user: Caller['user']) {
     theme: row?.theme ?? 'system',
     notificationsEnabled: row?.notificationsEnabled ?? true,
     weeklyReviewDay: row?.weeklyReviewDay ?? 'sun',
+    wordsSeen: row?.wordsSeen ?? [],
   };
 }
 export type UserSettings = Awaited<ReturnType<typeof settingsOf>>;
@@ -70,6 +72,30 @@ export async function upsertSettings(ctx: MutationCtx, userId: Doc<'users'>['_id
   if (row) await ctx.db.patch(row._id, { ...patch, updatedAt: now });
   else await ctx.db.insert('userSettings', { ...defaultSettings(userId, now), ...patch });
 }
+
+/**
+ * Recordar que una palabra del vocabulario ya apareció.
+ *
+ * Se llama cuando la puerta se **enseña**, no cuando se acepta: la regla es que
+ * cada palabra aparece una vez, y quien la ignora no vuelve a verla. Insistir
+ * sería un tercer empuje del sistema y el producto tiene dos.
+ *
+ * Idempotente a propósito: la puerta puede montarse dos veces en el mismo
+ * render de React y eso no es dos apariciones.
+ */
+export const markWordSeen = kinoZodMutation({
+  args: { word: z.enum(vocabularyWord.members.map((m) => m.value) as [VocabularyWord, ...VocabularyWord[]]) },
+  handler: async (ctx, { word }) => {
+    const row = await ctx.db
+      .query('userSettings')
+      .withIndex('by_user', (q) => q.eq('userId', ctx.user._id))
+      .unique();
+    const seen = row?.wordsSeen ?? [];
+    if (seen.includes(word)) return { ok: true as const };
+    await upsertSettings(ctx, ctx.user._id, { wordsSeen: [...seen, word] });
+    return { ok: true as const };
+  },
+});
 
 export const update = kinoZodMutation({
   args: updateUserSettingsSchema,
