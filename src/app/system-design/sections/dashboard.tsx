@@ -19,13 +19,24 @@ import { WeeklyTrendsCard } from "@/features/dashboard/WeeklyTrendsCard";
 import { LearningInsightCard } from "@/features/dashboard/LearningInsightCard";
 import { AdvisorCard } from "@/features/dashboard/AdvisorCard";
 import { QuickAccessCard } from "@/features/dashboard/QuickAccessCard";
-import { EnergyAdvisorBanner } from "@/components/EnergyAdvisorBanner";
+import { OverBudgetExit } from "@/features/energy/OverBudgetExit";
 import { ReturnNotice } from "@/features/today/ReturnNotice";
 import { ClosingSignature } from "@/features/tasks/TaskDetailFields";
 import type { TaskTransport } from "@/features/tasks/tasks.types";
-import { Moon } from "lucide-react";
 
 const noop = () => {};
+
+/** El día en sobregiro, con las tres que menos urgencia tienen. */
+const SOBREGIRO = {
+  committed: 62,
+  limit: 50,
+  overBy: 12,
+  mover: [
+    { id: "t-1", title: "Leer el syllabus de Bases de Datos", points: 3 },
+    { id: "t-2", title: "Outline: en qué termina la historia", points: 3 },
+    { id: "t-3", title: "Cambiar el filtro del agua", points: 1 },
+  ],
+};
 
 /** La ausencia que el estado de regreso mide, con y sin datos de energía. */
 const regreso = (conEnergia: boolean) => [
@@ -154,27 +165,24 @@ export function DashboardSection() {
       </SubSection>
 
       <SubSection
-        title="AdvisorCard y banner"
-        description="El consejero de patrones (overload/abandonment/disorganization/underuse) y el banner compacto de aviso."
+        title="El día que no cabe"
+        description="La salida del sobregiro: la cifra delante, el día como sujeto, y las tres del plan que menos urgencia tienen ya elegidas. En ámbar, porque el rojo queda para lo irreversible y pasarse del techo no lo es. Sin botón de dejarlo así: el bloque se va cuando el día vuelve a caber, no cuando alguien lo silencia."
       >
         <SpecimenGrid cols={2}>
-          <Specimen label="AdvisorCard" hint="pattern overload, severidad 2" className="items-stretch">
+          <Specimen label="OverBudgetExit" hint="62 de 50 puntos" className="items-stretch">
+            <Seeded stubs={[seedQuery(api.energy.overBudgetExit, SOBREGIRO)]}>
+              <div className="w-full">
+                <OverBudgetExit />
+              </div>
+            </Seeded>
+          </Specimen>
+          <Specimen label="AdvisorCard" hint="los dos patrones que quedan" className="items-stretch">
             <div className="w-full">
               <AdvisorCard
                 pattern={mockAdvisorPattern()}
-                actionTaskIds={["a", "b", "c"]}
-                actionLabel="Mover 3 a mañana"
-                bulkAction="move-tomorrow"
-              />
-            </div>
-          </Specimen>
-          <Specimen label="EnergyAdvisorBanner" hint="mensaje + acción opcional" className="items-stretch">
-            <div className="w-full space-y-2">
-              <EnergyAdvisorBanner message="Tu energía cae después de las 16h: agenda lo ligero ahí." />
-              <EnergyAdvisorBanner
-                icon={Moon}
-                message="Dormiste mal. Kino redujo tu plan de hoy."
-                action={{ label: "Ver plan", onClick: noop }}
+                actionTaskIds={["a"]}
+                actionLabel="Poner la más pequeña en hoy"
+                bulkAction="move-today"
               />
             </div>
           </Specimen>

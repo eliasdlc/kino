@@ -5,6 +5,7 @@ import { toTransport } from "@/shared/lib/transport";
 import { TodayPlanCard } from "@/features/dashboard/TodayPlanCard";
 import { EnergyTodayCard } from "@/features/dashboard/EnergyTodayCard";
 import { AdvisorCard } from "@/features/dashboard/AdvisorCard";
+import { OverBudgetExit } from "@/features/energy/OverBudgetExit";
 import { FocusNowCard } from "@/features/dashboard/FocusNowCard";
 import { InterruptionLine } from "@/features/today/InterruptionLine";
 import { AgentActivityRow } from "@/features/today/AgentActivityRow";
@@ -60,6 +61,10 @@ export default async function DashboardPage() {
 
         <div className="mt-8 flex flex-col gap-6 md:mt-0">
           <TodayPlanCard noProfile={dailyPlan.noProfile} energyItems={energyItems} />
+
+          {/* El día que no cabe. Decide solo si se pinta, leyendo el
+              presupuesto real, y se va cuando el día vuelve a caber. */}
+          <OverBudgetExit />
 
           {topPattern ? (
             <AdvisorCard

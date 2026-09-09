@@ -44,6 +44,40 @@ describe('energy', () => {
     expect(insight.chronotype).toBe('morning');
   });
 
+  it('la salida del sobregiro no existe mientras el dia cabe', async () => {
+    const { asAna, systemId } = await seed();
+    await asAna.mutation(api.tasks.create, { systemId, title: 'Una sola', energyLevel: 'high', startDate: new Date().toISOString() });
+
+    // 5 puntos de 50: devolver `null` es lo que hace que el bloque se vaya solo.
+    expect(await asAna.query(api.energy.overBudgetExit, {})).toBeNull();
+  });
+
+  it('ofrece las tres de menor urgencia, no las tres primeras de la lista', async () => {
+    const { asAna, systemId } = await seed();
+    const hoy = new Date().toISOString();
+    // Once tareas altas son 55 puntos contra un limite de 50.
+    const creadas = [];
+    for (let i = 0; i < 11; i++) {
+      creadas.push(await asAna.mutation(api.tasks.create, { systemId, title: `Tarea ${i + 1}`, energyLevel: 'high', startDate: hoy }));
+    }
+    // Las tres primeras de la lista son ademas las mas urgentes: si la consulta
+    // ordenara por posicion, saldrian estas.
+    for (const task of creadas.slice(0, 3)) {
+      await asAna.mutation(api.tasks.update, { id: task.id, priority: 'critical' });
+    }
+
+    const salida = await asAna.query(api.energy.overBudgetExit, {});
+    expect(salida).not.toBeNull();
+    expect(salida!.committed).toBe(55);
+    expect(salida!.limit).toBe(50);
+    expect(salida!.overBy).toBe(5);
+    expect(salida!.mover).toHaveLength(3);
+    const ofrecidas = salida!.mover.map((t) => t.id);
+    for (const critica of creadas.slice(0, 3)) {
+      expect(ofrecidas, 'una critica no puede ser de las que menos urgencia tienen').not.toContain(critica.id);
+    }
+  });
+
   it('las ventanas leen la curva del cronotipo y el presupuesto de hoy', async () => {
     const { asAna, systemId } = await seed();
     await asAna.mutation(api.tasks.create, { systemId, title: 'Dura', energyLevel: 'high', startDate: new Date().toISOString() });

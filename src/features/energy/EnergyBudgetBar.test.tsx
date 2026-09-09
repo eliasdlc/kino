@@ -37,6 +37,29 @@ describe("EnergyBudgetBar", () => {
     expect(screen.getByText("Quedan 12 pts para hoy.")).toBeVisible();
   });
 
+  it("el día justo se dice lleno, no casi lleno", () => {
+    conBudget({ state: "tight", committed: 20, limit: 20, pct: 100, spentPct: 50, remaining: 0 });
+    renderWithProviders(<EnergyBudgetBar />);
+
+    expect(screen.getByText("Presupuesto justo: el día está lleno.")).toBeVisible();
+  });
+
+  it("el día vacío se reconoce por lo comprometido y no por lo que queda", () => {
+    conBudget({ committed: 0, limit: 20, pct: 0, spentPct: 0, remaining: 20 });
+    renderWithProviders(<EnergyBudgetBar />);
+
+    expect(screen.getByText("Sin energía comprometida todavía.")).toBeVisible();
+  });
+
+  it("en sobregiro la barra usa el tono de vencida y no el acento", () => {
+    // La barra y el bloque de la salida dicen cosas distintas: la barra mide y
+    // el bloque ofrece. Que el bloque sea ámbar no cambia lo que hace la barra.
+    conBudget({ state: "over", committed: 27, limit: 20, pct: 135, spentPct: 60, remaining: 0, overBy: 7 });
+    const { container } = renderWithProviders(<EnergyBudgetBar />);
+
+    expect(container.querySelector(".bg-task-overdue")).not.toBeNull();
+  });
+
   it("sin presupuesto no pinta nada, en vez de una barra vacía que no significa nada", () => {
     budget.current = null;
     const { container } = renderWithProviders(<EnergyBudgetBar />);

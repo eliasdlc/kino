@@ -476,15 +476,6 @@ async function advisorAction(ctx: Ctx, user: Doc<'users'>, patternId: AdvisorPat
   const today = new Date(todayStr);
   const rows = (await aliveRows(ctx, user._id)).filter((t) => t.parentTaskId === null);
   const plural = (n: number) => (n !== 1 ? 's' : '');
-  if (patternId === 'overload') {
-    const ids = rows
-      .filter((t) => t.status === 'today')
-      .slice(0, 20)
-      .sort((a, b) => computeImportance(a, today) - computeImportance(b, today))
-      .slice(0, 3)
-      .map((t) => t.id);
-    return { actionTaskIds: ids, actionLabel: `Mover ${ids.length} tarea${plural(ids.length)} a mañana`, bulkAction: 'move-tomorrow' as const };
-  }
   if (patternId === 'abandonment') {
     const overdue = rows
       .filter((t) => t.dueDate !== null && t.dueDate < todayStr && !['done', 'today'].includes(t.status))
@@ -511,10 +502,55 @@ export async function todayAdvisor(ctx: Ctx, user: Doc<'users'>) {
   const recent = (await recentSnapshots(ctx, user._id, 7)).map(snapshotItem);
   if (recent.length === 0) return null;
   const [today, ...rest] = recent;
-  const pattern = detectTopPattern(today!, rest, profile.availableHoursPerDay);
+  const pattern = detectTopPattern(today!, rest);
   if (!pattern) return null;
   return { ...pattern, ...(await advisorAction(ctx, user, pattern.id)) };
 }
+
+/** Cuántas tareas ofrece mover la salida del sobregiro. */
+export const TAREAS_QUE_OFRECE = 3;
+
+/**
+ * El día no cabe: la cifra, y las tres del plan de hoy que menos urgencia
+ * tienen.
+ *
+ * Devuelve `null` cuando el día sí cabe, y eso es lo que hace que el bloque se
+ * vaya solo: se va porque el día dejó de estar en sobregiro, no porque alguien
+ * lo silenciara. Por eso tampoco hay nada que acusar ni descarte que persistir.
+ *
+ * Las tres salen ordenadas por urgencia real (`computeImportance`) y no por su
+ * posición en la lista: ofrecer "las tres primeras" sería ofrecer las tres que
+ * se ven, que es otra cosa.
+ *
+ * Y la frase no puede decir que acabas de pasarte: `ensureTodayPlanRolled`
+ * repuebla el plan al leerlo y el ritual escribe fechas de inicio a medianoche,
+ * así que repartir el domingo produce un sobregiro el martes sin ningún gesto
+ * del martes. El sujeto de la frase es el día, no tú.
+ */
+export const overBudgetExit = kinoZodQuery({
+  args: {},
+  handler: async (ctx) => {
+    const user = ctx.user;
+    const settings = await ctx.db
+      .query('userSettings')
+      .withIndex('by_user', (q) => q.eq('userId', user._id))
+      .unique();
+    const limit = settings?.dailyEnergyLimit ?? defaultSettings(user._id, 0).dailyEnergyLimit;
+
+    const rows = (await aliveRows(ctx, user._id)).filter((t) => t.parentTaskId === null);
+    const enElPlan = rows.filter((t) => t.status === 'today');
+    const budget = computeEnergyBudget(enElPlan, limit);
+    if (budget.state !== 'over') return null;
+
+    const today = new Date(userToday(user.timezone));
+    const mover = [...enElPlan]
+      .sort((a, b) => computeImportance(a, today) - computeImportance(b, today))
+      .slice(0, TAREAS_QUE_OFRECE)
+      .map((task) => ({ id: task.id, title: task.title, points: energyPointsFor(task.energyLevel) }));
+
+    return { committed: budget.committed, limit: budget.limit, overBy: budget.overBy, mover };
+  },
+});
 
 export const advisor = kinoZodQuery({
   args: {},
