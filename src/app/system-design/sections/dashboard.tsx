@@ -20,6 +20,7 @@ import { LearningInsightCard } from "@/features/dashboard/LearningInsightCard";
 import { AdvisorCard } from "@/features/dashboard/AdvisorCard";
 import { QuickAccessCard } from "@/features/dashboard/QuickAccessCard";
 import { OverBudgetExit } from "@/features/energy/OverBudgetExit";
+import { CeilingMutedNotice } from "@/features/energy/CeilingMutedNotice";
 import { ReturnNotice } from "@/features/today/ReturnNotice";
 import { ClosingSignature } from "@/features/tasks/TaskDetailFields";
 import type { TaskTransport } from "@/features/tasks/tasks.types";
@@ -27,6 +28,25 @@ import type { TaskTransport } from "@/features/tasks/tasks.types";
 const noop = () => {};
 
 /** El día en sobregiro, con las tres que menos urgencia tienen. */
+/** El instrumento descalibrado: catorce mediciones y su error. */
+const TECHO_APAGADO = {
+  mutedAt: "2026-09-08T00:00:00.000Z",
+  errorMedio: 31,
+  dias: 14,
+  umbral: 25,
+  predicciones: Array.from({ length: 14 }, (_, i) => {
+    const dia = new Date(Date.UTC(2026, 7, 26 + i));
+    const falla = i % 3 !== 0;
+    return {
+      date: dia.toISOString().slice(0, 10),
+      slot: "morning",
+      predicted: 50,
+      reported: falla ? 16 : 42,
+      error: falla ? 34 : 8,
+    };
+  }),
+};
+
 const SOBREGIRO = {
   committed: 62,
   limit: 50,
@@ -173,6 +193,17 @@ export function DashboardSection() {
             <Seeded stubs={[seedQuery(api.energy.overBudgetExit, SOBREGIRO)]}>
               <div className="w-full">
                 <OverBudgetExit />
+              </div>
+            </Seeded>
+          </Specimen>
+          <Specimen
+            label="CeilingMutedNotice"
+            hint="el techo apagado, con sus catorce mediciones"
+            className="items-stretch"
+          >
+            <Seeded stubs={[seedQuery(api.energy.ceilingHonesty, TECHO_APAGADO)]}>
+              <div className="w-full">
+                <CeilingMutedNotice />
               </div>
             </Seeded>
           </Specimen>

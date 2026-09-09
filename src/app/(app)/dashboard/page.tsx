@@ -61,15 +61,15 @@ export default async function DashboardPage() {
         </section>
 
         <div className="mt-8 flex flex-col gap-6 md:mt-0">
-          <TodayPlanCard noProfile={dailyPlan.noProfile} energyItems={energyItems} />
-
-          {/* El día que no cabe. Decide solo si se pinta, leyendo el
-              presupuesto real, y se va cuando el día vuelve a caber. */}
+          {/* Los dos van antes del plan y no después: los dos hablan de la
+              cifra del día, y detrás de un plan de doce tareas el que dice que
+              el día no cabe queda a un scroll de la cifra que lo dice. Ninguno
+              pide una decisión, así que no gastan la apertura del día: deciden
+              solos si se pintan y se van cuando su motivo desaparece. */}
           <OverBudgetExit />
-
-          {/* El instrumento descalibrado. No pide nada, así que no gasta la
-              apertura del día: informa y enseña sus catorce mediciones. */}
           <CeilingMutedNotice />
+
+          <TodayPlanCard noProfile={dailyPlan.noProfile} energyItems={energyItems} />
 
           {topPattern ? (
             <AdvisorCard
