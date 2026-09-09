@@ -87,6 +87,7 @@ export const FRASES: Record<string, { item: string; verbo: string; clase: string
 
   "energy.applyWeeklyRitual": { item: "repartió lo vencido en el ritual semanal", clase: "vencida en el ritual", resumen: (n) => `${n} ${n === 1 ? "vencida en el ritual" : "vencidas en el ritual"}`, verbo: "repartió" },
   "energy.applyCeiling": { item: "cambió tu techo del día", clase: "vez tu techo del día", resumen: (n) => `${n} ${n === 1 ? "vez tu techo del día" : "veces tu techo del día"}`, verbo: "cambió" },
+  "energy.updateProfile": { item: "cambió tu perfil de energía", clase: "vez tu perfil de energía", resumen: (n) => `${n} ${n === 1 ? "vez tu perfil de energía" : "veces tu perfil de energía"}`, verbo: "cambió" },
 
   "log.deshacer": { item: "deshizo un cambio de aquí", clase: "cambio", resumen: (n) => `${n} ${n === 1 ? "cambio" : "cambios"}`, verbo: "deshizo" },
 };

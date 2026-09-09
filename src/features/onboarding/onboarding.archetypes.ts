@@ -1,5 +1,5 @@
-import { Feather, GraduationCap, Hammer, Rocket, Settings, type LucideIcon } from 'lucide-react';
-import { SYSTEM_TYPE_CONFIG, type ArchetypeFieldDef } from '@/shared/lib/system-types';
+import { Feather, GraduationCap, Hammer, Rocket, Settings, Star, type LucideIcon } from 'lucide-react';
+import { SYSTEM_TYPE_CONFIG, type ArchetypeFieldDef, type SystemType } from '@/shared/lib/system-types';
 import type { ColorValue, EnergyLevelValue, TemplateTypeValue } from '@/shared/types/enums';
 
 /**
@@ -14,10 +14,15 @@ import type { ColorValue, EnergyLevelValue, TemplateTypeValue } from '@/shared/t
  * entrada a `ONBOARDING_ARCHETYPES`, nunca un `if` por tipo.
  */
 
+/**
+ * El orden es el de la galería del alta. `propio` va último a propósito: su
+ * frase es "ninguna de las anteriores", así que no puede leerse antes que ellas.
+ */
 export const ARCHETYPE_IDENTITIES = [
   'estudiante',
   'builder',
   'emprendedor',
+  'personal',
   'escritor',
   'propio',
 ] as const;
@@ -86,9 +91,6 @@ export interface OnboardingArchetype {
   id: ArchetypeIdentity;
   /** Arquetipo del primer sistema. Excluye `inbox`: ese no se elige, se crea solo. */
   systemType: TemplateTypeValue;
-  label: string;
-  /** Una línea en la tarjeta de la bifurcación. */
-  tagline: string;
   icon: LucideIcon;
   /**
    * Slug del segmento en las landings `/para/*` (5.2). `null` → la identidad no
@@ -117,8 +119,6 @@ export const ONBOARDING_ARCHETYPES: Record<ArchetypeIdentity, OnboardingArchetyp
   estudiante: {
     id: 'estudiante',
     systemType: 'academic',
-    label: 'Estudiante',
-    tagline: 'Un semestre con clases, entregas y exámenes que no esperan.',
     icon: GraduationCap,
     landingSlug: 'estudiantes',
     systemNameDefault: 'Semestre actual',
@@ -146,8 +146,6 @@ export const ONBOARDING_ARCHETYPES: Record<ArchetypeIdentity, OnboardingArchetyp
   builder: {
     id: 'builder',
     systemType: 'project',
-    label: 'Builder',
-    tagline: 'Construyes producto: features, bugs y releases en un board.',
     icon: Hammer,
     landingSlug: 'builders',
     systemNameDefault: 'Mi proyecto',
@@ -178,8 +176,6 @@ export const ONBOARDING_ARCHETYPES: Record<ArchetypeIdentity, OnboardingArchetyp
   emprendedor: {
     id: 'emprendedor',
     systemType: 'entrepreneurial',
-    label: 'Emprendedor',
-    tagline: 'Validas una idea: experimentos, milestones y primeros clientes.',
     icon: Rocket,
     landingSlug: 'emprendedores',
     systemNameDefault: 'Mi emprendimiento',
@@ -209,11 +205,39 @@ export const ONBOARDING_ARCHETYPES: Record<ArchetypeIdentity, OnboardingArchetyp
       ],
     },
   },
+  personal: {
+    id: 'personal',
+    systemType: 'personal',
+    icon: Star,
+    landingSlug: null,
+    systemNameDefault: 'Personal',
+    systemNamePlaceholder: 'ej. Personal',
+    systemNameSuggestions: ['Personal', 'Casa y salud', 'Mi vida'],
+    identityStatement: 'Lo que sostiene mi vida no se cae por estar trabajando.',
+    systemIcon: 'star',
+    systemColor: 'green',
+    promise: 'Lo de tu vida deja de competir con el trabajo por tu memoria.',
+    seed: {
+      unitKind: 'folder',
+      title: '¿Qué áreas de tu vida quieres sostener?',
+      subtitle:
+        'Un área es algo que no se termina: salud, casa, papeles. Dentro viven sus hábitos y sus recados.',
+      placeholders: ['Salud', 'Casa', 'Papeles y trámites'],
+      maxUnits: 6,
+      unitTasks: [{ title: 'Primer paso en {unidad}', kind: 'errand', energyLevel: 'low' }],
+      systemTasks: [
+        {
+          title: 'Anotar el hábito que quieres sostener esta semana',
+          kind: 'habit',
+          energyLevel: 'low',
+          startsToday: true,
+        },
+      ],
+    },
+  },
   escritor: {
     id: 'escritor',
     systemType: 'writing',
-    label: 'Escritor',
-    tagline: 'Escribes una obra y necesitas volver a ella todos los días.',
     icon: Feather,
     landingSlug: 'escritores',
     systemNameDefault: 'Escritura',
@@ -233,18 +257,16 @@ export const ONBOARDING_ARCHETYPES: Record<ArchetypeIdentity, OnboardingArchetyp
       unitFieldId: 'medium',
       seedFirstPage: true,
       unitTasks: [
-        { title: 'Primera sesión de escritura en {unidad}', kind: 'write', energyLevel: 'high', startsToday: true },
+        { title: 'Primera sesión de escritura en {unidad}', kind: 'write', energyLevel: 'high' },
       ],
       systemTasks: [
-        { title: 'Outline: en qué termina la historia', kind: 'outline', energyLevel: 'medium' },
+        { title: 'Outline: en qué termina la historia', kind: 'outline', energyLevel: 'medium', startsToday: true },
       ],
     },
   },
   propio: {
     id: 'propio',
     systemType: 'custom',
-    label: 'Algo mío',
-    tagline: 'Ninguna de las anteriores. Tú pones el vocabulario.',
     icon: Settings,
     landingSlug: null,
     // Neutro a propósito: quien elige "ninguna de las anteriores" no ha dicho
@@ -264,7 +286,12 @@ export const ONBOARDING_ARCHETYPES: Record<ArchetypeIdentity, OnboardingArchetyp
       maxUnits: 6,
       unitTasks: [],
       unitTaskDefaults: {},
-      systemTasks: [],
+      // `custom` no declara task kinds, así que la tarea nace sin kind. Es lo
+      // único que Kino puede saber de alguien que dijo "ninguna de las
+      // anteriores": que tiene cosas encima y todavía no están escritas.
+      systemTasks: [
+        { title: 'Anotar lo que tienes encima ahora mismo', energyLevel: 'low', startsToday: true },
+      ],
     },
   },
 };
@@ -272,6 +299,21 @@ export const ONBOARDING_ARCHETYPES: Record<ArchetypeIdentity, OnboardingArchetyp
 export const ARCHETYPE_LIST: OnboardingArchetype[] = ARCHETYPE_IDENTITIES.map(
   (id) => ONBOARDING_ARCHETYPES[id],
 );
+
+/**
+ * Qué identidad del alta corresponde a cada arquetipo del manifiesto. `inbox`
+ * queda fuera porque no se elige: se crea con la cuenta. El tipo es lo que hace
+ * el trabajo: añadir un arquetipo a `SYSTEM_TYPE_CONFIG` deja de compilar hasta
+ * que exista su entrada aquí, así que la galería nunca puede quedarse corta.
+ */
+export const IDENTITY_BY_SYSTEM_TYPE: Record<Exclude<SystemType, 'inbox'>, ArchetypeIdentity> = {
+  academic: 'estudiante',
+  project: 'builder',
+  entrepreneurial: 'emprendedor',
+  personal: 'personal',
+  writing: 'escritor',
+  custom: 'propio',
+};
 
 export function getArchetype(identity: ArchetypeIdentity): OnboardingArchetype {
   return ONBOARDING_ARCHETYPES[identity];

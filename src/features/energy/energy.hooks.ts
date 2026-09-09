@@ -1,6 +1,7 @@
 'use client';
 
 import { useRouter } from 'next/navigation';
+import { toast } from 'sonner';
 import { api } from '@convex/_generated/api';
 import { useConvexMutation, useConvexQuery } from '@/shared/convex/hooks';
 import { useTodayPlanTasks } from '@/features/tasks/tasks.hooks';
@@ -17,6 +18,18 @@ export function useEnergyBudget(): EnergyBudget | null {
   const { data: settings } = useUserSettings();
   if (!settings?.dailyEnergyLimit) return null;
   return computeEnergyBudget(planTasks, settings.dailyEnergyLimit);
+}
+
+/** El perfil declarado: los cuatro campos que salieron del alta y viven en Ajustes. */
+export function useEnergyProfile() {
+  return useConvexQuery(api.energy.profile, {});
+}
+
+export function useUpdateEnergyProfile() {
+  return useConvexMutation(api.energy.updateProfile, {
+    onSuccess: () => toast.success('Tu perfil de energía queda guardado'),
+    onError: () => toast.error('No se pudo guardar tu perfil de energía'),
+  });
 }
 
 export function useTodayEnergyPlan() {

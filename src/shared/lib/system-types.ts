@@ -190,6 +190,14 @@ export type ArchetypeManifest = {
   /** Stale advisor template: interpolates {nombre} and {n}. */
   staleTemplate: string;
   focusMinutes: number | null;
+  /**
+   * Con qué sustantivos habla este arquetipo, en el orden en que los dice. Es
+   * lo que la galería del alta pinta bajo la etiqueta, así que vive aquí y no en
+   * el componente: añadir un arquetipo es escribir un manifiesto, nunca tocar
+   * un `.tsx`. Dos o tres, en plural y en minúscula. Cuando el arquetipo tiene
+   * carpetas, el plural de su carpeta va primero, porque es su contenedor.
+   */
+  vocabulary: readonly string[];
   /** Tabs del funnel universal que monta este tipo, en orden. */
   tabs: SystemTabId[];
   /** Tab abierto al entrar al sistema (el "headspace"). */
@@ -248,6 +256,7 @@ export const SYSTEM_TYPE_CONFIG: Record<SystemType, ArchetypeManifest> = {
     advisorTemplate: 'Energía media: ideal para avanzar en {nombre}.',
     staleTemplate: '{n} días desde última tarea en {nombre}.',
     focusMinutes: 90,
+    vocabulary: ['clases', 'apuntes', 'entregas'],
     tabs: UNIVERSAL_TABS,
     defaultTab: 'action',
   },
@@ -264,6 +273,7 @@ export const SYSTEM_TYPE_CONFIG: Record<SystemType, ArchetypeManifest> = {
     advisorTemplate: '{nombre} lleva {n} días sin actividad: estás en tu ventana de alta energía.',
     staleTemplate: '{n} días desde última tarea en {nombre}.',
     focusMinutes: 25,
+    vocabulary: ['tablero', 'docs', 'sprints'],
     tabs: UNIVERSAL_TABS,
     defaultTab: 'action',
   },
@@ -296,6 +306,7 @@ export const SYSTEM_TYPE_CONFIG: Record<SystemType, ArchetypeManifest> = {
     advisorTemplate: '{nombre} espera hace {n} días. Ahora estás en pico: ¿saltás?',
     staleTemplate: '{n} días desde última tarea en {nombre}.',
     focusMinutes: 25,
+    vocabulary: ['milestones', 'learnings', 'experimentos'],
     tabs: UNIVERSAL_TABS,
     defaultTab: 'action',
   },
@@ -323,6 +334,7 @@ export const SYSTEM_TYPE_CONFIG: Record<SystemType, ArchetypeManifest> = {
     advisorTemplate: 'Momentos de baja energía son perfectos para {nombre}.',
     staleTemplate: '{n} días desde última tarea en {nombre}.',
     focusMinutes: null,
+    vocabulary: ['áreas', 'notas', 'hábitos'],
     tabs: UNIVERSAL_TABS,
     defaultTab: 'action',
   },
@@ -346,6 +358,7 @@ export const SYSTEM_TYPE_CONFIG: Record<SystemType, ArchetypeManifest> = {
     advisorTemplate: 'Tu sistema, tus reglas.',
     staleTemplate: '{n} días desde última tarea en {nombre}.',
     focusMinutes: null,
+    vocabulary: ['carpetas', 'páginas'],
     tabs: UNIVERSAL_TABS,
     defaultTab: 'action',
   },
@@ -394,6 +407,7 @@ export const SYSTEM_TYPE_CONFIG: Record<SystemType, ArchetypeManifest> = {
     advisorTemplate: 'Tu mejor ventana creativa es ahora: dale a {nombre}.',
     staleTemplate: '{nombre} lleva {n} días sin una sesión de escritura.',
     focusMinutes: 45,
+    vocabulary: ['obras', 'manuscritos', 'sesiones'],
     tabs: UNIVERSAL_TABS,
     defaultTab: 'action',
   },
@@ -410,6 +424,7 @@ export const SYSTEM_TYPE_CONFIG: Record<SystemType, ArchetypeManifest> = {
     advisorTemplate: 'Tienes {n} items sin procesar.',
     staleTemplate: '{n} días desde última tarea en {nombre}.',
     focusMinutes: null,
+    vocabulary: ['capturas', 'notas'],
     tabs: UNIVERSAL_TABS,
     defaultTab: 'action',
   },

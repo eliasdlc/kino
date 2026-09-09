@@ -7,6 +7,7 @@ import { computeEnergyBudget, energyPointsFor } from '../src/features/energy/ene
 import { buildBudgetPlan, buildEnergyPlan, type DeferralReason } from '../src/features/energy/energy.planner';
 import { buildVerificationLoop, predictLevelForSlot, SLOT_HOUR_RANGES } from '../src/features/energy/energy.prediction';
 import { buildWeeklyRitual, nextDays, weekdayOf, type RitualDay } from '../src/features/energy/energy.ritual';
+import { updateEnergyProfileSchema } from '../src/features/energy/energy.schemas';
 import {
   buildPeakAdvice,
   CHRONOTYPE_CURVES,
@@ -810,6 +811,57 @@ export const applyWeeklyRitual = kinoZodMutation({
 });
 
 /** Perfil de energía inicial del onboarding. */
+/**
+ * El perfil declarado, para la pantalla que lo edita. Devuelve `null` cuando
+ * todavía no existe en vez de inventarse valores: el alta lo crea al entrar, y
+ * una cuenta que no pasó por ahí no tiene nada que enseñar.
+ */
+export const profile = kinoZodQuery({
+  args: {},
+  handler: async (ctx) => {
+    const row = await profileOf(ctx, ctx.user._id);
+    if (!row) return null;
+    return {
+      chronotype: row.chronotype,
+      sleepTypicalHours: row.sleepTypicalHours,
+      availableHoursPerDay: row.availableHoursPerDay,
+      rechargePresets: row.rechargePresets,
+      /** Si Kino ya midió una curva propia, lo declarado deja de ser lo único que hay. */
+      hasLearnedCurve: row.learnedCurve.length > 0,
+    };
+  },
+});
+
+/**
+ * Cambiar lo que declaraste de tu energía. Es lo que queda en Ajustes de los
+ * cuatro pasos que salieron del alta: se guarda lo que se toca y nada más.
+ */
+export const updateProfile = kinoZodMutation({
+  args: updateEnergyProfileSchema,
+  handler: async (ctx, input) => {
+    const row = await profileOf(ctx, ctx.user._id);
+    if (!row) invalid('Todavía no hay perfil de energía.');
+
+    const patch = Object.fromEntries(
+      Object.entries(input).filter(([, value]) => value !== undefined),
+    );
+    // El valor de antes viaja al log: sin él, deshacer no tendría a dónde volver.
+    const anterior = Object.fromEntries(
+      Object.keys(patch).map((campo) => [campo, row[campo as keyof typeof row]]),
+    );
+    await ctx.db.patch(row._id, { ...patch, updatedAt: Date.now() });
+    await recordEvent(ctx, {
+      userId: ctx.user._id,
+      actorChannel: ctx.channel,
+      action: 'energy.updateProfile',
+      targetType: 'task',
+      targetId: row._id,
+      payload: { anterior },
+    });
+    return { ok: true as const };
+  },
+});
+
 export async function createEnergyProfile(
   ctx: MutationCtx,
   userId: Id<'users'>,
