@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
+import { useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useMutation } from 'convex/react';
 import { api } from '@convex/_generated/api';
@@ -25,22 +25,6 @@ import { track } from '@/shared/observability/analytics.client';
 type Chronotype = 'morning' | 'intermediate' | 'evening';
 
 const TOTAL_STEPS = 8;
-
-/**
- * Nombre de cada paso para la medición. El número que el ticket llama decisivo
- * es en cuál se cae la gente, y ese sólo sale instrumentando el avance: con el
- * principio y el final se sabe cuántos se pierden, no dónde.
- */
-const STEP_NAMES = [
-  'hook',
-  'identity',
-  'chronotype',
-  'sleep',
-  'recharge',
-  'hours',
-  'first_system',
-  'promise',
-] as const;
 
 /**
  * Slots iniciales de siembra: uno por ejemplo declarado en el manifiesto, con el
@@ -81,25 +65,21 @@ export function OnboardingWizard({
 
   // Cambiar de identidad rehace el sistema propuesto: el nombre y las unidades
   // pertenecen al arquetipo, no al usuario que todavía no los tocó.
+  //
+  // Elegir es el único abandono que queda dentro del alta (elegir y no entrar),
+  // así que es lo que se mide. Se cuenta una vez por identidad distinta: volver
+  // a la que ya estaba no es una elección nueva y aplanaría el embudo.
+  const chosen = useRef<ArchetypeIdentity | null>(initialIdentity);
   function chooseIdentity(next: ArchetypeIdentity) {
     if (next === identity) return;
     setIdentity(next);
     setSystemName(getArchetype(next).systemNameDefault);
     setUnits(initialUnits(next));
+    if (chosen.current !== next) {
+      chosen.current = next;
+      track('archetype_chosen', { segment, identity: next });
+    }
   }
-
-  // Un evento por paso visto, no por render: sin el pestillo, cualquier cambio
-  // de estado dentro de un paso lo contaría otra vez y el embudo se aplanaría.
-  const trackedStep = useRef<number | null>(null);
-  useEffect(() => {
-    if (trackedStep.current === step) return;
-    trackedStep.current = step;
-    track('onboarding_step_viewed', {
-      segment,
-      step: STEP_NAMES[step],
-      step_index: step,
-    });
-  }, [step, segment]);
 
   function next() {
     setStep((s) => Math.min(s + 1, TOTAL_STEPS - 1));
