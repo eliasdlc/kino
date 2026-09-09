@@ -5,7 +5,7 @@ import { toast } from "sonner";
 import { api } from "@convex/_generated/api";
 import { Button } from "@/components/ui/button";
 import { useConvexMutation } from "@/shared/convex/hooks";
-import { cuandoDe, sujetoDe, VERBOS, type ItemEvent } from "./item-events";
+import { cuandoDe, FRASES, sujetoDe, type ItemEvent } from "./item-events";
 
 /**
  * Una fila del log, con su deshacer cuando lo tiene.
@@ -26,7 +26,7 @@ export function UndoableEventRow({ evento }: { evento: ItemEvent }) {
   // sitio. Es el mismo sitio donde el servidor pone los motivos que ya sabía.
   const [rechazo, setRechazo] = useState<string | null>(null);
 
-  const frase = `${sujetoDe(evento.actor)} ${VERBOS[evento.action] ?? "hizo un cambio"} · ${cuandoDe(evento.occurredAt)}`;
+  const frase = `${sujetoDe(evento.actor)} ${FRASES[evento.action]?.item ?? "hizo un cambio"} · ${cuandoDe(evento.occurredAt)}`;
   const motivo = rechazo ?? (evento.deshacer.forma === "no" ? evento.deshacer.motivo : null);
 
   return (

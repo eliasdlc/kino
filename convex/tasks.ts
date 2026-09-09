@@ -662,8 +662,23 @@ export async function updateTaskDoc(
  */
 export const remove = kinoZodMutation({
   args: { id: zid('tasks') },
-  handler: async (ctx, { id }) => {
-    const task = await ownTask(ctx, ctx.user._id, id);
+  handler: async (ctx, { id }) => removeTaskDoc(ctx, ctx.user._id, ctx.channel, id),
+});
+
+/**
+ * El borrado con su cascada, exportado para que aplicar una propuesta de
+ * cancelar pase por aquí y no por una copia que se quedará vieja el día que la
+ * cascada cambie.
+ */
+export async function removeTaskDoc(
+  ctx: MutationCtx & { clientId?: string },
+  userId: Id<'users'>,
+  channel: ActorChannel,
+  id: Id<'tasks'>,
+  proposalId?: Id<'proposals'>,
+) {
+  {
+    const task = await ownTask(ctx, userId, id);
     const now = Date.now();
     for (const subId of await subtaskTree(ctx, id)) {
       await ctx.db.patch(subId, { deletedAt: now, updatedAt: now });
@@ -680,17 +695,18 @@ export const remove = kinoZodMutation({
     // Una fila por el borrado que se pidió, no una por cada subtarea ni por
     // cada hija de la serie: ésas son la cascada de éste.
     await recordEvent(ctx, {
-      userId: ctx.user._id,
+      userId,
       systemId: task.systemId,
-      actorChannel: ctx.channel,
+      actorChannel: channel,
       action: 'task.remove',
       targetType: 'task',
       targetId: id,
       payload: { title: task.title },
+      proposalId,
     });
     return { id: task._id, title: task.title };
-  },
-});
+  }
+}
 
 /** La tarea y todas sus subtareas vivas, en profundidad. */
 async function subtaskTree(ctx: MutationCtx, rootId: Id<'tasks'>): Promise<Id<'tasks'>[]> {

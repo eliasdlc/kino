@@ -6,6 +6,7 @@ import type { MutationCtx, QueryCtx } from './_generated/server';
 import { countWords } from '../src/shared/lib/word-count';
 import { forbidden, invalid, notFound } from './lib/errors';
 import { kinoZodMutation, kinoZodQuery, type Channel } from './lib/fn';
+import type { ActorChannel } from './schema';
 import { lematizar } from './lib/lemas';
 import { recomputePageMentions } from './lib/mentions';
 import { archivarVersion } from './lib/pages/snapshots';
@@ -299,18 +300,37 @@ export const create = kinoZodMutation({
 /** Exportada para la siembra del onboarding, que crea páginas sin pasar por el cliente. */
 export const createPageDoc = createOne;
 
+const updateFields = {
+  id: zid('pages'),
+  title: z.string().max(500).nullable().optional(),
+  content: pageContent.nullable().optional(),
+  folderId: zid('folders').nullable().optional(),
+  isPinned: z.boolean().optional(),
+  /** Versión optimista: el `updatedAt` que traía la página al leerla. */
+  expectedUpdatedAt: z.iso.datetime({ offset: true }).optional(),
+};
+
 export const update = kinoZodMutation({
-  args: {
-    id: zid('pages'),
-    title: z.string().max(500).nullable().optional(),
-    content: pageContent.nullable().optional(),
-    folderId: zid('folders').nullable().optional(),
-    isPinned: z.boolean().optional(),
-    /** Versión optimista: el `updatedAt` que traía la página al leerla. */
-    expectedUpdatedAt: z.iso.datetime({ offset: true }).optional(),
-  },
-  handler: async (ctx, { id, expectedUpdatedAt, ...data }) => {
-    const userId = ctx.user._id;
+  args: updateFields,
+  handler: async (ctx, { id, ...data }) => updatePageDoc(ctx, ctx.user._id, ctx.channel, id, data),
+});
+
+/**
+ * La edición de un capítulo, exportada para que aplicar una propuesta de
+ * reescritura pase por el mismo camino: la misma versión archivada, el mismo
+ * evento, el mismo deshacer. Lo único que cambia es que el evento lleva la
+ * propuesta de la que salió.
+ */
+export async function updatePageDoc(
+  ctx: MutationCtx & { clientId?: string },
+  userId: Id<'users'>,
+  channel: ActorChannel,
+  id: Id<'pages'>,
+  data: Omit<z.infer<z.ZodObject<typeof updateFields>>, 'id'>,
+  proposalId?: Id<'proposals'>,
+) {
+  {
+    const { expectedUpdatedAt, ...campos } = data;
     const current = await ownPage(ctx, userId, id);
     // La versión se compara al milisegundo, que es lo que sobrevive al ISO.
     if (expectedUpdatedAt !== undefined && Date.parse(expectedUpdatedAt) !== current.updatedAt) {
@@ -319,18 +339,18 @@ export const update = kinoZodMutation({
         message: 'La página cambió después de leerla. Vuelve a leerla y aplica el cambio sobre la versión nueva.',
       });
     }
-    if (data.folderId) {
-      const folder = await ctx.db.get(data.folderId);
+    if (campos.folderId) {
+      const folder = await ctx.db.get(campos.folderId);
       if (!folder || folder.userId !== userId || folder.systemId !== current.systemId) forbidden('Folder does not belong to this system');
     }
     const now = Date.now();
     const patch: Partial<Doc<'pages'>> = { updatedAt: now };
-    if (data.title !== undefined) patch.title = data.title ?? undefined;
-    if (data.content !== undefined) patch.content = data.content ?? undefined;
-    if (data.folderId !== undefined) patch.folderId = data.folderId ?? undefined;
-    if (data.isPinned !== undefined) patch.isPinned = data.isPinned;
-    if (data.title !== undefined || data.content !== undefined) {
-      patch.lemas = lematizar(data.title === undefined ? current.title : data.title, data.content === undefined ? current.content : data.content);
+    if (campos.title !== undefined) patch.title = campos.title ?? undefined;
+    if (campos.content !== undefined) patch.content = campos.content ?? undefined;
+    if (campos.folderId !== undefined) patch.folderId = campos.folderId ?? undefined;
+    if (campos.isPinned !== undefined) patch.isPinned = campos.isPinned;
+    if (campos.title !== undefined || campos.content !== undefined) {
+      patch.lemas = lematizar(campos.title === undefined ? current.title : campos.title, campos.content === undefined ? current.content : campos.content);
     }
     await ctx.db.patch(id, patch);
     const updated = (await ctx.db.get(id))!;
@@ -340,7 +360,7 @@ export const update = kinoZodMutation({
     // del de escritura. Las quince versiones que sobreviven por capítulo son lo
     // que mantiene plano el coste, y el evento apunta a la que le toca.
     let snapshotId: Id<'pageSnapshots'> | undefined;
-    if (data.content !== undefined) {
+    if (campos.content !== undefined) {
       await recomputePageMentions(ctx, userId, id, updated.systemId, updated.content);
       if (current.content !== updated.content) {
         snapshotId = await archivarVersion(ctx, updated, current.content, undefined);
@@ -360,16 +380,17 @@ export const update = kinoZodMutation({
     await recordEvent(ctx, {
       userId,
       systemId: updated.systemId,
-      actorChannel: ctx.channel,
+      actorChannel: channel,
       action: 'page.update',
       targetType: 'page',
       targetId: id,
       payload: current.content === updated.content ? cambios : { ...cambios, contenidoCambiado: true },
       snapshotId,
+      proposalId,
     });
     return { ...(await pageListItem(ctx, updated, { subPages: false })), content: updated.content ?? null };
-  },
-});
+  }
+}
 
 /**
  * Borra el capítulo. Blando, y su cascada con él:
@@ -386,9 +407,24 @@ export const update = kinoZodMutation({
  */
 export const remove = kinoZodMutation({
   args: { id: zid('pages') },
-  handler: async (ctx, { id }) => {
-    const page = await ownPage(ctx, ctx.user._id, id);
-    const now = await stampFor(ctx, ctx.user._id);
+  handler: async (ctx, { id }) => removePageDoc(ctx, ctx.user._id, ctx.channel, id),
+});
+
+/**
+ * El borrado con su cascada, exportado para que aplicar una propuesta de
+ * cancelar pase por aquí y no por una copia que se quedará vieja el día que la
+ * cascada cambie.
+ */
+export async function removePageDoc(
+  ctx: MutationCtx & { clientId?: string },
+  userId: Id<'users'>,
+  channel: ActorChannel,
+  id: Id<'pages'>,
+  proposalId?: Id<'proposals'>,
+) {
+  {
+    const page = await ownPage(ctx, userId, id);
+    const now = await stampFor(ctx, userId);
     for (const pageId of [id, ...(await subPageTree(ctx, id))]) {
       for (const note of await ctx.db
         .query('stickyNotes')
@@ -407,17 +443,18 @@ export const remove = kinoZodMutation({
     // Una fila por el gesto. Los subcapítulos, sus notas y las menciones que
     // se recalculan son la cascada de éste.
     await recordEvent(ctx, {
-      userId: ctx.user._id,
+      userId,
       systemId: page.systemId,
-      actorChannel: ctx.channel,
+      actorChannel: channel,
       action: 'page.remove',
       targetType: 'page',
       targetId: id,
       payload: { title: page.title },
+      proposalId,
     });
     return null;
-  },
-});
+  }
+}
 
 /** Los subcapítulos vivos que cuelgan de uno, en profundidad. */
 async function subPageTree(ctx: MutationCtx, rootId: Id<'pages'>): Promise<Id<'pages'>[]> {

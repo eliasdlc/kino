@@ -7,7 +7,7 @@ import { ALL_TOOLS } from "./index";
  * aprendidos. Quitar uno rompe a quien lo usa; añadir uno es una decisión que
  * pasa por aquí.
  *
- * Son 66. Las siete que faltan respecto a la lista de antes se retiraron a
+ * Son 67. Las siete que faltan respecto a la lista de antes se retiraron a
  * propósito y no vuelven sin reabrir el principio 2: las cinco de borrar,
  * `create_energy_checkin` (un check-in escrito por una máquina contamina el
  * único dato honesto que Kino tiene) y `update_page` (reescribir el cuerpo de
@@ -64,6 +64,7 @@ const CONTRACT = [
   "move_task",
   "move_task_board",
   "park_learning_thought",
+  "propose_change",
   "propose_day_blocks",
   "reorder_by_importance",
   "restore_folder",

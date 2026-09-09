@@ -15,7 +15,7 @@ const enLista = (fila: React.ReactNode) => <ul>{fila}</ul>;
 
 describe("UndoableEventRow", () => {
   it("la fila deshacible trae botón y llama al deshacer con su id", async () => {
-    const convex = makeTestConvexClient([], [stubMutation(api.eventLog.deshacer, { deshecho: true, campos: ["deletedAt"] })]);
+    const convex = makeTestConvexClient([], [stubMutation(api.eventLog.deshacer, { deshecho: true })]);
 
     renderWithProviders(enLista(<UndoableEventRow evento={creadoPorElAgente} />), { convex });
     await userEvent.click(screen.getByRole("button", { name: "Deshacer" }));

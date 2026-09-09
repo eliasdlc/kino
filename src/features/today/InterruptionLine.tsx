@@ -1,10 +1,12 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { CalendarClock, Gauge, NotebookPen } from 'lucide-react';
+import { Bot, CalendarClock, Gauge, NotebookPen } from 'lucide-react';
 import { InterruptionBody } from './InterruptionBody';
 import { CeilingProposalBody, type CeilingProposal } from './CeilingProposalBody';
+import { ProposalBody, type Proposal } from './ProposalBody';
 import { api } from '@convex/_generated/api';
+import type { Id } from '@convex/_generated/dataModel';
 import { Button } from '@/components/ui/button';
 import { useConvexMutation, useConvexQuery } from '@/shared/convex/hooks';
 import { WeeklyRitualDialog } from '@/features/energy/WeeklyRitualDialog';
@@ -23,8 +25,14 @@ import { WeeklyRitualDialog } from '@/features/energy/WeeklyRitualDialog';
  * vuelve.
  */
 
-/** Lo que cada clase dice y qué hace su acción. Una clase sin línea no se pinta. */
-type Contenido = { texto: React.ReactNode; accion: string; icono: typeof CalendarClock };
+/**
+ * Lo que cada clase dice y qué hace su acción. Una clase sin línea no se pinta.
+ *
+ * `descarte` sólo lo trae quien cierra de verdad al pulsarlo. Una propuesta que
+ * se acusa sin descartarse seguiría pendiente para siempre, ocupando uno de los
+ * veinte huecos, así que ahí el segundo botón dice lo que hace.
+ */
+type Contenido = { texto: React.ReactNode; accion: string; icono: typeof CalendarClock; descarte?: string };
 
 const texto = (payload: Record<string, unknown>, clave: string) =>
   typeof payload[clave] === 'string' ? (payload[clave] as string) : '';
@@ -60,6 +68,14 @@ function contenidoDe(kind: string, payload: Record<string, unknown>): Contenido 
       icono: CalendarClock,
     };
   }
+  if (kind === 'agente') {
+    return {
+      texto: <ProposalBody propuesta={payload as unknown as Proposal} />,
+      accion: 'Aceptar',
+      icono: Bot,
+      descarte: 'Descartar',
+    };
+  }
   return null;
 }
 
@@ -69,6 +85,8 @@ export function InterruptionLine() {
   const { mutate: acusar } = useConvexMutation(api.today.acknowledge);
   const { mutate: convertir } = useConvexMutation(api.today.taskFromDigest);
   const { mutate: ajustarTecho } = useConvexMutation(api.energy.applyCeiling);
+  const { mutate: aplicarPropuesta } = useConvexMutation(api.proposals.aplicar);
+  const { mutate: descartarPropuesta } = useConvexMutation(api.proposals.descartar);
   const [abierto, setAbierto] = useState(false);
 
   const kind = interrupcion?.kind;
@@ -85,7 +103,12 @@ export function InterruptionLine() {
   const contenido = contenidoDe(interrupcion.kind, interrupcion.payload);
   if (!contenido) return null;
 
-  const responder = () => acusar({ kind: interrupcion.kind, key: interrupcion.key });
+  // Cerrar la línea. En una propuesta, además, la descarta: acusarla sin más
+  // la dejaría pendiente para siempre ocupando uno de los veinte huecos.
+  const responder = () => {
+    if (interrupcion.kind === 'agente') descartarPropuesta({ id: interrupcion.key as Id<'proposals'> });
+    acusar({ kind: interrupcion.kind, key: interrupcion.key });
+  };
 
   // La acción de cada clase. La del lunes crea la tarea y acusa en la misma
   // mutación, porque es `tasks.digestId` lo que la puerta de muerte del diario
@@ -106,6 +129,11 @@ export function InterruptionLine() {
         return;
       }
     }
+    if (interrupcion.kind === 'agente') {
+      aplicarPropuesta({ id: interrupcion.key as Id<'proposals'> });
+      acusar({ kind: interrupcion.kind, key: interrupcion.key });
+      return;
+    }
     setAbierto(true);
     responder();
   };
@@ -125,7 +153,7 @@ export function InterruptionLine() {
             {contenido.accion}
           </Button>
           <Button variant="ghost" size="sm" className="h-auto px-0 text-muted-foreground" onClick={responder}>
-            Ahora no
+            {contenido.descarte ?? 'Ahora no'}
           </Button>
         </div>
       </div>

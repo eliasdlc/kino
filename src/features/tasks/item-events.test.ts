@@ -1,7 +1,7 @@
 /**
  * Criterio: ninguna acción que el backend escriba puede quedarse sin frase en
  * pantalla ni sin declarar si se deshace. Este test lee las acciones que
- * `convex/` pasa de verdad a `recordEvent` y las cruza con `VERBOS` y con
+ * `convex/` pasa de verdad a `recordEvent` y las cruza con `FRASES` y con
  * `DESHACER`, de modo que añadir un escritor sin su copy o sin su forma de
  * deshacer rompe la batería en vez de pintar "hizo un cambio" o un botón que
  * no sabe qué hacer.
@@ -10,7 +10,7 @@ import { readFileSync, readdirSync } from "node:fs";
 import path from "node:path";
 import { describe, expect, it } from "vitest";
 import { ACCION_DESHACER, DESHACER } from "@convex/eventLog";
-import { cuandoDe, sujetoDe, VERBOS } from "./item-events";
+import { cuandoDe, FRASES, sujetoDe } from "./item-events";
 
 const CONVEX = path.resolve(__dirname, "../../../convex");
 
@@ -34,19 +34,31 @@ const ACCIONES = [
 describe("las frases del log", () => {
   it("el backend escribe acciones y todas se leen en español y saben si se deshacen", () => {
     expect(ACCIONES.length).toBeGreaterThan(20);
-    expect(ACCIONES.filter((accion) => VERBOS[accion] === undefined)).toEqual([]);
+    expect(ACCIONES.filter((accion) => FRASES[accion] === undefined)).toEqual([]);
     expect(ACCIONES.filter((accion) => DESHACER[accion] === undefined)).toEqual([]);
   });
 
   it("las dos tablas cubren el mismo conjunto: una acción no puede tener frase y no forma, ni al revés", () => {
-    expect(Object.keys(VERBOS).sort()).toEqual(Object.keys(DESHACER).sort());
+    expect(Object.keys(FRASES).sort()).toEqual(Object.keys(DESHACER).sort());
   });
 
   it("ninguna frase sobra: una que ya nadie escribe es copy muerto", () => {
     // La del propio deshacer no sale del `grep` porque su acción es una
     // constante, no un literal en la llamada.
     const escritas = [...ACCIONES, ACCION_DESHACER];
-    expect(Object.keys(VERBOS).filter((accion) => !escritas.includes(accion))).toEqual([]);
+    expect(Object.keys(FRASES).filter((accion) => !escritas.includes(accion))).toEqual([]);
+  });
+
+  it("toda acción sabe decirse en singular y en plural: la fila diaria cuenta", () => {
+    for (const [accion, frase] of Object.entries(FRASES)) {
+      expect(frase.resumen(1), accion).toMatch(/^1 /);
+      expect(frase.resumen(4), accion).toMatch(/^4 /);
+      expect(frase.resumen(4), accion).not.toBe(frase.resumen(1).replace("1", "4"));
+      expect(frase.verbo.length, accion).toBeGreaterThan(2);
+      // La clase es el singular tal cual, que es lo que deja ver que dos
+      // tramos seguidos hablan de lo mismo.
+      expect(frase.resumen(1), accion).toBe(`1 ${frase.clase}`);
+    }
   });
 
   it("toda forma `no` trae su motivo escrito, que es lo que la fila enseña en vez del botón", () => {

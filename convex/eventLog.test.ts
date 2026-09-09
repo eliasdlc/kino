@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest';
 import { api, internal } from './_generated/api';
 import type { Id } from './_generated/dataModel';
 import { actorDe, boundPayload, PAYLOAD_MAX_BYTES, PRUNE_BATCH, recordEvent, RETENTION_DAYS } from './eventLog';
+import { MCP_TOKEN_ISSUER } from './lib/mcpToken';
 import schema from './schema';
 
 const modules = import.meta.glob('./**/*.*s');
@@ -323,7 +324,7 @@ describe('deshacer', () => {
     const [edicion] = await conAccion(t, 'task.update');
     const resultado = await as.mutation(api.eventLog.deshacer, { id: edicion!._id });
 
-    expect(resultado).toEqual({ deshecho: true, campos: expect.arrayContaining(['title', 'priority']) });
+    expect(resultado).toEqual({ deshecho: true });
     const vuelta = await as.query(api.tasks.byId, { id: tarea.id });
     expect(vuelta.title).toBe('Original');
     expect(vuelta.priority).toBe('low');
@@ -384,7 +385,7 @@ describe('deshacer', () => {
     expect((await as.query(api.tasks.byId, { id: tareas[0]! })).startDate).not.toBeNull();
 
     const [reparto] = await conAccion(t, 'energy.applyWeeklyRitual');
-    expect(await as.mutation(api.eventLog.deshacer, { id: reparto!._id })).toEqual({ deshecho: true, campos: ['startDate'] });
+    expect(await as.mutation(api.eventLog.deshacer, { id: reparto!._id })).toEqual({ deshecho: true });
 
     for (const id of [tareas[0]!, tareas[50]!, tareas[99]!]) {
       expect((await as.query(api.tasks.byId, { id })).startDate, id).toBeNull();
@@ -437,7 +438,7 @@ describe('deshacer', () => {
     const [creacion] = await conAccion(t, 'task.create');
     const borrada = () => t.run((ctx) => ctx.db.query('tasks').collect().then((filas) => filas.find((f) => f._id === tarea.id)!.deletedAt));
 
-    expect(await as.mutation(api.eventLog.deshacer, { id: creacion!._id })).toEqual({ deshecho: true, campos: ['deletedAt'] });
+    expect(await as.mutation(api.eventLog.deshacer, { id: creacion!._id })).toEqual({ deshecho: true });
     expect(await borrada()).toEqual(expect.any(Number));
 
     await as.mutation(api.tasks.restore, { id: tarea.id });
@@ -479,5 +480,117 @@ describe('deshacer', () => {
       forma: 'no',
       motivo: 'El tiempo trabajado es un hecho, no una edición: borrarlo sería borrar que trabajaste.',
     });
+  });
+});
+
+describe('lo que hizo tu agente hoy', () => {
+  /** El navegador de Ana y su agente, que entra por el conector. */
+  async function conAgente(t: ReturnType<typeof convexTest>) {
+    const asAna = t.withIdentity(ana);
+    await asAna.mutation(api.users.ensure, {});
+    const system = await asAna.mutation(api.systems.create, { name: 'Tesis', color: 'blue', templateType: 'project', icon: 'rocket' });
+    // El canal `oauth` sale del emisor del token, que es lo que distingue al
+    // conector del navegador: sin él, esto sería Ana escribiendo desde la app.
+    const agente = t.withIdentity({ ...ana, issuer: MCP_TOKEN_ISSUER, kino_client: 'claude_code' });
+    return { asAna, agente, systemId: system.id };
+  }
+
+  it('cuenta lo que dice: agrupa por acción y nombra los sistemas', async () => {
+    const t = convexTest(schema, modules);
+    const { asAna, agente, systemId } = await conAgente(t);
+    const creadas = [];
+    for (let i = 0; i < 4; i += 1) creadas.push(await agente.mutation(api.tasks.create, { systemId, title: `Tarea ${i}` }));
+    await agente.mutation(api.tasks.move, { id: creadas[0]!.id, status: 'today' });
+    // Lo que escribe la persona no es actividad del agente.
+    await asAna.mutation(api.tasks.create, { systemId, title: 'Mía' });
+
+    const resumen = (await asAna.query(api.eventLog.delAgenteHoy, {}))!;
+    expect(resumen.total).toBe(5);
+    expect(resumen.acciones).toEqual([
+      { action: 'task.create', cuantas: 4 },
+      { action: 'task.move', cuantas: 1 },
+    ]);
+    expect(resumen.sistemas).toEqual(['Tesis']);
+  });
+
+  it('sin acciones de agente hoy no hay fila que pintar', async () => {
+    const t = convexTest(schema, modules);
+    const { asAna, systemId } = await conAgente(t);
+    await asAna.mutation(api.tasks.create, { systemId, title: 'Mía' });
+
+    expect(await asAna.query(api.eventLog.delAgenteHoy, {})).toBeNull();
+  });
+
+  it('lo de ayer no cuenta: la fila es del día', async () => {
+    const t = convexTest(schema, modules);
+    const { asAna, agente, systemId } = await conAgente(t);
+    await agente.mutation(api.tasks.create, { systemId, title: 'De ayer' });
+    await t.run(async (ctx) => {
+      for (const fila of await ctx.db.query('eventLog').collect()) {
+        await ctx.db.patch(fila._id, { occurredAt: fila.occurredAt - 2 * DIA });
+      }
+    });
+
+    expect(await asAna.query(api.eventLog.delAgenteHoy, {})).toBeNull();
+  });
+
+  it('deshacer en bloque deshace las N y deja N eventos de deshacer, cada uno con su marca', async () => {
+    const t = convexTest(schema, modules);
+    const { asAna, agente, systemId } = await conAgente(t);
+    const creadas = [];
+    for (let i = 0; i < 4; i += 1) creadas.push(await agente.mutation(api.tasks.create, { systemId, title: `Tarea ${i}` }));
+    await agente.mutation(api.tasks.move, { id: creadas[0]!.id, status: 'today' });
+
+    expect(await asAna.mutation(api.eventLog.deshacerDelAgente, {})).toEqual({ deshechas: 5, sinDeshacer: [] });
+
+    // Un deshacer en bloque que no se pueda auditar acción por acción sería la
+    // escritura opaca que el log existe para evitar.
+    const deshechos = await conAccion(t, 'log.deshacer');
+    expect(deshechos).toHaveLength(5);
+    expect(deshechos.every((fila) => fila.payload.deshace !== undefined)).toBe(true);
+
+    const vivas = await t.run((ctx) => ctx.db.query('tasks').collect());
+    expect(vivas.filter((tarea) => tarea.deletedAt === undefined)).toEqual([]);
+    // Y ya no queda nada que deshacer: la fila desaparece.
+    expect(await asAna.query(api.eventLog.delAgenteHoy, {})).toBeNull();
+  });
+
+  it('lo que no se puede deshacer se cuenta aparte en vez de tumbar el resto', async () => {
+    const t = convexTest(schema, modules);
+    const { asAna, agente, systemId } = await conAgente(t);
+    const tarea = await agente.mutation(api.tasks.create, { systemId, title: 'Trabajada' });
+    await agente.mutation(api.tasks.createTimeLog, {
+      id: tarea.id,
+      systemId,
+      startedAt: '2026-09-08T10:00:00Z',
+      endedAt: '2026-09-08T10:45:00Z',
+      durationMinutes: 45,
+    });
+
+    const resultado = await asAna.mutation(api.eventLog.deshacerDelAgente, {});
+    expect(resultado.deshechas).toBe(1);
+    expect(resultado.sinDeshacer).toEqual([
+      'El tiempo trabajado es un hecho, no una edición: borrarlo sería borrar que trabajaste.',
+    ]);
+  });
+
+  it('el deshacer del agente no cuenta como actividad suya', async () => {
+    const t = convexTest(schema, modules);
+    const { asAna, agente, systemId } = await conAgente(t);
+    await agente.mutation(api.tasks.create, { systemId, title: 'Una' });
+    await asAna.mutation(api.eventLog.deshacerDelAgente, {});
+
+    // Si contara, la fila diría que hizo más cosas justo después de deshacerlas.
+    expect(await asAna.query(api.eventLog.delAgenteHoy, {})).toBeNull();
+  });
+
+  it('la fila no entra en la cola: con ella delante sigue habiendo como mucho una interrupción', async () => {
+    const t = convexTest(schema, modules);
+    const { asAna, agente, systemId } = await conAgente(t);
+    for (let i = 0; i < 4; i += 1) await agente.mutation(api.tasks.create, { systemId, title: `Tarea ${i}` });
+
+    expect((await asAna.query(api.eventLog.delAgenteHoy, {}))!.total).toBe(4);
+    // Informa, no pregunta: no gasta la única apertura del día.
+    expect(await asAna.query(api.today.interruption, {})).toBeNull();
   });
 });
