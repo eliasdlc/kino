@@ -10,6 +10,7 @@ import type { MediumManifest } from "@/shared/lib/mediums";
 import { StickyNotesGrid } from "@/features/sticky-notes/StickyNotesGrid";
 import { FloatingNotesLayer } from "@/features/sticky-notes/FloatingNotesLayer";
 import { StickyNoteCreator } from "@/features/sticky-notes/StickyNoteCreator";
+import { SelectionToolbar } from "@/features/sticky-notes/SelectionToolbar";
 import { useStickyNotesByPage } from "@/features/sticky-notes/sticky-notes.hooks";
 import type { PageDetailTransport } from "./pages.types";
 
@@ -54,6 +55,46 @@ function TypewriterScroll({
   }, [enabled, editor, scrollRef]);
 
   return null;
+}
+
+/**
+ * La puerta de la nota adhesiva. Vive dentro del provider porque necesita el
+ * editor compartido, y sólo sabe una cosa: qué hay seleccionado ahora mismo.
+ *
+ * Hasta ahora las notas nacían con click derecho sobre un hueco, un gesto que
+ * nadie descubre solo y que además no las ancla a nada. Aquí la palabra aparece
+ * la primera vez que marcas texto, y no vuelve.
+ */
+function SelectionGate({ onAnnotate }: { onAnnotate: (texto: string, punto: { x: number; y: number }) => void }) {
+  const editor = useSharedEditor();
+  const [seleccion, setSeleccion] = useState("");
+
+  useEffect(() => {
+    if (!editor) return;
+    const mirar = () => {
+      const { from, to, empty } = editor.state.selection;
+      setSeleccion(empty ? "" : editor.state.doc.textBetween(from, to, " "));
+    };
+    editor.on("selectionUpdate", mirar);
+    return () => {
+      editor.off("selectionUpdate", mirar);
+    };
+  }, [editor]);
+
+  function anotar(texto: string) {
+    if (!editor) return;
+    // El punto de anclaje es el final de lo marcado: el popover se abre donde
+    // acabas de soltar, no en una esquina.
+    const { to } = editor.state.selection;
+    const caret = editor.view.coordsAtPos(to);
+    onAnnotate(texto, { x: caret.left, y: caret.bottom });
+  }
+
+  return (
+    <div className="px-4 md:px-6">
+      <SelectionToolbar selection={seleccion} onAnnotate={anotar} />
+    </div>
+  );
 }
 
 /**
@@ -135,7 +176,11 @@ export default function NotebookEditorSurface({
   // Creador flotante abierto con click derecho: guarda el punto de pantalla y la
   // posición (columna-relativa) donde caerá la nota.
   const [creator, setCreator] = useState<
-    | { screen: { x: number; y: number }; position: { positionX: number; positionY: number } }
+    | {
+        screen: { x: number; y: number };
+        position?: { positionX: number; positionY: number };
+        textAnchor?: string;
+      }
     | null
   >(null);
 
@@ -166,6 +211,9 @@ export default function NotebookEditorSurface({
       medium={writer ? medium : null}
     >
       <div className="flex flex-1 flex-col overflow-hidden">
+        <SelectionGate
+          onAnnotate={(textAnchor, screen) => setCreator({ screen, textAnchor })}
+        />
         <div
           ref={scrollRef}
           className={cn("flex-1 overflow-y-auto", writer && focusMode && "writer-focus")}
@@ -219,6 +267,7 @@ export default function NotebookEditorSurface({
           context={pageContext}
           anchorPoint={creator.screen}
           fixedPosition={creator.position}
+          textAnchor={creator.textAnchor}
           onClose={() => setCreator(null)}
         />
       )}

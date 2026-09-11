@@ -10,6 +10,8 @@ export interface TaskFilters {
   priority: string[];
   energy: string[];
   type: string[];
+  /** Ids de etiqueta de contexto. Es por donde entra un resultado de búsqueda de etiqueta. */
+  tag: string[];
   dateRange: '' | 'overdue' | 'no-date' | 'has-date' | 'next7';
   group: '' | 'system' | 'status' | 'priority' | 'energy';
   sort: 'priority' | 'dueDate' | 'energy' | 'created';
@@ -22,6 +24,7 @@ export const DEFAULT_FILTERS: TaskFilters = {
   priority: [],
   energy: [],
   type: [],
+  tag: [],
   dateRange: '',
   group: '',
   sort: 'priority',
@@ -30,7 +33,7 @@ export const DEFAULT_FILTERS: TaskFilters = {
 
 // ── URL serialization ──────────────────────────────────────────────────────
 
-const CSV_KEYS: (keyof TaskFilters)[] = ['status', 'system', 'priority', 'energy', 'type'];
+const CSV_KEYS: (keyof TaskFilters)[] = ['status', 'system', 'priority', 'energy', 'type', 'tag'];
 const SCALAR_KEYS: (keyof TaskFilters)[] = ['dateRange', 'group', 'sort', 'view'];
 
 export function parseFiltersFromParams(p: URLSearchParams): TaskFilters {
@@ -67,6 +70,7 @@ export function countActiveFilters(f: TaskFilters): number {
     f.priority.length +
     f.energy.length +
     f.type.length +
+    f.tag.length +
     (f.dateRange ? 1 : 0) +
     (f.group ? 1 : 0)
   );
@@ -82,6 +86,7 @@ export function applyFilters(tasks: TaskTransport[], f: TaskFilters): TaskTransp
     if (f.priority.length && !f.priority.includes(t.priority ?? '')) return false;
     if (f.energy.length && !f.energy.includes(t.energyLevel ?? '')) return false;
     if (f.type.length && !f.type.includes(t.taskType ?? '')) return false;
+    if (f.tag.length && !f.tag.includes(t.contextTagId ?? '')) return false;
     if (f.dateRange) {
       const due = t.dueDate ? parseDueDate(t.dueDate) : null;
       if (f.dateRange === 'no-date' && due !== null) return false;

@@ -1,4 +1,4 @@
-import { OnboardingWizard } from '@/features/onboarding/OnboardingWizard';
+import { SignupFlow } from '@/features/onboarding/SignupFlow';
 import { identityFromLandingSlug } from '@/features/onboarding/onboarding.archetypes';
 
 export default async function OnboardingPage({
@@ -13,7 +13,7 @@ export default async function OnboardingPage({
   // El slug sólo viaja a la medición si el manifiesto lo reconoce: uno inventado
   // ni preselecciona identidad ni ensucia la dimensión del funnel.
   return (
-    <OnboardingWizard
+    <SignupFlow
       initialIdentity={initialIdentity}
       segment={initialIdentity ? (para ?? null) : null}
     />

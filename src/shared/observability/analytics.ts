@@ -38,21 +38,28 @@ export const ANALYTICS_HOST =
   process.env.NEXT_PUBLIC_POSTHOG_HOST ?? "https://us.i.posthog.com";
 
 /**
- * Los seis pasos del funnel, más el avance dentro del onboarding, que es donde
- * de verdad se pierde la gente. El valor de cada entrada son las únicas
+ * Los siete pasos del funnel. El valor de cada entrada son las únicas
  * propiedades que ese evento puede llevar.
  *
  * `segment` es el slug de la landing (`/para/<slug>`) y es la dimensión que
  * permite comparar: sin ella la medición no contesta la pregunta. Viaja como
  * propiedad hasta el registro y, a partir de ahí, como propiedad de la persona,
  * porque `first_task_created` ocurre cuando el slug ya no está en ninguna URL.
+ *
+ * El alta tiene una sola pantalla y una sola pregunta, así que ya no hay un
+ * avance que medir: `archetype_chosen` ocupa el sitio del viejo
+ * `onboarding_step_viewed` y mide el único abandono que queda dentro del alta,
+ * el de quien elige un arquetipo y no entra. Con estos siete el embudo se
+ * reconstruye entero: cuántos llegan a la landing, cuántos empiezan el
+ * registro, cuántos lo terminan, cuántos abren el alta, cuántos eligen, cuántos
+ * la cierran y cuántos crean su primer item.
  */
 export const ANALYTICS_EVENTS = {
   segment_landing_viewed: ["segment"],
   signup_started: ["segment"],
   signup_completed: ["segment", "method"],
   onboarding_started: ["segment"],
-  onboarding_step_viewed: ["segment", "step", "step_index"],
+  archetype_chosen: ["segment", "identity"],
   onboarding_completed: ["segment", "identity"],
   first_task_created: [],
 } as const satisfies Record<string, readonly string[]>;

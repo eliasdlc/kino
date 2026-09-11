@@ -1,3 +1,4 @@
+import { AcademicWorkspace } from "@/features/academic/AcademicWorkspace";
 import { notFound, redirect } from "next/navigation";
 import { api } from "@convex/_generated/api";
 import { serverQuery } from "@/shared/convex/server";
@@ -23,12 +24,11 @@ export default async function SystemPage({
 
   if (!session) redirect("/login");
 
-  // La lista ya trae las señales de cada sistema; el detalle es uno de ellos.
-  const [systems, tasks] = await Promise.all([
-    serverQuery(api.systems.list, {}),
+  // El detalle no necesita leer las tareas y la actividad de los otros sistemas.
+  const [system, tasks] = await Promise.all([
+    serverQuery(api.systems.detail, { id }).catch(() => null),
     serverQuery(api.tasks.bySystem, { systemId: id }).catch(() => null),
   ]);
-  const system = systems.find((s) => s.id === id);
 
   if (!system || !tasks) notFound();
 
@@ -61,11 +61,15 @@ export default async function SystemPage({
         <SystemDetailHeader system={system} signals={signals} currentTab={surface} />
 
         <div className="mt-4">
+          {system.templateType === "academic" ? <AcademicWorkspace systemId={id}>
+            {surface === "docs" ? <NotebooksView systemId={id} /> : <SystemDetailView system={system} initialTasks={tasks} />}
+          </AcademicWorkspace> : <>
           {surface === "docs" ? (
             <NotebooksView systemId={id} />
           ) : (
             <SystemDetailView system={system} initialTasks={tasks} />
           )}
+          </>}
         </div>
       </PageWrapper>
     </div>

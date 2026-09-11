@@ -1,8 +1,11 @@
 import { useState } from "react";
+import type { FunctionReturnType } from "convex/server";
 import { api } from "@convex/_generated/api";
 import { useConvexQuery } from "@/shared/convex/hooks";
 import { useDebouncedValue } from "@/shared/hooks/useDebouncedValue";
-import { SEARCH_MIN_LENGTH, type SearchResult } from "./search.types";
+import { SEARCH_MIN_LENGTH } from "./search.types";
+
+type SearchPage = FunctionReturnType<typeof api.search.all>;
 
 /**
  * Búsqueda global en vivo. Debouncea el término, solo consulta a partir de
@@ -15,7 +18,7 @@ export function useSearch(query: string) {
   const result = useConvexQuery(api.search.all, { q: debounced }, { enabled });
   // Los últimos resultados que llegaron, guardados durante el render para no
   // encadenar un efecto y un segundo render por cada tecla.
-  const [previous, setPrevious] = useState<SearchResult[] | undefined>(undefined);
+  const [previous, setPrevious] = useState<SearchPage | undefined>(undefined);
   if (result.data !== undefined && result.data !== previous) setPrevious(result.data);
   return { ...result, data: result.data ?? (enabled ? previous : undefined) };
 }

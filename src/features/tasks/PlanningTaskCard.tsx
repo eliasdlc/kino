@@ -93,7 +93,7 @@ export function PlanningTaskCard({ task, isFocused, onToggle, onDelete, onEdit }
           type="button"
           onClick={() => onEdit?.(task)}
           className={cn(
-            "flex-1 min-w-0 text-left text-xs leading-snug text-foreground line-clamp-2",
+            "flex-1 min-w-0 text-left text-xs leading-snug text-foreground whitespace-normal wrap-anywhere",
             isDone && "line-through text-muted-foreground/85",
           )}
         >

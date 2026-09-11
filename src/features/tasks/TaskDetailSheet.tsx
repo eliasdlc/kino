@@ -29,6 +29,7 @@ import {
 } from "@/shared/types/enums";
 import type { TaskTypeValue } from "@/shared/types/enums";
 import { SubtaskList } from "./SubtaskList";
+import { ItemEventList } from "./ItemEventList";
 import { TaskRemindersSection } from "./TaskRemindersSection";
 import { useUpdateTask } from "./tasks.hooks";
 import { RecurrencePicker } from "./RecurrencePicker";
@@ -37,6 +38,12 @@ import { useSprints } from "@/features/sprints/sprints.hooks";
 import { getSystemColor } from "@/shared/utils/system-colors";
 import { TaskTypePicker } from "./TaskTypePicker";
 import { TagPicker } from "@/features/tags/TagPicker";
+import { TagAffordance } from "@/features/tags/TagAffordance";
+import { BodyGate } from "./BodyGate";
+import { useCreateTag } from "@/features/tags/tags.hooks";
+import { useMutation } from "convex/react";
+import { api } from "@convex/_generated/api";
+import { toast } from "sonner";
 import type { TaskTransport } from "./tasks.types";
 import { useFocusTimer } from "./FocusTimerProvider";
 import { useSystems } from "@/features/systems/systems.hooks";
@@ -51,6 +58,7 @@ import {
   DateTimeField,
   ExportTaskJsonButton,
   GradeField,
+  ClosingSignature,
   TimeLoggedSection,
 } from "./TaskDetailFields";
 
@@ -100,6 +108,30 @@ function TaskDetailForm({ task, systemId, onClose }: TaskDetailFormProps) {
   const [contextTagId, setContextTagId] = useState<string | null>(task.contextTagId ?? null);
   const [recurrenceRule, setRecurrenceRule] = useState<string | null>(task.recurrenceRule ?? null);
   const [saveStatus, setSaveStatus] = useState<"idle" | "saved">("idle");
+
+  // Las dos puertas del vocabulario que viven en este campo. Se crean con las
+  // mutaciones crudas porque las dos encadenan dos escrituras y necesitan el id
+  // que devuelve la primera.
+  const createPage = useMutation(api.pages.create);
+  const linkPage = useMutation(api.pages.linkTask);
+  const { mutate: createTag } = useCreateTag(systemId);
+
+  /** El cuerpo se va a una página del sistema y queda enlazado a esta tarea. */
+  async function convertBodyToPage() {
+    const body = description;
+    const page = await createPage({ systemId, title: title.trim() || undefined, content: body });
+    await linkPage({ id: page.id, taskId: task.id });
+    setDescription("");
+    toast.success("El cuerpo vive en una página, enlazada a esta tarea");
+  }
+
+  /** La almohadilla se vuelve una etiqueta de verdad, ya puesta en la tarea. */
+  function createTagFromHash(name: string) {
+    createTag(
+      { title: name },
+      { onSuccess: (tag: { id: string }) => setContextTagId(tag.id) },
+    );
+  }
 
   const { data: cachedSystems } = useSystems();
   const systemTemplateType = cachedSystems?.find((s) => s.id === systemId)?.templateType as SystemType | undefined;
@@ -204,6 +236,9 @@ function TaskDetailForm({ task, systemId, onClose }: TaskDetailFormProps) {
           placeholder="Notas opcionales..."
           className="resize-none min-h-[80px]"
         />
+        {/* Las palabras aparecen donde ocurrió el gesto, no en Hoy. */}
+        <BodyGate body={description} onConvert={() => void convertBodyToPage()} />
+        <TagAffordance text={description} onCreate={createTagFromHash} />
       </div>
 
       <div className="grid grid-cols-2 gap-3">
@@ -262,14 +297,14 @@ function TaskDetailForm({ task, systemId, onClose }: TaskDetailFormProps) {
 
       {activeSprints.length > 0 && (
         <div className="space-y-1.5">
-          <Label>Sprint</Label>
+          <Label>Ciclo</Label>
           <Select value={sprintId} onValueChange={setSprintId}>
             <SelectTrigger>
-              <SelectValue placeholder="Sin sprint" />
+              <SelectValue placeholder="Sin ciclo" />
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="none">
-                <span className="text-muted-foreground">Sin sprint</span>
+                <span className="text-muted-foreground">Sin ciclo</span>
               </SelectItem>
               {activeSprints.map((sprint) => (
                 <SelectItem key={sprint.id} value={sprint.id}>
@@ -320,6 +355,13 @@ function TaskDetailForm({ task, systemId, onClose }: TaskDetailFormProps) {
       <TaskRemindersSection task={task} />
 
       <TimeLoggedSection taskId={task.id} />
+
+      <ClosingSignature task={task} />
+
+      <div className="space-y-2">
+        <Label>Actividad</Label>
+        <ItemEventList targetType="task" targetId={task.id} />
+      </div>
 
       <div className="mt-auto flex items-center justify-between gap-3">
         {!isDone && (

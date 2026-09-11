@@ -8,16 +8,21 @@
  * @module
  */
 
+import type * as academicPeriods from "../academicPeriods.js";
 import type * as account from "../account.js";
+import type * as connections from "../connections.js";
 import type * as cronRuns from "../cronRuns.js";
 import type * as crons from "../crons.js";
+import type * as digests from "../digests.js";
 import type * as energy from "../energy.js";
 import type * as entities from "../entities.js";
 import type * as eventLog from "../eventLog.js";
 import type * as folders from "../folders.js";
 import type * as github from "../github.js";
 import type * as githubData from "../githubData.js";
+import type * as http from "../http.js";
 import type * as insights from "../insights.js";
+import type * as lib_academic from "../lib/academic.js";
 import type * as lib_cronHealth from "../lib/cronHealth.js";
 import type * as lib_energy_curve from "../lib/energy/curve.js";
 import type * as lib_errors from "../lib/errors.js";
@@ -26,11 +31,14 @@ import type * as lib_fnFixture from "../lib/fnFixture.js";
 import type * as lib_lemas from "../lib/lemas.js";
 import type * as lib_mcpToken from "../lib/mcpToken.js";
 import type * as lib_mentions from "../lib/mentions.js";
+import type * as lib_pages_snapshots from "../lib/pages/snapshots.js";
+import type * as lib_reparto from "../lib/reparto.js";
 import type * as lib_scopes from "../lib/scopes.js";
 import type * as lib_tasks_row from "../lib/tasks/row.js";
 import type * as lib_tasks_schemas from "../lib/tasks/schemas.js";
 import type * as lib_tasks_status from "../lib/tasks/status.js";
 import type * as lib_time from "../lib/time.js";
+import type * as lib_today_queue from "../lib/today/queue.js";
 import type * as lib_writing_activity from "../lib/writing/activity.js";
 import type * as migrate from "../migrate.js";
 import type * as migrations_autoriaYPapelera from "../migrations/autoriaYPapelera.js";
@@ -38,6 +46,7 @@ import type * as migrations_tablasDelRework from "../migrations/tablasDelRework.
 import type * as notifications from "../notifications.js";
 import type * as onboarding from "../onboarding.js";
 import type * as pages from "../pages.js";
+import type * as portabilidad from "../portabilidad.js";
 import type * as proposals from "../proposals.js";
 import type * as pushSend from "../pushSend.js";
 import type * as scheduler from "../scheduler.js";
@@ -48,6 +57,7 @@ import type * as stickyNotes from "../stickyNotes.js";
 import type * as systems from "../systems.js";
 import type * as tags from "../tags.js";
 import type * as tasks from "../tasks.js";
+import type * as today from "../today.js";
 import type * as users from "../users.js";
 import type * as writing from "../writing.js";
 
@@ -58,16 +68,21 @@ import type {
 } from "convex/server";
 
 declare const fullApi: ApiFromModules<{
+  academicPeriods: typeof academicPeriods;
   account: typeof account;
+  connections: typeof connections;
   cronRuns: typeof cronRuns;
   crons: typeof crons;
+  digests: typeof digests;
   energy: typeof energy;
   entities: typeof entities;
   eventLog: typeof eventLog;
   folders: typeof folders;
   github: typeof github;
   githubData: typeof githubData;
+  http: typeof http;
   insights: typeof insights;
+  "lib/academic": typeof lib_academic;
   "lib/cronHealth": typeof lib_cronHealth;
   "lib/energy/curve": typeof lib_energy_curve;
   "lib/errors": typeof lib_errors;
@@ -76,11 +91,14 @@ declare const fullApi: ApiFromModules<{
   "lib/lemas": typeof lib_lemas;
   "lib/mcpToken": typeof lib_mcpToken;
   "lib/mentions": typeof lib_mentions;
+  "lib/pages/snapshots": typeof lib_pages_snapshots;
+  "lib/reparto": typeof lib_reparto;
   "lib/scopes": typeof lib_scopes;
   "lib/tasks/row": typeof lib_tasks_row;
   "lib/tasks/schemas": typeof lib_tasks_schemas;
   "lib/tasks/status": typeof lib_tasks_status;
   "lib/time": typeof lib_time;
+  "lib/today/queue": typeof lib_today_queue;
   "lib/writing/activity": typeof lib_writing_activity;
   migrate: typeof migrate;
   "migrations/autoriaYPapelera": typeof migrations_autoriaYPapelera;
@@ -88,6 +106,7 @@ declare const fullApi: ApiFromModules<{
   notifications: typeof notifications;
   onboarding: typeof onboarding;
   pages: typeof pages;
+  portabilidad: typeof portabilidad;
   proposals: typeof proposals;
   pushSend: typeof pushSend;
   scheduler: typeof scheduler;
@@ -98,6 +117,7 @@ declare const fullApi: ApiFromModules<{
   systems: typeof systems;
   tags: typeof tags;
   tasks: typeof tasks;
+  today: typeof today;
   users: typeof users;
   writing: typeof writing;
 }>;

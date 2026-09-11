@@ -96,3 +96,14 @@ describe("userDayRange", () => {
   });
 });
 
+
+
+describe("hora de la cuenta", () => {
+  it("no depende de la zona del proceso y respeta medianoche y DST", async () => {
+    const { hourInTimeZone } = await import("./index");
+    expect(hourInTimeZone("America/Santo_Domingo", Date.parse("2026-09-11T20:00:00Z"))).toBe(16);
+    expect(hourInTimeZone("America/Santo_Domingo", Date.parse("2026-09-12T04:00:00Z"))).toBe(0);
+    expect(hourInTimeZone("America/New_York", Date.parse("2026-01-11T20:00:00Z"))).toBe(15);
+    expect(hourInTimeZone("America/New_York", Date.parse("2026-07-11T20:00:00Z"))).toBe(16);
+  });
+});

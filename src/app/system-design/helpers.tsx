@@ -1,5 +1,6 @@
 "use client";
 
+import { ConvexQueryCacheProvider } from "convex-helpers/react/cache";
 import { cn } from "@/lib/utils";
 import { useState, useSyncExternalStore, type ReactNode } from "react";
 import { ConvexProviderWithAuth, type ConvexReactClient } from "convex/react";
@@ -29,7 +30,9 @@ export function Seeded({ stubs, children }: { stubs: readonly QueryStub[]; child
   const [client] = useState(() => makeTestConvexClient(stubs) as unknown as ConvexReactClient);
   return (
     <ConvexProviderWithAuth client={client} useAuth={useTestAuth}>
+      <ConvexQueryCacheProvider expiration={0} maxIdleEntries={0}>
       {children}
+      </ConvexQueryCacheProvider>
     </ConvexProviderWithAuth>
   );
 }

@@ -203,6 +203,11 @@ describe("formatDuration", () => {
 });
 
 describe("formSchema y pasos", () => {
+  it("acepta identificadores de Convex al crear una tarea vinculada", () => {
+    const linked = values({ folderId: "k973vpq42cy13bfhny7nzhaq6s8e60y2", contextTagId: "k97context", sprintId: "k97sprint" });
+    expect(formSchema.parse(linked)).toEqual(linked);
+    expect(buildCreateTaskPayload(linked, { systemId: SYSTEM_ID, hideEnergyAndPriority: false }).folderId).toBe(linked.folderId);
+  });
   it("el título es obligatorio", () => {
     const r = formSchema.safeParse({ title: "", priority: "medium", energyLevel: "medium" });
     expect(r.success).toBe(false);

@@ -2,7 +2,8 @@ import { z } from 'zod';
 import { zid } from 'convex-helpers/server/zod4';
 import type { Doc, Id } from './_generated/dataModel';
 import type { MutationCtx, QueryCtx } from './_generated/server';
-import { notFound } from './lib/errors';
+import { invalid, notFound } from './lib/errors';
+import { diferencias, recordEvent } from './eventLog';
 import { kinoZodMutation, kinoZodQuery, type Channel } from './lib/fn';
 import { lematizar } from './lib/lemas';
 import { color } from './schema';
@@ -148,6 +149,15 @@ async function createOne(
     createdAt: now,
     updatedAt: now,
   });
+  await recordEvent(ctx, {
+    userId,
+    systemId,
+    actorChannel: channel,
+    action: 'stickyNote.create',
+    targetType: 'stickyNote',
+    targetId: id,
+    payload: { title: data.title ?? null },
+  });
   return noteItem((await ctx.db.get(id))!);
 }
 
@@ -196,7 +206,17 @@ export const update = kinoZodMutation({
       );
     }
     await ctx.db.patch(id, patch);
-    return noteItem((await ctx.db.get(id))!);
+    const nota = (await ctx.db.get(id))!;
+    await recordEvent(ctx, {
+      userId: ctx.user._id,
+      systemId: nota.systemId,
+      actorChannel: ctx.channel,
+      action: 'stickyNote.update',
+      targetType: 'stickyNote',
+      targetId: id,
+      payload: diferencias(current, nota),
+    });
+    return noteItem(nota);
   },
 });
 
@@ -208,8 +228,20 @@ export const stack = kinoZodMutation({
     await ownNote(ctx, ctx.user._id, draggedId);
     const stackId = target.stackId ?? target._id;
     const now = Date.now();
+    const dragged = await ctx.db.get(draggedId);
     await ctx.db.patch(draggedId, { stackId, updatedAt: now });
     if (!target.stackId) await ctx.db.patch(targetId, { stackId, updatedAt: now });
+    // La nota que se arrastra es el objeto del gesto; la destino sólo estrena
+    // `stackId` como consecuencia, y ésa es la cascada de éste.
+    await recordEvent(ctx, {
+      userId: ctx.user._id,
+      systemId: target.systemId,
+      actorChannel: ctx.channel,
+      action: 'stickyNote.stack',
+      targetType: 'stickyNote',
+      targetId: draggedId,
+      payload: { stackId: dragged?.stackId ?? null },
+    });
     return {
       dragged: noteItem((await ctx.db.get(draggedId))!),
       target: noteItem((await ctx.db.get(targetId))!),
@@ -221,8 +253,66 @@ export const stack = kinoZodMutation({
 export const remove = kinoZodMutation({
   args: { id: zid('stickyNotes') },
   handler: async (ctx, { id }) => {
-    await ownNote(ctx, ctx.user._id, id);
+    const nota = await ownNote(ctx, ctx.user._id, id);
     await ctx.db.patch(id, { deletedAt: Date.now(), updatedAt: Date.now() });
+    await recordEvent(ctx, {
+      userId: ctx.user._id,
+      systemId: nota.systemId,
+      actorChannel: ctx.channel,
+      action: 'stickyNote.remove',
+      targetType: 'stickyNote',
+      targetId: id,
+      payload: { title: nota.title ?? null },
+    });
     return null;
+  },
+});
+
+// ── La papelera ─────────────────────────────────────────────────────────────
+
+/** Si el dueño de la nota está vivo. Una nota que se fue con su capítulo o su carpeta vuelve con él, no sola. */
+async function ownerAlive(ctx: QueryCtx | MutationCtx, doc: Doc<'stickyNotes'>) {
+  const owner = doc.pageId ? await ctx.db.get(doc.pageId) : doc.folderId ? await ctx.db.get(doc.folderId) : null;
+  return owner !== null && owner.deletedAt === undefined;
+}
+
+/**
+ * Notas en la papelera. Sólo las que se borraron solas: la que cayó con su
+ * cuaderno o su capítulo no se lista, porque restaurarla dejaría una nota
+ * pegada a algo que sigue borrado.
+ */
+export const trashed = kinoZodQuery({
+  args: {},
+  handler: async (ctx) => {
+    const docs = await ctx.db
+      .query('stickyNotes')
+      .withIndex('by_user_alive', (q) => q.eq('userId', ctx.user._id))
+      .collect();
+    const out = [];
+    for (const doc of docs.filter((d) => d.deletedAt !== undefined).sort((a, b) => b.deletedAt! - a.deletedAt!)) {
+      if (await ownerAlive(ctx, doc)) out.push({ ...noteItem(doc), deletedAt: new Date(doc.deletedAt!).toISOString() });
+    }
+    return out;
+  },
+});
+
+/** Devuelve la nota a su margen. Con el dueño borrado no hay margen al que volver. */
+export const restore = kinoZodMutation({
+  args: { id: zid('stickyNotes') },
+  handler: async (ctx, { id }) => {
+    const doc = await ctx.db.get(id);
+    if (!doc || doc.userId !== ctx.user._id || doc.deletedAt === undefined) notFound('Sticky note not found');
+    if (!(await ownerAlive(ctx, doc))) invalid('Restaura antes el cuaderno o el capítulo donde estaba');
+    await ctx.db.patch(id, { deletedAt: undefined, updatedAt: Date.now() });
+    await recordEvent(ctx, {
+      userId: ctx.user._id,
+      systemId: doc.systemId,
+      actorChannel: ctx.channel,
+      action: 'stickyNote.restore',
+      targetType: 'stickyNote',
+      targetId: id,
+      payload: { title: doc.title ?? null },
+    });
+    return noteItem((await ctx.db.get(id))!);
   },
 });

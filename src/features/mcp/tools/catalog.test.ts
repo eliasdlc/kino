@@ -6,6 +6,12 @@ import { ALL_TOOLS } from "./index";
  * El contrato visible del conector: los nombres que un agente ya tiene
  * aprendidos. Quitar uno rompe a quien lo usa; añadir uno es una decisión que
  * pasa por aquí.
+ *
+ * Son 67. Las siete que faltan respecto a la lista de antes se retiraron a
+ * propósito y no vuelven sin reabrir el principio 2: las cinco de borrar,
+ * `create_energy_checkin` (un check-in escrito por una máquina contamina el
+ * único dato honesto que Kino tiene) y `update_page` (reescribir el cuerpo de
+ * lo que escribiste es suplantar tu voz: se propone, no se ejecuta).
  */
 const CONTRACT = [
   "append_learning_interaction",
@@ -16,7 +22,6 @@ const CONTRACT = [
   "classify_task",
   "clear_task_block",
   "complete_task",
-  "create_energy_checkin",
   "create_entity",
   "create_folder",
   "create_folder_sticky_note",
@@ -25,11 +30,6 @@ const CONTRACT = [
   "create_page_sticky_note",
   "create_system",
   "create_task",
-  "delete_folder",
-  "delete_page",
-  "delete_sticky_note",
-  "delete_system",
-  "delete_task",
   "detect_patterns",
   "estimate_task",
   "find_stale_systems",
@@ -54,6 +54,7 @@ const CONTRACT = [
   "list_folder_sticky_notes",
   "list_folder_tasks",
   "list_folders",
+  "list_item_events",
   "list_page_sticky_notes",
   "list_page_tasks",
   "list_pages",
@@ -63,8 +64,12 @@ const CONTRACT = [
   "move_task",
   "move_task_board",
   "park_learning_thought",
+  "propose_change",
   "propose_day_blocks",
   "reorder_by_importance",
+  "restore_folder",
+  "restore_page",
+  "restore_sticky_note",
   "restore_task",
   "save_learning_checkpoint",
   "schedule_task_block",
@@ -73,7 +78,6 @@ const CONTRACT = [
   "unlink_task_from_page",
   "update_entity",
   "update_folder",
-  "update_page",
   "update_sticky_note",
   "update_system",
   "update_task",

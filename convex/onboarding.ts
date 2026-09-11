@@ -1,7 +1,10 @@
-import { z } from 'zod';
 import type { Id } from './_generated/dataModel';
 import type { MutationCtx } from './_generated/server';
-import { archetypeEnergyIdeal, ARCHETYPE_IDENTITIES, DEFAULT_IDENTITY, getArchetype } from '../src/features/onboarding/onboarding.archetypes';
+import { archetypeEnergyIdeal, getArchetype } from '../src/features/onboarding/onboarding.archetypes';
+import {
+  ONBOARDING_VERSION,
+  setupProfileSchema,
+} from '../src/features/onboarding/onboarding.schemas';
 import { buildSeedPlan, type SeedPlan, type SeedTask } from '../src/features/onboarding/onboarding.seed';
 import { createEnergyProfile } from './energy';
 import { createFolderDoc } from './folders';
@@ -21,17 +24,6 @@ const SEED_START_HOUR = 9;
 export const status = kinoZodQuery({
   args: {},
   handler: async (ctx) => ({ completed: ctx.user.onboardingCompleted }),
-});
-
-const setupProfileSchema = z.object({
-  identity: z.enum(ARCHETYPE_IDENTITIES).default(DEFAULT_IDENTITY),
-  chronotype: z.enum(['morning', 'intermediate', 'evening']),
-  sleepTypicalHours: z.number().int().min(4).max(12),
-  availableHoursPerDay: z.number().int().min(1).max(16),
-  rechargePresets: z.array(z.object({ label: z.string().min(1).max(50), delta: z.number().int().min(-50).max(50) })).max(8).default([]),
-  firstSystemName: z.string().min(1).max(100),
-  seedUnits: z.array(z.object({ name: z.string().min(1).max(255), field: z.string().max(100).optional() })).max(6).default([]),
-  timezone: z.string().min(1).max(50).optional(),
 });
 
 /** Medianoche local del día más las horas dadas, como instante. */
@@ -78,6 +70,7 @@ export const complete = kinoZodMutation({
   handler: async (ctx, input) => {
     const userId = ctx.user._id;
     const archetype = getArchetype(input.identity);
+    const systemName = input.firstSystemName ?? archetype.systemNameDefault;
     const now = Date.now();
     // La zona horaria se guarda antes de sembrar: el estado de una tarea de hoy sale de ella.
     const timezone = input.timezone ?? ctx.user.timezone;
@@ -85,15 +78,15 @@ export const complete = kinoZodMutation({
     await createEnergyProfile(ctx, userId, input);
     const energyIdeal = archetypeEnergyIdeal(archetype);
     const system = await createSystemDoc(ctx, userId, ctx.channel, {
-      name: input.firstSystemName,
+      name: systemName,
       color: archetype.systemColor,
       icon: archetype.systemIcon,
       templateType: archetype.systemType,
       ...(energyIdeal ? { energyIdeal } : {}),
       ...(archetype.identityStatement ? { identityStatement: archetype.identityStatement } : {}),
     });
-    await applySeedPlan(ctx, userId, ctx.channel, timezone, system.id, buildSeedPlan(input.identity, input.firstSystemName, input.seedUnits));
-    await upsertSettings(ctx, userId, { archetypeIdentity: input.identity });
+    await applySeedPlan(ctx, userId, ctx.channel, timezone, system.id, buildSeedPlan(input.identity, systemName, input.seedUnits));
+    await upsertSettings(ctx, userId, { archetypeIdentity: input.identity, onboardingVersion: ONBOARDING_VERSION });
     await ctx.db.patch(userId, { onboardingCompleted: true, updatedAt: now });
     return { ok: true as const };
   },

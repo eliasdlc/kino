@@ -16,25 +16,41 @@ const bob = { subject: 'user_bob', email: 'bob@usekino.dev', name: 'Bob' };
 
 const DIA = 86_400_000;
 
+/**
+ * Tareas de verdad para las propuestas. Desde que la evidencia se comprueba al
+ * crearla, una propuesta sobre un id inventado ya no se puede escribir, que es
+ * justo lo que este slice existe para impedir.
+ */
+async function sembrarTareas(as: ReturnType<ReturnType<typeof convexTest>['withIdentity']>, cuantas: number) {
+  const system = await as.mutation(api.systems.create, { name: 'Kino', color: 'blue', templateType: 'project', icon: 'rocket' });
+  const ids: string[] = [];
+  for (let i = 0; i < cuantas; i += 1) {
+    const tarea = await as.mutation(api.tasks.create, { systemId: system.id, title: `Tarea ${i}` });
+    ids.push(tarea.id);
+  }
+  return ids;
+}
+
 describe('el tope de propuestas', () => {
   it('la veintiuna se rechaza, y resolver una deja sitio para otra', async () => {
     const t = convexTest(schema, modules);
     const asAna = t.withIdentity(ana);
     const userId = await asAna.mutation(api.users.ensure, {});
+    const tareas = await sembrarTareas(asAna, MAX_PENDING + 1);
 
     const creadas: Id<'proposals'>[] = [];
     for (let i = 0; i < MAX_PENDING; i += 1) {
       const { id } = await asAna.mutation(api.proposals.create, {
-        kind: 'archive',
+        kind: 'cancel',
         evidenceType: 'task',
-        evidenceId: `tasks:${i}`,
+        evidenceId: tareas[i]!,
       });
       creadas.push(id);
     }
     expect(creadas).toHaveLength(MAX_PENDING);
 
     await expect(
-      asAna.mutation(api.proposals.create, { kind: 'archive', evidenceType: 'task', evidenceId: 'tasks:21' }),
+      asAna.mutation(api.proposals.create, { kind: 'cancel', evidenceType: 'task', evidenceId: tareas[MAX_PENDING]! }),
     ).rejects.toThrow();
 
     // Sólo cuentan las pendientes: una resuelta libera el hueco.
@@ -42,7 +58,7 @@ describe('el tope de propuestas', () => {
     const extra = await asAna.mutation(api.proposals.create, {
       kind: 'cancel',
       evidenceType: 'task',
-      evidenceId: 'tasks:21',
+      evidenceId: tareas[MAX_PENDING]!,
     });
     expect(extra.id).toBeDefined();
 
@@ -55,16 +71,18 @@ describe('el tope de propuestas', () => {
     const t = convexTest(schema, modules);
     const asAna = t.withIdentity(ana);
     await asAna.mutation(api.users.ensure, {});
+    const deAna = await sembrarTareas(asAna, MAX_PENDING + 1);
     for (let i = 0; i < MAX_PENDING; i += 1) {
-      await asAna.mutation(api.proposals.create, { kind: 'archive', evidenceType: 'task', evidenceId: `tasks:${i}` });
+      await asAna.mutation(api.proposals.create, { kind: 'cancel', evidenceType: 'task', evidenceId: deAna[i]! });
     }
     await expect(
-      asAna.mutation(api.proposals.create, { kind: 'archive', evidenceType: 'task', evidenceId: 'x' }),
+      asAna.mutation(api.proposals.create, { kind: 'cancel', evidenceType: 'task', evidenceId: deAna[MAX_PENDING]! }),
     ).rejects.toThrow();
 
     const asBob = t.withIdentity(bob);
     await asBob.mutation(api.users.ensure, {});
-    const suya = await asBob.mutation(api.proposals.create, { kind: 'archive', evidenceType: 'task', evidenceId: 'x' });
+    const deBob = await sembrarTareas(asBob, 1);
+    const suya = await asBob.mutation(api.proposals.create, { kind: 'cancel', evidenceType: 'task', evidenceId: deBob[0]! });
     expect(suya.id).toBeDefined();
   });
 });

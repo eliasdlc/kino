@@ -1,3 +1,5 @@
+import { AcademicWorkspace } from "@/features/academic/AcademicWorkspace";
+import { AcademicSubjectContent } from "@/features/academic/AcademicSubjectContent";
 import { notFound, redirect } from "next/navigation";
 import { Files } from "lucide-react";
 import { api } from "@convex/_generated/api";
@@ -23,20 +25,17 @@ export default async function FolderViewRoute({ params }: FolderViewRouteProps) 
 
   if (!session) redirect("/login");
 
-  const [folder, system] = await Promise.all([
+  const [folder, system, children, allPages, folderTasks] = await Promise.all([
     serverQuery(api.folders.detail, { id: folderId }).catch(() => null),
     serverQuery(api.systems.byId, { id: systemId }).catch(() => null),
-  ]);
-
-  if (!folder || !system) notFound();
-
-  const [children, allPages, folderTasks] = await Promise.all([
     serverQuery(api.folders.children, { id: folderId }),
-    serverQuery(api.pages.bySystem, { systemId }),
+    serverQuery(api.pages.bySystem, { systemId, folderId }),
     serverQuery(api.tasks.byFolder, { systemId, folderId }),
   ]);
 
-  const folderPages = allPages.items.filter((p) => p.folderId === folderId);
+  if (!folder || !system || folder.systemId !== systemId) notFound();
+
+  const folderPages = allPages.items;
   const emptyCopy = containerDetailEmptyCopy(resolveSystemManifest(system));
   const hasDocContent = children.length > 0 || folderPages.length > 0;
 
@@ -50,13 +49,7 @@ export default async function FolderViewRoute({ params }: FolderViewRouteProps) 
     { label: folder.name },
   ];
 
-  return (
-    <div className="w-full">
-      <div className="sticky top-0 z-(--z-raised) bg-background border-b px-4 md:px-6 py-2.5">
-        <PageBreadcrumb items={breadcrumbItems} />
-      </div>
-      <div className="p-4 md:p-6 space-y-6">
-
+  const documents = <>
       {/* Toolbar */}
       <FolderViewToolbar systemId={systemId} folderId={folderId} />
 
@@ -96,15 +89,24 @@ export default async function FolderViewRoute({ params }: FolderViewRouteProps) 
         </div>
       )}
 
-      <Separator />
+  </>;
 
-      {/* Tasks assigned to this folder */}
-      <TasksList
-        systemId={systemId}
-        initialData={[]}
-        folderId={folderId}
-        folderInitialData={folderTasks}
-      />
+  return (
+    <div className="w-full">
+      <div className="sticky top-0 z-(--z-raised) bg-background border-b px-4 md:px-6 py-2.5">
+        <PageBreadcrumb items={breadcrumbItems} />
+      </div>
+      <div className="p-4 md:p-6 space-y-6">
+
+      {system.templateType === "academic" ? (
+        <AcademicWorkspace systemId={systemId} folderId={folderId}>
+          <AcademicSubjectContent system={system} initialTasks={folderTasks} documents={documents} />
+        </AcademicWorkspace>
+      ) : <>
+        {documents}
+        <Separator />
+        <TasksList systemId={systemId} initialData={[]} folderId={folderId} folderInitialData={folderTasks} />
+      </>}
 
       </div>
     </div>

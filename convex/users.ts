@@ -37,7 +37,10 @@ export const touch = kinoMutation({
     const today = userToday(ctx.user.timezone, now);
     const last = ctx.user.lastActiveAt;
     if (last !== undefined && calendarDayInTz(last, ctx.user.timezone) === today) return false;
-    await ctx.db.patch(ctx.user._id, { lastActiveAt: now });
+    // La visita que se va no se pierde: `today.returnNotice` mide contra ella
+    // el hueco que la persona estuvo fuera, y si sólo guardáramos la última
+    // ese hueco se borraría justo al entrar a mirarlo.
+    await ctx.db.patch(ctx.user._id, { lastActiveAt: now, previousActiveAt: last });
     return true;
   },
 });

@@ -16,32 +16,26 @@ export default async function PageEditorRoute({ params }: PageEditorRouteProps) 
 
   if (!session) redirect("/login");
 
-  const [page, system, todas] = await Promise.all([
+  const [page, system] = await Promise.all([
     serverQuery(api.pages.byId, { id: pageId }).catch(() => null),
     serverQuery(api.systems.byId, { id: systemId }).catch(() => null),
-    serverQuery(api.pages.bySystem, { systemId }),
   ]);
-  const allPages = todas.items;
 
-  if (!page || !system) notFound();
+  if (!page || !system || page.systemId !== systemId) notFound();
 
-  const folder = page.folderId
-    ? await serverQuery(api.folders.detail, { id: page.folderId }).catch(() => null)
-    : null;
+  const writer = system.templateType === "writing";
+  const isSubPage = !!page.parentPageId;
+  const rootPageId = page.parentPageId ?? pageId;
+  const [folder, parentNotebook, initialSubPages, allPages] = await Promise.all([
+    page.folderId ? serverQuery(api.folders.detail, { id: page.folderId }) : null,
+    page.parentPageId ? serverQuery(api.pages.byId, { id: page.parentPageId }) : null,
+    serverQuery(api.pages.subpages, { id: rootPageId }),
+    writer && page.folderId
+      ? serverQuery(api.pages.bySystem, { systemId, folderId: page.folderId }).then((result) => result.items)
+      : [],
+  ]);
   const folderAncestors = folder?.breadcrumb ?? [];
 
-  // La raíz del cuaderno y sus subpáginas, que llegan ya cargadas.
-  const isSubPage = !!page.parentPageId;
-  const rootPageId = isSubPage ? page.parentPageId! : pageId;
-
-  const parentNotebook = isSubPage
-    ? (allPages.find((p) => p.id === page.parentPageId) ?? null)
-    : null;
-  const initialSubPages = await serverQuery(api.pages.subpages, { id: rootPageId });
-
-  // Writer feel: solo el arquetipo Writing. La "obra" es el folder al que
-  // pertenece el capítulo; su progreso es la suma de palabras de sus pages.
-  const writer = system.templateType === "writing";
   // El medium de la obra gobierna nodos, slash menu, plantilla y export.
   // Un manuscrito suelto (sin obra) escribe en prosa con el medium por defecto.
   const medium = writer ? MEDIUM_CONFIG[resolveMedium(folder?.metadata)] : null;
@@ -85,9 +79,8 @@ export default async function PageEditorRoute({ params }: PageEditorRouteProps) 
       page={page}
       systemId={systemId}
       systemName={system.name}
-      allPages={allPages}
       breadcrumbItems={breadcrumbItems}
-      parentNotebook={parentNotebook}
+      parentNotebook={parentNotebook ? { id: parentNotebook.id, title: parentNotebook.title } : null}
       initialSubPages={initialSubPages}
       writer={writer}
       obra={obra}

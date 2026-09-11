@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { Lightbulb, Clock, Activity, AlertTriangle, ArrowRight, Loader2 } from 'lucide-react';
+import { Lightbulb, Clock, ArrowRight, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import { useAdvisorAction } from '@/features/tasks/tasks.hooks';
@@ -16,10 +16,8 @@ interface Props {
 }
 
 const ICONS: Record<PatternId, React.FC<{ className?: string }>> = {
-  overload: AlertTriangle,
   abandonment: Clock,
   disorganization: Lightbulb,
-  underuse: Activity,
 };
 
 function severityColor(severity: number): string {

@@ -1,5 +1,7 @@
 "use client";
 
+import { useAcademicScope } from "@/features/academic/academic-scope";
+import { useUrlView } from "@/shared/hooks/use-url-view";
 import { useState } from "react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { CreateTaskDialog } from "@/features/tasks/CreateTaskDialog";
@@ -19,11 +21,12 @@ import type { SystemViewProps } from "./SystemDetailView";
  * reutilizado. El headspace lo da abrir en "Esta Semana", no en el calendario.
  */
 export function SystemAcademicView({ system, initialTasks }: SystemViewProps) {
+  const folderId = useAcademicScope(system.id)?.folderId;
   const [editTask, setEditTask] = useState<TaskTransport | null>(null);
-  const [tab, setTab] = useState("esta-semana");
+  const [tab, setTab] = useUrlView(folderId ? ["esta-semana", "calendar", "planning", "archive"] : ["esta-semana", "classes", "calendar", "planning", "archive"], "esta-semana");
   const [highlight, setHighlight] = useState<{ id: string; nonce: number } | null>(null);
   // La vista de clases necesita las tareas para contar pendientes y próxima entrega.
-  const { data: allTasks = initialTasks } = useTasks(system.id, initialTasks);
+  const { data: allTasks = [] } = useTasks(system.id, initialTasks);
 
   function goToAction(taskId?: string) {
     setTab("esta-semana");
@@ -39,10 +42,10 @@ export function SystemAcademicView({ system, initialTasks }: SystemViewProps) {
               <span className="md:hidden">Semana</span>
               <span className="hidden md:inline">Esta Semana</span>
             </TabsTrigger>
-            <TabsTrigger value="classes" className="min-w-0 px-2 text-xs md:px-3 md:text-sm">
+            {!folderId && <TabsTrigger value="classes" className="min-w-0 px-2 text-xs md:px-3 md:text-sm">
               <span className="md:hidden">Clases</span>
               <span className="hidden md:inline">Clases</span>
-            </TabsTrigger>
+            </TabsTrigger>}
             <TabsTrigger value="calendar" className="min-w-0 px-2 text-xs md:px-3 md:text-sm">
               <span className="md:hidden">Cal</span>
               <span className="hidden md:inline">Calendario</span>
@@ -56,7 +59,7 @@ export function SystemAcademicView({ system, initialTasks }: SystemViewProps) {
               <span className="hidden md:inline">Archivadas</span>
             </TabsTrigger>
           </TabsList>
-          <CreateTaskDialog systemId={system.id} />
+          <CreateTaskDialog systemId={system.id} folderId={folderId} />
         </div>
 
         <TabsContent value="esta-semana">

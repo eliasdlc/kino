@@ -1,3 +1,4 @@
+import { academicFolderIds } from './lib/academic';
 import { z } from 'zod';
 import { zid } from 'convex-helpers/server/zod4';
 import type { Doc, Id } from './_generated/dataModel';
@@ -13,6 +14,7 @@ import {
 import { resolveManifest } from '../src/shared/lib/system-manifest';
 import type { SystemMetadata } from '../src/shared/lib/system-types';
 import { invalid, notFound } from './lib/errors';
+import { diferencias, recordEvent } from './eventLog';
 import { kinoZodMutation, kinoZodQuery, type Channel } from './lib/fn';
 import type { ActorChannel } from './schema';
 import { lematizar } from './lib/lemas';
@@ -77,6 +79,8 @@ export function taskItem(doc: TaskDoc) {
     reminderCount: doc.reminderCount,
     lastRemindedAt: iso(doc.lastRemindedAt),
     completedAt: iso(doc.completedAt),
+    completedBy: doc.completedBy ?? null,
+    completedVia: doc.completedVia ?? null,
     deletedAt: iso(doc.deletedAt),
     createdAt: iso(doc.createdAt)!,
     updatedAt: iso(doc.updatedAt)!,
@@ -185,6 +189,33 @@ async function syncAutoReminders(ctx: MutationCtx, task: TaskDoc, now: number) {
 // ── Transiciones ────────────────────────────────────────────────────────────
 
 /**
+ * Los dos canales con una persona detrás. `sync` y `system` cierran tareas sin
+ * que nadie las cierre, así que firman la vía y dejan el autor vacío: el techo
+ * del día se propone contando cierres firmados por una persona, y una firma de
+ * la sincronización con GitHub haría subir ese conteo sin que nadie trabajara.
+ */
+const canalConPersona: readonly ActorChannel[] = ['session', 'oauth'];
+
+/** El autor de un cierre, o nadie cuando lo cerró una máquina. */
+const firmante = (channel: ActorChannel, userId: Id<'users'>) =>
+  canalConPersona.includes(channel) ? userId : undefined;
+
+/**
+ * El tiempo de trabajo observado de una tarea: la suma de sus `timeLogs`. Es
+ * la única fuente de tiempo real que el producto tiene, y nunca la estimación.
+ */
+async function timeObserved(ctx: Ctx, id: Id<'tasks'>) {
+  const logs = await ctx.db
+    .query('timeLogs')
+    .withIndex('by_task', (q) => q.eq('taskId', id))
+    .collect();
+  return {
+    totalMinutes: logs.reduce((sum, log) => sum + log.durationMinutes, 0),
+    sessionCount: logs.length,
+  };
+}
+
+/**
  * Valida y aplica una transición de la máquina de estados. `null` es no-op.
  * `actor` firma el cierre: completar escribe quién y por qué puerta,
  * deshacerlo los borra, porque un cierre deshecho no tiene autor.
@@ -214,7 +245,7 @@ async function applyTransition(
   for (const effect of transition.sideEffects ?? []) {
     if (effect.type === 'set_completed_at') {
       patch.completedAt = now;
-      patch.completedBy = actor.userId;
+      patch.completedBy = firmante(actor.channel, actor.userId);
       patch.completedVia = actor.channel;
     }
     if (effect.type === 'clear_completed_at') {
@@ -329,13 +360,14 @@ export const list = kinoZodQuery({
 });
 
 export const bySystem = kinoZodQuery({
-  args: { systemId: zid('systems') },
-  handler: async (ctx, { systemId }) => {
+  args: { systemId: zid('systems'), academicPeriodId: zid('academicPeriods').nullable().optional(), folderId: zid('folders').optional() },
+  handler: async (ctx, { systemId, academicPeriodId, folderId }) => {
+    const allowed = academicPeriodId !== undefined ? await academicFolderIds(ctx, ctx.user._id, systemId, academicPeriodId) : undefined;
     const docs = await ctx.db
       .query('tasks')
       .withIndex('by_system_alive_status', (q) => q.eq('systemId', systemId).eq('deletedAt', undefined))
       .collect();
-    return docs.filter((doc) => doc.userId === ctx.user._id && topLevel(doc)).sort(bySort).map(taskItem);
+    return docs.filter((doc) => doc.userId === ctx.user._id && topLevel(doc) && (folderId === undefined || doc.folderId === folderId) && (!allowed || (doc.folderId ? allowed.has(doc.folderId) : academicPeriodId === null))).sort(bySort).map(taskItem);
   },
 });
 
@@ -419,14 +451,7 @@ export const timeLogSummary = kinoZodQuery({
   args: { id: zid('tasks') },
   handler: async (ctx, { id }) => {
     await ownTask(ctx, ctx.user._id, id, { includeDeleted: true });
-    const logs = await ctx.db
-      .query('timeLogs')
-      .withIndex('by_task', (q) => q.eq('taskId', id))
-      .collect();
-    return {
-      totalMinutes: logs.reduce((sum, log) => sum + log.durationMinutes, 0),
-      sessionCount: logs.length,
-    };
+    return timeObserved(ctx, id);
   },
 });
 
@@ -513,6 +538,15 @@ async function createOne(
       createdAt: now,
     });
   }
+  await recordEvent(ctx, {
+    userId,
+    systemId: task.systemId,
+    actorChannel: channel,
+    action: 'task.create',
+    targetType: 'task',
+    targetId: id,
+    payload: { title: task.title, status: task.status },
+  });
   return task;
 }
 
@@ -535,7 +569,20 @@ export const bulkCreate = kinoZodMutation({
 
 export const update = kinoZodMutation({
   args: updateTaskSchema.extend({ id: zid('tasks') }),
-  handler: async (ctx, { id, ...data }) => taskItem(await updateTaskDoc(ctx, ctx.user, id, data)),
+  handler: async (ctx, { id, ...data }) => {
+    const antes = await ownTask(ctx, ctx.user._id, id);
+    const task = await updateTaskDoc(ctx, ctx.user, id, data);
+    await recordEvent(ctx, {
+      userId: ctx.user._id,
+      systemId: task.systemId,
+      actorChannel: ctx.channel,
+      action: 'task.update',
+      targetType: 'task',
+      targetId: id,
+      payload: diferencias(antes, task),
+    });
+    return taskItem(task);
+  },
 });
 
 /**
@@ -617,8 +664,23 @@ export async function updateTaskDoc(
  */
 export const remove = kinoZodMutation({
   args: { id: zid('tasks') },
-  handler: async (ctx, { id }) => {
-    const task = await ownTask(ctx, ctx.user._id, id);
+  handler: async (ctx, { id }) => removeTaskDoc(ctx, ctx.user._id, ctx.channel, id),
+});
+
+/**
+ * El borrado con su cascada, exportado para que aplicar una propuesta de
+ * cancelar pase por aquí y no por una copia que se quedará vieja el día que la
+ * cascada cambie.
+ */
+export async function removeTaskDoc(
+  ctx: MutationCtx & { clientId?: string },
+  userId: Id<'users'>,
+  channel: ActorChannel,
+  id: Id<'tasks'>,
+  proposalId?: Id<'proposals'>,
+) {
+  {
+    const task = await ownTask(ctx, userId, id);
     const now = Date.now();
     for (const subId of await subtaskTree(ctx, id)) {
       await ctx.db.patch(subId, { deletedAt: now, updatedAt: now });
@@ -632,9 +694,21 @@ export const remove = kinoZodMutation({
       await ctx.db.patch(hija._id, { recurrenceParentId: undefined, updatedAt: now });
     }
     await ctx.db.patch(id, { deletedAt: now });
+    // Una fila por el borrado que se pidió, no una por cada subtarea ni por
+    // cada hija de la serie: ésas son la cascada de éste.
+    await recordEvent(ctx, {
+      userId,
+      systemId: task.systemId,
+      actorChannel: channel,
+      action: 'task.remove',
+      targetType: 'task',
+      targetId: id,
+      payload: { title: task.title },
+      proposalId,
+    });
     return { id: task._id, title: task.title };
-  },
-});
+  }
+}
 
 /** La tarea y todas sus subtareas vivas, en profundidad. */
 async function subtaskTree(ctx: MutationCtx, rootId: Id<'tasks'>): Promise<Id<'tasks'>[]> {
@@ -658,8 +732,17 @@ async function subtaskTree(ctx: MutationCtx, rootId: Id<'tasks'>): Promise<Id<'t
 export const restore = kinoZodMutation({
   args: { id: zid('tasks') },
   handler: async (ctx, { id }) => {
-    await ownTask(ctx, ctx.user._id, id, { includeDeleted: true });
+    const task = await ownTask(ctx, ctx.user._id, id, { includeDeleted: true });
     await ctx.db.patch(id, { deletedAt: undefined });
+    await recordEvent(ctx, {
+      userId: ctx.user._id,
+      systemId: task.systemId,
+      actorChannel: ctx.channel,
+      action: 'task.restore',
+      targetType: 'task',
+      targetId: id,
+      payload: { title: task.title },
+    });
     return taskItem((await ctx.db.get(id))!);
   },
 });
@@ -672,7 +755,24 @@ export const toggle = kinoZodMutation({
     const updated = await applyTransition(ctx, task, { userId: ctx.user._id, channel: ctx.channel }, (current) =>
       current.status === 'done' ? 'undo_done' : 'toggle_done',
     );
-    return { status: updated.status };
+    await recordEvent(ctx, {
+      userId: ctx.user._id,
+      systemId: task.systemId,
+      actorChannel: ctx.channel,
+      action: 'task.toggle',
+      targetType: 'task',
+      targetId: id,
+      payload: diferencias(task, updated),
+    });
+    // La firma viaja con el resultado en vez de pedir una segunda lectura: el
+    // detalle la pinta al cerrar, y el agente que cierra por el conector sabe
+    // con qué quedó firmada su propia escritura.
+    return {
+      status: updated.status,
+      completedBy: updated.completedBy ?? null,
+      completedVia: updated.completedVia ?? null,
+      observedMinutes: (await timeObserved(ctx, id)).totalMinutes,
+    };
   },
 });
 
@@ -687,7 +787,17 @@ export const move = kinoZodMutation({
   args: { id: zid('tasks'), status: z.enum(['backlog', 'week', 'tomorrow', 'today', 'done']) },
   handler: async (ctx, { id, status }) => {
     const task = await ownTask(ctx, ctx.user._id, id);
-    return taskItem(await applyTransition(ctx, task, { userId: ctx.user._id, channel: ctx.channel }, moveTo(status)));
+    const updated = await applyTransition(ctx, task, { userId: ctx.user._id, channel: ctx.channel }, moveTo(status));
+    await recordEvent(ctx, {
+      userId: ctx.user._id,
+      systemId: task.systemId,
+      actorChannel: ctx.channel,
+      action: 'task.move',
+      targetType: 'task',
+      targetId: id,
+      payload: diferencias(task, updated),
+    });
+    return taskItem(updated);
   },
 });
 
@@ -702,7 +812,19 @@ export const bulkMove = kinoZodMutation({
     for (const id of taskIds) {
       const task = await ownTask(ctx, ctx.user._id, id);
       previous.push({ id: task._id, status: task.status });
-      await applyTransition(ctx, task, { userId: ctx.user._id, channel: ctx.channel }, moveTo(status));
+      const updated = await applyTransition(ctx, task, { userId: ctx.user._id, channel: ctx.channel }, moveTo(status));
+      // Una fila por tarea, no una por lote: el log se lee desde el item, y un
+      // evento apuntando a la primera dejaría a las otras sin rastro de
+      // haberse movido. El ritual semanal es la excepción y dice por qué.
+      await recordEvent(ctx, {
+        userId: ctx.user._id,
+        systemId: task.systemId,
+        actorChannel: ctx.channel,
+        action: 'task.move',
+        targetType: 'task',
+        targetId: task._id,
+        payload: diferencias(task, updated),
+      });
     }
     return { previous };
   },
@@ -722,6 +844,15 @@ export const bulkUpdate = kinoZodMutation({
       previous.push({ id: task._id, priority: task.priority });
       await ctx.db.patch(task._id, { priority, updatedAt: now });
       await syncAutoReminders(ctx, { ...task, priority }, now);
+      await recordEvent(ctx, {
+        userId: ctx.user._id,
+        systemId: task.systemId,
+        actorChannel: ctx.channel,
+        action: 'task.update',
+        targetType: 'task',
+        targetId: task._id,
+        payload: { priority: task.priority },
+      });
     }
     return { previous };
   },
@@ -756,10 +887,29 @@ export async function moveTaskBoardDoc(
   await ctx.db.patch(id, { boardStatus, boardStatusChangedAt: now, updatedAt: now });
   const bridge = deriveBoardBridgeAction(task.status, task.boardStatus ?? null, boardStatus);
   const moved = (await ctx.db.get(id))!;
-  return bridge ? await applyTransition(ctx, moved, { userId, channel }, () => bridge) : moved;
+  const final = bridge ? await applyTransition(ctx, moved, { userId, channel }, () => bridge) : moved;
+  // El evento vive aquí y no en la mutación para que el refresco de GitHub
+  // también deje fila: mueve columnas con canal `sync` y nada más lo cuenta.
+  await recordEvent(ctx, {
+    userId,
+    systemId: task.systemId,
+    actorChannel: channel,
+    action: 'task.moveBoard',
+    targetType: 'task',
+    targetId: id,
+    payload: diferencias(task, final),
+  });
+  return final;
 }
 
-/** La posición de cada id es su nuevo `sortIndex`. Los ajenos se ignoran. */
+/**
+ * La posición de cada id es su nuevo `sortIndex`. Los ajenos se ignoran.
+ *
+ * **Sin fila en el log**, y es una decisión: `sortIndex` es el orden de una
+ * lista en pantalla, no una propiedad de la tarea. Un solo arrastre escribiría
+ * veinte filas que dicen que veinte tareas cambiaron de número, y ninguna
+ * merece un deshacer propio.
+ */
 export const reorder = kinoZodMutation({
   args: { ids: z.array(zid('tasks')).min(1) },
   handler: async (ctx, { ids }) => {
@@ -788,6 +938,15 @@ export const createTimeLog = kinoZodMutation({
       source: data.source,
       createdAt: Date.now(),
     });
+    await recordEvent(ctx, {
+      userId: ctx.user._id,
+      systemId: task.systemId,
+      actorChannel: ctx.channel,
+      action: 'task.createTimeLog',
+      targetType: 'task',
+      targetId: id,
+      payload: { durationMinutes: data.durationMinutes, source: data.source },
+    });
     return null;
   },
 });
@@ -808,6 +967,11 @@ async function reconcileStatuses(ctx: MutationCtx, docs: TaskDoc[], timezone: st
 }
 
 /**
+ * **Sin fila en el log**: nadie pide un rollover, ocurre al entrar. Lo que se
+ * reconcilia aquí es consecuencia de fechas que ya se escribieron con su
+ * evento, y una fila por tarea recolocada convertiría el log en el rastro del
+ * cron en vez del de la persona.
+ *
  * Rollover diario del plan de hoy. Si la marca `todayPlanDate` es de otro día:
  * reconcilia estados, vacía el plan anterior, lo repuebla con lo que empieza
  * hoy y guarda la marca. Dentro del mismo día no toca nada.

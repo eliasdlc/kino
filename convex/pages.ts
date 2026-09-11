@@ -1,13 +1,17 @@
+import { academicFolderIds } from './lib/academic';
 import { z } from 'zod';
 import { zid } from 'convex-helpers/server/zod4';
 import { ConvexError } from 'convex/values';
 import type { Doc, Id } from './_generated/dataModel';
 import type { MutationCtx, QueryCtx } from './_generated/server';
 import { countWords } from '../src/shared/lib/word-count';
-import { forbidden, notFound } from './lib/errors';
+import { forbidden, invalid, notFound } from './lib/errors';
 import { kinoZodMutation, kinoZodQuery, type Channel } from './lib/fn';
+import type { ActorChannel } from './schema';
 import { lematizar } from './lib/lemas';
 import { recomputePageMentions } from './lib/mentions';
+import { archivarVersion } from './lib/pages/snapshots';
+import { diferencias, recordEvent } from './eventLog';
 import { recordWritingActivity } from './lib/writing/activity';
 import { tagItem } from './tags';
 
@@ -116,10 +120,22 @@ async function linkedTasksOf(ctx: Ctx, userId: Id<'users'>, pageId: Id<'pages'>)
 export const PAGE_LIST_LIMIT = 200;
 
 export const bySystem = kinoZodQuery({
-  args: { systemId: zid('systems') },
-  handler: async (ctx, { systemId }) => {
+  args: { systemId: zid('systems'), folderId: zid('folders').optional(), academicPeriodId: zid('academicPeriods').nullable().optional() },
+  handler: async (ctx, { systemId, folderId, academicPeriodId }) => {
+    const allowed = academicPeriodId !== undefined ? await academicFolderIds(ctx, ctx.user._id, systemId, academicPeriodId) : undefined;
     const docs = await ctx.db.query('pages').withIndex('by_system', (q) => q.eq('systemId', systemId)).collect();
-    const own = docs.filter((doc) => doc.userId === ctx.user._id && alive(doc)).sort((a, b) => a.updatedAt - b.updatedAt);
+    const byId = new Map(docs.map(doc => [doc._id, doc]));
+    function belongs(doc: Doc<'pages'>) {
+      if (!allowed) return true;
+      let root = doc;
+      const visited = new Set<string>();
+      while (!root.folderId && root.parentPageId && byId.has(root.parentPageId) && !visited.has(root._id)) {
+        visited.add(root._id);
+        root = byId.get(root.parentPageId)!;
+      }
+      return root.folderId ? allowed.has(root.folderId) : academicPeriodId === null;
+    }
+    const own = docs.filter((doc) => doc.userId === ctx.user._id && alive(doc) && (folderId === undefined || doc.folderId === folderId) && belongs(doc)).sort((a, b) => a.updatedAt - b.updatedAt);
     const pagina = own.slice(0, PAGE_LIST_LIMIT);
     return {
       items: await Promise.all(pagina.map((doc) => pageListItem(ctx, doc))),
@@ -277,6 +293,15 @@ async function createOne(
     updatedAt: now,
   });
   if (input.content) await recomputePageMentions(ctx, userId, id, input.systemId, input.content);
+  await recordEvent(ctx, {
+    userId,
+    systemId: input.systemId,
+    actorChannel: channel,
+    action: 'page.create',
+    targetType: 'page',
+    targetId: id,
+    payload: { title: input.title },
+  });
   return pageListItem(ctx, (await ctx.db.get(id))!, { tags: false, subPages: false });
 }
 
@@ -288,18 +313,37 @@ export const create = kinoZodMutation({
 /** Exportada para la siembra del onboarding, que crea páginas sin pasar por el cliente. */
 export const createPageDoc = createOne;
 
+const updateFields = {
+  id: zid('pages'),
+  title: z.string().max(500).nullable().optional(),
+  content: pageContent.nullable().optional(),
+  folderId: zid('folders').nullable().optional(),
+  isPinned: z.boolean().optional(),
+  /** Versión optimista: el `updatedAt` que traía la página al leerla. */
+  expectedUpdatedAt: z.iso.datetime({ offset: true }).optional(),
+};
+
 export const update = kinoZodMutation({
-  args: {
-    id: zid('pages'),
-    title: z.string().max(500).nullable().optional(),
-    content: pageContent.nullable().optional(),
-    folderId: zid('folders').nullable().optional(),
-    isPinned: z.boolean().optional(),
-    /** Versión optimista: el `updatedAt` que traía la página al leerla. */
-    expectedUpdatedAt: z.iso.datetime({ offset: true }).optional(),
-  },
-  handler: async (ctx, { id, expectedUpdatedAt, ...data }) => {
-    const userId = ctx.user._id;
+  args: updateFields,
+  handler: async (ctx, { id, ...data }) => updatePageDoc(ctx, ctx.user._id, ctx.channel, id, data),
+});
+
+/**
+ * La edición de un capítulo, exportada para que aplicar una propuesta de
+ * reescritura pase por el mismo camino: la misma versión archivada, el mismo
+ * evento, el mismo deshacer. Lo único que cambia es que el evento lleva la
+ * propuesta de la que salió.
+ */
+export async function updatePageDoc(
+  ctx: MutationCtx & { clientId?: string },
+  userId: Id<'users'>,
+  channel: ActorChannel,
+  id: Id<'pages'>,
+  data: Omit<z.infer<z.ZodObject<typeof updateFields>>, 'id'>,
+  proposalId?: Id<'proposals'>,
+) {
+  {
+    const { expectedUpdatedAt, ...campos } = data;
     const current = await ownPage(ctx, userId, id);
     // La versión se compara al milisegundo, que es lo que sobrevive al ISO.
     if (expectedUpdatedAt !== undefined && Date.parse(expectedUpdatedAt) !== current.updatedAt) {
@@ -308,37 +352,58 @@ export const update = kinoZodMutation({
         message: 'La página cambió después de leerla. Vuelve a leerla y aplica el cambio sobre la versión nueva.',
       });
     }
-    if (data.folderId) {
-      const folder = await ctx.db.get(data.folderId);
+    if (campos.folderId) {
+      const folder = await ctx.db.get(campos.folderId);
       if (!folder || folder.userId !== userId || folder.systemId !== current.systemId) forbidden('Folder does not belong to this system');
     }
     const now = Date.now();
     const patch: Partial<Doc<'pages'>> = { updatedAt: now };
-    if (data.title !== undefined) patch.title = data.title ?? undefined;
-    if (data.content !== undefined) patch.content = data.content ?? undefined;
-    if (data.folderId !== undefined) patch.folderId = data.folderId ?? undefined;
-    if (data.isPinned !== undefined) patch.isPinned = data.isPinned;
-    if (data.title !== undefined || data.content !== undefined) {
-      patch.lemas = lematizar(data.title === undefined ? current.title : data.title, data.content === undefined ? current.content : data.content);
+    if (campos.title !== undefined) patch.title = campos.title ?? undefined;
+    if (campos.content !== undefined) patch.content = campos.content ?? undefined;
+    if (campos.folderId !== undefined) patch.folderId = campos.folderId ?? undefined;
+    if (campos.isPinned !== undefined) patch.isPinned = campos.isPinned;
+    if (campos.title !== undefined || campos.content !== undefined) {
+      patch.lemas = lematizar(campos.title === undefined ? current.title : campos.title, campos.content === undefined ? current.content : campos.content);
     }
     await ctx.db.patch(id, patch);
     const updated = (await ctx.db.get(id))!;
 
-    if (data.content !== undefined) {
+    // El texto de antes se archiva **siempre** que el cuerpo cambie, y desde
+    // aquí: es el soporte del deshacer de los siete arquetipos, no una pieza
+    // del de escritura. Las quince versiones que sobreviven por capítulo son lo
+    // que mantiene plano el coste, y el evento apunta a la que le toca.
+    let snapshotId: Id<'pageSnapshots'> | undefined;
+    if (campos.content !== undefined) {
       await recomputePageMentions(ctx, userId, id, updated.systemId, updated.content);
-      const system = updated.systemId ? await ctx.db.get(updated.systemId) : null;
-      if (system?.templateType === 'writing' && current.content !== updated.content) {
-        await recordWritingActivity(
-          ctx,
-          updated,
-          countWords(updated.content ?? null) - countWords(current.content ?? null),
-          current.content,
-        );
+      if (current.content !== updated.content) {
+        snapshotId = await archivarVersion(ctx, updated, current.content, undefined);
+        const system = updated.systemId ? await ctx.db.get(updated.systemId) : null;
+        if (system?.templateType === 'writing') {
+          await recordWritingActivity(ctx, updated, countWords(updated.content ?? null) - countWords(current.content ?? null));
+        }
       }
     }
+
+    // El cuerpo no viaja en el payload: un capítulo largo lo desbordaría y
+    // `boundPayload` sustituiría el objeto entero, llevándose también el
+    // título anterior. Lo que viaja es la marca de que cambió y el id de la
+    // versión con el texto de antes.
+    const cambios = diferencias(current, updated);
+    delete cambios.content;
+    await recordEvent(ctx, {
+      userId,
+      systemId: updated.systemId,
+      actorChannel: channel,
+      action: 'page.update',
+      targetType: 'page',
+      targetId: id,
+      payload: current.content === updated.content ? cambios : { ...cambios, contenidoCambiado: true },
+      snapshotId,
+      proposalId,
+    });
     return { ...(await pageListItem(ctx, updated, { subPages: false })), content: updated.content ?? null };
-  },
-});
+  }
+}
 
 /**
  * Borra el capítulo. Blando, y su cascada con él:
@@ -355,9 +420,24 @@ export const update = kinoZodMutation({
  */
 export const remove = kinoZodMutation({
   args: { id: zid('pages') },
-  handler: async (ctx, { id }) => {
-    await ownPage(ctx, ctx.user._id, id);
-    const now = Date.now();
+  handler: async (ctx, { id }) => removePageDoc(ctx, ctx.user._id, ctx.channel, id),
+});
+
+/**
+ * El borrado con su cascada, exportado para que aplicar una propuesta de
+ * cancelar pase por aquí y no por una copia que se quedará vieja el día que la
+ * cascada cambie.
+ */
+export async function removePageDoc(
+  ctx: MutationCtx & { clientId?: string },
+  userId: Id<'users'>,
+  channel: ActorChannel,
+  id: Id<'pages'>,
+  proposalId?: Id<'proposals'>,
+) {
+  {
+    const page = await ownPage(ctx, userId, id);
+    const now = await stampFor(ctx, userId);
     for (const pageId of [id, ...(await subPageTree(ctx, id))]) {
       for (const note of await ctx.db
         .query('stickyNotes')
@@ -373,9 +453,21 @@ export const remove = kinoZodMutation({
       }
       await ctx.db.patch(pageId, { deletedAt: now, updatedAt: now });
     }
+    // Una fila por el gesto. Los subcapítulos, sus notas y las menciones que
+    // se recalculan son la cascada de éste.
+    await recordEvent(ctx, {
+      userId,
+      systemId: page.systemId,
+      actorChannel: channel,
+      action: 'page.remove',
+      targetType: 'page',
+      targetId: id,
+      payload: { title: page.title },
+      proposalId,
+    });
     return null;
-  },
-});
+  }
+}
 
 /** Los subcapítulos vivos que cuelgan de uno, en profundidad. */
 async function subPageTree(ctx: MutationCtx, rootId: Id<'pages'>): Promise<Id<'pages'>[]> {
@@ -410,6 +502,15 @@ export const linkTask = kinoZodMutation({
       .withIndex('by_task_page', (q) => q.eq('taskId', taskId).eq('pageId', id))
       .unique();
     if (!existing) await ctx.db.insert('taskPageLinks', { taskId, pageId: id });
+    await recordEvent(ctx, {
+      userId: ctx.user._id,
+      systemId: page.systemId,
+      actorChannel: ctx.channel,
+      action: 'page.linkTask',
+      targetType: 'page',
+      targetId: id,
+      payload: { taskId, title: task.title },
+    });
     return null;
   },
 });
@@ -417,12 +518,21 @@ export const linkTask = kinoZodMutation({
 export const unlinkTask = kinoZodMutation({
   args: { id: zid('pages'), taskId: zid('tasks') },
   handler: async (ctx, { id, taskId }) => {
-    await ownPage(ctx, ctx.user._id, id);
+    const page = await ownPage(ctx, ctx.user._id, id);
     const link = await ctx.db
       .query('taskPageLinks')
       .withIndex('by_task_page', (q) => q.eq('taskId', taskId).eq('pageId', id))
       .unique();
     if (link) await ctx.db.delete(link._id);
+    await recordEvent(ctx, {
+      userId: ctx.user._id,
+      systemId: page.systemId,
+      actorChannel: ctx.channel,
+      action: 'page.unlinkTask',
+      targetType: 'page',
+      targetId: id,
+      payload: { taskId },
+    });
     return null;
   },
 });
@@ -430,11 +540,20 @@ export const unlinkTask = kinoZodMutation({
 export const addTag = kinoZodMutation({
   args: { id: zid('pages'), tagId: zid('contextTags') },
   handler: async (ctx, { id, tagId }) => {
-    await ownPage(ctx, ctx.user._id, id);
+    const page = await ownPage(ctx, ctx.user._id, id);
     const tag = await ctx.db.get(tagId);
     if (!tag || tag.userId !== ctx.user._id) notFound('Tag not found');
     const existing = await ctx.db.query('pageTags').withIndex('by_page_tag', (q) => q.eq('pageId', id).eq('tagId', tagId)).unique();
     if (!existing) await ctx.db.insert('pageTags', { pageId: id, tagId });
+    await recordEvent(ctx, {
+      userId: ctx.user._id,
+      systemId: page.systemId,
+      actorChannel: ctx.channel,
+      action: 'page.addTag',
+      targetType: 'page',
+      targetId: id,
+      payload: { tagId, title: tag.title },
+    });
     return null;
   },
 });
@@ -442,9 +561,121 @@ export const addTag = kinoZodMutation({
 export const removeTag = kinoZodMutation({
   args: { id: zid('pages'), tagId: zid('contextTags') },
   handler: async (ctx, { id, tagId }) => {
-    await ownPage(ctx, ctx.user._id, id);
+    const page = await ownPage(ctx, ctx.user._id, id);
     const link = await ctx.db.query('pageTags').withIndex('by_page_tag', (q) => q.eq('pageId', id).eq('tagId', tagId)).unique();
     if (link) await ctx.db.delete(link._id);
+    await recordEvent(ctx, {
+      userId: ctx.user._id,
+      systemId: page.systemId,
+      actorChannel: ctx.channel,
+      action: 'page.removeTag',
+      targetType: 'page',
+      targetId: id,
+      payload: { tagId },
+    });
     return null;
+  },
+});
+
+// ── La papelera ─────────────────────────────────────────────────────────────
+
+/**
+ * El instante que marca un borrado, y que hace de identificador del gesto: un
+ * solo valor para toda la cascada, y `restore` devuelve lo que lo lleva y deja
+ * donde estaba lo que ya se había borrado por su cuenta. Dos borrados dentro
+ * del mismo milisegundo se confundirían, así que el segundo corre uno.
+ */
+async function stampFor(ctx: MutationCtx, userId: Id<'users'>) {
+  const usados = new Set((await deletedPages(ctx, userId)).map((doc) => doc.deletedAt));
+  let now = Date.now();
+  while (usados.has(now)) now += 1;
+  return now;
+}
+
+/** Páginas del usuario con `deletedAt` puesto. */
+async function deletedPages(ctx: Ctx, userId: Id<'users'>) {
+  const docs = await ctx.db
+    .query('pages')
+    .withIndex('by_user_alive', (q) => q.eq('userId', userId))
+    .collect();
+  return docs.filter((doc) => doc.deletedAt !== undefined);
+}
+
+/**
+ * La página y los subcapítulos que se fueron con ella: el subárbol marcado en
+ * el mismo instante. Uno que ya estaba en la papelera lleva otro y se queda.
+ */
+function deletedWith(docs: Doc<'pages'>[], root: Doc<'pages'>): Doc<'pages'>[] {
+  const childrenOf = new Map<string, Doc<'pages'>[]>();
+  for (const doc of docs) {
+    if (doc.parentPageId) childrenOf.set(doc.parentPageId, [...(childrenOf.get(doc.parentPageId) ?? []), doc]);
+  }
+  const out = [root];
+  const stack = [root];
+  while (stack.length) {
+    for (const child of childrenOf.get(stack.pop()!._id) ?? []) {
+      if (child.deletedAt !== root.deletedAt) continue;
+      out.push(child);
+      stack.push(child);
+    }
+  }
+  return out;
+}
+
+/** Sólo la raíz de cada borrado: los subcapítulos vuelven con su capítulo. */
+export const trashed = kinoZodQuery({
+  args: {},
+  handler: async (ctx) => {
+    const docs = await deletedPages(ctx, ctx.user._id);
+    const byId = new Map(docs.map((doc) => [doc._id, doc]));
+    return docs
+      .filter((doc) => (doc.parentPageId ? byId.get(doc.parentPageId)?.deletedAt !== doc.deletedAt : true))
+      .sort((a, b) => b.deletedAt! - a.deletedAt!)
+      .map((doc) => ({
+        id: doc._id,
+        title: doc.title ?? null,
+        systemId: doc.systemId ?? null,
+        deletedAt: iso(doc.deletedAt)!,
+        /** Cuántos subcapítulos vuelven con ella. */
+        subpageCount: deletedWith(docs, doc).length - 1,
+      }));
+  },
+});
+
+/**
+ * Devuelve la página con sus subcapítulos y las notas que colgaban de ellos.
+ * Las menciones del codex se recalculan aquí porque el borrado las destruye:
+ * son derivadas, y sin este paso la entidad no vuelve a contar la página hasta
+ * que alguien la guarde otra vez.
+ */
+export const restore = kinoZodMutation({
+  args: { id: zid('pages') },
+  handler: async (ctx, { id }) => {
+    const doc = await ctx.db.get(id);
+    if (!doc || doc.userId !== ctx.user._id || doc.deletedAt === undefined) notFound('Page not found');
+    const parent = doc.parentPageId ? await ctx.db.get(doc.parentPageId) : null;
+    if (parent && parent.deletedAt !== undefined) invalid('Restaura antes el capítulo que la contenía');
+    const stamp = doc.deletedAt;
+    const now = Date.now();
+    for (const page of deletedWith(await deletedPages(ctx, ctx.user._id), doc)) {
+      for (const note of await ctx.db
+        .query('stickyNotes')
+        .withIndex('by_page', (q) => q.eq('pageId', page._id))
+        .collect()) {
+        if (note.deletedAt === stamp) await ctx.db.patch(note._id, { deletedAt: undefined, updatedAt: now });
+      }
+      await ctx.db.patch(page._id, { deletedAt: undefined, updatedAt: now });
+      await recomputePageMentions(ctx, ctx.user._id, page._id, page.systemId, page.content);
+    }
+    await recordEvent(ctx, {
+      userId: ctx.user._id,
+      systemId: doc.systemId,
+      actorChannel: ctx.channel,
+      action: 'page.restore',
+      targetType: 'page',
+      targetId: id,
+      payload: { title: doc.title },
+    });
+    return pageListItem(ctx, (await ctx.db.get(id))!);
   },
 });

@@ -95,15 +95,6 @@ const energy: Tool[] = [
     description: "Obtiene los check-ins de energía del usuario de hoy (nivel y calidad de sueño), si ya registró alguno.",
     input: z.object({}),
   }),
-  writeTool(api.energy.createCheckin, {
-    name: "create_energy_checkin",
-    description: "Registra el check-in de energía del usuario para hoy. currentLevel es 1-100 y sleepQuality es good/partial/poor.",
-    input: z.object({
-      currentLevel: z.number().int().min(1).max(100),
-      sleepQuality: z.enum(["good", "partial", "poor"]).optional(),
-      slot: z.enum(["morning", "afternoon", "evening"]).optional(),
-    }),
-  }),
   readTool(api.energy.todayPlan, {
     name: "get_today_plan",
     description: "Obtiene el plan de energía de hoy: tareas recomendadas ajustadas al nivel de energía y límite diario del usuario.",
@@ -220,9 +211,10 @@ const folders: Tool[] = [
     description: "Actualiza el nombre, color o metadata (campos del rol de carpeta según el arquetipo) de una carpeta en Kino.",
     input: z.object({ id, name: z.string().min(1).max(255).optional(), color: z.string().optional(), metadata: folderMetadata }),
   }),
-  writeTool(api.folders.remove, {
-    name: "delete_folder",
-    description: "Elimina una carpeta de Kino.",
+  writeTool(api.folders.restore, {
+    name: "restore_folder",
+    description:
+      "Restaura una carpeta que estaba en la papelera de Kino, con las subcarpetas y las notas adhesivas que se borraron con ella. Falla si la carpeta que la contenía sigue borrada.",
     input: z.object({ id }),
   }),
 ];
@@ -314,29 +306,10 @@ const pages: Tool[] = [
     }),
     args: withHtmlContent,
   }),
-  writeTool(api.pages.update, {
-    name: "update_page",
+  writeTool(api.pages.restore, {
+    name: "restore_page",
     description:
-      "Actualiza una página de Kino: título, contenido markdown, carpeta o estado de pin. El contenido se reemplaza entero, así que para editar hay que leer la página primero con get_page.",
-    input: z.object({
-      id,
-      title: z.string().max(500).nullable().optional(),
-      content: pageContent,
-      folderId: id.nullable().optional(),
-      isPinned: z.boolean().optional(),
-      expectedUpdatedAt: z.iso
-        .datetime({ offset: true })
-        .optional()
-        .describe(
-          "El `updatedAt` que devolvió la última lectura. Si la página cambió desde entonces la escritura falla con CONFLICT en vez de pisarla: vuelve a leerla, aplica el cambio sobre lo nuevo y reintenta. Mándalo siempre que estés reescribiendo contenido.",
-        ),
-    }),
-    args: withHtmlContent,
-    result: asMarkdownPage,
-  }),
-  writeTool(api.pages.remove, {
-    name: "delete_page",
-    description: "Elimina (soft-delete) una página de Kino.",
+      "Restaura una página que estaba en la papelera de Kino, con los subcapítulos y las notas adhesivas que se borraron con ella.",
     input: z.object({ id }),
   }),
   writeTool(api.pages.linkTask, {
@@ -390,9 +363,10 @@ const stickyNotes: Tool[] = [
     description: "Actualiza el título, contenido o color de una nota adhesiva en Kino.",
     input: z.object({ id, title: z.string().max(200).nullable().optional(), content: z.string().max(500).nullable().optional(), color: z.string().optional() }),
   }),
-  writeTool(api.stickyNotes.remove, {
-    name: "delete_sticky_note",
-    description: "Elimina una nota adhesiva de Kino.",
+  writeTool(api.stickyNotes.restore, {
+    name: "restore_sticky_note",
+    description:
+      "Restaura una nota adhesiva que estaba en la papelera de Kino. Falla si el cuaderno o el capítulo donde estaba pegada sigue borrado.",
     input: z.object({ id }),
   }),
 ];
@@ -423,11 +397,6 @@ const systems: Tool[] = [
     name: "update_system",
     description: "Actualiza propiedades de un sistema existente en Kino (nombre, color, ícono, propósito, etc.).",
     input: z.object({ id, name: z.string().min(1).max(255).optional(), color: z.string().optional(), ...systemFields }),
-  }),
-  writeTool(api.systems.remove, {
-    name: "delete_system",
-    description: "Desactiva (soft-delete) un sistema en Kino. No puede eliminarse el Inbox.",
-    input: z.object({ id }),
   }),
 ];
 
@@ -477,12 +446,6 @@ const tasks: Tool[] = [
     description: "Actualiza campos de una tarea existente en Kino.",
     input: updateTask,
   }),
-  writeTool(api.tasks.remove, {
-    name: "delete_task",
-    description: "Elimina una tarea de Kino (borrado lógico: la tarea queda en papelera, no se destruye).",
-    input: z.object({ id }),
-    result: (removed) => `Tarea "${removed.title}" (${removed.id}) eliminada correctamente.`,
-  }),
   writeTool(api.tasks.restore, {
     name: "restore_task",
     description: "Restaura una tarea previamente eliminada (soft-delete) en Kino, devolviéndola de la papelera al estado activo.",
@@ -528,6 +491,46 @@ const tasks: Tool[] = [
   }),
 ];
 
+// ── El log ───────────────────────────────────────────────────────────────────
+
+const ITEM_TYPES = ["task", "page", "folder", "stickyNote", "system", "entity", "sprint", "tag"] as const;
+
+/**
+ * `eventLog.deshacer` se clasifica aquí como **no publicada, a propósito**: el
+ * deshacer es el gesto de la persona sobre lo que el agente escribió, y darle
+ * al agente el botón de deshacer su propio rastro es devolverle el control que
+ * el log existe para quitarle. Leer el log sí puede, y por eso `porItem` está.
+ *
+ * Por lo mismo, de `proposals` sólo se publica `create`. Listar, aplicar,
+ * descartar y caducar son la mitad humana de la conversación: un agente que
+ * pudiera aceptar sus propias propuestas habría convertido el permiso de
+ * proponer en el de escribir.
+ */
+const events: Tool[] = [
+  writeTool(api.proposals.create, {
+    name: "propose_change",
+    description:
+      "Propón un cambio que no puedes hacer tú: mandar algo a la papelera (`cancel`) o sustituir el cuerpo de un capítulo (`rewrite`). La propuesta aparece en Hoy con la fila que la justifica y la persona la acepta o la descarta; caduca a los catorce días. Úsala cuando quieras borrar o reescribir: son las dos cosas que Kino no te deja hacer directamente.",
+    input: z.object({
+      kind: z.enum(["cancel", "rewrite"]),
+      evidenceType: z.enum(["task", "page"]).describe("Qué clase de fila propones cambiar"),
+      evidenceId: id.describe("La fila que justifica la propuesta y sobre la que se aplica"),
+      contenido: z.string().optional().describe("Sólo en `rewrite`: el cuerpo propuesto, en markdown"),
+      motivo: z.string().max(500).optional().describe("Una frase para la persona: por qué lo propones"),
+    }),
+    args: ({ contenido, ...rest }) => (contenido === undefined ? rest : { ...rest, contenido: markdownToHtml(contenido) ?? undefined }),
+  }),
+  readTool(api.eventLog.porItem, {
+    name: "list_item_events",
+    description:
+      "Lo que le ha pasado a un item: quién lo escribió, por qué vía (el navegador de la persona o un conector como tú) y cuándo, lo más reciente primero. Léelo antes de proponer reescribir algo: si la persona lo tocó hace un rato, tu propuesta llega tarde. Los nombres de otras personas no vienen; la vía sí.",
+    input: z.object({
+      targetType: z.enum(ITEM_TYPES).describe("Qué clase de item"),
+      targetId: id,
+    }),
+  }),
+];
+
 // ── Escritura ────────────────────────────────────────────────────────────────
 
 const writing: Tool[] = [
@@ -553,4 +556,4 @@ const writing: Tool[] = [
   }),
 ];
 
-export const CATALOG: readonly Tool[] = [...energy, ...entities, ...folders, ...insights, ...pages, ...stickyNotes, ...systems, ...tasks, ...writing];
+export const CATALOG: readonly Tool[] = [...energy, ...entities, ...events, ...folders, ...insights, ...pages, ...stickyNotes, ...systems, ...tasks, ...writing];

@@ -1,8 +1,10 @@
+import { academicFolderIds, ownPeriod } from './lib/academic';
 import { z } from 'zod';
 import { zid } from 'convex-helpers/server/zod4';
 import type { Doc, Id } from './_generated/dataModel';
 import type { MutationCtx, QueryCtx } from './_generated/server';
 import { invalid, notFound } from './lib/errors';
+import { diferencias, recordEvent } from './eventLog';
 import { kinoZodMutation, kinoZodQuery, type Channel } from './lib/fn';
 import { color } from './schema';
 
@@ -16,6 +18,7 @@ const COLORS = color.members.map((m) => m.value) as [string, ...string[]];
 /** Lo que el cliente ve de una carpeta. `metadata` lo valida el arquetipo del sistema. */
 const folderItem = (doc: Doc<'folders'>) => ({
   id: doc._id,
+  ...(doc.academicPeriodId ? { academicPeriodId: doc.academicPeriodId } : {}),
   name: doc.name,
   color: doc.color,
   sortIndex: doc.sortIndex,
@@ -121,10 +124,11 @@ export const tree = kinoZodQuery({
 
 /** Carpetas raíz de un sistema, con sus cuentas. */
 export const bySystem = kinoZodQuery({
-  args: { systemId: zid('systems') },
-  handler: async (ctx, { systemId }) => {
+  args: { systemId: zid('systems'), academicPeriodId: zid('academicPeriods').nullable().optional() },
+  handler: async (ctx, { systemId, academicPeriodId }) => {
+    const allowed = academicPeriodId !== undefined ? await academicFolderIds(ctx, ctx.user._id, systemId, academicPeriodId) : undefined;
     const all = await aliveFolders(ctx, ctx.user._id);
-    const roots = all.filter((doc) => doc.systemId === systemId && doc.parentId === undefined);
+    const roots = all.filter((doc) => doc.systemId === systemId && doc.parentId === undefined && (!allowed || allowed.has(doc._id)));
     return withCounts(ctx, all, roots);
   },
 });
@@ -154,6 +158,7 @@ export const detail = kinoZodQuery({
 const metadataField = z.record(z.string(), z.unknown()).nullish();
 
 const createFields = {
+  academicPeriodId: zid('academicPeriods').optional(),
   systemId: zid('systems'),
   name: z.string().min(1).max(255),
   color: z.enum(COLORS).optional(),
@@ -173,10 +178,15 @@ export async function createFolderDoc(
     const parent = await ownFolder(ctx, userId, args.parentId);
     if (parent.systemId !== args.systemId) invalid('Parent folder belongs to another system');
   }
+  if (args.academicPeriodId) {
+    if (args.parentId) invalid('El ciclo pertenece a la materia raíz');
+    await ownPeriod(ctx, userId, args.academicPeriodId, args.systemId);
+  }
   const now = Date.now();
   const id = await ctx.db.insert('folders', {
     userId,
     systemId: args.systemId,
+    academicPeriodId: args.academicPeriodId,
     parentId: args.parentId,
     name: args.name,
     color: (args.color ?? 'blue') as Doc<'folders'>['color'],
@@ -186,6 +196,15 @@ export async function createFolderDoc(
     createdVia: channel,
     createdAt: now,
     updatedAt: now,
+  });
+  await recordEvent(ctx, {
+    userId,
+    systemId: args.systemId,
+    actorChannel: channel,
+    action: 'folder.create',
+    targetType: 'folder',
+    targetId: id,
+    payload: { name: args.name },
   });
   return folderItem((await ctx.db.get(id))!);
 }
@@ -203,14 +222,24 @@ export const update = kinoZodMutation({
     metadata: metadataField,
   },
   handler: async (ctx, { id, ...data }) => {
-    await ownFolder(ctx, ctx.user._id, id);
+    const antes = await ownFolder(ctx, ctx.user._id, id);
     await ctx.db.patch(id, {
       ...(data.name !== undefined ? { name: data.name } : {}),
       ...(data.color !== undefined ? { color: data.color as Doc<'folders'>['color'] } : {}),
       ...(data.metadata !== undefined ? { metadata: data.metadata ?? undefined } : {}),
       updatedAt: Date.now(),
     });
-    return folderItem((await ctx.db.get(id))!);
+    const folder = (await ctx.db.get(id))!;
+    await recordEvent(ctx, {
+      userId: ctx.user._id,
+      systemId: folder.systemId,
+      actorChannel: ctx.channel,
+      action: 'folder.update',
+      targetType: 'folder',
+      targetId: id,
+      payload: diferencias(antes, folder),
+    });
+    return folderItem(folder);
   },
 });
 
@@ -224,15 +253,26 @@ export const update = kinoZodMutation({
 export const remove = kinoZodMutation({
   args: { id: zid('folders') },
   handler: async (ctx, { id }) => {
-    await ownFolder(ctx, ctx.user._id, id);
+    const folder = await ownFolder(ctx, ctx.user._id, id);
     const all = await aliveFolders(ctx, ctx.user._id);
-    for (const folderId of subtreeIds(all, id)) await removeOne(ctx, folderId);
+    const now = await stampFor(ctx, ctx.user._id);
+    for (const folderId of subtreeIds(all, id)) await removeOne(ctx, folderId, now);
+    // Una fila por el gesto. Las subcarpetas, sus notas y las tareas que se
+    // quedaron sin carpeta son la cascada de éste.
+    await recordEvent(ctx, {
+      userId: ctx.user._id,
+      systemId: folder.systemId,
+      actorChannel: ctx.channel,
+      action: 'folder.remove',
+      targetType: 'folder',
+      targetId: id,
+      payload: { name: folder.name },
+    });
     return null;
   },
 });
 
-async function removeOne(ctx: MutationCtx, folderId: Id<'folders'>) {
-  const now = Date.now();
+async function removeOne(ctx: MutationCtx, folderId: Id<'folders'>, now: number) {
   for (const task of await ctx.db
     .query('tasks')
     .withIndex('by_folder_alive', (q) => q.eq('folderId', folderId))
@@ -253,3 +293,108 @@ async function removeOne(ctx: MutationCtx, folderId: Id<'folders'>) {
   }
   await ctx.db.patch(folderId, { deletedAt: now, updatedAt: now });
 }
+
+// ── La papelera ─────────────────────────────────────────────────────────────
+
+/**
+ * El instante que marca un borrado, y que hace de identificador del gesto: un
+ * solo valor para toda la cascada, y `restore` devuelve lo que lo lleva y deja
+ * donde estaba lo que ya se había borrado por su cuenta. Dos borrados dentro
+ * del mismo milisegundo se confundirían, así que el segundo corre uno.
+ */
+async function stampFor(ctx: MutationCtx, userId: Id<'users'>) {
+  const usados = new Set((await deletedFolders(ctx, userId)).map((doc) => doc.deletedAt));
+  let now = Date.now();
+  while (usados.has(now)) now += 1;
+  return now;
+}
+
+/** Carpetas del usuario con `deletedAt` puesto. */
+async function deletedFolders(ctx: QueryCtx, userId: Id<'users'>) {
+  const docs = await ctx.db
+    .query('folders')
+    .withIndex('by_user_alive', (q) => q.eq('userId', userId))
+    .collect();
+  return docs.filter((doc) => doc.deletedAt !== undefined);
+}
+
+/**
+ * La carpeta y las que se fueron con ella, que son las de su subárbol marcadas
+ * en el mismo instante. Una hija que ya estaba en la papelera por su cuenta
+ * lleva otro `deletedAt` y se queda donde su dueño la dejó.
+ */
+function deletedWith(docs: Doc<'folders'>[], root: Doc<'folders'>): Doc<'folders'>[] {
+  const childrenOf = new Map<string, Doc<'folders'>[]>();
+  for (const doc of docs) {
+    if (doc.parentId) childrenOf.set(doc.parentId, [...(childrenOf.get(doc.parentId) ?? []), doc]);
+  }
+  const out = [root];
+  const stack = [root];
+  while (stack.length) {
+    for (const child of childrenOf.get(stack.pop()!._id) ?? []) {
+      if (child.deletedAt !== root.deletedAt) continue;
+      out.push(child);
+      stack.push(child);
+    }
+  }
+  return out;
+}
+
+/**
+ * Lo que la papelera enseña: sólo la raíz de cada borrado. Listar también las
+ * subcarpetas que se fueron con su madre convertiría un gesto en cuatro filas
+ * y haría creer que hay que restaurarlas una a una.
+ */
+export const trashed = kinoZodQuery({
+  args: {},
+  handler: async (ctx) => {
+    const docs = await deletedFolders(ctx, ctx.user._id);
+    const byId = new Map(docs.map((doc) => [doc._id, doc]));
+    return docs
+      .filter((doc) => (doc.parentId ? byId.get(doc.parentId)?.deletedAt !== doc.deletedAt : true))
+      .sort((a, b) => b.deletedAt! - a.deletedAt!)
+      .map((doc) => ({
+        ...folderItem(doc),
+        deletedAt: new Date(doc.deletedAt!).toISOString(),
+        /** Cuántas subcarpetas vuelven con ella. Cero es una carpeta sola. */
+        subfolderCount: deletedWith(docs, doc).length - 1,
+      }));
+  },
+});
+
+/**
+ * Devuelve la carpeta entera: ella, las subcarpetas que se fueron en el mismo
+ * gesto y las notas que colgaban de todas ellas. Las tareas y páginas que
+ * estaban dentro no vuelven a su carpeta porque nunca se borraron: el borrado
+ * las dejó vivas y sin carpeta, y eso ya es un estado que su dueño puede ver.
+ */
+export const restore = kinoZodMutation({
+  args: { id: zid('folders') },
+  handler: async (ctx, { id }) => {
+    const doc = await ctx.db.get(id);
+    if (!doc || doc.userId !== ctx.user._id || doc.deletedAt === undefined) notFound('Folder not found');
+    const parent = doc.parentId ? await ctx.db.get(doc.parentId) : null;
+    if (parent && parent.deletedAt !== undefined) invalid('Restaura antes la carpeta que la contenía');
+    const stamp = doc.deletedAt;
+    const now = Date.now();
+    for (const folder of deletedWith(await deletedFolders(ctx, ctx.user._id), doc)) {
+      for (const note of await ctx.db
+        .query('stickyNotes')
+        .withIndex('by_folder', (q) => q.eq('folderId', folder._id))
+        .collect()) {
+        if (note.deletedAt === stamp) await ctx.db.patch(note._id, { deletedAt: undefined, updatedAt: now });
+      }
+      await ctx.db.patch(folder._id, { deletedAt: undefined, updatedAt: now });
+    }
+    await recordEvent(ctx, {
+      userId: ctx.user._id,
+      systemId: doc.systemId,
+      actorChannel: ctx.channel,
+      action: 'folder.restore',
+      targetType: 'folder',
+      targetId: id,
+      payload: { name: doc.name },
+    });
+    return folderItem((await ctx.db.get(id))!);
+  },
+});

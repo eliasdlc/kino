@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useRef, useState, useSyncExternalStore } from 'react';
+import { hourInTimeZone } from '@/shared/time';
 import { Moon } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
@@ -26,6 +27,7 @@ import {
 } from './energyDisplay';
 
 interface EnergyTodayCardProps {
+  clock: { hour: number; date: string; timezone: string };
   initialCheckins: TodayCheckinRowTransport[];
   projectedCurve: number[];
   chronotype: Chronotype | null;
@@ -35,9 +37,9 @@ interface EnergyTodayCardProps {
 
 const SLOT_MIDPOINT: Record<CheckinSlot, number> = { morning: 9, afternoon: 15, evening: 20 };
 
-function buildChartData(curve: number[], checkins: TodayCheckinRowTransport[]): ChartEntry[] {
+function buildChartData(curve: number[], checkins: TodayCheckinRowTransport[], timezone: string): ChartEntry[] {
   return Array.from({ length: 24 }, (_, hour) => {
-    const checkin = checkins.find((c) => new Date(c.createdAt).getHours() === hour);
+    const checkin = checkins.find((c) => hourInTimeZone(timezone, Date.parse(c.createdAt)) === hour);
     return {
       hour,
       predicted: Math.round(curve[hour] ?? 0),
@@ -84,15 +86,6 @@ function useCountUp(target: number, enabled: boolean, durationMs = 550): number 
   return enabled ? val : target;
 }
 
-/** La fecha de hoy en la zona del dispositivo; sólo en cliente para no discrepar con el servidor. */
-function useTodayLabel(): string {
-  return useSyncExternalStore(
-    () => () => {},
-    () => new Date().toLocaleDateString('es', { weekday: 'long', day: 'numeric', month: 'long' }),
-    () => '',
-  );
-}
-
 /**
  * La cota del día: la cifra de energía a 4.18em compartiendo renglón con la
  * palabra y la frase que la explican, y debajo de dónde sale (previsto o
@@ -100,6 +93,7 @@ function useTodayLabel(): string {
  * check-in en línea y el presupuesto cuelgan de ella.
  */
 export function EnergyTodayCard({
+  clock,
   initialCheckins,
   projectedCurve,
   chronotype,
@@ -110,12 +104,12 @@ export function EnergyTodayCard({
   const { mutate: updateAccuracy, isPending: isUpdatingAccuracy } = useUpdateCheckinAccuracy();
 
   const checkins = liveCheckins ?? initialCheckins;
-  const currentSlot = getCurrentSlot();
-  const currentHour = new Date().getHours();
+  const currentHour = clock.hour;
+  const currentSlot = getCurrentSlot(currentHour);
   const hasCurve = projectedCurve.length === 24;
 
   const animate = !usePrefersReducedMotion();
-  const todayLabel = useTodayLabel();
+  const todayLabel = new Date(`${clock.date}T12:00:00Z`).toLocaleDateString("es", { timeZone: "UTC", weekday: "long", day: "numeric", month: "long" });
 
   const [selectedSlot, setSelectedSlot] = useState<CheckinSlot>(currentSlot);
   const [showForm, setShowForm] = useState(false);
@@ -132,7 +126,7 @@ export function EnergyTodayCard({
   const animatedValue = useCountUp(heroValue, animate);
 
   const peak = hasCurve ? findPeakRange(projectedCurve) : null;
-  const chartData = hasCurve ? buildChartData(projectedCurve, checkins) : null;
+  const chartData = hasCurve ? buildChartData(projectedCurve, checkins, clock.timezone) : null;
 
   // La comparación usa la predicción GUARDADA del slot, no la curva de ahora: la
   // curva ya aprendió de este check-in, así que compararse contra ella sería

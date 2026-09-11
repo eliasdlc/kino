@@ -1,5 +1,5 @@
 import { importJWK, SignJWT, type JWK } from "jose";
-import { MCP_TOKEN_ALGORITHM, MCP_TOKEN_AUDIENCE, MCP_TOKEN_ISSUER } from "@convex/lib/mcpToken";
+import { MCP_CLIENT_CLAIM, MCP_TOKEN_ALGORITHM, MCP_TOKEN_AUDIENCE, MCP_TOKEN_ISSUER } from "@convex/lib/mcpToken";
 import { SCOPES, type Scope } from "@convex/lib/scopes";
 import { SITE_URL } from "@/shared/lib/site-url";
 
@@ -29,6 +29,27 @@ export const MCP_SCOPE_RESOURCE = "documents";
  */
 export const MCP_OAUTH_SCOPES = ["openid", "email", "profile", ...SCOPES.map((scope) => `${MCP_SCOPE_RESOURCE}:${scope}`)] as const;
 
+/**
+ * Lo que la pantalla de consentimiento de Clerk le promete a la persona por
+ * cada alcance.
+ *
+ * **Vive aquí y no sólo en el Dashboard de Clerk a propósito.** El copy y el
+ * catálogo tienen que decir lo mismo: prometer borrar cuando ninguna tool borra
+ * asusta de gratis, y prometer un límite que el código no aplica es peor. Con
+ * las frases en el repo, `auth.test.ts` puede comprobar las dos direcciones, y
+ * el Dashboard pasa a ser una copia de esto en vez de una segunda fuente.
+ *
+ * Al cambiar una frase hay que pegarla en Clerk el mismo día que se despliega:
+ * Configure > OAuth Applications > Kino > el scope > Description.
+ */
+export const MCP_SCOPE_CONSENT: Record<Scope, string> = {
+  read: "Leer tus tareas, sistemas, cuadernos, notas y tu curva de energía.",
+  propose:
+    "Proponerte cambios, que aparecen en Hoy con la fila que los justifica para que los aceptes o los descartes. No escribe nada por su cuenta.",
+  write:
+    "Crear y editar tus tareas, sistemas, carpetas y notas, siempre con tu nombre y por qué vía en el registro, y siempre reversible desde el propio item. No puede borrar nada, no escribe tu check-in de energía y no reescribe el cuerpo de lo que tú escribiste: eso te lo propone.",
+};
+
 /** Vida del token que se firma para Convex. Cubre una petición del protocolo. */
 const TOKEN_TTL = "10m";
 const KEY_ID = "kino-mcp";
@@ -55,12 +76,13 @@ let signingKey: Promise<CryptoKey | Uint8Array> | undefined;
 
 /**
  * El token que Convex acepta por el provider `customJwt`: el `sub` es el id
- * de Clerk, que es lo que `users.clerkId` guarda, y `kino_scope` es lo que
- * `convex/lib/fn.ts` lee para autorizar cada función.
+ * de Clerk, que es lo que `users.clerkId` guarda, `kino_scope` es lo que
+ * `convex/lib/fn.ts` lee para autorizar cada función, y `kino_client` es el
+ * cliente OAuth que actúa, tal como Clerk lo verificó.
  */
-export async function mintConvexToken(input: { clerkId: string; scope: Scope }): Promise<string> {
+export async function mintConvexToken(input: { clerkId: string; scope: Scope; clientId?: string }): Promise<string> {
   signingKey ??= importJWK(signingJwk(), MCP_TOKEN_ALGORITHM);
-  return new SignJWT({ kino_scope: input.scope })
+  return new SignJWT({ kino_scope: input.scope, [MCP_CLIENT_CLAIM]: input.clientId })
     .setProtectedHeader({ alg: MCP_TOKEN_ALGORITHM, kid: KEY_ID })
     .setIssuer(MCP_TOKEN_ISSUER)
     .setAudience(MCP_TOKEN_AUDIENCE)

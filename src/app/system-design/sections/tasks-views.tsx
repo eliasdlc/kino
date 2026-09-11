@@ -1,8 +1,11 @@
 "use client";
 
-import { useState } from "react";
+import { AcademicWorkspace } from "@/features/academic/AcademicWorkspace";
+import { DefaultTaskCard } from "@/features/tasks/cards/DefaultTaskCard";
+import { Suspense, useState } from "react";
 import { DndContext } from "@dnd-kit/core";
-import { Section, SubSection, Specimen, SpecimenGrid, ClientOnly } from "../helpers";
+import { Section, SubSection, Specimen, SpecimenGrid, ClientOnly, Seeded, seedQuery } from "../helpers";
+import { api } from "@convex/_generated/api";
 import { makeTask, makeSprint, daysFromNow, MOCK_SYSTEM_ID, mid } from "../mock-data";
 import { TaskListRow } from "@/features/tasks/TaskListRow";
 import { OverdueGroup } from "@/features/tasks/OverdueGroup";
@@ -14,9 +17,41 @@ import { RecurrencePicker } from "@/features/tasks/RecurrencePicker";
 import { MultiDayTaskBar } from "@/features/tasks/MultiDayTaskBar";
 import { BoardCard } from "@/features/systems/views/project/BoardCard";
 import { SprintBar } from "@/features/systems/views/project/SprintBar";
+import { InboxView } from "@/features/systems/views/InboxView";
+import { PersonalView } from "@/features/systems/views/PersonalView";
+import { makeFolder, makeSystem } from "../mock-data";
 import type { TaskTypeValue } from "@/shared/types/enums";
 
 const noop = () => {};
+
+const BANDEJA = makeSystem({ id: mid("sys-0"), name: "Bandeja", templateType: "inbox", isInbox: true });
+const PERSONAL = makeSystem({ id: mid("sys-p"), name: "Casa y salud", templateType: "personal", icon: "star" });
+
+/** Lo que entró sin decidir dónde va, con su fuente cuando la tiene. */
+const CAPTURAS = [
+  makeTask({ id: mid("in-1"), systemId: BANDEJA.id, title: "Llamar al banco por el certificado", status: "backlog" }),
+  makeTask({ id: mid("in-2"), systemId: BANDEJA.id, title: "Revisar el contrato de la beca de la universidad", status: "backlog", externalSource: "link" }),
+  makeTask({ id: mid("in-3"), systemId: BANDEJA.id, title: "Idea: modo lectura para los apuntes", status: "backlog" }),
+  makeTask({ id: mid("in-4"), systemId: BANDEJA.id, title: "Pagar el dominio", status: "backlog" }),
+  makeTask({ id: mid("in-5"), systemId: BANDEJA.id, title: "Arreglar el bug del calendario", status: "backlog", externalSource: "github" }),
+  makeTask({ id: mid("in-6"), systemId: BANDEJA.id, title: "Comprar los pasajes", status: "backlog" }),
+  makeTask({ id: mid("in-7"), systemId: BANDEJA.id, title: "Nota de voz del lunes", status: "backlog", externalSource: "voice" }),
+  makeTask({ id: mid("in-8"), systemId: BANDEJA.id, title: "Renovar la licencia", status: "backlog" }),
+];
+
+const AREAS = [
+  makeFolder({ id: mid("area-1"), name: "Salud", systemId: PERSONAL.id }),
+  makeFolder({ id: mid("area-2"), name: "Casa", systemId: PERSONAL.id }),
+  makeFolder({ id: mid("area-3"), name: "Papeles y trámites", systemId: PERSONAL.id }),
+];
+
+const VIDA = [
+  makeTask({ id: mid("p-1"), systemId: PERSONAL.id, title: "Caminar 30 minutos", status: "today", metadata: { kind: "habit" } }),
+  makeTask({ id: mid("p-2"), systemId: PERSONAL.id, title: "Cita con el dentista, 4:00", status: "today", metadata: { kind: "event" } }),
+  makeTask({ id: mid("p-3"), systemId: PERSONAL.id, title: "Cambiar el filtro del agua", status: "backlog", folderId: AREAS[1]!.id, metadata: { kind: "errand" } }),
+  makeTask({ id: mid("p-4"), systemId: PERSONAL.id, title: "Renovar la licencia", status: "backlog", folderId: AREAS[2]!.id, metadata: { kind: "errand" } }),
+  makeTask({ id: mid("p-5"), systemId: PERSONAL.id, title: "Pedir la analítica", status: "backlog", folderId: AREAS[0]!.id, metadata: { kind: "errand" } }),
+];
 
 const SYSTEM_MAP = new Map([
   [MOCK_SYSTEM_ID, { id: MOCK_SYSTEM_ID, name: "Universidad", color: "blue" }],
@@ -30,7 +65,7 @@ export function TasksViewsSection() {
 
   const sprints = [
     makeSprint(),
-    makeSprint({ id: mid("spr-2"), name: "Sprint 2", status: "completed" }),
+    makeSprint({ id: mid("spr-2"), name: "Ciclo 2", status: "completed" }),
   ];
 
   return (
@@ -40,6 +75,23 @@ export function TasksViewsSection() {
       title="Tareas — vistas y controles"
       description="Las demás representaciones de una tarea (fila de lista global, card de planning, card del board kanban) y los pickers que las editan."
     >
+      <SubSection title="Títulos completos y ciclos académicos" description="Cards con altura natural y árbol de años, ciclos y materias.">
+        <Specimen label="Título largo en Acción y Planificación">
+          <div className="grid max-w-3xl items-start gap-4 md:grid-cols-2">
+            <DefaultTaskCard task={makeTask({ title: "Bajar de la PVA: informaciones generales y el desglose del primer mes", priority: "high" })} systemId={MOCK_SYSTEM_ID} onToggle={noop} onDelete={noop} onEdit={noop} />
+            <div className="max-w-48"><PlanningTaskCard task={makeTask({ title: "Bajar de la PVA: informaciones generales y el desglose del primer mes" })} onToggle={noop} onDelete={noop} onEdit={noop} /></div>
+          </div>
+        </Specimen>
+        <Seeded stubs={[
+          seedQuery(api.academicPeriods.list, [
+            { _id: "cycle-current", year: "2026–2027", name: "Septiembre–diciembre", isCurrent: true, isClosed: false },
+            { _id: "cycle-old", year: "2025–2026", name: "Septiembre–diciembre", isCurrent: false, isClosed: true },
+          ]),
+          seedQuery(api.folders.bySystem, [{ ...makeFolder({ name: "Inteligencia de Negocios" }), academicPeriodId: "cycle-current" }]),
+        ]}>
+          <Specimen label="Árbol académico"><Suspense fallback={<div className="h-52" />}><AcademicWorkspace systemId={MOCK_SYSTEM_ID}><p className="text-sm">Las vistas de tareas y apuntes comparten el ciclo seleccionado.</p></AcademicWorkspace></Suspense></Specimen>
+        </Seeded>
+      </SubSection>
       <SubSection
         title="TaskListRow"
         description="Fila de la vista global /tasks: badge de prioridad, sistema con punto de color, selección múltiple."
@@ -114,7 +166,7 @@ export function TasksViewsSection() {
 
       <SubSection
         title="Board kanban (project) — BoardCard y SprintBar"
-        description="La card arrastrable del board con badge de estancamiento («Xd sin avanzar») y la barra de sprints con filtro. Columnas: Por hacer · En progreso · En review · Hecho."
+        description="La card arrastrable del board con badge de estancamiento («Xd sin avanzar») y la barra de ciclos con filtro. Columnas: Por hacer · En progreso · En review · Hecho."
       >
         <div className="max-w-2xl space-y-4">
           <SprintBar
@@ -225,6 +277,47 @@ export function TasksViewsSection() {
             span={3}
           />
         </div>
+      </SubSection>
+
+      <SubSection
+        title="Bandeja y Personal"
+        description="Las dos vistas que faltaban de las seis. Bandeja es un embudo de triaje sin carpetas a propósito, así que no monta el funnel de cuatro tabs; su empuje de ocho items es una fila de estado sin pregunta, sin botón de descartar, porque se va cuando la Bandeja baja de ocho. Personal pone Hoy delante de las áreas, que es lo único con hora de caducidad."
+      >
+        <SpecimenGrid cols={2}>
+          <Specimen label="Bandeja vacía" hint="0 items" className="items-stretch">
+            <Seeded stubs={[seedQuery(api.tasks.bySystem, [])]}>
+              <div className="w-full">
+                <InboxView system={BANDEJA} initialTasks={[]} />
+              </div>
+            </Seeded>
+          </Specimen>
+          <Specimen label="Bandeja con una cosa" hint="1 item, no una lista con algo flotando" className="items-stretch">
+            <Seeded stubs={[seedQuery(api.tasks.bySystem, CAPTURAS.slice(0, 1))]}>
+              <div className="w-full">
+                <InboxView system={BANDEJA} initialTasks={CAPTURAS.slice(0, 1)} />
+              </div>
+            </Seeded>
+          </Specimen>
+          <Specimen label="Bandeja con el empuje" hint="8 items, fila de estado sin pregunta" className="items-stretch">
+            <Seeded stubs={[seedQuery(api.tasks.bySystem, CAPTURAS)]}>
+              <div className="w-full">
+                <InboxView system={BANDEJA} initialTasks={CAPTURAS} />
+              </div>
+            </Seeded>
+          </Specimen>
+          <Specimen label="Personal" hint="Hoy arriba, luego las áreas" className="items-stretch">
+            <Seeded
+              stubs={[
+                seedQuery(api.tasks.bySystem, VIDA),
+                seedQuery(api.folders.bySystem, AREAS),
+              ]}
+            >
+              <div className="w-full">
+                <PersonalView system={PERSONAL} initialTasks={VIDA} />
+              </div>
+            </Seeded>
+          </Specimen>
+        </SpecimenGrid>
       </SubSection>
     </Section>
   );

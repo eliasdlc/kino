@@ -8,6 +8,18 @@ import { buildBudgetPlan, buildEnergyPlan, type DeferralReason } from '../src/fe
 import { buildVerificationLoop, predictLevelForSlot, SLOT_HOUR_RANGES } from '../src/features/energy/energy.prediction';
 import { buildWeeklyRitual, nextDays, weekdayOf, type RitualDay } from '../src/features/energy/energy.ritual';
 import {
+  APAGAR_POR_ENCIMA_DE,
+  decisionDelTecho,
+  DIAS_DE_ERROR,
+  diasMedidos,
+  errorDe,
+  errorMedio,
+  type PrediccionVerificada,
+} from '../src/features/energy/energy.honesty';
+import { updateEnergyProfileSchema } from '../src/features/energy/energy.schemas';
+import { toTransport } from '../src/shared/lib/transport';
+import { hourInTimeZone } from '../src/shared/time';
+import {
   buildPeakAdvice,
   CHRONOTYPE_CURVES,
   completionWeight,
@@ -22,9 +34,9 @@ import {
   type Chronotype,
   type SleepQuality,
 } from '../src/features/energy/energy.utils';
-import { PAYLOAD_MAX_BYTES, recordEvent } from './eventLog';
+import { recordEvent } from './eventLog';
 import { invalid, notFound } from './lib/errors';
-import { kinoZodMutation, kinoZodQuery } from './lib/fn';
+import { kinoZodMutation, kinoZodQuery, type Channel } from './lib/fn';
 import { toTaskRow } from './lib/tasks/row';
 import { calendarDayInTz, userToday, userTomorrow } from './lib/time';
 import { defaultSettings } from './settings';
@@ -48,7 +60,7 @@ function slotForHour(hour: number): Slot {
 }
 
 export function currentHourIn(timezone: string, now = Date.now()): number {
-  return Number(new Intl.DateTimeFormat('en-US', { timeZone: timezone, hour: 'numeric', hour12: false }).format(now)) % 24;
+  return hourInTimeZone(timezone, now);
 }
 
 // ── Lecturas compartidas ────────────────────────────────────────────────────
@@ -150,11 +162,144 @@ async function ensurePredictions(ctx: MutationCtx, user: Doc<'users'>, profile: 
   }
 }
 
-export const ensureTodayPredictions = kinoZodMutation({
+/**
+ * Las predicciones de los últimos catorce días que ya tienen su comprobación.
+ *
+ * Sólo cuentan las que se pueden verificar: una predicción sin check-in no dice
+ * nada de si Kino acertó, y meterla como acierto o como fallo sería inventarse
+ * el dato con el que el producto va a admitir que se equivoca.
+ */
+async function prediccionesVerificadas(
+  ctx: Ctx,
+  user: Doc<'users'>,
+  now = Date.now(),
+): Promise<PrediccionVerificada[]> {
+  const desde = calendarDayInTz(now - DIAS_DE_ERROR * DAY_MS, user.timezone);
+  const [predicciones, checkins] = await Promise.all([
+    ctx.db
+      .query('energyPredictions')
+      .withIndex('by_user_day_slot', (q) => q.eq('userId', user._id).gte('date', desde))
+      .collect(),
+    ctx.db
+      .query('energyCheckins')
+      .withIndex('by_user_day_slot', (q) => q.eq('userId', user._id).gte('date', desde))
+      .collect(),
+  ]);
+
+  const reportado = new Map(checkins.map((c) => [`${c.date}:${c.slot}`, c.currentLevel]));
+  const verificadas: PrediccionVerificada[] = [];
+  for (const p of predicciones) {
+    const reported = reportado.get(`${p.date}:${p.slot}`);
+    if (reported === undefined) continue;
+    verificadas.push({ date: p.date, slot: p.slot, predicted: p.predictedLevel, reported });
+  }
+  return verificadas.sort((a, b) => a.date.localeCompare(b.date));
+}
+
+/**
+ * El interruptor de honestidad, evaluado al abrir el día.
+ *
+ * Apagar el techo es la única escritura automática del producto sobre un dato
+ * de la persona, y se justifica porque apagar es la dirección segura: un techo
+ * que miente sigue midiendo el día, un techo apagado sólo deja de opinar.
+ * Volver a encenderlo no se escribe aquí: se propone, y pasa por la cola.
+ */
+async function evaluarHonestidad(ctx: MutationCtx, user: Doc<'users'>, channel: Channel, now: number) {
+  const profile = await profileOf(ctx, user._id);
+  if (!profile) return;
+
+  const verificadas = await prediccionesVerificadas(ctx, user, now);
+  if (decisionDelTecho(verificadas, profile.ceilingMutedAt !== undefined) !== 'apagar') return;
+
+  await ctx.db.patch(profile._id, { ceilingMutedAt: now, updatedAt: now });
+  await recordEvent(ctx, {
+    userId: user._id,
+    actorChannel: channel,
+    action: 'energy.muteCeiling',
+    targetType: 'task',
+    targetId: profile._id,
+    payload: { errorMedio: errorMedio(verificadas), dias: diasMedidos(verificadas) },
+  });
+}
+
+/**
+ * Lo que el aviso del techo apagado necesita: la cifra, sobre cuántos días, y
+ * las catorce predicciones que lo demuestran, cada una con su fila.
+ *
+ * `null` cuando el techo está encendido: no hay nada que confesar.
+ */
+/**
+ * Encender el techo otra vez.
+ *
+ * Apagarlo lo hace Kino solo, porque apagar es la dirección segura. Encenderlo
+ * no: eso es volver a opinar sobre el día de alguien, así que se propone y pasa
+ * por la cola. Esta mutación es lo que esa propuesta ejecuta cuando se acepta.
+ */
+export const unmuteCeiling = kinoZodMutation({
   args: {},
   handler: async (ctx) => {
     const profile = await profileOf(ctx, ctx.user._id);
-    if (profile) await ensurePredictions(ctx, ctx.user, profile, Date.now());
+    if (!profile) invalid('Todavía no hay perfil de energía.');
+    if (profile.ceilingMutedAt === undefined) return { ok: true as const };
+
+    await ctx.db.patch(profile._id, { ceilingMutedAt: undefined, updatedAt: Date.now() });
+    await recordEvent(ctx, {
+      userId: ctx.user._id,
+      actorChannel: ctx.channel,
+      action: 'energy.unmuteCeiling',
+      targetType: 'task',
+      targetId: profile._id,
+      payload: {},
+    });
+    return { ok: true as const };
+  },
+});
+
+/**
+ * El estado del interruptor para la cola: cuántos días medidos, cuánto error, y
+ * si el techo está apagado ahora mismo. Lo consumen los dos candidatos de la
+ * tercera prioridad que esta ventana de datos desbloquea.
+ */
+export async function estadoDeHonestidad(ctx: Ctx, user: Doc<'users'>, now = Date.now()) {
+  const profile = await profileOf(ctx, user._id);
+  if (!profile) return null;
+  const verificadas = await prediccionesVerificadas(ctx, user, now);
+  return {
+    apagado: profile.ceilingMutedAt !== undefined,
+    dias: diasMedidos(verificadas),
+    error: errorMedio(verificadas),
+    decision: decisionDelTecho(verificadas, profile.ceilingMutedAt !== undefined),
+    chronotypeDeclarado: profile.chronotype,
+    curva: learnedOf(profile)?.curve ?? null,
+  };
+}
+
+export const ceilingHonesty = kinoZodQuery({
+  args: {},
+  handler: async (ctx) => {
+    const profile = await profileOf(ctx, ctx.user._id);
+    if (!profile || profile.ceilingMutedAt === undefined) return null;
+
+    const verificadas = await prediccionesVerificadas(ctx, ctx.user);
+    return {
+      mutedAt: iso(profile.ceilingMutedAt),
+      errorMedio: errorMedio(verificadas),
+      dias: diasMedidos(verificadas),
+      umbral: APAGAR_POR_ENCIMA_DE,
+      // Cada una señala su fila: día, slot, lo que Kino dijo y lo que pasó.
+      predicciones: verificadas.map((p) => ({ ...p, error: errorDe(p) })),
+    };
+  },
+});
+
+export const ensureTodayPredictions = kinoZodMutation({
+  args: {},
+  handler: async (ctx) => {
+    const now = Date.now();
+    const profile = await profileOf(ctx, ctx.user._id);
+    if (profile) await ensurePredictions(ctx, ctx.user, profile, now);
+    // Abrir el día es cuando el instrumento se mira a sí mismo.
+    await evaluarHonestidad(ctx, ctx.user, ctx.channel, now);
     return null;
   },
 });
@@ -282,11 +427,13 @@ export const todayPlan = kinoZodQuery({
   args: {},
   handler: async (ctx) => {
     const user = ctx.user;
+    const now = Date.now();
+    const clock = { hour: currentHourIn(user.timezone, now), date: userToday(user.timezone, now), timezone: user.timezone };
     const profile = await profileOf(ctx, user._id);
     if (!profile) {
-      return { energyPlan: null, noProfile: true, hasCheckin: false, checkin: null, checkins: [], chronotype: null, learnedCurve: null, learningAlpha: 0, projectedCurve: [], predictions: [] };
+      return { clock, energyPlan: null, noProfile: true, hasCheckin: false, checkin: null, checkins: [], chronotype: null, learnedCurve: null, learningAlpha: 0, projectedCurve: [], predictions: [] };
     }
-    const today = userToday(user.timezone);
+    const today = clock.date;
     const [rows, all, predictions] = await Promise.all([aliveRows(ctx, user._id), checkinsOn(ctx, user._id, today), predictionsOn(ctx, user._id, today)]);
     const candidates = rows.filter((t) => ACTIVE.has(t.status));
     const latest = all[all.length - 1];
@@ -306,7 +453,9 @@ export const todayPlan = kinoZodQuery({
         })
       : null;
     return {
-      energyPlan,
+      clock,
+      // El planner calcula con Date; Convex sólo admite sus valores de transporte.
+      energyPlan: toTransport(energyPlan),
       noProfile: false,
       hasCheckin: checkin !== null,
       checkin,
@@ -327,7 +476,7 @@ export const budgetPlan = kinoZodQuery({
     const profile = await profileOf(ctx, ctx.user._id);
     if (!profile) return { plan: [], noProfile: true };
     const candidates = (await aliveRows(ctx, ctx.user._id)).filter((t) => ACTIVE.has(t.status));
-    return { plan: buildBudgetPlan(candidates, profile.availableHoursPerDay, new Date(userToday(ctx.user.timezone))), noProfile: false };
+    return { plan: toTransport(buildBudgetPlan(candidates, profile.availableHoursPerDay, new Date(userToday(ctx.user.timezone)))), noProfile: false };
   },
 });
 
@@ -475,15 +624,6 @@ async function advisorAction(ctx: Ctx, user: Doc<'users'>, patternId: AdvisorPat
   const today = new Date(todayStr);
   const rows = (await aliveRows(ctx, user._id)).filter((t) => t.parentTaskId === null);
   const plural = (n: number) => (n !== 1 ? 's' : '');
-  if (patternId === 'overload') {
-    const ids = rows
-      .filter((t) => t.status === 'today')
-      .slice(0, 20)
-      .sort((a, b) => computeImportance(a, today) - computeImportance(b, today))
-      .slice(0, 3)
-      .map((t) => t.id);
-    return { actionTaskIds: ids, actionLabel: `Mover ${ids.length} tarea${plural(ids.length)} a mañana`, bulkAction: 'move-tomorrow' as const };
-  }
   if (patternId === 'abandonment') {
     const overdue = rows
       .filter((t) => t.dueDate !== null && t.dueDate < todayStr && !['done', 'today'].includes(t.status))
@@ -510,10 +650,55 @@ export async function todayAdvisor(ctx: Ctx, user: Doc<'users'>) {
   const recent = (await recentSnapshots(ctx, user._id, 7)).map(snapshotItem);
   if (recent.length === 0) return null;
   const [today, ...rest] = recent;
-  const pattern = detectTopPattern(today!, rest, profile.availableHoursPerDay);
+  const pattern = detectTopPattern(today!, rest);
   if (!pattern) return null;
   return { ...pattern, ...(await advisorAction(ctx, user, pattern.id)) };
 }
+
+/** Cuántas tareas ofrece mover la salida del sobregiro. */
+export const TAREAS_QUE_OFRECE = 3;
+
+/**
+ * El día no cabe: la cifra, y las tres del plan de hoy que menos urgencia
+ * tienen.
+ *
+ * Devuelve `null` cuando el día sí cabe, y eso es lo que hace que el bloque se
+ * vaya solo: se va porque el día dejó de estar en sobregiro, no porque alguien
+ * lo silenciara. Por eso tampoco hay nada que acusar ni descarte que persistir.
+ *
+ * Las tres salen ordenadas por urgencia real (`computeImportance`) y no por su
+ * posición en la lista: ofrecer "las tres primeras" sería ofrecer las tres que
+ * se ven, que es otra cosa.
+ *
+ * Y la frase no puede decir que acabas de pasarte: `ensureTodayPlanRolled`
+ * repuebla el plan al leerlo y el ritual escribe fechas de inicio a medianoche,
+ * así que repartir el domingo produce un sobregiro el martes sin ningún gesto
+ * del martes. El sujeto de la frase es el día, no tú.
+ */
+export const overBudgetExit = kinoZodQuery({
+  args: {},
+  handler: async (ctx) => {
+    const user = ctx.user;
+    const settings = await ctx.db
+      .query('userSettings')
+      .withIndex('by_user', (q) => q.eq('userId', user._id))
+      .unique();
+    const limit = settings?.dailyEnergyLimit ?? defaultSettings(user._id, 0).dailyEnergyLimit;
+
+    const rows = (await aliveRows(ctx, user._id)).filter((t) => t.parentTaskId === null);
+    const enElPlan = rows.filter((t) => t.status === 'today');
+    const budget = computeEnergyBudget(enElPlan, limit);
+    if (budget.state !== 'over') return null;
+
+    const today = new Date(userToday(user.timezone));
+    const mover = [...enElPlan]
+      .sort((a, b) => computeImportance(a, today) - computeImportance(b, today))
+      .slice(0, TAREAS_QUE_OFRECE)
+      .map((task) => ({ id: task.id, title: task.title, points: energyPointsFor(task.energyLevel) }));
+
+    return { committed: budget.committed, limit: budget.limit, overBy: budget.overBy, mover };
+  },
+});
 
 export const advisor = kinoZodQuery({
   args: {},
@@ -720,6 +905,13 @@ export const weeklyRitual = kinoZodQuery({
 });
 
 /**
+ * Lo que le cabe al evento del ritual. Cien pares de id y fecha rondan los
+ * 5 KB; se redondea al alza para que un reparto en el tope no pierda con qué
+ * deshacerse por unos bytes.
+ */
+export const RITUAL_PAYLOAD_MAX_BYTES = 16_384;
+
+/**
  * Reprograma cada tarea a la medianoche local de su día. La fecha límite no se
  * toca.
  *
@@ -780,20 +972,21 @@ export const applyWeeklyRitual = kinoZodMutation({
     }
 
     if (applied.length > 0) {
-      // El payload va acotado a 2.048 bytes y ahí no caben cien fechas
-      // anteriores. `boundPayload` sustituiría el objeto entero y el evento
-      // perdería también la cuenta, así que la comprobación se hace aquí: el
-      // reparto grande deja constancia de cuántas movió, el pequeño deja
-      // además con qué reponerlas.
-      const completo = { reprogramadas: applied.length, anterior };
-      const cabe = new TextEncoder().encode(JSON.stringify(completo)).byteLength <= PAYLOAD_MAX_BYTES;
+      // Las fechas anteriores de las cien tareas son lo único con lo que se
+      // puede deshacer el reparto, así que el evento las lleva aunque pasen de
+      // los 2.048 bytes del tope general. La excepción se sostiene por la
+      // aritmética: el tope sale de multiplicar la fila por las 120 mutaciones
+      // por minuto que el rate limit permite, y esto es **una fila por persona
+      // y semana**. Cien entradas rondan los 5 KB, y con treinta días de
+      // retención son cuatro filas por persona.
       await recordEvent(ctx, {
         userId,
         actorChannel: ctx.channel,
         action: 'energy.applyWeeklyRitual',
         targetType: 'task',
         targetId: applied[0]!.taskId,
-        payload: cabe ? completo : { reprogramadas: applied.length, anteriorOmitido: true },
+        payload: { reprogramadas: applied.length, anterior },
+        payloadMaxBytes: RITUAL_PAYLOAD_MAX_BYTES,
       });
     }
 
@@ -802,6 +995,62 @@ export const applyWeeklyRitual = kinoZodMutation({
 });
 
 /** Perfil de energía inicial del onboarding. */
+/**
+ * El perfil declarado, para la pantalla que lo edita. Devuelve `null` cuando
+ * todavía no existe en vez de inventarse valores: el alta lo crea al entrar, y
+ * una cuenta que no pasó por ahí no tiene nada que enseñar.
+ */
+export const profile = kinoZodQuery({
+  args: {},
+  handler: async (ctx) => {
+    const row = await profileOf(ctx, ctx.user._id);
+    if (!row) return null;
+    return {
+      chronotype: row.chronotype,
+      sleepTypicalHours: row.sleepTypicalHours,
+      availableHoursPerDay: row.availableHoursPerDay,
+      rechargePresets: row.rechargePresets,
+      /** Si Kino ya midió una curva propia, lo declarado deja de ser lo único que hay. */
+      hasLearnedCurve: row.learnedCurve.length > 0,
+    };
+  },
+});
+
+/**
+ * Cambiar lo que declaraste de tu energía. Es lo que queda en Ajustes de los
+ * cuatro pasos que salieron del alta: se guarda lo que se toca y nada más.
+ *
+ * **No se publica como tool**, y es la misma razón por la que D-23 retiró
+ * `create_energy_checkin`: lo que dices de ti es el dato más honesto que Kino
+ * tiene, y una máquina escribiéndolo lo contamina. `energy.profile` tampoco,
+ * porque el agente ya lee el cronotipo por `get_user_context`.
+ */
+export const updateProfile = kinoZodMutation({
+  args: updateEnergyProfileSchema,
+  handler: async (ctx, input) => {
+    const row = await profileOf(ctx, ctx.user._id);
+    if (!row) invalid('Todavía no hay perfil de energía.');
+
+    const patch = Object.fromEntries(
+      Object.entries(input).filter(([, value]) => value !== undefined),
+    );
+    // El valor de antes viaja al log: sin él, deshacer no tendría a dónde volver.
+    const anterior = Object.fromEntries(
+      Object.keys(patch).map((campo) => [campo, row[campo as keyof typeof row]]),
+    );
+    await ctx.db.patch(row._id, { ...patch, updatedAt: Date.now() });
+    await recordEvent(ctx, {
+      userId: ctx.user._id,
+      actorChannel: ctx.channel,
+      action: 'energy.updateProfile',
+      targetType: 'task',
+      targetId: row._id,
+      payload: { anterior },
+    });
+    return { ok: true as const };
+  },
+});
+
 export async function createEnergyProfile(
   ctx: MutationCtx,
   userId: Id<'users'>,
@@ -843,6 +1092,117 @@ export const weeklyTrends = kinoZodQuery({
       .filter((row) => row.date >= oldest)
       .map(snapshotItem);
     const checkins = (await Promise.all(days.map((date) => checkinsOn(ctx, user._id, date)))).flat().map(checkinItem);
-    return { snapshots, checkins };
+    return { snapshots: toTransport(snapshots), checkins };
+  },
+});
+
+// ── El techo propuesto al séptimo día ───────────────────────────────────────
+
+/**
+ * Cierres que hizo una persona, no una máquina.
+ *
+ * `completedVia === 'session'` es el navegador y `completedBy` presente es que
+ * hubo alguien. Un issue cerrado en GitHub llega con la vía de sincronización y
+ * sin autor, así que no cuenta: si contara, el techo se propondría a partir de
+ * trabajo que no hiciste.
+ */
+export const CIERRES_PARA_PROPONER = 7;
+
+/** Cuántos días de observación hacen falta para que una media signifique algo. */
+const DIAS_MINIMOS = 3;
+
+export interface TechoPropuesto {
+  readonly cierres: number;
+  readonly dias: number;
+  readonly horasObservadas: number;
+  readonly propuesto: number;
+  readonly actual: number;
+  /** Las tareas que lo sostienen. El servidor las resuelve; nadie afirma la cifra. */
+  readonly evidencia: readonly Id<'tasks'>[];
+}
+
+/**
+ * El techo que las últimas semanas de trabajo sugieren, o `null` si todavía no
+ * hay con qué.
+ *
+ * Se propone, no se aplica: cambiar el techo del día sin que la persona lo
+ * acepte es exactamente lo que el principio 2 prohíbe, y además destruiría el
+ * único dato honesto contra el que el interruptor de honestidad se mide
+ * después.
+ *
+ * Con menos de siete cierres firmados **no devuelve nada**, y eso también es una
+ * decisión: un "todavía no tengo datos" en la cola gasta la única apertura del
+ * día para no decir nada.
+ */
+export async function techoPropuesto(ctx: Ctx, user: Doc<'users'>, now = Date.now()): Promise<TechoPropuesto | null> {
+  const profile = await profileOf(ctx, user._id);
+  if (!profile) return null;
+
+  const tareas = await ctx.db
+    .query('tasks')
+    .withIndex('by_user_alive_status', (q) => q.eq('userId', user._id).eq('deletedAt', undefined))
+    .collect();
+  const firmados = tareas.filter(
+    (t) => t.completedAt !== undefined && t.completedBy !== undefined && t.completedVia === 'session',
+  );
+  if (firmados.length < CIERRES_PARA_PROPONER) return null;
+
+  const dias = new Set(firmados.map((t) => calendarDayInTz(t.completedAt!, user.timezone)));
+  if (dias.size < DIAS_MINIMOS) return null;
+
+  // El tiempo observado sale de `timeLogs`, que es la única fuente de tiempo
+  // real que el producto tiene, y nunca de la estimación.
+  //
+  // La ventana son **los días en que cerraste algo**, no el intervalo desde el
+  // primer cierre: una sesión que empezó una hora antes del cierre más antiguo
+  // es trabajo de ese mismo día, y medir por instante la dejaba fuera y bajaba
+  // el techo propuesto sin motivo.
+  const logs = await ctx.db
+    .query('timeLogs')
+    .withIndex('by_user_started', (q) => q.eq('userId', user._id))
+    .collect();
+  const minutos = logs
+    .filter((log) => log.startedAt <= now && dias.has(calendarDayInTz(log.startedAt, user.timezone)))
+    .reduce((suma, log) => suma + log.durationMinutes, 0);
+  if (minutos === 0) return null;
+
+  const horasObservadas = Math.round((minutos / 60) * 10) / 10;
+  // Media por día trabajado, redondeada a media hora: un techo con dos decimales
+  // finge una precisión que estas cifras no tienen.
+  const propuesto = Math.max(0.5, Math.round((horasObservadas / dias.size) * 2) / 2);
+
+  return {
+    cierres: firmados.length,
+    dias: dias.size,
+    horasObservadas,
+    propuesto,
+    actual: profile.availableHoursPerDay,
+    evidencia: firmados.map((t) => t._id).sort(),
+  };
+}
+
+/**
+ * Acepta el techo propuesto. Deja su evento, que es lo que hace el deshacer
+ * posible: el payload guarda el valor anterior, y reponerlo es escribirlo de
+ * vuelta.
+ */
+export const applyCeiling = kinoZodMutation({
+  args: { horas: z.number().min(0.5).max(16) },
+  handler: async (ctx, { horas }) => {
+    const profile = await profileOf(ctx, ctx.user._id);
+    if (!profile) invalid('Todavía no hay perfil de energía.');
+    const anterior = profile.availableHoursPerDay;
+    if (anterior === horas) return { anterior, horas };
+
+    await ctx.db.patch(profile._id, { availableHoursPerDay: horas, updatedAt: Date.now() });
+    await recordEvent(ctx, {
+      userId: ctx.user._id,
+      actorChannel: ctx.channel,
+      action: 'energy.applyCeiling',
+      targetType: 'task',
+      targetId: profile._id,
+      payload: { anterior, horas },
+    });
+    return { anterior, horas };
   },
 });

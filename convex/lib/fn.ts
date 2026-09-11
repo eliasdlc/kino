@@ -6,7 +6,7 @@ import { action, mutation, query, type ActionCtx, type MutationCtx, type QueryCt
 import type { DataModel, Doc } from '../_generated/dataModel';
 import { internal } from '../_generated/api';
 import type { ActorChannel } from '../schema';
-import { MCP_TOKEN_ISSUER } from './mcpToken';
+import { MCP_CLIENT_CLAIM, MCP_TOKEN_ISSUER } from './mcpToken';
 import { allows, isScope, SCOPE_FOR_REACH, type Reach, type Scope } from './scopes';
 
 // De aquí salen todas las funciones públicas de Kino. Cada una nace con la
@@ -35,6 +35,12 @@ function channelOf(identity: UserIdentity): Channel {
   return identity.issuer === MCP_TOKEN_ISSUER ? 'oauth' : 'session';
 }
 
+/** El cliente OAuth que firmó la petición, o nada si entró por el navegador. */
+function clienteDe(identity: UserIdentity): string | undefined {
+  const claim = identity[MCP_CLIENT_CLAIM];
+  return typeof claim === 'string' && claim.length > 0 ? claim : undefined;
+}
+
 /** Lo que el envoltorio deja en el contexto de cada función. */
 export type Caller = {
   user: Doc<'users'>;
@@ -43,6 +49,14 @@ export type Caller = {
   scope: Scope;
   /** Puerta por la que entró, para la autoría de lo que escriba. */
   channel: Channel;
+  /**
+   * El cliente OAuth que actúa, cuando entró por el conector. Lo firma la ruta
+   * desde lo que Clerk verificó y **no es una entrada de ninguna función**: es
+   * lo que hace que «descartar todas las propuestas de este origen» signifique
+   * algo, y un origen que el propio agente pudiera declarar no lo sostendría.
+   * Vacío en el navegador, donde el origen es la persona.
+   */
+  clientId?: string;
 };
 
 /**
@@ -54,8 +68,24 @@ async function authorize(auth: Auth, required: Scope): Promise<{ identity: UserI
   if (!identity) fail('UNAUTHENTICATED');
   const claimed = identity.kino_scope;
   const scope: Scope = claimed === undefined ? 'write' : isScope(claimed) ? claimed : 'read';
-  if (!allows(scope, required)) fail('FORBIDDEN_SCOPE', { required, granted: scope });
+  if (!allows(scope, required)) fail('FORBIDDEN_SCOPE', { required, granted: scope, salida: salidaPara(scope, required) });
   return { identity, scope };
+}
+
+/**
+ * Qué **sí** se puede hacer en su lugar. Un 403 seco deja al agente sin más
+ * salida que reintentar o rendirse, y la mitad de las veces la operación que
+ * quería tiene una versión que su alcance sí alcanza: proponer en vez de
+ * escribir. El principio 2 no es sólo una prohibición, es una redirección.
+ */
+function salidaPara(granted: Scope, required: Scope): string {
+  if (granted === 'propose' && required === 'write') {
+    return 'Tu alcance llega a proponer, no a escribir directo. Usa `propose_change` con la fila que te sirve de evidencia: la propuesta aparece en Hoy y la persona decide.';
+  }
+  if (granted === 'read') {
+    return 'Tu alcance es de sólo lectura. Quien te autorizó tiene que concederte `documents:propose` o `documents:write` para que escribas algo.';
+  }
+  return 'Esta operación no se abre a ningún conector: se hace desde la app, con la sesión de la persona.';
 }
 
 function findUser(db: GenericDatabaseReader<DataModel>, clerkId: string) {
@@ -105,13 +135,13 @@ async function callerForQuery(ctx: QueryCtx, required: Scope): Promise<Caller> {
   const { identity, scope } = await authorize(ctx.auth, required);
   const user = await findUser(ctx.db, identity.subject);
   if (!user) fail('NO_USER');
-  return { user, clerkId: identity.subject, scope, channel: channelOf(identity) };
+  return { user, clerkId: identity.subject, scope, channel: channelOf(identity), clientId: clienteDe(identity) };
 }
 
 async function callerForMutation(ctx: MutationCtx, required: Scope): Promise<Caller> {
   const { identity, scope } = await authorize(ctx.auth, required);
   const user = await ensureUser(ctx.db, identity);
-  return { user, clerkId: identity.subject, scope, channel: channelOf(identity) };
+  return { user, clerkId: identity.subject, scope, channel: channelOf(identity), clientId: clienteDe(identity) };
 }
 
 /**
@@ -284,6 +314,7 @@ export const kinoAction = (budgetMs: number = DEFAULT_BUDGET_MS, reach: Reach = 
         clerkId: identity.subject,
         scope,
         channel,
+        clientId: clienteDe(identity),
         budget: budgetFrom(budgetMs),
       };
       return caller;

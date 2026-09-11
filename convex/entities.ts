@@ -307,3 +307,33 @@ export const removeRelation = kinoZodMutation({
     return null;
   },
 });
+
+// ── La papelera ─────────────────────────────────────────────────────────────
+
+/** Entidades en la papelera, la más reciente primero. */
+export const trashed = kinoZodQuery({
+  args: {},
+  handler: async (ctx) => {
+    const docs = await ctx.db.query('entities').withIndex('by_user', (q) => q.eq('userId', ctx.user._id)).collect();
+    return docs
+      .filter((doc) => !alive(doc))
+      .sort((a, b) => b.deletedAt! - a.deletedAt!)
+      .map((doc) => ({ ...entityItem(doc), deletedAt: iso(doc.deletedAt!) }));
+  },
+});
+
+/**
+ * Devuelve la entidad al universo de su sistema. Sus menciones se recalculan:
+ * el borrado las destruyó porque son derivadas del texto, así que volver a
+ * contarlas es parte de restaurar y no un efecto aparte.
+ */
+export const restore = kinoZodMutation({
+  args: { id: zid('entities') },
+  handler: async (ctx, { id }) => {
+    const doc = await ctx.db.get(id);
+    if (!doc || doc.userId !== ctx.user._id || alive(doc)) notFound('Entity not found');
+    await ctx.db.patch(id, { deletedAt: undefined, updatedAt: Date.now() });
+    await recomputeSystemMentions(ctx, ctx.user._id, doc.systemId);
+    return entityItem((await ctx.db.get(id))!);
+  },
+});

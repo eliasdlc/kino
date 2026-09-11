@@ -193,7 +193,7 @@ export function makeSprint(overrides: Partial<SprintTransport> = {}): SprintTran
   const base: SprintTransport = {
     id: uuid(600),
     systemId: MOCK_SYSTEM_ID,
-    name: "Sprint 3",
+    name: "Ciclo 3",
     goal: "Cerrar el flujo de onboarding",
     startDate: daysFromNow(-7),
     endDate: daysFromNow(7),
@@ -279,13 +279,13 @@ export function mockLearningInsight(overrides: Partial<LearningInsight> = {}): L
 
 export function mockAdvisorPattern(overrides: Partial<AdvisorPattern> = {}): AdvisorPattern {
   const base: AdvisorPattern = {
-    id: "overload",
-    label: "Sobrecarga",
-    message: "Tienes más tareas críticas de las que caben en un día. Considera mover algunas a mañana.",
-    severity: 2,
-    urgency: 3,
-    actionability: 2,
-    score: 12,
+    id: "abandonment",
+    label: "Vencidas acumuladas",
+    message: "Tienes 15 tareas vencidas. Empieza por la más pequeña.",
+    severity: 3,
+    urgency: 2,
+    actionability: 3,
+    score: 18,
   };
   return { ...base, ...overrides };
 }

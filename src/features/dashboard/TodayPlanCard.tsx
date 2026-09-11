@@ -11,6 +11,7 @@ import {
 } from '@/features/tasks/tasks.hooks';
 import { useFocusTimer } from '@/features/tasks/FocusTimerProvider';
 import { Skeleton } from '@/components/ui/skeleton';
+import { userTomorrow } from '@/shared/time';
 import { PlanTaskRow } from './PlanTaskRow';
 import type { EnergyPlanItemTransport } from '@/features/energy/energy.planner';
 import type { TaskTransport } from '@/features/tasks/tasks.types';
@@ -38,17 +39,6 @@ function ConfettiBurst() {
       ))}
     </div>
   );
-}
-
-function tomorrowKey(): string {
-  const d = new Date();
-  d.setDate(d.getDate() + 1);
-  // Fecha calendario local (yyyy-MM-dd), no UTC: a las 22:00 hora local
-  // toISOString() ya sería pasado mañana en UTC.
-  const y = d.getFullYear();
-  const m = String(d.getMonth() + 1).padStart(2, "0");
-  const day = String(d.getDate()).padStart(2, "0");
-  return `${y}-${m}-${day}`;
 }
 
 /** Suma de las estimaciones pendientes, como "4:15"; vacío si nadie estimó. */
@@ -192,7 +182,12 @@ export function TodayPlanCard({ noProfile, energyItems }: TodayPlanCardProps) {
                 <PlanTaskRow
                   task={task}
                   onComplete={() => handleComplete(task.id)}
-                  onMoveToTomorrow={() => moveToTomorrow({ taskId: task.id, tomorrow: tomorrowKey() })}
+                  onMoveToTomorrow={() =>
+                    moveToTomorrow({
+                      taskId: task.id,
+                      tomorrow: userTomorrow(Intl.DateTimeFormat().resolvedOptions().timeZone),
+                    })
+                  }
                   onRemove={() => removeFromPlan({ taskId: task.id })}
                   onStartTimer={() => openModeDialog({ id: task.id, title: task.title, systemId: task.systemId })}
                 />

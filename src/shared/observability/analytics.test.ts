@@ -1,6 +1,12 @@
 import { describe, it, expect } from "vitest";
 import type { CaptureResult } from "posthog-js";
-import { scrubCapture, scrubPersonProperties, scrubProperties } from "./analytics";
+import {
+  ANALYTICS_EVENTS,
+  isAnalyticsEvent,
+  scrubCapture,
+  scrubPersonProperties,
+  scrubProperties,
+} from "./analytics";
 
 function capture(event: string, properties: Record<string, unknown>): CaptureResult {
   return { uuid: "test", event, properties } as CaptureResult;
@@ -9,12 +15,11 @@ function capture(event: string, properties: Record<string, unknown>): CaptureRes
 describe("scrubProperties", () => {
   it("deja pasar las propiedades declaradas para ese evento", () => {
     expect(
-      scrubProperties("onboarding_step_viewed", {
+      scrubProperties("archetype_chosen", {
         segment: "escritores",
-        step: "identity",
-        step_index: 1,
+        identity: "escritor",
       }),
-    ).toEqual({ segment: "escritores", step: "identity", step_index: 1 });
+    ).toEqual({ segment: "escritores", identity: "escritor" });
   });
 
   it("descarta una propiedad que ese evento no declara", () => {
@@ -35,7 +40,7 @@ describe("scrubProperties", () => {
   });
 
   it("descarta una propiedad declarada en otro evento", () => {
-    expect(scrubProperties("signup_started", { segment: "builders", step: "identity" })).toEqual({
+    expect(scrubProperties("signup_started", { segment: "builders", identity: "builder" })).toEqual({
       segment: "builders",
     });
   });
@@ -111,5 +116,37 @@ describe("scrubCapture", () => {
       capture("onboarding_completed", { identity: "escritor", firstSystemName: "Mi novela" }),
     );
     expect(result?.properties).toEqual({ identity: "escritor" });
+  });
+});
+
+describe("ANALYTICS_EVENTS", () => {
+  /**
+   * La lista es el contrato del embudo, así que se fija aquí: quitar un paso o
+   * añadir uno pasa por este test. El orden es el del recorrido real, desde la
+   * landing hasta el primer item propio.
+   */
+  it("declara los siete pasos del embudo y ninguno más", () => {
+    expect(Object.keys(ANALYTICS_EVENTS)).toEqual([
+      "segment_landing_viewed",
+      "signup_started",
+      "signup_completed",
+      "onboarding_started",
+      "archetype_chosen",
+      "onboarding_completed",
+      "first_task_created",
+    ]);
+  });
+
+  it("ya no admite el avance por pasos, que el alta nueva no tiene", () => {
+    expect(isAnalyticsEvent("onboarding_step_viewed")).toBe(false);
+    expect(scrubCapture(capture("onboarding_step_viewed", { step_index: 1 }))).toBeNull();
+  });
+
+  it("permite comparar el alta por segmento y por arquetipo", () => {
+    // Sin `segment` en la entrada y `identity` en la elección, el embudo no
+    // contesta de dónde vino quien se cae ni con qué arquetipo.
+    expect(ANALYTICS_EVENTS.onboarding_started).toContain("segment");
+    expect(ANALYTICS_EVENTS.archetype_chosen).toContain("segment");
+    expect(ANALYTICS_EVENTS.archetype_chosen).toContain("identity");
   });
 });

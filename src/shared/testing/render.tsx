@@ -7,13 +7,14 @@
  * árbol se quedan viejas de una en una sin que nada falle.
  */
 
+import { ConvexQueryCacheProvider } from "convex-helpers/react/cache";
 import { render, type RenderOptions, type RenderResult } from "@testing-library/react";
 import { ConvexProviderWithAuth, type ConvexReactClient } from "convex/react";
 import { SystemTypeProvider } from "@/components/SystemTypeProvider";
 import { ThemeProvider, type ThemeMode } from "@/components/ThemeProvider";
 import { makeTestConvexClient, useTestAuth, type TestConvexClient } from "./convex-client";
 
-export { makeTestConvexClient, stubQuery, TestConvexClient } from "./convex-client";
+export { makeTestConvexClient, stubMutation, stubQuery, TestConvexClient } from "./convex-client";
 export type { ConvexCall, QueryStub } from "./convex-client";
 
 /** El ancho de un iPhone 15, el mismo de las capturas de revisión. */
@@ -41,10 +42,12 @@ export function renderWithProviders(ui: React.ReactNode, options: RenderWithProv
     ...rest,
     wrapper: ({ children }) => (
       <ConvexProviderWithAuth client={client} useAuth={useTestAuth}>
+      <ConvexQueryCacheProvider expiration={0} maxIdleEntries={0}>
         <ThemeProvider initialTheme={theme}>
           <SystemTypeProvider>{children}</SystemTypeProvider>
         </ThemeProvider>
-      </ConvexProviderWithAuth>
+        </ConvexQueryCacheProvider>
+    </ConvexProviderWithAuth>
     ),
   });
 

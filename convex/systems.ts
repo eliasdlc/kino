@@ -6,6 +6,7 @@ import { githubRepoRefSchema } from '../src/features/github-sync/github-sync.sch
 import { deriveStale } from '../src/features/systems/systems.signals';
 import { TEMPLATE_TYPE_VALUES } from '../src/shared/types/enums';
 import { forbidden, notFound } from './lib/errors';
+import { diferencias, recordEvent } from './eventLog';
 import { kinoZodMutation, kinoZodQuery, type Channel } from './lib/fn';
 import { color } from './schema';
 
@@ -86,6 +87,33 @@ export const systemMetadataSchema = z.object({
  * Los sistemas activos con sus señales: cuántas tareas vivas tienen y cuánto
  * hace que no registran actividad, que es lo que decide si están parados.
  */
+async function systemWithSignals(ctx: QueryCtx, system: Doc<'systems'>) {
+  const now = Date.now();
+  const days = (from: number) => Math.floor((now - from) / 86_400_000);
+  const [tasks, logs] = await Promise.all([
+    ctx.db.query('tasks').withIndex('by_system_alive_status', (q) => q.eq('systemId', system._id).eq('deletedAt', undefined)).collect(),
+    ctx.db.query('timeLogs').withIndex('by_system_started', (q) => q.eq('systemId', system._id)).collect(),
+  ]);
+  const activeTaskCount = tasks.filter((task) => task.status !== 'done').length;
+  const lastActivity = Math.max(0, ...tasks.map((task) => task.completedAt ?? 0), ...logs.map((log) => log.createdAt));
+  const daysSinceLastActivity = lastActivity > 0 ? days(lastActivity) : null;
+  const stale = !system.isInbox && deriveStale({
+    expectedFrequency: system.expectedFrequency, activeTaskCount, daysSinceLastActivity,
+    daysSinceCreated: days(system.createdAt),
+  });
+  return { ...systemItem(system), stale, daysSinceLastActivity, activeTaskCount };
+}
+
+/** El detalle sólo calcula señales del sistema que se está abriendo. */
+export const detail = kinoZodQuery({
+  args: { id: zid('systems') },
+  handler: async (ctx, { id }) => {
+    const system = await ownSystem(ctx, ctx.user._id, id);
+    if (!system.isActive) notFound('System not found');
+    return systemWithSignals(ctx, system);
+  },
+});
+
 export const list = kinoZodQuery({
   args: {},
   handler: async (ctx) => {
@@ -94,36 +122,28 @@ export const list = kinoZodQuery({
       .query('systems')
       .withIndex('by_user_active', (q) => q.eq('userId', userId).eq('isActive', true))
       .collect();
-    const now = Date.now();
-    const days = (from: number) => Math.floor((now - from) / 86_400_000);
+    return Promise.all(docs.sort((a, b) => a.sortOrder - b.sortOrder).map((system) => systemWithSignals(ctx, system)));
+  },
+});
 
-    const items = [];
-    for (const system of docs.sort((a, b) => a.sortOrder - b.sortOrder)) {
-      const tasks = await ctx.db
-        .query('tasks')
-        .withIndex('by_system_alive_status', (q) => q.eq('systemId', system._id).eq('deletedAt', undefined))
-        .collect();
-      const logs = await ctx.db
-        .query('timeLogs')
-        .withIndex('by_system_started', (q) => q.eq('systemId', system._id))
-        .collect();
-      const activeTaskCount = tasks.filter((task) => task.status !== 'done').length;
-      const lastActivity = Math.max(
-        ...tasks.map((task) => task.completedAt ?? 0),
-        ...logs.map((log) => log.createdAt),
-      );
-      const daysSinceLastActivity = lastActivity > 0 ? days(lastActivity) : null;
-      const stale = system.isInbox
-        ? false
-        : deriveStale({
-            expectedFrequency: system.expectedFrequency,
-            activeTaskCount,
-            daysSinceLastActivity,
-            daysSinceCreated: days(system.createdAt),
-          });
-      items.push({ ...systemItem(system), stale, daysSinceLastActivity, activeTaskCount });
-    }
-    return items;
+/**
+ * La Bandeja de esta persona, resuelta en el servidor.
+ *
+ * Existe porque `/bandeja` es una entrada de navegación y no puede depender de
+ * que el cliente cargue la lista de sistemas para saber a dónde va: hasta ahora
+ * el id salía de un `systems.find((s) => s.isInbox)` repetido en cuatro sitios,
+ * y meterlo en la barra inferior habría sido el quinto. Devuelve `null` cuando
+ * la cuenta todavía no tiene Bandeja, que es lo que pasa entre el registro y
+ * `systems.setup`.
+ */
+export const inbox = kinoZodQuery({
+  args: {},
+  handler: async (ctx) => {
+    const doc = await ctx.db
+      .query('systems')
+      .withIndex('by_user_inbox', (q) => q.eq('userId', ctx.user._id).eq('isInbox', true))
+      .first();
+    return doc && doc.isActive ? systemItem(doc) : null;
   },
 });
 
@@ -211,6 +231,15 @@ export async function createSystemDoc(
         await ctx.db.insert('contextTags', { userId, systemId: id, title, color: tint, isDefault: true, createdAt: now });
       }
     }
+    await recordEvent(ctx, {
+      userId,
+      systemId: id,
+      actorChannel: channel,
+      action: 'system.create',
+      targetType: 'system',
+      targetId: id,
+      payload: { name: input.name, templateType: input.templateType ?? 'custom' },
+    });
     return systemItem((await ctx.db.get(id))!);
   }
 }
@@ -242,7 +271,17 @@ export const update = kinoZodMutation({
     if (data.triggerContext !== undefined) patch.triggerContext = data.triggerContext;
     if (data.metadata !== undefined) patch.metadata = data.metadata ?? undefined;
     await ctx.db.patch(id, patch);
-    return systemItem((await ctx.db.get(id))!);
+    const actualizado = (await ctx.db.get(id))!;
+    await recordEvent(ctx, {
+      userId: ctx.user._id,
+      systemId: id,
+      actorChannel: ctx.channel,
+      action: 'system.update',
+      targetType: 'system',
+      targetId: id,
+      payload: diferencias(system, actualizado),
+    });
+    return systemItem(actualizado);
   },
 });
 
@@ -252,10 +291,26 @@ export const remove = kinoZodMutation({
     const system = await ownSystem(ctx, ctx.user._id, id);
     if (system.isInbox) forbidden('Cannot deactivate Inbox');
     await ctx.db.patch(id, { isActive: false, updatedAt: Date.now() });
+    // Archivar, no borrar: apagar `isActive` es todo lo que pasa, y sus siete
+    // cascadas de Postgres no ocurren a propósito.
+    await recordEvent(ctx, {
+      userId: ctx.user._id,
+      systemId: id,
+      actorChannel: ctx.channel,
+      action: 'system.remove',
+      targetType: 'system',
+      targetId: id,
+      payload: { name: system.name, isActive: true },
+    });
     return null;
   },
 });
 
+/**
+ * **Sin fila en el log**, por lo mismo que el reorden de tareas: `sortOrder` es
+ * el orden de una lista en pantalla y no una propiedad del sistema, y un solo
+ * arrastre escribiría una fila por sistema sin nada que deshacer en ninguna.
+ */
 export const reorder = kinoZodMutation({
   args: { systemIds: z.array(zid('systems')) },
   handler: async (ctx, { systemIds }) => {

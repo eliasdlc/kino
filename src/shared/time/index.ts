@@ -24,6 +24,18 @@ export function userToday(tz: string): string {
 }
 
 /**
+ * Mañana (yyyy-MM-dd) en la timezone del usuario.
+ *
+ * Vive aquí y no en el componente que mueve una tarea: esa copia calculaba el
+ * día local a mano y llevaba su propio comentario explicando por qué no usaba
+ * `toISOString()`, que es exactamente la divergencia que este módulo existe
+ * para impedir.
+ */
+export function userTomorrow(tz: string): string {
+  return calendarDayInTz(new Date(Date.now() + 86_400_000), tz);
+}
+
+/**
  * Offset (ms) tal que `wallClockComoUTC - instanteReal` para `date` en `tz`.
  * Positivo al este de UTC, negativo al oeste. Base para convertir una
  * medianoche local a su instante UTC real.
@@ -86,4 +98,9 @@ export function userDayRange(tz: string): { start: Date; end: Date } {
   const nextDay = calendarDayInTz(new Date(start.getTime() + 86_400_000), tz);
   const end = zonedMidnightToUtc(nextDay, tz);
   return { start, end };
+}
+
+/** Hora del reloj de la cuenta, independiente de la zona del servidor o navegador. */
+export function hourInTimeZone(timezone: string, now: number): number {
+  return Number(new Intl.DateTimeFormat("en-US", { timeZone: timezone, hour: "numeric", hourCycle: "h23" }).format(now));
 }

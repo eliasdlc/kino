@@ -16,7 +16,7 @@ const GITHUB_BUDGET_MS = 8_000;
 
 // Los resultados de las funciones internas van anotados a mano: el tipo de
 // `internal` incluye este mismo módulo y sin la anotación el compilador cicla.
-type StoredConnection = { accessTokenEncrypted: string; lastSyncedAt: number | null } | null;
+type StoredConnection = { accessTokenEncrypted: string; lastSyncedAt: number | null; syncedThrough: number | null } | null;
 type SystemForSync = { id: string; metadata: Record<string, unknown> | null; repo: { owner: string; repo: string } | null };
 
 /** Estado de la conexión, con el login comprobado contra GitHub. */
@@ -75,15 +75,37 @@ export const linkRepo = kinoAction(GITHUB_BUDGET_MS, 'closed')({
   },
 });
 
-/** Trae los issues del repositorio enlazado y los refleja en el tablero. */
+/**
+ * Trae los issues del repositorio enlazado y los refleja en el tablero.
+ *
+ * Es incremental: pide a GitHub sólo lo tocado desde el cursor de la conexión,
+ * así que un repositorio sin cambios devuelve cero issues y no escribe ninguna
+ * tarea. `refrescoCompleto` ignora el cursor, que es la salida a mano para
+ * cuando algo se desalineó.
+ *
+ * El refresco parcial no puede pisar lo que Kino añadió encima de un issue
+ * (`KINO_OWNED_FIELDS`), y no lo hace porque no es él quien decide qué escribir:
+ * `taskPatchFromIssue` es el único que compone el parche y sólo conoce título,
+ * descripción, sprint y columna. La regla es la misma para el completo.
+ */
 export const sync = kinoAction(GITHUB_BUDGET_MS)({
-  args: { id: v.id('systems') },
-  handler: async (ctx, { id }): Promise<SyncResult> => {
+  args: { id: v.id('systems'), refrescoCompleto: v.optional(v.boolean()) },
+  handler: async (ctx, { id, refrescoCompleto }): Promise<SyncResult> => {
     const system: SystemForSync = await ctx.runQuery(internal.githubData.systemForSync, { userId: ctx.user._id, systemId: id });
     if (!system.repo) invalid('Este sistema no tiene ningún repositorio enlazado.');
     const stored: StoredConnection = await ctx.runQuery(internal.githubData.connectionOf, { userId: ctx.user._id });
     if (!stored) invalid('No hay ninguna cuenta de GitHub conectada. Conéctala en Ajustes.');
-    const { issues, truncated } = await fetchIssues(system.repo, decryptSecret(stored.accessTokenEncrypted));
-    return ctx.runMutation(internal.githubData.applySync, { userId: ctx.user._id, systemId: id, issues, truncated });
+    // Se toma antes de hablar con GitHub: lo que cambie durante la llamada
+    // entra en el siguiente refresco en vez de perderse entre los dos.
+    const arranque = Date.now();
+    const desde = refrescoCompleto ? undefined : (stored.syncedThrough ?? undefined);
+    const { issues, truncated } = await fetchIssues(system.repo, decryptSecret(stored.accessTokenEncrypted), desde);
+    return ctx.runMutation(internal.githubData.applySync, {
+      userId: ctx.user._id,
+      systemId: id,
+      issues,
+      truncated,
+      syncedThrough: arranque,
+    });
   },
 });
