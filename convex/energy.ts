@@ -17,6 +17,7 @@ import {
   type PrediccionVerificada,
 } from '../src/features/energy/energy.honesty';
 import { updateEnergyProfileSchema } from '../src/features/energy/energy.schemas';
+import { toTransport } from '../src/shared/lib/transport';
 import {
   buildPeakAdvice,
   CHRONOTYPE_CURVES,
@@ -449,7 +450,8 @@ export const todayPlan = kinoZodQuery({
         })
       : null;
     return {
-      energyPlan,
+      // El planner calcula con Date; Convex sólo admite sus valores de transporte.
+      energyPlan: toTransport(energyPlan),
       noProfile: false,
       hasCheckin: checkin !== null,
       checkin,
@@ -470,7 +472,7 @@ export const budgetPlan = kinoZodQuery({
     const profile = await profileOf(ctx, ctx.user._id);
     if (!profile) return { plan: [], noProfile: true };
     const candidates = (await aliveRows(ctx, ctx.user._id)).filter((t) => ACTIVE.has(t.status));
-    return { plan: buildBudgetPlan(candidates, profile.availableHoursPerDay, new Date(userToday(ctx.user.timezone))), noProfile: false };
+    return { plan: toTransport(buildBudgetPlan(candidates, profile.availableHoursPerDay, new Date(userToday(ctx.user.timezone)))), noProfile: false };
   },
 });
 
@@ -1086,7 +1088,7 @@ export const weeklyTrends = kinoZodQuery({
       .filter((row) => row.date >= oldest)
       .map(snapshotItem);
     const checkins = (await Promise.all(days.map((date) => checkinsOn(ctx, user._id, date)))).flat().map(checkinItem);
-    return { snapshots, checkins };
+    return { snapshots: toTransport(snapshots), checkins };
   },
 });
 
