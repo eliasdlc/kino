@@ -2,7 +2,7 @@
 
 import { AcademicWorkspace } from "@/features/academic/AcademicWorkspace";
 import { DefaultTaskCard } from "@/features/tasks/cards/DefaultTaskCard";
-import { useState } from "react";
+import { Suspense, useState } from "react";
 import { DndContext } from "@dnd-kit/core";
 import { Section, SubSection, Specimen, SpecimenGrid, ClientOnly, Seeded, seedQuery } from "../helpers";
 import { api } from "@convex/_generated/api";
@@ -89,7 +89,7 @@ export function TasksViewsSection() {
           ]),
           seedQuery(api.folders.bySystem, [{ ...makeFolder({ name: "Inteligencia de Negocios" }), academicPeriodId: "cycle-current" }]),
         ]}>
-          <Specimen label="Árbol académico"><AcademicWorkspace systemId={MOCK_SYSTEM_ID}><p className="text-sm">Las vistas de tareas y apuntes comparten el ciclo seleccionado.</p></AcademicWorkspace></Specimen>
+          <Specimen label="Árbol académico"><Suspense fallback={<div className="h-52" />}><AcademicWorkspace systemId={MOCK_SYSTEM_ID}><p className="text-sm">Las vistas de tareas y apuntes comparten el ciclo seleccionado.</p></AcademicWorkspace></Suspense></Specimen>
         </Seeded>
       </SubSection>
       <SubSection
