@@ -95,6 +95,7 @@ export function DashboardSection() {
       >
         <div className="max-w-xl">
           <EnergyTodayCard
+            clock={{ hour: 15, date: "2026-09-11", timezone: "America/Santo_Domingo" }}
             initialCheckins={[makeCheckin()]}
             projectedCurve={MOCK_CURVE}
             chronotype="morning"
@@ -134,6 +135,7 @@ export function DashboardSection() {
       >
         <div className="max-w-md">
           <FocusNowCard
+            currentHour={15}
             energyItems={[makeEnergyPlanItem(makeTask({ title: "Repasar cálculo" }))]}
             projectedCurve={MOCK_CURVE}
           />

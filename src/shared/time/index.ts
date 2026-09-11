@@ -99,3 +99,8 @@ export function userDayRange(tz: string): { start: Date; end: Date } {
   const end = zonedMidnightToUtc(nextDay, tz);
   return { start, end };
 }
+
+/** Hora del reloj de la cuenta, independiente de la zona del servidor o navegador. */
+export function hourInTimeZone(timezone: string, now: number): number {
+  return Number(new Intl.DateTimeFormat("en-US", { timeZone: timezone, hour: "numeric", hourCycle: "h23" }).format(now));
+}

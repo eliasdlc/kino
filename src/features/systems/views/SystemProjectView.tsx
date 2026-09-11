@@ -1,5 +1,6 @@
 "use client";
 
+import { useUrlView } from "@/shared/hooks/use-url-view";
 import { useState } from "react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { CreateTaskDialog } from "@/features/tasks/CreateTaskDialog";
@@ -20,7 +21,7 @@ import type { SystemViewProps } from "./SystemDetailView";
  */
 export function SystemProjectView({ system, initialTasks }: SystemViewProps) {
   const [editTask, setEditTask] = useState<TaskTransport | null>(null);
-  const [tab, setTab] = useState("board");
+  const [tab, setTab] = useUrlView(["board", "planning", "archive"], "board");
   const [sprintFilter, setSprintFilter] = useState<string | null>(null);
 
   const { data: tasks = [] } = useTasks(system.id, initialTasks);

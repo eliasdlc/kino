@@ -53,6 +53,7 @@ export default async function DashboardPage() {
       <div className="md:grid md:grid-cols-[minmax(0,1fr)_minmax(0,1.25fr)] md:gap-10">
         <section aria-label="Energía de hoy" className="md:border-r md:border-border md:pr-10">
           <EnergyTodayCard
+            clock={dailyPlan.clock}
             initialCheckins={dailyPlan.checkins}
             projectedCurve={dailyPlan.projectedCurve}
             chronotype={dailyPlan.chronotype}
@@ -79,7 +80,7 @@ export default async function DashboardPage() {
               bulkAction={topPattern.bulkAction}
             />
           ) : (
-            <FocusNowCard energyItems={energyItems} projectedCurve={dailyPlan.projectedCurve} />
+            <FocusNowCard currentHour={dailyPlan.clock.hour} energyItems={energyItems} projectedCurve={dailyPlan.projectedCurve} />
           )}
 
           <ReturnNotice />

@@ -1,5 +1,6 @@
 "use client";
 
+import { usePlanningWeek } from "@/shared/hooks/use-url-view";
 import { useMemo, useState, useCallback } from "react";
 import {
   addDays,
@@ -66,7 +67,7 @@ export function TaskPlanningView({ systemId, initialData, folderId, folderInitia
   const [activeTask, setActiveTask] = useState<TaskTransport | null>(null);
 
   // Week navigation: 0 = current week, 1 = next, -1 = previous
-  const [weekOffset, setWeekOffset] = useState(0);
+  const [weekOffset, setWeekOffset] = usePlanningWeek();
 
   // Sensors: pointer for mouse/touch, keyboard for a11y
   const sensors = useSensors(

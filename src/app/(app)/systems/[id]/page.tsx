@@ -23,12 +23,11 @@ export default async function SystemPage({
 
   if (!session) redirect("/login");
 
-  // La lista ya trae las señales de cada sistema; el detalle es uno de ellos.
-  const [systems, tasks] = await Promise.all([
-    serverQuery(api.systems.list, {}),
+  // El detalle no necesita leer las tareas y la actividad de los otros sistemas.
+  const [system, tasks] = await Promise.all([
+    serverQuery(api.systems.detail, { id }).catch(() => null),
     serverQuery(api.tasks.bySystem, { systemId: id }).catch(() => null),
   ]);
-  const system = systems.find((s) => s.id === id);
 
   if (!system || !tasks) notFound();
 

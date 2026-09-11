@@ -114,3 +114,17 @@ describe('el tope del contenido', () => {
     expect((await asAna.query(api.pages.byId, { id })).content).toHaveLength(enorme.length);
   });
 });
+
+
+it('filtra la materia antes del límite de páginas del sistema', async () => {
+  const { t, asAna, userId, systemId } = await seed();
+  await insertarPaginas(t, userId, systemId, PAGE_LIST_LIMIT);
+  const folder = await asAna.mutation(api.folders.create, { systemId, name: 'Materia actual' });
+  const page = await asAna.mutation(api.pages.create, { systemId, folderId: folder.id, title: 'Apunte actual' });
+  const result = await asAna.query(api.pages.bySystem, { systemId, folderId: folder.id });
+  expect(result.items.map((item) => item.id)).toEqual([page.id]);
+  expect(result.restantes).toBe(0);
+  const asLuis = t.withIdentity({ subject: 'user_luis', email: 'luis@example.com' });
+  await asLuis.mutation(api.users.ensure, {});
+  expect((await asLuis.query(api.pages.bySystem, { systemId, folderId: folder.id })).items).toEqual([]);
+});

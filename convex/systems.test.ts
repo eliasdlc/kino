@@ -7,6 +7,23 @@ const modules = import.meta.glob('./**/*.*s');
 const ana = { subject: 'user_ana', email: 'ana@usekino.dev', name: 'Ana' };
 
 describe('systems', () => {
+  it('el detalle devuelve las señales de ese sistema y rechaza sistemas ajenos o archivados', async () => {
+    const t = convexTest(schema, modules);
+    const asAna = t.withIdentity(ana);
+    const system = await asAna.mutation(api.systems.create, { name: 'Clases', color: 'blue', icon: 'book' });
+    const other = await asAna.mutation(api.systems.create, { name: 'Otro', color: 'gray', icon: 'book' });
+    await asAna.mutation(api.tasks.create, { systemId: system.id, title: 'Práctica' });
+    await asAna.mutation(api.tasks.create, { systemId: other.id, title: 'No cuenta aquí' });
+    const detail = await asAna.query(api.systems.detail, { id: system.id });
+    expect(detail).toMatchObject({ id: system.id, activeTaskCount: 1 });
+    expect(detail).toEqual((await asAna.query(api.systems.list, {})).find((item) => item.id === system.id));
+    const asLuis = t.withIdentity({ subject: 'user_luis', email: 'luis@example.com' });
+    await asLuis.mutation(api.users.ensure, {});
+    await expect(asLuis.query(api.systems.detail, { id: system.id })).rejects.toThrow();
+    await asAna.mutation(api.systems.remove, { id: system.id });
+    await expect(asAna.query(api.systems.detail, { id: system.id })).rejects.toThrow();
+  });
+
   it('la bandeja se crea una vez y no se puede tocar', async () => {
     const t = convexTest(schema, modules);
     const asAna = t.withIdentity(ana);

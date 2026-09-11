@@ -119,10 +119,10 @@ async function linkedTasksOf(ctx: Ctx, userId: Id<'users'>, pageId: Id<'pages'>)
 export const PAGE_LIST_LIMIT = 200;
 
 export const bySystem = kinoZodQuery({
-  args: { systemId: zid('systems') },
-  handler: async (ctx, { systemId }) => {
+  args: { systemId: zid('systems'), folderId: zid('folders').optional() },
+  handler: async (ctx, { systemId, folderId }) => {
     const docs = await ctx.db.query('pages').withIndex('by_system', (q) => q.eq('systemId', systemId)).collect();
-    const own = docs.filter((doc) => doc.userId === ctx.user._id && alive(doc)).sort((a, b) => a.updatedAt - b.updatedAt);
+    const own = docs.filter((doc) => doc.userId === ctx.user._id && alive(doc) && (folderId === undefined || doc.folderId === folderId)).sort((a, b) => a.updatedAt - b.updatedAt);
     const pagina = own.slice(0, PAGE_LIST_LIMIT);
     return {
       items: await Promise.all(pagina.map((doc) => pageListItem(ctx, doc))),

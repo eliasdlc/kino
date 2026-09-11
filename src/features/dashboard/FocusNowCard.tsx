@@ -10,6 +10,7 @@ import type { EnergyPlanItemTransport } from '@/features/energy/energy.planner';
 interface FocusNowCardProps {
   energyItems?: EnergyPlanItemTransport[];
   projectedCurve: number[];
+  currentHour: number;
 }
 
 const PRIORITY_ORDER: Record<string, number> = { critical: 0, high: 1, medium: 2, low: 3 };
@@ -19,11 +20,10 @@ const PRIORITY_ORDER: Record<string, number> = { critical: 0, high: 1, medium: 2
  * energía de este momento. Con una sesión en marcha es una línea; sin tareas
  * pendientes no se pinta, porque una tarjeta vacía no dice nada.
  */
-export function FocusNowCard({ energyItems, projectedCurve }: FocusNowCardProps) {
+export function FocusNowCard({ energyItems, projectedCurve, currentHour }: FocusNowCardProps) {
   const { data: planTasks = [] } = useTodayPlanTasks();
   const { dispatch, state } = useFocusTimer();
 
-  const currentHour = new Date().getHours();
   const currentEnergy =
     projectedCurve.length === 24 ? Math.round(projectedCurve[currentHour] ?? 0) : 0;
 

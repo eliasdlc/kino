@@ -1,5 +1,6 @@
 "use client";
 
+import { ConvexQueryCacheProvider } from "convex-helpers/react/cache";
 import { useEffect, useState } from "react";
 import { ConvexProviderWithAuth, type ConvexReactClient } from "convex/react";
 import { makeTestConvexClient, useTestAuth } from "@/shared/testing/convex-client";
@@ -70,6 +71,7 @@ export function SystemDesignShell() {
 
   return (
     <ConvexProviderWithAuth client={client} useAuth={useTestAuth}>
+      <ConvexQueryCacheProvider expiration={0} maxIdleEntries={0}>
       <SystemTypeProvider>
         <FocusTimerProvider>
           <TooltipProvider>
@@ -152,6 +154,7 @@ export function SystemDesignShell() {
           </TooltipProvider>
         </FocusTimerProvider>
       </SystemTypeProvider>
+      </ConvexQueryCacheProvider>
     </ConvexProviderWithAuth>
   );
 }
