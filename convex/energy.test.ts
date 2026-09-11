@@ -25,6 +25,58 @@ async function seed() {
 }
 
 describe('energy', () => {
+  it('devuelve el plan con tareas después del primer check-in y al volver a registrarlo', async () => {
+    const { asAna, systemId } = await seed();
+    const task = await asAna.mutation(api.tasks.create, {
+      systemId, title: 'Preparar la práctica', energyLevel: 'low',
+      startDate: new Date().toISOString(),
+    });
+    await asAna.mutation(api.tasks.move, { id: task.id, status: 'today' });
+    expect((await asAna.query(api.energy.todayPlan, {})).energyPlan).toBeNull();
+
+    for (const currentLevel of [70, 40]) {
+      await asAna.mutation(api.energy.createCheckin, { currentLevel, sleepQuality: 'good', slot: 'morning' });
+      const plan = await asAna.query(api.energy.todayPlan, {});
+      expect(plan.hasCheckin).toBe(true);
+      expect(plan.energyPlan?.items.map((item) => item.task.id)).toContain(task.id);
+      expect(plan.energyPlan?.items[0].task.createdAt).toEqual(expect.any(String));
+      expect(plan.checkins).toHaveLength(1);
+    }
+  });
+
+  it('transporta también las tareas diferidas y el plan sin curva', async () => {
+    const { asAna, systemId } = await seed();
+    const task = await asAna.mutation(api.tasks.create, {
+      systemId, title: 'Trabajo que no cabe hoy', energyLevel: 'low',
+      status: 'week', estimatedTime: '01:00',
+    });
+    const budget = await asAna.query(api.energy.budgetPlan, {});
+    expect(budget.plan.map((item) => item.task.id)).toContain(task.id);
+    expect(budget.plan[0].task.createdAt).toEqual(expect.any(String));
+
+    await asAna.mutation(api.tasks.update, { id: task.id, estimatedTime: '16:00' });
+    await asAna.mutation(api.energy.createCheckin, { currentLevel: 70, sleepQuality: 'good' });
+    const plan = await asAna.query(api.energy.todayPlan, {});
+    expect(plan.energyPlan?.items).toHaveLength(0);
+    expect(plan.energyPlan?.deferred).toMatchObject([{ task: { id: task.id }, reason: 'budget' }]);
+    expect(plan.energyPlan?.deferred[0].task.createdAt).toEqual(expect.any(String));
+  });
+
+  it('las tendencias de Hoy se pueden leer cuando ya existen snapshots', async () => {
+    const { t, asAna, userId } = await seed();
+    const now = Date.now();
+    const date = new Date(now).toISOString().slice(0, 10);
+    await t.run(async (ctx) => {
+      await ctx.db.insert('behaviorSnapshots', {
+        userId, date, tasksCreated: 3, tasksCompleted: 1, tasksOverdue: 0,
+        criticalCount: 0, activeCount: 2, completionRate: 1 / 3,
+        learningAlpha: 0.2, updatedAt: now,
+      });
+    });
+    const trends = await asAna.query(api.energy.weeklyTrends, {});
+    expect(trends.snapshots).toMatchObject([{ date, tasksCompleted: 1, updatedAt: new Date(now).toISOString() }]);
+  });
+
   it('la predicción se escribe antes del check-in y el check-in la verifica', async () => {
     const { asAna } = await seed();
     await asAna.mutation(api.energy.ensureTodayPredictions, {});
