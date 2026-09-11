@@ -463,7 +463,19 @@ export default defineSchema({
 
   // ── Contenido ─────────────────────────────────────────────────────────────
 
+  academicPeriods: defineTable({
+    userId: v.id('users'),
+    systemId: v.id('systems'),
+    year: v.string(),
+    name: v.string(),
+    isCurrent: v.boolean(),
+    isClosed: v.boolean(),
+    createdAt: ts,
+    updatedAt: ts,
+  }).index('by_system', ['systemId']).index('by_user', ['userId']),
+
   folders: defineTable({
+    academicPeriodId: v.optional(v.id('academicPeriods')),
     pgId,
     userId: v.id('users'),
     systemId: v.optional(v.id('systems')),

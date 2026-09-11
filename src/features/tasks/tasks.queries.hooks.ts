@@ -1,5 +1,6 @@
 "use client";
 
+import { useAcademicScope } from "@/features/academic/academic-scope";
 import { api } from "@convex/_generated/api";
 import { useConvexQuery } from "@/shared/convex/hooks";
 import { type TaskTransport } from "./tasks.types";
@@ -17,7 +18,8 @@ export function useTrashedTasks(systemId: string, enabled = true) {
 
 /** La lista de un sistema. `initialData` es lo que pintó el servidor, hasta que llega la suscripción. */
 export function useTasks(systemId: string, initialData: TaskTransport[]) {
-  return useConvexQuery(api.tasks.bySystem, { systemId }, { initialData });
+  const scope = useAcademicScope(systemId);
+  return useConvexQuery(api.tasks.bySystem, { ...scope, systemId }, { initialData: scope ? undefined : initialData });
 }
 
 export function useFolderTasks(systemId: string, folderId: string, initialData?: TaskTransport[]) {

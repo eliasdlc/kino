@@ -1,3 +1,4 @@
+import { academicFolderIds, ownPeriod } from './lib/academic';
 import { z } from 'zod';
 import { zid } from 'convex-helpers/server/zod4';
 import type { Doc, Id } from './_generated/dataModel';
@@ -17,6 +18,7 @@ const COLORS = color.members.map((m) => m.value) as [string, ...string[]];
 /** Lo que el cliente ve de una carpeta. `metadata` lo valida el arquetipo del sistema. */
 const folderItem = (doc: Doc<'folders'>) => ({
   id: doc._id,
+  ...(doc.academicPeriodId ? { academicPeriodId: doc.academicPeriodId } : {}),
   name: doc.name,
   color: doc.color,
   sortIndex: doc.sortIndex,
@@ -122,10 +124,11 @@ export const tree = kinoZodQuery({
 
 /** Carpetas raíz de un sistema, con sus cuentas. */
 export const bySystem = kinoZodQuery({
-  args: { systemId: zid('systems') },
-  handler: async (ctx, { systemId }) => {
+  args: { systemId: zid('systems'), academicPeriodId: zid('academicPeriods').nullable().optional() },
+  handler: async (ctx, { systemId, academicPeriodId }) => {
+    const allowed = academicPeriodId !== undefined ? await academicFolderIds(ctx, ctx.user._id, systemId, academicPeriodId) : undefined;
     const all = await aliveFolders(ctx, ctx.user._id);
-    const roots = all.filter((doc) => doc.systemId === systemId && doc.parentId === undefined);
+    const roots = all.filter((doc) => doc.systemId === systemId && doc.parentId === undefined && (!allowed || allowed.has(doc._id)));
     return withCounts(ctx, all, roots);
   },
 });
@@ -155,6 +158,7 @@ export const detail = kinoZodQuery({
 const metadataField = z.record(z.string(), z.unknown()).nullish();
 
 const createFields = {
+  academicPeriodId: zid('academicPeriods').optional(),
   systemId: zid('systems'),
   name: z.string().min(1).max(255),
   color: z.enum(COLORS).optional(),
@@ -174,10 +178,15 @@ export async function createFolderDoc(
     const parent = await ownFolder(ctx, userId, args.parentId);
     if (parent.systemId !== args.systemId) invalid('Parent folder belongs to another system');
   }
+  if (args.academicPeriodId) {
+    if (args.parentId) invalid('El ciclo pertenece a la materia raíz');
+    await ownPeriod(ctx, userId, args.academicPeriodId, args.systemId);
+  }
   const now = Date.now();
   const id = await ctx.db.insert('folders', {
     userId,
     systemId: args.systemId,
+    academicPeriodId: args.academicPeriodId,
     parentId: args.parentId,
     name: args.name,
     color: (args.color ?? 'blue') as Doc<'folders'>['color'],

@@ -1,3 +1,4 @@
+import { academicFolderIds } from './lib/academic';
 import { z } from 'zod';
 import { zid } from 'convex-helpers/server/zod4';
 import { ConvexError } from 'convex/values';
@@ -119,10 +120,22 @@ async function linkedTasksOf(ctx: Ctx, userId: Id<'users'>, pageId: Id<'pages'>)
 export const PAGE_LIST_LIMIT = 200;
 
 export const bySystem = kinoZodQuery({
-  args: { systemId: zid('systems'), folderId: zid('folders').optional() },
-  handler: async (ctx, { systemId, folderId }) => {
+  args: { systemId: zid('systems'), folderId: zid('folders').optional(), academicPeriodId: zid('academicPeriods').nullable().optional() },
+  handler: async (ctx, { systemId, folderId, academicPeriodId }) => {
+    const allowed = academicPeriodId !== undefined ? await academicFolderIds(ctx, ctx.user._id, systemId, academicPeriodId) : undefined;
     const docs = await ctx.db.query('pages').withIndex('by_system', (q) => q.eq('systemId', systemId)).collect();
-    const own = docs.filter((doc) => doc.userId === ctx.user._id && alive(doc) && (folderId === undefined || doc.folderId === folderId)).sort((a, b) => a.updatedAt - b.updatedAt);
+    const byId = new Map(docs.map(doc => [doc._id, doc]));
+    function belongs(doc: Doc<'pages'>) {
+      if (!allowed) return true;
+      let root = doc;
+      const visited = new Set<string>();
+      while (!root.folderId && root.parentPageId && byId.has(root.parentPageId) && !visited.has(root._id)) {
+        visited.add(root._id);
+        root = byId.get(root.parentPageId)!;
+      }
+      return root.folderId ? allowed.has(root.folderId) : academicPeriodId === null;
+    }
+    const own = docs.filter((doc) => doc.userId === ctx.user._id && alive(doc) && (folderId === undefined || doc.folderId === folderId) && belongs(doc)).sort((a, b) => a.updatedAt - b.updatedAt);
     const pagina = own.slice(0, PAGE_LIST_LIMIT);
     return {
       items: await Promise.all(pagina.map((doc) => pageListItem(ctx, doc))),

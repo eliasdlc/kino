@@ -42,6 +42,7 @@ export const LECTORES: Record<string, Lector> = {
   // reimportar un tablero sepa qué columnas tenía cada arquetipo.
   systemStatusDefinitions: (ctx) => ctx.db.query('systemStatusDefinitions').take(EXPORT_TABLE_CAP),
   taskReminders: (ctx, userId) => ctx.db.query('taskReminders').withIndex('by_user', (q) => q.eq('userId', userId)).take(EXPORT_TABLE_CAP),
+  academicPeriods: (ctx, userId) => ctx.db.query('academicPeriods').withIndex('by_user', q => q.eq('userId', userId)).take(EXPORT_TABLE_CAP),
   folders: (ctx, userId) => ctx.db.query('folders').withIndex('by_user_alive', (q) => q.eq('userId', userId)).take(EXPORT_TABLE_CAP),
   pages: pagesOf,
   stickyNotes: (ctx, userId) => ctx.db.query('stickyNotes').withIndex('by_user_alive', (q) => q.eq('userId', userId)).take(EXPORT_TABLE_CAP),

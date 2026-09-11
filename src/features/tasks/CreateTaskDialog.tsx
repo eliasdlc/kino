@@ -1,5 +1,6 @@
 'use client';
 
+import { useAcademicScope } from "@/features/academic/academic-scope";
 import { useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -61,6 +62,7 @@ export function CreateTaskDialog({
   systemId, parentTaskId, folderId, open: controlledOpen,
   onOpenChange: controlledOnOpenChange, header, onTaskCreated,
 }: CreateTaskDialogProps) {
+  const academicScope = useAcademicScope(systemId);
   const [internalOpen, setInternalOpen] = useState(false);
   const isControlled = controlledOpen !== undefined;
   const open = isControlled ? controlledOpen : internalOpen;
@@ -183,7 +185,12 @@ export function CreateTaskDialog({
       applyNlParse();
       values = form.getValues();
     }
-    if (values.taskType === 'event' && !values.startDate) {
+    if (academicScope?.academicPeriodId && (!values.folderId || !folders.some(f => f.id === values.folderId))) {
+      setSubmitError('Elige una materia de este ciclo. Si aún no existe, créala en Clases.');
+      setStep(2);
+      return;
+    }
+    if (values.taskType === 'event'  && !values.startDate) {
       form.setError('startDate', { message: 'Los eventos requieren fecha de inicio' });
       setStep(2);
       return;

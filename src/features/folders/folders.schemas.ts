@@ -9,6 +9,7 @@ export const colorValues = [
 // por systemType (folders.metadata.ts) y corre en la ruta, donde se conoce el
 // arquetipo del sistema dueño.
 export const createFolderSchema = z.object({
+  academicPeriodId: z.string().optional(),
   name: z.string().min(1).max(255),
   systemId: z.string(),
   color: z.enum(colorValues).optional(),

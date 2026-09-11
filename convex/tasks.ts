@@ -1,3 +1,4 @@
+import { academicFolderIds } from './lib/academic';
 import { z } from 'zod';
 import { zid } from 'convex-helpers/server/zod4';
 import type { Doc, Id } from './_generated/dataModel';
@@ -359,13 +360,14 @@ export const list = kinoZodQuery({
 });
 
 export const bySystem = kinoZodQuery({
-  args: { systemId: zid('systems') },
-  handler: async (ctx, { systemId }) => {
+  args: { systemId: zid('systems'), academicPeriodId: zid('academicPeriods').nullable().optional(), folderId: zid('folders').optional() },
+  handler: async (ctx, { systemId, academicPeriodId, folderId }) => {
+    const allowed = academicPeriodId !== undefined ? await academicFolderIds(ctx, ctx.user._id, systemId, academicPeriodId) : undefined;
     const docs = await ctx.db
       .query('tasks')
       .withIndex('by_system_alive_status', (q) => q.eq('systemId', systemId).eq('deletedAt', undefined))
       .collect();
-    return docs.filter((doc) => doc.userId === ctx.user._id && topLevel(doc)).sort(bySort).map(taskItem);
+    return docs.filter((doc) => doc.userId === ctx.user._id && topLevel(doc) && (folderId === undefined || doc.folderId === folderId) && (!allowed || (doc.folderId ? allowed.has(doc.folderId) : academicPeriodId === null))).sort(bySort).map(taskItem);
   },
 });
 

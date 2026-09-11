@@ -1,5 +1,7 @@
 "use client";
 
+import { AcademicWorkspace } from "@/features/academic/AcademicWorkspace";
+import { DefaultTaskCard } from "@/features/tasks/cards/DefaultTaskCard";
 import { useState } from "react";
 import { DndContext } from "@dnd-kit/core";
 import { Section, SubSection, Specimen, SpecimenGrid, ClientOnly, Seeded, seedQuery } from "../helpers";
@@ -73,6 +75,23 @@ export function TasksViewsSection() {
       title="Tareas — vistas y controles"
       description="Las demás representaciones de una tarea (fila de lista global, card de planning, card del board kanban) y los pickers que las editan."
     >
+      <SubSection title="Títulos completos y ciclos académicos" description="Cards con altura natural y árbol de años, ciclos y materias.">
+        <Specimen label="Título largo en Acción y Planificación">
+          <div className="grid max-w-3xl items-start gap-4 md:grid-cols-2">
+            <DefaultTaskCard task={makeTask({ title: "Bajar de la PVA: informaciones generales y el desglose del primer mes", priority: "high" })} systemId={MOCK_SYSTEM_ID} onToggle={noop} onDelete={noop} onEdit={noop} />
+            <div className="max-w-48"><PlanningTaskCard task={makeTask({ title: "Bajar de la PVA: informaciones generales y el desglose del primer mes" })} onToggle={noop} onDelete={noop} onEdit={noop} /></div>
+          </div>
+        </Specimen>
+        <Seeded stubs={[
+          seedQuery(api.academicPeriods.list, [
+            { _id: "cycle-current", year: "2026–2027", name: "Septiembre–diciembre", isCurrent: true, isClosed: false },
+            { _id: "cycle-old", year: "2025–2026", name: "Septiembre–diciembre", isCurrent: false, isClosed: true },
+          ]),
+          seedQuery(api.folders.bySystem, [{ ...makeFolder({ name: "Inteligencia de Negocios" }), academicPeriodId: "cycle-current" }]),
+        ]}>
+          <Specimen label="Árbol académico"><AcademicWorkspace systemId={MOCK_SYSTEM_ID}><p className="text-sm">Las vistas de tareas y apuntes comparten el ciclo seleccionado.</p></AcademicWorkspace></Specimen>
+        </Seeded>
+      </SubSection>
       <SubSection
         title="TaskListRow"
         description="Fila de la vista global /tasks: badge de prioridad, sistema con punto de color, selección múltiple."

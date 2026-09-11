@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useFolders } from "@/features/folders/folders.hooks";
 import { NewFolderInline } from "@/features/folders/NewFolderInline";
 import { SYSTEM_TYPE_CONFIG } from "@/shared/lib/system-types";
@@ -34,7 +35,7 @@ function ClassCard({ name, meta, tasks }: {
     <div className="rounded-xl border bg-muted/20 p-4 space-y-2">
       <div className="flex items-center gap-2">
         <BookOpen size={16} className="shrink-0 text-primary" />
-        <span className="font-semibold truncate">{name}</span>
+        <span className="font-semibold whitespace-normal wrap-anywhere">{name}</span>
         {semester && (
           <span className="ml-auto shrink-0 rounded bg-muted px-1.5 py-0.5 text-[10px] text-muted-foreground">
             {semester}
@@ -95,12 +96,11 @@ export function SystemAcademicClasses({ systemId, tasks }: { systemId: string; t
       ) : (
         <div className="space-y-3">
           {folders.map((folder) => (
-            <ClassCard
-              key={folder.id}
+            <Link key={folder.id} href={`/systems/${systemId}/folders/${folder.id}`} className="block"><ClassCard
               name={folder.name}
               meta={folder.metadata}
               tasks={tasks.filter((t) => t.folderId === folder.id)}
-            />
+            /></Link>
           ))}
         </div>
       )}

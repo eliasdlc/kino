@@ -1,6 +1,7 @@
 import { z } from "zod";
 import type { CreateTaskInput } from "./tasks.types";
 import { dayToLocalISO } from "./tasks.utils";
+import { createTaskSchema } from "./tasks.schemas";
 import { minutesToTimeString } from "./EstimatedTimePicker";
 import type { ParsedQuickInput } from "./quick-date-parse";
 
@@ -23,9 +24,9 @@ export const formSchema = z.object({
   dueTime: z.string().optional(),
   estimatedMinutes: z.number().int().min(1).nullable().optional(),
   description: z.string().optional(),
-  folderId: z.string().uuid().nullable().optional(),
-  contextTagId: z.string().uuid().nullable().optional(),
-  sprintId: z.string().uuid().nullable().optional(),
+  folderId: createTaskSchema.shape.folderId.nullable(),
+  contextTagId: createTaskSchema.shape.contextTagId.nullable(),
+  sprintId: createTaskSchema.shape.sprintId.nullable(),
   recurrenceRule: z.string().nullable().optional(),
   metadata: z.record(z.string(), z.unknown()).nullable().optional(),
 });
