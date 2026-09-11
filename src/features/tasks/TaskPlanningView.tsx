@@ -268,6 +268,8 @@ export function TaskPlanningView({ systemId, initialData, folderId, folderInitia
           )}
         </div>
 
+        <div className="overflow-x-auto pb-2">
+        <div className="min-w-[1120px] space-y-4">
         {/* Multi-Day Tasks Header */}
         {multiDayTasks.length > 0 && (
           <div className="grid grid-cols-7 gap-2 w-full pt-1 pb-3 border-b border-border">
@@ -361,6 +363,8 @@ export function TaskPlanningView({ systemId, initialData, folderId, folderInitia
               </DroppableColumn>
             );
           })}
+        </div>
+        </div>
         </div>
       </div>
 

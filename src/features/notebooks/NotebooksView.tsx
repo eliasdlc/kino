@@ -1,5 +1,6 @@
 "use client";
 
+import { useAcademicScope } from "@/features/academic/academic-scope";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { Files, FolderOpen, Loader2 } from "lucide-react";
@@ -37,6 +38,9 @@ interface NotebooksViewProps {
 
 export function NotebooksView({ systemId }: NotebooksViewProps) {
   const router = useRouter();
+  const academicScope = useAcademicScope(systemId);
+  const [pageDialogOpen, setPageDialogOpen] = useState(false);
+  const [pageFolder, setPageFolder] = useState("");
   const { data: folders = [], isLoading: foldersLoading } = useFolders(systemId);
   const { data: pages = [], isLoading: pagesLoading } = usePages(systemId);
   const { mutate: createFolder, isPending: creatingFolder } = useCreateFolder(systemId);
@@ -84,7 +88,8 @@ export function NotebooksView({ systemId }: NotebooksViewProps) {
   }
 
   async function handleCreateNotebook() {
-    const page = await createPage({});
+    if (academicScope?.academicPeriodId && !pageDialogOpen) { setPageDialogOpen(true); return; }
+    const page = await createPage(pageFolder ? { folderId: pageFolder } : {});
     router.push(`/systems/${systemId}/pages/${page.id}`);
   }
 
@@ -107,7 +112,7 @@ export function NotebooksView({ systemId }: NotebooksViewProps) {
                 type="button"
                 onClick={() => toggleTag(tag.id)}
                 className={cn(
-                  "inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium border transition-all",
+                  "inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium border transition-colors",
                   active
                     ? "bg-muted border-foreground/30 text-foreground"
                     : "bg-transparent border-border text-muted-foreground hover:border-muted-foreground/50"
@@ -175,6 +180,16 @@ export function NotebooksView({ systemId }: NotebooksViewProps) {
         </section>
       )}
 
+      <ResponsiveDialog open={pageDialogOpen} onOpenChange={setPageDialogOpen}>
+        <ResponsiveDialogContent><ResponsiveDialogHeader><ResponsiveDialogTitle>Nuevo apunte</ResponsiveDialogTitle></ResponsiveDialogHeader>
+          <Label htmlFor="page-subject">Materia de este ciclo</Label>
+          <select id="page-subject" className="rounded-xl border bg-background p-3" value={pageFolder} onChange={e => setPageFolder(e.target.value)}>
+            <option value="">Elige una materia</option>{folders.map(f => <option key={f.id} value={f.id}>{f.name}</option>)}
+          </select>
+          {folders.length === 0 && <p className="text-sm">Crea una clase para guardar su primer apunte.</p>}
+          <Button disabled={!folders.some(f => f.id === pageFolder)} onClick={handleCreateNotebook}>Crear apunte</Button>
+        </ResponsiveDialogContent>
+      </ResponsiveDialog>
       <ResponsiveDialog open={folderDialogOpen} onOpenChange={setFolderDialogOpen}>
         <ResponsiveDialogContent>
           <ResponsiveDialogHeader>

@@ -1,3 +1,4 @@
+import { AcademicWorkspace } from "@/features/academic/AcademicWorkspace";
 import { notFound, redirect } from "next/navigation";
 import { api } from "@convex/_generated/api";
 import { serverQuery } from "@/shared/convex/server";
@@ -60,11 +61,15 @@ export default async function SystemPage({
         <SystemDetailHeader system={system} signals={signals} currentTab={surface} />
 
         <div className="mt-4">
+          {system.templateType === "academic" ? <AcademicWorkspace systemId={id}>
+            {surface === "docs" ? <NotebooksView systemId={id} /> : <SystemDetailView system={system} initialTasks={tasks} />}
+          </AcademicWorkspace> : <>
           {surface === "docs" ? (
             <NotebooksView systemId={id} />
           ) : (
             <SystemDetailView system={system} initialTasks={tasks} />
           )}
+          </>}
         </div>
       </PageWrapper>
     </div>

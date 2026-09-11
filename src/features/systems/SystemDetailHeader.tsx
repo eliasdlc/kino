@@ -1,5 +1,6 @@
 "use client";
 
+import { useSearchParams } from "next/navigation";
 import { useState, useSyncExternalStore } from "react";
 import { useRouter } from "next/navigation";
 import { format } from "date-fns";
@@ -61,6 +62,7 @@ function setHeaderOpen(value: boolean) {
 }
 
 export function SystemDetailHeader({ system, signals, currentTab = "tasks" }: SystemDetailHeaderProps) {
+  const cycle = useSearchParams().get("cycle");
   const router = useRouter();
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [editOpen, setEditOpen] = useState(false);
@@ -235,7 +237,7 @@ export function SystemDetailHeader({ system, signals, currentTab = "tasks" }: Sy
             key={tab}
             role="tab"
             aria-selected={currentTab === tab}
-            href={`/systems/${system.id}?tab=${tab}`}
+            href={`/systems/${system.id}?tab=${tab}${cycle ? `&cycle=${encodeURIComponent(cycle)}` : ""}`}
             className={cn(
               "flex h-10 items-center rounded-full px-4 text-sm font-semibold transition-colors",
               currentTab === tab ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground",

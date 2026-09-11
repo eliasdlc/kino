@@ -31,6 +31,7 @@ export const EXPORT_TABLES: readonly ExportTable[] = [
   { tabla: "contextTags", etiqueta: "Etiquetas", formato: "JSON" },
   { tabla: "systemStatusDefinitions", etiqueta: "Columnas de tablero", formato: "JSON" },
   { tabla: "taskReminders", etiqueta: "Recordatorios", formato: "JSON" },
+  { tabla: "academicPeriods", etiqueta: "Años y ciclos académicos", formato: "JSON" },
   { tabla: "folders", etiqueta: "Carpetas", formato: "JSON" },
   { tabla: "pages", etiqueta: "Cuadernos y capítulos", formato: "JSON + Markdown" },
   { tabla: "stickyNotes", etiqueta: "Notas adhesivas", formato: "JSON" },

@@ -8,6 +8,7 @@
  * @module
  */
 
+import type * as academicPeriods from "../academicPeriods.js";
 import type * as account from "../account.js";
 import type * as connections from "../connections.js";
 import type * as cronRuns from "../cronRuns.js";
@@ -21,6 +22,7 @@ import type * as github from "../github.js";
 import type * as githubData from "../githubData.js";
 import type * as http from "../http.js";
 import type * as insights from "../insights.js";
+import type * as lib_academic from "../lib/academic.js";
 import type * as lib_cronHealth from "../lib/cronHealth.js";
 import type * as lib_energy_curve from "../lib/energy/curve.js";
 import type * as lib_errors from "../lib/errors.js";
@@ -66,6 +68,7 @@ import type {
 } from "convex/server";
 
 declare const fullApi: ApiFromModules<{
+  academicPeriods: typeof academicPeriods;
   account: typeof account;
   connections: typeof connections;
   cronRuns: typeof cronRuns;
@@ -79,6 +82,7 @@ declare const fullApi: ApiFromModules<{
   githubData: typeof githubData;
   http: typeof http;
   insights: typeof insights;
+  "lib/academic": typeof lib_academic;
   "lib/cronHealth": typeof lib_cronHealth;
   "lib/energy/curve": typeof lib_energy_curve;
   "lib/errors": typeof lib_errors;

@@ -389,6 +389,7 @@ está incompleta.
 | `proposals` | 14 días desde `expiresAt` | nadie: pasan a `expired` al mirarlas, no se borran |
 | `captures` | 48 h sin confirmar | caducan con aviso; el blob se va con la fila |
 | `systemMembers`, `systemInvites`, `sessionDigests`, `interruptions` | no se podan | son estado y rastro, no historia. `interruptions` guarda una fila por candidato mostrado, y son unidades al año por persona |
+| `academicPeriods` | no se podan | años y ciclos permanentes; archivar un sistema conserva su historial |
 | `cronRuns` | ver `convex/cronRuns.ts` | el snapshot diario |
 
 ### Borrados y cascadas

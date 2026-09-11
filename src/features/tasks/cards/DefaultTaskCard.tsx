@@ -7,7 +7,6 @@ import { cn } from "@/lib/utils";
 import type { TaskTransport, TaskMetadata } from "../tasks.types";
 import { SubtaskList } from "../SubtaskList";
 import { useSubtasks } from "../tasks.hooks";
-import { getSystemColor } from "@/shared/utils/system-colors";
 import { useTaskCard, type TaskCardState } from "./useTaskCard";
 import type { TaskCardProps } from "./types";
 import type { SystemType } from "@/shared/lib/system-types";
@@ -77,14 +76,6 @@ function CheckIcon() {
       <polyline points="2 6 5 9 10 3" />
     </svg>
   );
-}
-
-function formatTime(timeStr: unknown): string {
-  if (typeof timeStr !== "string") return "";
-  const [h, m] = timeStr.split(":").map(Number);
-  if (h === 0) return `${m}m`;
-  if (m === 0) return `${h}h`;
-  return `${h}h ${m}m`;
 }
 
 function ReminderCountdown({ dueDate }: { dueDate: string }) {
@@ -161,7 +152,7 @@ interface DefaultMetaProps {
 }
 
 function DefaultMeta({ task, state, systemType, systemId }: DefaultMetaProps) {
-  const { isOverdue, isDueSoon, folder, typeConfig } = state;
+  const { isOverdue, isDueSoon, typeConfig } = state;
   const TypeIcon = typeConfig.icon;
 
   return (
@@ -203,60 +194,6 @@ function DefaultMeta({ task, state, systemType, systemId }: DefaultMetaProps) {
 
       {/* KIN-77: show for all task types, not just project */}
       <SubtaskProgress parentTaskId={task.id} systemId={systemId} />
-
-      <span className={cn(
-        "inline-flex items-center gap-1.5 flex-wrap",
-        "md:opacity-0 md:group-hover:opacity-100 motion-safe:transition-opacity motion-safe:duration-150"
-      )}>
-        {folder && (
-          <>
-            <span className="text-xs text-muted-foreground/45">·</span>
-            <span className="inline-flex items-center gap-1 text-sm text-muted-foreground/85">
-              <span className={cn("size-1.5 rounded-full shrink-0", `bg-${getSystemColor(folder.color)}`)} />
-              {folder.name}
-            </span>
-          </>
-        )}
-
-        {!typeConfig.hideEnergyAndPriority && (
-          <>
-            <span className="text-xs text-muted-foreground/45">·</span>
-            <span className="font-mono text-sm text-muted-foreground/65">{task.energyLevel}</span>
-          </>
-        )}
-
-        {task.estimatedTime && (
-          <>
-            <span className="text-xs text-muted-foreground/45">·</span>
-            <span className="font-mono text-sm text-muted-foreground/85">
-              {formatTime(task.estimatedTime)}
-            </span>
-          </>
-        )}
-
-        {systemType && task.metadata && (() => {
-          const m = task.metadata as TaskMetadata;
-          if (systemType === "academic" && m.course) return (
-            <>
-              <span className="text-xs text-muted-foreground/45">·</span>
-              <span className="text-sm text-muted-foreground/85">{m.course}</span>
-            </>
-          );
-          if (systemType === "project" && (m.assignee || m.project)) return (
-            <>
-              {m.project && <><span className="text-xs text-muted-foreground/45">·</span><span className="text-sm text-muted-foreground/85">{m.project}</span></>}
-              {m.assignee && <><span className="text-xs text-muted-foreground/45">·</span><span className="text-sm text-muted-foreground/85">{m.assignee}</span></>}
-            </>
-          );
-          if (systemType === "entrepreneurial" && m.milestone) return (
-            <>
-              <span className="text-xs text-muted-foreground/45">·</span>
-              <span className="text-sm text-muted-foreground/85">{m.milestone}</span>
-            </>
-          );
-          return null;
-        })()}
-      </span>
 
       {systemType === "personal" && (task.metadata as TaskMetadata | null)?.why && (
         <p className="text-xs text-muted-foreground/65 mt-0.5 truncate">
@@ -332,12 +269,12 @@ export function DefaultTaskCard({ task, systemId, systemType, draggable, isFocus
       </button>
 
       <div className="flex-1 min-w-0">
-        <div className={cn("flex items-center justify-between gap-2 mb-[5px]", showPriorityBadge && "pr-12")}>
+        <div className={cn("flex items-start justify-between gap-2 mb-[5px]", showPriorityBadge && "pr-12")}>
           <button
             type="button"
             onClick={() => onEdit?.(task)}
             className={cn(
-              "text-sm md:text-base font-normal text-foreground truncate text-left leading-snug",
+              "text-sm md:text-base font-normal text-foreground min-w-0 flex-1 whitespace-normal wrap-anywhere text-left leading-snug",
               isDone && "line-through text-muted-foreground/85"
             )}
           >

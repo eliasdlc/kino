@@ -1,11 +1,13 @@
 "use client";
 
+import { useAcademicScope } from "@/features/academic/academic-scope";
 import { api } from "@convex/_generated/api";
 import { useConvexMutation, useConvexQuery } from "@/shared/convex/hooks";
 import type { CreateFolderInput, UpdateFolderInput } from "./folders.schemas";
 
 export function useFolders(systemId: string, options?: { enabled?: boolean }) {
-  return useConvexQuery(api.folders.bySystem, { systemId }, options);
+  const scope = useAcademicScope(systemId);
+  return useConvexQuery(api.folders.bySystem, { systemId, ...(scope?.academicPeriodId !== undefined ? { academicPeriodId: scope.academicPeriodId } : {}) }, options);
 }
 
 export function useFolderChildren(folderId: string) {
@@ -13,8 +15,9 @@ export function useFolderChildren(folderId: string) {
 }
 
 export function useCreateFolder(systemId: string) {
+  const scope = useAcademicScope(systemId);
   return useConvexMutation(api.folders.create, {
-    map: (data: Omit<CreateFolderInput, "systemId">) => ({ ...data, systemId }),
+    map: (data: Omit<CreateFolderInput, "systemId">) => ({ ...data, systemId, ...(scope?.academicPeriodId && !data.parentId ? { academicPeriodId: scope.academicPeriodId } : {}) }),
   });
 }
 

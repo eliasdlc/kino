@@ -1,5 +1,6 @@
 "use client";
 
+import { useAcademicScope } from "@/features/academic/academic-scope";
 import { api } from "@convex/_generated/api";
 import { useConvexMutation, useConvexQuery } from "@/shared/convex/hooks";
 import type { CreatePageInput, UpdatePageInput } from "./pages.schemas";
@@ -10,7 +11,8 @@ import type { CreatePageInput, UpdatePageInput } from "./pages.schemas";
  * ahí para el día que un sistema pase del tope.
  */
 export function usePages(systemId: string) {
-  const result = useConvexQuery(api.pages.bySystem, { systemId });
+  const scope = useAcademicScope(systemId);
+  const result = useConvexQuery(api.pages.bySystem, { ...scope, systemId });
   return { ...result, data: result.data?.items, restantes: result.data?.restantes ?? 0 };
 }
 
