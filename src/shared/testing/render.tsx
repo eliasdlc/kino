@@ -7,6 +7,7 @@
  * árbol se quedan viejas de una en una sin que nada falle.
  */
 
+import { ConvexQueryCacheProvider } from "convex-helpers/react/cache";
 import { render, type RenderOptions, type RenderResult } from "@testing-library/react";
 import { ConvexProviderWithAuth, type ConvexReactClient } from "convex/react";
 import { SystemTypeProvider } from "@/components/SystemTypeProvider";
@@ -41,10 +42,12 @@ export function renderWithProviders(ui: React.ReactNode, options: RenderWithProv
     ...rest,
     wrapper: ({ children }) => (
       <ConvexProviderWithAuth client={client} useAuth={useTestAuth}>
+      <ConvexQueryCacheProvider expiration={0} maxIdleEntries={0}>
         <ThemeProvider initialTheme={theme}>
           <SystemTypeProvider>{children}</SystemTypeProvider>
         </ThemeProvider>
-      </ConvexProviderWithAuth>
+        </ConvexQueryCacheProvider>
+    </ConvexProviderWithAuth>
     ),
   });
 

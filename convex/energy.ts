@@ -18,6 +18,7 @@ import {
 } from '../src/features/energy/energy.honesty';
 import { updateEnergyProfileSchema } from '../src/features/energy/energy.schemas';
 import { toTransport } from '../src/shared/lib/transport';
+import { hourInTimeZone } from '../src/shared/time';
 import {
   buildPeakAdvice,
   CHRONOTYPE_CURVES,
@@ -59,7 +60,7 @@ function slotForHour(hour: number): Slot {
 }
 
 export function currentHourIn(timezone: string, now = Date.now()): number {
-  return Number(new Intl.DateTimeFormat('en-US', { timeZone: timezone, hour: 'numeric', hour12: false }).format(now)) % 24;
+  return hourInTimeZone(timezone, now);
 }
 
 // ── Lecturas compartidas ────────────────────────────────────────────────────
@@ -426,11 +427,13 @@ export const todayPlan = kinoZodQuery({
   args: {},
   handler: async (ctx) => {
     const user = ctx.user;
+    const now = Date.now();
+    const clock = { hour: currentHourIn(user.timezone, now), date: userToday(user.timezone, now), timezone: user.timezone };
     const profile = await profileOf(ctx, user._id);
     if (!profile) {
-      return { energyPlan: null, noProfile: true, hasCheckin: false, checkin: null, checkins: [], chronotype: null, learnedCurve: null, learningAlpha: 0, projectedCurve: [], predictions: [] };
+      return { clock, energyPlan: null, noProfile: true, hasCheckin: false, checkin: null, checkins: [], chronotype: null, learnedCurve: null, learningAlpha: 0, projectedCurve: [], predictions: [] };
     }
-    const today = userToday(user.timezone);
+    const today = clock.date;
     const [rows, all, predictions] = await Promise.all([aliveRows(ctx, user._id), checkinsOn(ctx, user._id, today), predictionsOn(ctx, user._id, today)]);
     const candidates = rows.filter((t) => ACTIVE.has(t.status));
     const latest = all[all.length - 1];
@@ -450,6 +453,7 @@ export const todayPlan = kinoZodQuery({
         })
       : null;
     return {
+      clock,
       // El planner calcula con Date; Convex sólo admite sus valores de transporte.
       energyPlan: toTransport(energyPlan),
       noProfile: false,

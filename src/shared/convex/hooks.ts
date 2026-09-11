@@ -1,7 +1,8 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { useAction, useConvexAuth, useMutation, useQuery } from "convex/react";
+import { useAction, useConvexAuth, useMutation } from "convex/react";
+import { useQuery } from "convex-helpers/react/cache";
 import type { FunctionArgs, FunctionReference, FunctionReturnType } from "convex/server";
 import type { Args } from "./loose";
 
@@ -33,12 +34,14 @@ export interface QueryResult<T> {
 export function useConvexQuery<Q extends FunctionReference<"query">>(
   query: Q,
   args: Args<Q> | "skip",
-  options: { enabled?: boolean } = {},
+  options: { enabled?: boolean; initialData?: FunctionReturnType<Q> } = {},
 ): QueryResult<FunctionReturnType<Q>> {
-  const { isAuthenticated } = useConvexAuth();
-  const skip = !isAuthenticated || args === "skip" || options.enabled === false;
-  const data = useQuery(query, ...(skip ? (["skip"] as const) : ([args as FunctionArgs<Q>] as [FunctionArgs<Q>])));
-  const isLoading = !skip && data === undefined;
+  const { isAuthenticated, isLoading: authLoading } = useConvexAuth();
+  const enabled = args !== "skip" && options.enabled !== false;
+  const skip = !isAuthenticated || !enabled;
+  const liveData = useQuery(query, ...(skip ? (["skip"] as const) : ([args as FunctionArgs<Q>] as [FunctionArgs<Q>])));
+  const data = liveData !== undefined ? liveData : enabled ? options.initialData : undefined;
+  const isLoading = enabled && (authLoading || isAuthenticated) && data === undefined;
   return {
     data,
     isLoading,

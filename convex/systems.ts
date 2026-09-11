@@ -87,6 +87,33 @@ export const systemMetadataSchema = z.object({
  * Los sistemas activos con sus señales: cuántas tareas vivas tienen y cuánto
  * hace que no registran actividad, que es lo que decide si están parados.
  */
+async function systemWithSignals(ctx: QueryCtx, system: Doc<'systems'>) {
+  const now = Date.now();
+  const days = (from: number) => Math.floor((now - from) / 86_400_000);
+  const [tasks, logs] = await Promise.all([
+    ctx.db.query('tasks').withIndex('by_system_alive_status', (q) => q.eq('systemId', system._id).eq('deletedAt', undefined)).collect(),
+    ctx.db.query('timeLogs').withIndex('by_system_started', (q) => q.eq('systemId', system._id)).collect(),
+  ]);
+  const activeTaskCount = tasks.filter((task) => task.status !== 'done').length;
+  const lastActivity = Math.max(0, ...tasks.map((task) => task.completedAt ?? 0), ...logs.map((log) => log.createdAt));
+  const daysSinceLastActivity = lastActivity > 0 ? days(lastActivity) : null;
+  const stale = !system.isInbox && deriveStale({
+    expectedFrequency: system.expectedFrequency, activeTaskCount, daysSinceLastActivity,
+    daysSinceCreated: days(system.createdAt),
+  });
+  return { ...systemItem(system), stale, daysSinceLastActivity, activeTaskCount };
+}
+
+/** El detalle sólo calcula señales del sistema que se está abriendo. */
+export const detail = kinoZodQuery({
+  args: { id: zid('systems') },
+  handler: async (ctx, { id }) => {
+    const system = await ownSystem(ctx, ctx.user._id, id);
+    if (!system.isActive) notFound('System not found');
+    return systemWithSignals(ctx, system);
+  },
+});
+
 export const list = kinoZodQuery({
   args: {},
   handler: async (ctx) => {
@@ -95,36 +122,7 @@ export const list = kinoZodQuery({
       .query('systems')
       .withIndex('by_user_active', (q) => q.eq('userId', userId).eq('isActive', true))
       .collect();
-    const now = Date.now();
-    const days = (from: number) => Math.floor((now - from) / 86_400_000);
-
-    const items = [];
-    for (const system of docs.sort((a, b) => a.sortOrder - b.sortOrder)) {
-      const tasks = await ctx.db
-        .query('tasks')
-        .withIndex('by_system_alive_status', (q) => q.eq('systemId', system._id).eq('deletedAt', undefined))
-        .collect();
-      const logs = await ctx.db
-        .query('timeLogs')
-        .withIndex('by_system_started', (q) => q.eq('systemId', system._id))
-        .collect();
-      const activeTaskCount = tasks.filter((task) => task.status !== 'done').length;
-      const lastActivity = Math.max(
-        ...tasks.map((task) => task.completedAt ?? 0),
-        ...logs.map((log) => log.createdAt),
-      );
-      const daysSinceLastActivity = lastActivity > 0 ? days(lastActivity) : null;
-      const stale = system.isInbox
-        ? false
-        : deriveStale({
-            expectedFrequency: system.expectedFrequency,
-            activeTaskCount,
-            daysSinceLastActivity,
-            daysSinceCreated: days(system.createdAt),
-          });
-      items.push({ ...systemItem(system), stale, daysSinceLastActivity, activeTaskCount });
-    }
-    return items;
+    return Promise.all(docs.sort((a, b) => a.sortOrder - b.sortOrder).map((system) => systemWithSignals(ctx, system)));
   },
 });
 

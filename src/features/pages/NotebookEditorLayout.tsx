@@ -111,10 +111,9 @@ interface NotebookEditorLayoutProps {
   page: PageDetailTransport;
   systemId: string;
   systemName: string;
-  allPages: PageListItemTransport[];
   breadcrumbItems: BreadcrumbItem[];
   /** The root notebook: null if current page IS the root */
-  parentNotebook: PageListItemTransport | null;
+  parentNotebook: Pick<PageListItemTransport, "id" | "title"> | null;
   /** Sub-pages of the root notebook (pre-fetched server-side) */
   initialSubPages: PageListItemTransport[];
   /** Arquetipo Writing: activa el "writer feel" del editor (PLAN-11 §7). */

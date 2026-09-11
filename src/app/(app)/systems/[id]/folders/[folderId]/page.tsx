@@ -23,20 +23,17 @@ export default async function FolderViewRoute({ params }: FolderViewRouteProps) 
 
   if (!session) redirect("/login");
 
-  const [folder, system] = await Promise.all([
+  const [folder, system, children, allPages, folderTasks] = await Promise.all([
     serverQuery(api.folders.detail, { id: folderId }).catch(() => null),
     serverQuery(api.systems.byId, { id: systemId }).catch(() => null),
-  ]);
-
-  if (!folder || !system) notFound();
-
-  const [children, allPages, folderTasks] = await Promise.all([
     serverQuery(api.folders.children, { id: folderId }),
-    serverQuery(api.pages.bySystem, { systemId }),
+    serverQuery(api.pages.bySystem, { systemId, folderId }),
     serverQuery(api.tasks.byFolder, { systemId, folderId }),
   ]);
 
-  const folderPages = allPages.items.filter((p) => p.folderId === folderId);
+  if (!folder || !system || folder.systemId !== systemId) notFound();
+
+  const folderPages = allPages.items;
   const emptyCopy = containerDetailEmptyCopy(resolveSystemManifest(system));
   const hasDocContent = children.length > 0 || folderPages.length > 0;
 

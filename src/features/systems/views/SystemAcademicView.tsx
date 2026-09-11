@@ -1,5 +1,6 @@
 "use client";
 
+import { useUrlView } from "@/shared/hooks/use-url-view";
 import { useState } from "react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { CreateTaskDialog } from "@/features/tasks/CreateTaskDialog";
@@ -20,7 +21,7 @@ import type { SystemViewProps } from "./SystemDetailView";
  */
 export function SystemAcademicView({ system, initialTasks }: SystemViewProps) {
   const [editTask, setEditTask] = useState<TaskTransport | null>(null);
-  const [tab, setTab] = useState("esta-semana");
+  const [tab, setTab] = useUrlView(["esta-semana", "classes", "calendar", "planning", "archive"], "esta-semana");
   const [highlight, setHighlight] = useState<{ id: string; nonce: number } | null>(null);
   // La vista de clases necesita las tareas para contar pendientes y próxima entrega.
   const { data: allTasks = initialTasks } = useTasks(system.id, initialTasks);

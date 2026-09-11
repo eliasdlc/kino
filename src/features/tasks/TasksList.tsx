@@ -1,5 +1,6 @@
 "use client";
 
+import { useUrlView } from "@/shared/hooks/use-url-view";
 import { useState, type ComponentType } from "react";
 import type { TaskTransport } from "./tasks.types";
 import { CreateTaskDialog } from "./CreateTaskDialog";
@@ -55,9 +56,11 @@ export function TasksList({
   const tabs = visibleTabs.length > 0 ? visibleTabs : DEFAULT_TABS;
   const initialTab = defaultTab && tabs.includes(defaultTab) ? defaultTab : tabs[0];
 
+  const [tab, setTab] = useUrlView(tabs, initialTab);
+
   return (
     <>
-      <Tabs defaultValue={initialTab} className="w-full flex flex-col gap-4">
+      <Tabs value={tab} onValueChange={setTab} className="w-full flex flex-col gap-4">
         <div className="flex items-center gap-2">
           <TabsList className="flex-1 min-w-0 md:flex-none md:w-max">
             {tabs.map((tab) => (

@@ -39,11 +39,23 @@ const CHECKIN = {
 
 function pintar() {
   return renderWithProviders(
-    <EnergyTodayCard initialCheckins={[CHECKIN]} projectedCurve={CURVA} chronotype="intermediate" />,
+    <EnergyTodayCard clock={{ hour: new Date().getHours(), date: "2026-09-11", timezone: "America/Santo_Domingo" }} initialCheckins={[CHECKIN]} projectedCurve={CURVA} chronotype="intermediate" />,
   );
 }
 
 describe("EnergyTodayCard", () => {
+  it("usa el tramo del servidor aunque el dispositivo tenga otra hora", () => {
+    setReducedMotion(true);
+    const hour = (new Date().getHours() + 12) % 24;
+    renderWithProviders(
+      <EnergyTodayCard clock={{ hour, date: "2026-09-11", timezone: "America/Santo_Domingo" }}
+        initialCheckins={[{ ...CHECKIN, slot: getCurrentSlot(hour), currentLevel: 73 }]}
+        projectedCurve={CURVA} chronotype="intermediate" />,
+    );
+    expect(screen.getByText("73")).toBeVisible();
+    expect(screen.getByText(/viernes, 11 de septiembre/i)).toBeVisible();
+  });
+
   it("no deja ninguna animación en bucle, ni por clase ni en un style inline", () => {
     const { container } = pintar();
 

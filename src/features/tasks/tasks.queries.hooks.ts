@@ -17,13 +17,11 @@ export function useTrashedTasks(systemId: string, enabled = true) {
 
 /** La lista de un sistema. `initialData` es lo que pintó el servidor, hasta que llega la suscripción. */
 export function useTasks(systemId: string, initialData: TaskTransport[]) {
-  const result = useConvexQuery(api.tasks.bySystem, { systemId });
-  return { ...result, data: result.data ?? initialData };
+  return useConvexQuery(api.tasks.bySystem, { systemId }, { initialData });
 }
 
 export function useFolderTasks(systemId: string, folderId: string, initialData?: TaskTransport[]) {
-  const result = useConvexQuery(api.tasks.byFolder, { systemId, folderId }, { enabled: !!folderId });
-  return { ...result, data: result.data ?? initialData };
+  return useConvexQuery(api.tasks.byFolder, { systemId, folderId }, { enabled: !!folderId, initialData });
 }
 
 export function useSubtasks(taskId: string, _systemId: string, options?: { enabled?: boolean }) {
