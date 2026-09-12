@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { z } from "zod";
 import { ALL_TOOLS } from "./index";
 
@@ -7,11 +7,11 @@ import { ALL_TOOLS } from "./index";
  * aprendidos. Quitar uno rompe a quien lo usa; añadir uno es una decisión que
  * pasa por aquí.
  *
- * Son 67. Las siete que faltan respecto a la lista de antes se retiraron a
+ * Son 68. Las seis que faltan respecto a la lista de antes se retiraron a
  * propósito y no vuelven sin reabrir el principio 2: las cinco de borrar,
  * `create_energy_checkin` (un check-in escrito por una máquina contamina el
- * único dato honesto que Kino tiene) y `update_page` (reescribir el cuerpo de
- * lo que escribiste es suplantar tu voz: se propone, no se ejecuta).
+ * único dato honesto que Kino tiene). `update_page` volvió con una política de
+ * autoría original y confirmación explícita aplicada por el servidor.
  */
 const CONTRACT = [
   "append_learning_interaction",
@@ -78,6 +78,7 @@ const CONTRACT = [
   "unlink_task_from_page",
   "update_entity",
   "update_folder",
+  "update_page",
   "update_sticky_note",
   "update_system",
   "update_task",
@@ -96,5 +97,69 @@ describe("catálogo del MCP", () => {
       // Schema (un `zid`, un `z.custom`) rompe la lista entera.
       expect(() => z.toJSONSchema(tool.input), tool.name).not.toThrow();
     }
+  });
+
+  it("update_page exige versión y limita la confirmación a la declaración acordada", () => {
+    const update = ALL_TOOLS.find((tool) => tool.name === "update_page")!;
+
+    expect(update.description).toContain("conversación actual");
+    expect(update.description).toContain("no puede leer ni verificar");
+    expect(update.input.safeParse({ id: "page" }).success).toBe(false);
+    expect(
+      update.input.safeParse({
+        id: "page",
+        expectedUpdatedAt: "2026-09-11T12:00:00.000Z",
+        authorization: "el_agente_dice_que_si",
+      }).success,
+    ).toBe(false);
+  });
+
+  it("get_page conserva markdown y política sin exponer ids personales", async () => {
+    const get = ALL_TOOLS.find((tool) => tool.name === "get_page")!;
+    const call = vi.fn().mockResolvedValue({
+      id: "page_1",
+      userId: "user_1",
+      clientRequestId: "request_1",
+      title: "Apunte",
+      content: "<h1>Título</h1><p>Texto</p>",
+      createdVia: "oauth",
+      agentEditPolicy: "direct",
+      updatedAt: "2026-09-11T12:00:00.000Z",
+    });
+
+    const result = await get.run(call, { id: "page_1" });
+
+    expect(result).toMatchObject({
+      id: "page_1",
+      content: "# Título\n\nTexto",
+      contentFormat: "markdown",
+      createdVia: "oauth",
+      agentEditPolicy: "direct",
+    });
+    expect(result).not.toHaveProperty("userId");
+    expect(result).not.toHaveProperty("clientRequestId");
+  });
+
+  it("update_page convierte markdown a HTML y devuelve markdown", async () => {
+    const update = ALL_TOOLS.find((tool) => tool.name === "update_page")!;
+    const call = vi.fn().mockResolvedValue({
+      id: "page_1",
+      title: "Apunte",
+      content: "<h2>Actualizado</h2>",
+      createdVia: "oauth",
+      agentEditPolicy: "direct",
+      updatedAt: "2026-09-11T12:01:00.000Z",
+    });
+
+    const result = await update.run(call, {
+      id: "page_1",
+      expectedUpdatedAt: "2026-09-11T12:00:00.000Z",
+      content: "## Actualizado",
+    });
+
+    expect(call).toHaveBeenCalledOnce();
+    expect(call.mock.calls[0]![0]).toBe("mutation");
+    expect(call.mock.calls[0]![2]).toMatchObject({ content: "<h2>Actualizado</h2>\n" });
+    expect(result).toMatchObject({ content: "## Actualizado", contentFormat: "markdown" });
   });
 });

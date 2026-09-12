@@ -82,7 +82,10 @@ function withHtmlContent<T extends { content?: string | null }>(input: T): Omit<
  * `update_page` espera de vuelta en `expectedUpdatedAt`.
  */
 function asMarkdownPage<T extends { content: string | null }>(page: T) {
-  return { ...page, content: htmlToMarkdown(page.content), contentFormat: "markdown" as const };
+  const visible = { ...page } as T & { userId?: unknown; clientRequestId?: unknown };
+  delete visible.userId;
+  delete visible.clientRequestId;
+  return { ...visible, content: htmlToMarkdown(page.content), contentFormat: "markdown" as const };
 }
 
 const pageContent = z.string().nullable().optional().describe("Contenido en markdown; se convierte a HTML al guardar para que el editor lo renderice");
@@ -284,7 +287,7 @@ const pages: Tool[] = [
   readTool(api.pages.bySystem, {
     name: "list_pages",
     description:
-      "Lista las páginas (notas markdown) de un sistema en Kino. Devuelve `items` y `restantes`: si `restantes` es mayor que cero, la lista viene recortada.",
+      "Lista las páginas (notas markdown) de un sistema en Kino. Cada item indica `createdVia` y `agentEditPolicy` para saber si un agente edita directo o necesita confirmación. Devuelve `items` y `restantes`: si `restantes` es mayor que cero, la lista viene recortada.",
     input: z.object({ systemId: id }),
   }),
   readTool(api.pages.byId, {
@@ -305,6 +308,23 @@ const pages: Tool[] = [
       content: pageContent,
     }),
     args: withHtmlContent,
+  }),
+  writeTool(api.pages.updateFromAgent, {
+    name: "update_page",
+    description:
+      "Actualiza el título o el contenido markdown de una página. Empieza con get_page y devuelve su `updatedAt` en `expectedUpdatedAt`. Si `agentEditPolicy` es `direct`, edita sin confirmación. Si es `confirmation_required`, prepara el cambio y pregunta a la persona; sólo envía `authorization=explicit_user_confirmation` después de recibir una autorización explícita para esa actualización en la conversación actual. Tras un CONFLICT, relee la página y vuelve a pedir autorización si el contenido nuevo altera el cambio aprobado. Kino valida la declaración del agente, pero el servidor MCP no puede leer ni verificar por sí mismo la conversación. Para borrar o enviar a la papelera usa propose_change.",
+    input: z.object({
+      id,
+      expectedUpdatedAt: isoDate.describe("El `updatedAt` de la lectura más reciente; es obligatorio para no pisar cambios posteriores"),
+      title: z.string().max(500).nullable().optional(),
+      content: pageContent,
+      authorization: z
+        .literal("explicit_user_confirmation")
+        .optional()
+        .describe("Decláralo sólo después de una autorización explícita para esta actualización en la conversación actual"),
+    }),
+    args: withHtmlContent,
+    result: asMarkdownPage,
   }),
   writeTool(api.pages.restore, {
     name: "restore_page",
