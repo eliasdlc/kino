@@ -3,7 +3,12 @@ import { checkSocialAuthRedirect } from "./social-auth-health";
 
 const clerkUrl = "https://clerk.usekino.dev";
 
-function providerRedirect(provider: "google" | "github", clientId = "client-123") {
+const clientIds = {
+  google: "123456789-example.apps.googleusercontent.com",
+  github: "Ov23abcdefghijklmnop",
+} as const;
+
+function providerRedirect(provider: "google" | "github", clientId: string = clientIds[provider]) {
   const host = provider === "google" ? "accounts.google.com" : "github.com";
   const path = provider === "google" ? "/o/oauth2/auth" : "/login/oauth/authorize";
   const redirect = new URL(path, `https://${host}`);
@@ -21,6 +26,16 @@ describe("social auth health", () => {
     expect(checkSocialAuthRedirect("google", providerRedirect("google", ""), clerkUrl)).toEqual({
       ok: false,
       reason: "La conexión google está publicada sin client_id.",
+    });
+  });
+
+  it.each([
+    ["google", clientIds.github],
+    ["github", clientIds.google],
+  ] as const)("detecta un client_id de otro proveedor en %s", (provider, clientId) => {
+    expect(checkSocialAuthRedirect(provider, providerRedirect(provider, clientId), clerkUrl)).toEqual({
+      ok: false,
+      reason: `El client_id publicado para ${provider} no tiene el formato de ese proveedor.`,
     });
   });
 

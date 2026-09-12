@@ -7,6 +7,11 @@ const expectedHosts: Record<SocialAuthProvider, string> = {
   github: "github.com",
 };
 
+const hasExpectedClientIdFormat: Record<SocialAuthProvider, (clientId: string) => boolean> = {
+  google: (clientId) => clientId.endsWith(".apps.googleusercontent.com"),
+  github: (clientId) => /^[A-Za-z0-9]{20}$/.test(clientId),
+};
+
 type RedirectCheck =
   | { ok: true }
   | { ok: false; reason: string };
@@ -31,10 +36,18 @@ export function checkSocialAuthRedirect(
     };
   }
 
-  if (!parsed.searchParams.get("client_id")) {
+  const clientId = parsed.searchParams.get("client_id");
+  if (!clientId) {
     return {
       ok: false,
       reason: `La conexión ${provider} está publicada sin client_id.`,
+    };
+  }
+
+  if (!hasExpectedClientIdFormat[provider](clientId)) {
+    return {
+      ok: false,
+      reason: `El client_id publicado para ${provider} no tiene el formato de ese proveedor.`,
     };
   }
 
