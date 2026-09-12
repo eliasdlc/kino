@@ -385,6 +385,9 @@ describe('energy', () => {
 
 describe('el techo propuesto al septimo dia', () => {
   const DIA = 86_400_000;
+  // Las 14:00 en Santo Domingo: cierre e inicio quedan en el mismo día.
+  // Una referencia fija evita que ejecutar la suite de madrugada cambie el conteo.
+  const REFERENCIA = Date.UTC(2025, 0, 15, 18);
 
   /**
    * Cierra `cuantos` tareas firmadas por una persona, repartidas en dias
@@ -399,7 +402,7 @@ describe('el techo propuesto al septimo dia', () => {
   ) {
     return t.run(async (ctx) => {
       for (let i = 0; i < cuantos; i++) {
-        const cuando = Date.now() - (i % 4) * DIA - 3_600_000;
+        const cuando = REFERENCIA - (i % 4) * DIA;
         const taskId = await ctx.db.insert('tasks', {
           userId, systemId, createdBy: userId, createdVia: 'session',
           title: `Cerrada ${i}`, status: 'done', energyLevel: 'medium', priority: 'medium',
