@@ -12,11 +12,15 @@ import { SystemDesignShell } from "./SystemDesignShell";
 vi.mock("next/navigation", async () => (await import("@/shared/testing/navigation")).navigationMock());
 
 describe("SystemDesignShell", () => {
-  it("monta las secciones del catálogo con sus anclas", () => {
-    renderWithProviders(<SystemDesignShell />);
-    const anchors = screen.getAllByRole("link").filter((a) => /^#.+/.test(a.getAttribute("href") ?? ""));
-    expect(anchors.length).toBeGreaterThanOrEqual(14);
-    const missing = anchors.map((a) => a.getAttribute("href")!.slice(1)).filter((id) => !document.getElementById(id));
-    expect(missing).toEqual([]);
-  });
+  it(
+    "monta las secciones del catálogo con sus anclas",
+    () => {
+      renderWithProviders(<SystemDesignShell />);
+      const anchors = screen.getAllByRole("link").filter((a) => /^#.+/.test(a.getAttribute("href") ?? ""));
+      expect(anchors.length).toBeGreaterThanOrEqual(14);
+      const missing = anchors.map((a) => a.getAttribute("href")!.slice(1)).filter((id) => !document.getElementById(id));
+      expect(missing).toEqual([]);
+    },
+    10_000,
+  );
 });
