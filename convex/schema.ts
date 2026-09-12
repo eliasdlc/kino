@@ -181,6 +181,8 @@ export const taskStatus = literals(['backlog', 'week', 'tomorrow', 'today', 'don
 /** Por qué puerta entró la escritura: sesión, cliente OAuth, sincronización o el sistema. */
 export const actorChannel = literals(['session', 'oauth', 'sync', 'system']);
 export type ActorChannel = Infer<typeof actorChannel>;
+export const agentEditBasis = literals(['agent_origin', 'explicit_user_confirmation']);
+export type AgentEditBasis = Infer<typeof agentEditBasis>;
 export const memberRole = literals(['owner', 'member']);
 export const planTier = literals(['free', 'paid']);
 /** Los ocho tipos de objeto que un evento o una arista pueden señalar. */
@@ -790,6 +792,8 @@ export default defineSchema({
     // Cliente OAuth que actuó, cuando el canal es oauth.
     clientId: v.optional(v.string()),
     action: v.string(),
+    // Por qué una edición de página procedente de MCP pudo escribirse.
+    agentEditBasis: v.optional(agentEditBasis),
     targetType: itemType,
     // Sin referencia tipada a propósito: el lector tolera un objetivo borrado.
     targetId: v.string(),

@@ -100,6 +100,8 @@ export function describeError(error: unknown): string {
       case "FORBIDDEN":
       case "CONFLICT":
         return `${String(data.code)}: ${String(data.message)}`;
+      case "CONFIRMATION_REQUIRED":
+        return JSON.stringify(data, null, 2);
     }
     if ("ZodError" in data) return `Argumentos inválidos: ${JSON.stringify(data.ZodError)}`;
     return typeof error.data === "string" ? error.data : JSON.stringify(error.data);

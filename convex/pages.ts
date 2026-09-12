@@ -6,8 +6,8 @@ import type { Doc, Id } from './_generated/dataModel';
 import type { MutationCtx, QueryCtx } from './_generated/server';
 import { countWords } from '../src/shared/lib/word-count';
 import { forbidden, invalid, notFound } from './lib/errors';
-import { kinoZodMutation, kinoZodQuery, type Channel } from './lib/fn';
-import type { ActorChannel } from './schema';
+import { kinoZodClosed, kinoZodMutation, kinoZodQuery, type Channel } from './lib/fn';
+import type { ActorChannel, AgentEditBasis } from './schema';
 import { lematizar } from './lib/lemas';
 import { recomputePageMentions } from './lib/mentions';
 import { archivarVersion } from './lib/pages/snapshots';
@@ -38,6 +38,13 @@ function stripHtml(html: string | undefined): string | null {
 
 const alive = (doc: Doc<'pages'>) => doc.deletedAt === undefined;
 
+export type AgentEditPolicy = 'direct' | 'confirmation_required';
+
+/** La autoría original manda aunque después la página se edite por otra vía. */
+function agentEditPolicy(createdVia: ActorChannel): AgentEditPolicy {
+  return createdVia === 'oauth' ? 'direct' : 'confirmation_required';
+}
+
 async function ownPage(ctx: Ctx, userId: Id<'users'>, id: Id<'pages'>) {
   const doc = await ctx.db.get(id);
   if (!doc || doc.userId !== userId || !alive(doc)) notFound('Page not found');
@@ -67,6 +74,8 @@ async function pageListItem(ctx: Ctx, doc: Doc<'pages'>, opts: { tags?: boolean;
     completedAt: iso(doc.completedAt),
     createdAt: iso(doc.createdAt)!,
     updatedAt: iso(doc.updatedAt)!,
+    createdVia: doc.createdVia,
+    agentEditPolicy: agentEditPolicy(doc.createdVia),
     contentPreview: stripHtml(doc.content),
     wordCount: countWords(doc.content ?? null),
     tags: opts.tags === false ? [] : await tagsOf(ctx, doc._id),
@@ -184,6 +193,8 @@ export const byId = kinoZodQuery({
       clientRequestId: doc.clientRequestId ?? null,
       createdAt: iso(doc.createdAt)!,
       updatedAt: iso(doc.updatedAt)!,
+      createdVia: doc.createdVia,
+      agentEditPolicy: agentEditPolicy(doc.createdVia),
       linkedTasks: await linkedTasksOf(ctx, ctx.user._id, id),
     };
   },
@@ -323,10 +334,66 @@ const updateFields = {
   expectedUpdatedAt: z.iso.datetime({ offset: true }).optional(),
 };
 
-export const update = kinoZodMutation({
+export const update = kinoZodClosed({
   args: updateFields,
   handler: async (ctx, { id, ...data }) => updatePageDoc(ctx, ctx.user._id, ctx.channel, id, data),
 });
+
+const agentUpdateFields = {
+  id: zid('pages'),
+  title: updateFields.title,
+  content: updateFields.content,
+  expectedUpdatedAt: z.iso.datetime({ offset: true }),
+  authorization: z.literal('explicit_user_confirmation').optional(),
+};
+
+/**
+ * La única edición de páginas abierta a OAuth. Una página creada por un agente
+ * queda abierta a cualquier cliente autorizado de la misma cuenta; las demás
+ * exigen que el agente declare la confirmación explícita de la conversación.
+ */
+export const updateFromAgent = kinoZodMutation({
+  args: agentUpdateFields,
+  handler: async (ctx, { id, authorization, ...data }) => {
+    if (ctx.channel !== 'oauth') forbidden('Esta operación es exclusiva del conector MCP.');
+    if (data.title === undefined && data.content === undefined) invalid('La actualización necesita title o content.');
+    const current = await ownPage(ctx, ctx.user._id, id);
+    assertExpectedUpdatedAt(current, data.expectedUpdatedAt);
+
+    const policy = agentEditPolicy(current.createdVia);
+    if (policy === 'confirmation_required' && authorization !== 'explicit_user_confirmation') {
+      throw new ConvexError({
+        code: 'CONFIRMATION_REQUIRED' as const,
+        message: 'Esta página está protegida por su origen y necesita confirmación explícita para esta actualización.',
+        pageId: current._id,
+        title: current.title ?? null,
+        createdVia: current.createdVia,
+        currentUpdatedAt: iso(current.updatedAt)!,
+        instruction:
+          'Pregunta a la persona si autoriza esta actualización concreta. Sólo después de una respuesta explícita en la conversación actual vuelve a leer la página y envía authorization="explicit_user_confirmation".',
+      });
+    }
+
+    const agentEditBasis: AgentEditBasis =
+      policy === 'direct' ? 'agent_origin' : 'explicit_user_confirmation';
+    return updatePageDoc(ctx, ctx.user._id, ctx.channel, id, data, { agentEditBasis });
+  },
+});
+
+function assertExpectedUpdatedAt(current: Doc<'pages'>, expectedUpdatedAt: string | undefined) {
+  if (expectedUpdatedAt !== undefined && Date.parse(expectedUpdatedAt) !== current.updatedAt) {
+    throw new ConvexError({
+      code: 'CONFLICT' as const,
+      message:
+        'La página cambió después de leerla. Vuelve a leerla y aplica el cambio sobre la versión nueva. Si el contenido nuevo altera lo que la persona autorizó, pide confirmación otra vez.',
+    });
+  }
+}
+
+type PageUpdateOptions = {
+  proposalId?: Id<'proposals'>;
+  agentEditBasis?: AgentEditBasis;
+};
 
 /**
  * La edición de un capítulo, exportada para que aplicar una propuesta de
@@ -340,18 +407,13 @@ export async function updatePageDoc(
   channel: ActorChannel,
   id: Id<'pages'>,
   data: Omit<z.infer<z.ZodObject<typeof updateFields>>, 'id'>,
-  proposalId?: Id<'proposals'>,
+  options: PageUpdateOptions = {},
 ) {
   {
     const { expectedUpdatedAt, ...campos } = data;
     const current = await ownPage(ctx, userId, id);
     // La versión se compara al milisegundo, que es lo que sobrevive al ISO.
-    if (expectedUpdatedAt !== undefined && Date.parse(expectedUpdatedAt) !== current.updatedAt) {
-      throw new ConvexError({
-        code: 'CONFLICT' as const,
-        message: 'La página cambió después de leerla. Vuelve a leerla y aplica el cambio sobre la versión nueva.',
-      });
-    }
+    assertExpectedUpdatedAt(current, expectedUpdatedAt);
     if (campos.folderId) {
       const folder = await ctx.db.get(campos.folderId);
       if (!folder || folder.userId !== userId || folder.systemId !== current.systemId) forbidden('Folder does not belong to this system');
@@ -390,16 +452,18 @@ export async function updatePageDoc(
     // versión con el texto de antes.
     const cambios = diferencias(current, updated);
     delete cambios.content;
+    const payload = current.content === updated.content ? cambios : { ...cambios, contenidoCambiado: true };
     await recordEvent(ctx, {
       userId,
       systemId: updated.systemId,
       actorChannel: channel,
       action: 'page.update',
+      agentEditBasis: options.agentEditBasis,
       targetType: 'page',
       targetId: id,
-      payload: current.content === updated.content ? cambios : { ...cambios, contenidoCambiado: true },
+      payload,
       snapshotId,
-      proposalId,
+      proposalId: options.proposalId,
     });
     return { ...(await pageListItem(ctx, updated, { subPages: false })), content: updated.content ?? null };
   }

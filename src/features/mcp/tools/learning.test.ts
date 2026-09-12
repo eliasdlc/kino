@@ -46,7 +46,7 @@ function fakeConvex() {
     if (!page) throw new ConvexError({ code: "NOT_FOUND", message: "Page not found" });
 
     if (name === "pages:byId") return page;
-    if (name === "pages:update") {
+    if (name === "pages:updateFromAgent") {
       if (args.expectedUpdatedAt && args.expectedUpdatedAt !== page.updatedAt) {
         throw new ConvexError({ code: "CONFLICT", message: "La página cambió después de leerla" });
       }

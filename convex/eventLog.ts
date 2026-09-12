@@ -5,7 +5,7 @@ import type { Doc, Id } from './_generated/dataModel';
 import { notFound } from './lib/errors';
 import { kinoMutation, kinoQuery } from './lib/fn';
 import { calendarDayInTz } from './lib/time';
-import { itemType, type ActorChannel } from './schema';
+import { itemType, type ActorChannel, type AgentEditBasis } from './schema';
 
 // El registro de lo que el usuario pidió que se escribiera. Sostiene el log de
 // actividad, el deshacer y las aristas automáticas.
@@ -106,6 +106,8 @@ export type EventInput = {
    */
   clientId?: string;
   action: string;
+  /** Por qué una edición de página procedente de MCP pudo escribirse. */
+  agentEditBasis?: AgentEditBasis;
   targetType: Doc<'eventLog'>['targetType'];
   targetId: string;
   payload?: Record<string, unknown>;
@@ -141,6 +143,7 @@ export async function recordEvent(
     actorChannel: input.actorChannel,
     clientId: input.clientId ?? ctx.clientId,
     action: input.action,
+    agentEditBasis: input.agentEditBasis,
     targetType: input.targetType,
     targetId: input.targetId,
     payload: boundPayload(input.payload ?? {}, input.payloadMaxBytes),

@@ -24,7 +24,7 @@ import type { Call, Tool } from "./define";
  * (`learning-session.ts`) y el agente sólo decide qué enseñar.
  *
  * La versión la impone Convex, no estas tools: se le pasa el `expectedUpdatedAt`
- * que traía la última lectura del agente y es `pages.update` quien responde
+ * que traía la última lectura del agente y es `pages.updateFromAgent` quien responde
  * CONFLICT si la página cambió. Comprobarlo aquí antes de escribir dejaría una
  * ventana entre la comprobación y el guardado, que es justo el problema.
  */
@@ -54,7 +54,7 @@ async function readSession(call: Call, pageId: string) {
 
 /** Guarda el documento entero. Devuelve la versión nueva para el siguiente paso. */
 async function saveSession(call: Call, pageId: string, markdown: string, expectedUpdatedAt: string): Promise<string> {
-  const saved = await call("mutation", api.pages.update, {
+  const saved = await call("mutation", api.pages.updateFromAgent, {
     id: pageId as never,
     content: markdownToHtml(markdown),
     expectedUpdatedAt,
