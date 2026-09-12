@@ -47,7 +47,7 @@ export const MCP_SCOPE_CONSENT: Record<Scope, string> = {
   propose:
     "Proponerte cambios, que aparecen en Hoy con la fila que los justifica para que los aceptes o los descartes. No escribe nada por su cuenta.",
   write:
-    "Crear y editar tus tareas, sistemas, carpetas y notas, siempre con tu nombre y por qué vía en el registro, y siempre reversible desde el propio item. No puede borrar nada, no escribe tu check-in de energía y no reescribe el cuerpo de lo que tú escribiste: eso te lo propone.",
+    "Crear y editar tus tareas, sistemas, carpetas y notas, siempre con tu nombre y por qué vía en el registro, y siempre reversible desde el propio item. Puede reescribir páginas creadas por agentes y páginas tuyas sólo después de que lo autorices expresamente en la conversación. No puede borrar nada ni escribir tu check-in de energía.",
 };
 
 /** Vida del token que se firma para Convex. Cubre una petición del protocolo. */

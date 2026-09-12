@@ -263,7 +263,7 @@ export const aplicar = kinoZodMutation({
         ctx.channel,
         fila.evidenceId as Id<'pages'>,
         { content: fila.payload.contenido as string },
-        fila._id,
+        { proposalId: fila._id },
       );
     }
 

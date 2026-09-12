@@ -118,11 +118,12 @@ describe("el copy del consentimiento", () => {
     expect(MCP_SCOPE_CONSENT.propose.toLowerCase()).not.toContain("borrar");
   });
 
-  it("lo que el copy dice que el agente no hace, el catálogo tampoco lo publica", () => {
+  it("el catálogo y el copy comparten la política de edición de páginas", () => {
     const publicadas = new Set(ALL_TOOLS.map((tool) => tool.name));
     expect(publicadas.has("create_energy_checkin")).toBe(false);
-    expect(publicadas.has("update_page")).toBe(false);
+    expect(publicadas.has("update_page")).toBe(true);
     expect(MCP_SCOPE_CONSENT.write).toContain("check-in de energía");
-    expect(MCP_SCOPE_CONSENT.write).toContain("reescribe el cuerpo");
+    expect(MCP_SCOPE_CONSENT.write).toContain("páginas creadas por agentes");
+    expect(MCP_SCOPE_CONSENT.write).toContain("autorices expresamente");
   });
 });

@@ -2,7 +2,7 @@ import { ConvexError } from 'convex/values';
 
 // Los mismos códigos que la API REST devolvía, ahora como error tipado que el
 // cliente distingue por `data.code`.
-export type DomainErrorCode = 'NOT_FOUND' | 'VALIDATION_ERROR' | 'FORBIDDEN' | 'CONFLICT';
+export type DomainErrorCode = 'NOT_FOUND' | 'VALIDATION_ERROR' | 'FORBIDDEN' | 'CONFLICT' | 'CONFIRMATION_REQUIRED';
 
 export function notFound(message: string): never {
   throw new ConvexError({ code: 'NOT_FOUND' as const, message });
