@@ -257,6 +257,21 @@ export const DESHACER: Record<string, FormaDeDeshacer> = {
       'El techo se apagó porque el instrumento llevaba catorce días fallando. Vuelve cuando vuelva a acertar, y esa vuelta se propone: deshacerla desde aquí sería saltarse la cola.',
   },
 
+  'capture.create': {
+    forma: 'no',
+    motivo: 'Compartir algo desde fuera no es una edición: lo que se deshace es lo que hagas con ello, no que llegara.',
+  },
+  'capture.confirm': {
+    forma: 'no',
+    motivo:
+      'Confirmar crea tareas, y cada una se deshace por su cuenta desde su propia fila. Deshacer el grupo borraría tareas que quizá ya editaste.',
+  },
+  'capture.discard': { forma: 'fields' },
+  'capture.expire': {
+    forma: 'no',
+    motivo: 'Caducar no lo decidió nadie: la captura sigue ahí una semana más y se puede confirmar o descartar.',
+  },
+
   'log.deshacer': {
     forma: 'no',
     motivo: 'Deshacer un deshacer es rehacer, y eso es volver a pedir el cambio.',
@@ -653,19 +668,20 @@ export const porItem = kinoQuery({
  * Si llenó el lote quedan más viejos, y se reprograma para seguir; si no, ha
  * terminado. Reejecutarla sobre una tabla ya podada no borra nada.
  */
+export async function podarEventos(ctx: MutationCtx, tope = PRUNE_BATCH) {
+  const corte = Date.now() - RETENTION_DAYS * 86_400_000;
+  const viejos = await ctx.db
+    .query('eventLog')
+    .withIndex('by_occurred', (q) => q.lt('occurredAt', corte))
+    .take(tope);
+  for (const doc of viejos) await ctx.db.delete(doc._id);
+
+  const quedan = viejos.length === tope;
+  if (quedan) await ctx.scheduler.runAfter(0, internal.eventLog.podar, { limite: tope });
+  return { borradas: viejos.length, quedan };
+}
+
 export const podar = internalMutation({
   args: { limite: v.optional(v.number()) },
-  handler: async (ctx, { limite }) => {
-    const tope = limite ?? PRUNE_BATCH;
-    const corte = Date.now() - RETENTION_DAYS * 86_400_000;
-    const viejos = await ctx.db
-      .query('eventLog')
-      .withIndex('by_occurred', (q) => q.lt('occurredAt', corte))
-      .take(tope);
-    for (const doc of viejos) await ctx.db.delete(doc._id);
-
-    const quedan = viejos.length === tope;
-    if (quedan) await ctx.scheduler.runAfter(0, internal.eventLog.podar, { limite: tope });
-    return { borradas: viejos.length, quedan };
-  },
+  handler: async (ctx, { limite }) => podarEventos(ctx, limite ?? PRUNE_BATCH),
 });

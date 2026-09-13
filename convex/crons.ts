@@ -14,16 +14,16 @@ crons.daily('daily-snapshot', { hourUTC: 12, minuteUTC: 0 }, internal.scheduler.
 
 crons.interval('task-reminders', { minutes: 15 }, internal.scheduler.taskReminders);
 
-// 12:20 UTC: veinte minutos después del snapshot, para no competir con él. La
-// poda va por lotes y se reprograma sola mientras queden filas de más de
-// treinta días (`convex/eventLog.ts`).
+// 12:20 UTC: veinte minutos después del snapshot, para no competir con él. Cada
+// poda va por lotes y se reprograma sola mientras le quede trabajo.
 //
-// **Los diez segundos son de la entrada, no de cada poda.** Hoy sólo hay una
-// aquí, y `convex/eventLog.test.ts` mide su lote de producción con margen de
-// sobra. La segunda que entre (la de `itemLinks`, cuando exista quien las
-// escriba) comparte ese presupuesto: se mide la suma, no cada una por su
-// lado, o cuatro podas de diez segundos acabarán sin caber en una función de
-// diez.
-crons.daily('event-log-prune', { hourUTC: 12, minuteUTC: 20 }, internal.eventLog.podar, {});
+// **Los diez segundos son de la entrada, no de cada poda.** Por eso hay una
+// sola entrada (`convex/podas.ts`) y no una por tabla: la del log borra lo que
+// pasó de treinta días, la de capturas caduca lo que nadie confirmó y borra lo
+// que ya pasó su semana de gracia, y las dos se miden sumadas. La siguiente que
+// entre (la de `itemLinks`, cuando exista quien las escriba) entra aquí y se
+// mide con ellas, o cuatro podas de diez segundos acabarán sin caber en una
+// función de diez.
+crons.daily('podas-diarias', { hourUTC: 12, minuteUTC: 20 }, internal.podas.diaria, {});
 
 export default crons;
