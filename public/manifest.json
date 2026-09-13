@@ -8,7 +8,10 @@
     "orientation": "portrait",
     "background_color": "#09090b",
     "theme_color": "#09090b",
-    "categories": ["productivity", "lifestyle"],
+    "categories": [
+        "productivity",
+        "lifestyle"
+    ],
     "icons": [
         {
             "src": "/icons/icon-192x192.png",
@@ -29,21 +32,67 @@
             "short_name": "Tarea",
             "description": "Crear una tarea rápida",
             "url": "/dashboard?action=new-task",
-            "icons": [{ "src": "/icons/icon-192x192.png", "sizes": "192x192" }]
+            "icons": [
+                {
+                    "src": "/icons/icon-192x192.png",
+                    "sizes": "192x192"
+                }
+            ]
         },
         {
             "name": "Bandeja",
             "short_name": "Bandeja",
             "description": "Lo que capturaste sin decidir dónde va",
             "url": "/bandeja",
-            "icons": [{ "src": "/icons/icon-192x192.png", "sizes": "192x192" }]
+            "icons": [
+                {
+                    "src": "/icons/icon-192x192.png",
+                    "sizes": "192x192"
+                }
+            ]
         },
         {
             "name": "Mis tareas",
             "short_name": "Tareas",
             "description": "Ver todas las tareas pendientes",
             "url": "/tasks",
-            "icons": [{ "src": "/icons/icon-192x192.png", "sizes": "192x192" }]
+            "icons": [
+                {
+                    "src": "/icons/icon-192x192.png",
+                    "sizes": "192x192"
+                }
+            ]
         }
-    ]
+    ],
+    "share_target": {
+        "action": "/compartir",
+        "method": "POST",
+        "enctype": "multipart/form-data",
+        "params": {
+            "title": "titulo",
+            "text": "texto",
+            "url": "url",
+            "files": [
+                {
+                    "name": "imagen",
+                    "accept": [
+                        "image/*"
+                    ]
+                },
+                {
+                    "name": "audio",
+                    "accept": [
+                        "audio/*"
+                    ]
+                },
+                {
+                    "name": "archivo",
+                    "accept": [
+                        "text/plain",
+                        "application/pdf"
+                    ]
+                }
+            ]
+        }
+    }
 }

@@ -23,6 +23,12 @@ function isPublicRoute(pathname: string): boolean {
     // Workbox recibía el redirect a /login y guardaba eso. No lleva datos de
     // usuario: es una shell estática.
     pathname === "/offline" ||
+    // El destino de compartir. El POST de la hoja del sistema llega sin la
+    // cookie `Lax`, así que con el gate puesto recibiría un redirect a login y
+    // un 302 sobre un POST multipart pierde el cuerpo: la foto no llegaría
+    // nunca. Lo atiende el service worker antes de la red, y la sesión se
+    // resuelve dentro de la pantalla.
+    pathname === "/compartir" ||
     // El túnel por el que el navegador manda los informes a Sentry. Va aquí
     // porque el fallo más importante que puede reportar, un login roto, ocurre
     // justo cuando todavía no hay sesión.
