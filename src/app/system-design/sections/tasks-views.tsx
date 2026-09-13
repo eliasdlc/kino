@@ -194,7 +194,7 @@ export function TasksViewsSection() {
                   onToggle={noop}
                   onDelete={noop}
                   onEdit={noop}
-                  onMoveColumn={noop}
+                  onRequestMove={noop}
                 />
                 <BoardCard
                   task={makeTask({
@@ -208,7 +208,7 @@ export function TasksViewsSection() {
                   onToggle={noop}
                   onDelete={noop}
                   onEdit={noop}
-                  onMoveColumn={noop}
+                  onRequestMove={noop}
                 />
               </div>
             </DndContext>

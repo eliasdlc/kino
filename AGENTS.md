@@ -299,7 +299,7 @@ CSS puro: keyframes, transitions, Tailwind. **No instalar Framer Motion.**
 ### UI
 
 - **Sin emojis.** Texto o iconos lucide.
-- **Mobile**: `ResponsiveDialog` (Dialog en desktop, Drawer en móvil), vistas `*MobileView`, **sin drag and drop en touch**, acciones hover con `md:opacity-0`.
+- **Mobile**: `ResponsiveDialog` (Dialog en desktop, Drawer en móvil), vistas `*MobileView`, **sin drag and drop en touch**, acciones hover con `md:opacity-0`. La rama por viewport va **antes** del contexto de arrastre, no dentro de la nota que se arrastra, y el gesto que se pierde gana una **operación con nombre** que deja su evento y se deshace: `BoardMoveSheet` para las columnas del tablero, `StackNoteSheet` para apilar notas.
 - Todo cambio de UI se previsualiza en **`/system-design`** y añade su specimen.
 - Cada ruta con su `loading.tsx`, cubierta por un `error.tsx`.
 - **Verificar mirando**: `node scripts/capturas/run.mjs` (con `pnpm dev` corriendo) captura las 19 rutas y el catálogo `/system-design` con la cuenta sembrada a 393x852, 430x748, 1131x686 y 1440x900, en claro y oscuro; `scripts/capturas/sembrar.mjs` le da densidad a esa cuenta en el deployment de dev. Nada visible se da por hecho sin esas capturas.

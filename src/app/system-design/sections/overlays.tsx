@@ -16,6 +16,8 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
+import { BoardMoveSheet } from "@/features/systems/views/project/BoardMoveSheet";
+import { PROJECT_BOARD_COLUMNS } from "@/shared/lib/system-types";
 import {
   ResponsiveDialog,
   ResponsiveDialogContent,
@@ -101,6 +103,7 @@ const SNIPPET_PAGINA = `Ana estaba escribiendo una ${SNIPPET_OPEN}canción${SNIP
 
 export function OverlaysSection() {
   const [confirmOpen, setConfirmOpen] = useState(false);
+  const [moveOpen, setMoveOpen] = useState(false);
 
   return (
     <Section
@@ -166,6 +169,20 @@ export function OverlaysSection() {
                 </div>
               </ResponsiveDialogContent>
             </ResponsiveDialog>
+          </Specimen>
+
+          <Specimen label="BoardMoveSheet" hint="el equivalente con nombre del arrastre">
+            <Button variant="outline" onClick={() => setMoveOpen(true)}>
+              Mover a...
+            </Button>
+            <BoardMoveSheet
+              open={moveOpen}
+              onOpenChange={setMoveOpen}
+              subject="Diagrama ER de la tesis"
+              destinations={PROJECT_BOARD_COLUMNS}
+              currentId="todo"
+              onMove={() => setMoveOpen(false)}
+            />
           </Specimen>
 
           <Specimen label="Drawer" hint="bottom sheet móvil (vaul)">

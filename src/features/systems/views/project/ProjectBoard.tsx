@@ -17,6 +17,7 @@ import { DroppableColumn } from "@/features/tasks/dnd/DroppableColumn";
 import { TaskDragOverlay } from "@/features/tasks/dnd/TaskDragOverlay";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { BoardCard } from "./BoardCard";
+import { BoardMoveSheet } from "./BoardMoveSheet";
 import { computeBoardMetrics } from "./board.metrics";
 import type { TaskTransport } from "@/features/tasks/tasks.types";
 import type { TaskDragData } from "@/features/tasks/dnd/dnd.types";
@@ -33,8 +34,21 @@ interface ProjectBoardProps {
 const FIRST_COLUMN = PROJECT_BOARD_COLUMNS[0].id;
 
 /** Columna del board en la que cae una tarjeta (board_status null → primera). */
-function boardColumnOf(task: TaskTransport): string {
+export function boardColumnOf(task: TaskTransport): string {
   return task.boardStatus ?? FIRST_COLUMN;
+}
+
+/**
+ * El destino efectivo de un movimiento, o `null` cuando no hay nada que
+ * escribir porque la tarjeta ya está ahí.
+ *
+ * Es la guarda que el arrastre tenía y el camino con nombre no, y vive suelta
+ * porque los dos caminos la comparten: esa es la equivalencia entre la
+ * superficie de escritorio y la del teléfono, y es lo único que hay que probar
+ * una vez para las dos.
+ */
+export function boardMoveTarget(task: TaskTransport, targetCol: string): string | null {
+  return targetCol === boardColumnOf(task) ? null : targetCol;
 }
 
 export function ProjectBoard({ systemId, initialData, sprintFilter, onEdit, keyboardDisabled }: ProjectBoardProps) {
@@ -45,6 +59,8 @@ export function ProjectBoard({ systemId, initialData, sprintFilter, onEdit, keyb
 
   const [activeTask, setActiveTask] = useState<TaskTransport | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<TaskTransport | null>(null);
+  /** La tarjeta que la hoja de mover esta enseñando, o nada si esta cerrada. */
+  const [movingTask, setMovingTask] = useState<TaskTransport | null>(null);
 
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 8 } }),
@@ -67,6 +83,20 @@ export function ProjectBoard({ systemId, initialData, sprintFilter, onEdit, keyb
     if (data?.task) setActiveTask(data.task);
   }, []);
 
+  /**
+   * La unica puerta a la mutacion de columna, para el arrastre y para la hoja.
+   * Mover a la columna donde la tarjeta ya esta no escribe ni deja evento: la
+   * guarda vive aqui y no en quien dibuja los destinos.
+   */
+  const moveToColumn = useCallback(
+    (task: TaskTransport, targetCol: string) => {
+      const destino = boardMoveTarget(task, targetCol);
+      if (destino === null) return;
+      moveBoard({ taskId: task.id, boardStatus: destino });
+    },
+    [moveBoard],
+  );
+
   const handleDragEnd = useCallback(
     (e: DragEndEvent) => {
       setActiveTask(null);
@@ -74,11 +104,9 @@ export function ProjectBoard({ systemId, initialData, sprintFilter, onEdit, keyb
       if (!over) return;
       const data = active.data.current as TaskDragData | undefined;
       if (!data) return;
-      const targetCol = over.id as string;
-      if (targetCol === data.sourceId) return;
-      moveBoard({ taskId: data.task.id, boardStatus: targetCol });
+      moveToColumn(data.task, over.id as string);
     },
-    [moveBoard],
+    [moveToColumn],
   );
 
   return (
@@ -124,7 +152,7 @@ export function ProjectBoard({ systemId, initialData, sprintFilter, onEdit, keyb
                     onToggle={(id) => toggleTask(id)}
                     onDelete={() => setDeleteTarget(task)}
                     onEdit={onEdit}
-                    onMoveColumn={(boardStatus) => moveBoard({ taskId: task.id, boardStatus })}
+                    onRequestMove={() => setMovingTask(task)}
                     showSprint={sprintFilter === null}
                   />
                 ))}
@@ -135,6 +163,18 @@ export function ProjectBoard({ systemId, initialData, sprintFilter, onEdit, keyb
       </div>
 
       <TaskDragOverlay activeTask={activeTask} systemId={systemId} />
+
+      <BoardMoveSheet
+        open={movingTask !== null}
+        onOpenChange={(next) => !next && setMovingTask(null)}
+        subject={movingTask?.title ?? ""}
+        destinations={PROJECT_BOARD_COLUMNS}
+        currentId={movingTask ? boardColumnOf(movingTask) : FIRST_COLUMN}
+        onMove={(boardStatus) => {
+          if (movingTask) moveToColumn(movingTask, boardStatus);
+          setMovingTask(null);
+        }}
+      />
 
       <ConfirmDialog
         open={deleteTarget !== null}
