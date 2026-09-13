@@ -2,9 +2,9 @@
 
 Plataforma de productividad construida alrededor de la gestión de energía cognitiva y sistemas basados en identidad. Fullstack Next.js 16, 100% serverless.
 
-> **Los planes, el estado y el orden de trabajo viven en Linear**, no en este repo. Este archivo cubre comandos, stack y convenciones de código: nada de roadmap.
+> **Los planes, el estado y el orden de trabajo viven en Zoho Projects**, no en este repo. Este archivo cubre comandos, stack y convenciones de código: nada de roadmap.
 >
-> En Linear: los proyectos van numerados `01`–`07` en orden de ejecución. Los documentos del equipo *Norte, principios y estándares*, *Estado real del producto* e *Índice de decisiones D1–D16* son la fuente de verdad de qué se construye y por qué.
+> En Zoho (portal `eliasdlc2005gmaildotcom`, proyecto `Kino`, prefijo `KI1-T`): las fases van numeradas `01`–`07` en orden de ejecución, y son la fuente de verdad de qué se construye y por qué. El índice de decisiones vive en `~/Documents/Kino/dev/Kino-DECISIONS.md`. *Norte, principios y estándares* y *Estado real del producto* eran documentos de equipo de Linear y no se migraron: hasta que se reescriban, lo que manda son las fases y sus tickets.
 >
 > **En este repo solo se aceptan dos Markdown:** `README.md` y `AGENTS.md`. Ningún plan, audit ni análisis. Un `DESIGN.md` sería el único tercero admisible, y sólo el día que el sistema de diseño necesite su propio documento; hoy no existe. Las notas locales que no son código van a `~/Documents/Kino/dev/`.
 
@@ -336,7 +336,7 @@ Lo mismo para los mediums de escritura en `src/shared/lib/mediums.ts`. Ojo: el m
 
 ## Definition of Done
 
-Criterio de aceptación cumplido · `typecheck` limpio · `lint` en 0 · tests verdes con test nuevo si se tocó lógica · commit atómico · decisión no trivial anotada en el issue de Linear.
+Criterio de aceptación cumplido · `typecheck` limpio · `lint` en 0 · tests verdes con test nuevo si se tocó lógica · commit atómico · decisión no trivial anotada en el ticket de Zoho.
 
 ## Qué NO hacer
 
