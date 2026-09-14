@@ -97,3 +97,35 @@ describe("CompartirScreen", () => {
     expect(screen.getByRole("link", { name: "Compartir otra cosa" })).toHaveAttribute("href", "/dashboard");
   });
 });
+
+describe("cuando no se pudo guardar", () => {
+  it("dice el motivo y que sigue en el teléfono, en vez de prometer que sale sola", () => {
+    renderMobile(
+      <CompartirScreen
+        registro={registro({ kind: "photo", name: "pizarra.jpg" })}
+        previewUrl={null}
+        problema="La foto pesa más de 4 MB incluso comprimida y no se pudo guardar en Kino. Sigue en el teléfono, no se perdió."
+      />,
+    );
+
+    expect(screen.getByRole("heading", { name: "No se pudo guardar" })).toBeVisible();
+    expect(screen.getByText(/pesa más de 4 MB/)).toBeVisible();
+    expect(screen.getByText(/Sigue en el teléfono, no se perdió/)).toBeVisible();
+    // La promesa que no se puede cumplir no aparece por ningún lado.
+    expect(screen.queryByText(/Sale solo cuando vuelva la red/)).toBeNull();
+  });
+
+  it("sin problema declarado, sin red sigue diciendo que sale sola", () => {
+    renderMobile(<CompartirScreen registro={registro({ text: "idea" })} previewUrl={null} problema={null} />);
+
+    expect(screen.getByText(/Sale solo cuando vuelva la red/)).toBeVisible();
+  });
+
+  it("lo que ya subió no habla de problemas aunque hubiera habido uno antes", () => {
+    renderMobile(
+      <CompartirScreen registro={registro({ text: "idea", estado: "subida" })} previewUrl={null} problema={null} />,
+    );
+
+    expect(screen.getByText("Está en Bandeja, sin confirmar.")).toBeVisible();
+  });
+});

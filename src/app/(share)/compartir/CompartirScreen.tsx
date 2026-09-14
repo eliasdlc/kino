@@ -14,11 +14,21 @@ interface CompartirScreenProps {
   previewUrl: string | null;
   /** Si el recibo no apareció en la cola. */
   perdido?: boolean;
+  /**
+   * Por qué no se pudo guardar en Kino, cuando no fue la red. Sin esto la
+   * pantalla decía "sale solo cuando vuelva la red" ante un archivo rechazado,
+   * que es prometer algo que no iba a pasar.
+   */
+  problema?: string | null;
 }
 
-/** Dónde quedó lo compartido, en una línea. Nunca se archiva en silencio. */
-function donde(registro: RegistroCompartido): string {
+/**
+ * Dónde quedó lo compartido, en una línea. Nunca se archiva en silencio, y
+ * tampoco se promete que salga solo cuando no va a salir.
+ */
+function donde(registro: RegistroCompartido, problema: string | null): string {
   if (registro.estado === "subida") return "Está en Bandeja, sin confirmar.";
+  if (problema) return problema;
   return "Guardado en el teléfono. Sale solo cuando vuelva la red.";
 }
 
@@ -100,7 +110,7 @@ function Contenido({ registro, previewUrl }: { registro: RegistroCompartido; pre
  * piezas globales antes de pintar nada y resuelve la sesión con un redirect, que
  * es la misma trampa del POST por otro camino.
  */
-export function CompartirScreen({ registro, previewUrl, perdido }: CompartirScreenProps) {
+export function CompartirScreen({ registro, previewUrl, perdido, problema = null }: CompartirScreenProps) {
   if (perdido) {
     return (
       <main className="mx-auto flex min-h-[100dvh] w-full max-w-md flex-col gap-6 p-5">
@@ -131,7 +141,7 @@ export function CompartirScreen({ registro, previewUrl, perdido }: CompartirScre
 
   return (
     <main className="mx-auto flex min-h-[100dvh] w-full max-w-md flex-col gap-6 p-5">
-      <Encabezado titulo="Guardado" linea={donde(registro)} />
+      <Encabezado titulo={problema ? "No se pudo guardar" : "Guardado"} linea={donde(registro, problema)} />
       <section className="rounded-2xl border border-border bg-card p-4">
         <Contenido registro={registro} previewUrl={previewUrl} />
       </section>

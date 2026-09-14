@@ -8,7 +8,7 @@ import {
   type RegistroCompartido,
 } from "@/features/captures/shareTarget";
 import { useCreateCapture } from "@/features/captures/captures.hooks";
-import { prepararCaptura, subirArchivo } from "@/features/captures/subirCaptura";
+import { FalloAlSubir, HERRAMIENTAS, prepararCaptura } from "@/features/captures/subirCaptura";
 import { CompartirScreen } from "./CompartirScreen";
 
 /**
@@ -21,6 +21,7 @@ export function CompartirPantalla({ recibo, fallo }: { recibo: string | null; fa
   const [registro, setRegistro] = useState<RegistroCompartido | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [fueraDeLaCola, setFueraDeLaCola] = useState(false);
+  const [problema, setProblema] = useState<string | null>(null);
   const { mutateAsync: crearCaptura } = useCreateCapture();
 
   // Sin recibo no hay nada que buscar, así que eso se deriva y no se guarda:
@@ -51,12 +52,19 @@ export function CompartirPantalla({ recibo, fallo }: { recibo: string | null; fa
       // Con red sube sola y sale de la cola. Sin red se queda donde está y la
       // pantalla ya lo dice: nada se pierde y nada promete lo que no puede.
       try {
-        await crearCaptura(await prepararCaptura(encontrado, subirArchivo));
+        await crearCaptura(await prepararCaptura(encontrado, HERRAMIENTAS));
         if (!vivo) return;
         await borrarDeCola(encontrado.id);
         setRegistro({ ...encontrado, estado: "subida" });
-      } catch {
-        // Se queda en la cola, con su registro visible, esperando red.
+      } catch (error) {
+        if (!vivo) return;
+        // Sin red se queda en la cola y sale sola. Por cualquier otro motivo no
+        // va a salir, y la pantalla tiene que decirlo en vez de prometerlo.
+        const esRed = error instanceof FalloAlSubir && error.motivo === "sin-red";
+        if (!esRed) {
+          const razon = error instanceof FalloAlSubir ? error.message : "No se pudo guardar en Kino.";
+          setProblema(`${razon} Sigue en el teléfono, no se perdió.`);
+        }
       }
     })();
 
@@ -66,5 +74,5 @@ export function CompartirPantalla({ recibo, fallo }: { recibo: string | null; fa
     };
   }, [recibo, fallo, crearCaptura]);
 
-  return <CompartirScreen registro={registro} previewUrl={previewUrl} perdido={perdido} />;
+  return <CompartirScreen registro={registro} previewUrl={previewUrl} perdido={perdido} problema={problema} />;
 }
