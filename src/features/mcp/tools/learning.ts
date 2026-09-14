@@ -83,6 +83,9 @@ function sequence<S extends z.ZodRawShape>(spec: {
     name: spec.name,
     description: spec.description,
     input: spec.input,
+    // Una secuencia encadena varias funciones y la más exigente manda: todas
+    // escriben la página de la sesión, así que ninguna cabe en `read`.
+    perfil: "write",
     run: (call, raw) => spec.run(call, spec.input.parse(raw)),
   };
 }

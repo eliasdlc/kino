@@ -195,6 +195,10 @@ export const itemType = literals([
   'entity',
   'sprint',
   'tag',
+  // Lo compartido desde fuera deja su rastro como cualquier otra cosa: sin esto
+  // una captura podría caducar sin fila en el log, que es la definición exacta
+  // de archivarse en silencio.
+  'capture',
 ]);
 export const proposalStatus = literals(['pending', 'applied', 'dismissed', 'expired']);
 export const proposalKind = literals(['archive', 'cancel', 'rewrite']);

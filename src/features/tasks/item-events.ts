@@ -73,6 +73,13 @@ export const FRASES: Record<string, { item: string; verbo: string; clase: string
   "folder.remove": { item: "la mandó a la papelera", clase: "carpeta", resumen: (n) => `${n} ${n === 1 ? "carpeta" : "carpetas"}`, verbo: "mandó a la papelera" },
   "folder.restore": { item: "la sacó de la papelera", clase: "carpeta", resumen: (n) => `${n} ${n === 1 ? "carpeta" : "carpetas"}`, verbo: "sacó de la papelera" },
 
+  // Lo compartido desde fuera. `capture.expire` es de la poda y no de nadie: es
+  // la fila que hace que caducar no sea archivar en silencio.
+  "capture.create": { item: "llegó desde fuera", clase: "captura", resumen: (n) => `${n} ${n === 1 ? "captura" : "capturas"}`, verbo: "compartió" },
+  "capture.confirm": { item: "la confirmó y se volvió tareas", clase: "captura", resumen: (n) => `${n} ${n === 1 ? "captura" : "capturas"}`, verbo: "confirmó" },
+  "capture.resolve": { item: "la leyó y propuso qué hacer", clase: "captura", resumen: (n) => `${n} ${n === 1 ? "captura" : "capturas"}`, verbo: "leyó" },
+  "capture.discard": { item: "la descartó sin confirmarla", clase: "captura", resumen: (n) => `${n} ${n === 1 ? "captura" : "capturas"}`, verbo: "descartó" },
+  "capture.expire": { item: "caducó sin confirmarse", clase: "captura", resumen: (n) => `${n} ${n === 1 ? "captura" : "capturas"}`, verbo: "dejó caducar" },
   "stickyNote.create": { item: "escribió esta nota", clase: "nota", resumen: (n) => `${n} ${n === 1 ? "nota" : "notas"}`, verbo: "escribió" },
   "stickyNote.update": { item: "editó esta nota", clase: "nota", resumen: (n) => `${n} ${n === 1 ? "nota" : "notas"}`, verbo: "editó" },
   "stickyNote.remove": { item: "la mandó a la papelera", clase: "nota", resumen: (n) => `${n} ${n === 1 ? "nota" : "notas"}`, verbo: "mandó a la papelera" },
