@@ -9,11 +9,20 @@ const EXT_BY_TYPE: Record<string, string> = {
   "image/jpeg": "jpg",
   "image/gif": "gif",
   "image/avif": "avif",
+  // Audio desde la hoja de compartir. Una nota de voz de varios minutos cabe de
+  // sobra en los 4MB: los formatos que graban los teléfonos rondan 1MB/minuto.
+  "audio/mp4": "m4a",
+  "audio/mpeg": "mp3",
+  "audio/ogg": "ogg",
+  "audio/webm": "weba",
+  "audio/aac": "aac",
 };
 
 /**
- * POST /api/uploads: sube una imagen (ya comprimida en el cliente) y devuelve su
- * URL pública. El cuerpo es la imagen cruda; el content-type declara el formato.
+ * POST /api/uploads: sube una imagen o una nota de voz y devuelve su URL
+ * pública. El cuerpo es el archivo crudo; el content-type declara el formato.
+ * Las imágenes llegan ya comprimidas desde el cliente; el audio llega tal cual
+ * lo grabó el teléfono, que es lo que la hoja de compartir manda.
  */
 export const uploadImage = route()({}, async ({ userId, request }) => {
   const storage = getImageStorage();
@@ -28,7 +37,7 @@ export const uploadImage = route()({}, async ({ userId, request }) => {
   const ext = EXT_BY_TYPE[contentType];
   if (!ext) {
     return NextResponse.json(
-      { code: "UNSUPPORTED_TYPE", message: "Tipo de imagen no soportado" },
+      { code: "UNSUPPORTED_TYPE", message: "Tipo de archivo no soportado" },
       { status: 415 },
     );
   }
@@ -39,7 +48,7 @@ export const uploadImage = route()({}, async ({ userId, request }) => {
   }
   if (buffer.byteLength > MAX_BYTES) {
     return NextResponse.json(
-      { code: "TOO_LARGE", message: "La imagen supera el límite de 4MB" },
+      { code: "TOO_LARGE", message: "El archivo supera el límite de 4MB" },
       { status: 413 },
     );
   }

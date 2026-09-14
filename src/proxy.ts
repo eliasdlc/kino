@@ -23,12 +23,22 @@ function isPublicRoute(pathname: string): boolean {
     // Workbox recibía el redirect a /login y guardaba eso. No lleva datos de
     // usuario: es una shell estática.
     pathname === "/offline" ||
+    // El destino de compartir. El POST de la hoja del sistema llega sin la
+    // cookie `Lax`, así que con el gate puesto recibiría un redirect a login y
+    // un 302 sobre un POST multipart pierde el cuerpo: la foto no llegaría
+    // nunca. Lo atiende el service worker antes de la red, y la sesión se
+    // resuelve dentro de la pantalla.
+    pathname === "/compartir" ||
     // El túnel por el que el navegador manda los informes a Sentry. Va aquí
     // porque el fallo más importante que puede reportar, un login roto, ocurre
     // justo cuando todavía no hay sesión.
     pathname.startsWith("/monitoring") ||
     // El conector MCP remoto se autentica solo dentro de la ruta.
     pathname.startsWith("/api/mcp") ||
+    // El documento de la API. Se lee antes de conectar un agente, cuando
+    // todavía no hay credencial, y no lleva datos de nadie: nombres, prosa y
+    // schemas de entrada generados del catálogo.
+    pathname === "/api/docs" ||
     // Lo que Clerk sirve por el mismo dominio.
     pathname.startsWith("/__clerk")
   );

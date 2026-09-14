@@ -10,6 +10,7 @@
 
 import type * as academicPeriods from "../academicPeriods.js";
 import type * as account from "../account.js";
+import type * as captures from "../captures.js";
 import type * as connections from "../connections.js";
 import type * as cronRuns from "../cronRuns.js";
 import type * as crons from "../crons.js";
@@ -46,6 +47,7 @@ import type * as migrations_tablasDelRework from "../migrations/tablasDelRework.
 import type * as notifications from "../notifications.js";
 import type * as onboarding from "../onboarding.js";
 import type * as pages from "../pages.js";
+import type * as podas from "../podas.js";
 import type * as portabilidad from "../portabilidad.js";
 import type * as proposals from "../proposals.js";
 import type * as pushSend from "../pushSend.js";
@@ -70,6 +72,7 @@ import type {
 declare const fullApi: ApiFromModules<{
   academicPeriods: typeof academicPeriods;
   account: typeof account;
+  captures: typeof captures;
   connections: typeof connections;
   cronRuns: typeof cronRuns;
   crons: typeof crons;
@@ -106,6 +109,7 @@ declare const fullApi: ApiFromModules<{
   notifications: typeof notifications;
   onboarding: typeof onboarding;
   pages: typeof pages;
+  podas: typeof podas;
   portabilidad: typeof portabilidad;
   proposals: typeof proposals;
   pushSend: typeof pushSend;

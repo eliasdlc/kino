@@ -3,14 +3,15 @@
  *
  * La regla que lo sostiene: un `.test.tsx` que no renderice desde aquí se
  * inventó su propio árbol. El motivo no es uniformidad, es que los proveedores
- * de la app (tema, arquetipos, cliente de Convex) cambian, y cinco copias del
- * árbol se quedan viejas de una en una sin que nada falle.
+ * de la app (tema, arquetipos, timer de foco, cliente de Convex) cambian, y
+ * cinco copias del árbol se quedan viejas de una en una sin que nada falle.
  */
 
 import { ConvexQueryCacheProvider } from "convex-helpers/react/cache";
 import { render, type RenderOptions, type RenderResult } from "@testing-library/react";
 import { ConvexProviderWithAuth, type ConvexReactClient } from "convex/react";
 import { SystemTypeProvider } from "@/components/SystemTypeProvider";
+import { FocusTimerProvider } from "@/features/tasks/FocusTimerProvider";
 import { ThemeProvider, type ThemeMode } from "@/components/ThemeProvider";
 import { makeTestConvexClient, useTestAuth, type TestConvexClient } from "./convex-client";
 
@@ -44,7 +45,9 @@ export function renderWithProviders(ui: React.ReactNode, options: RenderWithProv
       <ConvexProviderWithAuth client={client} useAuth={useTestAuth}>
       <ConvexQueryCacheProvider expiration={0} maxIdleEntries={0}>
         <ThemeProvider initialTheme={theme}>
-          <SystemTypeProvider>{children}</SystemTypeProvider>
+          <SystemTypeProvider>
+            <FocusTimerProvider>{children}</FocusTimerProvider>
+          </SystemTypeProvider>
         </ThemeProvider>
         </ConvexQueryCacheProvider>
     </ConvexProviderWithAuth>

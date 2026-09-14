@@ -7,6 +7,15 @@ import { TaskDetailSheet } from '@/features/tasks/TaskDetailSheet';
 import { useTasks, useToggleTask } from '@/features/tasks/tasks.hooks';
 import type { TaskTransport } from '@/features/tasks/tasks.types';
 import { GroupNudge } from '@/features/systems/GroupNudge';
+import { CaptureRow } from '@/features/captures/CaptureRow';
+import { ShareConfirm } from '@/features/captures/ShareConfirm';
+import { resumenSinConfirmar } from '@/features/captures/captures.copy';
+import {
+  useCaptures,
+  useConfirmCapture,
+  useDiscardCapture,
+} from '@/features/captures/captures.hooks';
+import type { CaptureItem } from '@/features/captures/captures.types';
 import type { SystemViewProps } from './SystemDetailView';
 
 /**
@@ -17,11 +26,9 @@ import type { SystemViewProps } from './SystemDetailView';
 export const ITEMS_VISIBLES = 50;
 
 /**
- * Glifo por fuente conocida. Las capturas desde fuera llegan en la fase 7 y las
- * fuentes conectadas en la C: hasta entonces esto sólo reconoce lo que ya
- * escribe alguien, y una fuente que no conoce no se dibuja. El hueco de la
- * derecha de cada fila está reservado desde hoy para que la fila no cambie de
- * forma el día que llegue el estado de la captura.
+ * Glifo por fuente conocida. Una fuente que no conoce no se dibuja. El hueco de
+ * la derecha de cada fila lo comparten las tareas y las capturas, que es lo que
+ * permite que las dos vivan en la misma lista sin cambiar de forma.
  */
 const SOURCE_GLYPHS: Record<string, typeof Link2> = {
   github: GitBranch,
@@ -41,14 +48,19 @@ const SOURCE_GLYPHS: Record<string, typeof Link2> = {
 export function InboxView({ system, initialTasks }: SystemViewProps) {
   const { data: tasks = [] } = useTasks(system.id, initialTasks);
   const { mutate: toggle } = useToggleTask(system.id);
+  const { data: capturas = [] } = useCaptures();
+  const { mutate: confirmar } = useConfirmCapture();
+  const { mutate: descartar } = useDiscardCapture();
   const [triaging, setTriaging] = useState(false);
   const [open, setOpen] = useState<TaskTransport | null>(null);
+  const [confirmando, setConfirmando] = useState<CaptureItem | null>(null);
 
   const pending = tasks.filter((task) => task.status !== 'done');
+  const sinConfirmar = capturas.filter((captura) => captura.status === 'pending');
   const visible = pending.slice(0, ITEMS_VISIBLES);
   const rest = pending.length - visible.length;
 
-  if (pending.length === 0) {
+  if (pending.length === 0 && capturas.length === 0) {
     return (
       <section aria-labelledby="bandeja-titulo" className="space-y-2">
         <Header id="bandeja-titulo" count={0} />
@@ -61,7 +73,11 @@ export function InboxView({ system, initialTasks }: SystemViewProps) {
 
   return (
     <section aria-labelledby="bandeja-titulo">
-      <Header id="bandeja-titulo" count={pending.length} />
+      <Header id="bandeja-titulo" count={pending.length + capturas.length} />
+
+      {resumenSinConfirmar(sinConfirmar.length) && (
+        <p className="pt-1 text-sm text-muted-foreground">{resumenSinConfirmar(sinConfirmar.length)}</p>
+      )}
 
       <GroupNudge count={pending.length} onTriage={() => setTriaging(true)} />
 
@@ -74,6 +90,9 @@ export function InboxView({ system, initialTasks }: SystemViewProps) {
       )}
 
       <ul className="pt-1">
+        {capturas.map((captura) => (
+          <CaptureRow key={captura.id} captura={captura} onOpen={setConfirmando} />
+        ))}
         {visible.map((task) => {
           const Glyph = task.externalSource ? SOURCE_GLYPHS[task.externalSource] : undefined;
           return (
@@ -105,6 +124,20 @@ export function InboxView({ system, initialTasks }: SystemViewProps) {
           Quedan {rest} más sin pintar. Repártelas y la lista baja.
         </p>
       )}
+
+      <ShareConfirm
+        captura={confirmando}
+        open={confirmando !== null}
+        onOpenChange={(next) => !next && setConfirmando(null)}
+        onConfirm={(indices) => {
+          if (confirmando) confirmar({ id: confirmando.id, indices });
+          setConfirmando(null);
+        }}
+        onDiscard={() => {
+          if (confirmando) descartar(confirmando.id);
+          setConfirmando(null);
+        }}
+      />
 
       <CascadeInboxMode tasks={pending} open={triaging} onOpenChange={setTriaging} />
       <TaskDetailSheet

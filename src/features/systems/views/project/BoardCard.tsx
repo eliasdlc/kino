@@ -18,7 +18,7 @@ interface BoardCardProps {
   onDelete: (task: TaskTransport) => void;
   onEdit?: (task: TaskTransport) => void;
   /** Fallback móvil: mover de columna con un select en vez de arrastrar. */
-  onMoveColumn?: (boardStatus: string) => void;
+  onRequestMove?: () => void;
   /** Muestra el sprint de la tarjeta (vista 'Todas'). */
   showSprint?: boolean;
 }
@@ -28,7 +28,7 @@ interface BoardCardProps {
  * (Action/Planning), las tarjetas en la columna terminal (done) SÍ son
  * arrastrables, para poder reabrirlas sacándolas de "Hecho".
  */
-export function BoardCard({ task, systemId, isFocused, onToggle, onDelete, onEdit, onMoveColumn, showSprint }: BoardCardProps) {
+export function BoardCard({ task, systemId, isFocused, onToggle, onDelete, onEdit, onRequestMove, showSprint }: BoardCardProps) {
   const isMobile = useIsMobile();
 
   const dragData: TaskDragData = {
@@ -76,7 +76,7 @@ export function BoardCard({ task, systemId, isFocused, onToggle, onDelete, onEdi
         onDelete={onDelete}
         onEdit={onEdit}
         showSprint={showSprint}
-        onMoveColumn={onMoveColumn}
+        onRequestMove={onRequestMove}
       />
     </div>
   );
