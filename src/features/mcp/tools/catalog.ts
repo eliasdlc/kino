@@ -3,7 +3,7 @@ import { api } from "@convex/_generated/api";
 import { ENTITY_TYPES } from "@/features/entities/entities.attributes";
 import { TEMPLATE_TYPE_VALUES } from "@/shared/types/enums";
 import { htmlToMarkdown, markdownToHtml } from "../markdown";
-import { readTool, writeTool, type Tool } from "./define";
+import { proposeTool, readTool, writeTool, type Tool } from "./define";
 
 /**
  * Las tools que el agente ve, una por función de Convex que merece la pena
@@ -614,7 +614,7 @@ const captures: readonly Tool[] = [
       "Entrega una captura compartida (foto, nota de voz, enlace o texto) para que TÚ la mires con tus propios ojos: devuelve su tipo y la ruta de su archivo, no un análisis. Kino no mira nada por ti ni manda el contenido a ningún modelo. Cuando la hayas leído, devuelve los items con resolve_capture.",
     input: z.object({ id: id.describe("La captura, de la lista de Bandeja") }),
   }),
-  writeTool(api.captures.resolver, {
+  proposeTool(api.captures.resolver, {
     name: "resolve_capture",
     description:
       "Devuelve los items que leíste en una captura, con su título y a qué sistema propones mandarlos. No crea tareas: las deja propuestas dentro de la captura, y la persona confirma cuáles quiere. Resolver dos veces la misma captura devuelve CONFLICT y no duplica nada: si reintentas, vuelve a pedirla con get_capture primero.",

@@ -35,6 +35,10 @@ function isPublicRoute(pathname: string): boolean {
     pathname.startsWith("/monitoring") ||
     // El conector MCP remoto se autentica solo dentro de la ruta.
     pathname.startsWith("/api/mcp") ||
+    // El documento de la API. Se lee antes de conectar un agente, cuando
+    // todavía no hay credencial, y no lleva datos de nadie: nombres, prosa y
+    // schemas de entrada generados del catálogo.
+    pathname === "/api/docs" ||
     // Lo que Clerk sirve por el mismo dominio.
     pathname.startsWith("/__clerk")
   );

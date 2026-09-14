@@ -56,15 +56,26 @@ export interface Tool {
    * que la excepción no crezca sin que nadie la vea.
    */
   readonly ref?: Fn;
+  /**
+   * Qué alcance de credencial hace falta para llamarla. Lo declara la tool y no
+   * se deduce de si es query o mutación, porque `propose` también escribe: una
+   * credencial desatendida lee y propone, nunca escribe directo (D-07). Es lo
+   * que publica el documento de la API.
+   */
+  readonly perfil: Perfil;
   run(call: Call, input: Record<string, unknown>): Promise<unknown>;
 }
 
-function define<F extends Fn, S extends z.ZodRawShape>(kind: F["_type"], fn: F, spec: Spec<F, S>): Tool {
+/** Los tres alcances que una credencial de agente puede tener. */
+export type Perfil = "read" | "propose" | "write";
+
+function define<F extends Fn, S extends z.ZodRawShape>(kind: F["_type"], fn: F, spec: Spec<F, S>, perfil: Perfil): Tool {
   return {
     name: spec.name,
     description: spec.description,
     input: spec.input,
     ref: fn,
+    perfil,
     async run(call, raw) {
       const input = spec.input.parse(raw);
       const args = (spec.args ? spec.args(input) : input) as FunctionArgs<F>;
@@ -75,10 +86,20 @@ function define<F extends Fn, S extends z.ZodRawShape>(kind: F["_type"], fn: F, 
 }
 
 /** Una tool que lee. */
-export const readTool = <F extends Fn<"query">, S extends z.ZodRawShape>(fn: F, spec: Spec<F, S>) => define("query", fn, spec);
+export const readTool = <F extends Fn<"query">, S extends z.ZodRawShape>(fn: F, spec: Spec<F, S>) =>
+  define("query", fn, spec, "read");
 
-/** Una tool que escribe. */
-export const writeTool = <F extends Fn<"mutation">, S extends z.ZodRawShape>(fn: F, spec: Spec<F, S>) => define("mutation", fn, spec);
+/** Una tool que escribe directo. Exige la sesión de la persona o `write`. */
+export const writeTool = <F extends Fn<"mutation">, S extends z.ZodRawShape>(fn: F, spec: Spec<F, S>) =>
+  define("mutation", fn, spec, "write");
+
+/**
+ * Una tool que propone. Escribe, pero lo que deja no es un hecho consumado:
+ * espera a que una persona lo acepte. Es lo que una credencial desatendida
+ * alcanza y una `write` no necesita.
+ */
+export const proposeTool = <F extends Fn<"mutation">, S extends z.ZodRawShape>(fn: F, spec: Spec<F, S>) =>
+  define("mutation", fn, spec, "propose");
 
 /**
  * Lo que el agente lee cuando una llamada falla. Los códigos de Convex se
