@@ -21,6 +21,7 @@ import type { TimelineReport } from "@/features/writing/timeline";
 import type { Manuscript } from "@/features/writing/writing.manuscript";
 import type { PlotGrid } from "@/features/writing/writing.plot";
 import { withDeltas, type SnapshotListItem } from "@/features/writing/snapshots";
+import type { CaptureItem } from "@/features/captures/captures.types";
 
 /** Lo que devuelve el estudio, atado a la query real. */
 export type StudioReport = FunctionReturnType<typeof api.writing.studio>;
@@ -657,3 +658,35 @@ export function makeStudioReport(overrides: Partial<StudioReport> = {}): StudioR
     ...overrides,
   };
 }
+
+/** Una captura compartida desde fuera, sin confirmar, con lo que el agente propuso. */
+export const CAPTURA_CON_ITEMS: CaptureItem = {
+  id: mid("cap-1"),
+  kind: "photo",
+  status: "pending",
+  text: null,
+  url: null,
+  blobPath: "/icons/icon-192x192.png",
+  durationSeconds: null,
+  proposedItems: [
+    { title: "Repasar el parcial", notes: "Tesis" },
+    { title: "Entregar el diagrama ER" },
+    { title: "Preguntar por la rúbrica" },
+  ],
+  createdAt: Date.now(),
+  expiresAt: Date.now() + 30 * 86_400_000,
+  diasRestantes: 30,
+  avisa: false,
+} as CaptureItem;
+
+/** La misma, a punto de caducar: es la fila que lleva el aviso. */
+export const CAPTURA_POR_CADUCAR: CaptureItem = {
+  ...CAPTURA_CON_ITEMS,
+  id: mid("cap-2"),
+  kind: "link",
+  url: "https://react.dev/learn",
+  blobPath: null,
+  proposedItems: null,
+  diasRestantes: 3,
+  avisa: true,
+};

@@ -576,4 +576,27 @@ const writing: Tool[] = [
   }),
 ];
 
+/**
+ * Las funciones de Convex que existen y **no** se exponen, con su motivo. Una
+ * función nueva se clasifica aquí o en el catálogo de arriba, nunca se queda
+ * sin decidir: lo que no está escrito se convierte en una tool por descuido.
+ *
+ * `captures.crear`: compartir algo pasa en la hoja del sistema operativo, con
+ *   el pulgar. Un agente que pudiera crear capturas fabricaría el hecho de que
+ *   compartiste algo, que es la única prueba de que la captura es tuya.
+ * `captures.confirmar`: confirmar **es** el gesto. Que nada se convierta en
+ *   item sin una persona es la regla entera del slice; una tool para esto la
+ *   borraría.
+ * `captures.descartar`: descartar es la otra mitad de la misma decisión.
+ * `captures.pendientes`: la lectura que el agente necesita llega con su propia
+ *   tool de entrega, que devuelve la captura en un formato que puede mirar, no
+ *   la fila de la base.
+ */
+export const SIN_TOOL: readonly string[] = [
+  "captures:crear",
+  "captures:confirmar",
+  "captures:descartar",
+  "captures:pendientes",
+];
+
 export const CATALOG: readonly Tool[] = [...energy, ...entities, ...events, ...folders, ...insights, ...pages, ...stickyNotes, ...systems, ...tasks, ...writing];

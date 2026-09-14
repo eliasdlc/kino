@@ -2,10 +2,13 @@
 
 import { useEffect, useState } from "react";
 import {
+  borrarDeCola,
   leerCola,
   pedirAlmacenamientoPersistente,
   type RegistroCompartido,
 } from "@/features/captures/shareTarget";
+import { useCreateCapture } from "@/features/captures/captures.hooks";
+import { prepararCaptura, subirArchivo } from "@/features/captures/subirCaptura";
 import { CompartirScreen } from "./CompartirScreen";
 
 /**
@@ -18,6 +21,7 @@ export function CompartirPantalla({ recibo, fallo }: { recibo: string | null; fa
   const [registro, setRegistro] = useState<RegistroCompartido | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [fueraDeLaCola, setFueraDeLaCola] = useState(false);
+  const { mutateAsync: crearCaptura } = useCreateCapture();
 
   // Sin recibo no hay nada que buscar, así que eso se deriva y no se guarda:
   // el único estado real es si la cola no lo tenía.
@@ -43,13 +47,24 @@ export function CompartirPantalla({ recibo, fallo }: { recibo: string | null; fa
         setPreviewUrl(url);
       }
       setRegistro(encontrado);
+
+      // Con red sube sola y sale de la cola. Sin red se queda donde está y la
+      // pantalla ya lo dice: nada se pierde y nada promete lo que no puede.
+      try {
+        await crearCaptura(await prepararCaptura(encontrado, subirArchivo));
+        if (!vivo) return;
+        await borrarDeCola(encontrado.id);
+        setRegistro({ ...encontrado, estado: "subida" });
+      } catch {
+        // Se queda en la cola, con su registro visible, esperando red.
+      }
     })();
 
     return () => {
       vivo = false;
       if (url) URL.revokeObjectURL(url);
     };
-  }, [recibo, fallo]);
+  }, [recibo, fallo, crearCaptura]);
 
   return <CompartirScreen registro={registro} previewUrl={previewUrl} perdido={perdido} />;
 }

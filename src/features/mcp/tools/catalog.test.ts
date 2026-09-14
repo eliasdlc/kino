@@ -1,5 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 import { z } from "zod";
+import { getFunctionName } from "convex/server";
+import { SIN_TOOL } from "./catalog";
 import { ALL_TOOLS } from "./index";
 
 /**
@@ -161,5 +163,27 @@ describe("catálogo del MCP", () => {
     expect(call.mock.calls[0]![0]).toBe("mutation");
     expect(call.mock.calls[0]![2]).toMatchObject({ content: "<h2>Actualizado</h2>\n" });
     expect(result).toMatchObject({ content: "## Actualizado", contentFormat: "markdown" });
+  });
+});
+
+/** El nombre `modulo:funcion` de la función de Convex que hay detrás. */
+function nombreDeFuncion(ref: (typeof ALL_TOOLS)[number]["ref"]): string {
+  return ref ? getFunctionName(ref) : "";
+}
+
+describe("lo que existe y no se expone", () => {
+  it("ninguna función de capturas llegó al catálogo por descuido", () => {
+    const deCapturas = ALL_TOOLS.filter((tool) => nombreDeFuncion(tool.ref).startsWith("captures:"));
+
+    expect(deCapturas).toEqual([]);
+  });
+
+  it("las cuatro están clasificadas: decidir no exponerlas es una decisión escrita", () => {
+    expect(SIN_TOOL).toEqual([
+      "captures:crear",
+      "captures:confirmar",
+      "captures:descartar",
+      "captures:pendientes",
+    ]);
   });
 });
