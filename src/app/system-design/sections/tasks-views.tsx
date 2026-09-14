@@ -226,7 +226,15 @@ export function TasksViewsSection() {
             <CaptureRow captura={CAPTURA_CON_ITEMS} onOpen={noop} />
             <CaptureRow captura={CAPTURA_POR_CADUCAR} onOpen={noop} />
             <CaptureRow
-              captura={{ ...CAPTURA_POR_CADUCAR, id: mid("cap-3"), status: "expired", avisa: false }}
+              captura={{
+                ...CAPTURA_POR_CADUCAR,
+                id: mid("cap-3"),
+                kind: "voice",
+                url: null,
+                durationSeconds: 47,
+                status: "expired",
+                avisa: false,
+              }}
               onOpen={noop}
             />
           </ul>
