@@ -22,6 +22,11 @@ const APUNTE = [
   heading(90, "AFD contra AFND", 2),
 ];
 
+const CON_CUERPO: OutlineItem[] = [
+  { ...heading(0, "Análisis léxico"), preview: "El lexer convierte una ristra de caracteres en tokens con su categoría." },
+  { ...heading(40, "Autómatas finitos", 1), preview: null },
+];
+
 function tick(name: string): Element {
   const marca = screen.getByRole("button", { name }).firstElementChild;
   if (!marca) throw new Error(`La marca de "${name}" no tiene barra que pintar`);
@@ -69,5 +74,37 @@ describe("DocumentRail", () => {
     expect(screen.getByRole("button", { name: "Análisis léxico" })).not.toHaveAttribute(
       "aria-current",
     );
+  });
+
+  it("enfocar una marca enseña de qué habla su sección, sin ir a verla", async () => {
+    const user = userEvent.setup();
+    renderWithProviders(<DocumentRail items={CON_CUERPO} activePos={null} onJump={vi.fn()} />);
+
+    expect(screen.queryByTestId("rail-card")).not.toBeInTheDocument();
+
+    await user.tab();
+    const tarjeta = screen.getByTestId("rail-card");
+    expect(tarjeta).toHaveTextContent("Análisis léxico");
+    expect(tarjeta).toHaveTextContent(/El lexer convierte una ristra de caracteres/);
+  });
+
+  it("una sección sin cuerpo enseña la tarjeta con el título y nada debajo", async () => {
+    const user = userEvent.setup();
+    renderWithProviders(<DocumentRail items={CON_CUERPO} activePos={null} onJump={vi.fn()} />);
+
+    await user.tab();
+    await user.tab();
+    const tarjeta = screen.getByTestId("rail-card");
+    expect(tarjeta).toHaveTextContent("Autómatas finitos");
+    expect(tarjeta.childElementCount).toBe(1);
+  });
+
+  it("solo hay una tarjeta abierta a la vez", async () => {
+    const user = userEvent.setup();
+    renderWithProviders(<DocumentRail items={CON_CUERPO} activePos={null} onJump={vi.fn()} />);
+
+    await user.tab();
+    await user.tab();
+    expect(screen.getAllByTestId("rail-card")).toHaveLength(1);
   });
 });

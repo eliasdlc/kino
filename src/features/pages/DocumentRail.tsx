@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import { cn } from "@/lib/utils";
 import type { OutlineItem } from "./mediums/outline";
 
@@ -34,7 +35,15 @@ export interface DocumentRailProps {
 }
 
 export function DocumentRail({ items, activePos, onJump }: DocumentRailProps) {
+  // La tarjeta la abre el puntero y también el foco: una marca a la que se
+  // llega con Tab tiene que decir lo mismo que una a la que se llega con el
+  // ratón. Es estado y no `:hover` de CSS porque nada más que una marca a la
+  // vez puede estar abierta.
+  const [openPos, setOpenPos] = useState<number | null>(null);
+
   if (items.length < RAIL_MIN_ITEMS) return null;
+
+  const close = (pos: number) => setOpenPos((open) => (open === pos ? null : open));
 
   return (
     <nav
@@ -53,6 +62,10 @@ export function DocumentRail({ items, activePos, onJump }: DocumentRailProps) {
               <button
                 type="button"
                 onClick={() => onJump(item.pos)}
+                onMouseEnter={() => setOpenPos(item.pos)}
+                onMouseLeave={() => close(item.pos)}
+                onFocus={() => setOpenPos(item.pos)}
+                onBlur={() => close(item.pos)}
                 aria-label={item.label}
                 aria-current={active ? "location" : undefined}
                 className="flex h-4 items-center rounded-sm px-1 outline-none focus-visible:ring-2 focus-visible:ring-ring"
@@ -65,10 +78,33 @@ export function DocumentRail({ items, activePos, onJump }: DocumentRailProps) {
                   )}
                 />
               </button>
+              {item.pos === openPos && <RailCard item={item} />}
             </li>
           );
         })}
       </ul>
     </nav>
+  );
+}
+
+/**
+ * De qué habla la sección, sin ir a verla. El nombre accesible de la marca ya
+ * dice el título, así que para un lector de pantalla esto es un eco: se oculta
+ * y no atrapa el puntero, que si no se lo quitaría a la marca que la abrió.
+ */
+export function RailCard({ item }: { item: OutlineItem }) {
+  return (
+    <div
+      aria-hidden="true"
+      data-testid="rail-card"
+      className="pointer-events-none absolute left-full top-1/2 z-(--z-overlay) ml-2 w-64 -translate-y-1/2 rounded-xl border border-border bg-popover p-3 shadow-lg"
+    >
+      <p className="truncate text-sm font-semibold text-popover-foreground">{item.label}</p>
+      {item.preview && (
+        <p className="mt-1 line-clamp-3 text-xs leading-relaxed text-muted-foreground">
+          {item.preview}
+        </p>
+      )}
+    </div>
   );
 }

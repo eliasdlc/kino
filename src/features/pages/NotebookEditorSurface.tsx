@@ -7,6 +7,7 @@ import { EditorProvider, useSharedEditor } from "./EditorContext";
 import { NotebookEditor } from "./NotebookEditor";
 import { WriterStatusBar, type WriterObra } from "./WriterStatusBar";
 import { DocumentRail } from "./DocumentRail";
+import { outlineElement, useActiveSection } from "./outline-nav";
 import { deriveOutline, type OutlineItem } from "./mediums/outline";
 import type { MediumManifest } from "@/shared/lib/mediums";
 import { StickyNotesGrid } from "@/features/sticky-notes/StickyNotesGrid";
@@ -130,9 +131,7 @@ function OutlineBridge({
     if (!editor) return;
     const ref = jumpRef;
     ref.current = (pos) => {
-      const dom = editor.view.nodeDOM(pos);
-      const el = dom instanceof HTMLElement ? dom : (dom as ChildNode | null)?.parentElement;
-      el?.scrollIntoView({ behavior: scrollBehavior(), block: "start" });
+      outlineElement(editor, pos)?.scrollIntoView({ behavior: scrollBehavior(), block: "start" });
     };
     return () => {
       ref.current = null;
@@ -140,6 +139,26 @@ function OutlineBridge({
   }, [editor, jumpRef]);
 
   return null;
+}
+
+/**
+ * El carril con la sección que se está leyendo. Vive en su propio componente
+ * porque saber eso necesita el editor compartido, y quien lo monta está fuera
+ * del provider.
+ */
+function DocumentRailLayer({
+  items,
+  scrollRef,
+  onJump,
+}: {
+  items: readonly OutlineItem[];
+  scrollRef: React.RefObject<HTMLDivElement | null>;
+  onJump: (pos: number) => void;
+}) {
+  const editor = useSharedEditor();
+  const activePos = useActiveSection(editor, items, scrollRef);
+
+  return <DocumentRail items={items} activePos={activePos} onJump={onJump} />;
 }
 
 export default function NotebookEditorSurface({
@@ -269,7 +288,11 @@ export default function NotebookEditorSurface({
         {/* El carril es de los documentos normales. El manuscrito navega por su
             panel, con sus escenas y sus páginas, y no cambia. */}
         {!writer && (
-          <DocumentRail items={outline} activePos={null} onJump={(pos) => jump.current?.(pos)} />
+          <DocumentRailLayer
+            items={outline}
+            scrollRef={scrollRef}
+            onJump={(pos) => jump.current?.(pos)}
+          />
         )}
 
         {writer && <TypewriterScroll enabled={focusMode} scrollRef={scrollRef} />}

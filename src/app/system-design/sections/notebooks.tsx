@@ -12,7 +12,7 @@ import { FolderCard } from "@/features/notebooks/FolderCard";
 import { NotebookCard } from "@/features/notebooks/NotebookCard";
 import { StickyNoteCard } from "@/features/sticky-notes/StickyNoteCard";
 import { LinkedTaskCard } from "@/features/pages/LinkedTaskCard";
-import { DocumentRail } from "@/features/pages/DocumentRail";
+import { DocumentRail, RailCard } from "@/features/pages/DocumentRail";
 import type { OutlineItem } from "@/features/pages/mediums/outline";
 import type { ReactNode } from "react";
 
@@ -156,6 +156,19 @@ export function NotebooksSection() {
             <RailStage>
               <DocumentRail items={RAIL_ITEMS} activePos={null} onJump={noop} />
             </RailStage>
+          </Specimen>
+        </SpecimenGrid>
+
+        <SpecimenGrid cols={2}>
+          <Specimen label="Tarjeta de una sección con cuerpo" hint="puntero o foco sobre la marca">
+            <div className="relative h-28 w-1">
+              <RailCard item={RAIL_ITEMS[0]} />
+            </div>
+          </Specimen>
+          <Specimen label="Tarjeta de una sección sin cuerpo" hint="preview = null">
+            <div className="relative h-28 w-1">
+              <RailCard item={RAIL_ITEMS[2]} />
+            </div>
           </Specimen>
         </SpecimenGrid>
       </SubSection>
