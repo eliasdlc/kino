@@ -71,6 +71,14 @@ export const systemMetadataSchema = z.object({
         .optional(),
     })
     .optional(),
+  /**
+   * La cadencia de ciclos de un sistema académico: en qué meses empieza cada
+   * uno, y el primero abre el año académico. De aquí sale la lista de ciclos
+   * que se elige en vez de escribirlos a mano. Sin ella, la de PUCMM.
+   */
+  academic: z
+    .object({ cycleStartMonths: z.array(z.coerce.number().int().min(1).max(12)).min(1).max(6) })
+    .optional(),
   dailyWordGoal: z.coerce.number().int().min(0).max(100_000).optional(),
   chekhov: z
     .object({

@@ -24,11 +24,15 @@ import Link from "next/link";
 import { type SystemSignals, formatStaleAdvisor } from "./systems.signals";
 import { capitalize, resolveSystemManifest } from "@/shared/lib/system-manifest";
 import { cn } from "@/lib/utils";
+import { CyclePicker } from "@/features/academic/CyclePicker";
+import type { AcademicPeriod } from "@/features/academic/academic.hooks";
 
 interface SystemDetailHeaderProps {
   system: SystemTransport;
   signals: SystemSignals;
   currentTab?: "tasks" | "docs";
+  /** Los ciclos que ya trajo el servidor, para que el selector no parpadee. */
+  initialPeriods?: AcademicPeriod[];
 }
 
 /** Los valores del enum, en español y en minúscula: van en una línea de meta. */
@@ -61,7 +65,7 @@ function setHeaderOpen(value: boolean) {
   headerOpenListeners.forEach((l) => l());
 }
 
-export function SystemDetailHeader({ system, signals, currentTab = "tasks" }: SystemDetailHeaderProps) {
+export function SystemDetailHeader({ system, signals, currentTab = "tasks", initialPeriods }: SystemDetailHeaderProps) {
   const cycle = useSearchParams().get("cycle");
   const router = useRouter();
   const [confirmDelete, setConfirmDelete] = useState(false);
@@ -110,6 +114,8 @@ export function SystemDetailHeader({ system, signals, currentTab = "tasks" }: Sy
             </Badge>
           )}
         </button>
+        {/* El año y el ciclo, en la cabecera: un filtro de una línea, no una pantalla. */}
+        {system.templateType === "academic" && <CyclePicker system={system} initialPeriods={initialPeriods} />}
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <Button

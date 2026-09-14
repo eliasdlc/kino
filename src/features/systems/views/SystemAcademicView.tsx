@@ -10,8 +10,6 @@ import { TaskWeekFocusView } from "@/features/tasks/TaskWeekFocusView";
 import { TaskCalendarView } from "@/features/tasks/TaskCalendarView";
 import { TaskPlanningView } from "@/features/tasks/TaskPlanningView";
 import { TaskArchiveView } from "@/features/tasks/TaskArchiveView";
-import { SystemAcademicClasses } from "./SystemAcademicClasses";
-import { useTasks } from "@/features/tasks/tasks.hooks";
 import type { TaskTransport } from "@/features/tasks/tasks.types";
 import type { SystemViewProps } from "./SystemDetailView";
 
@@ -19,14 +17,15 @@ import type { SystemViewProps } from "./SystemDetailView";
  * Academic. El semestre con el alma de Kino: foco con runway por defecto
  * (Esta Semana), calendario como zoom-out, y el funnel de planificación/archivo
  * reutilizado. El headspace lo da abrir en "Esta Semana", no en el calendario.
+ *
+ * Las clases no son una pestaña de aquí: son lo primero de la superficie de
+ * apuntes, y tener dos listas de clases era la misma pantalla dos veces.
  */
 export function SystemAcademicView({ system, initialTasks }: SystemViewProps) {
   const folderId = useAcademicScope(system.id)?.folderId;
   const [editTask, setEditTask] = useState<TaskTransport | null>(null);
-  const [tab, setTab] = useUrlView(folderId ? ["esta-semana", "calendar", "planning", "archive"] : ["esta-semana", "classes", "calendar", "planning", "archive"], "esta-semana");
+  const [tab, setTab] = useUrlView(["esta-semana", "calendar", "planning", "archive"], "esta-semana");
   const [highlight, setHighlight] = useState<{ id: string; nonce: number } | null>(null);
-  // La vista de clases necesita las tareas para contar pendientes y próxima entrega.
-  const { data: allTasks = [] } = useTasks(system.id, initialTasks);
 
   function goToAction(taskId?: string) {
     setTab("esta-semana");
@@ -42,10 +41,6 @@ export function SystemAcademicView({ system, initialTasks }: SystemViewProps) {
               <span className="md:hidden">Semana</span>
               <span className="hidden md:inline">Esta Semana</span>
             </TabsTrigger>
-            {!folderId && <TabsTrigger value="classes" className="min-w-0 px-2 text-xs md:px-3 md:text-sm">
-              <span className="md:hidden">Clases</span>
-              <span className="hidden md:inline">Clases</span>
-            </TabsTrigger>}
             <TabsTrigger value="calendar" className="min-w-0 px-2 text-xs md:px-3 md:text-sm">
               <span className="md:hidden">Cal</span>
               <span className="hidden md:inline">Calendario</span>
@@ -64,9 +59,6 @@ export function SystemAcademicView({ system, initialTasks }: SystemViewProps) {
 
         <TabsContent value="esta-semana">
           <TaskWeekFocusView systemId={system.id} initialData={initialTasks} onEdit={setEditTask} highlight={highlight} />
-        </TabsContent>
-        <TabsContent value="classes">
-          <SystemAcademicClasses systemId={system.id} tasks={allTasks} />
         </TabsContent>
         <TabsContent value="calendar">
           <TaskCalendarView systemId={system.id} initialData={initialTasks} onNavigateToAction={goToAction} />

@@ -1,39 +1,74 @@
 /**
- * Cambiar de ciclo conserva el filtro principal y el historial del navegador.
- * Una materia ya asignada toma su período de la relación guardada, aunque
- * la URL señale otro ciclo; el selector escribe sobre la materia raíz.
+ * Criterio: el proveedor de scope decide qué ciclo miran las listas, y nunca
+ * esconde lo que el servidor ya pintó. Manda la URL; sin `cycle`, el ciclo
+ * actual; dentro de una clase, la clase. Los hijos se ven desde el primer
+ * render, incluso antes de que la suscripción de ciclos responda.
  */
 import { describe, expect, it, vi } from "vitest";
-import { fireEvent, screen } from "@testing-library/react";
+import { screen } from "@testing-library/react";
 import { renderWithProviders, makeTestConvexClient } from "@/shared/testing/render";
 import { setNavigation } from "@/shared/testing/navigation";
 import { AcademicWorkspace } from "./AcademicWorkspace";
 import { useAcademicScope } from "./academic-scope";
+
 vi.mock("next/navigation", async () => (await import("@/shared/testing/navigation")).navigationMock());
-const periods = [{ _id: "current", year: "2026", name: "Segundo", isCurrent: true, isClosed: false }, { _id: "old", year: "2025", name: "Primero", isCurrent: false, isClosed: true }];
-const folder = { id: "subject", name: "Cálculo", systemId: "university", academicPeriodId: "old", breadcrumb: [] };
-function Scope() { const scope = useAcademicScope("university"); return <p>{scope?.folderId ?? scope?.academicPeriodId ?? "unassigned"}</p>; }
-function client() { return makeTestConvexClient([{ name: "academicPeriods:list", value: periods }, { name: "folders:bySystem", value: [folder] }, { name: "folders:detail", value: folder }]); }
+
+const periods = [
+  { _id: "current", year: "2026-2027", name: "Septiembre de 2026", isCurrent: true, isClosed: false },
+  { _id: "old", year: "2025-2026", name: "Enero de 2026", isCurrent: false, isClosed: true },
+];
+
+function Scope() {
+  const scope = useAcademicScope("university");
+  return <p>scope: {scope?.folderId ?? scope?.academicPeriodId ?? "unassigned"}</p>;
+}
+
+function client() {
+  return makeTestConvexClient([{ name: "academicPeriods:list", value: periods }]);
+}
+
 describe("AcademicWorkspace", () => {
-  it("abre el actual y permite volver a un ciclo cerrado sin perder el tab", () => {
-    window.history.replaceState(null, "", "/systems/university?tab=docs");
+  it("cae en el ciclo actual cuando la URL no pide ninguno", () => {
     setNavigation({ search: "tab=docs" });
-    const { rerender } = renderWithProviders(<AcademicWorkspace systemId="university"><Scope /></AcademicWorkspace>, { convex: client() });
-    expect(screen.getByText("current")).toBeVisible();
-    fireEvent.click(screen.getByText("2025", { selector: "summary" }));
-    fireEvent.click(screen.getByText("Primero"));
-    fireEvent.click(screen.getAllByRole("button", { name: "Ver ciclo" })[1]);
-    expect(window.location.search).toBe("?tab=docs&cycle=old");
-    setNavigation({ search: window.location.search });
-    rerender(<AcademicWorkspace systemId="university"><Scope /></AcademicWorkspace>);
-    expect(screen.getByText("old")).toBeVisible();
+    renderWithProviders(
+      <AcademicWorkspace systemId="university">
+        <Scope />
+      </AcademicWorkspace>,
+      { convex: client() },
+    );
+    expect(screen.getByText("scope: current")).toBeVisible();
   });
-  it("muestra el ciclo guardado de la materia y escribe su nueva asignación", async () => {
+
+  it("obedece el ciclo de la URL, aunque esté cerrado", () => {
+    setNavigation({ search: "cycle=old" });
+    renderWithProviders(
+      <AcademicWorkspace systemId="university">
+        <Scope />
+      </AcademicWorkspace>,
+      { convex: client() },
+    );
+    expect(screen.getByText("scope: old")).toBeVisible();
+  });
+
+  it("dentro de una clase el scope es la clase", () => {
     setNavigation({ search: "cycle=current" });
-    const convex = client();
-    renderWithProviders(<AcademicWorkspace systemId="university" folderId="subject"><Scope /></AcademicWorkspace>, { convex });
-    expect(screen.getByLabelText("Año y ciclo")).toHaveValue("old");
-    fireEvent.change(screen.getByLabelText("Año y ciclo"), { target: { value: "current" } });
-    expect(convex.calls).toContainEqual({ kind: "mutation", name: "academicPeriods:assignSubject", args: { folderId: "subject", periodId: "current" } });
+    renderWithProviders(
+      <AcademicWorkspace systemId="university" folderId="subject">
+        <Scope />
+      </AcademicWorkspace>,
+      { convex: client() },
+    );
+    expect(screen.getByText("scope: subject")).toBeVisible();
+  });
+
+  it("pinta a sus hijos aunque la lista de ciclos no haya respondido", () => {
+    setNavigation({ search: "" });
+    renderWithProviders(
+      <AcademicWorkspace systemId="university">
+        <p>Entrega de cálculo</p>
+      </AcademicWorkspace>,
+      { convex: makeTestConvexClient() },
+    );
+    expect(screen.getByText("Entrega de cálculo")).toBeVisible();
   });
 });

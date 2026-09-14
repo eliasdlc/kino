@@ -1,4 +1,5 @@
 import { AcademicWorkspace } from "@/features/academic/AcademicWorkspace";
+import { resolveSelectedCycle } from "@/features/academic/academic-cycles";
 import { notFound, redirect } from "next/navigation";
 import { api } from "@convex/_generated/api";
 import { serverQuery } from "@/shared/convex/server";
@@ -16,21 +17,36 @@ export default async function SystemPage({
   searchParams,
 }: {
   params: Promise<{ id: string }>;
-  searchParams: Promise<{ tab?: string }>;
+  searchParams: Promise<{ tab?: string; cycle?: string }>;
 }) {
   const { id } = await params;
-  const { tab } = await searchParams;
+  const { tab, cycle } = await searchParams;
   const session = await getServerSession();
 
   if (!session) redirect("/login");
 
-  // El detalle no necesita leer las tareas y la actividad de los otros sistemas.
-  const [system, tasks] = await Promise.all([
+  // Los ciclos se piden a la vez que el sistema, no después: sólo un sistema
+  // académico los tiene, y ahí `academicPeriods.list` rechaza la llamada, que
+  // es lo que atrapa el `catch`.
+  const [system, periods] = await Promise.all([
     serverQuery(api.systems.detail, { id }).catch(() => null),
-    serverQuery(api.tasks.bySystem, { systemId: id }).catch(() => null),
+    serverQuery(api.academicPeriods.list, { systemId: id }).catch(() => []),
   ]);
+  if (!system) notFound();
 
-  if (!system || !tasks) notFound();
+  // Un sistema académico filtra por ciclo, y el servidor tiene que pedir las
+  // tareas con los mismos argumentos que el cliente: si no, el payload que
+  // acaba de renderizar no sirve como `initialData` y la lista se pide dos
+  // veces en cada carga.
+  const academic = system.templateType === "academic";
+  const academicPeriodId = academic ? resolveSelectedCycle(periods, cycle ?? null) : undefined;
+
+  const tasks = await serverQuery(api.tasks.bySystem, {
+    systemId: id,
+    ...(academic ? { academicPeriodId } : {}),
+  }).catch(() => null);
+
+  if (!tasks) notFound();
 
   const nextDue = tasks
     .filter((t) => t.status !== "done" && t.dueDate)
@@ -47,6 +63,13 @@ export default async function SystemPage({
   // abre en su biblioteca, no en el funnel de tareas.
   const surface = tab === "docs" ? "docs" : tab === "tasks" ? "tasks" : landingSurface(system);
 
+  const content =
+    surface === "docs" ? (
+      <NotebooksView systemId={id} academic={academic} periods={periods} initialTasks={tasks} />
+    ) : (
+      <SystemDetailView system={system} initialTasks={tasks} />
+    );
+
   return (
     <div className="w-full">
       <div className="sticky top-0 z-(--z-raised) bg-background border-b px-4 md:px-6 py-2.5">
@@ -58,18 +81,21 @@ export default async function SystemPage({
         />
       </div>
       <PageWrapper className="w-full">
-        <SystemDetailHeader system={system} signals={signals} currentTab={surface} />
+        <SystemDetailHeader
+          system={system}
+          signals={signals}
+          currentTab={surface}
+          initialPeriods={academic ? periods : undefined}
+        />
 
         <div className="mt-4">
-          {system.templateType === "academic" ? <AcademicWorkspace systemId={id}>
-            {surface === "docs" ? <NotebooksView systemId={id} /> : <SystemDetailView system={system} initialTasks={tasks} />}
-          </AcademicWorkspace> : <>
-          {surface === "docs" ? (
-            <NotebooksView systemId={id} />
+          {academic ? (
+            <AcademicWorkspace systemId={id} initialPeriods={periods}>
+              {content}
+            </AcademicWorkspace>
           ) : (
-            <SystemDetailView system={system} initialTasks={tasks} />
+            content
           )}
-          </>}
         </div>
       </PageWrapper>
     </div>
