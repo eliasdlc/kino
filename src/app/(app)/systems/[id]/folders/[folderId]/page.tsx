@@ -2,14 +2,11 @@ import { Suspense } from "react";
 import { AcademicWorkspace } from "@/features/academic/AcademicWorkspace";
 import { AcademicSubjectView } from "@/features/academic/AcademicSubjectView";
 import { notFound, redirect } from "next/navigation";
-import { Files } from "lucide-react";
 import { api } from "@convex/_generated/api";
 import { serverQuery } from "@/shared/convex/server";
 import { PageBreadcrumb } from "@/components/PageBreadcrumb";
 import { Skeleton } from "@/components/ui/skeleton";
-import { FolderCard } from "@/features/notebooks/FolderCard";
-import { NotebookCard } from "@/features/notebooks/NotebookCard";
-import { FolderViewToolbar } from "@/features/notebooks/FolderViewToolbar";
+import { FolderDocuments } from "@/features/notebooks/FolderDocuments";
 
 import { TasksList } from "@/features/tasks/TasksList";
 import { resolveSystemManifest } from "@/shared/lib/system-manifest";
@@ -105,49 +102,16 @@ async function FolderContent({
   ]);
 
   const academic = system.templateType === "academic";
-  const folderPages = allPages.items;
   const emptyCopy = containerDetailEmptyCopy(resolveSystemManifest(system));
-  const hasDocContent = children.length > 0 || folderPages.length > 0;
 
   const documents = (
-    <>
-      <FolderViewToolbar systemId={systemId} folderId={folderId} />
-
-      {!hasDocContent ? (
-        <div className="rounded-lg border border-dashed p-10 text-center space-y-2">
-          <Files className="size-8 text-muted-foreground/40 mx-auto" />
-          <p className="text-sm font-medium">{emptyCopy.title}</p>
-          <p className="text-sm text-muted-foreground">{emptyCopy.hint}</p>
-        </div>
-      ) : (
-        <div className="space-y-6">
-          {children.length > 0 && (
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-              {children.map((child) => (
-                <FolderCard
-                  key={child.id}
-                  folder={child}
-                  systemId={systemId}
-                  href={`/systems/${systemId}/folders/${child.id}`}
-                />
-              ))}
-            </div>
-          )}
-          {folderPages.length > 0 && (
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-              {folderPages.map((page) => (
-                <NotebookCard
-                  key={page.id}
-                  page={page}
-                  systemId={systemId}
-                  href={`/systems/${systemId}/pages/${page.id}`}
-                />
-              ))}
-            </div>
-          )}
-        </div>
-      )}
-    </>
+    <FolderDocuments
+      systemId={systemId}
+      folderId={folderId}
+      initialChildren={children}
+      initialPages={allPages}
+      emptyCopy={emptyCopy}
+    />
   );
 
   if (!academic) {
