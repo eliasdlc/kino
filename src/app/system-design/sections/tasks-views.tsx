@@ -1,6 +1,7 @@
 "use client";
 
-import { AcademicWorkspace } from "@/features/academic/AcademicWorkspace";
+import { CyclePicker } from "@/features/academic/CyclePicker";
+import { ClassCard } from "@/features/academic/ClassCard";
 import { DefaultTaskCard } from "@/features/tasks/cards/DefaultTaskCard";
 import { Suspense, useState } from "react";
 import { DndContext } from "@dnd-kit/core";
@@ -22,6 +23,12 @@ import { InboxView } from "@/features/systems/views/InboxView";
 import { PersonalView } from "@/features/systems/views/PersonalView";
 import { makeFolder, makeSystem } from "../mock-data";
 import type { TaskTypeValue } from "@/shared/types/enums";
+
+/** Los ciclos del catálogo, con los nombres reales del portal. */
+const ACADEMIC_PERIODS = [
+  { _id: "cycle-current", year: "2026-2027", name: "Septiembre de 2026", isCurrent: true, isClosed: false },
+  { _id: "cycle-old", year: "2025-2026", name: "Enero de 2026", isCurrent: false, isClosed: true },
+] as unknown as Parameters<typeof CyclePicker>[0]["initialPeriods"] & object[];
 
 const noop = () => {};
 
@@ -84,13 +91,34 @@ export function TasksViewsSection() {
           </div>
         </Specimen>
         <Seeded stubs={[
-          seedQuery(api.academicPeriods.list, [
-            { _id: "cycle-current", year: "2026–2027", name: "Septiembre–diciembre", isCurrent: true, isClosed: false },
-            { _id: "cycle-old", year: "2025–2026", name: "Septiembre–diciembre", isCurrent: false, isClosed: true },
-          ]),
+          seedQuery(api.academicPeriods.list, ACADEMIC_PERIODS),
           seedQuery(api.folders.bySystem, [{ ...makeFolder({ name: "Inteligencia de Negocios" }), academicPeriodId: "cycle-current" }]),
         ]}>
-          <Specimen label="Árbol académico"><Suspense fallback={<div className="h-52" />}><AcademicWorkspace systemId={MOCK_SYSTEM_ID}><p className="text-sm">Las vistas de tareas y apuntes comparten el ciclo seleccionado.</p></AcademicWorkspace></Suspense></Specimen>
+          <Specimen label="Selector de año y ciclo" hint="Vive en la cabecera del sistema. Un filtro de una línea: cambia lo que ves sin pedirle la página al servidor.">
+            <Suspense fallback={<div className="h-10" />}>
+              <CyclePicker system={makeSystem({ templateType: "academic" })} initialPeriods={ACADEMIC_PERIODS} />
+            </Suspense>
+          </Specimen>
+          <Specimen label="Tarjeta de clase" hint="La rejilla de apuntes de un sistema académico. Dice quién la da, cuándo se ve y qué está por entregar.">
+            <Suspense fallback={<div className="h-32" />}>
+              <div className="grid max-w-3xl gap-3 sm:grid-cols-2">
+                <ClassCard
+                  folder={{ ...makeFolder({ name: "Inteligencia de Negocios" }), metadata: { professor: "Prof. Rodríguez", schedule: "Lun y Mie 9:00" }, subfolderCount: 0, pageCount: 9 }}
+                  systemId={MOCK_SYSTEM_ID}
+                  periods={ACADEMIC_PERIODS}
+                  tasks={[makeTask({ title: "Práctica 4", dueDate: daysFromNow(-1) }), makeTask({ title: "Parcial 2", dueDate: daysFromNow(6) })]}
+                  href="#"
+                />
+                <ClassCard
+                  folder={{ ...makeFolder({ name: "Seminario de Investigación Aplicada a la Ingeniería de Software" }), metadata: {}, subfolderCount: 0, pageCount: 0 }}
+                  systemId={MOCK_SYSTEM_ID}
+                  periods={ACADEMIC_PERIODS}
+                  tasks={[]}
+                  href="#"
+                />
+              </div>
+            </Suspense>
+          </Specimen>
         </Seeded>
       </SubSection>
       <SubSection

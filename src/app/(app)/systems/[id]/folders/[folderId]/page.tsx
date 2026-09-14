@@ -1,5 +1,5 @@
 import { AcademicWorkspace } from "@/features/academic/AcademicWorkspace";
-import { AcademicSubjectContent } from "@/features/academic/AcademicSubjectContent";
+import { AcademicSubjectView } from "@/features/academic/AcademicSubjectView";
 import { notFound, redirect } from "next/navigation";
 import { Files } from "lucide-react";
 import { api } from "@convex/_generated/api";
@@ -17,31 +17,40 @@ import { getServerSession } from "@/shared/utils/session";
 
 interface FolderViewRouteProps {
   params: Promise<{ id: string; folderId: string }>;
+  searchParams: Promise<{ cycle?: string }>;
 }
 
-export default async function FolderViewRoute({ params }: FolderViewRouteProps) {
+export default async function FolderViewRoute({ params, searchParams }: FolderViewRouteProps) {
   const { id: systemId, folderId } = await params;
+  const { cycle } = await searchParams;
   const session = await getServerSession();
 
   if (!session) redirect("/login");
 
-  const [folder, system, children, allPages, folderTasks] = await Promise.all([
+  const [folder, system, children, allPages, folderTasks, periods] = await Promise.all([
     serverQuery(api.folders.detail, { id: folderId }).catch(() => null),
     serverQuery(api.systems.byId, { id: systemId }).catch(() => null),
     serverQuery(api.folders.children, { id: folderId }),
     serverQuery(api.pages.bySystem, { systemId, folderId }),
     serverQuery(api.tasks.byFolder, { systemId, folderId }),
+    serverQuery(api.academicPeriods.list, { systemId }).catch(() => []),
   ]);
 
   if (!folder || !system || folder.systemId !== systemId) notFound();
 
+  const academic = system.templateType === "academic";
   const folderPages = allPages.items;
   const emptyCopy = containerDetailEmptyCopy(resolveSystemManifest(system));
   const hasDocContent = children.length > 0 || folderPages.length > 0;
 
+  // Volver al sistema devuelve a la superficie desde la que se entró, con el
+  // mismo ciclo: perder el filtro al subir un nivel obligaba a volver a
+  // elegirlo en cada ida y vuelta.
+  const systemHref = `/systems/${systemId}?tab=docs${cycle ? `&cycle=${encodeURIComponent(cycle)}` : ""}`;
+
   const breadcrumbItems = [
     { label: "Sistemas", href: "/systems" },
-    { label: system.name, href: `/systems/${systemId}` },
+    { label: system.name, href: systemHref },
     ...folder.breadcrumb.map((crumb) => ({
       label: crumb.name,
       href: `/systems/${systemId}/folders/${crumb.id}`,
@@ -49,11 +58,10 @@ export default async function FolderViewRoute({ params }: FolderViewRouteProps) 
     { label: folder.name },
   ];
 
-  const documents = <>
-      {/* Toolbar */}
+  const documents = (
+    <>
       <FolderViewToolbar systemId={systemId} folderId={folderId} />
 
-      {/* Documents section: folders and pages */}
       {!hasDocContent ? (
         <div className="rounded-lg border border-dashed p-10 text-center space-y-2">
           <Files className="size-8 text-muted-foreground/40 mx-auto" />
@@ -88,26 +96,36 @@ export default async function FolderViewRoute({ params }: FolderViewRouteProps) 
           )}
         </div>
       )}
+    </>
+  );
 
-  </>;
+  // El ciclo lo lleva la materia raíz: una subcarpeta no puede contradecirlo.
+  const subject = folder.breadcrumb[0] ?? folder;
 
   return (
     <div className="w-full">
       <div className="sticky top-0 z-(--z-raised) bg-background border-b px-4 md:px-6 py-2.5">
         <PageBreadcrumb items={breadcrumbItems} />
       </div>
-      <div className="p-4 md:p-6 space-y-6">
-
-      {system.templateType === "academic" ? (
-        <AcademicWorkspace systemId={systemId} folderId={folderId}>
-          <AcademicSubjectContent system={system} initialTasks={folderTasks} documents={documents} />
-        </AcademicWorkspace>
-      ) : <>
-        {documents}
-        <Separator />
-        <TasksList systemId={systemId} initialData={[]} folderId={folderId} folderInitialData={folderTasks} />
-      </>}
-
+      <div className="p-4 md:p-6">
+        {academic ? (
+          <AcademicWorkspace systemId={systemId} folderId={folderId}>
+            <AcademicSubjectView
+              system={system}
+              folder={folder}
+              subject={subject}
+              periods={periods}
+              initialTasks={folderTasks}
+              documents={documents}
+            />
+          </AcademicWorkspace>
+        ) : (
+          <div className="space-y-6">
+            {documents}
+            <Separator />
+            <TasksList systemId={systemId} initialData={[]} folderId={folderId} folderInitialData={folderTasks} />
+          </div>
+        )}
       </div>
     </div>
   );

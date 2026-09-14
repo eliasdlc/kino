@@ -14,14 +14,27 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useCreateFolder } from "@/features/folders/folders.hooks";
 import { useCreatePage } from "@/features/pages/pages.hooks";
+import { useSystemManifest } from "@/features/systems/systems.hooks";
 
 interface FolderViewToolbarProps {
   systemId: string;
   folderId: string;
 }
 
+/**
+ * Crear dentro de un contenedor. Los sustantivos salen del manifiesto del
+ * arquetipo, nunca escritos a mano: en un sistema académico esto ofrece una
+ * clase y un apunte, no una subcarpeta y un notebook.
+ */
 export function FolderViewToolbar({ systemId, folderId }: FolderViewToolbarProps) {
   const router = useRouter();
+  const manifest = useSystemManifest(systemId);
+  const folderRole = manifest.folderRole;
+  const pageRole = manifest.pageRole;
+  // Un arquetipo cuyo contenedor no se anida no ofrece crear otro aquí dentro.
+  const subfolderLabel =
+    folderRole && folderRole.nests !== false ? `${folderRole.gender === "f" ? "Nueva" : "Nuevo"} ${folderRole.noun}` : null;
+  const pageLabel = `${pageRole.gender === "f" ? "Nueva" : "Nuevo"} ${pageRole.noun}`;
   const [folderDialogOpen, setFolderDialogOpen] = useState(false);
   const [folderName, setFolderName] = useState("");
   const { mutate: createFolder, isPending } = useCreateFolder(systemId);
@@ -49,19 +62,21 @@ export function FolderViewToolbar({ systemId, folderId }: FolderViewToolbarProps
   return (
     <>
       <div className="flex items-center gap-2">
-        <Button size="sm" variant="outline" className="gap-1.5" onClick={() => setFolderDialogOpen(true)}>
-          <FolderPlus className="size-3.5" />
-          Nueva subcarpeta
-        </Button>
+        {subfolderLabel && (
+          <Button size="sm" variant="outline" className="gap-1.5" onClick={() => setFolderDialogOpen(true)}>
+            <FolderPlus className="size-3.5" />
+            {subfolderLabel}
+          </Button>
+        )}
         <Button size="sm" variant="outline" className="gap-1.5" onClick={handleCreateNotebook}>
-          Nuevo notebook
+          {pageLabel}
         </Button>
       </div>
 
       <ResponsiveDialog open={folderDialogOpen} onOpenChange={setFolderDialogOpen}>
         <ResponsiveDialogContent>
           <ResponsiveDialogHeader>
-            <ResponsiveDialogTitle>Nueva subcarpeta</ResponsiveDialogTitle>
+            <ResponsiveDialogTitle>{subfolderLabel ?? "Nueva carpeta"}</ResponsiveDialogTitle>
           </ResponsiveDialogHeader>
           <div className="flex flex-col gap-4 pt-1">
             <div className="space-y-1.5">
@@ -69,7 +84,7 @@ export function FolderViewToolbar({ systemId, folderId }: FolderViewToolbarProps
               <Input
                 id="subfolder-name"
                 autoFocus
-                placeholder="Nombre de la subcarpeta"
+                placeholder={folderRole?.placeholder ?? "Nombre de la carpeta"}
                 value={folderName}
                 onChange={(e) => setFolderName(e.target.value)}
                 onKeyDown={(e) => { if (e.key === "Enter") handleCreateFolder(); }}
@@ -77,7 +92,7 @@ export function FolderViewToolbar({ systemId, folderId }: FolderViewToolbarProps
               />
             </div>
             <Button onClick={handleCreateFolder} disabled={!folderName.trim() || isPending}>
-              {isPending ? "Creando..." : "Crear subcarpeta"}
+              {isPending ? "Creando..." : `Crear ${folderRole?.noun ?? "carpeta"}`}
             </Button>
           </div>
         </ResponsiveDialogContent>
