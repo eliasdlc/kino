@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { cn } from "@/lib/utils";
+import { scrollBehavior } from "@/shared/utils/motion";
 import { EditorProvider, useSharedEditor } from "./EditorContext";
 import { NotebookEditor } from "./NotebookEditor";
 import { WriterStatusBar, type WriterObra } from "./WriterStatusBar";
@@ -43,7 +44,7 @@ function TypewriterScroll({
       const caret = editor.view.coordsAtPos(from);
       const box = scroller.getBoundingClientRect();
       const target = box.top + box.height * 0.45;
-      scroller.scrollBy({ top: caret.top - target, behavior: "smooth" });
+      scroller.scrollBy({ top: caret.top - target, behavior: scrollBehavior() });
     };
 
     editor.on("selectionUpdate", center);
@@ -98,7 +99,8 @@ function SelectionGate({ onAnnotate }: { onAnnotate: (texto: string, punto: { x:
 }
 
 /**
- * Puente entre el editor y el navegador del manuscrito, que vive fuera de este
+ * Puente entre el editor y lo que navega el documento: el carril de títulos de
+ * esta misma superficie y el navegador del manuscrito, que vive fuera de este
  * árbol (en el panel lateral del layout). Publica hacia arriba el índice derivado
  * y deja el salto en un ref: así el layout no necesita montar Tiptap y el editor
  * sigue cargándose bajo demanda (KIN-73).
@@ -129,7 +131,7 @@ function OutlineBridge({
     ref.current = (pos) => {
       const dom = editor.view.nodeDOM(pos);
       const el = dom instanceof HTMLElement ? dom : (dom as ChildNode | null)?.parentElement;
-      el?.scrollIntoView({ behavior: "smooth", block: "start" });
+      el?.scrollIntoView({ behavior: scrollBehavior(), block: "start" });
     };
     return () => {
       ref.current = null;
@@ -251,9 +253,11 @@ export default function NotebookEditorSurface({
 
         {writer && <TypewriterScroll enabled={focusMode} scrollRef={scrollRef} />}
 
-        {writer && onOutline && jumpRef && (
-          <OutlineBridge onOutline={onOutline} jumpRef={jumpRef} />
-        )}
+        {/* El índice ya no es del manuscrito: todo documento lo deriva, porque
+            el carril de títulos de un apunte come de aquí igual que el panel
+            del capítulo. En un documento sin mediums de escritura lo que sale
+            son sus encabezados y nada más. */}
+        {onOutline && jumpRef && <OutlineBridge onOutline={onOutline} jumpRef={jumpRef} />}
 
         {writer && (
           <WriterStatusBar

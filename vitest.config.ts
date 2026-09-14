@@ -9,10 +9,12 @@ const alias = { "@": path.resolve(__dirname, "./src"), "@convex": path.resolve(_
  * de componente es `.test.tsx` y hereda jsdom sin configurar nada.
  *
  * Las excepciones son tests sin componentes que aun así necesitan un DOM: parsean
- * HTML con `DOMParser` o construyen nodos con `document.createElement`.
+ * HTML con `DOMParser`, construyen nodos con `document.createElement` o preguntan
+ * por una preferencia del sistema con `window.matchMedia`.
  */
 const domTests = [
   "**/*.test.tsx",
+  "src/shared/utils/motion.test.ts",
   "src/features/pages/editor-html.test.ts",
   "src/features/pages/mediums/medium-nodes.test.ts",
   "src/features/pages/paste-clean.test.ts",

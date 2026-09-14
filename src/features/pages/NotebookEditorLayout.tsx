@@ -249,8 +249,9 @@ export function NotebookEditorLayout({
     folderId: obra?.id ?? null,
     metadata: obraMetadata,
   });
-  // Índice del capítulo: lo calcula el editor (que vive en un chunk aparte) y lo
-  // publica aquí; el salto se queda en un ref para no re-renderizar por él.
+  // Índice del documento: lo calcula el editor (que vive en un chunk aparte) y lo
+  // publica aquí; el salto se queda en un ref para no re-renderizar por él. Lo
+  // lee el navegador del manuscrito, y bajo md también la lista del panel.
   const [outline, setOutline] = useState<OutlineItem[]>([]);
   const jumpRef = useRef<((pos: number) => void) | null>(null);
 
