@@ -144,17 +144,17 @@ export function NotebooksSection() {
 
       <SubSection
         title="DocumentRail"
-        description="El carril de títulos al borde de la columna de un documento. Una marca por encabezado, el ancho dice el nivel y el acento marca la sección que se está leyendo. En un teléfono no se pinta: ahí el índice vive en el panel lateral."
+        description="El carril de títulos al borde de la columna de un documento. En reposo todas las marcas miden lo mismo; pasa el puntero por encima y la de debajo crece y se aclara, con las vecinas decreciendo según se alejan. En un teléfono no se pinta: ahí el índice vive en el panel lateral."
       >
         <SpecimenGrid cols={2}>
-          <Specimen label="Con la tercera sección activa" hint="activePos = 90">
+          <Specimen label="En reposo" hint="pasa el puntero por las marcas para ver la lupa">
             <RailStage>
-              <DocumentRail items={RAIL_ITEMS} activePos={90} onJump={noop} />
+              <DocumentRail items={RAIL_ITEMS} onJump={noop} />
             </RailStage>
           </Specimen>
-          <Specimen label="Sin sección activa" hint="activePos = null, antes del primer scroll">
+          <Specimen label="Con dos títulos" hint="el mínimo: con uno solo no se pinta">
             <RailStage>
-              <DocumentRail items={RAIL_ITEMS} activePos={null} onJump={noop} />
+              <DocumentRail items={RAIL_ITEMS.slice(0, 2)} onJump={noop} />
             </RailStage>
           </Specimen>
         </SpecimenGrid>

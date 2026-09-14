@@ -79,32 +79,6 @@ if (typeof globalThis.ResizeObserver === "undefined") {
 }
 
 /**
- * `IntersectionObserver`: lo monta `useActiveSection` para saber qué sección
- * del documento se está leyendo y encender su marca en el carril de títulos.
- *
- * Nunca dispara, por la misma razón que `ResizeObserver`: jsdom no hace layout,
- * así que nada cruza nunca el borde de nada. La regla de quién queda activo se
- * prueba aparte, sobre datos planos, en `outline-nav.test.ts`.
- */
-if (typeof globalThis.IntersectionObserver === "undefined") {
-  class NoopIntersectionObserver {
-    readonly root = null;
-    readonly rootMargin = "";
-    readonly thresholds: readonly number[] = [];
-    observe(): void {}
-    unobserve(): void {}
-    disconnect(): void {}
-    takeRecords(): IntersectionObserverEntry[] {
-      return [];
-    }
-  }
-  // El `as` es el mismo trato que el resto del harness: la clase implementa lo
-  // que el código llama, no el constructor completo que declara el DOM.
-  globalThis.IntersectionObserver =
-    NoopIntersectionObserver as unknown as typeof IntersectionObserver;
-}
-
-/**
  * La captura de puntero: la piden Radix `Select` y `DropdownMenu` al abrirse, y
  * la librería de arrastre en cualquier gesto. jsdom declara los métodos en el
  * prototipo pero no los implementa, así que se ponen sólo si faltan.

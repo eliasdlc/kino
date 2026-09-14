@@ -2,14 +2,14 @@ import { describe, expect, it, vi } from "vitest";
 import { screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { renderWithProviders } from "@/shared/testing/render";
-import { DocumentRail } from "./DocumentRail";
+import { DocumentRail, tickScale } from "./DocumentRail";
 import type { OutlineItem } from "./mediums/outline";
 
 /**
- * Criterio: el carril es navegación, no decoración. Una marca por título con el
- * ancho de su nivel, nada cuando el documento no tiene de dónde navegar, y el
- * teclado llega a la misma función de salto que el puntero. Si se pintara con
- * un solo título, o si Enter no saltara, estos tests se ponen rojos.
+ * Criterio: en reposo todas las marcas son iguales, y la lupa del puntero
+ * agranda la de debajo y menos a sus vecinas según se alejan. Eso es lo que
+ * hace apuntable una raya de tres píxeles. Si la lupa no decreciera, o si una
+ * marca naciera más ancha que otra, estos tests se ponen rojos.
  */
 
 function heading(pos: number, label: string, depth = 0): OutlineItem {
@@ -20,6 +20,8 @@ const APUNTE = [
   heading(0, "Análisis léxico"),
   heading(40, "Autómatas finitos", 1),
   heading(90, "AFD contra AFND", 2),
+  heading(140, "Expresiones regulares", 1),
+  heading(200, "Tabla de símbolos", 1),
 ];
 
 const CON_CUERPO: OutlineItem[] = [
@@ -27,34 +29,64 @@ const CON_CUERPO: OutlineItem[] = [
   { ...heading(40, "Autómatas finitos", 1), preview: null },
 ];
 
-function tick(name: string): Element {
-  const marca = screen.getByRole("button", { name }).firstElementChild;
-  if (!marca) throw new Error(`La marca de "${name}" no tiene barra que pintar`);
-  return marca;
+/** La escala horizontal que lleva puesta cada marca, en orden. */
+function escalas(): number[] {
+  return screen.getAllByTestId("rail-tick").map((tick) => {
+    const found = /scaleX\(([\d.]+)\)/.exec(tick.style.transform);
+    if (!found) throw new Error(`La marca no lleva scaleX: "${tick.style.transform}"`);
+    return Number(found[1]);
+  });
 }
 
-describe("DocumentRail", () => {
-  it("pinta una marca por título, y el ancho dice el nivel", () => {
-    renderWithProviders(<DocumentRail items={APUNTE} activePos={null} onJump={vi.fn()} />);
+describe("tickScale", () => {
+  it("la marca bajo el puntero llega al ancho completo", () => {
+    expect(tickScale(0)).toBe(1);
+  });
 
-    expect(screen.getAllByRole("button")).toHaveLength(3);
-    expect(tick("Análisis léxico")).toHaveClass("w-4");
-    expect(tick("Autómatas finitos")).toHaveClass("w-3");
-    expect(tick("AFD contra AFND")).toHaveClass("w-2");
+  it("las vecinas crecen menos cuanto más lejos están", () => {
+    expect(tickScale(1)).toBeLessThan(tickScale(0));
+    expect(tickScale(2)).toBeLessThan(tickScale(1));
+    expect(tickScale(3)).toBeLessThan(tickScale(2));
+  });
+
+  it("a partir de la tercera todas valen lo mismo: el reposo", () => {
+    expect(tickScale(4)).toBe(tickScale(3));
+    expect(tickScale(9)).toBe(tickScale(3));
+  });
+});
+
+describe("DocumentRail", () => {
+  it("pinta una marca por título, y en reposo todas miden lo mismo", () => {
+    renderWithProviders(<DocumentRail items={APUNTE} onJump={vi.fn()} />);
+
+    expect(screen.getAllByRole("button")).toHaveLength(5);
+    expect(new Set(escalas()).size).toBe(1);
   });
 
   it("no se pinta cuando el documento tiene un solo título", () => {
-    renderWithProviders(
-      <DocumentRail items={[heading(0, "Análisis léxico")]} activePos={null} onJump={vi.fn()} />,
-    );
+    renderWithProviders(<DocumentRail items={[heading(0, "Análisis léxico")]} onJump={vi.fn()} />);
 
     expect(screen.queryByTestId("document-rail")).not.toBeInTheDocument();
+  });
+
+  it("el puntero agranda la marca de debajo y decrece hacia los lados", async () => {
+    const user = userEvent.setup();
+    renderWithProviders(<DocumentRail items={APUNTE} onJump={vi.fn()} />);
+
+    await user.hover(screen.getByRole("button", { name: "AFD contra AFND" }));
+
+    const [a, b, c, d, e] = escalas();
+    expect(c).toBe(1);
+    expect(b).toBe(d);
+    expect(b).toBeLessThan(c);
+    expect(a).toBeLessThan(b);
+    expect(e).toBeLessThan(d);
   });
 
   it("Enter sobre una marca enfocada salta a la posición de su título", async () => {
     const onJump = vi.fn();
     const user = userEvent.setup();
-    renderWithProviders(<DocumentRail items={APUNTE} activePos={null} onJump={onJump} />);
+    renderWithProviders(<DocumentRail items={APUNTE} onJump={onJump} />);
 
     await user.tab();
     await user.tab();
@@ -64,21 +96,9 @@ describe("DocumentRail", () => {
     expect(onJump).toHaveBeenCalledExactlyOnceWith(40);
   });
 
-  it("solo la marca de la sección que se lee va marcada como el sitio actual", () => {
-    renderWithProviders(<DocumentRail items={APUNTE} activePos={40} onJump={vi.fn()} />);
-
-    expect(screen.getByRole("button", { name: "Autómatas finitos" })).toHaveAttribute(
-      "aria-current",
-      "location",
-    );
-    expect(screen.getByRole("button", { name: "Análisis léxico" })).not.toHaveAttribute(
-      "aria-current",
-    );
-  });
-
   it("enfocar una marca enseña de qué habla su sección, sin ir a verla", async () => {
     const user = userEvent.setup();
-    renderWithProviders(<DocumentRail items={CON_CUERPO} activePos={null} onJump={vi.fn()} />);
+    renderWithProviders(<DocumentRail items={CON_CUERPO} onJump={vi.fn()} />);
 
     expect(screen.queryByTestId("rail-card")).not.toBeInTheDocument();
 
@@ -90,7 +110,7 @@ describe("DocumentRail", () => {
 
   it("una sección sin cuerpo enseña la tarjeta con el título y nada debajo", async () => {
     const user = userEvent.setup();
-    renderWithProviders(<DocumentRail items={CON_CUERPO} activePos={null} onJump={vi.fn()} />);
+    renderWithProviders(<DocumentRail items={CON_CUERPO} onJump={vi.fn()} />);
 
     await user.tab();
     await user.tab();
@@ -101,7 +121,7 @@ describe("DocumentRail", () => {
 
   it("solo hay una tarjeta abierta a la vez", async () => {
     const user = userEvent.setup();
-    renderWithProviders(<DocumentRail items={CON_CUERPO} activePos={null} onJump={vi.fn()} />);
+    renderWithProviders(<DocumentRail items={CON_CUERPO} onJump={vi.fn()} />);
 
     await user.tab();
     await user.tab();
