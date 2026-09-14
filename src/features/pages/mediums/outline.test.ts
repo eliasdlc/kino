@@ -84,8 +84,8 @@ describe("deriveOutline", () => {
     );
 
     expect(items).toEqual([
-      { pos: 0, kind: "scene", label: "INT. CASA DE KAEL - NOCHE", depth: 0 },
-      { pos: 52, kind: "scene", label: "Escena sin título", depth: 0 },
+      { pos: 0, kind: "scene", label: "INT. CASA DE KAEL - NOCHE", depth: 0, preview: "Kael cierra la puerta." },
+      { pos: 52, kind: "scene", label: "Escena sin título", depth: 0, preview: null },
     ]);
   });
 
@@ -147,5 +147,90 @@ describe("corte guía del plot grid (KIN-141)", () => {
       ]),
     );
     expect(items).toHaveLength(2);
+  });
+});
+
+describe("el preview de cada sección", () => {
+  it("junta el texto de los bloques que van hasta el siguiente título", () => {
+    const items = deriveOutline(
+      doc([
+        ["heading", "Tabla de símbolos", 0, { level: 2 }],
+        ["paragraph", "Cada identificador entra aquí con su ámbito.", 20],
+        ["paragraph", "La estructura es una tabla hash por nivel.", 70],
+        ["heading", "Colisiones", 120, { level: 3 }],
+      ]),
+    );
+
+    expect(items[0].preview).toBe(
+      "Cada identificador entra aquí con su ámbito. La estructura es una tabla hash por nivel.",
+    );
+  });
+
+  it("deja en null el preview de una sección sin cuerpo", () => {
+    const items = deriveOutline(
+      doc([
+        ["heading", "Análisis léxico", 0, { level: 1 }],
+        ["heading", "Autómatas finitos", 20, { level: 2 }],
+        ["paragraph", "Un AFD no tiene transiciones vacías.", 44],
+      ]),
+    );
+
+    expect(items[0].preview).toBeNull();
+    expect(items[1].preview).toBe("Un AFD no tiene transiciones vacías.");
+  });
+
+  it("corta el cuerpo largo y lo termina en puntos suspensivos", () => {
+    const items = deriveOutline(
+      doc([
+        ["heading", "Expresiones regulares", 0, { level: 2 }],
+        ["paragraph", "palabra ".repeat(60), 24],
+      ]),
+    );
+
+    const preview = items[0].preview ?? "";
+    expect(preview.endsWith("…")).toBe(true);
+    expect(preview.length).toBeLessThanOrEqual(181);
+  });
+
+  it("el último título del documento también cierra su preview", () => {
+    const items = deriveOutline(
+      doc([
+        ["heading", "Cierre", 0, { level: 2 }],
+        ["paragraph", "Lo último que dice el documento.", 12],
+      ]),
+    );
+
+    expect(items[0].preview).toBe("Lo último que dice el documento.");
+  });
+});
+
+describe("un documento fuera de los mediums de escritura", () => {
+  it("devuelve solo sus títulos, en orden y con su nivel", () => {
+    const items = deriveOutline(
+      doc([
+        ["heading", "Análisis léxico", 0, { level: 1 }],
+        ["paragraph", "El lexer convierte caracteres en tokens.", 20],
+        ["heading", "Autómatas finitos", 70, { level: 2 }],
+        ["bulletList", "AFD, AFND", 100],
+        ["heading", "AFD contra AFND", 130, { level: 3 }],
+      ]),
+    );
+
+    expect(items.map((i) => [i.kind, i.label, i.depth])).toEqual([
+      ["heading", "Análisis léxico", 0],
+      ["heading", "Autómatas finitos", 1],
+      ["heading", "AFD contra AFND", 2],
+    ]);
+  });
+
+  it("no inventa una escena cuando no hay ningún separador", () => {
+    const items = deriveOutline(
+      doc([
+        ["paragraph", "Un apunte que empieza sin título.", 0],
+        ["heading", "Y luego uno", 40, { level: 2 }],
+      ]),
+    );
+
+    expect(items.map((i) => i.kind)).toEqual(["heading"]);
   });
 });
