@@ -55,13 +55,15 @@ export function CyclePicker({ system, initialPeriods }: CyclePickerProps) {
       <Popover open={open} onOpenChange={setOpen}>
         <PopoverTrigger
           className={cn(
-            "inline-flex min-h-9 shrink-0 items-center gap-1.5 rounded-full border border-border px-3 text-sm font-semibold transition-colors",
+            // `max-w` y `truncate`: un nombre de ciclo largo recorta el suyo en
+            // vez de empujar al nombre del sistema fuera de su sitio.
+            "inline-flex min-h-9 max-w-full shrink-0 items-center gap-1.5 rounded-full border border-border px-3 text-sm font-semibold transition-colors",
             "text-primary hover:border-primary/60",
           )}
           aria-label={`Ciclo: ${label}`}
         >
-          {label}
-          <ChevronDown className="size-3.5 opacity-70" />
+          <span className="min-w-0 truncate">{label}</span>
+          <ChevronDown className="size-3.5 shrink-0 opacity-70" />
         </PopoverTrigger>
         <PopoverContent align="start" className="w-72 p-1.5">
           <div className="max-h-80 overflow-y-auto">

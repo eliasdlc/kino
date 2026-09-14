@@ -94,11 +94,14 @@ export function SystemDetailHeader({ system, signals, landing = "tasks", initial
     <div className="w-full">
       {/* Title row: toggles the detail */}
       <div className="flex items-start justify-between gap-3 min-w-0">
+        {/* El nombre y el ciclo comparten línea cuando caben. Cuando no, el
+            ciclo baja a la suya en vez de pisar el nombre del sistema. */}
+        <div className="flex min-w-0 flex-1 flex-wrap items-center gap-x-3 gap-y-1.5">
         <button
           type="button"
           onClick={toggleOpen}
           aria-expanded={open}
-          className="flex items-center gap-3 flex-1 min-w-0 text-left"
+          className="flex min-w-0 grow basis-64 items-center gap-3 overflow-hidden text-left"
         >
           <ChevronDown
             className={cn(
@@ -107,7 +110,7 @@ export function SystemDetailHeader({ system, signals, landing = "tasks", initial
             )}
           />
           <span className={`size-3 rounded-full shrink-0 bg-${cls}`} />
-          <h1 className="truncate font-display text-[1.41rem] font-bold tracking-[-0.02em]">
+          <h1 className="min-w-0 truncate font-display text-[1.41rem] font-bold tracking-[-0.02em]">
             {system.name}
           </h1>
           {system.isInbox && (
@@ -123,8 +126,9 @@ export function SystemDetailHeader({ system, signals, landing = "tasks", initial
             </Badge>
           )}
         </button>
-        {/* El año y el ciclo, en la cabecera: un filtro de una línea, no una pantalla. */}
+        {/* El año y el ciclo, en la cabecera: un filtro, no una pantalla. */}
         {system.templateType === "academic" && <CyclePicker system={system} initialPeriods={initialPeriods} />}
+        </div>
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <Button
