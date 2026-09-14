@@ -22,9 +22,16 @@ import { join } from "node:path";
 // Fijados por la primera medición, sobre `dev` con Next 16. Subirlos es una
 // decisión que se escribe en el PR, no un ajuste: cada KB aquí lo paga el
 // teléfono de quien abre la app en datos móviles.
+//
+// `total` subió de 4700 a 4750 en la fase 7 (13 de septiembre). La fase añadió
+// 49 KB medidos contra `dev`: el grupo de rutas de compartir, el slice de
+// capturas en el cliente, las dos hojas que sustituyen al arrastre y la onda
+// del audio. `compartido` no se movió ni un KB, que es lo que dice que nada de
+// esto entró en un layout: los 49 KB los descarga quien abre esas pantallas, no
+// quien abre la app. El margen queda igual que antes de la fase.
 const PRESUPUESTO_KB = {
   compartido: 830,
-  total: 4700,
+  total: 4750,
 };
 
 const RAIZ = ".next";
