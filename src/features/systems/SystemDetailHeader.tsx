@@ -20,15 +20,20 @@ import { getSystemColor } from "@/shared/utils/system-colors";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { EditSystemDialog } from "./EditSystemDialog";
 import type { SystemTransport } from "./systems.types";
-import Link from "next/link";
 import { type SystemSignals, formatStaleAdvisor } from "./systems.signals";
 import { capitalize, resolveSystemManifest } from "@/shared/lib/system-manifest";
 import { cn } from "@/lib/utils";
+import { CyclePicker } from "@/features/academic/CyclePicker";
+import { surfaceOf, type Surface } from "./SystemSurfaces";
+import type { AcademicPeriod } from "@/features/academic/academic.hooks";
 
 interface SystemDetailHeaderProps {
   system: SystemTransport;
   signals: SystemSignals;
-  currentTab?: "tasks" | "docs";
+  /** La superficie con la que abre el sistema cuando la URL no dice otra. */
+  landing?: Surface;
+  /** Los ciclos que ya trajo el servidor, para que el selector no parpadee. */
+  initialPeriods?: AcademicPeriod[];
 }
 
 /** Los valores del enum, en español y en minúscula: van en una línea de meta. */
@@ -56,13 +61,21 @@ function subscribeHeaderOpen(cb: () => void) {
 function readHeaderOpen() {
   return localStorage.getItem(HEADER_OPEN_KEY) !== "false";
 }
+/** Cambia de superficie sin renderizar la ruta en el servidor. */
+function chooseSurface(tab: Surface) {
+  const url = new URL(window.location.href);
+  if (url.searchParams.get("tab") === tab) return;
+  url.searchParams.set("tab", tab);
+  window.history.pushState(null, "", `${url.pathname}${url.search}`);
+}
+
 function setHeaderOpen(value: boolean) {
   localStorage.setItem(HEADER_OPEN_KEY, String(value));
   headerOpenListeners.forEach((l) => l());
 }
 
-export function SystemDetailHeader({ system, signals, currentTab = "tasks" }: SystemDetailHeaderProps) {
-  const cycle = useSearchParams().get("cycle");
+export function SystemDetailHeader({ system, signals, landing = "tasks", initialPeriods }: SystemDetailHeaderProps) {
+  const currentTab = surfaceOf(useSearchParams().get("tab"), landing);
   const router = useRouter();
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [editOpen, setEditOpen] = useState(false);
@@ -81,11 +94,14 @@ export function SystemDetailHeader({ system, signals, currentTab = "tasks" }: Sy
     <div className="w-full">
       {/* Title row: toggles the detail */}
       <div className="flex items-start justify-between gap-3 min-w-0">
+        {/* El nombre y el ciclo comparten línea cuando caben. Cuando no, el
+            ciclo baja a la suya en vez de pisar el nombre del sistema. */}
+        <div className="flex min-w-0 flex-1 flex-wrap items-center gap-x-3 gap-y-1.5">
         <button
           type="button"
           onClick={toggleOpen}
           aria-expanded={open}
-          className="flex items-center gap-3 flex-1 min-w-0 text-left"
+          className="flex min-w-0 grow basis-64 items-center gap-3 overflow-hidden text-left"
         >
           <ChevronDown
             className={cn(
@@ -94,7 +110,7 @@ export function SystemDetailHeader({ system, signals, currentTab = "tasks" }: Sy
             )}
           />
           <span className={`size-3 rounded-full shrink-0 bg-${cls}`} />
-          <h1 className="truncate font-display text-[1.41rem] font-bold tracking-[-0.02em]">
+          <h1 className="min-w-0 truncate font-display text-[1.41rem] font-bold tracking-[-0.02em]">
             {system.name}
           </h1>
           {system.isInbox && (
@@ -110,6 +126,9 @@ export function SystemDetailHeader({ system, signals, currentTab = "tasks" }: Sy
             </Badge>
           )}
         </button>
+        {/* El año y el ciclo, en la cabecera: un filtro, no una pantalla. */}
+        {system.templateType === "academic" && <CyclePicker system={system} initialPeriods={initialPeriods} />}
+        </div>
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <Button
@@ -225,7 +244,8 @@ export function SystemDetailHeader({ system, signals, currentTab = "tasks" }: Sy
       </div>
       )}
 
-      {/* Las pestañas: un segmento pill fuera de la cabecera; el elegido es el acento */}
+      {/* Las pestañas: un segmento pill fuera de la cabecera; el elegido es el
+          acento. Cambian con `pushState`, sin pedirle la página al servidor. */}
       <div className="mt-4 inline-flex rounded-full bg-secondary p-1" role="tablist" aria-label="Contenido del sistema">
         {(
           [
@@ -233,18 +253,19 @@ export function SystemDetailHeader({ system, signals, currentTab = "tasks" }: Sy
             { tab: "docs", label: capitalize(typeConfig.pageRole.nounPlural) },
           ] as const
         ).map(({ tab, label }) => (
-          <Link
+          <button
             key={tab}
+            type="button"
             role="tab"
             aria-selected={currentTab === tab}
-            href={`/systems/${system.id}?tab=${tab}${cycle ? `&cycle=${encodeURIComponent(cycle)}` : ""}`}
+            onClick={() => chooseSurface(tab)}
             className={cn(
               "flex h-10 items-center rounded-full px-4 text-sm font-semibold transition-colors",
               currentTab === tab ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground",
             )}
           >
             {label}
-          </Link>
+          </button>
         ))}
       </div>
 

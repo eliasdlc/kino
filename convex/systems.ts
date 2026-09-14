@@ -71,6 +71,14 @@ export const systemMetadataSchema = z.object({
         .optional(),
     })
     .optional(),
+  /**
+   * La cadencia de ciclos de un sistema académico: en qué meses empieza cada
+   * uno, y el primero abre el año académico. De aquí sale la lista de ciclos
+   * que se elige en vez de escribirlos a mano. Sin ella, la de PUCMM.
+   */
+  academic: z
+    .object({ cycleStartMonths: z.array(z.coerce.number().int().min(1).max(12)).min(1).max(6) })
+    .optional(),
   dailyWordGoal: z.coerce.number().int().min(0).max(100_000).optional(),
   chekhov: z
     .object({
@@ -101,7 +109,19 @@ async function systemWithSignals(ctx: QueryCtx, system: Doc<'systems'>) {
     expectedFrequency: system.expectedFrequency, activeTaskCount, daysSinceLastActivity,
     daysSinceCreated: days(system.createdAt),
   });
-  return { ...systemItem(system), stale, daysSinceLastActivity, activeTaskCount };
+  // La próxima entrega sale de las tareas que esta función ya recogió: la
+  // cabecera la enseña sin que la ruta tenga que pedir la lista entera.
+  const nextDueDate = tasks
+    .filter((task) => task.status !== 'done' && task.dueDate !== undefined)
+    .map((task) => task.dueDate!)
+    .sort((a, b) => a - b)[0];
+  return {
+    ...systemItem(system),
+    stale,
+    daysSinceLastActivity,
+    activeTaskCount,
+    nextDueDate: nextDueDate !== undefined ? new Date(nextDueDate).toISOString() : null,
+  };
 }
 
 /** El detalle sólo calcula señales del sistema que se está abriendo. */

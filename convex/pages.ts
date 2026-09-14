@@ -132,10 +132,20 @@ export const bySystem = kinoZodQuery({
   args: { systemId: zid('systems'), folderId: zid('folders').optional(), academicPeriodId: zid('academicPeriods').nullable().optional() },
   handler: async (ctx, { systemId, folderId, academicPeriodId }) => {
     const allowed = academicPeriodId !== undefined ? await academicFolderIds(ctx, ctx.user._id, systemId, academicPeriodId) : undefined;
-    const docs = await ctx.db.query('pages').withIndex('by_system', (q) => q.eq('systemId', systemId)).collect();
+
+    // Pedir una carpeta lee esa carpeta, no el sistema entero. Es la pantalla
+    // que más se abre y antes recorría todas las páginas del sistema para
+    // quedarse con las de una: el índice por carpeta ya existía.
+    const docs = folderId
+      ? await ctx.db.query('pages').withIndex('by_folder', (q) => q.eq('folderId', folderId)).collect()
+      : await ctx.db.query('pages').withIndex('by_system', (q) => q.eq('systemId', systemId)).collect();
+
+    // Dentro de una carpeta el ciclo es el mismo para todas sus páginas, así
+    // que no hace falta subir por la cadena de padres de cada una.
     const byId = new Map(docs.map(doc => [doc._id, doc]));
     function belongs(doc: Doc<'pages'>) {
       if (!allowed) return true;
+      if (folderId) return allowed.has(folderId);
       let root = doc;
       const visited = new Set<string>();
       while (!root.folderId && root.parentPageId && byId.has(root.parentPageId) && !visited.has(root._id)) {
@@ -144,7 +154,7 @@ export const bySystem = kinoZodQuery({
       }
       return root.folderId ? allowed.has(root.folderId) : academicPeriodId === null;
     }
-    const own = docs.filter((doc) => doc.userId === ctx.user._id && alive(doc) && (folderId === undefined || doc.folderId === folderId) && belongs(doc)).sort((a, b) => a.updatedAt - b.updatedAt);
+    const own = docs.filter((doc) => doc.userId === ctx.user._id && doc.systemId === systemId && alive(doc) && belongs(doc)).sort((a, b) => a.updatedAt - b.updatedAt);
     const pagina = own.slice(0, PAGE_LIST_LIMIT);
     return {
       items: await Promise.all(pagina.map((doc) => pageListItem(ctx, doc))),

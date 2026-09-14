@@ -1,4 +1,6 @@
+import { Suspense } from "react";
 import { AcademicWorkspace } from "@/features/academic/AcademicWorkspace";
+import { resolveSelectedCycle } from "@/features/academic/academic-cycles";
 import { notFound, redirect } from "next/navigation";
 import { api } from "@convex/_generated/api";
 import { serverQuery } from "@/shared/convex/server";
@@ -6,46 +8,56 @@ import { PageWrapper } from "@/components/PageWrapper";
 import { PageBreadcrumb } from "@/components/PageBreadcrumb";
 import { SystemDetailHeader } from "@/features/systems/SystemDetailHeader";
 import type { SystemSignals } from "@/features/systems/systems.signals";
-import { SystemDetailView } from "@/features/systems/views/SystemDetailView";
-import { NotebooksView } from "@/features/notebooks/NotebooksView";
+import { SystemSurfaces } from "@/features/systems/SystemSurfaces";
 import { landingSurface } from "@/shared/lib/system-manifest";
+import type { FunctionReturnType } from "convex/server";
+import type { Surface } from "@/features/systems/SystemSurfaces";
+
+type SystemDetail = FunctionReturnType<typeof api.systems.detail>;
+type AcademicPeriodList = FunctionReturnType<typeof api.academicPeriods.list>;
 import { getServerSession } from "@/shared/utils/session";
+import { TaskCardSkeleton } from "@/components/Skeletons";
 
 export default async function SystemPage({
   params,
   searchParams,
 }: {
   params: Promise<{ id: string }>;
-  searchParams: Promise<{ tab?: string }>;
+  searchParams: Promise<{ cycle?: string }>;
 }) {
   const { id } = await params;
-  const { tab } = await searchParams;
+  const { cycle } = await searchParams;
   const session = await getServerSession();
 
   if (!session) redirect("/login");
 
-  // El detalle no necesita leer las tareas y la actividad de los otros sistemas.
-  const [system, tasks] = await Promise.all([
+  // Los ciclos se piden a la vez que el sistema, no después: sólo un sistema
+  // académico los tiene, y ahí `academicPeriods.list` rechaza la llamada, que
+  // es lo que atrapa el `catch`.
+  const [system, periods] = await Promise.all([
     serverQuery(api.systems.detail, { id }).catch(() => null),
-    serverQuery(api.tasks.bySystem, { systemId: id }).catch(() => null),
+    serverQuery(api.academicPeriods.list, { systemId: id }).catch(() => []),
   ]);
+  if (!system) notFound();
 
-  if (!system || !tasks) notFound();
+  // Un sistema académico filtra por ciclo, y el servidor tiene que pedir las
+  // tareas con los mismos argumentos que el cliente: si no, el payload que
+  // acaba de renderizar no sirve como `initialData` y la lista se pide dos
+  // veces en cada carga.
+  const academic = system.templateType === "academic";
+  const academicPeriodId = academic ? resolveSelectedCycle(periods, cycle ?? null) : undefined;
 
-  const nextDue = tasks
-    .filter((t) => t.status !== "done" && t.dueDate)
-    .map((t) => t.dueDate!)
-    .sort()[0];
   const signals: SystemSignals = {
     status: system.stale ? "stale" : "active",
     stale: system.stale,
     daysSinceLastActivity: system.daysSinceLastActivity,
     activeTaskCount: system.activeTaskCount,
-    nextDueDate: nextDue ?? null,
+    nextDueDate: system.nextDueDate,
   };
   // Sin `?tab=`, manda la composición: un sistema cuyas páginas son primarias
   // abre en su biblioteca, no en el funnel de tareas.
-  const surface = tab === "docs" ? "docs" : tab === "tasks" ? "tasks" : landingSurface(system);
+  const landing = landingSurface(system);
+
 
   return (
     <div className="w-full">
@@ -58,20 +70,73 @@ export default async function SystemPage({
         />
       </div>
       <PageWrapper className="w-full">
-        <SystemDetailHeader system={system} signals={signals} currentTab={surface} />
+        <SystemDetailHeader
+          system={system}
+          signals={signals}
+          landing={landing}
+          initialPeriods={academic ? periods : undefined}
+        />
 
+        {/* La cabecera y las migas sólo necesitan el sistema: se pintan sin
+            esperar a la lista de tareas, que es la lectura más lenta. */}
         <div className="mt-4">
-          {system.templateType === "academic" ? <AcademicWorkspace systemId={id}>
-            {surface === "docs" ? <NotebooksView systemId={id} /> : <SystemDetailView system={system} initialTasks={tasks} />}
-          </AcademicWorkspace> : <>
-          {surface === "docs" ? (
-            <NotebooksView systemId={id} />
-          ) : (
-            <SystemDetailView system={system} initialTasks={tasks} />
-          )}
-          </>}
+          <Suspense fallback={<SurfacesSkeleton />}>
+            <Surfaces
+              systemId={id}
+              system={system}
+              landing={landing}
+              academic={academic}
+              academicPeriodId={academicPeriodId}
+              periods={periods}
+            />
+          </Suspense>
         </div>
       </PageWrapper>
     </div>
+  );
+}
+
+/** Lo que falta mientras llegan las tareas del sistema. */
+function SurfacesSkeleton() {
+  return (
+    <div className="flex w-full flex-col gap-3">
+      <div className="h-11 border-b border-border" />
+      <TaskCardSkeleton />
+      <TaskCardSkeleton />
+    </div>
+  );
+}
+
+async function Surfaces({
+  systemId,
+  system,
+  landing,
+  academic,
+  academicPeriodId,
+  periods,
+}: {
+  systemId: string;
+  system: SystemDetail;
+  landing: Surface;
+  academic: boolean;
+  academicPeriodId: string | null | undefined;
+  periods: AcademicPeriodList;
+}) {
+  const tasks = await serverQuery(api.tasks.bySystem, {
+    systemId,
+    ...(academic ? { academicPeriodId } : {}),
+  }).catch(() => null);
+  if (!tasks) notFound();
+
+  const content = (
+    <SystemSurfaces system={system} initialTasks={tasks} landing={landing} academic={academic} periods={periods} />
+  );
+
+  return academic ? (
+    <AcademicWorkspace systemId={systemId} initialPeriods={periods}>
+      {content}
+    </AcademicWorkspace>
+  ) : (
+    content
   );
 }

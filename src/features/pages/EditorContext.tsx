@@ -11,6 +11,7 @@ import { Table, TableRow, TableHeader, TableCell } from "@tiptap/extension-table
 import { TaskList, TaskItem } from "@tiptap/extension-list";
 import { StickyAnchorMark } from "@/features/sticky-notes/sticky-anchor.extension";
 import { SlashCommand } from "./slash-command.extension";
+import { LinkMarkdown } from "./link-markdown.extension";
 import { ImageUrlPaste } from "./image-paste.extension";
 import { CodexMention } from "./codex-mention.extension";
 import { mediumExtensions } from "./mediums/medium-extensions";
@@ -42,7 +43,13 @@ export function EditorProvider({
       // Markdown input rules (`# `, `- `, `> `, ```, `**bold**`, …) ship enabled
       // with StarterKit. Headings are capped at 1–3 to match the styled range
       // (globals.css) and the slash menu, so `#### ` never makes an unstyled h4.
-      StarterKit.configure({ heading: { levels: [1, 2, 3] } }),
+      StarterKit.configure({
+        heading: { levels: [1, 2, 3] },
+        // El `rel` es el mismo que fuerza `sanitizePageHtml` al renderizar: si
+        // el editor escribiera otro, el saneo lo reescribiría y el modo lectura
+        // no serviría lo mismo que el editor enseña.
+        link: { HTMLAttributes: { target: "_blank", rel: "noopener noreferrer" } },
+      }),
       Typography,
       // Marca el bloque de nivel superior que contiene el cursor con `.has-focus`.
       // El modo focus del arquetipo Writing (PLAN-11 §7) usa esa clase para atenuar
@@ -61,6 +68,8 @@ export function EditorProvider({
         HTMLAttributes: { class: "rounded-lg max-w-full h-auto my-2" },
       }),
       SlashCommand.configure({ mediumItems: mediumSlashItems(medium) }),
+      // La marca Link la trae StarterKit; esto le añade la sintaxis de Markdown.
+      LinkMarkdown,
       StickyAnchorMark,
       ...(codex
         ? [CodexMention.configure({ systemId: codex.systemId, HTMLAttributes: {} })]

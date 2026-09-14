@@ -40,6 +40,12 @@ export const systemMetadataSchema = z.object({
   tabs: z.array(systemTabIdSchema).optional(),
   defaultTab: systemTabIdSchema.optional(),
   composition: systemCompositionSchema.optional(),
+  // Solo Academic: en qué meses empieza cada ciclo del año, y el primero abre
+  // el año académico. De aquí sale la lista de ciclos que se elige en vez de
+  // escribirla a mano. Sin ella manda la cadencia por defecto.
+  academic: z
+    .object({ cycleStartMonths: z.array(z.coerce.number().int().min(1).max(12)).min(1).max(6) })
+    .optional(),
   // Solo Writing: meta diaria de palabras. 0 la desactiva sin borrar la clave.
   dailyWordGoal: z.coerce.number().int().min(0).max(100_000).optional(),
   // Solo Writing: sensibilidad del detector de hilos sueltos (KIN-137).

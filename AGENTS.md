@@ -34,7 +34,7 @@ pnpm migrate:convex                 # Importador Postgres → Convex (scripts/mi
 - **Base de datos**: Convex (`convex/schema.ts`, treinta y cinco tablas con un test por tabla). El schema de Drizzle sigue en `src/shared/db/schema.ts` sólo como origen del importador
 - **Auth**: Clerk. Registro, sesiones, verificación de correo, recuperación de contraseña, proveedores sociales y el panel de cuenta son componentes de Clerk (`@clerk/nextjs`). `src/proxy.ts` monta `clerkMiddleware`; `getServerSession` traduce la identidad de Clerk al usuario de Kino por la fila `accounts` con `providerId = 'clerk'`, y la crea la primera vez. Convex valida el mismo JWT con la plantilla `convex` (`convex/auth.config.ts`)
 - **Email transaccional**: ninguno propio. Los correos de cuenta los manda Clerk
-- **Server state**: TanStack Query v5
+- **Server state**: Convex reactivo (`src/shared/convex/hooks.ts`). No hay TanStack Query: una query es una suscripción y se actualiza sola cuando la base cambia
 - **Formularios**: react-hook-form + zodResolver
 - **Estilos**: Tailwind + shadcn/ui (Radix)
 - **Toasts**: sonner · **Gráficas**: Recharts · **Fechas**: date-fns · **Recurrencia**: rrule
@@ -52,7 +52,7 @@ pnpm migrate:convex                 # Importador Postgres → Convex (scripts/mi
 
 1. **$0/mes de infraestructura.** Todo dentro de free tiers de Vercel + Convex.
 2. **Sin Redis, sin BullMQ, sin servidor persistente.** 100% serverless.
-3. **Sin WebSockets.** Vercel Serverless no soporta conexiones persistentes. Lo que refresca hoy es `refetchOnWindowFocus`, el default de TanStack Query: con un solo usuario, volver a la pestaña llega a tiempo. `refetchInterval` no se usa en ningún sitio y no es la alternativa prescrita: cada intervalo activo es una invocación por usuario y por minuto contra el free tier. La señal que reabriría la decisión es el agente MCP escribiendo mientras miras el tablero.
+3. **Las rutas de Next no mantienen conexiones persistentes.** El WebSocket que refresca las pantallas lo abre el cliente de Convex, y es lo que hace que una lista se actualice sola sin intervalos. Ninguna pantalla usa un `refetch` por tiempo, y añadir uno sería una invocación por usuario y por minuto contra el free tier.
 4. **10s por función, salvo excepción justificada.** El presupuesto está declarado en dos sitios y no es prosa en ninguno de los dos:
 
    - **En Convex**, `DEFAULT_BUDGET_MS` de `convex/lib/fn.ts`. Una acción nace acotada a 10 s sin que su autor tenga que acordarse; `kinoAction(30_000)` es la única por encima hoy (borrar la cuenta) y lo dice en su comentario.
@@ -167,23 +167,29 @@ No hay `index.ts` por slice ni regla de lint que lo verifique, y es a propósito
 
 ### Data fetching
 
-Toda lectura de servidor pasa por TanStack Query. Cero `fetch` suelto en componentes, cero `useEffect + setState` para datos de servidor.
+Toda lectura de cliente pasa por `useConvexQuery` (`src/shared/convex/hooks.ts`), y toda lectura de servidor por `serverQuery`. Cero `fetch` suelto en componentes, cero `useEffect + setState` para datos de servidor.
 
-Los query keys se declaran como **factory por feature** (`taskKeys`, `pageKeys`, …), nunca como strings inline. No hay factory central: cada slice expone el suyo.
+No hay query keys: el argumento de la función **es** la clave de la suscripción. Dos componentes que piden lo mismo con los mismos argumentos comparten una sola lectura (`ConvexQueryCacheProvider`), así que repetir un hook en dos sitios no dobla el tráfico.
 
-### Mutaciones: patrón optimista canónico
+### Mutaciones: una suscripción, no una caché que invalidar
 
-**Todas** las mutaciones lo usan, sin excepción: UI optimista siempre, rollback en error, invalidate en settled. El patrón no se escribe a mano: vive en `src/shared/hooks/optimistic.ts`, en tres formas según sobre qué se aplique.
+Convex es reactivo. Una lectura es una suscripción: cuando la mutación cambia la
+base, cada lista que la miraba se vuelve a pintar sola. No hay claves que
+invalidar, no hay `refetch` (existe en el tipo para que compile quien lo
+llamaba, y no hace nada) y **no hay actualización optimista**: `useConvexMutation`
+espera la respuesta.
 
-| Hook | Para qué |
-|---|---|
-| `useOptimisticList` | Una lista bajo una key. Completar, borrar, editar o mover dentro de ella |
-| `useOptimisticRecord` | Un registro bajo una key. Ajustes, la rejilla de escenas, la cronología |
-| `useOptimisticScope` | Todas las listas de un prefijo. Una tarea se ve a la vez en el plan de hoy, en la lista global y en la de su sistema |
+Lo que sí hay que cuidar es la otra mitad: **una pantalla que recibe props de un
+server component no se entera de nada.** El servidor renderiza una foto y nadie
+la revalida. Cuando el valor puede cambiar mientras la pantalla está abierta
+(el título de una página, el nombre de una carpeta), el componente se suscribe
+(`usePage`, `usePages`, `useFolders`) y usa la prop del servidor sólo como
+`initialData`. Ese es el patrón, y el error que sustituye al de las claves mal
+invalidadas.
 
-La invalidación es parte del hook, no una decisión por mutación: ahí estaba el riesgo real, con uno invalidando un prefijo y otro una clave exacta, y la diferencia notándose sólo con dos vistas abiertas.
-
-Lo que no cabe (leer de una cache y escribir en otra, o una creación encolable sin conexión) se escribe inline **con un comentario diciendo por qué**. Son cinco casos y los cinco lo llevan.
+Para que `initialData` sirva de verdad, **la ruta pide con los mismos argumentos
+que el hook**. Si el cliente filtra por ciclo y el servidor no, el payload que
+acaba de viajar no encaja y la lista se pide dos veces en cada carga.
 
 ### Fechas y timezone
 
@@ -273,15 +279,15 @@ Es el principio de la casa escrito donde se aplica: se escribe lo reversible, se
 
 | Tipo | Herramienta |
 |---|---|
-| Server state | TanStack Query |
+| Server state | Convex reactivo (`useConvexQuery`) |
 | Filtros de lista | URL (`useSearchParams`) |
 | UI efímera | `useState` / `useReducer` |
 | Timer activo cross-route | React Context en root |
 | UI global (abierto/cerrado, tema, sidebar) | Zustand |
 
-**Zustand sólo para estado de UI global.** Nunca datos de servidor: eso es de TanStack Query y no se copia a un store paralelo. La regla existía para impedir esa fuga, y esa fuga no se ha dado: los cuatro stores que hay (`ThemeProvider`, `command-palette`, `quick-add`, `systems`) guardan booleanos y preferencias. Para un booleano de apertura, un provider más en el árbol re-renderiza todo lo que cuelga de él a cambio de nada.
+**Zustand sólo para estado de UI global.** Nunca datos de servidor: eso es de Convex y no se copia a un store paralelo. La regla existía para impedir esa fuga, y esa fuga no se ha dado: los cuatro stores que hay (`ThemeProvider`, `command-palette`, `quick-add`, `systems`) guardan booleanos y preferencias. Para un booleano de apertura, un provider más en el árbol re-renderiza todo lo que cuelga de él a cambio de nada.
 
-**No introducir Redux ni Jotai.** Con TanStack Query, Zustand y el Context que ya existe para el timer, sobra.
+**No introducir Redux ni Jotai, ni reintroducir TanStack Query.** Con las suscripciones de Convex, Zustand y el Context que ya existe para el timer, sobra.
 
 ### Lógica de negocio
 

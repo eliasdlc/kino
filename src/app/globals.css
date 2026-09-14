@@ -258,6 +258,20 @@
 .tiptap-editor .ProseMirror strong {
   @apply font-semibold;
 }
+/* Un enlace se ve como un enlace: el acento marca la acción, y el subrayado
+   fino lo distingue sin gritar. La misma regla vale en el editor y leyendo. */
+:is(.tiptap-editor .ProseMirror, .reading-surface) a {
+  color: var(--ac);
+  text-decoration: underline;
+  text-decoration-color: color-mix(in srgb, var(--ac) 45%, transparent);
+  text-decoration-thickness: 1px;
+  text-underline-offset: 0.18em;
+  cursor: pointer;
+}
+:is(.tiptap-editor .ProseMirror, .reading-surface) a:hover {
+  text-decoration-color: var(--ac);
+}
+
 .tiptap-editor .ProseMirror em {
   @apply italic;
 }

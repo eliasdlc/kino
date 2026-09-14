@@ -149,9 +149,14 @@ export default function NotebookEditorSurface({
   onToggleFocus,
   onOutline,
   jumpRef,
+  title,
+  onTitleChange,
 }: {
   page: PageDetailTransport;
   systemId: string;
+  /** El título vive en el layout: lo leen las migas y todo lo que lo pinta. */
+  title: string;
+  onTitleChange: (title: string) => void;
   /** Arquetipo Writing: activa el "writer feel" (serif, medida de lectura, status bar). */
   writer?: boolean;
   /** Datos de la obra para el progreso en la status bar (null si no aplica). */
@@ -231,7 +236,7 @@ export default function NotebookEditorSurface({
                 writer ? "max-w-[46rem] md:my-6 md:px-10" : "max-w-3xl"
               )}
             >
-              <NotebookEditor page={page} systemId={systemId} pageId={page.id} writer={writer} />
+              <NotebookEditor page={page} systemId={systemId} pageId={page.id} writer={writer} title={title} onTitleChange={onTitleChange} />
               {/* Las notas van después del texto: la página escribe primero. */}
               <StickyNotesGrid pageId={page.id} />
             </div>

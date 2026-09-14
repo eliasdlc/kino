@@ -3,16 +3,20 @@
 import { useAcademicScope } from "@/features/academic/academic-scope";
 import { api } from "@convex/_generated/api";
 import { useConvexMutation, useConvexQuery } from "@/shared/convex/hooks";
+import type { FunctionReturnType } from "convex/server";
 import type { CreatePageInput, UpdatePageInput } from "./pages.schemas";
+
+/** Lo que devuelve la lista de páginas, tal como la pinta el servidor. */
+export type PageListTransport = FunctionReturnType<typeof api.pages.bySystem>;
 
 /**
  * Las páginas de un sistema. La query trae hasta `PAGE_LIST_LIMIT` y dice
  * cuántas quedaron fuera; el componente recibe la lista, y `restantes` está
  * ahí para el día que un sistema pase del tope.
  */
-export function usePages(systemId: string) {
+export function usePages(systemId: string, initialData?: PageListTransport) {
   const scope = useAcademicScope(systemId);
-  const result = useConvexQuery(api.pages.bySystem, { ...scope, systemId });
+  const result = useConvexQuery(api.pages.bySystem, { ...scope, systemId }, { initialData });
   return { ...result, data: result.data?.items, restantes: result.data?.restantes ?? 0 };
 }
 
