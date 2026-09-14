@@ -58,10 +58,10 @@ export function DocumentRail({ items, onJump }: DocumentRailProps) {
     <nav
       aria-label="Títulos del documento"
       data-testid="document-rail"
-      // Pegado al borde izquierdo de la columna cuando hay sitio, y al del
-      // lienzo cuando no. La columna mide 48rem (max-w-3xl) y está centrada.
-      style={{ left: "max(0.75rem, calc(50% - 24rem - 3.25rem))" }}
-      className="absolute top-1/2 z-(--z-raised) hidden -translate-y-1/2 md:block"
+      // Pegado al borde izquierdo del lienzo, no a la columna de texto:
+      // colgarlo de la columna deja un hueco vacío a su izquierda que no es de
+      // nadie y se lee como un error de maquetación.
+      className="absolute left-4 top-1/2 z-(--z-raised) hidden -translate-y-1/2 md:block"
       onMouseLeave={() => setHovered(null)}
     >
       <ul className="flex flex-col">
