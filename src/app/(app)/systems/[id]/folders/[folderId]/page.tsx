@@ -1,3 +1,4 @@
+import { Suspense } from "react";
 import { AcademicWorkspace } from "@/features/academic/AcademicWorkspace";
 import { AcademicSubjectView } from "@/features/academic/AcademicSubjectView";
 import { notFound, redirect } from "next/navigation";
@@ -5,6 +6,7 @@ import { Files } from "lucide-react";
 import { api } from "@convex/_generated/api";
 import { serverQuery } from "@/shared/convex/server";
 import { PageBreadcrumb } from "@/components/PageBreadcrumb";
+import { Skeleton } from "@/components/ui/skeleton";
 import { FolderCard } from "@/features/notebooks/FolderCard";
 import { NotebookCard } from "@/features/notebooks/NotebookCard";
 import { FolderViewToolbar } from "@/features/notebooks/FolderViewToolbar";
@@ -27,21 +29,14 @@ export default async function FolderViewRoute({ params, searchParams }: FolderVi
 
   if (!session) redirect("/login");
 
-  const [folder, system, children, allPages, folderTasks, periods] = await Promise.all([
+  // Las migas sólo necesitan estas dos lecturas, y las dos son por id. El resto
+  // del contenido llega detrás sin hacerlas esperar.
+  const [folder, system] = await Promise.all([
     serverQuery(api.folders.detail, { id: folderId }).catch(() => null),
     serverQuery(api.systems.byId, { id: systemId }).catch(() => null),
-    serverQuery(api.folders.children, { id: folderId }),
-    serverQuery(api.pages.bySystem, { systemId, folderId }),
-    serverQuery(api.tasks.byFolder, { systemId, folderId }),
-    serverQuery(api.academicPeriods.list, { systemId }).catch(() => []),
   ]);
 
   if (!folder || !system || folder.systemId !== systemId) notFound();
-
-  const academic = system.templateType === "academic";
-  const folderPages = allPages.items;
-  const emptyCopy = containerDetailEmptyCopy(resolveSystemManifest(system));
-  const hasDocContent = children.length > 0 || folderPages.length > 0;
 
   // Volver al sistema devuelve a la superficie desde la que se entró, con el
   // mismo ciclo: perder el filtro al subir un nivel obligaba a volver a
@@ -57,6 +52,62 @@ export default async function FolderViewRoute({ params, searchParams }: FolderVi
     })),
     { label: folder.name },
   ];
+
+  return (
+    <div className="w-full">
+      <div className="sticky top-0 z-(--z-raised) bg-background border-b px-4 md:px-6 py-2.5">
+        <PageBreadcrumb items={breadcrumbItems} />
+      </div>
+      <div className="p-4 md:p-6">
+        <Suspense fallback={<FolderSkeleton />}>
+          <FolderContent systemId={systemId} folderId={folderId} folder={folder} system={system} />
+        </Suspense>
+      </div>
+    </div>
+  );
+}
+
+function FolderSkeleton() {
+  return (
+    <div className="space-y-6">
+      <div className="flex gap-2">
+        <div className="h-8 w-32 rounded-full bg-muted" />
+        <div className="h-8 w-28 rounded-full bg-muted" />
+      </div>
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+        {Array.from({ length: 4 }).map((_, index) => (
+          <Skeleton key={index} className="h-28 w-full rounded-2xl" />
+        ))}
+      </div>
+    </div>
+  );
+}
+
+type FolderDetail = Awaited<ReturnType<typeof serverQuery<typeof api.folders.detail>>>;
+type SystemItem = Awaited<ReturnType<typeof serverQuery<typeof api.systems.byId>>>;
+
+async function FolderContent({
+  systemId,
+  folderId,
+  folder,
+  system,
+}: {
+  systemId: string;
+  folderId: string;
+  folder: FolderDetail;
+  system: SystemItem;
+}) {
+  const [children, allPages, folderTasks, periods] = await Promise.all([
+    serverQuery(api.folders.children, { id: folderId }),
+    serverQuery(api.pages.bySystem, { systemId, folderId }),
+    serverQuery(api.tasks.byFolder, { systemId, folderId }),
+    serverQuery(api.academicPeriods.list, { systemId }).catch(() => []),
+  ]);
+
+  const academic = system.templateType === "academic";
+  const folderPages = allPages.items;
+  const emptyCopy = containerDetailEmptyCopy(resolveSystemManifest(system));
+  const hasDocContent = children.length > 0 || folderPages.length > 0;
 
   const documents = (
     <>
@@ -99,34 +150,29 @@ export default async function FolderViewRoute({ params, searchParams }: FolderVi
     </>
   );
 
+  if (!academic) {
+    return (
+      <div className="space-y-6">
+        {documents}
+        <Separator />
+        <TasksList systemId={systemId} initialData={[]} folderId={folderId} folderInitialData={folderTasks} />
+      </div>
+    );
+  }
+
   // El ciclo lo lleva la materia raíz: una subcarpeta no puede contradecirlo.
   const subject = folder.breadcrumb[0] ?? folder;
 
   return (
-    <div className="w-full">
-      <div className="sticky top-0 z-(--z-raised) bg-background border-b px-4 md:px-6 py-2.5">
-        <PageBreadcrumb items={breadcrumbItems} />
-      </div>
-      <div className="p-4 md:p-6">
-        {academic ? (
-          <AcademicWorkspace systemId={systemId} folderId={folderId}>
-            <AcademicSubjectView
-              system={system}
-              folder={folder}
-              subject={subject}
-              periods={periods}
-              initialTasks={folderTasks}
-              documents={documents}
-            />
-          </AcademicWorkspace>
-        ) : (
-          <div className="space-y-6">
-            {documents}
-            <Separator />
-            <TasksList systemId={systemId} initialData={[]} folderId={folderId} folderInitialData={folderTasks} />
-          </div>
-        )}
-      </div>
-    </div>
+    <AcademicWorkspace systemId={systemId} folderId={folderId}>
+      <AcademicSubjectView
+        system={system}
+        folder={folder}
+        subject={subject}
+        periods={periods}
+        initialTasks={folderTasks}
+        documents={documents}
+      />
+    </AcademicWorkspace>
   );
 }

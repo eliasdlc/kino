@@ -109,7 +109,19 @@ async function systemWithSignals(ctx: QueryCtx, system: Doc<'systems'>) {
     expectedFrequency: system.expectedFrequency, activeTaskCount, daysSinceLastActivity,
     daysSinceCreated: days(system.createdAt),
   });
-  return { ...systemItem(system), stale, daysSinceLastActivity, activeTaskCount };
+  // La próxima entrega sale de las tareas que esta función ya recogió: la
+  // cabecera la enseña sin que la ruta tenga que pedir la lista entera.
+  const nextDueDate = tasks
+    .filter((task) => task.status !== 'done' && task.dueDate !== undefined)
+    .map((task) => task.dueDate!)
+    .sort((a, b) => a - b)[0];
+  return {
+    ...systemItem(system),
+    stale,
+    daysSinceLastActivity,
+    activeTaskCount,
+    nextDueDate: nextDueDate !== undefined ? new Date(nextDueDate).toISOString() : null,
+  };
 }
 
 /** El detalle sólo calcula señales del sistema que se está abriendo. */

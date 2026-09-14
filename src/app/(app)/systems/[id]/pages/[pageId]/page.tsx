@@ -8,10 +8,12 @@ import { getServerSession } from "@/shared/utils/session";
 
 interface PageEditorRouteProps {
   params: Promise<{ id: string; pageId: string }>;
+  searchParams: Promise<{ cycle?: string }>;
 }
 
-export default async function PageEditorRoute({ params }: PageEditorRouteProps) {
+export default async function PageEditorRoute({ params, searchParams }: PageEditorRouteProps) {
   const { id: systemId, pageId } = await params;
+  const { cycle } = await searchParams;
   const session = await getServerSession();
 
   if (!session) redirect("/login");
@@ -58,9 +60,13 @@ export default async function PageEditorRoute({ params }: PageEditorRouteProps) 
         }
       : null;
 
+  // Volver al sistema devuelve a los documentos, que es de donde se entra a un
+  // apunte, y con el mismo ciclo.
+  const systemHref = `/systems/${systemId}?tab=docs${cycle ? `&cycle=${encodeURIComponent(cycle)}` : ""}`;
+
   const breadcrumbItems: BreadcrumbItem[] = [
     { label: "Sistemas", href: "/systems" },
-    { label: system.name, href: `/systems/${systemId}` },
+    { label: system.name, href: systemHref },
     ...folderAncestors.map((crumb) => ({
       label: crumb.name,
       href: `/systems/${systemId}/folders/${crumb.id}`,

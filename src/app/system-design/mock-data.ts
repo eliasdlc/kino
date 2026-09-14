@@ -114,6 +114,7 @@ export function makeSystem(overrides: Partial<SystemWithSignalsTransport> = {}):
     stale: false,
     daysSinceLastActivity: 1,
     activeTaskCount: 8,
+    nextDueDate: null,
   } as SystemWithSignalsTransport;
   return { ...base, ...overrides };
 }
