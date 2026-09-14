@@ -1,8 +1,8 @@
 import { z } from 'zod';
-import { v } from 'convex/values';
+import { ConvexError, v } from 'convex/values';
 import { internalMutation } from './_generated/server';
 import { invalid, notFound } from './lib/errors';
-import { kinoZodMutation, kinoZodQuery } from './lib/fn';
+import { kinoZodMutation, kinoZodProposal, kinoZodQuery } from './lib/fn';
 import { recordEvent } from './eventLog';
 import { createTaskDoc } from './tasks';
 import type { Doc, Id } from './_generated/dataModel';
@@ -199,6 +199,74 @@ export const confirmar = kinoZodMutation({
     });
 
     return { creadas: creadas.length };
+  },
+});
+
+/**
+ * Le entrega la captura al agente en un formato que puede mirar.
+ *
+ * **Los ojos los pone el agente, no Kino.** Aquí no hay análisis: hay una
+ * entrega. La captura sale con su tipo y con la ruta de su archivo, y quien la
+ * mira lo hace con su propia clave y en su propio contexto. Kino no manda un
+ * byte a ningún modelo, y hay un grep en la verificación que lo comprueba.
+ */
+export const entregar = kinoZodQuery({
+  args: { id: z.string().min(1) },
+  handler: async (ctx, { id }) => {
+    const captura = await propia(ctx, ctx.user._id, id as Id<'captures'>);
+    if (captura.status !== 'pending') invalid('Esa captura ya no espera a nadie');
+
+    return {
+      id: captura._id,
+      kind: captura.kind,
+      text: captura.text ?? null,
+      url: captura.url ?? null,
+      /** La ruta del archivo. El agente la abre con su clave, no Kino por él. */
+      blobPath: captura.blobPath ?? null,
+      durationSeconds: captura.durationSeconds ?? null,
+      resuelta: captura.proposedItems !== undefined,
+    };
+  },
+});
+
+/**
+ * Recibe los items tipados que el agente leyó en la captura. No crea tareas:
+ * las deja propuestas dentro de la captura, que sigue sin confirmar en Bandeja.
+ * El gesto lo da una persona, siempre.
+ *
+ * Es `kinoZodProposal` y no una mutación directa a propósito: una credencial de
+ * agente desatendido lee y propone, nunca escribe (D-07).
+ *
+ * Idempotente por captura: resolver dos veces devuelve conflicto y no duplica
+ * nada, porque un agente que reintenta es lo normal y duplicar la lista de
+ * items sería el peor sitio donde notarlo.
+ */
+export const resolver = kinoZodProposal({
+  args: {
+    id: z.string().min(1),
+    items: z.array(itemPropuesto).min(1).max(50),
+  },
+  handler: async (ctx, { id, items }) => {
+    const captura = await propia(ctx, ctx.user._id, id as Id<'captures'>);
+    if (captura.status !== 'pending') invalid('Esa captura ya no espera a nadie');
+    if (captura.proposedItems !== undefined) {
+      throw new ConvexError({
+        code: 'CONFLICT' as const,
+        message: 'Esa captura ya la leyó alguien. Vuelve a pedirla con la tool de entrega antes de proponer.',
+      });
+    }
+
+    await ctx.db.patch(captura._id, { proposedItems: items });
+    await recordEvent(ctx, {
+      userId: ctx.user._id,
+      actorChannel: ctx.channel,
+      action: 'capture.resolve',
+      targetType: 'capture',
+      targetId: captura._id,
+      payload: { items: items.length },
+    });
+
+    return { propuestos: items.length };
   },
 });
 

@@ -266,6 +266,11 @@ export const DESHACER: Record<string, FormaDeDeshacer> = {
     motivo:
       'Confirmar crea tareas, y cada una se deshace por su cuenta desde su propia fila. Deshacer el grupo borraría tareas que quizá ya editaste.',
   },
+  'capture.resolve': {
+    forma: 'no',
+    motivo:
+      'Lo que el agente leyó no es una escritura tuya: si no te sirve, descarta la captura o confirma sólo los items que quieras.',
+  },
   'capture.discard': { forma: 'fields' },
   'capture.expire': {
     forma: 'no',

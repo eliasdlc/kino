@@ -237,3 +237,84 @@ describe('descartar se puede deshacer, caducar no', () => {
     expect(fila?.payload).toEqual({ status: 'pending' });
   });
 });
+
+describe('los ojos prestados: la entrega y la resolución', () => {
+  /** El agente de Ana, con el alcance que D-07 le da: lee y propone. */
+  async function conAgente(t: ReturnType<typeof convexTest>) {
+    const asAna = await seed(t);
+    const agente = t.withIdentity({ ...ana, kino_scope: 'propose', kino_client: 'claude_desktop' });
+    return { asAna, agente };
+  }
+
+  it('la entrega devuelve la captura en un formato que se puede mirar, no un análisis', async () => {
+    const t = convexTest(schema, modules);
+    const { asAna, agente } = await conAgente(t);
+    const captura = await asAna.mutation(api.captures.crear, {
+      kind: 'photo',
+      blobPath: 'https://cdn.kino/pizarra.jpg',
+    });
+
+    const entregada = await agente.query(api.captures.entregar, { id: captura.id });
+
+    expect(entregada).toMatchObject({
+      kind: 'photo',
+      blobPath: 'https://cdn.kino/pizarra.jpg',
+      resuelta: false,
+    });
+  });
+
+  it('resolver deja los items propuestos y la captura sigue sin confirmar', async () => {
+    const t = convexTest(schema, modules);
+    const { asAna, agente } = await conAgente(t);
+    const captura = await asAna.mutation(api.captures.crear, { kind: 'photo', blobPath: 'k/pizarra.jpg' });
+
+    const resultado = await agente.mutation(api.captures.resolver, {
+      id: captura.id,
+      items: [{ title: 'Repasar el parcial' }, { title: 'Entregar el diagrama ER' }],
+    });
+
+    expect(resultado).toEqual({ propuestos: 2 });
+    const [fila] = await asAna.query(api.captures.pendientes, {});
+    expect(fila).toMatchObject({ status: 'pending' });
+    expect(fila!.proposedItems).toHaveLength(2);
+    // Y sigue sin crear nada: el gesto no lo ha dado nadie.
+    expect((await asAna.query(api.tasks.list, {})).items).toEqual([]);
+  });
+
+  it('resolver dos veces devuelve conflicto y no duplica nada', async () => {
+    const t = convexTest(schema, modules);
+    const { asAna, agente } = await conAgente(t);
+    const captura = await asAna.mutation(api.captures.crear, { kind: 'photo', blobPath: 'k/pizarra.jpg' });
+    await agente.mutation(api.captures.resolver, { id: captura.id, items: [{ title: 'Uno' }] });
+
+    await expect(
+      agente.mutation(api.captures.resolver, { id: captura.id, items: [{ title: 'Otro' }] }),
+    ).rejects.toThrow(/CONFLICT|ya la leyó/);
+
+    const [fila] = await asAna.query(api.captures.pendientes, {});
+    expect(fila!.proposedItems).toEqual([{ title: 'Uno' }]);
+  });
+
+  it('la captura de otra cuenta no se alcanza ni para mirarla', async () => {
+    const t = convexTest(schema, modules);
+    const { asAna } = await conAgente(t);
+    await seed(t, beto);
+    const captura = await asAna.mutation(api.captures.crear, { kind: 'text', text: 'idea de Ana' });
+    const agenteDeBeto = t.withIdentity({ ...beto, kino_scope: 'propose', kino_client: 'claude_desktop' });
+
+    await expect(agenteDeBeto.query(api.captures.entregar, { id: captura.id })).rejects.toThrow();
+    await expect(
+      agenteDeBeto.mutation(api.captures.resolver, { id: captura.id, items: [{ title: 'mío' }] }),
+    ).rejects.toThrow();
+  });
+
+  it('lo confirmado ya no se entrega: no hay nada que volver a leer', async () => {
+    const t = convexTest(schema, modules);
+    const { asAna, agente } = await conAgente(t);
+    const captura = await asAna.mutation(api.captures.crear, { kind: 'photo', blobPath: 'k/pizarra.jpg' });
+    await agente.mutation(api.captures.resolver, { id: captura.id, items: [{ title: 'Uno' }] });
+    await asAna.mutation(api.captures.confirmar, { id: captura.id, indices: [0] });
+
+    await expect(agente.query(api.captures.entregar, { id: captura.id })).rejects.toThrow();
+  });
+});
