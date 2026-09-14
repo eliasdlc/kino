@@ -16,10 +16,15 @@ export function useTrashedTasks(systemId: string, enabled = true) {
   return { ...result, data: result.data?.items };
 }
 
-/** La lista de un sistema. `initialData` es lo que pintó el servidor, hasta que llega la suscripción. */
+/**
+ * La lista de un sistema. `initialData` es lo que pintó el servidor, hasta que
+ * llega la suscripción. La ruta pide con los mismos argumentos que este hook,
+ * ciclo incluido, así que el render del servidor sirve siempre y la lista no se
+ * pide dos veces por carga.
+ */
 export function useTasks(systemId: string, initialData: TaskTransport[]) {
   const scope = useAcademicScope(systemId);
-  return useConvexQuery(api.tasks.bySystem, { ...scope, systemId }, { initialData: scope ? undefined : initialData });
+  return useConvexQuery(api.tasks.bySystem, { ...scope, systemId }, { initialData });
 }
 
 export function useFolderTasks(systemId: string, folderId: string, initialData?: TaskTransport[]) {

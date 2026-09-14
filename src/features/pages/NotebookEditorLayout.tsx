@@ -256,6 +256,15 @@ export function NotebookEditorLayout({
 
   const rootPageId = parentNotebook?.id ?? page.id;
 
+  // El título se escribe en el editor pero lo pintan las migas, el nombre de la
+  // sesión de escritura, el interruptor de capítulo y el del archivo exportado.
+  // Vive aquí para que los cinco cambien en la misma tecla.
+  const [title, setTitle] = useState(page.title ?? "");
+  const livePage = { ...page, title: title || null };
+  const liveBreadcrumb = breadcrumbItems.map((item, index) =>
+    index === breadcrumbItems.length - 1 ? { ...item, label: title || "Sin título" } : item,
+  );
+
   // Esc sale del modo focus (PLAN-11 §7).
   useEffect(() => {
     if (!focusMode) return;
@@ -276,16 +285,16 @@ export function NotebookEditorLayout({
         )}
       >
         <div className="flex-1 min-w-0">
-          <PageBreadcrumb items={breadcrumbItems} />
+          <PageBreadcrumb items={liveBreadcrumb} />
         </div>
         {writer && (
-          <WritingSessionButton pageId={page.id} pageTitle={page.title} systemId={systemId} />
+          <WritingSessionButton pageId={page.id} pageTitle={livePage.title} systemId={systemId} />
         )}
         {writer && (
           <ChapterStatusToggle
             pageId={page.id}
             systemId={systemId}
-            title={page.title}
+            title={livePage.title}
             initialCompletedAt={page.completedAt}
             unitNoun={medium?.unit.noun}
           />
@@ -305,6 +314,8 @@ export function NotebookEditorLayout({
         {/* Main editor: centered content with free-floating margin notes overlay */}
         <NotebookEditorSurface
           page={page}
+          title={title}
+          onTitleChange={setTitle}
           systemId={systemId}
           writer={writer}
           obra={obra}
@@ -384,7 +395,7 @@ export function NotebookEditorLayout({
 
             <Separator />
 
-            <ExportPanel page={page} medium={medium} />
+            <ExportPanel page={livePage} medium={medium} />
 
             <Separator />
 

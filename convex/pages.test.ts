@@ -128,3 +128,40 @@ it('filtra la materia antes del límite de páginas del sistema', async () => {
   await asLuis.mutation(api.users.ensure, {});
   expect((await asLuis.query(api.pages.bySystem, { systemId, folderId: folder.id })).items).toEqual([]);
 });
+
+// Pedir las páginas de una carpeta lee esa carpeta y no el sistema entero.
+// Lo que se prueba es lo que el cambio de índice puede romper: que no se cuele
+// una página de otra carpeta, de otro sistema o ya borrada.
+describe('pages.bySystem con carpeta', () => {
+  it('devuelve sólo las páginas vivas de esa carpeta y de ese sistema', async () => {
+    const { t, asAna, userId, systemId } = await seed();
+    const { otroSistema, clase, otraClase } = await t.run(async (ctx) => {
+      const otroSistema = await ctx.db.insert('systems', {
+        userId, createdBy: userId, createdVia: 'session', name: 'Otro', color: 'red',
+        templateType: 'academic', icon: 'x', isActive: true, isInbox: false, sortOrder: 1, createdAt: 1, updatedAt: 1,
+      });
+      const carpeta = (name: string, system: typeof systemId) =>
+        ctx.db.insert('folders', {
+          userId, createdBy: userId, createdVia: 'session', systemId: system, name, color: 'blue', sortIndex: 0, createdAt: 1, updatedAt: 1,
+        });
+      return { otroSistema, clase: await carpeta('Cálculo', systemId), otraClase: await carpeta('Ética', systemId), ajena: await carpeta('Ajena', otroSistema) };
+    });
+
+    await t.run(async (ctx) => {
+      const pagina = (title: string, folderId: typeof clase, systemOverride?: typeof systemId, deletedAt?: number) =>
+        ctx.db.insert('pages', {
+          userId, systemId: systemOverride ?? systemId, folderId, title, content: '<p>x</p>', isPinned: false,
+          lemas: title.toLowerCase(), createdBy: userId, createdVia: 'session', createdAt: 1, updatedAt: 1,
+          ...(deletedAt ? { deletedAt } : {}),
+        });
+      await pagina('Límites', clase);
+      await pagina('Derivadas', clase);
+      await pagina('Borrada', clase, undefined, 99);
+      await pagina('Kant', otraClase);
+      await pagina('De otro sistema', clase, otroSistema);
+    });
+
+    const { items } = await asAna.query(api.pages.bySystem, { systemId, folderId: clase });
+    expect(items.map((item) => item.title).sort()).toEqual(['Derivadas', 'Límites']);
+  });
+});

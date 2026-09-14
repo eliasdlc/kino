@@ -28,7 +28,10 @@ function editorHtml(content: string, medium: keyof typeof MEDIUM_CONFIG | null =
   const editor = new Editor({
     element: document.createElement("div"),
     extensions: [
-      StarterKit.configure({ heading: { levels: [1, 2, 3] } }),
+      StarterKit.configure({
+        heading: { levels: [1, 2, 3] },
+        link: { HTMLAttributes: { target: "_blank", rel: "noopener noreferrer" } },
+      }),
       Typography,
       Table.configure({ resizable: true }),
       TableRow,
@@ -78,6 +81,10 @@ const DOCUMENTS: Array<{ name: string; content: string; medium?: keyof typeof ME
       "<h1>Uno</h1><h2>Dos</h2><h3>Tres</h3>" +
       "<p><strong>negrita</strong> <em>cursiva</em> <s>tachado</s> <code>código</code></p>" +
       "<blockquote><p>una cita</p></blockquote><hr>",
+  },
+  {
+    name: "enlace",
+    content: '<p>Mira la <a target="_blank" rel="noopener noreferrer" href="https://pucmm.edu.do">guía del ciclo</a> antes.</p>',
   },
   {
     name: "listas",

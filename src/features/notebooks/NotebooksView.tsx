@@ -1,6 +1,10 @@
 "use client";
 
 import { useAcademicScope } from "@/features/academic/academic-scope";
+import { ClassCard } from "@/features/academic/ClassCard";
+import type { AcademicPeriod } from "@/features/academic/academic.hooks";
+import { useTasks } from "@/features/tasks/tasks.hooks";
+import type { TaskTransport } from "@/features/tasks/tasks.types";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { Files, FolderOpen, Loader2 } from "lucide-react";
@@ -34,11 +38,20 @@ const TAG_DOT: Record<string, string> = {
 
 interface NotebooksViewProps {
   systemId: string;
+  /**
+   * Un sistema académico pinta clases, no carpetas de papel: la tarjeta dice
+   * profesor, horario, pendientes y próxima entrega, que es lo que decide a
+   * cuál entras. Las dos listas necesitan las tareas del sistema.
+   */
+  academic?: boolean;
+  periods?: AcademicPeriod[];
+  initialTasks?: TaskTransport[];
 }
 
-export function NotebooksView({ systemId }: NotebooksViewProps) {
+export function NotebooksView({ systemId, academic = false, periods = [], initialTasks = [] }: NotebooksViewProps) {
   const router = useRouter();
   const academicScope = useAcademicScope(systemId);
+  const { data: tasks = [] } = useTasks(systemId, initialTasks);
   const [pageDialogOpen, setPageDialogOpen] = useState(false);
   const [pageFolder, setPageFolder] = useState("");
   const { data: folders = [], isLoading: foldersLoading } = useFolders(systemId);
@@ -147,15 +160,26 @@ export function NotebooksView({ systemId }: NotebooksViewProps) {
             <FolderOpen className="size-3.5" />
             {capitalize(folderRole?.nounPlural ?? "carpetas")}
           </p>
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-            {folders.map((folder) => (
-              <FolderCard
-                key={folder.id}
-                folder={folder}
-                systemId={systemId}
-                onClick={() => router.push(`/systems/${systemId}/folders/${folder.id}`)}
-              />
-            ))}
+          <div className={cn("grid gap-3", academic ? "grid-cols-1 sm:grid-cols-2 lg:grid-cols-3" : "grid-cols-2 sm:grid-cols-4")}>
+            {folders.map((folder) =>
+              academic ? (
+                <ClassCard
+                  key={folder.id}
+                  folder={folder}
+                  systemId={systemId}
+                  periods={periods}
+                  tasks={tasks.filter((task) => task.folderId === folder.id)}
+                  href={`/systems/${systemId}/folders/${folder.id}`}
+                />
+              ) : (
+                <FolderCard
+                  key={folder.id}
+                  folder={folder}
+                  systemId={systemId}
+                  href={`/systems/${systemId}/folders/${folder.id}`}
+                />
+              ),
+            )}
           </div>
         </section>
       )}

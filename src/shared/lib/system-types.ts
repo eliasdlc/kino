@@ -143,6 +143,11 @@ export interface FolderRole {
   newLabel: string;
   placeholder: string;
   icon: LucideIcon;
+  /**
+   * Si el contenedor se anida. Una clase no contiene otra clase, así que dentro
+   * de ella no se ofrece crear una; una obra sí contiene partes. Por defecto sí.
+   */
+  nests?: boolean;
   /** Campos propios del rol, persistidos en folders.metadata. */
   fields: ArchetypeFieldDef[];
 }
@@ -238,6 +243,7 @@ export const SYSTEM_TYPE_CONFIG: Record<SystemType, ArchetypeManifest> = {
       newLabel: 'Nueva clase',
       placeholder: 'Nombre de la clase',
       icon: BookOpen,
+      nests: false,
       fields: [
         { id: 'professor', label: 'Profesor/a', input: 'text' },
         { id: 'schedule', label: 'Horario', input: 'text' },

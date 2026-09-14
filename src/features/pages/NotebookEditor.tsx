@@ -20,12 +20,23 @@ interface NotebookEditorProps {
   pageId?: string;
   /** Arquetipo Writing: activa la tipografía serif de lectura (PLAN-11 §7). */
   writer?: boolean;
+  /**
+   * El título vive en el layout, no aquí: de él cuelgan las migas, el nombre de
+   * la sesión de escritura y el del archivo exportado, y todos tienen que
+   * cambiar mientras se escribe.
+   */
+  title: string;
+  onTitleChange: (title: string) => void;
 }
 
-export function NotebookEditor({ page, systemId, pageId, writer = false }: NotebookEditorProps) {
+/** El título guarda solo y rápido: seguir escribiendo el cuerpo no lo retrasa. */
+const TITLE_SAVE_MS = 400;
+const CONTENT_SAVE_MS = 1500;
+
+export function NotebookEditor({ page, systemId, pageId, writer = false, title, onTitleChange }: NotebookEditorProps) {
   const editor = useSharedEditor();
   const { mutate: updatePage } = useUpdatePage(page.id, systemId);
-  const [title, setTitle] = useState(page.title ?? "");
+  const titleTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [stickyCreator, setStickyCreator] = useState<{
     text: string | null;
     anchorId: string | null;
@@ -56,7 +67,7 @@ export function NotebookEditor({ page, systemId, pageId, writer = false }: Noteb
         const pending = pendingPatch.current;
         pendingPatch.current = null;
         if (pending) updatePage(pending);
-      }, 1500);
+      }, CONTENT_SAVE_MS);
     },
     [updatePage]
   );
@@ -76,6 +87,10 @@ export function NotebookEditor({ page, systemId, pageId, writer = false }: Noteb
   useEffect(() => {
     updatePageRef.current = updatePage;
   }, [updatePage]);
+  const titleRef = useRef(title);
+  useEffect(() => {
+    titleRef.current = title;
+  }, [title]);
   useEffect(() => {
     return () => {
       if (saveTimer.current) {
@@ -85,12 +100,25 @@ export function NotebookEditor({ page, systemId, pageId, writer = false }: Noteb
       const pending = pendingPatch.current;
       pendingPatch.current = null;
       if (pending) updatePageRef.current(pending);
+      // Un título escrito y una salida inmediata no pueden perderse.
+      if (titleTimer.current) {
+        clearTimeout(titleTimer.current);
+        titleTimer.current = null;
+        updatePageRef.current({ title: titleRef.current || undefined });
+      }
     };
   }, []);
 
   function handleTitleChange(e: React.ChangeEvent<HTMLInputElement>) {
-    setTitle(e.target.value);
-    scheduleSave({ title: e.target.value || undefined });
+    const next = e.target.value;
+    onTitleChange(next);
+    // Temporizador propio: el del cuerpo se reinicia con cada tecla, así que
+    // seguir escribiendo podía retrasar el guardado del título sin límite.
+    if (titleTimer.current) clearTimeout(titleTimer.current);
+    titleTimer.current = setTimeout(() => {
+      titleTimer.current = null;
+      updatePage({ title: next || undefined });
+    }, TITLE_SAVE_MS);
   }
 
   function handleCreateSticky() {
