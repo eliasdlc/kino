@@ -6,8 +6,9 @@ import { Suspense, useState } from "react";
 import { DndContext } from "@dnd-kit/core";
 import { Section, SubSection, Specimen, SpecimenGrid, ClientOnly, Seeded, seedQuery } from "../helpers";
 import { api } from "@convex/_generated/api";
-import { makeTask, makeSprint, daysFromNow, MOCK_SYSTEM_ID, mid } from "../mock-data";
+import { makeTask, makeSprint, daysFromNow, MOCK_SYSTEM_ID, mid, CAPTURA_CON_ITEMS, CAPTURA_POR_CADUCAR } from "../mock-data";
 import { TaskListRow } from "@/features/tasks/TaskListRow";
+import { CaptureRow } from "@/features/captures/CaptureRow";
 import { OverdueGroup } from "@/features/tasks/OverdueGroup";
 import { PlanningTaskCard } from "@/features/tasks/PlanningTaskCard";
 import { BulkActionBar } from "@/features/tasks/BulkActionBar";
@@ -194,7 +195,7 @@ export function TasksViewsSection() {
                   onToggle={noop}
                   onDelete={noop}
                   onEdit={noop}
-                  onMoveColumn={noop}
+                  onRequestMove={noop}
                 />
                 <BoardCard
                   task={makeTask({
@@ -208,11 +209,35 @@ export function TasksViewsSection() {
                   onToggle={noop}
                   onDelete={noop}
                   onEdit={noop}
-                  onMoveColumn={noop}
+                  onRequestMove={noop}
                 />
               </div>
             </DndContext>
           </ClientOnly>
+        </div>
+      </SubSection>
+
+      <SubSection
+        title="CaptureRow"
+        description="Una captura sin confirmar, en la misma lista que las tareas de Bandeja: misma fila, marca de acento a la izquierda y el glifo de su tipo en el hueco que la fila ya reservaba."
+      >
+        <div className="max-w-md overflow-hidden rounded-lg border border-border px-3">
+          <ul>
+            <CaptureRow captura={CAPTURA_CON_ITEMS} onOpen={noop} />
+            <CaptureRow captura={CAPTURA_POR_CADUCAR} onOpen={noop} />
+            <CaptureRow
+              captura={{
+                ...CAPTURA_POR_CADUCAR,
+                id: mid("cap-3"),
+                kind: "voice",
+                url: null,
+                durationSeconds: 47,
+                status: "expired",
+                avisa: false,
+              }}
+              onOpen={noop}
+            />
+          </ul>
         </div>
       </SubSection>
 

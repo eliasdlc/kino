@@ -3,7 +3,7 @@ import { api } from "@convex/_generated/api";
 import { ENTITY_TYPES } from "@/features/entities/entities.attributes";
 import { TEMPLATE_TYPE_VALUES } from "@/shared/types/enums";
 import { htmlToMarkdown, markdownToHtml } from "../markdown";
-import { readTool, writeTool, type Tool } from "./define";
+import { proposeTool, readTool, writeTool, type Tool } from "./define";
 
 /**
  * Las tools que el agente ve, una por función de Convex que merece la pena
@@ -576,4 +576,62 @@ const writing: Tool[] = [
   }),
 ];
 
-export const CATALOG: readonly Tool[] = [...energy, ...entities, ...events, ...folders, ...insights, ...pages, ...stickyNotes, ...systems, ...tasks, ...writing];
+/**
+ * Las funciones de Convex que existen y **no** se exponen, con su motivo. Una
+ * función nueva se clasifica aquí o en el catálogo de arriba, nunca se queda
+ * sin decidir: lo que no está escrito se convierte en una tool por descuido.
+ *
+ * `captures.crear`: compartir algo pasa en la hoja del sistema operativo, con
+ *   el pulgar. Un agente que pudiera crear capturas fabricaría el hecho de que
+ *   compartiste algo, que es la única prueba de que la captura es tuya.
+ * `captures.confirmar`: confirmar **es** el gesto. Que nada se convierta en
+ *   item sin una persona es la regla entera del slice; una tool para esto la
+ *   borraría.
+ * `captures.descartar`: descartar es la otra mitad de la misma decisión.
+ * `captures.pendientes`: la lectura que el agente necesita es `captures.entregar`
+ *   (`get_capture`), que devuelve la captura en un formato que puede mirar. La
+ *   fila de la base, con su caducidad y su estado, es de la pantalla.
+ */
+export const SIN_TOOL: readonly string[] = [
+  "captures:crear",
+  "captures:confirmar",
+  "captures:descartar",
+  "captures:pendientes",
+];
+
+/** Y las dos que sí: `captures:entregar` y `captures:resolver`, abajo. */
+
+/**
+ * Los ojos prestados, en su única versión honesta: **los pone el agente, no
+ * Kino**. La entrega devuelve la captura para que el agente la mire con su
+ * clave; la resolución recibe lo que leyó. Kino no manda un byte a ningún
+ * modelo, y es la misma razón por la que la voz propia está cancelada.
+ */
+const captures: readonly Tool[] = [
+  readTool(api.captures.entregar, {
+    name: "get_capture",
+    description:
+      "Entrega una captura compartida (foto, nota de voz, enlace o texto) para que TÚ la mires con tus propios ojos: devuelve su tipo y la ruta de su archivo, no un análisis. Kino no mira nada por ti ni manda el contenido a ningún modelo. Cuando la hayas leído, devuelve los items con resolve_capture.",
+    input: z.object({ id: id.describe("La captura, de la lista de Bandeja") }),
+  }),
+  proposeTool(api.captures.resolver, {
+    name: "resolve_capture",
+    description:
+      "Devuelve los items que leíste en una captura, con su título y a qué sistema propones mandarlos. No crea tareas: las deja propuestas dentro de la captura, y la persona confirma cuáles quiere. Resolver dos veces la misma captura devuelve CONFLICT y no duplica nada: si reintentas, vuelve a pedirla con get_capture primero.",
+    input: z.object({
+      id: id.describe("La captura que leíste"),
+      items: z
+        .array(
+          z.object({
+            title: z.string().min(1).max(500).describe("Lo que hay que hacer, en una línea"),
+            systemId: id.optional().describe("A dónde propones mandarlo; sin esto va a Bandeja"),
+            notes: z.string().max(2000).optional().describe("Contexto que leíste y no cabe en el título"),
+          }),
+        )
+        .min(1)
+        .max(50),
+    }),
+  }),
+];
+
+export const CATALOG: readonly Tool[] = [...captures, ...energy, ...entities, ...events, ...folders, ...insights, ...pages, ...stickyNotes, ...systems, ...tasks, ...writing];

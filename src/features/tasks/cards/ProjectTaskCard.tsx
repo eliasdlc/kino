@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { format } from "date-fns";
-import { ChevronDown, Clock, Flag, Hourglass, MoreHorizontal, Timer, Trash2 } from "lucide-react";
+import { ArrowRightLeft, ChevronDown, Clock, Flag, Hourglass, MoreHorizontal, Timer, Trash2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import {
   ContextMenu,
@@ -21,7 +21,6 @@ import {
 import { useTags } from "@/features/tags/tags.hooks";
 import { tagDotClass } from "@/features/tags/tag-colors";
 import { useSprints } from "@/features/sprints/sprints.hooks";
-import { PROJECT_BOARD_COLUMNS } from "@/shared/lib/system-types";
 import { parseDueDate } from "../tasks.utils";
 import { useTaskCard } from "./useTaskCard";
 import { TaskTags } from "./parts/TaskTags";
@@ -53,11 +52,11 @@ function estimateToMinutes(value: string | null): number | null {
 interface ProjectTaskCardProps extends TaskCardProps {
   /** Muestra a qué sprint pertenece (solo en la vista 'Todas', donde no es redundante). */
   showSprint?: boolean;
-  /** Mueve la tarjeta a otra columna del board (solo en mobile). */
-  onMoveColumn?: (boardStatus: string) => void;
+  /** Abre la hoja de mover, el equivalente con nombre del arrastre. */
+  onRequestMove?: () => void;
 }
 
-export function ProjectTaskCard({ task, systemId, onToggle, onDelete, onEdit, showSprint, onMoveColumn }: ProjectTaskCardProps) {
+export function ProjectTaskCard({ task, systemId, onToggle, onDelete, onEdit, showSprint, onRequestMove }: ProjectTaskCardProps) {
   const [isExpanded, setIsExpanded] = useState(false);
   const state = useTaskCard(task, systemId, onToggle);
   const { isDone, isOverdue, dueDays, timerState, openModeDialog } = state;
@@ -136,21 +135,15 @@ export function ProjectTaskCard({ task, systemId, onToggle, onDelete, onEdit, sh
                     {isThisRunning ? "Timer en curso" : "Iniciar foco"}
                   </DropdownMenuItem>
                 )}
-                {onMoveColumn && (() => {
-                  const currentCol = task.boardStatus ?? PROJECT_BOARD_COLUMNS[0].id;
-                  const others = PROJECT_BOARD_COLUMNS.filter((c) => c.id !== currentCol);
-                  if (others.length === 0) return null;
-                  return (
-                    <>
-                      <DropdownMenuSeparator />
-                      {others.map((col) => (
-                        <DropdownMenuItem key={col.id} onSelect={() => onMoveColumn(col.id)}>
-                          {col.label}
-                        </DropdownMenuItem>
-                      ))}
-                    </>
-                  );
-                })()}
+                {onRequestMove && (
+                  <>
+                    <DropdownMenuSeparator />
+                    <DropdownMenuItem onSelect={onRequestMove}>
+                      <ArrowRightLeft />
+                      Mover a...
+                    </DropdownMenuItem>
+                  </>
+                )}
                 <DropdownMenuSeparator />
                 <DropdownMenuItem variant="destructive" onSelect={() => onDelete(task)}>
                   <Trash2 />

@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { X, Lightbulb, Loader2, MoreHorizontal, PanelLeft, PanelRight, PinOff, Pencil, Trash2 } from "lucide-react";
+import { X, Layers, Lightbulb, Loader2, MoreHorizontal, PanelLeft, PanelRight, PinOff, Pencil, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -25,6 +25,11 @@ import type { StickyNoteItem } from "./sticky-notes.types";
 interface StickyNoteCardProps {
   note: StickyNoteItem;
   context: { pageId?: string; folderId?: string };
+  /**
+   * Abre la hoja de apilar. Es el equivalente con nombre de soltar una nota
+   * encima de otra, y existe donde el arrastre no llega: el teléfono.
+   */
+  onStack?: () => void;
 }
 
 const EDIT_POPOVER_W = 300;
@@ -142,7 +147,7 @@ function EditOverlay({
   );
 }
 
-export function StickyNoteCard({ note, context }: StickyNoteCardProps) {
+export function StickyNoteCard({ note, context, onStack }: StickyNoteCardProps) {
   const { mutate: deleteNote } = useDeleteStickyNote(context);
   const { mutate: updateNote } = useUpdateStickyNote(context);
   const [editAnchor, setEditAnchor] = useState<{ x: number; y: number } | null>(null);
@@ -275,6 +280,11 @@ export function StickyNoteCard({ note, context }: StickyNoteCardProps) {
             <Lightbulb className="size-3.5" />
             {note.isEureka ? "Quitar eureka" : "Marcar eureka"}
           </ContextMenuItem>
+          {onStack && (
+            <ContextMenuItem className="gap-2" onSelect={onStack}>
+              <Layers className="size-3.5" /> Apilar sobre otra nota
+            </ContextMenuItem>
+          )}
           <ContextMenuSeparator />
           <ContextMenuItem variant="destructive" className="gap-2" onSelect={() => deleteNote(note.id)}>
             <Trash2 className="size-3.5" /> Eliminar

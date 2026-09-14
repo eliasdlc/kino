@@ -1,5 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 import { z } from "zod";
+import { getFunctionName } from "convex/server";
+import { SIN_TOOL } from "./catalog";
 import { ALL_TOOLS } from "./index";
 
 /**
@@ -7,8 +9,11 @@ import { ALL_TOOLS } from "./index";
  * aprendidos. Quitar uno rompe a quien lo usa; añadir uno es una decisión que
  * pasa por aquí.
  *
- * Son 68. Las seis que faltan respecto a la lista de antes se retiraron a
- * propósito y no vuelven sin reabrir el principio 2: las cinco de borrar,
+ * Son 70. Las dos últimas son los ojos prestados: `get_capture` entrega la
+ * captura para que el agente la mire con su clave y `resolve_capture` recibe lo
+ * que leyó, sin crear nada. Las seis que faltan respecto a la lista de antes se
+ * retiraron a propósito y no vuelven sin reabrir el principio 2: las cinco de
+ * borrar,
  * `create_energy_checkin` (un check-in escrito por una máquina contamina el
  * único dato honesto que Kino tiene). `update_page` volvió con una política de
  * autoría original y confirmación explícita aplicada por el servidor.
@@ -34,6 +39,7 @@ const CONTRACT = [
   "estimate_task",
   "find_stale_systems",
   "generate_subtasks",
+  "get_capture",
   "get_energy_checkin",
   "get_energy_distribution",
   "get_energy_windows",
@@ -67,6 +73,7 @@ const CONTRACT = [
   "propose_change",
   "propose_day_blocks",
   "reorder_by_importance",
+  "resolve_capture",
   "restore_folder",
   "restore_page",
   "restore_sticky_note",
@@ -161,5 +168,38 @@ describe("catálogo del MCP", () => {
     expect(call.mock.calls[0]![0]).toBe("mutation");
     expect(call.mock.calls[0]![2]).toMatchObject({ content: "<h2>Actualizado</h2>\n" });
     expect(result).toMatchObject({ content: "## Actualizado", contentFormat: "markdown" });
+  });
+});
+
+/** El nombre `modulo:funcion` de la función de Convex que hay detrás. */
+function nombreDeFuncion(ref: (typeof ALL_TOOLS)[number]["ref"]): string {
+  return ref ? getFunctionName(ref) : "";
+}
+
+describe("lo que existe y no se expone", () => {
+  it("del slice de capturas sólo salen los ojos prestados, y ninguna escritura", () => {
+    const deCapturas = ALL_TOOLS.filter((tool) => nombreDeFuncion(tool.ref).startsWith("captures:"));
+
+    expect(deCapturas.map((tool) => nombreDeFuncion(tool.ref)).sort()).toEqual([
+      "captures:entregar",
+      "captures:resolver",
+    ]);
+  });
+
+  it("confirmar no es una tool: el gesto es de una persona", () => {
+    const nombres = ALL_TOOLS.map((tool) => nombreDeFuncion(tool.ref));
+
+    expect(nombres).not.toContain("captures:confirmar");
+    expect(nombres).not.toContain("captures:descartar");
+    expect(nombres).not.toContain("captures:crear");
+  });
+
+  it("las cuatro están clasificadas: decidir no exponerlas es una decisión escrita", () => {
+    expect(SIN_TOOL).toEqual([
+      "captures:crear",
+      "captures:confirmar",
+      "captures:descartar",
+      "captures:pendientes",
+    ]);
   });
 });
