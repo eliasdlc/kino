@@ -24,6 +24,7 @@ import { useSubPages, useCreateSubPage } from "./pages.hooks";
 import { htmlToMarkdown, exportFileMeta } from "./export/html-to-markdown";
 import { downloadBlob, slugify } from "@/shared/utils/download";
 import { ManuscriptOutline } from "./mediums/ManuscriptOutline";
+import { RAIL_MIN_ITEMS } from "./DocumentRail";
 import type { OutlineItem } from "./mediums/outline";
 import type { BreadcrumbItem } from "@/components/PageBreadcrumb";
 import type { PageDetailTransport, PageListItemTransport } from "./pages.types";
@@ -249,8 +250,9 @@ export function NotebookEditorLayout({
     folderId: obra?.id ?? null,
     metadata: obraMetadata,
   });
-  // Índice del capítulo: lo calcula el editor (que vive en un chunk aparte) y lo
-  // publica aquí; el salto se queda en un ref para no re-renderizar por él.
+  // Índice del documento: lo calcula el editor (que vive en un chunk aparte) y lo
+  // publica aquí; el salto se queda en un ref para no re-renderizar por él. Lo
+  // lee el navegador del manuscrito, y bajo md también la lista del panel.
   const [outline, setOutline] = useState<OutlineItem[]>([]);
   const jumpRef = useRef<((pos: number) => void) | null>(null);
 
@@ -354,7 +356,7 @@ export function NotebookEditorLayout({
               <>
                 <ManuscriptOutline
                   items={outline}
-                  unitNoun={medium?.unit.noun ?? "capítulo"}
+                  heading={`En este ${medium?.unit.noun ?? "capítulo"}`}
                   onJump={(pos) => {
                     jumpRef.current?.(pos);
                     setRightOpen(false);
@@ -379,6 +381,25 @@ export function NotebookEditorLayout({
                 <Separator />
                 <ChapterHistory pageId={page.id} />
                 <Separator />
+              </>
+            )}
+
+            {/* La versión táctil del carril. En escritorio el carril ya navega
+                el documento, y dos índices a la vez es ruido; en un teléfono no
+                se pinta, así que el panel es lo único que queda. */}
+            {!writer && outline.length >= RAIL_MIN_ITEMS && (
+              <>
+                <div className="md:hidden">
+                  <ManuscriptOutline
+                    items={outline}
+                    heading="En este documento"
+                    onJump={(pos) => {
+                      jumpRef.current?.(pos);
+                      setRightOpen(false);
+                    }}
+                  />
+                </div>
+                <Separator className="md:hidden" />
               </>
             )}
 

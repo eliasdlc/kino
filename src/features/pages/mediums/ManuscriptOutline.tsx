@@ -12,27 +12,33 @@ const KIND_ICON: Record<OutlineKind, typeof Hash> = {
 };
 
 /**
- * Índice del capítulo abierto (PLAN-11 §7). Las entradas se derivan del contenido
+ * Índice del documento abierto (PLAN-11 §7). Las entradas se derivan del contenido
  * en cada tecleo, así que la lista siempre coincide con lo escrito; hacer clic
  * salta al bloque sin mover el cursor ni tocar el texto.
+ *
+ * Lo pintan dos sitios: el panel del manuscrito, que lo enseña siempre con sus
+ * escenas, y el de un documento normal en un teléfono, donde el carril de
+ * títulos no cabe. De ahí que el encabezado lo ponga quien llama.
  */
 export function ManuscriptOutline({
   items,
-  unitNoun,
+  heading,
   onJump,
 }: {
-  items: OutlineItem[];
-  /** Cómo llama el medium a la unidad abierta ("capítulo", "episodio"). */
-  unitNoun: string;
+  items: readonly OutlineItem[];
+  /** El encabezado del bloque: "En este capítulo", "En este documento". */
+  heading: string;
   onJump: (pos: number) => void;
 }) {
   return (
     <div>
       <p className="mb-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-        En este {unitNoun}
+        {heading}
       </p>
 
       {items.length === 0 ? (
+        // Solo llega aquí el manuscrito: la lista de un documento normal no se
+        // monta hasta que hay dos títulos, y con dos no está vacía.
         <p className="text-xs text-muted-foreground/70">
           Sin escenas todavía. Un separador o un título abren la primera.
         </p>

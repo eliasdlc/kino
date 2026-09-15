@@ -12,6 +12,9 @@ import { FolderCard } from "@/features/notebooks/FolderCard";
 import { NotebookCard } from "@/features/notebooks/NotebookCard";
 import { StickyNoteCard } from "@/features/sticky-notes/StickyNoteCard";
 import { LinkedTaskCard } from "@/features/pages/LinkedTaskCard";
+import { DocumentRail, RailCard } from "@/features/pages/DocumentRail";
+import type { OutlineItem } from "@/features/pages/mediums/outline";
+import type { ReactNode } from "react";
 
 const noop = () => {};
 
@@ -138,6 +141,67 @@ export function NotebooksSection() {
           </Specimen>
         </SpecimenGrid>
       </SubSection>
+
+      <SubSection
+        title="DocumentRail"
+        description="El carril de títulos al borde de la columna de un documento. En reposo todas las marcas miden lo mismo; pasa el puntero por encima y la de debajo crece y se aclara, con las vecinas decreciendo según se alejan. En un teléfono no se pinta: ahí el índice vive en el panel lateral."
+      >
+        <SpecimenGrid cols={2}>
+          <Specimen label="En reposo" hint="pasa el puntero por las marcas para ver la lupa">
+            <RailStage>
+              <DocumentRail items={RAIL_ITEMS} onJump={noop} />
+            </RailStage>
+          </Specimen>
+          <Specimen label="Con dos títulos" hint="el mínimo: con uno solo no se pinta">
+            <RailStage>
+              <DocumentRail items={RAIL_ITEMS.slice(0, 2)} onJump={noop} />
+            </RailStage>
+          </Specimen>
+        </SpecimenGrid>
+
+        <SpecimenGrid cols={2}>
+          <Specimen label="Tarjeta de una sección con cuerpo" hint="puntero o foco sobre la marca">
+            <div className="relative h-28 w-1">
+              <RailCard item={RAIL_ITEMS[0]} />
+            </div>
+          </Specimen>
+          <Specimen label="Tarjeta de una sección sin cuerpo" hint="preview = null">
+            <div className="relative h-28 w-1">
+              <RailCard item={RAIL_ITEMS[2]} />
+            </div>
+          </Specimen>
+        </SpecimenGrid>
+      </SubSection>
     </Section>
+  );
+}
+
+/** Los títulos de un apunte de clase, que es donde el carril hace su trabajo. */
+const RAIL_ITEMS: OutlineItem[] = [
+  { pos: 0, kind: "heading", depth: 0, label: "Análisis léxico", preview: "El lexer convierte una ristra de caracteres en tokens con su categoría." },
+  { pos: 40, kind: "heading", depth: 1, label: "Autómatas finitos", preview: "Un autómata reconoce un lenguaje regular leyendo símbolo a símbolo." },
+  { pos: 90, kind: "heading", depth: 2, label: "AFD contra AFND", preview: null },
+  { pos: 140, kind: "heading", depth: 1, label: "Expresiones regulares", preview: "Toda expresión regular tiene un autómata equivalente, y al revés." },
+  { pos: 200, kind: "heading", depth: 1, label: "Tabla de símbolos", preview: "Cada identificador que el lexer reconoce entra aquí con su ámbito." },
+];
+
+/**
+ * El lienzo contra el que se posiciona el carril. En la app es el contenedor de
+ * scroll del editor; aquí es una caja del mismo tamaño con texto detrás, porque
+ * un carril sobre fondo vacío no enseña si tapa algo.
+ */
+function RailStage({ children }: { children: ReactNode }) {
+  return (
+    <div className="relative h-72 w-full overflow-hidden rounded-xl border border-border bg-background">
+      <div className="mx-auto max-w-sm space-y-3 px-10 py-8">
+        <p className="text-lg font-semibold">Análisis léxico</p>
+        <div className="h-2 w-full rounded bg-muted" />
+        <div className="h-2 w-4/5 rounded bg-muted" />
+        <p className="pt-2 text-sm font-semibold">Autómatas finitos</p>
+        <div className="h-2 w-full rounded bg-muted" />
+        <div className="h-2 w-3/5 rounded bg-muted" />
+      </div>
+      {children}
+    </div>
   );
 }

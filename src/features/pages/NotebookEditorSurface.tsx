@@ -1,10 +1,12 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { cn } from "@/lib/utils";
+import { scrollBehavior } from "@/shared/utils/motion";
 import { EditorProvider, useSharedEditor } from "./EditorContext";
 import { NotebookEditor } from "./NotebookEditor";
 import { WriterStatusBar, type WriterObra } from "./WriterStatusBar";
+import { DocumentRail } from "./DocumentRail";
 import { deriveOutline, type OutlineItem } from "./mediums/outline";
 import type { MediumManifest } from "@/shared/lib/mediums";
 import { StickyNotesGrid } from "@/features/sticky-notes/StickyNotesGrid";
@@ -43,7 +45,7 @@ function TypewriterScroll({
       const caret = editor.view.coordsAtPos(from);
       const box = scroller.getBoundingClientRect();
       const target = box.top + box.height * 0.45;
-      scroller.scrollBy({ top: caret.top - target, behavior: "smooth" });
+      scroller.scrollBy({ top: caret.top - target, behavior: scrollBehavior() });
     };
 
     editor.on("selectionUpdate", center);
@@ -98,7 +100,8 @@ function SelectionGate({ onAnnotate }: { onAnnotate: (texto: string, punto: { x:
 }
 
 /**
- * Puente entre el editor y el navegador del manuscrito, que vive fuera de este
+ * Puente entre el editor y lo que navega el documento: el carril de títulos de
+ * esta misma superficie y el navegador del manuscrito, que vive fuera de este
  * árbol (en el panel lateral del layout). Publica hacia arriba el índice derivado
  * y deja el salto en un ref: así el layout no necesita montar Tiptap y el editor
  * sigue cargándose bajo demanda (KIN-73).
@@ -127,9 +130,10 @@ function OutlineBridge({
     if (!editor) return;
     const ref = jumpRef;
     ref.current = (pos) => {
+      // ProseMirror devuelve a veces un nodo de texto en vez del bloque.
       const dom = editor.view.nodeDOM(pos);
       const el = dom instanceof HTMLElement ? dom : (dom as ChildNode | null)?.parentElement;
-      el?.scrollIntoView({ behavior: "smooth", block: "start" });
+      el?.scrollIntoView({ behavior: scrollBehavior(), block: "start" });
     };
     return () => {
       ref.current = null;
@@ -173,6 +177,20 @@ export default function NotebookEditorSurface({
   const contentRef = useRef<HTMLDivElement>(null);
   const columnRef = useRef<HTMLDivElement>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
+  // El índice sube al layout (que pinta el panel) y se queda también aquí, que
+  // es donde vive el carril. Un solo cálculo, dos consumidores.
+  const [outline, setOutline] = useState<OutlineItem[]>([]);
+  const publishOutline = useCallback(
+    (items: OutlineItem[]) => {
+      setOutline(items);
+      onOutline?.(items);
+    },
+    [onOutline],
+  );
+  // El salto lo produce el editor una vez. Si el layout trae su ref, es el
+  // mismo objeto: el panel y el carril saltan con la misma función.
+  const ownJumpRef = useRef<((pos: number) => void) | null>(null);
+  const jump = jumpRef ?? ownJumpRef;
   const { data: allNotes = [] } = useStickyNotesByPage(page.id);
   const floatingNotes = allNotes.filter((n) => n.positionSide);
   const pageContext = { pageId: page.id };
@@ -215,7 +233,7 @@ export default function NotebookEditorSurface({
       codex={writer ? { systemId } : null}
       medium={writer ? medium : null}
     >
-      <div className="flex flex-1 flex-col overflow-hidden">
+      <div className="relative flex flex-1 flex-col overflow-hidden">
         <SelectionGate
           onAnnotate={(textAnchor, screen) => setCreator({ screen, textAnchor })}
         />
@@ -249,11 +267,17 @@ export default function NotebookEditorSurface({
           </div>
         </div>
 
+        {/* El carril es de los documentos normales. El manuscrito navega por su
+            panel, con sus escenas y sus páginas, y no cambia. */}
+        {!writer && <DocumentRail items={outline} onJump={(pos) => jump.current?.(pos)} />}
+
         {writer && <TypewriterScroll enabled={focusMode} scrollRef={scrollRef} />}
 
-        {writer && onOutline && jumpRef && (
-          <OutlineBridge onOutline={onOutline} jumpRef={jumpRef} />
-        )}
+        {/* El índice ya no es del manuscrito: todo documento lo deriva, porque
+            el carril de títulos de un apunte come de aquí igual que el panel
+            del capítulo. En un documento sin mediums de escritura lo que sale
+            son sus encabezados y nada más. */}
+        <OutlineBridge onOutline={publishOutline} jumpRef={jump} />
 
         {writer && (
           <WriterStatusBar
