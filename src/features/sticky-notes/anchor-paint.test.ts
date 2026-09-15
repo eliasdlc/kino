@@ -13,6 +13,8 @@ import { StickyAnchorPaint, setAnchorPaint } from "./anchor-paint.extension";
 import { anchorTint } from "./sticky-note-colors";
 
 const ROSA = "#FFB3C1";
+const AMARILLO = "#FFE066";
+const AZUL = "#9CD8FF";
 
 /** Una frase anotada (`a1`), y una nota de posicion (`a2`) que no anota nada. */
 const DOCUMENTO =
@@ -35,6 +37,32 @@ describe("el color de la frase", () => {
     setAnchorPaint(editor, { tints: { a1: ROSA }, lit: null });
 
     expect(editor.view.dom.innerHTML).toContain(`--anchor-tint: ${ROSA}`);
+  });
+
+  it("distingue dos papeles a la vez, cada frase con el suyo", () => {
+    const editor = montar();
+    setAnchorPaint(editor, { tints: { a1: AMARILLO }, lit: null });
+    expect(editor.view.dom.innerHTML).toContain(`--anchor-tint: ${AMARILLO}`);
+
+    setAnchorPaint(editor, { tints: { a1: AZUL }, lit: null });
+    const dom = editor.view.dom.innerHTML;
+    expect(dom).toContain(`--anchor-tint: ${AZUL}`);
+    expect(dom).not.toContain(AMARILLO);
+  });
+
+  it("cambiar el papel de la nota cambia el resaltado, y el documento sigue sin color", () => {
+    const editor = montar();
+    setAnchorPaint(editor, { tints: { a1: AMARILLO }, lit: null });
+    const antes = editor.getHTML();
+
+    setAnchorPaint(editor, { tints: { a1: AZUL }, lit: null });
+
+    expect(editor.view.dom.innerHTML).toContain(`--anchor-tint: ${AZUL}`);
+    // El documento no se entera de que la nota cambio de papel: si se enterara,
+    // repintar una nota reescribiria el HTML de la pagina.
+    expect(editor.getHTML()).toBe(antes);
+    expect(editor.getHTML()).not.toContain(AZUL);
+    expect(editor.getHTML()).not.toContain(AMARILLO);
   });
 
   it("no se escribe en el documento", () => {
