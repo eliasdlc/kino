@@ -541,6 +541,53 @@
   padding: 0;
 }
 
+/* ── El color de la frase sale de su nota ──────────────────────────────────
+   Con tres notas en el margen, un solo ámbar para todas no dice cuál comenta
+   cuál. El resaltado lleva el color de papel de su nota, que se ve también en
+   el teléfono y en una captura, donde no hay ratón que pasar por encima.
+
+   El color no se guarda con el texto: lo trae la lista de notas por decoración
+   de ProseMirror, que ProseMirror pinta en un span dentro del de la marca. Por
+   eso la marca se aparta cuando llega la decoración, para que los dos lavados
+   no se apilen. Sin decoración (modo lectura, o mientras las notas cargan) la
+   regla de arriba sigue puesta y el ámbar es el suelo. */
+.sticky-anchor-mark:has(.sticky-anchor-tint) {
+  background: transparent;
+  padding: 0;
+}
+
+.sticky-anchor-tint {
+  /* Papel neutro (blanco, gris, negro): no tiene color que prestar y cae al
+     acento, con la misma mezcla de siempre. */
+  --anchor-tint: var(--ac);
+  --anchor-mix: 18%;
+  --anchor-mix-lit: 40%;
+  background: color-mix(in srgb, var(--anchor-tint) var(--anchor-mix), transparent);
+  border-radius: 0.25rem;
+  padding: 0.05em 0.12em;
+  -webkit-box-decoration-break: clone;
+  box-decoration-break: clone;
+}
+
+/* Un papel con color propio necesita mucha más mezcla que el acento: el ámbar
+   claro es oscuro y tiñe enseguida, y un pastel de papel es casi blanco. */
+.sticky-anchor-tint[data-anchor-paper] {
+  --anchor-mix: 58%;
+  --anchor-mix-lit: 88%;
+}
+
+/* En oscuro el pastel va sobre un fondo casi negro y el texto encima es claro:
+   la misma mezcla lo dejaría ilegible. */
+.dark .sticky-anchor-tint[data-anchor-paper] {
+  --anchor-mix: 30%;
+  --anchor-mix-lit: 46%;
+}
+
+/* La pareja encendida: mirar la frase o su nota sube las dos. */
+.sticky-anchor-tint.sticky-anchor-lit {
+  background: color-mix(in srgb, var(--anchor-tint) var(--anchor-mix-lit), transparent);
+}
+
 /* ── Modo lectura (KIN-138) ───────────────────────────────────────────────
    La obra como la vería quien la lee. Es la cuarta salida del MediumManifest:
    los bloques por medium (páginas, paneles, guion) se comparten con el editor

@@ -19,7 +19,8 @@ import {
 } from "@/components/ui/context-menu";
 import { useSharedEditor } from "@/features/pages/EditorContext";
 import { useUpdateStickyNote, useDeleteStickyNote } from "./sticky-notes.hooks";
-import { removeAnchorMark } from "./anchor-utils";
+import { removeAnchorMark, isAnnotationAnchor } from "./anchor-utils";
+import { useAnchorHighlight } from "./AnchorHighlight";
 import { STICKY_NOTE_COLORS, COLOR_PICKER_OPTIONS, paperStyle } from "./sticky-note-colors";
 import { GUTTER_LEFT_X, GUTTER_RIGHT_X } from "./sticky-position";
 import type { StickyNoteItem } from "./sticky-notes.types";
@@ -167,6 +168,13 @@ export function StickyNoteCard({ note, context, onStack, compact }: StickyNoteCa
   const bodyRef = useRef<HTMLDivElement>(null);
   const [recortada, setRecortada] = useState(false);
   const colors = STICKY_NOTE_COLORS[note.color] ?? STICKY_NOTE_COLORS.yellow!;
+  const { lit, light } = useAnchorHighlight();
+
+  // La nota es media pareja sólo si su ancla anota una frase. La de posición no
+  // marca ningún texto, así que no hay nada al otro lado que encender.
+  const anota =
+    !!note.anchorId && !!editor && isAnnotationAnchor(editor.state.doc, note.anchorId);
+  const encendida = anota && lit === note.anchorId;
 
   // Si el texto no cabe en el tope. Se mide en vez de contar caracteres: lo que
   // cabe depende de la letra del sistema, que el usuario cambia.
@@ -218,8 +226,14 @@ export function StickyNoteCard({ note, context, onStack, compact }: StickyNoteCa
           <div
             ref={cardRef}
             data-sticky-note
+            data-lit={encendida ? "" : undefined}
             className="group relative flex flex-col gap-1 cursor-pointer rounded-lg p-3.5 w-full min-h-[90px]"
-            style={{ ...paperStyle(colors.hex), color: colors.textHex }}
+            style={{
+              ...paperStyle(colors.hex, encendida ? { ink: colors.textHex } : undefined),
+              color: colors.textHex,
+            }}
+            onMouseEnter={() => anota && light(note.anchorId)}
+            onMouseLeave={() => anota && light(null)}
             onClick={(e) => setEditAnchor({ x: e.currentTarget.getBoundingClientRect().left, y: e.currentTarget.getBoundingClientRect().top })}
             role="button"
             tabIndex={0}
