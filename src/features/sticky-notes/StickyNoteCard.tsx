@@ -30,6 +30,12 @@ interface StickyNoteCardProps {
    * encima de otra, y existe donde el arrastre no llega: el teléfono.
    */
   onStack?: () => void;
+  /**
+   * La nota flota sobre el texto. Ahí la tarjeta se acota: los 500 caracteres
+   * que el schema permite se pintaban en 573 px de alto sobre 176 de ancho y
+   * se comían la página. En la rejilla no hace falta, porque la rejilla fluye.
+   */
+  compact?: boolean;
 }
 
 const EDIT_POPOVER_W = 300;
@@ -147,12 +153,29 @@ function EditOverlay({
   );
 }
 
-export function StickyNoteCard({ note, context, onStack }: StickyNoteCardProps) {
+/** Alto máximo de una nota que flota sobre el texto, en px. */
+const COMPACT_MAX_H = 168;
+
+export function StickyNoteCard({ note, context, onStack, compact }: StickyNoteCardProps) {
   const { mutate: deleteNote } = useDeleteStickyNote(context);
   const { mutate: updateNote } = useUpdateStickyNote(context);
   const [editAnchor, setEditAnchor] = useState<{ x: number; y: number } | null>(null);
   const cardRef = useRef<HTMLDivElement>(null);
+  const bodyRef = useRef<HTMLDivElement>(null);
+  const [recortada, setRecortada] = useState(false);
   const colors = STICKY_NOTE_COLORS[note.color] ?? STICKY_NOTE_COLORS.yellow!;
+
+  // Si el texto no cabe en el tope. Se mide en vez de contar caracteres: lo que
+  // cabe depende de la letra del sistema, que el usuario cambia.
+  useEffect(() => {
+    const el = bodyRef.current;
+    if (!compact || !el) return;
+    const medir = () => setRecortada(el.scrollHeight > el.clientHeight + 1);
+    medir();
+    const ro = new ResizeObserver(medir);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, [compact, note.title, note.content]);
 
   /** Breakthrough: la idea que desbloquea la historia entra al diario (§9). */
   function toggleEureka() {
@@ -191,21 +214,32 @@ export function StickyNoteCard({ note, context, onStack }: StickyNoteCardProps) 
               }
             }}
           >
-            {note.title && (
-              <p className="font-semibold text-sm leading-tight break-words" style={{ color: colors.textHex }}>
-                {note.title}
+            <div
+              ref={bodyRef}
+              className="flex flex-col gap-1 overflow-hidden"
+              style={compact ? { maxHeight: COMPACT_MAX_H } : undefined}
+            >
+              {note.title && (
+                <p className="font-semibold text-sm leading-tight break-words" style={{ color: colors.textHex }}>
+                  {note.title}
+                </p>
+              )}
+              {note.content && (
+                <p
+                  className="text-sm leading-snug whitespace-pre-wrap break-words"
+                  style={{ color: colors.textHex, opacity: 0.88 }}
+                >
+                  {note.content}
+                </p>
+              )}
+              {!note.title && !note.content && (
+                <p className="text-xs italic opacity-35" style={{ color: colors.textHex }}>Nota vacía</p>
+              )}
+            </div>
+            {recortada && (
+              <p className="text-xs font-semibold underline" style={{ color: colors.textHex, opacity: 0.7 }}>
+                Ver más
               </p>
-            )}
-            {note.content && (
-              <p
-                className="text-sm leading-snug whitespace-pre-wrap break-words"
-                style={{ color: colors.textHex, opacity: 0.88 }}
-              >
-                {note.content}
-              </p>
-            )}
-            {!note.title && !note.content && (
-              <p className="text-xs italic opacity-35" style={{ color: colors.textHex }}>Nota vacía</p>
             )}
 
             {note.isEureka && (

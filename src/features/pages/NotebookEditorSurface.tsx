@@ -14,6 +14,8 @@ import { FloatingNotesLayer } from "@/features/sticky-notes/FloatingNotesLayer";
 import { StickyNoteCreator } from "@/features/sticky-notes/StickyNoteCreator";
 import { SelectionToolbar } from "@/features/sticky-notes/SelectionToolbar";
 import { useStickyNotesByPage } from "@/features/sticky-notes/sticky-notes.hooks";
+import { useNotebookMetrics } from "@/features/sticky-notes/use-notebook-metrics";
+import { hasGutterRoom } from "@/features/sticky-notes/sticky-position";
 import type { PageDetailTransport } from "./pages.types";
 
 /**
@@ -221,7 +223,13 @@ export default function NotebookEditorSurface({
   const ownJumpRef = useRef<((pos: number) => void) | null>(null);
   const jump = jumpRef ?? ownJumpRef;
   const { data: allNotes = [] } = useStickyNotesByPage(page.id);
-  const floatingNotes = allNotes.filter((n) => n.positionSide);
+  // La geometría se mide una vez y aquí se decide quién dibuja cada nota: la
+  // capa flotante si el margen da para ella, la rejilla de abajo si no. Antes
+  // la decisión vivía en dos clases de CSS y cada nota se montaba dos veces.
+  const metrics = useNotebookMetrics(contentRef, columnRef);
+  const flota = hasGutterRoom(metrics);
+  const floatingNotes = flota ? allNotes.filter((n) => n.positionSide) : [];
+  const floatingIds = floatingNotes.map((n) => n.id);
   const pageContext = { pageId: page.id };
   const [paper, setPaper] = useState(false);
 
@@ -295,13 +303,13 @@ export default function NotebookEditorSurface({
             >
               <NotebookEditor page={page} systemId={systemId} pageId={page.id} writer={writer} title={title} onTitleChange={onTitleChange} />
               {/* Las notas van después del texto: la página escribe primero. */}
-              <StickyNotesGrid pageId={page.id} />
+              <StickyNotesGrid pageId={page.id} floatingIds={floatingIds} />
             </div>
             <FloatingNotesLayer
               notes={floatingNotes}
               context={pageContext}
               containerRef={contentRef}
-              columnRef={columnRef}
+              metrics={metrics}
             />
           </div>
         </div>

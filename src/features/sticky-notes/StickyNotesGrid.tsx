@@ -27,9 +27,17 @@ import { StickyNoteCreator } from "./StickyNoteCreator";
 import { StackNoteSheet } from "./StackNoteSheet";
 import type { StickyNoteItem } from "./sticky-notes.types";
 
-type Props =
+type Props = (
   | { pageId: string; folderId?: never }
-  | { folderId: string; pageId?: never };
+  | { folderId: string; pageId?: never }
+) & {
+  /**
+   * Las notas que la capa flotante ya está dibujando. La rejilla pinta todo lo
+   * demás, así que una nota se monta una vez y no dos: cuando el margen no da
+   * para flotar, esta lista llega vacía y las notas caen aquí enteras.
+   */
+  floatingIds?: string[];
+};
 
 /** O una página o una carpeta, nunca las dos: el creador lo exige discriminado. */
 type NoteContext = Props;
@@ -136,7 +144,7 @@ function NotesColumns({
         </div>
       ))}
       {marginNotes.map((note) => (
-        <div key={note.id} className="break-inside-avoid mb-3 md:hidden">
+        <div key={note.id} className="break-inside-avoid mb-3">
           {renderNote(note)}
         </div>
       ))}
@@ -156,9 +164,11 @@ export function StickyNotesGrid(props: Props) {
   const { mutate: stackNotes } = useStackStickyNotes(context);
   const isMobile = useIsMobile();
 
-  // Non-margin notes always visible; margin notes shown only on mobile (md:hidden)
-  const notes = allNotes.filter((n) => !n.positionSide);
-  const marginNotes = allNotes.filter((n) => !!n.positionSide);
+  // Lo que la capa flotante no dibuja, lo dibuja la rejilla.
+  const flotando = new Set(props.floatingIds ?? []);
+  const enRejilla = allNotes.filter((n) => !flotando.has(n.id));
+  const notes = enRejilla.filter((n) => !n.positionSide);
+  const marginNotes = enRejilla.filter((n) => !!n.positionSide);
   const groups = groupNotes(notes);
 
   const [creatorAnchor, setCreatorAnchor] = useState<{ x: number; y: number } | null>(null);

@@ -10,7 +10,7 @@ import {
   applyAnchorMarkAtPos,
   getAnchorTop,
 } from "./anchor-utils";
-import { resolveColumnX } from "./sticky-position";
+import { clampToGutter, resolveColumnX, type NotebookMetrics } from "./sticky-position";
 import type { StickyNoteItem } from "./sticky-notes.types";
 
 interface FloatingNotesLayerProps {
@@ -18,19 +18,11 @@ interface FloatingNotesLayerProps {
   context: { pageId: string };
   /** Contenedor de scroll del cuaderno; define el área donde puede vivir la nota. */
   containerRef: RefObject<HTMLDivElement | null>;
-  /** Columna de texto centrada; origen de coordenadas de las notas. */
-  columnRef: RefObject<HTMLDivElement | null>;
+  /** La geometría del cuaderno, medida una vez por quien monta esta capa. */
+  metrics: NotebookMetrics;
 }
 
-/** Geometría del cuaderno en px, recalculada al redimensionar (abrir sidebar, etc.). */
-interface Metrics {
-  columnLeft: number; // px del borde izq. de la columna, relativo al contenedor
-  columnWidth: number;
-  containerW: number;
-  containerH: number;
-}
-
-const NOTE_W = 176; // w-44
+type Metrics = NotebookMetrics;
 
 /** Por debajo de esto el gesto es un click, no un arrastre. */
 const DRAG_THRESHOLD_PX = 4;
@@ -111,7 +103,6 @@ function FloatingNoteItem({
 
   const { mutate: updateNote } = useUpdateStickyNote(context);
 
-  const maxLeft = Math.max(0, metrics.containerW - NOTE_W);
   const maxTop = Math.max(0, metrics.containerH - noteH);
 
   // Posición base (px, relativa al contenedor) derivada del modelo columna-relativo.
@@ -126,7 +117,7 @@ function FloatingNoteItem({
 
   const isDragging = live !== null;
   // Clamp final: la nota nunca se sale de la pantalla.
-  const leftPx = clamp(live?.leftPx ?? baseLeft, 0, maxLeft);
+  const leftPx = clampToGutter(live?.leftPx ?? baseLeft, metrics);
   const topPx = clamp(live?.topPx ?? baseTop, 0, maxTop);
   const tilt = tiltFor(note.id);
 
@@ -187,7 +178,7 @@ function FloatingNoteItem({
       ds.started = true;
       e.currentTarget.setPointerCapture(e.pointerId);
     }
-    setLive({ leftPx: clamp(ds.leftPx + dx, 0, maxLeft), topPx: clamp(ds.topPx + dy, 0, maxTop) });
+    setLive({ leftPx: clampToGutter(ds.leftPx + dx, metrics), topPx: clamp(ds.topPx + dy, 0, maxTop) });
   }
 
   function onPointerUp() {
@@ -263,7 +254,7 @@ function FloatingNoteItem({
       onPointerUp={onPointerUp}
       onPointerCancel={onPointerCancel}
     >
-      <StickyNoteCard note={note} context={context} />
+      <StickyNoteCard note={note} context={context} compact />
     </div>
   );
 }
@@ -272,39 +263,10 @@ export function FloatingNotesLayer({
   notes,
   context,
   containerRef,
-  columnRef,
+  metrics,
 }: FloatingNotesLayerProps) {
-  const [metrics, setMetrics] = useState<Metrics>({
-    columnLeft: 0,
-    columnWidth: 768,
-    containerW: 0,
-    containerH: 0,
-  });
   const [zOrder, setZOrder] = useState<Record<string, number>>({});
   const nextZ = useRef(1);
-
-  useEffect(() => {
-    const container = containerRef.current;
-    const column = columnRef.current;
-    if (!container || !column) return;
-
-    const measure = () => {
-      const cr = container.getBoundingClientRect();
-      const colr = column.getBoundingClientRect();
-      setMetrics({
-        columnLeft: colr.left - cr.left,
-        columnWidth: colr.width,
-        containerW: container.clientWidth,
-        containerH: container.offsetHeight,
-      });
-    };
-
-    measure();
-    const ro = new ResizeObserver(measure);
-    ro.observe(container);
-    ro.observe(column);
-    return () => ro.disconnect();
-  }, [containerRef, columnRef]);
 
   function bringToFront(id: string) {
     nextZ.current += 1;
@@ -320,7 +282,7 @@ export function FloatingNotesLayer({
     .sort((a, b) => (zOrder[a] ?? 0) - (zOrder[b] ?? 0));
 
   return (
-    <div className="hidden md:block absolute inset-0 pointer-events-none">
+    <div className="absolute inset-0 pointer-events-none">
       {notes.map((n) => (
         <FloatingNoteItem
           key={n.id}

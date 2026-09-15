@@ -12,6 +12,7 @@ import userEvent from "@testing-library/user-event";
 import { makeStickyNote, mid } from "@/app/system-design/mock-data";
 import { makeTestConvexClient, renderWithProviders } from "@/shared/testing/render";
 import { FloatingNotesLayer } from "./FloatingNotesLayer";
+import { clampToGutter, gutterSlots, hasGutterRoom, type NotebookMetrics } from "./sticky-position";
 import type { StickyNoteItem } from "./sticky-notes.types";
 
 const PAGINA = mid("pagina-1");
@@ -24,19 +25,26 @@ const NOTA = makeStickyNote({
   positionY: 0.3,
 });
 
-/** El lienzo que la capa necesita: el contenedor de scroll y la columna de texto. */
-function Lienzo({ notes }: { notes: StickyNoteItem[] }) {
+/**
+ * El lienzo que la capa necesita. La medida llega por props porque en la app la
+ * toma quien monta la capa, para que la rejilla y la capa no decidan por
+ * separado quién dibuja cada nota. Aquí se fija a un cuaderno de 1440 con su
+ * columna centrada, que es donde hay margen para las dos notas.
+ */
+const CUADERNO: NotebookMetrics = {
+  columnLeft: 176,
+  columnWidth: 816,
+  textLeft: 200,
+  textWidth: 768,
+  containerW: 1168,
+  containerH: 2000,
+};
+
+function Lienzo({ notes, metrics = CUADERNO }: { notes: StickyNoteItem[]; metrics?: NotebookMetrics }) {
   const containerRef = useRef<HTMLDivElement>(null);
-  const columnRef = useRef<HTMLDivElement>(null);
   return (
     <div ref={containerRef} className="relative">
-      <div ref={columnRef} />
-      <FloatingNotesLayer
-        notes={notes}
-        context={{ pageId: PAGINA }}
-        containerRef={containerRef}
-        columnRef={columnRef}
-      />
+      <FloatingNotesLayer notes={notes} context={{ pageId: PAGINA }} containerRef={containerRef} metrics={metrics} />
     </div>
   );
 }
@@ -160,5 +168,72 @@ describe("el z de las notas", () => {
     const zs = envoltorios(container).map((el) => Number(el.style.zIndex));
     expect(Math.min(...zs)).toBeGreaterThanOrEqual(10);
     expect(Math.max(...zs)).toBeLessThan(20);
+  });
+});
+
+describe("donde se dibuja una nota", () => {
+  /** Un cuaderno con la columna de 768 centrada en el ancho que quede libre. */
+  const cuaderno = (containerW: number): NotebookMetrics => {
+    const columnWidth = Math.min(816, containerW);
+    const columnLeft = Math.max(0, (containerW - columnWidth) / 2);
+    return {
+      columnLeft,
+      columnWidth,
+      // La columna lleva 24 px de padding a cada lado, que no son texto.
+      textLeft: columnLeft + 24,
+      textWidth: Math.max(0, columnWidth - 48),
+      containerW,
+      containerH: 2000,
+    };
+  };
+
+  it("con margen a los dos lados, una X que caeria sobre el texto se va al margen", () => {
+    const m = cuaderno(1400);
+    expect(hasGutterRoom(m)).toBe(true);
+
+    const puesta = clampToGutter(m.textLeft + m.textWidth / 2, m);
+
+    const textoDerecha = m.textLeft + m.textWidth;
+    expect(puesta + 176 <= m.textLeft || puesta >= textoDerecha).toBe(true);
+  });
+
+  it("una nota ya puesta en su margen no se mueve", () => {
+    const m = cuaderno(1400);
+    const enElMargen = m.textLeft + m.textWidth + 20;
+
+    expect(clampToGutter(enElMargen, m)).toBe(enElMargen);
+  });
+
+  it("sin sitio para la tarjeta, ese margen no cuenta como margen", () => {
+    // 1131 con el panel abierto deja 46 px de texto a la izquierda y 45 a la
+    // derecha: ahi no cabe una tarjeta de 176, y forzarla era lo que tapaba 3 y
+    // 9 parrafos el 14 sep 2026.
+    expect(gutterSlots(cuaderno(859))).toEqual({ left: null, right: null });
+    expect(hasGutterRoom(cuaderno(859))).toBe(false);
+  });
+
+  it("sin margen la nota no flota: la dibuja la rejilla", () => {
+    // `hasGutterRoom` es lo que `NotebookEditorSurface` consulta para repartir
+    // las notas entre la capa y la rejilla, y ninguna se monta dos veces.
+    expect(hasGutterRoom(cuaderno(820))).toBe(false);
+    expect(hasGutterRoom(cuaderno(1168))).toBe(true);
+  });
+});
+
+describe("una nota larga", () => {
+  it("se acota y avisa de que hay mas", async () => {
+    const larga = makeStickyNote({
+      id: mid("nota-larga"),
+      title: "Nota larga",
+      content: "x".repeat(500),
+      positionSide: "over",
+    });
+    pintar([larga]);
+
+    // El cuerpo va en una caja con tope; el texto entero sigue en el DOM para
+    // que quien lea con lector de pantalla no pierda nada.
+    const cuerpo = screen.getByText("x".repeat(500)).parentElement!;
+    expect(cuerpo.style.maxHeight).toBe("168px");
+    expect(cuerpo.className).toContain("overflow-hidden");
   });
 });
