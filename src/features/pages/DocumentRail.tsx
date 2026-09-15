@@ -44,11 +44,16 @@ const PITCH_MIN = 8;
 /** Lo que el carril se permite ocupar del alto del lienzo. */
 const BUDGET = 0.7;
 
-/** Cuánto se ve la marca en reposo, según el nivel de su título. */
+/**
+ * Cuánto se ve la marca en reposo, según el nivel de su título. La separación
+ * entre los tres es ancha a propósito: en una raya de tres píxeles, dos tonos
+ * vecinos no se distinguen de un vistazo, que es justo lo que esto tiene que
+ * permitir. Medido sobre el fondo oscuro: 138, 72 y 53 de luma.
+ */
 const LEVEL_TINT = [
-  "bg-muted-foreground/70",
-  "bg-muted-foreground/45",
-  "bg-muted-foreground/28",
+  "bg-muted-foreground/85",
+  "bg-muted-foreground/38",
+  "bg-muted-foreground/24",
 ] as const;
 
 /** Cuánto se estira la marca, como escala del ancho máximo. */
