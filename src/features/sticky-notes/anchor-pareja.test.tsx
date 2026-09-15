@@ -107,6 +107,32 @@ describe("la pareja nota y frase", () => {
     expect(frase(editorDe()).className).not.toContain("sticky-anchor-lit");
   });
 
+  it("deja la frase encendida mientras el editor de la nota esta abierto", async () => {
+    // En el teléfono no hay puntero: abrir la nota es el único gesto que dice
+    // cuál de las frases comenta, así que mientras está abierta se queda viva.
+    const { editorDe } = pintar();
+    await waitFor(() => expect(editorDe()).not.toBeNull());
+
+    await userEvent.click(tarjeta());
+    await screen.findByPlaceholderText("Título...");
+
+    await waitFor(() => expect(frase(editorDe()).className).toContain("sticky-anchor-lit"));
+    // Y sacar el ratón de la nota no la apaga: la sostiene el editor abierto.
+    await userEvent.unhover(tarjeta());
+    expect(frase(editorDe()).className).toContain("sticky-anchor-lit");
+  });
+
+  it("la apaga al cerrar el editor de la nota", async () => {
+    const { editorDe } = pintar();
+    await waitFor(() => expect(editorDe()).not.toBeNull());
+
+    await userEvent.click(tarjeta());
+    await screen.findByPlaceholderText("Título...");
+    await userEvent.click(screen.getByRole("button", { name: "Cancelar" }));
+
+    await waitFor(() => expect(frase(editorDe()).className).not.toContain("sticky-anchor-lit"));
+  });
+
   it("no enciende una nota de posicion, que no tiene frase que encender", async () => {
     // El ancla va `muted`: sostiene la nota junto a su párrafo y no marca nada.
     const posicional = makeStickyNote({

@@ -175,6 +175,16 @@ export function StickyNoteCard({ note, context, onStack, compact }: StickyNoteCa
   const anota =
     !!note.anchorId && !!editor && isAnnotationAnchor(editor.state.doc, note.anchorId);
   const encendida = anota && lit === note.anchorId;
+  const editando = editAnchor !== null;
+
+  // Con el editor de la nota abierto, su frase se queda encendida. Es lo único
+  // que da la pareja exacta sin puntero, y en el teléfono no hay puntero: ahí
+  // abrir la nota es el gesto que dice cuál de las frases comenta.
+  useEffect(() => {
+    if (!anota || !editando) return;
+    light(note.anchorId);
+    return () => light(null);
+  }, [anota, editando, light, note.anchorId]);
 
   // Si el texto no cabe en el tope. Se mide en vez de contar caracteres: lo que
   // cabe depende de la letra del sistema, que el usuario cambia.
@@ -233,7 +243,7 @@ export function StickyNoteCard({ note, context, onStack, compact }: StickyNoteCa
               color: colors.textHex,
             }}
             onMouseEnter={() => anota && light(note.anchorId)}
-            onMouseLeave={() => anota && light(null)}
+            onMouseLeave={() => anota && !editando && light(null)}
             onClick={(e) => setEditAnchor({ x: e.currentTarget.getBoundingClientRect().left, y: e.currentTarget.getBoundingClientRect().top })}
             role="button"
             tabIndex={0}
