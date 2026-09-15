@@ -96,11 +96,19 @@ function findUser(db: GenericDatabaseReader<DataModel>, clerkId: string) {
 }
 
 /**
+ * Lo mínimo con lo que se puede crear la fila de alguien. Son las dos puertas
+ * por las que nace un usuario: el JWT de Clerk, que es un `UserIdentity`
+ * entero, y el cuerpo de su webhook `user.created`, que llega sin JWT y del
+ * que sólo salen estos cuatro campos.
+ */
+export type NuevaIdentidad = Pick<UserIdentity, 'subject' | 'email' | 'name' | 'pictureUrl'>;
+
+/**
  * El documento `users` de una identidad, creándolo si es la primera vez. Un
  * usuario importado de Postgres existe por correo pero sin `clerkId`: la
  * primera sesión lo enlaza en vez de duplicarlo.
  */
-export async function ensureUser(db: GenericDatabaseWriter<DataModel>, identity: UserIdentity): Promise<Doc<'users'>> {
+export async function ensureUser(db: GenericDatabaseWriter<DataModel>, identity: NuevaIdentidad): Promise<Doc<'users'>> {
   const linked = await findUser(db, identity.subject);
   if (linked) return linked;
 
