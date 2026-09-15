@@ -41,7 +41,7 @@ pnpm migrate:convex                 # Importador Postgres → Convex (scripts/mi
 - **Estilos**: Tailwind + shadcn/ui (Radix)
 - **Toasts**: sonner · **Gráficas**: Recharts · **Fechas**: date-fns · **Recurrencia**: rrule
 - **Editor**: Tiptap v3
-- **Background**: Lazy Evaluation (catch-up al entrar) + los crons de Convex (`convex/crons.ts`: snapshot diario y recordatorios cada quince minutos, con bitácora en `cronRuns`)
+- **Background**: Lazy Evaluation (catch-up al entrar) + los crons de Convex (`convex/crons.ts`: snapshot diario y recordatorios cada quince minutos, con bitácora en `cronRuns`). Se registran en el deployment salvo que `KINO_CRONS_APAGADOS` valga `true`, que es el caso del de desarrollo: ahí no hay a quién notificar y cada vuelta releía la base para nada. La variable apaga, nunca enciende, para que olvidarla en producción no deje a nadie sin avisos
 - **Errores**: Sentry en navegador y API. Inerte sin `NEXT_PUBLIC_SENTRY_DSN`;
   el recorte de datos personales vive en `src/shared/observability/sentry-options.ts`
 - **Analítica de producto**: PostHog sin cookies, sólo el funnel de registro.
@@ -81,7 +81,7 @@ Producción y desarrollo son **dos deployments de Convex** del mismo proyecto, y
 
 Un cambio de schema sigue teniendo que ser **compatible hacia atrás** con el código ya desplegado: Convex valida los documentos existentes contra el schema nuevo antes de aceptarlo, y entre una cosa y la otra el cliente viejo habla con las funciones nuevas.
 
-Cada deployment lleva sus propias variables (`npx convex env set`): `CLERK_JWT_ISSUER_DOMAIN` de su instancia de Clerk, `CLERK_WEBHOOK_SIGNING_SECRET` del endpoint que esa instancia firma, `KINO_MCP_JWKS` con la mitad pública de la clave con la que firma su Vercel, `ENCRYPTION_KEY` para la sincronización con GitHub y el par VAPID para los push. Están descritas en `.env.example`.
+Cada deployment lleva sus propias variables (`npx convex env set`): `CLERK_JWT_ISSUER_DOMAIN` de su instancia de Clerk, `CLERK_WEBHOOK_SIGNING_SECRET` del endpoint que esa instancia firma, `KINO_CRONS_APAGADOS` donde los crons no deban registrarse, `KINO_MCP_JWKS` con la mitad pública de la clave con la que firma su Vercel, `ENCRYPTION_KEY` para la sincronización con GitHub y el par VAPID para los push. Están descritas en `.env.example`.
 
 Postgres ya no está en el camino de la app. El schema de Drizzle (`src/shared/db/schema.ts`) sigue en el repo como origen de `pnpm migrate:convex`, el importador con el que se movieron los datos; `scripts/migrate-to-convex/verify.mts` compara las dos bases.
 
