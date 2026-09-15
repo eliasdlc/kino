@@ -4,6 +4,11 @@
  * capturas enseñen lo que rompe un layout: títulos largos, vencidas, epics
  * con subtareas, carpetas anidadas, páginas con contenido y un codex.
  *
+ * Incluye a propósito un documento de setenta y ocho encabezados en un sistema
+ * normal. No es relleno: es el caso con el que el carril de títulos se recorta
+ * si nadie le pone techo, y sin él las capturas no lo enseñan. Tiene su propia
+ * guarda, así que una cuenta ya sembrada lo gana volviendo a correr esto.
+ *
  *   set -a; . ~/.config/secretos/kino.env; set +a   # CONVEX_DEPLOY_KEY
  *   node scripts/capturas/sembrar.mjs
  *
@@ -33,15 +38,61 @@ function dia(offset) {
   return d.toISOString();
 }
 
+const DOC_LARGO = "Compiladores: el temario entero";
+
+/**
+ * El documento del caso largo: seis unidades, tres secciones cada una y tres
+ * apartados por sección, con texto real debajo de cada encabezado para que la
+ * tarjeta del carril tenga de dónde sacar su preview. Idempotente por título.
+ */
+function sembrarDocumentoLargo(systemId) {
+  const paginas = run("pages:bySystem", { systemId });
+  const existentes = Array.isArray(paginas) ? paginas : (paginas.items ?? []);
+  if (existentes.some((p) => p.title === DOC_LARGO)) return false;
+
+  const unidades = [
+    ["Análisis léxico", ["Autómatas finitos", "Expresiones regulares", "Tabla de símbolos"]],
+    ["Análisis sintáctico", ["Gramáticas libres de contexto", "Descenso recursivo", "Analizadores LR"]],
+    ["Análisis semántico", ["Tipos y su comprobación", "Ámbitos y visibilidad", "Tabla de atributos"]],
+    ["Código intermedio", ["Tres direcciones", "Grafos de flujo", "Formas SSA"]],
+    ["Optimización", ["Eliminación de subexpresiones", "Desenrollado de bucles", "Propagación de constantes"]],
+    ["Generación de código", ["Selección de instrucciones", "Asignación de registros", "Planificación"]],
+  ];
+  const apartados = ["Qué resuelve", "Cómo se implementa", "Dónde falla"];
+  const prosa = [
+    "La definición formal y el ejemplo mínimo que se pide en el examen, con el caso degenerado señalado aparte.",
+    "El algoritmo paso a paso sobre una entrada corta, anotando en qué punto se decide y por qué no hay vuelta atrás.",
+    "El error clásico que aparece en el laboratorio y cómo se reconoce en la traza antes de perder media tarde.",
+  ];
+
+  let html = "";
+  unidades.forEach(([unidad, secciones], u) => {
+    html += `<h1>${u + 1}. ${unidad}</h1><p>${prosa[u % prosa.length]}</p>`;
+    secciones.forEach((seccion, s2) => {
+      html += `<h2>${seccion}</h2><p>${prosa[(u + s2) % prosa.length]}</p>`;
+      apartados.forEach((apartado, a) => {
+        html += `<h3>${apartado}</h3><p>${prosa[(u + s2 + a) % prosa.length]}</p>`;
+      });
+    });
+  });
+
+  run("pages:create", { systemId, title: DOC_LARGO, content: html });
+  return true;
+}
+
 const sistemas = run("systems:list", {});
 const lista = Array.isArray(sistemas) ? sistemas : (sistemas.items ?? []);
+const academico = lista.find((s) => s.templateType === "academic");
+if (!academico) throw new Error("La cuenta no tiene sistema académico");
+const A = academico.id ?? academico._id;
+
+if (sembrarDocumentoLargo(A)) console.log(`Creado "${DOC_LARGO}", el documento del caso largo del carril.`);
+
 if (lista.some((s) => s.name === NOVELA)) {
   console.log("La cuenta ya está sembrada.");
   process.exit(0);
 }
-const academico = lista.find((s) => s.templateType === "academic");
-if (!academico) throw new Error("La cuenta no tiene sistema académico");
-const A = academico.id ?? academico._id;
+
 
 // Carpetas del semestre: dos clases y un laboratorio anidado.
 const calculo = run("folders:create", { systemId: A, name: "Cálculo III", color: "blue", metadata: { professor: "Prof. Rosario Almonte", schedule: "Lun y Mié 8:00 a 9:40" } });
