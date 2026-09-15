@@ -123,3 +123,97 @@ describe('las suscripciones push', () => {
     expect(filas[0]!.authKey).toBe('nueva');
   });
 });
+
+/**
+ * Qué se prueba: que acotar lo que el cron lee no le quita nada de lo que
+ * tenía que entregar.
+ *
+ * `pendingDeliveries` corre cada quince minutos y antes traía todas las tareas
+ * vivas de cada suscrito para quedarse con las de dos días. Ahora lee por rango
+ * de vencimiento, y el riesgo de ese cambio es concreto: un recordatorio puesto
+ * para hoy sobre una tarea que vence el mes que viene está fuera del rango, y
+ * perderlo sería un defecto invisible hasta que alguien no recibe su aviso.
+ */
+describe('lo que el cron de recordatorios lee', () => {
+  const DIA = 86_400_000;
+
+  async function escenario(t: ReturnType<typeof convexTest>) {
+    const as = t.withIdentity(ana);
+    const userId = await as.mutation(api.users.ensure, {});
+    const system = await as.mutation(api.systems.create, { name: 'Kino', color: 'blue', templateType: 'project', icon: 'rocket' });
+    await as.mutation(api.notifications.subscribe, { endpoint: 'https://push.example/ana', keys: { auth: 'a', p256dh: 'p' } });
+
+    const lejana = await as.mutation(api.tasks.create, { systemId: system.id, title: 'Vence el mes que viene' });
+    const sinFecha = await as.mutation(api.tasks.create, { systemId: system.id, title: 'Sin fecha' });
+    const vencida = await as.mutation(api.tasks.create, { systemId: system.id, title: 'Vencida hace diez dias' });
+
+    const now = Date.now();
+    await t.run(async (ctx) => {
+      await ctx.db.patch(lejana.id as Id<'tasks'>, { dueDate: now + 30 * DIA });
+      await ctx.db.patch(vencida.id as Id<'tasks'>, { dueDate: now - 10 * DIA, notifiedDueDay: true, priority: 'high', reminderCount: 0 });
+      // El recordatorio vive en su propio calendario: apunta a la tarea lejana
+      // y ya llegó su hora.
+      await ctx.db.insert('taskReminders', {
+        taskId: lejana.id as Id<'tasks'>,
+        userId: userId as Id<'users'>,
+        remindAt: now - 1_000,
+        source: 'user',
+        createdAt: now,
+      });
+    });
+
+    return { userId, lejana: lejana.id as Id<'tasks'>, sinFecha: sinFecha.id as Id<'tasks'>, vencida: vencida.id as Id<'tasks'> };
+  }
+
+  it('el rango deja fuera la que no tiene fecha y la que vence dentro de un mes', async () => {
+    const t = convexTest(schema, modules);
+    const { userId, vencida } = await escenario(t);
+
+    const leidas = await t.run((ctx) =>
+      ctx.db
+        .query('tasks')
+        .withIndex('by_user_alive_due', (q) =>
+          q.eq('userId', userId as Id<'users'>).eq('deletedAt', undefined).gte('dueDate', 0).lte('dueDate', Date.now() + 3 * DIA),
+        )
+        .collect(),
+    );
+
+    expect(leidas.map((x) => x._id)).toEqual([vencida]);
+  });
+
+  it('el recordatorio de una tarea lejana sale igual, que es lo que el rango podria haberse llevado', async () => {
+    const t = convexTest(schema, modules);
+    await escenario(t);
+
+    const { internal } = await import('./_generated/api');
+    const entregas = await t.query(internal.notifications.pendingDeliveries, {});
+
+    expect(entregas).toHaveLength(1);
+    expect(entregas[0]!.reminders.map((r: { taskTitle: string }) => r.taskTitle)).toEqual(['Vence el mes que viene']);
+  });
+
+  it('la vencida sigue escalando y la que no tiene fecha no aparece por ningun lado', async () => {
+    const t = convexTest(schema, modules);
+    const { sinFecha } = await escenario(t);
+
+    const { internal } = await import('./_generated/api');
+    const [entrega] = await t.query(internal.notifications.pendingDeliveries, {});
+
+    expect(entrega!.escalations.map((e: { title: string }) => e.title)).toEqual(['Vencida hace diez dias']);
+    const todos = [...entrega!.dueToday, ...entrega!.dueTomorrow, ...entrega!.escalations].map((x: { id: string }) => x.id);
+    expect(todos).not.toContain(sinFecha);
+  });
+
+  it('un recordatorio ya enviado no vuelve a salir', async () => {
+    const t = convexTest(schema, modules);
+    await escenario(t);
+    await t.run(async (ctx) => {
+      for (const r of await ctx.db.query('taskReminders').collect()) await ctx.db.patch(r._id, { sentAt: Date.now() });
+    });
+
+    const { internal } = await import('./_generated/api');
+    const entregas = await t.query(internal.notifications.pendingDeliveries, {});
+
+    expect(entregas.flatMap((e: { reminders: unknown[] }) => e.reminders)).toEqual([]);
+  });
+});
