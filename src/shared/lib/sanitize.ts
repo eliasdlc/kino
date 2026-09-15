@@ -69,8 +69,18 @@ const ALLOWED_ATTRIBUTES: sanitizeHtml.IOptions["allowedAttributes"] = {
   // TaskItem serializa la casilla; `checked` la pinta marcada y `disabled` la
   // deja inerte, que es lo que corresponde en una vista de lectura.
   input: ["type", "checked", "disabled"],
-  // Marca de nota adhesiva y mención del Codex.
-  span: ["data-anchor-id", "data-mention", "data-entity-id", "data-entity-type", "data-label"],
+  // Marca de nota adhesiva y mención del Codex. `data-anchor-muted` viaja con
+  // la marca: sin él, el ancla que sólo sostiene una nota junto a su párrafo
+  // llegaba al modo lectura sin su marca de posición y se pintaba resaltada,
+  // decorando un texto que nadie eligió anotar.
+  span: [
+    "data-anchor-id",
+    "data-anchor-muted",
+    "data-mention",
+    "data-entity-id",
+    "data-entity-type",
+    "data-label",
+  ],
   li: ["data-type", "data-checked"],
   ul: ["data-type"],
   // Guion, corte de escena, manga.

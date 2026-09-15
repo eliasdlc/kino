@@ -12,6 +12,7 @@ import type { MediumManifest } from "@/shared/lib/mediums";
 import { StickyNotesGrid } from "@/features/sticky-notes/StickyNotesGrid";
 import { FloatingNotesLayer } from "@/features/sticky-notes/FloatingNotesLayer";
 import { AnchorBridge } from "@/features/sticky-notes/AnchorBridge";
+import { AnchorHighlightProvider, AnchorPaint } from "@/features/sticky-notes/AnchorHighlight";
 import { StickyNoteCreator } from "@/features/sticky-notes/StickyNoteCreator";
 import { SelectionToolbar } from "@/features/sticky-notes/SelectionToolbar";
 import { useStickyNotesByPage } from "@/features/sticky-notes/sticky-notes.hooks";
@@ -299,83 +300,87 @@ export default function NotebookEditorSurface({
       codex={writer ? { systemId } : null}
       medium={writer ? medium : null}
     >
-      <div className="relative flex flex-1 flex-col overflow-hidden">
-        <SelectionGate
-          onAnnotate={(textAnchor, screen) => setCreator({ screen, textAnchor })}
-        />
-        <div
-          ref={scrollRef}
-          className={cn("flex-1 overflow-y-auto", writer && focusMode && "writer-focus")}
-        >
+      <AnchorHighlightProvider>
+        <div className="relative flex flex-1 flex-col overflow-hidden">
+          <SelectionGate
+            onAnnotate={(textAnchor, screen) => setCreator({ screen, textAnchor })}
+          />
           <div
-            ref={contentRef}
-            className={cn("relative min-h-full", writer && focusMode && "py-[30vh]")}
-            onContextMenu={handleContextMenu}
+            ref={scrollRef}
+            className={cn("flex-1 overflow-y-auto", writer && focusMode && "writer-focus")}
           >
             <div
-              ref={columnRef}
-              data-paper={writer && paper ? "on" : undefined}
-              className={cn(
-                "mx-auto px-4 py-6 md:px-6 md:py-8 space-y-8",
-                writer ? "max-w-[46rem] md:my-6 md:px-10" : "max-w-3xl"
-              )}
+              ref={contentRef}
+              className={cn("relative min-h-full", writer && focusMode && "py-[30vh]")}
+              onContextMenu={handleContextMenu}
             >
-              <NotebookEditor page={page} systemId={systemId} pageId={page.id} writer={writer} title={title} onTitleChange={onTitleChange} />
-              {/* Las notas van después del texto: la página escribe primero. */}
-              <StickyNotesGrid pageId={page.id} floatingIds={floatingIds} />
+              <div
+                ref={columnRef}
+                data-paper={writer && paper ? "on" : undefined}
+                className={cn(
+                  "mx-auto px-4 py-6 md:px-6 md:py-8 space-y-8",
+                  writer ? "max-w-[46rem] md:my-6 md:px-10" : "max-w-3xl"
+                )}
+              >
+                <NotebookEditor page={page} systemId={systemId} pageId={page.id} writer={writer} title={title} onTitleChange={onTitleChange} />
+                {/* Las notas van después del texto: la página escribe primero. */}
+                <StickyNotesGrid pageId={page.id} floatingIds={floatingIds} />
+              </div>
+              <FloatingNotesLayer
+                notes={floatingNotes}
+                context={pageContext}
+                containerRef={contentRef}
+                metrics={metrics}
+              />
             </div>
-            <FloatingNotesLayer
-              notes={floatingNotes}
-              context={pageContext}
-              containerRef={contentRef}
-              metrics={metrics}
-            />
           </div>
+
+          {/* El carril es de los documentos normales. El manuscrito navega por su
+              panel, con sus escenas y sus páginas, y no cambia. */}
+          {!writer && (
+            <DocumentRailLayer
+              items={outline}
+              scrollRef={scrollRef}
+              onJump={(pos) => jump.current?.(pos)}
+            />
+          )}
+
+          {writer && <TypewriterScroll enabled={focusMode} scrollRef={scrollRef} />}
+
+          {/* El índice ya no es del manuscrito: todo documento lo deriva, porque
+              el carril de títulos de un apunte come de aquí igual que el panel
+              del capítulo. En un documento sin mediums de escritura lo que sale
+              son sus encabezados y nada más. */}
+          <OutlineBridge onOutline={publishOutline} jumpRef={jump} />
+          <PosBridge posRef={posAt} />
+          {/* Una nota que vuelve de la papelera vuelve con su resaltado. */}
+          <AnchorBridge notes={allNotes} />
+          {/* Y cada frase anotada, con el color de papel de la nota que la comenta. */}
+          <AnchorPaint notes={allNotes} />
+
+          {writer && (
+            <WriterStatusBar
+              obra={obra}
+              systemId={systemId}
+              paper={paper}
+              onTogglePaper={() => setPaper((p) => !p)}
+              focusMode={focusMode}
+              onToggleFocus={onToggleFocus}
+            />
+          )}
         </div>
 
-        {/* El carril es de los documentos normales. El manuscrito navega por su
-            panel, con sus escenas y sus páginas, y no cambia. */}
-        {!writer && (
-          <DocumentRailLayer
-            items={outline}
-            scrollRef={scrollRef}
-            onJump={(pos) => jump.current?.(pos)}
+        {creator && (
+          <StickyNoteCreator
+            context={pageContext}
+            anchorPoint={creator.screen}
+            fixedPosition={creator.position}
+            textAnchor={creator.textAnchor}
+            positionalAnchor={creator.positionalAnchor}
+            onClose={() => setCreator(null)}
           />
         )}
-
-        {writer && <TypewriterScroll enabled={focusMode} scrollRef={scrollRef} />}
-
-        {/* El índice ya no es del manuscrito: todo documento lo deriva, porque
-            el carril de títulos de un apunte come de aquí igual que el panel
-            del capítulo. En un documento sin mediums de escritura lo que sale
-            son sus encabezados y nada más. */}
-        <OutlineBridge onOutline={publishOutline} jumpRef={jump} />
-        <PosBridge posRef={posAt} />
-        {/* Una nota que vuelve de la papelera vuelve con su resaltado. */}
-        <AnchorBridge notes={allNotes} />
-
-        {writer && (
-          <WriterStatusBar
-            obra={obra}
-            systemId={systemId}
-            paper={paper}
-            onTogglePaper={() => setPaper((p) => !p)}
-            focusMode={focusMode}
-            onToggleFocus={onToggleFocus}
-          />
-        )}
-      </div>
-
-      {creator && (
-        <StickyNoteCreator
-          context={pageContext}
-          anchorPoint={creator.screen}
-          fixedPosition={creator.position}
-          textAnchor={creator.textAnchor}
-          positionalAnchor={creator.positionalAnchor}
-          onClose={() => setCreator(null)}
-        />
-      )}
+      </AnchorHighlightProvider>
     </EditorProvider>
   );
 }

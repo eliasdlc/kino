@@ -33,6 +33,34 @@ export function findAnchorRange(doc: PmNode, anchorId: string): AnchorRange | nu
   return findAnchorRanges(doc, anchorId)[0] ?? null;
 }
 
+/** Un trozo anotado del documento, con el ancla que lo anota. */
+export interface AnnotationRange extends AnchorRange {
+  anchorId: string;
+}
+
+/**
+ * Cada trozo anotado del documento, en una sola pasada.
+ *
+ * Es `isAnnotationAnchor` del reves: en vez de preguntar por un ancla, recorre
+ * el documento entero y devuelve las que anotan algo. Quien pinta el resaltado
+ * las necesita todas a la vez y no puede recorrer el documento una vez por nota.
+ */
+export function annotationRanges(doc: PmNode): AnnotationRange[] {
+  const ranges: AnnotationRange[] = [];
+  doc.descendants((node, pos) => {
+    for (const mark of node.marks) {
+      if (mark.type.name !== "stickyAnchor") continue;
+      const { anchorId, muted } = mark.attrs as { anchorId: string | null; muted?: boolean };
+      if (anchorId && muted !== true) {
+        ranges.push({ anchorId, from: pos, to: pos + node.nodeSize });
+      }
+      return false;
+    }
+    return undefined;
+  });
+  return ranges;
+}
+
 /**
  * Si ese ancla anota un texto en vez de solo sostener una nota.
  *

@@ -106,6 +106,18 @@ describe("sanitizePageHtml · lo que sí tiene que pasar", () => {
     );
   });
 
+  it("conserva la marca de posición de una nota, que decide si la frase se pinta", () => {
+    // Un ancla de posición sostiene la nota junto a su párrafo y no anota nada.
+    // Si `data-anchor-muted` no llega al modo lectura, esa marca se pinta
+    // resaltada y decora un texto que nadie eligió.
+    const clean = sanitizePageHtml(
+      '<p><span data-anchor-id="a1" data-anchor-muted="" class="sticky-anchor-mark">un parrafo</span></p>',
+    );
+
+    expect(clean).toContain("data-anchor-muted");
+    expect(clean).toContain('data-anchor-id="a1"');
+  });
+
   it("devuelve cadena vacía para nulo o vacío", () => {
     expect(sanitizePageHtml(null)).toBe("");
     expect(sanitizePageHtml(undefined)).toBe("");
