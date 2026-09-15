@@ -217,8 +217,11 @@ export function StickyNoteCard({ note, context, onStack }: StickyNoteCardProps) 
               </span>
             )}
 
-            {/* Top-right controls */}
+            {/* Los dos controles de la esquina. `data-no-drag` es lo que los
+                saca del arrastre en la capa flotante: la tarjeta entera mueve
+                la nota menos este trozo, que se pulsa. */}
             <div
+              data-no-drag
               className="absolute top-1.5 right-1.5 flex items-center gap-0.5 md:opacity-0 md:group-hover:opacity-100 transition-opacity"
               onClick={(e) => e.stopPropagation()}
             >
