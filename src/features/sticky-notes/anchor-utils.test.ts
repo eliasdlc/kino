@@ -7,7 +7,15 @@ import { describe, expect, it } from "vitest";
 import { Editor } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
 import { StickyAnchorMark } from "./sticky-anchor.extension";
-import { applyAnchorMarkAtPos, findAnchorRange, removeAnchorMark } from "./anchor-utils";
+import {
+  applyAnchorMarkAtPos,
+  applyAnchorMarkOnRange,
+  applyAnchorMarkOnText,
+  findAnchorRange,
+  findAnchorRanges,
+  isAnnotationAnchor,
+  removeAnchorMark,
+} from "./anchor-utils";
 
 function editorCon(html: string) {
   return new Editor({
@@ -86,6 +94,100 @@ describe("un ancla al final de una linea", () => {
 
     expect(findAnchorRange(editor.state.doc, "a-fin")).not.toBeNull();
     expect(editor.getHTML()).toContain('data-anchor-id="a-fin"');
+    editor.destroy();
+  });
+});
+
+describe("una marca partida en dos nodos", () => {
+  /** Una seleccion que cruza un `<strong>` se parte: un span por nodo de texto. */
+  function partida() {
+    const editor = editorCon("<p>Antes <strong>y dentro</strong> y despues</p>");
+    const parrafo = editor.state.doc.firstChild!;
+    applyAnchorMarkOnRange(editor, { from: 1, to: 1 + parrafo.content.size }, "a-1");
+    return editor;
+  }
+
+  it("se encuentra entera, no a medias", () => {
+    const editor = partida();
+
+    expect(findAnchorRanges(editor.state.doc, "a-1").length).toBeGreaterThan(1);
+    editor.destroy();
+  });
+
+  it("se quita entera", () => {
+    const editor = partida();
+
+    removeAnchorMark(editor, "a-1");
+
+    expect(findAnchorRanges(editor.state.doc, "a-1")).toEqual([]);
+    expect(editor.getHTML()).not.toContain("data-anchor-id");
+    // El texto se queda: lo que se va es la marca.
+    expect(editor.state.doc.textBetween(0, editor.state.doc.content.size, " ")).toContain(
+      "Antes y dentro y despues"
+    );
+    editor.destroy();
+  });
+});
+
+describe("la frase de una nota restaurada", () => {
+  it("vuelve al mismo rango que tenia antes de borrarla", () => {
+    const editor = editorCon("<p>Primero</p><p>La frase anotada va aqui</p>");
+    const antes = applyAnchorMarkOnText(editor, "frase anotada", "a-1");
+    expect(antes).not.toBeNull();
+
+    removeAnchorMark(editor, "a-1");
+    expect(findAnchorRange(editor.state.doc, "a-1")).toBeNull();
+
+    const despues = applyAnchorMarkOnText(editor, "frase anotada", "a-1");
+
+    expect(despues).toEqual(antes);
+    expect(findAnchorRange(editor.state.doc, "a-1")).toEqual(antes);
+    editor.destroy();
+  });
+
+  it("no se escribe si el texto ya no esta", () => {
+    const editor = editorCon("<p>El parrafo que la llevaba se borro</p>");
+
+    expect(applyAnchorMarkOnText(editor, "frase anotada", "a-1")).toBeNull();
+    expect(editor.getHTML()).not.toContain("data-anchor-id");
+    editor.destroy();
+  });
+
+  it("se encuentra aunque cruce de un parrafo al siguiente", () => {
+    const editor = editorCon("<p>Cierra aqui</p><p>y sigue alla</p>");
+    // Es el texto que guarda la nota: `textBetween` mete un espacio en el salto.
+    const plano = editor.state.doc.textBetween(0, editor.state.doc.content.size, " ");
+    expect(plano).toContain("aqui y sigue");
+
+    const rango = applyAnchorMarkOnText(editor, "aqui y sigue", "a-1");
+
+    expect(rango).not.toBeNull();
+    expect(findAnchorRanges(editor.state.doc, "a-1").length).toBeGreaterThan(1);
+    editor.destroy();
+  });
+});
+
+describe("que clase de ancla es", () => {
+  it("la de una seleccion anota su texto", () => {
+    const editor = editorCon("<p>Primero</p><p>Segundo</p>");
+    applyAnchorMarkAtPos(editor, inicioDelParrafo(editor, 1), "a-1");
+
+    expect(isAnnotationAnchor(editor.state.doc, "a-1")).toBe(true);
+    editor.destroy();
+  });
+
+  it("la de posicion no anota nada, asi que mover su nota puede re-anclarla", () => {
+    const editor = editorCon("<p>Primero</p><p>Segundo</p>");
+    applyAnchorMarkAtPos(editor, inicioDelParrafo(editor, 1), "a-1", true);
+
+    expect(isAnnotationAnchor(editor.state.doc, "a-1")).toBe(false);
+    editor.destroy();
+  });
+
+  it("un ancla que ya no esta en el documento tampoco anota", () => {
+    const editor = editorCon("<p>Primero</p>");
+
+    expect(isAnnotationAnchor(editor.state.doc, "a-que-no-existe")).toBe(false);
     editor.destroy();
   });
 });

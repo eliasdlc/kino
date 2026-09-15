@@ -9,6 +9,7 @@ import {
   removeAnchorMark,
   applyAnchorMarkAtPos,
   getAnchorTop,
+  isAnnotationAnchor,
 } from "./anchor-utils";
 import { clampToCanvas, resolveColumnX, type NotebookMetrics } from "./sticky-position";
 import type { StickyNoteItem } from "./sticky-notes.types";
@@ -199,17 +200,25 @@ function FloatingNoteItem({
         : 0;
     const nextY = metrics.containerH > 0 ? snapshot.topPx / metrics.containerH : 0;
 
-    // Toda nota se vuelve a anclar al soltarla, no solo la que ya venia anclada.
-    // Su Y sale del parrafo donde cae, que se mueve con el texto; `positionY`
-    // era una fraccion de la altura del documento, y un documento crece cada vez
-    // que escribes, asi que la nota se despegaba de la frase que acompanaba.
-    // El ancla nueva va `muted`: sostiene la nota, no marca ese texto.
+    // Una nota con ancla de posicion se vuelve a anclar al soltarla. Su Y sale
+    // del parrafo donde cae, que se mueve con el texto; `positionY` era una
+    // fraccion de la altura del documento, y un documento crece cada vez que
+    // escribes, asi que la nota se despegaba de la frase que acompanaba. El
+    // ancla nueva va `muted`: sostiene la nota, no marca ese texto.
     const containerTop = containerRef.current?.getBoundingClientRect().top ?? 0;
+
+    // Una nota nacida de una frase no se despega de ella al moverla: su ancla
+    // marca ese texto a proposito, no el sitio donde la nota descansa. Volver a
+    // anclarla aqui le quitaba el resaltado a la frase que se anoto, que es lo
+    // unico que la nota no puede perder. Lo que cambia al soltarla es cuanto se
+    // separa de su frase, y eso lo lleva el desfase de abajo.
+    const anota =
+      !!editor && !!note.anchorId && isAnnotationAnchor(editor.state.doc, note.anchorId);
 
     // La nota se queda donde la soltaste, y de paso se apunta al parrafo que
     // hay a esa altura: el parrafo la hace bajar con el texto cuando escribes
     // por encima, y el desfase la deja exactamente donde la pegaste.
-    const anchorPos = posAtDrop(containerTop + snapshot.topPx);
+    const anchorPos = anota ? null : posAtDrop(containerTop + snapshot.topPx);
     let anchorFinal = note.anchorId;
     if (anchorPos !== null && editor) {
       anchorFinal = crypto.randomUUID();
