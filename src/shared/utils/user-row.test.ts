@@ -6,7 +6,7 @@
  */
 import { describe, expect, it, vi } from 'vitest';
 import { NextRequest, NextResponse } from 'next/server';
-import { USER_ROW_COOKIE, ensureUserRow } from '@/shared/utils/user-row';
+import { USER_ROW_COOKIE, ensureRowInConvex, ensureUserRow } from '@/shared/utils/user-row';
 
 const CLERK_ID = 'user_ana';
 
@@ -18,7 +18,7 @@ function peticion(marca?: string, url = 'https://kino.test/dashboard') {
 
 describe('el suelo de la fila de usuario', () => {
   it('la asegura y deja la marca la primera vez', async () => {
-    const asegurar = vi.fn().mockResolvedValue(true);
+    const asegurar = vi.fn().mockResolvedValue(undefined);
     const response = NextResponse.next();
 
     await ensureUserRow(peticion(), response, CLERK_ID, asegurar);
@@ -28,7 +28,7 @@ describe('el suelo de la fila de usuario', () => {
   });
 
   it('con la marca del mismo usuario no llama a Convex', async () => {
-    const asegurar = vi.fn().mockResolvedValue(true);
+    const asegurar = vi.fn().mockResolvedValue(undefined);
     const response = NextResponse.next();
 
     await ensureUserRow(peticion(CLERK_ID), response, CLERK_ID, asegurar);
@@ -38,7 +38,7 @@ describe('el suelo de la fila de usuario', () => {
   });
 
   it('la marca de otra cuenta no vale para esta', async () => {
-    const asegurar = vi.fn().mockResolvedValue(true);
+    const asegurar = vi.fn().mockResolvedValue(undefined);
     const response = NextResponse.next();
 
     await ensureUserRow(peticion('user_beto'), response, CLERK_ID, asegurar);
@@ -56,19 +56,14 @@ describe('el suelo de la fila de usuario', () => {
     expect(response.cookies.get(USER_ROW_COOKIE)).toBeUndefined();
   });
 
-  it('sin token de Convex no marca nada', async () => {
-    const asegurar = vi.fn().mockResolvedValue(false);
-    const response = NextResponse.next();
-
-    await ensureUserRow(peticion(), response, CLERK_ID, asegurar);
-
-    expect(response.cookies.get(USER_ROW_COOKIE)).toBeUndefined();
+  it('sin token de la plantilla convex, asegurar lanza en vez de pasar de largo', async () => {
+    await expect(ensureRowInConvex(async () => null)).rejects.toThrow(/plantilla/);
   });
 
   it('en http la marca no se manda como segura, o el navegador local la tiraría', async () => {
     const response = NextResponse.next();
 
-    await ensureUserRow(peticion(undefined, 'http://localhost:3000/dashboard'), response, CLERK_ID, async () => true);
+    await ensureUserRow(peticion(undefined, 'http://localhost:3000/dashboard'), response, CLERK_ID, async () => {});
 
     expect(response.cookies.get(USER_ROW_COOKIE)?.secure).toBe(false);
   });
