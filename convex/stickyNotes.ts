@@ -29,6 +29,7 @@ export function noteItem(doc: Doc<'stickyNotes'>) {
     positionY: doc.positionY ?? null,
     positionX: doc.positionX ?? null,
     anchorId: doc.anchorId ?? null,
+    offsetY: doc.offsetY ?? null,
     stackId: doc.stackId ?? null,
     textAnchor: doc.textAnchor ?? null,
     isEureka: doc.isEureka,
@@ -71,6 +72,8 @@ const noteFields = {
   // Fracción relativa a la columna de texto; negativa o mayor que 1 es el margen.
   positionX: z.number().min(-5).max(5).nullable().optional(),
   anchorId: z.string().nullable().optional(),
+  // Pixeles con signo desde el ancla hasta el borde de arriba de la nota.
+  offsetY: z.number().min(-20_000).max(20_000).nullable().optional(),
   clientRequestId: z.string().min(1).max(64).optional(),
 };
 type NoteFields = z.infer<z.ZodObject<typeof noteFields>>;
@@ -141,6 +144,7 @@ async function createOne(
     positionY: data.positionY ?? undefined,
     positionX: data.positionX ?? undefined,
     anchorId: data.anchorId ?? undefined,
+    offsetY: data.offsetY ?? undefined,
     isEureka: false,
     clientRequestId: data.clientRequestId,
     lemas: lematizar(data.title, data.content, data.textAnchor),
@@ -181,6 +185,7 @@ export const update = kinoZodMutation({
     positionY: z.number().min(0).max(1).nullable().optional(),
     positionX: z.number().min(-5).max(5).nullable().optional(),
     anchorId: z.string().nullable().optional(),
+    offsetY: z.number().min(-20_000).max(20_000).nullable().optional(),
     stackId: z.string().nullable().optional(),
     textAnchor: textAnchor.nullable().optional(),
     isEureka: z.boolean().optional(),
@@ -195,6 +200,7 @@ export const update = kinoZodMutation({
     if (data.positionY !== undefined) patch.positionY = data.positionY ?? undefined;
     if (data.positionX !== undefined) patch.positionX = data.positionX ?? undefined;
     if (data.anchorId !== undefined) patch.anchorId = data.anchorId ?? undefined;
+    if (data.offsetY !== undefined) patch.offsetY = data.offsetY ?? undefined;
     if (data.stackId !== undefined) patch.stackId = data.stackId ?? undefined;
     if (data.textAnchor !== undefined) patch.textAnchor = data.textAnchor ?? undefined;
     if (data.isEureka !== undefined) patch.isEureka = data.isEureka;

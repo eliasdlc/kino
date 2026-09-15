@@ -8,9 +8,9 @@ import { useSharedEditor } from "@/features/pages/EditorContext";
 import {
   removeAnchorMark,
   applyAnchorMarkAtPos,
-  getAnchorYFraction,
+  getAnchorTop,
 } from "./anchor-utils";
-import { resolveColumnX } from "./sticky-position";
+import { clampToCanvas, resolveColumnX, type NotebookMetrics } from "./sticky-position";
 import type { StickyNoteItem } from "./sticky-notes.types";
 
 interface FloatingNotesLayerProps {
@@ -18,19 +18,46 @@ interface FloatingNotesLayerProps {
   context: { pageId: string };
   /** Contenedor de scroll del cuaderno; define el área donde puede vivir la nota. */
   containerRef: RefObject<HTMLDivElement | null>;
-  /** Columna de texto centrada; origen de coordenadas de las notas. */
-  columnRef: RefObject<HTMLDivElement | null>;
+  /** La geometría del cuaderno, medida una vez por quien monta esta capa. */
+  metrics: NotebookMetrics;
 }
 
-/** Geometría del cuaderno en px, recalculada al redimensionar (abrir sidebar, etc.). */
-interface Metrics {
-  columnLeft: number; // px del borde izq. de la columna, relativo al contenedor
-  columnWidth: number;
-  containerW: number;
-  containerH: number;
+type Metrics = NotebookMetrics;
+
+/** Por debajo de esto el gesto es un click, no un arrastre. */
+const DRAG_THRESHOLD_PX = 4;
+
+/**
+ * La franja de z que ocupan las notas entre ellas: de `--z-raised` (10) a 19,
+ * siempre por debajo de `--z-overlay` (20). Una nota se pinta sobre el texto y
+ * nunca sobre un menu, un dialogo o un aviso.
+ */
+const Z_BASE = 10;
+const Z_SLOTS = 9;
+
+/** Puesto de una nota en el orden de uso: la ultima que tocaste queda arriba. */
+function zIndexFor(id: string, ranked: string[]): number {
+  const desdeArriba = ranked.length - 1 - ranked.indexOf(id);
+  return Z_BASE + Z_SLOTS - Math.min(desdeArriba, Z_SLOTS);
 }
 
-const NOTE_W = 176; // w-44
+/**
+ * Se come el `click` que el navegador dispara al final de un arrastre, para que
+ * soltar la nota no abra su editor. Se retira sola si ese click nunca llega.
+ */
+function suppressNextClick() {
+  const cleanup = () => {
+    document.removeEventListener("click", swallow, true);
+    clearTimeout(timer);
+  };
+  function swallow(ev: MouseEvent) {
+    ev.stopPropagation();
+    ev.preventDefault();
+    cleanup();
+  }
+  const timer = setTimeout(cleanup, 300);
+  document.addEventListener("click", swallow, true);
+}
 
 function tiltFor(id: string): number {
   const sum = id.charCodeAt(0) + id.charCodeAt(id.length - 1);
@@ -43,10 +70,13 @@ function clamp(v: number, lo: number, hi: number) {
 }
 
 interface DragStart {
+  pointerId: number;
   clientX: number;
   clientY: number;
   leftPx: number;
   topPx: number;
+  /** Falso mientras el gesto siga pudiendo ser un click. */
+  started: boolean;
 }
 
 function FloatingNoteItem({
@@ -68,42 +98,46 @@ function FloatingNoteItem({
   const noteRef = useRef<HTMLDivElement>(null);
   const dragStart = useRef<DragStart | null>(null);
   const [live, setLive] = useState<{ leftPx: number; topPx: number } | null>(null);
-  const [anchorY, setAnchorY] = useState<number | null>(null);
+  const [anchorTop, setAnchorTop] = useState<number | null>(null);
   const [noteH, setNoteH] = useState(120);
 
   const { mutate: updateNote } = useUpdateStickyNote(context);
 
-  const maxLeft = Math.max(0, metrics.containerW - NOTE_W);
   const maxTop = Math.max(0, metrics.containerH - noteH);
 
   // Posición base (px, relativa al contenedor) derivada del modelo columna-relativo.
   const colX = resolveColumnX(note.positionSide, note.positionX);
   const baseLeft = metrics.columnLeft + colX * metrics.columnWidth;
-  // Notas ancladas a texto derivan su Y del mark; el resto usa positionY.
-  const baseTopFrac =
-    note.anchorId && anchorY !== null ? anchorY : note.positionY ?? 0.12;
-  const baseTop = baseTopFrac * metrics.containerH;
+  // La Y es donde la soltaste: el ancla dice por donde va su parrafo y el
+  // desfase, cuanto por encima o por debajo de el la pusiste. Asi la nota se
+  // queda exactamente donde la pegaste y aun asi baja con el texto cuando
+  // escribes por encima. `positionY` es el respaldo de un ancla huerfana.
+  const baseTop =
+    note.anchorId && anchorTop !== null
+      ? anchorTop + (note.offsetY ?? 0)
+      : (note.positionY ?? 0.12) * metrics.containerH;
 
   const isDragging = live !== null;
   // Clamp final: la nota nunca se sale de la pantalla.
-  const leftPx = clamp(live?.leftPx ?? baseLeft, 0, maxLeft);
+  const leftPx = clampToCanvas(live?.leftPx ?? baseLeft, metrics);
   const topPx = clamp(live?.topPx ?? baseTop, 0, maxTop);
   const tilt = tiltFor(note.id);
 
-  const computeAnchorY = useCallback(() => {
+  const computeAnchorTop = useCallback(() => {
     if (!note.anchorId || !editor || !containerRef.current) return;
-    const y = getAnchorYFraction(editor, note.anchorId, containerRef.current);
-    setAnchorY(y);
+    setAnchorTop(getAnchorTop(editor, note.anchorId, containerRef.current));
+    // `metrics` entra en las dependencias porque el ancla tambien se mueve
+    // cuando la ventana cambia de ancho y el texto se re-ajusta.
   }, [note.anchorId, editor, containerRef]);
 
   useEffect(() => {
-    computeAnchorY();
+    computeAnchorTop();
     if (!editor) return;
-    editor.on("update", computeAnchorY);
+    editor.on("update", computeAnchorTop);
     return () => {
-      editor.off("update", computeAnchorY);
+      editor.off("update", computeAnchorTop);
     };
-  }, [editor, computeAnchorY]);
+  }, [editor, computeAnchorTop, metrics.containerW, metrics.containerH]);
 
   // Alto real de la nota, para el clamp vertical (sin leer el ref en render).
   useEffect(() => {
@@ -117,76 +151,99 @@ function FloatingNoteItem({
 
   function onPointerDown(e: React.PointerEvent<HTMLDivElement>) {
     if (e.button !== 0) return;
-    e.currentTarget.setPointerCapture(e.pointerId);
+    // React sube los eventos de un portal a su padre de React, no al del DOM.
+    // Los dos menus de la nota se montan en <body>, asi que sin esta guarda
+    // pulsar uno de sus items arrancaria un arrastre y le robaria su click.
+    if (!e.currentTarget.contains(e.target as Node)) return;
+    // Los controles de la tarjeta se pulsan; el resto de la tarjeta arrastra.
+    if ((e.target as HTMLElement).closest("[data-no-drag]")) return;
     onInteract(note.id);
     dragStart.current = {
+      pointerId: e.pointerId,
       clientX: e.clientX,
       clientY: e.clientY,
       leftPx,
       topPx,
+      started: false,
     };
   }
 
   function onPointerMove(e: React.PointerEvent<HTMLDivElement>) {
     const ds = dragStart.current;
-    if (!ds) return;
-    const nextLeft = clamp(ds.leftPx + (e.clientX - ds.clientX), 0, maxLeft);
-    const nextTop = clamp(ds.topPx + (e.clientY - ds.clientY), 0, maxTop);
-    setLive({ leftPx: nextLeft, topPx: nextTop });
+    if (!ds || e.pointerId !== ds.pointerId) return;
+    const dx = e.clientX - ds.clientX;
+    const dy = e.clientY - ds.clientY;
+    if (!ds.started) {
+      if (Math.hypot(dx, dy) < DRAG_THRESHOLD_PX) return;
+      // La captura llega aqui y no en el pointerdown: mientras el gesto pueda
+      // ser un click, ese click tiene que llegar al boton o a la tarjeta.
+      ds.started = true;
+      e.currentTarget.setPointerCapture(e.pointerId);
+    }
+    setLive({ leftPx: clampToCanvas(ds.leftPx + dx, metrics), topPx: clamp(ds.topPx + dy, 0, maxTop) });
   }
 
-  function onPointerUp(e: React.PointerEvent<HTMLDivElement>) {
+  function onPointerUp() {
     const ds = dragStart.current;
     dragStart.current = null;
     const snapshot = live;
     setLive(null);
-    if (!ds || !snapshot) return;
+    // Sin arrastre el gesto fue un click, y el navegador ya lo entrega solo.
+    if (!ds || !ds.started || !snapshot) return;
 
-    const dist = Math.hypot(e.clientX - ds.clientX, e.clientY - ds.clientY);
-    if (dist < 4) return; // fue un click, no un arrastre
-
-    const suppressClick = (ev: MouseEvent) => {
-      ev.stopPropagation();
-      ev.preventDefault();
-      document.removeEventListener("click", suppressClick, true);
-    };
-    document.addEventListener("click", suppressClick, true);
+    suppressNextClick();
 
     const nextX =
       metrics.columnWidth > 0
         ? (snapshot.leftPx - metrics.columnLeft) / metrics.columnWidth
         : 0;
     const nextY = metrics.containerH > 0 ? snapshot.topPx / metrics.containerH : 0;
-    const dyAbs = Math.abs(e.clientY - ds.clientY);
 
-    // Nota anclada a texto arrastrada verticalmente: re-anclar en el drop.
-    if (note.anchorId && dyAbs >= 40 && editor && containerRef.current) {
-      const containerRect = containerRef.current.getBoundingClientRect();
-      const textCenterX =
-        containerRect.left + metrics.columnLeft + metrics.columnWidth / 2;
-      const result = editor.view.posAtCoords({ left: textCenterX, top: e.clientY });
-      if (result) {
-        const newAnchorId = crypto.randomUUID();
-        removeAnchorMark(editor, note.anchorId);
-        applyAnchorMarkAtPos(editor, result.pos, newAnchorId);
-        updateNote({
-          noteId: note.id,
-          data: { positionSide: "over", positionX: nextX, anchorId: newAnchorId },
-        });
-        return;
-      }
+    // Toda nota se vuelve a anclar al soltarla, no solo la que ya venia anclada.
+    // Su Y sale del parrafo donde cae, que se mueve con el texto; `positionY`
+    // era una fraccion de la altura del documento, y un documento crece cada vez
+    // que escribes, asi que la nota se despegaba de la frase que acompanaba.
+    // El ancla nueva va `muted`: sostiene la nota, no marca ese texto.
+    const containerTop = containerRef.current?.getBoundingClientRect().top ?? 0;
+
+    // La nota se queda donde la soltaste, y de paso se apunta al parrafo que
+    // hay a esa altura: el parrafo la hace bajar con el texto cuando escribes
+    // por encima, y el desfase la deja exactamente donde la pegaste.
+    const anchorPos = posAtDrop(containerTop + snapshot.topPx);
+    let anchorFinal = note.anchorId;
+    if (anchorPos !== null && editor) {
+      anchorFinal = crypto.randomUUID();
+      if (note.anchorId) removeAnchorMark(editor, note.anchorId);
+      applyAnchorMarkAtPos(editor, anchorPos, anchorFinal, true);
     }
 
-    // Al arrastrar libremente la nota pasa a ser flotante ('over'): así su X real
-    // no se confunde con el formato legacy de gutter (ver resolveColumnX).
+    // Sin texto bajo el punto de suelta (el hueco del final del documento) la
+    // nota conserva el parrafo que ya tenia, y lo que cambia es cuanto se
+    // separa de el. Sin esto la nota volvia a su sitio anterior en vertical.
+    const anchorTopAhora =
+      anchorFinal && editor && containerRef.current
+        ? getAnchorTop(editor, anchorFinal, containerRef.current)
+        : null;
+
     updateNote({
       noteId: note.id,
       data: {
         positionSide: "over",
         positionX: nextX,
-        ...(note.anchorId ? {} : { positionY: nextY }),
+        positionY: nextY,
+        ...(anchorFinal === note.anchorId ? {} : { anchorId: anchorFinal }),
+        ...(anchorTopAhora === null ? {} : { offsetY: snapshot.topPx - anchorTopAhora }),
       },
     });
+  }
+
+  /** El sitio del documento que queda a la altura del punto donde soltaste. */
+  function posAtDrop(clientY: number): number | null {
+    if (!editor || !containerRef.current) return null;
+    const containerRect = containerRef.current.getBoundingClientRect();
+    const textCenterX = containerRect.left + metrics.columnLeft + metrics.columnWidth / 2;
+    const result = editor.view.posAtCoords({ left: textCenterX, top: clientY });
+    return result ? result.pos : null;
   }
 
   function onPointerCancel() {
@@ -211,7 +268,7 @@ function FloatingNoteItem({
       onPointerUp={onPointerUp}
       onPointerCancel={onPointerCancel}
     >
-      <StickyNoteCard note={note} context={context} />
+      <StickyNoteCard note={note} context={context} compact />
     </div>
   );
 }
@@ -220,39 +277,10 @@ export function FloatingNotesLayer({
   notes,
   context,
   containerRef,
-  columnRef,
+  metrics,
 }: FloatingNotesLayerProps) {
-  const [metrics, setMetrics] = useState<Metrics>({
-    columnLeft: 0,
-    columnWidth: 768,
-    containerW: 0,
-    containerH: 0,
-  });
   const [zOrder, setZOrder] = useState<Record<string, number>>({});
   const nextZ = useRef(1);
-
-  useEffect(() => {
-    const container = containerRef.current;
-    const column = columnRef.current;
-    if (!container || !column) return;
-
-    const measure = () => {
-      const cr = container.getBoundingClientRect();
-      const colr = column.getBoundingClientRect();
-      setMetrics({
-        columnLeft: colr.left - cr.left,
-        columnWidth: colr.width,
-        containerW: container.clientWidth,
-        containerH: container.offsetHeight,
-      });
-    };
-
-    measure();
-    const ro = new ResizeObserver(measure);
-    ro.observe(container);
-    ro.observe(column);
-    return () => ro.disconnect();
-  }, [containerRef, columnRef]);
 
   function bringToFront(id: string) {
     nextZ.current += 1;
@@ -261,8 +289,14 @@ export function FloatingNotesLayer({
 
   if (notes.length === 0) return null;
 
+  // El contador de uso crece sin freno, pero lo que llega al DOM es el puesto
+  // en ese orden, no el contador: por eso ninguna nota escala hasta los avisos.
+  const ranked = notes
+    .map((n) => n.id)
+    .sort((a, b) => (zOrder[a] ?? 0) - (zOrder[b] ?? 0));
+
   return (
-    <div className="hidden md:block absolute inset-0 pointer-events-none">
+    <div className="absolute inset-0 pointer-events-none">
       {notes.map((n) => (
         <FloatingNoteItem
           key={n.id}
@@ -270,7 +304,7 @@ export function FloatingNotesLayer({
           context={context}
           containerRef={containerRef}
           metrics={metrics}
-          zIndex={30 + (zOrder[n.id] ?? 0)}
+          zIndex={zIndexFor(n.id, ranked)}
           onInteract={bringToFront}
         />
       ))}

@@ -549,6 +549,11 @@ export default defineSchema({
     positionX: v.optional(v.number()),
     // Id de la marca de anclaje en ProseMirror; ausente = nota libre.
     anchorId: v.optional(v.string()),
+    // Píxeles desde el ancla hasta el borde de arriba de la nota, con signo.
+    // Es lo que hace que la nota se quede exactamente donde la soltaste y aun
+    // así viaje con su párrafo cuando el documento crece por encima. Ausente en
+    // las notas de antes: ésas caen sobre el ancla, como hacían.
+    offsetY: v.optional(v.number()),
     // Las notas con el mismo stackId forman una pila visual.
     stackId: v.optional(v.string()),
     isEureka: v.boolean(),

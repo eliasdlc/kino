@@ -39,3 +39,35 @@ export function resolveColumnX(
   }
   return x;
 }
+
+/** Ancho de la tarjeta flotante en px (la clase `w-44`). */
+export const NOTE_W = 176;
+
+/**
+ * Lo minimo que tiene que asomar de una nota para poder volver a cogerla. No es
+ * un margen de diseno: es la garantia de que nada quede fuera de alcance.
+ */
+const ASIDERO = 48;
+
+/** Geometria del cuaderno en px, relativa al contenedor. */
+export interface NotebookMetrics {
+  /** La caja de la columna, que es el origen de `positionX`. */
+  columnLeft: number;
+  columnWidth: number;
+  containerW: number;
+  containerH: number;
+}
+
+/**
+ * Deja la X donde el usuario la puso.
+ *
+ * Lo unico que hace es impedir que la nota quede fuera de alcance: siempre
+ * asoma lo suficiente para volver a cogerla. Antes esto la empujaba al margen
+ * mas cercano, y eso se llevaba por delante lo que hace que un sticky note sea
+ * un sticky note: que lo pegas donde te da la gana, tambien encima del texto si
+ * eso es lo que quieres. El texto solo lo tapa una nota que tu pusiste ahi.
+ */
+export function clampToCanvas(x: number, m: NotebookMetrics): number {
+  if (m.containerW <= 0) return x;
+  return Math.min(Math.max(x, ASIDERO - NOTE_W), m.containerW - ASIDERO);
+}

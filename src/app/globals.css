@@ -526,6 +526,12 @@
   opacity: 0.75;
 }
 
+/* Ancla de posicion: sostiene la nota junto a su parrafo y no marca nada. */
+.sticky-anchor-mark[data-anchor-muted] {
+  border-bottom: 0;
+  opacity: 1;
+}
+
 /* ── Modo lectura (KIN-138) ───────────────────────────────────────────────
    La obra como la vería quien la lee. Es la cuarta salida del MediumManifest:
    los bloques por medium (páginas, paneles, guion) se comparten con el editor
