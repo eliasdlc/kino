@@ -11,6 +11,7 @@ import { deriveOutline, type OutlineItem } from "./mediums/outline";
 import type { MediumManifest } from "@/shared/lib/mediums";
 import { StickyNotesGrid } from "@/features/sticky-notes/StickyNotesGrid";
 import { FloatingNotesLayer } from "@/features/sticky-notes/FloatingNotesLayer";
+import { AnchorBridge } from "@/features/sticky-notes/AnchorBridge";
 import { StickyNoteCreator } from "@/features/sticky-notes/StickyNoteCreator";
 import { SelectionToolbar } from "@/features/sticky-notes/SelectionToolbar";
 import { useStickyNotesByPage } from "@/features/sticky-notes/sticky-notes.hooks";
@@ -350,6 +351,8 @@ export default function NotebookEditorSurface({
             son sus encabezados y nada más. */}
         <OutlineBridge onOutline={publishOutline} jumpRef={jump} />
         <PosBridge posRef={posAt} />
+        {/* Una nota que vuelve de la papelera vuelve con su resaltado. */}
+        <AnchorBridge notes={allNotes} />
 
         {writer && (
           <WriterStatusBar

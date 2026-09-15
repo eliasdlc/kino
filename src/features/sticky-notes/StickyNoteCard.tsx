@@ -17,7 +17,9 @@ import {
   ContextMenuSeparator,
   ContextMenuTrigger,
 } from "@/components/ui/context-menu";
+import { useSharedEditor } from "@/features/pages/EditorContext";
 import { useUpdateStickyNote, useDeleteStickyNote } from "./sticky-notes.hooks";
+import { removeAnchorMark } from "./anchor-utils";
 import { STICKY_NOTE_COLORS, COLOR_PICKER_OPTIONS, paperStyle } from "./sticky-note-colors";
 import { GUTTER_LEFT_X, GUTTER_RIGHT_X } from "./sticky-position";
 import type { StickyNoteItem } from "./sticky-notes.types";
@@ -157,8 +159,9 @@ function EditOverlay({
 const COMPACT_MAX_H = 168;
 
 export function StickyNoteCard({ note, context, onStack, compact }: StickyNoteCardProps) {
-  const { mutate: deleteNote } = useDeleteStickyNote(context);
+  const { mutate: removeNote } = useDeleteStickyNote(context);
   const { mutate: updateNote } = useUpdateStickyNote(context);
+  const editor = useSharedEditor();
   const [editAnchor, setEditAnchor] = useState<{ x: number; y: number } | null>(null);
   const cardRef = useRef<HTMLDivElement>(null);
   const bodyRef = useRef<HTMLDivElement>(null);
@@ -176,6 +179,19 @@ export function StickyNoteCard({ note, context, onStack, compact }: StickyNoteCa
     ro.observe(el);
     return () => ro.disconnect();
   }, [compact, note.title, note.content]);
+
+  /**
+   * Borrar la nota le quita también su marca al texto. Una marca sin nota no
+   * anota nada: lo que dejaba era decoración suelta sobre una frase que ya
+   * nadie comentaba. El texto se queda; lo que se va es el span.
+   */
+  function deleteNote(id: string) {
+    removeNote(id, {
+      onSuccess: () => {
+        if (note.anchorId && editor) removeAnchorMark(editor, note.anchorId);
+      },
+    });
+  }
 
   /** Breakthrough: la idea que desbloquea la historia entra al diario (§9). */
   function toggleEureka() {

@@ -39,7 +39,7 @@ export function NotebookEditor({ page, systemId, pageId, writer = false, title, 
   const titleTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [stickyCreator, setStickyCreator] = useState<{
     text: string | null;
-    anchorId: string | null;
+    selectionAnchor: { anchorId: string; from: number; to: number } | null;
     screen: { x: number; y: number };
   } | null>(null);
   const [mentionEntityId, setMentionEntityId] = useState<string | null>(null);
@@ -126,17 +126,15 @@ export function NotebookEditor({ page, systemId, pageId, writer = false, title, 
     const { from, to, empty } = editor.state.selection;
     const text = empty ? "" : editor.state.doc.textBetween(from, to, " ");
 
-    let anchorId: string | undefined;
-    if (!empty) {
-      anchorId = crypto.randomUUID();
-      editor.chain().setMark("stickyAnchor", { anchorId }).run();
-    }
+    // El rango viaja al creador y la marca se escribe al guardar, nunca al
+    // abrir: cancelar no puede dejar anotada una frase cuya nota no existe.
+    const selectionAnchor = empty ? null : { anchorId: crypto.randomUUID(), from, to };
 
     // Abrir el popover junto al final de la selección.
     const coords = editor.view.coordsAtPos(to);
     setStickyCreator({
       text: text || null,
-      anchorId: anchorId ?? null,
+      selectionAnchor,
       screen: { x: coords.right, y: coords.bottom },
     });
   }
@@ -203,7 +201,7 @@ export function NotebookEditor({ page, systemId, pageId, writer = false, title, 
           context={{ pageId: resolvedPageId }}
           anchorPoint={stickyCreator.screen}
           textAnchor={stickyCreator.text ?? undefined}
-          anchorId={stickyCreator.anchorId ?? undefined}
+          selectionAnchor={stickyCreator.selectionAnchor ?? undefined}
           onClose={() => setStickyCreator(null)}
         />
       )}
