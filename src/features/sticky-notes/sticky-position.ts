@@ -79,20 +79,26 @@ export interface GutterSlots {
   right: { from: number; to: number } | null;
 }
 
+/**
+ * Lo que ocupa una nota en el margen: la tarjeta mas su aire a los dos lados,
+ * el del texto y el del borde. Los dos hacen falta por la misma razon: la
+ * tarjeta se pinta inclinada y su caja real es unos 6 px mas ancha por lado.
+ */
+export const GUTTER_NEEDED = NOTE_W + EDGE_PAD * 2;
+
 export function gutterSlots(m: NotebookMetrics): GutterSlots {
-  const needed = NOTE_W + EDGE_PAD;
   const textRight = m.textLeft + m.textWidth;
   const rightRoom = m.containerW - textRight;
   return {
-    left: m.textLeft >= needed ? { from: EDGE_PAD, to: m.textLeft - NOTE_W } : null,
-    right: rightRoom >= needed ? { from: textRight, to: m.containerW - NOTE_W - EDGE_PAD } : null,
+    left:
+      m.textLeft >= GUTTER_NEEDED
+        ? { from: EDGE_PAD, to: m.textLeft - NOTE_W - EDGE_PAD }
+        : null,
+    right:
+      rightRoom >= GUTTER_NEEDED
+        ? { from: textRight + EDGE_PAD, to: m.containerW - NOTE_W - EDGE_PAD }
+        : null,
   };
-}
-
-/** Si el cuaderno tiene margen para al menos una nota flotante. */
-export function hasGutterRoom(m: NotebookMetrics): boolean {
-  const s = gutterSlots(m);
-  return s.left !== null || s.right !== null;
 }
 
 /**
@@ -107,4 +113,39 @@ export function clampToGutter(x: number, m: NotebookMetrics): number {
   const centro = m.textLeft + m.textWidth / 2;
   const preferido = x + NOTE_W / 2 < centro ? (left ?? right!) : (right ?? left!);
   return Math.min(Math.max(x, preferido.from), Math.max(preferido.from, preferido.to));
+}
+
+/** Dónde queda el margen utilizable del cuaderno. */
+export type GutterLayout = "center" | "left" | "right" | "none";
+
+/**
+ * Si la columna se puede quedar centrada, hay que correrla, o no hay sitio.
+ *
+ * Centrar la columna reparte el hueco en dos mitades, y dos mitades de un hueco
+ * que da para una nota no dan para ninguna: a 1300 px de ventana con el panel
+ * abierto quedan 106 px por lado y una tarjeta mide 176. Corriendo la columna a
+ * un lado, el otro se lleva los 212 enteros y la nota vuelve a caber. El ancho
+ * del texto no se toca: lo unico que se pierde es el centrado.
+ *
+ * Depende solo de `containerW` y del ancho de la columna, que no cambian al
+ * correrla, asi que no hay realimentacion entre la medida y la decision.
+ *
+ * @param prefer el lado donde las notas quieren estar
+ */
+export function gutterLayout(
+  containerW: number,
+  columnWidth: number,
+  prefer: "left" | "right"
+): GutterLayout {
+  if (containerW <= 0 || columnWidth <= 0) return "none";
+  const hueco = containerW - columnWidth;
+  if (hueco >= GUTTER_NEEDED * 2) return "center";
+  if (hueco >= GUTTER_NEEDED) return prefer;
+  return "none";
+}
+
+/** El lado donde estan la mayoria de las notas; a la par, el derecho. */
+export function preferredGutter(xs: Array<number | null>): "left" | "right" {
+  const izquierda = xs.filter((x) => x !== null && x < 0.5).length;
+  return izquierda > xs.length - izquierda ? "left" : "right";
 }

@@ -12,7 +12,7 @@ import userEvent from "@testing-library/user-event";
 import { makeStickyNote, mid } from "@/app/system-design/mock-data";
 import { makeTestConvexClient, renderWithProviders } from "@/shared/testing/render";
 import { FloatingNotesLayer } from "./FloatingNotesLayer";
-import { clampToGutter, gutterSlots, hasGutterRoom, type NotebookMetrics } from "./sticky-position";
+import { clampToGutter, gutterLayout, gutterSlots, preferredGutter, type NotebookMetrics } from "./sticky-position";
 import type { StickyNoteItem } from "./sticky-notes.types";
 
 const PAGINA = mid("pagina-1");
@@ -172,51 +172,60 @@ describe("el z de las notas", () => {
 });
 
 describe("donde se dibuja una nota", () => {
-  /** Un cuaderno con la columna de 768 centrada en el ancho que quede libre. */
-  const cuaderno = (containerW: number): NotebookMetrics => {
-    const columnWidth = Math.min(816, containerW);
-    const columnLeft = Math.max(0, (containerW - columnWidth) / 2);
-    return {
-      columnLeft,
-      columnWidth,
-      // La columna lleva 24 px de padding a cada lado, que no son texto.
-      textLeft: columnLeft + 24,
-      textWidth: Math.max(0, columnWidth - 48),
-      containerW,
-      containerH: 2000,
-    };
-  };
+  /** Un cuaderno con la columna de 816 y el hueco repartido segun el acomodo. */
+  const cuaderno = (containerW: number, columnLeft: number): NotebookMetrics => ({
+    columnLeft,
+    columnWidth: 816,
+    // La columna lleva 24 px de padding a cada lado, que no son texto.
+    textLeft: columnLeft + 24,
+    textWidth: 768,
+    containerW,
+    containerH: 2000,
+  });
+  const centrada = (containerW: number) => cuaderno(containerW, (containerW - 816) / 2);
 
-  it("con margen a los dos lados, una X que caeria sobre el texto se va al margen", () => {
-    const m = cuaderno(1400);
-    expect(hasGutterRoom(m)).toBe(true);
+  it("con hueco de sobra la columna se queda centrada", () => {
+    expect(gutterLayout(1600, 816, "right")).toBe("center");
+  });
+
+  it("con hueco para una sola nota la columna se corre al lado contrario", () => {
+    // 1300 px de ventana con el panel abierto: 1028 de contenedor, 212 de hueco.
+    // Centrada son 106 por lado y no cabe nada; corrida, los 212 son de un lado.
+    expect(gutterLayout(1028, 816, "right")).toBe("right");
+    expect(gutterLayout(1028, 816, "left")).toBe("left");
+  });
+
+  it("sin hueco ni para una, la nota no flota", () => {
+    expect(gutterLayout(859, 816, "right")).toBe("none");
+  });
+
+  it("el lado lo eligen las notas, y a la par gana el derecho", () => {
+    expect(preferredGutter([-0.23, -0.23, 1.03])).toBe("left");
+    expect(preferredGutter([1.03])).toBe("right");
+    expect(preferredGutter([-0.23, 1.03])).toBe("right");
+  });
+
+  it("con la columna corrida, el margen que queda si admite la tarjeta", () => {
+    const corrida = cuaderno(1028, 0);
+
+    const slots = gutterSlots(corrida);
+
+    expect(slots.left).toBeNull();
+    expect(slots.right).not.toBeNull();
+    // Y deja aire contra el texto, no pegada a el: la tarjeta va inclinada.
+    expect(slots.right!.from).toBeGreaterThan(corrida.textLeft + corrida.textWidth);
+  });
+
+  it("una X que caeria sobre el texto se lleva al margen", () => {
+    const m = cuaderno(1028, 0);
 
     const puesta = clampToGutter(m.textLeft + m.textWidth / 2, m);
 
-    const textoDerecha = m.textLeft + m.textWidth;
-    expect(puesta + 176 <= m.textLeft || puesta >= textoDerecha).toBe(true);
+    expect(puesta).toBeGreaterThanOrEqual(m.textLeft + m.textWidth);
   });
 
-  it("una nota ya puesta en su margen no se mueve", () => {
-    const m = cuaderno(1400);
-    const enElMargen = m.textLeft + m.textWidth + 20;
-
-    expect(clampToGutter(enElMargen, m)).toBe(enElMargen);
-  });
-
-  it("sin sitio para la tarjeta, ese margen no cuenta como margen", () => {
-    // 1131 con el panel abierto deja 46 px de texto a la izquierda y 45 a la
-    // derecha: ahi no cabe una tarjeta de 176, y forzarla era lo que tapaba 3 y
-    // 9 parrafos el 14 sep 2026.
-    expect(gutterSlots(cuaderno(859))).toEqual({ left: null, right: null });
-    expect(hasGutterRoom(cuaderno(859))).toBe(false);
-  });
-
-  it("sin margen la nota no flota: la dibuja la rejilla", () => {
-    // `hasGutterRoom` es lo que `NotebookEditorSurface` consulta para repartir
-    // las notas entre la capa y la rejilla, y ninguna se monta dos veces.
-    expect(hasGutterRoom(cuaderno(820))).toBe(false);
-    expect(hasGutterRoom(cuaderno(1168))).toBe(true);
+  it("centrada y estrecha no hay margen a ningun lado", () => {
+    expect(gutterSlots(centrada(1028))).toEqual({ left: null, right: null });
   });
 });
 

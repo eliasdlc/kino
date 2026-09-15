@@ -15,7 +15,7 @@ import { StickyNoteCreator } from "@/features/sticky-notes/StickyNoteCreator";
 import { SelectionToolbar } from "@/features/sticky-notes/SelectionToolbar";
 import { useStickyNotesByPage } from "@/features/sticky-notes/sticky-notes.hooks";
 import { useNotebookMetrics } from "@/features/sticky-notes/use-notebook-metrics";
-import { hasGutterRoom } from "@/features/sticky-notes/sticky-position";
+import { gutterLayout, preferredGutter, resolveColumnX } from "@/features/sticky-notes/sticky-position";
 import type { PageDetailTransport } from "./pages.types";
 
 /**
@@ -226,12 +226,26 @@ export default function NotebookEditorSurface({
   // La geometría se mide una vez y aquí se decide quién dibuja cada nota: la
   // capa flotante si el margen da para ella, la rejilla de abajo si no. Antes
   // la decisión vivía en dos clases de CSS y cada nota se montaba dos veces.
-  const metrics = useNotebookMetrics(contentRef, columnRef);
-  const flota = hasGutterRoom(metrics);
-  const floatingNotes = flota ? allNotes.filter((n) => n.positionSide) : [];
+  const { metrics, remeasure } = useNotebookMetrics(contentRef, columnRef);
+  const conPosicion = allNotes.filter((n) => n.positionSide);
+  const lado = preferredGutter(conPosicion.map((n) => resolveColumnX(n.positionSide, n.positionX)));
+  // Sin notas flotantes la columna se queda centrada: no hay nada que acomodar.
+  // El acomodo sale de `containerW` y del ancho de la columna, y ninguno de los
+  // dos cambia al correrla: por eso decidir no vuelve a cambiar la decisión.
+  const layout = conPosicion.length === 0
+    ? "center"
+    : gutterLayout(metrics.containerW, metrics.columnWidth, lado);
+  const flota = layout !== "none";
+  const floatingNotes = flota ? conPosicion : [];
   const floatingIds = floatingNotes.map((n) => n.id);
   const pageContext = { pageId: page.id };
   const [paper, setPaper] = useState(false);
+
+  // Correr la columna no cambia su tamaño, así que el ResizeObserver no se
+  // entera: hay que volver a medir a mano cuando el acomodo cambia.
+  useEffect(() => {
+    remeasure();
+  }, [layout, remeasure]);
 
   // Creador flotante abierto con click derecho: guarda el punto de pantalla y la
   // posición (columna-relativa) donde caerá la nota.
@@ -297,8 +311,12 @@ export default function NotebookEditorSurface({
               ref={columnRef}
               data-paper={writer && paper ? "on" : undefined}
               className={cn(
-                "mx-auto px-4 py-6 md:px-6 md:py-8 space-y-8",
-                writer ? "max-w-[46rem] md:my-6 md:px-10" : "max-w-3xl"
+                "px-4 py-6 md:px-6 md:py-8 space-y-8",
+                writer ? "max-w-[46rem] md:my-6 md:px-10" : "max-w-3xl",
+                // Con margen a los dos lados la columna se queda centrada. Con
+                // sitio para uno solo se corre al lado contrario de las notas,
+                // que es lo que hace que quepan sin estrechar el texto.
+                layout === "right" ? "mr-auto" : layout === "left" ? "ml-auto" : "mx-auto"
               )}
             >
               <NotebookEditor page={page} systemId={systemId} pageId={page.id} writer={writer} title={title} onTitleChange={onTitleChange} />
