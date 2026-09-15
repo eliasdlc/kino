@@ -8,7 +8,7 @@ import { useSharedEditor } from "@/features/pages/EditorContext";
 import {
   removeAnchorMark,
   applyAnchorMarkAtPos,
-  getAnchorYFraction,
+  getAnchorTop,
 } from "./anchor-utils";
 import { resolveColumnX } from "./sticky-position";
 import type { StickyNoteItem } from "./sticky-notes.types";
@@ -106,7 +106,7 @@ function FloatingNoteItem({
   const noteRef = useRef<HTMLDivElement>(null);
   const dragStart = useRef<DragStart | null>(null);
   const [live, setLive] = useState<{ leftPx: number; topPx: number } | null>(null);
-  const [anchorY, setAnchorY] = useState<number | null>(null);
+  const [anchorTop, setAnchorTop] = useState<number | null>(null);
   const [noteH, setNoteH] = useState(120);
 
   const { mutate: updateNote } = useUpdateStickyNote(context);
@@ -117,10 +117,12 @@ function FloatingNoteItem({
   // Posición base (px, relativa al contenedor) derivada del modelo columna-relativo.
   const colX = resolveColumnX(note.positionSide, note.positionX);
   const baseLeft = metrics.columnLeft + colX * metrics.columnWidth;
-  // Notas ancladas a texto derivan su Y del mark; el resto usa positionY.
-  const baseTopFrac =
-    note.anchorId && anchorY !== null ? anchorY : note.positionY ?? 0.12;
-  const baseTop = baseTopFrac * metrics.containerH;
+  // La Y sale del ancla, en pixeles y sin pasar por una fraccion. `positionY`
+  // es el respaldo de una nota cuya ancla se quedo huerfana.
+  const baseTop =
+    note.anchorId && anchorTop !== null
+      ? anchorTop
+      : (note.positionY ?? 0.12) * metrics.containerH;
 
   const isDragging = live !== null;
   // Clamp final: la nota nunca se sale de la pantalla.
@@ -128,20 +130,21 @@ function FloatingNoteItem({
   const topPx = clamp(live?.topPx ?? baseTop, 0, maxTop);
   const tilt = tiltFor(note.id);
 
-  const computeAnchorY = useCallback(() => {
+  const computeAnchorTop = useCallback(() => {
     if (!note.anchorId || !editor || !containerRef.current) return;
-    const y = getAnchorYFraction(editor, note.anchorId, containerRef.current);
-    setAnchorY(y);
+    setAnchorTop(getAnchorTop(editor, note.anchorId, containerRef.current));
+    // `metrics` entra en las dependencias porque el ancla tambien se mueve
+    // cuando la ventana cambia de ancho y el texto se re-ajusta.
   }, [note.anchorId, editor, containerRef]);
 
   useEffect(() => {
-    computeAnchorY();
+    computeAnchorTop();
     if (!editor) return;
-    editor.on("update", computeAnchorY);
+    editor.on("update", computeAnchorTop);
     return () => {
-      editor.off("update", computeAnchorY);
+      editor.off("update", computeAnchorTop);
     };
-  }, [editor, computeAnchorY]);
+  }, [editor, computeAnchorTop, metrics.containerW, metrics.containerH]);
 
   // Alto real de la nota, para el clamp vertical (sin leer el ref en render).
   useEffect(() => {
@@ -187,7 +190,7 @@ function FloatingNoteItem({
     setLive({ leftPx: clamp(ds.leftPx + dx, 0, maxLeft), topPx: clamp(ds.topPx + dy, 0, maxTop) });
   }
 
-  function onPointerUp(e: React.PointerEvent<HTMLDivElement>) {
+  function onPointerUp() {
     const ds = dragStart.current;
     dragStart.current = null;
     const snapshot = live;
@@ -202,36 +205,40 @@ function FloatingNoteItem({
         ? (snapshot.leftPx - metrics.columnLeft) / metrics.columnWidth
         : 0;
     const nextY = metrics.containerH > 0 ? snapshot.topPx / metrics.containerH : 0;
-    const dyAbs = Math.abs(e.clientY - ds.clientY);
 
-    // Nota anclada a texto arrastrada verticalmente: re-anclar en el drop.
-    if (note.anchorId && dyAbs >= 40 && editor && containerRef.current) {
-      const containerRect = containerRef.current.getBoundingClientRect();
-      const textCenterX =
-        containerRect.left + metrics.columnLeft + metrics.columnWidth / 2;
-      const result = editor.view.posAtCoords({ left: textCenterX, top: e.clientY });
-      if (result) {
-        const newAnchorId = crypto.randomUUID();
-        removeAnchorMark(editor, note.anchorId);
-        applyAnchorMarkAtPos(editor, result.pos, newAnchorId);
-        updateNote({
-          noteId: note.id,
-          data: { positionSide: "over", positionX: nextX, anchorId: newAnchorId },
-        });
-        return;
-      }
+    // Toda nota se vuelve a anclar al soltarla, no solo la que ya venia anclada.
+    // Su Y sale del parrafo donde cae, que se mueve con el texto; `positionY`
+    // era una fraccion de la altura del documento, y un documento crece cada vez
+    // que escribes, asi que la nota se despegaba de la frase que acompanaba.
+    // El ancla nueva va `muted`: sostiene la nota, no marca ese texto.
+    const containerTop = containerRef.current?.getBoundingClientRect().top ?? 0;
+    const anchorPos = posAtDrop(containerTop + snapshot.topPx);
+    if (anchorPos !== null && editor) {
+      const newAnchorId = crypto.randomUUID();
+      if (note.anchorId) removeAnchorMark(editor, note.anchorId);
+      applyAnchorMarkAtPos(editor, anchorPos, newAnchorId, true);
+      updateNote({
+        noteId: note.id,
+        data: { positionSide: "over", positionX: nextX, positionY: nextY, anchorId: newAnchorId },
+      });
+      return;
     }
 
-    // Al arrastrar libremente la nota pasa a ser flotante ('over'): así su X real
-    // no se confunde con el formato legacy de gutter (ver resolveColumnX).
+    // Sin editor o sin parrafo debajo (una nota sobre el hueco final), la Y se
+    // guarda como fraccion. Es el respaldo, no el camino normal.
     updateNote({
       noteId: note.id,
-      data: {
-        positionSide: "over",
-        positionX: nextX,
-        ...(note.anchorId ? {} : { positionY: nextY }),
-      },
+      data: { positionSide: "over", positionX: nextX, positionY: nextY },
     });
+  }
+
+  /** El sitio del documento que queda a la altura del punto donde soltaste. */
+  function posAtDrop(clientY: number): number | null {
+    if (!editor || !containerRef.current) return null;
+    const containerRect = containerRef.current.getBoundingClientRect();
+    const textCenterX = containerRect.left + metrics.columnLeft + metrics.columnWidth / 2;
+    const result = editor.view.posAtCoords({ left: textCenterX, top: clientY });
+    return result ? result.pos : null;
   }
 
   function onPointerCancel() {

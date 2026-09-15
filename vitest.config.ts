@@ -18,6 +18,7 @@ const domTests = [
   "src/features/pages/editor-html.test.ts",
   "src/features/pages/mediums/medium-nodes.test.ts",
   "src/features/pages/paste-clean.test.ts",
+  "src/features/sticky-notes/anchor-utils.test.ts",
   "src/features/writing/compile.test.ts",
 ];
 

@@ -32,13 +32,15 @@ export function removeAnchorMark(editor: Editor, anchorId: string): void {
 }
 
 /**
- * Applies a new stickyAnchor mark at `pos`, spanning the inline node starting
- * there (or 1 character as fallback).
+ * Escribe una marca stickyAnchor en `pos`, sobre el nodo inline que empieza
+ * ahi. `muted` la deja sin decoracion: es un ancla de posicion, no una
+ * anotacion de ese texto.
  */
 export function applyAnchorMarkAtPos(
   editor: Editor,
   pos: number,
-  anchorId: string
+  anchorId: string,
+  muted = false
 ): void {
   const { doc, tr, schema } = editor.state;
   const markType = schema.marks.stickyAnchor;
@@ -52,14 +54,21 @@ export function applyAnchorMarkAtPos(
   const to = Math.min(pos + nodeAfter.nodeSize, $pos.end());
   if (from >= to) return;
 
-  editor.view.dispatch(tr.addMark(from, to, markType.create({ anchorId })));
+  editor.view.dispatch(tr.addMark(from, to, markType.create({ anchorId, muted })));
 }
 
 /**
- * Computes the Y fraction (0-1) of a mark within the container element.
- * Returns null if the mark is not found (orphan).
+ * A que altura, en pixeles dentro del contenedor, esta el ancla ahora mismo.
+ * `null` si la marca ya no existe (el texto que la llevaba se borro).
+ *
+ * Devuelve pixeles y no una fraccion a proposito. Una fraccion hay que
+ * multiplicarla luego por la altura del contenedor, y esas dos alturas no
+ * siempre son la misma: la marca se mide cuando el editor avisa de un cambio y
+ * la altura del contenedor la trae un ResizeObserver que llega despues, asi que
+ * el viaje de ida y vuelta metia un error proporcional al crecimiento del
+ * documento. Medido antes de esto: 102 px de desvio al escribir tres parrafos.
  */
-export function getAnchorYFraction(
+export function getAnchorTop(
   editor: Editor,
   anchorId: string,
   container: HTMLElement
@@ -74,10 +83,5 @@ export function getAnchorYFraction(
     return null;
   }
 
-  const containerRect = container.getBoundingClientRect();
-  const containerH = container.offsetHeight;
-  if (containerH === 0) return null;
-
-  const relY = coords.top - containerRect.top;
-  return Math.max(0, Math.min(1, relY / containerH));
+  return coords.top - container.getBoundingClientRect().top;
 }

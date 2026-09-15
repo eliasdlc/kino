@@ -4,6 +4,8 @@ import { useEffect, useRef, useState } from "react";
 import { Loader2, LayoutGrid, PanelLeft, PanelRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
+import { useSharedEditor } from "@/features/pages/EditorContext";
+import { applyAnchorMarkAtPos } from "./anchor-utils";
 import { useCreateStickyNoteForPage, useCreateStickyNoteForFolder } from "./sticky-notes.hooks";
 import { STICKY_NOTE_COLORS, COLOR_PICKER_OPTIONS, paperStyle } from "./sticky-note-colors";
 import { GUTTER_LEFT_X, GUTTER_RIGHT_X } from "./sticky-position";
@@ -25,6 +27,11 @@ interface StickyNoteCreatorProps {
   fixedPosition?: { positionX: number; positionY: number };
   textAnchor?: string;
   anchorId?: string;
+  /**
+   * Ancla de posicion resuelta al abrir el creador. La marca se escribe en el
+   * documento **al guardar**, nunca antes: cancelar no deja nada detras.
+   */
+  positionalAnchor?: { anchorId: string; pos: number };
 }
 
 /** Coloca el popover junto al punto de anclaje sin salirse de la ventana. */
@@ -45,7 +52,9 @@ export function StickyNoteCreator({
   fixedPosition,
   textAnchor,
   anchorId,
+  positionalAnchor,
 }: StickyNoteCreatorProps) {
+  const editor = useSharedEditor();
   const isPage = "pageId" in context;
   const createForPage = useCreateStickyNoteForPage(isPage ? (context as { pageId: string }).pageId : "");
   const createForFolder = useCreateStickyNoteForFolder(!isPage ? (context as { folderId: string }).folderId : "");
@@ -103,10 +112,19 @@ export function StickyNoteCreator({
         content: content.trim() || undefined,
         color: color as never,
         textAnchor: textAnchor ?? undefined,
-        anchorId: anchorId ?? undefined,
+        anchorId: anchorId ?? positionalAnchor?.anchorId,
         ...positionPayload(),
       },
-      { onSuccess: onClose }
+      {
+        onSuccess: () => {
+          // El ancla de posicion va `muted`: sostiene la nota junto a su
+          // parrafo y no decora el texto, que nadie pidio anotar.
+          if (positionalAnchor && editor) {
+            applyAnchorMarkAtPos(editor, positionalAnchor.pos, positionalAnchor.anchorId, true);
+          }
+          onClose();
+        },
+      }
     );
   }
 

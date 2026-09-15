@@ -100,6 +100,35 @@ function SelectionGate({ onAnnotate }: { onAnnotate: (texto: string, punto: { x:
 }
 
 /**
+ * Traduce una altura de pantalla al sitio del documento que hay a esa altura.
+ *
+ * Vive dentro del provider porque necesita el editor, y publica la funcion en
+ * un ref porque quien la usa (el manejador del click derecho) se define fuera.
+ * Es el mismo patron que `OutlineBridge` con `jumpRef`.
+ */
+function PosBridge({
+  posRef,
+}: {
+  posRef: React.RefObject<((punto: { x: number; y: number }) => number | null) | null>;
+}) {
+  const editor = useSharedEditor();
+
+  useEffect(() => {
+    const ref = posRef;
+    ref.current = ({ x, y }) => {
+      if (!editor) return null;
+      const encontrado = editor.view.posAtCoords({ left: x, top: y });
+      return encontrado ? encontrado.pos : null;
+    };
+    return () => {
+      ref.current = null;
+    };
+  }, [editor, posRef]);
+
+  return null;
+}
+
+/**
  * Puente entre el editor y lo que navega el documento: el carril de títulos de
  * esta misma superficie y el navegador del manuscrito, que vive fuera de este
  * árbol (en el panel lateral del layout). Publica hacia arriba el índice derivado
@@ -203,9 +232,11 @@ export default function NotebookEditorSurface({
         screen: { x: number; y: number };
         position?: { positionX: number; positionY: number };
         textAnchor?: string;
+        positionalAnchor?: { anchorId: string; pos: number };
       }
     | null
   >(null);
+  const posAt = useRef<((punto: { x: number; y: number }) => number | null) | null>(null);
 
   function handleContextMenu(e: React.MouseEvent<HTMLDivElement>) {
     // Las notas ya tienen su propio menú contextual; no interceptar sobre ellas.
@@ -223,7 +254,15 @@ export default function NotebookEditorSurface({
     const colr = column.getBoundingClientRect();
     const positionX = (e.clientX - colr.left) / colr.width;
     const positionY = (e.clientY - cr.top) / container.offsetHeight;
-    setCreator({ screen: { x: e.clientX, y: e.clientY }, position: { positionX, positionY } });
+    // La nota nace pegada al parrafo que queda a esa altura, aunque la sueltes
+    // en el margen: asi no se desliza cuando el documento crece por encima. El
+    // punto se busca en el centro de la columna, que es donde hay texto.
+    const pos = posAt.current?.({ x: colr.left + colr.width / 2, y: e.clientY }) ?? null;
+    setCreator({
+      screen: { x: e.clientX, y: e.clientY },
+      position: { positionX, positionY },
+      positionalAnchor: pos === null ? undefined : { anchorId: crypto.randomUUID(), pos },
+    });
   }
 
   return (
@@ -284,6 +323,7 @@ export default function NotebookEditorSurface({
             del capítulo. En un documento sin mediums de escritura lo que sale
             son sus encabezados y nada más. */}
         <OutlineBridge onOutline={publishOutline} jumpRef={jump} />
+        <PosBridge posRef={posAt} />
 
         {writer && (
           <WriterStatusBar
@@ -303,6 +343,7 @@ export default function NotebookEditorSurface({
           anchorPoint={creator.screen}
           fixedPosition={creator.position}
           textAnchor={creator.textAnchor}
+          positionalAnchor={creator.positionalAnchor}
           onClose={() => setCreator(null)}
         />
       )}
