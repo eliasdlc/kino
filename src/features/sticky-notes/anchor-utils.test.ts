@@ -74,3 +74,18 @@ describe("el ancla de posicion", () => {
     editor.destroy();
   });
 });
+
+describe("un ancla al final de una linea", () => {
+  it("se escribe igual, marcando el texto de detras", () => {
+    const editor = editorCon("<p>Primero</p><p>Corto</p>");
+    // El final del segundo parrafo: no hay nada delante que marcar. Es donde
+    // cae el click cuando pegas la nota a la altura de un parrafo corto.
+    const finalDelSegundo = editor.state.doc.content.size - 2;
+
+    applyAnchorMarkAtPos(editor, finalDelSegundo, "a-fin", true);
+
+    expect(findAnchorRange(editor.state.doc, "a-fin")).not.toBeNull();
+    expect(editor.getHTML()).toContain('data-anchor-id="a-fin"');
+    editor.destroy();
+  });
+});

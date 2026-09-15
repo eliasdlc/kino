@@ -47,11 +47,25 @@ export function applyAnchorMarkAtPos(
   if (!markType) return;
 
   const $pos = doc.resolve(pos);
-  const nodeAfter = $pos.nodeAfter;
-  if (!nodeAfter || nodeAfter.isBlock) return;
+  const despues = $pos.nodeAfter;
+  const antes = $pos.nodeBefore;
 
-  const from = pos;
-  const to = Math.min(pos + nodeAfter.nodeSize, $pos.end());
+  // Si hay texto delante, se marca ese. Si no lo hay, el punto cayo al final de
+  // la linea, que es lo normal cuando pegas la nota a la altura de un parrafo
+  // corto: el centro de la columna queda pasada su ultima letra. Ahi se marca
+  // el texto de detras. Sin esta segunda rama la marca no se escribia y la nota
+  // se quedaba con un ancla que no existia, asi que volvia a deslizarse.
+  let from: number;
+  let to: number;
+  if (despues && !despues.isBlock) {
+    from = pos;
+    to = Math.min(pos + despues.nodeSize, $pos.end());
+  } else if (antes && !antes.isBlock) {
+    from = Math.max(pos - antes.nodeSize, $pos.start());
+    to = pos;
+  } else {
+    return;
+  }
   if (from >= to) return;
 
   editor.view.dispatch(tr.addMark(from, to, markType.create({ anchorId, muted })));

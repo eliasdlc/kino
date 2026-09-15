@@ -15,7 +15,6 @@ import { StickyNoteCreator } from "@/features/sticky-notes/StickyNoteCreator";
 import { SelectionToolbar } from "@/features/sticky-notes/SelectionToolbar";
 import { useStickyNotesByPage } from "@/features/sticky-notes/sticky-notes.hooks";
 import { useNotebookMetrics } from "@/features/sticky-notes/use-notebook-metrics";
-import { gutterLayout, preferredGutter, resolveColumnX } from "@/features/sticky-notes/sticky-position";
 import type { PageDetailTransport } from "./pages.types";
 
 /**
@@ -101,17 +100,24 @@ function SelectionGate({ onAnnotate }: { onAnnotate: (texto: string, punto: { x:
   );
 }
 
+/** El sitio del documento que hay a una altura, y a qué altura está ese sitio. */
+interface SitioDelTexto {
+  pos: number;
+  /** Y de pantalla donde empieza la línea de ese sitio. */
+  top: number;
+}
+
 /**
- * Traduce una altura de pantalla al sitio del documento que hay a esa altura.
+ * Traduce un punto de pantalla al sitio del documento que hay debajo.
  *
- * Vive dentro del provider porque necesita el editor, y publica la funcion en
+ * Vive dentro del provider porque necesita el editor, y publica la función en
  * un ref porque quien la usa (el manejador del click derecho) se define fuera.
- * Es el mismo patron que `OutlineBridge` con `jumpRef`.
+ * Es el mismo patrón que `OutlineBridge` con `jumpRef`.
  */
 function PosBridge({
   posRef,
 }: {
-  posRef: React.RefObject<((punto: { x: number; y: number }) => number | null) | null>;
+  posRef: React.RefObject<((punto: { x: number; y: number }) => SitioDelTexto | null) | null>;
 }) {
   const editor = useSharedEditor();
 
@@ -120,7 +126,12 @@ function PosBridge({
     ref.current = ({ x, y }) => {
       if (!editor) return null;
       const encontrado = editor.view.posAtCoords({ left: x, top: y });
-      return encontrado ? encontrado.pos : null;
+      if (!encontrado) return null;
+      try {
+        return { pos: encontrado.pos, top: editor.view.coordsAtPos(encontrado.pos).top };
+      } catch {
+        return null;
+      }
     };
     return () => {
       ref.current = null;
@@ -226,26 +237,14 @@ export default function NotebookEditorSurface({
   // La geometría se mide una vez y aquí se decide quién dibuja cada nota: la
   // capa flotante si el margen da para ella, la rejilla de abajo si no. Antes
   // la decisión vivía en dos clases de CSS y cada nota se montaba dos veces.
-  const { metrics, remeasure } = useNotebookMetrics(contentRef, columnRef);
-  const conPosicion = allNotes.filter((n) => n.positionSide);
-  const lado = preferredGutter(conPosicion.map((n) => resolveColumnX(n.positionSide, n.positionX)));
-  // Sin notas flotantes la columna se queda centrada: no hay nada que acomodar.
-  // El acomodo sale de `containerW` y del ancho de la columna, y ninguno de los
-  // dos cambia al correrla: por eso decidir no vuelve a cambiar la decisión.
-  const layout = conPosicion.length === 0
-    ? "center"
-    : gutterLayout(metrics.containerW, metrics.columnWidth, lado);
-  const flota = layout !== "none";
-  const floatingNotes = flota ? conPosicion : [];
+  // La columna nunca se mueve por culpa de una nota, y la nota va donde la
+  // pusiste: cabe donde cabe. Una nota con posición la dibuja la capa, y la
+  // rejilla dibuja el resto, así que ninguna se monta dos veces.
+  const { metrics } = useNotebookMetrics(contentRef, columnRef);
+  const floatingNotes = allNotes.filter((n) => n.positionSide);
   const floatingIds = floatingNotes.map((n) => n.id);
   const pageContext = { pageId: page.id };
   const [paper, setPaper] = useState(false);
-
-  // Correr la columna no cambia su tamaño, así que el ResizeObserver no se
-  // entera: hay que volver a medir a mano cuando el acomodo cambia.
-  useEffect(() => {
-    remeasure();
-  }, [layout, remeasure]);
 
   // Creador flotante abierto con click derecho: guarda el punto de pantalla y la
   // posición (columna-relativa) donde caerá la nota.
@@ -254,11 +253,11 @@ export default function NotebookEditorSurface({
         screen: { x: number; y: number };
         position?: { positionX: number; positionY: number };
         textAnchor?: string;
-        positionalAnchor?: { anchorId: string; pos: number };
+        positionalAnchor?: { anchorId: string; pos: number; offsetY: number };
       }
     | null
   >(null);
-  const posAt = useRef<((punto: { x: number; y: number }) => number | null) | null>(null);
+  const posAt = useRef<((punto: { x: number; y: number }) => SitioDelTexto | null) | null>(null);
 
   function handleContextMenu(e: React.MouseEvent<HTMLDivElement>) {
     // Las notas ya tienen su propio menú contextual; no interceptar sobre ellas.
@@ -276,14 +275,19 @@ export default function NotebookEditorSurface({
     const colr = column.getBoundingClientRect();
     const positionX = (e.clientX - colr.left) / colr.width;
     const positionY = (e.clientY - cr.top) / container.offsetHeight;
-    // La nota nace pegada al parrafo que queda a esa altura, aunque la sueltes
-    // en el margen: asi no se desliza cuando el documento crece por encima. El
-    // punto se busca en el centro de la columna, que es donde hay texto.
-    const pos = posAt.current?.({ x: colr.left + colr.width / 2, y: e.clientY }) ?? null;
+    // La nota nace donde pulsaste, y de paso apuntada al párrafo que hay a esa
+    // altura con cuánto por encima o por debajo de él la pusiste. El párrafo es
+    // lo que la hace bajar con el texto cuando escribes arriba; el desfase, lo
+    // que la deja exactamente donde la pegaste. El sitio se busca en el centro
+    // de la columna, que es donde hay texto.
+    const sitio = posAt.current?.({ x: colr.left + colr.width / 2, y: e.clientY }) ?? null;
     setCreator({
       screen: { x: e.clientX, y: e.clientY },
       position: { positionX, positionY },
-      positionalAnchor: pos === null ? undefined : { anchorId: crypto.randomUUID(), pos },
+      positionalAnchor:
+        sitio === null
+          ? undefined
+          : { anchorId: crypto.randomUUID(), pos: sitio.pos, offsetY: e.clientY - sitio.top },
     });
   }
 
@@ -311,12 +315,8 @@ export default function NotebookEditorSurface({
               ref={columnRef}
               data-paper={writer && paper ? "on" : undefined}
               className={cn(
-                "px-4 py-6 md:px-6 md:py-8 space-y-8",
-                writer ? "max-w-[46rem] md:my-6 md:px-10" : "max-w-3xl",
-                // Con margen a los dos lados la columna se queda centrada. Con
-                // sitio para uno solo se corre al lado contrario de las notas,
-                // que es lo que hace que quepan sin estrechar el texto.
-                layout === "right" ? "mr-auto" : layout === "left" ? "ml-auto" : "mx-auto"
+                "mx-auto px-4 py-6 md:px-6 md:py-8 space-y-8",
+                writer ? "max-w-[46rem] md:my-6 md:px-10" : "max-w-3xl"
               )}
             >
               <NotebookEditor page={page} systemId={systemId} pageId={page.id} writer={writer} title={title} onTitleChange={onTitleChange} />

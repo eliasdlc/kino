@@ -12,7 +12,7 @@ import userEvent from "@testing-library/user-event";
 import { makeStickyNote, mid } from "@/app/system-design/mock-data";
 import { makeTestConvexClient, renderWithProviders } from "@/shared/testing/render";
 import { FloatingNotesLayer } from "./FloatingNotesLayer";
-import { clampToGutter, gutterLayout, gutterSlots, preferredGutter, type NotebookMetrics } from "./sticky-position";
+import { clampToCanvas, NOTE_W, type NotebookMetrics } from "./sticky-position";
 import type { StickyNoteItem } from "./sticky-notes.types";
 
 const PAGINA = mid("pagina-1");
@@ -34,8 +34,6 @@ const NOTA = makeStickyNote({
 const CUADERNO: NotebookMetrics = {
   columnLeft: 176,
   columnWidth: 816,
-  textLeft: 200,
-  textWidth: 768,
   containerW: 1168,
   containerH: 2000,
 };
@@ -171,61 +169,39 @@ describe("el z de las notas", () => {
   });
 });
 
-describe("donde se dibuja una nota", () => {
-  /** Un cuaderno con la columna de 816 y el hueco repartido segun el acomodo. */
-  const cuaderno = (containerW: number, columnLeft: number): NotebookMetrics => ({
-    columnLeft,
-    columnWidth: 816,
-    // La columna lleva 24 px de padding a cada lado, que no son texto.
-    textLeft: columnLeft + 24,
-    textWidth: 768,
+describe("donde se queda una nota", () => {
+  const cuaderno = (containerW: number): NotebookMetrics => ({
+    columnLeft: Math.max(0, (containerW - 816) / 2),
+    columnWidth: Math.min(816, containerW),
     containerW,
     containerH: 2000,
   });
-  const centrada = (containerW: number) => cuaderno(containerW, (containerW - 816) / 2);
 
-  it("con hueco de sobra la columna se queda centrada", () => {
-    expect(gutterLayout(1600, 816, "right")).toBe("center");
+  it("se queda donde la pusiste, tambien encima del texto", () => {
+    const m = cuaderno(1028);
+    const encimaDelTexto = m.columnLeft + m.columnWidth / 2;
+
+    expect(clampToCanvas(encimaDelTexto, m)).toBe(encimaDelTexto);
   });
 
-  it("con hueco para una sola nota la columna se corre al lado contrario", () => {
-    // 1300 px de ventana con el panel abierto: 1028 de contenedor, 212 de hueco.
-    // Centrada son 106 por lado y no cabe nada; corrida, los 212 son de un lado.
-    expect(gutterLayout(1028, 816, "right")).toBe("right");
-    expect(gutterLayout(1028, 816, "left")).toBe("left");
+  it("en el margen tampoco se mueve", () => {
+    const m = cuaderno(1400);
+    const enElMargen = m.columnLeft + m.columnWidth + 10;
+
+    expect(clampToCanvas(enElMargen, m)).toBe(enElMargen);
   });
 
-  it("sin hueco ni para una, la nota no flota", () => {
-    expect(gutterLayout(859, 816, "right")).toBe("none");
+  it("lo unico que impide es que quede fuera de alcance", () => {
+    const m = cuaderno(1028);
+
+    // Tirada muy a la izquierda: sigue asomando lo suficiente para cogerla.
+    expect(clampToCanvas(-5000, m)).toBeGreaterThan(-NOTE_W);
+    // Y muy a la derecha: nunca pasa del borde del contenedor.
+    expect(clampToCanvas(9000, m)).toBeLessThan(m.containerW);
   });
 
-  it("el lado lo eligen las notas, y a la par gana el derecho", () => {
-    expect(preferredGutter([-0.23, -0.23, 1.03])).toBe("left");
-    expect(preferredGutter([1.03])).toBe("right");
-    expect(preferredGutter([-0.23, 1.03])).toBe("right");
-  });
-
-  it("con la columna corrida, el margen que queda si admite la tarjeta", () => {
-    const corrida = cuaderno(1028, 0);
-
-    const slots = gutterSlots(corrida);
-
-    expect(slots.left).toBeNull();
-    expect(slots.right).not.toBeNull();
-    // Y deja aire contra el texto, no pegada a el: la tarjeta va inclinada.
-    expect(slots.right!.from).toBeGreaterThan(corrida.textLeft + corrida.textWidth);
-  });
-
-  it("una X que caeria sobre el texto se lleva al margen", () => {
-    const m = cuaderno(1028, 0);
-
-    const puesta = clampToGutter(m.textLeft + m.textWidth / 2, m);
-
-    expect(puesta).toBeGreaterThanOrEqual(m.textLeft + m.textWidth);
-  });
-
-  it("centrada y estrecha no hay margen a ningun lado", () => {
-    expect(gutterSlots(centrada(1028))).toEqual({ left: null, right: null });
+  it("sin medida todavia, no toca la X", () => {
+    expect(clampToCanvas(123, { ...cuaderno(0), containerW: 0 })).toBe(123);
   });
 });
 

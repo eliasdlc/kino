@@ -31,7 +31,7 @@ interface StickyNoteCreatorProps {
    * Ancla de posicion resuelta al abrir el creador. La marca se escribe en el
    * documento **al guardar**, nunca antes: cancelar no deja nada detras.
    */
-  positionalAnchor?: { anchorId: string; pos: number };
+  positionalAnchor?: { anchorId: string; pos: number; offsetY: number };
 }
 
 /** Coloca el popover junto al punto de anclaje sin salirse de la ventana. */
@@ -113,6 +113,7 @@ export function StickyNoteCreator({
         color: color as never,
         textAnchor: textAnchor ?? undefined,
         anchorId: anchorId ?? positionalAnchor?.anchorId,
+        offsetY: positionalAnchor?.offsetY,
         ...positionPayload(),
       },
       {

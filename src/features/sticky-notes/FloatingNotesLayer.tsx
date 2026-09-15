@@ -10,7 +10,7 @@ import {
   applyAnchorMarkAtPos,
   getAnchorTop,
 } from "./anchor-utils";
-import { clampToGutter, resolveColumnX, type NotebookMetrics } from "./sticky-position";
+import { clampToCanvas, resolveColumnX, type NotebookMetrics } from "./sticky-position";
 import type { StickyNoteItem } from "./sticky-notes.types";
 
 interface FloatingNotesLayerProps {
@@ -108,16 +108,18 @@ function FloatingNoteItem({
   // Posición base (px, relativa al contenedor) derivada del modelo columna-relativo.
   const colX = resolveColumnX(note.positionSide, note.positionX);
   const baseLeft = metrics.columnLeft + colX * metrics.columnWidth;
-  // La Y sale del ancla, en pixeles y sin pasar por una fraccion. `positionY`
-  // es el respaldo de una nota cuya ancla se quedo huerfana.
+  // La Y es donde la soltaste: el ancla dice por donde va su parrafo y el
+  // desfase, cuanto por encima o por debajo de el la pusiste. Asi la nota se
+  // queda exactamente donde la pegaste y aun asi baja con el texto cuando
+  // escribes por encima. `positionY` es el respaldo de un ancla huerfana.
   const baseTop =
     note.anchorId && anchorTop !== null
-      ? anchorTop
+      ? anchorTop + (note.offsetY ?? 0)
       : (note.positionY ?? 0.12) * metrics.containerH;
 
   const isDragging = live !== null;
   // Clamp final: la nota nunca se sale de la pantalla.
-  const leftPx = clampToGutter(live?.leftPx ?? baseLeft, metrics);
+  const leftPx = clampToCanvas(live?.leftPx ?? baseLeft, metrics);
   const topPx = clamp(live?.topPx ?? baseTop, 0, maxTop);
   const tilt = tiltFor(note.id);
 
@@ -178,7 +180,7 @@ function FloatingNoteItem({
       ds.started = true;
       e.currentTarget.setPointerCapture(e.pointerId);
     }
-    setLive({ leftPx: clampToGutter(ds.leftPx + dx, metrics), topPx: clamp(ds.topPx + dy, 0, maxTop) });
+    setLive({ leftPx: clampToCanvas(ds.leftPx + dx, metrics), topPx: clamp(ds.topPx + dy, 0, maxTop) });
   }
 
   function onPointerUp() {
@@ -203,23 +205,35 @@ function FloatingNoteItem({
     // que escribes, asi que la nota se despegaba de la frase que acompanaba.
     // El ancla nueva va `muted`: sostiene la nota, no marca ese texto.
     const containerTop = containerRef.current?.getBoundingClientRect().top ?? 0;
+
+    // La nota se queda donde la soltaste, y de paso se apunta al parrafo que
+    // hay a esa altura: el parrafo la hace bajar con el texto cuando escribes
+    // por encima, y el desfase la deja exactamente donde la pegaste.
     const anchorPos = posAtDrop(containerTop + snapshot.topPx);
+    let anchorFinal = note.anchorId;
     if (anchorPos !== null && editor) {
-      const newAnchorId = crypto.randomUUID();
+      anchorFinal = crypto.randomUUID();
       if (note.anchorId) removeAnchorMark(editor, note.anchorId);
-      applyAnchorMarkAtPos(editor, anchorPos, newAnchorId, true);
-      updateNote({
-        noteId: note.id,
-        data: { positionSide: "over", positionX: nextX, positionY: nextY, anchorId: newAnchorId },
-      });
-      return;
+      applyAnchorMarkAtPos(editor, anchorPos, anchorFinal, true);
     }
 
-    // Sin editor o sin parrafo debajo (una nota sobre el hueco final), la Y se
-    // guarda como fraccion. Es el respaldo, no el camino normal.
+    // Sin texto bajo el punto de suelta (el hueco del final del documento) la
+    // nota conserva el parrafo que ya tenia, y lo que cambia es cuanto se
+    // separa de el. Sin esto la nota volvia a su sitio anterior en vertical.
+    const anchorTopAhora =
+      anchorFinal && editor && containerRef.current
+        ? getAnchorTop(editor, anchorFinal, containerRef.current)
+        : null;
+
     updateNote({
       noteId: note.id,
-      data: { positionSide: "over", positionX: nextX, positionY: nextY },
+      data: {
+        positionSide: "over",
+        positionX: nextX,
+        positionY: nextY,
+        ...(anchorFinal === note.anchorId ? {} : { anchorId: anchorFinal }),
+        ...(anchorTopAhora === null ? {} : { offsetY: snapshot.topPx - anchorTopAhora }),
+      },
     });
   }
 
