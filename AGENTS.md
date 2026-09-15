@@ -32,7 +32,9 @@ pnpm migrate:convex                 # Importador Postgres → Convex (scripts/mi
 - **Framework**: Next.js 16 (App Router, API Routes, Server Actions)
 - **Lenguaje**: TypeScript strict
 - **Base de datos**: Convex (`convex/schema.ts`, treinta y cinco tablas con un test por tabla). El schema de Drizzle sigue en `src/shared/db/schema.ts` sólo como origen del importador
-- **Auth**: Clerk. Registro, sesiones, verificación de correo, recuperación de contraseña, proveedores sociales y el panel de cuenta son componentes de Clerk (`@clerk/nextjs`). `src/proxy.ts` monta `clerkMiddleware`; `getServerSession` traduce la identidad de Clerk al usuario de Kino por la fila `accounts` con `providerId = 'clerk'`, y la crea la primera vez. Convex valida el mismo JWT con la plantilla `convex` (`convex/auth.config.ts`)
+- **Auth**: Clerk. Registro, sesiones, verificación de correo, recuperación de contraseña, proveedores sociales y el panel de cuenta son componentes de Clerk (`@clerk/nextjs`). `src/proxy.ts` monta `clerkMiddleware`; `getServerSession` resuelve la identidad del request y **no escribe nada**, porque corre en cada render de cada página. Convex valida el mismo JWT con la plantilla `convex` (`convex/auth.config.ts`)
+
+  **Dónde nace la fila de `users`**, que es lo que `kinoQuery` exige y sin lo que responde `NO_USER`: la crea el webhook `user.created` de Clerk contra `https://<deployment>.convex.site/clerk/user-created` (`convex/http.ts`, secreto `CLERK_WEBHOOK_SIGNING_SECRET`). Clerk entrega ese evento en paralelo al redirect del navegador, así que hay una ventana en la que la persona llega antes que su fila: la cubre `src/proxy.ts`, que llama a `users.ensure` una vez por navegador y lo apunta en la cookie `kino_fila`. El proxy es el único sitio que corre antes del árbol; un layout competiría con su propia página, que Next renderiza en paralelo
 - **Email transaccional**: ninguno propio. Los correos de cuenta los manda Clerk
 - **Server state**: Convex reactivo (`src/shared/convex/hooks.ts`). No hay TanStack Query: una query es una suscripción y se actualiza sola cuando la base cambia
 - **Formularios**: react-hook-form + zodResolver
@@ -79,7 +81,7 @@ Producción y desarrollo son **dos deployments de Convex** del mismo proyecto, y
 
 Un cambio de schema sigue teniendo que ser **compatible hacia atrás** con el código ya desplegado: Convex valida los documentos existentes contra el schema nuevo antes de aceptarlo, y entre una cosa y la otra el cliente viejo habla con las funciones nuevas.
 
-Cada deployment lleva sus propias variables (`npx convex env set`): `CLERK_JWT_ISSUER_DOMAIN` de su instancia de Clerk, `KINO_MCP_JWKS` con la mitad pública de la clave con la que firma su Vercel, `ENCRYPTION_KEY` para la sincronización con GitHub y el par VAPID para los push. Están descritas en `.env.example`.
+Cada deployment lleva sus propias variables (`npx convex env set`): `CLERK_JWT_ISSUER_DOMAIN` de su instancia de Clerk, `CLERK_WEBHOOK_SIGNING_SECRET` del endpoint que esa instancia firma, `KINO_MCP_JWKS` con la mitad pública de la clave con la que firma su Vercel, `ENCRYPTION_KEY` para la sincronización con GitHub y el par VAPID para los push. Están descritas en `.env.example`.
 
 Postgres ya no está en el camino de la app. El schema de Drizzle (`src/shared/db/schema.ts`) sigue en el repo como origen de `pnpm migrate:convex`, el importador con el que se movieron los datos; `scripts/migrate-to-convex/verify.mts` compara las dos bases.
 
