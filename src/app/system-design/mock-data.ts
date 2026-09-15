@@ -166,6 +166,7 @@ export function makeStickyNote(overrides: Partial<StickyNoteItem> = {}): StickyN
     positionY: null,
     positionX: null,
     anchorId: null,
+    offsetY: null,
     stackId: null,
     textAnchor: null,
   } as unknown as StickyNoteItem;

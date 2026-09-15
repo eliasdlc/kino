@@ -1,10 +1,18 @@
 import { httpRouter } from 'convex/server';
+import { verifyWebhook } from '@clerk/backend/webhooks';
 import { httpAction } from './_generated/server';
 import { internal } from './_generated/api';
 import { DIGEST_BYTES_MAX, digestBytes, digestSchema } from './digests';
+import { clerkUserCreatedSchema, correoPrimario, nombreDe } from './users';
 
-// Las rutas HTTP del deployment. Hoy hay una: la entrada del diario de
-// sesiones.
+// Las rutas HTTP del deployment. Hoy hay dos: la entrada del diario de
+// sesiones y el webhook con el que Clerk avisa de una cuenta nueva.
+//
+// Las dos entran por aquí y no por una ruta de Next por la misma razón: cada
+// deployment de Convex se empareja con una instancia de Clerk, así que la URL
+// es estable y no cambia con cada preview de Vercel, la credencial vive en el
+// mismo sitio que la base a la que escribe, y la escritura no depende de que
+// el despliegue de Next esté arriba.
 //
 // Por qué el digest no entra por el conector del MCP. `digests.record` es una
 // escritura directa, y en el conector eso significa que **cualquier** token con
@@ -75,7 +83,63 @@ const uploadDigest = httpAction(async (ctx, request) => {
   return json(result.created ? 201 : 200, result);
 });
 
+/**
+ * La cuenta nueva.
+ *
+ * Es el sitio donde nace la fila de `users` en el caso normal, y existe para
+ * que no tenga que nacer en el camino de render: antes, `getServerSession`
+ * esperaba una escritura en Convex antes de cada página para garantizar lo que
+ * este webhook garantiza una sola vez, cuando Clerk crea la cuenta.
+ *
+ * **No es el único garante, y no puede serlo.** Clerk entrega el evento en
+ * paralelo al redirect del navegador, así que hay una ventana en la que la
+ * persona llega antes que su fila. Quien la cubre es `src/proxy.ts`, que llama
+ * a `users.ensure` una vez por navegador. Este webhook es lo que hace que ese
+ * suelo casi nunca escriba nada, y lo que cubre las cuentas que Clerk crea sin
+ * que nadie abra un navegador (una invitación desde su panel).
+ *
+ * La firma la comprueba Clerk con su propio verificador contra
+ * `CLERK_WEBHOOK_SIGNING_SECRET`, que es por instancia y se carga en el
+ * deployment con `npx convex env set`. Sin la variable la ruta responde 503 en
+ * vez de aceptar cualquier cuerpo.
+ */
+const clerkUserCreated = httpAction(async (ctx, request) => {
+  const secret = process.env.CLERK_WEBHOOK_SIGNING_SECRET;
+  // Sin el secreto la ruta no está configurada, y una ruta abierta por no
+  // estar configurada es peor que una que no responde.
+  if (!secret) return json(503, { error: 'CLERK_WEBHOOK_NOT_CONFIGURED' });
+
+  let evento: unknown;
+  try {
+    evento = await verifyWebhook(request, { signingSecret: secret });
+  } catch {
+    return json(400, { error: 'BAD_SIGNATURE' });
+  }
+
+  // Clerk manda al endpoint todos los eventos a los que esté suscrito y sólo
+  // `user.created` nos incumbe. Un 4xx haría que lo reintentara durante días,
+  // así que lo que no encaja se reconoce y se tira. La firma ya demostró que
+  // viene de Clerk: un cuerpo que no encaja es otro evento, no un intento de
+  // colarse.
+  const parsed = clerkUserCreatedSchema.safeParse(evento);
+  if (!parsed.success) return json(200, { ignored: true });
+
+  // Kino identifica a una persona por su correo, y un registro sólo por
+  // teléfono no trae ninguno. Reintentarlo no haría aparecer uno.
+  const email = correoPrimario(parsed.data.data);
+  if (!email) return json(200, { ignored: true, reason: 'SIN_CORREO' });
+
+  const userId = await ctx.runMutation(internal.users.fromClerk, {
+    clerkId: parsed.data.data.id,
+    email,
+    name: nombreDe(parsed.data.data),
+    image: parsed.data.data.image_url ?? undefined,
+  });
+  return json(200, { userId });
+});
+
 const http = httpRouter();
 http.route({ path: '/digests', method: 'POST', handler: uploadDigest });
+http.route({ path: '/clerk/user-created', method: 'POST', handler: clerkUserCreated });
 
 export default http;

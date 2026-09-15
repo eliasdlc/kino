@@ -17,7 +17,10 @@ import {
   ContextMenuSeparator,
   ContextMenuTrigger,
 } from "@/components/ui/context-menu";
+import { useSharedEditor } from "@/features/pages/EditorContext";
 import { useUpdateStickyNote, useDeleteStickyNote } from "./sticky-notes.hooks";
+import { removeAnchorMark, isAnnotationAnchor } from "./anchor-utils";
+import { useAnchorHighlight } from "./AnchorHighlight";
 import { STICKY_NOTE_COLORS, COLOR_PICKER_OPTIONS, paperStyle } from "./sticky-note-colors";
 import { GUTTER_LEFT_X, GUTTER_RIGHT_X } from "./sticky-position";
 import type { StickyNoteItem } from "./sticky-notes.types";
@@ -30,6 +33,12 @@ interface StickyNoteCardProps {
    * encima de otra, y existe donde el arrastre no llega: el teléfono.
    */
   onStack?: () => void;
+  /**
+   * La nota flota sobre el texto. Ahí la tarjeta se acota: los 500 caracteres
+   * que el schema permite se pintaban en 573 px de alto sobre 176 de ancho y
+   * se comían la página. En la rejilla no hace falta, porque la rejilla fluye.
+   */
+  compact?: boolean;
 }
 
 const EDIT_POPOVER_W = 300;
@@ -147,12 +156,60 @@ function EditOverlay({
   );
 }
 
-export function StickyNoteCard({ note, context, onStack }: StickyNoteCardProps) {
-  const { mutate: deleteNote } = useDeleteStickyNote(context);
+/** Alto máximo de una nota que flota sobre el texto, en px. */
+const COMPACT_MAX_H = 168;
+
+export function StickyNoteCard({ note, context, onStack, compact }: StickyNoteCardProps) {
+  const { mutate: removeNote } = useDeleteStickyNote(context);
   const { mutate: updateNote } = useUpdateStickyNote(context);
+  const editor = useSharedEditor();
   const [editAnchor, setEditAnchor] = useState<{ x: number; y: number } | null>(null);
   const cardRef = useRef<HTMLDivElement>(null);
+  const bodyRef = useRef<HTMLDivElement>(null);
+  const [recortada, setRecortada] = useState(false);
   const colors = STICKY_NOTE_COLORS[note.color] ?? STICKY_NOTE_COLORS.yellow!;
+  const { lit, light } = useAnchorHighlight();
+
+  // La nota es media pareja sólo si su ancla anota una frase. La de posición no
+  // marca ningún texto, así que no hay nada al otro lado que encender.
+  const anota =
+    !!note.anchorId && !!editor && isAnnotationAnchor(editor.state.doc, note.anchorId);
+  const encendida = anota && lit === note.anchorId;
+  const editando = editAnchor !== null;
+
+  // Con el editor de la nota abierto, su frase se queda encendida. Es lo único
+  // que da la pareja exacta sin puntero, y en el teléfono no hay puntero: ahí
+  // abrir la nota es el gesto que dice cuál de las frases comenta.
+  useEffect(() => {
+    if (!anota || !editando) return;
+    light(note.anchorId);
+    return () => light(null);
+  }, [anota, editando, light, note.anchorId]);
+
+  // Si el texto no cabe en el tope. Se mide en vez de contar caracteres: lo que
+  // cabe depende de la letra del sistema, que el usuario cambia.
+  useEffect(() => {
+    const el = bodyRef.current;
+    if (!compact || !el) return;
+    const medir = () => setRecortada(el.scrollHeight > el.clientHeight + 1);
+    medir();
+    const ro = new ResizeObserver(medir);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, [compact, note.title, note.content]);
+
+  /**
+   * Borrar la nota le quita también su marca al texto. Una marca sin nota no
+   * anota nada: lo que dejaba era decoración suelta sobre una frase que ya
+   * nadie comentaba. El texto se queda; lo que se va es el span.
+   */
+  function deleteNote(id: string) {
+    removeNote(id, {
+      onSuccess: () => {
+        if (note.anchorId && editor) removeAnchorMark(editor, note.anchorId);
+      },
+    });
+  }
 
   /** Breakthrough: la idea que desbloquea la historia entra al diario (§9). */
   function toggleEureka() {
@@ -179,8 +236,14 @@ export function StickyNoteCard({ note, context, onStack }: StickyNoteCardProps) 
           <div
             ref={cardRef}
             data-sticky-note
+            data-lit={encendida ? "" : undefined}
             className="group relative flex flex-col gap-1 cursor-pointer rounded-lg p-3.5 w-full min-h-[90px]"
-            style={{ ...paperStyle(colors.hex), color: colors.textHex }}
+            style={{
+              ...paperStyle(colors.hex, encendida ? { ink: colors.textHex } : undefined),
+              color: colors.textHex,
+            }}
+            onMouseEnter={() => anota && light(note.anchorId)}
+            onMouseLeave={() => anota && !editando && light(null)}
             onClick={(e) => setEditAnchor({ x: e.currentTarget.getBoundingClientRect().left, y: e.currentTarget.getBoundingClientRect().top })}
             role="button"
             tabIndex={0}
@@ -191,21 +254,32 @@ export function StickyNoteCard({ note, context, onStack }: StickyNoteCardProps) 
               }
             }}
           >
-            {note.title && (
-              <p className="font-semibold text-sm leading-tight break-words" style={{ color: colors.textHex }}>
-                {note.title}
+            <div
+              ref={bodyRef}
+              className="flex flex-col gap-1 overflow-hidden"
+              style={compact ? { maxHeight: COMPACT_MAX_H } : undefined}
+            >
+              {note.title && (
+                <p className="font-semibold text-sm leading-tight break-words" style={{ color: colors.textHex }}>
+                  {note.title}
+                </p>
+              )}
+              {note.content && (
+                <p
+                  className="text-sm leading-snug whitespace-pre-wrap break-words"
+                  style={{ color: colors.textHex, opacity: 0.88 }}
+                >
+                  {note.content}
+                </p>
+              )}
+              {!note.title && !note.content && (
+                <p className="text-xs italic opacity-35" style={{ color: colors.textHex }}>Nota vacía</p>
+              )}
+            </div>
+            {recortada && (
+              <p className="text-xs font-semibold underline" style={{ color: colors.textHex, opacity: 0.7 }}>
+                Ver más
               </p>
-            )}
-            {note.content && (
-              <p
-                className="text-sm leading-snug whitespace-pre-wrap break-words"
-                style={{ color: colors.textHex, opacity: 0.88 }}
-              >
-                {note.content}
-              </p>
-            )}
-            {!note.title && !note.content && (
-              <p className="text-xs italic opacity-35" style={{ color: colors.textHex }}>Nota vacía</p>
             )}
 
             {note.isEureka && (
@@ -217,8 +291,11 @@ export function StickyNoteCard({ note, context, onStack }: StickyNoteCardProps) 
               </span>
             )}
 
-            {/* Top-right controls */}
+            {/* Los dos controles de la esquina. `data-no-drag` es lo que los
+                saca del arrastre en la capa flotante: la tarjeta entera mueve
+                la nota menos este trozo, que se pulsa. */}
             <div
+              data-no-drag
               className="absolute top-1.5 right-1.5 flex items-center gap-0.5 md:opacity-0 md:group-hover:opacity-100 transition-opacity"
               onClick={(e) => e.stopPropagation()}
             >

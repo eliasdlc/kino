@@ -99,6 +99,42 @@ if (typeof Element !== "undefined") {
 }
 
 /**
+ * `elementFromPoint`: lo llama ProseMirror en `posAtCoords`, que es como la
+ * capa flotante averigua junto a qué párrafo soltaste una nota. Sin layout no
+ * hay nada bajo un punto, así que devuelve `null`: quien pregunta ya trata ese
+ * caso, porque es el mismo que soltar la nota en el hueco del final.
+ */
+if (typeof Document !== "undefined") {
+  const doc = Document.prototype as unknown as Record<string, unknown>;
+  doc.elementFromPoint ??= () => null;
+}
+
+/**
+ * La medida de un trozo de texto: la piden `Range.getClientRects` y su
+ * rectángulo, y los llama ProseMirror dentro de `coordsAtPos`. Es como el
+ * editor sabe a qué altura de la pantalla cae una posición del documento, y de
+ * ahí salen el punto donde se abre el creador de una nota y la altura a la que
+ * viaja un ancla. jsdom no hace layout, así que la lista vacía y el rectángulo
+ * en cero son la verdad, no un valor inventado.
+ */
+if (typeof Range !== "undefined") {
+  const zeroRect = (): DOMRect => ({
+    x: 0,
+    y: 0,
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    width: 0,
+    height: 0,
+    toJSON: () => ({}),
+  });
+  const range = Range.prototype as unknown as Record<string, unknown>;
+  range.getClientRects ??= () => Object.assign([] as DOMRect[], { item: () => null });
+  range.getBoundingClientRect ??= zeroRect;
+}
+
+/**
  * El estado que un test le puede dejar al siguiente: el ancho de la ventana lo
  * mueve `renderMobile`, la URL la mueve `setNavigation` y las preferencias del
  * sistema las mueve `setReducedMotion`. Todo vuelve a su sitio antes de cada

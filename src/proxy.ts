@@ -1,6 +1,7 @@
 import { clerkMiddleware } from "@clerk/nextjs/server";
 import { NextResponse } from "next/server";
 import { guardApiRequest } from "@/shared/rate-limit";
+import { ensureRowInConvex, ensureUserRow } from "@/shared/utils/user-row";
 
 /**
  * Lo que se sirve sin sesión. Todo lo demás exige la de Clerk, o un Bearer que
@@ -46,14 +47,14 @@ function isPublicRoute(pathname: string): boolean {
 
 export const proxy = clerkMiddleware(async (auth, request) => {
   const { pathname } = request.nextUrl;
+  const session = isPublicRoute(pathname) ? null : await auth();
 
-  if (!isPublicRoute(pathname)) {
-    const { userId } = await auth();
+  if (session) {
     // Una clave API o un token OAuth se validan más adentro. El proxy sólo
     // corta el tráfico de navegador sin sesión alguna.
     const hasBearer = request.headers.get("authorization")?.startsWith("Bearer ");
 
-    if (!userId && !hasBearer) {
+    if (!session.userId && !hasBearer) {
       // Las llamadas AJAX a /api/* deben recibir 401, no un redirect HTML
       if (pathname.startsWith("/api/")) {
         return NextResponse.json({ code: "UNAUTHORIZED", message: "Unauthorized" }, { status: 401 });
@@ -73,7 +74,18 @@ export const proxy = clerkMiddleware(async (auth, request) => {
   const rateLimited = await guardApiRequest(request);
   if (rateLimited) return rateLimited;
 
-  return NextResponse.next();
+  const response = NextResponse.next();
+
+  // El suelo de la fila de `users`, que hasta ahora corría en cada render
+  // dentro de `getServerSession`. Aquí corre una vez por navegador y, con el
+  // webhook de Clerk puesto, se encuentra la fila ya hecha y no escribe nada.
+  // Ver `shared/utils/user-row.ts` para por qué este es el único sitio donde
+  // la garantía llega antes que la página.
+  if (session?.userId) {
+    await ensureUserRow(request, response, session.userId, () => ensureRowInConvex(session.getToken));
+  }
+
+  return response;
 });
 
 export const config = {

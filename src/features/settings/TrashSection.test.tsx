@@ -43,6 +43,7 @@ function client(overrides: { carpetas?: boolean } = {}) {
     stubQuery(api.stickyNotes.trashed, [
       { id: id<"stickyNotes">("n1"), title: null, content: "Falta el mapa", color: "yellow" as const, sortIndex: 0,
         pageId: null, folderId: null, positionSide: null, positionY: null, positionX: null, anchorId: null,
+    offsetY: null,
         stackId: null, textAnchor: null, isEureka: false, deletedAt: "2026-09-03T10:00:00.000Z" },
     ]),
   ]);

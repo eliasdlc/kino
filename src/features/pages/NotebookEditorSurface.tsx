@@ -11,9 +11,12 @@ import { deriveOutline, type OutlineItem } from "./mediums/outline";
 import type { MediumManifest } from "@/shared/lib/mediums";
 import { StickyNotesGrid } from "@/features/sticky-notes/StickyNotesGrid";
 import { FloatingNotesLayer } from "@/features/sticky-notes/FloatingNotesLayer";
+import { AnchorBridge } from "@/features/sticky-notes/AnchorBridge";
+import { AnchorHighlightProvider, AnchorPaint } from "@/features/sticky-notes/AnchorHighlight";
 import { StickyNoteCreator } from "@/features/sticky-notes/StickyNoteCreator";
 import { SelectionToolbar } from "@/features/sticky-notes/SelectionToolbar";
 import { useStickyNotesByPage } from "@/features/sticky-notes/sticky-notes.hooks";
+import { useNotebookMetrics } from "@/features/sticky-notes/use-notebook-metrics";
 import type { PageDetailTransport } from "./pages.types";
 
 /**
@@ -97,6 +100,47 @@ function SelectionGate({ onAnnotate }: { onAnnotate: (texto: string, punto: { x:
       <SelectionToolbar selection={seleccion} onAnnotate={anotar} />
     </div>
   );
+}
+
+/** El sitio del documento que hay a una altura, y a qué altura está ese sitio. */
+interface SitioDelTexto {
+  pos: number;
+  /** Y de pantalla donde empieza la línea de ese sitio. */
+  top: number;
+}
+
+/**
+ * Traduce un punto de pantalla al sitio del documento que hay debajo.
+ *
+ * Vive dentro del provider porque necesita el editor, y publica la función en
+ * un ref porque quien la usa (el manejador del click derecho) se define fuera.
+ * Es el mismo patrón que `OutlineBridge` con `jumpRef`.
+ */
+function PosBridge({
+  posRef,
+}: {
+  posRef: React.RefObject<((punto: { x: number; y: number }) => SitioDelTexto | null) | null>;
+}) {
+  const editor = useSharedEditor();
+
+  useEffect(() => {
+    const ref = posRef;
+    ref.current = ({ x, y }) => {
+      if (!editor) return null;
+      const encontrado = editor.view.posAtCoords({ left: x, top: y });
+      if (!encontrado) return null;
+      try {
+        return { pos: encontrado.pos, top: editor.view.coordsAtPos(encontrado.pos).top };
+      } catch {
+        return null;
+      }
+    };
+    return () => {
+      ref.current = null;
+    };
+  }, [editor, posRef]);
+
+  return null;
 }
 
 /**
@@ -192,7 +236,15 @@ export default function NotebookEditorSurface({
   const ownJumpRef = useRef<((pos: number) => void) | null>(null);
   const jump = jumpRef ?? ownJumpRef;
   const { data: allNotes = [] } = useStickyNotesByPage(page.id);
+  // La geometría se mide una vez y aquí se decide quién dibuja cada nota: la
+  // capa flotante si el margen da para ella, la rejilla de abajo si no. Antes
+  // la decisión vivía en dos clases de CSS y cada nota se montaba dos veces.
+  // La columna nunca se mueve por culpa de una nota, y la nota va donde la
+  // pusiste: cabe donde cabe. Una nota con posición la dibuja la capa, y la
+  // rejilla dibuja el resto, así que ninguna se monta dos veces.
+  const { metrics } = useNotebookMetrics(contentRef, columnRef);
   const floatingNotes = allNotes.filter((n) => n.positionSide);
+  const floatingIds = floatingNotes.map((n) => n.id);
   const pageContext = { pageId: page.id };
   const [paper, setPaper] = useState(false);
 
@@ -203,9 +255,11 @@ export default function NotebookEditorSurface({
         screen: { x: number; y: number };
         position?: { positionX: number; positionY: number };
         textAnchor?: string;
+        positionalAnchor?: { anchorId: string; pos: number; offsetY: number };
       }
     | null
   >(null);
+  const posAt = useRef<((punto: { x: number; y: number }) => SitioDelTexto | null) | null>(null);
 
   function handleContextMenu(e: React.MouseEvent<HTMLDivElement>) {
     // Las notas ya tienen su propio menú contextual; no interceptar sobre ellas.
@@ -223,7 +277,20 @@ export default function NotebookEditorSurface({
     const colr = column.getBoundingClientRect();
     const positionX = (e.clientX - colr.left) / colr.width;
     const positionY = (e.clientY - cr.top) / container.offsetHeight;
-    setCreator({ screen: { x: e.clientX, y: e.clientY }, position: { positionX, positionY } });
+    // La nota nace donde pulsaste, y de paso apuntada al párrafo que hay a esa
+    // altura con cuánto por encima o por debajo de él la pusiste. El párrafo es
+    // lo que la hace bajar con el texto cuando escribes arriba; el desfase, lo
+    // que la deja exactamente donde la pegaste. El sitio se busca en el centro
+    // de la columna, que es donde hay texto.
+    const sitio = posAt.current?.({ x: colr.left + colr.width / 2, y: e.clientY }) ?? null;
+    setCreator({
+      screen: { x: e.clientX, y: e.clientY },
+      position: { positionX, positionY },
+      positionalAnchor:
+        sitio === null
+          ? undefined
+          : { anchorId: crypto.randomUUID(), pos: sitio.pos, offsetY: e.clientY - sitio.top },
+    });
   }
 
   return (
@@ -233,79 +300,87 @@ export default function NotebookEditorSurface({
       codex={writer ? { systemId } : null}
       medium={writer ? medium : null}
     >
-      <div className="relative flex flex-1 flex-col overflow-hidden">
-        <SelectionGate
-          onAnnotate={(textAnchor, screen) => setCreator({ screen, textAnchor })}
-        />
-        <div
-          ref={scrollRef}
-          className={cn("flex-1 overflow-y-auto", writer && focusMode && "writer-focus")}
-        >
+      <AnchorHighlightProvider>
+        <div className="relative flex flex-1 flex-col overflow-hidden">
+          <SelectionGate
+            onAnnotate={(textAnchor, screen) => setCreator({ screen, textAnchor })}
+          />
           <div
-            ref={contentRef}
-            className={cn("relative min-h-full", writer && focusMode && "py-[30vh]")}
-            onContextMenu={handleContextMenu}
+            ref={scrollRef}
+            className={cn("flex-1 overflow-y-auto", writer && focusMode && "writer-focus")}
           >
             <div
-              ref={columnRef}
-              data-paper={writer && paper ? "on" : undefined}
-              className={cn(
-                "mx-auto px-4 py-6 md:px-6 md:py-8 space-y-8",
-                writer ? "max-w-[46rem] md:my-6 md:px-10" : "max-w-3xl"
-              )}
+              ref={contentRef}
+              className={cn("relative min-h-full", writer && focusMode && "py-[30vh]")}
+              onContextMenu={handleContextMenu}
             >
-              <NotebookEditor page={page} systemId={systemId} pageId={page.id} writer={writer} title={title} onTitleChange={onTitleChange} />
-              {/* Las notas van después del texto: la página escribe primero. */}
-              <StickyNotesGrid pageId={page.id} />
+              <div
+                ref={columnRef}
+                data-paper={writer && paper ? "on" : undefined}
+                className={cn(
+                  "mx-auto px-4 py-6 md:px-6 md:py-8 space-y-8",
+                  writer ? "max-w-[46rem] md:my-6 md:px-10" : "max-w-3xl"
+                )}
+              >
+                <NotebookEditor page={page} systemId={systemId} pageId={page.id} writer={writer} title={title} onTitleChange={onTitleChange} />
+                {/* Las notas van después del texto: la página escribe primero. */}
+                <StickyNotesGrid pageId={page.id} floatingIds={floatingIds} />
+              </div>
+              <FloatingNotesLayer
+                notes={floatingNotes}
+                context={pageContext}
+                containerRef={contentRef}
+                metrics={metrics}
+              />
             </div>
-            <FloatingNotesLayer
-              notes={floatingNotes}
-              context={pageContext}
-              containerRef={contentRef}
-              columnRef={columnRef}
-            />
           </div>
+
+          {/* El carril es de los documentos normales. El manuscrito navega por su
+              panel, con sus escenas y sus páginas, y no cambia. */}
+          {!writer && (
+            <DocumentRailLayer
+              items={outline}
+              scrollRef={scrollRef}
+              onJump={(pos) => jump.current?.(pos)}
+            />
+          )}
+
+          {writer && <TypewriterScroll enabled={focusMode} scrollRef={scrollRef} />}
+
+          {/* El índice ya no es del manuscrito: todo documento lo deriva, porque
+              el carril de títulos de un apunte come de aquí igual que el panel
+              del capítulo. En un documento sin mediums de escritura lo que sale
+              son sus encabezados y nada más. */}
+          <OutlineBridge onOutline={publishOutline} jumpRef={jump} />
+          <PosBridge posRef={posAt} />
+          {/* Una nota que vuelve de la papelera vuelve con su resaltado. */}
+          <AnchorBridge notes={allNotes} />
+          {/* Y cada frase anotada, con el color de papel de la nota que la comenta. */}
+          <AnchorPaint notes={allNotes} />
+
+          {writer && (
+            <WriterStatusBar
+              obra={obra}
+              systemId={systemId}
+              paper={paper}
+              onTogglePaper={() => setPaper((p) => !p)}
+              focusMode={focusMode}
+              onToggleFocus={onToggleFocus}
+            />
+          )}
         </div>
 
-        {/* El carril es de los documentos normales. El manuscrito navega por su
-            panel, con sus escenas y sus páginas, y no cambia. */}
-        {!writer && (
-          <DocumentRailLayer
-            items={outline}
-            scrollRef={scrollRef}
-            onJump={(pos) => jump.current?.(pos)}
+        {creator && (
+          <StickyNoteCreator
+            context={pageContext}
+            anchorPoint={creator.screen}
+            fixedPosition={creator.position}
+            textAnchor={creator.textAnchor}
+            positionalAnchor={creator.positionalAnchor}
+            onClose={() => setCreator(null)}
           />
         )}
-
-        {writer && <TypewriterScroll enabled={focusMode} scrollRef={scrollRef} />}
-
-        {/* El índice ya no es del manuscrito: todo documento lo deriva, porque
-            el carril de títulos de un apunte come de aquí igual que el panel
-            del capítulo. En un documento sin mediums de escritura lo que sale
-            son sus encabezados y nada más. */}
-        <OutlineBridge onOutline={publishOutline} jumpRef={jump} />
-
-        {writer && (
-          <WriterStatusBar
-            obra={obra}
-            systemId={systemId}
-            paper={paper}
-            onTogglePaper={() => setPaper((p) => !p)}
-            focusMode={focusMode}
-            onToggleFocus={onToggleFocus}
-          />
-        )}
-      </div>
-
-      {creator && (
-        <StickyNoteCreator
-          context={pageContext}
-          anchorPoint={creator.screen}
-          fixedPosition={creator.position}
-          textAnchor={creator.textAnchor}
-          onClose={() => setCreator(null)}
-        />
-      )}
+      </AnchorHighlightProvider>
     </EditorProvider>
   );
 }

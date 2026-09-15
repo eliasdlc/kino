@@ -4,6 +4,8 @@ import { useEffect, useRef, useState } from "react";
 import { Loader2, LayoutGrid, PanelLeft, PanelRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
+import { useSharedEditor } from "@/features/pages/EditorContext";
+import { applyAnchorMarkAtPos, applyAnchorMarkOnRange } from "./anchor-utils";
 import { useCreateStickyNoteForPage, useCreateStickyNoteForFolder } from "./sticky-notes.hooks";
 import { STICKY_NOTE_COLORS, COLOR_PICKER_OPTIONS, paperStyle } from "./sticky-note-colors";
 import { GUTTER_LEFT_X, GUTTER_RIGHT_X } from "./sticky-position";
@@ -24,7 +26,17 @@ interface StickyNoteCreatorProps {
   /** Si viene, la nota se crea flotante en esa posición (flujo de click derecho). */
   fixedPosition?: { positionX: number; positionY: number };
   textAnchor?: string;
-  anchorId?: string;
+  /**
+   * Ancla de posicion resuelta al abrir el creador. La marca se escribe en el
+   * documento **al guardar**, nunca antes: cancelar no deja nada detras.
+   */
+  positionalAnchor?: { anchorId: string; pos: number; offsetY: number };
+  /**
+   * Ancla de anotacion: el trozo que estaba seleccionado al pulsar Sticky. Se
+   * escribe al guardar, igual que la de posicion, pero esta **no** va muted:
+   * la frase que anotaste a proposito lleva resaltado.
+   */
+  selectionAnchor?: { anchorId: string; from: number; to: number };
 }
 
 /** Coloca el popover junto al punto de anclaje sin salirse de la ventana. */
@@ -44,8 +56,10 @@ export function StickyNoteCreator({
   anchorPoint,
   fixedPosition,
   textAnchor,
-  anchorId,
+  positionalAnchor,
+  selectionAnchor,
 }: StickyNoteCreatorProps) {
+  const editor = useSharedEditor();
   const isPage = "pageId" in context;
   const createForPage = useCreateStickyNoteForPage(isPage ? (context as { pageId: string }).pageId : "");
   const createForFolder = useCreateStickyNoteForFolder(!isPage ? (context as { folderId: string }).folderId : "");
@@ -55,7 +69,7 @@ export function StickyNoteCreator({
   const [content, setContent] = useState("");
   const [color, setColor] = useState<string>("yellow");
   // Notas creadas desde una selección de texto van al margen izquierdo por defecto.
-  const [placement, setPlacement] = useState<Placement>(anchorId ? "left" : "grid");
+  const [placement, setPlacement] = useState<Placement>(selectionAnchor ? "left" : "grid");
   const titleRef = useRef<HTMLInputElement>(null);
 
   const colors = STICKY_NOTE_COLORS[color] ?? STICKY_NOTE_COLORS.yellow!;
@@ -103,10 +117,25 @@ export function StickyNoteCreator({
         content: content.trim() || undefined,
         color: color as never,
         textAnchor: textAnchor ?? undefined,
-        anchorId: anchorId ?? undefined,
+        anchorId: selectionAnchor?.anchorId ?? positionalAnchor?.anchorId,
+        offsetY: positionalAnchor?.offsetY,
         ...positionPayload(),
       },
-      { onSuccess: onClose }
+      {
+        onSuccess: () => {
+          // El ancla de posicion va `muted`: sostiene la nota junto a su
+          // parrafo y no decora el texto, que nadie pidio anotar. La de una
+          // seleccion si se ve: ahi el texto se marco a proposito.
+          if (editor) {
+            if (positionalAnchor) {
+              applyAnchorMarkAtPos(editor, positionalAnchor.pos, positionalAnchor.anchorId, true);
+            } else if (selectionAnchor) {
+              applyAnchorMarkOnRange(editor, selectionAnchor, selectionAnchor.anchorId);
+            }
+          }
+          onClose();
+        },
+      }
     );
   }
 

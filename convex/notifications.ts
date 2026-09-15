@@ -109,15 +109,55 @@ const ESCALATION_LIMIT: Record<string, number> = { critical: 14, high: 7, medium
 const ESCALATION_GAP_MS: Record<string, number> = { critical: 6 * 3_600_000, high: 6 * 3_600_000, medium: 48 * 3_600_000, low: 72 * 3_600_000 };
 
 /**
+ * Hasta dónde hay que leer hacia adelante para tener todo lo que vence «mañana».
+ *
+ * Tres días y no dos: el corte del día es el de la zona del usuario, y las
+ * zonas van de UTC-12 a UTC+14, así que el final de su mañana cae en un
+ * instante UTC que depende de dónde esté. Redondear hacia arriba cuesta leer
+ * unas pocas tareas de más y garantiza que no se pierde ninguna; el día exacto
+ * lo sigue decidiendo `calendarDayInTz` sobre lo leído.
+ */
+const VENTANA_VENCIMIENTO_MS = 3 * 86_400_000;
+
+/**
+ * Las tareas sin `dueDate` no le sirven a nada de aquí, y en el orden de un
+ * índice de Convex un campo ausente va antes que cualquier número. Este suelo
+ * es lo que las deja fuera de la lectura.
+ */
+const CON_VENCIMIENTO = 0;
+
+/**
  * Todo lo que toca avisar ahora, por usuario con suscripción y avisos
  * encendidos: lo que vence hoy y mañana sin avisar, los recordatorios que ya
  * llegaron a su hora, y las tareas vencidas que toca escalar.
+ *
+ * **Lo que se lee está acotado a propósito, y es la mitad del diseño.** Esto
+ * corre cada quince minutos y en la mayoría de las vueltas no hay nada que
+ * entregar, así que lo que cuesta no son las llamadas sino los bytes. Antes
+ * traía todas las tareas vivas de cada suscrito y filtraba por fecha en
+ * memoria, y encima lanzaba una consulta de recordatorios por cada tarea: el
+ * gasto crecía con el tamaño de la cuenta aunque no hubiera nada que avisar.
+ * Ahora lee por rango de vencimiento y resuelve los recordatorios de todos los
+ * usuarios en una sola consulta.
  */
 export const pendingDeliveries = internalQuery({
   args: {},
   handler: async (ctx) => {
     const now = Date.now();
     const subscribed = new Set((await ctx.db.query('pushSubscriptions').collect()).map((s) => s.userId));
+
+    // Los recordatorios ya vencidos y sin enviar de todo el mundo, en una sola
+    // lectura. El índice es exactamente esa pregunta, así que lo que se lee son
+    // los que hay que entregar y ninguno más.
+    const porUsuario = new Map<Id<'users'>, Doc<'taskReminders'>[]>();
+    for (const r of await ctx.db
+      .query('taskReminders')
+      .withIndex('by_sent_remindAt', (q) => q.eq('sentAt', undefined).lte('remindAt', now))
+      .collect()) {
+      if (!subscribed.has(r.userId)) continue;
+      porUsuario.set(r.userId, [...(porUsuario.get(r.userId) ?? []), r]);
+    }
+
     const out: Array<{
       userId: Id<'users'>;
       dueToday: Array<{ id: Id<'tasks'>; title: string }>;
@@ -130,9 +170,18 @@ export const pendingDeliveries = internalQuery({
       if (!user || !(await notificationsOn(ctx, userId))) continue;
       const tz = user.timezone;
       const [today, tomorrow] = [userToday(tz, now), userTomorrow(tz, now)];
-      const tasks = (await ctx.db.query('tasks').withIndex('by_user_alive_status', (q) => q.eq('userId', userId).eq('deletedAt', undefined)).collect()).filter(
-        (t) => t.status !== 'done' && t.completedAt === undefined,
-      );
+      const tasks = (
+        await ctx.db
+          .query('tasks')
+          .withIndex('by_user_alive_due', (q) =>
+            q
+              .eq('userId', userId)
+              .eq('deletedAt', undefined)
+              .gte('dueDate', CON_VENCIMIENTO)
+              .lte('dueDate', now + VENTANA_VENCIMIENTO_MS),
+          )
+          .collect()
+      ).filter((t) => t.status !== 'done' && t.completedAt === undefined);
       const dayOf = (t: Doc<'tasks'>) => (t.dueDate === undefined ? null : calendarDayInTz(t.dueDate, tz));
       const dueToday = tasks.filter((t) => !t.notifiedDueDay && dayOf(t) === today).map((t) => ({ id: t._id, title: t.title }));
       const dueTomorrow = tasks.filter((t) => !t.notifiedBeforeDay && dayOf(t) === tomorrow).map((t) => ({ id: t._id, title: t.title }));
@@ -144,11 +193,17 @@ export const pendingDeliveries = internalQuery({
           return t.lastRemindedAt === undefined || t.lastRemindedAt < now - (ESCALATION_GAP_MS[t.priority] ?? Infinity);
         })
         .map((t) => ({ id: t._id, title: t.title, priority: t.priority }));
+      // El recordatorio manda sobre la fecha de su tarea: uno puesto para hoy
+      // sobre algo que vence el mes que viene tiene que salir, y esa tarea no
+      // está en la ventana de arriba. Por eso se resuelve por su propio id y no
+      // recorriendo `tasks`. La tarea se carga para dos cosas: su título, y
+      // comprobar que sigue viva y sin terminar, que es lo que antes daba por
+      // hecho estar dentro de la lista.
       const reminders = [];
-      for (const task of tasks) {
-        for (const r of await ctx.db.query('taskReminders').withIndex('by_task', (q) => q.eq('taskId', task._id)).collect()) {
-          if (r.sentAt === undefined && r.remindAt <= now) reminders.push({ id: r._id, label: r.label ?? null, taskTitle: task.title });
-        }
+      for (const r of porUsuario.get(userId) ?? []) {
+        const task = await ctx.db.get(r.taskId);
+        if (!task || task.deletedAt !== undefined || task.status === 'done' || task.completedAt !== undefined) continue;
+        reminders.push({ id: r._id, label: r.label ?? null, taskTitle: task.title });
       }
       if (dueToday.length || dueTomorrow.length || reminders.length || escalations.length) {
         out.push({ userId, dueToday, dueTomorrow, reminders, escalations });

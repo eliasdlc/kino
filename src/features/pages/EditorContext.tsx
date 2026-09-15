@@ -10,6 +10,7 @@ import Focus from "@tiptap/extension-focus";
 import { Table, TableRow, TableHeader, TableCell } from "@tiptap/extension-table";
 import { TaskList, TaskItem } from "@tiptap/extension-list";
 import { StickyAnchorMark } from "@/features/sticky-notes/sticky-anchor.extension";
+import { StickyAnchorPaint } from "@/features/sticky-notes/anchor-paint.extension";
 import { SlashCommand } from "./slash-command.extension";
 import { LinkMarkdown } from "./link-markdown.extension";
 import { ImageUrlPaste } from "./image-paste.extension";
@@ -71,6 +72,8 @@ export function EditorProvider({
       // La marca Link la trae StarterKit; esto le añade la sintaxis de Markdown.
       LinkMarkdown,
       StickyAnchorMark,
+      // El color de cada frase anotada, que no se guarda con el texto.
+      StickyAnchorPaint,
       ...(codex
         ? [CodexMention.configure({ systemId: codex.systemId, HTMLAttributes: {} })]
         : []),
