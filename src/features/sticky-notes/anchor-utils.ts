@@ -33,6 +33,29 @@ export function findAnchorRange(doc: PmNode, anchorId: string): AnchorRange | nu
   return findAnchorRanges(doc, anchorId)[0] ?? null;
 }
 
+/**
+ * Si ese ancla anota un texto en vez de solo sostener una nota.
+ *
+ * Es la marca sin `muted`: la frase que alguien selecciono a proposito y lleva
+ * resaltado. La de posicion no anota nada, y un ancla que ya no esta en el
+ * documento tampoco. Quien mueve una nota pregunta esto antes de volver a
+ * anclarla, porque una anotacion no se despega de su frase.
+ */
+export function isAnnotationAnchor(doc: PmNode, anchorId: string): boolean {
+  let anota = false;
+  doc.descendants((node) => {
+    if (anota) return false;
+    for (const mark of node.marks) {
+      if (mark.type.name === "stickyAnchor" && mark.attrs.anchorId === anchorId) {
+        anota = mark.attrs.muted !== true;
+        return false;
+      }
+    }
+    return undefined;
+  });
+  return anota;
+}
+
 /** Quita del documento todos los trozos marcados con ese `anchorId`. */
 export function removeAnchorMark(editor: Editor, anchorId: string): void {
   const markType = editor.schema.marks.stickyAnchor;
