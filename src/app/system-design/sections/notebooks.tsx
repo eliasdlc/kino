@@ -144,17 +144,17 @@ export function NotebooksSection() {
 
       <SubSection
         title="DocumentRail"
-        description="El carril de títulos al borde de la columna de un documento. En reposo todas las marcas miden lo mismo; pasa el puntero por encima y la de debajo crece y se aclara, con las vecinas decreciendo según se alejan. En un teléfono no se pinta: ahí el índice vive en el panel lateral."
+        description="El carril de títulos al borde de la columna de un documento. En reposo todas miden lo mismo de ancho y el brillo dice el nivel; pasa el puntero por encima y la de debajo crece y se aclara, con las vecinas decreciendo según se alejan. Nunca crece más que su lienzo: cuando no cabe suelta niveles. En un teléfono no se pinta."
       >
         <SpecimenGrid cols={2}>
-          <Specimen label="En reposo" hint="pasa el puntero por las marcas para ver la lupa">
+          <Specimen label="En reposo, tres niveles" hint="pasa el puntero por las marcas para ver la lupa">
             <RailStage>
-              <DocumentRail items={RAIL_ITEMS} onJump={noop} />
+              <DocumentRail items={RAIL_ITEMS} budget={600} onJump={noop} />
             </RailStage>
           </Specimen>
-          <Specimen label="Con dos títulos" hint="el mínimo: con uno solo no se pinta">
+          <Specimen label="Con el lienzo lleno" hint="78 títulos en 200 px: se queda con los de primer nivel y aprieta el paso">
             <RailStage>
-              <DocumentRail items={RAIL_ITEMS.slice(0, 2)} onJump={noop} />
+              <DocumentRail items={RAIL_LARGO} budget={200} onJump={noop} />
             </RailStage>
           </Specimen>
         </SpecimenGrid>
@@ -175,6 +175,15 @@ export function NotebooksSection() {
     </Section>
   );
 }
+
+/** Un documento de clase largo: el caso que antes recortaba el carril. */
+const RAIL_LARGO: OutlineItem[] = Array.from({ length: 78 }, (_, i) => ({
+  pos: i * 10,
+  kind: "heading" as const,
+  depth: i % 4 === 0 ? 0 : i % 2 === 0 ? 1 : 2,
+  label: `Apartado ${i + 1}`,
+  preview: null,
+}));
 
 /** Los títulos de un apunte de clase, que es donde el carril hace su trabajo. */
 const RAIL_ITEMS: OutlineItem[] = [
