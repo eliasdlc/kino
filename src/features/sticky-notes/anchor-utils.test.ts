@@ -13,6 +13,7 @@ import {
   applyAnchorMarkOnText,
   findAnchorRange,
   findAnchorRanges,
+  isAnnotationAnchor,
   removeAnchorMark,
 } from "./anchor-utils";
 
@@ -162,6 +163,31 @@ describe("la frase de una nota restaurada", () => {
 
     expect(rango).not.toBeNull();
     expect(findAnchorRanges(editor.state.doc, "a-1").length).toBeGreaterThan(1);
+    editor.destroy();
+  });
+});
+
+describe("que clase de ancla es", () => {
+  it("la de una seleccion anota su texto", () => {
+    const editor = editorCon("<p>Primero</p><p>Segundo</p>");
+    applyAnchorMarkAtPos(editor, inicioDelParrafo(editor, 1), "a-1");
+
+    expect(isAnnotationAnchor(editor.state.doc, "a-1")).toBe(true);
+    editor.destroy();
+  });
+
+  it("la de posicion no anota nada, asi que mover su nota puede re-anclarla", () => {
+    const editor = editorCon("<p>Primero</p><p>Segundo</p>");
+    applyAnchorMarkAtPos(editor, inicioDelParrafo(editor, 1), "a-1", true);
+
+    expect(isAnnotationAnchor(editor.state.doc, "a-1")).toBe(false);
+    editor.destroy();
+  });
+
+  it("un ancla que ya no esta en el documento tampoco anota", () => {
+    const editor = editorCon("<p>Primero</p>");
+
+    expect(isAnnotationAnchor(editor.state.doc, "a-que-no-existe")).toBe(false);
     editor.destroy();
   });
 });

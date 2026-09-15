@@ -99,6 +99,17 @@ if (typeof Element !== "undefined") {
 }
 
 /**
+ * `elementFromPoint`: lo llama ProseMirror en `posAtCoords`, que es como la
+ * capa flotante averigua junto a qué párrafo soltaste una nota. Sin layout no
+ * hay nada bajo un punto, así que devuelve `null`: quien pregunta ya trata ese
+ * caso, porque es el mismo que soltar la nota en el hueco del final.
+ */
+if (typeof Document !== "undefined") {
+  const doc = Document.prototype as unknown as Record<string, unknown>;
+  doc.elementFromPoint ??= () => null;
+}
+
+/**
  * La medida de un trozo de texto: la piden `Range.getClientRects` y su
  * rectángulo, y los llama ProseMirror dentro de `coordsAtPos`. Es como el
  * editor sabe a qué altura de la pantalla cae una posición del documento, y de

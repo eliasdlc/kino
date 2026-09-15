@@ -5,7 +5,7 @@
  * que no comentaban nada. Y la marca de una selección se ve, que es lo que la
  * distingue del ancla de posición.
  */
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
 import { describe, expect, it, vi } from "vitest";
 import { act, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
@@ -15,6 +15,8 @@ import { makeStickyNote } from "@/app/system-design/mock-data";
 import { makeTestConvexClient, renderWithProviders, stubMutation, stubQuery } from "@/shared/testing/render";
 import { AnchorBridge } from "@/features/sticky-notes/AnchorBridge";
 import { StickyNotesGrid } from "@/features/sticky-notes/StickyNotesGrid";
+import { FloatingNotesLayer } from "@/features/sticky-notes/FloatingNotesLayer";
+import type { StickyNoteItem } from "@/features/sticky-notes/sticky-notes.types";
 import { EditorProvider, useSharedEditor } from "./EditorContext";
 import { NotebookEditor } from "./NotebookEditor";
 import type { PageDetailTransport } from "./pages.types";
@@ -174,5 +176,78 @@ describe("una nota que vuelve de la papelera", () => {
 
     await waitFor(() => expect(editorDe()).not.toBeNull());
     expect(editorDe().getHTML()).not.toContain("data-anchor-id");
+  });
+});
+
+/**
+ * Mover la nota no puede despegarla de la frase que anota. El arrastre vuelve
+ * a anclar la nota al párrafo donde cae, y eso está bien para un ancla de
+ * posición, pero sobre una anotación borraba la marca vieja y con ella el
+ * resaltado de la frase que alguien eligió a propósito.
+ */
+function Lienzo({ nota }: { nota: StickyNoteItem }) {
+  const containerRef = useRef<HTMLDivElement>(null);
+  return (
+    <div ref={containerRef} className="relative">
+      <FloatingNotesLayer
+        notes={[nota]}
+        context={{ pageId: paginaPartida.id }}
+        containerRef={containerRef}
+        metrics={{ columnLeft: 176, columnWidth: 816, containerW: 1168, containerH: 2000 }}
+      />
+    </div>
+  );
+}
+
+function pintarFlotante(nota: StickyNoteItem, contenido: string) {
+  let editor: Editor | null = null;
+  const convex = makeTestConvexClient([stubQuery(api.stickyNotes.byPage, [nota])]);
+  renderWithProviders(
+    <EditorProvider initialContent={contenido}>
+      <Sonda onEditor={(e) => (editor = e)} />
+      <NotebookEditor page={paginaPartida} systemId="university" title="Sin título" onTitleChange={() => {}} />
+      <Lienzo nota={nota} />
+    </EditorProvider>,
+    { convex },
+  );
+  return { convex, editorDe: () => editor! };
+}
+
+/** Arrastra la nota. Pasado el umbral de 4 px el gesto es arrastre, no click. */
+async function arrastrar(desde: Element) {
+  await userEvent.pointer([
+    { target: desde, coords: { clientX: 200, clientY: 200 }, keys: "[MouseLeft>]" },
+    { coords: { clientX: 320, clientY: 260 } },
+    { keys: "[/MouseLeft]" },
+  ]);
+}
+
+describe("mover una nota que anota una frase", () => {
+  const anclada = makeStickyNote({
+    id: "nota-flotante-anclada" as never,
+    title: "Preguntar por esto",
+    content: null,
+    positionSide: "over",
+    positionX: 0.9,
+    positionY: 0.3,
+    anchorId: PARTIDA,
+    textAnchor: "la frase anotada",
+  });
+
+  it("no le quita el resaltado a su frase", async () => {
+    const { editorDe, convex } = pintarFlotante(anclada, paginaPartida.content!);
+    await waitFor(() => expect(editorDe()).not.toBeNull());
+
+    await arrastrar(screen.getByText("Preguntar por esto"));
+
+    // La marca sigue siendo la misma, sobre el mismo texto y sin enmudecer.
+    const html = editorDe().getHTML();
+    expect(html).toContain(`data-anchor-id="${PARTIDA}"`);
+    expect(html).not.toContain("data-anchor-muted");
+    expect(editorDe().state.doc.textContent).toContain("la frase anotada");
+    // Y la nota no cambia de ancla: guarda dónde la soltaste, nada más.
+    const escrita = convex.calls.find((c) => c.name === "stickyNotes:update");
+    expect(escrita?.args).toMatchObject({ id: anclada.id, positionSide: "over" });
+    expect(escrita?.args).not.toHaveProperty("anchorId");
   });
 });
