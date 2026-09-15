@@ -520,16 +520,25 @@
   @apply size-4 rounded border-border accent-primary cursor-pointer;
 }
 
-/* ── Sticky anchor mark in editor ─────────────────────────────────────────── */
+/* ── Sticky anchor mark in editor ───────────────────────────────────────────
+   La frase que anotaste a propósito lleva resaltado suave. Era un subrayado
+   punteado, y un subrayado compite con el de un enlace y dice qué línea lleva
+   nota sin decir qué trozo. El ámbar del acento a baja opacidad no se confunde
+   con el azul de la selección del navegador. `clone` reparte el redondeo por
+   cada línea que ocupa la frase en vez de redondear sólo sus extremos. */
 .sticky-anchor-mark {
-  border-bottom: 1.5px dashed currentColor;
-  opacity: 0.75;
+  background: color-mix(in srgb, var(--ac) 18%, transparent);
+  border-radius: 0.25rem;
+  padding: 0.05em 0.12em;
+  -webkit-box-decoration-break: clone;
+  box-decoration-break: clone;
 }
 
 /* Ancla de posicion: sostiene la nota junto a su parrafo y no marca nada. */
 .sticky-anchor-mark[data-anchor-muted] {
-  border-bottom: 0;
-  opacity: 1;
+  background: transparent;
+  border-radius: 0;
+  padding: 0;
 }
 
 /* ── Modo lectura (KIN-138) ───────────────────────────────────────────────
