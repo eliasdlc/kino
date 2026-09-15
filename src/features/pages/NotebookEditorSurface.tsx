@@ -6,7 +6,7 @@ import { scrollBehavior } from "@/shared/utils/motion";
 import { EditorProvider, useSharedEditor } from "./EditorContext";
 import { NotebookEditor } from "./NotebookEditor";
 import { WriterStatusBar, type WriterObra } from "./WriterStatusBar";
-import { DocumentRail } from "./DocumentRail";
+import { DocumentRailLayer } from "./DocumentRail";
 import { deriveOutline, type OutlineItem } from "./mediums/outline";
 import type { MediumManifest } from "@/shared/lib/mediums";
 import { StickyNotesGrid } from "@/features/sticky-notes/StickyNotesGrid";
@@ -269,7 +269,13 @@ export default function NotebookEditorSurface({
 
         {/* El carril es de los documentos normales. El manuscrito navega por su
             panel, con sus escenas y sus páginas, y no cambia. */}
-        {!writer && <DocumentRail items={outline} onJump={(pos) => jump.current?.(pos)} />}
+        {!writer && (
+          <DocumentRailLayer
+            items={outline}
+            scrollRef={scrollRef}
+            onJump={(pos) => jump.current?.(pos)}
+          />
+        )}
 
         {writer && <TypewriterScroll enabled={focusMode} scrollRef={scrollRef} />}
 
