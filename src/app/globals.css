@@ -557,11 +557,13 @@
 }
 
 .sticky-anchor-tint {
-  /* Papel neutro (blanco, gris, negro): no tiene color que prestar y cae al
-     acento, con la misma mezcla de siempre. */
-  --anchor-tint: var(--ac);
-  --anchor-mix: 18%;
-  --anchor-mix-lit: 40%;
+  /* Papel neutro (blanco, gris, negro): no tiene color que prestar. El blanco y
+     el gris se perderían sobre la página clara y el negro se comería el texto,
+     así que los tres van a un gris neutro, que se ve en los dos modos. */
+  --anchor-tint: var(--mute);
+  --anchor-mix: 38%;
+  --anchor-mix-lit: 62%;
+  --anchor-glow: 45%;
   background: color-mix(in srgb, var(--anchor-tint) var(--anchor-mix), transparent);
   border-radius: 0.25rem;
   padding: 0.05em 0.12em;
@@ -569,11 +571,18 @@
   box-decoration-break: clone;
 }
 
-/* Un papel con color propio necesita mucha más mezcla que el acento: el ámbar
-   claro es oscuro y tiñe enseguida, y un pastel de papel es casi blanco. */
+.dark .sticky-anchor-tint {
+  --anchor-mix: 34%;
+  --anchor-mix-lit: 55%;
+  --anchor-glow: 50%;
+}
+
+/* Un papel con color propio necesita mucha más mezcla que un gris de rol: el
+   pastel de una nota es casi blanco y a poca mezcla no se ve. */
 .sticky-anchor-tint[data-anchor-paper] {
   --anchor-mix: 58%;
   --anchor-mix-lit: 88%;
+  --anchor-glow: 60%;
 }
 
 /* En oscuro el pastel va sobre un fondo casi negro y el texto encima es claro:
@@ -581,11 +590,18 @@
 .dark .sticky-anchor-tint[data-anchor-paper] {
   --anchor-mix: 30%;
   --anchor-mix-lit: 46%;
+  --anchor-glow: 62%;
 }
 
-/* La pareja encendida: mirar la frase o su nota sube las dos. */
+/* La pareja encendida: mirar la frase o su nota sube las dos.
+   El halo es lo que la enciende de verdad. Subir sólo el relleno no sirve: en
+   oscuro, un pastel más opaco detrás de texto claro deja de leerse mucho antes
+   de que la frase se note. Así el relleno se queda donde el texto aguanta y lo
+   que crece es el borde. Una sola sombra: el `spread` dibuja el filo y el
+   `blur` el halo. */
 .sticky-anchor-tint.sticky-anchor-lit {
   background: color-mix(in srgb, var(--anchor-tint) var(--anchor-mix-lit), transparent);
+  box-shadow: 0 0 0.55em 0.14em color-mix(in srgb, var(--anchor-tint) var(--anchor-glow), transparent);
 }
 
 /* ── Modo lectura (KIN-138) ───────────────────────────────────────────────

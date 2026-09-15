@@ -49,13 +49,13 @@ describe("el color de la frase", () => {
     expect(guardado).toContain('data-anchor-id="a1"');
   });
 
-  it("cae al ambar cuando el papel es neutro", () => {
+  it("no presta color cuando el papel es neutro", () => {
     const editor = montar();
     setAnchorPaint(editor, { tints: { a1: anchorTint("gray") }, lit: null });
 
     const dom = editor.view.dom.innerHTML;
     expect(dom).toContain("sticky-anchor-tint");
-    // Sin `data-anchor-paper` la regla de CSS deja el tinte en `var(--ac)`.
+    // Sin `data-anchor-paper` la regla de CSS deja el tinte en el gris de rol.
     expect(dom).not.toContain("data-anchor-paper");
   });
 
@@ -114,7 +114,7 @@ describe("anchorTint", () => {
     expect(anchorTint("pink")).toBe(ROSA);
   });
 
-  it("no presta nada de los papeles neutros", () => {
+  it("no presta nada de los papeles neutros, que se resaltan en gris", () => {
     expect(anchorTint("white")).toBeNull();
     expect(anchorTint("gray")).toBeNull();
     expect(anchorTint("black")).toBeNull();

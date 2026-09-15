@@ -62,8 +62,10 @@ describe("el color de la frase", () => {
     expect(cuerpo).not.toMatch(/#[0-9a-fA-F]{6}/);
   });
 
-  it("cae al acento cuando el papel no tiene color propio", () => {
-    expect(regla(".sticky-anchor-tint")).toMatch(/--anchor-tint:\s*var\(--ac\)/);
+  it("cae a un gris cuando el papel no tiene color propio", () => {
+    // Blanco y gris se pierden sobre la página clara y el negro se come el
+    // texto: los tres papeles neutros se resaltan con el gris de rol.
+    expect(regla(".sticky-anchor-tint")).toMatch(/--anchor-tint:\s*var\(--mute\)/);
   });
 
   it("aparta el ambar de la marca para que los dos lavados no se apilen", () => {
@@ -73,7 +75,7 @@ describe("el color de la frase", () => {
     expect(cuerpo).toMatch(/padding:\s*0/);
   });
 
-  it("tine mas con un papel que con el acento, porque el pastel es casi blanco", () => {
+  it("tine mas con un papel que con el gris, porque el pastel es casi blanco", () => {
     const neutro = mezcla(regla(".sticky-anchor-tint"), "--anchor-mix");
     const papel = mezcla(regla(".sticky-anchor-tint[data-anchor-paper]"), "--anchor-mix");
 
@@ -100,6 +102,7 @@ describe("la pareja encendida", () => {
   it("enciende por encima del reposo en los dos modos", () => {
     for (const selector of [
       ".sticky-anchor-tint",
+      ".dark .sticky-anchor-tint",
       ".sticky-anchor-tint[data-anchor-paper]",
       ".dark .sticky-anchor-tint[data-anchor-paper]",
     ]) {
@@ -107,6 +110,27 @@ describe("la pareja encendida", () => {
       expect(mezcla(cuerpo, "--anchor-mix-lit"), selector).toBeGreaterThan(
         mezcla(cuerpo, "--anchor-mix")
       );
+    }
+  });
+
+  it("lleva un halo del mismo color, que es lo que la enciende de verdad", () => {
+    const cuerpo = regla(".sticky-anchor-tint.sticky-anchor-lit");
+
+    // Una sola sombra, en el color del tinte: el halo no es una elevación.
+    expect(cuerpo).toMatch(
+      /box-shadow:\s*0 0 [\d.]+em [\d.]+em color-mix\(in srgb, var\(--anchor-tint\) var\(--anchor-glow\), transparent\)/
+    );
+    expect(cuerpo.match(/,\s*0 /g)).toBeNull();
+  });
+
+  it("define el halo en los cuatro casos de tinte y modo", () => {
+    for (const selector of [
+      ".sticky-anchor-tint",
+      ".dark .sticky-anchor-tint",
+      ".sticky-anchor-tint[data-anchor-paper]",
+      ".dark .sticky-anchor-tint[data-anchor-paper]",
+    ]) {
+      expect(mezcla(regla(selector), "--anchor-glow"), selector).toBeGreaterThan(0);
     }
   });
 });

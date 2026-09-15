@@ -24,9 +24,10 @@ export const STICKY_NOTE_COLORS: Record<string, {
 export const COLOR_PICKER_OPTIONS = Object.keys(STICKY_NOTE_COLORS) as Array<keyof typeof STICKY_NOTE_COLORS>;
 
 /**
- * Papers with no colour of their own. On the page they would wash out against
- * the background instead of naming a note, so their highlight falls back to the
- * system accent.
+ * Papers with no colour of their own. Used as a highlight each of them fails on
+ * one of the two backgrounds: white and gray vanish on the light page, black
+ * swallows the text on it. Their sentence gets a neutral gray instead, which
+ * reads on both and keeps the text legible.
  */
 const NEUTRAL_PAPERS: ReadonlySet<string> = new Set(["white", "gray", "black"]);
 
@@ -45,14 +46,18 @@ const PAPER_SHADOW = "0 1px 2px rgba(0,0,0,0.12), 0 10px 22px -10px rgba(0,0,0,0
  * Shared CSS for the Post-it paper surface (solid color + soft lifted shadow).
  *
  * `lit` is the note half of the note-and-sentence pair while the pointer is on
- * either of the two. The ring is drawn in the paper's own ink so it reads the
- * same over a pale yellow as over the black paper.
+ * either of the two, including when it is on the sentence and not on the note.
+ * Two layers, because one of them alone disappears on one of the backgrounds:
+ * a ring in the paper's own ink, which reads over a pale yellow as well as over
+ * the black paper, and a halo in the paper colour, which is what carries across
+ * the dark page.
  */
 export function paperStyle(hex: string, lit?: { ink: string }): React.CSSProperties {
   return {
     backgroundColor: hex,
     boxShadow: lit
-      ? `0 0 0 2px color-mix(in srgb, ${lit.ink} 60%, transparent), ${PAPER_SHADOW}`
+      ? `0 0 0 2.5px color-mix(in srgb, ${lit.ink} 85%, transparent), ` +
+        `0 0 1.5em 0.1em color-mix(in srgb, ${hex} 75%, transparent), ${PAPER_SHADOW}`
       : PAPER_SHADOW,
   };
 }
