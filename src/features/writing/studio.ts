@@ -1,3 +1,6 @@
+import { buildSuggestions } from "@/shared/suggestions/engine";
+import type { Suggestion, SuggestionRule } from "@/shared/suggestions/types";
+
 /**
  * "Qué escribir hoy" (KIN-143), sin LLM.
  *
@@ -10,6 +13,10 @@
  * sueltos. Todo eso sale de datos que Kino ya captura. Cada sugerencia lleva el
  * **porqué** al lado: la promesa del proyecto es inteligencia que no miente, y
  * una razón verificable es lo que separa una señal de una corazonada.
+ *
+ * El tipo, el orden y los estados vacíos viven en `@/shared/suggestions`, porque
+ * el mini cerebro del sistema hace lo mismo con otras señales. Lo que se queda
+ * aquí son las reglas, que sí son de escritura.
  */
 
 export type SuggestionKind =
@@ -20,16 +27,13 @@ export type SuggestionKind =
   | "loose-threads"
   | "first-step";
 
-export interface Suggestion {
-  kind: SuggestionKind;
-  title: string;
-  /** El dato concreto del que sale. Siempre comprobable. */
-  reason: string;
-  /** A dónde lleva la sugerencia, si lleva a algún sitio. */
-  target?: { kind: "page" | "folder" | "threads"; id: string };
-  /** Orden de presentación; mayor primero. */
-  weight: number;
+/** A dónde llevan las sugerencias de escritura. */
+export interface WritingTarget {
+  kind: "page" | "folder" | "threads";
+  id: string;
 }
+
+export type WritingSuggestion = Suggestion<SuggestionKind, WritingTarget>;
 
 export interface StudioSignals {
   /** Capítulo abierto más recientemente y todavía sin terminar. */
@@ -58,94 +62,106 @@ export interface StudioSignals {
 /** Cuántos días sin tocar una obra la convierten en "parada". */
 const STALE_DAYS = 3;
 
-export function buildSuggestions(signals: StudioSignals): Suggestion[] {
-  const out: Suggestion[] = [];
+type WritingRule = SuggestionRule<StudioSignals, WritingSuggestion>;
 
-  if (!signals.hasAnyChapter) {
-    return [
-      {
-        kind: "first-step",
-        title: "Empieza el primer capítulo",
-        reason: "Todavía no hay nada escrito en este sistema.",
-        weight: 100,
-      },
-    ];
-  }
+const resumeChapter: WritingRule = ({ openChapter }) => {
+  if (!openChapter) return null;
+  const { title, folderName, wordCount, daysSinceEdit, pageId } = openChapter;
+  return {
+    kind: "resume-chapter",
+    title: `Retoma «${title?.trim() || "el capítulo sin título"}»`,
+    reason:
+      daysSinceEdit === 0
+        ? `Lo tocaste hoy y sigue sin terminar · ${wordCount.toLocaleString("es")} palabras en ${folderName}.`
+        : `Es lo último que escribiste, hace ${daysSinceEdit} ${daysSinceEdit === 1 ? "día" : "días"} · ${wordCount.toLocaleString("es")} palabras en ${folderName}.`,
+    target: { kind: "page", id: pageId },
+    // Lo que quedó a medias gana casi siempre: retomar cuesta menos que abrir.
+    weight: 90 - Math.min(20, daysSinceEdit),
+  };
+};
 
-  if (signals.openChapter) {
-    const { title, folderName, wordCount, daysSinceEdit, pageId } = signals.openChapter;
-    out.push({
-      kind: "resume-chapter",
-      title: `Retoma «${title?.trim() || "el capítulo sin título"}»`,
-      reason:
-        daysSinceEdit === 0
-          ? `Lo tocaste hoy y sigue sin terminar · ${wordCount.toLocaleString("es")} palabras en ${folderName}.`
-          : `Es lo último que escribiste, hace ${daysSinceEdit} ${daysSinceEdit === 1 ? "día" : "días"} · ${wordCount.toLocaleString("es")} palabras en ${folderName}.`,
-      target: { kind: "page", id: pageId },
-      // Lo que quedó a medias gana casi siempre: retomar cuesta menos que abrir.
-      weight: 90 - Math.min(20, daysSinceEdit),
-    });
-  }
+const staleWork: WritingRule = ({ staleWork: stale }) => {
+  if (!stale || stale.daysSinceLastSession < STALE_DAYS) return null;
+  const { name, daysSinceLastSession, folderId } = stale;
+  return {
+    kind: "stale-work",
+    title: `«${name}» lleva ${daysSinceLastSession} días sin sesión`,
+    reason: "Se mide contra sesiones reales, no contra la última vez que se guardó algo.",
+    target: { kind: "folder", id: folderId },
+    weight: 60 + Math.min(25, daysSinceLastSession),
+  };
+};
 
-  if (signals.staleWork && signals.staleWork.daysSinceLastSession >= STALE_DAYS) {
-    const { name, daysSinceLastSession, folderId } = signals.staleWork;
-    out.push({
-      kind: "stale-work",
-      title: `«${name}» lleva ${daysSinceLastSession} días sin sesión`,
-      reason: "Se mide contra sesiones reales, no contra la última vez que se guardó algo.",
-      target: { kind: "folder", id: folderId },
-      weight: 60 + Math.min(25, daysSinceLastSession),
-    });
-  }
+const dailyGoal: WritingRule = ({ dailyWordGoal, wordsToday }) => {
+  if (!dailyWordGoal || dailyWordGoal <= 0) return null;
+  const missing = dailyWordGoal - wordsToday;
+  return missing > 0
+    ? {
+        kind: "daily-goal",
+        title: `Te faltan ${missing.toLocaleString("es")} palabras para la meta de hoy`,
+        reason: `Llevas ${wordsToday.toLocaleString("es")} de ${dailyWordGoal.toLocaleString("es")}.`,
+        weight: 50,
+      }
+    : {
+        kind: "daily-goal",
+        title: "Meta del día cumplida",
+        reason: `${wordsToday.toLocaleString("es")} palabras hoy. Lo de aquí en adelante es de regalo.`,
+        weight: 30,
+      };
+};
 
-  if (signals.dailyWordGoal && signals.dailyWordGoal > 0) {
-    const missing = signals.dailyWordGoal - signals.wordsToday;
-    out.push(
-      missing > 0
-        ? {
-            kind: "daily-goal",
-            title: `Te faltan ${missing.toLocaleString("es")} palabras para la meta de hoy`,
-            reason: `Llevas ${signals.wordsToday.toLocaleString("es")} de ${signals.dailyWordGoal.toLocaleString("es")}.`,
-            weight: 50,
-          }
-        : {
-            kind: "daily-goal",
-            title: "Meta del día cumplida",
-            reason: `${signals.wordsToday.toLocaleString("es")} palabras hoy. Lo de aquí en adelante es de regalo.`,
-            weight: 30,
-          },
-    );
-  }
+const peakWindow: WritingRule = ({ peakWindow: window, currentHour }) => {
+  if (!window) return null;
+  const { start, end } = window;
+  const inside = currentHour >= start && currentHour < end;
+  return {
+    kind: "peak-window",
+    title: inside
+      ? "Estás dentro de tu ventana creativa"
+      : `Tu ventana creativa es de ${hour(start)} a ${hour(end)}`,
+    reason: inside
+      ? "Es la franja donde tu energía registrada es más alta."
+      : "Sale de tu curva aprendida, no de una regla general.",
+    weight: inside ? 70 : 20,
+  };
+};
 
-  if (signals.peakWindow) {
-    const { start, end } = signals.peakWindow;
-    const inside = signals.currentHour >= start && signals.currentHour < end;
-    out.push({
-      kind: "peak-window",
-      title: inside
-        ? "Estás dentro de tu ventana creativa"
-        : `Tu ventana creativa es de ${hour(start)} a ${hour(end)}`,
-      reason: inside
-        ? "Es la franja donde tu energía registrada es más alta."
-        : "Sale de tu curva aprendida, no de una regla general.",
-      weight: inside ? 70 : 20,
-    });
-  }
+const looseThreads: WritingRule = ({ looseThreadCount }) => {
+  if (looseThreadCount <= 0) return null;
+  return {
+    kind: "loose-threads",
+    title:
+      looseThreadCount === 1
+        ? "Hay 1 hilo suelto por revisar"
+        : `Hay ${looseThreadCount} hilos sueltos por revisar`,
+    reason: "Entidades que se nombraron poco y llevan capítulos calladas.",
+    target: { kind: "threads", id: "" },
+    weight: 40,
+  };
+};
 
-  if (signals.looseThreadCount > 0) {
-    out.push({
-      kind: "loose-threads",
-      title:
-        signals.looseThreadCount === 1
-          ? "Hay 1 hilo suelto por revisar"
-          : `Hay ${signals.looseThreadCount} hilos sueltos por revisar`,
-      reason: "Entidades que se nombraron poco y llevan capítulos calladas.",
-      target: { kind: "threads", id: "" },
-      weight: 40,
-    });
-  }
+const WRITING_RULES: readonly WritingRule[] = [
+  resumeChapter,
+  staleWork,
+  dailyGoal,
+  peakWindow,
+  looseThreads,
+];
 
-  return out.sort((a, b) => b.weight - a.weight || a.kind.localeCompare(b.kind));
+/**
+ * Un sistema sin un solo capítulo no tiene señales que medir, así que en vez de
+ * correr las reglas contra ceros propone el primer paso, y solo ese.
+ */
+const FIRST_STEP: WritingSuggestion = {
+  kind: "first-step",
+  title: "Empieza el primer capítulo",
+  reason: "Todavía no hay nada escrito en este sistema.",
+  weight: 100,
+};
+
+export function buildWritingSuggestions(signals: StudioSignals): WritingSuggestion[] {
+  if (!signals.hasAnyChapter) return [FIRST_STEP];
+  return buildSuggestions(signals, WRITING_RULES);
 }
 
 function hour(value: number): string {
