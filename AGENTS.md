@@ -67,6 +67,13 @@ pnpm migrate:convex                 # Importador Postgres → Convex (scripts/mi
 6. **`system_id` es NOT NULL en tasks.** Toda tarea pertenece a un sistema; Inbox es el default. No hay tareas flotantes.
 7. **Timestamps en UTC** (TIMESTAMPTZ). El frontend convierte para mostrar.
 8. **Soft delete** en tasks y pages vía `deleted_at`. Siempre filtrar con `WHERE deleted_at IS NULL`.
+9. **Una query declara qué rango lee.** El tope de la restricción 4 acota lo que una lectura *devuelve*; nada acotaba lo que *lee*, y por ahí se fue el 93,7% de Database I/O del plan gratuito con una base de 19,72 MB en disco. Un `.collect()` sobre una tabla entera, o sobre un índice que sólo fija el usuario, lleva el motivo escrito al lado, igual que lo lleva subir `DEFAULT_BUDGET_MS`.
+
+   El caso que lo destapó es `notifications.pendingDeliveries`. Antes: `pushSubscriptions` entera y sin índice, después todas las tareas vivas de cada suscriptor por `by_user_alive_status` con el filtro de fecha en JavaScript, y después una consulta a `taskReminders` por cada una de esas tareas. Cientos de documentos leídos cada quince minutos para responder `{ notified: 0 }`. Después: `by_user_alive_due` acotado al final de mañana en la zona del usuario, y una sola pasada por `by_sent_remindAt` con `eq('sentAt', undefined).lte('remindAt', now)`. Los dos índices ya existían; lo que faltaba era la regla que obliga a usarlos.
+
+   **Duele más aquí que en otra arquitectura**, y es la otra cara de la restricción 3. Cada `useConvexQuery` es una suscripción, así que una query que lee 300 documentos no los lee una vez: los relee en cada escritura que la toque, por cada pestaña abierta. La reactividad sale gratis en invocaciones y se paga en bytes.
+
+   **Dos casos legítimos, y sólo dos.** Una tabla acotada por construcción, como `pushSubscriptions`, que es una fila por dispositivo. Y una poda por lotes que se reprograma sola, como las de `convex/podas.ts`, donde el lote es el tope. Cualquier otro `.collect()` sin rango es una deuda con nombre, no un descuido.
 
 ## Entornos
 
