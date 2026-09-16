@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { GitBranch, RefreshCw } from "lucide-react";
+import { GitBranch, RefreshCw, TriangleAlert } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import type { GithubRepoRef } from "./github-sync.types";
@@ -18,7 +18,9 @@ export type RepoPanelState =
   /** Hay cuenta pero el sistema no ha elegido repositorio todavía. */
   | { kind: "unlinked" }
   /** No hay cuenta conectada: el trabajo se hace en Ajustes. */
-  | { kind: "disconnected" };
+  | { kind: "disconnected" }
+  /** No se pudo saber el estado de la conexión: la barra lo dice y ofrece reintentar. */
+  | { kind: "error" };
 
 export interface GithubRepoPanelViewProps {
   state: RepoPanelState;
@@ -27,6 +29,7 @@ export interface GithubRepoPanelViewProps {
   onLink?: (fullName: string) => void;
   onSync?: () => void;
   onUnlink?: () => void;
+  onRetry?: () => void;
 }
 
 export function GithubRepoPanelView({
@@ -36,8 +39,23 @@ export function GithubRepoPanelView({
   onLink,
   onSync,
   onUnlink,
+  onRetry,
 }: GithubRepoPanelViewProps) {
   const [input, setInput] = React.useState("");
+
+  if (state.kind === "error") {
+    return (
+      <div className="flex flex-wrap items-center gap-2 rounded-lg border border-destructive/40 px-3 py-2 text-sm">
+        <TriangleAlert className="size-4 shrink-0 text-destructive" />
+        <span className="min-w-0 flex-1">
+          No se pudo comprobar la conexión con GitHub. El tablero sigue como está.
+        </span>
+        <Button variant="ghost" size="sm" onClick={onRetry}>
+          Reintentar
+        </Button>
+      </div>
+    );
+  }
 
   if (state.kind === "disconnected") {
     return (

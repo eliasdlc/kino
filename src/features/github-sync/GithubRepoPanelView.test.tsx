@@ -1,9 +1,9 @@
 /**
  * Qué se prueba: que el panel de GitHub nunca ofrece sincronizar algo que no
- * puede sincronizar. Los cuatro estados de la conexión (sin cuenta, sin
- * repositorio, enlazado, token caducado) tienen que llevar a una acción
- * distinta, y la única forma de equivocarse aquí es dejar el botón vivo
- * cuando la llamada de detrás va a fallar.
+ * puede sincronizar. Los cinco estados de la conexión (sin cuenta, sin
+ * repositorio, enlazado, token caducado, y no se pudo comprobar) tienen que
+ * llevar a una acción distinta, y las dos formas de equivocarse aquí son dejar
+ * el botón vivo cuando la llamada de detrás va a fallar, y no enseñar nada.
  */
 
 import { describe, expect, it, vi } from "vitest";
@@ -56,6 +56,16 @@ describe("GithubRepoPanelView", () => {
     );
 
     expect(screen.getByRole("button", { name: /Sincronizando/i })).toBeDisabled();
+  });
+
+  it("cuando no se pudo comprobar la conexión lo dice y deja reintentar", async () => {
+    const onRetry = vi.fn();
+    renderWithProviders(<GithubRepoPanelView state={{ kind: "error" }} onRetry={onRetry} />);
+
+    expect(screen.getByText(/No se pudo comprobar la conexión con GitHub/i)).toBeVisible();
+    await userEvent.click(screen.getByRole("button", { name: /Reintentar/i }));
+
+    expect(onRetry).toHaveBeenCalled();
   });
 
   it("con el token revocado avisa y bloquea la sincronización sin ocultar el board", () => {

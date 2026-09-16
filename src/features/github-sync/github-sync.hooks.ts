@@ -12,24 +12,45 @@ export type ConnectionStatusResponse = FunctionReturnType<typeof api.github.stat
 /**
  * El estado de la conexión sale de una acción (habla con GitHub para validar el
  * token), así que no es una suscripción: se pide al montar y tras cada cambio.
+ *
+ * El `catch` no es una precaución: sin él, una acción que falla (GitHub caído,
+ * un 500, la red) deja `data` en `undefined` para siempre, `isLoading` no baja
+ * nunca y quien la consume se queda esperando sin nada que enseñar.
  */
 export function useGithubConnection() {
   const status = useAction(api.github.status);
   const { isAuthenticated } = useConvexAuth();
   const [data, setData] = useState<ConnectionStatusResponse | undefined>(undefined);
+  const [error, setError] = useState<Error | null>(null);
   const [version, setVersion] = useState(0);
   useEffect(() => {
     // Sin el token de Clerk todavía, la acción se rechazaría como anónima.
     if (!isAuthenticated) return;
     let alive = true;
-    void status({}).then((result) => {
-      if (alive) setData(result);
-    });
+    void status({})
+      .then((result) => {
+        if (!alive) return;
+        setData(result);
+        setError(null);
+      })
+      .catch((fallo: unknown) => {
+        if (!alive) return;
+        setData(undefined);
+        setError(fallo instanceof Error ? fallo : new Error(String(fallo)));
+      });
     return () => {
       alive = false;
     };
   }, [status, version, isAuthenticated]);
-  return { data, isLoading: data === undefined, refetch: async () => setVersion((v) => v + 1) };
+  return {
+    data,
+    error,
+    isLoading: data === undefined && error === null,
+    refetch: async () => {
+      setError(null);
+      setVersion((v) => v + 1);
+    },
+  };
 }
 
 export function useDisconnectGithub() {

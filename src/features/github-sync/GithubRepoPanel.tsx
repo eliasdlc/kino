@@ -26,7 +26,7 @@ interface GithubRepoPanelProps {
  * vive en `GithubRepoPanelView`; aquí sólo están los datos.
  */
 export function GithubRepoPanel({ systemId, metadata }: GithubRepoPanelProps) {
-  const { data: connection, isLoading } = useGithubConnection();
+  const { data: connection, isLoading, error, refetch } = useGithubConnection();
   const { mutate: link, isPending: linking } = useLinkRepo(systemId);
   const { mutate: unlink } = useUnlinkRepo(systemId);
   const { mutate: sync, isPending: syncing } = useSyncGithub(systemId);
@@ -50,6 +50,10 @@ export function GithubRepoPanel({ systemId, metadata }: GithubRepoPanelProps) {
     sync();
   }, [puedeSincronizar, sync]);
 
+  // Un fallo al preguntar por la conexión se dice. Devolver null aquí era el
+  // defecto: la barra desaparecía del tablero y no había forma de saber si la
+  // integración estaba apagada, sin cuenta, o rota.
+  if (error) return <GithubRepoPanelView state={{ kind: "error" }} onRetry={() => void refetch()} />;
   if (isLoading || !connection?.configured) return null;
 
   const state: RepoPanelState = !connection.connected

@@ -240,7 +240,7 @@ export function KinoSection() {
 
       <SubSection
         title="GithubRepoPanel — estados (KIN-135)"
-        description="Barra del board de un sistema `project` para enlazar un repositorio y refrescar sus issues. Sólo la monta la vista project: ningún otro arquetipo ve esta integración. Tres estados según haya cuenta conectada y repositorio elegido, más el token caducado, que degrada con aviso en vez de romper el board."
+        description="Barra del board de un sistema `project` para enlazar un repositorio y refrescar sus issues. Sólo la monta la vista project: ningún otro arquetipo ve esta integración. Tres estados según haya cuenta conectada y repositorio elegido, más el token caducado y el fallo al preguntar por la conexión, que degradan con aviso en vez de vaciar el board."
       >
         <div className="flex max-w-2xl flex-col gap-3">
           <Specimen label="Sin cuenta conectada" hint="el trabajo se hace en Ajustes">
@@ -264,6 +264,9 @@ export function KinoSection() {
             <GithubRepoPanelView
               state={{ kind: "linked", repo: { owner: "eliasdlc", repo: "kino" }, revoked: true }}
             />
+          </Specimen>
+          <Specimen label="No se pudo comprobar la conexión" hint="lo dice y ofrece reintentar, en vez de desaparecer">
+            <GithubRepoPanelView state={{ kind: "error" }} />
           </Specimen>
         </div>
       </SubSection>
