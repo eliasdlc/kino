@@ -44,6 +44,7 @@ import type * as lib_writing_activity from "../lib/writing/activity.js";
 import type * as migrate from "../migrate.js";
 import type * as migrations_anclasHuerfanas from "../migrations/anclasHuerfanas.js";
 import type * as migrations_autoriaYPapelera from "../migrations/autoriaYPapelera.js";
+import type * as migrations_contenidoConSistema from "../migrations/contenidoConSistema.js";
 import type * as migrations_tablasDelRework from "../migrations/tablasDelRework.js";
 import type * as notifications from "../notifications.js";
 import type * as onboarding from "../onboarding.js";
@@ -107,6 +108,7 @@ declare const fullApi: ApiFromModules<{
   migrate: typeof migrate;
   "migrations/anclasHuerfanas": typeof migrations_anclasHuerfanas;
   "migrations/autoriaYPapelera": typeof migrations_autoriaYPapelera;
+  "migrations/contenidoConSistema": typeof migrations_contenidoConSistema;
   "migrations/tablasDelRework": typeof migrations_tablasDelRework;
   notifications: typeof notifications;
   onboarding: typeof onboarding;
