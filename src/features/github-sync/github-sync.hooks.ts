@@ -57,7 +57,14 @@ export function useSyncGithub(systemId: string) {
   return useConvexAction(api.github.sync, { map: () => ({ id: systemId }) });
 }
 
-/** Texto del resultado, para el toast. Separado para poder probarlo aparte. */
+/**
+ * Texto del resultado, para el toast. Separado para poder probarlo aparte.
+ *
+ * Con la respuesta truncada el aviso dice qué hacer y por qué sirve: el cursor
+ * se quedó en el último issue traído, así que el refresco siguiente sigue por
+ * ahí. Antes aconsejaba sincronizar de nuevo cuando eso no traía nada, porque
+ * el cursor había saltado por encima de los que faltaban.
+ */
 export function describeSyncResult(result: SyncResult): string {
   const partes: string[] = [];
   if (result.imported > 0) partes.push(`${result.imported} importada(s)`);
@@ -66,12 +73,14 @@ export function describeSyncResult(result: SyncResult): string {
     partes.push(`${result.sprintsCreated} sprint(s) nuevo(s)`);
   }
 
-  if (partes.length === 0) return "Todo estaba al día.";
-
   const resumen = partes.join(" · ");
-  return result.truncated
-    ? `${resumen}. Quedaron issues sin traer: vuelve a sincronizar.`
-    : resumen;
+
+  if (result.truncated) {
+    const cola = "Faltan issues por traer: sincroniza otra vez y sigue desde donde se quedó.";
+    return resumen ? `${resumen}. ${cola}` : cola;
+  }
+
+  return resumen || "Todo estaba al día.";
 }
 
 export type { GithubRepoRef };
