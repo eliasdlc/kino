@@ -8,7 +8,7 @@ import {
   newTaskFromIssue,
   taskPatchFromIssue,
 } from '../src/features/github-sync/github-sync.mapper';
-import { GITHUB_SOURCE, type GithubIssue, type GithubRepoRef } from '../src/features/github-sync/github-sync.types';
+import { GITHUB_SOURCE, type GithubIssue, type GithubRepoRef, type GithubSystemLink } from '../src/features/github-sync/github-sync.types';
 import { forbidden, notFound } from './lib/errors';
 import { kinoZodMutation } from './lib/fn';
 import { lematizar } from './lib/lemas';
@@ -17,11 +17,28 @@ import { moveTaskBoardDoc } from './tasks';
 // La parte de la sincronización con GitHub que escribe en la base. Lo que
 // habla con GitHub y cifra el token vive en `github.ts`, en Node.
 
-export function repoRefOf(system: Pick<Doc<'systems'>, 'templateType' | 'metadata'>): GithubRepoRef | null {
-  if (system.templateType !== 'project') return null;
-  const ref = (system.metadata as { github?: Partial<GithubRepoRef> } | undefined)?.github;
+type SystemLike = Pick<Doc<'systems'>, 'templateType' | 'metadata'>;
+
+/** El bloque `metadata.github` de un sistema de tipo proyecto, tal y como está guardado. */
+function githubMetaOf(system: SystemLike): Partial<GithubSystemLink> | undefined {
+  if (system.templateType !== 'project') return undefined;
+  return (system.metadata as { github?: Partial<GithubSystemLink> } | undefined)?.github;
+}
+
+export function repoRefOf(system: SystemLike): GithubRepoRef | null {
+  const ref = githubMetaOf(system);
   if (!ref?.owner || !ref?.repo) return null;
   return { owner: ref.owner, repo: ref.repo };
+}
+
+/**
+ * Hasta dónde llegó el último refresco de **este** sistema, o null si nunca se
+ * sincronizó. Es el cursor que viaja a GitHub como `since`, y es del sistema
+ * porque cada uno mira su propio repositorio.
+ */
+export function syncedThroughOf(system: SystemLike): number | null {
+  const cursor = githubMetaOf(system)?.syncedThrough;
+  return typeof cursor === 'number' ? cursor : null;
 }
 
 async function connectionRow(ctx: { db: import('./_generated/server').QueryCtx['db'] }, userId: Id<'users'>) {
@@ -59,7 +76,7 @@ export const connectionOf = internalQuery({
   handler: async (ctx, { userId }) => {
     const row = await connectionRow(ctx, userId);
     return row
-      ? { accessTokenEncrypted: row.accessTokenEncrypted, lastSyncedAt: row.lastSyncedAt ?? null, syncedThrough: row.syncedThrough ?? null }
+      ? { accessTokenEncrypted: row.accessTokenEncrypted, lastSyncedAt: row.lastSyncedAt ?? null }
       : null;
   },
 });
@@ -79,10 +96,15 @@ export const systemForSync = internalQuery({
   args: { userId: v.id('users'), systemId: v.id('systems') },
   handler: async (ctx, { userId, systemId }) => {
     const system = await requireProjectSystem(ctx, userId, systemId);
-    return { id: system._id, metadata: system.metadata ?? null, repo: repoRefOf(system) };
+    return { id: system._id, metadata: system.metadata ?? null, repo: repoRefOf(system), syncedThrough: syncedThroughOf(system) };
   },
 });
 
+/**
+ * Enlaza el repositorio. El bloque se escribe entero y sin cursor a propósito:
+ * enlazar otro repositorio es empezar de cero, y heredar hasta dónde llegó el
+ * anterior dejaría fuera todos los issues viejos del nuevo.
+ */
 export const linkRepoMeta = internalMutation({
   args: { userId: v.id('users'), systemId: v.id('systems'), owner: v.string(), repo: v.string() },
   handler: async (ctx, { userId, systemId, owner, repo }) => {
@@ -111,9 +133,9 @@ const issueValidator = v.object({
  * declara y esta función no lo escribe.
  */
 export const applySync = internalMutation({
-  args: { userId: v.id('users'), systemId: v.id('systems'), issues: v.array(issueValidator), truncated: v.boolean(), syncedThrough: v.number() },
+  args: { userId: v.id('users'), systemId: v.id('systems'), issues: v.array(issueValidator), truncated: v.boolean(), syncedThrough: v.optional(v.number()) },
   handler: async (ctx, { userId, systemId, issues, truncated, syncedThrough }) => {
-    await requireProjectSystem(ctx, userId, systemId);
+    const system = await requireProjectSystem(ctx, userId, systemId);
     const now = Date.now();
     const typed = issues as GithubIssue[];
 
@@ -210,11 +232,18 @@ export const applySync = internalMutation({
       updated += 1;
     }
 
+    // El cursor se guarda en el sistema, al lado del repositorio que lo produjo:
+    // dos sistemas enlazados a dos repositorios llevan cada uno el suyo. Sin
+    // repositorio no hay cursor que guardar, y sin valor (una respuesta truncada
+    // de la que no se sabe hasta dónde llegó) se queda donde estaba.
+    const link = repoRefOf(system);
+    if (link && syncedThrough !== undefined) {
+      await ctx.db.patch(systemId, { metadata: { ...(system.metadata ?? {}), github: { ...link, syncedThrough } }, updatedAt: now });
+    }
+    // La conexión sólo guarda cuándo se habló con GitHub por última vez, que es
+    // de la cuenta y no del repositorio.
     const connection = await connectionRow(ctx, userId);
-    // El cursor avanza al instante en que arrancó la llamada, no al de ahora:
-    // un issue tocado mientras la sincronización corría entra en la siguiente
-    // en vez de caerse por el hueco.
-    if (connection) await ctx.db.patch(connection._id, { lastSyncedAt: now, syncedThrough, updatedAt: now });
+    if (connection) await ctx.db.patch(connection._id, { lastSyncedAt: now, updatedAt: now });
     return { imported, updated, unchanged, sprintsCreated, truncated, syncedAt: new Date(now).toISOString() };
   },
 });

@@ -21,6 +21,7 @@ async function seed() {
   const userId = await asAna.mutation(api.users.ensure, {});
   const system = await asAna.mutation(api.systems.create, { name: 'Kino', color: 'blue', templateType: 'project', icon: 'rocket' });
   await t.run(async (ctx) => {
+    await ctx.db.patch(system.id, { metadata: { github: { owner: 'eliasdlc', repo: 'kino' } } });
     await ctx.db.insert('systemStatusDefinitions', { systemType: 'project', statusName: 'todo', label: 'Por hacer', position: 0 });
     await ctx.db.insert('systemStatusDefinitions', { systemType: 'project', statusName: 'done', label: 'Hecho', position: 1 });
     await ctx.db.insert('syncConnections', {
@@ -62,7 +63,7 @@ describe('las fuentes conectadas', () => {
     const { asAna } = await seed();
     const fuentes = await asAna.query(api.connections.list, {});
     expect(fuentes).toHaveLength(1);
-    expect(fuentes[0]).toMatchObject({ provider: 'github', connected: true, linkedSystems: 0 });
+    expect(fuentes[0]).toMatchObject({ provider: 'github', connected: true, linkedSystems: 1 });
 
     await asAna.mutation(api.connections.forget, { provider: 'github' });
     // Olvidarla no la borra de la lista: si no, no habría dónde reconectar.
@@ -102,13 +103,13 @@ describe('las fuentes conectadas', () => {
     }
   });
 
-  it('el cursor avanza, y un segundo refresco sin cambios no escribe ninguna tarea', async () => {
+  it('el cursor avanza en el sistema, y un segundo refresco sin cambios no escribe ninguna tarea', async () => {
     const { t, userId, systemId } = await seed();
     const primero = Date.now() - 60_000;
     await t.mutation(internal.githubData.applySync, { userId, systemId, truncated: false, syncedThrough: primero, issues: [issue()] });
 
-    const conexion = () => t.run((ctx) => ctx.db.query('syncConnections').first());
-    expect((await conexion())!.syncedThrough).toBe(primero);
+    const cursor = () => t.query(internal.githubData.systemForSync, { userId, systemId });
+    expect((await cursor()).syncedThrough).toBe(primero);
     const tareasAntes = await t.run((ctx) => ctx.db.query('tasks').collect());
 
     // Con el cursor puesto, GitHub no devuelve nada: la llamada llega vacía.
@@ -116,7 +117,9 @@ describe('las fuentes conectadas', () => {
     const resultado = await t.mutation(internal.githubData.applySync, { userId, systemId, truncated: false, syncedThrough: segundo, issues: [] });
 
     expect(resultado).toMatchObject({ imported: 0, updated: 0, unchanged: 0 });
-    expect((await conexion())!.syncedThrough).toBe(segundo);
+    expect((await cursor()).syncedThrough).toBe(segundo);
+    // La conexión guarda cuándo se habló con GitHub, no hasta dónde se llegó.
+    expect((await t.run((ctx) => ctx.db.query('syncConnections').first()))!.syncedThrough).toBeUndefined();
     expect(await t.run((ctx) => ctx.db.query('tasks').collect())).toEqual(tareasAntes);
   });
 
