@@ -36,6 +36,13 @@ interface SuggestionListProps<TSuggestion extends Suggestion> {
   iconFor: (suggestion: TSuggestion) => LucideIcon;
   /** A dónde lleva cada fila, o `null` si esa sugerencia no lleva a ningún sitio. */
   hrefFor?: (suggestion: TSuggestion) => string | null;
+  /**
+   * Qué hacer al pulsar una fila que no tiene URL. Existe porque no todo lo que
+   * una sugerencia señala se abre navegando: una tarea se abre en su hoja y no
+   * tiene ruta propia. Con `hrefFor` la fila es un enlace, con esto un botón, y
+   * sin ninguno de los dos no es pulsable.
+   */
+  onSelect?: (suggestion: TSuggestion) => void;
 }
 
 export function SuggestionList<TSuggestion extends Suggestion>({
@@ -45,6 +52,7 @@ export function SuggestionList<TSuggestion extends Suggestion>({
   isUnstarted = false,
   iconFor,
   hrefFor,
+  onSelect,
 }: SuggestionListProps<TSuggestion>) {
   if (suggestions.length === 0) {
     return <EmptyState state={isUnstarted && unstarted ? unstarted : quiet} />;
@@ -58,37 +66,47 @@ export function SuggestionList<TSuggestion extends Suggestion>({
           suggestion={suggestion}
           Icon={iconFor(suggestion)}
           href={hrefFor?.(suggestion) ?? null}
+          onSelect={onSelect && (() => onSelect(suggestion))}
         />
       ))}
     </ul>
   );
 }
 
+/**
+ * Un estado vacío es una fila más, así que se compone igual que una: el icono a
+ * la izquierda y los dos textos apilados a su derecha. Puestos como hermanos
+ * dentro de la misma fila salían uno al lado del otro.
+ */
 function EmptyState({ state }: { state: SuggestionEmptyState }) {
   const { icon: Icon, title, description } = state;
-  // Movido tal cual desde el estudio, `items-center` y los dos párrafos hermanos
-  // incluidos, para que esta extracción no cambie nada de lo que se ve. El
-  // `mt-1` del segundo no hace nada dentro de una fila y los dos textos salen
-  // lado a lado: se arregla con su captura en el mini cerebro, que es donde
-  // este estado vacío se usa de verdad por primera vez.
   return (
-    <div className="flex items-center gap-3 rounded-xl border border-border bg-card px-4 py-3">
-      <Icon className="size-4 shrink-0 text-muted-foreground" />
-      <p className="text-sm font-medium">{title}</p>
-      <p className="mt-1 text-sm text-muted-foreground">{description}</p>
+    <div className="flex items-start gap-3 rounded-xl border border-border bg-card px-4 py-3">
+      <Icon className="mt-0.5 size-4 shrink-0 text-muted-foreground" />
+      <div className="min-w-0 flex-1">
+        <p className="text-sm font-medium">{title}</p>
+        <p className="mt-0.5 text-sm text-muted-foreground">{description}</p>
+      </div>
     </div>
   );
 }
+
+/** La caja de una fila, igual lleve a algún sitio o no. */
+const ROW = "flex w-full items-start gap-3 rounded-xl border border-border bg-card p-3 text-left";
+const ROW_ACTIVA = `${ROW} transition-colors hover:bg-accent/40`;
 
 function SuggestionRow<TSuggestion extends Suggestion>({
   suggestion,
   Icon,
   href,
+  onSelect,
 }: {
   suggestion: TSuggestion;
   Icon: LucideIcon;
   href: string | null;
+  onSelect?: () => void;
 }) {
+  const lleva = href !== null || onSelect !== undefined;
   const body = (
     <>
       <Icon className="mt-0.5 size-4 shrink-0 text-muted-foreground" />
@@ -97,23 +115,22 @@ function SuggestionRow<TSuggestion extends Suggestion>({
         {/* El porqué siempre visible: sin el dato, esto sería una corazonada. */}
         <p className="mt-0.5 text-sm text-muted-foreground">{suggestion.reason}</p>
       </div>
-      {href && <ArrowRight className="mt-0.5 size-4 shrink-0 text-muted-foreground" />}
+      {lleva && <ArrowRight className="mt-0.5 size-4 shrink-0 text-muted-foreground" />}
     </>
   );
 
   return (
     <li>
-      {href ? (
-        <Link
-          href={href}
-          className="flex items-start gap-3 rounded-xl border border-border bg-card p-3 transition-colors hover:bg-accent/40"
-        >
+      {href !== null ? (
+        <Link href={href} className={ROW_ACTIVA}>
           {body}
         </Link>
-      ) : (
-        <div className="flex items-start gap-3 rounded-xl border border-border bg-card p-3">
+      ) : onSelect ? (
+        <button type="button" onClick={onSelect} className={ROW_ACTIVA}>
           {body}
-        </div>
+        </button>
+      ) : (
+        <div className={ROW}>{body}</div>
       )}
     </li>
   );

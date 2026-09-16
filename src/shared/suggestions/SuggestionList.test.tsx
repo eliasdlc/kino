@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { render, screen } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import { CheckCircle2, PenLine, Sparkles } from "lucide-react";
 import { SuggestionList, type SuggestionEmptyState } from "./SuggestionList";
 import type { Suggestion } from "./types";
@@ -40,7 +41,7 @@ const SUGERENCIAS: Demo[] = [
 ];
 
 function pintar(props: Partial<Parameters<typeof SuggestionList<Demo>>[0]> = {}) {
-  render(
+  return render(
     <SuggestionList<Demo>
       suggestions={SUGERENCIAS}
       quiet={QUIET}
@@ -88,5 +89,25 @@ describe("SuggestionList", () => {
     pintar();
     expect(screen.queryByText(QUIET.title)).not.toBeInTheDocument();
     expect(screen.queryByText(UNSTARTED.title)).not.toBeInTheDocument();
+  });
+
+  it("el estado vacío apila sus dos textos, que como hermanos del icono salían en la misma línea", () => {
+    const { container } = pintar({ suggestions: [] });
+
+    const titulo = screen.getByText(QUIET.title);
+    const columna = titulo.parentElement!;
+    expect(columna).toBe(screen.getByText(QUIET.description).parentElement);
+    // La fila sigue siendo la del icono; los textos cuelgan de una columna suya.
+    expect(columna).not.toContainElement(container.querySelector("svg"));
+  });
+
+  it("una fila sin URL pero con acción es un botón, porque no todo se abre navegando", async () => {
+    const pulsadas: string[] = [];
+    pintar({ hrefFor: () => null, onSelect: (sugerencia) => pulsadas.push(sugerencia.kind) });
+
+    await userEvent.click(screen.getByRole("button", { name: /Retoma/ }));
+
+    expect(pulsadas).toEqual(["retomar"]);
+    expect(screen.queryByRole("link")).not.toBeInTheDocument();
   });
 });
