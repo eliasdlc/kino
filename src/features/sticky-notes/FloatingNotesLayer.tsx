@@ -5,13 +5,9 @@ import type { RefObject } from "react";
 import { StickyNoteCard } from "./StickyNoteCard";
 import { useUpdateStickyNote } from "./sticky-notes.hooks";
 import { useSharedEditor } from "@/features/pages/EditorContext";
-import {
-  removeAnchorMark,
-  applyAnchorMarkAtPos,
-  getAnchorTop,
-  isAnnotationAnchor,
-} from "./anchor-utils";
-import { clampToCanvas, resolveColumnX, type NotebookMetrics } from "./sticky-position";
+import { getAnchorTop } from "./anchor-utils";
+import { dropNote } from "./drop-note";
+import { clampToCanvas, NOTE_W, resolveColumnX, type NotebookMetrics } from "./sticky-position";
 import type { StickyNoteItem } from "./sticky-notes.types";
 
 interface FloatingNotesLayerProps {
@@ -100,11 +96,11 @@ function FloatingNoteItem({
   const dragStart = useRef<DragStart | null>(null);
   const [live, setLive] = useState<{ leftPx: number; topPx: number } | null>(null);
   const [anchorTop, setAnchorTop] = useState<number | null>(null);
-  const [noteH, setNoteH] = useState(120);
 
   const { mutate: updateNote } = useUpdateStickyNote(context);
 
-  const maxTop = Math.max(0, metrics.containerH - noteH);
+  // La nota es un cuadrado de lado fijo: el tope vertical sale de ahí.
+  const maxTop = Math.max(0, metrics.containerH - NOTE_W);
 
   // Posición base (px, relativa al contenedor) derivada del modelo columna-relativo.
   const colX = resolveColumnX(note.positionSide, note.positionX);
@@ -139,16 +135,6 @@ function FloatingNoteItem({
       editor.off("update", computeAnchorTop);
     };
   }, [editor, computeAnchorTop, metrics.containerW, metrics.containerH]);
-
-  // Alto real de la nota, para el clamp vertical (sin leer el ref en render).
-  useEffect(() => {
-    const el = noteRef.current;
-    if (!el) return;
-    const ro = new ResizeObserver(() => setNoteH(el.offsetHeight));
-    ro.observe(el);
-    setNoteH(el.offsetHeight);
-    return () => ro.disconnect();
-  }, []);
 
   function onPointerDown(e: React.PointerEvent<HTMLDivElement>) {
     if (e.button !== 0) return;
@@ -190,69 +176,23 @@ function FloatingNoteItem({
     const snapshot = live;
     setLive(null);
     // Sin arrastre el gesto fue un click, y el navegador ya lo entrega solo.
-    if (!ds || !ds.started || !snapshot) return;
+    if (!ds || !ds.started || !snapshot || !containerRef.current) return;
 
     suppressNextClick();
 
-    const nextX =
-      metrics.columnWidth > 0
-        ? (snapshot.leftPx - metrics.columnLeft) / metrics.columnWidth
-        : 0;
-    const nextY = metrics.containerH > 0 ? snapshot.topPx / metrics.containerH : 0;
-
-    // Una nota con ancla de posicion se vuelve a anclar al soltarla. Su Y sale
-    // del parrafo donde cae, que se mueve con el texto; `positionY` era una
-    // fraccion de la altura del documento, y un documento crece cada vez que
-    // escribes, asi que la nota se despegaba de la frase que acompanaba. El
-    // ancla nueva va `muted`: sostiene la nota, no marca ese texto.
-    const containerTop = containerRef.current?.getBoundingClientRect().top ?? 0;
-
-    // Una nota nacida de una frase no se despega de ella al moverla: su ancla
-    // marca ese texto a proposito, no el sitio donde la nota descansa. Volver a
-    // anclarla aqui le quitaba el resaltado a la frase que se anoto, que es lo
-    // unico que la nota no puede perder. Lo que cambia al soltarla es cuanto se
-    // separa de su frase, y eso lo lleva el desfase de abajo.
-    const anota =
-      !!editor && !!note.anchorId && isAnnotationAnchor(editor.state.doc, note.anchorId);
-
-    // La nota se queda donde la soltaste, y de paso se apunta al parrafo que
-    // hay a esa altura: el parrafo la hace bajar con el texto cuando escribes
-    // por encima, y el desfase la deja exactamente donde la pegaste.
-    const anchorPos = anota ? null : posAtDrop(containerTop + snapshot.topPx);
-    let anchorFinal = note.anchorId;
-    if (anchorPos !== null && editor) {
-      anchorFinal = crypto.randomUUID();
-      if (note.anchorId) removeAnchorMark(editor, note.anchorId);
-      applyAnchorMarkAtPos(editor, anchorPos, anchorFinal, true);
-    }
-
-    // Sin texto bajo el punto de suelta (el hueco del final del documento) la
-    // nota conserva el parrafo que ya tenia, y lo que cambia es cuanto se
-    // separa de el. Sin esto la nota volvia a su sitio anterior en vertical.
-    const anchorTopAhora =
-      anchorFinal && editor && containerRef.current
-        ? getAnchorTop(editor, anchorFinal, containerRef.current)
-        : null;
-
+    // La escritura es optimista: la lista de notas ya trae la posición nueva
+    // en este mismo tick, así que soltar `live` no la devuelve a la vieja.
     updateNote({
       noteId: note.id,
-      data: {
-        positionSide: "over",
-        positionX: nextX,
-        positionY: nextY,
-        ...(anchorFinal === note.anchorId ? {} : { anchorId: anchorFinal }),
-        ...(anchorTopAhora === null ? {} : { offsetY: snapshot.topPx - anchorTopAhora }),
-      },
+      data: dropNote({
+        note,
+        editor,
+        container: containerRef.current,
+        metrics,
+        leftPx: snapshot.leftPx,
+        topPx: snapshot.topPx,
+      }),
     });
-  }
-
-  /** El sitio del documento que queda a la altura del punto donde soltaste. */
-  function posAtDrop(clientY: number): number | null {
-    if (!editor || !containerRef.current) return null;
-    const containerRect = containerRef.current.getBoundingClientRect();
-    const textCenterX = containerRect.left + metrics.columnLeft + metrics.columnWidth / 2;
-    const result = editor.view.posAtCoords({ left: textCenterX, top: clientY });
-    return result ? result.pos : null;
   }
 
   function onPointerCancel() {
@@ -267,7 +207,10 @@ function FloatingNoteItem({
       style={{
         top: `${topPx}px`,
         left: `${leftPx}px`,
-        transform: `rotate(${isDragging ? 0 : tilt}deg)`,
+        // Levantada, la nota se endereza y crece un poco, como el papel que
+        // despegas de la mesa; al soltarla vuelve a caer con su inclinación.
+        transform: isDragging ? "rotate(0deg) scale(1.04)" : `rotate(${tilt}deg)`,
+        filter: isDragging ? "drop-shadow(0 14px 18px rgba(0,0,0,0.28))" : undefined,
         transition: isDragging ? "none" : "transform 160ms ease",
         zIndex,
         cursor: isDragging ? "grabbing" : "grab",
@@ -277,7 +220,7 @@ function FloatingNoteItem({
       onPointerUp={onPointerUp}
       onPointerCancel={onPointerCancel}
     >
-      <StickyNoteCard note={note} context={context} compact />
+      <StickyNoteCard note={note} context={context} />
     </div>
   );
 }

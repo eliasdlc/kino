@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import type { RefObject } from "react";
 import { Plus, StickyNote } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -16,20 +17,34 @@ import {
 import { useDraggable, useDroppable } from "@dnd-kit/core";
 import { cn } from "@/lib/utils";
 import { useIsMobile } from "@/hooks/use-mobile";
+import { useSharedEditor } from "@/features/pages/EditorContext";
 import {
   useStickyNotesByPage,
   useStickyNotesByFolder,
   useStackStickyNotes,
+  useUpdateStickyNote,
 } from "./sticky-notes.hooks";
 import { StickyNoteCard } from "./StickyNoteCard";
 import { StickyNoteStack } from "./StickyNoteStack";
 import { StickyNoteCreator } from "./StickyNoteCreator";
 import { StackNoteSheet } from "./StackNoteSheet";
+import { dropNote } from "./drop-note";
+import { clampToCanvas, NOTE_W, type NotebookMetrics } from "./sticky-position";
 import type { StickyNoteItem } from "./sticky-notes.types";
 
+/**
+ * El cuaderno sobre el que una nota de la cuadrícula puede caer. Lo trae la
+ * página, que es la única superficie con texto debajo: en una carpeta la
+ * cuadrícula es el único sitio donde vive una nota.
+ */
+export interface NotebookCanvas {
+  containerRef: RefObject<HTMLDivElement | null>;
+  metrics: NotebookMetrics;
+}
+
 type Props = (
-  | { pageId: string; folderId?: never }
-  | { folderId: string; pageId?: never }
+  | { pageId: string; folderId?: never; canvas?: NotebookCanvas }
+  | { folderId: string; pageId?: never; canvas?: never }
 ) & {
   /**
    * Las notas que la capa flotante ya está dibujando. La rejilla pinta todo lo
@@ -40,7 +55,7 @@ type Props = (
 };
 
 /** O una página o una carpeta, nunca las dos: el creador lo exige discriminado. */
-type NoteContext = Props;
+type NoteContext = { pageId: string; folderId?: never } | { folderId: string; pageId?: never };
 
 /** Groups notes by stackId, returning ordered groups (ungrouped notes = group of 1) */
 function groupNotes(notes: StickyNoteItem[]): StickyNoteItem[][] {
@@ -93,8 +108,11 @@ function DraggableNote({
       {...attributes}
       style={{ transform: isDragging ? undefined : `rotate(${tiltOf(note.id)}deg)` }}
       className={cn(
-        "touch-none transition-transform",
-        isDragging && "opacity-40",
+        // Mientras se edita, la bandeja de colores asoma por debajo y tiene
+        // que pintarse sobre la fila siguiente: el foco dentro la sube.
+        "relative touch-none transition-transform focus-within:z-(--z-raised)",
+        // Levantada, en la cuadrícula queda su hueco: la nota va en el puntero.
+        isDragging && "opacity-25",
         isOver && activeId !== note.id && "ring-2 ring-primary/60 rounded-lg scale-105"
       )}
     >
@@ -114,18 +132,19 @@ function TappableNote({
   onStack: () => void;
 }) {
   return (
-    <div style={{ transform: `rotate(${tiltOf(note.id)}deg)` }}>
+    <div className="relative focus-within:z-(--z-raised)" style={{ transform: `rotate(${tiltOf(note.id)}deg)` }}>
       <StickyNoteCard note={note} context={context} onStack={onStack} />
     </div>
   );
 }
 
 /**
- * Las columnas de notas. Las dos ramas por viewport pintan esto mismo: lo único
- * que cambia es si la nota suelta lleva sensores de arrastre o la operación de
- * apilar.
+ * Las notas, una al lado de otra. Las dos ramas por viewport pintan esto
+ * mismo: lo único que cambia es si la nota suelta lleva sensores de arrastre o
+ * la operación de apilar. Son cuadrados de lado fijo, así que fluyen en filas
+ * y no en columnas: el mismo papel que flota sobre el texto.
  */
-function NotesColumns({
+function NotesRow({
   groups,
   marginNotes,
   context,
@@ -137,16 +156,14 @@ function NotesColumns({
   renderNote: (note: StickyNoteItem) => React.ReactNode;
 }) {
   return (
-    <div className="[columns:2] sm:[columns:3] lg:[columns:4] [column-gap:0.75rem]">
+    <div className="flex flex-wrap gap-3 py-1">
       {groups.map((group) => (
-        <div key={group[0]!.stackId ?? group[0]!.id} className="break-inside-avoid mb-3">
+        <div key={group[0]!.stackId ?? group[0]!.id}>
           {group.length === 1 ? renderNote(group[0]!) : <StickyNoteStack notes={group} context={context} />}
         </div>
       ))}
       {marginNotes.map((note) => (
-        <div key={note.id} className="break-inside-avoid mb-3">
-          {renderNote(note)}
-        </div>
+        <div key={note.id}>{renderNote(note)}</div>
       ))}
     </div>
   );
@@ -162,7 +179,10 @@ export function StickyNotesGrid(props: Props) {
   const folderQuery = useStickyNotesByFolder(!isPage ? (props.folderId as string) : "");
   const { data: allNotes = [], isLoading } = isPage ? pageQuery : folderQuery;
   const { mutate: stackNotes } = useStackStickyNotes(context);
+  const { mutate: updateNote } = useUpdateStickyNote(context);
+  const editor = useSharedEditor();
   const isMobile = useIsMobile();
+  const canvas = isPage ? props.canvas : undefined;
 
   // Lo que la capa flotante no dibuja, lo dibuja la rejilla.
   const flotando = new Set(props.floatingIds ?? []);
@@ -184,16 +204,37 @@ export function StickyNotesGrid(props: Props) {
   function handleDragEnd(event: DragEndEvent) {
     setActiveId(null);
     const { active, over } = event;
-    if (!over || active.id === over.id) return;
-
     const draggedNote = allNotes.find((n) => n.id === active.id);
-    const targetNote = allNotes.find((n) => n.id === over.id);
-    if (!draggedNote || !targetNote) return;
+    if (!draggedNote) return;
 
-    stackNotes({ draggedId: draggedNote.id, targetId: targetNote.id });
+    // Encima de otra nota, se apila.
+    if (over && over.id !== active.id) {
+      const targetNote = allNotes.find((n) => n.id === over.id);
+      if (targetNote) stackNotes({ draggedId: draggedNote.id, targetId: targetNote.id });
+      return;
+    }
+
+    // En cualquier otro sitio del cuaderno, se pega ahí: la nota sale de la
+    // cuadrícula y pasa a flotar donde la soltaste, sin pedir un margen.
+    const container = canvas?.containerRef.current;
+    const rect = active.rect.current.translated;
+    if (!canvas || !container || !rect) return;
+    const cr = container.getBoundingClientRect();
+    const leftPx = clampToCanvas(rect.left - cr.left, canvas.metrics);
+    const topPx = Math.min(Math.max(0, rect.top - cr.top), Math.max(0, canvas.metrics.containerH - NOTE_W));
+    updateNote({
+      noteId: draggedNote.id,
+      data: dropNote({ note: draggedNote, editor, container, metrics: canvas.metrics, leftPx, topPx }),
+    });
   }
 
   const hasNotes = groups.length > 0 || marginNotes.length > 0;
+
+  // En una página la sección existe sólo mientras haya una nota en la
+  // cuadrícula: sin notas no hay nada que enseñar, y las notas nacen del texto
+  // (una selección, un click derecho), no de aquí. La carpeta no tiene texto,
+  // así que ahí la sección se queda siempre con su botón de añadir.
+  if (isPage && !hasNotes) return null;
 
   return (
     <>
@@ -215,9 +256,9 @@ export function StickyNotesGrid(props: Props) {
         </div>
 
         {isLoading && (
-          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
+          <div className="flex flex-wrap gap-3">
             {[1, 2, 3].map((i) => (
-              <Skeleton key={i} className="h-20 w-full rounded-2xl" />
+              <Skeleton key={i} className="size-44 rounded-lg" />
             ))}
           </div>
         )}
@@ -226,7 +267,7 @@ export function StickyNotesGrid(props: Props) {
             otras cuatro superficies: en el teléfono no se monta ningún sensor y
             apilar es una operación con nombre en el menú de la nota. */}
         {!isLoading && hasNotes && isMobile && (
-          <NotesColumns
+          <NotesRow
             groups={groups}
             marginNotes={marginNotes}
             context={context}
@@ -243,7 +284,7 @@ export function StickyNotesGrid(props: Props) {
             onDragEnd={handleDragEnd}
             onDragCancel={() => setActiveId(null)}
           >
-            <NotesColumns
+            <NotesRow
               groups={groups}
               marginNotes={marginNotes}
               context={context}
@@ -251,9 +292,9 @@ export function StickyNotesGrid(props: Props) {
                 <DraggableNote note={note} context={context} activeId={activeId} />
               )}
             />
-            <DragOverlay>
+            <DragOverlay dropAnimation={null}>
               {activeNote && (
-                <div className="opacity-90 rotate-3 scale-105">
+                <div className="scale-[1.04] drop-shadow-[0_14px_18px_rgba(0,0,0,0.28)]">
                   <StickyNoteCard note={activeNote} context={context} />
                 </div>
               )}

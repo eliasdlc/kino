@@ -62,8 +62,9 @@ function frase(editor: Editor): HTMLElement {
   return el!;
 }
 
+/** El papel de la nota. Se busca por su marca porque, abierta, su texto son campos. */
 function tarjeta(): HTMLElement {
-  return screen.getByText("Viene en el parcial").closest("[data-sticky-note]") as HTMLElement;
+  return document.querySelector("[data-sticky-note]") as HTMLElement;
 }
 
 describe("la pareja nota y frase", () => {
@@ -128,7 +129,7 @@ describe("la pareja nota y frase", () => {
 
     await userEvent.click(tarjeta());
     await screen.findByPlaceholderText("Título...");
-    await userEvent.click(screen.getByRole("button", { name: "Cancelar" }));
+    await userEvent.keyboard("{Escape}");
 
     await waitFor(() => expect(frase(editorDe()).className).not.toContain("sticky-anchor-lit"));
   });
