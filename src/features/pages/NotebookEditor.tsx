@@ -3,9 +3,10 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { EditorContent } from "@tiptap/react";
 import { BubbleMenu } from "@tiptap/react/menus";
+import { ConvexError } from "convex/values";
 import { StickyNote } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { useUpdatePage } from "./pages.hooks";
+import { usePage, useUpdatePage } from "./pages.hooks";
 import { useSharedEditor } from "./EditorContext";
 import { TableMenus } from "./TableMenus";
 import { CodexChips } from "@/features/entities/CodexChips";
@@ -33,9 +34,23 @@ interface NotebookEditorProps {
 const TITLE_SAVE_MS = 400;
 const CONTENT_SAVE_MS = 1500;
 
+/** Lo que el editor manda en un guardado. `null` en el título lo vacía. */
+type PagePatch = { title?: string | null; content?: string };
+
+/** El servidor rechazó el guardado porque la página cambió después de leerla. */
+function esConflicto(error: Error): boolean {
+  if (!(error instanceof ConvexError)) return false;
+  const data: unknown = error.data;
+  return typeof data === "object" && data !== null && "code" in data && data.code === "CONFLICT";
+}
+
 export function NotebookEditor({ page, systemId, pageId, writer = false, title, onTitleChange }: NotebookEditorProps) {
   const editor = useSharedEditor();
   const { mutate: updatePage } = useUpdatePage(page.id, systemId);
+  // El texto también cambia fuera de esta pantalla: restaurar una versión,
+  // mover una escena en la rejilla, otra pestaña, el conector MCP. La
+  // suscripción es lo único que hace que el editor se entere.
+  const { data: servidor } = usePage(page.id, page);
   const titleTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [stickyCreator, setStickyCreator] = useState<{
     text: string | null;
@@ -44,7 +59,29 @@ export function NotebookEditor({ page, systemId, pageId, writer = false, title, 
   } | null>(null);
   const [mentionEntityId, setMentionEntityId] = useState<string | null>(null);
   const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const pendingPatch = useRef<{ title?: string; content?: string } | null>(null);
+  const pendingPatch = useRef<PagePatch | null>(null);
+  const titleRef = useRef(title);
+  useEffect(() => {
+    titleRef.current = title;
+  }, [title]);
+  /**
+   * La versión del servidor sobre la que está escrito lo que hay en pantalla.
+   * Viaja en cada guardado: si el servidor ya tiene otra, la escritura se
+   * rechaza con CONFLICT en vez de pisar lo que guardó el otro lado.
+   */
+  const sincronizadoEn = useRef(page.updatedAt);
+  /** Guardados propios esperando respuesta: su versión todavía no ha llegado. */
+  const enVuelo = useRef(0);
+  const servidorRef = useRef(servidor);
+  useEffect(() => {
+    servidorRef.current = servidor;
+  }, [servidor]);
+  /**
+   * El cambio que hay en curso viene del servidor. El documento sí avisa de que
+   * cambió, para que el índice, los resaltados y el carril se rehagan; lo único
+   * que no ocurre es devolverle al servidor el texto que acaba de mandar.
+   */
+  const aplicandoDelServidor = useRef(false);
 
   // Click en una mención del codex → abre su ficha (referencia a un click sin
   // salir del texto, PLAN-11 §8.3). Solo en editores de escritura.
@@ -58,39 +95,107 @@ export function NotebookEditor({ page, systemId, pageId, writer = false, title, 
     }
   }
 
+  /**
+   * Trae a la pantalla el texto del servidor y se queda con su versión. Un
+   * texto idéntico no se reemplaza: `setContent` devuelve el cursor al
+   * principio del documento y aquí no habría nada que traer.
+   */
+  const recargar = useCallback(
+    (delServidor: PageDetailTransport) => {
+      if (!editor) return;
+      const contenido = delServidor.content ?? "";
+      const tituloDelServidor = delServidor.title ?? "";
+      sincronizadoEn.current = delServidor.updatedAt;
+      if (editor.getHTML() === contenido && tituloDelServidor === titleRef.current) return;
+      if (saveTimer.current) {
+        clearTimeout(saveTimer.current);
+        saveTimer.current = null;
+      }
+      if (titleTimer.current) {
+        clearTimeout(titleTimer.current);
+        titleTimer.current = null;
+      }
+      pendingPatch.current = null;
+      onTitleChange(tituloDelServidor);
+      aplicandoDelServidor.current = true;
+      try {
+        editor.commands.setContent(contenido);
+      } finally {
+        aplicandoDelServidor.current = false;
+      }
+    },
+    [editor, onTitleChange]
+  );
+
+  const guardar = useCallback(
+    (patch: PagePatch) => {
+      enVuelo.current += 1;
+      updatePage(
+        { ...patch, expectedUpdatedAt: sincronizadoEn.current },
+        {
+          onSuccess: (guardado) => {
+            sincronizadoEn.current = guardado.updatedAt;
+          },
+          onError: (error) => {
+            // Alguien escribió antes: manda lo que hay en el servidor y lo que
+            // estaba en cola aquí no lo pisa. Si la suscripción todavía no ha
+            // traído esa versión, el efecto de abajo recarga cuando llegue.
+            if (!esConflicto(error)) return;
+            pendingPatch.current = null;
+            if (servidorRef.current) recargar(servidorRef.current);
+          },
+          onSettled: () => {
+            enVuelo.current -= 1;
+          },
+        }
+      );
+    },
+    [updatePage, recargar]
+  );
+
   const scheduleSave = useCallback(
-    (patch: { title?: string; content?: string }) => {
+    (patch: PagePatch) => {
       pendingPatch.current = { ...pendingPatch.current, ...patch };
       if (saveTimer.current) clearTimeout(saveTimer.current);
       saveTimer.current = setTimeout(() => {
         saveTimer.current = null;
         const pending = pendingPatch.current;
         pendingPatch.current = null;
-        if (pending) updatePage(pending);
+        if (pending) guardar(pending);
       }, CONTENT_SAVE_MS);
     },
-    [updatePage]
+    [guardar]
   );
+
+  // Cuando el servidor tiene otra versión, la pantalla la trae. Es la otra
+  // mitad del `expectedUpdatedAt`: sin esto, una versión restaurada la deshacía
+  // la siguiente tecla y dos pestañas se pisaban con el documento entero.
+  useEffect(() => {
+    if (!editor || !servidor || servidor.updatedAt === sincronizadoEn.current) return;
+    // Un guardado propio en cola o en vuelo manda: su respuesta trae la versión
+    // buena, y si llega tarde choca y recarga desde ahí.
+    if (pendingPatch.current !== null || enVuelo.current > 0) return;
+    recargar(servidor);
+  }, [editor, servidor, recargar]);
 
   // Subscribe to editor updates for autosave
   useEffect(() => {
     if (!editor) return;
-    const handler = () => scheduleSave({ content: editor.getHTML() });
+    const handler = () => {
+      if (aplicandoDelServidor.current) return;
+      scheduleSave({ content: editor.getHTML() });
+    };
     editor.on("update", handler);
     return () => { editor.off("update", handler); };
   }, [editor, scheduleSave]);
 
   // Lo pendiente se guarda al desmontar, y sólo al desmontar: un efecto que
-  // dependiera de `updatePage` correría su limpieza en cada render y volvería
-  // a mandar el mismo parche en bucle. Por eso la función se lee por ref.
-  const updatePageRef = useRef(updatePage);
+  // dependiera de `guardar` correría su limpieza en cada render y volvería a
+  // mandar el mismo parche en bucle. Por eso la función se lee por ref.
+  const guardarRef = useRef(guardar);
   useEffect(() => {
-    updatePageRef.current = updatePage;
-  }, [updatePage]);
-  const titleRef = useRef(title);
-  useEffect(() => {
-    titleRef.current = title;
-  }, [title]);
+    guardarRef.current = guardar;
+  }, [guardar]);
   useEffect(() => {
     return () => {
       if (saveTimer.current) {
@@ -99,12 +204,12 @@ export function NotebookEditor({ page, systemId, pageId, writer = false, title, 
       }
       const pending = pendingPatch.current;
       pendingPatch.current = null;
-      if (pending) updatePageRef.current(pending);
+      if (pending) guardarRef.current(pending);
       // Un título escrito y una salida inmediata no pueden perderse.
       if (titleTimer.current) {
         clearTimeout(titleTimer.current);
         titleTimer.current = null;
-        updatePageRef.current({ title: titleRef.current || undefined });
+        guardarRef.current({ title: titleRef.current || null });
       }
     };
   }, []);
@@ -117,7 +222,9 @@ export function NotebookEditor({ page, systemId, pageId, writer = false, title, 
     if (titleTimer.current) clearTimeout(titleTimer.current);
     titleTimer.current = setTimeout(() => {
       titleTimer.current = null;
-      updatePage({ title: next || undefined });
+      // Vaciar el título lo deja vacío: `null` lo borra y `undefined` sería no
+      // tocarlo, que es lo que antes hacía imposible quitarlo desde la interfaz.
+      guardar({ title: next || null });
     }, TITLE_SAVE_MS);
   }
 

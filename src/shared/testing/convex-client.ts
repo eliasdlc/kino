@@ -32,6 +32,15 @@ export function stubMutation<M extends FunctionReference<"mutation">>(mutation: 
   return { name: getFunctionName(mutation), value };
 }
 
+/**
+ * Lo que una mutación hará cuando falle. El caso que lo pide: un guardado que
+ * choca con una versión más nueva, donde lo que se prueba no es que se llamara
+ * sino qué hace la pantalla con el rechazo.
+ */
+export function stubMutationError<M extends FunctionReference<"mutation">>(mutation: M, error: Error): QueryStub {
+  return { name: getFunctionName(mutation), value: error };
+}
+
 /** Una escritura que el componente disparó. */
 export interface ConvexCall {
   readonly kind: "mutation" | "action";
@@ -88,7 +97,9 @@ export class TestConvexClient {
   mutation(mutation: FunctionReference<"mutation">, args: Record<string, unknown>): Promise<unknown> {
     const name = getFunctionName(mutation);
     this.calls.push({ kind: "mutation", name, args });
-    return Promise.resolve(this.#writeResults.get(name));
+    const resultado = this.#writeResults.get(name);
+    // Un error puesto como resultado es un fallo del servidor: `stubMutationError`.
+    return resultado instanceof Error ? Promise.reject(resultado) : Promise.resolve(resultado);
   }
 
   action(action: FunctionReference<"action">, args: Record<string, unknown>): Promise<unknown> {
