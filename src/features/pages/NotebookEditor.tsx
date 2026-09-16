@@ -5,6 +5,7 @@ import { EditorContent } from "@tiptap/react";
 import { BubbleMenu } from "@tiptap/react/menus";
 import { ConvexError } from "convex/values";
 import { StickyNote } from "lucide-react";
+import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import { usePage, useUpdatePage } from "./pages.hooks";
 import { useSharedEditor } from "./EditorContext";
@@ -59,19 +60,24 @@ export function NotebookEditor({ page, systemId, pageId, writer = false, title, 
   } | null>(null);
   const [mentionEntityId, setMentionEntityId] = useState<string | null>(null);
   const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  /** Lo tecleado que el temporizador todavía no ha dado por vencido. */
   const pendingPatch = useRef<PagePatch | null>(null);
+  /** Lo vencido que espera turno: sólo sale un guardado a la vez. */
+  const enCola = useRef<PagePatch | null>(null);
+  /** Hay un guardado esperando respuesta del servidor. */
+  const enVuelo = useRef(false);
   const titleRef = useRef(title);
   useEffect(() => {
     titleRef.current = title;
   }, [title]);
+  /** Mientras es `false` ya no hay pantalla donde recargar nada. */
+  const montado = useRef(true);
   /**
    * La versión del servidor sobre la que está escrito lo que hay en pantalla.
    * Viaja en cada guardado: si el servidor ya tiene otra, la escritura se
    * rechaza con CONFLICT en vez de pisar lo que guardó el otro lado.
    */
   const sincronizadoEn = useRef(page.updatedAt);
-  /** Guardados propios esperando respuesta: su versión todavía no ha llegado. */
-  const enVuelo = useRef(0);
   const servidorRef = useRef(servidor);
   useEffect(() => {
     servidorRef.current = servidor;
@@ -102,7 +108,7 @@ export function NotebookEditor({ page, systemId, pageId, writer = false, title, 
    */
   const recargar = useCallback(
     (delServidor: PageDetailTransport) => {
-      if (!editor) return;
+      if (!editor || editor.isDestroyed) return;
       const contenido = delServidor.content ?? "";
       const tituloDelServidor = delServidor.title ?? "";
       sincronizadoEn.current = delServidor.updatedAt;
@@ -127,30 +133,65 @@ export function NotebookEditor({ page, systemId, pageId, writer = false, title, 
     [editor, onTitleChange]
   );
 
+  const enviarRef = useRef<() => void>(() => {});
+
+  /**
+   * Manda lo que espera turno, de uno en uno.
+   *
+   * Serializar no es una precaución contra el otro lado: es que el
+   * `expectedUpdatedAt` del segundo guardado tiene que ser el `updatedAt` que
+   * devolvió el primero. El cuerpo y el título tienen temporizadores distintos
+   * y el cierre del capítulo manda lo que quede, así que salían dos escrituras
+   * con la misma versión; la primera la movía y la segunda chocaba contra el
+   * propio editor. El título, que es el que suele ir detrás, se perdía sin que
+   * nadie lo viera.
+   */
+  const enviar = useCallback(() => {
+    if (enVuelo.current) return;
+    const patch = enCola.current;
+    enCola.current = null;
+    if (!patch) return;
+    enVuelo.current = true;
+    updatePage(
+      { ...patch, expectedUpdatedAt: sincronizadoEn.current },
+      {
+        onSuccess: (guardado) => {
+          sincronizadoEn.current = guardado.updatedAt;
+        },
+        onError: (error) => {
+          // Aquí el choque sí es de fuera: manda lo que hay en el servidor y lo
+          // que quedaba por escribir no lo pisa. Si la suscripción todavía no
+          // ha traído esa versión, el efecto de abajo recarga cuando llegue.
+          if (!esConflicto(error)) return;
+          enCola.current = null;
+          pendingPatch.current = null;
+          const delServidor = servidorRef.current;
+          if (montado.current && delServidor) {
+            recargar(delServidor);
+            return;
+          }
+          // Sin pantalla donde recargar no hay nada que hacer con el texto, y
+          // callarlo es cómo se perdía antes.
+          toast.error("Lo último que escribiste no se guardó: la página cambió en otro sitio.");
+        },
+        onSettled: () => {
+          enVuelo.current = false;
+          enviarRef.current();
+        },
+      }
+    );
+  }, [updatePage, recargar]);
+
+  useEffect(() => {
+    enviarRef.current = enviar;
+  }, [enviar]);
+
   const guardar = useCallback(
     (patch: PagePatch) => {
-      enVuelo.current += 1;
-      updatePage(
-        { ...patch, expectedUpdatedAt: sincronizadoEn.current },
-        {
-          onSuccess: (guardado) => {
-            sincronizadoEn.current = guardado.updatedAt;
-          },
-          onError: (error) => {
-            // Alguien escribió antes: manda lo que hay en el servidor y lo que
-            // estaba en cola aquí no lo pisa. Si la suscripción todavía no ha
-            // traído esa versión, el efecto de abajo recarga cuando llegue.
-            if (!esConflicto(error)) return;
-            pendingPatch.current = null;
-            if (servidorRef.current) recargar(servidorRef.current);
-          },
-          onSettled: () => {
-            enVuelo.current -= 1;
-          },
-        }
-      );
+      enCola.current = { ...enCola.current, ...patch };
+      enviar();
     },
-    [updatePage, recargar]
+    [enviar]
   );
 
   const scheduleSave = useCallback(
@@ -172,9 +213,9 @@ export function NotebookEditor({ page, systemId, pageId, writer = false, title, 
   // la siguiente tecla y dos pestañas se pisaban con el documento entero.
   useEffect(() => {
     if (!editor || !servidor || servidor.updatedAt === sincronizadoEn.current) return;
-    // Un guardado propio en cola o en vuelo manda: su respuesta trae la versión
-    // buena, y si llega tarde choca y recarga desde ahí.
-    if (pendingPatch.current !== null || enVuelo.current > 0) return;
+    // Un guardado propio sin salir, esperando turno o en vuelo manda: su
+    // respuesta trae la versión buena, y si llega tarde choca y recarga ahí.
+    if (pendingPatch.current !== null || enCola.current !== null || enVuelo.current) return;
     recargar(servidor);
   }, [editor, servidor, recargar]);
 
@@ -198,19 +239,22 @@ export function NotebookEditor({ page, systemId, pageId, writer = false, title, 
   }, [guardar]);
   useEffect(() => {
     return () => {
+      montado.current = false;
+      // El cuerpo y el título salen en un solo guardado. Dos, aunque la cola
+      // los ordenara, serían dos viajes para el mismo gesto de cerrar.
+      const ultimo: PagePatch = { ...pendingPatch.current };
+      pendingPatch.current = null;
       if (saveTimer.current) {
         clearTimeout(saveTimer.current);
         saveTimer.current = null;
       }
-      const pending = pendingPatch.current;
-      pendingPatch.current = null;
-      if (pending) guardarRef.current(pending);
       // Un título escrito y una salida inmediata no pueden perderse.
       if (titleTimer.current) {
         clearTimeout(titleTimer.current);
         titleTimer.current = null;
-        guardarRef.current({ title: titleRef.current || null });
+        ultimo.title = titleRef.current || null;
       }
+      if (Object.keys(ultimo).length > 0) guardarRef.current(ultimo);
     };
   }, []);
 

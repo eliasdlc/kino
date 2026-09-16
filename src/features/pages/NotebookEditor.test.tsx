@@ -8,7 +8,7 @@
  * versión está escrito, lo que el servidor cambia por su cuenta llega a la
  * pantalla, y un guardado que choca recarga en vez de pisar lo de fuera.
  */
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { describe, expect, it, vi } from "vitest";
 import { act, fireEvent, screen, waitFor } from "@testing-library/react";
 import { ConvexError } from "convex/values";
@@ -17,13 +17,15 @@ import { api } from "@convex/_generated/api";
 import {
   makeTestConvexClient,
   renderWithProviders,
+  stubMutation,
   stubMutationError,
+  stubMutationPending,
   stubQuery,
   type TestConvexClient,
 } from "@/shared/testing/render";
 import { EditorProvider, useSharedEditor } from "./EditorContext";
 import { NotebookEditor } from "./NotebookEditor";
-import type { PageDetailTransport } from "./pages.types";
+import type { PageDetailTransport, PageMutationResult } from "./pages.types";
 
 vi.mock("next/navigation", async () => (await import("@/shared/testing/navigation")).navigationMock());
 
@@ -66,6 +68,28 @@ function renderEditor(onTitleChange: (title: string) => void, convex?: TestConve
   );
   return { convex: client, editorDe: () => editor! };
 }
+
+/**
+ * El anfitrión que hace de layout: el título vive fuera del editor y vuelve
+ * como prop, que es lo que hace que el guardado de cierre mande lo tecleado.
+ */
+function renderComoElLayout(convex: TestConvexClient) {
+  let editor: Editor | null = null;
+  function Anfitrion() {
+    const [titulo, setTitulo] = useState(page.title ?? "");
+    return (
+      <EditorProvider initialContent={page.content ?? ""}>
+        <Sonda onEditor={(e) => (editor = e)} />
+        <NotebookEditor page={page} systemId="university" title={titulo} onTitleChange={setTitulo} />
+      </EditorProvider>
+    );
+  }
+  const { unmount } = renderWithProviders(<Anfitrion />, { convex });
+  return { convex, editorDe: () => editor!, unmount };
+}
+
+/** Lo que devuelve un guardado: al editor sólo le importa la versión nueva. */
+const respuestaConVersion = (updatedAt: string) => ({ ...page, updatedAt }) as unknown as PageMutationResult;
 
 /** La página tal como la dejó otra sesión: otro texto y otra versión. */
 const deLaOtraPestaña = stubQuery(api.pages.byId, {
@@ -151,5 +175,74 @@ describe("el editor se re-sincroniza", () => {
     await waitFor(() => expect(editorDe().getHTML()).toContain("Lo de la otra pestaña"));
     // Y el rechazo no se reintenta en bucle: una sola escritura.
     expect(convex.calls).toHaveLength(1);
+  });
+});
+
+/**
+ * El editor también choca consigo mismo. El cuerpo y el título tienen
+ * temporizadores distintos, y el cierre del capítulo manda lo que quede: tres
+ * caminos que salían con la misma versión, así que el primero la movía y el
+ * segundo se estrellaba contra el propio editor. Nadie más había escrito.
+ */
+describe("dos guardados propios no se pisan entre sí", () => {
+  it("el cuerpo y el título pendientes salen en un solo guardado al cerrar el capítulo", async () => {
+    const convex = makeTestConvexClient(
+      [stubQuery(api.pages.byId, page), stubQuery(api.stickyNotes.byPage, [])],
+      [stubMutation(api.pages.update, respuestaConVersion(VERSION_NUEVA))],
+    );
+    const { editorDe, unmount } = renderComoElLayout(convex);
+    await waitFor(() => expect(editorDe()).not.toBeNull());
+
+    act(() => {
+      editorDe().commands.setContent("<p>Lo que escribí yo</p>");
+    });
+    fireEvent.change(screen.getByPlaceholderText("Sin título"), { target: { value: "Derivadas" } });
+    // Se sale del capítulo antes de que venza ningún temporizador.
+    act(() => unmount());
+
+    // Dos escrituras con la misma versión chocarían entre sí, y la segunda (el
+    // título, que es el que va detrás) se perdía sin que nadie lo viera.
+    expect(convex.calls).toHaveLength(1);
+    expect(convex.calls[0]).toMatchObject({
+      name: "pages:update",
+      args: {
+        id: page.id,
+        content: "<p>Lo que escribí yo</p>",
+        title: "Derivadas",
+        expectedUpdatedAt: VERSION,
+      },
+    });
+  });
+
+  it("un guardado que vence con otro en vuelo espera turno y hereda su versión", async () => {
+    const { stub, responder } = stubMutationPending(api.pages.update);
+    const convex = makeTestConvexClient(
+      [stubQuery(api.pages.byId, page), stubQuery(api.stickyNotes.byPage, [])],
+      [stub],
+    );
+    const { editorDe } = renderComoElLayout(convex);
+    await waitFor(() => expect(editorDe()).not.toBeNull());
+
+    // El título vence a los 400 ms y se queda esperando respuesta.
+    fireEvent.change(screen.getByPlaceholderText("Sin título"), { target: { value: "Derivadas" } });
+    await waitFor(() => expect(convex.calls).toHaveLength(1), { timeout: 2_000 });
+    expect(convex.calls[0]).toMatchObject({ args: { title: "Derivadas", expectedUpdatedAt: VERSION } });
+
+    // Mientras el primero espera, se teclea el cuerpo. Su temporizador es de
+    // 1500 ms: vence dentro de la ventana, y aun así no sale.
+    act(() => {
+      editorDe().commands.setContent("<p>Lo que escribí yo</p>");
+    });
+    await new Promise((resolve) => setTimeout(resolve, 1_800));
+    expect(convex.calls).toHaveLength(1);
+
+    // Y cuando el primero contesta, el segundo sale con la versión que devolvió,
+    // no con la que el editor tenía cuando se tecleó.
+    await act(async () => responder(respuestaConVersion(VERSION_NUEVA)));
+
+    await waitFor(() => expect(convex.calls).toHaveLength(2));
+    expect(convex.calls[1]).toMatchObject({
+      args: { content: "<p>Lo que escribí yo</p>", expectedUpdatedAt: VERSION_NUEVA },
+    });
   });
 });
