@@ -19,6 +19,7 @@ import { useDeleteSystem } from "./systems.hooks";
 import { getSystemColor } from "@/shared/utils/system-colors";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { EditSystemDialog } from "./EditSystemDialog";
+import { SystemBrainPanel } from "./SystemBrainPanel";
 import type { SystemTransport } from "./systems.types";
 import { type SystemSignals, formatStaleAdvisor } from "./systems.signals";
 import { capitalize, resolveSystemManifest } from "@/shared/lib/system-manifest";
@@ -241,6 +242,11 @@ export function SystemDetailHeader({ system, signals, landing = "tasks", initial
           <span>{staleAdvisor}</span>
         </div>
       )}
+
+      {/* El mini cerebro: lo que pasa dentro del sistema, con la fila que lo
+          respalda. Cuelga de la cabecera y no de una pestaña propia porque es
+          contexto de lo que ya se está mirando, no un sitio al que se va. */}
+      <SystemBrainPanel systemId={system.id} />
       </div>
       )}
 

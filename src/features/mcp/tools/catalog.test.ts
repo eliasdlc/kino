@@ -194,12 +194,17 @@ describe("lo que existe y no se expone", () => {
     expect(nombres).not.toContain("captures:crear");
   });
 
-  it("las cuatro están clasificadas: decidir no exponerlas es una decisión escrita", () => {
+  it("las cinco están clasificadas: decidir no exponerlas es una decisión escrita", () => {
     expect(SIN_TOOL).toEqual([
       "captures:crear",
       "captures:confirmar",
       "captures:descartar",
       "captures:pendientes",
+      "systems:brain",
     ]);
+  });
+
+  it("el mini cerebro no es una tool: el agente mira las filas, no un resumen redactado", () => {
+    expect(ALL_TOOLS.map((tool) => nombreDeFuncion(tool.ref))).not.toContain("systems:brain");
   });
 });
