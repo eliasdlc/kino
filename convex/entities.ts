@@ -127,12 +127,22 @@ export const byPage = kinoZodQuery({
   },
 });
 
-/** El universo listo para dibujar: nodos con su peso, aristas y las obras. */
-export const graph = kinoZodQuery({
-  args: { systemId: zid('systems') },
-  handler: async (ctx, { systemId }): Promise<UniverseGraph> => {
-    const userId = ctx.user._id;
+/**
+ * El grafo de un sistema. Vive fuera de la query para que `entities.test.ts`
+ * pueda contar lo que abre: es la lectura más cara del codex y, como toda
+ * suscripción, se relee entera en cada escritura que la toque.
+ *
+ * Abre tres consultas fijas y dos por entidad viva, **nunca una por capítulo**.
+ * Los documentos que se lleva son los mismos por un camino y por el otro: lo
+ * que cambia es el número de recorridos de índice y que dejan de encadenarse de
+ * uno en uno, que es lo que un universo de cientos de capítulos pagaba contra
+ * el presupuesto de 10 s de la restricción 4.
+ */
+export async function graphOf(ctx: Ctx, userId: Id<'users'>, systemId: Id<'systems'>): Promise<UniverseGraph> {
+  {
+    // Las entidades vivas del sistema: `by_system_alive` fija las dos cosas.
     const entities = await universeOf(ctx, userId, systemId);
+    // Las obras son las carpetas del sistema, acotadas por `by_system`.
     const folders = (await ctx.db.query('folders').withIndex('by_system', (q) => q.eq('systemId', systemId)).collect())
       .filter((doc) => doc.userId === userId && doc.deletedAt === undefined)
       .sort((a, b) => a.name.localeCompare(b.name));
@@ -142,12 +152,32 @@ export const graph = kinoZodQuery({
     const aliveIds = new Set<string>(entities.map((doc) => doc._id));
     const totals = new Map<string, number>();
     const worksByEntity = new Map<string, Set<string>>();
+    // Los capítulos del sistema, por `by_system`. Además de decir en qué obra
+    // cae cada mención, son el filtro: una mención a un capítulo que no esté
+    // aquí (de otro sistema, o en la papelera) no cuenta.
     const pages = (await ctx.db.query('pages').withIndex('by_system', (q) => q.eq('systemId', systemId)).collect()).filter(
       (doc) => doc.userId === userId && doc.deletedAt === undefined,
     );
-    for (const page of pages) {
-      const mentions = await ctx.db.query('pageEntityMentions').withIndex('by_page_entity', (q) => q.eq('pageId', page._id)).collect();
+    // Una consulta de menciones por entidad viva (`by_entity`) en vez de una
+    // por capítulo: el recuento es el mismo y la cuenta deja de crecer con el
+    // texto escrito.
+    const mentionsByPage = new Map<Id<'pages'>, Doc<'pageEntityMentions'>[]>();
+    for (const mentions of await Promise.all(
+      entities.map((entity) =>
+        ctx.db.query('pageEntityMentions').withIndex('by_entity', (q) => q.eq('entityId', entity._id)).collect(),
+      ),
+    )) {
       for (const mention of mentions) {
+        const rows = mentionsByPage.get(mention.pageId);
+        if (rows) rows.push(mention);
+        else mentionsByPage.set(mention.pageId, [mention]);
+      }
+    }
+    // El recuento se recorre por capítulo aunque se leyera por entidad: las
+    // obras de un nodo salen en el orden en que aparece en el sistema, y eso no
+    // puede depender de por dónde se leyó.
+    for (const page of pages) {
+      for (const mention of mentionsByPage.get(page._id) ?? []) {
         totals.set(mention.entityId, (totals.get(mention.entityId) ?? 0) + mention.mentionCount);
         if (!page.folderId) continue;
         const set = worksByEntity.get(mention.entityId) ?? new Set<string>();
@@ -155,11 +185,17 @@ export const graph = kinoZodQuery({
         worksByEntity.set(mention.entityId, set);
       }
     }
+    // Una consulta de relaciones por entidad viva, desde su origen (`by_from`),
+    // que ve cada arista una sola vez. `entityRelations` no tiene índice por
+    // sistema, así que recorrer el universo es el rango más estrecho que hay.
+    const relations = await Promise.all(
+      entities.map((entity) =>
+        ctx.db.query('entityRelations').withIndex('by_from', (q) => q.eq('fromEntityId', entity._id)).collect(),
+      ),
+    );
     const edges = [];
-    for (const entity of entities) {
-      for (const rel of await ctx.db.query('entityRelations').withIndex('by_from', (q) => q.eq('fromEntityId', entity._id)).collect()) {
-        if (aliveIds.has(rel.toEntityId)) edges.push({ id: rel._id, from: rel.fromEntityId, to: rel.toEntityId, label: rel.label ?? null });
-      }
+    for (const rel of relations.flat()) {
+      if (aliveIds.has(rel.toEntityId)) edges.push({ id: rel._id, from: rel.fromEntityId, to: rel.toEntityId, label: rel.label ?? null });
     }
     return {
       nodes: entities.map((doc) => ({
@@ -172,7 +208,13 @@ export const graph = kinoZodQuery({
       edges,
       works,
     };
-  },
+  }
+}
+
+/** El universo listo para dibujar: nodos con su peso, aristas y las obras. */
+export const graph = kinoZodQuery({
+  args: { systemId: zid('systems') },
+  handler: async (ctx, { systemId }): Promise<UniverseGraph> => graphOf(ctx, ctx.user._id, systemId),
 });
 
 // ── Escrituras ──────────────────────────────────────────────────────────────

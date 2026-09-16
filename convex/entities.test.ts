@@ -15,10 +15,52 @@ import { convexTest } from 'convex-test';
 import { describe, expect, it } from 'vitest';
 import { api } from './_generated/api';
 import type { Id } from './_generated/dataModel';
+import { graphOf } from './entities';
 import schema from './schema';
 
 const modules = import.meta.glob('./**/*.*s');
 const ana = { subject: 'user_ana', email: 'ana@usekino.dev', name: 'Ana' };
+
+interface Cuenta {
+  /** Consultas abiertas: cada una es un recorrido de índice. */
+  consultas: number;
+  /** Documentos que esas consultas se llevan, que es el I/O que se paga. */
+  documentos: number;
+}
+
+/**
+ * Envuelve el `db` de Convex para contar lo que una lectura abre. Se mete en
+ * el encadenado entero (`query().withIndex().collect()`) porque el número de
+ * consultas y el de documentos son dos cosas distintas y el ticket habla de
+ * las dos.
+ */
+function espiar<T extends object>(objetivo: T, cuenta: Cuenta): T {
+  return new Proxy(objetivo, {
+    get(destino, prop) {
+      const valor: unknown = Reflect.get(destino, prop, destino);
+      if (typeof valor !== 'function') return valor;
+      const metodo = valor as (...args: unknown[]) => unknown;
+      return (...args: unknown[]) => {
+        if (prop === 'query') cuenta.consultas++;
+        const salida = metodo.apply(destino, args);
+        if (salida instanceof Promise) {
+          return salida.then((filas: unknown) => {
+            cuenta.documentos += Array.isArray(filas) ? filas.length : filas == null ? 0 : 1;
+            return filas;
+          });
+        }
+        return typeof salida === 'object' && salida !== null ? espiar(salida, cuenta) : salida;
+      };
+    },
+  });
+}
+
+/** El grafo de un sistema, con la cuenta de lo que hizo falta leer. */
+async function medir(t: ReturnType<typeof convexTest>, userId: Id<'users'>, systemId: Id<'systems'>) {
+  const cuenta: Cuenta = { consultas: 0, documentos: 0 };
+  const grafo = await t.run((ctx) => graphOf({ ...ctx, db: espiar(ctx.db, cuenta) }, userId, systemId));
+  return { ...cuenta, grafo };
+}
 
 /**
  * Un universo con dos obras, tres entidades vivas y una en la papelera, cuatro
@@ -52,6 +94,9 @@ async function sembrar(t: ReturnType<typeof convexTest>) {
   await as.mutation(api.pages.create, { systemId: novela.id, folderId: elAlba.id, title: 'Dos', content: '<p>Marta camina sola.</p>' });
   await as.mutation(api.pages.create, { systemId: novela.id, title: 'Tres', content: '<p>Obsidiana brilla en la cueva.</p>' });
   const enPapelera = await as.mutation(api.pages.create, { systemId: novela.id, folderId: zafiro.id, title: 'Cuatro', content: '<p>Luis desaparece.</p>' });
+  // Un capítulo que no nombra a nadie, para que el número de capítulos vivos no
+  // coincida con el de entidades y la medida no se lea sola.
+  await as.mutation(api.pages.create, { systemId: novela.id, folderId: elAlba.id, title: 'Cinco', content: '<p>La lluvia no deja dormir.</p>' });
   const capituloVecino = await as.mutation(api.pages.create, { systemId: vecina.id, folderId: vecinaUno.id, title: 'Vecino', content: '<p>Marta y Sombra cruzan el puente.</p>' });
   for (const n of [1, 2, 3, 4, 5]) {
     await as.mutation(api.pages.create, { systemId: vecina.id, folderId: vecinaUno.id, title: `Vecino ${n}`, content: '<p>Sombra vuelve con Marta.</p>' });
@@ -131,5 +176,43 @@ describe('el grafo del universo', () => {
       mentionCount: 3,
       workIds: [s.zafiro.id, s.elAlba.id],
     });
+  });
+});
+
+describe('lo que el grafo lee', () => {
+  it('no crece con los capítulos del sistema: lo fijan sus entidades', async () => {
+    const t = convexTest(schema, modules);
+    const s = await sembrar(t);
+
+    const antes = await medir(t, s.userId, s.novelaId);
+    // El espía mide la misma lectura que sirve la query, no una copia suya.
+    expect(antes.grafo).toEqual(await s.as.query(api.entities.graph, { systemId: s.novelaId }));
+    // Tres consultas fijas (entidades, obras, capítulos) y dos por entidad
+    // viva: sus menciones y sus relaciones.
+    expect(antes.consultas).toBe(3 + 2 * 3);
+
+    for (const n of [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12]) {
+      await s.as.mutation(api.pages.create, { systemId: s.novelaId, title: `Capítulo ${n}`, content: '<p>Marta insiste.</p>' });
+    }
+
+    const despues = await medir(t, s.userId, s.novelaId);
+    expect(despues.consultas).toBe(antes.consultas);
+    // Los doce capítulos nuevos y sus doce menciones sí se leen, pero dentro de
+    // las consultas que ya había: eso es acotar el rango, no dejar de mirar.
+    expect(despues.documentos).toBe(antes.documentos + 24);
+    expect(despues.grafo.nodes.find((n) => n.id === s.marta.id)?.mentionCount).toBe(15);
+  });
+
+  it('no toca ninguna fila del sistema vecino', async () => {
+    const t = convexTest(schema, modules);
+    const s = await sembrar(t);
+
+    const { documentos } = await medir(t, s.userId, s.novelaId);
+    // Las filas de la Novela, una a una: 3 entidades vivas, 2 obras, 5
+    // capítulos (uno en la papelera, que sigue siendo una fila), 4 menciones y
+    // 4 relaciones que salen de sus entidades. La Vecina tiene 3 entidades, 2
+    // obras, 6 capítulos, sus menciones y sus relaciones, y ninguna de esas
+    // filas entra en esta cuenta.
+    expect(documentos).toBe(3 + 2 + 5 + 4 + 4);
   });
 });
