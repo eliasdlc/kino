@@ -180,3 +180,41 @@ describe('la columna terminal', () => {
   });
 });
 
+describe('el sitio de una tarjeta nueva', () => {
+  // La petición pide del más viejo al más nuevo para que el cursor avance. Si
+  // el sitio saliera de ese bucle, el tablero nacería al revés.
+  it('sale del número del issue, no del orden en que GitHub los devolvió', async () => {
+    const { t, userId, kino } = await seed();
+
+    await t.mutation(internal.githubData.applySync, {
+      userId,
+      systemId: kino,
+      truncated: false,
+      syncedThrough: Date.now(),
+      issues: [issue({ id: 1, number: 1, title: 'El más viejo' }), issue({ id: 2, number: 2, title: 'El más nuevo' })],
+    });
+
+    const tareas = await t.run((ctx) => ctx.db.query('tasks').collect());
+    const viejo = tareas.find((doc) => doc.externalId === '1')!;
+    const nuevo = tareas.find((doc) => doc.externalId === '2')!;
+    expect(nuevo.sortIndex).toBeLessThan(viejo.sortIndex);
+  });
+
+  it('los sprints se ordenan por el milestone, no por el issue que lo mencionó primero', async () => {
+    const { t, userId, kino } = await seed();
+    const hito = (id: number, title: string) => ({ id, title, description: null, dueOn: null, state: 'open' as const });
+
+    await t.mutation(internal.githubData.applySync, {
+      userId,
+      systemId: kino,
+      truncated: false,
+      syncedThrough: Date.now(),
+      issues: [issue({ id: 1, number: 1, milestone: hito(20, 'Sprint 2') }), issue({ id: 2, number: 2, milestone: hito(10, 'Sprint 1') })],
+    });
+
+    const sprints = await t.run((ctx) => ctx.db.query('sprints').collect());
+    const primero = sprints.find((s) => s.externalId === '10')!;
+    const segundo = sprints.find((s) => s.externalId === '20')!;
+    expect(primero.sortOrder).toBeLessThan(segundo.sortOrder);
+  });
+});

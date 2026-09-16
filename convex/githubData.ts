@@ -152,12 +152,14 @@ export const applySync = internalMutation({
     const typed = issues as GithubIssue[];
 
     // Un sprint por milestone; reimportar actualiza el nombre, nunca el estado.
+    // El orden sale del id del milestone, que crece con su creación, y no del
+    // orden en que los issues los mencionan: así dos refrescos de la misma
+    // respuesta en distinto sentido dejan los sprints en la misma fila.
     const sprintIdByMilestone = new Map<number, Id<'sprints'>>();
     let sprintsCreated = 0;
     const sprints = await ctx.db.query('sprints').withIndex('by_system_status', (q) => q.eq('systemId', systemId)).collect();
-    for (const issue of typed) {
-      const milestone = issue.milestone;
-      if (!milestone || sprintIdByMilestone.has(milestone.id)) continue;
+    const milestones = new Map(typed.flatMap((issue) => (issue.milestone ? [[issue.milestone.id, issue.milestone] as const] : [])));
+    for (const milestone of [...milestones.values()].sort((a, b) => a.id - b.id)) {
       const externalId = String(milestone.id);
       const existing = sprints.find((s) => s.externalId === externalId);
       if (existing) {
@@ -199,7 +201,17 @@ export const applySync = internalMutation({
       const previa = existingByExternal.get(task.externalId);
       existingByExternal.set(task.externalId, previa ? gemelaQueManda(previa, task) : task);
     }
-    let sortBase = Math.max(-1, ...tasks.map((t) => t.sortIndex)) + 1;
+    const sortBase = Math.max(-1, ...tasks.map((t) => t.sortIndex)) + 1;
+    // El sitio de una tarjeta nueva sale del número del issue, no del orden en
+    // que GitHub la devolvió: la petición pide del más viejo al más nuevo para
+    // que el cursor avance, y si el sitio saliera del bucle el tablero nacería
+    // al revés. Número alto (issue más nuevo) arriba, que es donde estaba antes
+    // de que la petición cambiara de sentido.
+    const sitioPorIssue = new Map(
+      [...typed]
+        .sort((a, b) => b.number - a.number)
+        .map((issue, posicion) => [issue.id, sortBase + posicion] as const),
+    );
 
     let imported = 0;
     let updated = 0;
@@ -235,7 +247,7 @@ export const applySync = internalMutation({
           sprintId,
           externalSource: GITHUB_SOURCE,
           externalId,
-          sortIndex: sortBase++,
+          sortIndex: sitioPorIssue.get(issue.id) ?? sortBase,
           inTodayPlan: false,
           notifiedBeforeDay: false,
           notifiedDueDay: false,
