@@ -58,6 +58,24 @@ describe("GithubRepoPanelView", () => {
     expect(screen.getByRole("button", { name: /Sincronizando/i })).toBeDisabled();
   });
 
+  // El trabajo en curso se cuenta en la etiqueta, como el botón de arriba: el
+  // panel no tiene dónde poner una animación que gire sin decir nada.
+  it("mientras trae el repositorio entero lo dice en la etiqueta y no deja disparar otra vez", () => {
+    renderWithProviders(
+      <GithubRepoPanelView state={{ kind: "linked", repo: REPO, revoked: false }} syncing syncingAll />,
+    );
+
+    expect(screen.getByRole("button", { name: /Pidiendo el repositorio entero/i })).toBeDisabled();
+    // Y el de cada día no se disfraza del otro.
+    expect(screen.getByRole("button", { name: /^Sincronizar$/i })).toBeDisabled();
+  });
+
+  it("con el token caducado tampoco deja pedir el repositorio entero", () => {
+    renderWithProviders(<GithubRepoPanelView state={{ kind: "linked", repo: REPO, revoked: true }} />);
+
+    expect(screen.getByRole("button", { name: /Pídelo desde el principio/i })).toBeDisabled();
+  });
+
   it("cuando no se pudo comprobar la conexión lo dice y deja reintentar", async () => {
     const onRetry = vi.fn();
     renderWithProviders(<GithubRepoPanelView state={{ kind: "error" }} onRetry={onRetry} />);

@@ -25,9 +25,12 @@ export type RepoPanelState =
 export interface GithubRepoPanelViewProps {
   state: RepoPanelState;
   syncing?: boolean;
+  /** El refresco en curso es el que ignora el cursor, no el de cada día. */
+  syncingAll?: boolean;
   linking?: boolean;
   onLink?: (fullName: string) => void;
   onSync?: () => void;
+  onSyncAll?: () => void;
   onUnlink?: () => void;
   onRetry?: () => void;
 }
@@ -35,9 +38,11 @@ export interface GithubRepoPanelViewProps {
 export function GithubRepoPanelView({
   state,
   syncing = false,
+  syncingAll = false,
   linking = false,
   onLink,
   onSync,
+  onSyncAll,
   onUnlink,
   onRetry,
 }: GithubRepoPanelViewProps) {
@@ -94,30 +99,50 @@ export function GithubRepoPanelView({
   }
 
   return (
-    <div className="flex flex-wrap items-center gap-2 rounded-lg border px-3 py-2">
-      <GitBranch className="size-4 shrink-0 text-muted-foreground" />
-      <span className="min-w-0 flex-1 truncate text-sm">
-        {state.repo.owner}/{state.repo.repo}
-        {state.revoked && (
-          <span className="ml-2 text-xs text-destructive">
-            token caducado: reconecta en Ajustes
-          </span>
-        )}
-      </span>
-      <Button
-        variant="ghost"
-        size="sm"
-        disabled={syncing || state.revoked}
-        onClick={onSync}
-      >
-        <RefreshCw
-          className={`mr-1.5 size-3.5 ${syncing ? "animate-spin" : ""}`}
-        />
-        {syncing ? "Sincronizando…" : "Sincronizar"}
-      </Button>
-      <Button variant="ghost" size="sm" onClick={onUnlink}>
-        Desenlazar
-      </Button>
+    <div className="flex flex-col gap-1.5 rounded-lg border px-3 py-2">
+      <div className="flex flex-wrap items-center gap-2">
+        <GitBranch className="size-4 shrink-0 text-muted-foreground" />
+        <span className="min-w-0 flex-1 truncate text-sm">
+          {state.repo.owner}/{state.repo.repo}
+          {state.revoked && (
+            <span className="ml-2 text-xs text-destructive">
+              token caducado: reconecta en Ajustes
+            </span>
+          )}
+        </span>
+        <Button
+          variant="ghost"
+          size="sm"
+          disabled={syncing || state.revoked}
+          onClick={onSync}
+        >
+          <RefreshCw
+            className={`mr-1.5 size-3.5 ${syncing ? "animate-spin" : ""}`}
+          />
+          {syncing && !syncingAll ? "Sincronizando…" : "Sincronizar"}
+        </Button>
+        <Button variant="ghost" size="sm" onClick={onUnlink}>
+          Desenlazar
+        </Button>
+      </div>
+
+      {/* La salida de emergencia, no la acción de cada día: va debajo, en una
+          línea que dice lo que cuesta antes de pulsarla. El trabajo en curso se
+          cuenta en la etiqueta, como en el botón de arriba. */}
+      <p className="pl-6 text-xs text-muted-foreground">
+        ¿Faltan issues viejos?{" "}
+        <Button
+          variant="link"
+          size="sm"
+          className="h-auto p-0 text-xs font-normal"
+          disabled={syncing || state.revoked}
+          onClick={onSyncAll}
+        >
+          {syncingAll ? "Pidiendo el repositorio entero…" : "Pídelo desde el principio"}
+        </Button>
+        . Deja de contar desde el último refresco y vuelve a leer el repositorio
+        entero, así que tarda más que sincronizar.
+      </p>
     </div>
   );
 }

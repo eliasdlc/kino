@@ -73,9 +73,25 @@ export function useUnlinkRepo(systemId: string) {
   return useConvexMutation(api.githubData.unlinkRepo, { map: () => ({ id: systemId }) });
 }
 
+/** Lo que distingue un refresco del otro. Sin él, el de cada día. */
+export interface SyncGithubInput {
+  /**
+   * Ignora hasta dónde llegó el último refresco y vuelve a pedir el
+   * repositorio desde el principio. Es la salida cuando el cursor se quedó por
+   * detrás de issues que ya no vuelven solos.
+   */
+  refrescoCompleto?: boolean;
+}
+
 /** Dispara la sincronización. Las tareas y sprints del board llegan solos por suscripción. */
 export function useSyncGithub(systemId: string) {
-  return useConvexAction(api.github.sync, { map: () => ({ id: systemId }) });
+  return useConvexAction(api.github.sync, {
+    // La clave sólo viaja cuando toca: así el refresco de cada día manda
+    // exactamente los mismos argumentos que mandaba antes de que existiera el
+    // completo.
+    map: (input: SyncGithubInput | undefined) =>
+      input?.refrescoCompleto ? { id: systemId, refrescoCompleto: true } : { id: systemId },
+  });
 }
 
 /**

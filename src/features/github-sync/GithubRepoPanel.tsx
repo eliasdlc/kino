@@ -29,7 +29,7 @@ export function GithubRepoPanel({ systemId, metadata }: GithubRepoPanelProps) {
   const { data: connection, isLoading, error, refetch } = useGithubConnection();
   const { mutate: link, isPending: linking } = useLinkRepo(systemId);
   const { mutate: unlink } = useUnlinkRepo(systemId);
-  const { mutate: sync, isPending: syncing } = useSyncGithub(systemId);
+  const { mutate: sync, isPending: syncing, variables: refresco } = useSyncGithub(systemId);
 
   const [confirmOpen, setConfirmOpen] = React.useState(false);
   const repo = metadata?.github;
@@ -67,6 +67,9 @@ export function GithubRepoPanel({ systemId, metadata }: GithubRepoPanelProps) {
       <GithubRepoPanelView
         state={state}
         syncing={syncing}
+        // Cuál de los dos refrescos está en curso sale de los argumentos con los
+        // que se disparó, no de un segundo estado que se pueda desincronizar.
+        syncingAll={syncing && refresco?.refrescoCompleto === true}
         linking={linking}
         onLink={(fullName) =>
           link(
@@ -82,6 +85,15 @@ export function GithubRepoPanel({ systemId, metadata }: GithubRepoPanelProps) {
             onSuccess: (r) => toast.success(describeSyncResult(r)),
             onError: (err) => toast.error(err.message),
           })
+        }
+        onSyncAll={() =>
+          sync(
+            { refrescoCompleto: true },
+            {
+              onSuccess: (r) => toast.success(describeSyncResult(r)),
+              onError: (err) => toast.error(err.message),
+            },
+          )
         }
         onUnlink={() => setConfirmOpen(true)}
       />
