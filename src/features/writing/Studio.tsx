@@ -1,9 +1,7 @@
 "use client";
 
-import Link from "next/link";
 import { useState } from "react";
 import {
-  ArrowRight,
   CheckCircle2,
   Clock,
   Flame,
@@ -14,8 +12,9 @@ import {
   type LucideIcon,
 } from "lucide-react";
 import { EntityFicheSheet } from "@/features/entities/EntityFicheSheet";
+import { SuggestionList, type SuggestionEmptyState } from "@/shared/suggestions/SuggestionList";
 import { useStudio } from "./writing.hooks";
-import type { Suggestion, SuggestionKind } from "./studio";
+import type { SuggestionKind, WritingSuggestion } from "./studio";
 
 /**
  * El estudio (KIN-143): la inteligencia de escritura dentro de la app, sin LLM.
@@ -33,6 +32,18 @@ const ICON: Record<SuggestionKind, LucideIcon> = {
   "peak-window": Flame,
   "loose-threads": Scissors,
   "first-step": Sparkles,
+};
+
+/**
+ * Hay datos y ninguna regla llegó a su umbral. No es lo mismo que un sistema sin
+ * empezar, que aquí no puede pasar: sin un solo capítulo, las reglas proponen el
+ * primer paso en vez de devolver la lista vacía.
+ */
+const NADA_QUE_SENALAR: SuggestionEmptyState = {
+  icon: CheckCircle2,
+  title: "Nada que señalar",
+  description:
+    "Ninguna obra parada, ningún capítulo a medias y ningún hilo suelto. Escribe lo que te apetezca.",
 };
 
 export function Studio({ systemId }: { systemId: string }) {
@@ -61,26 +72,12 @@ export function Studio({ systemId }: { systemId: string }) {
           </p>
         </div>
 
-        {suggestions.length === 0 ? (
-          <div className="flex items-center gap-3 rounded-xl border border-border bg-card px-4 py-3">
-            <CheckCircle2 className="size-4 shrink-0 text-muted-foreground" />
-            <p className="text-sm font-medium">Nada que señalar</p>
-            <p className="mt-1 text-sm text-muted-foreground">
-              Ninguna obra parada, ningún capítulo a medias y ningún hilo suelto.
-              Escribe lo que te apetezca.
-            </p>
-          </div>
-        ) : (
-          <ul className="space-y-2">
-            {suggestions.map((suggestion) => (
-              <SuggestionRow
-                key={suggestion.kind}
-                suggestion={suggestion}
-                systemId={systemId}
-              />
-            ))}
-          </ul>
-        )}
+        <SuggestionList<WritingSuggestion>
+          suggestions={suggestions}
+          quiet={NADA_QUE_SENALAR}
+          iconFor={(suggestion) => ICON[suggestion.kind]}
+          hrefFor={(suggestion) => targetHref(suggestion, systemId)}
+        />
       </section>
 
       {gaps.length > 0 && (
@@ -125,45 +122,7 @@ export function Studio({ systemId }: { systemId: string }) {
   );
 }
 
-function SuggestionRow({
-  suggestion,
-  systemId,
-}: {
-  suggestion: Suggestion;
-  systemId: string;
-}) {
-  const Icon = ICON[suggestion.kind];
-  const href = targetHref(suggestion, systemId);
-
-  const body = (
-    <>
-      <Icon className="mt-0.5 size-4 shrink-0 text-muted-foreground" />
-      <div className="min-w-0 flex-1">
-        <p className="text-sm font-medium">{suggestion.title}</p>
-        {/* El porqué siempre visible: sin el dato, esto sería una corazonada. */}
-        <p className="mt-0.5 text-sm text-muted-foreground">{suggestion.reason}</p>
-      </div>
-      {href && <ArrowRight className="mt-0.5 size-4 shrink-0 text-muted-foreground" />}
-    </>
-  );
-
-  return (
-    <li>
-      {href ? (
-        <Link
-          href={href}
-          className="flex items-start gap-3 rounded-xl border border-border bg-card p-3 transition-colors hover:bg-accent/40"
-        >
-          {body}
-        </Link>
-      ) : (
-        <div className="flex items-start gap-3 rounded-xl border border-border bg-card p-3">{body}</div>
-      )}
-    </li>
-  );
-}
-
-function targetHref(suggestion: Suggestion, systemId: string): string | null {
+function targetHref(suggestion: WritingSuggestion, systemId: string): string | null {
   const target = suggestion.target;
   if (!target) return null;
   if (target.kind === "page") return `/systems/${systemId}/pages/${target.id}`;

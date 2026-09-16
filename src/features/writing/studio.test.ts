@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { buildSuggestions, type StudioSignals } from "./studio";
+import { buildWritingSuggestions, type StudioSignals } from "./studio";
 
 function signals(over: Partial<StudioSignals> = {}): StudioSignals {
   return {
@@ -15,19 +15,19 @@ function signals(over: Partial<StudioSignals> = {}): StudioSignals {
   };
 }
 
-const kinds = (input: StudioSignals) => buildSuggestions(input).map((s) => s.kind);
+const kinds = (input: StudioSignals) => buildWritingSuggestions(input).map((s) => s.kind);
 
-describe("buildSuggestions", () => {
+describe("buildWritingSuggestions", () => {
   it("sin nada escrito solo propone empezar", () => {
     expect(kinds(signals({ hasAnyChapter: false }))).toEqual(["first-step"]);
   });
 
   it("un sistema sin señales no inventa sugerencias", () => {
-    expect(buildSuggestions(signals())).toEqual([]);
+    expect(buildWritingSuggestions(signals())).toEqual([]);
   });
 
   it("retomar lo que quedó a medias va primero", () => {
-    const out = buildSuggestions(
+    const out = buildWritingSuggestions(
       signals({
         openChapter: {
           pageId: "p1",
@@ -47,7 +47,7 @@ describe("buildSuggestions", () => {
   it("cada sugerencia trae su porqué comprobable", () => {
     // Números por debajo del millar: el separador depende del ICU del entorno y
     // lo que se prueba aquí es que la razón cite el dato, no cómo se formatea.
-    const out = buildSuggestions(signals({ dailyWordGoal: 800, wordsToday: 400 }));
+    const out = buildWritingSuggestions(signals({ dailyWordGoal: 800, wordsToday: 400 }));
     expect(out[0]!.reason).toContain("400");
     expect(out[0]!.reason).toContain("800");
   });
@@ -60,17 +60,17 @@ describe("buildSuggestions", () => {
   });
 
   it("cuanto más parada, más arriba", () => {
-    const poco = buildSuggestions(
+    const poco = buildWritingSuggestions(
       signals({ staleWork: { folderId: "f", name: "O", daysSinceLastSession: 3 } }),
     )[0]!;
-    const mucho = buildSuggestions(
+    const mucho = buildWritingSuggestions(
       signals({ staleWork: { folderId: "f", name: "O", daysSinceLastSession: 20 } }),
     )[0]!;
     expect(mucho.weight).toBeGreaterThan(poco.weight);
   });
 
   it("la meta cumplida se celebra en vez de exigir más", () => {
-    const out = buildSuggestions(signals({ dailyWordGoal: 500, wordsToday: 900 }));
+    const out = buildWritingSuggestions(signals({ dailyWordGoal: 500, wordsToday: 900 }));
     expect(out[0]!.title).toContain("cumplida");
   });
 
@@ -79,10 +79,10 @@ describe("buildSuggestions", () => {
   });
 
   it("estar dentro de la ventana creativa sube su prioridad", () => {
-    const dentro = buildSuggestions(
+    const dentro = buildWritingSuggestions(
       signals({ peakWindow: { start: 9, end: 11 }, currentHour: 10 }),
     )[0]!;
-    const fuera = buildSuggestions(
+    const fuera = buildWritingSuggestions(
       signals({ peakWindow: { start: 9, end: 11 }, currentHour: 18 }),
     )[0]!;
     expect(dentro.weight).toBeGreaterThan(fuera.weight);
@@ -91,8 +91,8 @@ describe("buildSuggestions", () => {
   });
 
   it("los hilos sueltos se cuentan en singular y en plural", () => {
-    expect(buildSuggestions(signals({ looseThreadCount: 1 }))[0]!.title).toContain("1 hilo suelto");
-    expect(buildSuggestions(signals({ looseThreadCount: 4 }))[0]!.title).toContain("4 hilos sueltos");
+    expect(buildWritingSuggestions(signals({ looseThreadCount: 1 }))[0]!.title).toContain("1 hilo suelto");
+    expect(buildWritingSuggestions(signals({ looseThreadCount: 4 }))[0]!.title).toContain("4 hilos sueltos");
   });
 
   it("el orden es estable entre llamadas iguales", () => {
