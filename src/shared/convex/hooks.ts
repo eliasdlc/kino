@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useAction, useConvexAuth, useMutation } from "convex/react";
+import type { OptimisticUpdate } from "convex/browser";
 import { useQuery } from "convex-helpers/react/cache";
 import type { FunctionArgs, FunctionReference, FunctionReturnType } from "convex/server";
 import type { Args } from "./loose";
@@ -152,13 +153,22 @@ function useMutationState<TData, TVariables>(
   };
 }
 
-/** Una mutación. `map` traduce las variables del componente a los argumentos de la función. */
+/**
+ * Una mutación. `map` traduce las variables del componente a los argumentos de
+ * la función. `optimisticUpdate` reescribe las queries locales con el resultado
+ * esperado en el mismo tick en que se llama: lo que se ve cambia al instante y
+ * el servidor sólo confirma. Convex lo deshace solo si la mutación falla.
+ */
 export function useConvexMutation<M extends FunctionReference<"mutation">, TVariables = Args<M>>(
   mutation: M,
-  options: MutationCallbacks<FunctionReturnType<M>, TVariables> & { map?: (variables: TVariables) => Args<M> } = {},
+  options: MutationCallbacks<FunctionReturnType<M>, TVariables> & {
+    map?: (variables: TVariables) => Args<M>;
+    optimisticUpdate?: OptimisticUpdate<FunctionArgs<M>>;
+  } = {},
 ): MutationResult<FunctionReturnType<M>, TVariables> {
-  const fn = useMutation(mutation);
-  const { map } = options;
+  const base = useMutation(mutation);
+  const { map, optimisticUpdate } = options;
+  const fn = optimisticUpdate ? base.withOptimisticUpdate(optimisticUpdate) : base;
   return useMutationState((variables: TVariables) => fn((map ? map(variables) : variables) as FunctionArgs<M>), options);
 }
 

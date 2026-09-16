@@ -1,8 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { X, Layers, Lightbulb, Loader2, MoreHorizontal, PanelLeft, PanelRight, PinOff, Pencil, Trash2 } from "lucide-react";
-import { Button } from "@/components/ui/button";
+import { X, Layers, LayoutGrid, Lightbulb, MoreHorizontal, PanelLeft, PanelRight, Pencil, Trash2 } from "lucide-react";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -17,6 +16,7 @@ import {
   ContextMenuSeparator,
   ContextMenuTrigger,
 } from "@/components/ui/context-menu";
+import { cn } from "@/lib/utils";
 import { useSharedEditor } from "@/features/pages/EditorContext";
 import { useUpdateStickyNote, useDeleteStickyNote } from "./sticky-notes.hooks";
 import { removeAnchorMark, isAnnotationAnchor } from "./anchor-utils";
@@ -33,140 +33,28 @@ interface StickyNoteCardProps {
    * encima de otra, y existe donde el arrastre no llega: el teléfono.
    */
   onStack?: () => void;
-  /**
-   * La nota flota sobre el texto. Ahí la tarjeta se acota: los 500 caracteres
-   * que el schema permite se pintaban en 573 px de alto sobre 176 de ancho y
-   * se comían la página. En la rejilla no hace falta, porque la rejilla fluye.
-   */
-  compact?: boolean;
 }
 
-const EDIT_POPOVER_W = 300;
-const EDIT_POPOVER_H_EST = 260;
-const EDIT_MARGIN = 8;
-
-function editPopoverStyle(anchor: { x: number; y: number }): React.CSSProperties {
-  if (typeof window === "undefined") return { left: anchor.x, top: anchor.y };
-  const left = Math.min(Math.max(EDIT_MARGIN, anchor.x), window.innerWidth - EDIT_POPOVER_W - EDIT_MARGIN);
-  const top =
-    anchor.y + EDIT_POPOVER_H_EST > window.innerHeight - EDIT_MARGIN
-      ? Math.max(EDIT_MARGIN, anchor.y - EDIT_POPOVER_H_EST)
-      : anchor.y;
-  return { left, top, width: EDIT_POPOVER_W };
-}
-
-function EditOverlay({
-  note,
-  context,
-  anchorPoint,
-  onClose,
-}: {
-  note: StickyNoteItem;
-  context: { pageId?: string; folderId?: string };
-  anchorPoint: { x: number; y: number };
-  onClose: () => void;
-}) {
-  const { mutate: updateNote, isPending } = useUpdateStickyNote(context);
-  const [title, setTitle] = useState(note.title ?? "");
-  const [content, setContent] = useState(note.content ?? "");
-  const [color, setColor] = useState(note.color);
-  const colors = STICKY_NOTE_COLORS[color] ?? STICKY_NOTE_COLORS.yellow!;
-
-  useEffect(() => {
-    function onKey(e: KeyboardEvent) {
-      if (e.key === "Escape") onClose();
-    }
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, [onClose]);
-
-  function handleSave() {
-    updateNote(
-      { noteId: note.id, data: { title: title || null, content: content || null, color: color as never } },
-      { onSuccess: onClose }
-    );
-  }
-
-  return (
-    <>
-      {/* Backdrop transparente: cierra al hacer click fuera sin tapar la página. */}
-      <div className="fixed inset-0 z-(--z-modal)" onClick={onClose} />
-
-      <div
-        className="fixed z-(--z-modal) rounded-2xl shadow-2xl border border-border bg-white dark:bg-card p-3 space-y-3"
-        style={editPopoverStyle(anchorPoint)}
-        onClick={(e) => e.stopPropagation()}
-      >
-        <div
-          className="rounded-lg p-3 flex flex-col gap-1"
-          style={{ ...paperStyle(colors.hex), color: colors.textHex }}
-        >
-          <input
-            autoFocus
-            type="text"
-            placeholder="Título..."
-            value={title}
-            onChange={(e) => setTitle(e.target.value)}
-            maxLength={200}
-            className="bg-transparent outline-none text-base font-semibold placeholder:opacity-30 w-full"
-            style={{ color: colors.textHex }}
-          />
-          <textarea
-            placeholder="Escribe aquí..."
-            value={content}
-            onChange={(e) => setContent(e.target.value)}
-            maxLength={500}
-            rows={3}
-            className="bg-transparent outline-none resize-none placeholder:opacity-30 w-full text-sm leading-relaxed"
-            style={{ color: colors.textHex }}
-          />
-        </div>
-
-        <div className="flex gap-2 flex-wrap px-0.5">
-          {COLOR_PICKER_OPTIONS.map((c) => {
-            const cls = STICKY_NOTE_COLORS[c]!;
-            return (
-              <button
-                key={c}
-                type="button"
-                onClick={() => setColor(c as typeof color)}
-                aria-label={c}
-                className="size-6 rounded-full transition-all"
-                style={{
-                  backgroundColor: cls.hex,
-                  border: `2.5px solid ${color === c ? "#00000055" : "transparent"}`,
-                  transform: color === c ? "scale(1.2)" : "scale(1)",
-                }}
-              />
-            );
-          })}
-        </div>
-
-        <div className="flex gap-2">
-          <Button variant="outline" size="sm" className="flex-1" onClick={onClose} disabled={isPending}>
-            Cancelar
-          </Button>
-          <Button size="sm" className="flex-1" onClick={handleSave} disabled={isPending}>
-            {isPending && <Loader2 className="size-3.5 animate-spin mr-1.5" />}
-            {isPending ? "Guardando..." : "Guardar"}
-          </Button>
-        </div>
-      </div>
-    </>
-  );
-}
-
-/** Alto máximo de una nota que flota sobre el texto, en px. */
-const COMPACT_MAX_H = 168;
-
-export function StickyNoteCard({ note, context, onStack, compact }: StickyNoteCardProps) {
+/**
+ * La nota es un cuadrado de lado fijo, flote sobre el texto o esté en la
+ * cuadrícula: el mismo papel en los dos sitios, y por eso arrastrarla de uno al
+ * otro no la cambia de forma. Lo que no cabe se recorta y la nota avisa.
+ *
+ * Se edita sobre el propio papel: pulsarla cambia el texto por sus dos campos
+ * en el mismo sitio, y la bandeja de colores sale por detrás. Se guarda al
+ * pulsar fuera, con Escape o con Ctrl+Enter; el color se aplica al elegirlo.
+ */
+export function StickyNoteCard({ note, context, onStack }: StickyNoteCardProps) {
   const { mutate: removeNote } = useDeleteStickyNote(context);
   const { mutate: updateNote } = useUpdateStickyNote(context);
   const editor = useSharedEditor();
-  const [editAnchor, setEditAnchor] = useState<{ x: number; y: number } | null>(null);
-  const cardRef = useRef<HTMLDivElement>(null);
+  const wrapperRef = useRef<HTMLDivElement>(null);
   const bodyRef = useRef<HTMLDivElement>(null);
+  const contentRef = useRef<HTMLTextAreaElement>(null);
   const [recortada, setRecortada] = useState(false);
+  const [editando, setEditando] = useState(false);
+  const [title, setTitle] = useState("");
+  const [content, setContent] = useState("");
   const colors = STICKY_NOTE_COLORS[note.color] ?? STICKY_NOTE_COLORS.yellow!;
   const { lit, light } = useAnchorHighlight();
 
@@ -175,28 +63,76 @@ export function StickyNoteCard({ note, context, onStack, compact }: StickyNoteCa
   const anota =
     !!note.anchorId && !!editor && isAnnotationAnchor(editor.state.doc, note.anchorId);
   const encendida = anota && lit === note.anchorId;
-  const editando = editAnchor !== null;
 
-  // Con el editor de la nota abierto, su frase se queda encendida. Es lo único
-  // que da la pareja exacta sin puntero, y en el teléfono no hay puntero: ahí
-  // abrir la nota es el gesto que dice cuál de las frases comenta.
+  function empezarAEditar() {
+    if (editando) return;
+    setTitle(note.title ?? "");
+    setContent(note.content ?? "");
+    setEditando(true);
+  }
+
+  /** Cierra la edición y guarda lo que cambió. Un texto vacío borra el campo. */
+  function terminar() {
+    setEditando(false);
+    const nextTitle = title.trim() || null;
+    const nextContent = content.trim() || null;
+    if (nextTitle === (note.title ?? null) && nextContent === (note.content ?? null)) return;
+    updateNote({ noteId: note.id, data: { title: nextTitle, content: nextContent } });
+  }
+  // La última versión de `terminar`, legible desde los listeners del documento.
+  const terminarRef = useRef(terminar);
+  useEffect(() => {
+    terminarRef.current = terminar;
+  });
+
+  // Pulsar fuera de la nota o Escape la cierra guardando. Van en captura para
+  // que un click que abre otra cosa (otra nota, el texto) también cierre ésta.
+  useEffect(() => {
+    if (!editando) return;
+    function fuera(e: PointerEvent) {
+      if (!wrapperRef.current?.contains(e.target as Node)) terminarRef.current();
+    }
+    function tecla(e: KeyboardEvent) {
+      if (e.key === "Escape") terminarRef.current();
+    }
+    document.addEventListener("pointerdown", fuera, true);
+    window.addEventListener("keydown", tecla);
+    return () => {
+      document.removeEventListener("pointerdown", fuera, true);
+      window.removeEventListener("keydown", tecla);
+    };
+  }, [editando]);
+
+  // El cursor entra al final del texto, que es donde se sigue escribiendo. Sin
+  // desplazar: una nota que asoma por un borde no arrastra el cuaderno con ella.
+  useEffect(() => {
+    if (!editando) return;
+    const el = contentRef.current;
+    if (!el) return;
+    el.focus({ preventScroll: true });
+    el.setSelectionRange(el.value.length, el.value.length);
+  }, [editando]);
+
+  // Con la nota abierta, su frase se queda encendida. Es lo único que da la
+  // pareja exacta sin puntero, y en el teléfono no hay puntero: ahí abrir la
+  // nota es el gesto que dice cuál de las frases comenta.
   useEffect(() => {
     if (!anota || !editando) return;
     light(note.anchorId);
     return () => light(null);
   }, [anota, editando, light, note.anchorId]);
 
-  // Si el texto no cabe en el tope. Se mide en vez de contar caracteres: lo que
-  // cabe depende de la letra del sistema, que el usuario cambia.
+  // Si el texto no cabe en el cuadrado. Se mide en vez de contar caracteres:
+  // lo que cabe depende de la letra del sistema, que el usuario cambia.
   useEffect(() => {
     const el = bodyRef.current;
-    if (!compact || !el) return;
+    if (!el) return;
     const medir = () => setRecortada(el.scrollHeight > el.clientHeight + 1);
     medir();
     const ro = new ResizeObserver(medir);
     ro.observe(el);
     return () => ro.disconnect();
-  }, [compact, note.title, note.content]);
+  }, [note.title, note.content, note.isEureka, editando]);
 
   /**
    * Borrar la nota le quita también su marca al texto. Una marca sin nota no
@@ -229,66 +165,133 @@ export function StickyNoteCard({ note, context, onStack, compact }: StickyNoteCa
     });
   }
 
+  /** Los campos no arrastran la nota: ahí el puntero selecciona texto. */
+  const sinArrastre = { onPointerDown: (e: React.PointerEvent) => e.stopPropagation() };
+
   return (
-    <>
-      <ContextMenu>
-        <ContextMenuTrigger asChild>
+    <ContextMenu>
+      <ContextMenuTrigger asChild>
+        <div ref={wrapperRef} className="relative size-44">
+          {/* La bandeja de colores vive detrás del papel y sale por abajo al
+              editar. Está siempre montada para que el deslizamiento sea una
+              transición y no un montaje; el papel es opaco y la tapa. */}
           <div
-            ref={cardRef}
+            data-no-drag
+            inert={!editando}
+            className={cn(
+              "absolute inset-x-3 top-full z-0 -mt-2 flex flex-wrap justify-center gap-1.5 rounded-b-lg border border-border bg-card px-2 pb-2 pt-4 shadow-md transition-transform duration-200 ease-out",
+              editando ? "translate-y-0" : "-translate-y-full"
+            )}
+            {...sinArrastre}
+          >
+            {COLOR_PICKER_OPTIONS.map((c) => {
+              const cls = STICKY_NOTE_COLORS[c]!;
+              const elegido = note.color === c;
+              return (
+                <button
+                  key={c}
+                  type="button"
+                  onClick={() => updateNote({ noteId: note.id, data: { color: c as typeof note.color } })}
+                  aria-label={c}
+                  aria-pressed={elegido}
+                  className="size-5 rounded-full transition-transform"
+                  style={{
+                    backgroundColor: cls.hex,
+                    border: `2px solid ${elegido ? "var(--foreground)" : "transparent"}`,
+                    transform: elegido ? "scale(1.2)" : "scale(1)",
+                  }}
+                />
+              );
+            })}
+          </div>
+
+          <div
             data-sticky-note
             data-lit={encendida ? "" : undefined}
-            className="group relative flex flex-col gap-1 cursor-pointer rounded-lg p-3.5 w-full min-h-[90px]"
+            className={cn(
+              "group relative z-10 flex size-44 flex-col gap-1 overflow-hidden rounded-lg p-3.5",
+              editando ? "cursor-text" : "cursor-pointer"
+            )}
             style={{
               ...paperStyle(colors.hex, encendida ? { ink: colors.textHex } : undefined),
               color: colors.textHex,
             }}
             onMouseEnter={() => anota && light(note.anchorId)}
             onMouseLeave={() => anota && !editando && light(null)}
-            onClick={(e) => setEditAnchor({ x: e.currentTarget.getBoundingClientRect().left, y: e.currentTarget.getBoundingClientRect().top })}
+            onClick={empezarAEditar}
             role="button"
-            tabIndex={0}
+            tabIndex={editando ? -1 : 0}
             onKeyDown={(e) => {
-              if (e.key === "Enter" || e.key === " ") {
-                const r = e.currentTarget.getBoundingClientRect();
-                setEditAnchor({ x: r.left, y: r.top });
+              if (!editando && (e.key === "Enter" || e.key === " ")) {
+                e.preventDefault();
+                empezarAEditar();
               }
             }}
           >
-            <div
-              ref={bodyRef}
-              className="flex flex-col gap-1 overflow-hidden"
-              style={compact ? { maxHeight: COMPACT_MAX_H } : undefined}
-            >
-              {note.title && (
-                <p className="font-semibold text-sm leading-tight break-words" style={{ color: colors.textHex }}>
-                  {note.title}
-                </p>
-              )}
-              {note.content && (
-                <p
-                  className="text-sm leading-snug whitespace-pre-wrap break-words"
-                  style={{ color: colors.textHex, opacity: 0.88 }}
-                >
-                  {note.content}
-                </p>
-              )}
-              {!note.title && !note.content && (
-                <p className="text-xs italic opacity-35" style={{ color: colors.textHex }}>Nota vacía</p>
-              )}
-            </div>
-            {recortada && (
-              <p className="text-xs font-semibold underline" style={{ color: colors.textHex, opacity: 0.7 }}>
-                Ver más
-              </p>
-            )}
-
-            {note.isEureka && (
-              <span
-                className="mt-auto flex items-center gap-1 pt-1 text-[10px] uppercase tracking-wider"
-                style={{ color: colors.textHex, opacity: 0.7 }}
-              >
-                <Lightbulb className="size-3" /> Eureka
-              </span>
+            {editando ? (
+              <div data-no-drag className="flex min-h-0 flex-1 select-text flex-col gap-1" {...sinArrastre}>
+                <input
+                  type="text"
+                  placeholder="Título..."
+                  value={title}
+                  onChange={(e) => setTitle(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") {
+                      e.preventDefault();
+                      contentRef.current?.focus();
+                    }
+                  }}
+                  maxLength={200}
+                  className="w-full bg-transparent text-sm font-semibold leading-tight outline-none placeholder:opacity-30"
+                  style={{ color: colors.textHex }}
+                />
+                <textarea
+                  ref={contentRef}
+                  placeholder="Escribe aquí..."
+                  value={content}
+                  onChange={(e) => setContent(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) terminar();
+                  }}
+                  maxLength={500}
+                  className="min-h-0 w-full flex-1 resize-none bg-transparent text-sm leading-snug outline-none placeholder:opacity-30"
+                  style={{ color: colors.textHex }}
+                />
+              </div>
+            ) : (
+              <>
+                <div ref={bodyRef} className="flex min-h-0 flex-1 flex-col gap-1 overflow-hidden">
+                  {note.title && (
+                    <p className="font-semibold text-sm leading-tight break-words" style={{ color: colors.textHex }}>
+                      {note.title}
+                    </p>
+                  )}
+                  {note.content && (
+                    <p
+                      className="text-sm leading-snug whitespace-pre-wrap break-words"
+                      style={{ color: colors.textHex, opacity: 0.88 }}
+                    >
+                      {note.content}
+                    </p>
+                  )}
+                  {!note.title && !note.content && (
+                    <p className="text-xs italic opacity-35" style={{ color: colors.textHex }}>Nota vacía</p>
+                  )}
+                </div>
+                {recortada && (
+                  <p className="shrink-0 text-xs font-semibold underline" style={{ color: colors.textHex, opacity: 0.7 }}>
+                    Ver más
+                  </p>
+                )}
+                {note.isEureka && (
+                  <span
+                    className="flex shrink-0 items-center gap-1 pt-1 text-[10px] uppercase tracking-wider"
+                    style={{ color: colors.textHex, opacity: 0.7 }}
+                  >
+                    <Lightbulb className="size-3" /> Eureka
+                  </span>
+                )}
+              </>
             )}
 
             {/* Los dos controles de la esquina. `data-no-drag` es lo que los
@@ -325,7 +328,7 @@ export function StickyNoteCard({ note, context, onStack, compact }: StickyNoteCa
                       <>
                         <DropdownMenuSeparator />
                         <DropdownMenuItem className="gap-2 text-xs" onClick={() => pinToSide(null)}>
-                          <PinOff className="size-3" /> Quitar del margen
+                          <LayoutGrid className="size-3" /> Mandar a la cuadrícula
                         </DropdownMenuItem>
                       </>
                     )}
@@ -342,41 +345,26 @@ export function StickyNoteCard({ note, context, onStack, compact }: StickyNoteCa
               </button>
             </div>
           </div>
-        </ContextMenuTrigger>
-        <ContextMenuContent className="w-40">
-          <ContextMenuItem
-            className="gap-2"
-            onSelect={() => {
-              const r = cardRef.current?.getBoundingClientRect();
-              setEditAnchor(r ? { x: r.left, y: r.top } : { x: 80, y: 80 });
-            }}
-          >
-            <Pencil className="size-3.5" /> Editar
+        </div>
+      </ContextMenuTrigger>
+      <ContextMenuContent className="w-40">
+        <ContextMenuItem className="gap-2" onSelect={empezarAEditar}>
+          <Pencil className="size-3.5" /> Editar
+        </ContextMenuItem>
+        <ContextMenuItem className="gap-2" onSelect={toggleEureka}>
+          <Lightbulb className="size-3.5" />
+          {note.isEureka ? "Quitar eureka" : "Marcar eureka"}
+        </ContextMenuItem>
+        {onStack && (
+          <ContextMenuItem className="gap-2" onSelect={onStack}>
+            <Layers className="size-3.5" /> Apilar sobre otra nota
           </ContextMenuItem>
-          <ContextMenuItem className="gap-2" onSelect={toggleEureka}>
-            <Lightbulb className="size-3.5" />
-            {note.isEureka ? "Quitar eureka" : "Marcar eureka"}
-          </ContextMenuItem>
-          {onStack && (
-            <ContextMenuItem className="gap-2" onSelect={onStack}>
-              <Layers className="size-3.5" /> Apilar sobre otra nota
-            </ContextMenuItem>
-          )}
-          <ContextMenuSeparator />
-          <ContextMenuItem variant="destructive" className="gap-2" onSelect={() => deleteNote(note.id)}>
-            <Trash2 className="size-3.5" /> Eliminar
-          </ContextMenuItem>
-        </ContextMenuContent>
-      </ContextMenu>
-
-      {editAnchor && (
-        <EditOverlay
-          note={note}
-          context={context}
-          anchorPoint={editAnchor}
-          onClose={() => setEditAnchor(null)}
-        />
-      )}
-    </>
+        )}
+        <ContextMenuSeparator />
+        <ContextMenuItem variant="destructive" className="gap-2" onSelect={() => deleteNote(note.id)}>
+          <Trash2 className="size-3.5" /> Eliminar
+        </ContextMenuItem>
+      </ContextMenuContent>
+    </ContextMenu>
   );
 }

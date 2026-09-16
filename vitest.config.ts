@@ -20,6 +20,7 @@ const domTests = [
   "src/features/pages/paste-clean.test.ts",
   "src/features/sticky-notes/anchor-utils.test.ts",
   "src/features/sticky-notes/anchor-paint.test.ts",
+  "src/features/sticky-notes/drop-note.test.ts",
   "src/features/writing/compile.test.ts",
 ];
 

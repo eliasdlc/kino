@@ -60,14 +60,14 @@ export function StickyNoteStack({ notes, context }: StickyNoteStackProps) {
 
       {/* Top card */}
       <div
-        className="relative rounded-lg p-3.5 min-h-[120px] flex flex-col gap-1"
+        className="relative flex size-44 flex-col gap-1 overflow-hidden rounded-lg p-3.5"
         style={{ ...paperStyle(topColors.hex), color: topColors.textHex }}
       >
         {top.title && (
           <p className="text-sm font-semibold line-clamp-2" style={{ color: topColors.textHex }}>{top.title}</p>
         )}
         {top.content && (
-          <p className="text-xs opacity-90 line-clamp-4 whitespace-pre-wrap leading-snug" style={{ color: topColors.textHex }}>
+          <p className="text-xs opacity-90 line-clamp-6 whitespace-pre-wrap leading-snug" style={{ color: topColors.textHex }}>
             {top.content}
           </p>
         )}
