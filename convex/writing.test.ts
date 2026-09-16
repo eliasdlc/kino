@@ -143,4 +143,39 @@ describe('un solo camino de escritura', () => {
     expect(eventos.map((e) => e.targetId)).toEqual([chapter.id, chapter.id, segundo.id]);
     expect(eventos.slice(1).every((e) => e.snapshotId !== undefined)).toBe(true);
   });
+
+  it('restaurar una versión no cuenta como escribir, y mover una escena sí', async () => {
+    const { t, asAna, systemId, work, chapter } = await seed();
+    // El texto se pone a mano: un `pages.update` abriría ya la sesión que este
+    // test quiere ver nacer, o no nacer, más adelante.
+    await t.run(async (ctx) => {
+      await ctx.db.insert('pageSnapshots', {
+        pageId: chapter.id,
+        userId: (await ctx.db.get(chapter.id))!.userId,
+        content: '<p>Sólo Luffy.</p>',
+        wordCount: 2,
+        createdAt: 5,
+      });
+    });
+    const [vieja] = await asAna.query(api.writing.snapshots, { id: chapter.id });
+
+    await asAna.mutation(api.writing.restoreSnapshot, { id: vieja!.id });
+
+    // Deshacer no es escribir: la racha no se sostiene volviendo atrás.
+    expect(await t.run((ctx) => ctx.db.query('timeLogs').collect())).toEqual([]);
+    expect(await asAna.query(api.writing.overview, { id: systemId })).toMatchObject({ streakDays: 0, wordsToday: 0 });
+
+    // Mover una escena es trabajo estructural sobre la obra, y sí cuenta.
+    await t.run((ctx) =>
+      ctx.db.patch(chapter.id, { content: `<p>Luffy zarpa.</p>${renderSceneBreak(null, false)}<p>Zoro entrena.</p>` }),
+    );
+    const segundo = await asAna.mutation(api.pages.create, { systemId, folderId: work.id, title: 'Capítulo 2', content: '<p>Nami mira el mapa.</p>' });
+    await asAna.mutation(api.writing.applyPlotOperation, {
+      id: work.id,
+      operation: { kind: 'move', chapterId: chapter.id, index: 1, toChapterId: segundo.id, toIndex: 1 },
+    });
+
+    expect(await t.run((ctx) => ctx.db.query('timeLogs').collect())).not.toEqual([]);
+    expect(await asAna.query(api.writing.overview, { id: systemId })).toMatchObject({ streakDays: 1 });
+  });
 });

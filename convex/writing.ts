@@ -43,7 +43,8 @@ import { writingSessionsOf } from './lib/writing/activity';
 // Nada de aquí escribe `content` con un `patch`: el cuerpo de un capítulo se
 // cambia siempre por `updatePageDoc`, que es el único sitio que archiva la
 // versión de antes, recalcula lemas y menciones, extiende la sesión y deja el
-// evento con el que se deshace.
+// evento con el que se deshace. Restaurar es el único que se baja de la sesión,
+// y lo dice donde ocurre.
 
 type Ctx = QueryCtx | MutationCtx;
 const DAY_MS = 86_400_000;
@@ -556,6 +557,10 @@ export const snapshot = kinoZodQuery({
  * nada. El texto viejo entra como cualquier otra edición, así que la restauración
  * mueve `updatedAt` y el autosave que venga detrás con la versión de antes choca
  * en vez de pisar lo restaurado.
+ *
+ * Lo único que no hereda del guardado normal es la sesión de escritura: volver
+ * atrás no es escribir, y contarlo dejaría una racha que se sostiene sin poner
+ * una palabra. Mover una escena sí cuenta, porque es trabajo sobre la obra.
  */
 export const restoreSnapshot = kinoZodMutation({
   args: { id: zid('pageSnapshots') },
@@ -565,7 +570,14 @@ export const restoreSnapshot = kinoZodMutation({
     if ((page.content ?? null) === target.content) {
       return { pageId: page._id, content: page.content ?? null, updatedAt: iso(page.updatedAt) };
     }
-    const updated = await updatePageDoc(ctx, ctx.user._id, ctx.channel, page._id, { content: target.content });
+    const updated = await updatePageDoc(
+      ctx,
+      ctx.user._id,
+      ctx.channel,
+      page._id,
+      { content: target.content },
+      { cuentaComoEscritura: false },
+    );
     return { pageId: page._id, content: updated.content, updatedAt: updated.updatedAt };
   },
 });
