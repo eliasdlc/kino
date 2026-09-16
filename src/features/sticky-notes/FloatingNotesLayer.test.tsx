@@ -121,6 +121,61 @@ describe("los controles de una nota flotante", () => {
   });
 });
 
+describe("editar sobre el papel", () => {
+  it("los campos aparecen en la nota misma y Escape guarda lo escrito", async () => {
+    const { convex, container } = pintar();
+
+    await userEvent.click(screen.getByText("Idea de tesis"));
+    const cuerpo = await screen.findByPlaceholderText("Escribe aquí...");
+    // Los campos están dentro del papel, no en un popover aparte.
+    expect(container.querySelector("[data-sticky-note]")).toContainElement(cuerpo);
+    await userEvent.type(cuerpo, " en semanas");
+    await userEvent.keyboard("{Escape}");
+
+    expect(screen.queryByPlaceholderText("Escribe aquí...")).toBeNull();
+    expect(mutaciones(convex)).toEqual([
+      {
+        kind: "mutation",
+        name: "stickyNotes:update",
+        args: { id: NOTA.id, title: "Idea de tesis", content: "medir la energia en semanas" },
+      },
+    ]);
+  });
+
+  it("cerrar sin tocar nada no escribe", async () => {
+    const { convex } = pintar();
+
+    await userEvent.click(screen.getByText("Idea de tesis"));
+    await screen.findByPlaceholderText("Título...");
+    await userEvent.keyboard("{Escape}");
+
+    expect(mutaciones(convex)).toEqual([]);
+  });
+
+  it("el color se aplica al elegirlo en la bandeja", async () => {
+    const { convex } = pintar();
+
+    await userEvent.click(screen.getByText("Idea de tesis"));
+    await screen.findByPlaceholderText("Título...");
+    await userEvent.click(screen.getByRole("button", { name: "pink" }));
+
+    expect(mutaciones(convex)).toEqual([
+      { kind: "mutation", name: "stickyNotes:update", args: { id: NOTA.id, color: "pink" } },
+    ]);
+  });
+
+  it("la bandeja queda inerte mientras la nota no se edita", async () => {
+    const { container } = pintar();
+    const bandeja = () => screen.getByRole("button", { name: "pink", hidden: true }).parentElement!;
+
+    expect(bandeja()).toHaveAttribute("inert");
+    await userEvent.click(screen.getByText("Idea de tesis"));
+    await screen.findByPlaceholderText("Título...");
+    expect(bandeja()).not.toHaveAttribute("inert");
+    expect(container.querySelector("[data-sticky-note]")).not.toContainElement(bandeja());
+  });
+});
+
 describe("el arrastre de una nota flotante", () => {
   it("arrastrar desde el cuerpo guarda la posición nueva", async () => {
     const { convex } = pintar();

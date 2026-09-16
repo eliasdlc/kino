@@ -108,7 +108,9 @@ function DraggableNote({
       {...attributes}
       style={{ transform: isDragging ? undefined : `rotate(${tiltOf(note.id)}deg)` }}
       className={cn(
-        "touch-none transition-transform",
+        // Mientras se edita, la bandeja de colores asoma por debajo y tiene
+        // que pintarse sobre la fila siguiente: el foco dentro la sube.
+        "relative touch-none transition-transform focus-within:z-(--z-raised)",
         // Levantada, en la cuadrícula queda su hueco: la nota va en el puntero.
         isDragging && "opacity-25",
         isOver && activeId !== note.id && "ring-2 ring-primary/60 rounded-lg scale-105"
@@ -130,7 +132,7 @@ function TappableNote({
   onStack: () => void;
 }) {
   return (
-    <div style={{ transform: `rotate(${tiltOf(note.id)}deg)` }}>
+    <div className="relative focus-within:z-(--z-raised)" style={{ transform: `rotate(${tiltOf(note.id)}deg)` }}>
       <StickyNoteCard note={note} context={context} onStack={onStack} />
     </div>
   );
