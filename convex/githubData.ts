@@ -169,7 +169,11 @@ export const applySync = internalMutation({
       sprintsCreated += 1;
     }
 
-    const tasks = (await ctx.db.query('tasks').withIndex('by_system_alive_status', (q) => q.eq('systemId', systemId).eq('deletedAt', undefined)).collect()).filter(
+    // El rango es todas las tareas de este sistema, vivas y en la papelera. Las
+    // borradas entran a propósito: sin ellas el issue no encuentra su tarjeta y
+    // el refresco la vuelve a importar, así que borrar una tarjeta no servía de
+    // nada mientras el issue siguiera existiendo.
+    const tasks = (await ctx.db.query('tasks').withIndex('by_system_alive_status', (q) => q.eq('systemId', systemId)).collect()).filter(
       (t) => t.userId === userId,
     );
     const existingByExternal = new Map(tasks.filter((t) => t.externalSource === GITHUB_SOURCE && t.externalId).map((t) => [t.externalId!, t]));
@@ -182,6 +186,13 @@ export const applySync = internalMutation({
       const externalId = externalIdFor(issue);
       const sprintId = issue.milestone ? (sprintIdByMilestone.get(issue.milestone.id) ?? undefined) : undefined;
       const task = existingByExternal.get(externalId);
+      // Una tarjeta en la papelera ni se reimporta ni se toca: la persona la
+      // quitó del tablero, y el issue sigue existiendo en GitHub. Vuelve
+      // restaurándola, y el refresco siguiente la pone al día.
+      if (task?.deletedAt !== undefined) {
+        unchanged += 1;
+        continue;
+      }
       if (!task) {
         const base = newTaskFromIssue(issue);
         await ctx.db.insert('tasks', {

@@ -80,3 +80,48 @@ describe('el cursor incremental', () => {
     expect((await t.query(internal.githubData.systemForSync, { userId, systemId: kino })).syncedThrough).toBe(hasta);
   });
 });
+
+describe('una tarjeta en la papelera', () => {
+  /** Importa el issue y manda su tarjeta a la papelera. */
+  async function conTarjetaBorrada() {
+    const base = await seed();
+    await base.t.mutation(internal.githubData.applySync, { userId: base.userId, systemId: base.kino, truncated: false, syncedThrough: Date.now(), issues: [issue()] });
+    const tarjeta = (await base.t.run((ctx) => ctx.db.query('tasks').collect()))[0]!;
+    await base.asAna.mutation(api.tasks.remove, { id: tarjeta._id });
+    return { ...base, tarjeta: tarjeta._id };
+  }
+
+  it('no vuelve al tablero porque el issue siga vivo en GitHub', async () => {
+    const { t, userId, kino, tarjeta } = await conTarjetaBorrada();
+
+    const resultado = await t.mutation(internal.githubData.applySync, { userId, systemId: kino, truncated: false, syncedThrough: Date.now(), issues: [issue({ title: 'Con un comentario nuevo' })] });
+
+    expect(resultado).toMatchObject({ imported: 0, updated: 0, unchanged: 1 });
+    const tareas = await t.run((ctx) => ctx.db.query('tasks').collect());
+    expect(tareas).toHaveLength(1);
+    expect(tareas[0]!._id).toBe(tarjeta);
+    expect(tareas[0]!.deletedAt).toBeTypeOf('number');
+  });
+
+  it('se restaura sin duplicarse, porque el refresco no creó ninguna gemela', async () => {
+    const { t, asAna, userId, kino, tarjeta } = await conTarjetaBorrada();
+    await t.mutation(internal.githubData.applySync, { userId, systemId: kino, truncated: false, syncedThrough: Date.now(), issues: [issue()] });
+
+    await asAna.mutation(api.tasks.restore, { id: tarjeta });
+
+    const vivas = (await t.run((ctx) => ctx.db.query('tasks').collect())).filter((doc) => doc.deletedAt === undefined);
+    expect(vivas).toHaveLength(1);
+    expect(vivas[0]!._id).toBe(tarjeta);
+  });
+
+  // Los duplicados que el defecto ya dejó en la base: restaurar la de la
+  // papelera pondría dos tarjetas del mismo issue en el tablero.
+  it('con una gemela viva del mismo issue, restaurarla falla en vez de duplicarla', async () => {
+    const { t, asAna, kino, tarjeta } = await conTarjetaBorrada();
+    // La gemela que el defecto ya creó: misma llave externa, viva en el tablero.
+    const gemela = await asAna.mutation(api.tasks.create, { systemId: kino, title: '#1 Arreglar el mapa' });
+    await t.run((ctx) => ctx.db.patch(gemela.id, { externalSource: 'github', externalId: '1' }));
+
+    await expect(asAna.mutation(api.tasks.restore, { id: tarjeta })).rejects.toMatchObject({ data: { code: 'CONFLICT' } });
+  });
+});
