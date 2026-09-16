@@ -4,10 +4,10 @@ import {
   describeSystem,
   isUnstarted,
   FACTS_MAX,
-  type BrainSignals,
+  type RadiografiaSignals,
   type FactRow,
   type Noun,
-} from "./brain";
+} from "./radiografia";
 
 /**
  * Lo que se prueba aquí es la promesa del panel, no su aritmética: que ningún
@@ -25,7 +25,7 @@ function fila(id: string, title: string, day = "3 de agosto"): FactRow {
 }
 
 /** Un sistema sin una sola señal. Cada prueba enciende sólo lo que mira. */
-function senales(extra: Partial<BrainSignals> = {}): BrainSignals {
+function senales(extra: Partial<RadiografiaSignals> = {}): RadiografiaSignals {
   return {
     today: "16 de septiembre",
     container: CLASE,
@@ -48,7 +48,7 @@ function senales(extra: Partial<BrainSignals> = {}): BrainSignals {
 }
 
 /** Las ocho señales encendidas a la vez, que son dos más que el techo. */
-function todas(): BrainSignals {
+function todas(): RadiografiaSignals {
   return senales({
     openCount: 12,
     closedCount: 30,
@@ -65,7 +65,7 @@ function todas(): BrainSignals {
   });
 }
 
-describe("los hechos del mini cerebro", () => {
+describe("los hechos dla radiografía", () => {
   it("un sistema sin señales no pinta ningún hecho, en vez de pintar huecos", () => {
     expect(buildSystemFacts(senales())).toEqual([]);
   });

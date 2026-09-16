@@ -21,17 +21,16 @@ import { useConvexQuery } from "@/shared/convex/hooks";
 import { SuggestionList, type SuggestionEmptyState } from "@/shared/suggestions/SuggestionList";
 import { TaskDetailSheet } from "@/features/tasks/TaskDetailSheet";
 import type { TaskTransport } from "@/features/tasks/tasks.types";
-import type { FactKind, SystemFact } from "./brain";
+import type { FactKind, SystemFact } from "./radiografia";
 
 /**
- * El mini cerebro del sistema: un párrafo de estado con su fecha y hasta seis
+ * La radiografía del sistema: un párrafo de estado con su fecha y hasta seis
  * hechos, cada uno con la fila que lo respalda.
  *
- * Nace colapsado y se queda como lo dejes. Eso no es sólo una preferencia de
- * pantalla: mientras está cerrado no se suscribe, así que un sistema que se
- * abre para ver las tareas no paga las cinco lecturas del cerebro. La
- * preferencia es una sola para todos los sistemas, igual que la de la cabecera
- * que lo contiene.
+ * Nace colapsada y se queda como la dejes. Eso no es sólo una preferencia de
+ * pantalla: mientras está cerrada no se suscribe, así que un sistema que se
+ * abre para ver las tareas no paga sus cinco lecturas. La preferencia es una
+ * sola para todos los sistemas, igual que la de la cabecera que la contiene.
  */
 
 const ICON: Record<FactKind, LucideIcon> = {
@@ -59,7 +58,7 @@ const NADA_QUE_SENALAR: SuggestionEmptyState = {
   description: "Nada pasado de fecha, nada acumulado y nada parado. Este sistema va al día.",
 };
 
-const OPEN_KEY = "systemBrainOpen";
+const OPEN_KEY = "systemRadiografiaOpen";
 const listeners = new Set<() => void>();
 
 function subscribeOpen(cb: () => void) {
@@ -87,12 +86,12 @@ function factHref(fact: SystemFact, systemId: string): string | null {
   }
 }
 
-export function SystemBrainPanel({ systemId }: { systemId: string }) {
+export function SystemRadiografia({ systemId }: { systemId: string }) {
   const open = useSyncExternalStore(subscribeOpen, readOpen, () => false);
   const [task, setTask] = useState<TaskTransport | null>(null);
-  const { data, isLoading } = useConvexQuery(api.systems.brain, open ? { id: systemId } : "skip");
+  const { data, isLoading } = useConvexQuery(api.systems.radiografia, open ? { id: systemId } : "skip");
 
-  // La tarea llega entera sólo cuando alguien pulsa su hecho: el cerebro manda
+  // La tarea llega entera sólo cuando alguien pulsa su hecho: la radiografía manda
   // el id y el título, que es lo que la fila necesita para decir lo que dice.
   async function openTask(fact: SystemFact) {
     if (fact.target.kind !== "task") return;
@@ -108,13 +107,13 @@ export function SystemBrainPanel({ systemId }: { systemId: string }) {
         className="flex items-center gap-1 text-xs text-muted-foreground transition-colors hover:text-foreground"
       >
         <ChevronDown className={cn("size-3 transition-transform", open && "rotate-180")} />
-        <span className="font-medium">Cómo va esto</span>
+        <span className="font-medium">Radiografía</span>
       </button>
 
       {open && (
         <div className="mt-2 space-y-2">
           {isLoading || !data ? (
-            <BrainSkeleton />
+            <RadiografiaSkeleton />
           ) : (
             <>
               <p className="text-xs leading-relaxed text-muted-foreground">{data.paragraph}</p>
@@ -147,7 +146,7 @@ export function SystemBrainPanel({ systemId }: { systemId: string }) {
 }
 
 /** Con la forma de lo que va a llegar: un párrafo y sus filas. */
-function BrainSkeleton() {
+function RadiografiaSkeleton() {
   return (
     <div className="space-y-2" aria-hidden>
       <div className="h-3 w-3/4 rounded-md bg-muted" />

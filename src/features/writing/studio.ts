@@ -15,7 +15,7 @@ import type { Suggestion, SuggestionRule } from "@/shared/suggestions/types";
  * una razón verificable es lo que separa una señal de una corazonada.
  *
  * El tipo, el orden y los estados vacíos viven en `@/shared/suggestions`, porque
- * el mini cerebro del sistema hace lo mismo con otras señales. Lo que se queda
+ * la radiografía del sistema hace lo mismo con otras señales. Lo que se queda
  * aquí son las reglas, que sí son de escritura.
  */
 

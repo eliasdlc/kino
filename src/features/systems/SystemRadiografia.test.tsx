@@ -3,8 +3,8 @@ import { screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { api } from "@convex/_generated/api";
 import { makeTestConvexClient, renderWithProviders, stubQuery } from "@/shared/testing/render";
-import { SystemBrainPanel } from "./SystemBrainPanel";
-import type { SystemFact } from "./brain";
+import { SystemRadiografia } from "./SystemRadiografia";
+import type { SystemFact } from "./radiografia";
 
 /**
  * Qué se prueba: que el bloque nace colapsado y se queda como lo dejaron, que
@@ -35,9 +35,9 @@ const HECHOS: SystemFact[] = [
   },
 ];
 
-function pintar(brain: { paragraph: string; facts: SystemFact[]; unstarted: boolean }) {
-  return renderWithProviders(<SystemBrainPanel systemId={SISTEMA} />, {
-    convex: makeTestConvexClient([stubQuery(api.systems.brain, brain)]),
+function pintar(radiografia: { paragraph: string; facts: SystemFact[]; unstarted: boolean }) {
+  return renderWithProviders(<SystemRadiografia systemId={SISTEMA} />, {
+    convex: makeTestConvexClient([stubQuery(api.systems.radiografia, radiografia)]),
   });
 }
 
@@ -47,18 +47,18 @@ const CON_HECHOS = {
   unstarted: false,
 };
 
-describe("SystemBrainPanel", () => {
+describe("SystemRadiografia", () => {
   it("nace colapsado: no enseña ni el párrafo ni los hechos hasta que se abre", () => {
     pintar(CON_HECHOS);
 
-    expect(screen.getByRole("button", { name: /Cómo va esto/ })).toHaveAttribute("aria-expanded", "false");
+    expect(screen.getByRole("button", { name: /Radiografía/ })).toHaveAttribute("aria-expanded", "false");
     expect(screen.queryByText(CON_HECHOS.paragraph)).not.toBeInTheDocument();
     expect(screen.queryByText(HECHOS[0].title)).not.toBeInTheDocument();
   });
 
   it("abierto enseña el párrafo y cada hecho con la razón de la que sale", async () => {
     pintar(CON_HECHOS);
-    await userEvent.click(screen.getByRole("button", { name: /Cómo va esto/ }));
+    await userEvent.click(screen.getByRole("button", { name: /Radiografía/ }));
 
     expect(screen.getByText(CON_HECHOS.paragraph)).toBeVisible();
     for (const hecho of HECHOS) {
@@ -69,19 +69,19 @@ describe("SystemBrainPanel", () => {
 
   it("el estado se recuerda, así que el siguiente sistema abre como quedó el anterior", async () => {
     const primero = pintar(CON_HECHOS);
-    await userEvent.click(screen.getByRole("button", { name: /Cómo va esto/ }));
-    expect(localStorage.getItem("systemBrainOpen")).toBe("true");
+    await userEvent.click(screen.getByRole("button", { name: /Radiografía/ }));
+    expect(localStorage.getItem("systemRadiografiaOpen")).toBe("true");
     primero.unmount();
 
     pintar(CON_HECHOS);
 
-    expect(screen.getByRole("button", { name: /Cómo va esto/ })).toHaveAttribute("aria-expanded", "true");
+    expect(screen.getByRole("button", { name: /Radiografía/ })).toHaveAttribute("aria-expanded", "true");
     expect(screen.getByText(CON_HECHOS.paragraph)).toBeVisible();
   });
 
   it("el hecho de una fila con ruta es un enlace, y el de una tarea es un botón", async () => {
     pintar(CON_HECHOS);
-    await userEvent.click(screen.getByRole("button", { name: /Cómo va esto/ }));
+    await userEvent.click(screen.getByRole("button", { name: /Radiografía/ }));
 
     expect(screen.getByRole("link", { name: /1 clase sin una sola tarea/ })).toHaveAttribute(
       "href",
@@ -96,7 +96,7 @@ describe("SystemBrainPanel", () => {
       facts: [],
       unstarted: true,
     });
-    await userEvent.click(screen.getByRole("button", { name: /Cómo va esto/ }));
+    await userEvent.click(screen.getByRole("button", { name: /Radiografía/ }));
 
     expect(screen.getByText("Todavía no hay nada que contar")).toBeVisible();
     expect(screen.queryByText("Nada que señalar")).not.toBeInTheDocument();
@@ -108,7 +108,7 @@ describe("SystemBrainPanel", () => {
       facts: [],
       unstarted: false,
     });
-    await userEvent.click(screen.getByRole("button", { name: /Cómo va esto/ }));
+    await userEvent.click(screen.getByRole("button", { name: /Radiografía/ }));
 
     expect(screen.getByText("Nada que señalar")).toBeVisible();
     expect(screen.queryByText("Todavía no hay nada que contar")).not.toBeInTheDocument();

@@ -1,6 +1,6 @@
 /**
  * El patrón de sugerencia con razón, compartido entre el estudio de escritura y
- * el mini cerebro del sistema.
+ * la radiografía del sistema.
  *
  * Lo que hace que valga la pena compartirlo no es la forma de los campos: es que
  * `reason` es obligatorio. Una sugerencia sin el dato del que sale no compila, y

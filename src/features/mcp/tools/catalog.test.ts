@@ -200,11 +200,11 @@ describe("lo que existe y no se expone", () => {
       "captures:confirmar",
       "captures:descartar",
       "captures:pendientes",
-      "systems:brain",
+      "systems:radiografia",
     ]);
   });
 
-  it("el mini cerebro no es una tool: el agente mira las filas, no un resumen redactado", () => {
-    expect(ALL_TOOLS.map((tool) => nombreDeFuncion(tool.ref))).not.toContain("systems:brain");
+  it("la radiografía no es una tool: el agente mira las filas, no un resumen redactado", () => {
+    expect(ALL_TOOLS.map((tool) => nombreDeFuncion(tool.ref))).not.toContain("systems:radiografia");
   });
 });

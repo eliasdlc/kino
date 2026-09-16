@@ -7,9 +7,9 @@ import {
   buildSystemFacts,
   describeSystem,
   isUnstarted,
-  type BrainSignals,
+  type RadiografiaSignals,
   type FactRow,
-} from '../src/features/systems/brain';
+} from '../src/features/systems/radiografia';
 import { deriveStale } from '../src/features/systems/systems.signals';
 import { resolveManifest } from '../src/shared/lib/system-manifest';
 import type { SystemMetadata } from '../src/shared/lib/system-types';
@@ -186,7 +186,7 @@ export const byId = kinoZodQuery({
   },
 });
 
-// ── El mini cerebro ─────────────────────────────────────────────────────────
+// ── La radiografía ──────────────────────────────────────────────────────────
 
 /** Días de sesiones que mira el tiempo observado. */
 const OBSERVED_DAYS = 30;
@@ -233,7 +233,7 @@ async function columnLabel(ctx: QueryCtx, systemType: Doc<'systems'>['templateTy
 }
 
 /**
- * Lo que el mini cerebro mide de un sistema.
+ * Lo que la radiografía mide de un sistema.
  *
  * **Qué rango lee** (restricción 9). Cinco lecturas, todas acotadas al sistema
  * que está abierto, y ninguna sobre una tabla entera:
@@ -252,7 +252,7 @@ async function columnLabel(ctx: QueryCtx, systemType: Doc<'systems'>['templateTy
  * un `get` suelto: una fila borrada no está ahí, así que el hecho que la citaba
  * desaparece solo en vez de enseñar un enlace roto.
  */
-async function brainSignals(ctx: QueryCtx, system: Doc<'systems'>, tz: string): Promise<BrainSignals> {
+async function radiografiaSignals(ctx: QueryCtx, system: Doc<'systems'>, tz: string): Promise<RadiografiaSignals> {
   const now = Date.now();
   const hoy = userToday(tz, now);
   const days = (from: number) => Math.max(0, Math.floor((now - from) / 86_400_000));
@@ -422,14 +422,14 @@ async function brainSignals(ctx: QueryCtx, system: Doc<'systems'>, tz: string): 
  *
  * Es una lectura aparte de `detail` a propósito, y no un campo más suyo: el
  * bloque nace colapsado y no se suscribe hasta que alguien lo abre, así que las
- * cinco lecturas de `brainSignals` no se pagan en cada sistema que se abre.
+ * cinco lecturas de `radiografiaSignals` no se pagan en cada sistema que se abre.
  */
-export const brain = kinoZodQuery({
+export const radiografia = kinoZodQuery({
   args: { id: zid('systems') },
   handler: async (ctx, { id }) => {
     const system = await ownSystem(ctx, ctx.user._id, id);
     if (!system.isActive) notFound('System not found');
-    const signals = await brainSignals(ctx, system, ctx.user.timezone);
+    const signals = await radiografiaSignals(ctx, system, ctx.user.timezone);
     return {
       paragraph: describeSystem(signals),
       facts: buildSystemFacts(signals),

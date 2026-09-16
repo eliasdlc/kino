@@ -71,7 +71,7 @@ describe('systems', () => {
   });
 });
 
-describe('el mini cerebro', () => {
+describe('la radiografía', () => {
   const dia = (offset: number) => new Date(Date.now() + offset * 86_400_000).toISOString();
 
   it('un sistema recién creado dice que todavía no hay nada que contar', async () => {
@@ -79,11 +79,11 @@ describe('el mini cerebro', () => {
     const asAna = t.withIdentity(ana);
     const system = await asAna.mutation(api.systems.create, { name: 'Nuevo', color: 'blue', icon: 'book' });
 
-    const cerebro = await asAna.query(api.systems.brain, { id: system.id });
+    const radiografia = await asAna.query(api.systems.radiografia, { id: system.id });
 
-    expect(cerebro.unstarted).toBe(true);
-    expect(cerebro.facts).toEqual([]);
-    expect(cerebro.paragraph).toContain('todavía no hay nada que contar');
+    expect(radiografia.unstarted).toBe(true);
+    expect(radiografia.facts).toEqual([]);
+    expect(radiografia.paragraph).toContain('todavía no hay nada que contar');
   });
 
   it('cada hecho cita la fila de la que sale, y ninguno se inventa un número', async () => {
@@ -99,8 +99,8 @@ describe('el mini cerebro', () => {
     await asAna.mutation(api.tasks.toggle, { id: hecha.id });
     const vacia = await asAna.mutation(api.folders.create, { systemId: system.id, name: 'Álgebra' });
 
-    const cerebro = await asAna.query(api.systems.brain, { id: system.id });
-    const porTipo = new Map(cerebro.facts.map((fact) => [fact.kind, fact]));
+    const radiografia = await asAna.query(api.systems.radiografia, { id: system.id });
+    const porTipo = new Map(radiografia.facts.map((fact) => [fact.kind, fact]));
 
     // Dos vencidas de verdad, y el hecho señala la más vieja de las dos.
     expect(porTipo.get('overdue')).toMatchObject({
@@ -116,8 +116,8 @@ describe('el mini cerebro', () => {
       target: { kind: 'folder', id: vacia.id },
     });
     // Y el párrafo cuenta lo que hay: tres vivas, una cerrada, una clase.
-    expect(cerebro.paragraph).toContain('3 tareas vivas, 1 cerrada y 1 clase');
-    expect(cerebro.unstarted).toBe(false);
+    expect(radiografia.paragraph).toContain('3 tareas vivas, 1 cerrada y 1 clase');
+    expect(radiografia.unstarted).toBe(false);
   });
 
   it('un hecho cuya fila ya no existe deja de pintarse', async () => {
@@ -126,17 +126,17 @@ describe('el mini cerebro', () => {
     const system = await asAna.mutation(api.systems.create, { name: 'Cálculo', color: 'blue', icon: 'book' });
     const vencida = await asAna.mutation(api.tasks.create, { systemId: system.id, title: 'Entrega 1', dueDate: dia(-5) });
 
-    const antes = await asAna.query(api.systems.brain, { id: system.id });
+    const antes = await asAna.query(api.systems.radiografia, { id: system.id });
     expect(antes.facts.some((fact) => fact.target.id === vencida.id)).toBe(true);
 
     await asAna.mutation(api.tasks.remove, { id: vencida.id });
-    const despues = await asAna.query(api.systems.brain, { id: system.id });
+    const despues = await asAna.query(api.systems.radiografia, { id: system.id });
 
     expect(despues.facts.some((fact) => fact.kind === 'overdue')).toBe(false);
     expect(despues.facts.some((fact) => fact.target.id === vencida.id)).toBe(false);
   });
 
-  it('las tareas se acumulan donde de verdad están, y el cerebro es sólo de su dueño', async () => {
+  it('las tareas se acumulan donde de verdad están, y la radiografía es sólo de su dueño', async () => {
     const t = convexTest(schema, modules);
     const asAna = t.withIdentity(ana);
     const system = await asAna.mutation(api.systems.create, { name: 'Tesis', color: 'blue', icon: 'book' });
@@ -144,14 +144,14 @@ describe('el mini cerebro', () => {
       await asAna.mutation(api.tasks.create, { systemId: system.id, title });
     }
 
-    const cerebro = await asAna.query(api.systems.brain, { id: system.id });
+    const radiografia = await asAna.query(api.systems.radiografia, { id: system.id });
 
-    expect(cerebro.facts.find((fact) => fact.kind === 'pileup')).toMatchObject({
+    expect(radiografia.facts.find((fact) => fact.kind === 'pileup')).toMatchObject({
       title: '3 tareas se acumulan en Backlog',
     });
 
     const asLuis = t.withIdentity({ subject: 'user_luis', email: 'luis@example.com' });
     await asLuis.mutation(api.users.ensure, {});
-    await expect(asLuis.query(api.systems.brain, { id: system.id })).rejects.toThrow();
+    await expect(asLuis.query(api.systems.radiografia, { id: system.id })).rejects.toThrow();
   });
 });

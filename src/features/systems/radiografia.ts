@@ -2,10 +2,10 @@ import { buildSuggestions } from "@/shared/suggestions/engine";
 import type { Suggestion, SuggestionRule, SuggestionTarget } from "@/shared/suggestions/types";
 
 /**
- * El mini cerebro de un sistema: un párrafo de estado con su fecha y hasta seis
+ * La radiografía de un sistema: un párrafo de estado con su fecha y hasta seis
  * hechos, cada uno con la fila que lo respalda.
  *
- * Las dos reglas que lo definen son negativas, y son justo las que evitan que
+ * Las dos reglas que la definen son negativas, y son justo las que evitan que
  * esto acabe siendo un panel de métricas. **Un hecho sin fila no se pinta**: por
  * eso `target` y `occurredAt` son obligatorios aquí, mientras que en el patrón
  * compartido `target` es opcional. Y **seis es un techo, no un objetivo**: el
@@ -41,7 +41,7 @@ export interface SystemFact extends Suggestion<FactKind, FactTarget> {
 }
 
 /**
- * Una fila de la base tal como el mini cerebro la cita: a dónde lleva, cómo se
+ * Una fila de la base tal como la radiografía la cita: a dónde lleva, cómo se
  * llama, cuándo pasó y cómo se lee esa fecha.
  */
 export interface FactRow {
@@ -69,7 +69,7 @@ export interface Noun {
  * `null` en vez de un cero: "ninguna tarea pasó de fecha" y "cero" dicen cosas
  * distintas, y sólo la primera significa que ese hecho no se pinta.
  */
-export interface BrainSignals {
+export interface RadiografiaSignals {
   /** Hoy, ya escrito en la zona del usuario. Es la fecha del párrafo. */
   today: string;
   /** Cómo llama este arquetipo a sus contenedores. `null` si no los ofrece. */
@@ -91,7 +91,7 @@ export interface BrainSignals {
   observed: { minutes: number; sessions: number; last: FactRow } | null;
 }
 
-type BrainRule = SuggestionRule<BrainSignals, SystemFact>;
+type RadiografiaRule = SuggestionRule<RadiografiaSignals, SystemFact>;
 
 /** El techo de hechos. Se recorta después de ordenar, así que sobrevive lo de más peso. */
 export const FACTS_MAX = 6;
@@ -119,7 +119,7 @@ const fact = (kind: FactKind, row: FactRow, title: string, reason: string, weigh
 });
 
 /** Lo que pasó de fecha y sigue abierto. Nada gana a esto. */
-const overdue: BrainRule = ({ overdue: past }) => {
+const overdue: RadiografiaRule = ({ overdue: past }) => {
   if (!past) return null;
   const { count, oldest } = past;
   return fact(
@@ -132,7 +132,7 @@ const overdue: BrainRule = ({ overdue: past }) => {
 };
 
 /** Dónde se acumula el trabajo: la columna o el estado que junta más tareas. */
-const pileup: BrainRule = ({ pileup: pile }) => {
+const pileup: RadiografiaRule = ({ pileup: pile }) => {
   if (!pile) return null;
   const { column, count, oldest, days } = pile;
   return fact(
@@ -145,7 +145,7 @@ const pileup: BrainRule = ({ pileup: pile }) => {
 };
 
 /** Lo que lleva más tiempo abierto sin que nadie lo toque. */
-const stalled: BrainRule = ({ stalled: stuck }) => {
+const stalled: RadiografiaRule = ({ stalled: stuck }) => {
   if (!stuck) return null;
   const { row, days } = stuck;
   return fact(
@@ -158,7 +158,7 @@ const stalled: BrainRule = ({ stalled: stuck }) => {
 };
 
 /** Lo próximo con fecha, que es lo único de aquí que mira hacia adelante. */
-const nextDue: BrainRule = ({ nextDue: next }) => {
+const nextDue: RadiografiaRule = ({ nextDue: next }) => {
   if (!next) return null;
   const { row, inDays } = next;
   const cuando = inDays === 0 ? "Vence hoy" : inDays === 1 ? "Vence mañana" : `Vence en ${inDays} días`;
@@ -169,7 +169,7 @@ const nextDue: BrainRule = ({ nextDue: next }) => {
  * Contenedores creados y nunca llenados. Es el hecho que habla en el
  * vocabulario del arquetipo, así que un sistema sin contenedores no lo tiene.
  */
-const emptyContainer: BrainRule = ({ emptyContainers: empty, container }) => {
+const emptyContainer: RadiografiaRule = ({ emptyContainers: empty, container }) => {
   if (!empty || !container) return null;
   const { count, first } = empty;
   return fact(
@@ -182,7 +182,7 @@ const emptyContainer: BrainRule = ({ emptyContainers: empty, container }) => {
 };
 
 /** La última escritura registrada, que no siempre es la última tarea cerrada. */
-const lastMove: BrainRule = ({ lastMove: move }) => {
+const lastMove: RadiografiaRule = ({ lastMove: move }) => {
   if (!move) return null;
   const { row, days } = move;
   return fact(
@@ -197,7 +197,7 @@ const lastMove: BrainRule = ({ lastMove: move }) => {
 };
 
 /** Lo último que se cerró, que es la única prueba de que el sistema entrega. */
-const lastClosed: BrainRule = ({ lastClosed: closed }) => {
+const lastClosed: RadiografiaRule = ({ lastClosed: closed }) => {
   if (!closed) return null;
   const { row, days } = closed;
   return fact(
@@ -210,7 +210,7 @@ const lastClosed: BrainRule = ({ lastClosed: closed }) => {
 };
 
 /** El tiempo que de verdad se registró, no el que se estimó. */
-const observedTime: BrainRule = ({ observed }) => {
+const observedTime: RadiografiaRule = ({ observed }) => {
   if (!observed) return null;
   const { minutes, sessions, last } = observed;
   return fact(
@@ -222,7 +222,7 @@ const observedTime: BrainRule = ({ observed }) => {
   );
 };
 
-const SYSTEM_RULES: readonly BrainRule[] = [
+const SYSTEM_RULES: readonly RadiografiaRule[] = [
   overdue,
   pileup,
   stalled,
@@ -233,7 +233,7 @@ const SYSTEM_RULES: readonly BrainRule[] = [
   observedTime,
 ];
 
-export function buildSystemFacts(signals: BrainSignals): SystemFact[] {
+export function buildSystemFacts(signals: RadiografiaSignals): SystemFact[] {
   return buildSuggestions(signals, SYSTEM_RULES, { limit: FACTS_MAX });
 }
 
@@ -242,7 +242,7 @@ export function buildSystemFacts(signals: BrainSignals): SystemFact[] {
  * tranquilo, y por eso el panel enseña un estado vacío distinto: un sistema
  * recién creado no está en calma, está sin empezar.
  */
-export function isUnstarted(signals: BrainSignals): boolean {
+export function isUnstarted(signals: RadiografiaSignals): boolean {
   const { openCount, closedCount, pageCount, containerCount, observed, lastMove: move } = signals;
   return (
     openCount === 0 &&
@@ -260,7 +260,7 @@ export function isUnstarted(signals: BrainSignals): boolean {
  * de una frase con ceros. El vocabulario sale del manifiesto del arquetipo, no
  * de un literal por tipo de sistema.
  */
-export function describeSystem(signals: BrainSignals): string {
+export function describeSystem(signals: RadiografiaSignals): string {
   const { today, openCount, closedCount, container, containerCount, page, pageCount, observed } = signals;
 
   if (isUnstarted(signals)) {
