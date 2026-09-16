@@ -57,6 +57,18 @@ export const KINO_OWNED_FIELDS = [
  *
  * Null significa que no se sabe hasta dónde se leyó: el cursor se queda donde
  * estaba, que repite trabajo pero no se salta nada.
+ *
+ * **Deuda con nombre: el lote que no cabe en un solo instante.** Si más de
+ * trescientos issues comparten el mismo `updated_at`, que es lo que deja un
+ * etiquetado en bloque, el cursor para donde ya estaba y cada refresco repite
+ * ese mismo lote sin avanzar. No duplica nada (`external_id` los reconoce) y no
+ * pierde nada, pero los issues de después de ese instante no llegan nunca. La
+ * salida cara es paginar dentro del instante, que es estado nuevo por sistema
+ * (`since` más número de página). La barata sería dejar el cursor un
+ * milisegundo por encima del lote cuando no avanzó, y no la toma este código
+ * porque cambia la promesa: pasa de repetir a saltarse los que quedaron dentro
+ * de ese segundo. `refrescoCompleto` ignora el cursor y es lo que deshace el
+ * atasco, pero hoy ningún cliente lo manda.
  */
 export function cursorSiguiente({
   truncated,
