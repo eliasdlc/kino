@@ -37,6 +37,33 @@ export const KINO_OWNED_FIELDS = [
   "parentTaskId",
 ] as const;
 
+/**
+ * Hasta dónde puede avanzar el cursor después de un refresco.
+ *
+ * Sin truncar, al instante en que arrancó la llamada: lo que se toque mientras
+ * GitHub responde entra en el siguiente refresco en vez de caerse por el hueco.
+ *
+ * Truncado, al `updated_at` del último issue que de verdad llegó. Avanzarlo
+ * hasta el arranque es lo que perdía issues: los que quedaron fuera del tope de
+ * páginas se tocaron antes de ese instante, así que el refresco siguiente ya no
+ * los pedía y no volvían nunca. `since` es inclusivo, así que el último issue
+ * traído vuelve una vez y se reconoce por su `external_id`, sin duplicar nada.
+ *
+ * Null significa que no se sabe hasta dónde se leyó: el cursor se queda donde
+ * estaba, que repite trabajo pero no se salta nada.
+ */
+export function cursorSiguiente({
+  truncated,
+  ultimoUpdatedAt,
+  arranque,
+}: {
+  truncated: boolean;
+  ultimoUpdatedAt: number | null;
+  arranque: number;
+}): number | null {
+  return truncated ? ultimoUpdatedAt : arranque;
+}
+
 /** `external_id` de un issue: el id numérico global, único en todo GitHub. */
 export function externalIdFor(issue: Pick<GithubIssue, "id">): string {
   return String(issue.id);

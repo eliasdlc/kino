@@ -3,6 +3,7 @@
 import { v } from 'convex/values';
 import { internal } from './_generated/api';
 import { fetchIssues, fetchRepoFullName, fetchViewerLogin } from '../src/features/github-sync/github-sync.client';
+import { cursorSiguiente } from '../src/features/github-sync/github-sync.mapper';
 import { GithubApiError, type GithubConnectionStatus, type SyncResult } from '../src/features/github-sync/github-sync.types';
 import { decryptSecret, encryptSecret, isEncryptionConfigured } from '../src/shared/utils/crypto';
 import { invalid } from './lib/errors';
@@ -101,13 +102,15 @@ export const sync = kinoAction(GITHUB_BUDGET_MS)({
     // El cursor es del sistema: el segundo sistema enlazado a otro repositorio
     // empieza por el principio en vez de heredar el del primero.
     const desde = refrescoCompleto ? undefined : (system.syncedThrough ?? undefined);
-    const { issues, truncated } = await fetchIssues(system.repo, decryptSecret(stored.accessTokenEncrypted), desde);
+    const { issues, truncated, ultimoUpdatedAt } = await fetchIssues(system.repo, decryptSecret(stored.accessTokenEncrypted), desde);
     return ctx.runMutation(internal.githubData.applySync, {
       userId: ctx.user._id,
       systemId: id,
       issues,
       truncated,
-      syncedThrough: arranque,
+      // Con la respuesta truncada el cursor para en el último issue traído: los
+      // que quedaron fuera son los siguientes que GitHub iba a devolver.
+      syncedThrough: cursorSiguiente({ truncated, ultimoUpdatedAt, arranque }) ?? undefined,
     });
   },
 });

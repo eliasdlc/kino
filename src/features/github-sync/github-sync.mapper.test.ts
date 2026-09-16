@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import { PROJECT_BOARD_TERMINAL } from "@/shared/lib/system-types";
 import {
   boardStatusFor,
+  cursorSiguiente,
   externalIdFor,
   INITIAL_BOARD_COLUMN,
   isEmptyPatch,
@@ -237,5 +238,24 @@ describe("taskPatchFromIssue · re-sincronizar", () => {
         "startDate",
       ]),
     );
+  });
+});
+
+describe("hasta dónde avanza el cursor", () => {
+  const arranque = Date.UTC(2026, 8, 16, 12);
+  const ultimoUpdatedAt = Date.UTC(2026, 8, 10);
+
+  it("sin truncar llega al arranque de la llamada, no al final", () => {
+    expect(cursorSiguiente({ truncated: false, ultimoUpdatedAt, arranque })).toBe(arranque);
+  });
+
+  // El defecto: con el cursor en el arranque, los issues que no cupieron en el
+  // tope de páginas quedaban antes del `since` siguiente y no volvían nunca.
+  it("truncado para en el último issue traído", () => {
+    expect(cursorSiguiente({ truncated: true, ultimoUpdatedAt, arranque })).toBe(ultimoUpdatedAt);
+  });
+
+  it("truncado y sin saber hasta dónde se leyó, el cursor se queda donde estaba", () => {
+    expect(cursorSiguiente({ truncated: true, ultimoUpdatedAt: null, arranque })).toBeNull();
   });
 });
