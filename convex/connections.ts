@@ -39,6 +39,11 @@ async function conexionDe(ctx: QueryCtx | MutationCtx, userId: Id<'users'>, prov
  * Las fuentes que se pueden conectar, con el estado de cada una. Devuelve una
  * entrada por proveedor vivo, conectado o no: es la lista que Ajustes pinta, y
  * si sólo devolviera las conectadas no habría dónde conectar la primera.
+ *
+ * `lastSyncedAt` es de la cuenta: cuándo se habló con el proveedor por última
+ * vez. Hasta dónde llegó el refresco es de cada sistema y vive en su metadata,
+ * así que no sale por aquí: el `syncedThrough` de la fila dejó de escribirse y
+ * servirlo era servir el valor congelado de antes de la migración.
  */
 export const list = kinoZodQuery({
   args: {},
@@ -56,7 +61,6 @@ export const list = kinoZodQuery({
           provider,
           connected: fila !== null,
           lastSyncedAt: fila?.lastSyncedAt === undefined ? null : new Date(fila.lastSyncedAt).toISOString(),
-          syncedThrough: fila?.syncedThrough === undefined ? null : new Date(fila.syncedThrough).toISOString(),
           linkedSystems: provider === 'github' ? enlazados : 0,
         };
       }),
