@@ -125,3 +125,40 @@ describe('una tarjeta en la papelera', () => {
     await expect(asAna.mutation(api.tasks.restore, { id: tarjeta })).rejects.toMatchObject({ data: { code: 'CONFLICT' } });
   });
 });
+
+describe('la columna terminal', () => {
+  /** Importa el issue abierto y devuelve su tarjeta. */
+  async function conTarjeta() {
+    const base = await seed();
+    await base.t.mutation(internal.githubData.applySync, { userId: base.userId, systemId: base.kino, truncated: false, syncedThrough: Date.now(), issues: [issue()] });
+    const tarjeta = (await base.t.run((ctx) => ctx.db.query('tasks').collect()))[0]!;
+    return { ...base, tarjeta: tarjeta._id };
+  }
+
+  // El defecto: cerrar el trabajo en Kino y cerrar el issue son dos cosas, y un
+  // comentario en GitHub mueve el issue sin reabrirlo.
+  it('una tarea completada en Kino sigue completada cuando el issue recibe un comentario', async () => {
+    const { t, asAna, userId, kino, tarjeta } = await conTarjeta();
+    await asAna.mutation(api.tasks.moveBoard, { id: tarjeta, boardStatus: 'done' });
+
+    const resultado = await t.mutation(internal.githubData.applySync, { userId, systemId: kino, truncated: false, syncedThrough: Date.now(), issues: [issue()] });
+
+    const despues = (await t.run((ctx) => ctx.db.get(tarjeta)))!;
+    expect(resultado).toMatchObject({ updated: 0, unchanged: 1 });
+    expect(despues.boardStatus).toBe('done');
+    expect(despues.status).toBe('done');
+    expect(despues.completedVia).toBe('session');
+  });
+
+  it('reabrir el issue sí saca de la terminal la tarjeta que cerró la sincronización', async () => {
+    const { t, userId, kino, tarjeta } = await conTarjeta();
+    await t.mutation(internal.githubData.applySync, { userId, systemId: kino, truncated: false, syncedThrough: Date.now(), issues: [issue({ state: 'closed' })] });
+    expect((await t.run((ctx) => ctx.db.get(tarjeta)))!.completedVia).toBe('sync');
+
+    await t.mutation(internal.githubData.applySync, { userId, systemId: kino, truncated: false, syncedThrough: Date.now(), issues: [issue({ state: 'open' })] });
+
+    const despues = (await t.run((ctx) => ctx.db.get(tarjeta)))!;
+    expect(despues.boardStatus).toBe('todo');
+    expect(despues.status).not.toBe('done');
+  });
+});

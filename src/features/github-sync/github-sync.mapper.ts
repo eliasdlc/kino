@@ -10,6 +10,12 @@ import { GITHUB_SOURCE, type GithubIssue } from "./github-sync.types";
  * protege al resto de la app.
  */
 
+/**
+ * La vía con la que firma esta sincronización cuando cierra una tarjeta por su
+ * issue. Es lo que distingue "lo cerró GitHub" de "lo cerró la persona".
+ */
+const GITHUB_SYNC_VIA = "sync";
+
 /** Primera columna no terminal del board: donde entra un issue abierto nuevo. */
 export const INITIAL_BOARD_COLUMN =
   PROJECT_BOARD_COLUMNS.find((c) => c.id !== PROJECT_BOARD_TERMINAL)?.id ??
@@ -101,9 +107,13 @@ export function taskDescriptionFor(issue: GithubIssue): string {
  *   impone, y el que hace valioso el feature: cierras en GitHub y la tarjeta se
  *   mueve sola. El puente de `moveTaskBoard` la completa además en el eje de
  *   scheduling.
- * - Issue **abierto** que estaba en la terminal → vuelve a la primera columna.
- *   Es el caso de reabrir, y hay que deshacerlo o la tarjeta se queda completada
- *   para siempre.
+ * - Issue **abierto** que la sincronización había dejado en la terminal → vuelve
+ *   a la primera columna. Es el caso de reabrir, y hay que deshacerlo o la
+ *   tarjeta se queda completada para siempre.
+ * - Issue **abierto** cuya tarjeta completó una persona en Kino → **no se
+ *   toca**. Terminar el trabajo y cerrar el issue son dos cosas distintas, y un
+ *   issue abierto que recibe un comentario no es una reapertura: descompletar
+ *   ahí borraría el cierre que alguien firmó.
  * - Issue **abierto** en cualquier otra columna → **no se toca**. GitHub no sabe
  *   nada de "en progreso" ni de "en review": esas columnas las mueve la persona,
  *   y un refresco que las devolviera a "por hacer" haría el board inservible.
@@ -114,6 +124,12 @@ export function taskDescriptionFor(issue: GithubIssue): string {
 export function boardStatusFor(
   issueState: GithubIssue["state"],
   currentBoardStatus: string | null,
+  /**
+   * Por qué vía se completó la tarjeta (`completedVia`). `sync` es la firma que
+   * deja esta misma sincronización al cerrar por el issue; cualquier otra, o
+   * ninguna, es una persona en Kino.
+   */
+  completedVia: string | null,
 ): string | null {
   const cerrado = issueState === "closed";
 
@@ -124,7 +140,9 @@ export function boardStatusFor(
   }
 
   if (currentBoardStatus === null) return INITIAL_BOARD_COLUMN;
-  if (currentBoardStatus === PROJECT_BOARD_TERMINAL) return INITIAL_BOARD_COLUMN;
+  if (currentBoardStatus === PROJECT_BOARD_TERMINAL) {
+    return completedVia === GITHUB_SYNC_VIA ? INITIAL_BOARD_COLUMN : null;
+  }
 
   return null;
 }
@@ -167,6 +185,8 @@ export interface ExistingTask {
   description: string | null;
   boardStatus: string | null;
   sprintId: string | null;
+  /** Firma del cierre de la tarjeta, si está cerrada. Ver `boardStatusFor`. */
+  completedVia: string | null;
 }
 
 /**
@@ -199,7 +219,7 @@ export function taskPatchFromIssue(
     patch.sprintId = sprintIdForMilestone;
   }
 
-  patch.boardStatus = boardStatusFor(issue.state, existing.boardStatus);
+  patch.boardStatus = boardStatusFor(issue.state, existing.boardStatus, existing.completedVia);
 
   return patch;
 }

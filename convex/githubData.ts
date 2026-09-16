@@ -227,7 +227,17 @@ export const applySync = internalMutation({
         imported += 1;
         continue;
       }
-      const patch = taskPatchFromIssue(issue, { title: task.title, description: task.description ?? null, boardStatus: task.boardStatus ?? null, sprintId: task.sprintId ?? null }, sprintId ?? null);
+      const patch = taskPatchFromIssue(
+        issue,
+        {
+          title: task.title,
+          description: task.description ?? null,
+          boardStatus: task.boardStatus ?? null,
+          sprintId: task.sprintId ?? null,
+          completedVia: task.completedVia ?? null,
+        },
+        sprintId ?? null,
+      );
       if (isEmptyPatch(patch)) {
         unchanged += 1;
         continue;
