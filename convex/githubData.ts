@@ -114,6 +114,18 @@ export const linkRepoMeta = internalMutation({
   },
 });
 
+/**
+ * Cuál de dos tarjetas del mismo issue manda en el refresco: la viva sobre la
+ * de la papelera, y entre dos vivas la más antigua, que es la que lleva encima
+ * lo que Kino añadió.
+ */
+function gemelaQueManda(a: Doc<'tasks'>, b: Doc<'tasks'>): Doc<'tasks'> {
+  const aViva = a.deletedAt === undefined;
+  const bViva = b.deletedAt === undefined;
+  if (aViva !== bViva) return aViva ? a : b;
+  return a._creationTime <= b._creationTime ? a : b;
+}
+
 const issueValidator = v.object({
   id: v.number(),
   number: v.number(),
@@ -176,7 +188,17 @@ export const applySync = internalMutation({
     const tasks = (await ctx.db.query('tasks').withIndex('by_system_alive_status', (q) => q.eq('systemId', systemId)).collect()).filter(
       (t) => t.userId === userId,
     );
-    const existingByExternal = new Map(tasks.filter((t) => t.externalSource === GITHUB_SOURCE && t.externalId).map((t) => [t.externalId!, t]));
+    // Dos tarjetas del mismo issue existen de verdad: las dejó el defecto viejo
+    // de reimportar lo borrado. Cuál manda no puede salir del orden en que el
+    // índice devuelve los documentos, que pone las vivas primero porque
+    // `deletedAt: undefined` ordena antes que cualquier número: así la borrada
+    // pisaba a su gemela viva y la tarjeta del tablero dejaba de moverse.
+    const existingByExternal = new Map<string, Doc<'tasks'>>();
+    for (const task of tasks) {
+      if (task.externalSource !== GITHUB_SOURCE || !task.externalId) continue;
+      const previa = existingByExternal.get(task.externalId);
+      existingByExternal.set(task.externalId, previa ? gemelaQueManda(previa, task) : task);
+    }
     let sortBase = Math.max(-1, ...tasks.map((t) => t.sortIndex)) + 1;
 
     let imported = 0;

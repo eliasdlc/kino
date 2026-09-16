@@ -116,6 +116,23 @@ describe('una tarjeta en la papelera', () => {
 
   // Los duplicados que el defecto ya dejó en la base: restaurar la de la
   // papelera pondría dos tarjetas del mismo issue en el tablero.
+  // El estado que dejó el defecto viejo: una tarjeta en la papelera y su gemela
+  // viva, las dos con la misma llave externa. Cuál de las dos manda no puede
+  // salir del orden en que el índice devuelve los documentos.
+  it('con una gemela viva, el refresco mueve la viva y no se queda mirando la de la papelera', async () => {
+    const { t, asAna, userId, kino, tarjeta } = await conTarjetaBorrada();
+    const gemela = await asAna.mutation(api.tasks.create, { systemId: kino, title: '#1 Arreglar el mapa' });
+    await t.run((ctx) => ctx.db.patch(gemela.id, { externalSource: 'github', externalId: '1' }));
+
+    await t.mutation(internal.githubData.applySync, { userId, systemId: kino, truncated: false, syncedThrough: Date.now(), issues: [issue({ state: 'closed' })] });
+
+    expect((await t.run((ctx) => ctx.db.get(gemela.id)))!.boardStatus).toBe('done');
+    // Y la de la papelera sigue donde estaba: nadie la resucita ni la toca.
+    const borrada = (await t.run((ctx) => ctx.db.get(tarjeta)))!;
+    expect(borrada.deletedAt).toBeTypeOf('number');
+    expect(borrada.boardStatus).toBe('todo');
+  });
+
   it('con una gemela viva del mismo issue, restaurarla falla en vez de duplicarla', async () => {
     const { t, asAna, kino, tarjeta } = await conTarjetaBorrada();
     // La gemela que el defecto ya creó: misma llave externa, viva en el tablero.
@@ -162,3 +179,4 @@ describe('la columna terminal', () => {
     expect(despues.status).not.toBe('done');
   });
 });
+
