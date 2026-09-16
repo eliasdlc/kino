@@ -41,6 +41,9 @@ async function ownEntity(ctx: Ctx, userId: Id<'users'>, id: Id<'entities'>) {
   return doc;
 }
 
+// El universo de un sistema, ordenado por nombre. El índice fija el sistema y
+// la papelera, así que la lectura no sale de ahí; el dueño se comprueba después
+// porque el índice no lo lleva.
 async function universeOf(ctx: Ctx, userId: Id<'users'>, systemId: Id<'systems'>) {
   const docs = await ctx.db
     .query('entities')
@@ -49,6 +52,9 @@ async function universeOf(ctx: Ctx, userId: Id<'users'>, systemId: Id<'systems'>
   return docs.filter((doc) => doc.userId === userId).sort((a, b) => a.name.localeCompare(b.name));
 }
 
+// Las relaciones que tocan una entidad, por sus dos puntas: cada índice acota
+// la lectura a ella, y el documento del otro extremo se pide uno a uno porque
+// son los de esta entidad, no los del sistema.
 async function relationsOf(ctx: Ctx, entityId: Id<'entities'>) {
   const [from, to] = await Promise.all([
     ctx.db.query('entityRelations').withIndex('by_from', (q) => q.eq('fromEntityId', entityId)).collect(),
@@ -71,6 +77,9 @@ async function relationsOf(ctx: Ctx, entityId: Id<'entities'>) {
 }
 export type EntityRelationItem = Awaited<ReturnType<typeof relationsOf>>[number];
 
+// Los capítulos donde aparece una entidad. `by_entity` acota las menciones a
+// ella, y son las de una ficha abierta: una entidad muy nombrada tiene tantas
+// como capítulos la citen, no tantas como capítulos haya.
 async function appearancesOf(ctx: Ctx, entityId: Id<'entities'>) {
   const mentions = await ctx.db.query('pageEntityMentions').withIndex('by_entity', (q) => q.eq('entityId', entityId)).collect();
   const rows = [];
@@ -109,6 +118,7 @@ export const byPage = kinoZodQuery({
   handler: async (ctx, { pageId }) => {
     const page = await ctx.db.get(pageId);
     if (!page || page.userId !== ctx.user._id || page.deletedAt !== undefined) return [];
+    // Las menciones de este capítulo y de ninguno más: el índice las fija por él.
     const mentions = await ctx.db.query('pageEntityMentions').withIndex('by_page_entity', (q) => q.eq('pageId', pageId)).collect();
     const rows = [];
     for (const mention of mentions) {
@@ -303,6 +313,7 @@ export const remove = kinoZodMutation({
   handler: async (ctx, { id }) => {
     await ownEntity(ctx, ctx.user._id, id);
     await ctx.db.patch(id, { deletedAt: Date.now() });
+    // Sólo sus menciones, por `by_entity`: son derivadas y se van con ella.
     for (const mention of await ctx.db.query('pageEntityMentions').withIndex('by_entity', (q) => q.eq('entityId', id)).collect()) {
       await ctx.db.delete(mention._id);
     }
@@ -352,7 +363,15 @@ export const removeRelation = kinoZodMutation({
 
 // ── La papelera ─────────────────────────────────────────────────────────────
 
-/** Entidades en la papelera, la más reciente primero. */
+/**
+ * Entidades en la papelera, la más reciente primero.
+ *
+ * Su rango sólo fija el usuario, que es el caso que la restricción 9 marca como
+ * deuda con nombre: enseñar la papelera cuesta leer el universo entero de la
+ * cuenta, vivas incluidas, para quedarse con lo borrado. Acotarla pide un índice
+ * que hoy no existe (`entities` no tiene ninguno por usuario y papelera), y eso
+ * es un cambio de schema con su propio carril.
+ */
 export const trashed = kinoZodQuery({
   args: {},
   handler: async (ctx) => {
