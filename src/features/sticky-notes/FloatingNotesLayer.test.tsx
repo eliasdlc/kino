@@ -206,19 +206,21 @@ describe("donde se queda una nota", () => {
 });
 
 describe("una nota larga", () => {
-  it("se acota y avisa de que hay mas", async () => {
+  it("cabe en el cuadrado y el texto entero sigue en el DOM", async () => {
     const larga = makeStickyNote({
       id: mid("nota-larga"),
       title: "Nota larga",
       content: "x".repeat(500),
       positionSide: "over",
     });
-    pintar([larga]);
+    const { container } = pintar([larga]);
 
-    // El cuerpo va en una caja con tope; el texto entero sigue en el DOM para
-    // que quien lea con lector de pantalla no pierda nada.
-    const cuerpo = screen.getByText("x".repeat(500)).parentElement!;
-    expect(cuerpo.style.maxHeight).toBe("168px");
-    expect(cuerpo.className).toContain("overflow-hidden");
+    // La nota es un cuadrado de lado fijo y recorta lo que no cabe; el texto
+    // entero sigue en el DOM para que quien lea con lector de pantalla no
+    // pierda nada.
+    const nota = container.querySelector<HTMLElement>("[data-sticky-note]")!;
+    expect(nota.className).toContain("size-44");
+    expect(nota.className).toContain("overflow-hidden");
+    expect(screen.getByText("x".repeat(500))).toBeInTheDocument();
   });
 });

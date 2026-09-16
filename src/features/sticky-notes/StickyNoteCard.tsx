@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { X, Layers, Lightbulb, Loader2, MoreHorizontal, PanelLeft, PanelRight, PinOff, Pencil, Trash2 } from "lucide-react";
+import { X, Layers, LayoutGrid, Lightbulb, Loader2, MoreHorizontal, PanelLeft, PanelRight, Pencil, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -33,12 +33,6 @@ interface StickyNoteCardProps {
    * encima de otra, y existe donde el arrastre no llega: el teléfono.
    */
   onStack?: () => void;
-  /**
-   * La nota flota sobre el texto. Ahí la tarjeta se acota: los 500 caracteres
-   * que el schema permite se pintaban en 573 px de alto sobre 176 de ancho y
-   * se comían la página. En la rejilla no hace falta, porque la rejilla fluye.
-   */
-  compact?: boolean;
 }
 
 const EDIT_POPOVER_W = 300;
@@ -156,10 +150,12 @@ function EditOverlay({
   );
 }
 
-/** Alto máximo de una nota que flota sobre el texto, en px. */
-const COMPACT_MAX_H = 168;
-
-export function StickyNoteCard({ note, context, onStack, compact }: StickyNoteCardProps) {
+/**
+ * La nota es un cuadrado de lado fijo, flote sobre el texto o esté en la
+ * cuadrícula: el mismo papel en los dos sitios, y por eso arrastrarla de uno al
+ * otro no la cambia de forma. Lo que no cabe se recorta y la nota avisa.
+ */
+export function StickyNoteCard({ note, context, onStack }: StickyNoteCardProps) {
   const { mutate: removeNote } = useDeleteStickyNote(context);
   const { mutate: updateNote } = useUpdateStickyNote(context);
   const editor = useSharedEditor();
@@ -186,17 +182,17 @@ export function StickyNoteCard({ note, context, onStack, compact }: StickyNoteCa
     return () => light(null);
   }, [anota, editando, light, note.anchorId]);
 
-  // Si el texto no cabe en el tope. Se mide en vez de contar caracteres: lo que
-  // cabe depende de la letra del sistema, que el usuario cambia.
+  // Si el texto no cabe en el cuadrado. Se mide en vez de contar caracteres:
+  // lo que cabe depende de la letra del sistema, que el usuario cambia.
   useEffect(() => {
     const el = bodyRef.current;
-    if (!compact || !el) return;
+    if (!el) return;
     const medir = () => setRecortada(el.scrollHeight > el.clientHeight + 1);
     medir();
     const ro = new ResizeObserver(medir);
     ro.observe(el);
     return () => ro.disconnect();
-  }, [compact, note.title, note.content]);
+  }, [note.title, note.content, note.isEureka]);
 
   /**
    * Borrar la nota le quita también su marca al texto. Una marca sin nota no
@@ -237,7 +233,7 @@ export function StickyNoteCard({ note, context, onStack, compact }: StickyNoteCa
             ref={cardRef}
             data-sticky-note
             data-lit={encendida ? "" : undefined}
-            className="group relative flex flex-col gap-1 cursor-pointer rounded-lg p-3.5 w-full min-h-[90px]"
+            className="group relative flex size-44 cursor-pointer flex-col gap-1 overflow-hidden rounded-lg p-3.5"
             style={{
               ...paperStyle(colors.hex, encendida ? { ink: colors.textHex } : undefined),
               color: colors.textHex,
@@ -254,11 +250,7 @@ export function StickyNoteCard({ note, context, onStack, compact }: StickyNoteCa
               }
             }}
           >
-            <div
-              ref={bodyRef}
-              className="flex flex-col gap-1 overflow-hidden"
-              style={compact ? { maxHeight: COMPACT_MAX_H } : undefined}
-            >
+            <div ref={bodyRef} className="flex min-h-0 flex-1 flex-col gap-1 overflow-hidden">
               {note.title && (
                 <p className="font-semibold text-sm leading-tight break-words" style={{ color: colors.textHex }}>
                   {note.title}
@@ -277,14 +269,14 @@ export function StickyNoteCard({ note, context, onStack, compact }: StickyNoteCa
               )}
             </div>
             {recortada && (
-              <p className="text-xs font-semibold underline" style={{ color: colors.textHex, opacity: 0.7 }}>
+              <p className="shrink-0 text-xs font-semibold underline" style={{ color: colors.textHex, opacity: 0.7 }}>
                 Ver más
               </p>
             )}
 
             {note.isEureka && (
               <span
-                className="mt-auto flex items-center gap-1 pt-1 text-[10px] uppercase tracking-wider"
+                className="flex shrink-0 items-center gap-1 pt-1 text-[10px] uppercase tracking-wider"
                 style={{ color: colors.textHex, opacity: 0.7 }}
               >
                 <Lightbulb className="size-3" /> Eureka
@@ -325,7 +317,7 @@ export function StickyNoteCard({ note, context, onStack, compact }: StickyNoteCa
                       <>
                         <DropdownMenuSeparator />
                         <DropdownMenuItem className="gap-2 text-xs" onClick={() => pinToSide(null)}>
-                          <PinOff className="size-3" /> Quitar del margen
+                          <LayoutGrid className="size-3" /> Mandar a la cuadrícula
                         </DropdownMenuItem>
                       </>
                     )}

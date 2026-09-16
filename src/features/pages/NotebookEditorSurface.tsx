@@ -322,9 +322,16 @@ export default function NotebookEditorSurface({
                   writer ? "max-w-[46rem] md:my-6 md:px-10" : "max-w-3xl"
                 )}
               >
+                {/* Las notas de la cuadrícula van arriba del todo, como los
+                    papeles pegados en la primera hoja: en un documento largo
+                    nadie baja hasta el final a buscarlas. Desde aquí se
+                    arrastran a cualquier punto del texto. */}
+                <StickyNotesGrid
+                  pageId={page.id}
+                  floatingIds={floatingIds}
+                  canvas={{ containerRef: contentRef, metrics }}
+                />
                 <NotebookEditor page={page} systemId={systemId} pageId={page.id} writer={writer} title={title} onTitleChange={onTitleChange} />
-                {/* Las notas van después del texto: la página escribe primero. */}
-                <StickyNotesGrid pageId={page.id} floatingIds={floatingIds} />
               </div>
               <FloatingNotesLayer
                 notes={floatingNotes}
