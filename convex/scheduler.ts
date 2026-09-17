@@ -14,11 +14,23 @@ import { calendarDayInTz, userToday } from './lib/time';
 const MAX_USERS_PER_RUN = 50;
 
 /**
- * Tope de lectura por día candidato. Un día tiene tres slots, así que con tres
- * check-in por persona el recorrido llega a `MAX_USERS_PER_RUN` personas
- * distintas antes de agotarse.
+ * Presupuesto de lectura por día candidato.
+ *
+ * **No sale de `MAX_USERS_PER_RUN`, y no puede salir de ahí.** Un día candidato
+ * no contiene sólo a quien está viviendo ese día: contiene también el check-in
+ * de ayer de quien ya pasó al siguiente, y esas filas ocupan sitio sin ser
+ * candidatas. Atarlo al tope de personas dejaba fuera a un activo de verdad en
+ * cuanto los check-in de ayer de otra zona llenaban el cupo antes que él.
+ *
+ * Sale de acotar la consulta y nada más: mil filas por día, tres días como
+ * mucho, muy por debajo de lo que aguanta una transacción de Convex, y a tres
+ * slots por persona cubre más de trescientas personas activas por día.
+ *
+ * Por encima, la vuelta se queda con los primeros `userId` de ese día y el resto
+ * se queda sin snapshot ese día. Es la única frontera de esta lectura y es la
+ * misma forma que tenía `MAX_USERS_PER_RUN`: mejor esfuerzo, no garantía.
  */
-const MAX_CHECKINS_PER_DAY = MAX_USERS_PER_RUN * 3;
+const MAX_CHECKINS_POR_DIA = 1_000;
 
 const HORA_MS = 3_600_000;
 
@@ -46,9 +58,15 @@ function diasPosibles(now: number): string[] {
  * El día de un check-in está escrito en la zona de quien lo hizo, así que la
  * consulta pide los días que ahora mismo son hoy en alguna zona y confirma cada
  * candidato contra la zona de su dueño: un check-in del 16 leído desde una zona
- * donde todavía es 15 se descarta. El conjunto que sale es el mismo de antes
- * mientras haya como mucho `MAX_USERS_PER_RUN` personas activas; por encima
- * cambia cuáles entran, porque el orden ya no es el de creación de la cuenta.
+ * donde todavía es 15 se descarta. Descartar cuesta leer, y por eso el
+ * presupuesto de lectura se cuenta en filas y no en personas.
+ *
+ * El conjunto que sale es el mismo que salía de recorrer `users` **con dos
+ * condiciones**: que haya como mucho `MAX_USERS_PER_RUN` personas activas, y
+ * que ningún día candidato tenga más de `MAX_CHECKINS_POR_DIA` check-in. Si
+ * falla la primera cambia cuáles entran, porque el orden ya no es el de
+ * creación de la cuenta; si falla la segunda puede faltar alguien que sí estaba
+ * activo. Las dos están escritas donde vive cada número.
  */
 export async function activosHoy(ctx: QueryCtx, now: number): Promise<Id<'users'>[]> {
   const activos: Id<'users'>[] = [];
@@ -59,7 +77,7 @@ export async function activosHoy(ctx: QueryCtx, now: number): Promise<Id<'users'
     const checkins = await ctx.db
       .query('energyCheckins')
       .withIndex('by_day_user', (q) => q.eq('date', dia))
-      .take(MAX_CHECKINS_PER_DAY);
+      .take(MAX_CHECKINS_POR_DIA);
     for (const checkin of checkins) {
       if (elegidos.has(checkin.userId)) continue;
       let hoy = hoyDe.get(checkin.userId);

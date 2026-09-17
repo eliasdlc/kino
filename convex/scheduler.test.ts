@@ -148,6 +148,24 @@ async function sembrarCuentas(t: ReturnType<typeof convexTest>) {
   });
 }
 
+/** Una cuenta con sus check-in, cada uno con la fecha que se le diga. */
+async function cuentaCon(t: ReturnType<typeof convexTest>, email: string, timezone: string, fechas: string[]) {
+  return t.run(async (ctx) => {
+    const userId = await ctx.db.insert('users', {
+      email, name: email, onboardingCompleted: true, status: 'active', timezone,
+      createdAt: MEDIODIA, updatedAt: MEDIODIA,
+    });
+    for (const date of fechas) {
+      for (const slot of ['morning', 'afternoon', 'evening'] as const) {
+        await ctx.db.insert('energyCheckins', {
+          userId, date, slot, currentLevel: 70, sleepQuality: 'partial', createdAt: MEDIODIA,
+        });
+      }
+    }
+    return userId;
+  });
+}
+
 describe('activeUserIds', { timeout: 20_000 }, () => {
   it('lee por los check-in del día, no por la tabla de cuentas', async () => {
     const t = convexTest(schema, modules);
@@ -163,5 +181,45 @@ describe('activeUserIds', { timeout: 20_000 }, () => {
     // check-in de esos dos días más los seis dueños que hay que mirar para
     // confirmar su zona; ni uno por cada cuenta registrada.
     expect(cuenta).toEqual({ consultas: 2, documentos: 12 });
+  });
+
+  /**
+   * Un día candidato no es sólo de quien lo está viviendo: guarda también el
+   * check-in de ayer de quien ya pasó al día siguiente. Si el presupuesto de
+   * lectura se contara en personas, esas filas lo gastarían y dejarían fuera a
+   * un activo de verdad.
+   */
+  it('el check-in de ayer de otra zona no deja fuera a quien sí está en ese día', async () => {
+    const t = convexTest(schema, modules);
+    // 04:00Z: en Santo Domingo ya es el 15, en Ciudad de México todavía el 14.
+    const madrugada = Date.UTC(2026, 5, 15, 4, 0, 0);
+    // Cincuenta y una cuentas con tres check-in del 14, que para ellas es ayer:
+    // ciento cincuenta y tres filas en el día candidato que no son candidatas.
+    for (let i = 0; i < 51; i++) {
+      await cuentaCon(t, `ayer-${i}@usekino.dev`, SANTO_DOMINGO, ['2026-06-14']);
+    }
+    // Y una, creada la última para que su id ordene detrás de todas, para la
+    // que el 14 sí es hoy.
+    const mexico = await cuentaCon(t, 'hoy@usekino.dev', 'America/Mexico_City', ['2026-06-14']);
+
+    expect(await t.run((ctx) => activosHoy(ctx, madrugada))).toEqual([mexico]);
+  });
+
+  /** Entre las 10:00 y las 11:59 UTC el mundo está repartido en tres fechas. */
+  it('con tres fechas candidatas encuentra a los tres husos', async () => {
+    const t = convexTest(schema, modules);
+    const media = Date.UTC(2026, 5, 15, 11, 0, 0);
+    const atrasado = await cuentaCon(t, 'atrasado@usekino.dev', MENOS_DOCE, ['2026-06-14']);
+    const medio = await cuentaCon(t, 'medio@usekino.dev', SANTO_DOMINGO, ['2026-06-15']);
+    const adelantado = await cuentaCon(t, 'adelantado@usekino.dev', MAS_CATORCE, ['2026-06-16']);
+    // El distractor: su hoy es el 15 y su check-in dice 16.
+    await cuentaCon(t, 'distractor@usekino.dev', SANTO_DOMINGO, ['2026-06-16']);
+
+    const cuenta: Cuenta = { consultas: 0, documentos: 0 };
+    const ids = await t.run((ctx) => activosHoy({ ...ctx, db: espiar(ctx.db, cuenta) }, media));
+
+    expect(new Set(ids)).toEqual(new Set([atrasado, medio, adelantado]));
+    // Tres fechas, tres consultas: una por día candidato y ninguna más.
+    expect(cuenta.consultas).toBe(3);
   });
 });
