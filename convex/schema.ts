@@ -400,6 +400,17 @@ export default defineSchema({
     .index('by_sprint', ['sprintId'])
     .index('by_user_external', ['userId', 'externalSource', 'externalId'])
     .index('by_user_alive_completed', ['userId', 'deletedAt', 'completedAt'])
+    // Las dos puertas de una lista de tareas. `parentTaskId` va dentro porque
+    // toda lista es de tareas raíz, y `sortIndex` al final para que el orden
+    // salga del índice y la lectura pueda parar en el tope en vez de leerlo
+    // todo y recortar después.
+    //
+    // `status` cierra la fila y no filtra nada: es el desempate. Como una tarea
+    // nace con `sortIndex` en cero, el orden visible lo decidía de hecho el
+    // índice por el que se leía, que era `by_user_alive_status`. Sin esta
+    // última columna las listas se reordenarían solas.
+    .index('by_user_parent_alive_sort_status', ['userId', 'parentTaskId', 'deletedAt', 'sortIndex', 'status'])
+    .index('by_system_parent_alive_sort_status', ['systemId', 'parentTaskId', 'deletedAt', 'sortIndex', 'status'])
     .searchIndex('search_lemas', {
       searchField: 'lemas',
       filterFields: ['userId', 'systemId', 'deletedAt'],
@@ -526,6 +537,13 @@ export default defineSchema({
     .index('by_folder', ['folderId'])
     .index('by_system', ['systemId'])
     .index('by_parent', ['parentPageId'])
+    // Las dos puertas de la lista de páginas, una por carpeta y otra por
+    // sistema. Dejan la papelera fuera del rango y entregan ya ordenado por
+    // `updatedAt`, que es el orden que la lista enseña, así que la lectura para
+    // en el tope. Los dos índices de arriba se quedan porque el resto de
+    // lectores sí quiere la papelera dentro.
+    .index('by_folder_alive_updated', ['folderId', 'deletedAt', 'updatedAt'])
+    .index('by_system_alive_updated', ['systemId', 'deletedAt', 'updatedAt'])
     .searchIndex('search_lemas', {
       searchField: 'lemas',
       filterFields: ['userId', 'systemId', 'deletedAt'],

@@ -11,9 +11,9 @@ import type { PageDetailTransport } from "./pages.types";
 export type PageListTransport = FunctionReturnType<typeof api.pages.bySystem>;
 
 /**
- * Las páginas de un sistema. La query trae hasta `PAGE_LIST_LIMIT` y dice
- * cuántas quedaron fuera; el componente recibe la lista, y `restantes` está
- * ahí para el día que un sistema pase del tope.
+ * Las páginas de un sistema. La query lee y trae hasta `PAGE_LIST_LIMIT`, y
+ * `restantes` dice que hay más, no cuántas; el componente recibe la lista, y
+ * `restantes` está ahí para el día que un sistema pase del tope.
  */
 export function usePages(systemId: string, initialData?: PageListTransport) {
   const scope = useAcademicScope(systemId);

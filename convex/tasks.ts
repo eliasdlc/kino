@@ -318,58 +318,102 @@ async function spawnNextRecurrence(ctx: MutationCtx, task: TaskDoc, now: number)
 // ── Lecturas ────────────────────────────────────────────────────────────────
 
 /**
- * Tope de tareas por respuesta.
+ * Tope de tareas por respuesta, y también de lectura.
  *
- * Es un tope duro, no un cursor, y eso es una decisión con fecha: el orden de
- * la lista es `sortIndex`, que no tiene índice propio, así que un cursor
- * correcto exige uno nuevo en `convex/schema.ts` y esta fase no tiene el turno
- * del carril de schema. Con el tope, lo que cruza la red y lo que se recorre en
- * memoria quedan acotados; lo que sigue sin acotar es la lectura de la base.
+ * `sortIndex` ya tiene índice, así que la lista pide una tarea más que el tope
+ * y para: lo que lee es lo que enseña. Sigue siendo un tope duro y no un
+ * cursor, porque nadie ha pedido paginar una lista que ninguna cuenta real
+ * llena.
+ *
+ * `restantes` cambió de significado con eso: era la cuenta exacta de lo que
+ * quedaba fuera, y contarla exigía leer la tabla entera, que es justo lo que la
+ * restricción 9 de AGENTS.md prohíbe. Ahora es la señal de recorte, mayor que
+ * cero cuando hay más.
  *
  * El número sale de que el deployment de dev tiene 226 tareas: quinientas deja
- * el doble de margen antes de que nadie vea un recorte, y `restantes` lo dice
- * cuando pasa.
+ * el doble de margen antes de que nadie vea un recorte.
  */
 export const TASK_LIST_LIMIT = 500;
 
+/**
+ * La lista de tareas raíz, con su tope. Vive fuera de la query para poder medir
+ * lo que lee (`convex/listasAcotadas.test.ts`).
+ *
+ * Entra por el índice que fija dueño o sistema, raíz y papelera, y que termina
+ * en `sortIndex`: el orden llega hecho, así que pedir una más que el tope basta
+ * para saber si hubo recorte. Antes leía todas las tareas del usuario, subtareas
+ * y papelera incluidas, para descartarlas en memoria.
+ *
+ * `energyLevel` y `status` no caben en el rango y se filtran sobre lo leído, así
+ * que una lista pedida con uno de los dos puede recortarse antes de llegar al
+ * tope. Sólo el conector MCP los manda; las pantallas piden sin filtro.
+ */
+export async function listadoDeTareas(ctx: Ctx, userId: Id<'users'>, filters: z.infer<typeof listTasksSchema>) {
+  const { systemId, deleted } = filters;
+  // `deletedAt` guarda un instante, no una marca, y en el orden de Convex
+  // `undefined` va antes que cualquier número: lo vivo se pide con
+  // `eq(undefined)` y la papelera con `gt(0)`, y ninguna de las dos mitades lee
+  // la otra.
+  const rango = systemId
+    ? ctx.db.query('tasks').withIndex('by_system_parent_alive_sort_status', (q) => {
+        const raiz = q.eq('systemId', systemId).eq('parentTaskId', undefined);
+        return deleted ? raiz.gt('deletedAt', 0) : raiz.eq('deletedAt', undefined);
+      })
+    : ctx.db.query('tasks').withIndex('by_user_parent_alive_sort_status', (q) => {
+        const raiz = q.eq('userId', userId).eq('parentTaskId', undefined);
+        return deleted ? raiz.gt('deletedAt', 0) : raiz.eq('deletedAt', undefined);
+      });
+  const docs = await rango.take(TASK_LIST_LIMIT + 1);
+  const filtradas = docs
+    .filter((doc) => doc.userId === userId)
+    .filter((doc) => !filters.energyLevel || doc.energyLevel === filters.energyLevel)
+    .filter((doc) => !filters.status || doc.status === filters.status)
+    // Lo vivo ya llega en este orden y ordenar es estable, así que esto sólo
+    // hace trabajo en la papelera, cuyo rango va por `deletedAt`.
+    .sort(bySort);
+  const pagina = filtradas.slice(0, TASK_LIST_LIMIT);
+  return {
+    items: pagina.map(taskItem),
+    /** Señal de recorte: mayor que cero significa que hay más, no cuántas. */
+    restantes: filtradas.length - pagina.length,
+  };
+}
+
 export const list = kinoZodQuery({
   args: listTasksSchema,
-  handler: async (ctx, filters) => {
-    let docs: TaskDoc[];
-    if (filters.deleted) {
-      const all = await ctx.db
-        .query('tasks')
-        .withIndex('by_user_alive_status', (q) => q.eq('userId', ctx.user._id))
-        .collect();
-      docs = all.filter((doc) => !alive(doc));
-    } else {
-      docs = await aliveTasks(ctx, ctx.user._id);
-    }
-    const filtradas = docs
-      .filter(topLevel)
-      .filter((doc) => !filters.systemId || doc.systemId === filters.systemId)
-      .filter((doc) => !filters.energyLevel || doc.energyLevel === filters.energyLevel)
-      .filter((doc) => !filters.status || doc.status === filters.status)
-      .sort(bySort);
-    const pagina = filtradas.slice(0, TASK_LIST_LIMIT);
-    return {
-      items: pagina.map(taskItem),
-      /** Cuántas quedaron fuera del tope. Cero es la respuesta normal. */
-      restantes: filtradas.length - pagina.length,
-    };
-  },
+  handler: (ctx, filters) => listadoDeTareas(ctx, ctx.user._id, filters),
 });
+
+interface AlcanceSistema {
+  systemId: Id<'systems'>;
+  academicPeriodId?: Id<'academicPeriods'> | null;
+  folderId?: Id<'folders'>;
+}
+
+/**
+ * Las tareas raíz de un sistema. Vive fuera de la query para poder medir lo que
+ * lee (`convex/listasAcotadas.test.ts`).
+ *
+ * Es la suscripción que abre cada pantalla de sistema, y el índice le da las
+ * raíces vivas ya ordenadas: las subtareas dejan de leerse para descartarse
+ * después, y el orden deja de rehacerse en memoria.
+ *
+ * El `.collect()` no lleva tope y el rango es el motivo: un sistema, sus raíces,
+ * sin papelera. La pantalla las pinta todas y su respuesta no tiene `restantes`
+ * donde decir que recortó.
+ */
+export async function tareasDelSistema(ctx: Ctx, userId: Id<'users'>, { systemId, academicPeriodId, folderId }: AlcanceSistema) {
+  const allowed = academicPeriodId !== undefined ? await academicFolderIds(ctx, userId, systemId, academicPeriodId) : undefined;
+  const docs = await ctx.db
+    .query('tasks')
+    .withIndex('by_system_parent_alive_sort_status', (q) => q.eq('systemId', systemId).eq('parentTaskId', undefined).eq('deletedAt', undefined))
+    .collect();
+  return docs.filter((doc) => doc.userId === userId && (folderId === undefined || doc.folderId === folderId) && (!allowed || (doc.folderId ? allowed.has(doc.folderId) : academicPeriodId === null))).map(taskItem);
+}
 
 export const bySystem = kinoZodQuery({
   args: { systemId: zid('systems'), academicPeriodId: zid('academicPeriods').nullable().optional(), folderId: zid('folders').optional() },
-  handler: async (ctx, { systemId, academicPeriodId, folderId }) => {
-    const allowed = academicPeriodId !== undefined ? await academicFolderIds(ctx, ctx.user._id, systemId, academicPeriodId) : undefined;
-    const docs = await ctx.db
-      .query('tasks')
-      .withIndex('by_system_alive_status', (q) => q.eq('systemId', systemId).eq('deletedAt', undefined))
-      .collect();
-    return docs.filter((doc) => doc.userId === ctx.user._id && topLevel(doc) && (folderId === undefined || doc.folderId === folderId) && (!allowed || (doc.folderId ? allowed.has(doc.folderId) : academicPeriodId === null))).sort(bySort).map(taskItem);
-  },
+  handler: (ctx, args) => tareasDelSistema(ctx, ctx.user._id, args),
 });
 
 export const byFolder = kinoZodQuery({

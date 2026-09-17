@@ -125,43 +125,72 @@ async function linkedTasksOf(ctx: Ctx, userId: Id<'users'>, pageId: Id<'pages'>)
  * Lo que la lista devuelve no lleva `content` y nunca lo llevó: `PageListItem`
  * manda `contentPreview`, recortado a 300 caracteres. Lo que el tope acota es
  * el abanico de consultas, no el tamaño del payload.
+ *
+ * Desde que los índices dejan la papelera fuera y entregan el orden hecho, el
+ * tope es también de lectura: la lista pide una página más que el tope y para.
+ * `restantes` pasó a ser la señal de recorte, mayor que cero cuando hay más, y
+ * no la cuenta exacta de lo que quedó fuera: contarla exigía leer el sistema
+ * entero, que es lo que la restricción 9 de AGENTS.md prohíbe.
  */
 export const PAGE_LIST_LIMIT = 200;
 
+interface AlcanceSistema {
+  systemId: Id<'systems'>;
+  folderId?: Id<'folders'>;
+  academicPeriodId?: Id<'academicPeriods'> | null;
+}
+
+/**
+ * Las páginas de un sistema, con su tope. Vive fuera de la query para poder
+ * medir lo que lee (`convex/listasAcotadas.test.ts`).
+ *
+ * Pedir una carpeta lee esa carpeta, no el sistema entero. Las dos puertas
+ * dejan además la papelera fuera del rango y traen las páginas ya ordenadas por
+ * `updatedAt`, así que la lectura para en el tope en vez de recoger el sistema
+ * y recortar después.
+ */
+export async function paginasDelSistema(ctx: Ctx, userId: Id<'users'>, { systemId, folderId, academicPeriodId }: AlcanceSistema) {
+  const allowed = academicPeriodId !== undefined ? await academicFolderIds(ctx, userId, systemId, academicPeriodId) : undefined;
+
+  // Una más que el tope: la de sobra es la que dice que hubo recorte.
+  const cupo = PAGE_LIST_LIMIT + 1;
+  const docs = folderId
+    ? await ctx.db.query('pages').withIndex('by_folder_alive_updated', (q) => q.eq('folderId', folderId).eq('deletedAt', undefined)).take(cupo)
+    // Con un ciclo elegido y sin carpeta hay que subir por la cadena de padres
+    // de cada página suelta hasta la obra que la contiene, y un padre en la
+    // papelera sigue diciendo a qué obra pertenece su hija. Ése es el único
+    // caso que necesita el sistema entero, y por eso se lee aparte.
+    : allowed
+      ? await ctx.db.query('pages').withIndex('by_system', (q) => q.eq('systemId', systemId)).collect()
+      : await ctx.db.query('pages').withIndex('by_system_alive_updated', (q) => q.eq('systemId', systemId).eq('deletedAt', undefined)).take(cupo);
+
+  // Dentro de una carpeta el ciclo es el mismo para todas sus páginas, así
+  // que no hace falta subir por la cadena de padres de cada una. El mapa sólo
+  // lo usa el caso de arriba, el único que lee el sistema entero.
+  const byId = new Map(docs.map(doc => [doc._id, doc]));
+  function belongs(doc: Doc<'pages'>) {
+    if (!allowed) return true;
+    if (folderId) return allowed.has(folderId);
+    let root = doc;
+    const visited = new Set<string>();
+    while (!root.folderId && root.parentPageId && byId.has(root.parentPageId) && !visited.has(root._id)) {
+      visited.add(root._id);
+      root = byId.get(root.parentPageId)!;
+    }
+    return root.folderId ? allowed.has(root.folderId) : academicPeriodId === null;
+  }
+  const own = docs.filter((doc) => doc.userId === userId && doc.systemId === systemId && alive(doc) && belongs(doc)).sort((a, b) => a.updatedAt - b.updatedAt);
+  const pagina = own.slice(0, PAGE_LIST_LIMIT);
+  return {
+    items: await Promise.all(pagina.map((doc) => pageListItem(ctx, doc))),
+    /** Señal de recorte: mayor que cero significa que hay más, no cuántas. */
+    restantes: own.length - pagina.length,
+  };
+}
+
 export const bySystem = kinoZodQuery({
   args: { systemId: zid('systems'), folderId: zid('folders').optional(), academicPeriodId: zid('academicPeriods').nullable().optional() },
-  handler: async (ctx, { systemId, folderId, academicPeriodId }) => {
-    const allowed = academicPeriodId !== undefined ? await academicFolderIds(ctx, ctx.user._id, systemId, academicPeriodId) : undefined;
-
-    // Pedir una carpeta lee esa carpeta, no el sistema entero. Es la pantalla
-    // que más se abre y antes recorría todas las páginas del sistema para
-    // quedarse con las de una: el índice por carpeta ya existía.
-    const docs = folderId
-      ? await ctx.db.query('pages').withIndex('by_folder', (q) => q.eq('folderId', folderId)).collect()
-      : await ctx.db.query('pages').withIndex('by_system', (q) => q.eq('systemId', systemId)).collect();
-
-    // Dentro de una carpeta el ciclo es el mismo para todas sus páginas, así
-    // que no hace falta subir por la cadena de padres de cada una.
-    const byId = new Map(docs.map(doc => [doc._id, doc]));
-    function belongs(doc: Doc<'pages'>) {
-      if (!allowed) return true;
-      if (folderId) return allowed.has(folderId);
-      let root = doc;
-      const visited = new Set<string>();
-      while (!root.folderId && root.parentPageId && byId.has(root.parentPageId) && !visited.has(root._id)) {
-        visited.add(root._id);
-        root = byId.get(root.parentPageId)!;
-      }
-      return root.folderId ? allowed.has(root.folderId) : academicPeriodId === null;
-    }
-    const own = docs.filter((doc) => doc.userId === ctx.user._id && doc.systemId === systemId && alive(doc) && belongs(doc)).sort((a, b) => a.updatedAt - b.updatedAt);
-    const pagina = own.slice(0, PAGE_LIST_LIMIT);
-    return {
-      items: await Promise.all(pagina.map((doc) => pageListItem(ctx, doc))),
-      /** Cuántas quedaron fuera del tope. Cero es la respuesta normal. */
-      restantes: own.length - pagina.length,
-    };
-  },
+  handler: (ctx, args) => paginasDelSistema(ctx, ctx.user._id, args),
 });
 
 /** Las páginas de un sistema con su contenido, para el export del workspace. */
