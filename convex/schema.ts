@@ -682,7 +682,11 @@ export default defineSchema({
     createdAt: ts,
   })
     .index('by_pgId', ['pgId'])
-    .index('by_user_day_slot', ['userId', 'date', 'slot']),
+    .index('by_user_day_slot', ['userId', 'date', 'slot'])
+    // El día primero: el snapshot diario pregunta quiénes hicieron check-in hoy
+    // y con `by_user_day_slot` esa pregunta obligaba a recorrer `users` entera
+    // para tener a quién preguntarle.
+    .index('by_day_user', ['date', 'userId']),
 
   // Escrita antes de conocer el resultado, para que la verificación no sea
   // circular.

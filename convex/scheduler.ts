@@ -1,10 +1,10 @@
 import { v } from 'convex/values';
-import { internalAction, internalMutation, internalQuery } from './_generated/server';
+import { internalAction, internalMutation, internalQuery, type QueryCtx } from './_generated/server';
 import { internal } from './_generated/api';
 import type { Id } from './_generated/dataModel';
 import { reportStaleCrons, withCronRun } from './cronRuns';
 import { nightlyRefresh } from './energy';
-import { userToday } from './lib/time';
+import { calendarDayInTz, userToday } from './lib/time';
 
 // Las dos tareas programadas de `convex/crons.ts`. Cada una es una acción que
 // deja su ejecución en `cronRuns` y reparte el trabajo en mutaciones pequeñas:
@@ -13,24 +13,74 @@ import { userToday } from './lib/time';
 
 const MAX_USERS_PER_RUN = 50;
 
-/** Quién hizo check-in hoy, en su propia zona: el snapshot sólo vale para quien usó la app. */
+/**
+ * Tope de lectura por día candidato. Un día tiene tres slots, así que con tres
+ * check-in por persona el recorrido llega a `MAX_USERS_PER_RUN` personas
+ * distintas antes de agotarse.
+ */
+const MAX_CHECKINS_PER_DAY = MAX_USERS_PER_RUN * 3;
+
+const HORA_MS = 3_600_000;
+
+/**
+ * Los días que ahora mismo son "hoy" para alguien en el mundo. Las zonas van de
+ * UTC-12 a UTC+14, veintiséis horas de ancho, así que en un instante dado hay
+ * como mucho tres fechas locales distintas y la del propio UTC siempre queda en
+ * medio.
+ */
+function diasPosibles(now: number): string[] {
+  const dias = [now - 12 * HORA_MS, now, now + 14 * HORA_MS].map((instante) => calendarDayInTz(instante, 'UTC'));
+  return [...new Set(dias)];
+}
+
+/**
+ * Quién hizo check-in hoy, en su propia zona: el snapshot sólo vale para quien
+ * usó la app.
+ *
+ * La señal de "activo" es el check-in, no `lastActiveAt`, así que la lectura
+ * entra por `energyCheckins`, que es donde vive, y no por `users`, que había
+ * que recorrer entera para descartar a casi todo el mundo. Acotar `users` por
+ * un índice de actividad habría acotado la lectura con **otra** definición de
+ * activo, y cambiarla es una decisión de producto, no un ajuste de lectura.
+ *
+ * El día de un check-in está escrito en la zona de quien lo hizo, así que la
+ * consulta pide los días que ahora mismo son hoy en alguna zona y confirma cada
+ * candidato contra la zona de su dueño: un check-in del 16 leído desde una zona
+ * donde todavía es 15 se descarta. El conjunto que sale es el mismo de antes
+ * mientras haya como mucho `MAX_USERS_PER_RUN` personas activas; por encima
+ * cambia cuáles entran, porque el orden ya no es el de creación de la cuenta.
+ */
+export async function activosHoy(ctx: QueryCtx, now: number): Promise<Id<'users'>[]> {
+  const activos: Id<'users'>[] = [];
+  const elegidos = new Set<Id<'users'>>();
+  /** La zona de cada dueño se resuelve una vez, aunque tenga varios check-in. */
+  const hoyDe = new Map<Id<'users'>, string | null>();
+  for (const dia of diasPosibles(now)) {
+    const checkins = await ctx.db
+      .query('energyCheckins')
+      .withIndex('by_day_user', (q) => q.eq('date', dia))
+      .take(MAX_CHECKINS_PER_DAY);
+    for (const checkin of checkins) {
+      if (elegidos.has(checkin.userId)) continue;
+      let hoy = hoyDe.get(checkin.userId);
+      if (hoy === undefined) {
+        const user = await ctx.db.get(checkin.userId);
+        hoy = user ? userToday(user.timezone, now) : null;
+        hoyDe.set(checkin.userId, hoy);
+      }
+      if (hoy !== dia) continue;
+      elegidos.add(checkin.userId);
+      activos.push(checkin.userId);
+      if (activos.length >= MAX_USERS_PER_RUN) return activos;
+    }
+  }
+  return activos;
+}
+
 export const activeUserIds = internalQuery({
   args: {},
   returns: v.array(v.id('users')),
-  handler: async (ctx) => {
-    const now = Date.now();
-    const users = await ctx.db.query('users').collect();
-    const active: Id<'users'>[] = [];
-    for (const user of users) {
-      const checkin = await ctx.db
-        .query('energyCheckins')
-        .withIndex('by_user_day_slot', (q) => q.eq('userId', user._id).eq('date', userToday(user.timezone, now)))
-        .first();
-      if (checkin) active.push(user._id);
-      if (active.length >= MAX_USERS_PER_RUN) break;
-    }
-    return active;
-  },
+  handler: (ctx) => activosHoy(ctx, Date.now()),
 });
 
 export const refreshUser = internalMutation({

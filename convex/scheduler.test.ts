@@ -1,6 +1,9 @@
 import { convexTest } from 'convex-test';
 import { describe, expect, it } from 'vitest';
 import { api, internal } from './_generated/api';
+import type { Id } from './_generated/dataModel';
+import { espiar, type Cuenta } from './lib/espia';
+import { activosHoy } from './scheduler';
 import crons from './crons';
 import schema from './schema';
 import { userToday } from './lib/time';
@@ -90,5 +93,75 @@ describe('cronRuns', () => {
       { job: 'task-reminders', at: null },
     ]);
     expect((await t.run((ctx) => ctx.db.get(id)))!.error).toBe('boom');
+  });
+});
+
+/**
+ * Qué se prueba: lo que la lista diaria de usuarios activos **lee** para
+ * responderse, no sólo lo que devuelve.
+ *
+ * Dos criterios. Que el conjunto de activos es el mismo que salía de recorrer
+ * la tabla de usuarios entera, zonas horarias incluidas. Y que lo que abre para
+ * conseguirlo no crece con las cuentas registradas: la restricción 9 de
+ * AGENTS.md acota lo que una query lee, y este cron corría cada noche sobre
+ * `users` sin índice.
+ *
+ * La medida se cuenta, no se afirma: `espiar` envuelve el `db` y suma consultas
+ * y documentos por separado. El instante es fijo para que los días candidatos y
+ * los números no dependan de cuándo corra la batería.
+ */
+
+/** Mediodía UTC: las zonas del mundo caen en dos días, 06-15 y 06-16. */
+const MEDIODIA = Date.UTC(2026, 5, 15, 12, 0, 0);
+const SANTO_DOMINGO = 'America/Santo_Domingo';
+/** UTC+14 y UTC-12, los dos extremos: para uno ya es 06-16 y para el otro medianoche del 06-15. */
+const MAS_CATORCE = 'Pacific/Kiritimati';
+const MENOS_DOCE = 'Etc/GMT+12';
+
+/**
+ * Cincuenta cuentas de las que cinco hicieron check-in hoy. La sexta es la que
+ * hace que la medida no se lea sola: tiene check-in con fecha del 06-16, que es
+ * hoy en Kiritimati y no en su zona, así que se lee y se descarta.
+ */
+async function sembrarCuentas(t: ReturnType<typeof convexTest>) {
+  const zonas = new Map([[7, MAS_CATORCE], [13, MENOS_DOCE]]);
+  const conCheckin = new Map([
+    [3, '2026-06-15'], [7, '2026-06-16'], [13, '2026-06-15'], [21, '2026-06-15'], [44, '2026-06-15'],
+    // El distractor: su hoy es el 06-15, su check-in dice 06-16.
+    [5, '2026-06-16'],
+  ]);
+  return t.run(async (ctx) => {
+    const activos: Id<'users'>[] = [];
+    for (let i = 0; i < 50; i++) {
+      const userId = await ctx.db.insert('users', {
+        email: `cuenta-${i}@usekino.dev`, name: `Cuenta ${i}`, onboardingCompleted: true,
+        status: 'active', timezone: zonas.get(i) ?? SANTO_DOMINGO, createdAt: MEDIODIA, updatedAt: MEDIODIA,
+      });
+      const date = conCheckin.get(i);
+      if (!date) continue;
+      await ctx.db.insert('energyCheckins', {
+        userId, date, slot: 'morning', currentLevel: 70, sleepQuality: 'partial', createdAt: MEDIODIA,
+      });
+      if (i !== 5) activos.push(userId);
+    }
+    return activos;
+  });
+}
+
+describe('activeUserIds', { timeout: 20_000 }, () => {
+  it('lee por los check-in del día, no por la tabla de cuentas', async () => {
+    const t = convexTest(schema, modules);
+    const esperados = await sembrarCuentas(t);
+    const cuenta: Cuenta = { consultas: 0, documentos: 0 };
+
+    const ids = await t.run((ctx) => activosHoy({ ...ctx, db: espiar(ctx.db, cuenta) }, MEDIODIA));
+
+    // El mismo conjunto que salía de recorrer `users`: los cinco con check-in
+    // de su propio hoy, sin el que lo tiene de otro día.
+    expect(new Set(ids)).toEqual(new Set(esperados));
+    // Dos días candidatos, una consulta cada uno. Los documentos son los seis
+    // check-in de esos dos días más los seis dueños que hay que mirar para
+    // confirmar su zona; ni uno por cada cuenta registrada.
+    expect(cuenta).toEqual({ consultas: 2, documentos: 12 });
   });
 });
