@@ -32,6 +32,32 @@ export function stubMutation<M extends FunctionReference<"mutation">>(mutation: 
   return { name: getFunctionName(mutation), value };
 }
 
+/**
+ * Lo que una mutación hará cuando falle. El caso que lo pide: un guardado que
+ * choca con una versión más nueva, donde lo que se prueba no es que se llamara
+ * sino qué hace la pantalla con el rechazo.
+ */
+export function stubMutationError<M extends FunctionReference<"mutation">>(mutation: M, error: Error): QueryStub {
+  return { name: getFunctionName(mutation), value: error };
+}
+
+/**
+ * Una mutación que no contesta hasta que el test la suelta con `responder`.
+ *
+ * Sin esto una carrera no se puede mirar: la respuesta llega antes de que salga
+ * la segunda escritura, así que dos guardados solapados no llegan a solaparse
+ * nunca y el test pasa por un motivo que no es el suyo.
+ */
+export function stubMutationPending<M extends FunctionReference<"mutation">>(
+  mutation: M,
+): { stub: QueryStub; responder: (value: FunctionReturnType<M>) => void } {
+  let soltar: (value: FunctionReturnType<M>) => void = () => {};
+  const espera = new Promise<FunctionReturnType<M>>((resolve) => {
+    soltar = resolve;
+  });
+  return { stub: { name: getFunctionName(mutation), value: espera }, responder: (value) => soltar(value) };
+}
+
 /** Una escritura que el componente disparó. */
 export interface ConvexCall {
   readonly kind: "mutation" | "action";
@@ -88,7 +114,11 @@ export class TestConvexClient {
   mutation(mutation: FunctionReference<"mutation">, args: Record<string, unknown>): Promise<unknown> {
     const name = getFunctionName(mutation);
     this.calls.push({ kind: "mutation", name, args });
-    return Promise.resolve(this.#writeResults.get(name));
+    const resultado = this.#writeResults.get(name);
+    // Un error puesto como resultado es un fallo del servidor: `stubMutationError`.
+    // Y una promesa se adopta, que es lo que deja una escritura en vuelo el
+    // tiempo que el test quiera: `stubMutationPending`.
+    return resultado instanceof Error ? Promise.reject(resultado) : Promise.resolve(resultado);
   }
 
   action(action: FunctionReference<"action">, args: Record<string, unknown>): Promise<unknown> {

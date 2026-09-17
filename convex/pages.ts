@@ -403,6 +403,13 @@ function assertExpectedUpdatedAt(current: Doc<'pages'>, expectedUpdatedAt: strin
 type PageUpdateOptions = {
   proposalId?: Id<'proposals'>;
   agentEditBasis?: AgentEditBasis;
+  /**
+   * Si esta edición cuenta como escribir: abre o extiende la sesión del
+   * capítulo, y con ella la racha. Por defecto sí, porque casi toda edición lo
+   * es. Volver a una versión anterior no: deshacer no es escribir, y contarlo
+   * dejaría una racha que se puede sostener sin poner una palabra.
+   */
+  cuentaComoEscritura?: boolean;
 };
 
 /**
@@ -428,7 +435,12 @@ export async function updatePageDoc(
       const folder = await ctx.db.get(campos.folderId);
       if (!folder || folder.userId !== userId || folder.systemId !== current.systemId) forbidden('Folder does not belong to this system');
     }
-    const now = Date.now();
+    // `updatedAt` es la versión que compara `expectedUpdatedAt`, así que tiene
+    // que avanzar en toda escritura que se acepte: dos guardados dentro del
+    // mismo milisegundo dejarían la versión quieta y el segundo pisaría al
+    // primero sin que nadie se enterara. El segundo corre uno, como el sello de
+    // la papelera.
+    const now = Math.max(Date.now(), current.updatedAt + 1);
     const patch: Partial<Doc<'pages'>> = { updatedAt: now };
     if (campos.title !== undefined) patch.title = campos.title ?? undefined;
     if (campos.content !== undefined) patch.content = campos.content ?? undefined;
@@ -450,7 +462,7 @@ export async function updatePageDoc(
       if (current.content !== updated.content) {
         snapshotId = await archivarVersion(ctx, updated, current.content, undefined);
         const system = updated.systemId ? await ctx.db.get(updated.systemId) : null;
-        if (system?.templateType === 'writing') {
+        if (system?.templateType === 'writing' && options.cuentaComoEscritura !== false) {
           await recordWritingActivity(ctx, updated, countWords(updated.content ?? null) - countWords(current.content ?? null));
         }
       }

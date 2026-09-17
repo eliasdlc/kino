@@ -32,14 +32,19 @@ import { countWords } from '../src/shared/lib/word-count';
 import { findPeakRange } from './lib/energy/curve';
 import { forbidden, notFound } from './lib/errors';
 import { kinoZodMutation, kinoZodQuery } from './lib/fn';
-import { recomputePageMentions } from './lib/mentions';
 import { calendarDayInTz, userToday } from './lib/time';
-import { archivarVersion } from './lib/pages/snapshots';
+import { updatePageDoc } from './pages';
 import { writingSessionsOf } from './lib/writing/activity';
 
 // El arquetipo de escritura: racha, diario de la obra, manuscrito, hilos
 // sueltos, cronología, rejilla de escenas, versiones y el estudio. Todo lo que
 // razona vive puro en `src/features/writing/*`; aquí sólo se reúnen los datos.
+//
+// Nada de aquí escribe `content` con un `patch`: el cuerpo de un capítulo se
+// cambia siempre por `updatePageDoc`, que es el único sitio que archiva la
+// versión de antes, recalcula lemas y menciones, extiende la sesión y deja el
+// evento con el que se deshace. Restaurar es el único que se baja de la sesión,
+// y lo dice donde ocurre.
 
 type Ctx = QueryCtx | MutationCtx;
 const DAY_MS = 86_400_000;
@@ -431,7 +436,7 @@ async function loadScenes(ctx: Ctx, userId: Id<'users'>, folderId: Id<'folders'>
     title: row.title ?? null,
     scenes: splitScenes(row.content ?? null),
   }));
-  return { folder, systemId: folder.systemId, chapters };
+  return { folder, chapters };
 }
 
 function toGrid(folder: Doc<'folders'>, chapters: ChapterScenes[]) {
@@ -475,12 +480,15 @@ const plotOperation = z.discriminatedUnion('kind', [
 
 /**
  * Aplica un movimiento o un cambio de arco y reescribe sólo los capítulos
- * cuyo HTML cambió. El cliente manda la intención, nunca el documento.
+ * cuyo HTML cambió. El cliente manda la intención, nunca el documento, y cada
+ * capítulo reescrito entra por el mismo camino que un guardado del editor: con
+ * su versión archivada, sus lemas, sus menciones y su evento. Mover una escena
+ * es una edición del capítulo, no un retoque que nadie pueda deshacer.
  */
 export const applyPlotOperation = kinoZodMutation({
   args: { id: zid('folders'), operation: plotOperation },
   handler: async (ctx, { id, operation }) => {
-    const { folder, systemId, chapters } = await loadScenes(ctx, ctx.user._id, id);
+    const { folder, chapters } = await loadScenes(ctx, ctx.user._id, id);
     const before = new Map(chapters.map((c) => [c.chapterId, joinScenes(c.scenes)] as const));
     let after: ChapterScenes[];
     if (operation.kind === 'arc') {
@@ -492,13 +500,10 @@ export const applyPlotOperation = kinoZodMutation({
       const moved = moveScene(chapters, from, to);
       after = 'arc' in operation ? setSceneArc(moved, { chapterId: operation.toChapterId, index: landedAt }, operation.arc ?? null) : moved;
     }
-    const now = Date.now();
     for (const chapter of after) {
       const html = joinScenes(chapter.scenes);
       if (before.get(chapter.chapterId) === html) continue;
-      const pageId = chapter.chapterId as Id<'pages'>;
-      await ctx.db.patch(pageId, { content: html, updatedAt: now });
-      await recomputePageMentions(ctx, ctx.user._id, pageId, systemId, html);
+      await updatePageDoc(ctx, ctx.user._id, ctx.channel, chapter.chapterId as Id<'pages'>, { content: html });
     }
     return toGrid(folder, after);
   },
@@ -547,16 +552,33 @@ export const snapshot = kinoZodQuery({
   handler: async (ctx, { id }) => snapshotDetail(ctx, ctx.user._id, id),
 });
 
-/** Vuelve a una versión; antes guarda la actual, para que restaurar nunca pierda nada. */
+/**
+ * Vuelve a una versión; antes guarda la actual, para que restaurar nunca pierda
+ * nada. El texto viejo entra como cualquier otra edición, así que la restauración
+ * mueve `updatedAt` y el autosave que venga detrás con la versión de antes choca
+ * en vez de pisar lo restaurado.
+ *
+ * Lo único que no hereda del guardado normal es la sesión de escritura: volver
+ * atrás no es escribir, y contarlo dejaría una racha que se sostiene sin poner
+ * una palabra. Mover una escena sí cuenta, porque es trabajo sobre la obra.
+ */
 export const restoreSnapshot = kinoZodMutation({
   args: { id: zid('pageSnapshots') },
   handler: async (ctx, { id }) => {
     const target = await snapshotDetail(ctx, ctx.user._id, id);
     const page = await ownPage(ctx, ctx.user._id, target.pageId);
-    if ((page.content ?? null) === target.content) return { pageId: page._id, content: page.content ?? null };
-    await archivarVersion(ctx, page, page.content, undefined);
-    await ctx.db.patch(page._id, { content: target.content ?? undefined, updatedAt: Date.now() });
-    return { pageId: page._id, content: target.content };
+    if ((page.content ?? null) === target.content) {
+      return { pageId: page._id, content: page.content ?? null, updatedAt: iso(page.updatedAt) };
+    }
+    const updated = await updatePageDoc(
+      ctx,
+      ctx.user._id,
+      ctx.channel,
+      page._id,
+      { content: target.content },
+      { cuentaComoEscritura: false },
+    );
+    return { pageId: page._id, content: updated.content, updatedAt: updated.updatedAt };
   },
 });
 
