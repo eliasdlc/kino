@@ -327,8 +327,9 @@ async function spawnNextRecurrence(ctx: MutationCtx, task: TaskDoc, now: number)
  *
  * `restantes` cambió de significado con eso: era la cuenta exacta de lo que
  * quedaba fuera, y contarla exigía leer la tabla entera, que es justo lo que la
- * restricción 9 de AGENTS.md prohíbe. Ahora es la señal de recorte, mayor que
- * cero cuando hay más.
+ * restricción 9 de AGENTS.md prohíbe. Ahora es **cuántas quedaron fuera como
+ * mínimo**: cero significa que no falta ninguna, y cualquier número mayor
+ * significa que hay más, sin prometer cuántas.
  *
  * El número sale de que el deployment de dev tiene 226 tareas: quinientas deja
  * el doble de margen antes de que nadie vea un recorte.
@@ -345,8 +346,17 @@ export const TASK_LIST_LIMIT = 500;
  * y papelera incluidas, para descartarlas en memoria.
  *
  * `energyLevel` y `status` no caben en el rango y se filtran sobre lo leído, así
- * que una lista pedida con uno de los dos puede recortarse antes de llegar al
- * tope. Sólo el conector MCP los manda; las pantallas piden sin filtro.
+ * que una lista pedida con uno de los dos puede quedarse corta, y hasta vacía,
+ * teniendo más detrás del tope. Por eso el recorte se mira **antes** de filtrar
+ * y no se deduce de lo que sobrevive: si se dedujera, un `status` que no
+ * aparezca entre las primeras quinientas devolvería cero diciendo que no falta
+ * nada. Sólo el conector MCP manda esos dos filtros; las pantallas piden sin
+ * ellos.
+ *
+ * Por encima del tope la papelera cambia de criterio, y es lo único que cambia:
+ * antes daba las de menor `sortIndex` de toda la papelera, ahora las de menor
+ * `sortIndex` entre las quinientas una borradas más antiguas, porque su rango va
+ * por `deletedAt` y el orden visible se rehace después.
  */
 export async function listadoDeTareas(ctx: Ctx, userId: Id<'users'>, filters: z.infer<typeof listTasksSchema>) {
   const { systemId, deleted } = filters;
@@ -364,6 +374,10 @@ export async function listadoDeTareas(ctx: Ctx, userId: Id<'users'>, filters: z.
         return deleted ? raiz.gt('deletedAt', 0) : raiz.eq('deletedAt', undefined);
       });
   const docs = await rango.take(TASK_LIST_LIMIT + 1);
+  // La de sobra es la que dice que hubo recorte, y se mira aquí porque los
+  // filtros de abajo pueden dejar la lista en cero sin que eso signifique que
+  // detrás no queda nada.
+  const cortada = docs.length > TASK_LIST_LIMIT;
   const filtradas = docs
     .filter((doc) => doc.userId === userId)
     .filter((doc) => !filters.energyLevel || doc.energyLevel === filters.energyLevel)
@@ -374,8 +388,8 @@ export async function listadoDeTareas(ctx: Ctx, userId: Id<'users'>, filters: z.
   const pagina = filtradas.slice(0, TASK_LIST_LIMIT);
   return {
     items: pagina.map(taskItem),
-    /** Señal de recorte: mayor que cero significa que hay más, no cuántas. */
-    restantes: filtradas.length - pagina.length,
+    /** Cuántas quedaron fuera como mínimo. Cero significa que no falta ninguna. */
+    restantes: Math.max(filtradas.length - pagina.length, cortada ? 1 : 0),
   };
 }
 
@@ -398,9 +412,19 @@ interface AlcanceSistema {
  * raíces vivas ya ordenadas: las subtareas dejan de leerse para descartarse
  * después, y el orden deja de rehacerse en memoria.
  *
- * El `.collect()` no lleva tope y el rango es el motivo: un sistema, sus raíces,
- * sin papelera. La pantalla las pinta todas y su respuesta no tiene `restantes`
- * donde decir que recortó.
+ * **El `.collect()` se queda sin tope, y es una deuda con nombre.** Esta lectura
+ * crece con las tareas del sistema: el rango la acota a un sistema, sus raíces y
+ * lo vivo, pero no a un número, y eso es una excepción consciente a la
+ * restricción 9 de AGENTS.md, no un descuido.
+ *
+ * La excepción no existe porque la lectura sea barata, existe porque **ninguna
+ * pantalla de sistema sabe paginar**: un tope callado haría que un sistema
+ * grande dejara de enseñar tareas sin decirlo, y eso es peor que leer de más.
+ * Un tope con aviso en pantalla sí resuelve, y es el trabajo que abre esta
+ * deuda.
+ *
+ * Se reabre el día que una de esas pantallas pagine, o el día que un sistema
+ * real se acerque a `TASK_LIST_LIMIT` raíces vivas.
  */
 export async function tareasDelSistema(ctx: Ctx, userId: Id<'users'>, { systemId, academicPeriodId, folderId }: AlcanceSistema) {
   const allowed = academicPeriodId !== undefined ? await academicFolderIds(ctx, userId, systemId, academicPeriodId) : undefined;

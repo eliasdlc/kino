@@ -287,7 +287,7 @@ const pages: Tool[] = [
   readTool(api.pages.bySystem, {
     name: "list_pages",
     description:
-      "Lista las páginas (notas markdown) de un sistema en Kino. Cada item indica `createdVia` y `agentEditPolicy` para saber si un agente edita directo o necesita confirmación. Devuelve `items` y `restantes`: `restantes` mayor que cero significa que la lista viene recortada y quedan más, no cuántas.",
+      "Lista las páginas (notas markdown) de un sistema en Kino. Cada item indica `createdVia` y `agentEditPolicy` para saber si un agente edita directo o necesita confirmación. Devuelve `items` y `restantes`: `restantes` es cuántas quedaron fuera como mínimo, así que cero significa que están todas y cualquier número mayor significa que hay más, sin prometer cuántas. Pedir una carpeta acota la lista.",
     input: z.object({ systemId: id }),
   }),
   readTool(api.pages.byId, {
@@ -426,7 +426,7 @@ const tasks: Tool[] = [
   readTool(api.tasks.list, {
     name: "list_tasks",
     description:
-      "Lista tareas del usuario en Kino con filtros opcionales. Devuelve `items` y `restantes`: `restantes` mayor que cero significa que la lista viene recortada y hay que filtrar más para verlo todo, no cuántas quedaron fuera.",
+      "Lista tareas del usuario en Kino con filtros opcionales. Devuelve `items` y `restantes`: `restantes` es cuántas quedaron fuera como mínimo, así que cero significa que están todas y cualquier número mayor significa que hay más, sin prometer cuántas. Sólo `systemId` y `deleted` acotan la lectura; con `energyLevel` o `status` la lista puede venir corta, o vacía, con `restantes` mayor que cero: ahí hay que acotar por sistema para verlo todo.",
     input: z.object({
       systemId: id.optional(),
       energyLevel: ENERGY.optional(),

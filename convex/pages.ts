@@ -128,9 +128,11 @@ async function linkedTasksOf(ctx: Ctx, userId: Id<'users'>, pageId: Id<'pages'>)
  *
  * Desde que los índices dejan la papelera fuera y entregan el orden hecho, el
  * tope es también de lectura: la lista pide una página más que el tope y para.
- * `restantes` pasó a ser la señal de recorte, mayor que cero cuando hay más, y
- * no la cuenta exacta de lo que quedó fuera: contarla exigía leer el sistema
- * entero, que es lo que la restricción 9 de AGENTS.md prohíbe.
+ * `restantes` pasó a ser **cuántas quedaron fuera como mínimo**: cero significa
+ * que no falta ninguna, y cualquier número mayor significa que hay más. La
+ * cuenta exacta exigía leer el sistema entero, que es lo que la restricción 9 de
+ * AGENTS.md prohíbe; la rama académica, que sí lo lee, la da exacta, y por eso
+ * el campo se lee como cota y no como cifra en las tres.
  */
 export const PAGE_LIST_LIMIT = 200;
 
@@ -152,8 +154,17 @@ interface AlcanceSistema {
 export async function paginasDelSistema(ctx: Ctx, userId: Id<'users'>, { systemId, folderId, academicPeriodId }: AlcanceSistema) {
   const allowed = academicPeriodId !== undefined ? await academicFolderIds(ctx, userId, systemId, academicPeriodId) : undefined;
 
+  // Una carpeta que no cae en el ciclo elegido no aporta ni una página, y eso se
+  // sabe antes de leerla: `belongs` daría lo mismo para todas. Salir aquí evita
+  // leer una carpeta entera para tirarla, y evita que el aviso de recorte se
+  // encienda por un filtro que vale igual para todo lo leído.
+  if (folderId && allowed && !allowed.has(folderId)) return { items: [], restantes: 0 };
+
   // Una más que el tope: la de sobra es la que dice que hubo recorte.
   const cupo = PAGE_LIST_LIMIT + 1;
+  // Dos de las tres ramas paran en el cupo; la académica lee el sistema entero y
+  // ahí `own` ya sabe cuántas quedaron fuera.
+  const paraEnCupo = folderId !== undefined || !allowed;
   const docs = folderId
     ? await ctx.db.query('pages').withIndex('by_folder_alive_updated', (q) => q.eq('folderId', folderId).eq('deletedAt', undefined)).take(cupo)
     // Con un ciclo elegido y sin carpeta hay que subir por la cadena de padres
@@ -179,12 +190,16 @@ export async function paginasDelSistema(ctx: Ctx, userId: Id<'users'>, { systemI
     }
     return root.folderId ? allowed.has(root.folderId) : academicPeriodId === null;
   }
+  // El recorte se mira sobre lo leído y no sobre lo que sobrevive: los filtros
+  // de abajo (dueño, sistema, ciclo) pueden dejar la lista en cero sin que eso
+  // signifique que detrás no queda nada.
+  const cortada = paraEnCupo && docs.length === cupo;
   const own = docs.filter((doc) => doc.userId === userId && doc.systemId === systemId && alive(doc) && belongs(doc)).sort((a, b) => a.updatedAt - b.updatedAt);
   const pagina = own.slice(0, PAGE_LIST_LIMIT);
   return {
     items: await Promise.all(pagina.map((doc) => pageListItem(ctx, doc))),
-    /** Señal de recorte: mayor que cero significa que hay más, no cuántas. */
-    restantes: own.length - pagina.length,
+    /** Cuántas quedaron fuera como mínimo. Cero significa que no falta ninguna. */
+    restantes: Math.max(own.length - pagina.length, cortada ? 1 : 0),
   };
 }
 

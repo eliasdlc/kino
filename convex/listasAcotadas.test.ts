@@ -2,12 +2,18 @@
  * Qué se prueba: lo que **leen** las tres listas que sostienen las pantallas,
  * `tasks.list`, `tasks.bySystem` y `pages.bySystem`, no sólo lo que devuelven.
  *
- * Tres criterios. Que lo que abren no crece con lo que descartan: la
- * restricción 9 de AGENTS.md acota lo que una query lee, y las dos recorrían
+ * Cuatro criterios. Que lo que abren no crece con lo que descartan: la
+ * restricción 9 de AGENTS.md acota lo que una query lee, y las tres recorrían
  * subtareas, papelera o páginas borradas para tirarlas después. Que el orden y
  * el contenido siguen siendo los de antes, desempate incluido: con `sortIndex`
  * a cero en todo lo que no se ha reordenado a mano, el orden visible lo decidía
- * el índice por el que se leía. Y que el tope de salida sigue siendo el mismo.
+ * el índice por el que se leía. Que el tope de salida sigue siendo el mismo. Y
+ * que `restantes` avisa del recorte aunque los filtros que se resuelven sobre lo
+ * leído dejen la lista vacía, que es la forma de mentir que tiene una lista
+ * acotada.
+ *
+ * `tasks.bySystem` entra aquí por lo que lee, no por un tope: se queda sin él a
+ * propósito, y el motivo vive en su comentario.
  *
  * La medida se cuenta, no se afirma: `espiar` envuelve el `db` y suma consultas
  * y documentos por separado.
@@ -19,7 +25,7 @@ import { api } from './_generated/api';
 import type { Id } from './_generated/dataModel';
 import type { MutationCtx } from './_generated/server';
 import { espiar, type Cuenta } from '@/shared/testing/espia';
-import { listadoDeTareas, tareasDelSistema } from './tasks';
+import { listadoDeTareas, tareasDelSistema, TASK_LIST_LIMIT } from './tasks';
 import { paginasDelSistema } from './pages';
 import schema from './schema';
 
@@ -118,6 +124,46 @@ describe('tasks.list', { timeout: 30_000 }, () => {
     expect(datos.items.map((i) => i.title).slice(0, 3)).toEqual(['borrada-039', 'borrada-038', 'borrada-037']);
   });
 
+  /**
+   * `status` y `energyLevel` se filtran sobre lo leído, así que pueden dejar la
+   * lista vacía teniendo más detrás del tope. Si el aviso de recorte saliera de
+   * lo que sobrevive, esa respuesta diría que no falta nada.
+   */
+  it('avisa del recorte aunque el filtro deje la lista en cero', async () => {
+    const t = convexTest(schema, modules);
+    const as = t.withIdentity(ana);
+    const userId = await as.mutation(api.users.ensure, {});
+    const sistema = await as.mutation(api.systems.create, { name: 'Alfa', color: 'blue', templateType: 'project', icon: 'folder' });
+    const systemId = sistema.id as Id<'systems'>;
+    await t.run(async (ctx) => {
+      const comun = { userId, systemId, createdBy: userId, createdVia: 'session' as const, priority: 'medium' as const,
+        energyLevel: 'medium' as const, sortIndex: 0, inTodayPlan: false, notifiedBeforeDay: false,
+        notifiedDueDay: false, reminderCount: 0, createdAt: BASE, updatedAt: BASE };
+      // `backlog` va antes que `week` en el desempate, así que las quinientas una
+      // que caben en la lectura son todas backlog y ninguna de las tres de week.
+      for (let i = 0; i < TASK_LIST_LIMIT + 2; i++) {
+        await ctx.db.insert('tasks', { ...comun, title: `backlog-${i}`, status: 'backlog' });
+      }
+      for (let i = 0; i < 3; i++) {
+        await ctx.db.insert('tasks', { ...comun, title: `week-${i}`, status: 'week' });
+      }
+    });
+
+    const vacia = await t.run((ctx) => listadoDeTareas(ctx, userId, { status: 'week' }));
+    expect(vacia.items).toEqual([]);
+    expect(vacia.restantes).toBe(1);
+  });
+
+  it('no avisa de recorte cuando el filtro deja pocas y nada quedó fuera', async () => {
+    const { t, userId } = await sembrarTareas();
+
+    const { datos } = await medir(t, (ctx) => listadoDeTareas(ctx, userId, { status: 'week' }));
+
+    // Cuarenta de las doscientas raíces vivas, y ninguna lectura cortada.
+    expect(datos.items).toHaveLength(40);
+    expect(datos.restantes).toBe(0);
+  });
+
   it('la papelera de un sistema no lee la del otro', async () => {
     const { t, userId, alfaId } = await sembrarTareas();
     const { documentos, datos } = await medir(t, (ctx) => listadoDeTareas(ctx, userId, { systemId: alfaId, deleted: true }));
@@ -184,5 +230,41 @@ describe('pages.bySystem', { timeout: 30_000 }, () => {
     // Seis vivas: las cuatro borradas de la misma carpeta dejan de leerse.
     expect(datos.items).toHaveLength(6);
     expect(documentos).toBe(6);
+  });
+
+  /**
+   * Con un ciclo elegido, una carpeta de otro ciclo no aporta nada y el filtro
+   * vale igual para todas sus páginas. Leerlas para tirarlas encendería el aviso
+   * de recorte por un motivo que no es un recorte.
+   */
+  it('una carpeta fuera del ciclo no se lee', async () => {
+    const t = convexTest(schema, modules);
+    const as = t.withIdentity(ana);
+    const userId = await as.mutation(api.users.ensure, {});
+    const uni = await as.mutation(api.systems.create, { name: 'Universidad', color: 'blue', templateType: 'academic', icon: 'book' });
+    const systemId = uni.id as Id<'systems'>;
+    const clase = await as.mutation(api.folders.create, { systemId, name: 'Cálculo' });
+    const folderId = clase.id as Id<'folders'>;
+    await t.run(async (ctx) => {
+      const periodId = await ctx.db.insert('academicPeriods', {
+        userId, systemId, year: '2026', name: 'Primavera', isCurrent: true, isClosed: false,
+        createdAt: BASE, updatedAt: BASE,
+      });
+      await ctx.db.patch(folderId, { academicPeriodId: periodId });
+      for (let i = 0; i < 5; i++) {
+        await ctx.db.insert('pages', {
+          userId, systemId, folderId, createdBy: userId, createdVia: 'session', isPinned: false,
+          title: `apunte-${i}`, content: '<p>texto</p>', createdAt: BASE + i, updatedAt: BASE + i,
+        });
+      }
+    });
+
+    // Pedida sin ciclo: la carpeta lleva uno, así que no cae dentro.
+    const { consultas, datos } = await medir(t, (ctx) => paginasDelSistema(ctx, userId, { systemId, folderId, academicPeriodId: null }));
+
+    expect(datos).toEqual({ items: [], restantes: 0 });
+    // Una sola consulta, la de las carpetas que resuelve el ciclo: las páginas
+    // de esa carpeta no llegan a abrirse.
+    expect(consultas).toBe(1);
   });
 });
