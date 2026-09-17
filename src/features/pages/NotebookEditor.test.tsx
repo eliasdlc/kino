@@ -262,6 +262,9 @@ describe("el editor vivo sabe que está vivo", () => {
       [stubQuery(api.pages.byId, page), stubQuery(api.stickyNotes.byPage, [])],
       [stubMutationError(api.pages.update, new ConvexError({ code: "CONFLICT", message: "La página cambió" }))],
     );
+    // El espía es del módulo y vive lo que vive el fichero: lo que cuenta es
+    // lo que toastee este test, no lo que toastee el que venga antes.
+    vi.mocked(toast.error).mockClear();
     const { editorDe } = renderComoElLayout(convex, { strict: true });
     await waitFor(() => expect(editorDe()).not.toBeNull());
 
@@ -295,7 +298,9 @@ describe("una versión de fuera que sólo cambia el título", () => {
     );
 
     await waitFor(() => expect(screen.getByPlaceholderText<HTMLInputElement>("Sin título").value).toBe("Derivadas"));
-    // `setContent` devolvería el cursor al principio sin que el texto cambiara.
+    // `setContent` reemplaza el documento entero y deja el cursor al final del
+    // texto, sin que el texto haya cambiado. La aserción es de igualdad con
+    // dónde estaba porque lo que sobra es el salto, no el sitio al que salta.
     expect(editorDe().state.selection.from).toBe(cursor);
     expect(editorDe().getHTML()).toBe(page.content);
   });

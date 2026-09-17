@@ -105,9 +105,11 @@ export function NotebookEditor({ page, systemId, pageId, writer = false, title, 
    * Trae a la pantalla lo que el servidor tiene, y se queda con su versión.
    *
    * El cuerpo y el título se miran por separado a propósito: `setContent`
-   * devuelve el cursor al principio del documento, así que reemplazar un cuerpo
-   * idéntico porque cambió el título (renombrar el cuaderno desde otra pestaña)
-   * sacaría a alguien de donde está escribiendo sin que su texto haya cambiado.
+   * reemplaza el documento entero y el cursor acaba al final, así que hacerlo
+   * con un cuerpo idéntico porque cambió el título (renombrar el cuaderno desde
+   * otra pestaña) sacaría a alguien de donde está escribiendo sin que su texto
+   * haya cambiado. Lo que estorba es que el cursor se mueva, no adónde va: en
+   * mitad de un párrafo, saltar al final es tan malo como saltar al principio.
    */
   const recargar = useCallback(
     (delServidor: PageDetailTransport) => {
