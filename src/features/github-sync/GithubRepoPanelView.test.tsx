@@ -58,12 +58,12 @@ describe("GithubRepoPanelView", () => {
     expect(screen.getByRole("button", { name: /Sincronizando/i })).toBeDisabled();
   });
 
-  it("mientras vuelve al primer issue lo dice en la etiqueta y no deja disparar otra vez", () => {
+  it("mientras vuelve a empezar el recorrido lo dice en la etiqueta y no deja disparar otra vez", () => {
     renderWithProviders(
       <GithubRepoPanelView state={{ kind: "linked", repo: REPO, revoked: false }} syncing syncingAll />,
     );
 
-    expect(screen.getByRole("button", { name: /Volviendo al primer issue/i })).toBeDisabled();
+    expect(screen.getByRole("button", { name: /Volviendo a empezar el recorrido/i })).toBeDisabled();
     // Y el de cada día no se disfraza del otro.
     expect(screen.getByRole("button", { name: /^Sincronizar$/i })).toBeDisabled();
   });
@@ -74,7 +74,7 @@ describe("GithubRepoPanelView", () => {
   // lo que estaba pasando.
   it.each([
     ["el refresco de cada día", { syncing: true }],
-    ["el que vuelve al primer issue", { syncing: true, syncingAll: true }],
+    ["el que vuelve a empezar el recorrido", { syncing: true, syncingAll: true }],
   ])("no pinta ninguna animación en bucle mientras corre %s", (_caso, props) => {
     const { container } = renderWithProviders(
       <GithubRepoPanelView state={{ kind: "linked", repo: REPO, revoked: false }} {...props} />,
@@ -83,18 +83,26 @@ describe("GithubRepoPanelView", () => {
     expect(container.querySelectorAll("[class*='animate-']")).toHaveLength(0);
   });
 
-  it("con el token caducado tampoco deja volver al primer issue", () => {
+  it("con el token caducado tampoco deja volver a empezar el recorrido", () => {
     renderWithProviders(<GithubRepoPanelView state={{ kind: "linked", repo: REPO, revoked: true }} />);
 
-    expect(screen.getByRole("button", { name: /Volver al primer issue/i })).toBeDisabled();
+    expect(screen.getByRole("button", { name: /Volver a empezar el recorrido/i })).toBeDisabled();
   });
 
-  // Lo que el backend hace de verdad: tres páginas de cien por pasada, así que
-  // un repositorio grande no cabe en una. Prometerlo entero era mentira.
-  it("dice que el recorrido avanza por tramos, no que traiga el repositorio entero de una vez", () => {
+  /**
+   * Este test sólo comprueba que la frase está pintada. Que sea cierta lo
+   * sostienen otros dos, en la capa donde se decide: `github-sync.client.test.ts`
+   * fija el orden de la petición (`sort=updated&direction=asc`, por fecha de
+   * cambio) y su tope de tres páginas de cien, y `GithubRepoPanel.test.tsx` ata
+   * esta etiqueta al `refrescoCompleto` que se manda. Sin esos dos, aquí no hay
+   * nada que impida escribir cualquier promesa.
+   */
+  it("la frase nombra el orden del recorrido y el tamaño de su tramo", () => {
     renderWithProviders(<GithubRepoPanelView state={{ kind: "linked", repo: REPO, revoked: false }} />);
 
-    expect(screen.getByText(/avanza de trescientos en trescientos/i)).toBeVisible();
+    expect(screen.getByText(/llevan más tiempo sin cambiar/i)).toBeVisible();
+    expect(screen.getByText(/avanza hacia los tocados más recientemente/i)).toBeVisible();
+    expect(screen.getByText(/de trescientos en trescientos/i)).toBeVisible();
     expect(screen.getByText(/varias veces hasta llegar a hoy/i)).toBeVisible();
   });
 

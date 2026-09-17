@@ -58,7 +58,7 @@ describe("el refresco completo", () => {
     await waitFor(() => expect(convex.refrescos).toHaveLength(1));
     expect(convex.refrescos[0]).toEqual({ id: "sistema-1" });
 
-    await userEvent.click(await screen.findByRole("button", { name: /Volver al primer issue/i }));
+    await userEvent.click(await screen.findByRole("button", { name: /Volver a empezar el recorrido/i }));
 
     await waitFor(() => expect(convex.refrescos).toHaveLength(2));
     expect(convex.refrescos[1]).toEqual({ id: "sistema-1", refrescoCompleto: true });
@@ -72,7 +72,7 @@ describe("el refresco completo", () => {
   it("dice lo que cuesta antes de pulsarlo", async () => {
     renderWithProviders(<GithubRepoPanel systemId="sistema-1" metadata={REPO} />, { convex: new ClienteConectado() });
 
-    expect(await screen.findByText(/empieza otra vez por lo más antiguo/i)).toBeVisible();
+    expect(await screen.findByText(/llevan más tiempo sin cambiar/i)).toBeVisible();
     expect(screen.getByText(/varias veces hasta llegar a hoy/i)).toBeVisible();
   });
 });

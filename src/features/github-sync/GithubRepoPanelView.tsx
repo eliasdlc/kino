@@ -128,12 +128,17 @@ export function GithubRepoPanelView({
       </div>
 
       {/* La salida de emergencia, no la acción de cada día: va debajo, en una
-          línea que dice lo que cuesta antes de pulsarla. El texto no promete el
-          repositorio entero de una vez porque no es lo que pasa: cada pasada
-          trae hasta trescientos issues y el recorrido sigue con el refresco
-          normal, así que en un repositorio grande hacen falta varias. */}
+          línea que dice lo que cuesta antes de pulsarla.
+
+          El texto nombra el orden que la petición usa de verdad
+          (`sort=updated&direction=asc`, en `github-sync.client.ts`): el
+          recorrido va por fecha de cambio, no por antigüedad del issue, así que
+          el primer tramo trae lo que lleva más tiempo sin tocarse, que puede ser
+          un issue reciente. Y tampoco promete el repositorio entero de una vez:
+          cada pasada trae hasta trescientos y el resto llega con los refrescos
+          siguientes. */}
       <p className="pl-6 text-xs text-muted-foreground">
-        ¿Faltan issues viejos?{" "}
+        ¿Se quedaron issues atrás?{" "}
         <Button
           variant="link"
           size="sm"
@@ -141,11 +146,12 @@ export function GithubRepoPanelView({
           disabled={syncing || state.revoked}
           onClick={onSyncAll}
         >
-          {syncingAll ? "Volviendo al primer issue…" : "Volver al primer issue"}
+          {syncingAll ? "Volviendo a empezar el recorrido…" : "Volver a empezar el recorrido"}
         </Button>
-        . El recorrido empieza otra vez por lo más antiguo y avanza de
-        trescientos en trescientos, así que en un repositorio grande toca
-        sincronizar varias veces hasta llegar a hoy.
+        . Empieza otra vez por los issues que llevan más tiempo sin cambiar y
+        avanza hacia los tocados más recientemente, de trescientos en
+        trescientos, así que en un repositorio grande toca sincronizar varias
+        veces hasta llegar a hoy.
       </p>
     </div>
   );

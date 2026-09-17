@@ -164,8 +164,11 @@ describe("fetchIssues", () => {
   });
 
   // Lo que hace que el cursor converja: lo que se cae por el tope es lo más
-  // nuevo, que es justo lo que el siguiente refresco pide.
-  it("pide del más viejo al más nuevo por fecha de cambio", async () => {
+  // nuevo, que es justo lo que el siguiente refresco pide. Y es por **fecha de
+  // cambio**, no por antigüedad del issue: el primer tramo trae lo que lleva
+  // más tiempo sin tocarse, que puede ser un issue reciente. El copy del panel
+  // lo dice así porque es esta línea la que lo decide.
+  it("ordena por fecha de cambio, del que lleva más tiempo sin tocarse al más reciente", async () => {
     fetchMock.mockResolvedValue(ok([]));
 
     await fetchIssues(REF, TOKEN);
