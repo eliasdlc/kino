@@ -10,10 +10,24 @@
 /** Nombre del proveedor tal y como se guarda en `tasks.external_source`. */
 export const GITHUB_SOURCE = "github";
 
-/** Lo que se persiste en `systems.metadata.github`. */
+/** El repositorio que un sistema mira. */
 export interface GithubRepoRef {
   owner: string;
   repo: string;
+}
+
+/**
+ * Lo que se persiste en `systems.metadata.github`: el repositorio y hasta
+ * dónde llegó su último refresco.
+ *
+ * El cursor vive en el sistema y no en la conexión porque la cuenta de GitHub
+ * es una sola por usuario mientras que el repositorio es de este proyecto: con
+ * el cursor en la conexión, el segundo sistema enlazado heredaba hasta dónde
+ * había llegado el primero y no traía nunca los issues viejos del suyo.
+ */
+export interface GithubSystemLink extends GithubRepoRef {
+  /** Instante en milisegundos, el que viaja a GitHub como `since`. */
+  syncedThrough?: number;
 }
 
 /** Issue de GitHub, recortado a lo que esta integración usa. */

@@ -3,6 +3,7 @@
 import { v } from 'convex/values';
 import { internal } from './_generated/api';
 import { fetchIssues, fetchRepoFullName, fetchViewerLogin } from '../src/features/github-sync/github-sync.client';
+import { cursorSiguiente } from '../src/features/github-sync/github-sync.mapper';
 import { GithubApiError, type GithubConnectionStatus, type SyncResult } from '../src/features/github-sync/github-sync.types';
 import { decryptSecret, encryptSecret, isEncryptionConfigured } from '../src/shared/utils/crypto';
 import { invalid } from './lib/errors';
@@ -16,8 +17,8 @@ const GITHUB_BUDGET_MS = 8_000;
 
 // Los resultados de las funciones internas van anotados a mano: el tipo de
 // `internal` incluye este mismo módulo y sin la anotación el compilador cicla.
-type StoredConnection = { accessTokenEncrypted: string; lastSyncedAt: number | null; syncedThrough: number | null } | null;
-type SystemForSync = { id: string; metadata: Record<string, unknown> | null; repo: { owner: string; repo: string } | null };
+type StoredConnection = { accessTokenEncrypted: string; lastSyncedAt: number | null } | null;
+type SystemForSync = { id: string; metadata: Record<string, unknown> | null; repo: { owner: string; repo: string } | null; syncedThrough: number | null };
 
 /** Estado de la conexión, con el login comprobado contra GitHub. */
 export const status = kinoAction(GITHUB_BUDGET_MS)({
@@ -78,8 +79,8 @@ export const linkRepo = kinoAction(GITHUB_BUDGET_MS, 'closed')({
 /**
  * Trae los issues del repositorio enlazado y los refleja en el tablero.
  *
- * Es incremental: pide a GitHub sólo lo tocado desde el cursor de la conexión,
- * así que un repositorio sin cambios devuelve cero issues y no escribe ninguna
+ * Es incremental: pide a GitHub sólo lo tocado desde el cursor del sistema, así
+ * que un repositorio sin cambios devuelve cero issues y no escribe ninguna
  * tarea. `refrescoCompleto` ignora el cursor, que es la salida a mano para
  * cuando algo se desalineó.
  *
@@ -98,14 +99,18 @@ export const sync = kinoAction(GITHUB_BUDGET_MS)({
     // Se toma antes de hablar con GitHub: lo que cambie durante la llamada
     // entra en el siguiente refresco en vez de perderse entre los dos.
     const arranque = Date.now();
-    const desde = refrescoCompleto ? undefined : (stored.syncedThrough ?? undefined);
-    const { issues, truncated } = await fetchIssues(system.repo, decryptSecret(stored.accessTokenEncrypted), desde);
+    // El cursor es del sistema: el segundo sistema enlazado a otro repositorio
+    // empieza por el principio en vez de heredar el del primero.
+    const desde = refrescoCompleto ? undefined : (system.syncedThrough ?? undefined);
+    const { issues, truncated, ultimoUpdatedAt } = await fetchIssues(system.repo, decryptSecret(stored.accessTokenEncrypted), desde);
     return ctx.runMutation(internal.githubData.applySync, {
       userId: ctx.user._id,
       systemId: id,
       issues,
       truncated,
-      syncedThrough: arranque,
+      // Con la respuesta truncada el cursor para en el último issue traído: los
+      // que quedaron fuera son los siguientes que GitHub iba a devolver.
+      syncedThrough: cursorSiguiente({ truncated, ultimoUpdatedAt, arranque }) ?? undefined,
     });
   },
 });

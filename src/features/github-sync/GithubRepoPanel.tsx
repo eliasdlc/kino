@@ -26,10 +26,10 @@ interface GithubRepoPanelProps {
  * vive en `GithubRepoPanelView`; aquí sólo están los datos.
  */
 export function GithubRepoPanel({ systemId, metadata }: GithubRepoPanelProps) {
-  const { data: connection, isLoading } = useGithubConnection();
+  const { data: connection, isLoading, error, refetch } = useGithubConnection();
   const { mutate: link, isPending: linking } = useLinkRepo(systemId);
   const { mutate: unlink } = useUnlinkRepo(systemId);
-  const { mutate: sync, isPending: syncing } = useSyncGithub(systemId);
+  const { mutate: sync, isPending: syncing, variables: refresco } = useSyncGithub(systemId);
 
   const [confirmOpen, setConfirmOpen] = React.useState(false);
   const repo = metadata?.github;
@@ -50,6 +50,10 @@ export function GithubRepoPanel({ systemId, metadata }: GithubRepoPanelProps) {
     sync();
   }, [puedeSincronizar, sync]);
 
+  // Un fallo al preguntar por la conexión se dice. Devolver null aquí era el
+  // defecto: la barra desaparecía del tablero y no había forma de saber si la
+  // integración estaba apagada, sin cuenta, o rota.
+  if (error) return <GithubRepoPanelView state={{ kind: "error" }} onRetry={() => void refetch()} />;
   if (isLoading || !connection?.configured) return null;
 
   const state: RepoPanelState = !connection.connected
@@ -63,6 +67,9 @@ export function GithubRepoPanel({ systemId, metadata }: GithubRepoPanelProps) {
       <GithubRepoPanelView
         state={state}
         syncing={syncing}
+        // Cuál de los dos refrescos está en curso sale de los argumentos con los
+        // que se disparó, no de un segundo estado que se pueda desincronizar.
+        syncingAll={syncing && refresco?.refrescoCompleto === true}
         linking={linking}
         onLink={(fullName) =>
           link(
@@ -78,6 +85,15 @@ export function GithubRepoPanel({ systemId, metadata }: GithubRepoPanelProps) {
             onSuccess: (r) => toast.success(describeSyncResult(r)),
             onError: (err) => toast.error(err.message),
           })
+        }
+        onSyncAll={() =>
+          sync(
+            { refrescoCompleto: true },
+            {
+              onSuccess: (r) => toast.success(describeSyncResult(r)),
+              onError: (err) => toast.error(err.message),
+            },
+          )
         }
         onUnlink={() => setConfirmOpen(true)}
       />

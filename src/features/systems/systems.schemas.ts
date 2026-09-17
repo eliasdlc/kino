@@ -1,6 +1,6 @@
 import { z } from 'zod';
 import { TEMPLATE_TYPE_VALUES } from '@/shared/types/enums';
-import { githubRepoRefSchema } from '@/features/github-sync/github-sync.schemas';
+import { githubSystemLinkSchema } from '@/features/github-sync/github-sync.schemas';
 
 export const createSystemSchema = z.object({
   name: z.string().min(1).max(255),
@@ -55,10 +55,12 @@ export const systemMetadataSchema = z.object({
       minSilentChapters: z.coerce.number().int().min(1).max(50),
     })
     .optional(),
-  // Solo Project: repositorio cuyos issues alimentan el board (KIN-135). Se
-  // escribe por `POST /api/systems/[id]/github/link`, que además comprueba
-  // contra GitHub que existe y es accesible antes de guardarlo.
-  github: githubRepoRefSchema.optional(),
+  // Solo Project: repositorio cuyos issues alimentan el board (KIN-135), con
+  // el cursor del refresco al lado. El repositorio se escribe por
+  // `POST /api/systems/[id]/github/link`, que además comprueba contra GitHub
+  // que existe y es accesible antes de guardarlo; el cursor lo escribe la
+  // propia sincronización.
+  github: githubSystemLinkSchema.optional(),
 });
 
 export const updateSystemSchema = createSystemSchema.partial().extend({

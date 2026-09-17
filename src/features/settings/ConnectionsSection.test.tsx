@@ -24,7 +24,7 @@ describe("ConnectionsSection", () => {
   it("pinta GitHub y ninguno de los seis proveedores sin código", () => {
     renderWithProviders(<ConnectionsSection />, {
       convex: conFuentes([
-        { provider: "github", connected: true, lastSyncedAt: null, syncedThrough: null, linkedSystems: 2 },
+        { provider: "github", connected: true, lastSyncedAt: null, linkedSystems: 2 },
       ]),
     });
     expect(screen.getByRole("heading", { name: "GitHub" })).toBeVisible();
