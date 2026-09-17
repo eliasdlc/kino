@@ -2,7 +2,7 @@ import { convexTest } from 'convex-test';
 import { describe, expect, it } from 'vitest';
 import { api, internal } from './_generated/api';
 import type { Id } from './_generated/dataModel';
-import { espiar, type Cuenta } from './lib/espia';
+import { espiar, type Cuenta } from '@/shared/testing/espia';
 import { activosHoy } from './scheduler';
 import crons from './crons';
 import schema from './schema';

@@ -1,7 +1,10 @@
-// El contador de lecturas de los tests. La restricción 9 de AGENTS.md dice que
-// una query declara qué rango lee, y eso se comprueba contando lo que abre, no
-// afirmándolo: cada `useConvexQuery` es una suscripción, así que lo que una
-// lectura se lleva se vuelve a llevar en cada escritura que la toque.
+// El contador de lecturas de los tests de Convex. La restricción 9 de AGENTS.md
+// dice que una query declara qué rango lee, y eso se comprueba contando lo que
+// abre, no afirmándolo: cada `useConvexQuery` es una suscripción, así que lo que
+// una lectura se lleva se vuelve a llevar en cada escritura que la toque.
+//
+// Vive aquí y no en `convex/` porque lo usan sólo los tests: un módulo más bajo
+// `convex/` viaja al deployment y obliga a regenerar `convex/_generated`.
 
 /** Lo que una lectura abrió. Son dos números distintos y los dos importan. */
 export interface Cuenta {

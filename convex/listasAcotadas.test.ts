@@ -18,7 +18,7 @@ import { describe, expect, it } from 'vitest';
 import { api } from './_generated/api';
 import type { Id } from './_generated/dataModel';
 import type { MutationCtx } from './_generated/server';
-import { espiar, type Cuenta } from './lib/espia';
+import { espiar, type Cuenta } from '@/shared/testing/espia';
 import { listadoDeTareas, tareasDelSistema } from './tasks';
 import { paginasDelSistema } from './pages';
 import schema from './schema';

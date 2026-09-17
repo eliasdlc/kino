@@ -16,7 +16,7 @@ import { describe, expect, it } from 'vitest';
 import { api } from './_generated/api';
 import type { Id } from './_generated/dataModel';
 import { graphOf } from './entities';
-import { espiar, type Cuenta } from './lib/espia';
+import { espiar, type Cuenta } from '@/shared/testing/espia';
 import schema from './schema';
 
 const modules = import.meta.glob('./**/*.*s');
