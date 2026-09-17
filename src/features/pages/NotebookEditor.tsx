@@ -102,9 +102,12 @@ export function NotebookEditor({ page, systemId, pageId, writer = false, title, 
   }
 
   /**
-   * Trae a la pantalla el texto del servidor y se queda con su versión. Un
-   * texto idéntico no se reemplaza: `setContent` devuelve el cursor al
-   * principio del documento y aquí no habría nada que traer.
+   * Trae a la pantalla lo que el servidor tiene, y se queda con su versión.
+   *
+   * El cuerpo y el título se miran por separado a propósito: `setContent`
+   * devuelve el cursor al principio del documento, así que reemplazar un cuerpo
+   * idéntico porque cambió el título (renombrar el cuaderno desde otra pestaña)
+   * sacaría a alguien de donde está escribiendo sin que su texto haya cambiado.
    */
   const recargar = useCallback(
     (delServidor: PageDetailTransport) => {
@@ -112,17 +115,22 @@ export function NotebookEditor({ page, systemId, pageId, writer = false, title, 
       const contenido = delServidor.content ?? "";
       const tituloDelServidor = delServidor.title ?? "";
       sincronizadoEn.current = delServidor.updatedAt;
-      if (editor.getHTML() === contenido && tituloDelServidor === titleRef.current) return;
+      const cuerpoCambio = editor.getHTML() !== contenido;
+      const tituloCambio = tituloDelServidor !== titleRef.current;
+
+      if (tituloCambio) {
+        if (titleTimer.current) {
+          clearTimeout(titleTimer.current);
+          titleTimer.current = null;
+        }
+        onTitleChange(tituloDelServidor);
+      }
+      if (!cuerpoCambio) return;
       if (saveTimer.current) {
         clearTimeout(saveTimer.current);
         saveTimer.current = null;
       }
-      if (titleTimer.current) {
-        clearTimeout(titleTimer.current);
-        titleTimer.current = null;
-      }
       pendingPatch.current = null;
-      onTitleChange(tituloDelServidor);
       aplicandoDelServidor.current = true;
       try {
         editor.commands.setContent(contenido);
@@ -152,6 +160,16 @@ export function NotebookEditor({ page, systemId, pageId, writer = false, title, 
     enCola.current = null;
     if (!patch) return;
     enVuelo.current = true;
+    // El turno se suelta una vez y pase lo que pase: si el manejador del error
+    // lanzara, `onSettled` no correría y la cola se quedaría parada para
+    // siempre, sin guardar nada más hasta recargar la página.
+    let soltado = false;
+    const soltarTurno = () => {
+      if (soltado) return;
+      soltado = true;
+      enVuelo.current = false;
+      enviarRef.current();
+    };
     updatePage(
       { ...patch, expectedUpdatedAt: sincronizadoEn.current },
       {
@@ -159,25 +177,26 @@ export function NotebookEditor({ page, systemId, pageId, writer = false, title, 
           sincronizadoEn.current = guardado.updatedAt;
         },
         onError: (error) => {
-          // Aquí el choque sí es de fuera: manda lo que hay en el servidor y lo
-          // que quedaba por escribir no lo pisa. Si la suscripción todavía no
-          // ha traído esa versión, el efecto de abajo recarga cuando llegue.
-          if (!esConflicto(error)) return;
-          enCola.current = null;
-          pendingPatch.current = null;
-          const delServidor = servidorRef.current;
-          if (montado.current && delServidor) {
-            recargar(delServidor);
-            return;
+          try {
+            // Aquí el choque sí es de fuera: manda lo que hay en el servidor y
+            // lo que quedaba por escribir no lo pisa. Si la suscripción todavía
+            // no ha traído esa versión, el efecto de abajo recarga al llegar.
+            if (!esConflicto(error)) return;
+            enCola.current = null;
+            pendingPatch.current = null;
+            const delServidor = servidorRef.current;
+            if (montado.current && delServidor) {
+              recargar(delServidor);
+              return;
+            }
+            // Sin pantalla donde recargar no hay nada que hacer con el texto, y
+            // callarlo es cómo se perdía antes.
+            toast.error("Lo último que escribiste no se guardó: la página cambió en otro sitio.");
+          } finally {
+            soltarTurno();
           }
-          // Sin pantalla donde recargar no hay nada que hacer con el texto, y
-          // callarlo es cómo se perdía antes.
-          toast.error("Lo último que escribiste no se guardó: la página cambió en otro sitio.");
         },
-        onSettled: () => {
-          enVuelo.current = false;
-          enviarRef.current();
-        },
+        onSettled: soltarTurno,
       }
     );
   }, [updatePage, recargar]);
@@ -238,6 +257,10 @@ export function NotebookEditor({ page, systemId, pageId, writer = false, title, 
     guardarRef.current = guardar;
   }, [guardar]);
   useEffect(() => {
+    // Se pone al entrar, no sólo al salir: en desarrollo StrictMode monta,
+    // desmonta y vuelve a montar, y un `montado` que sólo sabe bajar dejaba el
+    // editor vivo creyéndose muerto, sin recargar nunca y sin guardar nada.
+    montado.current = true;
     return () => {
       montado.current = false;
       // El cuerpo y el título salen en un solo guardado. Dos, aunque la cola

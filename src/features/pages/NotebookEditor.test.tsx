@@ -12,6 +12,7 @@ import { useEffect, useState } from "react";
 import { describe, expect, it, vi } from "vitest";
 import { act, fireEvent, screen, waitFor } from "@testing-library/react";
 import { ConvexError } from "convex/values";
+import { toast } from "sonner";
 import type { Editor } from "@tiptap/react";
 import { api } from "@convex/_generated/api";
 import {
@@ -28,6 +29,10 @@ import { NotebookEditor } from "./NotebookEditor";
 import type { PageDetailTransport, PageMutationResult } from "./pages.types";
 
 vi.mock("next/navigation", async () => (await import("@/shared/testing/navigation")).navigationMock());
+
+// El aviso de «no se guardó» es el único rastro de un editor que se cree
+// desmontado, así que aquí se mira, no se pinta.
+vi.mock("sonner", () => ({ toast: { error: vi.fn(), success: vi.fn() } }));
 
 const VERSION = "2026-09-16T10:00:00.000Z";
 const VERSION_NUEVA = "2026-09-16T10:05:00.000Z";
@@ -73,7 +78,7 @@ function renderEditor(onTitleChange: (title: string) => void, convex?: TestConve
  * El anfitrión que hace de layout: el título vive fuera del editor y vuelve
  * como prop, que es lo que hace que el guardado de cierre mande lo tecleado.
  */
-function renderComoElLayout(convex: TestConvexClient) {
+function renderComoElLayout(convex: TestConvexClient, { strict = false } = {}) {
   let editor: Editor | null = null;
   function Anfitrion() {
     const [titulo, setTitulo] = useState(page.title ?? "");
@@ -84,7 +89,11 @@ function renderComoElLayout(convex: TestConvexClient) {
       </EditorProvider>
     );
   }
-  const { unmount } = renderWithProviders(<Anfitrion />, { convex });
+  // `reactStrictMode` está activo en `next.config.ts`, así que en desarrollo
+  // cada efecto se monta, se desmonta y se vuelve a montar. Va como opción de
+  // `render` y no como elemento `<StrictMode>`: envuelto a mano dentro del
+  // árbol de proveedores, React no dobla nada y el test no probaría nada.
+  const { unmount } = renderWithProviders(<Anfitrion />, { convex, reactStrictMode: strict });
   return { convex, editorDe: () => editor!, unmount };
 }
 
@@ -244,5 +253,50 @@ describe("dos guardados propios no se pisan entre sí", () => {
     expect(convex.calls[1]).toMatchObject({
       args: { content: "<p>Lo que escribí yo</p>", expectedUpdatedAt: VERSION_NUEVA },
     });
+  });
+});
+
+describe("el editor vivo sabe que está vivo", () => {
+  it("bajo StrictMode, un choque recarga y no avisa de que se perdió el texto", async () => {
+    const convex = makeTestConvexClient(
+      [stubQuery(api.pages.byId, page), stubQuery(api.stickyNotes.byPage, [])],
+      [stubMutationError(api.pages.update, new ConvexError({ code: "CONFLICT", message: "La página cambió" }))],
+    );
+    const { editorDe } = renderComoElLayout(convex, { strict: true });
+    await waitFor(() => expect(editorDe()).not.toBeNull());
+
+    act(() => {
+      editorDe().commands.setContent("<p>Lo que escribí yo</p>");
+    });
+    act(() => convex.publish(deLaOtraPestaña));
+
+    await waitFor(() => expect(convex.calls).toHaveLength(1), { timeout: 3_000 });
+    await waitFor(() => expect(editorDe().getHTML()).toContain("Lo de la otra pestaña"));
+    // StrictMode monta, desmonta y vuelve a montar. Un editor que sólo sabe
+    // darse por muerto se pasa la sesión entera avisando de que no guarda,
+    // teniendo la pantalla delante para recargar.
+    expect(toast.error).not.toHaveBeenCalled();
+  });
+});
+
+describe("una versión de fuera que sólo cambia el título", () => {
+  it("no reemplaza el cuerpo, así que el cursor no se mueve", async () => {
+    const convex = makeTestConvexClient([stubQuery(api.pages.byId, page), stubQuery(api.stickyNotes.byPage, [])]);
+    const { editorDe } = renderComoElLayout(convex);
+    await waitFor(() => expect(editorDe()).not.toBeNull());
+    act(() => {
+      editorDe().commands.setTextSelection(4);
+    });
+    const cursor = editorDe().state.selection.from;
+
+    // Renombrar el cuaderno desde otra pestaña: mismo cuerpo, otro título.
+    act(() =>
+      convex.publish(stubQuery(api.pages.byId, { ...page, title: "Derivadas", updatedAt: VERSION_NUEVA })),
+    );
+
+    await waitFor(() => expect(screen.getByPlaceholderText<HTMLInputElement>("Sin título").value).toBe("Derivadas"));
+    // `setContent` devolvería el cursor al principio sin que el texto cambiara.
+    expect(editorDe().state.selection.from).toBe(cursor);
+    expect(editorDe().getHTML()).toBe(page.content);
   });
 });
