@@ -240,7 +240,7 @@ export function KinoSection() {
 
       <SubSection
         title="GithubRepoPanel — estados (KIN-135)"
-        description="Barra del board de un sistema `project` para enlazar un repositorio y refrescar sus issues. Sólo la monta la vista project: ningún otro arquetipo ve esta integración. Tres estados según haya cuenta conectada y repositorio elegido, más el token caducado y el fallo al preguntar por la conexión, que degradan con aviso en vez de vaciar el board. Debajo del repositorio, en segundo plano, la salida que vuelve a leerlo entero cuando el refresco de cada día se quedó por detrás."
+        description="Barra del board de un sistema `project` para enlazar un repositorio y refrescar sus issues. Sólo la monta la vista project: ningún otro arquetipo ve esta integración. Tres estados según haya cuenta conectada y repositorio elegido, más el token caducado y el fallo al preguntar por la conexión, que degradan con aviso en vez de vaciar el board. Debajo del repositorio, en segundo plano, la salida que devuelve el recorrido al primer issue cuando el cursor se quedó por detrás: avanza por tramos de trescientos, y el texto lo dice antes de pulsarlo."
       >
         <div className="flex max-w-2xl flex-col gap-3">
           <Specimen label="Sin cuenta conectada" hint="el trabajo se hace en Ajustes">
@@ -260,7 +260,7 @@ export function KinoSection() {
               syncing
             />
           </Specimen>
-          <Specimen label="Pidiendo el repositorio entero" hint="la salida cuando el refresco de cada día se quedó por detrás">
+          <Specimen label="Volviendo al primer issue" hint="la salida cuando el refresco de cada día se quedó por detrás">
             <GithubRepoPanelView
               state={{ kind: "linked", repo: { owner: "eliasdlc", repo: "kino" }, revoked: false }}
               syncing

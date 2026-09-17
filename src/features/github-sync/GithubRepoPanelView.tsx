@@ -116,9 +116,10 @@ export function GithubRepoPanelView({
           disabled={syncing || state.revoked}
           onClick={onSync}
         >
-          <RefreshCw
-            className={`mr-1.5 size-3.5 ${syncing ? "animate-spin" : ""}`}
-          />
+          {/* El icono no gira: lo que cuenta el trabajo en curso es la
+              etiqueta, y una animación en bucle no dice nada que el texto no
+              diga ya. */}
+          <RefreshCw className="mr-1.5 size-3.5" />
           {syncing && !syncingAll ? "Sincronizando…" : "Sincronizar"}
         </Button>
         <Button variant="ghost" size="sm" onClick={onUnlink}>
@@ -127,8 +128,10 @@ export function GithubRepoPanelView({
       </div>
 
       {/* La salida de emergencia, no la acción de cada día: va debajo, en una
-          línea que dice lo que cuesta antes de pulsarla. El trabajo en curso se
-          cuenta en la etiqueta, como en el botón de arriba. */}
+          línea que dice lo que cuesta antes de pulsarla. El texto no promete el
+          repositorio entero de una vez porque no es lo que pasa: cada pasada
+          trae hasta trescientos issues y el recorrido sigue con el refresco
+          normal, así que en un repositorio grande hacen falta varias. */}
       <p className="pl-6 text-xs text-muted-foreground">
         ¿Faltan issues viejos?{" "}
         <Button
@@ -138,10 +141,11 @@ export function GithubRepoPanelView({
           disabled={syncing || state.revoked}
           onClick={onSyncAll}
         >
-          {syncingAll ? "Pidiendo el repositorio entero…" : "Pídelo desde el principio"}
+          {syncingAll ? "Volviendo al primer issue…" : "Volver al primer issue"}
         </Button>
-        . Deja de contar desde el último refresco y vuelve a leer el repositorio
-        entero, así que tarda más que sincronizar.
+        . El recorrido empieza otra vez por lo más antiguo y avanza de
+        trescientos en trescientos, así que en un repositorio grande toca
+        sincronizar varias veces hasta llegar a hoy.
       </p>
     </div>
   );

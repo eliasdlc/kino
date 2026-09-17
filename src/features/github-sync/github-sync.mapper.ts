@@ -67,8 +67,10 @@ export const KINO_OWNED_FIELDS = [
  * (`since` más número de página). La barata sería dejar el cursor un
  * milisegundo por encima del lote cuando no avanzó, y no la toma este código
  * porque cambia la promesa: pasa de repetir a saltarse los que quedaron dentro
- * de ese segundo. `refrescoCompleto` ignora el cursor y es lo que deshace el
- * atasco, pero hoy ningún cliente lo manda.
+ * de ese segundo. `refrescoCompleto`, que el panel manda desde su salida de
+ * emergencia, devuelve el recorrido al principio y recupera lo que un cursor
+ * saltado dejó atrás, pero **no deshace este atasco**: el recorrido vuelve a
+ * llegar al mismo instante y se queda ahí otra vez.
  */
 export function cursorSiguiente({
   truncated,

@@ -58,22 +58,44 @@ describe("GithubRepoPanelView", () => {
     expect(screen.getByRole("button", { name: /Sincronizando/i })).toBeDisabled();
   });
 
-  // El trabajo en curso se cuenta en la etiqueta, como el botón de arriba: el
-  // panel no tiene dónde poner una animación que gire sin decir nada.
-  it("mientras trae el repositorio entero lo dice en la etiqueta y no deja disparar otra vez", () => {
+  it("mientras vuelve al primer issue lo dice en la etiqueta y no deja disparar otra vez", () => {
     renderWithProviders(
       <GithubRepoPanelView state={{ kind: "linked", repo: REPO, revoked: false }} syncing syncingAll />,
     );
 
-    expect(screen.getByRole("button", { name: /Pidiendo el repositorio entero/i })).toBeDisabled();
+    expect(screen.getByRole("button", { name: /Volviendo al primer issue/i })).toBeDisabled();
     // Y el de cada día no se disfraza del otro.
     expect(screen.getByRole("button", { name: /^Sincronizar$/i })).toBeDisabled();
   });
 
-  it("con el token caducado tampoco deja pedir el repositorio entero", () => {
+  // El trabajo en curso se cuenta en la etiqueta y en ningún otro sitio: una
+  // animación en bucle no dice nada que el texto no diga, y el icono girando
+  // mientras su etiqueta decía «Sincronizar» en reposo afirmaba lo contrario de
+  // lo que estaba pasando.
+  it.each([
+    ["el refresco de cada día", { syncing: true }],
+    ["el que vuelve al primer issue", { syncing: true, syncingAll: true }],
+  ])("no pinta ninguna animación en bucle mientras corre %s", (_caso, props) => {
+    const { container } = renderWithProviders(
+      <GithubRepoPanelView state={{ kind: "linked", repo: REPO, revoked: false }} {...props} />,
+    );
+
+    expect(container.querySelectorAll("[class*='animate-']")).toHaveLength(0);
+  });
+
+  it("con el token caducado tampoco deja volver al primer issue", () => {
     renderWithProviders(<GithubRepoPanelView state={{ kind: "linked", repo: REPO, revoked: true }} />);
 
-    expect(screen.getByRole("button", { name: /Pídelo desde el principio/i })).toBeDisabled();
+    expect(screen.getByRole("button", { name: /Volver al primer issue/i })).toBeDisabled();
+  });
+
+  // Lo que el backend hace de verdad: tres páginas de cien por pasada, así que
+  // un repositorio grande no cabe en una. Prometerlo entero era mentira.
+  it("dice que el recorrido avanza por tramos, no que traiga el repositorio entero de una vez", () => {
+    renderWithProviders(<GithubRepoPanelView state={{ kind: "linked", repo: REPO, revoked: false }} />);
+
+    expect(screen.getByText(/avanza de trescientos en trescientos/i)).toBeVisible();
+    expect(screen.getByText(/varias veces hasta llegar a hoy/i)).toBeVisible();
   });
 
   it("cuando no se pudo comprobar la conexión lo dice y deja reintentar", async () => {
