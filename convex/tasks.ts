@@ -1,4 +1,5 @@
 import { academicFolderIds } from './lib/academic';
+import { ConvexError } from 'convex/values';
 import { z } from 'zod';
 import { zid } from 'convex-helpers/server/zod4';
 import type { Doc, Id } from './_generated/dataModel';
@@ -729,10 +730,30 @@ async function subtaskTree(ctx: MutationCtx, rootId: Id<'tasks'>): Promise<Id<'t
   return out;
 }
 
+/**
+ * Saca una tarea de la papelera. Si venía de fuera (un issue de GitHub), antes
+ * comprueba que su tarjeta no esté ya en el tablero: restaurarla entonces
+ * dejaría dos tarjetas del mismo issue, y la de fuera es la misma cosa, no otra.
+ */
 export const restore = kinoZodMutation({
   args: { id: zid('tasks') },
   handler: async (ctx, { id }) => {
     const task = await ownTask(ctx, ctx.user._id, id, { includeDeleted: true });
+    if (task.externalSource && task.externalId) {
+      const gemela = await ctx.db
+        .query('tasks')
+        .withIndex('by_user_external', (q) =>
+          q.eq('userId', ctx.user._id).eq('externalSource', task.externalSource).eq('externalId', task.externalId),
+        )
+        .filter((q) => q.eq(q.field('deletedAt'), undefined))
+        .first();
+      if (gemela) {
+        throw new ConvexError({
+          code: 'CONFLICT' as const,
+          message: 'Esa tarjeta ya está en el tablero: la sincronización la trajo de nuevo mientras estaba en la papelera.',
+        });
+      }
+    }
     await ctx.db.patch(id, { deletedAt: undefined });
     await recordEvent(ctx, {
       userId: ctx.user._id,

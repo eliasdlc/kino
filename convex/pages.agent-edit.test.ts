@@ -204,6 +204,36 @@ describe('versión obligatoria y concurrencia', () => {
     });
     await expect(agente('cliente').mutation(api.pages.update, { id: page.id, title: 'Bypass' })).rejects.toThrow();
   });
+
+  it('dos pestañas del navegador: la segunda choca y no pisa lo que escribió la primera', async () => {
+    const { t, navegador, systemId } = await seed();
+    const page = await navegador.mutation(api.pages.create, { systemId, title: 'Capítulo', content: '<p>Uno</p>' });
+    // Las dos pestañas abrieron el capítulo a la vez, con la misma versión.
+    const abierta = (await navegador.query(api.pages.byId, { id: page.id })).updatedAt;
+
+    await navegador.mutation(api.pages.update, { id: page.id, content: '<p>Lo de la primera</p>', expectedUpdatedAt: abierta });
+    const error = await navegador
+      .mutation(api.pages.update, { id: page.id, content: '<p>Lo de la segunda</p>', expectedUpdatedAt: abierta })
+      .catch((reason: unknown) => reason);
+
+    expect(errorData(error)).toMatchObject({ code: 'CONFLICT' });
+    expect((await t.run((ctx) => ctx.db.get(page.id)))!.content).toBe('<p>Lo de la primera</p>');
+  });
+
+  it('cada guardado mueve la versión, aunque el reloj no haya avanzado', async () => {
+    const { t, navegador, systemId } = await seed();
+    const page = await navegador.mutation(api.pages.create, { systemId, title: 'Capítulo', content: '<p>Uno</p>' });
+    // La página ya lleva una marca que `Date.now()` no supera: es el empate que
+    // dejan dos escrituras dentro del mismo milisegundo.
+    const quieto = Date.now() + 60_000;
+    await t.run((ctx) => ctx.db.patch(page.id, { updatedAt: quieto }));
+
+    await navegador.mutation(api.pages.update, { id: page.id, content: '<p>Dos</p>' });
+
+    // Con la versión quieta, el `expectedUpdatedAt` de la pestaña de antes
+    // seguiría valiendo y el guardado siguiente pisaría éste sin chocar.
+    expect((await t.run((ctx) => ctx.db.get(page.id)))!.updatedAt).toBeGreaterThan(quieto);
+  });
 });
 
 describe('historial y deshacer', () => {

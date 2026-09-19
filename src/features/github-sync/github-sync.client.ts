@@ -31,6 +31,8 @@ interface RawIssue {
   /** Presente sólo en pull requests. La API de issues las devuelve mezcladas. */
   pull_request?: unknown;
   milestone: RawMilestone | null;
+  /** Por el que ordena y filtra la petición. Es de dónde sale el cursor. */
+  updated_at: string;
 }
 
 interface RawMilestone {
@@ -115,6 +117,12 @@ export async function fetchViewerLogin(token: string): Promise<string> {
  * mueven la tarjeta a la columna terminal. Filtrar sólo abiertos dejaría las
  * tarjetas de issues cerrados congeladas para siempre.
  *
+ * `direction=asc` sobre `updated`, y es lo que hace que el cursor converja: la
+ * página que se corta por el tope es la de lo **más nuevo**, que es justo lo
+ * que el siguiente refresco va a pedir. Al revés, lo que se cae por el tope es
+ * lo más viejo, y `since` nunca vuelve a mirar hacia atrás: esos issues no
+ * entraban en ningún refresco posterior.
+ *
  * Los pull requests se descartan: la API de issues los devuelve mezclados y una
  * PR no es una tarea del board.
  */
@@ -128,20 +136,33 @@ export async function fetchIssues(
    * Sin él se trae todo, que es lo que hace el primer refresco.
    */
   since?: number,
-): Promise<{ issues: GithubIssue[]; truncated: boolean }> {
+): Promise<{
+  issues: GithubIssue[];
+  truncated: boolean;
+  /**
+   * `updated_at` del último elemento que GitHub llegó a devolver, en
+   * milisegundos, o null si no devolvió ninguno. Es hasta dónde se leyó de
+   * verdad, y sale del crudo para que una página entera de pull requests
+   * descartadas siga moviendo el cursor en vez de dejarlo clavado.
+   */
+  ultimoUpdatedAt: number | null;
+}> {
   const issues: GithubIssue[] = [];
   let truncated = false;
+  let ultimoUpdatedAt: number | null = null;
   const desde = since === undefined ? '' : `&since=${encodeURIComponent(new Date(since).toISOString())}`;
 
   for (let page = 1; page <= MAX_PAGES; page++) {
     const response = await request(
       `/repos/${encodeURIComponent(ref.owner)}/${encodeURIComponent(ref.repo)}` +
-        `/issues?state=all&per_page=${PER_PAGE}&page=${page}&sort=updated&direction=desc${desde}`,
+        `/issues?state=all&per_page=${PER_PAGE}&page=${page}&sort=updated&direction=asc${desde}`,
       token,
     );
     const raw = (await response.json()) as RawIssue[];
 
     for (const item of raw) {
+      const tocado = Date.parse(item.updated_at);
+      if (!Number.isNaN(tocado) && (ultimoUpdatedAt === null || tocado > ultimoUpdatedAt)) ultimoUpdatedAt = tocado;
       if (item.pull_request) continue;
       issues.push({
         id: item.id,
@@ -154,11 +175,11 @@ export async function fetchIssues(
       });
     }
 
-    if (raw.length < PER_PAGE) return { issues, truncated: false };
+    if (raw.length < PER_PAGE) return { issues, truncated: false, ultimoUpdatedAt };
     if (page === MAX_PAGES) truncated = true;
   }
 
-  return { issues, truncated };
+  return { issues, truncated, ultimoUpdatedAt };
 }
 
 /** Comprueba que el repositorio existe y que el token puede leerlo. */

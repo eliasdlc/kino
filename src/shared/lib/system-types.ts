@@ -100,12 +100,12 @@ export interface SystemMetadata {
   chekhov?: { maxMentions: number; minSilentChapters: number };
   /**
    * Solo Project: repositorio de GitHub cuyos issues alimentan el board
-   * (KIN-135). Vive en el sistema y no en la conexión porque la cuenta de GitHub
-   * es una sola por usuario, mientras que el repositorio es de este proyecto
-   * concreto: un usuario puede tener varios sistemas `project`, cada uno con el
-   * suyo.
+   * (KIN-135), y hasta dónde llegó su último refresco. Vive en el sistema y no
+   * en la conexión porque la cuenta de GitHub es una sola por usuario, mientras
+   * que el repositorio es de este proyecto concreto: un usuario puede tener
+   * varios sistemas `project`, cada uno con el suyo y con su propio cursor.
    */
-  github?: { owner: string; repo: string };
+  github?: { owner: string; repo: string; syncedThrough?: number };
 }
 
 export type SchedulingPreference = 'lowSlot' | 'peak' | 'highMedium';

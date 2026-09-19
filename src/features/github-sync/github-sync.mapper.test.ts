@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import { PROJECT_BOARD_TERMINAL } from "@/shared/lib/system-types";
 import {
   boardStatusFor,
+  cursorSiguiente,
   externalIdFor,
   INITIAL_BOARD_COLUMN,
   isEmptyPatch,
@@ -34,6 +35,7 @@ function existing(over: Partial<ExistingTask> = {}): ExistingTask {
     description: base.description,
     boardStatus: base.boardStatus,
     sprintId: null,
+    completedVia: null,
     ...over,
   };
 }
@@ -74,31 +76,43 @@ describe("título y descripción", () => {
 
 describe("boardStatusFor · qué columna le toca al issue", () => {
   it("una tarjeta nueva de issue abierto entra en la primera columna", () => {
-    expect(boardStatusFor("open", null)).toBe(INITIAL_BOARD_COLUMN);
+    expect(boardStatusFor("open", null, null)).toBe(INITIAL_BOARD_COLUMN);
   });
 
   it("un issue cerrado va a la columna terminal", () => {
-    expect(boardStatusFor("closed", INITIAL_BOARD_COLUMN)).toBe(
+    expect(boardStatusFor("closed", INITIAL_BOARD_COLUMN, null)).toBe(
       PROJECT_BOARD_TERMINAL,
     );
   });
 
   it("un issue cerrado que ya estaba en la terminal no se mueve", () => {
-    expect(boardStatusFor("closed", PROJECT_BOARD_TERMINAL)).toBeNull();
+    expect(boardStatusFor("closed", PROJECT_BOARD_TERMINAL, "sync")).toBeNull();
   });
 
-  it("reabrir en GitHub saca la tarjeta de la terminal", () => {
-    expect(boardStatusFor("open", PROJECT_BOARD_TERMINAL)).toBe(
+  // Reabrir es deshacer lo que hizo la propia sincronización, y sólo eso: la
+  // tarjeta llegó a la terminal firmada como `sync`.
+  it("reabrir en GitHub saca de la terminal la tarjeta que cerró la sincronización", () => {
+    expect(boardStatusFor("open", PROJECT_BOARD_TERMINAL, "sync")).toBe(
       INITIAL_BOARD_COLUMN,
     );
   });
+
+  // El defecto que esto cierra: un comentario en un issue abierto movía a "por
+  // hacer" una tarea que alguien había completado en Kino, y de paso borraba la
+  // firma de su cierre.
+  it.each(["session", "oauth", null])(
+    "no descompleta la tarjeta que cerró una persona (%s) mientras el issue sigue abierto",
+    (via) => {
+      expect(boardStatusFor("open", PROJECT_BOARD_TERMINAL, via)).toBeNull();
+    },
+  );
 
   // El caso que decide si el board sirve o estorba: si el refresco devolviera
   // las tarjetas a "por hacer", mover una tarjeta en Kino no significaría nada.
   it.each(["in_progress", "review"])(
     "no toca la columna intermedia %s de un issue abierto",
     (columna) => {
-      expect(boardStatusFor("open", columna)).toBeNull();
+      expect(boardStatusFor("open", columna, null)).toBeNull();
     },
   );
 });
@@ -237,5 +251,24 @@ describe("taskPatchFromIssue · re-sincronizar", () => {
         "startDate",
       ]),
     );
+  });
+});
+
+describe("hasta dónde avanza el cursor", () => {
+  const arranque = Date.UTC(2026, 8, 16, 12);
+  const ultimoUpdatedAt = Date.UTC(2026, 8, 10);
+
+  it("sin truncar llega al arranque de la llamada, no al final", () => {
+    expect(cursorSiguiente({ truncated: false, ultimoUpdatedAt, arranque })).toBe(arranque);
+  });
+
+  // El defecto: con el cursor en el arranque, los issues que no cupieron en el
+  // tope de páginas quedaban antes del `since` siguiente y no volvían nunca.
+  it("truncado para en el último issue traído", () => {
+    expect(cursorSiguiente({ truncated: true, ultimoUpdatedAt, arranque })).toBe(ultimoUpdatedAt);
+  });
+
+  it("truncado y sin saber hasta dónde se leyó, el cursor se queda donde estaba", () => {
+    expect(cursorSiguiente({ truncated: true, ultimoUpdatedAt: null, arranque })).toBeNull();
   });
 });

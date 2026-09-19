@@ -44,6 +44,16 @@ jobs:
 
       - run: pnpm check:voz
 
+      # El carril único de schema: un PR que toca `convex/schema.ts` no
+      # construye mientras haya otro PR abierto, porque todos los previews
+      # publican contra el mismo deployment de dev. El token es sólo para
+      # listar PRs; los tests siguen sin ver ninguna variable.
+      - name: carril de schema
+        if: github.event_name == 'pull_request'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: bash scripts/carril-de-schema.sh "${{ github.event.pull_request.number }}" "${{ github.event.pull_request.base.sha }}"
+
       - run: pnpm test
 
       - run: python3 -m unittest discover -s scripts/vendor/delivery/tests -v

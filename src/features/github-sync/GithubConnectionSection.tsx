@@ -17,7 +17,7 @@ import { useDisconnectGithub, useGithubConnection } from "./github-sync.hooks";
  * dentro del sistema, no aquí.
  */
 export function GithubConnectionSection() {
-  const { data, isLoading } = useGithubConnection();
+  const { data, isLoading, error } = useGithubConnection();
   const { mutate: disconnect, isPending } = useDisconnectGithub();
   const [confirmOpen, setConfirmOpen] = React.useState(false);
   const params = useSearchParams();
@@ -52,6 +52,13 @@ export function GithubConnectionSection() {
             <Label className="text-sm font-medium">Cuenta conectada</Label>
             {isLoading ? (
               <Skeleton className="h-4 w-40" />
+            ) : error ? (
+              // Sin esta rama, un fallo al preguntar por la conexión se leía
+              // como «este despliegue no tiene la integración», que es otra cosa.
+              <p className="flex items-center gap-1.5 text-xs text-destructive">
+                <TriangleAlert className="size-3.5 shrink-0" />
+                No se pudo comprobar la cuenta. Vuelve a cargar la página.
+              </p>
             ) : !data?.configured ? (
               <p className="text-xs text-muted-foreground">
                 Este despliegue no tiene configurada la integración.
@@ -76,7 +83,7 @@ export function GithubConnectionSection() {
 
         {isLoading ? (
           <Skeleton className="h-9 w-28 shrink-0 rounded-md" />
-        ) : !data?.configured ? null : data.connected ? (
+        ) : error || !data?.configured ? null : data.connected ? (
           <div className="flex shrink-0 gap-2">
             {data.revoked && (
               <Button asChild size="sm">

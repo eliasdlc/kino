@@ -1,9 +1,9 @@
 /**
  * Qué se prueba: que el panel de GitHub nunca ofrece sincronizar algo que no
- * puede sincronizar. Los cuatro estados de la conexión (sin cuenta, sin
- * repositorio, enlazado, token caducado) tienen que llevar a una acción
- * distinta, y la única forma de equivocarse aquí es dejar el botón vivo
- * cuando la llamada de detrás va a fallar.
+ * puede sincronizar. Los cinco estados de la conexión (sin cuenta, sin
+ * repositorio, enlazado, token caducado, y no se pudo comprobar) tienen que
+ * llevar a una acción distinta, y las dos formas de equivocarse aquí son dejar
+ * el botón vivo cuando la llamada de detrás va a fallar, y no enseñar nada.
  */
 
 import { describe, expect, it, vi } from "vitest";
@@ -56,6 +56,64 @@ describe("GithubRepoPanelView", () => {
     );
 
     expect(screen.getByRole("button", { name: /Sincronizando/i })).toBeDisabled();
+  });
+
+  it("mientras vuelve a empezar el recorrido lo dice en la etiqueta y no deja disparar otra vez", () => {
+    renderWithProviders(
+      <GithubRepoPanelView state={{ kind: "linked", repo: REPO, revoked: false }} syncing syncingAll />,
+    );
+
+    expect(screen.getByRole("button", { name: /Volviendo a empezar el recorrido/i })).toBeDisabled();
+    // Y el de cada día no se disfraza del otro.
+    expect(screen.getByRole("button", { name: /^Sincronizar$/i })).toBeDisabled();
+  });
+
+  // El trabajo en curso se cuenta en la etiqueta y en ningún otro sitio: una
+  // animación en bucle no dice nada que el texto no diga, y el icono girando
+  // mientras su etiqueta decía «Sincronizar» en reposo afirmaba lo contrario de
+  // lo que estaba pasando.
+  it.each([
+    ["el refresco de cada día", { syncing: true }],
+    ["el que vuelve a empezar el recorrido", { syncing: true, syncingAll: true }],
+  ])("no pinta ninguna animación en bucle mientras corre %s", (_caso, props) => {
+    const { container } = renderWithProviders(
+      <GithubRepoPanelView state={{ kind: "linked", repo: REPO, revoked: false }} {...props} />,
+    );
+
+    expect(container.querySelectorAll("[class*='animate-']")).toHaveLength(0);
+  });
+
+  it("con el token caducado tampoco deja volver a empezar el recorrido", () => {
+    renderWithProviders(<GithubRepoPanelView state={{ kind: "linked", repo: REPO, revoked: true }} />);
+
+    expect(screen.getByRole("button", { name: /Volver a empezar el recorrido/i })).toBeDisabled();
+  });
+
+  /**
+   * Este test sólo comprueba que la frase está pintada. Que sea cierta lo
+   * sostienen otros dos, en la capa donde se decide: `github-sync.client.test.ts`
+   * fija el orden de la petición (`sort=updated&direction=asc`, por fecha de
+   * cambio) y su tope de tres páginas de cien, y `GithubRepoPanel.test.tsx` ata
+   * esta etiqueta al `refrescoCompleto` que se manda. Sin esos dos, aquí no hay
+   * nada que impida escribir cualquier promesa.
+   */
+  it("la frase nombra el orden del recorrido y el tamaño de su tramo", () => {
+    renderWithProviders(<GithubRepoPanelView state={{ kind: "linked", repo: REPO, revoked: false }} />);
+
+    expect(screen.getByText(/llevan más tiempo sin cambiar/i)).toBeVisible();
+    expect(screen.getByText(/avanza hacia los tocados más recientemente/i)).toBeVisible();
+    expect(screen.getByText(/de trescientos en trescientos/i)).toBeVisible();
+    expect(screen.getByText(/varias veces hasta llegar a hoy/i)).toBeVisible();
+  });
+
+  it("cuando no se pudo comprobar la conexión lo dice y deja reintentar", async () => {
+    const onRetry = vi.fn();
+    renderWithProviders(<GithubRepoPanelView state={{ kind: "error" }} onRetry={onRetry} />);
+
+    expect(screen.getByText(/No se pudo comprobar la conexión con GitHub/i)).toBeVisible();
+    await userEvent.click(screen.getByRole("button", { name: /Reintentar/i }));
+
+    expect(onRetry).toHaveBeenCalled();
   });
 
   it("con el token revocado avisa y bloquea la sincronización sin ocultar el board", () => {

@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { GitBranch, RefreshCw } from "lucide-react";
+import { GitBranch, RefreshCw, TriangleAlert } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import type { GithubRepoRef } from "./github-sync.types";
@@ -18,26 +18,49 @@ export type RepoPanelState =
   /** Hay cuenta pero el sistema no ha elegido repositorio todavía. */
   | { kind: "unlinked" }
   /** No hay cuenta conectada: el trabajo se hace en Ajustes. */
-  | { kind: "disconnected" };
+  | { kind: "disconnected" }
+  /** No se pudo saber el estado de la conexión: la barra lo dice y ofrece reintentar. */
+  | { kind: "error" };
 
 export interface GithubRepoPanelViewProps {
   state: RepoPanelState;
   syncing?: boolean;
+  /** El refresco en curso es el que ignora el cursor, no el de cada día. */
+  syncingAll?: boolean;
   linking?: boolean;
   onLink?: (fullName: string) => void;
   onSync?: () => void;
+  onSyncAll?: () => void;
   onUnlink?: () => void;
+  onRetry?: () => void;
 }
 
 export function GithubRepoPanelView({
   state,
   syncing = false,
+  syncingAll = false,
   linking = false,
   onLink,
   onSync,
+  onSyncAll,
   onUnlink,
+  onRetry,
 }: GithubRepoPanelViewProps) {
   const [input, setInput] = React.useState("");
+
+  if (state.kind === "error") {
+    return (
+      <div className="flex flex-wrap items-center gap-2 rounded-lg border border-destructive/40 px-3 py-2 text-sm">
+        <TriangleAlert className="size-4 shrink-0 text-destructive" />
+        <span className="min-w-0 flex-1">
+          No se pudo comprobar la conexión con GitHub. El tablero sigue como está.
+        </span>
+        <Button variant="ghost" size="sm" onClick={onRetry}>
+          Reintentar
+        </Button>
+      </div>
+    );
+  }
 
   if (state.kind === "disconnected") {
     return (
@@ -76,30 +99,60 @@ export function GithubRepoPanelView({
   }
 
   return (
-    <div className="flex flex-wrap items-center gap-2 rounded-lg border px-3 py-2">
-      <GitBranch className="size-4 shrink-0 text-muted-foreground" />
-      <span className="min-w-0 flex-1 truncate text-sm">
-        {state.repo.owner}/{state.repo.repo}
-        {state.revoked && (
-          <span className="ml-2 text-xs text-destructive">
-            token caducado: reconecta en Ajustes
-          </span>
-        )}
-      </span>
-      <Button
-        variant="ghost"
-        size="sm"
-        disabled={syncing || state.revoked}
-        onClick={onSync}
-      >
-        <RefreshCw
-          className={`mr-1.5 size-3.5 ${syncing ? "animate-spin" : ""}`}
-        />
-        {syncing ? "Sincronizando…" : "Sincronizar"}
-      </Button>
-      <Button variant="ghost" size="sm" onClick={onUnlink}>
-        Desenlazar
-      </Button>
+    <div className="flex flex-col gap-1.5 rounded-lg border px-3 py-2">
+      <div className="flex flex-wrap items-center gap-2">
+        <GitBranch className="size-4 shrink-0 text-muted-foreground" />
+        <span className="min-w-0 flex-1 truncate text-sm">
+          {state.repo.owner}/{state.repo.repo}
+          {state.revoked && (
+            <span className="ml-2 text-xs text-destructive">
+              token caducado: reconecta en Ajustes
+            </span>
+          )}
+        </span>
+        <Button
+          variant="ghost"
+          size="sm"
+          disabled={syncing || state.revoked}
+          onClick={onSync}
+        >
+          {/* El icono no gira: lo que cuenta el trabajo en curso es la
+              etiqueta, y una animación en bucle no dice nada que el texto no
+              diga ya. */}
+          <RefreshCw className="mr-1.5 size-3.5" />
+          {syncing && !syncingAll ? "Sincronizando…" : "Sincronizar"}
+        </Button>
+        <Button variant="ghost" size="sm" onClick={onUnlink}>
+          Desenlazar
+        </Button>
+      </div>
+
+      {/* La salida de emergencia, no la acción de cada día: va debajo, en una
+          línea que dice lo que cuesta antes de pulsarla.
+
+          El texto nombra el orden que la petición usa de verdad
+          (`sort=updated&direction=asc`, en `github-sync.client.ts`): el
+          recorrido va por fecha de cambio, no por antigüedad del issue, así que
+          el primer tramo trae lo que lleva más tiempo sin tocarse, que puede ser
+          un issue reciente. Y tampoco promete el repositorio entero de una vez:
+          cada pasada trae hasta trescientos y el resto llega con los refrescos
+          siguientes. */}
+      <p className="pl-6 text-xs text-muted-foreground">
+        ¿Se quedaron issues atrás?{" "}
+        <Button
+          variant="link"
+          size="sm"
+          className="h-auto p-0 text-xs font-normal"
+          disabled={syncing || state.revoked}
+          onClick={onSyncAll}
+        >
+          {syncingAll ? "Volviendo a empezar el recorrido…" : "Volver a empezar el recorrido"}
+        </Button>
+        . Empieza otra vez por los issues que llevan más tiempo sin cambiar y
+        avanza hacia los tocados más recientemente, de trescientos en
+        trescientos, así que en un repositorio grande toca sincronizar varias
+        veces hasta llegar a hoy.
+      </p>
     </div>
   );
 }
