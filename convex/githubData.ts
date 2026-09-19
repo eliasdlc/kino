@@ -8,7 +8,7 @@ import {
   newTaskFromIssue,
   taskPatchFromIssue,
 } from '../src/features/github-sync/github-sync.mapper';
-import { GITHUB_SOURCE, type GithubIssue, type GithubRepoRef } from '../src/features/github-sync/github-sync.types';
+import { GITHUB_SOURCE, type GithubIssue, type GithubRepoRef, type GithubSystemLink } from '../src/features/github-sync/github-sync.types';
 import { forbidden, notFound } from './lib/errors';
 import { kinoZodMutation } from './lib/fn';
 import { lematizar } from './lib/lemas';
@@ -17,11 +17,28 @@ import { moveTaskBoardDoc } from './tasks';
 // La parte de la sincronización con GitHub que escribe en la base. Lo que
 // habla con GitHub y cifra el token vive en `github.ts`, en Node.
 
-export function repoRefOf(system: Pick<Doc<'systems'>, 'templateType' | 'metadata'>): GithubRepoRef | null {
-  if (system.templateType !== 'project') return null;
-  const ref = (system.metadata as { github?: Partial<GithubRepoRef> } | undefined)?.github;
+type SystemLike = Pick<Doc<'systems'>, 'templateType' | 'metadata'>;
+
+/** El bloque `metadata.github` de un sistema de tipo proyecto, tal y como está guardado. */
+function githubMetaOf(system: SystemLike): Partial<GithubSystemLink> | undefined {
+  if (system.templateType !== 'project') return undefined;
+  return (system.metadata as { github?: Partial<GithubSystemLink> } | undefined)?.github;
+}
+
+export function repoRefOf(system: SystemLike): GithubRepoRef | null {
+  const ref = githubMetaOf(system);
   if (!ref?.owner || !ref?.repo) return null;
   return { owner: ref.owner, repo: ref.repo };
+}
+
+/**
+ * Hasta dónde llegó el último refresco de **este** sistema, o null si nunca se
+ * sincronizó. Es el cursor que viaja a GitHub como `since`, y es del sistema
+ * porque cada uno mira su propio repositorio.
+ */
+export function syncedThroughOf(system: SystemLike): number | null {
+  const cursor = githubMetaOf(system)?.syncedThrough;
+  return typeof cursor === 'number' ? cursor : null;
 }
 
 async function connectionRow(ctx: { db: import('./_generated/server').QueryCtx['db'] }, userId: Id<'users'>) {
@@ -59,7 +76,7 @@ export const connectionOf = internalQuery({
   handler: async (ctx, { userId }) => {
     const row = await connectionRow(ctx, userId);
     return row
-      ? { accessTokenEncrypted: row.accessTokenEncrypted, lastSyncedAt: row.lastSyncedAt ?? null, syncedThrough: row.syncedThrough ?? null }
+      ? { accessTokenEncrypted: row.accessTokenEncrypted, lastSyncedAt: row.lastSyncedAt ?? null }
       : null;
   },
 });
@@ -79,10 +96,15 @@ export const systemForSync = internalQuery({
   args: { userId: v.id('users'), systemId: v.id('systems') },
   handler: async (ctx, { userId, systemId }) => {
     const system = await requireProjectSystem(ctx, userId, systemId);
-    return { id: system._id, metadata: system.metadata ?? null, repo: repoRefOf(system) };
+    return { id: system._id, metadata: system.metadata ?? null, repo: repoRefOf(system), syncedThrough: syncedThroughOf(system) };
   },
 });
 
+/**
+ * Enlaza el repositorio. El bloque se escribe entero y sin cursor a propósito:
+ * enlazar otro repositorio es empezar de cero, y heredar hasta dónde llegó el
+ * anterior dejaría fuera todos los issues viejos del nuevo.
+ */
 export const linkRepoMeta = internalMutation({
   args: { userId: v.id('users'), systemId: v.id('systems'), owner: v.string(), repo: v.string() },
   handler: async (ctx, { userId, systemId, owner, repo }) => {
@@ -91,6 +113,18 @@ export const linkRepoMeta = internalMutation({
     return null;
   },
 });
+
+/**
+ * Cuál de dos tarjetas del mismo issue manda en el refresco: la viva sobre la
+ * de la papelera, y entre dos vivas la más antigua, que es la que lleva encima
+ * lo que Kino añadió.
+ */
+function gemelaQueManda(a: Doc<'tasks'>, b: Doc<'tasks'>): Doc<'tasks'> {
+  const aViva = a.deletedAt === undefined;
+  const bViva = b.deletedAt === undefined;
+  if (aViva !== bViva) return aViva ? a : b;
+  return a._creationTime <= b._creationTime ? a : b;
+}
 
 const issueValidator = v.object({
   id: v.number(),
@@ -111,19 +145,21 @@ const issueValidator = v.object({
  * declara y esta función no lo escribe.
  */
 export const applySync = internalMutation({
-  args: { userId: v.id('users'), systemId: v.id('systems'), issues: v.array(issueValidator), truncated: v.boolean(), syncedThrough: v.number() },
+  args: { userId: v.id('users'), systemId: v.id('systems'), issues: v.array(issueValidator), truncated: v.boolean(), syncedThrough: v.optional(v.number()) },
   handler: async (ctx, { userId, systemId, issues, truncated, syncedThrough }) => {
-    await requireProjectSystem(ctx, userId, systemId);
+    const system = await requireProjectSystem(ctx, userId, systemId);
     const now = Date.now();
     const typed = issues as GithubIssue[];
 
     // Un sprint por milestone; reimportar actualiza el nombre, nunca el estado.
+    // El orden sale del id del milestone, que crece con su creación, y no del
+    // orden en que los issues los mencionan: así dos refrescos de la misma
+    // respuesta en distinto sentido dejan los sprints en la misma fila.
     const sprintIdByMilestone = new Map<number, Id<'sprints'>>();
     let sprintsCreated = 0;
     const sprints = await ctx.db.query('sprints').withIndex('by_system_status', (q) => q.eq('systemId', systemId)).collect();
-    for (const issue of typed) {
-      const milestone = issue.milestone;
-      if (!milestone || sprintIdByMilestone.has(milestone.id)) continue;
+    const milestones = new Map(typed.flatMap((issue) => (issue.milestone ? [[issue.milestone.id, issue.milestone] as const] : [])));
+    for (const milestone of [...milestones.values()].sort((a, b) => a.id - b.id)) {
       const externalId = String(milestone.id);
       const existing = sprints.find((s) => s.externalId === externalId);
       if (existing) {
@@ -147,11 +183,35 @@ export const applySync = internalMutation({
       sprintsCreated += 1;
     }
 
-    const tasks = (await ctx.db.query('tasks').withIndex('by_system_alive_status', (q) => q.eq('systemId', systemId).eq('deletedAt', undefined)).collect()).filter(
+    // El rango es todas las tareas de este sistema, vivas y en la papelera. Las
+    // borradas entran a propósito: sin ellas el issue no encuentra su tarjeta y
+    // el refresco la vuelve a importar, así que borrar una tarjeta no servía de
+    // nada mientras el issue siguiera existiendo.
+    const tasks = (await ctx.db.query('tasks').withIndex('by_system_alive_status', (q) => q.eq('systemId', systemId)).collect()).filter(
       (t) => t.userId === userId,
     );
-    const existingByExternal = new Map(tasks.filter((t) => t.externalSource === GITHUB_SOURCE && t.externalId).map((t) => [t.externalId!, t]));
-    let sortBase = Math.max(-1, ...tasks.map((t) => t.sortIndex)) + 1;
+    // Dos tarjetas del mismo issue existen de verdad: las dejó el defecto viejo
+    // de reimportar lo borrado. Cuál manda no puede salir del orden en que el
+    // índice devuelve los documentos, que pone las vivas primero porque
+    // `deletedAt: undefined` ordena antes que cualquier número: así la borrada
+    // pisaba a su gemela viva y la tarjeta del tablero dejaba de moverse.
+    const existingByExternal = new Map<string, Doc<'tasks'>>();
+    for (const task of tasks) {
+      if (task.externalSource !== GITHUB_SOURCE || !task.externalId) continue;
+      const previa = existingByExternal.get(task.externalId);
+      existingByExternal.set(task.externalId, previa ? gemelaQueManda(previa, task) : task);
+    }
+    const sortBase = Math.max(-1, ...tasks.map((t) => t.sortIndex)) + 1;
+    // El sitio de una tarjeta nueva sale del número del issue, no del orden en
+    // que GitHub la devolvió: la petición pide del más viejo al más nuevo para
+    // que el cursor avance, y si el sitio saliera del bucle el tablero nacería
+    // al revés. Número alto (issue más nuevo) arriba, que es donde estaba antes
+    // de que la petición cambiara de sentido.
+    const sitioPorIssue = new Map(
+      [...typed]
+        .sort((a, b) => b.number - a.number)
+        .map((issue, posicion) => [issue.id, sortBase + posicion] as const),
+    );
 
     let imported = 0;
     let updated = 0;
@@ -160,6 +220,13 @@ export const applySync = internalMutation({
       const externalId = externalIdFor(issue);
       const sprintId = issue.milestone ? (sprintIdByMilestone.get(issue.milestone.id) ?? undefined) : undefined;
       const task = existingByExternal.get(externalId);
+      // Una tarjeta en la papelera ni se reimporta ni se toca: la persona la
+      // quitó del tablero, y el issue sigue existiendo en GitHub. Vuelve
+      // restaurándola, y el refresco siguiente la pone al día.
+      if (task?.deletedAt !== undefined) {
+        unchanged += 1;
+        continue;
+      }
       if (!task) {
         const base = newTaskFromIssue(issue);
         await ctx.db.insert('tasks', {
@@ -180,7 +247,7 @@ export const applySync = internalMutation({
           sprintId,
           externalSource: GITHUB_SOURCE,
           externalId,
-          sortIndex: sortBase++,
+          sortIndex: sitioPorIssue.get(issue.id) ?? sortBase,
           inTodayPlan: false,
           notifiedBeforeDay: false,
           notifiedDueDay: false,
@@ -194,7 +261,17 @@ export const applySync = internalMutation({
         imported += 1;
         continue;
       }
-      const patch = taskPatchFromIssue(issue, { title: task.title, description: task.description ?? null, boardStatus: task.boardStatus ?? null, sprintId: task.sprintId ?? null }, sprintId ?? null);
+      const patch = taskPatchFromIssue(
+        issue,
+        {
+          title: task.title,
+          description: task.description ?? null,
+          boardStatus: task.boardStatus ?? null,
+          sprintId: task.sprintId ?? null,
+          completedVia: task.completedVia ?? null,
+        },
+        sprintId ?? null,
+      );
       if (isEmptyPatch(patch)) {
         unchanged += 1;
         continue;
@@ -210,11 +287,18 @@ export const applySync = internalMutation({
       updated += 1;
     }
 
+    // El cursor se guarda en el sistema, al lado del repositorio que lo produjo:
+    // dos sistemas enlazados a dos repositorios llevan cada uno el suyo. Sin
+    // repositorio no hay cursor que guardar, y sin valor (una respuesta truncada
+    // de la que no se sabe hasta dónde llegó) se queda donde estaba.
+    const link = repoRefOf(system);
+    if (link && syncedThrough !== undefined) {
+      await ctx.db.patch(systemId, { metadata: { ...(system.metadata ?? {}), github: { ...link, syncedThrough } }, updatedAt: now });
+    }
+    // La conexión sólo guarda cuándo se habló con GitHub por última vez, que es
+    // de la cuenta y no del repositorio.
     const connection = await connectionRow(ctx, userId);
-    // El cursor avanza al instante en que arrancó la llamada, no al de ahora:
-    // un issue tocado mientras la sincronización corría entra en la siguiente
-    // en vez de caerse por el hueco.
-    if (connection) await ctx.db.patch(connection._id, { lastSyncedAt: now, syncedThrough, updatedAt: now });
+    if (connection) await ctx.db.patch(connection._id, { lastSyncedAt: now, updatedAt: now });
     return { imported, updated, unchanged, sprintsCreated, truncated, syncedAt: new Date(now).toISOString() };
   },
 });

@@ -10,6 +10,12 @@ import { GITHUB_SOURCE, type GithubIssue } from "./github-sync.types";
  * protege al resto de la app.
  */
 
+/**
+ * La vía con la que firma esta sincronización cuando cierra una tarjeta por su
+ * issue. Es lo que distingue "lo cerró GitHub" de "lo cerró la persona".
+ */
+const GITHUB_SYNC_VIA = "sync";
+
 /** Primera columna no terminal del board: donde entra un issue abierto nuevo. */
 export const INITIAL_BOARD_COLUMN =
   PROJECT_BOARD_COLUMNS.find((c) => c.id !== PROJECT_BOARD_TERMINAL)?.id ??
@@ -36,6 +42,47 @@ export const KINO_OWNED_FIELDS = [
   "contextTagId",
   "parentTaskId",
 ] as const;
+
+/**
+ * Hasta dónde puede avanzar el cursor después de un refresco.
+ *
+ * Sin truncar, al instante en que arrancó la llamada: lo que se toque mientras
+ * GitHub responde entra en el siguiente refresco en vez de caerse por el hueco.
+ *
+ * Truncado, al `updated_at` del último issue que de verdad llegó. Avanzarlo
+ * hasta el arranque es lo que perdía issues: los que quedaron fuera del tope de
+ * páginas se tocaron antes de ese instante, así que el refresco siguiente ya no
+ * los pedía y no volvían nunca. `since` es inclusivo, así que el último issue
+ * traído vuelve una vez y se reconoce por su `external_id`, sin duplicar nada.
+ *
+ * Null significa que no se sabe hasta dónde se leyó: el cursor se queda donde
+ * estaba, que repite trabajo pero no se salta nada.
+ *
+ * **Deuda con nombre: el lote que no cabe en un solo instante.** Si más de
+ * trescientos issues comparten el mismo `updated_at`, que es lo que deja un
+ * etiquetado en bloque, el cursor para donde ya estaba y cada refresco repite
+ * ese mismo lote sin avanzar. No duplica nada (`external_id` los reconoce) y no
+ * pierde nada, pero los issues de después de ese instante no llegan nunca. La
+ * salida cara es paginar dentro del instante, que es estado nuevo por sistema
+ * (`since` más número de página). La barata sería dejar el cursor un
+ * milisegundo por encima del lote cuando no avanzó, y no la toma este código
+ * porque cambia la promesa: pasa de repetir a saltarse los que quedaron dentro
+ * de ese segundo. `refrescoCompleto`, que el panel manda desde su salida de
+ * emergencia, devuelve el recorrido al principio y recupera lo que un cursor
+ * saltado dejó atrás, pero **no deshace este atasco**: el recorrido vuelve a
+ * llegar al mismo instante y se queda ahí otra vez.
+ */
+export function cursorSiguiente({
+  truncated,
+  ultimoUpdatedAt,
+  arranque,
+}: {
+  truncated: boolean;
+  ultimoUpdatedAt: number | null;
+  arranque: number;
+}): number | null {
+  return truncated ? ultimoUpdatedAt : arranque;
+}
 
 /** `external_id` de un issue: el id numérico global, único en todo GitHub. */
 export function externalIdFor(issue: Pick<GithubIssue, "id">): string {
@@ -74,9 +121,13 @@ export function taskDescriptionFor(issue: GithubIssue): string {
  *   impone, y el que hace valioso el feature: cierras en GitHub y la tarjeta se
  *   mueve sola. El puente de `moveTaskBoard` la completa además en el eje de
  *   scheduling.
- * - Issue **abierto** que estaba en la terminal → vuelve a la primera columna.
- *   Es el caso de reabrir, y hay que deshacerlo o la tarjeta se queda completada
- *   para siempre.
+ * - Issue **abierto** que la sincronización había dejado en la terminal → vuelve
+ *   a la primera columna. Es el caso de reabrir, y hay que deshacerlo o la
+ *   tarjeta se queda completada para siempre.
+ * - Issue **abierto** cuya tarjeta completó una persona en Kino → **no se
+ *   toca**. Terminar el trabajo y cerrar el issue son dos cosas distintas, y un
+ *   issue abierto que recibe un comentario no es una reapertura: descompletar
+ *   ahí borraría el cierre que alguien firmó.
  * - Issue **abierto** en cualquier otra columna → **no se toca**. GitHub no sabe
  *   nada de "en progreso" ni de "en review": esas columnas las mueve la persona,
  *   y un refresco que las devolviera a "por hacer" haría el board inservible.
@@ -87,6 +138,12 @@ export function taskDescriptionFor(issue: GithubIssue): string {
 export function boardStatusFor(
   issueState: GithubIssue["state"],
   currentBoardStatus: string | null,
+  /**
+   * Por qué vía se completó la tarjeta (`completedVia`). `sync` es la firma que
+   * deja esta misma sincronización al cerrar por el issue; cualquier otra, o
+   * ninguna, es una persona en Kino.
+   */
+  completedVia: string | null,
 ): string | null {
   const cerrado = issueState === "closed";
 
@@ -97,7 +154,9 @@ export function boardStatusFor(
   }
 
   if (currentBoardStatus === null) return INITIAL_BOARD_COLUMN;
-  if (currentBoardStatus === PROJECT_BOARD_TERMINAL) return INITIAL_BOARD_COLUMN;
+  if (currentBoardStatus === PROJECT_BOARD_TERMINAL) {
+    return completedVia === GITHUB_SYNC_VIA ? INITIAL_BOARD_COLUMN : null;
+  }
 
   return null;
 }
@@ -140,6 +199,8 @@ export interface ExistingTask {
   description: string | null;
   boardStatus: string | null;
   sprintId: string | null;
+  /** Firma del cierre de la tarjeta, si está cerrada. Ver `boardStatusFor`. */
+  completedVia: string | null;
 }
 
 /**
@@ -172,7 +233,7 @@ export function taskPatchFromIssue(
     patch.sprintId = sprintIdForMilestone;
   }
 
-  patch.boardStatus = boardStatusFor(issue.state, existing.boardStatus);
+  patch.boardStatus = boardStatusFor(issue.state, existing.boardStatus, existing.completedVia);
 
   return patch;
 }

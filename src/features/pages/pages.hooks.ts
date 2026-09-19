@@ -5,6 +5,7 @@ import { api } from "@convex/_generated/api";
 import { useConvexMutation, useConvexQuery } from "@/shared/convex/hooks";
 import type { FunctionReturnType } from "convex/server";
 import type { CreatePageInput, UpdatePageInput } from "./pages.schemas";
+import type { PageDetailTransport } from "./pages.types";
 
 /** Lo que devuelve la lista de páginas, tal como la pinta el servidor. */
 export type PageListTransport = FunctionReturnType<typeof api.pages.bySystem>;
@@ -20,8 +21,14 @@ export function usePages(systemId: string, initialData?: PageListTransport) {
   return { ...result, data: result.data?.items, restantes: result.data?.restantes ?? 0 };
 }
 
-export function usePage(pageId: string) {
-  return useConvexQuery(api.pages.byId, { id: pageId });
+/**
+ * La página entera, suscrita. El render del servidor es sólo `initialData`: lo
+ * que llegue después manda, y es lo que hace que el editor se entere de que su
+ * texto cambió fuera (una versión restaurada, una escena movida en la rejilla,
+ * otra pestaña, el conector MCP).
+ */
+export function usePage(pageId: string, initialData?: PageDetailTransport) {
+  return useConvexQuery(api.pages.byId, { id: pageId }, { initialData });
 }
 
 export function useLinkedTasks(pageId: string) {

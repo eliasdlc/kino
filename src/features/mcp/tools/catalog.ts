@@ -591,12 +591,18 @@ const writing: Tool[] = [
  * `captures.pendientes`: la lectura que el agente necesita es `captures.entregar`
  *   (`get_capture`), que devuelve la captura en un formato que puede mirar. La
  *   fila de la base, con su caducidad y su estado, es de la pantalla.
+ * `systems.radiografia`: la radiografía devuelve prosa, no filas. Cada hecho suyo lo
+ *   saca el agente por su cuenta de `list_tasks`, `list_folders` y
+ *   `list_item_events`, que es mirar los datos en vez de leerse un resumen ya
+ *   redactado en la voz del producto. Es la misma razón por la que
+ *   `get_capture` entrega el fichero y no un análisis.
  */
 export const SIN_TOOL: readonly string[] = [
   "captures:crear",
   "captures:confirmar",
   "captures:descartar",
   "captures:pendientes",
+  "systems:radiografia",
 ];
 
 /** Y las dos que sí: `captures:entregar` y `captures:resolver`, abajo. */

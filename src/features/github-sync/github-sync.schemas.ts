@@ -25,6 +25,16 @@ export const githubRepoRefSchema = z.object({
 });
 
 /**
+ * Lo que de verdad está guardado en `systems.metadata.github`. El cursor lo
+ * escribe la sincronización, nunca un formulario, y se declara aquí para que
+ * una actualización del sistema que reenvía su metadata no lo borre por no
+ * conocerlo: lo que no está en el schema se cae al validar.
+ */
+export const githubSystemLinkSchema = githubRepoRefSchema.extend({
+  syncedThrough: z.coerce.number().int().min(0).optional(),
+});
+
+/**
  * Acepta también `owner/repo` pegado de la barra del navegador, que es como
  * la gente tiene el dato a mano.
  */

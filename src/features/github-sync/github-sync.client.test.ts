@@ -25,8 +25,19 @@ function rawIssue(over: Record<string, unknown> = {}) {
     state: "open",
     html_url: "https://github.com/eliasdlc/kino/issues/1",
     milestone: null,
+    updated_at: "2026-09-01T00:00:00Z",
     ...over,
   };
+}
+
+/** Una página llena, con el `updated_at` creciendo como la pide la petición. */
+function paginaLlena(desde: number) {
+  return Array.from({ length: 100 }, (_, i) =>
+    rawIssue({
+      id: desde + i,
+      updated_at: new Date(Date.UTC(2026, 0, 1) + (desde + i) * 60_000).toISOString(),
+    }),
+  );
 }
 
 let fetchMock: ReturnType<typeof vi.fn>;
@@ -150,6 +161,52 @@ describe("fetchIssues", () => {
     expect(fetchMock).toHaveBeenCalledTimes(3);
     expect(issues).toHaveLength(300);
     expect(truncated).toBe(true);
+  });
+
+  // Lo que hace que el cursor converja: lo que se cae por el tope es lo más
+  // nuevo, que es justo lo que el siguiente refresco pide. Y es por **fecha de
+  // cambio**, no por antigüedad del issue: el primer tramo trae lo que lleva
+  // más tiempo sin tocarse, que puede ser un issue reciente. El copy del panel
+  // lo dice así porque es esta línea la que lo decide.
+  it("ordena por fecha de cambio, del que lleva más tiempo sin tocarse al más reciente", async () => {
+    fetchMock.mockResolvedValue(ok([]));
+
+    await fetchIssues(REF, TOKEN);
+
+    expect(fetchMock.mock.calls[0][0]).toContain("sort=updated&direction=asc");
+  });
+
+  it("al cortar por el tope dice hasta dónde llegó, y el siguiente refresco arranca ahí", async () => {
+    let pagina = 0;
+    fetchMock.mockImplementation(() => Promise.resolve(ok(paginaLlena(pagina++ * 100 + 1))));
+
+    const { issues, truncated, ultimoUpdatedAt } = await fetchIssues(REF, TOKEN);
+
+    expect(issues).toHaveLength(300);
+    expect(truncated).toBe(true);
+    // El último de la tercera página, no el instante de la llamada: los issues
+    // que quedaron fuera se tocaron después de él, y avanzar hasta el arranque
+    // es lo que hacía que no volvieran nunca.
+    const ultimo = Date.UTC(2026, 0, 1) + 300 * 60_000;
+    expect(ultimoUpdatedAt).toBe(ultimo);
+
+    fetchMock.mockResolvedValue(ok([]));
+    await fetchIssues(REF, TOKEN, ultimoUpdatedAt!);
+
+    expect(fetchMock.mock.calls[3][0]).toContain(
+      `since=${encodeURIComponent(new Date(ultimo).toISOString())}`,
+    );
+  });
+
+  it("una página entera de pull requests mueve el cursor aunque no traiga ninguna tarea", async () => {
+    fetchMock.mockResolvedValue(
+      ok([rawIssue({ pull_request: { url: "..." }, updated_at: "2026-09-02T10:00:00Z" })]),
+    );
+
+    const { issues, ultimoUpdatedAt } = await fetchIssues(REF, TOKEN);
+
+    expect(issues).toHaveLength(0);
+    expect(ultimoUpdatedAt).toBe(Date.parse("2026-09-02T10:00:00Z"));
   });
 
   it("normaliza el milestone a la forma que usa el mapper", async () => {
