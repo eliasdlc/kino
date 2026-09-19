@@ -1,0 +1,31 @@
+name: Refresh owner acceptance
+
+on:
+  pull_request_target:
+    types: [opened, synchronize, reopened, edited]
+  workflow_dispatch:
+    inputs:
+      pr:
+        description: Pull request number to recheck
+        required: true
+        type: number
+
+permissions:
+  contents: read
+  pull-requests: read
+  statuses: write
+
+jobs:
+  refresh:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      # Only trusted base code executes with a write-capable token.
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+      - name: Publish the exact-head acceptance status
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PR_NUMBER: ${{ github.event.pull_request.number || inputs.pr }}
+        run: python3 scripts/delivery.py check-pr "$PR_NUMBER" --status

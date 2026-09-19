@@ -1,0 +1,14 @@
+{
+  "repository": "eliasdlc/kino",
+  "productionBranch": "main",
+  "vercelProjectId": "prj_18eS2BxiZts6MdPCg81E5jrz8V3P",
+  "productionDomain": "www.usekino.dev",
+  "historicalDevInventory": [
+    {"pullRequest": 151, "disposition": "retained", "releasePullRequest": 157},
+    {"pullRequest": 152, "disposition": "retained", "releasePullRequest": 157},
+    {"pullRequest": 153, "disposition": "retained", "releasePullRequest": 157},
+    {"pullRequest": 154, "disposition": "retained", "releasePullRequest": 157},
+    {"pullRequest": 155, "disposition": "retained", "releasePullRequest": 157},
+    {"pullRequest": 156, "disposition": "retained", "releasePullRequest": 157}
+  ]
+}
