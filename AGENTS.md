@@ -456,9 +456,11 @@ Necesita `GITHUB_SYNC_CLIENT_ID`, `GITHUB_SYNC_CLIENT_SECRET` y `ENCRYPTION_KEY`
 
 # Delivery contract
 
-`main` is the trunk and Vercel production branch. Start task branches from current
-`origin/main`; keep each phase on its own branch and preview. Preserve historical
-branches. `dev` is historical and is not a release or integration target.
+`main` is the Vercel production branch. Every task branch starts from current
+`origin/dev` and merges into `dev`. Releases promote `dev` into `main` through a
+separate PR with acceptance of its exact preview SHA. Preserve all branches.
+Merging a task into `dev` is integration, not production delivery. Release checks
+reject accepted work missing from the candidate unless explicitly dispositioned.
 
 Run `pnpm typecheck`, `pnpm lint`, `pnpm test`, and both Python suites before review:
 
@@ -493,7 +495,7 @@ retried without inventing a second approval. The projector reads its comment bac
 before acknowledging it. Only close the task after production verification.
 
 Require `typecheck · lint · test`, `presupuesto de JavaScript`, and
-`owner-acceptance` for main merges. Protect the data branch against deletion and
+`owner-acceptance` and `branch-model` for both dev and main merges. Protect the data branch against deletion and
 non-fast-forward pushes. `owner-acceptance.yml` checks trusted main code when a PR
 changes; `record` publishes the status after owner approval. A new commit has no
 approval until the owner accepts its preview. Initial activation of these live rules
@@ -505,8 +507,8 @@ After approval, record the literal authorization in `BY` and
 `~/.claude/deliveries.log`, record acceptance, merge through GitHub, then verify:
 
 ```sh
-python3 scripts/delivery.py production --pr NUMBER
-python3 scripts/delivery.py production --pr NUMBER --publish
+python3 scripts/delivery.py production --pr RELEASE_PR_NUMBER
+python3 scripts/delivery.py production --pr RELEASE_PR_NUMBER --publish
 pnpm check:auth-production
 ```
 
