@@ -66,11 +66,29 @@ def identity(deployment, sha, branch, settings, production=False):
             'projectId': deployment['projectId'], 'environment': 'production' if production else 'preview'}
 
 
+def validate_topology(pr):
+    settings = config()
+    base, head = pr['baseRefName'], pr['headRefName']
+    integration, production = settings['integrationBranch'], settings['productionBranch']
+    if pr['isCrossRepository'] or not (
+            (base == integration and head not in {integration, production}) or
+            (base == production and head == integration)):
+        raise ValueError('DELIVERY_BRANCH: task branches target dev; only dev releases target main')
+
+
+def release_coverage(events, pr):
+    if pr['baseRefName'] == config()['productionBranch']:
+        absent = core.missing(events, pr['headRefOid'], core.contains, core.pull)
+        if absent:
+            raise ValueError('DELIVERY_RELEASE: accepted work is missing from the release candidate')
+
+
 def current_preview(number, deployment_id):
     pr = pull(number)
     settings = config()
-    if pr['state'] != 'OPEN' or pr['baseRefName'] != settings['productionBranch'] or pr['isCrossRepository']:
-        raise ValueError('DELIVERY_PR: use an internal open PR targeting main')
+    validate_topology(pr)
+    if pr['state'] != 'OPEN':
+        raise ValueError('DELIVERY_PR: use an open PR')
     return pr, identity(inspect(deployment_id), pr['headRefOid'], pr['headRefName'], settings)
 
 
@@ -85,8 +103,8 @@ def check_event(event, pr, deployment):
 
 
 def accepted_preview(events, pr):
-    if pr['baseRefName'] != config()['productionBranch'] or pr['isCrossRepository']:
-        raise ValueError('DELIVERY_PR: acceptance requires an internal PR targeting main')
+    validate_topology(pr)
+    release_coverage(events, pr)
     accepted = core.approval(events, pr['number'], pr['headRefOid'])
     if not accepted:
         raise ValueError('DELIVERY_APPROVAL: current head has no active acceptance')
@@ -141,6 +159,9 @@ def main():
     production = sub.add_parser('production')
     production.add_argument('--pr', type=int, required=True)
     production.add_argument('--publish', action='store_true')
+    branch = sub.add_parser('check-branch')
+    branch.add_argument('pr', type=int)
+    branch.add_argument('--status', action='store_true')
     check = sub.add_parser('check-pr')
     check.add_argument('pr', type=int)
     check.add_argument('--status', action='store_true')
@@ -180,13 +201,34 @@ def main():
                 if event['kind'] == 'accepted':
                     pr, deployment = current_preview(event['pr'], event['deployment']['id'])
                     check_event(event, pr, deployment)
+                    release_coverage(existing, pr)
                 # Other kinds are validated against their immutable target by Store.
             print(store.append(event))
             if event['kind'] in {'accepted', 'rejected', 'superseded'}:
-                core.publish_status(store.read()[1], event['pr'])
+                current = pull(event['pr'])
+                try:
+                    accepted_preview(store.read()[1], current)
+                    state = 'success'
+                except (ValueError, KeyError):
+                    state = 'failure'
+                core.github('api', f'repos/{config()["repository"]}/statuses/{current["headRefOid"]}',
+                            '-f', 'context=owner-acceptance', '-f', 'state=' + state,
+                            '-f', 'description=Exact preview and branch acceptance checked')
             return 0
         pr = pull(args.pr)
         settings = config()
+        if args.action == 'check-branch':
+            try:
+                validate_topology(pr)
+                error = None
+            except ValueError as exc:
+                error = str(exc)
+            if args.status:
+                core.github('api', f'repos/{settings["repository"]}/statuses/{pr["headRefOid"]}',
+                            '-f', 'context=branch-model', '-f', 'state=' + ('failure' if error else 'success'),
+                            '-f', 'description=' + ('Invalid branch route' if error else 'Task to dev or dev to main'))
+            print(error or 'Branch route valid')
+            return 1 if error else 0
         if args.action == 'check-pr':
             try:
                 accepted_preview(core.Store().read()[1], pr)
