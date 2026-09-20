@@ -453,3 +453,73 @@ Un sistema `project` puede declarar un repositorio en `systems.metadata.github` 
 - **Refresco**: bajo demanda al abrir el board o con el botón. Sin cron: un repo que nadie mira no gasta nada.
 
 Necesita `GITHUB_SYNC_CLIENT_ID`, `GITHUB_SYNC_CLIENT_SECRET` y `ENCRYPTION_KEY` (ver `.env.example`). Son un OAuth App aparte del login porque GitHub sólo admite **una** URL de callback por app y esa ya la ocupa Clerk, y porque leer issues privados exige el scope `repo`. Sin estas variables la integración se oculta sola: no rompe nada, simplemente no aparece.
+
+# Delivery contract
+
+`main` is the trunk and Vercel production branch. Start task branches from current
+`origin/main`; keep each phase on its own branch and preview. Preserve historical
+branches. `dev` is historical and is not a release or integration target.
+
+Run `pnpm typecheck`, `pnpm lint`, `pnpm test`, and both Python suites before review:
+
+```sh
+python3 -m unittest discover -s scripts/vendor/delivery/tests -v
+python3 -m unittest discover -s scripts/tests -v
+```
+
+The GitHub `delivery-events` branch owns immutable decisions. Zoho owns product
+scope. `scripts/delivery.py` verifies Vercel project, repository, commit, branch,
+READY state, and immutable deployment URL before it records an acceptance. Never
+infer an owner quote from successful CI or an uploaded preview.
+
+```sh
+python3 scripts/delivery.py preview --pr NUMBER --deployment DEPLOYMENT_ID
+python3 scripts/delivery.py prepare --pr NUMBER --deployment DEPLOYMENT_ID \
+  --by 'LITERAL OWNER MESSAGE' --requirement REQUIREMENT \
+  --ticket ZOHO_TASK_URL --output /durable/path/acceptance.json
+python3 scripts/delivery.py record /durable/path/acceptance.json
+python3 scripts/delivery.py check-pr NUMBER --status
+python3 scripts/delivery.py events project \
+  --adapter ./scripts/vendor/delivery/project_delivery.py \
+  --adapter-arg=--portal --adapter-arg=938828691 \
+  --adapter-arg=--project --adapter-arg=2716136000000108080
+python3 scripts/delivery.py events pending-projections
+```
+
+`record` rechecks the current PR and preview before appending. Retry the same event
+file after a lost response, including after merge. A recorded event is not repeated.
+Run one Zoho projector per delivery; failed projection stays pending and can be
+retried without inventing a second approval. The projector reads its comment back
+before acknowledging it. Only close the task after production verification.
+
+Require `typecheck · lint · test`, `presupuesto de JavaScript`, and
+`owner-acceptance` for main merges. Protect the data branch against deletion and
+non-fast-forward pushes. `owner-acceptance.yml` checks trusted main code when a PR
+changes; `record` publishes the status after owner approval. A new commit has no
+approval until the owner accepts its preview. Initial activation of these live rules
+follows this implementation PR's review; files alone do not prove that GitHub
+protection is active. Repository writers remain trusted: the recording account and
+quoted owner authorization are different fields.
+
+After approval, record the literal authorization in `BY` and
+`~/.claude/deliveries.log`, record acceptance, merge through GitHub, then verify:
+
+```sh
+python3 scripts/delivery.py production --pr NUMBER
+python3 scripts/delivery.py production --pr NUMBER --publish
+pnpm check:auth-production
+```
+
+Production verification requires active acceptance, the merged PR in main, a READY
+production deployment for current main, HTTP 200 at the production domain, and a
+green production social-auth check. It checks deployment and main identities again
+after the HTTP probe. `--publish` adds a commit status and PR receipt; it does not
+deploy. HTTP 200 proves domain availability, not product journeys. Verify changed
+behavior separately before review. A failed deployment, auth health check or Zoho
+update leaves closure pending.
+
+The shared parser and projector are vendored from the app with commit and hashes
+in `scripts/vendor/delivery/source.json`. Do not edit those copies independently.
+To update, copy the four files from a reviewed upstream commit, update its revision
+and SHA256 hashes in the manifest, and run both suites. No network dependency is
+introduced at CI runtime. Credentials and raw Vercel responses never enter Git.

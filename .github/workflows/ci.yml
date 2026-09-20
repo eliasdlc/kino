@@ -56,6 +56,10 @@ jobs:
 
       - run: pnpm test
 
+      - run: python3 -m unittest discover -s scripts/vendor/delivery/tests -v
+
+      - run: python3 -m unittest discover -s scripts/tests -v
+
   bundle:
     name: presupuesto de JavaScript
     runs-on: ubuntu-latest

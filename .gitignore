@@ -69,3 +69,8 @@ PLAN.md
 
 # Salida de pnpm test:coverage
 /coverage
+
+# Durable delivery command outputs are local, never repository state.
+/delivery-event.json
+/production-receipt.json
+**/__pycache__/
