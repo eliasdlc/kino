@@ -11,8 +11,8 @@ spec = importlib.util.spec_from_file_location('web_delivery', Path(__file__).res
 web = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(web)
 SHA = 'a' * 40
-SETTINGS = {'repository': 'owner/site', 'vercelProjectId': 'prj_site', 'productionBranch': 'main', 'productionDomain': 'site.example'}
-PR = dict(number=7, state='OPEN', headRefOid=SHA, headRefName='feat/change', baseRefName='main', isCrossRepository=False, mergeCommit={'oid': 'b' * 40})
+SETTINGS = {'repository': 'owner/site', 'vercelProjectId': 'prj_site', 'productionBranch': 'main', 'integrationBranch': 'dev', 'productionDomain': 'site.example'}
+PR = dict(number=7, state='OPEN', headRefOid=SHA, headRefName='feat/change', baseRefName='dev', isCrossRepository=False, mergeCommit={'oid': 'b' * 40})
 
 
 def deployment(production=False):
@@ -39,6 +39,22 @@ class DeliveryTest(unittest.TestCase):
     def invoke(self, *args):
         with patch('sys.argv', ['delivery.py', *args]), patch('sys.stdout', new_callable=io.StringIO), patch('sys.stderr', new_callable=io.StringIO):
             return web.main()
+
+    def test_branch_route_pass_fail_pass(self):
+        web.validate_topology(PR)
+        web.validate_topology({**PR, 'baseRefName': 'main', 'headRefName': 'dev'})
+        for changes in [{'baseRefName': 'main'}, {'headRefName': 'main'}, {'headRefName': 'dev'}, {'isCrossRepository': True}]:
+            with self.assertRaisesRegex(ValueError, 'DELIVERY_BRANCH'):
+                web.validate_topology({**PR, **changes})
+        web.validate_topology(PR)
+
+    def test_release_rejects_missing_accepted_work(self):
+        release = {**PR, 'baseRefName': 'main', 'headRefName': 'dev'}
+        with patch.object(web.core, 'missing', return_value=[event()]):
+            with self.assertRaisesRegex(ValueError, 'DELIVERY_RELEASE'):
+                web.release_coverage([event()], release)
+        with patch.object(web.core, 'missing', return_value=[]):
+            web.release_coverage([event()], release)
 
     def test_identity_pass_fail_pass(self):
         good = deployment()
@@ -90,13 +106,27 @@ class DeliveryTest(unittest.TestCase):
                 self.assertEqual(self.invoke('record', str(path)), 2)
                 store.append.assert_not_called()
 
+    def test_record_rejects_release_missing_prior_acceptance(self):
+        release = {**PR, 'baseRefName': 'main', 'headRefName': 'dev'}
+        approval = event()
+        approval['deployment']['branch'] = 'dev'
+        approval = web.core.seal(approval)
+        store = MagicMock()
+        store.read.return_value = ('commit', [event()])
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / 'approval.json'
+            path.write_text(json.dumps(approval))
+            with patch.object(web.core, 'Store', return_value=store), patch.object(web.core, 'github', return_value={'login': 'owner'}), patch.object(web, 'current_preview', return_value=(release, approval['deployment'])), patch.object(web.core, 'missing', return_value=[event()]):
+                self.assertEqual(self.invoke('record', str(path)), 2)
+                store.append.assert_not_called()
+
     def test_record_retry_after_merge_does_not_create_second_event(self):
         store = MagicMock()
         store.read.return_value = ('commit', [event()])
         with tempfile.TemporaryDirectory() as directory:
             path = Path(directory) / 'approval.json'
             path.write_text(json.dumps(event()))
-            with patch.object(web.core, 'Store', return_value=store), patch.object(web.core, 'github', return_value={'login': 'owner'}), patch.object(web, 'current_preview') as preview, patch.object(web.core, 'publish_status'):
+            with patch.object(web.core, 'Store', return_value=store), patch.object(web.core, 'github', return_value={'login': 'owner'}), patch.object(web, 'current_preview') as preview, patch.object(web, 'pull', return_value=PR):
                 self.assertEqual(self.invoke('record', str(path)), 0)
                 preview.assert_not_called()
                 store.append.assert_called_once_with(event())
@@ -108,14 +138,17 @@ class DeliveryTest(unittest.TestCase):
             self.assertIn('state=failure', github.call_args.args)
 
     def test_production_requires_acceptance_and_stable_identity(self):
-        merged = {**PR, 'state': 'MERGED'}
+        merged = {**PR, 'state': 'MERGED', 'baseRefName': 'main', 'headRefName': 'dev'}
+        release_event = event()
+        release_event['deployment']['branch'] = 'dev'
+        release_event = web.core.seal(release_event)
         store = MagicMock()
-        store.read.return_value = ('commit', [event()])
+        store.read.return_value = ('commit', [release_event])
         with patch.object(web, 'pull', return_value=merged), patch.object(web.core, 'Store', return_value=store), patch.object(web.core, 'contains', return_value=True), patch.object(web.core, 'github', return_value={'sha': SHA}) as github, patch.object(web, 'inspect', return_value=deployment(True)) as inspect, patch.object(web, 'health', return_value={'status': 200}), patch.object(web, 'auth_health', return_value={'status': 'passed'}):
             self.assertEqual(self.invoke('production', '--pr', '7'), 0)
             store.read.return_value = ('commit', [])
             self.assertEqual(self.invoke('production', '--pr', '7', '--publish'), 2)
-            store.read.return_value = ('commit', [event()])
+            store.read.return_value = ('commit', [release_event])
             inspect.side_effect = [deployment(True), {**deployment(True), 'id': 'dpl_changed'}]
             self.assertEqual(self.invoke('production', '--pr', '7', '--publish'), 2)
             inspect.side_effect = None
