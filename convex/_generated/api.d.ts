@@ -9,6 +9,7 @@
  */
 
 import type * as academicPeriods from "../academicPeriods.js";
+import type * as academico from "../academico.js";
 import type * as account from "../account.js";
 import type * as captures from "../captures.js";
 import type * as connections from "../connections.js";
@@ -74,6 +75,7 @@ import type {
 
 declare const fullApi: ApiFromModules<{
   academicPeriods: typeof academicPeriods;
+  academico: typeof academico;
   account: typeof account;
   captures: typeof captures;
   connections: typeof connections;
