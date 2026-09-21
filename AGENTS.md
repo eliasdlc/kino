@@ -152,19 +152,18 @@ Ensayo sobre el deployment de dev (37 tablas, 550 documentos, 47 cuadernos con 2
 
 ```
 src/features/{feature}/
-├── {feature}.contract.ts    # Qué entra, qué sale y por qué URL
-├── {feature}.router.ts      # Implementación del contrato
-├── {feature}.service.ts     # Lógica de negocio (funciones puras donde se pueda)
-├── {feature}.schemas.ts     # Schemas Zod + DTOs
+├── {feature}.hooks.ts       # Lo que la pantalla llama: suscripciones a Convex
+├── {feature}.schemas.ts     # Schemas Zod de los formularios
 ├── {feature}.types.ts       # Tipos propios del slice
-└── {feature}.queries.ts     # Opcional: ver abajo
+└── components/              # Lo que se pinta
 ```
 
-`.queries.ts` lo tienen 8 de los 27 slices, y es a propósito: se separa cuando el
-volumen de queries hace ilegible el servicio, no por norma. En los otros 19 las
-queries de Drizzle viven dentro del `.service.ts`, y eso es la forma correcta
-ahí. La regla real es que el acceso a datos no sale del slice, no en qué archivo
-está.
+29 slices, 24 con `.hooks.ts` y 14 con `.schemas.ts`; el resto de nombres es lo
+que cada uno necesitó. **La lógica de negocio y el acceso a datos ya no viven
+aquí**: están en `convex/`, porque una query es una función de Convex y el
+cliente se suscribe a ella. Los `{feature}.service.ts`, `.router.ts`,
+`.contract.ts` y `.queries.ts` que este documento describía se fueron con la
+API REST y no queda ninguno.
 
 Cada feature es autocontenida en lo que puede. Tipos, hooks y componentes cruzan entre slices cuando hace falta: `systems` renderiza las tarjetas de `tasks` porque un sistema enseña tareas, y eso no es acoplamiento accidental.
 
@@ -208,45 +207,43 @@ acaba de viajar no encaja y la lista se pide dos veces en cada carga.
 - `dueDate` y `startDate` son **`timestamptz` con hora opcional**, no columnas DATE. Cuidado con el off-by-one.
 - El cálculo de "hoy" y de slots para lógica de negocio se hace **en el servidor** con la timezone del usuario. El cliente solo pinta: así un reloj mal puesto en el cliente no corrompe el plan.
 
-### El contrato de la API
+### La API REST ya no existe
 
-Un slice migrado declara su API en `{feature}.contract.ts`: método, URL, schema de
-entrada y **schema de salida**. De ahí salen las dos puntas: `{feature}.router.ts`
-la implementa y `@/shared/api/client` la consume tipada. Cambiar la salida de un
-endpoint rompe el `typecheck` en el hook que la lee, que es justo lo que antes no
-pasaba porque el cliente afirmaba la respuesta con un cast.
+`0236f8a` se la llevó cuando el cliente y las páginas pasaron a hablar con
+Convex. Lo que había antes (un contrato oRPC por slice, `{feature}.router.ts`,
+`shared/api/client`, `shared/api/handler.ts` y un catch-all
+`src/app/api/[...rest]/route.ts` que servía toda la API) no está en el
+repositorio, y este documento lo describió durante un tiempo después de
+borrarlo.
 
-- **Un contrato por slice, al lado de sus schemas.** Lo único central es la
-  composición: `shared/api/contract.router.ts` (lo que importa el cliente) y
-  `shared/api/router.ts` (lo que sirve el servidor).
-- **Los schemas de entrada no se reescriben:** son los mismos de
-  `{feature}.schemas.ts`. Las rutas con params llevan el param dentro del schema
-  y oRPC lo saca de la URL.
-- **La salida se declara con `type<Fila, Transport<Fila>>(toTransport)`.** El tipo
-  del cliente se deriva de la tabla, y como la fila y su forma de transporte no
-  son el mismo tipo, el compilador exige la conversión.
-- **Los permisos salen del contrato:** el scope se deriva del método y `meta` es
-  la excepción (`{ scope }` para los POST que sólo leen, `{ sessionOnly: true }`
-  para lo que toca credenciales).
-- **Añadir un endpoint no toca `app/`.** `src/app/api/[...rest]/route.ts` es un
-  catch-all y sirve toda la API. Los pocos `route.ts` que quedan son los que no
-  caben en el contrato (`/api/mcp`, los dos 302 de GitHub, los dos
-  ZIP de export y las dos de `uploads`) y cada uno tiene
-  su razón escrita en ese archivo. `route()` sobrevive sólo como la escotilla de
-  esos casos.
-- **Los códigos de error no cambian:** 401 `UNAUTHORIZED`, 403 `INSUFFICIENT_SCOPE`
-  / `SESSION_REQUIRED`, 404 `NOT_FOUND`, 400 `VALIDATION_ERROR` de schema, 422
-  `VALIDATION_ERROR` de regla de dominio, 409 `CONFLICT` cuando el recurso está
-  bien y quien falla es el momento (una versión vieja, un enlace repetido), 500
-  `INTERNAL_ERROR`. La traducción vive en `shared/api/handler.ts` y en
-  `shared/api/procedures.ts`.
+**La consecuencia se ve desde fuera y cuesta un rato entenderla.** Un cliente
+que siga hablando REST contra `https://www.usekino.dev/api/<lo que sea>` no
+recibe un 404 de la API: recibe el HTML de la página 404 de la aplicación, que
+es lo que Next sirve para una ruta que no existe. Eso le pasa hoy al servidor
+MCP que se configura por URL en `~/.claude.json` de Elias, cuyas tools llaman a
+`/api/systems` y compañía. **La única entrada MCP viva es `/api/mcp`**, la del
+conector con OAuth de Clerk.
 
-**Las tools del MCP son funciones de Convex con nombre.** Viven en `src/features/mcp/tools/catalog.ts`: cada `readTool`/`writeTool` apunta a una función de `api.*` y el compilador exige que la entrada del schema encaje en sus argumentos (o que la tool declare `args` para adaptarla), así que cambiar una función deja de compilar la tool que la usa. Lo escrito a mano es lo que el agente lee: el nombre y la descripción. `catalog.test.ts` fija la lista de nombres como contrato visible: quitar o añadir una tool pasa por ahí. Las sesiones de aprendizaje (`learning.ts`) son secuencias sobre varias funciones y van aparte.
+Los códigos de error de dominio viven ahora en `convex/lib/errors.ts`:
+`NOT_FOUND`, `VALIDATION_ERROR`, `FORBIDDEN`, `CONFLICT` y
+`CONFIRMATION_REQUIRED`, lanzados como `ConvexError`. La identidad y el alcance
+los resuelve el envoltorio de `convex/lib/fn.ts`, no un middleware de ruta.
 
-Lo que cruza la red no es una fila: `Transport<T>` (en `shared/api/transport.ts`)
-convierte las fechas en texto ISO, que es lo que sobrevive a un `JSON.stringify`.
-El cliente usa `TaskTransport`, no `Task`, y un Server Component que pase filas
-como `initialData` tiene que llamar a `toTransport` primero.
+**Las tools del MCP son funciones de Convex con nombre.** Viven en
+`src/features/mcp/tools/catalog.ts`: cada `readTool`/`writeTool` apunta a una
+función de `api.*` y el compilador exige que la entrada del schema encaje en sus
+argumentos (o que la tool declare `args` para adaptarla), así que cambiar una
+función deja de compilar la tool que la usa. Lo escrito a mano es lo que el
+agente lee: el nombre y la descripción. `catalog.test.ts` fija la lista de
+nombres como contrato visible: quitar o añadir una tool pasa por ahí. Las
+sesiones de aprendizaje (`learning.ts`) son secuencias sobre varias funciones y
+van aparte.
+
+Lo que cruza la red no es una fila: `Transport<T>` (en
+`src/shared/lib/transport.ts`) convierte las fechas en texto ISO, que es lo que
+sobrevive a un `JSON.stringify`. El cliente usa `TaskTransport`, no `Task`, y un
+Server Component que pase filas como `initialData` tiene que llamar a
+`toTransport` primero.
 
 ### Rutas fuera de Convex
 
