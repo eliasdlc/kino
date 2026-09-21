@@ -2,11 +2,13 @@ import { httpRouter } from 'convex/server';
 import { verifyWebhook } from '@clerk/backend/webhooks';
 import { httpAction } from './_generated/server';
 import { internal } from './_generated/api';
+import { academicoSchema } from './academico';
 import { DIGEST_BYTES_MAX, digestBytes, digestSchema } from './digests';
 import { clerkUserCreatedSchema, correoPrimario, nombreDe } from './users';
 
-// Las rutas HTTP del deployment. Hoy hay dos: la entrada del diario de
-// sesiones y el webhook con el que Clerk avisa de una cuenta nueva.
+// Las rutas HTTP del deployment. Hoy hay tres: la entrada del diario de
+// sesiones, la de lo que publica el aula virtual, y el webhook con el que
+// Clerk avisa de una cuenta nueva.
 //
 // Las dos entran por aquí y no por una ruta de Next por la misma razón: cada
 // deployment de Convex se empareja con una instancia de Clerk, así que la URL
@@ -84,6 +86,48 @@ const uploadDigest = httpAction(async (ctx, request) => {
 });
 
 /**
+ * La entrada de lo que publica el aula virtual.
+ *
+ * Misma forma que el diario y por las mismas razones: credencial propia del
+ * barrido en `KINO_ACADEMICO_TOKEN`, cuenta fijada por el deployment en
+ * `KINO_ACADEMICO_EMAIL`, y sin las dos la ruta no existe en vez de quedar
+ * abierta. El cuerpo no elige la cuenta.
+ *
+ * Lo que cambia respecto al diario es adónde escribe: esto crea tareas, no
+ * filas de un registro. Por eso responde 503 cuando no encuentra un sistema
+ * académico en vez de dejarlas en el Inbox: un barrido que escribe en el sitio
+ * equivocado y devuelve 200 es un barrido que nadie va a ir a revisar.
+ *
+ * 200 siempre que escribió algo o confirmó que no había nada que escribir, con
+ * el desglose dentro, porque el barrido corre cada seis horas y lo normal es
+ * que no haya nada nuevo.
+ */
+const ingestaAcademica = httpAction(async (ctx, request) => {
+  const secret = process.env.KINO_ACADEMICO_TOKEN;
+  const email = process.env.KINO_ACADEMICO_EMAIL;
+  if (!secret || !email) return json(503, { error: 'ACADEMICO_NOT_CONFIGURED' });
+
+  const token = bearer(request);
+  if (!token || !sameSecret(token, secret)) return json(403, { error: 'FORBIDDEN' });
+
+  const parsed = academicoSchema.safeParse(await request.json().catch(() => null));
+  if (!parsed.success) return json(400, { error: 'VALIDATION_ERROR', issues: parsed.error.issues });
+
+  const user = await ctx.runQuery(internal.digests.userByEmail, { email });
+  if (!user) return json(503, { error: 'ACADEMICO_USER_NOT_FOUND' });
+
+  const systemId = await ctx.runQuery(internal.academico.destino, { userId: user._id });
+  if (!systemId) return json(503, { error: 'ACADEMICO_SYSTEM_NOT_FOUND' });
+
+  const result = await ctx.runMutation(internal.academico.sincronizar, {
+    userId: user._id,
+    systemId,
+    items: parsed.data.items,
+  });
+  return json(200, result);
+});
+
+/**
  * La cuenta nueva.
  *
  * Es el sitio donde nace la fila de `users` en el caso normal, y existe para
@@ -140,6 +184,7 @@ const clerkUserCreated = httpAction(async (ctx, request) => {
 
 const http = httpRouter();
 http.route({ path: '/digests', method: 'POST', handler: uploadDigest });
+http.route({ path: '/academico', method: 'POST', handler: ingestaAcademica });
 http.route({ path: '/clerk/user-created', method: 'POST', handler: clerkUserCreated });
 
 export default http;
