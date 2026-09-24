@@ -455,53 +455,31 @@ Necesita `GITHUB_SYNC_CLIENT_ID`, `GITHUB_SYNC_CLIENT_SECRET` y `ENCRYPTION_KEY`
 
 `main` is the Vercel production branch. Every task branch starts from current
 `origin/dev` and merges into `dev`. Releases promote `dev` into `main` through a
-separate PR with acceptance of its exact preview SHA. Preserve all branches.
-Merging a task into `dev` is integration, not production delivery. Release checks
-reject accepted work missing from the candidate unless explicitly dispositioned.
+separate PR. Preserve all branches. Merging a task into `dev` is integration, not
+production delivery.
 
-Run `pnpm typecheck`, `pnpm lint`, `pnpm test`, and both Python suites before review:
+Run `pnpm typecheck`, `pnpm lint`, `pnpm test`, and the Python suite before review:
 
 ```sh
-python3 -m unittest discover -s scripts/vendor/delivery/tests -v
 python3 -m unittest discover -s scripts/tests -v
 ```
 
-The GitHub `delivery-events` branch owns immutable decisions. Zoho owns product
-scope. `scripts/delivery.py` verifies Vercel project, repository, commit, branch,
-READY state, and immutable deployment URL before it records an acceptance. Never
-infer an owner quote from successful CI or an uploaded preview.
+Require `typecheck · lint · test`, `presupuesto de JavaScript`, and `branch-model`
+for both dev and main merges. `branch-model.yml` runs trusted base code on
+`pull_request_target`, never executes PR code, and fails any route other than task
+to `dev` or `dev` to `main`. To check a route locally:
 
 ```sh
-python3 scripts/delivery.py preview --pr NUMBER --deployment DEPLOYMENT_ID
-python3 scripts/delivery.py prepare --pr NUMBER --deployment DEPLOYMENT_ID \
-  --by 'LITERAL OWNER MESSAGE' --requirement REQUIREMENT \
-  --ticket ZOHO_TASK_URL --output /durable/path/acceptance.json
-python3 scripts/delivery.py record /durable/path/acceptance.json
-python3 scripts/delivery.py check-pr NUMBER --status
-python3 scripts/delivery.py events project \
-  --adapter ./scripts/vendor/delivery/project_delivery.py \
-  --adapter-arg=--portal --adapter-arg=938828691 \
-  --adapter-arg=--project --adapter-arg=2716136000000108080
-python3 scripts/delivery.py events pending-projections
+python3 scripts/delivery.py check-branch NUMBER
 ```
 
-`record` rechecks the current PR and preview before appending. Retry the same event
-file after a lost response, including after merge. A recorded event is not repeated.
-Run one Zoho projector per delivery; failed projection stays pending and can be
-retried without inventing a second approval. The projector reads its comment back
-before acknowledging it. Only close the task after production verification.
+There is no owner-acceptance gate. The agent merges a PR itself once the merge
+criteria in Elias's `development-workflow` skill hold, and leaves for Elias the
+PRs that need his eye. Zoho owns product scope. The `delivery-events` branch and
+its ruleset stay as a read-only archive of past acceptance decisions; nothing
+writes to it anymore.
 
-Require `typecheck · lint · test`, `presupuesto de JavaScript`, and
-`owner-acceptance` and `branch-model` for both dev and main merges. Protect the data branch against deletion and
-non-fast-forward pushes. `owner-acceptance.yml` checks trusted main code when a PR
-changes; `record` publishes the status after owner approval. A new commit has no
-approval until the owner accepts its preview. Initial activation of these live rules
-follows this implementation PR's review; files alone do not prove that GitHub
-protection is active. Repository writers remain trusted: the recording account and
-quoted owner authorization are different fields.
-
-After approval, record the literal authorization in `BY` and
-`~/.claude/deliveries.log`, record acceptance, merge through GitHub, then verify:
+After a release PR merges into `main`, verify production:
 
 ```sh
 python3 scripts/delivery.py production --pr RELEASE_PR_NUMBER
@@ -509,16 +487,11 @@ python3 scripts/delivery.py production --pr RELEASE_PR_NUMBER --publish
 pnpm check:auth-production
 ```
 
-Production verification requires active acceptance, the merged PR in main, a READY
-production deployment for current main, HTTP 200 at the production domain, and a
-green production social-auth check. It checks deployment and main identities again
-after the HTTP probe. `--publish` adds a commit status and PR receipt; it does not
-deploy. HTTP 200 proves domain availability, not product journeys. Verify changed
-behavior separately before review. A failed deployment, auth health check or Zoho
-update leaves closure pending.
-
-The shared parser and projector are vendored from the app with commit and hashes
-in `scripts/vendor/delivery/source.json`. Do not edit those copies independently.
-To update, copy the four files from a reviewed upstream commit, update its revision
-and SHA256 hashes in the manifest, and run both suites. No network dependency is
-introduced at CI runtime. Credentials and raw Vercel responses never enter Git.
+Production verification requires a merged `dev` to `main` PR contained in main, a
+READY production deployment for current main, HTTP 200 at the production domain,
+and a green production social-auth check. It checks deployment and main identities
+again after the HTTP probe. `--publish` adds a commit status and PR receipt; it
+does not deploy. HTTP 200 proves domain availability, not product journeys. Verify
+changed behavior separately before review. A failed deployment, auth health check
+or Zoho update leaves closure pending. Only close the task after production
+verification. Credentials and raw Vercel responses never enter Git.
