@@ -29,9 +29,12 @@ import { join } from "node:path";
 // del audio. `compartido` no se movió ni un KB, que es lo que dice que nada de
 // esto entró en un layout: los 49 KB los descarga quien abre esas pantallas, no
 // quien abre la app. El margen queda igual que antes de la fase.
+// Los topes viven en perf/budget.json, la misma fuente que lee el presupuesto
+// de cada PR (delivery-gates.yml): un tope que se sube en un solo sitio.
+const topes = JSON.parse(readFileSync("perf/budget.json", "utf8"));
 const PRESUPUESTO_KB = {
-  compartido: 830,
-  total: 4750,
+  compartido: topes.shared_js_kb,
+  total: topes.total_js_kb,
 };
 
 const RAIZ = ".next";
