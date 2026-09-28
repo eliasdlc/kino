@@ -74,3 +74,6 @@ PLAN.md
 /delivery-event.json
 /production-receipt.json
 **/__pycache__/
+
+# Written by scripts/medir-presupuesto.mjs; CI keeps it as an artifact.
+perf/results.json
