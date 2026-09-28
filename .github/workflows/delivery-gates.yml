@@ -1,0 +1,110 @@
+# The two delivery gates of every PR, with their scripts in eliasdlc/agents:
+#   proof   the PR body proves each requirement at this commit (bin/proof.py)
+#   budget  bytes shipped stay under perf/budget.json; the table is one sticky
+#           comment against the dev baseline (bin/budget.py)
+# A push to dev only measures, and its artifact is the baseline of later PRs.
+name: Delivery gates
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, edited]
+  push:
+    branches: [dev]
+
+permissions:
+  contents: read
+  actions: read
+  pull-requests: write
+
+concurrency:
+  group: gates-${{ github.event.pull_request.number || github.ref }}
+  # An edit of the body waits for the running pass: cancelling it leaves a
+  # cancelled run on the same commit, and GitHub then reports the PR as blocked.
+  cancel-in-progress: ${{ github.event.action != 'edited' }}
+
+jobs:
+  proof:
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          repository: eliasdlc/agents
+          ref: main
+          path: .agents
+          ssh-key: ${{ secrets.AGENTS_KEY }}
+      - run: python3 .agents/bin/proof.py ${{ github.event.pull_request.number }} --repo ${{ github.repository }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+
+  budget:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    # The build needs only the Convex URL, a repository variable: it ships to
+    # every browser anyway. The same one the bundle job uses.
+    env:
+      NEXT_PUBLIC_CONVEX_URL: ${{ vars.NEXT_PUBLIC_CONVEX_URL }}
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 11.20.0
+
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 26
+          cache: pnpm
+
+      - run: pnpm install --frozen-lockfile
+
+      - name: Build
+        run: |
+          start=$(date +%s)
+          pnpm build
+          echo "BUILD_SECONDS=$(( $(date +%s) - start ))" >> "$GITHUB_ENV"
+
+      - name: Measure
+        env:
+          HEAD_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+        # Build sizes only: `next start` answers 500 without the Clerk key, which
+        # stays out of CI, so there is no Lighthouse run here.
+        run: node scripts/medir-presupuesto.mjs --salida perf/results.json
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: perf-results
+          path: perf/results.json
+          retention-days: 90
+
+      # After measuring, so ESLint never sees the agents checkout.
+      - if: github.event_name == 'pull_request'
+        uses: actions/checkout@v5
+        with:
+          repository: eliasdlc/agents
+          ref: main
+          path: .agents
+          ssh-key: ${{ secrets.AGENTS_KEY }}
+
+      - name: Report
+        if: github.event_name == 'pull_request'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PR: ${{ github.event.pull_request.number }}
+          REPO: ${{ github.repository }}
+        run: |
+          base=$(git merge-base "origin/${{ github.base_ref }}" HEAD)
+          python3 .agents/bin/budget.py baseline --repo "$REPO" --workflow delivery-gates.yml --merge-base "$base" --out /tmp/base
+          gh pr view "$PR" --repo "$REPO" --json body -q .body > /tmp/body.md
+          set +e
+          python3 .agents/bin/budget.py report --current perf/results.json --baseline /tmp/base/results.json \
+            --body /tmp/body.md --merge-base "$base" \
+            --run-url "${{ github.server_url }}/$REPO/actions/runs/${{ github.run_id }}" > /tmp/budget.md
+          status=$?
+          set -e
+          cat /tmp/budget.md >> "$GITHUB_STEP_SUMMARY"
+          python3 .agents/bin/budget.py post --repo "$REPO" --pr "$PR" --file /tmp/budget.md
+          exit $status
