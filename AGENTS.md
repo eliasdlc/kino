@@ -35,7 +35,7 @@ pnpm migrate:convex                 # Importador Postgres → Convex (scripts/mi
 - **Auth**: Clerk. Registro, sesiones, verificación de correo, recuperación de contraseña, proveedores sociales y el panel de cuenta son componentes de Clerk (`@clerk/nextjs`). `src/proxy.ts` monta `clerkMiddleware`; `getServerSession` resuelve la identidad del request y **no escribe nada**, porque corre en cada render de cada página. Convex valida el mismo JWT con la plantilla `convex` (`convex/auth.config.ts`)
 
   **Dónde nace la fila de `users`**, que es lo que `kinoQuery` exige y sin lo que responde `NO_USER`: la crea el webhook `user.created` de Clerk contra `https://<deployment>.convex.site/clerk/user-created` (`convex/http.ts`, secreto `CLERK_WEBHOOK_SIGNING_SECRET`). Clerk entrega ese evento en paralelo al redirect del navegador, así que hay una ventana en la que la persona llega antes que su fila: la cubre `src/proxy.ts`, que llama a `users.ensure` una vez por navegador y lo apunta en la cookie `kino_fila`. El proxy es el único sitio que corre antes del árbol; un layout competiría con su propia página, que Next renderiza en paralelo
-- **Email transaccional**: ninguno propio. Los correos de cuenta los manda Clerk
+- **Email transaccional**: los correos de cuenta los manda Clerk. Los de recordatorios (el resumen de la mañana y el respaldo cuando un push no llega) salen por la API HTTP de Resend desde `convex/lib/correo.ts`, inerte sin `RESEND_API_KEY` y `RESEND_FROM`
 - **Server state**: Convex reactivo (`src/shared/convex/hooks.ts`). No hay TanStack Query: una query es una suscripción y se actualiza sola cuando la base cambia
 - **Formularios**: react-hook-form + zodResolver
 - **Estilos**: Tailwind + shadcn/ui (Radix)
@@ -69,7 +69,7 @@ pnpm migrate:convex                 # Importador Postgres → Convex (scripts/mi
 8. **Soft delete** en tasks y pages vía `deleted_at`. Siempre filtrar con `WHERE deleted_at IS NULL`.
 9. **Una query declara qué rango lee.** El tope de la restricción 4 acota lo que una lectura *devuelve*; nada acotaba lo que *lee*, y por ahí se fue el 93,7% de Database I/O del plan gratuito con una base de 19,72 MB en disco. Un `.collect()` sobre una tabla entera, o sobre un índice que sólo fija el usuario, lleva el motivo escrito al lado, igual que lo lleva subir `DEFAULT_BUDGET_MS`.
 
-   El caso que lo destapó es `notifications.pendingDeliveries`. Antes: `pushSubscriptions` entera y sin índice, después todas las tareas vivas de cada suscriptor por `by_user_alive_status` con el filtro de fecha en JavaScript, y después una consulta a `taskReminders` por cada una de esas tareas. Cientos de documentos leídos cada quince minutos para responder `{ notified: 0 }`. Después: `by_user_alive_due` acotado al final de mañana en la zona del usuario, y una sola pasada por `by_sent_remindAt` con `eq('sentAt', undefined).lte('remindAt', now)`. Los dos índices ya existían; lo que faltaba era la regla que obliga a usarlos.
+   El caso que lo destapó es `notifications.pendingDeliveries`. Antes: `pushSubscriptions` entera y sin índice, después todas las tareas vivas de cada suscriptor por `by_user_alive_status` con el filtro de fecha en JavaScript, y después una consulta a `taskReminders` por cada una de esas tareas. Cientos de documentos leídos cada quince minutos para responder `{ notified: 0 }`. Después: `by_user_alive_due` acotado al final de mañana en la zona del usuario, y una sola pasada por `by_sent_remindAt` con `eq('sentAt', undefined).lte('remindAt', now)`. Los dos índices ya existían; lo que faltaba era la regla que obliga a usarlos. Hoy la misma función se llama `notifications.pendientes` y va un paso más allá: cada tarea guarda su próximo aviso en `nextReminderAt`, y el cron lee `by_nextReminder` hasta ahora, así que una tarea sin aviso pendiente no se lee nunca, por vieja o vencida que esté (ver «Recordatorios»).
 
    **Duele más aquí que en otra arquitectura**, y es la otra cara de la restricción 3. Cada `useConvexQuery` es una suscripción, así que una query que lee 300 documentos no los lee una vez: los relee en cada escritura que la toque, por cada pestaña abierta. La reactividad sale gratis en invocaciones y se paga en bytes.
 
@@ -88,7 +88,7 @@ Producción y desarrollo son **dos deployments de Convex** del mismo proyecto, y
 
 Un cambio de schema sigue teniendo que ser **compatible hacia atrás** con el código ya desplegado: Convex valida los documentos existentes contra el schema nuevo antes de aceptarlo, y entre una cosa y la otra el cliente viejo habla con las funciones nuevas.
 
-Cada deployment lleva sus propias variables (`npx convex env set`): `CLERK_JWT_ISSUER_DOMAIN` de su instancia de Clerk, `CLERK_WEBHOOK_SIGNING_SECRET` del endpoint que esa instancia firma, `KINO_CRONS_APAGADOS` donde los crons no deban registrarse, `KINO_MCP_JWKS` con la mitad pública de la clave con la que firma su Vercel, `ENCRYPTION_KEY` para la sincronización con GitHub y el par VAPID para los push. Están descritas en `.env.example`.
+Cada deployment lleva sus propias variables (`npx convex env set`): `CLERK_JWT_ISSUER_DOMAIN` de su instancia de Clerk, `CLERK_WEBHOOK_SIGNING_SECRET` del endpoint que esa instancia firma, `KINO_CRONS_APAGADOS` donde los crons no deban registrarse, `KINO_MCP_JWKS` con la mitad pública de la clave con la que firma su Vercel, `ENCRYPTION_KEY` para la sincronización con GitHub, el par VAPID para los push (la privada firma además los botones de las notificaciones), y `RESEND_API_KEY`, `RESEND_FROM` y `KINO_APP_URL` para el correo de los recordatorios. Están descritas en `.env.example`.
 
 Postgres ya no está en el camino de la app. El schema de Drizzle (`src/shared/db/schema.ts`) sigue en el repo como origen de `pnpm migrate:convex`, el importador con el que se movieron los datos; `scripts/migrate-to-convex/verify.mts` compara las dos bases.
 
@@ -260,6 +260,8 @@ Así que **toda ruta fuera de Convex comprueba a mano quién llama, o escribe en
 
 Comprobar la sesión **no** es lo mismo que comprobar el alcance. Una ruta que quiera dejar entrar a un agente tiene que mirar su alcance ella misma.
 
+Lo mismo vale para las rutas HTTP de Convex (`convex/http.ts`), que tampoco pasan por el envoltorio. La que abre los recordatorios es `/push/accion`: la llama el service worker cuando alguien pulsa «Hecha» o «En 1 h» en una notificación, sin sesión. Exige un enlace firmado con HMAC que el servidor metió en el push (`convex/lib/firmaAccion.ts`, clave derivada de `VAPID_PRIVATE_KEY`, vigente una semana), y sólo abre esas dos acciones, reversibles, sobre esa tarea. Lo que cierra por ahí firma con la vía `push`.
+
 ### Validación
 
 Una sola fuente Zod por entidad, importada por servidor y cliente. El backend **siempre** valida aunque el cliente ya lo hizo. `userId` **siempre** viene de la sesión, nunca del body. Los `metadata` jsonb se validan con Zod discriminado por `systemType`: metadata no es un saco.
@@ -428,6 +430,16 @@ Las excepciones, y por qué:
   siete cascadas de Postgres no ocurren a propósito.
 - **Cuenta** (`users.purge`): el único borrado duro de todo, sobre las
   dieciocho tablas con `userId`.
+
+## Recordatorios
+
+El trabajo de esta parte es que no se olvide nada, así que la regla es insistir hasta que la tarea se termine, se mueva o se silencie a propósito. Viven en `convex/lib/recordatorios.ts` (el calendario, puro y probado), `convex/lib/avisos.ts` (el puente con la base) y `convex/notifications.ts` + `convex/pushSend.ts` (el cron).
+
+- **Prioridad efectiva.** `priority` es la importancia que se elige, y nace en `high`. La urgencia la pone la fecha: a 7 días cuenta al menos como media, a 3 como alta y a 1 (o vencida) como crítica. `src/shared/lib/effective-priority.ts` lo calcula; `taskItem` lo manda hecho como `effectivePriority` y `priorityRaised`, y las listas, filtros y avisos usan ese. No se escribe en la base.
+- **Dos mecanismos.** El resumen de la mañana (`morningDigestTime`, 08:00 por defecto) trae lo vencido, lo de hoy y lo que se acerca, con antelación según la prioridad elegida (`DIAS_EN_RESUMEN`). Los avisos por tarea cubren la recta final y lo vencido, según la intensidad (`HORAS_ANTES`, `VENCIDA_CADA_H`): agresivos, medios o bajos en la cuenta, y cualquiera de las tres o `off` por tarea. Una vencida insiste sin tope.
+- **Horas de silencio** (22:00 a 07:00 por defecto): lo que cae dentro se salta, y lo que vence de noche o temprano recibe una última llamada una hora antes.
+- **Canales.** Push primero; si ningún dispositivo lo recibe, correo, con tope de `TOPE_CORREOS_DIA` al día. El resumen va siempre por los dos.
+- **La invariante.** El cron sólo lee `tasks.by_nextReminder` y `userSettings.by_nextDigest`. **Toda escritura que cambie la fecha, el estado o la intensidad de una tarea llama a `recalcularAviso`**, y todo cambio de zona, silencio o intensidad en Ajustes a `recalcularAvisosDe`. Si una se olvida, el resumen de la mañana repara las tareas que lee al día siguiente, pero eso es la red, no el diseño.
 
 ## Features en el schema sin implementación activa
 
