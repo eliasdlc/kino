@@ -58,7 +58,7 @@ function RelojInput({
     <Input
       type="time"
       aria-label={label}
-      className="h-9 w-[132px] px-3"
+      className="h-9 w-[144px] px-3 text-sm"
       defaultValue={value}
       key={value}
       disabled={disabled}
