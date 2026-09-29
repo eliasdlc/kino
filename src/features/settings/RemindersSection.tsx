@@ -47,20 +47,18 @@ function RelojInput({
   value,
   onChange,
   disabled,
-  className,
   label,
 }: {
   value: string;
   onChange: (value: string) => void;
   disabled?: boolean;
-  className?: string;
   label: string;
 }) {
   return (
     <Input
       type="time"
       aria-label={label}
-      className={cn('h-9', className)}
+      className="h-9 w-[132px] px-3"
       defaultValue={value}
       key={value}
       disabled={disabled}
@@ -79,7 +77,7 @@ function RelojInput({
  */
 function Fila({ titulo, detalle, children }: { titulo: string; detalle: string; children: ReactNode }) {
   return (
-    <div className="flex flex-wrap items-center justify-between gap-4 rounded-lg border p-4">
+    <div className="flex flex-col gap-3 rounded-lg border p-4 sm:flex-row sm:items-center sm:justify-between sm:gap-4">
       <div className="min-w-0 flex-1 space-y-0.5">
         <Label className="text-sm font-medium">{titulo}</Label>
         <p className="text-xs text-muted-foreground">{detalle}</p>
@@ -148,7 +146,6 @@ export function RemindersSection() {
             detalle={`Una tarea crítica aparece desde ${DIAS_EN_RESUMEN.critical} días antes; una alta, desde ${DIAS_EN_RESUMEN.high}; una media, desde ${DIAS_EN_RESUMEN.medium}; una baja, la víspera.`}
           >
             <RelojInput
-              className="w-[110px]"
               value={data.morningDigestTime}
               disabled={bloqueado}
               label="Hora del resumen"
@@ -161,7 +158,6 @@ export function RemindersSection() {
             detalle="Nada suena en esta franja. Lo que vence de noche o temprano recibe una última llamada una hora antes."
           >
             <RelojInput
-              className="w-[100px]"
               value={data.quietHoursStart}
               disabled={bloqueado}
               label="Silencio desde"
@@ -169,7 +165,6 @@ export function RemindersSection() {
             />
             <span className="text-xs text-muted-foreground">a</span>
             <RelojInput
-              className="w-[100px]"
               value={data.quietHoursEnd}
               disabled={bloqueado}
               label="Silencio hasta"
