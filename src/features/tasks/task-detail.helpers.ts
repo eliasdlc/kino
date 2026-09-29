@@ -43,6 +43,8 @@ export function closedByPhrase(completedVia: string | null): string {
       return "La cerraste tú, desde el navegador";
     case "oauth":
       return "La cerró tu agente";
+    case "push":
+      return "La cerraste tú, desde una notificación";
     case "sync":
       return "La cerró la sincronización con GitHub";
     case "system":

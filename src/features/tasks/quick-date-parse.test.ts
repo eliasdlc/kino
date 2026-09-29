@@ -99,6 +99,20 @@ describe("parseQuickInput", () => {
     expect(parseQuickInput("revisar fallo", NOW)).toMatchObject({ priority: "high", title: "revisar" });
   });
 
+  it("las marcas de una persona se quitan del título", () => {
+    expect(parseQuickInput("llamar al banco importante", NOW)).toMatchObject({ priority: "high", title: "llamar al banco" });
+    expect(parseQuickInput("ordenar fotos si hay tiempo", NOW)).toMatchObject({ priority: "low", title: "ordenar fotos" });
+    expect(parseQuickInput("mandar el informe cuanto antes", NOW)).toMatchObject({ priority: "critical", title: "mandar el informe" });
+  });
+
+  it("las palabras de lo que la tarea es ponen la prioridad y se quedan en el título", () => {
+    expect(parseQuickInput("Pagar la luz", NOW)).toMatchObject({ priority: "high", title: "Pagar la luz" });
+    expect(parseQuickInput("Examen de cálculo", NOW)).toMatchObject({ priority: "high", title: "Examen de cálculo" });
+    expect(parseQuickInput("Inscripción último día", NOW)).toMatchObject({ priority: "critical", title: "Inscripción último día" });
+    // «citar» no es «cita»: la palabra tiene que estar entera.
+    expect(parseQuickInput("citar a Borges", NOW)?.priority).toBeUndefined();
+  });
+
   it("sistema (@nombre)", () => {
     expect(parseQuickInput("leer paper @estudio", NOW)).toMatchObject({
       systemHint: "estudio",

@@ -2,10 +2,15 @@ import { z } from 'zod';
 import { zid } from 'convex-helpers/server/zod4';
 import { v } from 'convex/values';
 import type { Doc, Id } from './_generated/dataModel';
-import { internalMutation, internalQuery, type MutationCtx, type QueryCtx } from './_generated/server';
+import { internalMutation, internalQuery, type QueryCtx } from './_generated/server';
 import { forbidden, notFound } from './lib/errors';
-import { kinoZodMutation, kinoZodQuery } from './lib/fn';
-import { calendarDayInTz, userToday, userTomorrow } from './lib/time';
+import { kinoAction, kinoZodMutation, kinoZodQuery } from './lib/fn';
+import { internal } from './_generated/api';
+import { userToday } from './lib/time';
+import { ajustesDeAviso, avisable, calcularAviso, deFila, recalcularAviso, type AjustesDeAviso } from './lib/avisos';
+import { armarResumen, estadoDe, proximoResumen, type Resumen } from './lib/recordatorios';
+import { effectivePriority, type Priority } from '../src/shared/lib/effective-priority';
+import { completarDesdeAviso } from './tasks';
 
 // Suscripciones push y recordatorios. El envío vive en `pushSend.ts`, que es
 // una acción de Node porque `web-push` necesita el runtime de Node.
@@ -82,11 +87,6 @@ export const removeReminder = kinoZodMutation({
 
 // ── Lo que el envío necesita, sin identidad: lo llama la acción del cron ───
 
-async function notificationsOn(ctx: QueryCtx | MutationCtx, userId: Id<'users'>) {
-  const settings = await ctx.db.query('userSettings').withIndex('by_user', (q) => q.eq('userId', userId)).unique();
-  return settings?.notificationsEnabled ?? true;
-}
-
 /** Suscripciones de un usuario, para entregarle un push. */
 export const subscriptionsOf = internalQuery({
   args: { userId: v.id('users') },
@@ -105,131 +105,313 @@ export const dropSubscription = internalMutation({
   },
 });
 
-const ESCALATION_LIMIT: Record<string, number> = { critical: 14, high: 7, medium: 4, low: 2 };
-const ESCALATION_GAP_MS: Record<string, number> = { critical: 6 * 3_600_000, high: 6 * 3_600_000, medium: 48 * 3_600_000, low: 72 * 3_600_000 };
+/**
+ * Cuántas filas de cada índice lee una vuelta del cron. Es el lote, no un
+ * límite de lo que se avisa: lo que no quepa sale quince minutos después.
+ */
+const LOTE = 200;
+
+/** Cuánto espera un aviso que no pudo salir por ningún canal antes de reintentarse. */
+const REINTENTO_MS = 15 * 60_000;
+
+/** Lo que la acción de posponer compra. */
+const POSPONER_MS = 60 * 60_000;
 
 /**
- * Hasta dónde hay que leer hacia adelante para tener todo lo que vence «mañana».
+ * Hasta dónde mira el resumen de la mañana: la antelación más larga que puede
+ * pedir una tarea (siete días para una crítica) más uno de margen por zona.
+ */
+const RESUMEN_HORIZONTE_MS = 8 * 86_400_000;
+
+export interface AvisoDeTarea {
+  taskId: Id<'tasks'>;
+  title: string;
+  texto: string;
+  vencida: boolean;
+  priority: Priority;
+}
+
+export interface Entrega {
+  userId: Id<'users'>;
+  email: string;
+  correo: boolean;
+  /** Día local de la persona y correos de respaldo que ya lleva en él. */
+  dia: string;
+  correosHoy: number;
+  avisos: AvisoDeTarea[];
+  recordatorios: Array<{ id: Id<'taskReminders'>; taskId: Id<'tasks'>; label: string | null; taskTitle: string }>;
+  /** `true` si a esta persona le tocaba el resumen en esta vuelta, haya o no algo que decir. */
+  tocaResumen: boolean;
+  resumen: Resumen | null;
+  /** Tareas cuyo próximo aviso escrito no es el que toca: el resumen las repara. */
+  reparar: Id<'tasks'>[];
+}
+
+/**
+ * Todo lo que toca avisar ahora.
  *
- * Tres días y no dos: el corte del día es el de la zona del usuario, y las
- * zonas van de UTC-12 a UTC+14, así que el final de su mañana cae en un
- * instante UTC que depende de dónde esté. Redondear hacia arriba cuesta leer
- * unas pocas tareas de más y garantiza que no se pierde ninguna; el día exacto
- * lo sigue decidiendo `calendarDayInTz` sobre lo leído.
- */
-const VENTANA_VENCIMIENTO_MS = 3 * 86_400_000;
-
-/**
- * Las tareas sin `dueDate` no le sirven a nada de aquí, y en el orden de un
- * índice de Convex un campo ausente va antes que cualquier número. Este suelo
- * es lo que las deja fuera de la lectura.
- */
-const CON_VENCIMIENTO = 0;
-
-/**
- * Todo lo que toca avisar ahora, por usuario con suscripción y avisos
- * encendidos: lo que vence hoy y mañana sin avisar, los recordatorios que ya
- * llegaron a su hora, y las tareas vencidas que toca escalar.
+ * **Cada lectura va por un índice que es exactamente la pregunta**, y es la
+ * mitad del diseño (`AGENTS.md`, restricción 9). Esto corre cada quince
+ * minutos y casi siempre no hay nada que entregar:
  *
- * **Lo que se lee está acotado a propósito, y es la mitad del diseño.** Esto
- * corre cada quince minutos y en la mayoría de las vueltas no hay nada que
- * entregar, así que lo que cuesta no son las llamadas sino los bytes. Antes
- * traía todas las tareas vivas de cada suscrito y filtraba por fecha en
- * memoria, y encima lanzaba una consulta de recordatorios por cada tarea: el
- * gasto crecía con el tamaño de la cuenta aunque no hubiera nada que avisar.
- * Ahora lee por rango de vencimiento y resuelve los recordatorios de todos los
- * usuarios en una sola consulta.
+ *   - `tasks.by_nextReminder`: las tareas a las que ya les tocó su aviso. Una
+ *     tarea sin aviso pendiente no se lee nunca, por vieja o vencida que esté.
+ *   - `taskReminders.by_sent_remindAt`: los recordatorios puestos a mano.
+ *   - `userSettings.by_nextDigest`: las personas a las que ya les tocó el
+ *     resumen de la mañana. Sólo para ellas, una vez al día, se leen sus
+ *     tareas con fecha por `by_user_alive_due`: lo vencido entra entero, sin
+ *     tope por la izquierda, porque el resumen existe para no dejarlo caer.
  */
-export const pendingDeliveries = internalQuery({
+export const pendientes = internalQuery({
   args: {},
   handler: async (ctx) => {
     const now = Date.now();
-    const subscribed = new Set((await ctx.db.query('pushSubscriptions').collect()).map((s) => s.userId));
-
-    // Los recordatorios ya vencidos y sin enviar de todo el mundo, en una sola
-    // lectura. El índice es exactamente esa pregunta, así que lo que se lee son
-    // los que hay que entregar y ninguno más.
-    const porUsuario = new Map<Id<'users'>, Doc<'taskReminders'>[]>();
-    for (const r of await ctx.db
+    const tareas = await ctx.db
+      .query('tasks')
+      .withIndex('by_nextReminder', (q) => q.gte('nextReminderAt', 0).lte('nextReminderAt', now))
+      .take(LOTE);
+    const recordatorios = await ctx.db
       .query('taskReminders')
       .withIndex('by_sent_remindAt', (q) => q.eq('sentAt', undefined).lte('remindAt', now))
-      .collect()) {
-      if (!subscribed.has(r.userId)) continue;
-      porUsuario.set(r.userId, [...(porUsuario.get(r.userId) ?? []), r]);
-    }
+      .take(LOTE);
+    const resumenes = await ctx.db
+      .query('userSettings')
+      .withIndex('by_nextDigest', (q) => q.gte('nextDigestAt', 0).lte('nextDigestAt', now))
+      .take(LOTE);
 
-    const out: Array<{
-      userId: Id<'users'>;
-      dueToday: Array<{ id: Id<'tasks'>; title: string }>;
-      dueTomorrow: Array<{ id: Id<'tasks'>; title: string }>;
-      reminders: Array<{ id: Id<'taskReminders'>; label: string | null; taskTitle: string }>;
-      escalations: Array<{ id: Id<'tasks'>; title: string; priority: string }>;
-    }> = [];
-    for (const userId of subscribed) {
+    const usuarios = new Set<Id<'users'>>([
+      ...tareas.map((t) => t.userId),
+      ...recordatorios.map((r) => r.userId),
+      ...resumenes.map((r) => r.userId),
+    ]);
+    const tocaResumen = new Set(resumenes.map((r) => r.userId));
+
+    const entregas: Entrega[] = [];
+    /** Tareas que ya no tienen nada que avisar: se les borra el aviso sin enviar. */
+    const limpiar: Id<'tasks'>[] = [];
+    /** Recordatorios de quien apagó los avisos: se dan por vistos. */
+    const descartar: Id<'taskReminders'>[] = [];
+
+    for (const userId of usuarios) {
       const user = await ctx.db.get(userId);
-      if (!user || !(await notificationsOn(ctx, userId))) continue;
-      const tz = user.timezone;
-      const [today, tomorrow] = [userToday(tz, now), userTomorrow(tz, now)];
-      const tasks = (
-        await ctx.db
-          .query('tasks')
-          .withIndex('by_user_alive_due', (q) =>
-            q
-              .eq('userId', userId)
-              .eq('deletedAt', undefined)
-              .gte('dueDate', CON_VENCIMIENTO)
-              .lte('dueDate', now + VENTANA_VENCIMIENTO_MS),
-          )
-          .collect()
-      ).filter((t) => t.status !== 'done' && t.completedAt === undefined);
-      const dayOf = (t: Doc<'tasks'>) => (t.dueDate === undefined ? null : calendarDayInTz(t.dueDate, tz));
-      const dueToday = tasks.filter((t) => !t.notifiedDueDay && dayOf(t) === today).map((t) => ({ id: t._id, title: t.title }));
-      const dueTomorrow = tasks.filter((t) => !t.notifiedBeforeDay && dayOf(t) === tomorrow).map((t) => ({ id: t._id, title: t.title }));
-      const escalations = tasks
-        .filter((t) => {
-          const day = dayOf(t);
-          if (!t.notifiedDueDay || day === null || day > today) return false;
-          if (t.reminderCount >= (ESCALATION_LIMIT[t.priority] ?? 0)) return false;
-          return t.lastRemindedAt === undefined || t.lastRemindedAt < now - (ESCALATION_GAP_MS[t.priority] ?? Infinity);
-        })
-        .map((t) => ({ id: t._id, title: t.title, priority: t.priority }));
-      // El recordatorio manda sobre la fecha de su tarea: uno puesto para hoy
-      // sobre algo que vence el mes que viene tiene que salir, y esa tarea no
-      // está en la ventana de arriba. Por eso se resuelve por su propio id y no
-      // recorriendo `tasks`. La tarea se carga para dos cosas: su título, y
-      // comprobar que sigue viva y sin terminar, que es lo que antes daba por
-      // hecho estar dentro de la lista.
-      const reminders = [];
-      for (const r of porUsuario.get(userId) ?? []) {
+      const suyas = tareas.filter((t) => t.userId === userId);
+      const suyos = recordatorios.filter((r) => r.userId === userId);
+      if (!user) {
+        limpiar.push(...suyas.map((t) => t._id));
+        descartar.push(...suyos.map((r) => r._id));
+        continue;
+      }
+      const fila = await ctx.db.query('userSettings').withIndex('by_user', (q) => q.eq('userId', userId)).unique();
+      const ajustes = deFila(user, fila);
+      if (!ajustes.activos) {
+        limpiar.push(...suyas.map((t) => t._id));
+        descartar.push(...suyos.map((r) => r._id));
+        if (tocaResumen.has(userId)) entregas.push(vacia(user, ajustes, fila, now, true));
+        continue;
+      }
+
+      const entrega = vacia(user, ajustes, fila, now, tocaResumen.has(userId));
+      for (const t of suyas) {
+        if (!avisable(t)) {
+          limpiar.push(t._id);
+          continue;
+        }
+        const { texto, vencida } = estadoDe(t.dueDate, now, ajustes.tz);
+        const priority = effectivePriority(t.priority, t.dueDate, now).priority;
+        entrega.avisos.push({ taskId: t._id, title: t.title, texto, vencida, priority });
+      }
+      // El recordatorio manda sobre la fecha de su tarea: se resuelve por su
+      // propio id, y la tarea se carga para su título y para saber si sigue viva.
+      for (const r of suyos) {
         const task = await ctx.db.get(r.taskId);
-        if (!task || task.deletedAt !== undefined || task.status === 'done' || task.completedAt !== undefined) continue;
-        reminders.push({ id: r._id, label: r.label ?? null, taskTitle: task.title });
+        if (!task || task.deletedAt !== undefined || task.status === 'done' || task.completedAt !== undefined) {
+          descartar.push(r._id);
+          continue;
+        }
+        entrega.recordatorios.push({ id: r._id, taskId: task._id, label: r.label ?? null, taskTitle: task.title });
       }
-      if (dueToday.length || dueTomorrow.length || reminders.length || escalations.length) {
-        out.push({ userId, dueToday, dueTomorrow, reminders, escalations });
-      }
+      if (entrega.tocaResumen) await llenarResumen(ctx, entrega, userId, ajustes, now);
+      entregas.push(entrega);
     }
-    return out;
+    return { entregas, limpiar, descartar };
   },
 });
 
-/** Deja constancia de lo que sí se entregó; lo que falló se reintenta después. */
-export const markDelivered = internalMutation({
+function vacia(
+  user: Doc<'users'>,
+  ajustes: AjustesDeAviso,
+  fila: Doc<'userSettings'> | null,
+  now: number,
+  tocaResumen: boolean,
+): Entrega {
+  const dia = userToday(ajustes.tz, now);
+  return {
+    userId: user._id,
+    email: user.email,
+    correo: ajustes.correo,
+    dia,
+    correosHoy: fila?.emailDay === dia ? (fila.emailCount ?? 0) : 0,
+    avisos: [],
+    recordatorios: [],
+    tocaResumen,
+    resumen: null,
+    reparar: [],
+  };
+}
+
+async function llenarResumen(ctx: QueryCtx, entrega: Entrega, userId: Id<'users'>, ajustes: AjustesDeAviso, now: number) {
+  const conFecha = (
+    await ctx.db
+      .query('tasks')
+      .withIndex('by_user_alive_due', (q) =>
+        q.eq('userId', userId).eq('deletedAt', undefined).gte('dueDate', 0).lte('dueDate', now + RESUMEN_HORIZONTE_MS),
+      )
+      .collect()
+  ).filter(avisable);
+  entrega.resumen = armarResumen(
+    conFecha.map((t) => ({ id: t._id, title: t.title, dueDate: t.dueDate, priority: t.priority, intensidad: t.reminderIntensity })),
+    ajustes,
+    now,
+  );
+  entrega.reparar = conFecha.filter((t) => calcularAviso(t, ajustes, now) !== t.nextReminderAt).map((t) => t._id);
+}
+
+/**
+ * Deja constancia de una vuelta del cron para una persona.
+ *
+ * Un aviso entregado, o sin ningún canal por el que salir, avanza a su
+ * siguiente punto del calendario. Uno que tenía canal y falló en todos se
+ * reintenta en quince minutos: marcarlo como avisado le quitaba el reintento
+ * para siempre.
+ */
+export const registrar = internalMutation({
   args: {
-    dueToday: v.array(v.id('tasks')),
-    dueTomorrow: v.array(v.id('tasks')),
-    reminders: v.array(v.id('taskReminders')),
-    escalations: v.array(v.id('tasks')),
+    userId: v.id('users'),
+    avisados: v.array(v.id('tasks')),
+    reintentar: v.array(v.id('tasks')),
+    recordatorios: v.array(v.id('taskReminders')),
+    tocaResumen: v.boolean(),
+    reparar: v.array(v.id('tasks')),
+    dia: v.string(),
+    correos: v.number(),
   },
-  handler: async (ctx, delivered) => {
+  handler: async (ctx, args) => {
     const now = Date.now();
-    for (const id of delivered.dueToday) await ctx.db.patch(id, { notifiedDueDay: true });
-    for (const id of delivered.dueTomorrow) await ctx.db.patch(id, { notifiedBeforeDay: true });
-    for (const id of delivered.reminders) await ctx.db.patch(id, { sentAt: now });
-    for (const id of delivered.escalations) {
+    const user = await ctx.db.get(args.userId);
+    if (!user) return null;
+    const ajustes = await ajustesDeAviso(ctx, user);
+    for (const id of args.avisados) {
       const task = await ctx.db.get(id);
-      if (task) await ctx.db.patch(id, { reminderCount: task.reminderCount + 1, lastRemindedAt: now });
+      if (!task) continue;
+      await ctx.db.patch(id, {
+        lastRemindedAt: now,
+        reminderCount: task.reminderCount + 1,
+        nextReminderAt: calcularAviso(task, ajustes, now),
+      });
+    }
+    for (const id of args.reintentar) {
+      const task = await ctx.db.get(id);
+      if (task && avisable(task)) await ctx.db.patch(id, { nextReminderAt: now + REINTENTO_MS });
+    }
+    for (const id of args.recordatorios) await ctx.db.patch(id, { sentAt: now });
+    for (const id of args.reparar) {
+      const task = await ctx.db.get(id);
+      if (task) await recalcularAviso(ctx, task, ajustes, now);
+    }
+    const fila = await ctx.db.query('userSettings').withIndex('by_user', (q) => q.eq('userId', args.userId)).unique();
+    if (fila) {
+      const patch: Partial<Doc<'userSettings'>> = {};
+      // El resumen no se reintenta: uno fallido espera a la mañana siguiente
+      // en vez de insistir cada quince minutos con el mismo texto.
+      if (args.tocaResumen) patch.nextDigestAt = ajustes.activos ? proximoResumen(ajustes.tz, ajustes.resumen, now) : undefined;
+      if (args.correos > 0) {
+        const previos = fila.emailDay === args.dia ? (fila.emailCount ?? 0) : 0;
+        patch.emailDay = args.dia;
+        patch.emailCount = previos + args.correos;
+      }
+      if (Object.keys(patch).length > 0) await ctx.db.patch(fila._id, patch);
     }
     return null;
   },
+});
+
+/** Lo que ya no tiene nada que avisar deja de leerse. */
+export const limpiar = internalMutation({
+  args: { tareas: v.array(v.id('tasks')), recordatorios: v.array(v.id('taskReminders')) },
+  handler: async (ctx, { tareas, recordatorios }) => {
+    for (const id of tareas) {
+      const task = await ctx.db.get(id);
+      if (task && task.nextReminderAt !== undefined) await ctx.db.patch(id, { nextReminderAt: undefined });
+    }
+    const now = Date.now();
+    for (const id of recordatorios) {
+      const row = await ctx.db.get(id);
+      if (row && row.sentAt === undefined) await ctx.db.patch(id, { sentAt: now });
+    }
+    return null;
+  },
+});
+
+/**
+ * Lo que hace un botón de la notificación. Entra por `convex/http.ts`, que ya
+ * comprobó la firma del enlace: aquí sólo se sabe de qué tarea es.
+ *
+ * Las dos acciones son reversibles, que es lo que permite ofrecerlas sin
+ * sesión: «Hecha» se deshace desde la app como cualquier cierre, y «En 1 h»
+ * sólo mueve un aviso.
+ */
+export const accionDesdeAviso = internalMutation({
+  args: { taskId: v.id('tasks'), accion: v.union(v.literal('hecha'), v.literal('posponer')) },
+  handler: async (ctx, { taskId, accion }) => {
+    const task = await ctx.db.get(taskId);
+    if (!task || task.deletedAt !== undefined) return { ok: false as const };
+    if (accion === 'hecha') {
+      if (task.status !== 'done') await completarDesdeAviso(ctx, task);
+      return { ok: true as const };
+    }
+    if (avisable(task)) await ctx.db.patch(taskId, { nextReminderAt: Date.now() + POSPONER_MS });
+    return { ok: true as const };
+  },
+});
+
+// ── Estado visible en Ajustes ───────────────────────────────────────────────
+
+/**
+ * Lo que el servidor sabe de los avisos de la persona, para que Ajustes no
+ * tenga que fiarse del navegador: cuántos dispositivos tienen push registrado
+ * aquí, y si el deployment puede enviar push y correo.
+ */
+export const estado = kinoZodQuery({
+  args: {},
+  handler: async (ctx) => {
+    // Acotado por construcción: una fila por dispositivo de la persona.
+    const dispositivos = (await ctx.db.query('pushSubscriptions').withIndex('by_user', (q) => q.eq('userId', ctx.user._id)).collect()).length;
+    return {
+      dispositivos,
+      pushConfigurado: Boolean(process.env.VAPID_PUBLIC_KEY && process.env.VAPID_PRIVATE_KEY),
+      correoConfigurado: Boolean(process.env.RESEND_API_KEY && process.env.RESEND_FROM),
+      email: ctx.user.email,
+    };
+  },
+});
+
+/** Para la prueba de Ajustes: a quién y por dónde, sin identidad de por medio. */
+export const destinoDePrueba = internalQuery({
+  args: { userId: v.id('users') },
+  handler: async (ctx, { userId }) => {
+    const user = await ctx.db.get(userId);
+    return user ? { email: user.email } : null;
+  },
+});
+
+/**
+ * «Enviar una prueba» de Ajustes. Cerrada: sólo desde el navegador, porque
+ * dispara un correo real y no es algo que un agente tenga que poder repetir.
+ */
+export const probar = kinoAction(undefined, 'closed')({
+  args: {},
+  handler: async (
+    ctx,
+  ): Promise<{ dispositivos: number; push: boolean; pushConfigurado: boolean; correo: boolean; correoConfigurado: boolean }> =>
+    ctx.runAction(internal.pushSend.enviarPrueba, { userId: ctx.user._id }),
 });

@@ -26,10 +26,27 @@ import {
 import { LayoutGrid, Inbox, Calendar, BookOpen, Rocket } from "lucide-react";
 import { GithubRepoPanelView } from "@/features/github-sync/GithubRepoPanelView";
 import { DangerZoneSection } from "@/features/account/DangerZoneSection";
+import { RemindersSection } from "@/features/settings/RemindersSection";
+import { PriorityTag } from "@/features/tasks/cards/parts/TaskTags";
 /** Lo que la zona de peligro lee del usuario: nombre y correo. El resto del documento no lo pinta. */
 const ACCOUNT = { name: "Elias De La Cruz", email: "elias@kino.dev" };
 
 const noop = () => {};
+
+/** Los ajustes que la sección de recordatorios lee. */
+const AJUSTES_AVISOS = {
+  dailyEnergyLimit: 50,
+  timezone: "America/Santo_Domingo",
+  theme: "system",
+  notificationsEnabled: true,
+  weeklyReviewDay: "sun",
+  wordsSeen: [],
+  reminderIntensity: "aggressive",
+  quietHoursStart: "22:00",
+  quietHoursEnd: "07:00",
+  morningDigestTime: "08:00",
+  emailReminders: true,
+};
 
 /** Tres filas del log: el agente, otra persona y algo ya deshecho. */
 const EVENTOS = [
@@ -289,6 +306,45 @@ export function KinoSection() {
                 <DangerZoneSection />
               </div>
             </Seeded>
+          </Specimen>
+        </div>
+      </SubSection>
+
+      <SubSection
+        title="Recordatorios (Ajustes y tarea)"
+        description="Cuánto insisten los avisos: la intensidad de la cuenta con lo que promete cada una, el resumen de la mañana, las horas de silencio, el correo y la prueba. La etiqueta de prioridad enseña cuándo la subió la fecha."
+      >
+        <div className="grid max-w-5xl grid-cols-1 gap-4 lg:grid-cols-2">
+          <Specimen label="Todo configurado" hint="agresivos, push en dos dispositivos y correo">
+            <Seeded
+              stubs={[
+                seedQuery(api.settings.get, AJUSTES_AVISOS),
+                seedQuery(api.notifications.estado, { dispositivos: 2, pushConfigurado: true, correoConfigurado: true, email: "prueba@usekino.dev" }),
+              ]}
+            >
+              <div className="w-full">
+                <RemindersSection />
+              </div>
+            </Seeded>
+          </Specimen>
+          <Specimen label="Sin dispositivos ni correo" hint="lo dice en vez de prometer avisos que no van a llegar">
+            <Seeded
+              stubs={[
+                seedQuery(api.settings.get, { ...AJUSTES_AVISOS, reminderIntensity: "low" }),
+                seedQuery(api.notifications.estado, { dispositivos: 0, pushConfigurado: true, correoConfigurado: false, email: "prueba@usekino.dev" }),
+              ]}
+            >
+              <div className="w-full">
+                <RemindersSection />
+              </div>
+            </Seeded>
+          </Specimen>
+          <Specimen label="Prioridad que cuenta" hint="elegida baja, la fecha la sube a crítica; elegida media, a alta; alta sin cambios">
+            <div className="flex flex-wrap items-center gap-2">
+              <PriorityTag priority="critical" chosen="low" />
+              <PriorityTag priority="high" chosen="medium" />
+              <PriorityTag priority="high" chosen="high" />
+            </div>
           </Specimen>
         </div>
       </SubSection>

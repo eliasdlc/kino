@@ -73,9 +73,19 @@ function tzOffsetMs(date: Date, tz: string): number {
  * hora tiene que caer en las 9 **del usuario**.
  */
 export function zonedDayHourToUtc(dayISO: string, hour: number, tz: string): Date {
-  const [y, m, d] = dayISO.slice(0, 10).split("-").map(Number);
   const h = Math.max(0, Math.min(23, Math.floor(hour)));
-  const guess = Date.UTC(y!, (m ?? 1) - 1, d ?? 1, h, 0, 0);
+  return zonedDayClockToUtc(dayISO, h * 60, tz);
+}
+
+/**
+ * Instante UTC de un reloj local (`minutes` desde la medianoche) del día
+ * `yyyy-MM-dd` en `tz`. La versión con minutos de `zonedDayHourToUtc`: los
+ * recordatorios hablan de las 21:30, no sólo de horas en punto.
+ */
+export function zonedDayClockToUtc(dayISO: string, minutes: number, tz: string): Date {
+  const [y, m, d] = dayISO.slice(0, 10).split("-").map(Number);
+  const total = Math.max(0, Math.min(24 * 60 - 1, Math.floor(minutes)));
+  const guess = Date.UTC(y!, (m ?? 1) - 1, d ?? 1, Math.floor(total / 60), total % 60, 0);
   const offset = tzOffsetMs(new Date(guess), tz);
   return new Date(guess - offset);
 }
@@ -103,4 +113,16 @@ export function userDayRange(tz: string): { start: Date; end: Date } {
 /** Hora del reloj de la cuenta, independiente de la zona del servidor o navegador. */
 export function hourInTimeZone(timezone: string, now: number): number {
   return Number(new Intl.DateTimeFormat("en-US", { timeZone: timezone, hour: "numeric", hourCycle: "h23" }).format(now));
+}
+
+/** Minutos desde la medianoche local de `instant` en `tz` (0 a 1439). */
+export function minutesInTimeZone(timezone: string, instant: number): number {
+  const parts = new Intl.DateTimeFormat("en-US", {
+    timeZone: timezone,
+    hour: "numeric",
+    minute: "numeric",
+    hourCycle: "h23",
+  }).formatToParts(instant);
+  const get = (t: string) => Number(parts.find((p) => p.type === t)?.value);
+  return (get("hour") % 24) * 60 + get("minute");
 }

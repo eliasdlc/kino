@@ -2,7 +2,9 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { useMutation } from 'convex/react';
+import { toast } from 'sonner';
 import { api } from '@convex/_generated/api';
+import { useConvexAction, useConvexQuery } from '@/shared/convex/hooks';
 
 type PushStatus = 'idle' | 'loading' | 'subscribed' | 'denied' | 'unsupported';
 
@@ -84,4 +86,28 @@ function urlBase64ToUint8Array(base64: string): Uint8Array<ArrayBuffer> {
   const padded = base64 + '='.repeat((4 - (base64.length % 4)) % 4);
   const raw = atob(padded.replace(/-/g, '+').replace(/_/g, '/'));
   return new Uint8Array([...raw].map((c) => c.charCodeAt(0)));
+}
+
+/**
+ * Lo que el servidor sabe de los avisos: cuántos dispositivos tienen push
+ * registrado y si el deployment puede mandar push y correo. Ajustes lo enseña
+ * en vez de fiarse sólo de lo que dice este navegador.
+ */
+export function useEstadoAvisos() {
+  return useConvexQuery(api.notifications.estado, {});
+}
+
+/** «Enviar una prueba»: un push a cada dispositivo y un correo, con el resultado de cada canal. */
+export function useProbarAvisos() {
+  return useConvexAction(api.notifications.probar, {
+    onSuccess: (r) => {
+      const partes = [
+        r.push ? `push en ${r.dispositivos} dispositivo${r.dispositivos === 1 ? '' : 's'}` : null,
+        r.correo ? 'correo' : null,
+      ].filter(Boolean);
+      if (partes.length) toast.success(`Prueba enviada: ${partes.join(' y ')}`);
+      else toast.error('La prueba no salió por ningún canal');
+    },
+    onError: () => toast.error('No se pudo enviar la prueba'),
+  });
 }

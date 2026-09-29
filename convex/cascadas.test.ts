@@ -100,8 +100,8 @@ describe('borrar una tarea', () => {
     // Y el recordatorio de una tarea borrada no se dispara: quien los reparte
     // sólo mira tareas vivas.
     const { internal } = await import('./_generated/api');
-    const entregas = await t.query(internal.notifications.pendingDeliveries, {});
-    expect(entregas.flatMap((e: { reminders: unknown[] }) => e.reminders)).toHaveLength(0);
+    const { entregas } = await t.query(internal.notifications.pendientes, {});
+    expect(entregas.flatMap((e) => e.recordatorios)).toHaveLength(0);
   });
 
   it('restaurarla la devuelve entera', async () => {

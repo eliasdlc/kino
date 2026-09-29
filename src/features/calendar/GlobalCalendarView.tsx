@@ -425,7 +425,7 @@ export function GlobalCalendarView() {
           <div
             className={cn(
               "px-2 py-1 rounded border text-xs font-medium shadow-lg rotate-1 opacity-90 max-w-[180px] truncate",
-              PRIORITY_CHIP[activeTask.priority ?? "medium"],
+              PRIORITY_CHIP[activeTask.effectivePriority ?? "medium"],
             )}
           >
             {activeTask.title}
