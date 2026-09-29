@@ -1,0 +1,27 @@
+name: Branch model
+
+# Produces the required `branch-model` check. pull_request_target runs the
+# workflow from the base branch and never checks out or executes PR code.
+on:
+  pull_request_target:
+    types: [opened, synchronize, reopened, edited]
+
+permissions: {}
+
+jobs:
+  branch-model:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Enforce task to dev and dev to main
+        env:
+          BASE: ${{ github.event.pull_request.base.ref }}
+          HEAD: ${{ github.event.pull_request.head.ref }}
+          HEAD_REPO: ${{ github.event.pull_request.head.repo.full_name }}
+          REPOSITORY: ${{ github.repository }}
+        run: |
+          test "$HEAD_REPO" = "$REPOSITORY"
+          if [ "$BASE" = dev ] && [ "$HEAD" != dev ] && [ "$HEAD" != main ]; then exit 0; fi
+          if [ "$BASE" = main ] && [ "$HEAD" = dev ]; then exit 0; fi
+          echo 'DELIVERY_BRANCH: tasks target dev; only dev releases target main'
+          exit 1

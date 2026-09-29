@@ -123,6 +123,12 @@ export const templateType = literals([
   'writing',
 ]);
 export const energyLevel = literals(['high', 'medium', 'low']);
+/**
+ * Cuánto insisten los recordatorios. `off` sólo existe por tarea: la cuenta
+ * entera se silencia con `notificationsEnabled`, no con una intensidad.
+ */
+export const reminderIntensity = literals(['aggressive', 'medium', 'low']);
+export const taskReminderIntensity = literals(['aggressive', 'medium', 'low', 'off']);
 export const taskPriority = literals(['critical', 'high', 'medium', 'low']);
 export const weekday = literals(['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun']);
 export const uiTheme = literals(['dark', 'light', 'system']);
@@ -179,7 +185,9 @@ export const entityType = literals([
 /** Eje de scheduling de una tarea. Cerrado: es la máquina de estados. */
 export const taskStatus = literals(['backlog', 'week', 'tomorrow', 'today', 'done']);
 /** Por qué puerta entró la escritura: sesión, cliente OAuth, sincronización o el sistema. */
-export const actorChannel = literals(['session', 'oauth', 'sync', 'system']);
+// `push`: la persona, desde los botones de una notificación. Firma como ella
+// porque es ella quien pulsa «Hecha», pero por una puerta sin sesión.
+export const actorChannel = literals(['session', 'oauth', 'sync', 'system', 'push']);
 export type ActorChannel = Infer<typeof actorChannel>;
 export const agentEditBasis = literals(['agent_origin', 'explicit_user_confirmation']);
 export type AgentEditBasis = Infer<typeof agentEditBasis>;
@@ -287,9 +295,24 @@ export default defineSchema({
     focusTimeoutHours: v.number(),
     theme: uiTheme,
     notificationsEnabled: v.boolean(),
+    // Recordatorios (`convex/lib/recordatorios.ts`). Todos opcionales: la
+    // ausencia es el valor por defecto que declara `settings.ts`.
+    reminderIntensity: v.optional(reminderIntensity),
+    quietHoursStart: v.optional(clockStr),
+    quietHoursEnd: v.optional(clockStr),
+    morningDigestTime: v.optional(clockStr),
+    emailReminders: v.optional(v.boolean()),
+    // El próximo resumen de la mañana, como instante. Lo lee el cron por
+    // índice, así que sólo toca las filas a las que ya les toca.
+    nextDigestAt: v.optional(ts),
+    // Tope diario de correos de respaldo: día (en su zona) y cuántos van.
+    emailDay: v.optional(dayStr),
+    emailCount: v.optional(v.number()),
     createdAt: ts,
     updatedAt: ts,
-  }).index('by_user', ['userId']),
+  })
+    .index('by_user', ['userId'])
+    .index('by_nextDigest', ['nextDigestAt']),
 
   // 1:1 con la cuenta. El estado crudo del proveedor va en texto para no
   // migrar cada vez que invente uno.
@@ -376,6 +399,11 @@ export default defineSchema({
     notifiedDueDay: v.boolean(),
     reminderCount: v.number(),
     lastRemindedAt: v.optional(ts),
+    // Cuánto insiste esta tarea; sin valor, la de la cuenta.
+    reminderIntensity: v.optional(taskReminderIntensity),
+    // El próximo aviso de esta tarea, ya calculado. El cron lee por este
+    // índice y nada más: una tarea sin aviso pendiente no se lee nunca.
+    nextReminderAt: v.optional(ts),
     completedAt: v.optional(ts),
     deletedAt: v.optional(ts),
     // Texto lematizado de título y descripción, escrito por la mutación.
@@ -391,6 +419,7 @@ export default defineSchema({
     .index('by_user_alive_status', ['userId', 'deletedAt', 'status'])
     .index('by_system_alive_status', ['systemId', 'deletedAt', 'status'])
     .index('by_user_alive_due', ['userId', 'deletedAt', 'dueDate'])
+    .index('by_nextReminder', ['nextReminderAt'])
     .index('by_user_alive_recurrence', ['userId', 'deletedAt', 'recurrenceRule'])
     .index('by_user_clientRequest', ['userId', 'clientRequestId'])
     .index('by_parent', ['parentTaskId'])

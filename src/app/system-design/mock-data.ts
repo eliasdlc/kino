@@ -58,6 +58,9 @@ export function makeTask(overrides: Partial<TaskTransport> = {}): TaskTransport 
     boardStatusChangedAt: null,
     energyLevel: "medium",
     priority: "medium",
+    effectivePriority: "medium",
+    priorityRaised: false,
+    reminderIntensity: null,
     taskType: "task",
     dueDate: null,
     startDate: null,
@@ -76,13 +79,15 @@ export function makeTask(overrides: Partial<TaskTransport> = {}): TaskTransport 
     notifiedDueDay: false,
     reminderCount: 0,
     lastRemindedAt: null,
+    nextReminderAt: null,
     clientRequestId: null,
     completedAt: null,
     deletedAt: null,
     createdAt: NOW,
     updatedAt: NOW,
   } as unknown as TaskTransport;
-  return { ...base, ...overrides };
+  // Sin fecha que la suba, la que cuenta es la elegida.
+  return { ...base, effectivePriority: overrides.priority ?? base.priority, ...overrides };
 }
 
 /** Fecha relativa a hoy (ISO), para estados overdue / due-soon reproducibles. */

@@ -100,7 +100,7 @@ export function CreateTaskDialog({
     defaultValues: {
       title: '',
       taskType: null,
-      priority: 'medium',
+      priority: 'high',
       energyLevel: energyDefault,
       startDate: null,
       dueDate: null,
@@ -239,7 +239,7 @@ export function CreateTaskDialog({
             systemId,
             title: s.title.trim(),
             status: 'backlog',
-            priority: 'medium',
+            priority: 'high',
             energyLevel: 'medium',
             parentTaskId: parent.id,
           }),

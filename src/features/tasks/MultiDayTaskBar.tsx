@@ -33,7 +33,7 @@ export function MultiDayTaskBar({ task, onEdit, startCol, span, className, ...pr
   return (
     <div
       onClick={() => onEdit?.(task)}
-      className={cn(multiDayBarVariants({ priority: task.priority }), className)}
+      className={cn(multiDayBarVariants({ priority: task.effectivePriority }), className)}
       style={{
         gridColumn: `${startCol} / span ${span}`,
       }}

@@ -108,7 +108,7 @@ export function TaskListRow({ task, systemMap, onToggle, onOpen, isFocused, isSe
         <p
           className={cn(
             'line-clamp-2 text-[0.95rem] leading-snug',
-            task.priority === 'critical' && 'font-semibold',
+            task.effectivePriority === 'critical' && 'font-semibold',
             isDone && 'text-muted-foreground line-through',
           )}
         >

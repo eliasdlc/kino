@@ -3,7 +3,6 @@ import importlib.util
 import io
 import json
 from pathlib import Path
-import tempfile
 import unittest
 from unittest.mock import patch, MagicMock
 
@@ -15,19 +14,11 @@ SETTINGS = {'repository': 'owner/site', 'vercelProjectId': 'prj_site', 'producti
 PR = dict(number=7, state='OPEN', headRefOid=SHA, headRefName='feat/change', baseRefName='dev', isCrossRepository=False, mergeCommit={'oid': 'b' * 40})
 
 
-def deployment(production=False):
+def deployment():
     return dict(id='dpl_example', url='site-immutable.vercel.app', projectId='prj_site', readyState='READY',
-                target='production' if production else None,
-                meta=dict(githubCommitSha=SHA, githubCommitRef='main' if production else 'feat/change',
-                          githubCommitOrg='owner', githubCommitRepo='site'), env={'PRIVATE': 'must-not-be-retained'})
-
-
-def event():
-    artifact = web.identity(deployment(), SHA, 'feat/change', SETTINGS)
-    return web.core.seal(dict(schemaVersion=1, kind='accepted', pr=7, sourceSha=SHA, artifactSha=SHA,
-                             artifactUrl=artifact['url'], deployment=artifact, ownerQuote='green', actor='owner',
-                             timestamp='2026-09-19T12:00:00+00:00', requirementIds=['scope'],
-                             tickets=['https://projects.zoho.com/portal/example#zp/task-detail/123']))
+                target='production',
+                meta=dict(githubCommitSha=SHA, githubCommitRef='main', githubCommitOrg='owner', githubCommitRepo='site'),
+                env={'PRIVATE': 'must-not-be-retained'})
 
 
 class DeliveryTest(unittest.TestCase):
@@ -48,108 +39,47 @@ class DeliveryTest(unittest.TestCase):
                 web.validate_topology({**PR, **changes})
         web.validate_topology(PR)
 
-    def test_release_rejects_missing_accepted_work(self):
-        release = {**PR, 'baseRefName': 'main', 'headRefName': 'dev'}
-        with patch.object(web.core, 'missing', return_value=[event()]):
-            with self.assertRaisesRegex(ValueError, 'DELIVERY_RELEASE'):
-                web.release_coverage([event()], release)
-        with patch.object(web.core, 'missing', return_value=[]):
-            web.release_coverage([event()], release)
+    def test_check_branch_status(self):
+        with patch.object(web, 'pull', return_value=PR), patch.object(web, 'github') as github:
+            self.assertEqual(self.invoke('check-branch', '7', '--status'), 0)
+            self.assertIn('state=success', github.call_args.args)
+        with patch.object(web, 'pull', return_value={**PR, 'baseRefName': 'main'}), patch.object(web, 'github') as github:
+            self.assertEqual(self.invoke('check-branch', '7', '--status'), 1)
+            self.assertIn('state=failure', github.call_args.args)
 
     def test_identity_pass_fail_pass(self):
         good = deployment()
-        self.assertEqual(web.identity(good, SHA, 'feat/change', SETTINGS)['sha'], SHA)
+        self.assertEqual(web.identity(good, SHA, 'main', SETTINGS)['sha'], SHA)
         for field, value, rule in [('projectId', 'other', 'PROJECT'), ('readyState', 'ERROR', 'READY'),
-                                   ('target', 'production', 'ENVIRONMENT'), ('target', 'staging', 'ENVIRONMENT'),
+                                   ('target', None, 'ENVIRONMENT'), ('target', 'preview', 'ENVIRONMENT'),
                                    ('url', 'custom.example', 'URL')]:
             bad = copy.deepcopy(good)
             bad[field] = value
             with self.subTest(field=field, value=value), self.assertRaisesRegex(ValueError, 'DELIVERY_' + rule):
-                web.identity(bad, SHA, 'feat/change', SETTINGS)
+                web.identity(bad, SHA, 'main', SETTINGS)
         for field, value, rule in [('githubCommitSha', 'b' * 40, 'SHA'), ('githubCommitRef', 'other', 'SHA'),
                                    ('githubCommitRepo', 'other', 'REPOSITORY')]:
             bad = copy.deepcopy(good)
             bad['meta'][field] = value
             with self.subTest(field=field), self.assertRaisesRegex(ValueError, 'DELIVERY_' + rule):
-                web.identity(bad, SHA, 'feat/change', SETTINGS)
-        self.assertEqual(web.identity(good, SHA, 'feat/change', SETTINGS)['sha'], SHA)
+                web.identity(bad, SHA, 'main', SETTINGS)
+        self.assertEqual(web.identity(good, SHA, 'main', SETTINGS)['sha'], SHA)
 
     def test_receipt_does_not_retain_environment(self):
-        self.assertNotIn('PRIVATE', json.dumps(event()))
-        self.assertNotIn('env', event()['deployment'])
+        artifact = web.identity(deployment(), SHA, 'main', SETTINGS)
+        self.assertNotIn('PRIVATE', json.dumps(artifact))
+        self.assertNotIn('env', artifact)
 
-    def test_stale_and_wrong_artifact_approval(self):
-        good = event()
-        web.accepted_preview([good], PR)
-        with self.assertRaisesRegex(ValueError, 'DELIVERY_APPROVAL'):
-            web.accepted_preview([good], {**PR, 'headRefOid': 'c' * 40})
-        for field, value in [('projectId', 'wrong'), ('sha', 'b' * 40), ('branch', 'wrong'), ('environment', 'production'), ('url', 'https://site.example'), ('id', '')]:
-            bad = copy.deepcopy(good)
-            bad['deployment'][field] = value
-            with self.subTest(field=field), self.assertRaisesRegex(ValueError, 'DELIVERY_ARTIFACT'):
-                web.accepted_preview([web.core.seal(bad)], PR)
-        web.accepted_preview([good], PR)
-
-    def test_core_prepare_and_record_cannot_bypass_web_validation(self):
-        with patch.object(web.core, 'main') as core_main:
-            self.assertEqual(self.invoke('events', 'prepare'), 2)
-            self.assertEqual(self.invoke('events', 'record'), 2)
-            core_main.assert_not_called()
-
-    def test_record_rechecks_preview_before_append(self):
-        store = MagicMock()
-        store.read.return_value = (None, [])
-        with tempfile.TemporaryDirectory() as directory:
-            path = Path(directory) / 'approval.json'
-            path.write_text(json.dumps(event()))
-            with patch.object(web.core, 'Store', return_value=store), patch.object(web.core, 'github', return_value={'login': 'owner'}), patch.object(web, 'current_preview', side_effect=ValueError('DELIVERY_SHA: changed')):
-                self.assertEqual(self.invoke('record', str(path)), 2)
-                store.append.assert_not_called()
-
-    def test_record_rejects_release_missing_prior_acceptance(self):
-        release = {**PR, 'baseRefName': 'main', 'headRefName': 'dev'}
-        approval = event()
-        approval['deployment']['branch'] = 'dev'
-        approval = web.core.seal(approval)
-        store = MagicMock()
-        store.read.return_value = ('commit', [event()])
-        with tempfile.TemporaryDirectory() as directory:
-            path = Path(directory) / 'approval.json'
-            path.write_text(json.dumps(approval))
-            with patch.object(web.core, 'Store', return_value=store), patch.object(web.core, 'github', return_value={'login': 'owner'}), patch.object(web, 'current_preview', return_value=(release, approval['deployment'])), patch.object(web.core, 'missing', return_value=[event()]):
-                self.assertEqual(self.invoke('record', str(path)), 2)
-                store.append.assert_not_called()
-
-    def test_record_retry_after_merge_does_not_create_second_event(self):
-        store = MagicMock()
-        store.read.return_value = ('commit', [event()])
-        with tempfile.TemporaryDirectory() as directory:
-            path = Path(directory) / 'approval.json'
-            path.write_text(json.dumps(event()))
-            with patch.object(web.core, 'Store', return_value=store), patch.object(web.core, 'github', return_value={'login': 'owner'}), patch.object(web, 'current_preview') as preview, patch.object(web, 'pull', return_value=PR):
-                self.assertEqual(self.invoke('record', str(path)), 0)
-                preview.assert_not_called()
-                store.append.assert_called_once_with(event())
-
-    def test_approval_status_fails_closed(self):
-        with patch.object(web, 'pull', return_value=PR), patch.object(web.core, 'Store') as store, patch.object(web.core, 'github') as github:
-            store.return_value.read.side_effect = ValueError('DELIVERY_STORE: unavailable')
-            self.assertEqual(self.invoke('check-pr', '7', '--status'), 1)
-            self.assertIn('state=failure', github.call_args.args)
-
-    def test_production_requires_acceptance_and_stable_identity(self):
+    def test_production_requires_merged_release_and_stable_identity(self):
         merged = {**PR, 'state': 'MERGED', 'baseRefName': 'main', 'headRefName': 'dev'}
-        release_event = event()
-        release_event['deployment']['branch'] = 'dev'
-        release_event = web.core.seal(release_event)
-        store = MagicMock()
-        store.read.return_value = ('commit', [release_event])
-        with patch.object(web, 'pull', return_value=merged), patch.object(web.core, 'Store', return_value=store), patch.object(web.core, 'contains', return_value=True), patch.object(web.core, 'github', return_value={'sha': SHA}) as github, patch.object(web, 'inspect', return_value=deployment(True)) as inspect, patch.object(web, 'health', return_value={'status': 200}), patch.object(web, 'auth_health', return_value={'status': 'passed'}):
+        with patch.object(web, 'pull', return_value=merged) as pull, patch.object(web, 'contains', return_value=True), patch.object(web, 'github', return_value={'sha': SHA}) as github, patch.object(web, 'inspect', return_value=deployment()) as inspect, patch.object(web, 'health', return_value={'status': 200}), patch.object(web, 'auth_health', return_value={'status': 'passed'}):
             self.assertEqual(self.invoke('production', '--pr', '7'), 0)
-            store.read.return_value = ('commit', [])
+            pull.return_value = {**merged, 'state': 'OPEN'}
             self.assertEqual(self.invoke('production', '--pr', '7', '--publish'), 2)
-            store.read.return_value = ('commit', [release_event])
-            inspect.side_effect = [deployment(True), {**deployment(True), 'id': 'dpl_changed'}]
+            pull.return_value = {**merged, 'headRefName': 'feat/change'}
+            self.assertEqual(self.invoke('production', '--pr', '7', '--publish'), 2)
+            pull.return_value = merged
+            inspect.side_effect = [deployment(), {**deployment(), 'id': 'dpl_changed'}]
             self.assertEqual(self.invoke('production', '--pr', '7', '--publish'), 2)
             inspect.side_effect = None
             github.side_effect = [{'sha': SHA}, {'sha': 'c' * 40}]
@@ -175,21 +105,16 @@ class DeliveryTest(unittest.TestCase):
 
     def test_auth_health_requires_both_social_providers(self):
         result = MagicMock(stdout='google: configured\ngithub: configured\n')
-        with patch.object(web.core, 'command', return_value=result):
+        with patch.object(web, 'command', return_value=result):
             self.assertEqual(web.auth_health()['providers'], ['github', 'google'])
         result.stdout = 'google: configured\n'
-        with patch.object(web.core, 'command', return_value=result), self.assertRaisesRegex(ValueError, 'DELIVERY_AUTH'):
+        with patch.object(web, 'command', return_value=result), self.assertRaisesRegex(ValueError, 'DELIVERY_AUTH'):
             web.auth_health()
 
-    def test_vendor_tampering_fails_then_restored_source_passes(self):
-        web.load_core()
-        with tempfile.TemporaryDirectory() as directory:
-            root = Path(directory)
-            (root / 'source.json').write_text(json.dumps({'files': {'bad.py': '0' * 64}}))
-            (root / 'bad.py').write_text('changed')
-            with patch.object(web, 'VENDOR', root), self.assertRaisesRegex(ValueError, 'DELIVERY_VENDOR'):
-                web.load_core()
-        web.load_core()
+    def test_removed_acceptance_commands_are_rejected(self):
+        for action in ['prepare', 'record', 'check-pr', 'events', 'preview']:
+            with self.subTest(action=action), patch('sys.stderr', new_callable=io.StringIO), self.assertRaises(SystemExit):
+                self.invoke(action)
 
 
 if __name__ == '__main__':

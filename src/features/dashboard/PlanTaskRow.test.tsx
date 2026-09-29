@@ -21,6 +21,8 @@ function tarea(over: Partial<TaskTransport>): TaskTransport {
     dueDate: "2020-01-01T12:00:00.000Z",
     taskType: "task",
     systemId: "s1",
+    // Lo que el servidor manda ya calculado: vencida, cuenta como crítica.
+    effectivePriority: over.priority ?? "critical",
     ...over,
   } as unknown as TaskTransport;
 }

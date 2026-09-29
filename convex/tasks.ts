@@ -29,6 +29,8 @@ import {
 } from './lib/tasks/schemas';
 import { deriveStatusFromDate, findParentViolation } from './lib/tasks/status';
 import { calendarDayInTz, userToday } from './lib/time';
+import { effectivePriority } from '../src/shared/lib/effective-priority';
+import { recalcularAviso } from './lib/avisos';
 
 // Las tareas. Cada mutación es una transacción, así que lo que antes eran
 // `db.transaction` y locks de aviso aquí es simplemente el cuerpo de la
@@ -60,6 +62,8 @@ export function taskItem(doc: TaskDoc) {
     boardStatusChangedAt: iso(doc.boardStatusChangedAt),
     energyLevel: doc.energyLevel,
     priority: doc.priority,
+    ...prioridadQueCuenta(doc),
+    reminderIntensity: doc.reminderIntensity ?? null,
     taskType: doc.taskType ?? null,
     dueDate: iso(doc.dueDate),
     startDate: iso(doc.startDate),
@@ -79,6 +83,7 @@ export function taskItem(doc: TaskDoc) {
     notifiedDueDay: doc.notifiedDueDay,
     reminderCount: doc.reminderCount,
     lastRemindedAt: iso(doc.lastRemindedAt),
+    nextReminderAt: iso(doc.nextReminderAt),
     completedAt: iso(doc.completedAt),
     completedBy: doc.completedBy ?? null,
     completedVia: doc.completedVia ?? null,
@@ -88,6 +93,19 @@ export function taskItem(doc: TaskDoc) {
   };
 }
 export type TaskItem = ReturnType<typeof taskItem>;
+
+/**
+ * La prioridad que se pinta junto a la elegida (`effective-priority.ts`).
+ *
+ * Lee `Date.now()`, y Convex cachea la query hasta que algo que leyó cambia:
+ * una lista abierta toda la tarde puede tardar en ver que una tarea subió de
+ * escalón. Los escalones son de días, y cualquier escritura en la tarea o una
+ * recarga la pone al día; no justifica un intervalo contra el plan gratuito.
+ */
+function prioridadQueCuenta(doc: TaskDoc) {
+  const efectiva = effectivePriority(doc.priority, doc.dueDate, Date.now(), doc.status === 'done');
+  return { effectivePriority: efectiva.priority, priorityRaised: efectiva.raised };
+}
 
 const bySort = (a: TaskDoc, b: TaskDoc) => a.sortIndex - b.sortIndex;
 const alive = (doc: TaskDoc) => doc.deletedAt === undefined;
@@ -156,8 +174,11 @@ function assertKind(system: Doc<'systems'>, metadata: unknown) {
 }
 
 // ── Recordatorios automáticos ───────────────────────────────────────────────
-
-const AUTO_REMINDER_OFFSETS: Record<string, number[]> = { critical: [7, 3], high: [3] };
+//
+// Los recordatorios a días vista («7 días antes», «3 días antes») que se
+// sembraban aquí por prioridad se fueron: esos avisos los da ahora el resumen
+// de la mañana, y los de la recta final `lib/avisos`. Lo único automático que
+// queda es el de una tarea de tipo recordatorio, que suena a su hora.
 
 async function clearAutoReminders(ctx: MutationCtx, taskId: Id<'tasks'>) {
   const reminders = await ctx.db
@@ -171,20 +192,15 @@ async function clearAutoReminders(ctx: MutationCtx, taskId: Id<'tasks'>) {
 
 async function syncAutoReminders(ctx: MutationCtx, task: TaskDoc, now: number) {
   await clearAutoReminders(ctx, task._id);
-  const offsets = task.dueDate !== undefined ? AUTO_REMINDER_OFFSETS[task.priority] : undefined;
-  if (!offsets || task.dueDate === undefined) return;
-  for (const days of offsets) {
-    const remindAt = task.dueDate - days * 86_400_000;
-    if (remindAt <= now) continue;
-    await ctx.db.insert('taskReminders', {
-      taskId: task._id,
-      userId: task.userId,
-      remindAt,
-      label: `${days} días antes`,
-      source: 'auto',
-      createdAt: now,
-    });
-  }
+  if (task.taskType !== 'reminder' || task.dueDate === undefined || task.dueDate <= now) return;
+  await ctx.db.insert('taskReminders', {
+    taskId: task._id,
+    userId: task.userId,
+    remindAt: task.dueDate,
+    label: 'Recordatorio',
+    source: 'auto',
+    createdAt: now,
+  });
 }
 
 // ── Transiciones ────────────────────────────────────────────────────────────
@@ -195,7 +211,7 @@ async function syncAutoReminders(ctx: MutationCtx, task: TaskDoc, now: number) {
  * del día se propone contando cierres firmados por una persona, y una firma de
  * la sincronización con GitHub haría subir ese conteo sin que nadie trabajara.
  */
-const canalConPersona: readonly ActorChannel[] = ['session', 'oauth'];
+const canalConPersona: readonly ActorChannel[] = ['session', 'oauth', 'push'];
 
 /** El autor de un cierre, o nadie cuando lo cerró una máquina. */
 const firmante = (channel: ActorChannel, userId: Id<'users'>) =>
@@ -258,6 +274,7 @@ async function applyTransition(
   await ctx.db.patch(task._id, patch);
   const updated = (await ctx.db.get(task._id))!;
 
+  await recalcularAviso(ctx, updated);
   if (transition.sideEffects?.some((e) => e.type === 'generate_next_rrule_instance')) {
     await spawnNextRecurrence(ctx, updated, now);
   }
@@ -283,7 +300,7 @@ async function spawnNextRecurrence(ctx: MutationCtx, task: TaskDoc, now: number)
 
   const user = (await ctx.db.get(task.userId))!;
   const status = deriveStatusFromDate(usesStart ? nextMs : task.startDate, user.timezone, now);
-  await ctx.db.insert('tasks', {
+  const nextId = await ctx.db.insert('tasks', {
     userId: task.userId,
     systemId: task.systemId,
     title: task.title,
@@ -309,10 +326,16 @@ async function spawnNextRecurrence(ctx: MutationCtx, task: TaskDoc, now: number)
     sortIndex: 0,
     lemas: task.lemas,
     createdBy: task.createdBy,
+    reminderIntensity: task.reminderIntensity,
     createdVia: 'system',
     createdAt: now,
     updatedAt: now,
   });
+  // La siguiente ocurrencia nace con sus avisos. Antes nacía sin ninguno y una
+  // tarea semanal crítica perdía los suyos a partir de la segunda semana.
+  const ocurrencia = (await ctx.db.get(nextId))!;
+  await syncAutoReminders(ctx, ocurrencia, now);
+  await recalcularAviso(ctx, ocurrencia);
 }
 
 // ── Lecturas ────────────────────────────────────────────────────────────────
@@ -504,8 +527,11 @@ async function createOne(
     boardStatus: data.boardStatus,
     boardStatusChangedAt: data.boardStatus ? now : undefined,
     energyLevel: data.energyLevel ?? 'medium',
-    priority: data.priority ?? 'medium',
+    // Nace en alta: casi todo lo que se apunta importa, y bajarla es la
+    // decisión explícita. La urgencia la pone la fecha (`effective-priority`).
+    priority: data.priority ?? 'high',
     taskType: data.taskType,
+    reminderIntensity: data.reminderIntensity ?? undefined,
     dueDate: optMs(data.dueDate),
     startDate,
     estimatedTime: data.estimatedTime?.slice(0, 5),
@@ -529,16 +555,7 @@ async function createOne(
   const task = (await ctx.db.get(id))!;
 
   await syncAutoReminders(ctx, task, now);
-  if (task.taskType === 'reminder' && task.dueDate !== undefined) {
-    await ctx.db.insert('taskReminders', {
-      taskId: id,
-      userId,
-      remindAt: task.dueDate,
-      label: 'Recordatorio',
-      source: 'auto',
-      createdAt: now,
-    });
-  }
+  await recalcularAviso(ctx, task);
   await recordEvent(ctx, {
     userId,
     systemId: task.systemId,
@@ -619,6 +636,7 @@ export async function updateTaskDoc(
     if (data.inTodayPlan !== undefined) patch.inTodayPlan = data.inTodayPlan;
     if (data.recurrenceRule !== undefined) patch.recurrenceRule = data.recurrenceRule ?? undefined;
     if (data.metadata !== undefined) patch.metadata = data.metadata ?? undefined;
+    if (data.reminderIntensity !== undefined) patch.reminderIntensity = data.reminderIntensity ?? undefined;
     if (data.dueDate !== undefined) patch.dueDate = optMs(data.dueDate);
     if (data.startDate !== undefined) patch.startDate = optMs(data.startDate);
     if (data.systemId !== undefined) patch.systemId = data.systemId;
@@ -646,7 +664,10 @@ export async function updateTaskDoc(
 
     await ctx.db.patch(id, patch);
     const task = (await ctx.db.get(id))!;
-    if (dueChanged || data.priority !== undefined) await syncAutoReminders(ctx, task, Date.now());
+    if (dueChanged || data.taskType !== undefined) await syncAutoReminders(ctx, task, Date.now());
+    // Fecha, estado o intensidad: cualquiera mueve el próximo aviso, y
+    // recalcularlo siempre cuesta una lectura de ajustes.
+    await recalcularAviso(ctx, task);
     return task;
   }
 }
@@ -694,7 +715,9 @@ export async function removeTaskDoc(
       .collect()) {
       await ctx.db.patch(hija._id, { recurrenceParentId: undefined, updatedAt: now });
     }
-    await ctx.db.patch(id, { deletedAt: now });
+    // Las subtareas se limpian solas: el cron descarta el aviso de una tarea
+    // borrada la primera vez que la encuentra.
+    await ctx.db.patch(id, { deletedAt: now, nextReminderAt: undefined });
     // Una fila por el borrado que se pidió, no una por cada subtarea ni por
     // cada hija de la serie: ésas son la cascada de éste.
     await recordEvent(ctx, {
@@ -755,6 +778,7 @@ export const restore = kinoZodMutation({
       }
     }
     await ctx.db.patch(id, { deletedAt: undefined });
+    await recalcularAviso(ctx, (await ctx.db.get(id))!);
     await recordEvent(ctx, {
       userId: ctx.user._id,
       systemId: task.systemId,
@@ -767,6 +791,25 @@ export const restore = kinoZodMutation({
     return taskItem((await ctx.db.get(id))!);
   },
 });
+
+/**
+ * Completar desde el botón «Hecha» de una notificación. Es la misma
+ * transición que el check de la app, firmada por la vía `push`: la pulsa la
+ * persona, pero sin sesión de por medio.
+ */
+export async function completarDesdeAviso(ctx: MutationCtx, task: TaskDoc): Promise<void> {
+  if (task.status === 'done') return;
+  const updated = await applyTransition(ctx, task, { userId: task.userId, channel: 'push' }, () => 'toggle_done');
+  await recordEvent(ctx, {
+    userId: task.userId,
+    systemId: task.systemId,
+    actorChannel: 'push',
+    action: 'task.toggle',
+    targetType: 'task',
+    targetId: task._id,
+    payload: diferencias(task, updated),
+  });
+}
 
 /** Completar la madre no completa a las hijas: cada subtarea guarda su estado. */
 export const toggle = kinoZodMutation({
@@ -864,7 +907,6 @@ export const bulkUpdate = kinoZodMutation({
       const task = await ownTask(ctx, ctx.user._id, id);
       previous.push({ id: task._id, priority: task.priority });
       await ctx.db.patch(task._id, { priority, updatedAt: now });
-      await syncAutoReminders(ctx, { ...task, priority }, now);
       await recordEvent(ctx, {
         userId: ctx.user._id,
         systemId: task.systemId,

@@ -75,14 +75,14 @@ export const dailySnapshot = internalAction({
   },
 });
 
-/** Los push de vencimientos, recordatorios y escaladas; el envío vive en `pushSend.ts`. */
+/** Los avisos de tareas, recordatorios y el resumen de la mañana; el envío vive en `pushSend.ts`. */
 export const taskReminders = internalAction({
   args: {},
   handler: async (ctx) => {
     return withCronRun(ctx, 'task-reminders', async () => {
       // El envío corre en Node por `web-push`; cruzar de runtime es el caso en
       // que una acción sí llama a otra.
-      const result: { notified: number } = await ctx.runAction(internal.pushSend.sendTaskReminders, {});
+      const result: { notified: number; push: boolean; correo: boolean } = await ctx.runAction(internal.pushSend.sendTaskReminders, {});
       return result;
     });
   },

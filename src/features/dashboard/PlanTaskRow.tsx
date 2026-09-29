@@ -75,7 +75,7 @@ export function PlanTaskRow({ task, onComplete, onMoveToTomorrow, onRemove, onSt
         <p
           className={cn(
             'line-clamp-2 text-[0.95rem] leading-snug',
-            task.priority === 'critical' && 'font-semibold',
+            task.effectivePriority === 'critical' && 'font-semibold',
             isDone && 'text-muted-foreground line-through',
           )}
         >
