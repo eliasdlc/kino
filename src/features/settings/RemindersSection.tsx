@@ -1,7 +1,6 @@
 'use client';
 
 import type { ReactNode } from 'react';
-import { AlarmClock, Mail, Moon, Send, Sunrise, type LucideIcon } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -73,16 +72,17 @@ function RelojInput({
   );
 }
 
-/** Una fila de ajuste: icono, título y explicación a la izquierda; el control a la derecha. */
-function Fila({ icon: Icon, titulo, detalle, children }: { icon: LucideIcon; titulo: string; detalle: string; children: ReactNode }) {
+/**
+ * Una fila de ajuste: título y explicación a la izquierda, el control a la
+ * derecha. Sin icono a propósito: cada icono de lucide nuevo pesa en el
+ * presupuesto de JavaScript, y aquí el título ya dice lo que es.
+ */
+function Fila({ titulo, detalle, children }: { titulo: string; detalle: string; children: ReactNode }) {
   return (
     <div className="flex flex-wrap items-center justify-between gap-4 rounded-lg border p-4">
-      <div className="flex min-w-0 flex-1 items-center gap-3">
-        <Icon className="size-4 shrink-0 text-muted-foreground" />
-        <div className="min-w-0 space-y-0.5">
-          <Label className="text-sm font-medium">{titulo}</Label>
-          <p className="text-xs text-muted-foreground">{detalle}</p>
-        </div>
+      <div className="min-w-0 flex-1 space-y-0.5">
+        <Label className="text-sm font-medium">{titulo}</Label>
+        <p className="text-xs text-muted-foreground">{detalle}</p>
       </div>
       <div className="flex shrink-0 items-center gap-2">{children}</div>
     </div>
@@ -144,7 +144,6 @@ export function RemindersSection() {
           </div>
 
           <Fila
-            icon={Sunrise}
             titulo="Resumen de la mañana"
             detalle={`Una tarea crítica aparece desde ${DIAS_EN_RESUMEN.critical} días antes; una alta, desde ${DIAS_EN_RESUMEN.high}; una media, desde ${DIAS_EN_RESUMEN.medium}; una baja, la víspera.`}
           >
@@ -158,7 +157,6 @@ export function RemindersSection() {
           </Fila>
 
           <Fila
-            icon={Moon}
             titulo="Horas de silencio"
             detalle="Nada suena en esta franja. Lo que vence de noche o temprano recibe una última llamada una hora antes."
           >
@@ -180,7 +178,6 @@ export function RemindersSection() {
           </Fila>
 
           <Fila
-            icon={Mail}
             titulo="También por correo"
             detalle={
               estado && !estado.correoConfigurado
@@ -195,9 +192,8 @@ export function RemindersSection() {
             />
           </Fila>
 
-          <Fila icon={AlarmClock} titulo="Comprobar que llegan" detalle={textoEstado(estado)}>
+          <Fila titulo="Comprobar que llegan" detalle={textoEstado(estado)}>
             <Button variant="outline" size="sm" disabled={probando || apagados} onClick={() => probar({})}>
-              <Send className="size-3.5" />
               {probando ? 'Enviando…' : 'Enviar una prueba'}
             </Button>
           </Fila>

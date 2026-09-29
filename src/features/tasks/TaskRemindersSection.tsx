@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import { format, parseISO, subDays, subHours } from 'date-fns';
 import { es } from 'date-fns/locale';
-import { Bell, BellRing, Bot, Plus, Trash2, X } from 'lucide-react';
+import { Bell, Bot, Plus, Trash2, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Label } from '@/components/ui/label';
@@ -205,10 +205,8 @@ export function TaskRemindersSection({ task }: Props) {
           <li key={r.id} className="flex items-center gap-2 text-sm">
             {r.source === 'auto' ? (
               <Bot size={13} className="text-muted-foreground shrink-0" />
-            ) : r.sentAt ? (
-              <Bell size={13} className="text-muted-foreground shrink-0" />
             ) : (
-              <BellRing size={13} className="text-muted-foreground shrink-0" />
+              <Bell size={13} className="text-muted-foreground shrink-0" />
             )}
             <span className="flex-1 min-w-0 truncate">
               {r.label ?? 'Recordatorio'}

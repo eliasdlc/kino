@@ -1,4 +1,3 @@
-import { ArrowUp } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { getTaskTypeConfig } from "../../task-type-config";
 import type { TaskTransport } from "../../tasks.types";
@@ -39,7 +38,7 @@ export function PriorityTag({ priority, chosen }: { priority: string | null; cho
       title={raised ? `Subió por la fecha. La elegiste ${elegida}.` : undefined}
     >
       {raised ? (
-        <ArrowUp className="size-3" aria-hidden />
+        <span aria-hidden>↑</span>
       ) : (
         <span className="w-[5px] h-[5px] rounded-full" style={{ backgroundColor: "currentColor" }} />
       )}

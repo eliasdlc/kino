@@ -319,7 +319,7 @@ export function KinoSection() {
             <Seeded
               stubs={[
                 seedQuery(api.settings.get, AJUSTES_AVISOS),
-                seedQuery(api.notifications.estado, { dispositivos: 2, pushConfigurado: true, correoConfigurado: true, email: ACCOUNT.email }),
+                seedQuery(api.notifications.estado, { dispositivos: 2, pushConfigurado: true, correoConfigurado: true, email: "prueba@usekino.dev" }),
               ]}
             >
               <div className="w-full">
@@ -331,7 +331,7 @@ export function KinoSection() {
             <Seeded
               stubs={[
                 seedQuery(api.settings.get, { ...AJUSTES_AVISOS, reminderIntensity: "low" }),
-                seedQuery(api.notifications.estado, { dispositivos: 0, pushConfigurado: true, correoConfigurado: false, email: ACCOUNT.email }),
+                seedQuery(api.notifications.estado, { dispositivos: 0, pushConfigurado: true, correoConfigurado: false, email: "prueba@usekino.dev" }),
               ]}
             >
               <div className="w-full">
