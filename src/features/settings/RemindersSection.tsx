@@ -58,7 +58,7 @@ function RelojInput({
     <Input
       type="time"
       aria-label={label}
-      className="h-9 w-[144px] px-3 text-sm"
+      className="h-9 w-[144px] px-3 text-sm dark:[color-scheme:dark]"
       defaultValue={value}
       key={value}
       disabled={disabled}
@@ -101,6 +101,8 @@ export function RemindersSection() {
   const { mutate: probar, isPending: probando } = useProbarAvisos();
   const apagados = data ? !data.notificationsEnabled : false;
   const bloqueado = isPending || apagados;
+  // Sin correo en el servidor, el interruptor no promete lo que no va a llegar.
+  const sinCorreo = estado !== undefined && !estado.correoConfigurado;
 
   return (
     <div className="space-y-4">
@@ -175,14 +177,14 @@ export function RemindersSection() {
           <Fila
             titulo="También por correo"
             detalle={
-              estado && !estado.correoConfigurado
+              sinCorreo
                 ? 'El correo todavía no está configurado en el servidor: por ahora sólo llegan los push.'
                 : `El resumen de cada mañana, y cualquier aviso que no llegue por push, a ${estado?.email ?? 'tu correo'}.`
             }
           >
             <Switch
-              checked={data.emailReminders}
-              disabled={bloqueado}
+              checked={data.emailReminders && !sinCorreo}
+              disabled={bloqueado || sinCorreo}
               onCheckedChange={(checked) => mutate({ emailReminders: checked })}
             />
           </Fila>

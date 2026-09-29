@@ -134,7 +134,7 @@ export function TaskRemindersSection({ task }: Props) {
               <p className="text-xs text-muted-foreground font-medium">Fecha y hora exacta</p>
               <Input
                 type="datetime-local"
-                className="h-8 text-xs"
+                className="h-8 text-xs dark:[color-scheme:dark]"
                 value={customDatetime}
                 onChange={(e) => setCustomDatetime(e.target.value)}
               />

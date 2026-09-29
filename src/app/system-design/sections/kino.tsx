@@ -339,7 +339,7 @@ export function KinoSection() {
               </div>
             </Seeded>
           </Specimen>
-          <Specimen label="Prioridad que cuenta" hint="elegida baja, la fecha la sube a crítica; alta sin cambios">
+          <Specimen label="Prioridad que cuenta" hint="elegida baja, la fecha la sube a crítica; elegida media, a alta; alta sin cambios">
             <div className="flex flex-wrap items-center gap-2">
               <PriorityTag priority="critical" chosen="low" />
               <PriorityTag priority="high" chosen="medium" />
