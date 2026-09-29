@@ -3,6 +3,7 @@ import { z } from 'zod';
 import type { Doc, Id } from './_generated/dataModel';
 import { internalMutation, internalQuery } from './_generated/server';
 import { lematizar } from './lib/lemas';
+import { recalcularAviso } from './lib/avisos';
 
 // La entrada de lo que publica el aula virtual. Un barrido programado en el
 // laptop lee la PVA con el token de Moodle, decide qué es nuevo y sube aquí los
@@ -216,11 +217,13 @@ export const sincronizar = internalMutation({
           lemas: lematizar(patch.title ?? existente.title, patch.description ?? existente.description),
           updatedAt: ahora,
         });
+        // El aula movió la fecha: los avisos se mueven con ella.
+        if (patch.dueDate !== undefined) await recalcularAviso(ctx, (await ctx.db.get(existente._id))!);
         actualizadas += 1;
         continue;
       }
 
-      await ctx.db.insert('tasks', {
+      const nueva = await ctx.db.insert('tasks', {
         userId,
         systemId,
         folderId,
@@ -230,7 +233,8 @@ export const sincronizar = internalMutation({
         // Quien decide en qué semana entra es el ritual semanal, que es suyo.
         status: 'backlog',
         energyLevel: 'medium',
-        priority: 'medium',
+        // Lo que publica el aula tiene nota detrás: alta, como toda tarea nueva.
+        priority: 'high',
         taskType: 'task',
         dueDate: item.dueDate,
         externalSource: PVA_SOURCE,
@@ -249,6 +253,7 @@ export const sincronizar = internalMutation({
         createdAt: ahora,
         updatedAt: ahora,
       });
+      await recalcularAviso(ctx, (await ctx.db.get(nueva))!);
       creadas += 1;
     }
 

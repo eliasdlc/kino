@@ -41,8 +41,8 @@ export function useTaskCard(
   const anotherRunning = timerState.phase !== "idle" && !isThisRunning;
 
   const isDone = task.status === "done";
-  const isCritical = task.priority === "critical" && !isDone;
-  const isHigh = task.priority === "high" && !isDone;
+  const isCritical = task.effectivePriority === "critical" && !isDone;
+  const isHigh = task.effectivePriority === "high" && !isDone;
   const isOverdue =
     !!task.dueDate &&
     !isDone &&

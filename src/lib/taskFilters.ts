@@ -83,7 +83,7 @@ export function applyFilters(tasks: TaskTransport[], f: TaskFilters): TaskTransp
   return tasks.filter((t) => {
     if (f.status.length && !f.status.includes(t.status)) return false;
     if (f.system.length && !f.system.includes(t.systemId)) return false;
-    if (f.priority.length && !f.priority.includes(t.priority ?? '')) return false;
+    if (f.priority.length && !f.priority.includes(t.effectivePriority ?? '')) return false;
     if (f.energy.length && !f.energy.includes(t.energyLevel ?? '')) return false;
     if (f.type.length && !f.type.includes(t.taskType ?? '')) return false;
     if (f.tag.length && !f.tag.includes(t.contextTagId ?? '')) return false;
@@ -111,7 +111,7 @@ const ENERGY_ORDER: Record<string, number> = { high: 0, medium: 1, low: 2 };
 
 export const SORTERS: Record<TaskFilters['sort'], (a: TaskTransport, b: TaskTransport) => number> = {
   priority: (a, b) =>
-    (PRIORITY_ORDER[a.priority ?? 'medium'] ?? 2) - (PRIORITY_ORDER[b.priority ?? 'medium'] ?? 2),
+    (PRIORITY_ORDER[a.effectivePriority ?? 'medium'] ?? 2) - (PRIORITY_ORDER[b.effectivePriority ?? 'medium'] ?? 2),
   dueDate: (a, b) => {
     if (!a.dueDate && !b.dueDate) return 0;
     if (!a.dueDate) return 1;
@@ -140,7 +140,7 @@ export type GroupKey = Exclude<TaskFilters['group'], ''>;
 export const GROUPERS: Record<GroupKey, (t: TaskTransport) => string> = {
   system: (t) => t.systemId,
   status: (t) => STATUS_LABEL[t.status] ?? t.status,
-  priority: (t) => PRIORITY_LABEL[t.priority ?? 'medium'] ?? 'Media',
+  priority: (t) => PRIORITY_LABEL[t.effectivePriority ?? 'medium'] ?? 'Media',
   energy: (t) => ENERGY_LABEL[t.energyLevel ?? 'medium'] ?? 'Media',
 };
 

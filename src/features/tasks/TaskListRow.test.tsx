@@ -15,6 +15,7 @@ const tarea = {
   title: "Terminar la demostración del teorema de Green",
   status: "backlog",
   priority: "critical",
+  effectivePriority: "critical",
   energyLevel: "high",
   dueDate: "2020-01-01T12:00:00.000Z",
   systemId: "s1",

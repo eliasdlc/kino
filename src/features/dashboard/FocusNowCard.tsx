@@ -32,7 +32,7 @@ export function FocusNowCard({ energyItems, projectedCurve, currentHour }: Focus
   const ordered = energyItems?.length
     ? [...pending].sort((a, b) => (orderMap.get(a.id) ?? 999) - (orderMap.get(b.id) ?? 999))
     : [...pending].sort(
-        (a, b) => (PRIORITY_ORDER[a.priority] ?? 2) - (PRIORITY_ORDER[b.priority] ?? 2),
+        (a, b) => (PRIORITY_ORDER[a.effectivePriority] ?? 2) - (PRIORITY_ORDER[b.effectivePriority] ?? 2),
       );
   const topTask = ordered[0] ?? null;
 

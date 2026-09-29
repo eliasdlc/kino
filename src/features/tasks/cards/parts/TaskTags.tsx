@@ -1,3 +1,4 @@
+import { ArrowUp } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { getTaskTypeConfig } from "../../task-type-config";
 import type { TaskTransport } from "../../tasks.types";
@@ -23,12 +24,27 @@ const ENERGY_LABEL: Record<string, string> = {
   flexible: "Flexible",
 };
 
-export function PriorityTag({ priority }: { priority: string | null }) {
+/**
+ * La prioridad que cuenta. Cuando la fecha la subió por encima de la elegida,
+ * lo dice con una flecha y un título: «Crítica» sola haría creer que se eligió
+ * así, y la elección sigue siendo la otra.
+ */
+export function PriorityTag({ priority, chosen }: { priority: string | null; chosen?: string | null }) {
   const tag = PRIORITY_TAG[priority ?? "medium"] ?? PRIORITY_TAG.medium;
+  const raised = chosen != null && chosen !== priority;
+  const elegida = raised ? (PRIORITY_TAG[chosen] ?? PRIORITY_TAG.medium).label.toLowerCase() : null;
   return (
-    <span className={cn("inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-medium", tag.className)}>
-      <span className="w-[5px] h-[5px] rounded-full" style={{ backgroundColor: "currentColor" }} />
+    <span
+      className={cn("inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-medium", tag.className)}
+      title={raised ? `Subió por la fecha. La elegiste ${elegida}.` : undefined}
+    >
+      {raised ? (
+        <ArrowUp className="size-3" aria-hidden />
+      ) : (
+        <span className="w-[5px] h-[5px] rounded-full" style={{ backgroundColor: "currentColor" }} />
+      )}
       {tag.label}
+      {raised && <span className="sr-only">, subió por la fecha; la elegiste {elegida}</span>}
     </span>
   );
 }
@@ -57,7 +73,7 @@ export function TaskTags({ task }: { task: TaskTransport }) {
   const config = getTaskTypeConfig(task.taskType, task.metadata);
   return (
     <div className="flex items-center gap-2 flex-wrap">
-      <PriorityTag priority={task.priority} />
+      <PriorityTag priority={task.effectivePriority} chosen={task.priority} />
       <TaskTypeTag taskType={task.taskType} metadata={task.metadata} />
       {!config.hideEnergyAndPriority && <EnergyTag energyLevel={task.energyLevel} />}
     </div>

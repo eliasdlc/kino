@@ -254,6 +254,12 @@ function TaskDetailForm({ task, systemId, onClose }: TaskDetailFormProps) {
               ))}
             </SelectContent>
           </Select>
+          {/* Lo que se elige es la importancia; la urgencia la pone la fecha. */}
+          {task.priorityRaised && priority === task.priority && (
+            <p className="text-xs text-muted-foreground">
+              Por la fecha, ahora cuenta como {PRIORITY_LABELS[task.effectivePriority]?.toLowerCase()}.
+            </p>
+          )}
         </div>
 
         <div className="space-y-1.5">

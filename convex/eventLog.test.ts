@@ -132,7 +132,7 @@ describe('una escritura, una fila', () => {
     const { as, userId, systemId } = await base(t);
 
     const tarea = await as.mutation(api.tasks.create, { systemId, title: 'Leer el capítulo' });
-    await as.mutation(api.tasks.update, { id: tarea.id, title: 'Leer el capítulo dos', priority: 'high' });
+    await as.mutation(api.tasks.update, { id: tarea.id, title: 'Leer el capítulo dos', priority: 'low' });
     await as.mutation(api.tasks.remove, { id: tarea.id });
 
     const filas = await t.run((ctx) =>
@@ -143,7 +143,7 @@ describe('una escritura, una fila', () => {
 
     // El payload de una edición son los valores de **antes** de los campos que
     // cambiaron, que es lo único que el deshacer campo a campo necesita.
-    expect(filas[1]!.payload).toEqual({ title: 'Leer el capítulo', priority: 'medium' });
+    expect(filas[1]!.payload).toEqual({ title: 'Leer el capítulo', priority: 'high' });
   });
 
   it('un lote deja una fila por tarea: el log se lee desde el item', async () => {

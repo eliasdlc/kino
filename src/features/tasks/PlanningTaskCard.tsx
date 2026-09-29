@@ -43,8 +43,8 @@ function CheckIcon() {
  */
 export function PlanningTaskCard({ task, isFocused, onToggle, onDelete, onEdit }: PlanningTaskCardProps) {
   const isDone = task.status === "done";
-  const isCritical = task.priority === "critical" && !isDone;
-  const isHigh = task.priority === "high" && !isDone;
+  const isCritical = task.effectivePriority === "critical" && !isDone;
+  const isHigh = task.effectivePriority === "high" && !isDone;
   const isEvent = task.taskType === "event";
   const typeConfig = getTaskTypeConfig(task.taskType, task.metadata);
   const TypeIcon = typeConfig.icon;

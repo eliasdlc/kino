@@ -36,7 +36,7 @@ function DayBlock({ task, time }: { task: TaskTransport; time?: string | null })
       className={cn(
         "truncate rounded-md border px-2 py-1 text-xs",
         overdue ? "border-task-overdue/30 bg-task-overdue/10" : "border-border bg-card",
-        task.priority === "critical" && "font-semibold",
+        task.effectivePriority === "critical" && "font-semibold",
       )}
     >
       {overdue && <span className="font-semibold text-task-overdue">vencida · </span>}
@@ -93,7 +93,7 @@ export function GlobalCalendarMobileView({
             ) : (
               unscheduledTasks.map((task) => (
                 <div key={task.id} className="flex items-center gap-2 rounded-md border border-border bg-card px-2 py-1">
-                  <span className={cn("min-w-0 flex-1 truncate text-xs", task.priority === "critical" && "font-semibold")}>{task.title}</span>
+                  <span className={cn("min-w-0 flex-1 truncate text-xs", task.effectivePriority === "critical" && "font-semibold")}>{task.title}</span>
                   <Button
                     size="icon-xs"
                     variant="ghost"
