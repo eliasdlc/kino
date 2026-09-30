@@ -26,7 +26,7 @@ import {
 import { LayoutGrid, Inbox, Calendar, BookOpen, Rocket } from "lucide-react";
 import { GithubRepoPanelView } from "@/features/github-sync/GithubRepoPanelView";
 import { DangerZoneSection } from "@/features/account/DangerZoneSection";
-import { PushDeviceControl } from '@/features/notifications/PushDeviceControl';
+import { PushDeviceStatus } from '@/features/notifications/PushDeviceStatus';
 import { RemindersSection } from "@/features/settings/RemindersSection";
 import { PriorityTag } from "@/features/tasks/cards/parts/TaskTags";
 /** Lo que la zona de peligro lee del usuario: nombre y correo. El resto del documento no lo pinta. */
@@ -317,7 +317,10 @@ export function KinoSection() {
       >
         <div className="grid max-w-5xl grid-cols-1 gap-4 lg:grid-cols-2">
           <Specimen label="Registro del dispositivo fallido" hint="muestra el error y permite reintentar">
-            <PushDeviceControl status="error" error="No se pudo registrar este dispositivo. Recarga la página o vuelve a activar las notificaciones." subscribe={async () => {}} unsubscribe={async () => {}} />
+            <div className="space-y-0.5 rounded-lg border p-4">
+              <p className="text-sm font-medium">Notificaciones push en este dispositivo</p>
+              <PushDeviceStatus status="error" error="No se pudo registrar este dispositivo. Recarga la página o vuelve a activar las notificaciones." />
+            </div>
           </Specimen>
           <Specimen label="Todo configurado" hint="agresivos, push en dos dispositivos y correo">
             <Seeded

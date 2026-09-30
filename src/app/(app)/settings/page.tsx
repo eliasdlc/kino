@@ -11,9 +11,9 @@ import {
 } from "@/components/ui/select";
 import { useThemeStore } from "@/components/ThemeProvider";
 import { Separator } from "@/components/ui/separator";
-import { Monitor, Moon, Sun } from "lucide-react";
+import { Bell, BellOff, Monitor, Moon, Sun } from "lucide-react";
 import { Switch } from "@/components/ui/switch";
-import { PushDeviceControl } from '@/features/notifications/PushDeviceControl';
+import { PushDeviceStatus } from '@/features/notifications/PushDeviceStatus';
 import { usePushNotifications } from "@/features/notifications/notifications.hooks";
 import { EnergyLimitSection } from "@/features/settings/EnergyLimitSection";
 import { EnergyProfileSection } from "@/features/settings/EnergyProfileSection";
@@ -207,7 +207,28 @@ export default function SettingsPage() {
             />
           </div>
 
-          <PushDeviceControl status={status} error={pushError} subscribe={subscribe} unsubscribe={unsubscribe} />
+          <div className="flex items-center justify-between gap-4 rounded-lg border p-4">
+            <div className="flex items-center gap-3">
+              {status === 'subscribed'
+                ? <Bell className="size-4 text-emerald-500" />
+                : <BellOff className="size-4 text-muted-foreground" />}
+              <div className="space-y-0.5">
+                <Label className="text-sm font-medium">Notificaciones push en este dispositivo</Label>
+                <PushDeviceStatus status={status} error={pushError} />
+              </div>
+            </div>
+            <Switch
+              checked={status === 'subscribed'}
+              disabled={status === 'loading' || status === 'denied' || status === 'unsupported'}
+              onCheckedChange={(checked) => (checked ? subscribe() : unsubscribe())}
+            />
+          </div>
+
+          {status === 'denied' && (
+            <p className="text-xs text-amber-600 dark:text-amber-400 px-1">
+              Bloqueaste las notificaciones. Ve a los permisos del sitio en tu navegador para reactivarlas.
+            </p>
+          )}
         </div>
 
         {/* Cuánto y cuándo insisten */}
