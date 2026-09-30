@@ -412,6 +412,6 @@ export const probar = kinoAction(undefined, 'closed')({
   args: {},
   handler: async (
     ctx,
-  ): Promise<{ dispositivos: number; push: boolean; pushConfigurado: boolean; correo: boolean; correoConfigurado: boolean }> =>
+  ): Promise<{ dispositivos: number; aceptados: number; fallidos: number; caducados: number; push: boolean; pushConfigurado: boolean; correo: boolean; correoConfigurado: boolean }> =>
     ctx.runAction(internal.pushSend.enviarPrueba, { userId: ctx.user._id }),
 });
