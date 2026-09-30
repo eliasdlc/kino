@@ -13,6 +13,7 @@ import { useThemeStore } from "@/components/ThemeProvider";
 import { Separator } from "@/components/ui/separator";
 import { Bell, BellOff, Monitor, Moon, Sun } from "lucide-react";
 import { Switch } from "@/components/ui/switch";
+import { PushDeviceStatus } from '@/features/notifications/PushDeviceStatus';
 import { usePushNotifications } from "@/features/notifications/notifications.hooks";
 import { EnergyLimitSection } from "@/features/settings/EnergyLimitSection";
 import { EnergyProfileSection } from "@/features/settings/EnergyProfileSection";
@@ -55,7 +56,7 @@ function ShortcutRow({ label, description, keys }: { label: string; description:
 export default function SettingsPage() {
   const mode = useThemeStore((s) => s.mode);
   const setMode = useThemeStore((s) => s.setMode);
-  const { status, subscribe, unsubscribe } = usePushNotifications();
+  const { status, error: pushError, subscribe, unsubscribe } = usePushNotifications();
   const { data: settings } = useUserSettings();
   const { mutate: updateSettings } = useUpdateUserSettings();
 
@@ -213,12 +214,7 @@ export default function SettingsPage() {
                 : <BellOff className="size-4 text-muted-foreground" />}
               <div className="space-y-0.5">
                 <Label className="text-sm font-medium">Notificaciones push en este dispositivo</Label>
-                <p className="text-xs text-muted-foreground">
-                  {status === 'subscribed'   && 'Activas: recibirás alertas en este dispositivo'}
-                  {status === 'denied'       && 'Bloqueadas: actívalas en los permisos del navegador'}
-                  {status === 'unsupported'  && 'No soportado en este navegador'}
-                  {(status === 'idle' || status === 'loading') && 'Inactivas'}
-                </p>
+                <PushDeviceStatus status={status} error={pushError} />
               </div>
             </div>
             <Switch

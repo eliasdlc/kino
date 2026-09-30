@@ -83,18 +83,18 @@ export const sendTaskReminders = internalAction({
 });
 
 /**
- * Un push a todos los dispositivos de la persona. `entregado` si alguno lo
- * recibió; `intentos` es cuántos tenía, para distinguir «falló» de «no hay a
- * dónde mandarlo».
+ * Cuenta cada respuesta del servicio push. Una respuesta exitosa acepta el
+ * mensaje para envío; no confirma que el sistema operativo lo haya mostrado.
  */
 async function sendToUser(
   ctx: Pick<ActionCtx, 'runQuery' | 'runMutation'>,
   userId: Id<'users'>,
   payload: Payload,
-): Promise<{ intentos: number; entregado: boolean }> {
+): Promise<{ intentos: number; entregado: boolean; aceptados: number; fallidos: number; caducados: number }> {
   const subscriptions: Array<{ endpoint: string; authKey: string; p256dhKey: string }> = await ctx.runQuery(internal.notifications.subscriptionsOf, { userId });
   const serialized = JSON.stringify(payload);
-  let entregado = false;
+  let aceptados = 0;
+  let caducados = 0;
   for (const sub of subscriptions) {
     try {
       // `urgency: high` para que Android no lo retrase en reposo, y un día de
@@ -102,21 +102,23 @@ async function sendToUser(
       await webpush.sendNotification({ endpoint: sub.endpoint, keys: { auth: sub.authKey, p256dh: sub.p256dhKey } }, serialized, {
         urgency: 'high',
         TTL: 86_400,
+        timeout: 10_000,
       });
-      entregado = true;
+      aceptados += 1;
     } catch (error) {
       // 404 y 410: la suscripción murió en el navegador o en el servicio de
       // push; se retira para no insistir. Antes sólo se miraba el 410 y una
       // suscripción caducada con 404 se quedaba para siempre sin avisar a nadie.
       const status = error instanceof Error && 'statusCode' in error ? (error as { statusCode: number }).statusCode : null;
       if (status === 404 || status === 410) {
+        caducados += 1;
         await ctx.runMutation(internal.notifications.dropSubscription, { endpoint: sub.endpoint });
       } else {
         console.warn(`[avisos] Push rechazado (${status ?? 'sin código'})`);
       }
     }
   }
-  return { intentos: subscriptions.length, entregado };
+  return { intentos: subscriptions.length, entregado: aceptados > 0, aceptados, fallidos: subscriptions.length - aceptados, caducados };
 }
 
 /**
@@ -128,6 +130,9 @@ export const enviarPrueba = internalAction({
   args: { userId: v.id('users') },
   returns: v.object({
     dispositivos: v.number(),
+    aceptados: v.number(),
+    fallidos: v.number(),
+    caducados: v.number(),
     push: v.boolean(),
     pushConfigurado: v.boolean(),
     correo: v.boolean(),
@@ -136,12 +141,12 @@ export const enviarPrueba = internalAction({
   handler: async (
     ctx,
     { userId },
-  ): Promise<{ dispositivos: number; push: boolean; pushConfigurado: boolean; correo: boolean; correoConfigurado: boolean }> => {
+  ): Promise<{ dispositivos: number; aceptados: number; fallidos: number; caducados: number; push: boolean; pushConfigurado: boolean; correo: boolean; correoConfigurado: boolean }> => {
     const pushConfigurado = vapidConfigured();
     const destino: { email: string } | null = await ctx.runQuery(internal.notifications.destinoDePrueba, { userId });
-    const push: { intentos: number; entregado: boolean } = pushConfigurado
+    const push = pushConfigurado
       ? await sendToUser(ctx, userId, { title: 'Así se ven tus avisos', body: 'Si lees esto en este dispositivo, los recordatorios te llegan.', url: '/settings', tag: 'prueba' })
-      : { intentos: 0, entregado: false };
+      : { intentos: 0, entregado: false, aceptados: 0, fallidos: 0, caducados: 0 };
     const correo: boolean =
       correoConfigurado() && destino
         ? await enviarCorreo(destino.email, {
@@ -150,6 +155,6 @@ export const enviarPrueba = internalAction({
             html: '<p style="font-family:system-ui,sans-serif">Si lees esto, los recordatorios por correo te llegan.</p>',
           })
         : false;
-    return { dispositivos: push.intentos, push: push.entregado, pushConfigurado, correo, correoConfigurado: correoConfigurado() };
+    return { dispositivos: push.intentos, aceptados: push.aceptados, fallidos: push.fallidos, caducados: push.caducados, push: push.entregado, pushConfigurado, correo, correoConfigurado: correoConfigurado() };
   },
 });
