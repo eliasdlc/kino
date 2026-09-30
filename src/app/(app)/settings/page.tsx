@@ -11,8 +11,9 @@ import {
 } from "@/components/ui/select";
 import { useThemeStore } from "@/components/ThemeProvider";
 import { Separator } from "@/components/ui/separator";
-import { Bell, BellOff, Monitor, Moon, Sun } from "lucide-react";
+import { Monitor, Moon, Sun } from "lucide-react";
 import { Switch } from "@/components/ui/switch";
+import { PushDeviceControl } from '@/features/notifications/PushDeviceControl';
 import { usePushNotifications } from "@/features/notifications/notifications.hooks";
 import { EnergyLimitSection } from "@/features/settings/EnergyLimitSection";
 import { EnergyProfileSection } from "@/features/settings/EnergyProfileSection";
@@ -55,7 +56,7 @@ function ShortcutRow({ label, description, keys }: { label: string; description:
 export default function SettingsPage() {
   const mode = useThemeStore((s) => s.mode);
   const setMode = useThemeStore((s) => s.setMode);
-  const { status, subscribe, unsubscribe } = usePushNotifications();
+  const { status, error: pushError, subscribe, unsubscribe } = usePushNotifications();
   const { data: settings } = useUserSettings();
   const { mutate: updateSettings } = useUpdateUserSettings();
 
@@ -206,33 +207,7 @@ export default function SettingsPage() {
             />
           </div>
 
-          <div className="flex items-center justify-between gap-4 rounded-lg border p-4">
-            <div className="flex items-center gap-3">
-              {status === 'subscribed'
-                ? <Bell className="size-4 text-emerald-500" />
-                : <BellOff className="size-4 text-muted-foreground" />}
-              <div className="space-y-0.5">
-                <Label className="text-sm font-medium">Notificaciones push en este dispositivo</Label>
-                <p className="text-xs text-muted-foreground">
-                  {status === 'subscribed'   && 'Activas: recibirás alertas en este dispositivo'}
-                  {status === 'denied'       && 'Bloqueadas: actívalas en los permisos del navegador'}
-                  {status === 'unsupported'  && 'No soportado en este navegador'}
-                  {(status === 'idle' || status === 'loading') && 'Inactivas'}
-                </p>
-              </div>
-            </div>
-            <Switch
-              checked={status === 'subscribed'}
-              disabled={status === 'loading' || status === 'denied' || status === 'unsupported'}
-              onCheckedChange={(checked) => (checked ? subscribe() : unsubscribe())}
-            />
-          </div>
-
-          {status === 'denied' && (
-            <p className="text-xs text-amber-600 dark:text-amber-400 px-1">
-              Bloqueaste las notificaciones. Ve a los permisos del sitio en tu navegador para reactivarlas.
-            </p>
-          )}
+          <PushDeviceControl status={status} error={pushError} subscribe={subscribe} unsubscribe={unsubscribe} />
         </div>
 
         {/* Cuánto y cuándo insisten */}

@@ -48,7 +48,6 @@ self.addEventListener('push', (event) => {
 });
 
 self.addEventListener('notificationclick', (event) => {
-  event.notification.close();
   const { url = '/dashboard', accion = null } = event.notification.data ?? {};
 
   // «Hecha» y «En 1 h» se resuelven sin abrir la app: el enlace firmado ya
@@ -56,15 +55,43 @@ self.addEventListener('notificationclick', (event) => {
   // para que el navegador no pida permiso de CORS antes.
   if ((event.action === 'hecha' || event.action === 'posponer') && accion) {
     event.waitUntil(
-      fetch(accion.endpoint, {
-        method: 'POST',
-        headers: { 'Content-Type': 'text/plain' },
-        body: JSON.stringify({ token: accion.token, accion: event.action }),
-      }).catch(() => self.clients.openWindow(url))
+      (async () => {
+        const controller = new AbortController();
+        const timeout = setTimeout(() => controller.abort(), 10_000);
+        try {
+          const response = await fetch(accion.endpoint, {
+            method: 'POST',
+            headers: { 'Content-Type': 'text/plain' },
+            body: JSON.stringify({ token: accion.token, accion: event.action }),
+            signal: controller.signal,
+          });
+          if (!response.ok) throw new Error(`Push action HTTP ${response.status}`);
+          event.notification.close();
+        } catch {
+          // Un enlace caducado o un servidor caído no completa la tarea.
+          // Sustituye el aviso por el error y deja la tarea al alcance.
+          try {
+            await self.registration.showNotification(
+              event.action === 'hecha' ? 'No se pudo completar la tarea' : 'No se pudo posponer el aviso',
+              {
+                body: 'Abre la tarea para intentarlo de nuevo.',
+                icon: '/icons/icon-192x192.png',
+                data: { url },
+                tag: event.notification.tag,
+              }
+            );
+          } finally {
+            await self.clients.openWindow(url);
+          }
+        } finally {
+          clearTimeout(timeout);
+        }
+      })()
     );
     return;
   }
 
+  event.notification.close();
   event.waitUntil(
     self.clients
       .matchAll({ type: 'window', includeUncontrolled: true })
