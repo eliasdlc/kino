@@ -8,9 +8,11 @@
  * el contenido siguen siendo los de antes, desempate incluido: con `sortIndex`
  * a cero en todo lo que no se ha reordenado a mano, el orden visible lo decidía
  * el índice por el que se leía. Que el tope de salida sigue siendo el mismo. Y
- * que `restantes` avisa del recorte aunque los filtros que se resuelven sobre lo
- * leído dejen la lista vacía, que es la forma de mentir que tiene una lista
- * acotada.
+ * que `restantes` dice dónde paró la lectura y no cuánto falta, que es lo único
+ * que una lista acotada puede saber sin leer el resto: se enciende con la lista
+ * vacía y más detrás, y también con la lista completa cuando lo que sobraba tras
+ * el tope no pasaba el filtro. Los dos casos están fijados aquí para que nadie
+ * "arregle" uno convirtiendo el otro en mentira.
  *
  * `tasks.bySystem` entra aquí por lo que lee, no por un tope: se queda sin él a
  * propósito, y el motivo vive en su comentario.
@@ -152,6 +154,38 @@ describe('tasks.list', { timeout: 30_000 }, () => {
     const vacia = await t.run((ctx) => listadoDeTareas(ctx, userId, { status: 'week' }));
     expect(vacia.items).toEqual([]);
     expect(vacia.restantes).toBe(1);
+  });
+
+  /**
+   * El espejo del caso de arriba, y el precio de mirar el recorte antes de
+   * filtrar: la lista sale completa y `restantes` vale uno. Es correcto bajo la
+   * semántica nueva, porque el número dice que la lectura paró en el tope, no
+   * que falte una tarea. Saber cuál de los dos casos es exigiría leer el resto,
+   * que es lo que la restricción 9 de AGENTS.md cierra.
+   */
+  it('con la lista completa el aviso sigue encendido, porque habla de la lectura', async () => {
+    const t = convexTest(schema, modules);
+    const as = t.withIdentity(ana);
+    const userId = await as.mutation(api.users.ensure, {});
+    const sistema = await as.mutation(api.systems.create, { name: 'Alfa', color: 'blue', templateType: 'project', icon: 'folder' });
+    const systemId = sistema.id as Id<'systems'>;
+    await t.run(async (ctx) => {
+      const comun = { userId, systemId, createdBy: userId, createdVia: 'session' as const, priority: 'medium' as const,
+        energyLevel: 'medium' as const, sortIndex: 0, inTodayPlan: false, notifiedBeforeDay: false,
+        notifiedDueDay: false, reminderCount: 0, createdAt: BASE, updatedAt: BASE };
+      // Justo el tope de backlog, así que caben todas, y tres de week detrás que
+      // son las que hacen que la lectura llegue a quinientas una.
+      for (let i = 0; i < TASK_LIST_LIMIT; i++) {
+        await ctx.db.insert('tasks', { ...comun, title: `backlog-${i}`, status: 'backlog' });
+      }
+      for (let i = 0; i < 3; i++) {
+        await ctx.db.insert('tasks', { ...comun, title: `week-${i}`, status: 'week' });
+      }
+    });
+
+    const completa = await t.run((ctx) => listadoDeTareas(ctx, userId, { status: 'backlog' }));
+    expect(completa.items).toHaveLength(TASK_LIST_LIMIT);
+    expect(completa.restantes).toBe(1);
   });
 
   it('no avisa de recorte cuando el filtro deja pocas y nada quedó fuera', async () => {

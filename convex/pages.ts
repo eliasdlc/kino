@@ -128,11 +128,14 @@ async function linkedTasksOf(ctx: Ctx, userId: Id<'users'>, pageId: Id<'pages'>)
  *
  * Desde que los índices dejan la papelera fuera y entregan el orden hecho, el
  * tope es también de lectura: la lista pide una página más que el tope y para.
- * `restantes` pasó a ser **cuántas quedaron fuera como mínimo**: cero significa
- * que no falta ninguna, y cualquier número mayor significa que hay más. La
- * cuenta exacta exigía leer el sistema entero, que es lo que la restricción 9 de
- * AGENTS.md prohíbe; la rama académica, que sí lo lee, la da exacta, y por eso
- * el campo se lee como cota y no como cifra en las tres.
+ * `restantes` pasó a ser **la marca de que la lectura paró en el tope**: cero
+ * significa que están todas, y mayor que cero que paró ahí y **puede** haber
+ * más. No es una cuenta, porque contarlas exigía leer el sistema entero, que es
+ * lo que la restricción 9 de AGENTS.md prohíbe.
+ *
+ * Con una excepción que vale la pena saber en vez de esconder: la rama académica
+ * sí lee el sistema entero, porque la cadena de padres se lo pide, así que ahí
+ * el número es exacto. En las otras dos es sólo la marca.
  */
 export const PAGE_LIST_LIMIT = 200;
 
@@ -175,13 +178,13 @@ export async function paginasDelSistema(ctx: Ctx, userId: Id<'users'>, { systemI
       ? await ctx.db.query('pages').withIndex('by_system', (q) => q.eq('systemId', systemId)).collect()
       : await ctx.db.query('pages').withIndex('by_system_alive_updated', (q) => q.eq('systemId', systemId).eq('deletedAt', undefined)).take(cupo);
 
-  // Dentro de una carpeta el ciclo es el mismo para todas sus páginas, así
-  // que no hace falta subir por la cadena de padres de cada una. El mapa sólo
-  // lo usa el caso de arriba, el único que lee el sistema entero.
+  // Subir por la cadena de padres es cosa del único caso que lee el sistema
+  // entero, y por eso el mapa sólo le sirve a él: pedida una carpeta, o la
+  // carpeta cae en el ciclo y todo lo leído pertenece, o salimos arriba sin leer
+  // nada.
   const byId = new Map(docs.map(doc => [doc._id, doc]));
   function belongs(doc: Doc<'pages'>) {
     if (!allowed) return true;
-    if (folderId) return allowed.has(folderId);
     let root = doc;
     const visited = new Set<string>();
     while (!root.folderId && root.parentPageId && byId.has(root.parentPageId) && !visited.has(root._id)) {
@@ -198,7 +201,7 @@ export async function paginasDelSistema(ctx: Ctx, userId: Id<'users'>, { systemI
   const pagina = own.slice(0, PAGE_LIST_LIMIT);
   return {
     items: await Promise.all(pagina.map((doc) => pageListItem(ctx, doc))),
-    /** Cuántas quedaron fuera como mínimo. Cero significa que no falta ninguna. */
+    /** Cero, están todas. Mayor que cero, la lectura paró en el tope y puede haber más. */
     restantes: Math.max(own.length - pagina.length, cortada ? 1 : 0),
   };
 }

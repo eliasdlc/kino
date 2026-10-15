@@ -12,9 +12,9 @@ export type PageListTransport = FunctionReturnType<typeof api.pages.bySystem>;
 
 /**
  * Las páginas de un sistema. La query lee y trae hasta `PAGE_LIST_LIMIT`, y
- * `restantes` es cuántas quedaron fuera como mínimo, no la cuenta exacta; el
- * componente recibe la lista, y `restantes` está ahí para el día que un sistema
- * pase del tope.
+ * `restantes` no cuenta lo que falta: marca dónde paró la lectura. Cero, están
+ * todas; mayor que cero, paró en el tope y puede haber más. El componente recibe
+ * la lista, y `restantes` está ahí para el día que un sistema pase del tope.
  */
 export function usePages(systemId: string, initialData?: PageListTransport) {
   const scope = useAcademicScope(systemId);

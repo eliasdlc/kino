@@ -325,11 +325,17 @@ async function spawnNextRecurrence(ctx: MutationCtx, task: TaskDoc, now: number)
  * cursor, porque nadie ha pedido paginar una lista que ninguna cuenta real
  * llena.
  *
- * `restantes` cambió de significado con eso: era la cuenta exacta de lo que
- * quedaba fuera, y contarla exigía leer la tabla entera, que es justo lo que la
- * restricción 9 de AGENTS.md prohíbe. Ahora es **cuántas quedaron fuera como
- * mínimo**: cero significa que no falta ninguna, y cualquier número mayor
- * significa que hay más, sin prometer cuántas.
+ * `restantes` cambió de significado con eso, y no es una cuenta de nada: era la
+ * cuenta exacta de lo que quedaba fuera, y contarla exigía leer la tabla entera,
+ * que es justo lo que la restricción 9 de AGENTS.md prohíbe. Ahora es **la marca
+ * de que la lectura paró en el tope**. Cero significa que están todas; mayor que
+ * cero, que paró ahí y **puede** haber más.
+ *
+ * Los dos extremos, para que nadie lea el número como una cifra. Una lista puede
+ * volver vacía con `restantes` en uno, cuando nada de lo leído pasa el filtro y
+ * detrás sí quedaba algo. Y puede volver completa con `restantes` en uno, cuando
+ * lo único que sobraba tras el tope es justo lo que el filtro descarta. Saber
+ * cuál de los dos es exigiría leer el resto.
  *
  * El número sale de que el deployment de dev tiene 226 tareas: quinientas deja
  * el doble de margen antes de que nadie vea un recorte.
@@ -350,8 +356,10 @@ export const TASK_LIST_LIMIT = 500;
  * teniendo más detrás del tope. Por eso el recorte se mira **antes** de filtrar
  * y no se deduce de lo que sobrevive: si se dedujera, un `status` que no
  * aparezca entre las primeras quinientas devolvería cero diciendo que no falta
- * nada. Sólo el conector MCP manda esos dos filtros; las pantallas piden sin
- * ellos.
+ * nada. El precio de mirarlo antes es que el aviso se enciende también cuando lo
+ * que sobraba tras el tope no pasaba el filtro, y ahí la lista está completa;
+ * `restantes` avisa de la lectura, no de la respuesta. Sólo el conector MCP
+ * manda esos dos filtros; las pantallas piden sin ellos.
  *
  * Por encima del tope la papelera cambia de criterio, y es lo único que cambia:
  * antes daba las de menor `sortIndex` de toda la papelera, ahora las de menor
@@ -388,7 +396,7 @@ export async function listadoDeTareas(ctx: Ctx, userId: Id<'users'>, filters: z.
   const pagina = filtradas.slice(0, TASK_LIST_LIMIT);
   return {
     items: pagina.map(taskItem),
-    /** Cuántas quedaron fuera como mínimo. Cero significa que no falta ninguna. */
+    /** Cero, están todas. Mayor que cero, la lectura paró en el tope y puede haber más. */
     restantes: Math.max(filtradas.length - pagina.length, cortada ? 1 : 0),
   };
 }

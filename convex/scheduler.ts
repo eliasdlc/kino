@@ -22,9 +22,11 @@ const MAX_USERS_PER_RUN = 50;
  * candidatas. Atarlo al tope de personas dejaba fuera a un activo de verdad en
  * cuanto los check-in de ayer de otra zona llenaban el cupo antes que él.
  *
- * Sale de acotar la consulta y nada más: mil filas por día, tres días como
- * mucho, muy por debajo de lo que aguanta una transacción de Convex, y a tres
- * slots por persona cubre más de trescientas personas activas por día.
+ * Sale de acotar la consulta y nada más. A tres slots por persona, mil filas
+ * cubren más de trescientas personas activas por día candidato. El peor caso
+ * calculable de la lectura entera son tres días por mil filas más un `get` por
+ * dueño distinto: seis mil documentos. No hay en el repo una cifra del límite de
+ * Convex contra la que compararlo, así que aquí va el número y no un margen.
  *
  * Por encima, la vuelta se queda con los primeros `userId` de ese día y el resto
  * se queda sin snapshot ese día. Es la única frontera de esta lectura y es la
