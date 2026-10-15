@@ -29,7 +29,8 @@ pnpm-debug.log*
 *~
 
 # Estado local de Claude Code (locks de sesion, tareas programadas)
-.claude/
+.claude/*
+!.claude/settings.json
 
 # OS files
 .DS_Store
