@@ -77,7 +77,7 @@ export function TodayPlanCard({ noProfile, energyItems }: TodayPlanCardProps) {
 
   const pendingTasks = planTasks
     .filter((t) => t.status !== 'done')
-    .sort((a, b) => (PRIORITY_ORDER[a.priority] ?? 2) - (PRIORITY_ORDER[b.priority] ?? 2));
+    .sort((a, b) => (PRIORITY_ORDER[a.effectivePriority] ?? 2) - (PRIORITY_ORDER[b.effectivePriority] ?? 2));
 
   const doneTasks = planTasks.filter((t) => t.status === 'done');
   const totalToday = planTasks.length;

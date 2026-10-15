@@ -86,7 +86,7 @@ export function TaskWeekFocusView({ systemId, initialData, onEdit, highlight }: 
       const da = daysUntil(a, today);
       const db = daysUntil(b, today);
       if (da !== db) return da - db; // más vencida primero
-      return (PRIORITY_RANK[a.priority ?? "medium"] ?? 2) - (PRIORITY_RANK[b.priority ?? "medium"] ?? 2);
+      return (PRIORITY_RANK[a.effectivePriority ?? "medium"] ?? 2) - (PRIORITY_RANK[b.effectivePriority ?? "medium"] ?? 2);
     });
 
   const hoy = urgent.slice(0, HOY_LIMIT);

@@ -122,6 +122,19 @@ function parsePriority(
     ["traza", "low"],
     ["algun dia", "low"],
     ["someday", "low"],
+    // Las palabras con las que una persona marca una tarea, no un log. Son
+    // marcas y no contenido: se quitan del título igual que las de arriba.
+    ["inaplazable", "critical"],
+    ["cuanto antes", "critical"],
+    ["asap", "critical"],
+    ["importante", "high"],
+    ["prioritario", "high"],
+    ["prioritaria", "high"],
+    ["si hay tiempo", "low"],
+    ["cuando pueda", "low"],
+    ["opcional", "low"],
+    ["tal vez", "low"],
+    ["quizas", "low"],
   ];
 
   for (const [word, priority] of candidates) {
@@ -134,6 +147,48 @@ function parsePriority(
     }
   }
 
+  // Lo que la tarea *es*: un examen, un pago, una cita. Pone la prioridad pero
+  // se queda en el título, porque «Pagar la luz» sin «Pagar» no dice nada.
+  const matched = findWord(normalized, CONTENT_WORDS);
+  if (matched) return { priority: matched, rest };
+
+  return null;
+}
+
+/**
+ * Palabras de tareas reales que suben la prioridad sin ser una marca. Las de
+ * crítica son plazos que no admiten un día más; las de alta, cosas con nota,
+ * dinero o una persona esperando al otro lado.
+ */
+const CONTENT_WORDS: Array<[string, "critical" | "high"]> = [
+  ["ultimo dia", "critical"],
+  ["ultima oportunidad", "critical"],
+  ["sin falta", "critical"],
+  ["examen", "high"],
+  ["parcial", "high"],
+  ["exposicion", "high"],
+  ["presentacion", "high"],
+  ["entrega", "high"],
+  ["entregar", "high"],
+  ["pagar", "high"],
+  ["pago", "high"],
+  ["factura", "high"],
+  ["renovar", "high"],
+  ["impuestos", "high"],
+  ["cita", "high"],
+  ["entrevista", "high"],
+  ["deadline", "high"],
+  ["vencimiento", "high"],
+];
+
+function findWord<P>(normalized: string, words: Array<[string, P]>): P | null {
+  for (const [word, priority] of words) {
+    const idx = normalized.indexOf(word);
+    if (idx === -1) continue;
+    const before = idx === 0 || !/\w/.test(normalized[idx - 1]);
+    const after = idx + word.length >= normalized.length || !/\w/.test(normalized[idx + word.length]);
+    if (before && after) return priority;
+  }
   return null;
 }
 

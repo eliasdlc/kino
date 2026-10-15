@@ -17,10 +17,11 @@ const id = <T extends TableNames>(value: string) => value as Id<T>;
 const TAREA = {
   id: id<"tasks">("t1"), userId: id<"users">("u1"), systemId: id<"systems">("s1"), parentTaskId: null,
   title: "Comprar tinta", description: null, status: "backlog" as const, boardStatus: null, boardStatusChangedAt: null,
-  energyLevel: "medium" as const, priority: "medium" as const, taskType: null, dueDate: null, startDate: null,
+  energyLevel: "medium" as const, priority: "medium" as const, effectivePriority: "medium" as const, priorityRaised: false,
+  reminderIntensity: null, taskType: null, dueDate: null, startDate: null,
   estimatedTime: null, recurrenceRule: null, recurrenceParentId: null, folderId: null, contextTagId: null,
   sprintId: null, externalSource: null, externalId: null, clientRequestId: null, sortIndex: 0, metadata: null,
-  inTodayPlan: false, notifiedBeforeDay: false, notifiedDueDay: false, reminderCount: 0, lastRemindedAt: null,
+  inTodayPlan: false, notifiedBeforeDay: false, notifiedDueDay: false, reminderCount: 0, lastRemindedAt: null, nextReminderAt: null,
   completedAt: null, completedBy: null, completedVia: null, deletedAt: "2026-09-05T10:00:00.000Z",
   createdAt: "2026-09-01T10:00:00.000Z", updatedAt: "2026-09-05T10:00:00.000Z",
 };

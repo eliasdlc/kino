@@ -19,6 +19,11 @@ const AJUSTES = {
   notificationsEnabled: true,
   weeklyReviewDay: 'sun' as const,
   wordsSeen: [] as VocabularyWord[],
+  reminderIntensity: 'aggressive' as const,
+  quietHoursStart: '22:00',
+  quietHoursEnd: '07:00',
+  morningDigestTime: '08:00',
+  emailReminders: true,
 };
 
 function cliente(wordsSeen: VocabularyWord[] = []) {

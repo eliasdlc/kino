@@ -40,6 +40,7 @@ import { kinoZodMutation, kinoZodQuery, type Channel } from './lib/fn';
 import { toTaskRow } from './lib/tasks/row';
 import { calendarDayInTz, userToday, userTomorrow } from './lib/time';
 import { defaultSettings } from './settings';
+import { programarResumen } from './lib/avisos';
 import { ownTask, updateTaskDoc } from './tasks';
 
 // La energía: check-ins, predicción verificable, curva aprendida, presupuesto
@@ -1060,7 +1061,10 @@ export async function createEnergyProfile(
   const existing = await profileOf(ctx, userId);
   if (existing) return existing._id;
   await ctx.db.query('userSettings').withIndex('by_user', (q) => q.eq('userId', userId)).unique().then(async (row) => {
-    if (!row) await ctx.db.insert('userSettings', defaultSettings(userId, now));
+    if (!row) {
+      await ctx.db.insert('userSettings', defaultSettings(userId, now));
+      await programarResumen(ctx, userId, now);
+    }
   });
   return ctx.db.insert('userEnergyProfile', {
     userId,

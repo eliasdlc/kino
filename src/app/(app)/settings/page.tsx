@@ -13,10 +13,12 @@ import { useThemeStore } from "@/components/ThemeProvider";
 import { Separator } from "@/components/ui/separator";
 import { Bell, BellOff, Monitor, Moon, Sun } from "lucide-react";
 import { Switch } from "@/components/ui/switch";
+import { PushDeviceStatus } from '@/features/notifications/PushDeviceStatus';
 import { usePushNotifications } from "@/features/notifications/notifications.hooks";
 import { EnergyLimitSection } from "@/features/settings/EnergyLimitSection";
 import { EnergyProfileSection } from "@/features/settings/EnergyProfileSection";
 import { TimezoneSection } from "@/features/settings/TimezoneSection";
+import { RemindersSection } from "@/features/settings/RemindersSection";
 import { WeeklyReviewDaySection } from "@/features/settings/WeeklyReviewDaySection";
 import { DigestsSection } from "@/features/settings/DigestsSection";
 import { TrashSection } from "@/features/settings/TrashSection";
@@ -54,7 +56,7 @@ function ShortcutRow({ label, description, keys }: { label: string; description:
 export default function SettingsPage() {
   const mode = useThemeStore((s) => s.mode);
   const setMode = useThemeStore((s) => s.setMode);
-  const { status, subscribe, unsubscribe } = usePushNotifications();
+  const { status, error: pushError, subscribe, unsubscribe } = usePushNotifications();
   const { data: settings } = useUserSettings();
   const { mutate: updateSettings } = useUpdateUserSettings();
 
@@ -185,7 +187,7 @@ export default function SettingsPage() {
           <div>
             <h2 className="text-lg font-semibold">Notificaciones</h2>
             <p className="text-sm text-muted-foreground">
-              Recordatorios de tareas y alertas de energía directamente en tu dispositivo.
+              Recordatorios de tareas en tu dispositivo y en tu correo.
             </p>
           </div>
 
@@ -212,12 +214,7 @@ export default function SettingsPage() {
                 : <BellOff className="size-4 text-muted-foreground" />}
               <div className="space-y-0.5">
                 <Label className="text-sm font-medium">Notificaciones push en este dispositivo</Label>
-                <p className="text-xs text-muted-foreground">
-                  {status === 'subscribed'   && 'Activas: recibirás alertas en este dispositivo'}
-                  {status === 'denied'       && 'Bloqueadas: actívalas en los permisos del navegador'}
-                  {status === 'unsupported'  && 'No soportado en este navegador'}
-                  {(status === 'idle' || status === 'loading') && 'Inactivas'}
-                </p>
+                <PushDeviceStatus status={status} error={pushError} />
               </div>
             </div>
             <Switch
@@ -227,20 +224,15 @@ export default function SettingsPage() {
             />
           </div>
 
-          {status === 'subscribed' && (
-            <ul className="text-xs text-muted-foreground space-y-1 px-1 list-disc list-inside">
-              <li>Recordatorio el día antes de que venza una tarea</li>
-              <li>Recordatorio el día que vence la tarea</li>
-              <li>Alertas de sobrecarga y energía baja</li>
-            </ul>
-          )}
-
           {status === 'denied' && (
             <p className="text-xs text-amber-600 dark:text-amber-400 px-1">
               Bloqueaste las notificaciones. Ve a los permisos del sitio en tu navegador para reactivarlas.
             </p>
           )}
         </div>
+
+        {/* Cuánto y cuándo insisten */}
+        <RemindersSection />
 
         {/* Zona horaria */}
         <TimezoneSection />

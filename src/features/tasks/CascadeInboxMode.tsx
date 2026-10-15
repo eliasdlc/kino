@@ -79,7 +79,7 @@ export function CascadeInboxMode({ tasks, open, onOpenChange }: CascadeInboxMode
         <div className="py-4 border rounded-xl px-4 bg-card">
           <p className="text-base font-medium text-foreground">{task.title}</p>
           <p className="text-xs text-muted-foreground mt-1">
-            {task.status} · {task.priority ?? "sin prioridad"}
+            {task.status} · {task.effectivePriority ?? "sin prioridad"}
           </p>
         </div>
 

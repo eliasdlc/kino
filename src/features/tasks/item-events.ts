@@ -28,6 +28,7 @@ export function sujetoDe(actor: ItemEvent["actor"]): string {
     case "oauth":
       return "El agente de otra persona";
     case "session":
+    case "push":
       return "Otra persona";
     case "sync":
       return "La sincronización con GitHub";

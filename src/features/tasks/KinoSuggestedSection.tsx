@@ -66,7 +66,7 @@ function SuggestedRow({ task, addedIds, onAdd, onComplete, onOpen }: SuggestedRo
         <p
           className={cn(
             'line-clamp-2 text-[0.95rem] leading-snug',
-            task.priority === 'critical' && 'font-semibold',
+            task.effectivePriority === 'critical' && 'font-semibold',
             isDone && 'text-muted-foreground line-through',
           )}
         >

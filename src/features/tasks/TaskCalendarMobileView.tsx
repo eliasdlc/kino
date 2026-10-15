@@ -34,7 +34,7 @@ function TaskRow({ task, onClick }: { task: TaskTransport; onClick?: () => void 
       onClick={onClick}
       className="flex items-center gap-2 w-full px-2.5 py-2 rounded-lg bg-background border border-border text-left text-sm hover:border-primary/50 transition-colors"
     >
-      <span className={cn("size-2 rounded-full shrink-0", PRIORITY_DOT[task.priority ?? "medium"])} />
+      <span className={cn("size-2 rounded-full shrink-0", PRIORITY_DOT[task.effectivePriority ?? "medium"])} />
       <span className="truncate">{task.title}</span>
     </button>
   );
@@ -121,7 +121,7 @@ export function TaskCalendarMobileView({
                     key={t.id}
                     className={cn(
                       "size-1.5 rounded-full",
-                      selected ? "bg-primary-foreground/80" : PRIORITY_DOT[t.priority ?? "medium"]
+                      selected ? "bg-primary-foreground/80" : PRIORITY_DOT[t.effectivePriority ?? "medium"]
                     )}
                   />
                 ))}

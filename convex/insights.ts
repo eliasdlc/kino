@@ -251,7 +251,7 @@ export const staleSystems = kinoZodQuery({
 const PRIORITY_KEYWORDS: Record<string, string[]> = {
   critical: ['urgente', 'urgent', 'asap', 'crítico', 'critical', 'deadline', 'hoy', 'today', 'ahora', 'now'],
   high: ['importante', 'important', 'pronto', 'soon', 'esta semana', 'this week'],
-  low: ['algún día', 'someday', 'eventually', 'cuando pueda', 'idea', 'quizás'],
+  low: ['algún día', 'someday', 'eventually', 'cuando pueda', 'idea', 'quizás', 'opcional', 'si hay tiempo'],
 };
 
 function normalize(text: string): string {
@@ -285,7 +285,8 @@ export const classify = kinoZodQuery({
         best = system;
       }
     }
-    let suggestedPriority: 'critical' | 'high' | 'medium' | 'low' = 'medium';
+    // Sin pista, alta: es la prioridad con la que nace toda tarea nueva.
+    let suggestedPriority: 'critical' | 'high' | 'medium' | 'low' = 'high';
     for (const [priority, keywords] of Object.entries(PRIORITY_KEYWORDS)) {
       if (matchScore(tokens, keywords) > 0) {
         suggestedPriority = priority as typeof suggestedPriority;

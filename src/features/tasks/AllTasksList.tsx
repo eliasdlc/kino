@@ -57,7 +57,16 @@ export function AllTasksList({ systems }: AllTasksListProps) {
 
   const filters = useMemo(() => parseFiltersFromParams(searchParams), [searchParams]);
   const [showFilters, setShowFilters] = useState(false);
-  const [selectedTask, setSelectedTask] = useState<TaskTransport | null>(null);
+  const [elegida, setSelectedTask] = useState<TaskTransport | null>(null);
+  // `?tarea=<id>` es el enlace de una notificación o de un correo: abre esa
+  // tarea al llegar. Se busca en la lista ya suscrita en vez de pedirla aparte,
+  // y un enlace a una tarea que ya no está simplemente no abre nada.
+  const tareaEnlazada = searchParams.get('tarea');
+  const enlazada = useMemo(
+    () => (tareaEnlazada ? (tasks.find((t) => t.id === tareaEnlazada) ?? null) : null),
+    [tareaEnlazada, tasks],
+  );
+  const selectedTask = elegida ?? enlazada;
   const [deleteTarget, setDeleteTarget] = useState<TaskTransport | null>(null);
   const [selectedTaskIds, setSelectedTaskIds] = useState<Set<string>>(new Set());
   const [cascadeOpen, setCascadeOpen] = useState(false);
@@ -324,7 +333,16 @@ export function AllTasksList({ systems }: AllTasksListProps) {
           task={selectedTask}
           systemId={selectedTask.systemId}
           open={!!selectedTask}
-          onOpenChange={(open) => { if (!open) setSelectedTask(null); }}
+          onOpenChange={(open) => {
+            if (open) return;
+            setSelectedTask(null);
+            if (tareaEnlazada) {
+              const params = new URLSearchParams(searchParams.toString());
+              params.delete('tarea');
+              const qs = params.toString();
+              router.replace(qs ? `${pathname}?${qs}` : pathname);
+            }
+          }}
         />
       )}
 

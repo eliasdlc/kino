@@ -29,7 +29,8 @@ pnpm-debug.log*
 *~
 
 # Estado local de Claude Code (locks de sesion, tareas programadas)
-.claude/
+.claude/*
+!.claude/settings.json
 
 # OS files
 .DS_Store
@@ -69,3 +70,11 @@ PLAN.md
 
 # Salida de pnpm test:coverage
 /coverage
+
+# Durable delivery command outputs are local, never repository state.
+/delivery-event.json
+/production-receipt.json
+**/__pycache__/
+
+# Written by scripts/medir-presupuesto.mjs; CI keeps it as an artifact.
+perf/results.json

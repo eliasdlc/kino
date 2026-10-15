@@ -47,7 +47,7 @@ export function AllDayCell({ day, tasks }: { day: Date; tasks: TaskTransport[] }
           key={t.id}
           className={cn(
             "px-1.5 py-0.5 rounded border text-[11px] truncate",
-            PRIORITY_CHIP[t.priority ?? "medium"],
+            PRIORITY_CHIP[t.effectivePriority ?? "medium"],
           )}
         >
           {t.title}
@@ -125,7 +125,7 @@ function TaskBlockInner({
       {...listeners}
       className={cn(
         "absolute left-0.5 right-0.5 rounded border px-1.5 pt-0.5 pb-2 text-[11px] leading-tight select-none cursor-grab active:cursor-grabbing overflow-hidden",
-        PRIORITY_CHIP[task.priority ?? "medium"],
+        PRIORITY_CHIP[task.effectivePriority ?? "medium"],
         isDragging && "opacity-30",
       )}
       style={{ top, height }}
@@ -165,7 +165,7 @@ export function UnscheduledChip({
     <div
       className={cn(
         "rounded border text-xs select-none",
-        PRIORITY_CHIP[task.priority ?? "medium"],
+        PRIORITY_CHIP[task.effectivePriority ?? "medium"],
         isDragging && "opacity-30",
       )}
     >

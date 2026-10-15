@@ -12,6 +12,8 @@ export type TaskStatus = (typeof TASK_STATUSES)[number];
 const STATUS = z.enum(TASK_STATUSES);
 const ENERGY = z.enum(['high', 'medium', 'low']);
 const PRIORITY = z.enum(['critical', 'high', 'medium', 'low']);
+/** Cuánto insisten los avisos de esta tarea. `null` vuelve a la intensidad de la cuenta. */
+const REMINDER_INTENSITY = z.enum(['aggressive', 'medium', 'low', 'off']);
 const TASK_TYPE = z.enum(['task', 'idea', 'event', 'reminder', 'epic']);
 
 const ISO_DATE = z.string().refine((s) => !Number.isNaN(Date.parse(s)), { message: 'Invalid date' });
@@ -79,6 +81,7 @@ export const createTaskSchema = z
     recurrenceRule: RECURRENCE_RULE.nullable().optional(),
     metadata: taskMetadataSchema.optional(),
     clientRequestId: z.string().min(1).max(64).optional(),
+    reminderIntensity: REMINDER_INTENSITY.nullable().optional(),
   })
   .superRefine((data, ctx) => {
     if (data.taskType === 'event' && !data.startDate) {
@@ -108,6 +111,7 @@ export const updateTaskSchema = z
     folderId: zid('folders').nullable().optional(),
     sprintId: zid('sprints').nullable().optional(),
     systemId: zid('systems').optional(),
+    reminderIntensity: REMINDER_INTENSITY.nullable().optional(),
     inTodayPlan: z.boolean().optional(),
     recurrenceRule: RECURRENCE_RULE.nullable().optional(),
     metadata: taskMetadataSchema.nullable().optional(),
