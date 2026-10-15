@@ -122,7 +122,7 @@ describe("NotebookEditor", () => {
     const onTitleChange = vi.fn();
     renderEditor(onTitleChange);
 
-    const input = screen.getByPlaceholderText<HTMLInputElement>("Sin título");
+    const input = screen.getByPlaceholderText<HTMLTextAreaElement>("Sin título");
     fireEvent.change(input, { target: { value: "Derivadas" } });
 
     // El valor sigue siendo el de la prop: manda el layout, no el input.
@@ -297,7 +297,7 @@ describe("una versión de fuera que sólo cambia el título", () => {
       convex.publish(stubQuery(api.pages.byId, { ...page, title: "Derivadas", updatedAt: VERSION_NUEVA })),
     );
 
-    await waitFor(() => expect(screen.getByPlaceholderText<HTMLInputElement>("Sin título").value).toBe("Derivadas"));
+    await waitFor(() => expect(screen.getByPlaceholderText<HTMLTextAreaElement>("Sin título").value).toBe("Derivadas"));
     // `setContent` reemplaza el documento entero y deja el cursor al final del
     // texto, sin que el texto haya cambiado. La aserción es de igualdad con
     // dónde estaba porque lo que sobra es el salto, no el sitio al que salta.
