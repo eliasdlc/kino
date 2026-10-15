@@ -2,6 +2,7 @@ import { convexTest } from 'convex-test';
 import { describe, expect, it } from 'vitest';
 import { api, internal } from './_generated/api';
 import type { Id } from './_generated/dataModel';
+import type { MutationCtx } from './_generated/server';
 import { espiar, type Cuenta } from '@/shared/testing/espia';
 import { activosHoy } from './scheduler';
 import crons from './crons';
@@ -166,7 +167,35 @@ async function cuentaCon(t: ReturnType<typeof convexTest>, email: string, timezo
   });
 }
 
+/**
+ * La lectura de antes, copiada como referencia: toda la tabla `users` y una
+ * consulta por cuenta. El conjunto nuevo tiene que salir igual con la misma
+ * semilla.
+ */
+async function activosComoAntes(ctx: MutationCtx, now: number) {
+  const activos: Id<'users'>[] = [];
+  for (const user of await ctx.db.query('users').collect()) {
+    const checkin = await ctx.db
+      .query('energyCheckins')
+      .withIndex('by_user_day_slot', (q) => q.eq('userId', user._id).eq('date', userToday(user.timezone, now)))
+      .first();
+    if (checkin) activos.push(user._id);
+  }
+  return activos;
+}
+
 describe('activeUserIds', { timeout: 20_000 }, () => {
+  it('da el mismo conjunto que la lectura de antes con la misma semilla', async () => {
+    const t = convexTest(schema, modules);
+    await sembrarCuentas(t);
+
+    const ahora = await t.run((ctx) => activosHoy(ctx, MEDIODIA));
+    const antes = await t.run((ctx) => activosComoAntes(ctx, MEDIODIA));
+
+    expect(ahora).toHaveLength(5);
+    expect(new Set(ahora)).toEqual(new Set(antes));
+  });
+
   it('lee por los check-in del día, no por la tabla de cuentas', async () => {
     const t = convexTest(schema, modules);
     const esperados = await sembrarCuentas(t);

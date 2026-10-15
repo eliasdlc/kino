@@ -24,11 +24,11 @@
 import { convexTest } from 'convex-test';
 import { describe, expect, it } from 'vitest';
 import { api } from './_generated/api';
-import type { Id } from './_generated/dataModel';
+import type { Doc, Id } from './_generated/dataModel';
 import type { MutationCtx } from './_generated/server';
 import { espiar, type Cuenta } from '@/shared/testing/espia';
 import { listadoDeTareas, tareasDelSistema, TASK_LIST_LIMIT } from './tasks';
-import { paginasDelSistema } from './pages';
+import { paginasDelSistema, PAGE_LIST_LIMIT } from './pages';
 import schema from './schema';
 
 const modules = import.meta.glob('./**/*.*s');
@@ -300,5 +300,111 @@ describe('pages.bySystem', { timeout: 30_000 }, () => {
     // Una sola consulta, la de las carpetas que resuelve el ciclo: las páginas
     // de esa carpeta no llegan a abrirse.
     expect(consultas).toBe(1);
+  });
+});
+
+/**
+ * Las dos lecturas de antes, copiadas aquí como referencia: recogían por el
+ * índice que sólo fija dueño o sistema y ordenaban en memoria. Bajo el tope la
+ * lista nueva tiene que salir idéntica, elemento a elemento, y comparar contra
+ * la lectura vieja es lo único que lo demuestra sin fiarse de describir el orden.
+ */
+async function tareasComoAntes(ctx: MutationCtx, userId: Id<'users'>, filtros: { systemId?: Id<'systems'>; deleted?: boolean; status?: string }) {
+  const docs = await ctx.db.query('tasks').withIndex('by_user_alive_status', (q) => q.eq('userId', userId)).collect();
+  return docs
+    .filter((doc) => (filtros.deleted ? doc.deletedAt !== undefined : doc.deletedAt === undefined))
+    .filter((doc) => doc.parentTaskId === undefined)
+    .filter((doc) => !filtros.systemId || doc.systemId === filtros.systemId)
+    .filter((doc) => !filtros.status || doc.status === filtros.status)
+    .sort((a, b) => a.sortIndex - b.sortIndex)
+    .slice(0, TASK_LIST_LIMIT)
+    .map((doc) => doc._id);
+}
+
+async function paginasComoAntes(ctx: MutationCtx, userId: Id<'users'>, systemId: Id<'systems'>, folderId?: Id<'folders'>) {
+  const docs: Doc<'pages'>[] = folderId
+    ? await ctx.db.query('pages').withIndex('by_folder', (q) => q.eq('folderId', folderId)).collect()
+    : await ctx.db.query('pages').withIndex('by_system', (q) => q.eq('systemId', systemId)).collect();
+  return docs
+    .filter((doc) => doc.userId === userId && doc.systemId === systemId && doc.deletedAt === undefined)
+    .sort((a, b) => a.updatedAt - b.updatedAt)
+    .slice(0, PAGE_LIST_LIMIT)
+    .map((doc) => doc._id);
+}
+
+describe('bajo el tope, lo mismo que antes', { timeout: 30_000 }, () => {
+  it('tasks.list devuelve las mismas tareas en el mismo orden', async () => {
+    const { t, userId, alfaId } = await sembrarTareas();
+    const casos = [{}, { deleted: true }, { systemId: alfaId }, { systemId: alfaId, deleted: true }, { status: 'today' as const }];
+    for (const filtros of casos) {
+      const ahora = await t.run((ctx) => listadoDeTareas(ctx, userId, filtros));
+      const antes = await t.run((ctx) => tareasComoAntes(ctx, userId, filtros));
+      expect(ahora.items.map((i) => i.id)).toEqual(antes);
+    }
+  });
+
+  /**
+   * `updatedAt` repetido y desordenado respecto a la creación: el desempate de
+   * las dos lecturas es el orden de creación, y aquí se ve si coincide.
+   */
+  it('pages.bySystem devuelve las mismas páginas en el mismo orden', async () => {
+    const { t, userId, systemId, folderId } = await sembrarPaginas();
+    await t.run(async (ctx) => {
+      for (let i = 0; i < 12; i++) {
+        await ctx.db.insert('pages', { userId, systemId, createdBy: userId, createdVia: 'session', isPinned: false,
+          title: `empate-${i}`, content: '<p>texto</p>', folderId: i % 3 === 0 ? folderId : undefined,
+          createdAt: BASE, updatedAt: BASE + 10 - (i % 4) });
+      }
+    });
+    for (const carpeta of [undefined, folderId]) {
+      const ahora = await t.run((ctx) => paginasDelSistema(ctx, userId, { systemId, folderId: carpeta }));
+      const antes = await t.run((ctx) => paginasComoAntes(ctx, userId, systemId, carpeta));
+      expect(ahora.items.map((i) => i.id)).toEqual(antes);
+    }
+  });
+});
+
+describe('por encima del tope, la lectura para en él', { timeout: 60_000 }, () => {
+  it('tasks.list devuelve el tope y lee el tope más la que avisa del recorte', async () => {
+    const t = convexTest(schema, modules);
+    const as = t.withIdentity(ana);
+    const userId = await as.mutation(api.users.ensure, {});
+    const sistema = await as.mutation(api.systems.create, { name: 'Alfa', color: 'blue', templateType: 'project', icon: 'folder' });
+    const systemId = sistema.id as Id<'systems'>;
+    await t.run(async (ctx) => {
+      for (let i = 0; i < TASK_LIST_LIMIT + 100; i++) {
+        await ctx.db.insert('tasks', { userId, systemId, createdBy: userId, createdVia: 'session', priority: 'medium',
+          energyLevel: 'medium', sortIndex: 0, inTodayPlan: false, notifiedBeforeDay: false, notifiedDueDay: false,
+          reminderCount: 0, title: `t-${i}`, status: 'backlog', createdAt: BASE + i, updatedAt: BASE + i });
+      }
+    });
+
+    const { consultas, documentos, datos } = await medir(t, (ctx) => listadoDeTareas(ctx, userId, {}));
+
+    expect(datos.items).toHaveLength(TASK_LIST_LIMIT);
+    expect(datos.restantes).toBeGreaterThan(0);
+    expect({ consultas, documentos }).toEqual({ consultas: 1, documentos: TASK_LIST_LIMIT + 1 });
+  });
+
+  it('pages.bySystem devuelve el tope y lee el tope más la que avisa del recorte', async () => {
+    const t = convexTest(schema, modules);
+    const as = t.withIdentity(ana);
+    const userId = await as.mutation(api.users.ensure, {});
+    const novela = await as.mutation(api.systems.create, { name: 'Novela', color: 'blue', templateType: 'writing', icon: 'book' });
+    const systemId = novela.id as Id<'systems'>;
+    await t.run(async (ctx) => {
+      for (let i = 0; i < PAGE_LIST_LIMIT + 100; i++) {
+        await ctx.db.insert('pages', { userId, systemId, createdBy: userId, createdVia: 'session', isPinned: false,
+          title: `p-${i}`, content: '<p>texto</p>', createdAt: BASE + i, updatedAt: BASE + i });
+      }
+    });
+
+    const { documentos, datos } = await medir(t, (ctx) => paginasDelSistema(ctx, userId, { systemId }));
+
+    expect(datos.items).toHaveLength(PAGE_LIST_LIMIT);
+    expect(datos.restantes).toBeGreaterThan(0);
+    // Las consultas de etiquetas y subpáginas de cada página no traen nada en
+    // esta semilla, así que todo lo leído es la lista: el tope y una más.
+    expect(documentos).toBe(PAGE_LIST_LIMIT + 1);
   });
 });
