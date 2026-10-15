@@ -45,9 +45,8 @@ export function CyclePicker({ system, initialPeriods }: CyclePickerProps) {
   }
 
   function setCadence(startMonths: number[]) {
-    const current = systemMetadataSchema.safeParse(system.metadata ?? {});
-    const metadata = { ...(current.success ? current.data : {}), academic: { cycleStartMonths: startMonths } };
-    updateSystem({ systemId: system.id, data: { metadata } });
+    // Sólo la clave que cambia: `systems.update` conserva las demás.
+    updateSystem({ systemId: system.id, data: { metadata: { academic: { cycleStartMonths: startMonths } } } });
   }
 
   return (
