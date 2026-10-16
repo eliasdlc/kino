@@ -73,16 +73,17 @@ describe('kinoQuery, kinoMutation y kinoAction', () => {
     const asAna = t.withIdentity(ana);
     await asAna.mutation(api.lib.fnFixture.write, {});
 
-    // La fixture nace con 50 ms. Lo que se comprueba es la propiedad, no la
-    // resta exacta: `setTimeout` puede despertar un milisegundo antes de lo que
-    // `Date.now()` cuenta, y contra ese ruido un techo de 30 falla en CI sin
-    // que nada esté roto.
+    // La fixture nace con 50 ms. Cada acción gasta al menos lo que esperó, y eso
+    // es lo que se comprueba: `setTimeout` puede despertar un milisegundo antes
+    // de lo que `Date.now()` cuenta, y una máquina cargada sólo hace gastar más.
+    // Comparar las dos acciones entre sí fallaba con carga: si la corta tardaba
+    // en arrancar, le quedaba menos que a la larga sin que nada estuviera roto.
     const corto = await asAna.action(api.lib.fnFixture.act, { waitMs: 5 });
     const largo = await asAna.action(api.lib.fnFixture.act, { waitMs: 30 });
 
-    expect(corto.remainingMs).toBeLessThanOrEqual(50);
+    expect(corto.remainingMs).toBeLessThanOrEqual(50 - 5 + 1);
+    expect(largo.remainingMs).toBeLessThanOrEqual(50 - 30 + 1);
     expect(largo.remainingMs).toBeGreaterThanOrEqual(0);
-    expect(largo.remainingMs).toBeLessThan(corto.remainingMs);
   });
 });
 
