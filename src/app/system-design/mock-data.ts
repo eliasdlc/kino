@@ -675,6 +675,7 @@ export const CAPTURA_CON_ITEMS: CaptureItem = {
   url: null,
   blobPath: "/icons/icon-192x192.png",
   durationSeconds: null,
+  source: null,
   proposedItems: [
     { title: "Repasar el parcial", notes: "Tesis" },
     { title: "Entregar el diagrama ER" },
