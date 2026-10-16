@@ -1,0 +1,35 @@
+# The proof gate of every PR, with its script in eliasdlc/agents
+# (bin/proof.py): the PR body proves each requirement at this commit. It reads
+# only the body and the commits, so it is the one gate that reruns when the
+# body is edited; ci.yml and delivery-gates.yml run once per commit.
+name: Proof
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, edited]
+
+permissions:
+  contents: read
+  pull-requests: read
+
+concurrency:
+  group: proof-${{ github.event.pull_request.number }}
+  # The running pass finishes and only the newest pending one follows it:
+  # cancelling leaves a cancelled check on the commit, and GitHub then reports
+  # the PR as blocked.
+  cancel-in-progress: false
+
+jobs:
+  proof:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          repository: eliasdlc/agents
+          ref: main
+          path: .agents
+          ssh-key: ${{ secrets.AGENTS_KEY }}
+      - run: python3 .agents/bin/proof.py ${{ github.event.pull_request.number }} --repo ${{ github.repository }}
+        env:
+          GH_TOKEN: ${{ github.token }}
