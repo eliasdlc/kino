@@ -2,13 +2,15 @@ import { convexTest } from 'convex-test';
 import { describe, expect, it } from 'vitest';
 import { computeEnergyBudget } from '../src/features/energy/energy.budget';
 import { api } from './_generated/api';
-import { userToday, userTomorrow } from './lib/time';
+import type { Id } from './_generated/dataModel';
+import { calendarDayInTz, userToday, userTomorrow } from './lib/time';
 import schema from './schema';
 
 const modules = import.meta.glob('./**/*.*s');
 const ana = { subject: 'user_ana', email: 'ana@usekino.dev', name: 'Ana' };
 // La zona con la que nace la cuenta de prueba.
 const ZONA = 'America/Santo_Domingo';
+const DIA_MS = 86_400_000;
 
 async function seed() {
   const t = convexTest(schema, modules);
@@ -408,6 +410,44 @@ describe('energy', () => {
 
     await asAna.mutation(api.energy.scheduleBlock, { taskId: task.id, date: userTomorrow(ZONA), hour: 9 });
     expect((await asAna.query(api.tasks.todayPlan, {})).map((t) => t.id)).not.toContain(task.id);
+  });
+
+  it('la tasa de completado de un dia pasado no cambia al tocar tareas hoy', async () => {
+    const { t, asAna, systemId } = await seed();
+    const ahora = Date.now();
+    const enTresDias = new Date(ahora + 3 * DIA_MS).toISOString();
+    const semana = await Promise.all(
+      Array.from({ length: 4 }, (_, i) => asAna.mutation(api.tasks.create, { systemId, title: `Semana ${i + 1}`, startDate: enTresDias })),
+    );
+    const vencida = await asAna.mutation(api.tasks.create, { systemId, title: 'Vencida', dueDate: '2026-01-01T12:00:00Z' });
+    // Una de la semana se cerro ayer; todo existia desde hace tres dias.
+    await asAna.mutation(api.tasks.toggle, { id: semana[0]!.id });
+    await t.run(async (ctx) => {
+      for (const task of [...semana, vencida]) await ctx.db.patch(task.id as Id<'tasks'>, { createdAt: ahora - 3 * DIA_MS });
+      await ctx.db.patch(semana[0]!.id as Id<'tasks'>, { completedAt: ahora - DIA_MS });
+    });
+
+    const ayer = calendarDayInTz(ahora - DIA_MS, ZONA);
+    const snapshotDeAyer = () =>
+      t.run(async (ctx) => {
+        const fila = (await ctx.db.query('behaviorSnapshots').collect()).find((s) => s.date === ayer)!;
+        const { tasksCreated, tasksCompleted, tasksOverdue, criticalCount, activeCount, completionRate } = fila;
+        return { fila: fila._id, cifras: { tasksCreated, tasksCompleted, tasksOverdue, criticalCount, activeCount, completionRate } };
+      });
+
+    await asAna.mutation(api.energy.ensureYesterdaySnapshot, {});
+    const antes = await snapshotDeAyer();
+    expect(antes.cifras).toMatchObject({ tasksCompleted: 1, tasksOverdue: 1 });
+
+    // Hoy: se cierran otra de la semana y la vencida, y entran dos nuevas.
+    await asAna.mutation(api.tasks.toggle, { id: semana[1]!.id });
+    await asAna.mutation(api.tasks.toggle, { id: vencida.id });
+    for (const title of ['Nueva 1', 'Nueva 2']) await asAna.mutation(api.tasks.create, { systemId, title, startDate: new Date(ahora).toISOString() });
+
+    // Se recalcula ayer, como lo haria el cron si llegara despues de todo eso.
+    await t.run((ctx) => ctx.db.delete(antes.fila));
+    await asAna.mutation(api.energy.ensureYesterdaySnapshot, {});
+    expect((await snapshotDeAyer()).cifras).toEqual(antes.cifras);
   });
 
   it('insights: sugiere por importancia y clasifica por palabras del sistema', async () => {

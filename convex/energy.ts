@@ -568,25 +568,46 @@ export const learningInsight = kinoZodQuery({
 
 // ── Snapshots de comportamiento ─────────────────────────────────────────────
 
-/** Calcula y guarda el snapshot de un día en la zona del usuario. */
-export async function saveBehaviorSnapshot(ctx: MutationCtx, user: Doc<'users'>, date: string) {
-  const rows = await aliveRows(ctx, user._id);
-  const day = (d: Date | null) => (d ? calendarDayInTz(d.getTime(), user.timezone) : null);
+type TaskRow = Awaited<ReturnType<typeof aliveRows>>[number];
+
+/**
+ * Las cifras de un día tal como estaban al cerrarse, en la zona del usuario.
+ *
+ * Todo se cuenta "a fin de ese día" con las fechas que la tarea guarda: existía
+ * si se creó ese día o antes, y seguía abierta si no se había completado para
+ * entonces. Así calcular el snapshot de ayer hoy, mañana o dentro de una semana
+ * da lo mismo, y cerrar tareas hoy no reescribe la tasa de ayer. Lo que no deja
+ * fecha (la prioridad, pasar de backlog a planificada sin fecha de inicio) se
+ * lee como está ahora.
+ */
+function snapshotOf(rows: TaskRow[], timezone: string, date: string, learningAlpha: number) {
+  const day = (d: Date | null) => (d ? calendarDayInTz(d.getTime(), timezone) : null);
+  const closedBy = (t: TaskRow) => t.status === 'done' && (t.completedAt === null || day(t.completedAt)! <= date);
+  const open = rows.filter((t) => day(t.createdAt)! <= date && !closedBy(t));
+  // Activa ese día: planificada ahora, o completada después y con fecha de
+  // inicio, que es de donde sale el estado de planificación.
+  const active = open.filter((t) => ACTIVE.has(t.status) || (t.status === 'done' && t.startDate !== null));
   const tasksCreated = rows.filter((t) => day(t.createdAt) === date).length;
   const tasksCompleted = rows.filter((t) => day(t.completedAt) === date).length;
-  const tasksOverdue = rows.filter((t) => t.parentTaskId === null && t.status !== 'done' && t.dueDate !== null && t.dueDate < date).length;
-  const criticalCount = rows.filter((t) => t.priority === 'critical' && ACTIVE.has(t.status)).length;
-  const activeCount = rows.filter((t) => ACTIVE.has(t.status)).length;
-  const profile = await profileOf(ctx, user._id);
-  const data = {
+  const tasksOverdue = open.filter((t) => t.parentTaskId === null && t.dueDate !== null && t.dueDate < date).length;
+  const criticalCount = active.filter((t) => t.priority === 'critical').length;
+  const activeCount = active.length;
+  return {
     tasksCreated,
     tasksCompleted,
     tasksOverdue,
     criticalCount,
     activeCount,
     completionRate: tasksCompleted / Math.max(1, activeCount + tasksCompleted),
-    learningAlpha: profile?.learningAlpha ?? 0,
+    learningAlpha,
   };
+}
+
+/** Calcula y guarda el snapshot de un día en la zona del usuario. */
+export async function saveBehaviorSnapshot(ctx: MutationCtx, user: Doc<'users'>, date: string) {
+  const rows = await aliveRows(ctx, user._id);
+  const profile = await profileOf(ctx, user._id);
+  const data = snapshotOf(rows, user.timezone, date, profile?.learningAlpha ?? 0);
   const now = Date.now();
   const existing = await ctx.db.query('behaviorSnapshots').withIndex('by_user_day', (q) => q.eq('userId', user._id).eq('date', date)).unique();
   if (existing) await ctx.db.patch(existing._id, { ...data, updatedAt: now });
