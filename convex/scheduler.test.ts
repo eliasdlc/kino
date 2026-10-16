@@ -36,7 +36,7 @@ describe('crons', () => {
   });
 });
 
-describe('daily-snapshot', { timeout: 20_000 }, () => {
+describe('daily-snapshot', () => {
   it('sólo toca a quien hizo check-in hoy, y deja constancia en la bitácora', async () => {
     const { t, asAna, anaId, beaId } = await seed();
     await asAna.mutation(api.energy.createCheckin, { currentLevel: 70, slot: 'morning' });
