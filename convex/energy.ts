@@ -686,13 +686,16 @@ export const overBudgetExit = kinoZodQuery({
       .unique();
     const limit = settings?.dailyEnergyLimit ?? defaultSettings(user._id, 0).dailyEnergyLimit;
 
+    // El mismo plan que pinta la barra (`tasks.todayPlan`), hechas incluidas:
+    // la cifra del aviso y la de la barra salen de las mismas tareas.
     const rows = (await aliveRows(ctx, user._id)).filter((t) => t.parentTaskId === null);
-    const enElPlan = rows.filter((t) => t.status === 'today');
+    const enElPlan = rows.filter((t) => t.inTodayPlan);
     const budget = computeEnergyBudget(enElPlan, limit);
     if (budget.state !== 'over') return null;
 
     const today = new Date(userToday(user.timezone));
-    const mover = [...enElPlan]
+    const mover = enElPlan
+      .filter((t) => t.status !== 'done')
       .sort((a, b) => computeImportance(a, today) - computeImportance(b, today))
       .slice(0, TAREAS_QUE_OFRECE)
       .map((task) => ({ id: task.id, title: task.title, points: energyPointsFor(task.energyLevel) }));
@@ -968,7 +971,10 @@ export const applyWeeklyRitual = kinoZodMutation({
       // estado que `deriveStatusFromDate` sin volver a convertir nada.
       const status = doc.status === 'done' ? doc.status : date === hoy ? 'today' : date === manana ? 'tomorrow' : 'week';
       anterior.push({ taskId, startDate: doc.startDate === undefined ? null : new Date(doc.startDate).toISOString() });
-      await ctx.db.patch(doc._id, { startDate: inicioDe(date), status, updatedAt: now });
+      // El plan de hoy es `inTodayPlan`, no el status: repartir algo a hoy lo
+      // mete en el plan y repartirlo a otro día lo saca. Lo hecho no se mueve.
+      const inTodayPlan = doc.status === 'done' ? doc.inTodayPlan : status === 'today';
+      await ctx.db.patch(doc._id, { startDate: inicioDe(date), status, inTodayPlan, updatedAt: now });
       applied.push({ taskId, date });
     }
 

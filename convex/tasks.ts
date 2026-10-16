@@ -656,6 +656,12 @@ export async function updateTaskDoc(
       if (effectiveType === 'idea') patch.status = 'backlog';
       else if (data.startDate !== undefined) patch.status = deriveStatusFromDate(optMs(data.startDate), user.timezone);
     }
+    // La membresía del plan de hoy sigue al status igual que en `applyTransition`:
+    // entrar a hoy la une, salir a planificación la saca, completar la conserva.
+    if (data.inTodayPlan === undefined && patch.status !== undefined) {
+      if (patch.status === 'today') patch.inTodayPlan = true;
+      else if (patch.status !== 'done') patch.inTodayPlan = false;
+    }
 
     const dueChanged = data.dueDate !== undefined && optMs(data.dueDate) !== current.dueDate;
     if (dueChanged) {
