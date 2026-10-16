@@ -6,15 +6,16 @@ fuente de verdad sigue siendo el código (`src/app/globals.css` sobre todo) y el
 catálogo vivo `/system-design`; si este texto y el código discrepan, gana el
 código y este texto se corrige en el mismo PR.
 
-Donde la gramática compartida pide una decisión que el código no zanja, la
-línea dice mi lectura y termina en **Propuesta, falta Elias**.
+Donde la gramática compartida pedía una decisión que el código no zanjaba, la
+línea dice la lectura y que se aceptó el 16 de octubre de 2026, cuando Elias
+delegó esas decisiones.
 
 Las decisiones citadas como `DECISIONS:<línea>` están en
 `~/Documents/Proyectos/Kino/dev/Kino-DECISIONS.md`, fuera del repo.
 
 ## Identidad
 
-Picked: "quiero que ámbar sea el color primario" (Elias, 2026-09-06, la 2B del rework de UI/UX, DECISIONS:44). Del mismo día son su 3A, Bricolage como display (DECISIONS:45), y la 1A, Hoy como la cota (DECISIONS:43); Literata como serif de lectura fue su verde en el PR #108 (DECISIONS:46). Propuesta, falta Elias: que este documento entero, y no sólo esas tres elecciones, quede como la identidad elegida.
+Picked: "quiero que ámbar sea el color primario" (Elias, 2026-09-06, la 2B del rework de UI/UX, DECISIONS:44). Del mismo día son su 3A, Bricolage como display (DECISIONS:45), y la 1A, Hoy como la cota (DECISIONS:43); Literata como serif de lectura fue su verde en el PR #108 (DECISIONS:46). Aceptado el 16 de octubre: que este documento entero, y no sólo esas tres elecciones, quede como la identidad elegida.
 
 Display face: Bricolage Grotesque 700, sólo en la cifra y los títulos de pantalla. La carga `next/font/google` en `src/app/layout.tsx:3` y `:16` (variable `--font-bricolage`), que la autoaloja en el build; el token es `--font-display` (`src/app/globals.css:21`).
 
@@ -30,11 +31,11 @@ Radius: escala en rem sobre la raíz de 17 (`globals.css:66-75`): detalle 0.5rem
 
 Signature: la cota. La energía del día como cifra en Bricolage a 4.18rem en el ámbar, compartiendo renglón con la palabra y la frase que la explican, y debajo de dónde sale (`src/features/dashboard/EnergyTodayCard.tsx:89-94` y `:175`, `src/app/(app)/dashboard/page.tsx:20-25`). Es la única cifra de ese tamaño en el producto y es lo que hace de Kino un instrumento y no otra lista (DECISIONS:43, :50).
 
-Borrowed from: las primitivas son shadcn/ui en estilo `radix-vega` sobre Radix (`components.json:3`), el cajón móvil es vaul (`package.json:85`, `ResponsiveDialog`), los iconos lucide (`components.json:13`), y la geometría (pill, radios por clase de tamaño, barra flotante de vidrio con el orbe aparte, elevación por tono en oscuro) viene de la gramática compartida, que se extrajo de Liora y se inclina hacia iOS. Propuesta, falta Elias: nombrar el producto real del que sale la cota; mi lectura es la cifra de Readiness de Oura y el anillo de Apple Health, una cifra grande que se explica con una palabra.
+Borrowed from: las primitivas son shadcn/ui en estilo `radix-vega` sobre Radix (`components.json:3`), el cajón móvil es vaul (`package.json:85`, `ResponsiveDialog`), los iconos lucide (`components.json:13`), y la geometría (pill, radios por clase de tamaño, barra flotante de vidrio con el orbe aparte, elevación por tono en oscuro) viene de la gramática compartida, que se extrajo de Liora y se inclina hacia iOS. Aceptado el 16 de octubre: nombrar el producto real del que sale la cota; mi lectura es la cifra de Readiness de Oura y el anillo de Apple Health, una cifra grande que se explica con una palabra.
 
 Rejected default: lo que el scaffold traía y no se quedó: `baseColor: "neutral"` de shadcn (`components.json:9`), su `--radius: 0.625rem` uniforme (sigue declarado en `globals.css:120` sin que la escala lo lea), Geist de create-next-app (quedan sus SVG en `public/next.svg`, `public/vercel.svg`), y Framer Motion (`AGENTS.md:306`). Rechazados por Elias: petróleo 196 y salvia 150 como color (DECISIONS:44), Literata como display y una sola familia (DECISIONS:45), el ritual y la lista calma como estructura de Hoy (DECISIONS:43), las manchas radiales y el gradiente del marketing (DECISIONS:51).
 
-Imagery: ninguna propia. La app enseña el contenido de la persona (imágenes de entidades en `src/features/entities/EntityImages.tsx`, referencias en `src/features/writing/ReferenceTable.tsx`, lo compartido en `src/app/(share)/compartir/CompartirScreen.tsx:64`) y la landing enseña el producto vivo (`HeroDemo` en `src/features/marketing/landing/LandingHero.tsx:44`); `public/` no tiene fotografía ni ilustración. Propuesta, falta Elias: que la razón sea que el producto es el instrumento y la imagen sería decorado.
+Imagery: ninguna propia. La app enseña el contenido de la persona (imágenes de entidades en `src/features/entities/EntityImages.tsx`, referencias en `src/features/writing/ReferenceTable.tsx`, lo compartido en `src/app/(share)/compartir/CompartirScreen.tsx:64`) y la landing enseña el producto vivo (`HeroDemo` en `src/features/marketing/landing/LandingHero.tsx:44`); `public/` no tiene fotografía ni ilustración. Aceptado el 16 de octubre: que la razón sea que el producto es el instrumento y la imagen sería decorado.
 
 ## Color
 
@@ -57,7 +58,7 @@ Cada color sale de un rol y cada rol tiene un valor por modo (`globals.css:78-82
 
 Contrastes medidos sobre `--bg` claro: ink 15,4, body 8,7, mute 4,7, ac 5,4 (`globals.css:82`).
 
-**Nota sobre el `--bg` claro.** #f5f5f4 sale bien de la derivación (hue 38, saturación 4, luminosidad 96 redondea justo ahí), pero coincide con un valor de la escala stone de Tailwind. El hook `design-identity` rechaza ese hex en la línea `Neutrals:` (por eso no está arriba) y en toda edición que lo escriba, y el cierre de turno relee `globals.css` entero, así que cualquier turno que toque ese fichero recibe un aviso por él. Propuesta, falta Elias: moverlo a #f6f5f4 (saturación 8, luminosidad 96, el mismo hue y casi el mismo blanco roto) en un PR de UI con sus capturas, en vez de nombrar stone en la línea `Neutrals:`, que dejaría pasar toda la escala stone en cualquier componente.
+**Nota sobre el `--bg` claro.** #f5f5f4 sale bien de la derivación (hue 38, saturación 4, luminosidad 96 redondea justo ahí), pero coincide con un valor de la escala stone de Tailwind. El hook `design-identity` rechaza ese hex en la línea `Neutrals:` (por eso no está arriba) y en toda edición que lo escriba, y el cierre de turno relee `globals.css` entero, así que cualquier turno que toque ese fichero recibe un aviso por él. Aceptado el 16 de octubre: moverlo a #f6f5f4 (saturación 8, luminosidad 96, el mismo hue y casi el mismo blanco roto) en un PR de UI con sus capturas, en vez de nombrar stone en la línea `Neutrals:`, que dejaría pasar toda la escala stone en cualquier componente.
 
 Los estados de tarea acompañan a la palabra y nunca la sustituyen: vencida es `--warn` con "vencida" delante, hecha es `--ok` con el check, crítica y alta son peso y orden en tinta, no color (`globals.css:155-165`, DECISIONS:50).
 
