@@ -226,7 +226,7 @@ export const vocabularyWord = literals(['pagina', 'notaAdhesiva', 'etiqueta']);
 export type VocabularyWord = Infer<typeof vocabularyWord>;
 
 export const captureStatus = literals(['pending', 'confirmed', 'discarded', 'expired']);
-export const captureKind = literals(['voice', 'photo', 'link', 'text']);
+export const captureKind = literals(['voice', 'photo', 'link', 'text', 'email', 'file']);
 
 /**
  * Autoría. Obligatoria desde que la migración `autoriaYPapelera` la rellenó en
@@ -957,10 +957,17 @@ export default defineSchema({
     url: v.optional(v.string()),
     // Items tipados con destino propuesto que el agente devolvió.
     proposedItems: v.optional(v.array(json)),
+    // La fuente conectada que la entregó y el id estable que esa fuente le da.
+    // Sin ellos es una captura compartida a mano, como siempre. Con ellos, dos
+    // refrescos de la misma fuente dejan una sola fila.
+    source: v.optional(v.string()),
+    externalId: v.optional(v.string()),
     expiresAt: ts,
     resolvedAt: v.optional(ts),
     createdAt: ts,
   })
     .index('by_user_status', ['userId', 'status'])
+    .index('by_user_status_source', ['userId', 'status', 'source'])
+    .index('by_user_source_external', ['userId', 'source', 'externalId'])
     .index('by_expires', ['expiresAt']),
 });

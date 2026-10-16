@@ -318,3 +318,131 @@ describe('los ojos prestados: la entrega y la resolución', () => {
     await expect(agente.query(api.captures.entregar, { id: captura.id })).rejects.toThrow();
   });
 });
+
+describe('las fuentes conectadas entregan capturas, nunca tareas', () => {
+  /** Ana, su id y su agente: lo que una fuente necesita para entregarle algo. */
+  async function conFuente(t: ReturnType<typeof convexTest>) {
+    const asAna = await seed(t);
+    const userId = await asAna.mutation(api.users.ensure, {});
+    const agente = t.withIdentity({ ...ana, kino_scope: 'propose', kino_client: 'claude_desktop' });
+    return { asAna, agente, userId };
+  }
+
+  it('dos refrescos con el mismo id externo dejan una sola captura, con lo último que dijo la fuente', async () => {
+    const t = convexTest(schema, modules);
+    const { asAna, userId } = await conFuente(t);
+    const correo = { userId, source: 'correo', externalId: 'msg-1@mail', kind: 'email' as const };
+
+    const primera = await t.mutation(internal.captures.ingerir, { ...correo, text: 'Asunto: la beca' });
+    const segunda = await t.mutation(internal.captures.ingerir, { ...correo, text: 'Asunto: la beca (2)' });
+
+    expect(primera.creada).toBe(true);
+    expect(segunda).toEqual({ id: primera.id, creada: false });
+    const enBandeja = await asAna.query(api.captures.pendientes, {});
+    expect(enBandeja).toHaveLength(1);
+    expect(enBandeja[0]).toMatchObject({ kind: 'email', source: 'correo', text: 'Asunto: la beca (2)' });
+  });
+
+  it('un refresco no resucita lo que la persona ya descartó', async () => {
+    const t = convexTest(schema, modules);
+    const { asAna, userId } = await conFuente(t);
+    const correo = { userId, source: 'correo', externalId: 'msg-2@mail', kind: 'email' as const, text: 'spam' };
+    const { id } = await t.mutation(internal.captures.ingerir, correo);
+    await asAna.mutation(api.captures.descartar, { id });
+
+    await t.mutation(internal.captures.ingerir, correo);
+
+    expect(await asAna.query(api.captures.pendientes, {})).toEqual([]);
+    const fila = await t.run((ctx) => ctx.db.get(id));
+    expect(fila!.status).toBe('discarded');
+  });
+
+  it('un correo y un adjunto llegan al agente, vuelven como items tipados y dejan su evento', async () => {
+    const t = convexTest(schema, modules);
+    const { agente, userId } = await conFuente(t);
+    const correo = await t.mutation(internal.captures.ingerir, {
+      userId, source: 'correo', externalId: 'msg-3@mail', kind: 'email', text: 'Entrega del informe el viernes',
+    });
+    const adjunto = await t.mutation(internal.captures.ingerir, {
+      userId, source: 'correo', externalId: 'msg-3@mail#1', kind: 'file', blobPath: 'k/rubrica.pdf',
+    });
+
+    expect(await agente.query(api.captures.entregar, { id: correo.id })).toMatchObject({ kind: 'email', source: 'correo' });
+    expect(await agente.query(api.captures.entregar, { id: adjunto.id })).toMatchObject({ kind: 'file', blobPath: 'k/rubrica.pdf' });
+    expect(await agente.mutation(api.captures.resolver, { id: correo.id, items: [{ title: 'Entregar el informe' }] })).toEqual({ propuestos: 1 });
+    expect(await agente.mutation(api.captures.resolver, { id: adjunto.id, items: [{ title: 'Leer la rúbrica' }] })).toEqual({ propuestos: 1 });
+
+    const eventos = await t.run((ctx) => ctx.db.query('eventLog').collect());
+    const llegadas = eventos.filter((e) => e.action === 'capture.create');
+    expect(llegadas.map((e) => [e.actorChannel, (e.payload as { source?: string }).source])).toEqual([
+      ['sync', 'correo'],
+      ['sync', 'correo'],
+    ]);
+    expect(eventos.filter((e) => e.action === 'capture.resolve')).toHaveLength(2);
+  });
+
+  it('confirmar una captura de una fuente deja tareas que llevan el nombre de esa fuente', async () => {
+    const t = convexTest(schema, modules);
+    const { asAna, agente, userId } = await conFuente(t);
+    const { id } = await t.mutation(internal.captures.ingerir, {
+      userId, source: 'correo', externalId: 'msg-4@mail', kind: 'email', text: 'Dos cosas',
+    });
+    await agente.mutation(api.captures.resolver, { id, items: [{ title: 'Una' }, { title: 'Otra' }] });
+
+    await asAna.mutation(api.captures.confirmar, { id, indices: [0, 1] });
+
+    const tareas = await t.run((ctx) => ctx.db.query('tasks').collect());
+    expect(tareas.map((tarea) => [tarea.title, tarea.externalSource, tarea.externalId]).sort()).toEqual([
+      ['Otra', 'correo', `${id}:1`],
+      ['Una', 'correo', `${id}:0`],
+    ]);
+  });
+
+  it('lo compartido a mano sigue naciendo sin fuente', async () => {
+    const t = convexTest(schema, modules);
+    const { asAna } = await conFuente(t);
+    const captura = await asAna.mutation(api.captures.crear, { kind: 'photo', blobPath: 'k/pizarra.jpg' });
+    await conPropuesta(t, captura.id, [{ title: 'Repasar' }]);
+
+    await asAna.mutation(api.captures.confirmar, { id: captura.id, indices: [0] });
+
+    expect(captura.source).toBeNull();
+    const [tarea] = await t.run((ctx) => ctx.db.query('tasks').collect());
+    expect(tarea!.externalSource).toBeUndefined();
+  });
+
+  it('una fuente fuera del registro, o que escribe tareas, no puede dejar capturas', async () => {
+    const t = convexTest(schema, modules);
+    const { userId } = await conFuente(t);
+
+    await expect(
+      t.mutation(internal.captures.ingerir, { userId, source: 'whatsapp', externalId: 'x', kind: 'text', text: 'hola' }),
+    ).rejects.toThrow(/registro/);
+    await expect(
+      t.mutation(internal.captures.ingerir, { userId, source: 'github', externalId: 'x', kind: 'text', text: 'issue' }),
+    ).rejects.toThrow(/registro/);
+  });
+
+  it('el agente lista lo que espera por fuente, con cursor', async () => {
+    const t = convexTest(schema, modules);
+    const { asAna, agente, userId } = await conFuente(t);
+    for (let i = 0; i < 3; i++) {
+      enElDia(i);
+      await t.mutation(internal.captures.ingerir, {
+        userId, source: 'correo', externalId: `msg-${i}`, kind: 'email', text: `correo ${i}`,
+      });
+    }
+    enElDia(3);
+    await asAna.mutation(api.captures.crear, { kind: 'text', text: 'a mano' });
+
+    const primera = await agente.query(api.captures.porFuente, { source: 'correo', limite: 2 });
+    expect(primera.items.map((c) => c.text)).toEqual(['correo 2', 'correo 1']);
+    expect(primera.cursor).not.toBeNull();
+    const segunda = await agente.query(api.captures.porFuente, { source: 'correo', limite: 2, cursor: primera.cursor });
+    expect(segunda.items.map((c) => c.text)).toEqual(['correo 0']);
+    expect(segunda.cursor).toBeNull();
+
+    const todas = await agente.query(api.captures.porFuente, {});
+    expect(todas.items.map((c) => c.text)).toEqual(['a mano', 'correo 2', 'correo 1', 'correo 0']);
+  });
+});
