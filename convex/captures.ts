@@ -363,7 +363,12 @@ export async function ingerirCaptura(
     .first();
   if (existente) {
     if (existente.status === 'pending') {
-      await ctx.db.patch(existente._id, { text: entrada.text, url: entrada.url, blobPath: entrada.blobPath });
+      // Sólo lo que la fuente volvió a mandar: un campo ausente en el refresco no
+      // borra el que ya estaba, porque `patch` quita lo que llega en `undefined`.
+      const cambios = Object.fromEntries(
+        Object.entries({ text: entrada.text, url: entrada.url, blobPath: entrada.blobPath }).filter(([, v]) => v !== undefined),
+      );
+      if (Object.keys(cambios).length > 0) await ctx.db.patch(existente._id, cambios);
     }
     return { id: existente._id, creada: false };
   }

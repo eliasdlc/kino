@@ -343,6 +343,18 @@ describe('las fuentes conectadas entregan capturas, nunca tareas', () => {
     expect(enBandeja[0]).toMatchObject({ kind: 'email', source: 'correo', text: 'Asunto: la beca (2)' });
   });
 
+  it('un refresco que no repite un campo no borra el que ya estaba', async () => {
+    const t = convexTest(schema, modules);
+    const { asAna, userId } = await conFuente(t);
+    const adjunto = { userId, source: 'correo', externalId: 'msg-5@mail#1', kind: 'file' as const };
+    await t.mutation(internal.captures.ingerir, { ...adjunto, blobPath: 'k/rubrica.pdf', text: 'rubrica.pdf' });
+
+    await t.mutation(internal.captures.ingerir, { ...adjunto, text: 'rubrica-v2.pdf' });
+
+    const [fila] = await asAna.query(api.captures.pendientes, {});
+    expect(fila).toMatchObject({ blobPath: 'k/rubrica.pdf', text: 'rubrica-v2.pdf' });
+  });
+
   it('un refresco no resucita lo que la persona ya descartó', async () => {
     const t = convexTest(schema, modules);
     const { asAna, userId } = await conFuente(t);
