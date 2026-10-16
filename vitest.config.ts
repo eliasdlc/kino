@@ -27,7 +27,7 @@ const domTests = [
 /**
  * El tope por test, medido el 15 de octubre de 2026 con el reporter JSON. El
  * test más lento que vive bajo este tope tardó 9,7 s en la laptop de 16 núcleos
- * con la carga a 37,8 (dos agentes y dos `next build` a la vez), y 3,0 s en una
+ * con la carga a 37,8 (dos agentes y dos `next build` a la vez), y 3,8 s en una
  * máquina de 4 núcleos como el runner de CI. Treinta segundos son tres veces el
  * peor caso medido: un rojo por tiempo ya no sale de una máquina cargada, sale
  * de un test que se colgó. El default de vitest eran 5 s, y siete tests lo
