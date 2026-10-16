@@ -10,6 +10,7 @@ import { useSubtasks } from "../tasks.hooks";
 import { useTaskCard, type TaskCardState } from "./useTaskCard";
 import type { TaskCardProps } from "./types";
 import type { SystemType } from "@/shared/lib/system-types";
+import { PRIORITY_LABELS } from "../task-detail.helpers";
 import {
   ContextMenu,
   ContextMenuContent,
@@ -37,6 +38,13 @@ const STATUS_BADGE: Record<string, string> = {
   tomorrow: "bg-primary/18 text-primary",
   done:     "bg-task-done/15 text-task-done",
   archived: "bg-muted/60 text-muted-foreground/65",
+};
+
+// Lo que la card enseña de cada estado: el enum viaja en el transporte, la
+// etiqueta es lo que lee la persona.
+const STATUS_LABEL: Record<string, string> = {
+  backlog: "Backlog", week: "Semana", today: "Hoy",
+  tomorrow: "Mañana", done: "Hecho", archived: "Archivado",
 };
 
 const TYPE_BADGE: Record<string, string> = {
@@ -171,7 +179,7 @@ function DefaultMeta({ task, state, systemType, systemId }: DefaultMetaProps) {
         "font-mono text-xs md:text-sm font-medium px-2 py-0.5 rounded-md tracking-[0.02em]",
         STATUS_BADGE[task.status] ?? STATUS_BADGE.backlog
       )}>
-        {task.status}
+        {STATUS_LABEL[task.status] ?? task.status}
       </span>
 
       {task.taskType === "reminder" && task.dueDate ? (
@@ -342,7 +350,7 @@ export function DefaultTaskCard({ task, systemId, systemType, draggable, isFocus
           "absolute top-2.5 right-3 font-mono text-xs font-semibold uppercase tracking-[0.06em] px-1.5 py-0.5 rounded",
           isCritical ? "bg-task-critical/20 text-task-overdue" : "bg-task-high/20 text-task-high-foreground"
         )}>
-          {isCritical ? "critical" : "high"}
+          {PRIORITY_LABELS[isCritical ? "critical" : "high"]}
         </span>
       )}
     </div>
