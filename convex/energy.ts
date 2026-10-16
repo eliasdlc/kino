@@ -641,10 +641,10 @@ export async function nightlyRefresh(ctx: MutationCtx, user: Doc<'users'>, now =
 
 export type AdvisorBulkAction = 'move-tomorrow' | 'move-today' | 'lower-priority' | 'none';
 
-async function advisorAction(ctx: Ctx, user: Doc<'users'>, patternId: AdvisorPattern['id']) {
+function advisorAction(user: Doc<'users'>, alive: TaskRow[], patternId: AdvisorPattern['id']) {
   const todayStr = userToday(user.timezone);
   const today = new Date(todayStr);
-  const rows = (await aliveRows(ctx, user._id)).filter((t) => t.parentTaskId === null);
+  const rows = alive.filter((t) => t.parentTaskId === null);
   const plural = (n: number) => (n !== 1 ? 's' : '');
   if (patternId === 'abandonment') {
     const overdue = rows
@@ -669,12 +669,16 @@ async function advisorAction(ctx: Ctx, user: Doc<'users'>, patternId: AdvisorPat
 export async function todayAdvisor(ctx: Ctx, user: Doc<'users'>) {
   const profile = await profileOf(ctx, user._id);
   if (!profile) return null;
-  const recent = (await recentSnapshots(ctx, user._id, 7)).map(snapshotItem);
+  // Los snapshots guardados son de días cerrados (el más nuevo es ayer). Hoy
+  // se cuenta en vivo: cerrar las vencidas por la mañana cambia el consejo ya.
+  const todayStr = userToday(user.timezone);
+  const recent = (await recentSnapshots(ctx, user._id, 7)).filter((s) => s.date < todayStr).map(snapshotItem);
   if (recent.length === 0) return null;
-  const [today, ...rest] = recent;
-  const pattern = detectTopPattern(today!, rest);
+  const rows = await aliveRows(ctx, user._id);
+  const today = snapshotOf(rows, user.timezone, todayStr, profile.learningAlpha);
+  const pattern = detectTopPattern(today, recent);
   if (!pattern) return null;
-  return { ...pattern, ...(await advisorAction(ctx, user, pattern.id)) };
+  return { ...pattern, ...advisorAction(user, rows, pattern.id) };
 }
 
 /** Cuántas tareas ofrece mover la salida del sobregiro. */

@@ -412,6 +412,23 @@ describe('energy', () => {
     expect((await asAna.query(api.tasks.todayPlan, {})).map((t) => t.id)).not.toContain(task.id);
   });
 
+  it('cerrar las vencidas por la mañana cambia el consejo el mismo dia', async () => {
+    const { t, asAna, systemId } = await seed();
+    const hace10Dias = Date.now() - 10 * DIA_MS;
+    const vencidas = await Promise.all(
+      Array.from({ length: 12 }, (_, i) => asAna.mutation(api.tasks.create, { systemId, title: `Vencida ${i + 1}`, dueDate: '2026-01-01T12:00:00Z' })),
+    );
+    await t.run(async (ctx) => {
+      for (const task of vencidas) await ctx.db.patch(task.id as Id<'tasks'>, { createdAt: hace10Dias });
+    });
+    // El snapshot de ayer, como lo deja quien pinta el consejo al abrir el dia.
+    await asAna.mutation(api.energy.ensureYesterdaySnapshot, {});
+    expect((await asAna.query(api.energy.advisor, {}))?.message).toContain('Tienes 12 tareas vencidas');
+
+    for (const task of vencidas) await asAna.mutation(api.tasks.toggle, { id: task.id });
+    expect(await asAna.query(api.energy.advisor, {})).toBeNull();
+  });
+
   it('la tasa de completado de un dia pasado no cambia al tocar tareas hoy', async () => {
     const { t, asAna, systemId } = await seed();
     const ahora = Date.now();
