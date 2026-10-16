@@ -568,25 +568,46 @@ export const learningInsight = kinoZodQuery({
 
 // ── Snapshots de comportamiento ─────────────────────────────────────────────
 
-/** Calcula y guarda el snapshot de un día en la zona del usuario. */
-export async function saveBehaviorSnapshot(ctx: MutationCtx, user: Doc<'users'>, date: string) {
-  const rows = await aliveRows(ctx, user._id);
-  const day = (d: Date | null) => (d ? calendarDayInTz(d.getTime(), user.timezone) : null);
+type TaskRow = Awaited<ReturnType<typeof aliveRows>>[number];
+
+/**
+ * Las cifras de un día tal como estaban al cerrarse, en la zona del usuario.
+ *
+ * Todo se cuenta "a fin de ese día" con las fechas que la tarea guarda: existía
+ * si se creó ese día o antes, y seguía abierta si no se había completado para
+ * entonces. Así calcular el snapshot de ayer hoy, mañana o dentro de una semana
+ * da lo mismo, y cerrar tareas hoy no reescribe la tasa de ayer. Lo que no deja
+ * fecha (la prioridad, pasar de backlog a planificada sin fecha de inicio) se
+ * lee como está ahora.
+ */
+function snapshotOf(rows: TaskRow[], timezone: string, date: string, learningAlpha: number) {
+  const day = (d: Date | null) => (d ? calendarDayInTz(d.getTime(), timezone) : null);
+  const closedBy = (t: TaskRow) => t.status === 'done' && (t.completedAt === null || day(t.completedAt)! <= date);
+  const open = rows.filter((t) => day(t.createdAt)! <= date && !closedBy(t));
+  // Activa ese día: planificada ahora, o completada después y con fecha de
+  // inicio, que es de donde sale el estado de planificación.
+  const active = open.filter((t) => ACTIVE.has(t.status) || (t.status === 'done' && t.startDate !== null));
   const tasksCreated = rows.filter((t) => day(t.createdAt) === date).length;
   const tasksCompleted = rows.filter((t) => day(t.completedAt) === date).length;
-  const tasksOverdue = rows.filter((t) => t.parentTaskId === null && t.status !== 'done' && t.dueDate !== null && t.dueDate < date).length;
-  const criticalCount = rows.filter((t) => t.priority === 'critical' && ACTIVE.has(t.status)).length;
-  const activeCount = rows.filter((t) => ACTIVE.has(t.status)).length;
-  const profile = await profileOf(ctx, user._id);
-  const data = {
+  const tasksOverdue = open.filter((t) => t.parentTaskId === null && t.dueDate !== null && t.dueDate < date).length;
+  const criticalCount = active.filter((t) => t.priority === 'critical').length;
+  const activeCount = active.length;
+  return {
     tasksCreated,
     tasksCompleted,
     tasksOverdue,
     criticalCount,
     activeCount,
     completionRate: tasksCompleted / Math.max(1, activeCount + tasksCompleted),
-    learningAlpha: profile?.learningAlpha ?? 0,
+    learningAlpha,
   };
+}
+
+/** Calcula y guarda el snapshot de un día en la zona del usuario. */
+export async function saveBehaviorSnapshot(ctx: MutationCtx, user: Doc<'users'>, date: string) {
+  const rows = await aliveRows(ctx, user._id);
+  const profile = await profileOf(ctx, user._id);
+  const data = snapshotOf(rows, user.timezone, date, profile?.learningAlpha ?? 0);
   const now = Date.now();
   const existing = await ctx.db.query('behaviorSnapshots').withIndex('by_user_day', (q) => q.eq('userId', user._id).eq('date', date)).unique();
   if (existing) await ctx.db.patch(existing._id, { ...data, updatedAt: now });
@@ -620,10 +641,10 @@ export async function nightlyRefresh(ctx: MutationCtx, user: Doc<'users'>, now =
 
 export type AdvisorBulkAction = 'move-tomorrow' | 'move-today' | 'lower-priority' | 'none';
 
-async function advisorAction(ctx: Ctx, user: Doc<'users'>, patternId: AdvisorPattern['id']) {
+function advisorAction(user: Doc<'users'>, alive: TaskRow[], patternId: AdvisorPattern['id']) {
   const todayStr = userToday(user.timezone);
   const today = new Date(todayStr);
-  const rows = (await aliveRows(ctx, user._id)).filter((t) => t.parentTaskId === null);
+  const rows = alive.filter((t) => t.parentTaskId === null);
   const plural = (n: number) => (n !== 1 ? 's' : '');
   if (patternId === 'abandonment') {
     const overdue = rows
@@ -648,12 +669,16 @@ async function advisorAction(ctx: Ctx, user: Doc<'users'>, patternId: AdvisorPat
 export async function todayAdvisor(ctx: Ctx, user: Doc<'users'>) {
   const profile = await profileOf(ctx, user._id);
   if (!profile) return null;
-  const recent = (await recentSnapshots(ctx, user._id, 7)).map(snapshotItem);
+  // Los snapshots guardados son de días cerrados (el más nuevo es ayer). Hoy
+  // se cuenta en vivo: cerrar las vencidas por la mañana cambia el consejo ya.
+  const todayStr = userToday(user.timezone);
+  const recent = (await recentSnapshots(ctx, user._id, 7)).filter((s) => s.date < todayStr).map(snapshotItem);
   if (recent.length === 0) return null;
-  const [today, ...rest] = recent;
-  const pattern = detectTopPattern(today!, rest);
+  const rows = await aliveRows(ctx, user._id);
+  const today = snapshotOf(rows, user.timezone, todayStr, profile.learningAlpha);
+  const pattern = detectTopPattern(today, recent);
   if (!pattern) return null;
-  return { ...pattern, ...(await advisorAction(ctx, user, pattern.id)) };
+  return { ...pattern, ...advisorAction(user, rows, pattern.id) };
 }
 
 /** Cuántas tareas ofrece mover la salida del sobregiro. */
@@ -686,13 +711,16 @@ export const overBudgetExit = kinoZodQuery({
       .unique();
     const limit = settings?.dailyEnergyLimit ?? defaultSettings(user._id, 0).dailyEnergyLimit;
 
+    // El mismo plan que pinta la barra (`tasks.todayPlan`), hechas incluidas:
+    // la cifra del aviso y la de la barra salen de las mismas tareas.
     const rows = (await aliveRows(ctx, user._id)).filter((t) => t.parentTaskId === null);
-    const enElPlan = rows.filter((t) => t.status === 'today');
+    const enElPlan = rows.filter((t) => t.inTodayPlan);
     const budget = computeEnergyBudget(enElPlan, limit);
     if (budget.state !== 'over') return null;
 
     const today = new Date(userToday(user.timezone));
-    const mover = [...enElPlan]
+    const mover = enElPlan
+      .filter((t) => t.status !== 'done')
       .sort((a, b) => computeImportance(a, today) - computeImportance(b, today))
       .slice(0, TAREAS_QUE_OFRECE)
       .map((task) => ({ id: task.id, title: task.title, points: energyPointsFor(task.energyLevel) }));
@@ -968,7 +996,10 @@ export const applyWeeklyRitual = kinoZodMutation({
       // estado que `deriveStatusFromDate` sin volver a convertir nada.
       const status = doc.status === 'done' ? doc.status : date === hoy ? 'today' : date === manana ? 'tomorrow' : 'week';
       anterior.push({ taskId, startDate: doc.startDate === undefined ? null : new Date(doc.startDate).toISOString() });
-      await ctx.db.patch(doc._id, { startDate: inicioDe(date), status, updatedAt: now });
+      // El plan de hoy es `inTodayPlan`, no el status: repartir algo a hoy lo
+      // mete en el plan y repartirlo a otro día lo saca. Lo hecho no se mueve.
+      const inTodayPlan = doc.status === 'done' ? doc.inTodayPlan : status === 'today';
+      await ctx.db.patch(doc._id, { startDate: inicioDe(date), status, inTodayPlan, updatedAt: now });
       applied.push({ taskId, date });
     }
 

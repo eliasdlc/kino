@@ -339,7 +339,10 @@ export function computeLearnedCurve(
     let empirical: number;
     if (cCount > 0) {
       const checkinLevel = (checkinLevelSum[h] ?? 0) / cCount; // 0–100 directo
-      empirical = 0.7 * checkinLevel + 0.3 * aVal;
+      // Una hora sin actividad registrada no dice "energía cero": dice que no
+      // hay dato de actividad. Ahí el check-in vale entero; la mezcla sólo
+      // entra cuando las dos señales existen.
+      empirical = aVal > 0 ? 0.7 * checkinLevel + 0.3 * aVal : checkinLevel;
     } else {
       empirical = aVal;
     }

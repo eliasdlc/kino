@@ -286,6 +286,18 @@ describe('computeLearnedCurve', () => {
     expect(curve[9]!).toBeGreaterThan(CHRONOTYPE_CURVES.evening[9]!);
   });
 
+  it('a check-in at an hour with no activity counts at its full level', () => {
+    const s = emptySignals();
+    s.activityWeight[15] = 10; // actividad en otra hora: la de las 9 queda en cero
+    s.checkinCount[9] = 1;
+    s.checkinLevelSum[9] = 90;
+    const { curve, slotAlphas } = computeLearnedCurve('evening', s)!;
+    const a = slotAlphas.morning;
+    const theo = CHRONOTYPE_CURVES.evening[9]!;
+    // La parte empírica de esa hora es el 90 reportado, no 0.7 * 90 = 63.
+    expect(curve[9]).toBe(Math.round(((1 - a) * theo + a * 90) * 10) / 10);
+  });
+
   it('inaccurate feedback pushes the slot toward real data', () => {
     const base = emptySignals();
     base.activityWeight[20] = 12;
