@@ -1,14 +1,14 @@
 import { NextResponse, type NextRequest } from 'next/server';
 import { identityFor } from './identity';
 import { decide, policyFor, windowStartFor, type RateLimitDecision, type RateLimitPolicy } from './policy';
-import type { RateLimitStore } from './store';
+import { convexRateLimitStore, type RateLimitStore } from './store';
 
 export * from './policy';
 export type { RateLimitStore } from './store';
 
 /**
  * Cuenta la request y devuelve la decisión. El reloj y el store entran por
- * parámetro: la política es determinista y se prueba sin Postgres delante.
+ * parámetro: la política es determinista y se prueba sin Convex delante.
  */
 export async function enforceRateLimit(args: {
   store: RateLimitStore;
@@ -46,9 +46,15 @@ export function rateLimitedResponse(decision: RateLimitDecision): NextResponse {
  * Punto de entrada del proxy. Devuelve la respuesta 429 cuando toca cortar, o
  * `null` para dejar pasar.
  *
- * **Falla abierto a propósito.** Si Neon no responde, la request pasa: un
- * limitador de costo caído no debe tumbar la API entera. El error se loguea
- * para que la caída se vea en vez de degradarse en silencio.
+ * **Falla abierto a propósito, en las dos rutas que cuenta.** Si Convex no
+ * responde (caído, lento más allá del tope del store, o sin la función
+ * publicada), la request pasa: este límite frena el costo, y quien decide el
+ * acceso es Clerk. En `/api/mcp` cerrar no protegería nada, porque cada tool
+ * llama a Convex y sin él falla igual. En `POST /api/uploads` el archivo va a
+ * otro almacenamiento, pero la URL que devuelve sólo sirve guardada en Convex,
+ * y cerrar convertiría una caída del contador en una subida rota que el cliente
+ * leería como «almacenamiento sin configurar», que es lo que dice ante un 503. El error se loguea para que la caída se vea en vez de degradarse
+ * en silencio.
  */
 export async function guardApiRequest(
   request: NextRequest,
@@ -61,7 +67,7 @@ export async function guardApiRequest(
   if (!identity) return null;
 
   try {
-    const store = overrides.store ?? (await import('./store')).memoryRateLimitStore;
+    const store = overrides.store ?? convexRateLimitStore;
     const decision = await enforceRateLimit({
       store,
       identity,
