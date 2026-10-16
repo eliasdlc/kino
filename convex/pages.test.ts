@@ -1,6 +1,6 @@
 import { convexTest } from 'convex-test';
 import { describe, expect, it } from 'vitest';
-import { api } from './_generated/api';
+import { api, internal } from './_generated/api';
 import { PAGE_CONTENT_MAX, PAGE_LIST_LIMIT } from './pages';
 import schema from './schema';
 
@@ -163,5 +163,47 @@ describe('pages.bySystem con carpeta', () => {
 
     const { items } = await asAna.query(api.pages.bySystem, { systemId, folderId: clase });
     expect(items.map((item) => item.title).sort()).toEqual(['Derivadas', 'Límites']);
+  });
+});
+
+describe('contenido con sistema', () => {
+  it('crear una página sin sistema es un error de validación', async () => {
+    const { t, asAna } = await seed();
+    // El tipo ya lo exige; aquí se prueba que el servidor también, que es lo
+    // que ve un cliente viejo o el conector.
+    await expect(asAna.mutation(api.pages.create, { title: 'Suelta' } as never)).rejects.toThrow(/systemId/);
+    expect(await t.run((ctx) => ctx.db.query('pages').collect())).toHaveLength(0);
+  });
+
+  it('borrar un sistema no deja su contenido flotando: archivarlo lo conserva, borrar la cuenta se lo lleva', async () => {
+    const { t, asAna, userId, systemId } = await seed();
+    const carpeta = await asAna.mutation(api.folders.create, { systemId, name: 'Parte 1' });
+    const pagina = await asAna.mutation(api.pages.create, { systemId, folderId: carpeta.id, title: 'Capítulo 1' });
+    await asAna.mutation(api.stickyNotes.createOnPage, { pageId: pagina.id, content: 'Idea' });
+    await asAna.mutation(api.stickyNotes.createOnFolder, { folderId: carpeta.id, title: 'Recordar' });
+    await t.run((ctx) =>
+      ctx.db.insert('pageSnapshots', { pageId: pagina.id, userId, systemId, content: '<p>Antes.</p>', wordCount: 1, createdAt: 1 }),
+    );
+    const contenido = () =>
+      t.run(async (ctx) => [
+        ...(await ctx.db.query('folders').collect()),
+        ...(await ctx.db.query('pages').collect()),
+        ...(await ctx.db.query('stickyNotes').collect()),
+        ...(await ctx.db.query('pageSnapshots').collect()),
+      ]);
+
+    // `systems.remove` archiva: el sistema sigue existiendo y todo lo suyo le
+    // sigue apuntando, así que nada queda con una referencia rota.
+    await asAna.mutation(api.systems.remove, { id: systemId });
+    const archivado = await contenido();
+    expect(archivado).toHaveLength(5);
+    expect(archivado.every((doc) => doc.systemId === systemId)).toBe(true);
+    expect(await t.run((ctx) => ctx.db.get(systemId))).toMatchObject({ isActive: false });
+
+    // El único borrado de verdad de un sistema es el de la cuenta, y barre las
+    // cuatro tablas de contenido con él.
+    await t.mutation(internal.users.purge, { userId });
+    expect(await t.run((ctx) => ctx.db.get(systemId))).toBeNull();
+    expect(await contenido()).toEqual([]);
   });
 });
