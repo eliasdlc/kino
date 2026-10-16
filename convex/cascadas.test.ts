@@ -148,7 +148,7 @@ describe('borrar un capítulo', () => {
     const tag = await as.mutation(api.tags.create, { title: 'Borrador', color: 'blue', systemId });
     await t.run(async (ctx) => {
       await ctx.db.insert('pageSnapshots', {
-        pageId: page.id as Id<'pages'>, userId, content: 'texto', wordCount: 1, createdAt: Date.now(),
+        pageId: page.id as Id<'pages'>, userId, systemId, content: 'texto', wordCount: 1, createdAt: Date.now(),
       });
       await ctx.db.insert('pageTags', { pageId: page.id as Id<'pages'>, tagId: tag.id as Id<'contextTags'> });
       await ctx.db.insert('taskPageLinks', { taskId: task.id as Id<'tasks'>, pageId: page.id as Id<'pages'> });

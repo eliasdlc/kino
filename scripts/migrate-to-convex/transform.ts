@@ -56,6 +56,23 @@ export class Refs {
     return pgId === null ? undefined : this.id(table, pgId);
   }
 
+  private readonly sistemas = new Map<string, Id<'systems'>>();
+
+  /** Apunta el sistema de una carpeta o página ya transformada, por su id de Postgres. */
+  addSystem(table: 'folders' | 'pages', pgId: string, systemId: Id<'systems'>) {
+    this.sistemas.set(`${table}:${pgId}`, systemId);
+  }
+
+  /**
+   * El sistema de la carpeta o página de la que cuelga una nota o una versión.
+   * En Postgres esas dos tablas no lo guardan, y en Convex es obligatorio.
+   */
+  systemOf(table: 'folders' | 'pages', pgId: string): Id<'systems'> {
+    const systemId = this.sistemas.get(`${table}:${pgId}`);
+    if (!systemId) throw new Error(`${table}: no hay sistema para el id de Postgres ${pgId}`);
+    return systemId;
+  }
+
   /**
    * Referencia a la propia tabla. En la primera pasada la tabla todavía no
    * existe en Convex y la referencia se deja vacía; la segunda pasada la
@@ -284,13 +301,21 @@ export function taskReminder(row: Row<typeof pg.taskReminders>, refs: Refs): Ins
 }
 
 // ── Contenido ───────────────────────────────────────────────────────────────
+//
+// En Convex todo contenido pertenece a un sistema. Una carpeta o página que en
+// Postgres no lo tenga para la importación en vez de entrar a medias.
+
+function sistemaDeFila(table: 'folders' | 'pages', row: { id: string; systemId: string | null }, refs: Refs): Id<'systems'> {
+  if (row.systemId === null) throw new Error(`${table}: la fila ${row.id} no tiene sistema y Convex lo exige`);
+  return refs.id('systems', row.systemId);
+}
 
 /** `path` (ltree) no viaja: el árbol se arma en memoria desde parentId. */
 export function folder(row: Row<typeof pg.folders>, refs: Refs): Insert<'folders'> {
   return {
     pgId: row.id,
     userId: refs.id('users', row.userId),
-    systemId: refs.opt('systems', row.systemId),
+    systemId: sistemaDeFila('folders', row, refs),
     parentId: refs.self('folders', row.parentId),
     name: row.name,
     color: oneOf(color, row.color),
@@ -308,7 +333,7 @@ export function page(row: Row<typeof pg.pages>, refs: Refs): Insert<'pages'> {
     pgId: row.id,
     userId: refs.id('users', row.userId),
     folderId: refs.opt('folders', row.folderId),
-    systemId: refs.opt('systems', row.systemId),
+    systemId: sistemaDeFila('pages', row, refs),
     parentPageId: refs.self('pages', row.parentPageId),
     title: opt(row.title),
     content: opt(row.content),
@@ -324,12 +349,20 @@ export function page(row: Row<typeof pg.pages>, refs: Refs): Insert<'pages'> {
   };
 }
 
+/** Una nota vive en una página o en una carpeta, y su sistema es el de esa. */
+function sistemaDeNota(row: Row<typeof pg.stickyNotes>, refs: Refs): Id<'systems'> {
+  if (row.pageId !== null) return refs.systemOf('pages', row.pageId);
+  if (row.folderId !== null) return refs.systemOf('folders', row.folderId);
+  throw new Error(`stickyNotes: la fila ${row.id} no cuelga de ninguna página ni carpeta`);
+}
+
 export function stickyNote(row: Row<typeof pg.stickyNotes>, refs: Refs): Insert<'stickyNotes'> {
   return {
     pgId: row.id,
     userId: refs.id('users', row.userId),
     pageId: refs.opt('pages', row.pageId),
     folderId: refs.opt('folders', row.folderId),
+    systemId: sistemaDeNota(row, refs),
     title: opt(row.title),
     content: opt(row.content),
     color: oneOf(color, row.color),
@@ -355,6 +388,7 @@ export function pageSnapshot(row: Row<typeof pg.pageSnapshots>, refs: Refs): Ins
     pgId: row.id,
     pageId: refs.id('pages', row.pageId),
     userId: refs.id('users', row.userId),
+    systemId: refs.systemOf('pages', row.pageId),
     content: opt(row.content),
     wordCount: row.wordCount,
     sessionStartedAt: optMs(row.sessionStartedAt),

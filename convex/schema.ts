@@ -81,6 +81,8 @@
 // systems.memberAgentsAllowed. Y las siete tablas nuevas: eventLog, itemLinks,
 // systemMembers, systemInvites, sessionDigests, proposals, captures. Nacen sin
 // lector ni escritor; la fase 1 decide su forma final y quién las rellena.
+// `systemId` ya es obligatorio en folders, pages, stickyNotes y pageSnapshots:
+// lo rellenó `migrations/contenidoConSistema` antes de dejar de ser opcional.
 
 import { defineSchema, defineTable } from 'convex/server';
 import { v, type Infer, type VLiteral } from 'convex/values';
@@ -524,7 +526,7 @@ export default defineSchema({
     academicPeriodId: v.optional(v.id('academicPeriods')),
     pgId,
     userId: v.id('users'),
-    systemId: v.optional(v.id('systems')),
+    systemId: v.id('systems'),
     parentId: v.optional(v.id('folders')),
     name: v.string(),
     color,
@@ -545,7 +547,7 @@ export default defineSchema({
     pgId,
     userId: v.id('users'),
     folderId: v.optional(v.id('folders')),
-    systemId: v.optional(v.id('systems')),
+    systemId: v.id('systems'),
     parentPageId: v.optional(v.id('pages')),
     title: v.optional(v.string()),
     content: v.optional(v.string()),
@@ -584,7 +586,7 @@ export default defineSchema({
     userId: v.id('users'),
     pageId: v.optional(v.id('pages')),
     folderId: v.optional(v.id('folders')),
-    systemId: v.optional(v.id('systems')),
+    systemId: v.id('systems'),
     title: v.optional(v.string()),
     content: v.optional(v.string()),
     color,
@@ -628,7 +630,7 @@ export default defineSchema({
     pgId,
     pageId: v.id('pages'),
     userId: v.id('users'),
-    systemId: v.optional(v.id('systems')),
+    systemId: v.id('systems'),
     content: v.optional(v.string()),
     wordCount: v.number(),
     sessionStartedAt: v.optional(ts),
