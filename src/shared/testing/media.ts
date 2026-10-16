@@ -19,7 +19,7 @@ type Preference = keyof typeof PREFERENCES;
 const DEFAULTS = { ...PREFERENCES };
 
 /** Enciende una preferencia para el test que viene. */
-export function setMediaPreference(query: Preference, value: boolean): void {
+function setMediaPreference(query: Preference, value: boolean): void {
   PREFERENCES[query] = value;
 }
 

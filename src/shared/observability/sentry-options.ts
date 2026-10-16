@@ -25,16 +25,16 @@ import { stripQuery } from "./strip-query";
  * mientras la clave no esté cargada en Vercel: la app arranca igual y nadie
  * tiene que acordarse de comentar nada.
  */
-export const SENTRY_DSN = process.env.NEXT_PUBLIC_SENTRY_DSN ?? "";
+const SENTRY_DSN = process.env.NEXT_PUBLIC_SENTRY_DSN ?? "";
 
 /**
  * El commit desplegado. Es lo que convierte "falla algo" en "falla desde el
  * despliegue de ayer", y sin él una traza de producción no se puede situar.
  */
-export const SENTRY_RELEASE =
+const SENTRY_RELEASE =
   process.env.NEXT_PUBLIC_VERCEL_GIT_COMMIT_SHA ?? process.env.VERCEL_GIT_COMMIT_SHA;
 
-export const SENTRY_ENVIRONMENT =
+const SENTRY_ENVIRONMENT =
   process.env.NEXT_PUBLIC_VERCEL_ENV ?? process.env.VERCEL_ENV ?? "development";
 
 /**

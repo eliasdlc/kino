@@ -15,9 +15,6 @@ export type ColorValue = (typeof COLOR_VALUES)[number];
 export const ENERGY_LEVEL_VALUES = ["high", "medium", "low"] as const;
 export type EnergyLevelValue = (typeof ENERGY_LEVEL_VALUES)[number];
 
-export const TASK_STATUS_VALUES = ["backlog", "week", "tomorrow", "today", "done", "archived"] as const;
-export type TaskStatusValue = (typeof TASK_STATUS_VALUES)[number];
-
 export const TASK_PRIORITY_VALUES = ["critical", "high", "medium", "low"] as const;
 export type TaskPriorityValue = (typeof TASK_PRIORITY_VALUES)[number];
 

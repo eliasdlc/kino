@@ -14,7 +14,7 @@ export const CODEX_VIEWS = [
 
 export type CodexViewId = (typeof CODEX_VIEWS)[number]["id"];
 
-export const DEFAULT_CODEX_VIEW: CodexViewId = "biblioteca";
+const DEFAULT_CODEX_VIEW: CodexViewId = "biblioteca";
 
 export function resolveCodexView(raw: string | undefined): CodexViewId {
   const match = CODEX_VIEWS.find((v) => v.id === raw);

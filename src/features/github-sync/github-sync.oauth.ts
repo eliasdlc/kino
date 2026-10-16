@@ -25,7 +25,7 @@ const TOKEN_URL = "https://github.com/login/oauth/access_token";
  * diseño (nunca se llama a un endpoint de escritura), pero el permiso concedido
  * es más amplio de lo que se usa y conviene que se sepa.
  */
-export const GITHUB_SCOPES = "repo read:user";
+const GITHUB_SCOPES = "repo read:user";
 
 /** Cookie con el `state` de CSRF. Efímera: sólo vive durante el redirect. */
 export const OAUTH_STATE_COOKIE = "kino_gh_state";
@@ -58,12 +58,6 @@ export function readOAuthConfig(): OAuthConfig {
     clientSecret,
     redirectUri: `${appUrl}/api/integrations/github/callback`,
   };
-}
-
-export function isOAuthConfigured(): boolean {
-  return Boolean(
-    process.env.GITHUB_SYNC_CLIENT_ID && process.env.GITHUB_SYNC_CLIENT_SECRET,
-  );
 }
 
 export function newState(): string {

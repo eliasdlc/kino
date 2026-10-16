@@ -28,7 +28,7 @@ interface PaintState extends AnchorPaint {
 
 const VACIO: AnchorPaint = { tints: {}, lit: null };
 
-export const anchorPaintKey = new PluginKey<PaintState>("stickyAnchorPaint");
+const anchorPaintKey = new PluginKey<PaintState>("stickyAnchorPaint");
 
 /**
  * Una decoracion por frase anotada cuya nota conocemos.

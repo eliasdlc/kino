@@ -40,10 +40,6 @@ export function useTodayCheckins() {
   return useConvexQuery(api.energy.checkins, {});
 }
 
-export function useEnergyAdvisor() {
-  return useConvexQuery(api.energy.advisor, {});
-}
-
 export function useCreateCheckin() {
   const router = useRouter();
   return useConvexMutation(api.energy.createCheckin, {
