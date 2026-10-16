@@ -69,14 +69,17 @@ describe('pages.bySystem', () => {
     }
   });
 
-  it('por encima del tope corta y dice cuántas quedaron fuera', async () => {
+  it('por encima del tope corta y avisa de que hay más', async () => {
     const { t, asAna, userId, systemId } = await seed();
     await insertarPaginas(t, userId, systemId, PAGE_LIST_LIMIT + 3);
 
     const { items, restantes } = await asAna.query(api.pages.bySystem, { systemId });
 
     expect(items).toHaveLength(PAGE_LIST_LIMIT);
-    expect(restantes).toBe(3);
+    // Uno, no tres: la lectura para en el tope más una, así que `restantes` dice
+    // que quedó algo fuera y ya no cuántas. Contarlas exigía leer el sistema
+    // entero en cada suscripción.
+    expect(restantes).toBe(1);
   });
 });
 

@@ -36,8 +36,10 @@ export function useSubtasks(taskId: string, _systemId: string, options?: { enabl
 }
 
 /**
- * Todas las tareas raíz, hasta `TASK_LIST_LIMIT`. `restantes` dice cuántas
- * quedaron fuera; hoy es 0 para cualquier cuenta real.
+ * Todas las tareas raíz, hasta `TASK_LIST_LIMIT`. La query lee justo eso, así
+ * que `restantes` no cuenta lo que falta: marca dónde paró la lectura. Cero,
+ * están todas; mayor que cero, paró en el tope y puede haber más. Hoy es 0 para
+ * cualquier cuenta real.
  */
 export function useAllTasks() {
   const result = useConvexQuery(api.tasks.list, {});
