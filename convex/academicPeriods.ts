@@ -11,10 +11,15 @@ const fields = {
   year: z.string().trim().min(1).max(40), // Un rótulo de año, no una descripción.
   name: z.string().trim().min(1).max(100), // Nombre visible del ciclo en el árbol.
 };
+// La página de cualquier sistema pide sus ciclos sin saber aún de qué tipo es,
+// así que un sistema propio que no es académico responde vacío en vez de lanzar.
+// Uno ajeno, inactivo o inexistente sigue siendo NOT_FOUND.
 export const list = kinoZodQuery({
   args: { systemId: zid('systems') },
   handler: async (ctx, { systemId }) => {
-    await academicSystem(ctx, ctx.user._id, systemId);
+    const system = await ctx.db.get(systemId);
+    if (!system || system.userId !== ctx.user._id || !system.isActive) notFound('System not found');
+    if (system.templateType !== 'academic') return [];
     const items = await ctx.db.query('academicPeriods').withIndex('by_system', q => q.eq('systemId', systemId)).take(PERIOD_LIMIT);
     return items.sort((a, b) => b.year.localeCompare(a.year) || a.createdAt - b.createdAt);
   },
