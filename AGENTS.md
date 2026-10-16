@@ -4,9 +4,9 @@ Instrumento de planificación construido alrededor de la gestión de energía co
 
 > **Los planes, el estado y el orden de trabajo viven en Zoho Projects**, no en este repo. Este archivo cubre comandos, stack y convenciones de código: nada de roadmap.
 >
-> En Zoho (portal `eliasdlc2005gmaildotcom`, proyecto `Kino`, prefijo `KI1-T`): las fases van numeradas en orden de ejecución, y son la fuente de verdad de qué se construye y por qué. El índice de decisiones vive en `~/Documents/Kino/dev/Kino-DECISIONS.md`. *Norte, principios y estándares* y *Estado real del producto* eran documentos de equipo de Linear y no se migraron: hasta que se reescriban, lo que manda son las fases y sus tickets.
+> En Zoho (portal `eliasdlc2005gmaildotcom`, proyecto `Kino`, prefijo `KI1-T`): las fases van numeradas en orden de ejecución, y son la fuente de verdad de qué se construye y por qué. El índice de decisiones vive en `~/Documents/Proyectos/Kino/dev/Kino-DECISIONS.md`. *Norte, principios y estándares* y *Estado real del producto* eran documentos de equipo de Linear y no se migraron: hasta que se reescriban, lo que manda son las fases y sus tickets.
 >
-> **En este repo solo se aceptan dos Markdown:** `README.md` y `AGENTS.md`. Ningún plan, audit ni análisis. Un `DESIGN.md` sería el único tercero admisible, y sólo el día que el sistema de diseño necesite su propio documento; hoy no existe. Las notas locales que no son código van a `~/Documents/Kino/dev/`.
+> **En este repo solo se aceptan tres Markdown:** `README.md`, `AGENTS.md` y `DESIGN.md`, el contrato de identidad visual. Ningún plan, audit ni análisis. Las notas locales que no son código van a `~/Documents/Kino/dev/`.
 
 ## Comandos
 
@@ -167,7 +167,7 @@ API REST y no queda ninguno.
 
 Cada feature es autocontenida en lo que puede. Tipos, hooks y componentes cruzan entre slices cuando hace falta: `systems` renderiza las tarjetas de `tasks` porque un sistema enseña tareas, y eso no es acoplamiento accidental.
 
-Lo que sí es una decisión: **un `.service.ts` no importa el `.service.ts` de otro slice salvo que orquestar sea su trabajo.** `insights` y `scheduler` orquestan y por eso importan tres servicios cada uno; el resto no debería. Si un servicio necesita lógica de otro y no está orquestando, esa lógica va a `shared` (como `shared/lib/word-count`, que usaban `pages` y `writing` a la vez y creaba un ciclo entre los dos slices).
+Lo que sí es una decisión: **la lógica que dos slices necesitan va a `shared`, no se importa de un slice a otro.** Pasó con `shared/lib/word-count`, que usaban `pages` y `writing` a la vez y creaba un ciclo entre los dos slices. En el servidor la regla equivalente es `convex/lib`: lo que comparten dos módulos de `convex/` vive ahí.
 
 No hay `index.ts` por slice ni regla de lint que lo verifique, y es a propósito: con veintisiete slices y un desarrollador, declarar una superficie pública por slice cuesta más de lo que evita.
 
@@ -368,13 +368,13 @@ Criterio de aceptación cumplido, `typecheck` limpio, `lint` en 0, tests verdes 
 ## Qué NO hacer
 
 - **No** guardar timestamps sin timezone.
-- **No** importar el `.service.ts` de otro slice sin estar orquestando.
+- **No** importar la lógica de otro slice: lo que comparten dos slices va a `shared` (y en el servidor, a `convex/lib`).
 - **No** usar `any`.
 - **No** saltarse Zod en ningún input de endpoint.
 - **No** introducir Redux ni Jotai, ni meter datos de servidor en un store de Zustand.
 - **No** implementar guards de Premium/subscripción: no existe código de payments.
 - **No** reimplementar cálculos de fecha fuera de `src/shared/time`.
-- **No** crear archivos Markdown en el repo más allá de `README.md` y `AGENTS.md`.
+- **No** crear archivos Markdown en el repo más allá de `README.md`, `AGENTS.md` y `DESIGN.md`.
 
 ## Migraciones de datos
 
