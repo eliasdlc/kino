@@ -605,7 +605,7 @@ export const SIN_TOOL: readonly string[] = [
   "systems:radiografia",
 ];
 
-/** Y las dos que sí: `captures:entregar` y `captures:resolver`, abajo. */
+/** Y las tres que sí: `captures:porFuente`, `captures:entregar` y `captures:resolver`, abajo. */
 
 /**
  * Los ojos prestados, en su única versión honesta: **los pone el agente, no
@@ -614,6 +614,16 @@ export const SIN_TOOL: readonly string[] = [
  * modelo, y es la misma razón por la que la voz propia está cancelada.
  */
 const captures: readonly Tool[] = [
+  readTool(api.captures.porFuente, {
+    name: "list_captures",
+    description:
+      "Lista las capturas que esperan a un agente, las más nuevas primero, con cursor. Con `source` (por ejemplo `correo`) sólo las de esa fuente conectada; sin él, todas las pendientes. Devuelve `items` y `cursor`: si `cursor` no es null, pásalo para la página siguiente. Cada item se mira con get_capture y se resuelve con resolve_capture.",
+    input: z.object({
+      source: z.string().min(1).max(50).optional().describe("La fuente conectada; sin esto, todas"),
+      cursor: z.string().nullable().optional().describe("El cursor de la página anterior"),
+      limite: z.number().int().min(1).max(50).optional().describe("Cuántas por página, 25 por defecto"),
+    }),
+  }),
   readTool(api.captures.entregar, {
     name: "get_capture",
     description:

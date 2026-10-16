@@ -5,6 +5,8 @@ export function tituloDe(captura: CaptureItem): string {
   if (captura.url) return captura.url;
   if (captura.text) return captura.text;
   if (captura.kind === "voice") return "Nota de voz";
+  if (captura.kind === "email") return "Correo";
+  if (captura.kind === "file") return "Archivo";
   return "Foto";
 }
 

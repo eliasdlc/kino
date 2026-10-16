@@ -459,10 +459,21 @@ El trabajo de esta parte es que no se olvide nada, así que la regla es insistir
 No referenciarlas como si existieran:
 
 - **Billing / Premium**: `subscriptionStatus` y `planType` son placeholders, sin código.
-- **Sync adapters**: `syncConnections` sólo la usa GitHub (ver abajo). El resto de valores de `syncProviderEnum` siguen sin lógica.
+- **Sync adapters**: `syncConnections` sólo la usa GitHub (ver abajo). El resto de valores de `syncProviderEnum` siguen sin lógica. Qué puede escribir cada fuente está en "Fuentes conectadas".
 - **iCalendar import**: sin implementación.
 - **Context tags**: tabla en schema, sin pantalla de gestión.
 - **Cola de mutaciones persistente**: no existe. Una mutación hecha sin red la retiene en memoria el cliente de Convex y la reenvía al reconectar; si la pestaña se cierra antes, se pierde. Lo que sí funciona sin red: `/offline` es la página de respaldo que next-pwa precachea, y el POST de la hoja de compartir lo guarda el service worker (`worker/index.js`, que además atiende push y sus botones) en IndexedDB (`src/features/captures/shareTarget.ts`) hasta que `/compartir` lo sube. `tasks.create`, `pages.create` y la creación de notas adhesivas aceptan un `clientRequestId` opcional y no duplican al repetirse (índice `by_user_clientRequest`), pero hoy ningún cliente lo manda.
+
+## Fuentes conectadas
+
+**Una fuente conectada entrega capturas, nunca tareas.** Lo que llega del correo, de Drive o de cualquier fuente nueva espera en Bandeja como captura (`convex/captures.ts`, `ingerirCaptura`), y una persona, o su agente con propuesta y confirmación, decide qué se vuelve tarea. Al confirmar, la tarea lleva el nombre de la fuente en `externalSource`, que es lo que permite contar cuántas tareas nacieron sin que nadie las tecleara.
+
+Hay **dos excepciones**, y escriben tareas directo porque cada item trae un id estable de la fuente y un hecho que no hay que interpretar:
+
+- **El aula virtual** (`pva`, `POST /academico` en `convex/http.ts`, `convex/academico.ts`).
+- **GitHub** (`github`, abajo).
+
+Una fuente nueva que quiera escribir tareas necesita una decisión de Elias y una línea en esta lista. El registro es `src/features/connections/providers.ts`: cada proveedor declara su estado, qué entrega, su clase de captura y su forma de refresco, y su test falla si un tercero declara que entrega tareas. La entrada rechaza una fuente que no está en el registro, y es idempotente por `(userId, source, externalId)`: un refresco repetido deja una sola captura y nunca resucita una que ya se confirmó o se descartó.
 
 ## Sincronización con GitHub (KIN-135)
 
