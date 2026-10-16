@@ -107,8 +107,11 @@ describe('si Convex no contesta', () => {
       const pendiente = guardApiRequest(mcpRequest(), { now: NOW }).then((r) => (resultado = r));
       // El hash de la credencial y la firma del token van por WebCrypto, que no
       // obedece al reloj falso: se avanza a pasos hasta que la request vuelve.
+      // Sin tope de pasos: en una máquina lenta el reloj del tope se crea tarde,
+      // y si el bucle dejara de avanzar antes, ese reloj no sonaría nunca. El
+      // límite lo pone el timeout del test, que es la señal correcta si cuelga.
       let avanzado = 0;
-      while (resultado === undefined && avanzado < 5_000) {
+      while (resultado === undefined) {
         await vi.advanceTimersByTimeAsync(100);
         avanzado += 100;
       }
