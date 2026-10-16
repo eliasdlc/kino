@@ -43,7 +43,7 @@ export interface SweepBudget {
   graceMs: number;
 }
 
-export const DEFAULT_SWEEP_BUDGET: SweepBudget = {
+const DEFAULT_SWEEP_BUDGET: SweepBudget = {
   maxBlobs: 5_000,
   maxDeletes: 500,
   deadlineMs: 7_000,

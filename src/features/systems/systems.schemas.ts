@@ -21,7 +21,7 @@ const systemTabIdSchema = z.enum(["backlog", "planning", "action", "archive"]);
 // caben en un chip de sidebar y en un CTA sin romper el layout.
 const nounSchema = z.string().trim().min(1).max(24);
 
-export const systemCompositionSchema = z.object({
+const systemCompositionSchema = z.object({
   containers: z
     .object({ enabled: z.boolean(), noun: nounSchema, nounPlural: nounSchema })
     .optional(),
@@ -65,8 +65,4 @@ export const systemMetadataSchema = z.object({
 
 export const updateSystemSchema = createSystemSchema.partial().extend({
   metadata: systemMetadataSchema.nullable().optional(),
-});
-
-export const reorderSystemsSchema = z.object({
-  systemIds: z.array(z.string()),
 });

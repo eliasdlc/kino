@@ -89,11 +89,6 @@ export function externalIdFor(issue: Pick<GithubIssue, "id">): string {
   return String(issue.id);
 }
 
-/** `external_id` de un milestone. Mismo criterio que los issues. */
-export function externalIdForMilestone(milestoneId: number): string {
-  return String(milestoneId);
-}
-
 /**
  * Título de la tarjeta. Se antepone el número del issue porque en un board sin
  * él es imposible saber a qué issue corresponde una tarjeta sin abrirla.

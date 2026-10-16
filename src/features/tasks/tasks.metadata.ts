@@ -1,7 +1,7 @@
 import type { ArchetypeManifest } from "@/shared/lib/system-types";
 
 /** Ids de kind válidos según el manifiesto EFECTIVO del sistema. */
-export function validTaskKinds(manifest: ArchetypeManifest): string[] {
+function validTaskKinds(manifest: ArchetypeManifest): string[] {
   return manifest.taskKinds.map((k) => k.id);
 }
 

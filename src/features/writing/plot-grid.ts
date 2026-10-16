@@ -66,7 +66,7 @@ function readAttr(tag: string, name: string): string | null {
   return match ? unescapeAttr(match[1]!) : null;
 }
 
-export const SCENE_BREAK_GLYPH = "* * *";
+const SCENE_BREAK_GLYPH = "* * *";
 
 /** Vuelve a escribir el corte de una escena con su arco y su condición de guía. */
 export function renderSceneBreak(arc: string | null, leading: boolean): string {

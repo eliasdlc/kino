@@ -6,8 +6,6 @@ import type { FunctionReturnType } from "convex/server";
 import { useConvexQuery } from "@/shared/convex/hooks";
 import { resolveSelectedCycle } from "./academic-cycles";
 
-export { resolveSelectedCycle };
-
 export type AcademicPeriod = FunctionReturnType<typeof api.academicPeriods.list>[number];
 
 /**
@@ -15,7 +13,7 @@ export type AcademicPeriod = FunctionReturnType<typeof api.academicPeriods.list>
  * dos: Convex comparte una sola suscripción entre consumidores con los mismos
  * argumentos, así que esto no dobla el tráfico.
  */
-export function useAcademicPeriods(systemId: string, initialData?: AcademicPeriod[], enabled = true) {
+function useAcademicPeriods(systemId: string, initialData?: AcademicPeriod[], enabled = true) {
   return useConvexQuery(api.academicPeriods.list, { systemId }, { initialData, enabled });
 }
 

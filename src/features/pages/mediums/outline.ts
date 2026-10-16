@@ -51,7 +51,7 @@ function clip(text: string, max: number): string | null {
 }
 
 /** Primeras palabras de un bloque, para que la entrada diga algo del texto real. */
-export function outlineSnippet(text: string): string | null {
+function outlineSnippet(text: string): string | null {
   return clip(text, SNIPPET_MAX);
 }
 

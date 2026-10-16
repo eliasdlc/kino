@@ -1,5 +1,4 @@
 import type { System } from "./systems.types";
-import type { Task } from "@/features/tasks/tasks.types";
 import { SYSTEM_TYPE_CONFIG, type SystemType } from "@/shared/lib/system-types";
 
 export type SystemStatus = "active" | "stale";
@@ -18,10 +17,8 @@ export interface SystemSignals {
   nextDueDate: string | null;
 }
 
-const DAY_MS = 86_400_000;
-
 /** Umbral de inactividad (días) tolerado según la frecuencia esperada. */
-export function staleThresholdDays(frequency: string | null | undefined): number {
+function staleThresholdDays(frequency: string | null | undefined): number {
   switch (frequency) {
     case "daily":
       return 2;
@@ -32,13 +29,6 @@ export function staleThresholdDays(frequency: string | null | undefined): number
       return 9;
   }
 }
-
-function daysBetween(from: Date, to: Date): number {
-  return Math.floor((to.getTime() - from.getTime()) / DAY_MS);
-}
-
-const isActiveTask = (t: Task) =>
-  !t.deletedAt && t.status !== "done";
 
 /**
  * Deriva `stale` desde primitivas. stale = el sistema tiene trabajo pendiente
@@ -57,47 +47,6 @@ export function deriveStale(params: {
   if (activeTaskCount === 0) return false;
   const reference = daysSinceLastActivity ?? daysSinceCreated;
   return reference > staleThresholdDays(expectedFrequency);
-}
-
-/** Calcula todas las señales de un sistema desde su lista completa de tareas. */
-export function computeSystemSignals(
-  system: System,
-  tasks: Task[],
-  now = new Date(),
-): SystemSignals {
-  const activeTasks = tasks.filter(isActiveTask);
-
-  let lastCompletedAt: Date | null = null;
-  for (const t of tasks) {
-    if (!t.completedAt || t.deletedAt) continue;
-    const d = new Date(t.completedAt);
-    if (!lastCompletedAt || d > lastCompletedAt) lastCompletedAt = d;
-  }
-
-  let nextDue: Date | null = null;
-  for (const t of activeTasks) {
-    if (!t.dueDate) continue;
-    const d = new Date(t.dueDate);
-    if (!nextDue || d < nextDue) nextDue = d;
-  }
-
-  const daysSinceLastActivity = lastCompletedAt ? daysBetween(lastCompletedAt, now) : null;
-  const daysSinceCreated = system.createdAt ? daysBetween(new Date(system.createdAt), now) : 0;
-
-  const stale = deriveStale({
-    expectedFrequency: system.expectedFrequency,
-    activeTaskCount: activeTasks.length,
-    daysSinceLastActivity,
-    daysSinceCreated,
-  });
-
-  return {
-    status: stale ? "stale" : "active",
-    stale,
-    daysSinceLastActivity,
-    activeTaskCount: activeTasks.length,
-    nextDueDate: nextDue ? nextDue.toISOString() : null,
-  };
 }
 
 /**

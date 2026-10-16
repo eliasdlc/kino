@@ -39,7 +39,7 @@ const HIT_TOLERANCE = 10;
 const CLOSE_TOLERANCE = 25;
 
 /** Veredicto objetivo de la predicción frente al nivel reportado. */
-export function verdictFor(predicted: number, reported: number): PredictionVerdict {
+function verdictFor(predicted: number, reported: number): PredictionVerdict {
   const gap = Math.abs(reported - predicted);
   if (gap <= HIT_TOLERANCE) return 'hit';
   if (gap <= CLOSE_TOLERANCE) return 'close';
@@ -57,7 +57,7 @@ export const VERDICT_LABELS: Record<PredictionVerdict, string> = {
  * Se redondea a un decimal: un check-in mueve el alpha poco, y redondear a entero
  * mostraría "0 %" en casi todos los casos reales.
  */
-export function alphaImprovementPct(before: number | null, after: number | null): number | null {
+function alphaImprovementPct(before: number | null, after: number | null): number | null {
   if (before === null || after === null) return null;
   const delta = (after - before) * 100;
   if (delta <= 0) return null; // el modelo no mejoró: no se inventa una mejora

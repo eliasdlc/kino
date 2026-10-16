@@ -12,10 +12,4 @@ export const createTagSchema = z.object({
   systemId: z.string().nullable().optional(),
 });
 
-export const updateTagSchema = z.object({
-  title: z.string().min(1).max(24).optional(),
-  color: z.enum(colorValues).optional(),
-});
-
 export type CreateTagInput = z.infer<typeof createTagSchema>;
-export type UpdateTagInput = z.infer<typeof updateTagSchema>;
