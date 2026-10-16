@@ -14,10 +14,11 @@
  * - `tasks.reminders.hooks.ts` recordatorios
  * - `tasks.today.hooks.ts`     el plan comprometido de hoy
  *
- * El patrón optimista canónico (Rumbo 05) no vive aquí: está en
- * `@/shared/hooks/optimistic`, con su test y su doc al lado.
- * Ojo con los hooks que lo evitan a propósito (`useCreateTask` toca dos query
- * keys a la vez) y conservan el patrón inline con su comentario explicándolo.
+ * Ninguna mutación de tareas es optimista: esperan la respuesta, y la
+ * suscripción de Convex repinta cada lista cuando la base cambia. El patrón
+ * optimista vive en `useConvexMutation` (`@/shared/convex/hooks`), con la
+ * opción `optimisticUpdate`, y hoy lo usa un solo hook: `useUpdateStickyNote`,
+ * para que una nota soltada no vuelva a su sitio viejo durante el viaje.
  */
 
 export {
