@@ -42,9 +42,9 @@ describe('writing', () => {
   });
 
   it('restaurar una versión guarda antes la actual', async () => {
-    const { t, asAna, chapter } = await seed();
+    const { t, asAna, systemId, chapter } = await seed();
     await t.run(async (ctx) => {
-      await ctx.db.insert('pageSnapshots', { pageId: chapter.id, userId: (await ctx.db.get(chapter.id))!.userId, content: '<p>Antes.</p>', wordCount: 1, createdAt: 5 });
+      await ctx.db.insert('pageSnapshots', { pageId: chapter.id, userId: (await ctx.db.get(chapter.id))!.userId, systemId, content: '<p>Antes.</p>', wordCount: 1, createdAt: 5 });
     });
     const [old] = await asAna.query(api.writing.snapshots, { id: chapter.id });
     const restored = await asAna.mutation(api.writing.restoreSnapshot, { id: old.id });
@@ -152,6 +152,7 @@ describe('un solo camino de escritura', () => {
       await ctx.db.insert('pageSnapshots', {
         pageId: chapter.id,
         userId: (await ctx.db.get(chapter.id))!.userId,
+        systemId,
         content: '<p>Sólo Luffy.</p>',
         wordCount: 2,
         createdAt: 5,

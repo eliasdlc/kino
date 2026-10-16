@@ -35,7 +35,7 @@ export type EntityAttributeValue = string | number;
  * Campos de `attributes` por tipo (PLAN-11 §5.1). Todo opcional: la ficha vacía
  * es válida; se enriquece después de crear la entidad desde el texto. La UI de la
  * ficha renderiza estos campos directamente desde el manifiesto, igual que el
- * folderRole de los arquetipos (folders.metadata.ts).
+ * folderRole de los arquetipos.
  */
 export const ENTITY_ATTRIBUTE_FIELDS: Record<EntityType, EntityAttributeField[]> = {
   character: [
@@ -92,7 +92,7 @@ function buildSchema(fields: EntityAttributeField[]): z.ZodObject<z.ZodRawShape>
   return z.object(shape).strict();
 }
 
-export function entityAttributesSchema(type: EntityType): z.ZodObject<z.ZodRawShape> {
+function entityAttributesSchema(type: EntityType): z.ZodObject<z.ZodRawShape> {
   const cached = SCHEMA_BY_TYPE.get(type);
   if (cached) return cached;
   const schema = buildSchema(ENTITY_ATTRIBUTE_FIELDS[type] ?? []);
@@ -121,7 +121,7 @@ function stripEmpty(raw: unknown): Record<string, unknown> | null {
 /**
  * Valida y normaliza los `attributes` entrantes contra el manifiesto del tipo.
  * Descarta vacíos y devuelve `null` si no queda nada: no persistimos objetos
- * vacíos. Mismo contrato que parseFolderMetadata.
+ * vacíos.
  */
 export function parseEntityAttributes(
   type: EntityType,

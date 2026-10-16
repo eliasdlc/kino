@@ -5,6 +5,7 @@ import { api } from '@convex/_generated/api';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useConvexQuery } from '@/shared/convex/hooks';
 import { GithubConnectionSection } from '@/features/github-sync/GithubConnectionSection';
+import { enPantalla } from '@/features/connections/providers';
 
 /**
  * Las fuentes conectadas, dentro de Ajustes hasta que haya una segunda.
@@ -12,7 +13,8 @@ import { GithubConnectionSection } from '@/features/github-sync/GithubConnection
  * La lista sale del servidor y no de una constante del cliente, y eso es lo que
  * hace que aquí no se pinte nunca un proveedor sin código detrás: el schema
  * admite siete valores y sólo `github` tiene con qué responder, así que ofrecer
- * Jira o Slack sería un control muerto.
+ * Jira o Slack sería un control muerto. El registro de proveedores lo filtra
+ * otra vez: una fuente que el servidor conoce pero no responde no se pinta.
  */
 
 /** Cómo se llama cada fuente en pantalla y quién pinta su panel. */
@@ -42,7 +44,9 @@ export function ConnectionsSection() {
       {isLoading ? (
         <Skeleton className="h-24 w-full rounded-lg" />
       ) : (
-        (fuentes ?? []).map((fuente) => <div key={fuente.provider}>{PANEL[fuente.provider]?.()}</div>)
+        (fuentes ?? [])
+          .filter((fuente) => enPantalla(fuente.provider))
+          .map((fuente) => <div key={fuente.provider}>{PANEL[fuente.provider]?.()}</div>)
       )}
     </div>
   );

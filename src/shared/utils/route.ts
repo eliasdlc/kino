@@ -4,7 +4,7 @@ import { z } from 'zod';
 import { api } from '@convex/_generated/api';
 import { serverQuery } from '@/shared/convex/server';
 import { getServerSession } from '@/shared/utils/session';
-import { ForbiddenError, NotFoundError, ValidationError } from '@/shared/utils/error';
+import { ConflictError, ForbiddenError, NotFoundError, ValidationError } from '@/shared/utils/error';
 
 /**
  * La escotilla de las rutas que no caben en el contrato.
@@ -82,6 +82,9 @@ function mapError(error: unknown): NextResponse {
   // que distingue "no te entiendo" de "te entiendo y no".
   if (error instanceof ValidationError) {
     return NextResponse.json({ code: 'VALIDATION_ERROR', message: error.message }, { status: 422 });
+  }
+  if (error instanceof ConflictError) {
+    return NextResponse.json({ code: 'CONFLICT', message: error.message }, { status: 409 });
   }
   // Un 500 aquí es siempre un bug. Va a Sentry además del log, porque los logs
   // de Vercel sólo los lee quien ya sabe que algo se rompió.

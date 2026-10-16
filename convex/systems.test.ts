@@ -155,3 +155,62 @@ describe('la radiografía', () => {
     await expect(asLuis.query(api.systems.radiografia, { id: system.id })).rejects.toThrow();
   });
 });
+
+describe('systems.update y la metadata', () => {
+  // Lo que la sincronización de GitHub deja guardado en un proyecto enlazado.
+  const enlazado = { owner: 'eliasdlc', repo: 'kino', syncedThrough: 1_760_000_000_000 };
+
+  async function proyectoEnlazado() {
+    const t = convexTest(schema, modules);
+    const asAna = t.withIdentity(ana);
+    const system = await asAna.mutation(api.systems.create, { name: 'Kino', color: 'blue', templateType: 'project', icon: 'rocket' });
+    await t.run((ctx) => ctx.db.patch(system.id, { metadata: { github: enlazado, dailyWordGoal: 500 } }));
+    const metadata = async () => (await asAna.query(api.systems.byId, { id: system.id })).metadata;
+    return { asAna, id: system.id, metadata };
+  }
+
+  it('componer el sistema lo deja enlazado y con su cursor', async () => {
+    const { asAna, id, metadata } = await proyectoEnlazado();
+    // La forma exacta que manda ComposeSystemDialog.
+    const composition = {
+      containers: { enabled: true, noun: 'carpeta', nounPlural: 'carpetas' },
+      pages: { noun: 'página', nounPlural: 'páginas', primary: false },
+      taskKinds: [],
+    };
+    await asAna.mutation(api.systems.update, { id, metadata: { tabs: ['backlog', 'action'], defaultTab: 'action', composition } });
+    expect(await metadata()).toEqual({ github: enlazado, dailyWordGoal: 500, tabs: ['backlog', 'action'], defaultTab: 'action', composition });
+  });
+
+  it('mandar una sola clave no borra las demás', async () => {
+    const { asAna, id, metadata } = await proyectoEnlazado();
+    // La forma de WritingPulse: sólo la meta diaria.
+    await asAna.mutation(api.systems.update, { id, metadata: { dailyWordGoal: 0 } });
+    expect(await metadata()).toEqual({ github: enlazado, dailyWordGoal: 0 });
+  });
+
+  it('reenviar la metadata entera con una clave nueva conserva el cursor', async () => {
+    const { asAna, id, metadata } = await proyectoEnlazado();
+    // Un cliente que reenvía lo guardado más la clave que cambia, como hacían
+    // LooseThreads y CyclePicker: el validador tiene que aceptar el cursor.
+    const guardada = (await metadata()) as Record<string, unknown>;
+    const chekhov = { maxMentions: 4, minSilentChapters: 2 };
+    await asAna.mutation(api.systems.update, { id, metadata: { ...guardada, chekhov } });
+    const academic = { cycleStartMonths: [1, 5, 8] };
+    await asAna.mutation(api.systems.update, { id, metadata: { ...guardada, academic } });
+    expect(await metadata()).toEqual({ github: enlazado, dailyWordGoal: 500, chekhov, academic });
+  });
+
+  it('una clave se reemplaza entera, no se mezcla por dentro', async () => {
+    const { asAna, id, metadata } = await proyectoEnlazado();
+    const kinds = (taskKinds: { id: string; label: string }[]) => ({ taskKinds });
+    await asAna.mutation(api.systems.update, { id, metadata: { composition: kinds([{ id: 'idea', label: 'Idea' }]) } });
+    await asAna.mutation(api.systems.update, { id, metadata: { composition: kinds([]) } });
+    expect((await metadata())?.composition).toEqual(kinds([]));
+  });
+
+  it('metadata null la vacía entera', async () => {
+    const { asAna, id, metadata } = await proyectoEnlazado();
+    await asAna.mutation(api.systems.update, { id, metadata: null });
+    expect(await metadata()).toBeNull();
+  });
+});

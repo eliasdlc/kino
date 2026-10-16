@@ -144,23 +144,6 @@ export interface PendingSignup {
   at: number;
 }
 
-export function markPendingSignup(signup: Omit<PendingSignup, "at">): void {
-  try {
-    window.sessionStorage.setItem(SIGNUP_KEY, JSON.stringify({ ...signup, at: Date.now() }));
-  } catch {
-    // Sin almacenamiento, el registro se completa igual y sólo falta su evento.
-  }
-}
-
-/** Borra la nota cuando el alta no llegó a ocurrir (el redirect social que vuelve solo). */
-export function clearPendingSignup(): void {
-  try {
-    window.sessionStorage.removeItem(SIGNUP_KEY);
-  } catch {
-    // Sin almacenamiento no hay nota que borrar.
-  }
-}
-
 /** Devuelve la nota y la borra: el evento de cuenta creada es uno por cuenta. */
 export function takePendingSignup(): PendingSignup | null {
   try {

@@ -81,6 +81,8 @@
 // systems.memberAgentsAllowed. Y las siete tablas nuevas: eventLog, itemLinks,
 // systemMembers, systemInvites, sessionDigests, proposals, captures. Nacen sin
 // lector ni escritor; la fase 1 decide su forma final y quién las rellena.
+// `systemId` ya es obligatorio en folders, pages, stickyNotes y pageSnapshots:
+// lo rellenó `migrations/contenidoConSistema` antes de dejar de ser opcional.
 
 import { defineSchema, defineTable } from 'convex/server';
 import { v, type Infer, type VLiteral } from 'convex/values';
@@ -226,7 +228,7 @@ export const vocabularyWord = literals(['pagina', 'notaAdhesiva', 'etiqueta']);
 export type VocabularyWord = Infer<typeof vocabularyWord>;
 
 export const captureStatus = literals(['pending', 'confirmed', 'discarded', 'expired']);
-export const captureKind = literals(['voice', 'photo', 'link', 'text']);
+export const captureKind = literals(['voice', 'photo', 'link', 'text', 'email', 'file']);
 
 /**
  * Autoría. Obligatoria desde que la migración `autoriaYPapelera` la rellenó en
@@ -429,6 +431,17 @@ export default defineSchema({
     .index('by_sprint', ['sprintId'])
     .index('by_user_external', ['userId', 'externalSource', 'externalId'])
     .index('by_user_alive_completed', ['userId', 'deletedAt', 'completedAt'])
+    // Las dos puertas de una lista de tareas. `parentTaskId` va dentro porque
+    // toda lista es de tareas raíz, y `sortIndex` al final para que el orden
+    // salga del índice y la lectura pueda parar en el tope en vez de leerlo
+    // todo y recortar después.
+    //
+    // `status` cierra la fila y no filtra nada: es el desempate. Como una tarea
+    // nace con `sortIndex` en cero, el orden visible lo decidía de hecho el
+    // índice por el que se leía, que era `by_user_alive_status`. Sin esta
+    // última columna las listas se reordenarían solas.
+    .index('by_user_parent_alive_sort_status', ['userId', 'parentTaskId', 'deletedAt', 'sortIndex', 'status'])
+    .index('by_system_parent_alive_sort_status', ['systemId', 'parentTaskId', 'deletedAt', 'sortIndex', 'status'])
     .searchIndex('search_lemas', {
       searchField: 'lemas',
       filterFields: ['userId', 'systemId', 'deletedAt'],
@@ -513,7 +526,7 @@ export default defineSchema({
     academicPeriodId: v.optional(v.id('academicPeriods')),
     pgId,
     userId: v.id('users'),
-    systemId: v.optional(v.id('systems')),
+    systemId: v.id('systems'),
     parentId: v.optional(v.id('folders')),
     name: v.string(),
     color,
@@ -534,7 +547,7 @@ export default defineSchema({
     pgId,
     userId: v.id('users'),
     folderId: v.optional(v.id('folders')),
-    systemId: v.optional(v.id('systems')),
+    systemId: v.id('systems'),
     parentPageId: v.optional(v.id('pages')),
     title: v.optional(v.string()),
     content: v.optional(v.string()),
@@ -555,6 +568,13 @@ export default defineSchema({
     .index('by_folder', ['folderId'])
     .index('by_system', ['systemId'])
     .index('by_parent', ['parentPageId'])
+    // Las dos puertas de la lista de páginas, una por carpeta y otra por
+    // sistema. Dejan la papelera fuera del rango y entregan ya ordenado por
+    // `updatedAt`, que es el orden que la lista enseña, así que la lectura para
+    // en el tope. Los dos índices de arriba se quedan porque el resto de
+    // lectores sí quiere la papelera dentro.
+    .index('by_folder_alive_updated', ['folderId', 'deletedAt', 'updatedAt'])
+    .index('by_system_alive_updated', ['systemId', 'deletedAt', 'updatedAt'])
     .searchIndex('search_lemas', {
       searchField: 'lemas',
       filterFields: ['userId', 'systemId', 'deletedAt'],
@@ -566,7 +586,7 @@ export default defineSchema({
     userId: v.id('users'),
     pageId: v.optional(v.id('pages')),
     folderId: v.optional(v.id('folders')),
-    systemId: v.optional(v.id('systems')),
+    systemId: v.id('systems'),
     title: v.optional(v.string()),
     content: v.optional(v.string()),
     color,
@@ -610,7 +630,7 @@ export default defineSchema({
     pgId,
     pageId: v.id('pages'),
     userId: v.id('users'),
-    systemId: v.optional(v.id('systems')),
+    systemId: v.id('systems'),
     content: v.optional(v.string()),
     wordCount: v.number(),
     sessionStartedAt: v.optional(ts),
@@ -711,7 +731,11 @@ export default defineSchema({
     createdAt: ts,
   })
     .index('by_pgId', ['pgId'])
-    .index('by_user_day_slot', ['userId', 'date', 'slot']),
+    .index('by_user_day_slot', ['userId', 'date', 'slot'])
+    // El día primero: el snapshot diario pregunta quiénes hicieron check-in hoy
+    // y con `by_user_day_slot` esa pregunta obligaba a recorrer `users` entera
+    // para tener a quién preguntarle.
+    .index('by_day_user', ['date', 'userId']),
 
   // Escrita antes de conocer el resultado, para que la verificación no sea
   // circular.
@@ -957,10 +981,17 @@ export default defineSchema({
     url: v.optional(v.string()),
     // Items tipados con destino propuesto que el agente devolvió.
     proposedItems: v.optional(v.array(json)),
+    // La fuente conectada que la entregó y el id estable que esa fuente le da.
+    // Sin ellos es una captura compartida a mano, como siempre. Con ellos, dos
+    // refrescos de la misma fuente dejan una sola fila.
+    source: v.optional(v.string()),
+    externalId: v.optional(v.string()),
     expiresAt: ts,
     resolvedAt: v.optional(ts),
     createdAt: ts,
   })
     .index('by_user_status', ['userId', 'status'])
+    .index('by_user_status_source', ['userId', 'status', 'source'])
+    .index('by_user_source_external', ['userId', 'source', 'externalId'])
     .index('by_expires', ['expiresAt']),
 });

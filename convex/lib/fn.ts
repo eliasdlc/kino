@@ -257,6 +257,30 @@ export const kinoZodProposal = marcando(
 
 export const kinoZodClosed = marcando('closed', zCustomMutation(mutation, customCtx(callerForClosed)));
 
+/**
+ * Lo que sólo llama el propio servidor de Kino, sin persona detrás. Exige un
+ * token del emisor del conector (`lib/mcpToken.ts`) cuyo `sub` es el nombre
+ * del servicio; ese token sólo lo firma quien tiene la clave privada, que vive
+ * en Vercel. Una sesión de Clerk o un conector OAuth llevan siempre un id de
+ * Clerk en el `sub`, así que ninguno llega: por eso se marca `closed`. No
+ * carga ningún `users`, porque no actúa en nombre de nadie.
+ */
+export const kinoServicio = (servicio: string) =>
+  marcando(
+    'closed',
+    customMutation(
+      mutation,
+      customCtx(async (ctx: MutationCtx) => {
+        const identity = await ctx.auth.getUserIdentity();
+        if (!identity) fail('UNAUTHENTICATED');
+        if (identity.issuer !== MCP_TOKEN_ISSUER || identity.subject !== servicio) {
+          fail('FORBIDDEN_SCOPE', { required: 'service', granted: channelOf(identity) });
+        }
+        return {};
+      }),
+    ),
+  );
+
 /** Lo que una acción recibe para no pasarse de su presupuesto. */
 export type Budget = {
   budgetMs: number;

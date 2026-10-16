@@ -88,7 +88,7 @@ const LEFTOVER_EXPLANATION: Record<LeftoverReason, string> = {
  * temprano posible es el punto del ritual; balancear la carga a costa de retrasar
  * lo vencido sería resolver el problema contrario.
  */
-export function buildWeeklyRedistribution(
+function buildWeeklyRedistribution(
   overdue: Task[],
   days: RitualDay[],
   dailyLimit: number,

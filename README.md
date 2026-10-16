@@ -10,11 +10,11 @@ No es otra lista de tareas ni un Notion genérico: Kino aprende tu curva de ener
 
 **Los arquetipos.** Un sistema de tipo académico habla de clases y entregas; uno de escritura, de obras y capítulos; uno de proyecto, de sprints y epics. No son plantillas cosméticas: un manifiesto único parametriza el vocabulario, la estructura y las clases de tarea de cada arquetipo.
 
-**Agent-native.** 69 herramientas MCP exponen tareas, sistemas, páginas, el codex narrativo y el propio motor de energía. Un agente puede leer tu curva, proponerte bloques para el día y escribirlos en tu calendario.
+**Agent-native.** Las herramientas MCP exponen tareas, sistemas, páginas, el codex narrativo y el propio motor de energía. Un agente puede leer tu curva, proponerte bloques para el día y escribirlos en tu calendario.
 
 ## Stack
 
-Next.js 16 · TypeScript · Convex · Clerk · TanStack Query · Tailwind + shadcn/ui · Tiptap · Vercel
+Next.js 16, TypeScript, Convex, Clerk, Tailwind + shadcn/ui, Tiptap, Vercel
 
 100% serverless, dentro de free tiers.
 
@@ -34,4 +34,4 @@ Con `NEXT_PUBLIC_CONVEX_URL` y las dos claves de Clerk la app arranca. El resto 
 
 Las convenciones de código, restricciones de arquitectura y el flujo de trabajo están en [`AGENTS.md`](./AGENTS.md).
 
-La planificación (qué se está construyendo, en qué orden y por qué) vive en Linear, no en este repositorio.
+La planificación (qué se está construyendo, en qué orden y por qué) vive en Zoho Projects, no en este repositorio.

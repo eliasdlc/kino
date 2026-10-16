@@ -1,7 +1,7 @@
 import { z } from "zod";
 import { clientRequestIdField } from "@/shared/offline/client-request";
 
-export const colorValues = [
+const colorValues = [
   "red", "blue", "pink", "purple", "green",
   "orange", "yellow", "teal", "gray", "black", "white",
 ] as const;
@@ -45,11 +45,5 @@ export const updateStickyNoteSchema = z.object({
   isEureka: z.boolean().optional(),
 });
 
-export const stackStickyNotesSchema = z.object({
-  draggedId: z.string(),
-  targetId: z.string(),
-});
-
 export type CreateStickyNoteInput = z.infer<typeof createStickyNoteSchema>;
 export type UpdateStickyNoteInput = z.infer<typeof updateStickyNoteSchema>;
-export type StackStickyNotesInput = z.infer<typeof stackStickyNotesSchema>;

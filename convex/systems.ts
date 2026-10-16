@@ -2,7 +2,7 @@ import { z } from 'zod';
 import { zid } from 'convex-helpers/server/zod4';
 import type { Doc, Id } from './_generated/dataModel';
 import type { MutationCtx, QueryCtx } from './_generated/server';
-import { githubRepoRefSchema } from '../src/features/github-sync/github-sync.schemas';
+import { githubSystemLinkSchema } from '../src/features/github-sync/github-sync.schemas';
 import {
   buildSystemFacts,
   describeSystem,
@@ -96,7 +96,8 @@ export const systemMetadataSchema = z.object({
       minSilentChapters: z.coerce.number().int().min(1).max(50),
     })
     .optional(),
-  github: githubRepoRefSchema.optional(),
+  // Con el cursor: un cliente que reenvía la metadata guardada no lo pierde.
+  github: githubSystemLinkSchema.optional(),
 });
 
 // ── Lecturas ────────────────────────────────────────────────────────────────
@@ -551,7 +552,11 @@ export const update = kinoZodMutation({
     if (data.icon !== undefined) patch.icon = data.icon;
     if (data.expectedFrequency !== undefined) patch.expectedFrequency = data.expectedFrequency;
     if (data.triggerContext !== undefined) patch.triggerContext = data.triggerContext;
-    if (data.metadata !== undefined) patch.metadata = data.metadata ?? undefined;
+    // Fusiona por clave: lo que el cliente no manda se queda como estaba, y lo
+    // que manda reemplaza esa clave entera. `null` vacía la metadata completa.
+    if (data.metadata !== undefined) {
+      patch.metadata = data.metadata === null ? undefined : { ...(system.metadata ?? {}), ...data.metadata };
+    }
     await ctx.db.patch(id, patch);
     const actualizado = (await ctx.db.get(id))!;
     await recordEvent(ctx, {

@@ -10,7 +10,7 @@ import { Extension, InputRule, Node, mergeAttributes } from "@tiptap/react";
  * en la hoja de estilos, no en el texto guardado.
  */
 
-export const SCREENPLAY_NODE_NAMES = [
+const SCREENPLAY_NODE_NAMES = [
   "sceneHeading",
   "action",
   "character",
@@ -63,11 +63,11 @@ function screenplayNode(name: ScreenplayNodeName) {
   });
 }
 
-export const SceneHeading = screenplayNode("sceneHeading");
-export const Action = screenplayNode("action");
-export const Character = screenplayNode("character");
-export const Parenthetical = screenplayNode("parenthetical");
-export const Dialogue = screenplayNode("dialogue");
+const SceneHeading = screenplayNode("sceneHeading");
+const Action = screenplayNode("action");
+const Character = screenplayNode("character");
+const Parenthetical = screenplayNode("parenthetical");
+const Dialogue = screenplayNode("dialogue");
 
 export const SCREENPLAY_NODES = [
   SceneHeading,

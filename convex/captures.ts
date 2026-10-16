@@ -1,6 +1,8 @@
 import { z } from 'zod';
 import { ConvexError, v } from 'convex/values';
 import { internalMutation } from './_generated/server';
+import { captureKind } from './schema';
+import { proveedor } from '../src/features/connections/providers';
 import { invalid, notFound } from './lib/errors';
 import { kinoZodMutation, kinoZodProposal, kinoZodQuery } from './lib/fn';
 import { recordEvent } from './eventLog';
@@ -73,6 +75,7 @@ function capturaItem(fila: Doc<'captures'>, ahora: number) {
     blobPath: fila.blobPath ?? null,
     durationSeconds: fila.durationSeconds ?? null,
     proposedItems: (fila.proposedItems ?? null) as ItemPropuesto[] | null,
+    source: fila.source ?? null,
     createdAt: fila.createdAt,
     expiresAt: fila.expiresAt,
     diasRestantes: diasRestantes(fila.expiresAt, ahora),
@@ -185,6 +188,11 @@ export const confirmar = kinoZodMutation({
         title: item.title,
         description: item.notes,
       });
+      // Lo que entró por una fuente conectada lleva su nombre en la tarea: es
+      // lo que permite contar cuántas tareas nacieron sin que nadie las tecleara.
+      if (captura.source) {
+        await ctx.db.patch(tarea._id, { externalSource: captura.source, externalId: `${captura._id}:${indice}` });
+      }
       creadas.push(tarea._id);
     }
 
@@ -219,6 +227,7 @@ export const entregar = kinoZodQuery({
     return {
       id: captura._id,
       kind: captura.kind,
+      source: captura.source ?? null,
       text: captura.text ?? null,
       url: captura.url ?? null,
       /** La ruta del archivo. El agente la abre con su clave, no Kino por él. */
@@ -268,6 +277,138 @@ export const resolver = kinoZodProposal({
 
     return { propuestos: items.length };
   },
+});
+
+/** Cuántas capturas pendientes devuelve una página de `porFuente` como mucho. */
+export const PAGINA_FUENTE = 50;
+
+/**
+ * Lo que espera a un agente, por fuente y con cursor. Es la lectura con la que
+ * un agente vacía la cola sin pedir Bandeja entera: lee una página, la entrega
+ * con `get_capture`, propone con `resolve_capture` y pide la siguiente.
+ *
+ * Lee por índice hasta el tamaño de la página y para: sin fuente, las
+ * pendientes de la cuenta; con fuente, sólo las de esa fuente. Las más nuevas
+ * primero.
+ */
+export const porFuente = kinoZodQuery({
+  args: {
+    source: z.string().min(1).max(50).optional(),
+    cursor: z.string().nullable().optional(),
+    limite: z.number().int().min(1).max(PAGINA_FUENTE).optional(),
+  },
+  handler: async (ctx, { source, cursor, limite }) => {
+    const userId = ctx.user._id;
+    const consulta =
+      source === undefined
+        ? ctx.db.query('captures').withIndex('by_user_status', (q) => q.eq('userId', userId).eq('status', 'pending'))
+        : ctx.db
+            .query('captures')
+            .withIndex('by_user_status_source', (q) =>
+              q.eq('userId', userId).eq('status', 'pending').eq('source', source),
+            );
+    const pagina = await consulta.order('desc').paginate({ cursor: cursor ?? null, numItems: limite ?? 25 });
+    return {
+      items: pagina.page.map((fila) => ({
+        id: fila._id,
+        kind: fila.kind,
+        source: fila.source ?? null,
+        text: fila.text ?? null,
+        url: fila.url ?? null,
+        createdAt: fila.createdAt,
+        resuelta: fila.proposedItems !== undefined,
+      })),
+      cursor: pagina.isDone ? null : pagina.continueCursor,
+    };
+  },
+});
+
+/**
+ * La puerta de entrada de una fuente conectada (el correo, Drive, lo que
+ * venga). **Una fuente entrega capturas, nunca tareas**: lo que llega espera en
+ * Bandeja a que una persona, o su agente con propuesta y confirmación, decida
+ * qué se vuelve tarea. Las dos excepciones que escriben tareas directo (el aula
+ * virtual y GitHub) están en AGENTS.md y en el registro de proveedores, y no
+ * pasan por aquí.
+ *
+ * La fuente tiene que estar en el registro y declarar que entrega capturas; una
+ * fuente desconocida se rechaza en vez de inventarse.
+ *
+ * Idempotente por (persona, fuente, id externo): un refresco repetido no
+ * duplica. Si la captura sigue pendiente, toma lo último que la fuente dijo; si
+ * ya se confirmó, se descartó o caducó, no se toca ni se resucita.
+ */
+export async function ingerirCaptura(
+  ctx: MutationCtx,
+  entrada: {
+    userId: Id<'users'>;
+    source: string;
+    externalId: string;
+    kind: Doc<'captures'>['kind'];
+    text?: string;
+    url?: string;
+    blobPath?: string;
+  },
+): Promise<{ id: Id<'captures'>; creada: boolean }> {
+  const registro = proveedor(entrada.source);
+  if (!registro || registro.entrega !== 'captura') {
+    invalid(`La fuente ${entrada.source} no está en el registro de proveedores que entregan capturas`);
+  }
+
+  const existente = await ctx.db
+    .query('captures')
+    .withIndex('by_user_source_external', (q) =>
+      q.eq('userId', entrada.userId).eq('source', entrada.source).eq('externalId', entrada.externalId),
+    )
+    .first();
+  if (existente) {
+    if (existente.status === 'pending') {
+      // Sólo lo que la fuente volvió a mandar: un campo ausente en el refresco no
+      // borra el que ya estaba, porque `patch` quita lo que llega en `undefined`.
+      const cambios = Object.fromEntries(
+        Object.entries({ text: entrada.text, url: entrada.url, blobPath: entrada.blobPath }).filter(([, v]) => v !== undefined),
+      );
+      if (Object.keys(cambios).length > 0) await ctx.db.patch(existente._id, cambios);
+    }
+    return { id: existente._id, creada: false };
+  }
+
+  const ahora = Date.now();
+  const id = await ctx.db.insert('captures', {
+    userId: entrada.userId,
+    status: 'pending',
+    kind: entrada.kind,
+    source: entrada.source,
+    externalId: entrada.externalId,
+    text: entrada.text,
+    url: entrada.url,
+    blobPath: entrada.blobPath,
+    expiresAt: ahora + RETENCION_DIAS * DIA_MS,
+    createdAt: ahora,
+  });
+  await recordEvent(ctx, {
+    userId: entrada.userId,
+    actorChannel: 'sync',
+    action: 'capture.create',
+    targetType: 'capture',
+    targetId: id,
+    payload: { kind: entrada.kind, source: entrada.source },
+  });
+  return { id, creada: true };
+}
+
+/** La misma entrada, para la ruta HTTP o la acción que reciba cada fuente. */
+export const ingerir = internalMutation({
+  args: {
+    userId: v.id('users'),
+    source: v.string(),
+    externalId: v.string(),
+    kind: captureKind,
+    text: v.optional(v.string()),
+    url: v.optional(v.string()),
+    blobPath: v.optional(v.string()),
+  },
+  handler: (ctx, entrada) => ingerirCaptura(ctx, entrada),
 });
 
 /** La persona decide que esto no era nada. Se va, pero porque lo dijo. */

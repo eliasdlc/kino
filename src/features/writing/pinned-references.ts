@@ -10,7 +10,7 @@ import { useUpdateFolder } from "@/features/folders/folders.hooks";
  * personaje sirve en todos sus capítulos.
  */
 
-export function readPinnedIds(metadata: Record<string, unknown> | null | undefined): string[] {
+function readPinnedIds(metadata: Record<string, unknown> | null | undefined): string[] {
   const raw = metadata?.pinnedEntityIds;
   return Array.isArray(raw) ? raw.filter((v): v is string => typeof v === "string") : [];
 }

@@ -21,7 +21,3 @@ export function useEnergyDistribution(days = 7) {
 export function useStaleSystems(days = 14) {
   return useConvexQuery(api.insights.staleSystems, { days });
 }
-
-export function useTopPattern() {
-  return useConvexQuery(api.insights.patterns, {});
-}

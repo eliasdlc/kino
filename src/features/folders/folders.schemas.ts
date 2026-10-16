@@ -1,13 +1,11 @@
 import { z } from "zod";
 
-export const colorValues = [
+const colorValues = [
   "red", "blue", "pink", "purple", "green",
   "orange", "yellow", "teal", "gray", "black", "white",
 ] as const;
 
-// `metadata` entra como passthrough laxo aquí; el validador real es discriminado
-// por systemType (folders.metadata.ts) y corre en la ruta, donde se conoce el
-// arquetipo del sistema dueño.
+// `metadata` entra como passthrough laxo.
 export const createFolderSchema = z.object({
   academicPeriodId: z.string().optional(),
   name: z.string().min(1).max(255),

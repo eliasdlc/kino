@@ -287,7 +287,7 @@ const pages: Tool[] = [
   readTool(api.pages.bySystem, {
     name: "list_pages",
     description:
-      "Lista las páginas (notas markdown) de un sistema en Kino. Cada item indica `createdVia` y `agentEditPolicy` para saber si un agente edita directo o necesita confirmación. Devuelve `items` y `restantes`: si `restantes` es mayor que cero, la lista viene recortada.",
+      "Lista las páginas (notas markdown) de un sistema en Kino. Cada item indica `createdVia` y `agentEditPolicy` para saber si un agente edita directo o necesita confirmación. Devuelve `items` y `restantes`: `restantes` no cuenta lo que falta, marca dónde paró la lectura. Cero significa que están todas; mayor que cero, que paró en el tope y puede haber más.",
     input: z.object({ systemId: id }),
   }),
   readTool(api.pages.byId, {
@@ -426,7 +426,7 @@ const tasks: Tool[] = [
   readTool(api.tasks.list, {
     name: "list_tasks",
     description:
-      "Lista tareas del usuario en Kino con filtros opcionales. Devuelve `items` y `restantes`: si `restantes` es mayor que cero, la lista viene recortada y hay que filtrar más para verlo todo.",
+      "Lista tareas del usuario en Kino con filtros opcionales. Devuelve `items` y `restantes`: `restantes` no cuenta lo que falta, marca dónde paró la lectura. Cero significa que están todas; mayor que cero, que paró en el tope y puede haber más, sin garantizar que falte alguna. Sólo `systemId` y `deleted` acotan la lectura; con `energyLevel` o `status` la lista puede venir corta, o vacía, con `restantes` mayor que cero: ahí hay que acotar por sistema para verlo todo.",
     input: z.object({
       systemId: id.optional(),
       energyLevel: ENERGY.optional(),
@@ -605,7 +605,7 @@ export const SIN_TOOL: readonly string[] = [
   "systems:radiografia",
 ];
 
-/** Y las dos que sí: `captures:entregar` y `captures:resolver`, abajo. */
+/** Y las tres que sí: `captures:porFuente`, `captures:entregar` y `captures:resolver`, abajo. */
 
 /**
  * Los ojos prestados, en su única versión honesta: **los pone el agente, no
@@ -614,6 +614,16 @@ export const SIN_TOOL: readonly string[] = [
  * modelo, y es la misma razón por la que la voz propia está cancelada.
  */
 const captures: readonly Tool[] = [
+  readTool(api.captures.porFuente, {
+    name: "list_captures",
+    description:
+      "Lista las capturas que esperan a un agente, las más nuevas primero, con cursor. Con `source` (por ejemplo `correo`) sólo las de esa fuente conectada; sin él, todas las pendientes. Devuelve `items` y `cursor`: si `cursor` no es null, pásalo para la página siguiente. Cada item se mira con get_capture y se resuelve con resolve_capture.",
+    input: z.object({
+      source: z.string().min(1).max(50).optional().describe("La fuente conectada; sin esto, todas"),
+      cursor: z.string().nullable().optional().describe("El cursor de la página anterior"),
+      limite: z.number().int().min(1).max(50).optional().describe("Cuántas por página, 25 por defecto"),
+    }),
+  }),
   readTool(api.captures.entregar, {
     name: "get_capture",
     description:

@@ -171,22 +171,9 @@ export function formatHourRange(start: number, end: number): string {
   return sPeriod === ePeriod ? `${s12}–${e12} ${ePeriod}` : `${s12} ${sPeriod} – ${e12} ${ePeriod}`;
 }
 
-/**
- * Ventana de 2h consecutivas de mayor capacidad en una curva de 24 valores.
- * Fuente única de "tu pico": la usan el gráfico y la tarjeta "Tu patrón".
- */
-export function findPeakRange(curve: readonly number[]): { start: number; end: number } {
-  let bestScore = -1;
-  let peakStart = 9;
-  for (let h = 0; h < 23; h++) {
-    const score = (curve[h] ?? 0) + (curve[h + 1] ?? 0);
-    if (score > bestScore) {
-      bestScore = score;
-      peakStart = h;
-    }
-  }
-  return { start: peakStart, end: peakStart + 2 };
-}
+// "Tu pico" se calcula en `convex/lib/energy/curve.ts`, el mismo que usa el
+// servidor; se reexporta aquí para los importadores que ya lo piden por esta ruta.
+export { findPeakRange } from '@convex/lib/energy/curve';
 
 export type PeakAdviceTone = 'peak' | 'before' | 'after' | 'rest';
 
@@ -352,7 +339,10 @@ export function computeLearnedCurve(
     let empirical: number;
     if (cCount > 0) {
       const checkinLevel = (checkinLevelSum[h] ?? 0) / cCount; // 0–100 directo
-      empirical = 0.7 * checkinLevel + 0.3 * aVal;
+      // Una hora sin actividad registrada no dice "energía cero": dice que no
+      // hay dato de actividad. Ahí el check-in vale entero; la mezcla sólo
+      // entra cuando las dos señales existen.
+      empirical = aVal > 0 ? 0.7 * checkinLevel + 0.3 * aVal : checkinLevel;
     } else {
       empirical = aVal;
     }

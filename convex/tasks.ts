@@ -341,58 +341,134 @@ async function spawnNextRecurrence(ctx: MutationCtx, task: TaskDoc, now: number)
 // ── Lecturas ────────────────────────────────────────────────────────────────
 
 /**
- * Tope de tareas por respuesta.
+ * Tope de tareas por respuesta, y también de lectura.
  *
- * Es un tope duro, no un cursor, y eso es una decisión con fecha: el orden de
- * la lista es `sortIndex`, que no tiene índice propio, así que un cursor
- * correcto exige uno nuevo en `convex/schema.ts` y esta fase no tiene el turno
- * del carril de schema. Con el tope, lo que cruza la red y lo que se recorre en
- * memoria quedan acotados; lo que sigue sin acotar es la lectura de la base.
+ * `sortIndex` ya tiene índice, así que la lista pide una tarea más que el tope
+ * y para: lo que lee es lo que enseña. Sigue siendo un tope duro y no un
+ * cursor, porque nadie ha pedido paginar una lista que ninguna cuenta real
+ * llena.
+ *
+ * `restantes` cambió de significado con eso, y no es una cuenta de nada: era la
+ * cuenta exacta de lo que quedaba fuera, y contarla exigía leer la tabla entera,
+ * que es justo lo que la restricción 9 de AGENTS.md prohíbe. Ahora es **la marca
+ * de que la lectura paró en el tope**. Cero significa que están todas; mayor que
+ * cero, que paró ahí y **puede** haber más.
+ *
+ * Los dos extremos, para que nadie lea el número como una cifra. Una lista puede
+ * volver vacía con `restantes` en uno, cuando nada de lo leído pasa el filtro y
+ * detrás sí quedaba algo. Y puede volver completa con `restantes` en uno, cuando
+ * lo único que sobraba tras el tope es justo lo que el filtro descarta. Saber
+ * cuál de los dos es exigiría leer el resto.
  *
  * El número sale de que el deployment de dev tiene 226 tareas: quinientas deja
- * el doble de margen antes de que nadie vea un recorte, y `restantes` lo dice
- * cuando pasa.
+ * el doble de margen antes de que nadie vea un recorte.
  */
 export const TASK_LIST_LIMIT = 500;
 
+/**
+ * La lista de tareas raíz, con su tope. Vive fuera de la query para poder medir
+ * lo que lee (`convex/listasAcotadas.test.ts`).
+ *
+ * Entra por el índice que fija dueño o sistema, raíz y papelera, y que termina
+ * en `sortIndex`: el orden llega hecho, así que pedir una más que el tope basta
+ * para saber si hubo recorte. Antes leía todas las tareas del usuario, subtareas
+ * y papelera incluidas, para descartarlas en memoria.
+ *
+ * `energyLevel` y `status` no caben en el rango y se filtran sobre lo leído, así
+ * que una lista pedida con uno de los dos puede quedarse corta, y hasta vacía,
+ * teniendo más detrás del tope. Por eso el recorte se mira **antes** de filtrar
+ * y no se deduce de lo que sobrevive: si se dedujera, un `status` que no
+ * aparezca entre las primeras quinientas devolvería cero diciendo que no falta
+ * nada. El precio de mirarlo antes es que el aviso se enciende también cuando lo
+ * que sobraba tras el tope no pasaba el filtro, y ahí la lista está completa;
+ * `restantes` avisa de la lectura, no de la respuesta. Sólo el conector MCP
+ * manda esos dos filtros; las pantallas piden sin ellos.
+ *
+ * Por encima del tope la papelera cambia de criterio, y es lo único que cambia:
+ * antes daba las de menor `sortIndex` de toda la papelera, ahora las de menor
+ * `sortIndex` entre las quinientas una borradas más antiguas, porque su rango va
+ * por `deletedAt` y el orden visible se rehace después.
+ */
+export async function listadoDeTareas(ctx: Ctx, userId: Id<'users'>, filters: z.infer<typeof listTasksSchema>) {
+  const { systemId, deleted } = filters;
+  // `deletedAt` guarda un instante, no una marca, y en el orden de Convex
+  // `undefined` va antes que cualquier número: lo vivo se pide con
+  // `eq(undefined)` y la papelera con `gt(0)`, y ninguna de las dos mitades lee
+  // la otra.
+  const rango = systemId
+    ? ctx.db.query('tasks').withIndex('by_system_parent_alive_sort_status', (q) => {
+        const raiz = q.eq('systemId', systemId).eq('parentTaskId', undefined);
+        return deleted ? raiz.gt('deletedAt', 0) : raiz.eq('deletedAt', undefined);
+      })
+    : ctx.db.query('tasks').withIndex('by_user_parent_alive_sort_status', (q) => {
+        const raiz = q.eq('userId', userId).eq('parentTaskId', undefined);
+        return deleted ? raiz.gt('deletedAt', 0) : raiz.eq('deletedAt', undefined);
+      });
+  const docs = await rango.take(TASK_LIST_LIMIT + 1);
+  // La de sobra es la que dice que hubo recorte, y se mira aquí porque los
+  // filtros de abajo pueden dejar la lista en cero sin que eso signifique que
+  // detrás no queda nada.
+  const cortada = docs.length > TASK_LIST_LIMIT;
+  const filtradas = docs
+    .filter((doc) => doc.userId === userId)
+    .filter((doc) => !filters.energyLevel || doc.energyLevel === filters.energyLevel)
+    .filter((doc) => !filters.status || doc.status === filters.status)
+    // Lo vivo ya llega en este orden y ordenar es estable, así que esto sólo
+    // hace trabajo en la papelera, cuyo rango va por `deletedAt`.
+    .sort(bySort);
+  const pagina = filtradas.slice(0, TASK_LIST_LIMIT);
+  return {
+    items: pagina.map(taskItem),
+    /** Cero, están todas. Mayor que cero, la lectura paró en el tope y puede haber más. */
+    restantes: Math.max(filtradas.length - pagina.length, cortada ? 1 : 0),
+  };
+}
+
 export const list = kinoZodQuery({
   args: listTasksSchema,
-  handler: async (ctx, filters) => {
-    let docs: TaskDoc[];
-    if (filters.deleted) {
-      const all = await ctx.db
-        .query('tasks')
-        .withIndex('by_user_alive_status', (q) => q.eq('userId', ctx.user._id))
-        .collect();
-      docs = all.filter((doc) => !alive(doc));
-    } else {
-      docs = await aliveTasks(ctx, ctx.user._id);
-    }
-    const filtradas = docs
-      .filter(topLevel)
-      .filter((doc) => !filters.systemId || doc.systemId === filters.systemId)
-      .filter((doc) => !filters.energyLevel || doc.energyLevel === filters.energyLevel)
-      .filter((doc) => !filters.status || doc.status === filters.status)
-      .sort(bySort);
-    const pagina = filtradas.slice(0, TASK_LIST_LIMIT);
-    return {
-      items: pagina.map(taskItem),
-      /** Cuántas quedaron fuera del tope. Cero es la respuesta normal. */
-      restantes: filtradas.length - pagina.length,
-    };
-  },
+  handler: (ctx, filters) => listadoDeTareas(ctx, ctx.user._id, filters),
 });
+
+interface AlcanceSistema {
+  systemId: Id<'systems'>;
+  academicPeriodId?: Id<'academicPeriods'> | null;
+  folderId?: Id<'folders'>;
+}
+
+/**
+ * Las tareas raíz de un sistema. Vive fuera de la query para poder medir lo que
+ * lee (`convex/listasAcotadas.test.ts`).
+ *
+ * Es la suscripción que abre cada pantalla de sistema, y el índice le da las
+ * raíces vivas ya ordenadas: las subtareas dejan de leerse para descartarse
+ * después, y el orden deja de rehacerse en memoria.
+ *
+ * **El `.collect()` se queda sin tope, y es una deuda con nombre.** Esta lectura
+ * crece con las tareas del sistema: el rango la acota a un sistema, sus raíces y
+ * lo vivo, pero no a un número, y eso es una excepción consciente a la
+ * restricción 9 de AGENTS.md, no un descuido.
+ *
+ * La excepción no existe porque la lectura sea barata, existe porque **ninguna
+ * pantalla de sistema sabe paginar**: un tope callado haría que un sistema
+ * grande dejara de enseñar tareas sin decirlo, y eso es peor que leer de más.
+ * Un tope con aviso en pantalla sí resuelve, y es el trabajo que abre esta
+ * deuda.
+ *
+ * Se reabre el día que una de esas pantallas pagine, o el día que un sistema
+ * real se acerque a `TASK_LIST_LIMIT` raíces vivas.
+ */
+export async function tareasDelSistema(ctx: Ctx, userId: Id<'users'>, { systemId, academicPeriodId, folderId }: AlcanceSistema) {
+  const allowed = academicPeriodId !== undefined ? await academicFolderIds(ctx, userId, systemId, academicPeriodId) : undefined;
+  const docs = await ctx.db
+    .query('tasks')
+    .withIndex('by_system_parent_alive_sort_status', (q) => q.eq('systemId', systemId).eq('parentTaskId', undefined).eq('deletedAt', undefined))
+    .collect();
+  return docs.filter((doc) => doc.userId === userId && (folderId === undefined || doc.folderId === folderId) && (!allowed || (doc.folderId ? allowed.has(doc.folderId) : academicPeriodId === null))).map(taskItem);
+}
 
 export const bySystem = kinoZodQuery({
   args: { systemId: zid('systems'), academicPeriodId: zid('academicPeriods').nullable().optional(), folderId: zid('folders').optional() },
-  handler: async (ctx, { systemId, academicPeriodId, folderId }) => {
-    const allowed = academicPeriodId !== undefined ? await academicFolderIds(ctx, ctx.user._id, systemId, academicPeriodId) : undefined;
-    const docs = await ctx.db
-      .query('tasks')
-      .withIndex('by_system_alive_status', (q) => q.eq('systemId', systemId).eq('deletedAt', undefined))
-      .collect();
-    return docs.filter((doc) => doc.userId === ctx.user._id && topLevel(doc) && (folderId === undefined || doc.folderId === folderId) && (!allowed || (doc.folderId ? allowed.has(doc.folderId) : academicPeriodId === null))).sort(bySort).map(taskItem);
-  },
+  handler: (ctx, args) => tareasDelSistema(ctx, ctx.user._id, args),
 });
 
 export const byFolder = kinoZodQuery({
@@ -655,6 +731,12 @@ export async function updateTaskDoc(
       const effectiveType = data.taskType === undefined ? current.taskType : data.taskType;
       if (effectiveType === 'idea') patch.status = 'backlog';
       else if (data.startDate !== undefined) patch.status = deriveStatusFromDate(optMs(data.startDate), user.timezone);
+    }
+    // La membresía del plan de hoy sigue al status igual que en `applyTransition`:
+    // entrar a hoy la une, salir a planificación la saca, completar la conserva.
+    if (data.inTodayPlan === undefined && patch.status !== undefined) {
+      if (patch.status === 'today') patch.inTodayPlan = true;
+      else if (patch.status !== 'done') patch.inTodayPlan = false;
     }
 
     const dueChanged = data.dueDate !== undefined && optMs(data.dueDate) !== current.dueDate;

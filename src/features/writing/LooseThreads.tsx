@@ -254,9 +254,10 @@ function SensitivityPopover({ system }: { system: SystemTransport }) {
     setDraft(next);
     updateSystem({
       systemId: system.id,
-      // La metadata se reemplaza entera en el PATCH: hay que arrastrar lo demás
-      // (meta diaria, composición) o se pierde al mover un slider.
-      data: { metadata: { ...(system.metadata ?? {}), chekhov: next } },
+      // `systems.update` fusiona la metadata por clave: basta con mandar la que
+      // cambia, y reenviar las demás podría pisar lo que el servidor escribió
+      // entre medias, como el cursor de GitHub.
+      data: { metadata: { chekhov: next } },
     });
   }
 

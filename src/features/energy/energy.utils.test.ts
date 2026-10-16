@@ -5,7 +5,6 @@ import {
   computeFatigue,
   computeEffectiveEnergy,
   slotForHour,
-  findPeakRange,
   computeLearnedCurve,
   emptyAccuracyBySlot,
   CHRONOTYPE_CURVES,
@@ -249,21 +248,6 @@ describe('slotForHour', () => {
   });
 });
 
-describe('findPeakRange', () => {
-  it('finds the morning peak for the morning chronotype', () => {
-    const { start, end } = findPeakRange(CHRONOTYPE_CURVES.morning);
-    expect(start).toBeGreaterThanOrEqual(8);
-    expect(start).toBeLessThanOrEqual(10);
-    expect(end).toBe(start + 2);
-  });
-
-  it('finds the evening peak for the evening chronotype', () => {
-    const { start } = findPeakRange(CHRONOTYPE_CURVES.evening);
-    expect(start).toBeGreaterThanOrEqual(14);
-    expect(start).toBeLessThanOrEqual(20);
-  });
-});
-
 describe('computeLearnedCurve', () => {
   it('returns null with no signals (cold start)', () => {
     expect(computeLearnedCurve('morning', emptySignals())).toBeNull();
@@ -300,6 +284,18 @@ describe('computeLearnedCurve', () => {
     const { curve } = computeLearnedCurve('evening', s)!;
     // evening teórico a las 9h es bajo (~30); un check-in alto debe subirlo
     expect(curve[9]!).toBeGreaterThan(CHRONOTYPE_CURVES.evening[9]!);
+  });
+
+  it('a check-in at an hour with no activity counts at its full level', () => {
+    const s = emptySignals();
+    s.activityWeight[15] = 10; // actividad en otra hora: la de las 9 queda en cero
+    s.checkinCount[9] = 1;
+    s.checkinLevelSum[9] = 90;
+    const { curve, slotAlphas } = computeLearnedCurve('evening', s)!;
+    const a = slotAlphas.morning;
+    const theo = CHRONOTYPE_CURVES.evening[9]!;
+    // La parte empírica de esa hora es el 90 reportado, no 0.7 * 90 = 63.
+    expect(curve[9]).toBe(Math.round(((1 - a) * theo + a * 90) * 10) / 10);
   });
 
   it('inaccurate feedback pushes the slot toward real data', () => {

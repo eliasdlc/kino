@@ -4,7 +4,7 @@ import { useState } from "react";
 import { Check, ChevronDown, Settings2 } from "lucide-react";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { cn } from "@/lib/utils";
-import { useUpdateSystem } from "@/features/systems/systems.hooks";
+import { useLiveSystem, useUpdateSystem } from "@/features/systems/systems.hooks";
 import type { SystemTransport } from "@/features/systems/systems.types";
 import { systemMetadataSchema } from "@/features/systems/systems.schemas";
 import { chooseCycle, useSelectedCycle, type AcademicPeriod } from "./academic.hooks";
@@ -29,8 +29,12 @@ function cadenceOf(system: SystemTransport): number[] | null {
  * El año y el ciclo, en una línea de la cabecera. Es un filtro, no una
  * pantalla: se cambia sin salir de donde estás y sin pedirle la página al
  * servidor. Gestionar los ciclos vive detrás de este mismo control.
+ *
+ * El sistema llega renderizado en el servidor y no cambia al guardar; la
+ * cadencia se lee de su versión viva para que marcarla se vea al momento.
  */
-export function CyclePicker({ system, initialPeriods }: CyclePickerProps) {
+export function CyclePicker({ system: initialSystem, initialPeriods }: CyclePickerProps) {
+  const system = useLiveSystem(initialSystem);
   const { periods, selectedId, selected } = useSelectedCycle(system.id, initialPeriods);
   const [open, setOpen] = useState(false);
   const [managing, setManaging] = useState(false);
@@ -45,9 +49,8 @@ export function CyclePicker({ system, initialPeriods }: CyclePickerProps) {
   }
 
   function setCadence(startMonths: number[]) {
-    const current = systemMetadataSchema.safeParse(system.metadata ?? {});
-    const metadata = { ...(current.success ? current.data : {}), academic: { cycleStartMonths: startMonths } };
-    updateSystem({ systemId: system.id, data: { metadata } });
+    // Sólo la clave que cambia: `systems.update` conserva las demás.
+    updateSystem({ systemId: system.id, data: { metadata: { academic: { cycleStartMonths: startMonths } } } });
   }
 
   return (

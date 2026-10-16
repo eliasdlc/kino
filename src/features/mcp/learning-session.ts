@@ -24,7 +24,7 @@ import { z } from 'zod';
  * recibe líneas nuevas: es la memoria de la sesión y nada lo reescribe.
  */
 
-export const checkpointSchema = z.object({
+const checkpointSchema = z.object({
   /** Sube cuando el formato deje de ser compatible; hoy no hay otra versión. */
   schemaVersion: z.literal(1),
   sessionId: z.uuid(),

@@ -82,7 +82,7 @@ export async function prepararCaptura(
 }
 
 /** Sube un archivo local y devuelve su URL pública. */
-export async function subirArchivo(blob: Blob): Promise<string> {
+async function subirArchivo(blob: Blob): Promise<string> {
   let respuesta: Response;
   try {
     respuesta = await fetch("/api/uploads", {

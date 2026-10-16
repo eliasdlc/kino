@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { EditorContent } from "@tiptap/react";
 import { BubbleMenu } from "@tiptap/react/menus";
 import { ConvexError } from "convex/values";
@@ -70,6 +70,20 @@ export function NotebookEditor({ page, systemId, pageId, writer = false, title, 
   useEffect(() => {
     titleRef.current = title;
   }, [title]);
+  const titleField = useRef<HTMLTextAreaElement>(null);
+  // El título envuelve en vez de cortarse: el campo mide lo que su texto, y se
+  // vuelve a medir cuando cambia el texto o el ancho de la columna. En el
+  // teléfono un título largo ocupa dos líneas en lugar de perder el final.
+  useLayoutEffect(() => {
+    if (titleField.current) ajustarAlto(titleField.current);
+  }, [title]);
+  useEffect(() => {
+    const campo = titleField.current;
+    if (!campo?.parentElement || typeof ResizeObserver === "undefined") return;
+    const observer = new ResizeObserver(() => ajustarAlto(campo));
+    observer.observe(campo.parentElement);
+    return () => observer.disconnect();
+  }, []);
   /** Mientras es `false` ya no hay pantalla donde recargar nada. */
   const montado = useRef(true);
   /**
@@ -283,8 +297,10 @@ export function NotebookEditor({ page, systemId, pageId, writer = false, title, 
     };
   }, []);
 
-  function handleTitleChange(e: React.ChangeEvent<HTMLInputElement>) {
-    const next = e.target.value;
+  function handleTitleChange(e: React.ChangeEvent<HTMLTextAreaElement>) {
+    // Un título es una línea aunque se vea en dos: lo pegado con saltos llega
+    // con espacios.
+    const next = e.target.value.replace(/[\r\n]+/g, " ");
     onTitleChange(next);
     // Temporizador propio: el del cuerpo se reinicia con cada tecla, así que
     // seguir escribiendo podía retrasar el guardado del título sin límite.
@@ -320,12 +336,16 @@ export function NotebookEditor({ page, systemId, pageId, writer = false, title, 
   return (
     <>
       <div className="flex flex-col gap-4 h-full">
-        <input
-          type="text"
+        <textarea
+          ref={titleField}
+          rows={1}
           value={title}
           onChange={handleTitleChange}
+          onKeyDown={(e) => {
+            if (e.key === "Enter") e.preventDefault();
+          }}
           placeholder="Sin título"
-          className="w-full bg-transparent text-3xl font-bold placeholder:text-muted-foreground/40 focus:outline-none border-none p-0"
+          className="block w-full resize-none overflow-hidden bg-transparent text-3xl font-bold placeholder:text-muted-foreground/40 focus:outline-none border-none p-0"
           maxLength={500}
         />
         {/* El codex a un toque mientras escribes. En escritorio no: ahí el rail
@@ -383,4 +403,10 @@ export function NotebookEditor({ page, systemId, pageId, writer = false, title, 
       )}
     </>
   );
+}
+
+/** Deja la altura del campo en la de su contenido, sin barra de desplazamiento. */
+function ajustarAlto(campo: HTMLTextAreaElement) {
+  campo.style.height = "auto";
+  campo.style.height = `${campo.scrollHeight}px`;
 }

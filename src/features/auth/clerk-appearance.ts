@@ -20,7 +20,10 @@ export const clerkAppearance: Appearance = {
     colorBackground: "var(--sf)",
     colorForeground: "var(--ink)",
     colorMutedForeground: "var(--mute)",
-    colorBorder: "var(--ln2)",
+    // Clerk saca sus trazos con transparencia a partir de este color, así que
+    // pide uno opaco: con `--ln2`, que ya es tinta al 16%, el borde de un campo
+    // quedaba en menos del 2% y el formulario no se veía.
+    colorBorder: "var(--ink)",
     colorInput: "var(--sf)",
     colorInputForeground: "var(--ink)",
     colorDanger: "var(--danger)",

@@ -7,11 +7,12 @@ import { z } from 'zod';
 import { verificarAccion } from './lib/firmaAccion';
 import { academicoSchema } from './academico';
 import { DIGEST_BYTES_MAX, digestBytes, digestSchema } from './digests';
-import { clerkUserCreatedSchema, correoPrimario, nombreDe } from './users';
+import { clerkUserCreatedSchema, clerkUserDeletedSchema, correoPrimario, nombreDe } from './users';
 
 // Las rutas HTTP del deployment. Hoy hay cuatro: la entrada del diario de
 // sesiones, la de lo que publica el aula virtual, el webhook con el que
-// Clerk avisa de una cuenta nueva, y los botones de las notificaciones.
+// Clerk avisa de una cuenta nueva o borrada, y los botones de las
+// notificaciones.
 //
 // Las dos entran por aquí y no por una ruta de Next por la misma razón: cada
 // deployment de Convex se empareja con una instancia de Clerk, así que la URL
@@ -131,8 +132,12 @@ const ingestaAcademica = httpAction(async (ctx, request) => {
 });
 
 /**
- * La cuenta nueva.
+ * La cuenta nueva y la cuenta borrada. Una sola ruta para los dos eventos: el
+ * endpoint de cada instancia de Clerk se suscribe a ambos y comparte secreto,
+ * así que no hace falta un segundo endpoint ni un segundo secreto. La ruta
+ * conserva el nombre con el que se dio de alta en Clerk.
  *
+ * **La cuenta nueva.**
  * Es el sitio donde nace la fila de `users` en el caso normal, y existe para
  * que no tenga que nacer en el camino de render: antes, `getServerSession`
  * esperaba una escritura en Convex antes de cada página para garantizar lo que
@@ -145,12 +150,20 @@ const ingestaAcademica = httpAction(async (ctx, request) => {
  * suelo casi nunca escriba nada, y lo que cubre las cuentas que Clerk crea sin
  * que nadie abra un navegador (una invitación desde su panel).
  *
+ * **La cuenta borrada.** Cuando alguien se borra desde el panel de Clerk, su
+ * fila y sus datos se van con `users.purge`, la misma que usa `account.remove`.
+ * Borrar desde Kino también dispara este evento, y casi siempre llega cuando
+ * ya purgó: por eso una cuenta que no está responde 200 sin tocar nada, igual
+ * que una que Kino nunca conoció. Un 4xx haría que Clerk la reintentara. Si
+ * los dos borrados se cruzan, el que llega segundo encuentra la purga hecha y
+ * `users.purge` no hace nada.
+ *
  * La firma la comprueba Clerk con su propio verificador contra
  * `CLERK_WEBHOOK_SIGNING_SECRET`, que es por instancia y se carga en el
  * deployment con `npx convex env set`. Sin la variable la ruta responde 503 en
  * vez de aceptar cualquier cuerpo.
  */
-const clerkUserCreated = httpAction(async (ctx, request) => {
+const clerkWebhook = httpAction(async (ctx, request) => {
   const secret = process.env.CLERK_WEBHOOK_SIGNING_SECRET;
   // Sin el secreto la ruta no está configurada, y una ruta abierta por no
   // estar configurada es peor que una que no responde.
@@ -163,11 +176,19 @@ const clerkUserCreated = httpAction(async (ctx, request) => {
     return json(400, { error: 'BAD_SIGNATURE' });
   }
 
+  const borrado = clerkUserDeletedSchema.safeParse(evento);
+  if (borrado.success) {
+    const user = await ctx.runQuery(internal.users.byClerkId, { clerkId: borrado.data.data.id });
+    if (!user) return json(200, { ignored: true, reason: 'SIN_FILA' });
+    await ctx.runMutation(internal.users.purge, { userId: user._id });
+    return json(200, { purged: user._id });
+  }
+
   // Clerk manda al endpoint todos los eventos a los que esté suscrito y sólo
-  // `user.created` nos incumbe. Un 4xx haría que lo reintentara durante días,
-  // así que lo que no encaja se reconoce y se tira. La firma ya demostró que
-  // viene de Clerk: un cuerpo que no encaja es otro evento, no un intento de
-  // colarse.
+  // `user.created` y `user.deleted` nos incumben. Un 4xx haría que lo
+  // reintentara durante días, así que lo que no encaja se reconoce y se tira.
+  // La firma ya demostró que viene de Clerk: un cuerpo que no encaja es otro
+  // evento, no un intento de colarse.
   const parsed = clerkUserCreatedSchema.safeParse(evento);
   if (!parsed.success) return json(200, { ignored: true });
 
@@ -221,6 +242,6 @@ http.route({ path: '/push/accion', method: 'POST', handler: accionDeAviso });
 http.route({ path: '/push/accion', method: 'OPTIONS', handler: preflight });
 http.route({ path: '/digests', method: 'POST', handler: uploadDigest });
 http.route({ path: '/academico', method: 'POST', handler: ingestaAcademica });
-http.route({ path: '/clerk/user-created', method: 'POST', handler: clerkUserCreated });
+http.route({ path: '/clerk/user-created', method: 'POST', handler: clerkWebhook });
 
 export default http;

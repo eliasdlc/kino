@@ -19,7 +19,7 @@ declare module "@tiptap/react" {
   }
 }
 
-export const SCENE_BREAK_GLYPH = "* * *";
+const SCENE_BREAK_GLYPH = "* * *";
 
 export const SceneBreak = Node.create({
   name: "sceneBreak",

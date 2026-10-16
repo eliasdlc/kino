@@ -13,13 +13,4 @@ export const createSprintSchema = z.object({
   endDate: DATE.optional(),
 });
 
-export const updateSprintSchema = z.object({
-  name: z.string().min(1).max(255).optional(),
-  goal: z.string().max(500).nullable().optional(),
-  startDate: DATE.nullable().optional(),
-  endDate: DATE.nullable().optional(),
-  status: z.enum(["active", "completed"]).optional(),
-});
-
 export type CreateSprintInput = z.infer<typeof createSprintSchema>;
-export type UpdateSprintInput = z.infer<typeof updateSprintSchema>;
