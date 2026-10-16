@@ -119,7 +119,7 @@ async function createOne(
       .unique();
     if (existing) return noteItem(existing);
   }
-  let systemId: Id<'systems'> | undefined;
+  let systemId: Id<'systems'>;
   if ('pageId' in owner) {
     const page = await ctx.db.get(owner.pageId);
     if (!page || page.userId !== userId || page.deletedAt !== undefined) notFound('Page not found');

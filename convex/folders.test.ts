@@ -122,7 +122,7 @@ describe('folders sobre convex-test', () => {
     });
     await t.run(async (ctx) => {
       await ctx.db.insert('pages', { userId, createdBy: userId, createdVia: 'session', folderId: capitulo.id, systemId, isPinned: false, createdAt: 1, updatedAt: 1 });
-      await ctx.db.insert('stickyNotes', { userId, createdBy: userId, createdVia: 'session', folderId: capitulo.id, color: 'yellow', sortIndex: 0, isEureka: false, createdAt: 1, updatedAt: 1 });
+      await ctx.db.insert('stickyNotes', { userId, createdBy: userId, createdVia: 'session', folderId: capitulo.id, systemId, color: 'yellow', sortIndex: 0, isEureka: false, createdAt: 1, updatedAt: 1 });
     });
 
     const roots = await asAna.query(api.folders.bySystem, { systemId });
