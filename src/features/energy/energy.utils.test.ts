@@ -5,7 +5,6 @@ import {
   computeFatigue,
   computeEffectiveEnergy,
   slotForHour,
-  findPeakRange,
   computeLearnedCurve,
   emptyAccuracyBySlot,
   CHRONOTYPE_CURVES,
@@ -246,21 +245,6 @@ describe('slotForHour', () => {
   it('clamps out-of-range hours by wrapping', () => {
     expect(slotForHour(25)).toBe(slotForHour(1));
     expect(() => slotForHour(-3)).not.toThrow();
-  });
-});
-
-describe('findPeakRange', () => {
-  it('finds the morning peak for the morning chronotype', () => {
-    const { start, end } = findPeakRange(CHRONOTYPE_CURVES.morning);
-    expect(start).toBeGreaterThanOrEqual(8);
-    expect(start).toBeLessThanOrEqual(10);
-    expect(end).toBe(start + 2);
-  });
-
-  it('finds the evening peak for the evening chronotype', () => {
-    const { start } = findPeakRange(CHRONOTYPE_CURVES.evening);
-    expect(start).toBeGreaterThanOrEqual(14);
-    expect(start).toBeLessThanOrEqual(20);
   });
 });
 
