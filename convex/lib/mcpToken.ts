@@ -23,3 +23,11 @@ export const MCP_TOKEN_ALGORITHM = 'ES256' as const;
  * grupo («descartar todas las de este origen») dejaría de significar nada.
  */
 export const MCP_CLIENT_CLAIM = 'kino_client';
+
+/**
+ * El `sub` del token con el que el proxy de Next cuenta peticiones en Convex
+ * (`convex/rateLimits.ts`). No es un id de Clerk, que siempre empieza por
+ * `user_`, así que ninguna sesión ni ningún conector lo pueden llevar: sólo lo
+ * firma quien tiene la clave privada del conector.
+ */
+export const RATE_LIMIT_SUBJECT = 'kino:rate-limit';

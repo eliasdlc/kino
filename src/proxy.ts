@@ -68,9 +68,10 @@ export const proxy = clerkMiddleware(async (auth, request) => {
 
   // Después del gate a propósito: el tráfico anónimo que no va a ninguna ruta
   // pública ya se fue con un 401 y no llega a crear filas en la tabla de
-  // contadores. El acceso se cuenta por credencial contra el mismo Postgres
-  // que el resto: un `Map` en memoria sería una cuota nueva por cada arranque
-  // en frío.
+  // contadores. Cuenta `/api/mcp` y las mutaciones de `/api/*` por credencial,
+  // en la tabla `rateLimits` de Convex, que comparten todas las instancias: un
+  // `Map` en memoria sería una cuota por instancia y una nueva en cada
+  // arranque en frío. Si Convex no responde deja pasar (ver `guardApiRequest`).
   const rateLimited = await guardApiRequest(request);
   if (rateLimited) return rateLimited;
 

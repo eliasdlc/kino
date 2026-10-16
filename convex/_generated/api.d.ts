@@ -61,6 +61,7 @@ import type * as podas from "../podas.js";
 import type * as portabilidad from "../portabilidad.js";
 import type * as proposals from "../proposals.js";
 import type * as pushSend from "../pushSend.js";
+import type * as rateLimits from "../rateLimits.js";
 import type * as scheduler from "../scheduler.js";
 import type * as search from "../search.js";
 import type * as settings from "../settings.js";
@@ -133,6 +134,7 @@ declare const fullApi: ApiFromModules<{
   portabilidad: typeof portabilidad;
   proposals: typeof proposals;
   pushSend: typeof pushSend;
+  rateLimits: typeof rateLimits;
   scheduler: typeof scheduler;
   search: typeof search;
   settings: typeof settings;
