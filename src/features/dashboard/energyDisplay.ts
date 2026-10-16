@@ -27,13 +27,6 @@ export const SLEEP_COLORS: Record<string, string> = {
   poor: 'bg-task-overdue/15 text-task-overdue',
 };
 
-/** El tono de un nivel como color de texto; va siempre junto a la cifra o la palabra. */
-export function levelColor(level: number): string {
-  if (level >= 70) return 'text-task-done';
-  if (level >= 40) return 'text-foreground';
-  return 'text-task-overdue';
-}
-
 export function getCurrentSlot(hour: number = new Date().getHours()): CheckinSlot {
   if (hour >= 6 && hour < 12) return 'morning';
   if (hour >= 12 && hour < 18) return 'afternoon';

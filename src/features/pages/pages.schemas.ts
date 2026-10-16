@@ -25,10 +25,5 @@ export const updatePageSchema = z.object({
   expectedUpdatedAt: z.iso.datetime({ offset: true }).optional(),
 });
 
-export const linkTaskSchema = z.object({
-  taskId: z.string(),
-});
-
 export type CreatePageInput = z.infer<typeof createPageSchema>;
 export type UpdatePageInput = z.infer<typeof updatePageSchema>;
-export type LinkTaskInput = z.infer<typeof linkTaskSchema>;

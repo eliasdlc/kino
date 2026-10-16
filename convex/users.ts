@@ -82,6 +82,17 @@ export const clerkUserCreatedSchema = z
 
 export type ClerkUserCreated = z.infer<typeof clerkUserCreatedSchema>;
 
+/**
+ * Un `user.deleted` de Clerk. Trae sólo el id de la cuenta que ya no existe:
+ * ni correo ni nombre, porque Clerk ya los borró.
+ */
+export const clerkUserDeletedSchema = z
+  .object({
+    type: z.literal('user.deleted'),
+    data: z.object({ id: z.string().min(1) }).catchall(z.unknown()),
+  })
+  .catchall(z.unknown());
+
 /** El correo con el que se abre la cuenta, o nada si el evento no trae ninguno. */
 export function correoPrimario(data: ClerkUserCreated['data']): string | undefined {
   const marcada = data.email_addresses.find((direccion) => direccion.id === data.primary_email_address_id);
@@ -128,10 +139,17 @@ export const byClerkId = internalQuery({
       .unique(),
 });
 
-/** Borra todo documento de cualquier tabla que pertenezca al usuario, y al final el usuario. */
+/**
+ * Borra todo documento de cualquier tabla que pertenezca al usuario, y al final el usuario.
+ *
+ * Si el usuario ya no está, no hace nada: una cuenta borrada desde Kino purga
+ * aquí y además dispara el `user.deleted` de Clerk, y los dos caminos pueden
+ * llegar en cualquier orden.
+ */
 export const purge = internalMutation({
   args: { userId: v.id('users') },
   handler: async (ctx, { userId }) => {
+    if (!(await ctx.db.get(userId))) return;
     for (const table of Object.keys(schema.tables) as (keyof typeof schema.tables)[]) {
       if (table === 'users') continue;
       const docs = await ctx.db

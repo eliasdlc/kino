@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
-import { NotFoundError, ForbiddenError, ValidationError } from '@/shared/utils/error';
+import { NotFoundError, ForbiddenError, ValidationError, ConflictError } from '@/shared/utils/error';
 const getServerSession = vi.hoisted(() => vi.fn());
 vi.mock('@/shared/utils/session', () => ({ getServerSession }));
 vi.mock('@/shared/convex/server', () => ({ serverQuery: async () => ({ _id: USER_ID }) }));
@@ -210,6 +210,16 @@ describe('route() · mapeo de errores', () => {
       code: 'VALIDATION_ERROR',
       message: 'Rango inválido',
     });
+  });
+
+  it('mapea ConflictError a 409, no a 500: alguien escribió antes y el cliente tiene que releer', async () => {
+    const res = await route()({}, () => {
+      throw new ConflictError('La página cambió');
+    })(req(), EMPTY_CTX);
+
+    expect(res.status).toBe(409);
+    await expect(res.json()).resolves.toEqual({ code: 'CONFLICT', message: 'La página cambió' });
+    expect(consoleError).not.toHaveBeenCalled();
   });
 
   it('mapea un Error genérico a 500 y lo loguea en vez de tragárselo', async () => {

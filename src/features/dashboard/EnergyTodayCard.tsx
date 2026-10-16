@@ -10,7 +10,8 @@ import {
   useCreateCheckin,
   useUpdateCheckinAccuracy,
 } from '@/features/energy/energy.hooks';
-import { findPeakRange, formatHourRange, CHRONOTYPE_LABELS } from '@/features/energy/energy.utils';
+import { findPeakRange } from '@convex/lib/energy/curve';
+import { formatHourRange, CHRONOTYPE_LABELS } from '@/features/energy/energy.utils';
 import type { CheckinSlot } from '@/features/energy/energy.schemas';
 import type { Chronotype } from '@/features/energy/energy.utils';
 import type { TodayCheckinRowTransport } from '@/features/energy/energy.types';

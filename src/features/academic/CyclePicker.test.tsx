@@ -5,7 +5,7 @@
  * primera pantalla.
  */
 import { describe, expect, it, vi } from "vitest";
-import { fireEvent, screen } from "@testing-library/react";
+import { act, fireEvent, screen } from "@testing-library/react";
 import { renderWithProviders, makeTestConvexClient } from "@/shared/testing/render";
 import { setNavigation, testRouter } from "@/shared/testing/navigation";
 import { CyclePicker } from "./CyclePicker";
@@ -54,6 +54,29 @@ describe("CyclePicker", () => {
 
     expect(window.location.search).toBe("?tab=docs&cycle=old");
     expect(testRouter.push).not.toHaveBeenCalled();
+  });
+
+  // El sistema llega del servidor y no cambia al guardar: lo que tiene que
+  // mover el botón marcado es la suscripción, no volver a entrar.
+  it("marca la cadencia elegida y cambia los ciclos a añadir en cuanto se guarda", () => {
+    window.history.replaceState(null, "", "/systems/university");
+    setNavigation({ search: "" });
+    const listed = (metadata: unknown) => ({ name: "systems:list", value: [{ ...system, metadata }] });
+    const convex = makeTestConvexClient([{ name: "academicPeriods:list", value: periods }, listed(null)]);
+    renderWithProviders(<CyclePicker system={system} initialPeriods={periods} />, { convex });
+
+    fireEvent.click(screen.getByRole("button", { name: "Ciclo: Septiembre de 2026" }));
+    fireEvent.click(screen.getByText("Gestionar años y ciclos"));
+    expect(screen.getByRole("button", { name: "3 ciclos al año" })).toHaveAttribute("aria-pressed", "true");
+    expect(screen.queryByText(/^Agosto de/)).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "2 semestres al año" }));
+    expect(convex.calls.at(-1)).toMatchObject({ kind: "mutation", name: "systems:update" });
+    act(() => convex.publish(listed({ academic: { cycleStartMonths: [8, 1] } })));
+
+    expect(screen.getByRole("button", { name: "2 semestres al año" })).toHaveAttribute("aria-pressed", "true");
+    expect(screen.getByRole("button", { name: "3 ciclos al año" })).toHaveAttribute("aria-pressed", "false");
+    expect(screen.getAllByText(/^Agosto de/).length).toBeGreaterThan(0);
   });
 
   it("ofrece ver lo que no tiene ciclo", () => {

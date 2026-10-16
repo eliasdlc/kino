@@ -45,6 +45,12 @@ function step<T extends ImportableTable, S extends PgTable>(
     let replaced = 0;
     for (let pass = 0; pass < passes; pass += 1) {
       const docs = rows.map((row) => transform(row, refs));
+      // Notas y versiones no guardan sistema en Postgres: lo toman de la
+      // carpeta o la página de la que cuelgan, que se importan antes.
+      if (table === 'folders' || table === 'pages') {
+        // Comprobar `table` no estrecha el genérico `T`: el tipo se fija a mano.
+        for (const doc of docs as Insert<'folders' | 'pages'>[]) if (doc.pgId) refs.addSystem(table, doc.pgId, doc.systemId);
+      }
       for (let i = 0; i < docs.length; i += BATCH) {
         const result = await admin.mutation<{ inserted: number; replaced: number }>(
           'migrate:upsert',

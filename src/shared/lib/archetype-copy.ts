@@ -15,14 +15,8 @@ export interface EmptyCopy {
   hint: string;
 }
 
-/** "la" / "el" / "las" / "los". */
-export function article(gender: Gender, plural = false): string {
-  if (plural) return gender === 'f' ? 'las' : 'los';
-  return gender === 'f' ? 'la' : 'el';
-}
-
 /** "la primera" / "el primer": el ordinal apocopado que pide el masculino. */
-export function firstOne(gender: Gender): string {
+function firstOne(gender: Gender): string {
   return gender === 'f' ? 'la primera' : 'el primer';
 }
 

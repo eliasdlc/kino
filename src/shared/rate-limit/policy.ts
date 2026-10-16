@@ -4,7 +4,7 @@
  * Todo lo que decide *cuánto* se permite vive aquí, en TypeScript puro y sin
  * tocar la base. El store sólo sabe incrementar un contador dentro de una
  * ventana que este módulo le calcula, así que el límite, el reseteo y el
- * `Retry-After` se prueban con un reloj inyectado y sin Postgres delante.
+ * `Retry-After` se prueban con un reloj inyectado y sin Convex delante.
  *
  * La ventana es fija, alineada a múltiplos de `windowMs`. El costo conocido es
  * el borde: entre dos ventanas contiguas pueden colarse hasta 2N requests. Se
@@ -52,8 +52,8 @@ const MUTATING_METHODS = new Set(['POST', 'PATCH', 'PUT', 'DELETE']);
 
 /**
  * Se limita lo caro: MCP y las mutaciones. Las lecturas pasan sin roundtrip
- * añadido, que es la condición bajo la que la vía Postgres sale a cuenta frente
- * a un Redis. El acceso ya no pasa por aquí: lo sirve y lo limita Clerk.
+ * añadido, que es la condición bajo la que contar en Convex sale a cuenta
+ * frente a un Redis. El acceso ya no pasa por aquí: lo sirve y lo limita Clerk.
  */
 export function policyFor(pathname: string, method: string): RateLimitPolicy | null {
   if (pathname.startsWith('/api/mcp')) return MCP_POLICY;

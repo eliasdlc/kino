@@ -22,7 +22,7 @@ export const COLA_STORE = "pendientes";
 export const DUENO_STORE = "dueno";
 export const COLA_VERSION = 1;
 
-/** Los cuatro tipos que la hoja de compartir puede mandar. Espejo de `captureKind`. */
+/** Los cuatro tipos que la hoja de compartir puede mandar: los de `captureKind` menos `email` y `file`, que sólo llegan por una fuente conectada. */
 export type ShareKind = "text" | "link" | "photo" | "voice";
 
 /** En qué punto del viaje está lo compartido. */

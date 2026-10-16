@@ -140,6 +140,7 @@ async function seedOnePerTable(ctx: MutationCtx) {
 
   const folderId = await ctx.db.insert('folders', {
     userId,
+    systemId,
     createdBy: userId,
     createdVia: 'session',
     name: 'Notas',
@@ -150,6 +151,7 @@ async function seedOnePerTable(ctx: MutationCtx) {
   });
   const pageId = await ctx.db.insert('pages', {
     userId,
+    systemId,
     createdBy: userId,
     createdVia: 'session',
     isPinned: false,
@@ -158,6 +160,7 @@ async function seedOnePerTable(ctx: MutationCtx) {
   });
   await ctx.db.insert('stickyNotes', {
     userId,
+    systemId,
     createdBy: userId,
     createdVia: 'session',
     folderId,
@@ -170,6 +173,7 @@ async function seedOnePerTable(ctx: MutationCtx) {
   const snapshotId = await ctx.db.insert('pageSnapshots', {
     pageId,
     userId,
+    systemId,
     wordCount: 0,
     createdAt: NOW,
   });
@@ -383,6 +387,55 @@ describe('convex/schema', () => {
         await ctx.db.insert('tasks', withoutTitle as Insert<'tasks'>);
       }),
     ).rejects.toThrow();
+  });
+
+  it('no admite contenido sin sistema: carpeta, página, nota ni versión', async () => {
+    const t = convexTest(schema, modules);
+    const { userId, folderId, pageId } = await t.run(async (ctx) => {
+      const userId = await ctx.db.insert('users', {
+        email: 'z@usekino.dev',
+        name: 'z',
+        onboardingCompleted: false,
+        status: 'active',
+        timezone: 'UTC',
+        createdAt: NOW,
+        updatedAt: NOW,
+      });
+      const systemId = await ctx.db.insert('systems', {
+        userId,
+        createdBy: userId,
+        createdVia: 'session',
+        name: 'Novela',
+        color: 'blue',
+        templateType: 'writing',
+        icon: 'book',
+        isActive: true,
+        isInbox: false,
+        sortOrder: 0,
+        createdAt: NOW,
+        updatedAt: NOW,
+      });
+      const autoria = { userId, systemId, createdBy: userId, createdVia: 'session' as const, createdAt: NOW, updatedAt: NOW };
+      const folderId = await ctx.db.insert('folders', { ...autoria, name: 'Parte 1', color: 'blue', sortIndex: 0 });
+      const pageId = await ctx.db.insert('pages', { ...autoria, folderId, isPinned: false });
+      return { userId, folderId, pageId };
+    });
+
+    // Cada documento es válido salvo por el sistema que le falta, así que lo
+    // único que puede rechazarlo es que `systemId` sea obligatorio.
+    const autoria = { userId, createdBy: userId, createdVia: 'session' as const, createdAt: NOW, updatedAt: NOW };
+    const sinSistema = {
+      folders: { ...autoria, name: 'Suelta', color: 'blue', sortIndex: 0 },
+      pages: { ...autoria, folderId, isPinned: false },
+      stickyNotes: { ...autoria, pageId, color: 'yellow', sortIndex: 0, isEureka: false },
+      pageSnapshots: { pageId, userId, wordCount: 0, createdAt: NOW },
+    };
+    for (const [table, doc] of Object.entries(sinSistema)) {
+      await expect(
+        t.run((ctx) => ctx.db.insert(table as keyof typeof sinSistema, doc as never)),
+        table,
+      ).rejects.toThrow(/systemId/);
+    }
   });
 
   it('rechaza un valor fuera del enum', async () => {

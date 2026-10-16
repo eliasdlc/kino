@@ -7,14 +7,19 @@ import { internalQuery, type MutationCtx, type QueryCtx } from '../_generated/se
 // Contenido con sistema: el expand
 // ════════════════════════════════════════════════════════════════════════════
 //
-// Todo contenido (carpeta, página, nota adhesiva, versión de un capítulo) va a
-// pertenecer a un sistema de forma obligatoria: en otro deploy, `systemId` deja
-// de ser opcional en las cuatro tablas. Ese deploy se rechaza si queda un solo
-// documento sin sistema, así que esta migración rellena los que faltan antes.
+// Todo contenido (carpeta, página, nota adhesiva, versión de un capítulo)
+// pertenece a un sistema de forma obligatoria: `systemId` dejó de ser opcional
+// en las cuatro tablas en un deploy posterior a esta migración (el contract).
+// Ese deploy se rechaza si queda un solo documento sin sistema, así que esta
+// migración rellenaba los que faltaban antes.
 //
-// Hoy todo escritor ya lo escribe: `pages.create` y `folders.create` lo exigen,
+// Con el contract arriba, el schema ya no admite un documento sin sistema: la
+// migración no encuentra nada que tocar y `pendientes` da cero por
+// construcción. Se queda como registro de dónde salió cada valor.
+//
+// Todo escritor ya lo escribía: `pages.create` y `folders.create` lo exigen,
 // una nota lo hereda de su página o su carpeta, y una versión de su página. Lo
-// que queda son documentos de antes de esas reglas.
+// que quedaba eran documentos de antes de esas reglas.
 //
 // ── Qué toca, documento por documento ──────────────────────────────────────
 //
@@ -127,18 +132,19 @@ export const run = migrations.runner([
 ]);
 
 /**
- * Cuántos documentos siguen sin sistema, por tabla. Es la cifra que tiene que
- * dar cero antes del deploy que vuelve el campo obligatorio.
+ * Cuántos documentos siguen sin sistema, por tabla. Es la cifra que tenía que
+ * dar cero antes del deploy que volvió el campo obligatorio.
  *
- * Carpetas y páginas salen por el índice `by_system` con `systemId` ausente.
- * Notas y versiones no tienen ese índice y se leen enteras: es una lectura de
- * herramienta, una vez y a mano, no una suscripción ni un cron.
+ * Las cuatro tablas se leen enteras: es una lectura de herramienta, una vez y a
+ * mano, no una suscripción ni un cron. Antes del contract, carpetas y páginas
+ * salían por `by_system` con `systemId` ausente; con el campo obligatorio esa
+ * consulta ya no se puede escribir, porque ningún documento lo tiene ausente.
  */
 export const pendientes = internalQuery({
   args: {},
   handler: async (ctx) => {
-    const folders = await ctx.db.query('folders').withIndex('by_system', (q) => q.eq('systemId', undefined)).collect();
-    const pages = await ctx.db.query('pages').withIndex('by_system', (q) => q.eq('systemId', undefined)).collect();
+    const folders = (await ctx.db.query('folders').collect()).filter((doc) => doc.systemId === undefined);
+    const pages = (await ctx.db.query('pages').collect()).filter((doc) => doc.systemId === undefined);
     const stickyNotes = (await ctx.db.query('stickyNotes').collect()).filter((doc) => doc.systemId === undefined);
     const pageSnapshots = (await ctx.db.query('pageSnapshots').collect()).filter((doc) => doc.systemId === undefined);
     return {

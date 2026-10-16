@@ -309,13 +309,16 @@ async function stampFor(ctx: MutationCtx, userId: Id<'users'>) {
   return now;
 }
 
-/** Carpetas del usuario con `deletedAt` puesto. */
-async function deletedFolders(ctx: QueryCtx, userId: Id<'users'>) {
-  const docs = await ctx.db
+/**
+ * Las carpetas del usuario con `deletedAt` puesto, y sólo esas. El índice
+ * ordena lo vivo (sin fecha) delante, así que el rango desde cero lo deja fuera:
+ * enseñar la papelera cuesta lo que hay en ella, no la cuenta entera.
+ */
+export async function deletedFolders(ctx: QueryCtx, userId: Id<'users'>) {
+  return ctx.db
     .query('folders')
-    .withIndex('by_user_alive', (q) => q.eq('userId', userId))
+    .withIndex('by_user_alive', (q) => q.eq('userId', userId).gte('deletedAt', 0))
     .collect();
-  return docs.filter((doc) => doc.deletedAt !== undefined);
 }
 
 /**

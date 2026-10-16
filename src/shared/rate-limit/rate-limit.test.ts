@@ -16,8 +16,9 @@ import {
 const POLICY: RateLimitPolicy = { bucket: 'test', limit: 3, windowMs: 60_000 };
 
 /**
- * Réplica en memoria del contador de Postgres: misma semántica de ventana fija
- * (suma si el `windowStart` coincide, resetea a 1 si cambió), sin base de datos.
+ * Réplica en memoria del contador de `convex/rateLimits.ts`: misma semántica de
+ * ventana fija (suma si el `windowStart` coincide, resetea a 1 si cambió), sin
+ * base de datos.
  */
 function fakeStore(): RateLimitStore & { rows: Map<string, { windowStart: number; hits: number }> } {
   const rows = new Map<string, { windowStart: number; hits: number }>();
@@ -32,9 +33,6 @@ function fakeStore(): RateLimitStore & { rows: Map<string, { windowStart: number
           : { windowStart: windowStart.getTime(), hits: 1 };
       rows.set(key, next);
       return next.hits;
-    },
-    async reset(identity, bucket) {
-      rows.delete(`${identity}|${bucket}`);
     },
   };
 }
@@ -275,8 +273,7 @@ describe('guardApiRequest', () => {
   it('falla abierto si el contador no responde, en vez de tumbar la API', async () => {
     const consoleError = vi.spyOn(console, 'error').mockImplementation(() => {});
     const broken: RateLimitStore = {
-      hit: () => Promise.reject(new Error('neon caído')),
-      reset: () => Promise.reject(new Error('neon caído')),
+      hit: () => Promise.reject(new Error('convex caído')),
     };
 
     expect(await guardApiRequest(req('/api/mcp', { token: API_KEY }), { store: broken })).toBeNull();

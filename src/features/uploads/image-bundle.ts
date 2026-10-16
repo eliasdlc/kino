@@ -22,7 +22,7 @@ export interface BundleBudget {
   concurrency: number;
 }
 
-export const DEFAULT_BUNDLE_BUDGET: BundleBudget = {
+const DEFAULT_BUNDLE_BUDGET: BundleBudget = {
   maxImages: 200,
   maxTotalBytes: 25 * 1024 * 1024,
   deadlineMs: 6_000,

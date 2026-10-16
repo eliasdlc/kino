@@ -34,7 +34,7 @@ import { stripQuery } from "./strip-query";
 export const ANALYTICS_KEY = process.env.NEXT_PUBLIC_POSTHOG_KEY ?? "";
 
 /** Región del proyecto. La europea necesita declararlo; la de EEUU es el default. */
-export const ANALYTICS_HOST =
+const ANALYTICS_HOST =
   process.env.NEXT_PUBLIC_POSTHOG_HOST ?? "https://us.i.posthog.com";
 
 /**

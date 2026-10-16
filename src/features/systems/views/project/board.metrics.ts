@@ -1,7 +1,7 @@
 import type { TaskTransport } from "@/features/tasks/tasks.types";
 
 /** A partir de cuántos días en una columna no-terminal una tarjeta se considera estancada. */
-export const STALL_DAYS = 3;
+const STALL_DAYS = 3;
 
 /** Días (enteros) que la tarjeta lleva en su columna actual del board. null si nunca se movió. */
 export function boardAgingDays(task: TaskTransport): number | null {

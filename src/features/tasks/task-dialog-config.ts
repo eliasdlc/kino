@@ -23,7 +23,7 @@ const DEFAULT_FIELD_ORDER: TaskDialogFieldKey[] = [
  * fuente de verdad: para darle un layout propio a un tipo, editá su lista acá.
  * Los tipos sin entrada caen a `DEFAULT_FIELD_ORDER`.
  */
-export const TASK_DIALOG_FIELDS: Partial<Record<SystemType, TaskDialogFieldKey[]>> = {
+const TASK_DIALOG_FIELDS: Partial<Record<SystemType, TaskDialogFieldKey[]>> = {
   // Académico prioriza cuándo entrega y cuánto le toma; nunca usa sprints.
   academic: ['dates', 'estimatedMinutes', 'priority', 'energyLevel', 'tag', 'folder'],
   // Proyecto arranca por sprint y prioridad (board kanban).

@@ -1,5 +1,5 @@
 /** Punto de color por categoría (clases estáticas → Tailwind las conserva). */
-export const TAG_DOT: Record<string, string> = {
+const TAG_DOT: Record<string, string> = {
   red: "bg-red-500",
   blue: "bg-blue-500",
   pink: "bg-pink-500",

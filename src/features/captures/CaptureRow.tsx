@@ -1,16 +1,22 @@
 "use client";
 
-import { FileText, ImageIcon, Link2, Mic } from "lucide-react";
+import { FileText, ImageIcon, Link2, Mail, Mic, Paperclip } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { estadoDe, tituloDe } from "./captures.copy";
 import type { CaptureItem } from "./captures.types";
 
-/** El glifo del tipo, en el hueco que la fila de Bandeja ya reservaba. */
+/**
+ * El glifo del tipo, en el hueco que la fila de Bandeja ya reservaba. Lo que
+ * entra por una fuente conectada se reconoce por su clase: un correo reenviado
+ * lleva el sobre y un adjunto el clip.
+ */
 const GLIFOS = {
   photo: ImageIcon,
   link: Link2,
   voice: Mic,
   text: FileText,
+  email: Mail,
+  file: Paperclip,
 } as const;
 
 interface CaptureRowProps {
@@ -48,7 +54,7 @@ export function CaptureRow({ captura, onOpen }: CaptureRowProps) {
         {estado && <span className="block truncate text-xs text-muted-foreground">{estado}</span>}
       </button>
       <span className="grid size-6 shrink-0 place-items-center text-muted-foreground">
-        <Glifo className="size-3.5 stroke-2" aria-label={captura.kind} />
+        <Glifo className="size-3.5 stroke-2" aria-label={captura.source ?? captura.kind} />
       </span>
     </li>
   );

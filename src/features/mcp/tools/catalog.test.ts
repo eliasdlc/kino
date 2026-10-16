@@ -9,9 +9,9 @@ import { ALL_TOOLS } from "./index";
  * aprendidos. Quitar uno rompe a quien lo usa; añadir uno es una decisión que
  * pasa por aquí.
  *
- * Son 70. Las dos últimas son los ojos prestados: `get_capture` entrega la
- * captura para que el agente la mire con su clave y `resolve_capture` recibe lo
- * que leyó, sin crear nada. Las seis que faltan respecto a la lista de antes se
+ * Son 71. Tres son los ojos prestados: `list_captures` lista lo que espera por
+ * fuente, `get_capture` entrega la captura para que el agente la mire con su
+ * clave y `resolve_capture` recibe lo que leyó, sin crear nada. Las seis que faltan respecto a la lista de antes se
  * retiraron a propósito y no vuelven sin reabrir el principio 2: las cinco de
  * borrar,
  * `create_energy_checkin` (un check-in escrito por una máquina contamina el
@@ -56,6 +56,7 @@ const CONTRACT = [
   "get_work_structure",
   "link_entities",
   "link_task_to_page",
+  "list_captures",
   "list_entities",
   "list_folder_sticky_notes",
   "list_folder_tasks",
@@ -177,11 +178,12 @@ function nombreDeFuncion(ref: (typeof ALL_TOOLS)[number]["ref"]): string {
 }
 
 describe("lo que existe y no se expone", () => {
-  it("del slice de capturas sólo salen los ojos prestados, y ninguna escritura", () => {
+  it("del slice de capturas sólo salen los ojos prestados y su lista, y ninguna escritura", () => {
     const deCapturas = ALL_TOOLS.filter((tool) => nombreDeFuncion(tool.ref).startsWith("captures:"));
 
     expect(deCapturas.map((tool) => nombreDeFuncion(tool.ref)).sort()).toEqual([
       "captures:entregar",
+      "captures:porFuente",
       "captures:resolver",
     ]);
   });

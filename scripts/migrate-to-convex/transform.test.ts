@@ -323,6 +323,9 @@ describe('transform', () => {
       } satisfies Parameters<typeof t.page>[0];
       await link('pages', PAGE, t.page(pageRow, r));
       await link('pages', PAGE2, t.page({ ...pageRow, id: PAGE2, parentPageId: PAGE }, r));
+      // Lo que el importador apunta al subir las páginas: la nota y la versión
+      // de abajo toman de aquí su sistema, que en Postgres no guardan.
+      r.addSystem('pages', PAGE, r.id('systems', SYSTEM));
       await ctx.db.insert(
         'stickyNotes',
         t.stickyNote(

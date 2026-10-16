@@ -22,7 +22,7 @@ export type TaskTypeConfig = {
   hideDates: boolean;
 };
 
-export const TASK_TYPE_CONFIG: Record<TaskTypeKey, TaskTypeConfig> = {
+const TASK_TYPE_CONFIG: Record<TaskTypeKey, TaskTypeConfig> = {
   task: {
     label: "Tarea",
     icon: CheckSquare,
