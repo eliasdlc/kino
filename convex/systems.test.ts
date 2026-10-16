@@ -190,7 +190,8 @@ describe('systems.update y la metadata', () => {
 
   it('reenviar la metadata entera con una clave nueva conserva el cursor', async () => {
     const { asAna, id, metadata } = await proyectoEnlazado();
-    // La forma de LooseThreads y CyclePicker: lo guardado más la clave que cambia.
+    // Un cliente que reenvía lo guardado más la clave que cambia, como hacían
+    // LooseThreads y CyclePicker: el validador tiene que aceptar el cursor.
     const guardada = (await metadata()) as Record<string, unknown>;
     const chekhov = { maxMentions: 4, minSilentChapters: 2 };
     await asAna.mutation(api.systems.update, { id, metadata: { ...guardada, chekhov } });
