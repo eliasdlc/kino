@@ -50,6 +50,14 @@ describe('ciclos académicos', () => {
     const personal = await user.mutation(api.systems.create, { name: 'Personal', icon: 'book', color: 'blue', templateType: 'personal' });
     await expect(user.mutation(api.academicPeriods.create, { systemId: personal.id, year: '2026', name: 'Primero' })).rejects.toThrow();
   });
+  it('la lista de un sistema propio que no es académico viene vacía, y la de uno ajeno sigue rechazándose', async () => {
+    const { t, user } = await setup();
+    const project = await user.mutation(api.systems.create, { name: 'Proyecto', icon: 'book', color: 'blue', templateType: 'project' });
+    expect(await user.query(api.academicPeriods.list, { systemId: project.id })).toEqual([]);
+    const outsider = t.withIdentity({ subject: 'other', email: 'other@example.com' });
+    await outsider.mutation(api.users.ensure, {});
+    await expect(outsider.query(api.academicPeriods.list, { systemId: project.id })).rejects.toThrow('System not found');
+  });
   it('solo un ciclo queda actual y las subcarpetas heredan el período de su materia', async () => {
     const { user, systemId } = await setup();
     const first = await user.mutation(api.academicPeriods.create, { systemId, year: '2026', name: 'Primero' });
