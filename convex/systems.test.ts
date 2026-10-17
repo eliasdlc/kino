@@ -1,5 +1,6 @@
 import { convexTest } from 'convex-test';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
+import type { Id } from './_generated/dataModel';
 import { api } from './_generated/api';
 import schema from './schema';
 
@@ -118,6 +119,24 @@ describe('la radiografía', () => {
     // Y el párrafo cuenta lo que hay: tres vivas, una cerrada, una clase.
     expect(radiografia.paragraph).toContain('3 tareas vivas, 1 cerrada y 1 clase');
     expect(radiografia.unstarted).toBe(false);
+  });
+
+  it('un día sin hora escrito por el MCP es de su propio día, no vencido desde la noche anterior', async () => {
+    // El MCP guarda «el 25» como 2026-10-25T00:00Z, que en UTC-4 es el 24 a las 20:00.
+    vi.useFakeTimers();
+    vi.setSystemTime(Date.UTC(2026, 9, 25, 13)); // 09:00 del 25 en Santo Domingo
+    const t = convexTest(schema, modules);
+    const asAna = t.withIdentity(ana);
+    const userId = (await asAna.mutation(api.users.ensure, {})) as Id<'users'>;
+    await t.run((ctx) => ctx.db.patch(userId, { timezone: 'America/Santo_Domingo' }));
+    const system = await asAna.mutation(api.systems.create, { name: 'Seguridad', color: 'blue', templateType: 'academic', icon: 'book' });
+    await asAna.mutation(api.tasks.create, { systemId: system.id, title: 'Foro', dueDate: '2026-10-25T00:00:00.000Z' });
+
+    const radiografia = await asAna.query(api.systems.radiografia, { id: system.id });
+    const porTipo = new Map(radiografia.facts.map((fact) => [fact.kind, fact]));
+    expect(porTipo.has('overdue')).toBe(false);
+    expect(porTipo.get('next-due')).toMatchObject({ title: 'Lo próximo es «Foro»' });
+    vi.useRealTimers();
   });
 
   it('un hecho cuya fila ya no existe deja de pintarse', async () => {
