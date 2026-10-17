@@ -51,7 +51,10 @@ const tanda = (over: Partial<Entrega> = {}): Entrega => ({
   recordatorios: [],
   tocaResumen: false,
   resumen: null,
+  preguntas: [],
   reparar: [],
+  repararVisto: [],
+  leidoEn: 0,
   ...over,
 });
 
@@ -136,6 +139,31 @@ describe('el reparto de una tanda', () => {
     expect(enviarPush.mock.calls[0]![0]).toMatchObject({ title: '1 para hoy', body: 'Entrega' });
     expect(enviarCorreo.mock.calls[0]![0].asunto).toBe('Tu día: 1 para hoy');
     expect(registro.correos).toBe(0);
+  });
+
+  it('cada vencida por la que se pregunta va en su push, con «Sí, hecha» y «Todavía no»', async () => {
+    const { c, enviarPush, enviarCorreo } = canales({ intentos: 1, entregado: true });
+    const preguntas = [1, 2, 3].map((n) => aviso(n, { vencida: true, texto: 'Vencida hace 4 días' }));
+    const { notified } = await repartir(tanda({ preguntas }), c);
+    expect(enviarPush).toHaveBeenCalledTimes(3);
+    expect(enviarPush.mock.calls[0]![0]).toEqual({
+      title: '¿Ya hiciste esto?',
+      body: 'Tarea 1. Vencida hace 4 días.',
+      url: '/tasks?tarea=task-1',
+      tag: 'pregunta-task-1',
+      accion: { endpoint: 'https://site/push/accion', token: 'tok-task-1' },
+      pregunta: true,
+    });
+    expect(notified).toBe(3);
+    // Una pregunta que no llega no gasta un correo: mañana hay otra tanda.
+    expect(enviarCorreo).not.toHaveBeenCalled();
+  });
+
+  it('una pregunta sin enlace firmado no sale: sin botones no se puede contestar', async () => {
+    const { c, enviarPush } = canales({ intentos: 1, entregado: true });
+    c.firmar = async () => null;
+    await repartir(tanda({ preguntas: [aviso(1, { vencida: true })] }), c);
+    expect(enviarPush).not.toHaveBeenCalled();
   });
 
   it('ningún texto pone a Kino de sujeto', () => {
@@ -322,6 +350,36 @@ describe('el cron de avisos, de punta a punta', () => {
     expect(cerca).toMatchObject({ priority: 'low', effectivePriority: 'critical', priorityRaised: true });
   });
 
+  it('la vuelta del resumen pregunta por tres vencidas viejas, y al día siguiente por otras', async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(local(1, 10));
+    const t = convexTest(schema, modules);
+    const { as, systemId } = await escenario(t);
+    for (let n = 1; n <= 6; n++) {
+      await as.mutation(api.tasks.create, { systemId, title: `Vieja ${n}`, dueDate: new Date(local(1 + n, 17)).toISOString() });
+    }
+    // Vence el 12: ese día es de hoy y el 13 es de ayer. Ninguno de los dos días entra.
+    await as.mutation(api.tasks.create, { systemId, title: 'De ayer', dueDate: new Date(local(12, 17)).toISOString() });
+
+    const delDia = async (dia: number) => {
+      vi.setSystemTime(local(dia, 8, 1));
+      const { entregas } = await t.query(internal.notifications.pendientes, {});
+      const e = entregas[0]!;
+      await t.mutation(internal.notifications.registrar, {
+        userId: e.userId, avisados: e.avisos.map((a) => a.taskId), reintentar: [], recordatorios: [],
+        tocaResumen: e.tocaResumen, reparar: e.reparar, dia: e.dia, correos: 0,
+      });
+      return e.preguntas.map((p) => p.title);
+    };
+    const hoy = await delDia(12);
+    expect(hoy).toHaveLength(3);
+    expect(hoy).not.toContain('De ayer');
+    const manana = await delDia(13);
+    expect(manana).toHaveLength(3);
+    expect(manana).not.toContain('De ayer');
+    expect(manana.filter((x) => hoy.includes(x))).toEqual([]);
+  }, 60_000);
+
   it('apagar los avisos deja de leerlos y descarta los recordatorios pendientes', async () => {
     vi.useFakeTimers();
     vi.setSystemTime(local(7, 12));
@@ -369,6 +427,71 @@ describe('los botones de la notificación', () => {
     const tarea = (await t.run((ctx) => ctx.db.get(taskId)))!;
     expect(tarea.status).not.toBe('done');
     expect(tarea.nextReminderAt! - antes).toBeGreaterThanOrEqual(H);
+  });
+
+  it('«Todavía no» la calla hasta el resumen de mañana y no toca su fecha', async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(local(10, 14));
+    const { t, taskId } = await conTarea();
+    const antes = (await t.run((ctx) => ctx.db.get(taskId)))!;
+    const res = await pulsar(t, await firmarAccion(taskId, 'secreto-de-prueba', Date.now()), 'manana');
+    expect(res.status).toBe(204);
+    const despues = (await t.run((ctx) => ctx.db.get(taskId)))!;
+    expect(despues.status).not.toBe('done');
+    expect(despues.dueDate).toBe(antes.dueDate);
+    expect(reloj(despues.nextReminderAt!)).toBe('11 08:00');
+    vi.useRealTimers();
+  });
+
+  it('contestar mientras el cron todavía envía no se pierde cuando la vuelta se registra', async () => {
+    // La pregunta llega en la vuelta del resumen, y esa misma vuelta registra
+    // la tarea después de enviar todo. Un toque en ese rato tiene que ganar.
+    vi.useFakeTimers();
+    vi.setSystemTime(local(1, 10));
+    const t = convexTest(schema, modules);
+    vi.stubEnv('VAPID_PRIVATE_KEY', 'secreto-de-prueba');
+    const { as, systemId } = await escenario(t);
+    const tarea = await as.mutation(api.tasks.create, { systemId, title: 'Vieja', dueDate: new Date(local(3, 17)).toISOString() });
+    const taskId = tarea.id as Id<'tasks'>;
+
+    vi.setSystemTime(local(10, 8, 1));
+    const { entregas } = await t.query(internal.notifications.pendientes, {});
+    const e = entregas[0]!;
+    expect(e.preguntas.map((p) => p.taskId)).toEqual([taskId]);
+    vi.setSystemTime(local(10, 8, 2));
+    await pulsar(t, await firmarAccion(taskId, 'secreto-de-prueba', Date.now()), 'manana');
+    await t.mutation(internal.notifications.registrar, {
+      userId: e.userId, avisados: e.avisos.map((a) => a.taskId), reintentar: [], recordatorios: [],
+      tocaResumen: e.tocaResumen, reparar: e.reparar, repararVisto: e.repararVisto, dia: e.dia, correos: 0, leidoEn: e.leidoEn,
+    });
+    const despues = (await t.run((ctx) => ctx.db.get(taskId)))!;
+    expect(reloj(despues.nextReminderAt!)).toBe('11 08:00');
+    vi.useRealTimers();
+  });
+
+  it('un cambio que no mueve el aviso, a mitad de vuelta, no le impide avanzar', async () => {
+    // Cambiar la prioridad no toca el próximo aviso: la vuelta tiene que
+    // seguir escribiéndolo, o la tarea se reenviaría en quince minutos.
+    vi.useFakeTimers();
+    vi.setSystemTime(local(1, 10));
+    const t = convexTest(schema, modules);
+    const { as, systemId } = await escenario(t);
+    const tarea = await as.mutation(api.tasks.create, { systemId, title: 'Vieja', dueDate: new Date(local(3, 17)).toISOString() });
+    const taskId = tarea.id as Id<'tasks'>;
+
+    vi.setSystemTime(local(10, 8, 1));
+    const { entregas } = await t.query(internal.notifications.pendientes, {});
+    const e = entregas[0]!;
+    expect(e.avisos.map((a) => a.taskId)).toContain(taskId);
+    vi.setSystemTime(local(10, 8, 2));
+    await as.mutation(api.tasks.bulkUpdate, { taskIds: [taskId], priority: 'low' });
+    await t.mutation(internal.notifications.registrar, {
+      userId: e.userId, avisados: e.avisos.map((a) => a.taskId), reintentar: [], recordatorios: [],
+      tocaResumen: e.tocaResumen, reparar: e.reparar, repararVisto: e.repararVisto, dia: e.dia, correos: 0, leidoEn: e.leidoEn,
+    });
+    const despues = (await t.run((ctx) => ctx.db.get(taskId)))!;
+    expect(despues.nextReminderAt!).toBeGreaterThan(Date.now());
+    vi.useRealTimers();
   });
 
   it('un enlace firmado con otro secreto, o caducado, no hace nada', async () => {

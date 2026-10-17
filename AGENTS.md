@@ -273,7 +273,7 @@ Así que **toda ruta fuera de Convex comprueba a mano quién llama, o escribe en
 
 Comprobar la sesión **no** es lo mismo que comprobar el alcance. Una ruta que quiera dejar entrar a un agente tiene que mirar su alcance ella misma.
 
-Lo mismo vale para las rutas HTTP de Convex (`convex/http.ts`), que tampoco pasan por el envoltorio. La que abre los recordatorios es `/push/accion`: la llama el service worker cuando alguien pulsa «Hecha» o «En 1 h» en una notificación, sin sesión. Exige un enlace firmado con HMAC que el servidor metió en el push (`convex/lib/firmaAccion.ts`, clave derivada de `VAPID_PRIVATE_KEY`, vigente una semana), y sólo abre esas dos acciones, reversibles, sobre esa tarea. Lo que cierra por ahí firma con la vía `push`.
+Lo mismo vale para las rutas HTTP de Convex (`convex/http.ts`), que tampoco pasan por el envoltorio. La que abre los recordatorios es `/push/accion`: la llama el service worker cuando alguien pulsa «Hecha», «En 1 h» o «Todavía no» en una notificación, sin sesión. Exige un enlace firmado con HMAC que el servidor metió en el push (`convex/lib/firmaAccion.ts`, clave derivada de `VAPID_PRIVATE_KEY`, vigente una semana), y sólo abre esas tres acciones, reversibles, sobre esa tarea. Lo que cierra por ahí firma con la vía `push`.
 
 ### Validación
 
@@ -451,6 +451,7 @@ El trabajo de esta parte es que no se olvide nada, así que la regla es insistir
 - **Prioridad efectiva.** `priority` es la importancia que se elige, y nace en `high`. La urgencia la pone la fecha: a 7 días cuenta al menos como media, a 3 como alta y a 1 (o vencida) como crítica. `src/shared/lib/effective-priority.ts` lo calcula; `taskItem` lo manda hecho como `effectivePriority` y `priorityRaised`, y las listas, filtros y avisos usan ese. No se escribe en la base.
 - **Dos mecanismos.** El resumen de la mañana (`morningDigestTime`, 08:00 por defecto) trae lo vencido, lo de hoy y lo que se acerca, con antelación según la prioridad elegida (`DIAS_EN_RESUMEN`). Los avisos por tarea cubren la recta final y lo vencido, según la intensidad (`HORAS_ANTES`, `VENCIDA_CADA_H`): agresivos, medios o bajos en la cuenta, y cualquiera de las tres o `off` por tarea. Una vencida insiste sin tope.
 - **Horas de silencio** (22:00 a 07:00 por defecto): lo que cae dentro se salta, y lo que vence de noche o temprano recibe una última llamada una hora antes.
+- **«¿Ya hiciste esto?»** Con el resumen de la mañana salen hasta tres pushes aparte (`PREGUNTAS_DIA`), uno por vencida de hace dos días o más, rotando por día (`preguntasDelDia`), con «Sí, hecha» y «Todavía no». «Todavía no» calla la tarea hasta el próximo resumen y no mueve su fecha. No van por correo ni se reintentan, y no llevan cuenta en la base: viajan con la única lectura del día que ya tiene todas las vencidas delante.
 - **Canales.** Push primero; si ningún dispositivo lo recibe, correo, con tope de `TOPE_CORREOS_DIA` al día. El resumen va siempre por los dos.
 - **La invariante.** El cron sólo lee `tasks.by_nextReminder` y `userSettings.by_nextDigest`. **Toda escritura que cambie la fecha, el estado o la intensidad de una tarea llama a `recalcularAviso`**, y todo cambio de zona, silencio o intensidad en Ajustes a `recalcularAvisosDe`. Si una se olvida, el resumen de la mañana repara las tareas que lee al día siguiente, pero eso es la red, no el diseño.
 
