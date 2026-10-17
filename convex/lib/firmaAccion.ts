@@ -1,10 +1,10 @@
-// La firma de los botones de una notificación («Hecha», «En 1 h»).
+// La firma de los botones de una notificación («Hecha», «En 1 h», «Todavía no»).
 //
 // El service worker no tiene sesión de Clerk: cuando la persona pulsa un botón
 // de la notificación no hay JWT que mandar. Lo que viaja es un enlace firmado
 // por el servidor al construir el push: dice de qué tarea es y hasta cuándo
 // vale, y sólo quien tiene el secreto pudo escribirlo. No abre nada más que
-// esas dos acciones sobre esa tarea, y las dos son reversibles.
+// esas tres acciones sobre esa tarea, y las tres son reversibles.
 //
 // El secreto es la clave privada VAPID con un prefijo propio: ya existe donde
 // existe el push, no sale del deployment y no hace falta otra variable para

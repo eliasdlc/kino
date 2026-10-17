@@ -4,7 +4,8 @@
  * next-pwa compila este archivo y lo importa dentro del `sw.js` que genera, así
  * que es el único sitio donde vive código de service worker escrito a mano.
  * Contiene lo que antes estaba en `public/kino-sw.js` y no cubre Workbox: la
- * recepción de notificaciones push, sus botones («Hecha», «En 1 h»), el foco
+ * recepción de notificaciones push, sus botones («Hecha», «En 1 h», y en la
+ * pregunta de una vencida «Sí, hecha» y «Todavía no»), el foco
  * de ventana al pulsarlas, y el destino de compartir.
  *
  * Lo que NO va aquí: precache del shell, fallback de `/offline` y estrategias de
@@ -22,13 +23,20 @@ import { atenderCompartido, guardarEnCola, leerDueno } from '@/features/captures
 self.addEventListener('push', (event) => {
   const data = event.data?.json() ?? {};
   // Los botones sólo cuando el aviso es de una tarea y trae su enlace firmado:
-  // sin él no habría con qué decirle al servidor de qué tarea se trata.
-  const actions = data.accion
-    ? [
-        { action: 'hecha', title: 'Hecha' },
-        { action: 'posponer', title: 'En 1 h' },
-      ]
-    : [];
+  // sin él no habría con qué decirle al servidor de qué tarea se trata. La
+  // pregunta de una vencida cambia «En 1 h» por «Todavía no», que la calla
+  // hasta el resumen de mañana.
+  const actions = !data.accion
+    ? []
+    : data.pregunta
+      ? [
+          { action: 'hecha', title: 'Sí, hecha' },
+          { action: 'manana', title: 'Todavía no' },
+        ]
+      : [
+          { action: 'hecha', title: 'Hecha' },
+          { action: 'posponer', title: 'En 1 h' },
+        ];
   event.waitUntil(
     self.registration.showNotification(data.title ?? 'Kino', {
       body: data.body ?? '',
@@ -50,10 +58,10 @@ self.addEventListener('push', (event) => {
 self.addEventListener('notificationclick', (event) => {
   const { url = '/dashboard', accion = null } = event.notification.data ?? {};
 
-  // «Hecha» y «En 1 h» se resuelven sin abrir la app: el enlace firmado ya
-  // dice de qué tarea es, y el servidor no necesita más. Va como texto plano
-  // para que el navegador no pida permiso de CORS antes.
-  if ((event.action === 'hecha' || event.action === 'posponer') && accion) {
+  // Los botones se resuelven sin abrir la app: el enlace firmado ya dice de
+  // qué tarea es, y el servidor no necesita más. Va como texto plano para que
+  // el navegador no pida permiso de CORS antes.
+  if (['hecha', 'posponer', 'manana'].includes(event.action) && accion) {
     event.waitUntil(
       (async () => {
         const controller = new AbortController();
@@ -72,7 +80,11 @@ self.addEventListener('notificationclick', (event) => {
           // Sustituye el aviso por el error y deja la tarea al alcance.
           try {
             await self.registration.showNotification(
-              event.action === 'hecha' ? 'No se pudo completar la tarea' : 'No se pudo posponer el aviso',
+              event.action === 'hecha'
+                ? 'No se pudo completar la tarea'
+                : event.action === 'manana'
+                  ? 'No se pudo dejar para mañana'
+                  : 'No se pudo posponer el aviso',
               {
                 body: 'Abre la tarea para intentarlo de nuevo.',
                 icon: '/icons/icon-192x192.png',
