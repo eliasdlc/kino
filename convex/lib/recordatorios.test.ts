@@ -69,6 +69,24 @@ describe('la recta final', () => {
     expect(avisosAntes(local(7, 0), 'aggressive', prefs()).map(reloj)).toEqual(['7 18:00', '7 20:00', '7 21:00']);
   });
 
+  it('un día sin hora escrito por el MCP (medianoche UTC) vence al final de ese día, no a las 20:00 del anterior', () => {
+    // El MCP y los seeds guardan «el 22» como 2026-10-22T00:00Z, que en UTC-4
+    // es el 21 a las 20:00. Leído como hora, el parcial vencía un día antes.
+    const mcp = Date.UTC(2026, 9, 22);
+    expect(limiteDe(mcp, TZ)).toBe(local(23, 0));
+    expect(avisosAntes(mcp, 'aggressive', prefs()).map(reloj)).toEqual(['22 18:00', '22 20:00', '22 21:00']);
+    expect(estadoDe(mcp, local(21, 21), TZ)).toEqual({ texto: 'Vence mañana', vencida: false });
+    expect(estadoDe(mcp, local(22, 9), TZ)).toEqual({ texto: 'Vence hoy', vencida: false });
+    expect(estadoDe(mcp, local(23, 9), TZ)).toEqual({ texto: 'Venció ayer', vencida: true });
+  });
+
+  it('el resumen cuenta un día sin hora del MCP como de su propio día', () => {
+    const mcp = Date.UTC(2026, 9, 22);
+    const r = armarResumen([{ id: 'a', title: 'Parcial', dueDate: mcp, priority: 'high', intensidad: undefined }], prefs(), local(22, 8));
+    expect(r?.hoy.map((t) => t.title)).toEqual(['Parcial']);
+    expect(r?.vencidas).toEqual([]);
+  });
+
   it('sin horas de silencio no hay última llamada', () => {
     const p = prefs({ silencioDesde: '00:00', silencioHasta: '00:00' });
     expect(enSilencio(local(7, 3), p)).toBe(false);

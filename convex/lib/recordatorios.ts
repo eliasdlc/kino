@@ -55,11 +55,23 @@ export function enSilencio(instante: number, prefs: Preferencias): boolean {
 }
 
 /**
- * Una tarea «sin hora» se guarda como la medianoche local de su día
- * (`schema.ts`). Una medianoche exacta se lee así, como sólo fecha.
+ * Una tarea «sin hora» se guarda de dos maneras (AGENTS.md, «Fechas y
+ * timezone»): la medianoche del navegador cuando viene de la app, y la
+ * medianoche UTC cuando viene del MCP o de un seed. Las dos se leen como sólo
+ * fecha, igual que hace `parseTaskDay` en el cliente.
  */
 export function esSoloFecha(dueDate: number, tz: string): boolean {
-  return minutesInTimeZone(tz, dueDate) === 0;
+  return minutesInTimeZone(tz, dueDate) === 0 || dueDate % DIA === 0;
+}
+
+/**
+ * El día al que pertenece una fecha de vencimiento. Una medianoche UTC que no
+ * es medianoche en la zona de la persona es un día del MCP y se lee en UTC: en
+ * UTC-4, leída en la zona local, «el 22» sería el 21 a las 20:00.
+ */
+export function diaDeVencimiento(dueDate: number, tz: string): string {
+  if (dueDate % DIA === 0 && minutesInTimeZone(tz, dueDate) !== 0) return calendarDayInTz(dueDate, 'UTC');
+  return calendarDayInTz(dueDate, tz);
 }
 
 /** El día siguiente (yyyy-MM-dd) a uno dado, sin aritmética de calendario a mano. */
@@ -77,7 +89,7 @@ function diaAnterior(dia: string, tz: string): string {
  */
 export function limiteDe(dueDate: number, tz: string): number {
   if (!esSoloFecha(dueDate, tz)) return dueDate;
-  return zonedDayClockToUtc(diaSiguiente(calendarDayInTz(dueDate, tz), tz), 0, tz).getTime();
+  return zonedDayClockToUtc(diaSiguiente(diaDeVencimiento(dueDate, tz), tz), 0, tz).getTime();
 }
 
 /**
@@ -172,7 +184,7 @@ export function estadoDe(dueDate: number, ahora: number, tz: string): { texto: s
   const limite = limiteDe(dueDate, tz);
   const soloFecha = esSoloFecha(dueDate, tz);
   const hoy = calendarDayInTz(ahora, tz);
-  const diaVence = calendarDayInTz(dueDate, tz);
+  const diaVence = diaDeVencimiento(dueDate, tz);
   const falta = limite - ahora;
 
   if (falta > 0) {
@@ -224,7 +236,7 @@ export function armarResumen(tareas: TareaParaResumen[], prefs: Preferencias, ah
   for (const t of tareas) {
     const intensidad = t.intensidad ?? prefs.intensidad;
     if (intensidad === 'off') continue;
-    const dias = diasEntre(hoy, calendarDayInTz(t.dueDate, prefs.tz));
+    const dias = diasEntre(hoy, diaDeVencimiento(t.dueDate, prefs.tz));
     const vencida = limiteDe(t.dueDate, prefs.tz) <= ahora;
     if (vencida) out.vencidas.push(t);
     else if (dias <= 0) out.hoy.push(t);
