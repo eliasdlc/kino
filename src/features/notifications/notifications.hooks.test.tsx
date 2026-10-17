@@ -26,7 +26,7 @@ beforeEach(() => {
   Object.defineProperty(navigator, 'serviceWorker', { configurable: true, value: { ready: Promise.resolve({ pushManager: { getSubscription } }) } });
   getSubscription.mockResolvedValue({ toJSON: () => ({ endpoint, keys: { auth: 'fixture', p256dh: 'fixture' } }) });
 });
-afterEach(() => { vi.unstubAllGlobals(); vi.unstubAllEnvs(); vi.clearAllMocks(); });
+afterEach(() => { vi.unstubAllGlobals(); vi.unstubAllEnvs(); vi.clearAllMocks(); localStorage.clear(); sessionStorage.clear(); });
 
 it('registers an existing browser subscription before calling it active', async () => {
   const convex = makeTestConvexClient([], [stubMutation(api.notifications.subscribe, { ok: true })]);
@@ -108,4 +108,42 @@ it('does nothing on a device that has not granted permission', async () => {
   await new Promise((r) => setTimeout(r, 20));
   expect(convex.calls).toEqual([]);
   expect(getSubscription).not.toHaveBeenCalled();
+});
+
+it('finishes a remake that failed halfway the next time the app opens', async () => {
+  // Between dropping the old subscription and creating the new one the push
+  // service can fail. Without a mark the device would stay granted and
+  // subscribed nowhere, like someone who turned notifications off.
+  vi.stubEnv('NEXT_PUBLIC_VAPID_PUBLIC_KEY', 'AQID');
+  const unsubscribe = vi.fn().mockResolvedValue(true);
+  const subscribe = vi.fn()
+    .mockRejectedValueOnce(new Error('push service error'))
+    .mockResolvedValueOnce({ endpoint: `${endpoint}/new`, toJSON: () => ({ endpoint: `${endpoint}/new`, keys: { auth: 'n', p256dh: 'n' } }) });
+  Object.defineProperty(navigator, 'serviceWorker', { configurable: true, value: { ready: Promise.resolve({ pushManager: { getSubscription, subscribe } }) } });
+  getSubscription.mockResolvedValueOnce({ endpoint, options: { applicationServerKey: new Uint8Array([9, 9, 9]).buffer }, unsubscribe, toJSON: () => ({ endpoint, keys: { auth: 'o', p256dh: 'o' } }) });
+  getSubscription.mockResolvedValue(null);
+  const convex = makeTestConvexClient([], [stubMutation(api.notifications.subscribe, { ok: true }), stubMutation(api.notifications.unsubscribe, null)]);
+
+  const first = renderWithProviders(<Keeper />, { convex });
+  await waitFor(() => expect(subscribe).toHaveBeenCalledTimes(1));
+  first.unmount();
+  await waitFor(() => expect(sessionStorage.getItem('kino-push-mantenida')).toBeNull());
+
+  renderWithProviders(<Keeper />, { convex });
+  await waitFor(() => expect(convex.calls).toContainEqual({ kind: 'mutation', name: 'notifications:subscribe', args: { endpoint: `${endpoint}/new`, keys: { auth: 'n', p256dh: 'n' } } }));
+  expect(localStorage.getItem('kino-push-a-medias')).toBeNull();
+});
+
+it('leaves alone a device that turned notifications off on purpose', async () => {
+  // Desactivar leaves the permission granted and no subscription; with no
+  // half-made mark the keeper must not subscribe it again.
+  vi.stubEnv('NEXT_PUBLIC_VAPID_PUBLIC_KEY', 'AQID');
+  const subscribe = vi.fn();
+  Object.defineProperty(navigator, 'serviceWorker', { configurable: true, value: { ready: Promise.resolve({ pushManager: { getSubscription, subscribe } }) } });
+  getSubscription.mockResolvedValue(null);
+  const convex = makeTestConvexClient([], [stubMutation(api.notifications.subscribe, { ok: true })]);
+  renderWithProviders(<Keeper />, { convex });
+  await new Promise((r) => setTimeout(r, 20));
+  expect(subscribe).not.toHaveBeenCalled();
+  expect(convex.calls).toEqual([]);
 });

@@ -54,9 +54,18 @@ function pushSoportado(): boolean {
 }
 
 /**
+ * Marca de una suscripción a medio rehacer. Entre soltar la vieja y crear la
+ * nueva el servicio push puede fallar, y entonces el dispositivo queda con
+ * permiso y sin suscripción, igual que quien las desactivó a propósito. La
+ * marca es lo que distingue los dos casos.
+ */
+const A_MEDIAS = 'kino-push-a-medias';
+
+/**
  * Una suscripción hecha con otra clave VAPID no recibe nada: el servicio push
  * la rechaza y el servidor la retira. Se borra del servidor, se deshace aquí y
- * se crea otra con la clave actual. Sin suscripción, devuelve null.
+ * se crea otra con la clave actual. Sin suscripción, devuelve null, salvo que
+ * una vuelta anterior se quedara a medias: esa se termina.
  */
 async function conClaveActual(
   reg: ServiceWorkerRegistration,
@@ -64,10 +73,16 @@ async function conClaveActual(
   publicKey: string,
   olvidar: Servidor['olvidar'],
 ): Promise<PushSubscription | null> {
-  if (!sub || !otraClave(sub, publicKey)) return sub;
-  await olvidar({ endpoint: sub.endpoint });
-  await sub.unsubscribe();
-  return reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: urlBase64ToUint8Array(publicKey) });
+  if (sub && !otraClave(sub, publicKey)) return sub;
+  if (!sub && !localStorage.getItem(A_MEDIAS)) return null;
+  localStorage.setItem(A_MEDIAS, '1');
+  if (sub) {
+    await olvidar({ endpoint: sub.endpoint });
+    await sub.unsubscribe();
+  }
+  const nueva = await reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: urlBase64ToUint8Array(publicKey) });
+  localStorage.removeItem(A_MEDIAS);
+  return nueva;
 }
 
 let enCurso: Promise<PushSubscription | null> | null = null;
@@ -141,6 +156,9 @@ export function usePushNotifications() {
         setStatus('denied');
         return;
       }
+      // Si la app ya está rehaciendo la suscripción, se espera a que termine
+      // en vez de rehacerla otra vez en paralelo.
+      await enCurso?.catch(() => null);
       const reg = await pushRegistration();
       const sub = (await conClaveActual(reg, await reg.pushManager.getSubscription(), publicKey, unsubscribeOnServer))
         ?? (await reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: urlBase64ToUint8Array(publicKey) }));
