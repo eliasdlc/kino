@@ -16,6 +16,7 @@ import { api, internal } from './_generated/api';
 import type { Id } from './_generated/dataModel';
 import { avisosPayload, repartir, TOPE_CORREOS_DIA, type Canales, type Correo, type Payload } from './lib/reparto';
 import { firmarAccion } from './lib/firmaAccion';
+import type { EnvioCorreo } from './lib/correo';
 import type { AvisoDeTarea, Entrega } from './notifications';
 import schema from './schema';
 
@@ -58,9 +59,10 @@ const tanda = (over: Partial<Entrega> = {}): Entrega => ({
   ...over,
 });
 
-function canales(push: { intentos: number; entregado: boolean }, correo: boolean | null = true) {
+function canales(push: { intentos: number; entregado: boolean }, correo: boolean | EnvioCorreo | null = true) {
   const enviarPush = vi.fn<(p: Payload) => Promise<{ intentos: number; entregado: boolean }>>().mockResolvedValue(push);
-  const enviarCorreo = vi.fn<(c: Correo) => Promise<boolean>>().mockResolvedValue(Boolean(correo));
+  const resultado: EnvioCorreo = typeof correo === 'string' ? correo : correo ? 'enviado' : 'fallo';
+  const enviarCorreo = vi.fn<(c: Correo) => Promise<EnvioCorreo>>().mockResolvedValue(resultado);
   const c: Canales = {
     push: enviarPush,
     correo: correo === null ? null : enviarCorreo,
@@ -116,6 +118,38 @@ describe('el reparto de una tanda', () => {
     const { c } = canales({ intentos: 0, entregado: false }, null);
     const { registro } = await repartir(tanda({ avisos: [aviso(1)] }), c);
     expect(registro).toMatchObject({ avisados: ['task-1'], reintentar: [] });
+  });
+
+  it('un correo que Resend rechaza para siempre no se reintenta: avanza', async () => {
+    // Con onboarding@resend.dev, Resend sólo acepta escribirle al dueño de la
+    // cuenta: a cualquier otra persona contesta 403 en cada vuelta, y
+    // reintentar cada quince minutos se comería el cupo diario de todos.
+    const { c, enviarCorreo } = canales({ intentos: 0, entregado: false }, 'rechazado');
+    const { registro, notified } = await repartir(tanda({ avisos: [aviso(1)] }), c);
+    expect(enviarCorreo).toHaveBeenCalledTimes(1);
+    expect(registro).toMatchObject({ avisados: ['task-1'], reintentar: [], correos: 0, rechazados: 1 });
+    expect(notified).toBe(0);
+  });
+
+  it('un recordatorio puesto a mano sin dispositivo y con el correo rechazado se da por visto', async () => {
+    const { c } = canales({ intentos: 0, entregado: false }, 'rechazado');
+    const recordatorio = { id: 'rem-1' as Id<'taskReminders'>, taskId: 'task-9' as Id<'tasks'>, label: null, taskTitle: 'Llamar' };
+    const { registro } = await repartir(tanda({ recordatorios: [recordatorio] }), c);
+    expect(registro).toMatchObject({ recordatorios: ['rem-1'], rechazados: 1 });
+  });
+
+  it('con un dispositivo cuyo push falló, un correo rechazado no da nada por perdido', async () => {
+    // El push puede volver en la próxima vuelta; el correo rechazado no.
+    const { c } = canales({ intentos: 1, entregado: false }, 'rechazado');
+    const recordatorio = { id: 'rem-1' as Id<'taskReminders'>, taskId: 'task-9' as Id<'tasks'>, label: null, taskTitle: 'Llamar' };
+    const { registro } = await repartir(tanda({ avisos: [aviso(1)], recordatorios: [recordatorio] }), c);
+    expect(registro).toMatchObject({ avisados: [], reintentar: ['task-1'], recordatorios: [], rechazados: 1 });
+  });
+
+  it('un fallo pasajero del correo sí se reintenta', async () => {
+    const { c } = canales({ intentos: 0, entregado: false }, 'fallo');
+    const { registro } = await repartir(tanda({ avisos: [aviso(1)] }), c);
+    expect(registro).toMatchObject({ avisados: [], reintentar: ['task-1'] });
   });
 
   it('el correo de respaldo tiene tope diario', async () => {

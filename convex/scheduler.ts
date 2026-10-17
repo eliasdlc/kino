@@ -152,7 +152,7 @@ export const taskReminders = internalAction({
     return withCronRun(ctx, 'task-reminders', async () => {
       // El envío corre en Node por `web-push`; cruzar de runtime es el caso en
       // que una acción sí llama a otra.
-      const result: { notified: number; push: boolean; correo: boolean } = await ctx.runAction(internal.pushSend.sendTaskReminders, {});
+      const result: { notified: number; push: boolean; correo: boolean; rechazados: number } = await ctx.runAction(internal.pushSend.sendTaskReminders, {});
       return result;
     });
   },

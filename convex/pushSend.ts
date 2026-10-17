@@ -49,7 +49,7 @@ function canalesDe(ctx: Pick<ActionCtx, 'runQuery' | 'runMutation'>, userId: Id<
 
 export const sendTaskReminders = internalAction({
   args: {},
-  returns: v.object({ notified: v.number(), push: v.boolean(), correo: v.boolean() }),
+  returns: v.object({ notified: v.number(), push: v.boolean(), correo: v.boolean(), rechazados: v.number() }),
   handler: async (ctx) => {
     const push = vapidConfigured();
     // Sin push ni correo el cron no tiene por dónde avisar, y lo dice en su
@@ -66,9 +66,11 @@ export const sendTaskReminders = internalAction({
     }
 
     let notified = 0;
+    let rechazados = 0;
     for (const entrega of entregas) {
       const { registro, notified: n } = await repartir(entrega, canalesDe(ctx, entrega.userId, entrega.email, push));
       notified += n;
+      rechazados += registro.rechazados;
       await ctx.runMutation(internal.notifications.registrar, {
         userId: entrega.userId,
         avisados: registro.avisados,
@@ -82,7 +84,9 @@ export const sendTaskReminders = internalAction({
         leidoEn: entrega.leidoEn,
       });
     }
-    return { notified, push, correo: correoConfigurado() };
+    // `rechazados` queda en `cronRuns`: un remitente sin dominio verificado
+    // no falla en ningún otro sitio que se vea.
+    return { notified, push, correo: correoConfigurado(), rechazados };
   },
 });
 
@@ -161,11 +165,11 @@ export const enviarPrueba = internalAction({
       : { intentos: 0, entregado: false, aceptados: 0, fallidos: 0, caducados: 0 };
     const correo: boolean =
       correoConfigurado() && destino
-        ? await enviarCorreo(destino.email, {
+        ? (await enviarCorreo(destino.email, {
             asunto: 'Así se ven tus avisos',
             texto: 'Si lees esto, los recordatorios por correo te llegan.',
             html: '<p style="font-family:system-ui,sans-serif">Si lees esto, los recordatorios por correo te llegan.</p>',
-          })
+          })) === 'enviado'
         : false;
     return { dispositivos: push.intentos, aceptados: push.aceptados, fallidos: push.fallidos, caducados: push.caducados, push: push.entregado, pushConfigurado, correo, correoConfigurado: correoConfigurado() };
   },

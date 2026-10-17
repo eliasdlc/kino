@@ -1,5 +1,6 @@
 import type { Id } from '../_generated/dataModel';
 import type { AvisoDeTarea, Entrega } from '../notifications';
+import type { EnvioCorreo } from './correo';
 import { PRIORITY_RANK } from '../../src/shared/lib/effective-priority';
 import { textoResumen, type Resumen } from './recordatorios';
 
@@ -30,7 +31,7 @@ export interface Canales {
   /** Un push a todos los dispositivos. `intentos` es cuántos tenía registrados. */
   push: (payload: Payload) => Promise<{ intentos: number; entregado: boolean }>;
   /** `null` cuando el deployment no puede mandar correo. */
-  correo: ((correo: Correo) => Promise<boolean>) | null;
+  correo: ((correo: Correo) => Promise<EnvioCorreo>) | null;
   /** El enlace firmado de los botones de una tarea, o `null` si no se puede firmar. */
   firmar: (taskId: Id<'tasks'>) => Promise<{ endpoint: string; token: string } | null>;
   /** URL absoluta de la app, para los enlaces del correo. */
@@ -49,6 +50,8 @@ export interface Registro {
   reintentar: Id<'tasks'>[];
   recordatorios: Id<'taskReminders'>[];
   correos: number;
+  /** Correos que Resend no va a aceptar nunca: se cuentan para que se vean en `cronRuns`. */
+  rechazados: number;
 }
 
 const enlaceTarea = (taskId: string) => `/tasks?tarea=${taskId}`;
@@ -163,7 +166,7 @@ export function correoAvisos(
  * haría llegar); uno que tenía canal y falló se reintenta.
  */
 export async function repartir(entrega: Entrega, canales: Canales): Promise<{ registro: Registro; notified: number }> {
-  const registro: Registro = { avisados: [], reintentar: [], recordatorios: [], correos: 0 };
+  const registro: Registro = { avisados: [], reintentar: [], recordatorios: [], correos: 0, rechazados: 0 };
   let notified = 0;
   const correo = entrega.correo ? canales.correo : null;
   const quedanCorreos = () => entrega.correosHoy + registro.correos < TOPE_CORREOS_DIA;
@@ -173,7 +176,9 @@ export async function repartir(entrega: Entrega, canales: Canales): Promise<{ re
     if (push.entregado) notified += 1;
     // El resumen va siempre también por correo: es el aviso del día y no gasta
     // del tope de respaldo.
-    if (correo && (await correo(correoResumen(entrega.resumen, canales.appUrl)))) notified += 1;
+    const envioResumen = correo ? await correo(correoResumen(entrega.resumen, canales.appUrl)) : null;
+    if (envioResumen === 'enviado') notified += 1;
+    if (envioResumen === 'rechazado') registro.rechazados += 1;
   }
 
   // Una pregunta sin sus botones no sirve: sin enlace firmado no sale. Tampoco
@@ -185,6 +190,8 @@ export async function repartir(entrega: Entrega, canales: Canales): Promise<{ re
   }
 
   const sinCorreo: Entrega['recordatorios'] = [];
+  /** Los que no tenían ningún dispositivo: un correo rechazado los deja sin canal. */
+  const sinDispositivo = new Set<string>();
   for (const r of entrega.recordatorios) {
     const accion = (await canales.firmar(r.taskId)) ?? undefined;
     const push = await canales.push({ title: r.label ?? 'Recordatorio', body: r.taskTitle, url: enlaceTarea(r.taskId), tag: `tarea-${r.taskId}`, accion });
@@ -196,10 +203,12 @@ export async function repartir(entrega: Entrega, canales: Canales): Promise<{ re
       registro.recordatorios.push(r.id);
     } else {
       sinCorreo.push(r);
+      if (push.intentos === 0) sinDispositivo.add(r.id);
     }
   }
 
   let avisosPendientes: AvisoDeTarea[] = [];
+  let avisosSinDispositivo = false;
   if (entrega.avisos.length) {
     const payload = avisosPayload(entrega.avisos);
     if (entrega.avisos.length === 1) payload.accion = (await canales.firmar(entrega.avisos[0]!.taskId)) ?? undefined;
@@ -211,16 +220,27 @@ export async function repartir(entrega: Entrega, canales: Canales): Promise<{ re
       registro.avisados.push(...entrega.avisos.map((a) => a.taskId));
     } else {
       avisosPendientes = entrega.avisos;
+      avisosSinDispositivo = push.intentos === 0;
     }
   }
 
   if (avisosPendientes.length || sinCorreo.length) {
-    const enviado = correo && quedanCorreos() ? await correo(correoAvisos(avisosPendientes, sinCorreo, canales.appUrl)) : false;
-    if (enviado) {
+    const envio: EnvioCorreo = correo && quedanCorreos() ? await correo(correoAvisos(avisosPendientes, sinCorreo, canales.appUrl)) : 'fallo';
+    if (envio === 'enviado') {
       registro.correos += 1;
       registro.avisados.push(...avisosPendientes.map((a) => a.taskId));
       registro.recordatorios.push(...sinCorreo.map((r) => r.id));
       notified += avisosPendientes.length + sinCorreo.length;
+    } else if (envio === 'rechazado') {
+      // Resend no va a aceptar nunca un correo para esta persona. Lo que
+      // tampoco tenía ningún dispositivo se queda sin canal posible y avanza,
+      // igual que con una suscripción push caducada: insistir cada quince
+      // minutos sólo gastaría peticiones. Lo que tenía dispositivo y falló por
+      // algo pasajero se reintenta, porque el push sí puede volver.
+      registro.rechazados += 1;
+      if (avisosSinDispositivo) registro.avisados.push(...avisosPendientes.map((a) => a.taskId));
+      else registro.reintentar.push(...avisosPendientes.map((a) => a.taskId));
+      registro.recordatorios.push(...sinCorreo.filter((r) => sinDispositivo.has(r.id)).map((r) => r.id));
     } else {
       registro.reintentar.push(...avisosPendientes.map((a) => a.taskId));
       // Los recordatorios sin enviar se quedan como están: el índice los
