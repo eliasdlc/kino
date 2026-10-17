@@ -64,3 +64,19 @@ it('warns about the failed device without promising both devices received the pu
   await waitFor(() => expect(warning).toHaveBeenCalledWith(expect.stringContaining('1 de 2 envíos push aceptados; 1 fallaron')));
   expect(success).not.toHaveBeenCalled();
 });
+
+it('remakes a subscription created with another VAPID key and registers the new one', async () => {
+  // A device subscribed before the keys changed receives nothing: the push
+  // service answers 401 or 403. With permission already granted it heals
+  // without asking, the next time the app opens.
+  vi.stubEnv('NEXT_PUBLIC_VAPID_PUBLIC_KEY', 'AQID');
+  const unsubscribe = vi.fn().mockResolvedValue(true);
+  const subscribe = vi.fn().mockResolvedValue({ toJSON: () => ({ endpoint: `${endpoint}/new`, keys: { auth: 'n', p256dh: 'n' } }) });
+  Object.defineProperty(navigator, 'serviceWorker', { configurable: true, value: { ready: Promise.resolve({ pushManager: { getSubscription, subscribe } }) } });
+  getSubscription.mockResolvedValue({ options: { applicationServerKey: new Uint8Array([9, 9, 9]).buffer }, unsubscribe, toJSON: () => ({ endpoint, keys: { auth: 'o', p256dh: 'o' } }) });
+  const convex = makeTestConvexClient([], [stubMutation(api.notifications.subscribe, { ok: true })]);
+  renderWithProviders(<Probe />, { convex });
+  await waitFor(() => expect(screen.getByLabelText('Push status')).toHaveTextContent('subscribed'));
+  expect(unsubscribe).toHaveBeenCalled();
+  expect(convex.calls).toContainEqual({ kind: 'mutation', name: 'notifications:subscribe', args: { endpoint: `${endpoint}/new`, keys: { auth: 'n', p256dh: 'n' } } });
+});

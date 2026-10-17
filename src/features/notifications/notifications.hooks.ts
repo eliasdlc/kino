@@ -30,6 +30,33 @@ function subscriptionData(sub: PushSubscription) {
   return { endpoint, keys: { auth: keys.auth, p256dh: keys.p256dh } };
 }
 
+/** ¿La suscripción se creó con una clave pública distinta de la que firma hoy? */
+function otraClave(sub: PushSubscription, publicKey: string): boolean {
+  const suya = sub.options?.applicationServerKey;
+  if (!suya) return false;
+  const actual = urlBase64ToUint8Array(publicKey);
+  const bytes = new Uint8Array(suya);
+  return bytes.length !== actual.length || bytes.some((b, i) => b !== actual[i]);
+}
+
+/**
+ * Deja la suscripción de este navegador viva y registrada en el servidor, sin
+ * pedir permiso: sólo actúa si ya está concedido. Una suscripción hecha con
+ * otra clave VAPID no recibe nada (el servicio push la rechaza y el servidor
+ * la retira), así que se rehace con la clave actual.
+ */
+async function mantenerSuscripcion(registrar: (data: ReturnType<typeof subscriptionData>) => Promise<unknown>): Promise<PushSubscription | null> {
+  const reg = await pushRegistration();
+  let sub = await reg.pushManager.getSubscription();
+  const publicKey = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY;
+  if (sub && publicKey && otraClave(sub, publicKey)) {
+    await sub.unsubscribe();
+    sub = await reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: urlBase64ToUint8Array(publicKey) });
+  }
+  if (sub) await registrar(subscriptionData(sub));
+  return sub;
+}
+
 export function usePushNotifications() {
   const [status, setStatus] = useState<PushStatus>('idle');
   const [error, setError] = useState<string | null>(null);
@@ -46,11 +73,9 @@ export function usePushNotifications() {
       return;
     }
     try {
-      const reg = await pushRegistration();
-      const sub = await reg.pushManager.getSubscription();
       // La fila puede haber desaparecido del servidor o pertenecer a otra
       // cuenta. Tener una suscripción local nunca prueba el registro remoto.
-      if (sub) await subscribeOnServer(subscriptionData(sub));
+      const sub = Notification.permission === 'granted' ? await mantenerSuscripcion(subscribeOnServer) : null;
       setStatus(sub ? 'subscribed' : 'idle');
       setError(null);
     } catch {
@@ -81,12 +106,10 @@ export function usePushNotifications() {
       }
       const reg = await pushRegistration();
       const existing = await reg.pushManager.getSubscription();
-      const sub = existing ?? await reg.pushManager.subscribe({
-        userVisibleOnly: true,
-        applicationServerKey: urlBase64ToUint8Array(
-          publicKey
-        ),
-      });
+      if (existing && otraClave(existing, publicKey)) await existing.unsubscribe();
+      const sub = existing && !otraClave(existing, publicKey)
+        ? existing
+        : await reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: urlBase64ToUint8Array(publicKey) });
       await subscribeOnServer(subscriptionData(sub));
       setStatus('subscribed');
     } catch (cause) {
@@ -112,6 +135,24 @@ export function usePushNotifications() {
   }
 
   return { status, error, subscribe, unsubscribe };
+}
+
+const MANTENIDA = 'kino-push-mantenida';
+
+/**
+ * Lo que la app hace al abrirse, en cualquier pantalla: si este dispositivo ya
+ * dio permiso, revisa su suscripción una vez por sesión del navegador. Así un
+ * teléfono que se registró una vez no deja de recibir aunque nadie vuelva a
+ * Ajustes. Nunca pide permiso: eso sólo puede salir de un toque.
+ */
+export function useMantenerAvisos() {
+  const registrar = useMutation(api.notifications.subscribe);
+  useEffect(() => {
+    if (!('serviceWorker' in navigator) || !('PushManager' in window)) return;
+    if (Notification.permission !== 'granted' || sessionStorage.getItem(MANTENIDA)) return;
+    sessionStorage.setItem(MANTENIDA, '1');
+    mantenerSuscripcion(registrar).catch(() => sessionStorage.removeItem(MANTENIDA));
+  }, [registrar]);
 }
 
 function urlBase64ToUint8Array(base64: string): Uint8Array<ArrayBuffer> {

@@ -40,8 +40,12 @@ export const subscribe = kinoZodMutation({
     // el endpoint de otra cuenta le pisaba sus claves VAPID y le robaba sus
     // avisos. Un endpoint pertenece a quien lo registró y a nadie más.
     if (existing && existing.userId !== ctx.user._id) forbidden('Ese endpoint ya pertenece a otra cuenta');
-    if (existing) await ctx.db.patch(existing._id, { authKey: keys.auth, p256dhKey: keys.p256dh });
-    else await ctx.db.insert('pushSubscriptions', { userId: ctx.user._id, endpoint, authKey: keys.auth, p256dhKey: keys.p256dh, createdAt: Date.now() });
+    // El cliente vuelve a registrar su suscripción en cada sesión de la app:
+    // sin cambios en las claves no hay nada que escribir.
+    if (existing && (existing.authKey !== keys.auth || existing.p256dhKey !== keys.p256dh)) {
+      await ctx.db.patch(existing._id, { authKey: keys.auth, p256dhKey: keys.p256dh });
+    }
+    if (!existing) await ctx.db.insert('pushSubscriptions', { userId: ctx.user._id, endpoint, authKey: keys.auth, p256dhKey: keys.p256dh, createdAt: Date.now() });
     return { ok: true as const };
   },
 });
