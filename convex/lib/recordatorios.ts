@@ -255,6 +255,38 @@ export function armarResumen(tareas: TareaParaResumen[], prefs: Preferencias, ah
   return total === 0 ? null : out;
 }
 
+// ── «¿Ya hiciste esto?» ─────────────────────────────────────────────────────
+
+/**
+ * Cuántas tareas vencidas se preguntan al día, cada una en su push. Muchas
+ * vencidas ya están hechas y nadie las marcó; preguntar por todas a la vez es
+ * el push agrupado que nadie abre, y preguntar por cada una cada vez que
+ * insiste serían decenas al día.
+ */
+export const PREGUNTAS_DIA = 3;
+
+/**
+ * Las vencidas por las que se pregunta hoy. Sólo las que vencieron hace dos
+ * días de calendario o más: la de ayer todavía está en su recta y se avisa
+ * sola. Rotan por día, para que no salgan siempre las mismas tres: el día
+ * `n` empieza en la posición `3n` de la lista ordenada por fecha, así que con
+ * nueve vencidas cada una vuelve cada tres días.
+ */
+export function preguntasDelDia(
+  vencidas: TareaParaResumen[],
+  tz: string,
+  ahora: number,
+): Array<TareaParaResumen & { dias: number }> {
+  const hoy = calendarDayInTz(ahora, tz);
+  const viejas = vencidas
+    .map((t) => ({ ...t, dias: diasEntre(diaDeVencimiento(t.dueDate, tz), hoy) }))
+    .filter((t) => t.dias >= 2)
+    .sort((a, b) => a.dueDate - b.dueDate || a.id.localeCompare(b.id));
+  if (viejas.length <= PREGUNTAS_DIA) return viejas;
+  const inicio = (diasEntre('1970-01-01', hoy) * PREGUNTAS_DIA) % viejas.length;
+  return Array.from({ length: PREGUNTAS_DIA }, (_, i) => viejas[(inicio + i) % viejas.length]!);
+}
+
 /** El push del resumen: la cifra primero, que es lo que se lee con la pantalla bloqueada. */
 export function textoResumen(r: Resumen): { title: string; body: string } {
   const partes: string[] = [];

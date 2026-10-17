@@ -209,7 +209,7 @@ const clerkWebhook = httpAction(async (ctx, request) => {
 /**
  * Los botones de una notificación. Los pulsa el service worker, que no tiene
  * sesión: la credencial es el enlace firmado que viajó en el push
- * (`lib/firmaAccion.ts`), y sólo abre «Hecha» y «En 1 h» sobre esa tarea. El
+ * (`lib/firmaAccion.ts`), y sólo abre «Hecha», «En 1 h» y «Todavía no» sobre esa tarea. El
  * cuerpo va como `text/plain` para que el navegador no pida permiso antes
  * (una petición simple no dispara el preflight de CORS).
  *
@@ -227,7 +227,7 @@ const accionDeAviso = httpAction(async (ctx, request) => {
   } catch {
     return new Response(null, { status: 400, headers: CORS });
   }
-  const parsed = z.object({ token: z.string().max(200), accion: z.enum(['hecha', 'posponer']) }).safeParse(cuerpo);
+  const parsed = z.object({ token: z.string().max(200), accion: z.enum(['hecha', 'posponer', 'manana']) }).safeParse(cuerpo);
   if (!parsed.success) return new Response(null, { status: 400, headers: CORS });
   const taskId = await verificarAccion(parsed.data.token, secreto, Date.now());
   if (!taskId) return new Response(null, { status: 403, headers: CORS });

@@ -5,6 +5,8 @@ import {
   enSilencio,
   estadoDe,
   limiteDe,
+  PREGUNTAS_DIA,
+  preguntasDelDia,
   proximoAviso,
   proximoResumen,
   textoResumen,
@@ -165,5 +167,40 @@ describe('el resumen de la mañana', () => {
   it('el próximo resumen cae a su hora local, hoy si no ha pasado y si no mañana', () => {
     expect(reloj(proximoResumen(TZ, '08:00', local(4, 6)))).toBe('4 08:00');
     expect(reloj(proximoResumen(TZ, '08:00', local(4, 8)))).toBe('5 08:00');
+  });
+});
+
+describe('«¿Ya hiciste esto?»', () => {
+  // Una vencida que lleva días así casi siempre está hecha y sin marcar. Se
+  // pregunta por tres al día, cada una en su push, y rotan.
+  const vencida = (n: number, dia: number) => ({ id: `t${n}`, title: `Tarea ${n}`, dueDate: local(dia, 17), priority: 'high' as const });
+
+  it('no pregunta por la que venció ayer: esa todavía se avisa sola', () => {
+    const ids = preguntasDelDia([vencida(1, 9), vencida(2, 8)], TZ, local(10, 8)).map((t) => t.id);
+    expect(ids).toEqual(['t2']);
+  });
+
+  it('como mucho tres al día, y en una semana pasa por todas', () => {
+    const lista = Array.from({ length: 8 }, (_, i) => vencida(i, 1 + i));
+    const vistas = new Set<string>();
+    for (let dia = 12; dia < 19; dia++) {
+      const hoy = preguntasDelDia(lista, TZ, local(dia, 8));
+      expect(hoy).toHaveLength(PREGUNTAS_DIA);
+      expect(new Set(hoy.map((t) => t.id)).size).toBe(PREGUNTAS_DIA);
+      hoy.forEach((t) => vistas.add(t.id));
+    }
+    expect(vistas.size).toBe(lista.length);
+  });
+
+  it('dos días seguidos no repiten la misma tanda', () => {
+    const lista = Array.from({ length: 6 }, (_, i) => vencida(i, 1 + i));
+    const uno = preguntasDelDia(lista, TZ, local(12, 8)).map((t) => t.id);
+    const dos = preguntasDelDia(lista, TZ, local(13, 8)).map((t) => t.id);
+    expect(uno.filter((id) => dos.includes(id))).toEqual([]);
+  });
+
+  it('dice cuántos días lleva vencida, en la zona de la persona', () => {
+    const [t] = preguntasDelDia([vencida(1, 5)], TZ, local(10, 8));
+    expect(t!.dias).toBe(5);
   });
 });

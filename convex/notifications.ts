@@ -8,7 +8,7 @@ import { kinoAction, kinoZodMutation, kinoZodQuery } from './lib/fn';
 import { internal } from './_generated/api';
 import { userToday } from './lib/time';
 import { ajustesDeAviso, avisable, calcularAviso, deFila, recalcularAviso, type AjustesDeAviso } from './lib/avisos';
-import { armarResumen, estadoDe, proximoResumen, type Resumen } from './lib/recordatorios';
+import { armarResumen, estadoDe, preguntasDelDia, proximoResumen, type Resumen } from './lib/recordatorios';
 import { effectivePriority, type Priority } from '../src/shared/lib/effective-priority';
 import { completarDesdeAviso } from './tasks';
 
@@ -147,6 +147,8 @@ export interface Entrega {
   /** `true` si a esta persona le tocaba el resumen en esta vuelta, haya o no algo que decir. */
   tocaResumen: boolean;
   resumen: Resumen | null;
+  /** Las vencidas por las que se pregunta «¿Ya hiciste esto?» hoy: sólo con el resumen. */
+  preguntas: AvisoDeTarea[];
   /** Tareas cuyo próximo aviso escrito no es el que toca: el resumen las repara. */
   reparar: Id<'tasks'>[];
 }
@@ -259,6 +261,7 @@ function vacia(
     recordatorios: [],
     tocaResumen,
     resumen: null,
+    preguntas: [],
     reparar: [],
   };
 }
@@ -278,6 +281,16 @@ async function llenarResumen(ctx: QueryCtx, entrega: Entrega, userId: Id<'users'
     now,
   );
   entrega.reparar = conFecha.filter((t) => calcularAviso(t, ajustes, now) !== t.nextReminderAt).map((t) => t._id);
+  // Las preguntas viajan con el resumen porque es la única lectura del día que
+  // ya tiene todas las vencidas delante: así salen como mucho tres al día sin
+  // llevar la cuenta en ningún sitio.
+  entrega.preguntas = preguntasDelDia(entrega.resumen?.vencidas ?? [], ajustes.tz, now).map((t) => ({
+    taskId: t.id as Id<'tasks'>,
+    title: t.title,
+    texto: `Vencida hace ${t.dias} días`,
+    vencida: true,
+    priority: t.priority,
+  }));
 }
 
 /**
@@ -360,12 +373,14 @@ export const limpiar = internalMutation({
  * Lo que hace un botón de la notificación. Entra por `convex/http.ts`, que ya
  * comprobó la firma del enlace: aquí sólo se sabe de qué tarea es.
  *
- * Las dos acciones son reversibles, que es lo que permite ofrecerlas sin
- * sesión: «Hecha» se deshace desde la app como cualquier cierre, y «En 1 h»
- * sólo mueve un aviso.
+ * Las tres acciones son reversibles, que es lo que permite ofrecerlas sin
+ * sesión: «Hecha» se deshace desde la app como cualquier cierre, y «En 1 h» y
+ * «Todavía no» sólo mueven un aviso. «Todavía no» calla la tarea hasta el
+ * próximo resumen y no toca su fecha: la fecha de una entrega es la de quien la
+ * pidió, y moverla escondería que está vencida.
  */
 export const accionDesdeAviso = internalMutation({
-  args: { taskId: v.id('tasks'), accion: v.union(v.literal('hecha'), v.literal('posponer')) },
+  args: { taskId: v.id('tasks'), accion: v.union(v.literal('hecha'), v.literal('posponer'), v.literal('manana')) },
   handler: async (ctx, { taskId, accion }) => {
     const task = await ctx.db.get(taskId);
     if (!task || task.deletedAt !== undefined) return { ok: false as const };
@@ -373,7 +388,16 @@ export const accionDesdeAviso = internalMutation({
       if (task.status !== 'done') await completarDesdeAviso(ctx, task);
       return { ok: true as const };
     }
-    if (avisable(task)) await ctx.db.patch(taskId, { nextReminderAt: Date.now() + POSPONER_MS });
+    if (!avisable(task)) return { ok: true as const };
+    if (accion === 'posponer') {
+      await ctx.db.patch(taskId, { nextReminderAt: Date.now() + POSPONER_MS });
+      return { ok: true as const };
+    }
+    const user = await ctx.db.get(task.userId);
+    if (!user) return { ok: false as const };
+    const ajustes = await ajustesDeAviso(ctx, user);
+    // Con los avisos apagados no hay a qué hora volver: se queda sin aviso.
+    await ctx.db.patch(taskId, { nextReminderAt: ajustes.activos ? proximoResumen(ajustes.tz, ajustes.resumen, Date.now()) : undefined });
     return { ok: true as const };
   },
 });
