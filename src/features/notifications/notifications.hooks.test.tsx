@@ -9,7 +9,7 @@ import userEvent from '@testing-library/user-event';
 import { api } from '@convex/_generated/api';
 import { makeTestConvexClient, renderWithProviders, stubMutation, stubMutationError } from '@/shared/testing/render';
 import { toast } from 'sonner';
-import { useProbarAvisos, usePushNotifications } from './notifications.hooks';
+import { useMantenerAvisos, useProbarAvisos, usePushNotifications } from './notifications.hooks';
 
 const endpoint = 'https://fixture.invalid/browser';
 const getSubscription = vi.fn();
@@ -26,7 +26,7 @@ beforeEach(() => {
   Object.defineProperty(navigator, 'serviceWorker', { configurable: true, value: { ready: Promise.resolve({ pushManager: { getSubscription } }) } });
   getSubscription.mockResolvedValue({ toJSON: () => ({ endpoint, keys: { auth: 'fixture', p256dh: 'fixture' } }) });
 });
-afterEach(() => { vi.unstubAllGlobals(); vi.unstubAllEnvs(); vi.clearAllMocks(); });
+afterEach(() => { vi.unstubAllGlobals(); vi.unstubAllEnvs(); vi.clearAllMocks(); localStorage.clear(); sessionStorage.clear(); });
 
 it('registers an existing browser subscription before calling it active', async () => {
   const convex = makeTestConvexClient([], [stubMutation(api.notifications.subscribe, { ok: true })]);
@@ -63,4 +63,97 @@ it('warns about the failed device without promising both devices received the pu
   await userEvent.click(screen.getByRole('button', { name: 'Enviar prueba' }));
   await waitFor(() => expect(warning).toHaveBeenCalledWith(expect.stringContaining('1 de 2 envíos push aceptados; 1 fallaron')));
   expect(success).not.toHaveBeenCalled();
+});
+
+it('remakes a subscription created with another VAPID key and registers the new one', async () => {
+  // A device subscribed before the keys changed receives nothing: the push
+  // service answers 401 or 403. With permission already granted it heals
+  // without asking, the next time the app opens.
+  vi.stubEnv('NEXT_PUBLIC_VAPID_PUBLIC_KEY', 'AQID');
+  const unsubscribe = vi.fn().mockResolvedValue(true);
+  const subscribe = vi.fn().mockResolvedValue({ toJSON: () => ({ endpoint: `${endpoint}/new`, keys: { auth: 'n', p256dh: 'n' } }) });
+  Object.defineProperty(navigator, 'serviceWorker', { configurable: true, value: { ready: Promise.resolve({ pushManager: { getSubscription, subscribe } }) } });
+  getSubscription.mockResolvedValue({ endpoint, options: { applicationServerKey: new Uint8Array([9, 9, 9]).buffer }, unsubscribe, toJSON: () => ({ endpoint, keys: { auth: 'o', p256dh: 'o' } }) });
+  const convex = makeTestConvexClient([], [stubMutation(api.notifications.subscribe, { ok: true }), stubMutation(api.notifications.unsubscribe, null)]);
+  renderWithProviders(<Probe />, { convex });
+  await waitFor(() => expect(screen.getByLabelText('Push status')).toHaveTextContent('subscribed'));
+  expect(unsubscribe).toHaveBeenCalled();
+  // The old row goes too: otherwise Ajustes counts a device that receives nothing.
+  expect(convex.calls).toContainEqual({ kind: 'mutation', name: 'notifications:unsubscribe', args: { endpoint } });
+  expect(convex.calls).toContainEqual({ kind: 'mutation', name: 'notifications:subscribe', args: { endpoint: `${endpoint}/new`, keys: { auth: 'n', p256dh: 'n' } } });
+});
+
+function Keeper() {
+  useMantenerAvisos();
+  return null;
+}
+
+it('keeps a granted device registered once per browser session and never asks for permission', async () => {
+  sessionStorage.clear();
+  const convex = makeTestConvexClient([], [stubMutation(api.notifications.subscribe, { ok: true })]);
+  const first = renderWithProviders(<Keeper />, { convex });
+  await waitFor(() => expect(convex.calls.filter((c) => c.name === 'notifications:subscribe')).toHaveLength(1));
+  first.unmount();
+  renderWithProviders(<Keeper />, { convex });
+  await new Promise((r) => setTimeout(r, 20));
+  expect(convex.calls.filter((c) => c.name === 'notifications:subscribe')).toHaveLength(1);
+  expect(requestPermission).not.toHaveBeenCalled();
+});
+
+it('does nothing on a device that has not granted permission', async () => {
+  sessionStorage.clear();
+  vi.stubGlobal('Notification', { permission: 'default', requestPermission });
+  const convex = makeTestConvexClient([], [stubMutation(api.notifications.subscribe, { ok: true })]);
+  renderWithProviders(<Keeper />, { convex });
+  await new Promise((r) => setTimeout(r, 20));
+  expect(convex.calls).toEqual([]);
+  expect(getSubscription).not.toHaveBeenCalled();
+});
+
+it('finishes a remake that failed halfway the next time the app opens', async () => {
+  // Between dropping the old subscription and creating the new one the push
+  // service can fail. Without a mark the device would stay granted and
+  // subscribed nowhere, like someone who turned notifications off.
+  vi.stubEnv('NEXT_PUBLIC_VAPID_PUBLIC_KEY', 'AQID');
+  const unsubscribe = vi.fn().mockResolvedValue(true);
+  const subscribe = vi.fn()
+    .mockRejectedValueOnce(new Error('push service error'))
+    .mockResolvedValueOnce({ endpoint: `${endpoint}/new`, toJSON: () => ({ endpoint: `${endpoint}/new`, keys: { auth: 'n', p256dh: 'n' } }) });
+  Object.defineProperty(navigator, 'serviceWorker', { configurable: true, value: { ready: Promise.resolve({ pushManager: { getSubscription, subscribe } }) } });
+  getSubscription.mockResolvedValueOnce({ endpoint, options: { applicationServerKey: new Uint8Array([9, 9, 9]).buffer }, unsubscribe, toJSON: () => ({ endpoint, keys: { auth: 'o', p256dh: 'o' } }) });
+  getSubscription.mockResolvedValue(null);
+  const convex = makeTestConvexClient([], [stubMutation(api.notifications.subscribe, { ok: true }), stubMutation(api.notifications.unsubscribe, null)]);
+
+  const first = renderWithProviders(<Keeper />, { convex });
+  await waitFor(() => expect(subscribe).toHaveBeenCalledTimes(1));
+  first.unmount();
+  await waitFor(() => expect(sessionStorage.getItem('kino-push-mantenida')).toBeNull());
+
+  renderWithProviders(<Keeper />, { convex });
+  await waitFor(() => expect(convex.calls).toContainEqual({ kind: 'mutation', name: 'notifications:subscribe', args: { endpoint: `${endpoint}/new`, keys: { auth: 'n', p256dh: 'n' } } }));
+  expect(localStorage.getItem('kino-push-a-medias')).toBeNull();
+});
+
+it('leaves alone a device that turned notifications off on purpose', async () => {
+  // Desactivar leaves the permission granted and no subscription; with no
+  // half-made mark the keeper must not subscribe it again.
+  vi.stubEnv('NEXT_PUBLIC_VAPID_PUBLIC_KEY', 'AQID');
+  const subscribe = vi.fn();
+  Object.defineProperty(navigator, 'serviceWorker', { configurable: true, value: { ready: Promise.resolve({ pushManager: { getSubscription, subscribe } }) } });
+  getSubscription.mockResolvedValue(null);
+  const convex = makeTestConvexClient([], [stubMutation(api.notifications.subscribe, { ok: true })]);
+  renderWithProviders(<Keeper />, { convex });
+  await new Promise((r) => setTimeout(r, 20));
+  expect(subscribe).not.toHaveBeenCalled();
+  expect(convex.calls).toEqual([]);
+});
+
+it('forgets a stale half-made mark once the subscription is good, so turning off later stays off', async () => {
+  vi.stubEnv('NEXT_PUBLIC_VAPID_PUBLIC_KEY', 'AQID');
+  localStorage.setItem('kino-push-a-medias', '1');
+  getSubscription.mockResolvedValue({ endpoint, options: { applicationServerKey: new Uint8Array([1, 2, 3]).buffer }, toJSON: () => ({ endpoint, keys: { auth: 'a', p256dh: 'p' } }) });
+  const convex = makeTestConvexClient([], [stubMutation(api.notifications.subscribe, { ok: true })]);
+  renderWithProviders(<Keeper />, { convex });
+  await waitFor(() => expect(convex.calls.filter((c) => c.name === 'notifications:subscribe')).toHaveLength(1));
+  expect(localStorage.getItem('kino-push-a-medias')).toBeNull();
 });

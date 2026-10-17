@@ -18,6 +18,7 @@ import { forbidden, notFound } from './lib/errors';
 import { diferencias, recordEvent } from './eventLog';
 import { kinoZodMutation, kinoZodQuery, type Channel } from './lib/fn';
 import { calendarDayInTz, userToday } from './lib/time';
+import { diaDeVencimiento } from './lib/recordatorios';
 import { color } from './schema';
 
 // Los sistemas: el segundo hub del schema. Borrar es desactivar, así que las
@@ -329,12 +330,13 @@ async function radiografiaSignals(ctx: QueryCtx, system: Doc<'systems'>, tz: str
   const closed = tasks.filter((task) => task.status === 'done');
 
   // Lo que tiene fecha, ordenado. El corte entre vencido y próximo es el día
-  // del calendario en la zona del usuario, nunca la resta de dos instantes.
+  // del calendario en la zona del usuario, nunca la resta de dos instantes, y
+  // un día sin hora escrito por el MCP cuenta como su propio día.
   const conFecha = open
     .filter((task): task is Doc<'tasks'> & { dueDate: number } => task.dueDate !== undefined)
     .sort((a, b) => a.dueDate - b.dueDate);
-  const vencidas = conFecha.filter((task) => calendarDayInTz(task.dueDate, tz) < hoy);
-  const proxima = conFecha.find((task) => calendarDayInTz(task.dueDate, tz) >= hoy);
+  const vencidas = conFecha.filter((task) => diaDeVencimiento(task.dueDate, tz) < hoy);
+  const proxima = conFecha.find((task) => diaDeVencimiento(task.dueDate, tz) >= hoy);
 
   // Dónde se acumula: un tablero agrupa por columna y el resto por estado del
   // funnel. El desempate alfabético evita que dos grupos iguales bailen.
@@ -408,7 +410,7 @@ async function radiografiaSignals(ctx: QueryCtx, system: Doc<'systems'>, tz: str
         : null,
     stalled: parada ? { row: taskRow(parada, parada.updatedAt), days: days(parada.updatedAt) } : null,
     nextDue: proxima
-      ? { row: taskRow(proxima, proxima.dueDate), inDays: daysBetweenDays(hoy, calendarDayInTz(proxima.dueDate, tz)) }
+      ? { row: taskRow(proxima, proxima.dueDate), inDays: daysBetweenDays(hoy, diaDeVencimiento(proxima.dueDate, tz)) }
       : null,
     emptyContainers: vacias.length > 0 ? { count: vacias.length, first: folderRow(vacias[0], vacias[0].createdAt) } : null,
     lastMove: movimiento ? { row: movimiento.row, days: days(movimiento.at) } : null,
