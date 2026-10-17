@@ -15,7 +15,8 @@ export function correoConfigurado(): boolean {
 /**
  * Lo que pasó con un correo. `rechazado` es un veredicto de Resend sobre esta
  * persona que no se arregla insistiendo, y son sólo dos: la dirección inválida
- * (422 `validation_error`) y el destinatario que el remitente de pruebas no
+ * (422 `validation_error` sobre el campo `to`; sobre `from` es un
+ * `RESEND_FROM` mal escrito, de toda la cuenta) y el destinatario que el remitente de pruebas no
  * admite (403 `validation_error`, «sólo puedes enviar a tu propio correo»: con
  * `onboarding@resend.dev` Resend sólo escribe al dueño de la cuenta).
  *
@@ -46,7 +47,7 @@ export async function enviarCorreo(para: string, correo: Correo): Promise<EnvioC
     const nombre = campo('name') || 'sin cuerpo';
     console.warn(`[avisos] Resend no aceptó el correo (${res.status}, ${nombre})`);
     const validacion = nombre === 'validation_error';
-    const direccionInvalida = res.status === 422 && validacion;
+    const direccionInvalida = res.status === 422 && validacion && /invalid `to` field/i.test(campo('message'));
     const soloAlDueno = res.status === 403 && validacion && /your own email address/i.test(campo('message'));
     return direccionInvalida || soloAlDueno ? 'rechazado' : 'fallo';
   } catch {

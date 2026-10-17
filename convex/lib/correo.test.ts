@@ -43,6 +43,11 @@ describe('la respuesta de Resend', () => {
     expect(await enviar()).toBe('rechazado');
   });
 
+  it('un remitente mal escrito es de toda la cuenta: se reintenta', async () => {
+    conRespuesta(422, 'validation_error', 'Invalid `from` field. The email address needs to follow the `email@example.com` or `Name <email@example.com>` format.');
+    expect(await enviar()).toBe('fallo');
+  });
+
   it('un dominio sin verificar es de toda la cuenta: se reintenta', async () => {
     conRespuesta(403, 'validation_error', 'The usekino.dev domain is not verified. Please, add and verify your domain on https://resend.com/domains');
     expect(await enviar()).toBe('fallo');
