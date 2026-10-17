@@ -76,6 +76,7 @@ export const sendTaskReminders = internalAction({
         recordatorios: registro.recordatorios,
         tocaResumen: entrega.tocaResumen,
         reparar: entrega.reparar,
+        repararVisto: entrega.repararVisto,
         dia: entrega.dia,
         correos: registro.correos,
         leidoEn: entrega.leidoEn,

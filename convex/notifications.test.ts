@@ -53,6 +53,7 @@ const tanda = (over: Partial<Entrega> = {}): Entrega => ({
   resumen: null,
   preguntas: [],
   reparar: [],
+  repararVisto: [],
   leidoEn: 0,
   ...over,
 });
@@ -461,10 +462,35 @@ describe('los botones de la notificación', () => {
     await pulsar(t, await firmarAccion(taskId, 'secreto-de-prueba', Date.now()), 'manana');
     await t.mutation(internal.notifications.registrar, {
       userId: e.userId, avisados: e.avisos.map((a) => a.taskId), reintentar: [], recordatorios: [],
-      tocaResumen: e.tocaResumen, reparar: e.reparar, dia: e.dia, correos: 0, leidoEn: e.leidoEn,
+      tocaResumen: e.tocaResumen, reparar: e.reparar, repararVisto: e.repararVisto, dia: e.dia, correos: 0, leidoEn: e.leidoEn,
     });
     const despues = (await t.run((ctx) => ctx.db.get(taskId)))!;
     expect(reloj(despues.nextReminderAt!)).toBe('11 08:00');
+    vi.useRealTimers();
+  });
+
+  it('un cambio que no mueve el aviso, a mitad de vuelta, no le impide avanzar', async () => {
+    // Cambiar la prioridad no toca el próximo aviso: la vuelta tiene que
+    // seguir escribiéndolo, o la tarea se reenviaría en quince minutos.
+    vi.useFakeTimers();
+    vi.setSystemTime(local(1, 10));
+    const t = convexTest(schema, modules);
+    const { as, systemId } = await escenario(t);
+    const tarea = await as.mutation(api.tasks.create, { systemId, title: 'Vieja', dueDate: new Date(local(3, 17)).toISOString() });
+    const taskId = tarea.id as Id<'tasks'>;
+
+    vi.setSystemTime(local(10, 8, 1));
+    const { entregas } = await t.query(internal.notifications.pendientes, {});
+    const e = entregas[0]!;
+    expect(e.avisos.map((a) => a.taskId)).toContain(taskId);
+    vi.setSystemTime(local(10, 8, 2));
+    await as.mutation(api.tasks.bulkUpdate, { taskIds: [taskId], priority: 'low' });
+    await t.mutation(internal.notifications.registrar, {
+      userId: e.userId, avisados: e.avisos.map((a) => a.taskId), reintentar: [], recordatorios: [],
+      tocaResumen: e.tocaResumen, reparar: e.reparar, repararVisto: e.repararVisto, dia: e.dia, correos: 0, leidoEn: e.leidoEn,
+    });
+    const despues = (await t.run((ctx) => ctx.db.get(taskId)))!;
+    expect(despues.nextReminderAt!).toBeGreaterThan(Date.now());
     vi.useRealTimers();
   });
 
