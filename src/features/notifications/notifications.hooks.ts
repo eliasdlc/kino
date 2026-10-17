@@ -39,22 +39,57 @@ function otraClave(sub: PushSubscription, publicKey: string): boolean {
   return bytes.length !== actual.length || bytes.some((b, i) => b !== actual[i]);
 }
 
+/** Lo que el servidor necesita saber de una suscripción. */
+interface Servidor {
+  registrar: (data: ReturnType<typeof subscriptionData>) => Promise<unknown>;
+  olvidar: (args: { endpoint: string }) => Promise<unknown>;
+}
+
+/**
+ * Este navegador puede recibir push. Se mira `Notification` además de
+ * `PushManager` porque leer `Notification.permission` donde no existe lanza.
+ */
+function pushSoportado(): boolean {
+  return 'serviceWorker' in navigator && 'PushManager' in window && typeof Notification !== 'undefined';
+}
+
+/**
+ * Una suscripción hecha con otra clave VAPID no recibe nada: el servicio push
+ * la rechaza y el servidor la retira. Se borra del servidor, se deshace aquí y
+ * se crea otra con la clave actual. Sin suscripción, devuelve null.
+ */
+async function conClaveActual(
+  reg: ServiceWorkerRegistration,
+  sub: PushSubscription | null,
+  publicKey: string,
+  olvidar: Servidor['olvidar'],
+): Promise<PushSubscription | null> {
+  if (!sub || !otraClave(sub, publicKey)) return sub;
+  await olvidar({ endpoint: sub.endpoint });
+  await sub.unsubscribe();
+  return reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: urlBase64ToUint8Array(publicKey) });
+}
+
+let enCurso: Promise<PushSubscription | null> | null = null;
+
 /**
  * Deja la suscripción de este navegador viva y registrada en el servidor, sin
- * pedir permiso: sólo actúa si ya está concedido. Una suscripción hecha con
- * otra clave VAPID no recibe nada (el servicio push la rechaza y el servidor
- * la retira), así que se rehace con la clave actual.
+ * pedir permiso: quien la llama ya comprobó que está concedido. Dos llamadas a
+ * la vez (la app y Ajustes al abrirse juntas) comparten la misma operación,
+ * porque dos rehaciendo la misma suscripción se deshacen la una a la otra.
  */
-async function mantenerSuscripcion(registrar: (data: ReturnType<typeof subscriptionData>) => Promise<unknown>): Promise<PushSubscription | null> {
-  const reg = await pushRegistration();
-  let sub = await reg.pushManager.getSubscription();
-  const publicKey = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY;
-  if (sub && publicKey && otraClave(sub, publicKey)) {
-    await sub.unsubscribe();
-    sub = await reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: urlBase64ToUint8Array(publicKey) });
-  }
-  if (sub) await registrar(subscriptionData(sub));
-  return sub;
+function mantenerSuscripcion(servidor: Servidor): Promise<PushSubscription | null> {
+  enCurso ??= (async () => {
+    const reg = await pushRegistration();
+    const publicKey = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY;
+    let sub = await reg.pushManager.getSubscription();
+    if (publicKey) sub = await conClaveActual(reg, sub, publicKey, servidor.olvidar);
+    if (sub) await servidor.registrar(subscriptionData(sub));
+    return sub;
+  })().finally(() => {
+    enCurso = null;
+  });
+  return enCurso;
 }
 
 export function usePushNotifications() {
@@ -64,7 +99,7 @@ export function usePushNotifications() {
   const unsubscribeOnServer = useMutation(api.notifications.unsubscribe);
 
   const checkSubscription = useCallback(async () => {
-    if (!('serviceWorker' in navigator) || !('PushManager' in window)) {
+    if (!pushSoportado()) {
       setStatus('unsupported');
       return;
     }
@@ -75,14 +110,16 @@ export function usePushNotifications() {
     try {
       // La fila puede haber desaparecido del servidor o pertenecer a otra
       // cuenta. Tener una suscripción local nunca prueba el registro remoto.
-      const sub = Notification.permission === 'granted' ? await mantenerSuscripcion(subscribeOnServer) : null;
+      const sub = Notification.permission === 'granted'
+        ? await mantenerSuscripcion({ registrar: subscribeOnServer, olvidar: unsubscribeOnServer })
+        : null;
       setStatus(sub ? 'subscribed' : 'idle');
       setError(null);
     } catch {
       setStatus('error');
       setError('No se pudo registrar este dispositivo. Recarga la página o vuelve a activar las notificaciones.');
     }
-  }, [subscribeOnServer]);
+  }, [subscribeOnServer, unsubscribeOnServer]);
 
   useEffect(() => {
     checkSubscription();
@@ -105,11 +142,8 @@ export function usePushNotifications() {
         return;
       }
       const reg = await pushRegistration();
-      const existing = await reg.pushManager.getSubscription();
-      if (existing && otraClave(existing, publicKey)) await existing.unsubscribe();
-      const sub = existing && !otraClave(existing, publicKey)
-        ? existing
-        : await reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: urlBase64ToUint8Array(publicKey) });
+      const sub = (await conClaveActual(reg, await reg.pushManager.getSubscription(), publicKey, unsubscribeOnServer))
+        ?? (await reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: urlBase64ToUint8Array(publicKey) }));
       await subscribeOnServer(subscriptionData(sub));
       setStatus('subscribed');
     } catch (cause) {
@@ -147,12 +181,12 @@ const MANTENIDA = 'kino-push-mantenida';
  */
 export function useMantenerAvisos() {
   const registrar = useMutation(api.notifications.subscribe);
+  const olvidar = useMutation(api.notifications.unsubscribe);
   useEffect(() => {
-    if (!('serviceWorker' in navigator) || !('PushManager' in window)) return;
-    if (Notification.permission !== 'granted' || sessionStorage.getItem(MANTENIDA)) return;
+    if (!pushSoportado() || Notification.permission !== 'granted' || sessionStorage.getItem(MANTENIDA)) return;
     sessionStorage.setItem(MANTENIDA, '1');
-    mantenerSuscripcion(registrar).catch(() => sessionStorage.removeItem(MANTENIDA));
-  }, [registrar]);
+    mantenerSuscripcion({ registrar, olvidar }).catch(() => sessionStorage.removeItem(MANTENIDA));
+  }, [registrar, olvidar]);
 }
 
 function urlBase64ToUint8Array(base64: string): Uint8Array<ArrayBuffer> {

@@ -9,7 +9,7 @@ import userEvent from '@testing-library/user-event';
 import { api } from '@convex/_generated/api';
 import { makeTestConvexClient, renderWithProviders, stubMutation, stubMutationError } from '@/shared/testing/render';
 import { toast } from 'sonner';
-import { useProbarAvisos, usePushNotifications } from './notifications.hooks';
+import { useMantenerAvisos, useProbarAvisos, usePushNotifications } from './notifications.hooks';
 
 const endpoint = 'https://fixture.invalid/browser';
 const getSubscription = vi.fn();
@@ -73,10 +73,39 @@ it('remakes a subscription created with another VAPID key and registers the new 
   const unsubscribe = vi.fn().mockResolvedValue(true);
   const subscribe = vi.fn().mockResolvedValue({ toJSON: () => ({ endpoint: `${endpoint}/new`, keys: { auth: 'n', p256dh: 'n' } }) });
   Object.defineProperty(navigator, 'serviceWorker', { configurable: true, value: { ready: Promise.resolve({ pushManager: { getSubscription, subscribe } }) } });
-  getSubscription.mockResolvedValue({ options: { applicationServerKey: new Uint8Array([9, 9, 9]).buffer }, unsubscribe, toJSON: () => ({ endpoint, keys: { auth: 'o', p256dh: 'o' } }) });
-  const convex = makeTestConvexClient([], [stubMutation(api.notifications.subscribe, { ok: true })]);
+  getSubscription.mockResolvedValue({ endpoint, options: { applicationServerKey: new Uint8Array([9, 9, 9]).buffer }, unsubscribe, toJSON: () => ({ endpoint, keys: { auth: 'o', p256dh: 'o' } }) });
+  const convex = makeTestConvexClient([], [stubMutation(api.notifications.subscribe, { ok: true }), stubMutation(api.notifications.unsubscribe, null)]);
   renderWithProviders(<Probe />, { convex });
   await waitFor(() => expect(screen.getByLabelText('Push status')).toHaveTextContent('subscribed'));
   expect(unsubscribe).toHaveBeenCalled();
+  // The old row goes too: otherwise Ajustes counts a device that receives nothing.
+  expect(convex.calls).toContainEqual({ kind: 'mutation', name: 'notifications:unsubscribe', args: { endpoint } });
   expect(convex.calls).toContainEqual({ kind: 'mutation', name: 'notifications:subscribe', args: { endpoint: `${endpoint}/new`, keys: { auth: 'n', p256dh: 'n' } } });
+});
+
+function Keeper() {
+  useMantenerAvisos();
+  return null;
+}
+
+it('keeps a granted device registered once per browser session and never asks for permission', async () => {
+  sessionStorage.clear();
+  const convex = makeTestConvexClient([], [stubMutation(api.notifications.subscribe, { ok: true })]);
+  const first = renderWithProviders(<Keeper />, { convex });
+  await waitFor(() => expect(convex.calls.filter((c) => c.name === 'notifications:subscribe')).toHaveLength(1));
+  first.unmount();
+  renderWithProviders(<Keeper />, { convex });
+  await new Promise((r) => setTimeout(r, 20));
+  expect(convex.calls.filter((c) => c.name === 'notifications:subscribe')).toHaveLength(1);
+  expect(requestPermission).not.toHaveBeenCalled();
+});
+
+it('does nothing on a device that has not granted permission', async () => {
+  sessionStorage.clear();
+  vi.stubGlobal('Notification', { permission: 'default', requestPermission });
+  const convex = makeTestConvexClient([], [stubMutation(api.notifications.subscribe, { ok: true })]);
+  renderWithProviders(<Keeper />, { convex });
+  await new Promise((r) => setTimeout(r, 20));
+  expect(convex.calls).toEqual([]);
+  expect(getSubscription).not.toHaveBeenCalled();
 });
