@@ -151,6 +151,8 @@ export interface Entrega {
   preguntas: AvisoDeTarea[];
   /** Tareas cuyo próximo aviso escrito no es el que toca: el resumen las repara. */
   reparar: Id<'tasks'>[];
+  /** Cuándo se leyó la tanda. Lo que se tocó después no lo reescribe `registrar`. */
+  leidoEn: number;
 }
 
 /**
@@ -263,6 +265,7 @@ function vacia(
     resumen: null,
     preguntas: [],
     reparar: [],
+    leidoEn: now,
   };
 }
 
@@ -289,7 +292,7 @@ async function llenarResumen(ctx: QueryCtx, entrega: Entrega, userId: Id<'users'
     title: t.title,
     texto: `Vencida hace ${t.dias} días`,
     vencida: true,
-    priority: t.priority,
+    priority: effectivePriority(t.priority, t.dueDate, now).priority,
   }));
 }
 
@@ -300,6 +303,12 @@ async function llenarResumen(ctx: QueryCtx, entrega: Entrega, userId: Id<'users'
  * siguiente punto del calendario. Uno que tenía canal y falló en todos se
  * reintenta en quince minutos: marcarlo como avisado le quitaba el reintento
  * para siempre.
+ *
+ * Entre la lectura de la tanda y esta escritura pasan los envíos, y en ese
+ * rato la persona puede contestar desde la notificación («En 1 h», «Todavía
+ * no») o editar la tarea. Lo que se tocó después de `leidoEn` ya trae el
+ * próximo aviso que decidió quien lo tocó: se cuenta el aviso, pero no se
+ * reescribe su hora.
  */
 export const registrar = internalMutation({
   args: {
@@ -311,29 +320,32 @@ export const registrar = internalMutation({
     reparar: v.array(v.id('tasks')),
     dia: v.string(),
     correos: v.number(),
+    /** Opcional sólo para el cron que esté corriendo durante el deploy. */
+    leidoEn: v.optional(v.number()),
   },
   handler: async (ctx, args) => {
     const now = Date.now();
     const user = await ctx.db.get(args.userId);
     if (!user) return null;
     const ajustes = await ajustesDeAviso(ctx, user);
+    const tocadaDespues = (task: Doc<'tasks'>) => args.leidoEn !== undefined && task.updatedAt > args.leidoEn;
     for (const id of args.avisados) {
       const task = await ctx.db.get(id);
       if (!task) continue;
       await ctx.db.patch(id, {
         lastRemindedAt: now,
         reminderCount: task.reminderCount + 1,
-        nextReminderAt: calcularAviso(task, ajustes, now),
+        ...(tocadaDespues(task) ? {} : { nextReminderAt: calcularAviso(task, ajustes, now) }),
       });
     }
     for (const id of args.reintentar) {
       const task = await ctx.db.get(id);
-      if (task && avisable(task)) await ctx.db.patch(id, { nextReminderAt: now + REINTENTO_MS });
+      if (task && avisable(task) && !tocadaDespues(task)) await ctx.db.patch(id, { nextReminderAt: now + REINTENTO_MS });
     }
     for (const id of args.recordatorios) await ctx.db.patch(id, { sentAt: now });
     for (const id of args.reparar) {
       const task = await ctx.db.get(id);
-      if (task) await recalcularAviso(ctx, task, ajustes, now);
+      if (task && !tocadaDespues(task)) await recalcularAviso(ctx, task, ajustes, now);
     }
     const fila = await ctx.db.query('userSettings').withIndex('by_user', (q) => q.eq('userId', args.userId)).unique();
     if (fila) {
@@ -389,15 +401,20 @@ export const accionDesdeAviso = internalMutation({
       return { ok: true as const };
     }
     if (!avisable(task)) return { ok: true as const };
+    // `updatedAt` marca la respuesta: si el cron está a mitad de una vuelta que
+    // ya leyó esta tarea, `registrar` ve que se tocó después y no la pisa.
     if (accion === 'posponer') {
-      await ctx.db.patch(taskId, { nextReminderAt: Date.now() + POSPONER_MS });
+      await ctx.db.patch(taskId, { nextReminderAt: Date.now() + POSPONER_MS, updatedAt: Date.now() });
       return { ok: true as const };
     }
     const user = await ctx.db.get(task.userId);
     if (!user) return { ok: false as const };
     const ajustes = await ajustesDeAviso(ctx, user);
     // Con los avisos apagados no hay a qué hora volver: se queda sin aviso.
-    await ctx.db.patch(taskId, { nextReminderAt: ajustes.activos ? proximoResumen(ajustes.tz, ajustes.resumen, Date.now()) : undefined });
+    await ctx.db.patch(taskId, {
+      nextReminderAt: ajustes.activos ? proximoResumen(ajustes.tz, ajustes.resumen, Date.now()) : undefined,
+      updatedAt: Date.now(),
+    });
     return { ok: true as const };
   },
 });

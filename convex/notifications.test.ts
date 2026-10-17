@@ -53,6 +53,7 @@ const tanda = (over: Partial<Entrega> = {}): Entrega => ({
   resumen: null,
   preguntas: [],
   reparar: [],
+  leidoEn: 0,
   ...over,
 });
 
@@ -437,6 +438,32 @@ describe('los botones de la notificación', () => {
     const despues = (await t.run((ctx) => ctx.db.get(taskId)))!;
     expect(despues.status).not.toBe('done');
     expect(despues.dueDate).toBe(antes.dueDate);
+    expect(reloj(despues.nextReminderAt!)).toBe('11 08:00');
+    vi.useRealTimers();
+  });
+
+  it('contestar mientras el cron todavía envía no se pierde cuando la vuelta se registra', async () => {
+    // La pregunta llega en la vuelta del resumen, y esa misma vuelta registra
+    // la tarea después de enviar todo. Un toque en ese rato tiene que ganar.
+    vi.useFakeTimers();
+    vi.setSystemTime(local(1, 10));
+    const t = convexTest(schema, modules);
+    vi.stubEnv('VAPID_PRIVATE_KEY', 'secreto-de-prueba');
+    const { as, systemId } = await escenario(t);
+    const tarea = await as.mutation(api.tasks.create, { systemId, title: 'Vieja', dueDate: new Date(local(3, 17)).toISOString() });
+    const taskId = tarea.id as Id<'tasks'>;
+
+    vi.setSystemTime(local(10, 8, 1));
+    const { entregas } = await t.query(internal.notifications.pendientes, {});
+    const e = entregas[0]!;
+    expect(e.preguntas.map((p) => p.taskId)).toEqual([taskId]);
+    vi.setSystemTime(local(10, 8, 2));
+    await pulsar(t, await firmarAccion(taskId, 'secreto-de-prueba', Date.now()), 'manana');
+    await t.mutation(internal.notifications.registrar, {
+      userId: e.userId, avisados: e.avisos.map((a) => a.taskId), reintentar: [], recordatorios: [],
+      tocaResumen: e.tocaResumen, reparar: e.reparar, dia: e.dia, correos: 0, leidoEn: e.leidoEn,
+    });
+    const despues = (await t.run((ctx) => ctx.db.get(taskId)))!;
     expect(reloj(despues.nextReminderAt!)).toBe('11 08:00');
     vi.useRealTimers();
   });

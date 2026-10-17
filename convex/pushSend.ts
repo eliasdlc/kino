@@ -22,7 +22,9 @@ import type { Entrega } from './notifications';
 //
 // Quedan por tanto **exentos a propósito**, y el límite de la exención es que
 // una pasada del cron no mande una ráfaga a la misma persona: los avisos de
-// tareas de una vuelta viajan agrupados en uno solo.
+// tareas de una vuelta viajan agrupados en uno solo. La única excepción es la
+// vuelta del resumen, que suma hasta tres preguntas «¿Ya hiciste esto?», una por
+// push, porque una pregunta agrupada no se puede contestar con un toque.
 
 function vapidConfigured(): boolean {
   if (!process.env.VAPID_PUBLIC_KEY || !process.env.VAPID_PRIVATE_KEY) return false;
@@ -76,6 +78,7 @@ export const sendTaskReminders = internalAction({
         reparar: entrega.reparar,
         dia: entrega.dia,
         correos: registro.correos,
+        leidoEn: entrega.leidoEn,
       });
     }
     return { notified, push, correo: correoConfigurado() };
