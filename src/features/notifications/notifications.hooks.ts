@@ -73,7 +73,11 @@ async function conClaveActual(
   publicKey: string,
   olvidar: Servidor['olvidar'],
 ): Promise<PushSubscription | null> {
-  if (sub && !otraClave(sub, publicKey)) return sub;
+  if (sub && !otraClave(sub, publicKey)) {
+    // Una vuelta anterior pudo terminar sin llegar a borrar su marca.
+    localStorage.removeItem(A_MEDIAS);
+    return sub;
+  }
   if (!sub && !localStorage.getItem(A_MEDIAS)) return null;
   localStorage.setItem(A_MEDIAS, '1');
   if (sub) {
@@ -172,6 +176,8 @@ export function usePushNotifications() {
 
   async function unsubscribe() {
     try {
+      // Desactivar a propósito no deja nada a medias que la app deba terminar.
+      localStorage.removeItem(A_MEDIAS);
       const reg = await pushRegistration();
       const sub = await reg.pushManager.getSubscription();
       if (sub) {

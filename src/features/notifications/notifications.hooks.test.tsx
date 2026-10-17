@@ -147,3 +147,13 @@ it('leaves alone a device that turned notifications off on purpose', async () =>
   expect(subscribe).not.toHaveBeenCalled();
   expect(convex.calls).toEqual([]);
 });
+
+it('forgets a stale half-made mark once the subscription is good, so turning off later stays off', async () => {
+  vi.stubEnv('NEXT_PUBLIC_VAPID_PUBLIC_KEY', 'AQID');
+  localStorage.setItem('kino-push-a-medias', '1');
+  getSubscription.mockResolvedValue({ endpoint, options: { applicationServerKey: new Uint8Array([1, 2, 3]).buffer }, toJSON: () => ({ endpoint, keys: { auth: 'a', p256dh: 'p' } }) });
+  const convex = makeTestConvexClient([], [stubMutation(api.notifications.subscribe, { ok: true })]);
+  renderWithProviders(<Keeper />, { convex });
+  await waitFor(() => expect(convex.calls.filter((c) => c.name === 'notifications:subscribe')).toHaveLength(1));
+  expect(localStorage.getItem('kino-push-a-medias')).toBeNull();
+});
