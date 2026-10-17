@@ -49,7 +49,7 @@ function canalesDe(ctx: Pick<ActionCtx, 'runQuery' | 'runMutation'>, userId: Id<
 
 export const sendTaskReminders = internalAction({
   args: {},
-  returns: v.object({ notified: v.number(), push: v.boolean(), correo: v.boolean() }),
+  returns: v.object({ notified: v.number(), push: v.boolean(), correo: v.boolean(), rechazados: v.number() }),
   handler: async (ctx) => {
     const push = vapidConfigured();
     // Sin push ni correo el cron no tiene por dónde avisar, y lo dice en su
@@ -66,9 +66,11 @@ export const sendTaskReminders = internalAction({
     }
 
     let notified = 0;
+    let rechazados = 0;
     for (const entrega of entregas) {
       const { registro, notified: n } = await repartir(entrega, canalesDe(ctx, entrega.userId, entrega.email, push));
       notified += n;
+      rechazados += registro.rechazados;
       await ctx.runMutation(internal.notifications.registrar, {
         userId: entrega.userId,
         avisados: registro.avisados,
@@ -82,7 +84,9 @@ export const sendTaskReminders = internalAction({
         leidoEn: entrega.leidoEn,
       });
     }
-    return { notified, push, correo: correoConfigurado() };
+    // `rechazados` queda en `cronRuns`: un remitente sin dominio verificado
+    // no falla en ningún otro sitio que se vea.
+    return { notified, push, correo: correoConfigurado(), rechazados };
   },
 });
 

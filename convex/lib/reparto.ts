@@ -50,6 +50,8 @@ export interface Registro {
   reintentar: Id<'tasks'>[];
   recordatorios: Id<'taskReminders'>[];
   correos: number;
+  /** Correos que Resend no va a aceptar nunca: se cuentan para que se vean en `cronRuns`. */
+  rechazados: number;
 }
 
 const enlaceTarea = (taskId: string) => `/tasks?tarea=${taskId}`;
@@ -164,7 +166,7 @@ export function correoAvisos(
  * haría llegar); uno que tenía canal y falló se reintenta.
  */
 export async function repartir(entrega: Entrega, canales: Canales): Promise<{ registro: Registro; notified: number }> {
-  const registro: Registro = { avisados: [], reintentar: [], recordatorios: [], correos: 0 };
+  const registro: Registro = { avisados: [], reintentar: [], recordatorios: [], correos: 0, rechazados: 0 };
   let notified = 0;
   const correo = entrega.correo ? canales.correo : null;
   const quedanCorreos = () => entrega.correosHoy + registro.correos < TOPE_CORREOS_DIA;
@@ -174,7 +176,9 @@ export async function repartir(entrega: Entrega, canales: Canales): Promise<{ re
     if (push.entregado) notified += 1;
     // El resumen va siempre también por correo: es el aviso del día y no gasta
     // del tope de respaldo.
-    if (correo && (await correo(correoResumen(entrega.resumen, canales.appUrl))) === 'enviado') notified += 1;
+    const envioResumen = correo ? await correo(correoResumen(entrega.resumen, canales.appUrl)) : null;
+    if (envioResumen === 'enviado') notified += 1;
+    if (envioResumen === 'rechazado') registro.rechazados += 1;
   }
 
   // Una pregunta sin sus botones no sirve: sin enlace firmado no sale. Tampoco
@@ -224,8 +228,9 @@ export async function repartir(entrega: Entrega, canales: Canales): Promise<{ re
       notified += avisosPendientes.length + sinCorreo.length;
     } else if (envio === 'rechazado') {
       // Resend no va a aceptar nunca este correo: insistir cada quince minutos
-      // sólo gastaría el cupo diario de toda la cuenta. Avanza como un aviso
-      // sin ningún canal posible, igual que una suscripción push caducada.
+      // sólo gastaría peticiones de toda la cuenta. Avanza como un aviso sin
+      // ningún canal posible, igual que una suscripción push caducada.
+      registro.rechazados += 1;
       registro.avisados.push(...avisosPendientes.map((a) => a.taskId));
       registro.recordatorios.push(...sinCorreo.map((r) => r.id));
     } else {

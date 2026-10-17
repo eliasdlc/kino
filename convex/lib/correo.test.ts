@@ -2,10 +2,11 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { enviarCorreo } from './correo';
 
 /**
- * Qué se prueba: cómo se lee la respuesta de Resend. Un 4xx que no es de ritmo
- * es un rechazo para siempre (dominio sin verificar, dirección inválida) y no
- * se reintenta; un 429, un 5xx o la red caída son pasajeros. Antes todo era
- * `false` y todo se reintentaba cada quince minutos.
+ * Qué se prueba: cómo se lee la respuesta de Resend. Sólo un `validation_error`
+ * que no es de autenticación es un rechazo para siempre (dominio sin verificar,
+ * destinatario que onboarding@resend.dev no admite, dirección inválida) y no se
+ * reintenta. Una clave mala, el ritmo, el servidor o la red se reintentan. Las
+ * respuestas son las que Resend dio el 17 de octubre de 2026 a la clave real.
  */
 
 const correo = { asunto: 'a', texto: 't', html: '<p>t</p>' };
@@ -15,35 +16,46 @@ afterEach(() => {
   vi.unstubAllGlobals();
 });
 
-function conRespuesta(status: number | 'red') {
+function conRespuesta(status: number | 'red', name?: string) {
   vi.stubEnv('RESEND_API_KEY', 're_prueba');
   vi.stubEnv('RESEND_FROM', 'Kino <onboarding@resend.dev>');
   vi.stubGlobal(
     'fetch',
     vi.fn(async () => {
       if (status === 'red') throw new Error('sin red');
-      return new Response('{}', { status });
+      return new Response(name ? JSON.stringify({ statusCode: status, name, message: 'x' }) : 'no es json', { status });
     }),
   );
 }
 
+const enviar = () => enviarCorreo('ana@usekino.dev', correo);
+
 describe('la respuesta de Resend', () => {
   it('2xx es enviado', async () => {
     conRespuesta(200);
-    expect(await enviarCorreo('ana@usekino.dev', correo)).toBe('enviado');
+    expect(await enviar()).toBe('enviado');
   });
 
-  it('403 por dominio sin verificar y 422 por dirección inválida son rechazos', async () => {
-    conRespuesta(403);
-    expect(await enviarCorreo('ana@usekino.dev', correo)).toBe('rechazado');
-    conRespuesta(422);
-    expect(await enviarCorreo('ana@usekino.dev', correo)).toBe('rechazado');
+  it('dominio sin verificar, destinatario no admitido o dirección inválida: rechazo', async () => {
+    conRespuesta(403, 'validation_error');
+    expect(await enviar()).toBe('rechazado');
+    conRespuesta(422, 'validation_error');
+    expect(await enviar()).toBe('rechazado');
   });
 
-  it('429, 5xx y la red caída son pasajeros', async () => {
-    for (const status of [429, 500, 503, 'red'] as const) {
-      conRespuesta(status);
-      expect(await enviarCorreo('ana@usekino.dev', correo)).toBe('fallo');
+  it('una clave inválida o restringida es de toda la cuenta: se reintenta', async () => {
+    conRespuesta(401, 'validation_error');
+    expect(await enviar()).toBe('fallo');
+    conRespuesta(401, 'missing_api_key');
+    expect(await enviar()).toBe('fallo');
+    conRespuesta(403, 'restricted_api_key');
+    expect(await enviar()).toBe('fallo');
+  });
+
+  it('ritmo, servidor, red o un cuerpo que no se entiende: se reintenta', async () => {
+    for (const [status, name] of [[429, 'rate_limit_exceeded'], [500, 'internal_server_error'], [503, undefined], [403, undefined], ['red', undefined]] as const) {
+      conRespuesta(status, name);
+      expect(await enviar()).toBe('fallo');
     }
   });
 
@@ -51,7 +63,7 @@ describe('la respuesta de Resend', () => {
     vi.stubEnv('RESEND_API_KEY', '');
     const fetchMock = vi.fn();
     vi.stubGlobal('fetch', fetchMock);
-    expect(await enviarCorreo('ana@usekino.dev', correo)).toBe('fallo');
+    expect(await enviar()).toBe('fallo');
     expect(fetchMock).not.toHaveBeenCalled();
   });
 });
