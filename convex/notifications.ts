@@ -8,7 +8,7 @@ import { kinoAction, kinoZodMutation, kinoZodQuery } from './lib/fn';
 import { internal } from './_generated/api';
 import { userToday } from './lib/time';
 import { ajustesDeAviso, avisable, calcularAviso, deFila, recalcularAviso, type AjustesDeAviso } from './lib/avisos';
-import { armarResumen, estadoDe, proximoResumen, type Resumen } from './lib/recordatorios';
+import { armarResumen, estadoDe, preguntasDelDia, proximoResumen, type Resumen } from './lib/recordatorios';
 import { effectivePriority, type Priority } from '../src/shared/lib/effective-priority';
 import { completarDesdeAviso } from './tasks';
 
@@ -147,8 +147,14 @@ export interface Entrega {
   /** `true` si a esta persona le tocaba el resumen en esta vuelta, haya o no algo que decir. */
   tocaResumen: boolean;
   resumen: Resumen | null;
+  /** Las vencidas por las que se pregunta «¿Ya hiciste esto?» hoy: sólo con el resumen. */
+  preguntas: AvisoDeTarea[];
   /** Tareas cuyo próximo aviso escrito no es el que toca: el resumen las repara. */
   reparar: Id<'tasks'>[];
+  /** El próximo aviso que tenía cada tarea de `reparar` al leerla, en el mismo orden. */
+  repararVisto: Array<number | null>;
+  /** Cuándo se leyó la tanda: lo que ya avisa después de esto lo movió otro. */
+  leidoEn: number;
 }
 
 /**
@@ -259,7 +265,10 @@ function vacia(
     recordatorios: [],
     tocaResumen,
     resumen: null,
+    preguntas: [],
     reparar: [],
+    repararVisto: [],
+    leidoEn: now,
   };
 }
 
@@ -277,7 +286,19 @@ async function llenarResumen(ctx: QueryCtx, entrega: Entrega, userId: Id<'users'
     ajustes,
     now,
   );
-  entrega.reparar = conFecha.filter((t) => calcularAviso(t, ajustes, now) !== t.nextReminderAt).map((t) => t._id);
+  const aReparar = conFecha.filter((t) => calcularAviso(t, ajustes, now) !== t.nextReminderAt);
+  entrega.reparar = aReparar.map((t) => t._id);
+  entrega.repararVisto = aReparar.map((t) => t.nextReminderAt ?? null);
+  // Las preguntas viajan con el resumen porque es la única lectura del día que
+  // ya tiene todas las vencidas delante: así salen como mucho tres al día sin
+  // llevar la cuenta en ningún sitio.
+  entrega.preguntas = preguntasDelDia(entrega.resumen?.vencidas ?? [], ajustes.tz, now).map((t) => ({
+    taskId: t.id as Id<'tasks'>,
+    title: t.title,
+    texto: `Vencida hace ${t.dias} días`,
+    vencida: true,
+    priority: effectivePriority(t.priority, t.dueDate, now).priority,
+  }));
 }
 
 /**
@@ -287,6 +308,14 @@ async function llenarResumen(ctx: QueryCtx, entrega: Entrega, userId: Id<'users'
  * siguiente punto del calendario. Uno que tenía canal y falló en todos se
  * reintenta en quince minutos: marcarlo como avisado le quitaba el reintento
  * para siempre.
+ *
+ * Entre la lectura de la tanda y esta escritura pasan los envíos, y en ese
+ * rato la persona puede contestar desde la notificación («En 1 h», «Todavía
+ * no») o editar la fecha. Quien movió el próximo aviso ya decidió su hora, y
+ * se nota sin marca aparte: una tarea avisada se leyó con su aviso vencido
+ * (`by_nextReminder` hasta `leidoEn`), así que uno posterior a `leidoEn` lo
+ * escribió otro; una tarea a reparar se compara con el valor que se leyó. Se
+ * cuenta el aviso, pero no se reescribe su hora.
  */
 export const registrar = internalMutation({
   args: {
@@ -298,29 +327,35 @@ export const registrar = internalMutation({
     reparar: v.array(v.id('tasks')),
     dia: v.string(),
     correos: v.number(),
+    /** Opcionales sólo para el cron que esté corriendo durante el deploy. */
+    leidoEn: v.optional(v.number()),
+    repararVisto: v.optional(v.array(v.union(v.number(), v.null()))),
   },
   handler: async (ctx, args) => {
     const now = Date.now();
     const user = await ctx.db.get(args.userId);
     if (!user) return null;
     const ajustes = await ajustesDeAviso(ctx, user);
+    const movidaDespues = (task: Doc<'tasks'>) =>
+      args.leidoEn !== undefined && task.nextReminderAt !== undefined && task.nextReminderAt > args.leidoEn;
     for (const id of args.avisados) {
       const task = await ctx.db.get(id);
       if (!task) continue;
       await ctx.db.patch(id, {
         lastRemindedAt: now,
         reminderCount: task.reminderCount + 1,
-        nextReminderAt: calcularAviso(task, ajustes, now),
+        ...(movidaDespues(task) ? {} : { nextReminderAt: calcularAviso(task, ajustes, now) }),
       });
     }
     for (const id of args.reintentar) {
       const task = await ctx.db.get(id);
-      if (task && avisable(task)) await ctx.db.patch(id, { nextReminderAt: now + REINTENTO_MS });
+      if (task && avisable(task) && !movidaDespues(task)) await ctx.db.patch(id, { nextReminderAt: now + REINTENTO_MS });
     }
     for (const id of args.recordatorios) await ctx.db.patch(id, { sentAt: now });
-    for (const id of args.reparar) {
+    for (const [i, id] of args.reparar.entries()) {
       const task = await ctx.db.get(id);
-      if (task) await recalcularAviso(ctx, task, ajustes, now);
+      const visto = args.repararVisto?.[i];
+      if (task && (visto === undefined || (task.nextReminderAt ?? null) === visto)) await recalcularAviso(ctx, task, ajustes, now);
     }
     const fila = await ctx.db.query('userSettings').withIndex('by_user', (q) => q.eq('userId', args.userId)).unique();
     if (fila) {
@@ -360,12 +395,14 @@ export const limpiar = internalMutation({
  * Lo que hace un botón de la notificación. Entra por `convex/http.ts`, que ya
  * comprobó la firma del enlace: aquí sólo se sabe de qué tarea es.
  *
- * Las dos acciones son reversibles, que es lo que permite ofrecerlas sin
- * sesión: «Hecha» se deshace desde la app como cualquier cierre, y «En 1 h»
- * sólo mueve un aviso.
+ * Las tres acciones son reversibles, que es lo que permite ofrecerlas sin
+ * sesión: «Hecha» se deshace desde la app como cualquier cierre, y «En 1 h» y
+ * «Todavía no» sólo mueven un aviso. «Todavía no» calla la tarea hasta el
+ * próximo resumen y no toca su fecha: la fecha de una entrega es la de quien la
+ * pidió, y moverla escondería que está vencida.
  */
 export const accionDesdeAviso = internalMutation({
-  args: { taskId: v.id('tasks'), accion: v.union(v.literal('hecha'), v.literal('posponer')) },
+  args: { taskId: v.id('tasks'), accion: v.union(v.literal('hecha'), v.literal('posponer'), v.literal('manana')) },
   handler: async (ctx, { taskId, accion }) => {
     const task = await ctx.db.get(taskId);
     if (!task || task.deletedAt !== undefined) return { ok: false as const };
@@ -373,7 +410,18 @@ export const accionDesdeAviso = internalMutation({
       if (task.status !== 'done') await completarDesdeAviso(ctx, task);
       return { ok: true as const };
     }
-    if (avisable(task)) await ctx.db.patch(taskId, { nextReminderAt: Date.now() + POSPONER_MS });
+    if (!avisable(task)) return { ok: true as const };
+    if (accion === 'posponer') {
+      await ctx.db.patch(taskId, { nextReminderAt: Date.now() + POSPONER_MS });
+      return { ok: true as const };
+    }
+    const user = await ctx.db.get(task.userId);
+    if (!user) return { ok: false as const };
+    const ajustes = await ajustesDeAviso(ctx, user);
+    // Con los avisos apagados no hay a qué hora volver: se queda sin aviso.
+    await ctx.db.patch(taskId, {
+      nextReminderAt: ajustes.activos ? proximoResumen(ajustes.tz, ajustes.resumen, Date.now()) : undefined,
+    });
     return { ok: true as const };
   },
 });

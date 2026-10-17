@@ -16,6 +16,8 @@ export interface Payload {
   tag?: string;
   /** Los botones «Hecha» y «En 1 h». Sólo cuando el aviso es de una sola tarea. */
   accion?: { endpoint: string; token: string };
+  /** Con `accion`, los botones pasan a ser «Sí, hecha» y «Todavía no». */
+  pregunta?: boolean;
 }
 
 export interface Correo {
@@ -79,6 +81,15 @@ export function avisosPayload(avisos: AvisoDeTarea[]): Payload {
     url: '/tasks',
     tag: 'avisos',
   };
+}
+
+/**
+ * «¿Ya hiciste esto?» sobre una vencida: la pregunta de título, porque es lo que
+ * se lee con la pantalla bloqueada, y su propio `tag`, para no sustituir al
+ * aviso normal de esa tarea si sigue en pantalla.
+ */
+export function preguntaPayload(a: AvisoDeTarea, accion: { endpoint: string; token: string }): Payload {
+  return { title: '¿Ya hiciste esto?', body: `${a.title}. ${a.texto}.`, url: enlaceTarea(a.taskId), tag: `pregunta-${a.taskId}`, accion, pregunta: true };
 }
 
 export function resumenPayload(r: Resumen): Payload {
@@ -163,6 +174,14 @@ export async function repartir(entrega: Entrega, canales: Canales): Promise<{ re
     // El resumen va siempre también por correo: es el aviso del día y no gasta
     // del tope de respaldo.
     if (correo && (await correo(correoResumen(entrega.resumen, canales.appUrl)))) notified += 1;
+  }
+
+  // Una pregunta sin sus botones no sirve: sin enlace firmado no sale. Tampoco
+  // va por correo ni se reintenta; mañana toca otra tanda.
+  for (const p of entrega.preguntas) {
+    const accion = await canales.firmar(p.taskId);
+    if (!accion) continue;
+    if ((await canales.push(preguntaPayload(p, accion))).entregado) notified += 1;
   }
 
   const sinCorreo: Entrega['recordatorios'] = [];
