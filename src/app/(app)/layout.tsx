@@ -20,6 +20,7 @@ import { FocusTimerModeDialog } from "@/features/tasks/FocusTimerModeDialog";
 import { getServerSession } from "@/shared/utils/session";
 import { AnalyticsIdentity } from "@/shared/observability/AnalyticsIdentity";
 import { ActiveSince } from "@/features/account/ActiveSince";
+import { MantenerAvisos } from "@/features/notifications/MantenerAvisos";
 
 export default async function AppLayout({
   children,
@@ -47,6 +48,8 @@ export default async function AppLayout({
       <AnalyticsIdentity userId={user._id} />
       {/* Deja constancia de que la cuenta sigue viva; como mucho una vez al día. */}
       <ActiveSince />
+      {/* Rehace la suscripción push de este dispositivo si caducó o cambió de clave. */}
+      <MantenerAvisos />
       {/* Aplica el tema de la cuenta antes de la primera pintura cuando este
           dispositivo todavía no tiene uno propio. Ver `theme-script`. */}
       <script dangerouslySetInnerHTML={{ __html: accountThemeScript(theme) }} />
