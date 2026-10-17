@@ -12,21 +12,46 @@ export function correoConfigurado(): boolean {
   return Boolean(process.env.RESEND_API_KEY && process.env.RESEND_FROM);
 }
 
-/** `true` si Resend aceptó el correo. Nunca lanza: un correo fallido es un canal menos, no un cron roto. */
-export async function enviarCorreo(para: string, correo: Correo): Promise<boolean> {
+/**
+ * Lo que pasó con un correo. `rechazado` es un veredicto de Resend sobre esta
+ * persona que no se arregla insistiendo, y son sólo dos: la dirección inválida
+ * (422 `validation_error` sobre el campo `to`; sobre `from` es un
+ * `RESEND_FROM` mal escrito, de toda la cuenta) y el destinatario que el remitente de pruebas no
+ * admite (403 `validation_error`, «sólo puedes enviar a tu propio correo»: con
+ * `onboarding@resend.dev` Resend sólo escribe al dueño de la cuenta).
+ *
+ * Todo lo demás es `fallo` y se reintenta, y es a propósito el lado ancho. Una
+ * clave mala (400 o 401 `validation_error`), restringida o suspendida, un
+ * dominio sin verificar, un cuerpo de petición roto o un mensaje que Resend
+ * cambie mañana son fallos de la cuenta entera: darlos por perdidos haría
+ * avanzar en silencio el aviso de todo el mundo, y reintentarlos hace ruido.
+ * Probado contra Resend el 17 de octubre de 2026 con la clave real; la lista de
+ * errores es https://resend.com/docs/api-reference/errors.
+ */
+export type EnvioCorreo = 'enviado' | 'rechazado' | 'fallo';
+
+/** Nunca lanza: un correo fallido es un canal menos, no un cron roto. */
+export async function enviarCorreo(para: string, correo: Correo): Promise<EnvioCorreo> {
   const clave = process.env.RESEND_API_KEY;
   const de = process.env.RESEND_FROM;
-  if (!clave || !de) return false;
+  if (!clave || !de) return 'fallo';
   try {
     const res = await fetch('https://api.resend.com/emails', {
       method: 'POST',
       headers: { Authorization: `Bearer ${clave}`, 'Content-Type': 'application/json' },
       body: JSON.stringify({ from: de, to: [para], subject: correo.asunto, text: correo.texto, html: correo.html }),
     });
-    if (!res.ok) console.warn(`[avisos] Resend rechazó el correo (${res.status})`);
-    return res.ok;
+    if (res.ok) return 'enviado';
+    const cuerpo: unknown = await res.json().catch(() => null);
+    const campo = (k: string) => (cuerpo && typeof cuerpo === 'object' && k in cuerpo ? String((cuerpo as Record<string, unknown>)[k]) : '');
+    const nombre = campo('name') || 'sin cuerpo';
+    console.warn(`[avisos] Resend no aceptó el correo (${res.status}, ${nombre})`);
+    const validacion = nombre === 'validation_error';
+    const direccionInvalida = res.status === 422 && validacion && /invalid `to` field/i.test(campo('message'));
+    const soloAlDueno = res.status === 403 && validacion && /your own email address/i.test(campo('message'));
+    return direccionInvalida || soloAlDueno ? 'rechazado' : 'fallo';
   } catch {
     console.warn('[avisos] Resend no respondió');
-    return false;
+    return 'fallo';
   }
 }

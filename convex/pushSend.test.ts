@@ -46,7 +46,7 @@ it('without both VAPID keys push counts as unconfigured and nothing is sent', as
   const userId = await user.mutation(api.users.ensure, {});
   await user.mutation(api.notifications.subscribe, { endpoint: 'https://fixture.invalid/phone', keys: { auth: 'a', p256dh: 'p' } });
   expect(await t.action(internal.pushSend.enviarPrueba, { userId })).toMatchObject({ pushConfigurado: false, push: false, dispositivos: 0 });
-  expect(await t.action(internal.pushSend.sendTaskReminders, {})).toMatchObject({ push: false });
+  expect(await t.action(internal.pushSend.sendTaskReminders, {})).toMatchObject({ push: false, rechazados: 0 });
   expect(setVapidDetails).not.toHaveBeenCalled();
   expect(sendNotification).not.toHaveBeenCalled();
 
