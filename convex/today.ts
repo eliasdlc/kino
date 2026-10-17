@@ -8,7 +8,8 @@ import type { Doc, Id } from './_generated/dataModel';
 import type { MutationCtx, QueryCtx } from './_generated/server';
 import { interruptionKind, type InterruptionKind } from './schema';
 import { laInterrupcion, type Candidato } from './lib/today/queue';
-import { calendarDayInTz, userToday } from './lib/time';
+import { userToday } from './lib/time';
+import { diaDeVencimiento } from './lib/recordatorios';
 import { estadoDeHonestidad, techoPropuesto } from './energy';
 import { caducada, evidenciaViva, type Cancelable } from './proposals';
 import { weekdayOf } from '../src/features/energy/energy.ritual';
@@ -174,7 +175,7 @@ async function candidatoRitual(ctx: Ctx, user: Doc<'users'>, now: number): Promi
     .withIndex('by_user_alive_status', (q) => q.eq('userId', user._id).eq('deletedAt', undefined))
     .collect();
   const vencidas = tareas.filter(
-    (t) => t.parentTaskId === undefined && t.status !== 'done' && t.dueDate !== undefined && calendarDayInTz(t.dueDate, user.timezone) < hoy,
+    (t) => t.parentTaskId === undefined && t.status !== 'done' && t.dueDate !== undefined && diaDeVencimiento(t.dueDate, user.timezone) < hoy,
   );
   if (vencidas.length === 0) return null;
   return { kind: 'ritual', key: hoy, payload: { vencidas: vencidas.length } };
