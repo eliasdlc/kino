@@ -13,18 +13,19 @@ export function correoConfigurado(): boolean {
 }
 
 /**
- * Lo que pasó con un correo. `rechazado` es el `validation_error` de Resend, que
- * es un veredicto sobre este correo y no se arregla insistiendo: un remitente de
- * un dominio sin verificar (con `onboarding@resend.dev` sólo se puede escribir
- * al dueño de la cuenta), una dirección inválida. Todo lo demás es `fallo` y se
- * reintenta: lo pasajero (ritmo, servidor, red) y también una clave revocada o
- * restringida, porque eso es un fallo de configuración de toda la cuenta, y
- * darlo por perdido haría avanzar en silencio el aviso de todo el mundo.
+ * Lo que pasó con un correo. `rechazado` es un veredicto de Resend sobre esta
+ * persona que no se arregla insistiendo, y son sólo dos: la dirección inválida
+ * (422 `validation_error`) y el destinatario que el remitente de pruebas no
+ * admite (403 `validation_error`, «sólo puedes enviar a tu propio correo»: con
+ * `onboarding@resend.dev` Resend sólo escribe al dueño de la cuenta).
  *
- * Hace falta el código y el nombre a la vez. Probado contra Resend el 17 de
- * octubre de 2026: el dominio sin verificar y el destinatario no admitido dan
- * 403 `validation_error`, la dirección inválida 422 `validation_error`, y una
- * clave inválida 401 `validation_error` también.
+ * Todo lo demás es `fallo` y se reintenta, y es a propósito el lado ancho. Una
+ * clave mala (400 o 401 `validation_error`), restringida o suspendida, un
+ * dominio sin verificar, un cuerpo de petición roto o un mensaje que Resend
+ * cambie mañana son fallos de la cuenta entera: darlos por perdidos haría
+ * avanzar en silencio el aviso de todo el mundo, y reintentarlos hace ruido.
+ * Probado contra Resend el 17 de octubre de 2026 con la clave real; la lista de
+ * errores es https://resend.com/docs/api-reference/errors.
  */
 export type EnvioCorreo = 'enviado' | 'rechazado' | 'fallo';
 
@@ -41,9 +42,13 @@ export async function enviarCorreo(para: string, correo: Correo): Promise<EnvioC
     });
     if (res.ok) return 'enviado';
     const cuerpo: unknown = await res.json().catch(() => null);
-    const nombre = cuerpo && typeof cuerpo === 'object' && 'name' in cuerpo ? String(cuerpo.name) : 'sin cuerpo';
-    console.warn(`[avisos] Resend rechazó el correo (${res.status}, ${nombre})`);
-    return res.status !== 401 && nombre === 'validation_error' ? 'rechazado' : 'fallo';
+    const campo = (k: string) => (cuerpo && typeof cuerpo === 'object' && k in cuerpo ? String((cuerpo as Record<string, unknown>)[k]) : '');
+    const nombre = campo('name') || 'sin cuerpo';
+    console.warn(`[avisos] Resend no aceptó el correo (${res.status}, ${nombre})`);
+    const validacion = nombre === 'validation_error';
+    const direccionInvalida = res.status === 422 && validacion;
+    const soloAlDueno = res.status === 403 && validacion && /your own email address/i.test(campo('message'));
+    return direccionInvalida || soloAlDueno ? 'rechazado' : 'fallo';
   } catch {
     console.warn('[avisos] Resend no respondió');
     return 'fallo';

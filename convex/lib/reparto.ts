@@ -190,6 +190,8 @@ export async function repartir(entrega: Entrega, canales: Canales): Promise<{ re
   }
 
   const sinCorreo: Entrega['recordatorios'] = [];
+  /** Los que no tenían ningún dispositivo: un correo rechazado los deja sin canal. */
+  const sinDispositivo = new Set<string>();
   for (const r of entrega.recordatorios) {
     const accion = (await canales.firmar(r.taskId)) ?? undefined;
     const push = await canales.push({ title: r.label ?? 'Recordatorio', body: r.taskTitle, url: enlaceTarea(r.taskId), tag: `tarea-${r.taskId}`, accion });
@@ -201,10 +203,12 @@ export async function repartir(entrega: Entrega, canales: Canales): Promise<{ re
       registro.recordatorios.push(r.id);
     } else {
       sinCorreo.push(r);
+      if (push.intentos === 0) sinDispositivo.add(r.id);
     }
   }
 
   let avisosPendientes: AvisoDeTarea[] = [];
+  let avisosSinDispositivo = false;
   if (entrega.avisos.length) {
     const payload = avisosPayload(entrega.avisos);
     if (entrega.avisos.length === 1) payload.accion = (await canales.firmar(entrega.avisos[0]!.taskId)) ?? undefined;
@@ -216,6 +220,7 @@ export async function repartir(entrega: Entrega, canales: Canales): Promise<{ re
       registro.avisados.push(...entrega.avisos.map((a) => a.taskId));
     } else {
       avisosPendientes = entrega.avisos;
+      avisosSinDispositivo = push.intentos === 0;
     }
   }
 
@@ -227,12 +232,15 @@ export async function repartir(entrega: Entrega, canales: Canales): Promise<{ re
       registro.recordatorios.push(...sinCorreo.map((r) => r.id));
       notified += avisosPendientes.length + sinCorreo.length;
     } else if (envio === 'rechazado') {
-      // Resend no va a aceptar nunca este correo: insistir cada quince minutos
-      // sólo gastaría peticiones de toda la cuenta. Avanza como un aviso sin
-      // ningún canal posible, igual que una suscripción push caducada.
+      // Resend no va a aceptar nunca un correo para esta persona. Lo que
+      // tampoco tenía ningún dispositivo se queda sin canal posible y avanza,
+      // igual que con una suscripción push caducada: insistir cada quince
+      // minutos sólo gastaría peticiones. Lo que tenía dispositivo y falló por
+      // algo pasajero se reintenta, porque el push sí puede volver.
       registro.rechazados += 1;
-      registro.avisados.push(...avisosPendientes.map((a) => a.taskId));
-      registro.recordatorios.push(...sinCorreo.map((r) => r.id));
+      if (avisosSinDispositivo) registro.avisados.push(...avisosPendientes.map((a) => a.taskId));
+      else registro.reintentar.push(...avisosPendientes.map((a) => a.taskId));
+      registro.recordatorios.push(...sinCorreo.filter((r) => sinDispositivo.has(r.id)).map((r) => r.id));
     } else {
       registro.reintentar.push(...avisosPendientes.map((a) => a.taskId));
       // Los recordatorios sin enviar se quedan como están: el índice los

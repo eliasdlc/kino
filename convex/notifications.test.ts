@@ -131,11 +131,19 @@ describe('el reparto de una tanda', () => {
     expect(notified).toBe(0);
   });
 
-  it('un recordatorio puesto a mano cuyo correo se rechaza se da por visto', async () => {
-    const { c } = canales({ intentos: 1, entregado: false }, 'rechazado');
+  it('un recordatorio puesto a mano sin dispositivo y con el correo rechazado se da por visto', async () => {
+    const { c } = canales({ intentos: 0, entregado: false }, 'rechazado');
     const recordatorio = { id: 'rem-1' as Id<'taskReminders'>, taskId: 'task-9' as Id<'tasks'>, label: null, taskTitle: 'Llamar' };
     const { registro } = await repartir(tanda({ recordatorios: [recordatorio] }), c);
     expect(registro).toMatchObject({ recordatorios: ['rem-1'], rechazados: 1 });
+  });
+
+  it('con un dispositivo cuyo push falló, un correo rechazado no da nada por perdido', async () => {
+    // El push puede volver en la próxima vuelta; el correo rechazado no.
+    const { c } = canales({ intentos: 1, entregado: false }, 'rechazado');
+    const recordatorio = { id: 'rem-1' as Id<'taskReminders'>, taskId: 'task-9' as Id<'tasks'>, label: null, taskTitle: 'Llamar' };
+    const { registro } = await repartir(tanda({ avisos: [aviso(1)], recordatorios: [recordatorio] }), c);
+    expect(registro).toMatchObject({ avisados: [], reintentar: ['task-1'], recordatorios: [], rechazados: 1 });
   });
 
   it('un fallo pasajero del correo sí se reintenta', async () => {
