@@ -188,3 +188,88 @@ describe('lo que Elias ya decidió', () => {
     expect(despues.folderId).toBe(seguridad);
   });
 });
+
+describe('lo que la clase ya escribió', () => {
+  // La clase escribe la tarea apenas el profesor la anuncia, citando el cmid de
+  // la actividad; la PVA la publica después con otro id. Sin reconocerla, cada
+  // entrega aparecería dos veces en la carpeta.
+  async function conTareaDeClase(seedado: Awaited<ReturnType<typeof seed>>, over: { status?: 'backlog' | 'done'; description?: string } = {}) {
+    const { asAna, systemId, negocios } = seedado;
+    const tarea = await asAna.mutation(api.tasks.create, {
+      systemId,
+      folderId: negocios,
+      title: 'Hacer la Práctica I de BI con el dataset del profe',
+      description: over.description ?? 'Anunciada en la clase del 23 de septiembre. PVA cmid:3704387. Usar el dataset de ventas.',
+      dueDate: '2026-09-29T00:00:00.000Z',
+    });
+    if (over.status === 'done') await asAna.mutation(api.tasks.toggle, { id: tarea.id });
+    return tarea.id;
+  }
+
+  it('adopta la tarea de la clase que cita el mismo cmid en vez de crear otra', async () => {
+    const seedado = await seed();
+    const { t, userId, systemId } = seedado;
+    const id = await conTareaDeClase(seedado);
+    const cierre = Date.parse('2026-09-30T14:00:00.000Z');
+
+    const res = await t.mutation(internal.academico.sincronizar, {
+      userId,
+      systemId,
+      items: [item({ externalId: 'assign:634782', cmid: 3704387, title: 'Práctica I: Diseño e implementación', dueDate: cierre })],
+    });
+
+    expect(res).toMatchObject({ creadas: 0, adoptadas: 1 });
+    const todas = await tareas(t, userId);
+    expect(todas).toHaveLength(1);
+    const [tarea] = todas;
+    expect(tarea._id).toBe(id);
+    expect(tarea).toMatchObject({ externalSource: 'pva', externalId: 'assign:634782', dueDate: cierre });
+    // Lo que escribió la clase se queda: el aula sólo manda en la fecha.
+    expect(tarea.title).toBe('Hacer la Práctica I de BI con el dataset del profe');
+    expect(tarea.description).toContain('Usar el dataset de ventas');
+  });
+
+  it('una vez adoptada, los barridos siguientes no le cambian el título ni la descripción', async () => {
+    const seedado = await seed();
+    const { t, userId, systemId } = seedado;
+    await conTareaDeClase(seedado);
+    const base = item({ externalId: 'assign:634782', cmid: 3704387, title: 'Práctica I: Diseño e implementación' });
+    await t.mutation(internal.academico.sincronizar, { userId, systemId, items: [base] });
+    await t.mutation(internal.academico.sincronizar, {
+      userId,
+      systemId,
+      items: [{ ...base, title: 'Práctica I (corregida)', description: 'Consigna de la plataforma' }],
+    });
+    const [tarea] = await tareas(t, userId);
+    expect(tarea.title).toBe('Hacer la Práctica I de BI con el dataset del profe');
+    expect(tarea.description).toContain('Usar el dataset de ventas');
+  });
+
+  it('una tarea de clase ya hecha se adopta y sigue hecha, sin crear otra', async () => {
+    const seedado = await seed();
+    const { t, userId, systemId } = seedado;
+    await conTareaDeClase(seedado, { status: 'done' });
+    const res = await t.mutation(internal.academico.sincronizar, {
+      userId,
+      systemId,
+      items: [item({ externalId: 'assign:634782', cmid: 3704387, dueDate: Date.parse('2026-10-30T14:00:00.000Z') })],
+    });
+    expect(res).toMatchObject({ creadas: 0, adoptadas: 1 });
+    const todas = await tareas(t, userId);
+    expect(todas).toHaveLength(1);
+    expect(todas[0]!.status).toBe('done');
+  });
+
+  it('sin un cmid que coincida, crea la tarea como siempre', async () => {
+    const seedado = await seed();
+    const { t, userId, systemId } = seedado;
+    await conTareaDeClase(seedado);
+    const res = await t.mutation(internal.academico.sincronizar, {
+      userId,
+      systemId,
+      items: [item({ externalId: 'assign:634790', cmid: 3711111 }), item({ externalId: 'assign:634791' })],
+    });
+    expect(res).toMatchObject({ creadas: 2, adoptadas: 0 });
+    expect(await tareas(t, userId)).toHaveLength(3);
+  });
+});

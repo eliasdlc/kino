@@ -43,6 +43,12 @@ const itemSchema = z.object({
   url: z.string().max(500).optional(),
   /** Cierre publicado por la plataforma, en epoch ms. Moodle lo da en UTC. */
   dueDate: z.number().int().positive().optional(),
+  /**
+   * El id de la actividad en la página del curso (`view.php?id=`). Es el número
+   * que la clase cita cuando escribe la tarea («PVA cmid:3704387»), y por eso es
+   * lo que permite reconocer como la misma una tarea que nació de la clase.
+   */
+  cmid: z.number().int().positive().optional(),
 });
 
 export const academicoSchema = z.object({
@@ -132,11 +138,24 @@ function carpetaDe(mapa: Map<string, Id<'folders'>>, item: AcademicoItem): Id<'f
   return parecidas.length === 1 ? parecidas[0][1] : undefined;
 }
 
+/** Los `cmid` que cita el texto de una tarea: «PVA cmid:3704387», «cmid 3704387». */
+export function cmidsCitados(texto: string | undefined): number[] {
+  if (!texto) return [];
+  return [...texto.matchAll(/cmid\s*[:#]?\s*(\d{4,})/gi)].map((m) => Number(m[1]));
+}
+
+/** Una tarea que nació de la clase y el barrido adoptó: su título y su texto son de Elias. */
+const adoptada = (tarea: Doc<'tasks'>) =>
+  Boolean(tarea.metadata && typeof tarea.metadata === 'object' && 'adoptadaDeClase' in tarea.metadata);
+
 /** Lo que el barrido cambiaría de una tarea que ya existe. Vacío significa que no se toca. */
 function cambios(tarea: Doc<'tasks'>, item: AcademicoItem, folderId: Id<'folders'> | undefined) {
   const patch: Partial<Doc<'tasks'>> = {};
-  if (item.title !== tarea.title) patch.title = item.title;
-  if (item.description !== undefined && item.description !== tarea.description) patch.description = item.description;
+  // Una tarea adoptada conserva lo que escribió la clase: el aula sólo manda en
+  // la fecha. Su título es el de la clase, y su descripción trae el contexto
+  // que la consigna de la plataforma no tiene.
+  if (!adoptada(tarea) && item.title !== tarea.title) patch.title = item.title;
+  if (!adoptada(tarea) && item.description !== undefined && item.description !== tarea.description) patch.description = item.description;
   if (item.dueDate !== undefined && item.dueDate !== tarea.dueDate) patch.dueDate = item.dueDate;
   // La carpeta solo se rellena, nunca se mueve: si Elias la cambió de sitio, el
   // barrido no tiene por qué saber más que él.
@@ -169,6 +188,7 @@ export const sincronizar = internalMutation({
         description: v.optional(v.string()),
         url: v.optional(v.string()),
         dueDate: v.optional(v.number()),
+        cmid: v.optional(v.number()),
       }),
     ),
   },
@@ -176,6 +196,7 @@ export const sincronizar = internalMutation({
     creadas: v.number(),
     actualizadas: v.number(),
     sinCambio: v.number(),
+    adoptadas: v.number(),
     sinCarpeta: v.array(v.string()),
   }),
   handler: async (ctx, { userId, systemId, items }) => {
@@ -185,7 +206,28 @@ export const sincronizar = internalMutation({
     let creadas = 0;
     let actualizadas = 0;
     let sinCambio = 0;
+    let adoptadas = 0;
     const sinCarpeta: string[] = [];
+
+    // Las tareas que la clase ya escribió citando un `cmid`, para no duplicar lo
+    // que la PVA publica después. Se leen una vez por envío y sólo si hace
+    // falta: el barrido corre cada seis horas, casi siempre sin nada nuevo, y
+    // las tareas vivas de un sistema son las de un cuatrimestre.
+    let porCmid: Map<number, Doc<'tasks'>> | null = null;
+    const deClase = async (cmid: number) => {
+      if (!porCmid) {
+        porCmid = new Map();
+        const vivas = await ctx.db
+          .query('tasks')
+          .withIndex('by_system_alive_status', (q) => q.eq('systemId', systemId).eq('deletedAt', undefined))
+          .collect();
+        for (const tarea of vivas) {
+          if (tarea.userId !== userId || tarea.externalSource !== undefined) continue;
+          for (const citado of cmidsCitados(tarea.description)) if (!porCmid.has(citado)) porCmid.set(citado, tarea);
+        }
+      }
+      return porCmid.get(cmid);
+    };
 
     // El orden de llegada decide el sitio en la lista, y el barrido manda lo más
     // viejo primero, así que lo recién publicado queda arriba.
@@ -223,6 +265,21 @@ export const sincronizar = internalMutation({
         continue;
       }
 
+      // La clase ya la escribió citando el mismo `cmid`: se adopta en vez de
+      // crear otra. Desde aquí el barrido la reconoce por su id de la PVA y sólo
+      // le cambia la fecha; si ya está hecha, se queda hecha.
+      const previa = item.cmid !== undefined ? await deClase(item.cmid) : undefined;
+      if (previa) {
+        const metadata = { ...(typeof previa.metadata === 'object' && previa.metadata ? previa.metadata : {}), adoptadaDeClase: true, url: item.url, courseCode: item.courseCode };
+        const fecha = previa.status !== 'done' && item.dueDate !== undefined && item.dueDate !== previa.dueDate ? { dueDate: item.dueDate } : {};
+        await ctx.db.patch(previa._id, { externalSource: PVA_SOURCE, externalId: item.externalId, metadata, ...fecha, updatedAt: ahora });
+        if ('dueDate' in fecha) await recalcularAviso(ctx, (await ctx.db.get(previa._id))!);
+        // Una tarea no se adopta dos veces en el mismo envío.
+        porCmid!.delete(item.cmid!);
+        adoptadas += 1;
+        continue;
+      }
+
       const nueva = await ctx.db.insert('tasks', {
         userId,
         systemId,
@@ -257,6 +314,6 @@ export const sincronizar = internalMutation({
       creadas += 1;
     }
 
-    return { creadas, actualizadas, sinCambio, sinCarpeta: [...new Set(sinCarpeta)] };
+    return { creadas, actualizadas, sinCambio, adoptadas, sinCarpeta: [...new Set(sinCarpeta)] };
   },
 });
