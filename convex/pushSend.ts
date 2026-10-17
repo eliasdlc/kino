@@ -82,6 +82,9 @@ export const sendTaskReminders = internalAction({
   },
 });
 
+/** Respuestas del servicio push que dicen que la suscripción ya no sirve. */
+const SUSCRIPCION_MUERTA = new Set([401, 403, 404, 410]);
+
 /**
  * Cuenta cada respuesta del servicio push. Una respuesta exitosa acepta el
  * mensaje para envío; no confirma que el sistema operativo lo haya mostrado.
@@ -106,11 +109,16 @@ async function sendToUser(
       });
       aceptados += 1;
     } catch (error) {
-      // 404 y 410: la suscripción murió en el navegador o en el servicio de
-      // push; se retira para no insistir. Antes sólo se miraba el 410 y una
-      // suscripción caducada con 404 se quedaba para siempre sin avisar a nadie.
+      // Una suscripción que ningún reintento arregla se retira:
+      //   - 404 y 410: murió en el navegador o en el servicio de push.
+      //   - 401 y 403: se creó con otra clave pública VAPID (Mozilla responde
+      //     401 y FCM 403). La suscripción está atada a la clave con la que
+      //     nació, así que no vuelve a aceptar nada firmado con la de ahora.
+      // Quedarse con ella deja la tarea reintentando cada quince minutos sin
+      // llegar a ninguna parte, y Ajustes contando un dispositivo que no recibe.
+      // El navegador la rehace sola la próxima vez que se abre la app.
       const status = error instanceof Error && 'statusCode' in error ? (error as { statusCode: number }).statusCode : null;
-      if (status === 404 || status === 410) {
+      if (status !== null && SUSCRIPCION_MUERTA.has(status)) {
         caducados += 1;
         await ctx.runMutation(internal.notifications.dropSubscription, { endpoint: sub.endpoint });
       } else {

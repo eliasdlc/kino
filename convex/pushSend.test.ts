@@ -54,3 +54,22 @@ it('without both VAPID keys push counts as unconfigured and nothing is sent', as
   expect(await t.action(internal.pushSend.enviarPrueba, { userId })).toMatchObject({ pushConfigurado: true });
   expect(setVapidDetails).toHaveBeenCalledWith('mailto:admin@kino.app', 'fixture-public', 'fixture-private');
 });
+
+it('removes a subscription made with another VAPID key instead of retrying it forever', async () => {
+  // Mozilla answers 401 and FCM 403 when the subscription was created with a
+  // public key that is no longer the one signing. No retry fixes that.
+  vi.stubEnv('VAPID_PUBLIC_KEY', 'fixture-public');
+  vi.stubEnv('VAPID_PRIVATE_KEY', 'fixture-private');
+  vi.stubEnv('RESEND_API_KEY', '');
+  const t = convexTest(schema, modules);
+  const user = t.withIdentity({ subject: 'push-test', email: 'prueba@usekino.dev' });
+  const userId = await user.mutation(api.users.ensure, {});
+  for (const device of ['firefox', 'chrome']) {
+    await user.mutation(api.notifications.subscribe, { endpoint: `https://fixture.invalid/${device}`, keys: { auth: 'a', p256dh: 'p' } });
+  }
+  sendNotification
+    .mockRejectedValueOnce(Object.assign(new Error('fixture'), { statusCode: 401 }))
+    .mockRejectedValueOnce(Object.assign(new Error('fixture'), { statusCode: 403 }));
+  expect(await t.action(internal.pushSend.enviarPrueba, { userId })).toMatchObject({ aceptados: 0, fallidos: 2, caducados: 2 });
+  expect(await t.run(ctx => ctx.db.query('pushSubscriptions').collect())).toEqual([]);
+});
