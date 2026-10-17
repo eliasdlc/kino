@@ -1,5 +1,6 @@
 import type { Id } from '../_generated/dataModel';
 import type { AvisoDeTarea, Entrega } from '../notifications';
+import type { EnvioCorreo } from './correo';
 import { PRIORITY_RANK } from '../../src/shared/lib/effective-priority';
 import { textoResumen, type Resumen } from './recordatorios';
 
@@ -30,7 +31,7 @@ export interface Canales {
   /** Un push a todos los dispositivos. `intentos` es cuántos tenía registrados. */
   push: (payload: Payload) => Promise<{ intentos: number; entregado: boolean }>;
   /** `null` cuando el deployment no puede mandar correo. */
-  correo: ((correo: Correo) => Promise<boolean>) | null;
+  correo: ((correo: Correo) => Promise<EnvioCorreo>) | null;
   /** El enlace firmado de los botones de una tarea, o `null` si no se puede firmar. */
   firmar: (taskId: Id<'tasks'>) => Promise<{ endpoint: string; token: string } | null>;
   /** URL absoluta de la app, para los enlaces del correo. */
@@ -173,7 +174,7 @@ export async function repartir(entrega: Entrega, canales: Canales): Promise<{ re
     if (push.entregado) notified += 1;
     // El resumen va siempre también por correo: es el aviso del día y no gasta
     // del tope de respaldo.
-    if (correo && (await correo(correoResumen(entrega.resumen, canales.appUrl)))) notified += 1;
+    if (correo && (await correo(correoResumen(entrega.resumen, canales.appUrl))) === 'enviado') notified += 1;
   }
 
   // Una pregunta sin sus botones no sirve: sin enlace firmado no sale. Tampoco
@@ -215,12 +216,18 @@ export async function repartir(entrega: Entrega, canales: Canales): Promise<{ re
   }
 
   if (avisosPendientes.length || sinCorreo.length) {
-    const enviado = correo && quedanCorreos() ? await correo(correoAvisos(avisosPendientes, sinCorreo, canales.appUrl)) : false;
-    if (enviado) {
+    const envio: EnvioCorreo = correo && quedanCorreos() ? await correo(correoAvisos(avisosPendientes, sinCorreo, canales.appUrl)) : 'fallo';
+    if (envio === 'enviado') {
       registro.correos += 1;
       registro.avisados.push(...avisosPendientes.map((a) => a.taskId));
       registro.recordatorios.push(...sinCorreo.map((r) => r.id));
       notified += avisosPendientes.length + sinCorreo.length;
+    } else if (envio === 'rechazado') {
+      // Resend no va a aceptar nunca este correo: insistir cada quince minutos
+      // sólo gastaría el cupo diario de toda la cuenta. Avanza como un aviso
+      // sin ningún canal posible, igual que una suscripción push caducada.
+      registro.avisados.push(...avisosPendientes.map((a) => a.taskId));
+      registro.recordatorios.push(...sinCorreo.map((r) => r.id));
     } else {
       registro.reintentar.push(...avisosPendientes.map((a) => a.taskId));
       // Los recordatorios sin enviar se quedan como están: el índice los

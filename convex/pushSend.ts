@@ -161,11 +161,11 @@ export const enviarPrueba = internalAction({
       : { intentos: 0, entregado: false, aceptados: 0, fallidos: 0, caducados: 0 };
     const correo: boolean =
       correoConfigurado() && destino
-        ? await enviarCorreo(destino.email, {
+        ? (await enviarCorreo(destino.email, {
             asunto: 'Así se ven tus avisos',
             texto: 'Si lees esto, los recordatorios por correo te llegan.',
             html: '<p style="font-family:system-ui,sans-serif">Si lees esto, los recordatorios por correo te llegan.</p>',
-          })
+          })) === 'enviado'
         : false;
     return { dispositivos: push.intentos, aceptados: push.aceptados, fallidos: push.fallidos, caducados: push.caducados, push: push.entregado, pushConfigurado, correo, correoConfigurado: correoConfigurado() };
   },
