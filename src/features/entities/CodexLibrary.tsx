@@ -3,6 +3,9 @@
 import { useMemo, useState } from "react";
 import { Search, Plus } from "lucide-react";
 import { Input } from "@/components/ui/input";
+import { EmptyState } from "@/components/ui/empty-state";
+import { MarginRow } from "@/components/ui/margin-row";
+import { IndexHead } from "@/features/notebooks/IndexHead";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import {
@@ -25,7 +28,6 @@ import {
   type EntityType,
 } from "./entities.attributes";
 import {
-  ENTITY_TYPE_ICON,
   ENTITY_TYPE_LABEL,
   ENTITY_TYPE_LABEL_PLURAL,
 } from "./entities.ui";
@@ -66,11 +68,12 @@ export function CodexLibrary({ systemId }: { systemId: string }) {
     <div className="space-y-5">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div className="relative flex-1 max-w-sm">
-          <Search className="absolute left-2.5 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+          <Search aria-hidden className="absolute left-2.5 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
           <Input
             value={query}
             onChange={(e) => setQuery(e.target.value)}
-            placeholder="Buscar en el universo…"
+            placeholder="Buscar en el universo"
+            aria-label="Buscar en el universo"
             className="pl-8"
           />
         </div>
@@ -81,50 +84,36 @@ export function CodexLibrary({ systemId }: { systemId: string }) {
       </div>
 
       {isLoading ? (
-        <p className="text-sm text-muted-foreground">Cargando el universo…</p>
+        <p className="pl-(--margen) text-sm text-muted-foreground">Cargando el universo</p>
       ) : total === 0 ? (
-        <div className="rounded-lg border border-dashed border-border p-8 text-center">
-          <p className="text-sm font-medium">Tu universo está vacío</p>
-          <p className="mt-1 text-sm text-muted-foreground">
-            Menciona personajes, lugares u objetos con @ mientras escribes, o crea uno aquí.
-          </p>
-        </div>
+        <EmptyState
+          className="pl-(--margen)"
+          title="Tu universo está vacío"
+          description="Menciona personajes, lugares u objetos con @ mientras escribes, o crea uno aquí."
+        />
       ) : (
+        // Un índice por tipo, como el de las carpetas: el título de sección
+        // con su cuenta y una fila por entidad con su numeral en el margen.
+        // Sin cards: la fila es el contenedor.
         <div className="space-y-6">
           {ENTITY_TYPES.map((type) => {
             const list = grouped.get(type);
             if (!list || list.length === 0) return null;
-            const Icon = ENTITY_TYPE_ICON[type];
             return (
-              <section key={type} className="space-y-2">
-                <div className="flex items-center gap-2">
-                  <Icon className="size-4 text-muted-foreground" />
-                  <h3 className="text-sm font-semibold">
-                    {ENTITY_TYPE_LABEL_PLURAL[type]}
-                  </h3>
-                  <span className="text-xs text-muted-foreground">{list.length}</span>
-                </div>
-                <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-4">
-                  {list.map((e) => (
-                    <button
-                      key={e.id}
-                      type="button"
-                      onClick={() => setOpenEntityId(e.id)}
-                      className="flex flex-col gap-1 rounded-lg border border-border bg-card p-3 text-left transition-colors hover:border-primary/40 hover:bg-accent/40"
-                    >
-                      <span className="truncate text-sm font-medium">{e.name}</span>
-                      {e.summary ? (
-                        <span className="line-clamp-2 text-xs text-muted-foreground">
-                          {e.summary}
-                        </span>
-                      ) : (
-                        <span className="text-xs text-muted-foreground/70">
-                          {ENTITY_TYPE_LABEL[type]}
-                        </span>
-                      )}
-                    </button>
-                  ))}
-                </div>
+              <section key={type} aria-labelledby={`codex-${type}`}>
+                <IndexHead id={`codex-${type}`} as="h3" title={ENTITY_TYPE_LABEL_PLURAL[type]} trailing={list.length} />
+                {list.map((e, i) => (
+                  <MarginRow
+                    key={e.id}
+                    onClick={() => setOpenEntityId(e.id)}
+                    margin={<span className="text-sm text-mute tabular-nums">{i + 1}</span>}
+                  >
+                    <span className="block truncate text-base font-semibold text-foreground">{e.name}</span>
+                    <span className="line-clamp-2 block text-sm text-muted-foreground">
+                      {e.summary || ENTITY_TYPE_LABEL[type]}
+                    </span>
+                  </MarginRow>
+                ))}
               </section>
             );
           })}
