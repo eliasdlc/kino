@@ -1,10 +1,8 @@
 /**
- * Criterio: la cota que se abre todos los días no tiene ninguna animación en
- * bucle, usa el tramo que dice el servidor, pone la palabra que la explica
- * como h1 de la pantalla y enlaza la fecha al calendario con un blanco de
- * 48 px que se ve como enlace; el tramo elegido en el segmento es el que el
- * botón registra; y la cifra acaba siendo la misma con el movimiento
- * encendido y apagado, porque la cuenta la hace JavaScript.
+ * Criterio: la cota no tiene animación en bucle, usa el tramo del servidor,
+ * pone su palabra como h1 y enlaza la fecha al calendario con 48 px; el tramo
+ * del segmento es el que el botón registra, y uno que aún no llegó se mira
+ * pero no se registra; la cifra aterriza igual con y sin movimiento.
  */
 
 import { describe, expect, it, vi } from "vitest";
@@ -86,6 +84,37 @@ describe("EnergyTodayCard", () => {
 
     expect(crear).toHaveBeenCalledTimes(1);
     expect(crear.mock.calls[0]![0]).toMatchObject({ slot: "morning" });
+  });
+
+  it("un tramo que aún no llegó se mira pero no se registra", () => {
+    setReducedMotion(true);
+    // A las 9 AM la tarde y la noche todavía no llegaron.
+    renderWithProviders(
+      <EnergyTodayCard clock={{ hour: 9, date: "2026-09-11", timezone: "America/Santo_Domingo" }}
+        initialCheckins={[]} projectedCurve={CURVA} chronotype="intermediate" />,
+    );
+    fireEvent.click(screen.getByRole("radio", { name: "Noche" }));
+    expect(screen.getByRole("heading", { level: 1 })).toHaveTextContent(/^Noche,/);
+    expect(screen.queryByRole("button", { name: /Registrar energía/ })).not.toBeInTheDocument();
+    expect(screen.getByText("La noche se registra cuando llegue.")).toHaveClass("text-muted-foreground", "min-h-[3.2rem]");
+
+    // De vuelta en la mañana se registra, y el formulario sólo ofrece la mañana.
+    fireEvent.click(screen.getByRole("radio", { name: "Mañana" }));
+    fireEvent.click(screen.getByRole("button", { name: "Registrar energía de la mañana" }));
+    expect(screen.queryByRole("radio", { name: /Noche|Tarde/ })).not.toBeInTheDocument();
+    expect(screen.getByText("6 AM a 12 PM")).toBeInTheDocument();
+  });
+
+  it("a las 3 PM el formulario ofrece la mañana y la tarde, no la noche", () => {
+    setReducedMotion(true);
+    renderWithProviders(
+      <EnergyTodayCard clock={{ hour: 15, date: "2026-09-11", timezone: "America/Santo_Domingo" }}
+        initialCheckins={[]} projectedCurve={CURVA} chronotype="intermediate" />,
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Registrar energía de la tarde" }));
+    const tramo = screen.getByRole("radiogroup", { name: "Tramo del día" });
+    expect(tramo.querySelectorAll('[role="radio"]')).toHaveLength(2);
+    expect(screen.queryByRole("radio", { name: /Noche/ })).not.toBeInTheDocument();
   });
 
   it("la palabra de la cota es el h1 de la pantalla y la frase va en la voz", () => {
