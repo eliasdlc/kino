@@ -2,7 +2,7 @@
 
 import { Suspense, useEffect, useState } from 'react';
 import dynamic from 'next/dynamic';
-import { useSearchParams } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import {
   Archive,
   Bell,
@@ -19,66 +19,97 @@ import { useEnergyProfile } from '@/features/energy/energy.hooks';
 import { useEstadoAvisos, usePushNotifications } from '@/features/notifications/notifications.hooks';
 import { useAccount } from '@/features/account/account.hooks';
 import { DangerZoneSection } from '@/features/account/DangerZoneSection';
-import { EnergyLimitRow } from './EnergyLimitSection';
-import { CRONOTIPOS } from './EnergyProfileSection';
-import { horaCorta, INTENSIDADES } from './RemindersSection';
-import { diaCorto } from './WeeklyReviewDaySection';
+import { EnergyLimitRow } from './EnergyLimitRow';
 import { ThemeRow } from './ThemeRow';
-import { TimezoneRow } from './TimezoneSection';
-import { CONEXIONES_DESCRIPCION, useConnectionsMeta } from './ConnectionsSection';
-import { DATOS_DESCRIPCION } from './DataPortabilitySection';
-import { IndexRow, Pendiente, SettingsGroup, SettingsSheet, SheetLoading, SwitchRow } from './settings-ui';
-import { useUserSettings } from './settings.hooks';
+import { TimezoneRow } from './TimezoneRow';
+import { IndexRow, Pendiente, SettingsGroup, SettingsSheet, SheetLoading, SwitchRow, TITULO_GRUPO } from './settings-ui';
+import {
+  ALTO_CUENTA,
+  CONEXIONES_DESCRIPCION,
+  CRONOTIPOS,
+  DATOS_DESCRIPCION,
+  diaCorto,
+  horaCorta,
+  INTENSIDADES,
+  META_LIMITE,
+  PESO_ENERGIA,
+} from './settings-copy';
+import { useConnectionsMeta, useUserSettings } from './settings.hooks';
 import { cn } from '@/lib/utils';
 
 /**
- * Lo que cada hoja pinta llega cuando se abre: el índice no carga el panel de
- * Clerk, la papelera ni el manifiesto de la exportación. Mientras llega, la
- * hoja enseña filas del alto real.
+ * Lo que cada hoja pinta llega cuando se abre: el índice no importa ninguna
+ * hoja de forma estática (lo que necesita saber de ellas vive en
+ * `settings-copy.ts`), así que el panel de Clerk, la papelera, el manifiesto
+ * de la exportación y el panel de GitHub salen del chunk de /settings. Apuntar
+ * o enfocar una fila trae su código antes del toque; mientras llega, la hoja
+ * enseña filas del alto real.
  */
-function cargando(rows: number) {
+const cargar = {
+  energia: () => import('./EnergyProfileSection'),
+  recordatorios: () => import('./RemindersSection'),
+  revision: () => import('./WeeklyReviewDaySection'),
+  cuenta: () => import('@/features/account/AccountSection'),
+  conexiones: () => import('./ConnectionsSection'),
+  atajos: () => import('./ShortcutsSection'),
+  diario: () => import('./DigestsSection'),
+  datos: () => import('./DataPortabilitySection'),
+  papelera: () => import('./TrashSection'),
+};
+
+function cargando(rows: number, className?: string) {
   function HojaCargando() {
-    return <SheetLoading rows={rows} />;
+    return <SheetLoading rows={rows} className={className} />;
   }
   return HojaCargando;
 }
-const EnergyProfileSection = dynamic(() => import('./EnergyProfileSection').then((m) => m.EnergyProfileSection), { loading: cargando(4) });
-const RemindersSection = dynamic(() => import('./RemindersSection').then((m) => m.RemindersSection), { loading: cargando(5) });
-const WeeklyReviewDaySection = dynamic(() => import('./WeeklyReviewDaySection').then((m) => m.WeeklyReviewDaySection), { loading: cargando(7) });
-const ConnectionsSection = dynamic(() => import('./ConnectionsSection').then((m) => m.ConnectionsSection), { loading: cargando(2) });
-const ShortcutsSection = dynamic(() => import('./ShortcutsSection').then((m) => m.ShortcutsSection), { loading: cargando(6) });
-const DigestsSection = dynamic(() => import('./DigestsSection').then((m) => m.DigestsSection), { loading: cargando(2) });
-const DataPortabilitySection = dynamic(() => import('./DataPortabilitySection').then((m) => m.DataPortabilitySection), { loading: cargando(3) });
-const TrashSection = dynamic(() => import('./TrashSection').then((m) => m.TrashSection), { loading: cargando(3) });
-const AccountSection = dynamic(() => import('@/features/account/AccountSection').then((m) => m.AccountSection), {
+const EnergyProfileSection = dynamic(() => cargar.energia().then((m) => m.EnergyProfileSection), { loading: cargando(4) });
+const RemindersSection = dynamic(() => cargar.recordatorios().then((m) => m.RemindersSection), { loading: cargando(5) });
+const WeeklyReviewDaySection = dynamic(() => cargar.revision().then((m) => m.WeeklyReviewDaySection), { loading: cargando(7) });
+const ConnectionsSection = dynamic(() => cargar.conexiones().then((m) => m.ConnectionsSection), { loading: cargando(2) });
+const ShortcutsSection = dynamic(() => cargar.atajos().then((m) => m.ShortcutsSection), { loading: cargando(6) });
+const DigestsSection = dynamic(() => cargar.diario().then((m) => m.DigestsSection), { loading: cargando(2) });
+const DataPortabilitySection = dynamic(() => cargar.datos().then((m) => m.DataPortabilitySection), { loading: cargando(3) });
+const TrashSection = dynamic(() => cargar.papelera().then((m) => m.TrashSection), { loading: cargando(3) });
+const AccountSection = dynamic(() => cargar.cuenta().then((m) => m.AccountSection), {
   ssr: false,
-  loading: cargando(4),
+  // El alto del panel de Clerk: la hoja no crece cuando llega.
+  loading: cargando(4, ALTO_CUENTA),
 });
 
-export type Hoja =
-  | 'energia'
-  | 'recordatorios'
-  | 'revision'
-  | 'cuenta'
-  | 'conexiones'
-  | 'atajos'
-  | 'diario'
-  | 'datos'
-  | 'papelera';
+export type Hoja = keyof typeof cargar | 'avisos';
 
 const glifo = 'size-5 stroke-[1.8]';
+
+/** Abrir una hoja desde su fila, y traer su código al apuntarla. */
+type Abrir = (hoja: Hoja) => void;
+const precargar = (hoja: keyof typeof cargar) => () => void cargar[hoja]();
 
 /**
  * El regreso del OAuth de GitHub cae en /settings?github=…: la hoja de
  * Conexiones se abre sola para que el resultado se vea donde ocurrió. Va en
  * su propio límite de Suspense porque lee la URL.
  */
-function AbrirDesdeLaUrl({ abrir }: { abrir: (hoja: Hoja) => void }) {
+function AbrirDesdeLaUrl({ abrir }: { abrir: Abrir }) {
   const github = useSearchParams().get('github');
   useEffect(() => {
     if (github) abrir('conexiones');
   }, [github, abrir]);
   return null;
+}
+
+/**
+ * Al cerrar Conexiones, la URL deja de decir `?github=`: si no, un refresco
+ * volvería a abrir la hoja y a avisar del OAuth. Se limpia al cerrar y no al
+ * abrir porque el panel de GitHub lee el resultado de ahí mientras está a la
+ * vista.
+ */
+function useLimpiarRegresoDeGithub() {
+  const router = useRouter();
+  const params = useSearchParams();
+  return () => {
+    if (params.get('github') !== null) router.replace('/settings', { scroll: false });
+  };
 }
 
 /** La meta de los avisos de este dispositivo: el estado del permiso y cuántos hay en la cuenta. */
@@ -88,12 +119,133 @@ function metaDispositivo(
   dispositivos: number | undefined,
 ): string | undefined {
   if (status === 'loading') return 'Comprobando este dispositivo';
-  if (status === 'denied') return 'Bloqueados en este navegador';
   if (status === 'unsupported') return 'Este navegador no los admite';
   if (status === 'error') return error ?? 'No se pudo registrar este dispositivo';
   if (dispositivos === undefined) return undefined;
   const cuantos = `${dispositivos} dispositivo${dispositivos === 1 ? '' : 's'}`;
   return status === 'subscribed' ? `Activos en ${cuantos}` : `Apagados aquí; activos en ${cuantos}`;
+}
+
+/** Cómo devolverle el permiso al navegador: tres pasos, numerados en el margen. */
+export function AvisosBloqueadosBody() {
+  return (
+    <ol className="list-decimal space-y-2 pb-2 pl-[calc(var(--margen)+1rem)] text-base leading-snug text-body marker:text-muted-foreground">
+      <li>Toca el candado o el icono de ajustes junto a la dirección de la página.</li>
+      <li>En Notificaciones, elige Permitir.</li>
+      <li>Recarga la página y enciende Avisos en este dispositivo.</li>
+    </ol>
+  );
+}
+
+/*
+ * Las filas que leen datos se suscriben a lo suyo: un cambio en los avisos
+ * re-pinta su fila, no la página entera con sus diez hojas.
+ */
+
+function EnergyProfileRow({ abrir }: { abrir: Abrir }) {
+  const { data: perfil } = useEnergyProfile();
+  const cronotipo = perfil ? CRONOTIPOS.find((c) => c.value === perfil.chronotype)?.label : undefined;
+  return (
+    <IndexRow
+      icon={<BatteryCharging aria-hidden className={glifo} />}
+      title="Perfil de energía"
+      meta={perfil === null ? 'Sin declarar todavía' : perfil ? `${cronotipo}, ${perfil.availableHoursPerDay} h para tareas` : undefined}
+      onOpen={() => abrir('energia')}
+      onPrefetch={precargar('energia')}
+    />
+  );
+}
+
+function RemindersRow({ abrir }: { abrir: Abrir }) {
+  const { data: ajustes } = useUserSettings();
+  const intensidad = ajustes ? INTENSIDADES.find((i) => i.value === ajustes.reminderIntensity)?.label : undefined;
+  return (
+    <IndexRow
+      icon={<Bell aria-hidden className={glifo} />}
+      title="Recordatorios"
+      meta={
+        ajustes
+          ? ajustes.notificationsEnabled
+            ? `Resumen a las ${horaCorta(ajustes.morningDigestTime)}`
+            : 'Apagados en todos tus dispositivos'
+          : undefined
+      }
+      value={ajustes ? (ajustes.notificationsEnabled ? intensidad : 'Apagados') : <Pendiente className="w-12" />}
+      onOpen={() => abrir('recordatorios')}
+      onPrefetch={precargar('recordatorios')}
+    />
+  );
+}
+
+/**
+ * Los avisos de este dispositivo. Con el permiso bloqueado el interruptor no
+ * puede hacer nada, así que la fila cambia a una que abre cómo desbloquearlo:
+ * mismo alto, la palabra de estado en coral y el chevron.
+ */
+function DeviceNotificationsRow({ abrir }: { abrir: Abrir }) {
+  const push = usePushNotifications();
+  const { data: estado } = useEstadoAvisos();
+  const icono = <Smartphone aria-hidden className={glifo} />;
+  if (push.status === 'denied') {
+    return (
+      <IndexRow
+        icon={icono}
+        title="Avisos en este dispositivo"
+        meta="Bloqueados en este navegador"
+        tone="warn"
+        onOpen={() => abrir('avisos')}
+      />
+    );
+  }
+  return (
+    <SwitchRow
+      icon={icono}
+      title="Avisos en este dispositivo"
+      meta={metaDispositivo(push.status, push.error, estado?.dispositivos)}
+      checked={push.status === 'subscribed'}
+      disabled={push.status === 'loading' || push.status === 'unsupported'}
+      onCheckedChange={(checked) => (checked ? push.subscribe() : push.unsubscribe())}
+    />
+  );
+}
+
+function WeeklyReviewRow({ abrir }: { abrir: Abrir }) {
+  const { data: ajustes } = useUserSettings();
+  return (
+    <IndexRow
+      icon={<CalendarClock aria-hidden className={glifo} />}
+      title="Revisión semanal"
+      meta="Se reparte lo vencido"
+      value={ajustes ? diaCorto(ajustes.weeklyReviewDay) : <Pendiente className="w-8" />}
+      onOpen={() => abrir('revision')}
+      onPrefetch={precargar('revision')}
+    />
+  );
+}
+
+function AccountRow({ abrir }: { abrir: Abrir }) {
+  const { data: cuenta } = useAccount();
+  return (
+    <IndexRow
+      icon={<UserRound aria-hidden className={glifo} />}
+      title={cuenta ? cuenta.name : <Pendiente className="h-4 w-32" />}
+      meta={cuenta ? cuenta.email : undefined}
+      onOpen={() => abrir('cuenta')}
+      onPrefetch={precargar('cuenta')}
+    />
+  );
+}
+
+function ConnectionsRow({ abrir }: { abrir: Abrir }) {
+  return (
+    <IndexRow
+      icon={<Link2 aria-hidden className={glifo} />}
+      title="Conexiones"
+      meta={useConnectionsMeta()}
+      onOpen={() => abrir('conexiones')}
+      onPrefetch={precargar('conexiones')}
+    />
+  );
 }
 
 /**
@@ -108,18 +260,12 @@ function metaDispositivo(
  */
 export function SettingsIndex() {
   const [hoja, setHoja] = useState<Hoja | null>(null);
+  const limpiarGithub = useLimpiarRegresoDeGithub();
   const cerrar = (open: boolean) => {
-    if (!open) setHoja(null);
+    if (open) return;
+    if (hoja === 'conexiones') limpiarGithub();
+    setHoja(null);
   };
-  const { data: ajustes } = useUserSettings();
-  const { data: perfil } = useEnergyProfile();
-  const { data: estado } = useEstadoAvisos();
-  const { data: cuenta } = useAccount();
-  const push = usePushNotifications();
-  const conexiones = useConnectionsMeta();
-
-  const intensidad = ajustes ? INTENSIDADES.find((i) => i.value === ajustes.reminderIntensity)?.label : undefined;
-  const cronotipo = perfil ? CRONOTIPOS.find((c) => c.value === perfil.chronotype)?.label : undefined;
 
   return (
     <div data-slot="settings-index" className="max-w-[40rem] space-y-8 pb-10">
@@ -130,58 +276,16 @@ export function SettingsIndex() {
       <SettingsGroup title="Cada día">
         <ThemeRow />
         <EnergyLimitRow />
-        <IndexRow
-          icon={<BatteryCharging aria-hidden className={glifo} />}
-          title="Perfil de energía"
-          meta={perfil === null ? 'Sin declarar todavía' : perfil ? `${cronotipo}, duermes ${perfil.sleepTypicalHours} h` : undefined}
-          value={perfil === null ? undefined : perfil ? `${perfil.availableHoursPerDay} h` : <Pendiente className="w-8" />}
-          onOpen={() => setHoja('energia')}
-        />
-        <IndexRow
-          icon={<Bell aria-hidden className={glifo} />}
-          title="Recordatorios"
-          meta={
-            ajustes
-              ? ajustes.notificationsEnabled
-                ? `Resumen a las ${horaCorta(ajustes.morningDigestTime)}`
-                : 'Apagados en todos tus dispositivos'
-              : undefined
-          }
-          value={ajustes ? (ajustes.notificationsEnabled ? intensidad : 'Apagados') : <Pendiente className="w-12" />}
-          onOpen={() => setHoja('recordatorios')}
-        />
-        <SwitchRow
-          icon={<Smartphone aria-hidden className={glifo} />}
-          title="Avisos en este dispositivo"
-          meta={metaDispositivo(push.status, push.error, estado?.dispositivos)}
-          tone={push.status === 'denied' ? 'warn' : undefined}
-          checked={push.status === 'subscribed'}
-          disabled={push.status === 'loading' || push.status === 'denied' || push.status === 'unsupported'}
-          onCheckedChange={(checked) => (checked ? push.subscribe() : push.unsubscribe())}
-        />
-        <IndexRow
-          icon={<CalendarClock aria-hidden className={glifo} />}
-          title="Revisión semanal"
-          meta="Ese día se reparte lo vencido"
-          value={ajustes ? diaCorto(ajustes.weeklyReviewDay) : <Pendiente className="w-8" />}
-          onOpen={() => setHoja('revision')}
-        />
+        <EnergyProfileRow abrir={setHoja} />
+        <RemindersRow abrir={setHoja} />
+        <DeviceNotificationsRow abrir={setHoja} />
+        <WeeklyReviewRow abrir={setHoja} />
       </SettingsGroup>
 
       <SettingsGroup title="Cuenta">
-        <IndexRow
-          icon={<UserRound aria-hidden className={glifo} />}
-          title={cuenta ? cuenta.name : <Pendiente className="h-4 w-32" />}
-          meta={cuenta ? cuenta.email : undefined}
-          onOpen={() => setHoja('cuenta')}
-        />
+        <AccountRow abrir={setHoja} />
         <TimezoneRow />
-        <IndexRow
-          icon={<Link2 aria-hidden className={glifo} />}
-          title="Conexiones"
-          meta={conexiones}
-          onOpen={() => setHoja('conexiones')}
-        />
+        <ConnectionsRow abrir={setHoja} />
       </SettingsGroup>
 
       <SettingsGroup title="Una vez">
@@ -191,24 +295,28 @@ export function SettingsIndex() {
           title="Atajos de teclado"
           meta="Para moverte sin soltar el teclado"
           onOpen={() => setHoja('atajos')}
+          onPrefetch={precargar('atajos')}
         />
         <IndexRow
           icon={<NotebookPen aria-hidden className={glifo} />}
           title="Diario de sesiones"
-          meta="Los resúmenes que sube tu laptop"
+          meta="Resúmenes de tu laptop"
           onOpen={() => setHoja('diario')}
+          onPrefetch={precargar('diario')}
         />
         <IndexRow
           icon={<Archive aria-hidden className={glifo} />}
           title="Datos y exportación"
           meta="Un ZIP con todo, para llevártelo"
           onOpen={() => setHoja('datos')}
+          onPrefetch={precargar('datos')}
         />
         <IndexRow
           icon={<Trash2 aria-hidden className={glifo} />}
           title="Papelera"
           meta="Lo borrado, hasta que lo restaures"
           onOpen={() => setHoja('papelera')}
+          onPrefetch={precargar('papelera')}
         />
         <DangerZoneSection />
       </SettingsGroup>
@@ -216,8 +324,8 @@ export function SettingsIndex() {
       <SettingsSheet
         open={hoja === 'energia'}
         onOpenChange={cerrar}
-        title="Energía"
-        description="Una tarea pesa según su energía: alta 5, media 3, baja 1. Pasar el límite diario trae el aviso de sobregiro y nada se bloquea."
+        title="Perfil de energía"
+        description={`Una tarea pesa según su energía: ${PESO_ENERGIA}. Si un día pasas el límite diario, Hoy te lo dice; nada se bloquea.`}
       >
         <EnergyProfileSection />
       </SettingsSheet>
@@ -230,6 +338,14 @@ export function SettingsIndex() {
         <RemindersSection />
       </SettingsSheet>
       <SettingsSheet
+        open={hoja === 'avisos'}
+        onOpenChange={cerrar}
+        title="Avisos bloqueados"
+        description="Este navegador tiene bloqueados los avisos de esta página, y sólo tú puedes devolverle el permiso."
+      >
+        <AvisosBloqueadosBody />
+      </SettingsSheet>
+      <SettingsSheet
         open={hoja === 'revision'}
         onOpenChange={cerrar}
         title="Revisión semanal"
@@ -237,7 +353,13 @@ export function SettingsIndex() {
       >
         <WeeklyReviewDaySection onChosen={() => setHoja(null)} />
       </SettingsSheet>
-      <SettingsSheet open={hoja === 'cuenta'} onOpenChange={cerrar} title="Cuenta" description="Nombre, correo, contraseña y sesiones abiertas." wide>
+      <SettingsSheet
+        open={hoja === 'cuenta'}
+        onOpenChange={cerrar}
+        title="Cuenta"
+        description="Perfil: tu nombre y tus correos. Seguridad: la contraseña y las sesiones abiertas."
+        wide
+      >
         <AccountSection />
       </SettingsSheet>
       <SettingsSheet open={hoja === 'conexiones'} onOpenChange={cerrar} title="Conexiones" description={CONEXIONES_DESCRIPCION}>
@@ -273,12 +395,15 @@ export function SettingsIndex() {
  * El índice esperando, para `loading.tsx`: los mismos tres grupos y el mismo
  * número de filas, cada una del alto que tendrá. Las alturas salen de las
  * mismas clases que las filas reales (título leading-6, meta leading-5 en un
- * renglón), así que el paso del esqueleto a la pantalla no mueve nada.
+ * renglón), así que el paso del esqueleto a la pantalla no mueve nada. La
+ * fila del límite lleva su texto de verdad, que no espera a nadie: su meta
+ * puede ocupar dos renglones y el esqueleto los ocupa igual.
  */
 export function SettingsIndexSkeleton() {
-  const fila = (key: string, opts: { alta?: boolean; soloEscritorio?: boolean } = {}) => (
+  const fila = (key: string, opts: { alta?: boolean; soloEscritorio?: boolean; limite?: boolean } = {}) => (
     <div
       key={key}
+      data-slot="settings-skeleton-row"
       className={cn(
         'grid min-h-[3.4rem] grid-cols-[var(--margen)_1fr_auto] items-center border-b border-border last:border-b-0',
         opts.alta && '@container',
@@ -302,6 +427,11 @@ export function SettingsIndexSkeleton() {
               <Pendiente className="w-48" />
             </span>
           </>
+        ) : opts.limite ? (
+          <>
+            <span className="block text-base leading-6 font-semibold text-foreground">Límite diario</span>
+            <span className="block text-sm leading-5 text-pretty text-muted-foreground">{META_LIMITE}</span>
+          </>
         ) : (
           <>
             <span className="flex h-6 items-center">
@@ -313,12 +443,19 @@ export function SettingsIndexSkeleton() {
           </>
         )}
       </span>
-      <span />
+      {/* La fila del límite reserva el ancho del stepper (2.85rem, la cifra y 2.85rem). */}
+      {opts.limite ? (
+        <span className="block pl-2.5">
+          <Pendiente className="h-[2.85rem] w-[8.4rem] rounded-full" />
+        </span>
+      ) : (
+        <span />
+      )}
     </div>
   );
   const grupo = (titulo: string, filas: React.ReactNode[]) => (
     <section key={titulo}>
-      <h2 className="border-b border-ln2 pb-2 font-display text-[1.18rem] font-bold tracking-[-0.02em] text-foreground">{titulo}</h2>
+      <h2 className={TITULO_GRUPO}>{titulo}</h2>
       <div>{filas}</div>
     </section>
   );
@@ -326,7 +463,8 @@ export function SettingsIndexSkeleton() {
     <div aria-hidden data-slot="settings-index-skeleton" className="max-w-[40rem] space-y-8 pb-10">
       {grupo('Cada día', [
         fila('tema', { alta: true }),
-        ...['limite', 'perfil', 'recordatorios', 'avisos', 'revision'].map((k) => fila(k)),
+        fila('limite', { limite: true }),
+        ...['perfil', 'recordatorios', 'avisos', 'revision'].map((k) => fila(k)),
       ])}
       {grupo('Cuenta', ['cuenta', 'zona', 'conexiones'].map((k) => fila(k)))}
       {grupo('Una vez', [
