@@ -158,6 +158,21 @@ describe('dónde cae lo que publica el aula', () => {
     expect([ingles, ii]).not.toContain(porId.get('assign:1'));
   });
 
+  it('exige las palabras en orden: otra materia con las mismas palabras revueltas no es la suya', async () => {
+    const { t, userId, systemId } = await seed();
+
+    // "Negocios e Inteligencia Artificial" tiene las dos palabras de
+    // "Inteligencia de Negocios", pero al revés. Sin el orden, caería ahí.
+    await t.mutation(internal.academico.sincronizar, {
+      userId,
+      systemId,
+      items: [item({ externalId: 'assign:1', courseName: 'CSTI-1940-1000 - Negocios e Inteligencia Artificial' })],
+    });
+
+    const [tarea] = await tareas(t, userId);
+    expect(tarea.folderId).toBeUndefined();
+  });
+
   it('no elige entre dos materias que la abreviatura alcanza por igual', async () => {
     const { t, userId, systemId, seguridad, actual } = await seed();
     await t.run(async (ctx) => {
