@@ -190,7 +190,7 @@ export function StickyNoteCreator({
         </div>
 
         {/* Colores */}
-        <div className="flex gap-2 flex-wrap px-0.5">
+        <div className="flex flex-wrap gap-2 px-0.5 pointer-coarse:gap-0">
           {COLOR_PICKER_OPTIONS.map((c) => {
             const cls = STICKY_NOTE_COLORS[c]!;
             return (
@@ -200,13 +200,20 @@ export function StickyNoteCreator({
                 onClick={() => setColor(c)}
                 aria-label={cls.label}
                 aria-pressed={color === c}
-                className="size-6 rounded-full transition-[transform,border-color] duration-(--dur-toque) ease-(--ease-pluma) focus-ring pointer-coarse:size-8"
-                style={{
-                  backgroundColor: cls.hex,
-                  border: `2.5px solid ${color === c ? "#00000055" : "transparent"}`,
-                  transform: color === c ? "scale(1.2)" : "scale(1)",
-                }}
-              />
+                // El círculo es de 1.5rem; el botón que lo lleva mide 2.85rem
+                // en el teléfono, que es lo que el dedo necesita.
+                className="flex size-6 items-center justify-center rounded-full focus-ring pointer-coarse:size-[2.85rem]"
+              >
+                <span
+                  aria-hidden
+                  className="size-6 rounded-full transition-[transform,border-color] duration-(--dur-toque) ease-(--ease-pluma) pointer-coarse:size-8"
+                  style={{
+                    backgroundColor: cls.hex,
+                    border: `2.5px solid ${color === c ? "var(--foreground)" : "transparent"}`,
+                    transform: color === c ? "scale(1.2)" : "scale(1)",
+                  }}
+                />
+              </button>
             );
           })}
         </div>
