@@ -113,11 +113,11 @@ export function OverlaysSection() {
       id="overlays"
       number="07"
       title="Overlays"
-      description="Diálogos, drawers, menús y toasts. Regla mobile: ResponsiveDialog decide Dialog (desktop) o Drawer (móvil) — es el patrón por defecto para formularios (project-mobile)."
+      description="Diálogo, hoja inferior, hoja lateral, menús y toasts. El diálogo y las hojas llevan la única sombra (ninguna en oscuro) y entran con pluma; menús y popovers son bloques con hairline, sin sombra. Los títulos van en display 700; los textos de cierre dicen Cerrar. En el teléfono ResponsiveDialog abre la hoja inferior, con asa y botón Cerrar visible, y toda fila de menú mide 2.85rem."
     >
       <SubSection title="Diálogos">
         <SpecimenGrid cols={4}>
-          <Specimen label="Dialog" hint="modal centrado, desktop">
+          <Specimen label="Dialog" hint="centrado; el pie sin banda, sobre el mismo papel">
             <Dialog>
               <DialogTrigger asChild>
                 <Button variant="outline">Abrir dialog</Button>
@@ -126,7 +126,7 @@ export function OverlaysSection() {
                 <DialogHeader>
                   <DialogTitle>Editar sistema</DialogTitle>
                   <DialogDescription>
-                    Estructura estándar: título, descripción, cuerpo y footer.
+                    Título en display, descripción, cuerpo y pie.
                   </DialogDescription>
                 </DialogHeader>
                 <div className="space-y-2">
@@ -141,9 +141,9 @@ export function OverlaysSection() {
             </Dialog>
           </Specimen>
 
-          <Specimen label="ConfirmDialog" hint="confirmación destructiva estándar">
+          <Specimen label="ConfirmDialog" hint="sobre ResponsiveDialog: hoja inferior en el teléfono">
             <Button variant="destructive" onClick={() => setConfirmOpen(true)}>
-              Eliminar…
+              Eliminar
             </Button>
             <ConfirmDialog
               open={confirmOpen}
@@ -154,7 +154,7 @@ export function OverlaysSection() {
             />
           </Specimen>
 
-          <Specimen label="ResponsiveDialog" hint="Dialog ≥md · Drawer en móvil">
+          <Specimen label="ResponsiveDialog" hint="Dialog desde md, hoja inferior en el teléfono">
             <ResponsiveDialog>
               <ResponsiveDialogTrigger asChild>
                 <Button variant="outline">Abrir responsive</Button>
@@ -163,12 +163,12 @@ export function OverlaysSection() {
                 <ResponsiveDialogHeader>
                   <ResponsiveDialogTitle>Nueva tarea</ResponsiveDialogTitle>
                   <ResponsiveDialogDescription>
-                    Redimensiona la ventana bajo 768px para verlo como drawer.
+                    Bajo 768 px es la hoja inferior, con asa y Cerrar.
                   </ResponsiveDialogDescription>
                 </ResponsiveDialogHeader>
                 <div className="space-y-2 p-4 md:p-0">
                   <Label htmlFor="ds-resp-title">Título</Label>
-                  <Input id="ds-resp-title" placeholder="Preparar entrega…" />
+                  <Input id="ds-resp-title" placeholder="Preparar entrega" />
                 </div>
               </ResponsiveDialogContent>
             </ResponsiveDialog>
@@ -201,7 +201,7 @@ export function OverlaysSection() {
             />
           </Specimen>
 
-          <Specimen label="Drawer" hint="bottom sheet móvil (vaul)">
+          <Specimen label="Drawer" hint="la hoja inferior (vaul): asa, Cerrar, sube en --dur-hoja">
             <Drawer>
               <DrawerTrigger asChild>
                 <Button variant="outline">Abrir drawer</Button>
@@ -209,7 +209,7 @@ export function OverlaysSection() {
               <DrawerContent>
                 <DrawerHeader>
                   <DrawerTitle>Detalle rápido</DrawerTitle>
-                  <DrawerDescription>Desliza hacia abajo para cerrar.</DrawerDescription>
+                  <DrawerDescription>Cierra con el botón o deslizando el asa.</DrawerDescription>
                 </DrawerHeader>
                 <div className="p-4 pt-0 text-sm text-muted-foreground">
                   Contenido del drawer.
@@ -220,7 +220,7 @@ export function OverlaysSection() {
         </SpecimenGrid>
       </SubSection>
 
-      <SubSection title="Sheet" description="Panel lateral (detalle de tarea usa side=right).">
+      <SubSection title="Sheet" description="La hoja lateral del escritorio (el detalle de tarea usa side=right). Entra en --dur-hoja con pluma y sale con tinta.">
         <SpecimenGrid cols={2}>
           <Specimen label="Right" hint="TaskDetailSheet">
             <Sheet>
@@ -253,7 +253,7 @@ export function OverlaysSection() {
 
       <SubSection title="Menús y popovers">
         <SpecimenGrid cols={4}>
-          <Specimen label="DropdownMenu" hint="menú de opciones (cards, listas)">
+          <Specimen label="DropdownMenu" hint="bloque con hairline, filas de 2.85rem, sin sombra">
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <Button variant="outline">Opciones</Button>
@@ -309,7 +309,7 @@ export function OverlaysSection() {
             </Popover>
           </Specimen>
 
-          <Specimen label="Tooltip" hint="hover / focus">
+          <Specimen label="Tooltip" hint="tinta sobre la página, sin flecha">
             <Tooltip>
               <TooltipTrigger asChild>
                 <Button variant="ghost" size="icon" aria-label="Energía">
@@ -324,11 +324,11 @@ export function OverlaysSection() {
 
       <SubSection
         title="Command"
-        description="La base del command palette global (⌘K). Aquí embebido; en la app vive en un CommandDialog."
+        description="La base del buscador global (Ctrl K). Aquí embebido; en la app vive en un CommandDialog. Campo de 2.85rem y filas de 2.85rem, sin ningún important."
       >
         <div className="max-w-md rounded-lg border border-border">
           <Command>
-            <CommandInput placeholder="Buscar o saltar a…" />
+            <CommandInput placeholder="Buscar o saltar a" />
             <CommandList>
               <CommandEmpty>Sin resultados.</CommandEmpty>
               <CommandGroup heading="Acciones">
@@ -356,8 +356,8 @@ export function OverlaysSection() {
       </SubSection>
 
       <SubSection
-        title="Command · resultados de búsqueda (KIN-92)"
-        description="Cuando hay término, el palette muestra resultados del servidor ordenados por relevancia. Los de tarea y página traen debajo el fragmento donde apareció el término, con la coincidencia resaltada — sin él, un resultado que casó por el cuerpo no explica por qué salió. Los sistemas no llevan fragmento: sólo tienen nombre."
+        title="Command: resultados de búsqueda"
+        description="Cuando hay término, el palette muestra resultados del servidor ordenados por relevancia. Los de tarea y página traen debajo el fragmento donde apareció el término, con la coincidencia resaltada: sin él, un resultado que casó por el cuerpo no explica por qué salió. Los sistemas no llevan fragmento, sólo tienen nombre."
       >
         <div className="max-w-md rounded-lg border border-border">
           <Command shouldFilter={false}>
@@ -402,14 +402,14 @@ export function OverlaysSection() {
 
       <SubSection
         title="Toasts (sonner)"
-        description="Toaster global con richColors, posición bottom-right (layout raíz)."
+        description="Toaster global de sonner con los roles (sf, ink, ln2) y sin richColors: un toast es papel, no un semáforo. Abajo a la derecha en escritorio; en el teléfono sube por encima del chrome inferior (--kino-bottom-chrome)."
       >
         <div className="flex flex-wrap gap-3">
           <Button variant="outline" onClick={() => toast("Tarea creada")}>
             Default
           </Button>
           <Button variant="outline" onClick={() => toast.success("Tarea completada")}>
-            Success
+            Hecho
           </Button>
           <Button variant="outline" onClick={() => toast.error("No se pudo guardar")}>
             Error

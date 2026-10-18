@@ -55,7 +55,7 @@ const subscribeNoop = () => () => {};
  * u hora actual; en producción eso nunca corre en SSR porque los datos aún no
  * están en cache, pero aquí sí los sembramos antes del primer render. Sin este
  * guard, el server (en su tz) y el cliente (en la del usuario) pueden discrepar
- * y romper la hidratación — un artefacto del specimen, no del componente.
+ * y romper la hidratación: un artefacto del specimen, no del componente.
  */
 export function ClientOnly({ children }: { children: ReactNode }) {
   const mounted = useSyncExternalStore(
@@ -131,7 +131,7 @@ export function Specimen({
     <div className="flex min-w-0 flex-col gap-2">
       <div
         className={cn(
-          "flex min-h-24 flex-1 flex-wrap content-center items-center gap-3 rounded-lg border border-dashed border-border bg-card/50 p-4",
+          "flex min-h-24 flex-1 flex-wrap content-center items-center gap-3 rounded-xl border border-dashed border-border bg-card/50 p-4",
           className
         )}
       >
@@ -166,15 +166,15 @@ export function TokenSwatch({
   token,
   usage,
 }: {
-  /** Nombre de la variable, sin guiones iniciales: "primary", "sidebar-accent"… */
+  /** Nombre de la variable, sin guiones iniciales: "primary", "sidebar-accent" */
   token: string;
   /** Dónde se usa este token en la app. */
   usage?: string;
 }) {
   return (
-    <div className="flex items-center gap-3 rounded-lg border border-border bg-card p-2.5">
+    <div className="flex items-center gap-3 rounded-xl border border-border bg-card p-2.5">
       <div
-        className="size-10 shrink-0 rounded-md border border-border/60 shadow-xs"
+        className="size-10 shrink-0 rounded-md border border-border/60"
         style={{ background: `var(--${token})` }}
       />
       <div className="min-w-0">
