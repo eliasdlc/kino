@@ -13,6 +13,13 @@ import { LinkedTaskCard } from "@/features/pages/LinkedTaskCard";
 import { ChapterStatusToggle } from "@/features/writing/ChapterStatusToggle";
 import { WritingSessionButton } from "@/features/writing/WritingSessionButton";
 import { PlotSceneList } from "@/features/writing/PlotSceneList";
+import { ReferenceTable } from "@/features/writing/ReferenceTable";
+import { ChapterSummaryPanel } from "@/features/writing/ChapterSummaryPanel";
+import { ManuscriptOutline } from "@/features/pages/mediums/ManuscriptOutline";
+import { NotebookTagPicker } from "@/features/pages/NotebookTagPicker";
+import { LinkedTasksPanel } from "@/features/pages/LinkedTasksPanel";
+import { EditorShortcutsHelp } from "@/features/pages/EditorShortcutsHelp";
+import type { OutlineItem } from "@/features/pages/mediums/outline";
 import type { WritingOverview } from "@/features/writing/writing.types";
 import type { LinkedTaskTransport } from "@/features/pages/pages.types";
 
@@ -69,6 +76,78 @@ const TAREAS: LinkedTaskTransport[] = [
     estimatedTime: null,
   } as unknown as LinkedTaskTransport,
 ];
+
+const INDICE: OutlineItem[] = [
+  { pos: 1, kind: "heading", label: "La subida", depth: 0, preview: null },
+  { pos: 40, kind: "scene", label: "Escena 1: La niebla no levantó ese día.", depth: 1, preview: null },
+  { pos: 220, kind: "scene", label: "Escena 2: Bruno la encontró en el taller.", depth: 1, preview: null },
+  { pos: 410, kind: "heading", label: "El gremio", depth: 0, preview: null },
+];
+
+const FICHAS = [
+  { id: mid("ref1"), name: "Aurelia Voss", type: "character", coverImageUrl: null },
+  { id: mid("ref2"), name: "Puerto Ceniza", type: "location", coverImageUrl: null },
+  { id: mid("ref3"), name: "El gremio", type: "faction", coverImageUrl: null },
+];
+
+const ETIQUETAS = [
+  { id: mid("tag1"), title: "Primer borrador", color: "blue" },
+  { id: mid("tag2"), title: "Revisar", color: "orange" },
+  { id: mid("tag3"), title: "Voz de Inés", color: "teal" },
+];
+
+/** El panel del editor: lo que abre Más, bloque a bloque y con sus datos. */
+function PanelDelEditor() {
+  return (
+    <SpecimenGrid cols={2}>
+      <Specimen label="Índice del capítulo" hint="ManuscriptOutline" className="items-stretch">
+        <div className="w-full max-w-sm">
+          <ManuscriptOutline items={INDICE} heading="Índice del capítulo" onJump={() => {}} />
+        </div>
+      </Specimen>
+      <Specimen label="Mesa de referencias" hint="ReferenceTable, Quitar visible en un dedo" className="items-stretch">
+        <div className="w-full max-w-sm">
+          <Seeded stubs={[seedQuery(api.entities.bySystem, FICHAS)]}>
+            <ReferenceTable
+              systemId={MOCK_SYSTEM_ID}
+              pinnedIds={[FICHAS[0].id, FICHAS[1].id]}
+              onToggle={() => {}}
+              canPin
+            />
+          </Seeded>
+        </div>
+      </Specimen>
+      <Specimen label="Etiquetas" hint="NotebookTagPicker, puesta en tinta" className="items-stretch">
+        <div className="w-full max-w-sm">
+          <Seeded
+            stubs={[seedQuery(api.tags.bySystem, ETIQUETAS), seedQuery(api.pages.tags, [ETIQUETAS[1]])]}
+          >
+            <NotebookTagPicker pageId={mid("p")} systemId={MOCK_SYSTEM_ID} />
+          </Seeded>
+        </div>
+      </Specimen>
+      <Specimen label="Resumen" hint="ChapterSummaryPanel, antes de pedirlo" className="items-stretch">
+        <div className="w-full max-w-sm">
+          <Seeded stubs={[]}>
+            <ChapterSummaryPanel pageId={mid("p")} />
+          </Seeded>
+        </div>
+      </Specimen>
+      <Specimen label="Tareas del capítulo" hint="LinkedTasksPanel" className="items-stretch">
+        <div className="w-full max-w-sm">
+          <Seeded stubs={[seedQuery(api.pages.linkedTasks, TAREAS), seedQuery(api.tasks.bySystem, TAREAS)]}>
+            <LinkedTasksPanel pageId={mid("p")} systemId={MOCK_SYSTEM_ID} />
+          </Seeded>
+        </div>
+      </Specimen>
+      <Specimen label="Atajos" hint="EditorShortcutsHelp" className="items-stretch">
+        <div className="w-full max-w-sm">
+          <EditorShortcutsHelp />
+        </div>
+      </Specimen>
+    </SpecimenGrid>
+  );
+}
 
 export function EscrituraEditorSubsections() {
   return (
@@ -190,6 +269,15 @@ export function EscrituraEditorSubsections() {
             ))}
           </div>
         </Specimen>
+      </SubSection>
+
+      <SubSection
+        title="Panel del editor"
+        description="Lo que abre Más en el teléfono (una hoja de abajo) y el botón del panel en escritorio. Cada bloque es un título con hairline y filas de margen; nada baja de 48 px en un dedo, y lo que en escritorio espera al hover se ve siempre en el teléfono."
+      >
+        <ClientOnly>
+          <PanelDelEditor />
+        </ClientOnly>
       </SubSection>
 
       <SubSection
