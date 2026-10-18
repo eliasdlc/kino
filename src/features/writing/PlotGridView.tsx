@@ -30,16 +30,19 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { cn } from "@/lib/utils";
 import { useIsMobile } from "@/hooks/use-mobile";
-import { PlotSceneList } from "./PlotSceneList";
+import { AYUDA_DEL_TABLERO, PlotSceneList } from "./PlotSceneList";
 import { usePlotGrid, usePlotOperation } from "./writing.hooks";
 import type { PlotChapter, PlotGrid, PlotScene } from "./writing.plot";
 
 /**
- * Plot grid (KIN-141): las escenas de la obra como tarjetas en una rejilla de
- * capítulo × arco. Reordenar la estructura moviendo tarjetas en vez de cortando
- * y pegando texto.
+ * Plot grid (KIN-141): las escenas de la obra en una rejilla de capítulo × arco.
+ * Reordenar la estructura moviendo escenas en vez de cortando y pegando texto.
  *
- * Mover una tarjeta **reescribe el texto** de los capítulos implicados. No hay un
+ * Diario también aquí: cada columna es un capítulo con su numeral y un hairline,
+ * y cada escena una fila con su número en el margen y su arranque en Literata,
+ * el mismo dibujo que el tablero del teléfono. Sin cajas ni tarjetas.
+ *
+ * Mover una escena **reescribe el texto** de los capítulos implicados. No hay un
  * orden persistido en paralelo que pueda divergir de lo escrito: las escenas se
  * siguen derivando del contenido, como desde W3.
  *
@@ -169,24 +172,21 @@ export function PlotGridView({
     <DndContext sensors={sensors} onDragStart={onDragStart} onDragEnd={onDragEnd}>
       <div className="space-y-3">
         <div className="flex min-h-9 items-center justify-between gap-3">
-          <p className="text-sm text-muted-foreground">
-            Las escenas salen del texto. Mover una tarjeta reescribe el capítulo:
-            no hay un orden aparte que se pueda desincronizar.
-          </p>
+          <p className="text-sm text-muted-foreground">{AYUDA_DEL_TABLERO}</p>
           <p role="status" className="shrink-0 text-sm font-medium text-foreground">
             {isPending ? "Reescribiendo el capítulo" : ""}
           </p>
         </div>
 
         <div className="overflow-x-auto pb-3 [scrollbar-gutter:stable]">
-          <table className="w-max border-separate border-spacing-2">
+          <table className="w-max border-separate border-spacing-x-4 border-spacing-y-0">
             <thead>
               <tr>
-                <th className="w-36 pb-2 text-left align-bottom text-xs font-semibold uppercase tracking-[0.06em] text-muted-foreground">
+                <th className="w-36 border-b border-input pb-2 text-left align-bottom text-sm font-semibold text-muted-foreground">
                   Arco
                 </th>
                 {data.chapters.map((chapter, i) => (
-                  <th key={chapter.chapterId} className="w-64 min-w-64 max-w-64 border-b border-border pb-2 text-left align-top font-normal">
+                  <th key={chapter.chapterId} className="w-64 min-w-64 max-w-64 border-b border-input pb-2 text-left align-top font-normal">
                     <span className="block font-display text-base font-bold text-muted-foreground tabular-nums">
                       {i + 1}
                     </span>
@@ -206,7 +206,7 @@ export function PlotGridView({
             <tbody>
               {rows.map((arc) => (
                 <tr key={arc ?? SIN_ARCO}>
-                  <th className="w-36 pt-2 align-top text-left font-normal">
+                  <th className="w-36 border-b border-border py-2 align-top text-left font-normal">
                     <span className="block text-sm font-semibold text-foreground">{arc ?? "Sin arco"}</span>
                     <span className="block text-sm text-muted-foreground tabular-nums">
                       {describirArco(porArco.get(arc ?? SIN_ARCO))}
@@ -231,7 +231,8 @@ export function PlotGridView({
 
       <DragOverlay>
         {dragging && (
-          <div className="max-w-56 rounded-xl border border-border bg-background p-2.5 font-serif text-sm shadow-(--shadow)">
+          // La escena que viaja: la misma fila, en papel y con su hairline.
+          <div className="line-clamp-3 max-w-56 border-y border-input bg-background py-2 pl-3 font-serif text-sm text-body">
             {sceneAt(data, dragging)?.preview || "Escena en blanco"}
           </div>
         )}
@@ -301,11 +302,13 @@ function Cell({
     <td
       ref={setNodeRef}
       className={cn(
-        "min-w-56 align-top rounded-xl border border-dashed p-1.5 transition-colors duration-(--dur-toque) ease-(--ease-pluma)",
-        isOver ? "border-primary bg-secondary" : "border-border",
+        // Una celda es un trozo de columna bajo su hairline; al pasar una escena
+        // por encima se tiñe de la superficie, sin caja que aparezca.
+        "min-w-56 border-b border-border align-top transition-[background-color] duration-(--dur-toque) ease-(--ease-pluma)",
+        isOver && "bg-sf2",
       )}
     >
-      <div className="space-y-1.5">
+      <div>
         {scenes.map((scene) => (
           <SceneCard
             key={scene.index}
@@ -317,7 +320,7 @@ function Cell({
           />
         ))}
         {scenes.length === 0 && (
-          <p className="px-1 py-3 text-center text-sm text-muted-foreground">Sin escenas</p>
+          <p className="py-3 pl-(--margen) text-sm text-muted-foreground">Sin escenas</p>
         )}
       </div>
     </td>
@@ -362,28 +365,29 @@ function SceneCard({
     <div
       ref={setNodeRef}
       className={cn(
-        "group rounded-xl border border-border bg-background p-2.5 text-sm transition-opacity duration-(--dur-toque) ease-(--ease-pluma)",
+        "group grid grid-cols-[var(--margen)_1fr] border-b border-border py-2.5 text-sm last:border-b-0 transition-opacity duration-(--dur-toque) ease-(--ease-pluma)",
         isDragging && "opacity-40",
       )}
     >
-      <div className="flex items-start gap-1.5">
-        <button
-          type="button"
-          {...listeners}
-          {...attributes}
-          aria-label={`Arrastrar la escena ${scene.index + 1} de ${chapter.title ?? "el capítulo"}`}
-          className="min-w-0 flex-1 cursor-grab text-left active:cursor-grabbing"
-        >
-          <span className="mb-1 block text-xs font-semibold text-muted-foreground tabular-nums">
-            Escena {scene.index + 1}, {scene.wordCount.toLocaleString("es")} palabras
-          </span>
-          <span className="line-clamp-4 font-serif text-body">
-            {scene.preview || "Escena en blanco"}
-          </span>
-        </button>
-      </div>
+      <span aria-hidden className="pt-0.5 text-center text-sm font-semibold text-muted-foreground tabular-nums">
+        {scene.index + 1}
+      </span>
+      <button
+        type="button"
+        {...listeners}
+        {...attributes}
+        aria-label={`Arrastrar la escena ${scene.index + 1} de ${chapter.title ?? "el capítulo"}`}
+        className="min-w-0 cursor-grab rounded-sm text-left focus-ring active:cursor-grabbing"
+      >
+        <span className="line-clamp-4 font-serif text-base text-body">
+          {scene.preview || "Escena en blanco"}
+        </span>
+        <span className="mt-0.5 block text-sm text-muted-foreground tabular-nums">
+          {scene.wordCount.toLocaleString("es")} palabras
+        </span>
+      </button>
 
-      <div className="mt-2 flex items-center gap-0.5 md:opacity-0 md:transition-opacity md:group-hover:opacity-100 md:focus-within:opacity-100">
+      <div className="col-start-2 mt-1 -ml-2 flex items-center gap-0.5 transition-opacity duration-(--dur-toque) ease-(--ease-pluma) md:pointer-fine:opacity-0 md:pointer-fine:group-hover:opacity-100 md:pointer-fine:focus-within:opacity-100">
         <Button
           variant="ghost"
           size="icon"
