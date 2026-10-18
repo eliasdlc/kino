@@ -1,8 +1,8 @@
 "use client";
 
-import { createContext, useContext, useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import dynamic from "next/dynamic";
-import { PanelRight } from "lucide-react";
+import { Ellipsis, PanelRight } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { PageBreadcrumb } from "@/components/PageBreadcrumb";
 import { ChapterStatusToggle } from "@/features/writing/ChapterStatusToggle";
@@ -12,21 +12,35 @@ import type { BreadcrumbItem } from "@/components/PageBreadcrumb";
 import type { PageDetailTransport, PageListItemTransport } from "./pages.types";
 import type { WriterObra } from "./WriterStatusBar";
 import type { MediumManifest } from "@/shared/lib/mediums";
+import {
+  BOTON_MAS,
+  FILA_DEL_TITULO,
+  LETRA_DEL_TITULO,
+  PrimeraPinturaContext,
+  RESERVA_CODEX,
+  usePrimeraPintura,
+} from "./primera-pintura";
 
 /**
  * Lo que se pinta antes de que llegue el editor: el título y el texto ya
  * saneados por el servidor, con las mismas clases que tendrá el editor. Leer
- * no espera a Tiptap; el cursor y la barra llegan con su chunk, y el texto no
- * se mueve al llegar porque ya estaba donde va.
+ * no espera a Tiptap; el cursor y la barra llegan con su chunk. Para que el
+ * texto no se mueva al llegar, la primera pintura lleva lo que el editor pone
+ * encima del cuerpo: la fila del título con Más a 2.85rem y, en un capítulo
+ * con fichas del codex, el alto de su fila. Y lo que se bajó leyendo se
+ * conserva: el editor arranca en el mismo scroll.
  */
-type PrimeraPintura = { titulo: string; cuerpo: React.ReactNode; writer: boolean };
-const PrimeraPinturaContext = createContext<PrimeraPintura | null>(null);
-
-function PrimeraPinturaDelEditor() {
-  const pintura = useContext(PrimeraPinturaContext);
+export function PrimeraPinturaDelEditor() {
+  const pintura = usePrimeraPintura();
   return (
     <div aria-busy className="relative flex flex-1 flex-col overflow-hidden">
-      <div className="flex-1 overflow-y-auto">
+      <div
+        data-slot="primera-pintura"
+        className="flex-1 overflow-y-auto"
+        onScroll={(e) => {
+          pintura?.guardarScroll(e.currentTarget.scrollTop);
+        }}
+      >
         <div
           className={cn(
             "mx-auto space-y-8 py-6 pl-[max(1.25rem,env(safe-area-inset-left))] pr-[max(1.25rem,env(safe-area-inset-right))] md:px-6 md:py-8",
@@ -34,14 +48,30 @@ function PrimeraPinturaDelEditor() {
           )}
         >
           <div className="flex flex-col gap-4">
-            <p
-              className={cn(
-                "font-serif text-[1.76rem] leading-[1.2] font-semibold tracking-[-0.01em]",
-                pintura?.titulo ? "text-foreground" : "text-muted-foreground/60",
-              )}
-            >
-              {pintura?.titulo || "Sin título"}
-            </p>
+            <div className={FILA_DEL_TITULO}>
+              <p
+                className={cn(
+                  "block min-w-0 flex-1",
+                  LETRA_DEL_TITULO,
+                  pintura?.titulo ? "text-foreground" : "text-muted-foreground/60",
+                )}
+              >
+                {pintura?.titulo || "Sin título"}
+              </p>
+              <button
+                type="button"
+                onClick={pintura?.onOpenPanel}
+                aria-label={pintura?.writer ? "Más del capítulo" : "Más del documento"}
+                className={BOTON_MAS}
+              >
+                <Ellipsis className="size-5" />
+              </button>
+            </div>
+            {pintura?.writer && (
+              <div className="md:hidden">
+                {pintura.fichasDelCodex > 0 && <div aria-hidden className={RESERVA_CODEX} />}
+              </div>
+            )}
             <div className={cn("tiptap-editor relative flex-1", pintura?.writer && "tiptap-writer")}>
               {pintura?.cuerpo}
             </div>
@@ -86,6 +116,8 @@ interface NotebookEditorLayoutProps {
    * Llega como nodo para que el saneo (y su librería) se quede en el servidor.
    */
   firstPaint?: React.ReactNode;
+  /** Cuántas fichas del codex nombra el capítulo: reserva su fila en la primera pintura. */
+  fichasDelCodex?: number;
 }
 
 export function NotebookEditorLayout({
@@ -99,6 +131,7 @@ export function NotebookEditorLayout({
   obraMetadata = null,
   medium = null,
   firstPaint = null,
+  fichasDelCodex = 0,
 }: NotebookEditorLayoutProps) {
   const [panelOpen, setPanelOpen] = useState(false);
   // El chunk del panel se pide al abrirlo y se queda montado: cerrar y volver a
@@ -110,6 +143,8 @@ export function NotebookEditorLayout({
   // lee el navegador del manuscrito, y bajo md también la lista del panel.
   const [outline, setOutline] = useState<OutlineItem[]>([]);
   const jumpRef = useRef<((pos: number) => void) | null>(null);
+  // El scroll de la primera pintura, para que el editor arranque donde quedó.
+  const scrollDeLaPrimeraPintura = useRef(0);
 
   // El título se escribe en el editor pero lo pintan las migas, el nombre de la
   // sesión de escritura, el interruptor de capítulo y el del archivo exportado.
@@ -177,7 +212,23 @@ export function NotebookEditorLayout({
       </div>
 
       <div className="flex flex-1 overflow-hidden">
-        <PrimeraPinturaContext.Provider value={{ titulo: title, cuerpo: firstPaint, writer }}>
+        <PrimeraPinturaContext.Provider
+          value={{
+            titulo: title,
+            cuerpo: firstPaint,
+            writer,
+            fichasDelCodex,
+            onOpenPanel: openPanel,
+            guardarScroll: (top) => {
+              scrollDeLaPrimeraPintura.current = top;
+            },
+            tomarScroll: () => {
+              const top = scrollDeLaPrimeraPintura.current;
+              scrollDeLaPrimeraPintura.current = 0;
+              return top;
+            },
+          }}
+        >
           <NotebookEditorSurface
             page={page}
             title={title}
