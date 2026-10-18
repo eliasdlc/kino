@@ -1,18 +1,19 @@
+import { Suspense } from "react";
 import { redirect } from "next/navigation";
 import { api } from "@convex/_generated/api";
+import type { FunctionReturnType } from "convex/server";
 import { serverQuery } from "@/shared/convex/server";
 import { Providers } from "./providers";
 import { accountThemeScript } from "@/shared/lib/theme-script";
-import { SystemsSidebar } from "@/features/systems/SystemsSidebar";
-import { SidebarProvider } from "@/components/ui/sidebar";
+import { SystemsSidebar, type CuentaDelSidebar } from "@/features/systems/SystemsSidebar";
 import { MobileHeader } from "@/components/MobileHeader";
 import { BottomNav } from "@/components/BottomNav";
 import { AppMain } from "@/components/AppMain";
 import { InstallPrompt } from "@/components/InstallPrompt";
 import { OfflineIndicator } from "@/features/offline/OfflineIndicator";
 
-import { GlobalCommandPalette } from "@/features/command-palette/GlobalCommandPalette";
-import { GlobalQuickAddDialog } from "@/features/tasks/GlobalQuickAddDialog";
+import { GlobalCommandPaletteLazy } from "@/features/command-palette/GlobalCommandPaletteLazy";
+import { GlobalQuickAddDialogLazy } from "@/features/tasks/GlobalQuickAddDialogLazy";
 import { GlobalNavigationShortcuts } from "@/features/command-palette/GlobalNavigationShortcuts";
 import { FocusTimerProvider } from "@/features/tasks/FocusTimerProvider";
 import { FocusTimerWidget } from "@/features/tasks/FocusTimerWidget";
@@ -22,6 +23,18 @@ import { AnalyticsIdentity } from "@/shared/observability/AnalyticsIdentity";
 import { ActiveSince } from "@/features/account/ActiveSince";
 import { MantenerAvisos } from "@/features/notifications/MantenerAvisos";
 
+type Usuario = FunctionReturnType<typeof api.users.current>;
+
+/**
+ * El shell de la app. Sólo dos cosas lo bloquean antes de emitir nada: la
+ * sesión (una cookie) y el tema de la cuenta, porque el tema tiene que
+ * conocerse antes de la primera pintura o un dispositivo estrenado da un
+ * destello. Todo lo demás llega en streaming: la fila de `users` (el
+ * onboarding, la identidad de la analítica, el menú de cuenta del sidebar) va
+ * detrás de un `Suspense`, y cada página detrás de su `loading.tsx`. Así la
+ * cabecera, el pie y el sidebar se pintan antes que los datos de cualquier
+ * pantalla.
+ */
 export default async function AppLayout({
   children,
 }: {
@@ -30,22 +43,22 @@ export default async function AppLayout({
   const session = await getServerSession();
   if (!session) redirect("/login");
 
-  // El tema y el onboarding salen de la misma lectura.
-  const [user, settings] = await Promise.all([
-    serverQuery(api.users.current, {}),
-    serverQuery(api.settings.get, {}),
-  ]);
-
-  if (!user.onboardingCompleted) redirect("/onboarding");
-
+  // Las dos lecturas salen a la vez; sólo el tema se espera aquí.
+  const usuario = serverQuery(api.users.current, {});
+  const settings = await serverQuery(api.settings.get, {});
   const theme = settings.theme ?? "system";
+
+  const cuenta: Promise<CuentaDelSidebar> = usuario.then((u) => ({
+    name: u.name,
+    email: u.email,
+    image: u.image ?? null,
+  }));
 
   return (
     <Providers initialTheme={theme}>
-      {/* Antes que `children`: sus efectos corren en ese orden, así que la
-          persona ya está identificada cuando la pantalla de debajo dispara su
-          primer evento del funnel. */}
-      <AnalyticsIdentity userId={user._id} />
+      <Suspense fallback={null}>
+        <Cuenta usuario={usuario} />
+      </Suspense>
       {/* Deja constancia de que la cuenta sigue viva; como mucho una vez al día. */}
       <ActiveSince />
       {/* Rehace la suscripción push de este dispositivo si caducó o cambió de clave. */}
@@ -54,22 +67,16 @@ export default async function AppLayout({
           dispositivo todavía no tiene uno propio. Ver `theme-script`. */}
       <script dangerouslySetInnerHTML={{ __html: accountThemeScript(theme) }} />
       <FocusTimerProvider>
-        <SidebarProvider>
-          <div className="flex h-screen w-full overflow-hidden">
-            <SystemsSidebar
-              userName={user.name}
-              userEmail={user.email}
-              userImage={user.image ?? null}
-            />
-            <div className="flex flex-col flex-1 min-w-0 overflow-hidden">
-              <MobileHeader />
-              <AppMain>{children}</AppMain>
-              <BottomNav />
-            </div>
+        <div className="flex h-dvh w-full overflow-hidden">
+          <SystemsSidebar cuenta={cuenta} />
+          <div className="flex min-w-0 flex-1 flex-col overflow-hidden">
+            <MobileHeader />
+            <AppMain>{children}</AppMain>
+            <BottomNav />
           </div>
-        </SidebarProvider>
-        <GlobalCommandPalette />
-        <GlobalQuickAddDialog />
+        </div>
+        <GlobalCommandPaletteLazy />
+        <GlobalQuickAddDialogLazy />
         <GlobalNavigationShortcuts />
         <FocusTimerWidget />
         <FocusTimerModeDialog />
@@ -78,4 +85,15 @@ export default async function AppLayout({
       </FocusTimerProvider>
     </Providers>
   );
+}
+
+/**
+ * Lo que depende de la fila de `users` y no de la pantalla: quien no terminó
+ * el onboarding va al onboarding, y la analítica pone nombre a la persona.
+ * Corre en streaming, detrás del shell.
+ */
+async function Cuenta({ usuario }: { usuario: Promise<Usuario> }) {
+  const user = await usuario;
+  if (!user.onboardingCompleted) redirect("/onboarding");
+  return <AnalyticsIdentity userId={user._id} />;
 }
