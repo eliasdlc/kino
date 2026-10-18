@@ -56,6 +56,14 @@ describe('ArchetypeGallery', () => {
     expect(screen.getAllByRole('radio').filter((r) => r.getAttribute('aria-checked') === 'true')).toHaveLength(1);
   });
 
+  it('la elegida se dice en tinta, no en ámbar: el acento queda para Entrar', () => {
+    renderMobile(<Controlada />);
+
+    const elegida = screen.getAllByRole('radio').find((r) => r.getAttribute('aria-checked') === 'true')!;
+    expect(elegida.className).not.toMatch(/bg-primary/);
+    expect(elegida.querySelector('.bg-foreground')).toBeInTheDocument();
+  });
+
   it('llega con una elegida, así que nadie mira un botón apagado', () => {
     renderMobile(<Controlada />);
 
