@@ -1,19 +1,29 @@
 "use client";
 
-import type { ReactNode } from "react";
+import { useState, type ReactNode } from "react";
 import { Bell, Mail, Smartphone, Trash2 } from "lucide-react";
+import { ConvexQueryCacheProvider } from "convex-helpers/react/cache";
+import { ConvexProviderWithAuth, type ConvexReactClient } from "convex/react";
+import { getFunctionName } from "convex/server";
 import { api } from "@convex/_generated/api";
+import { makeTestConvexClient, useTestAuth, type QueryStub } from "@/shared/testing/convex-client";
 import { Section, Seeded, SubSection, Specimen, seedQuery } from "../helpers";
-import { SettingsIndex, SettingsIndexSkeleton } from "@/features/settings/SettingsIndex";
+import { AvisosBloqueadosBody, SettingsIndex, SettingsIndexSkeleton } from "@/features/settings/SettingsIndex";
 import { IndexRow, Stepper, SwitchRow } from "@/features/settings/settings-ui";
 import { ThemeRow } from "@/features/settings/ThemeRow";
-import { EnergyLimitRow } from "@/features/settings/EnergyLimitSection";
+import { EnergyLimitRow } from "@/features/settings/EnergyLimitRow";
+import { TimezoneSheetBody } from "@/features/settings/TimezoneRow";
 import { RemindersSection } from "@/features/settings/RemindersSection";
 import { EnergyProfileSection } from "@/features/settings/EnergyProfileSection";
 import { WeeklyReviewDaySection } from "@/features/settings/WeeklyReviewDaySection";
 import { TrashSection } from "@/features/settings/TrashSection";
 import { ShortcutsSection } from "@/features/settings/ShortcutsSection";
-import { AJUSTES_DE_PRUEBA } from "@/features/settings/settings-fixtures";
+import { ConnectionsSection } from "@/features/settings/ConnectionsSection";
+import { DigestsSection } from "@/features/settings/DigestsSection";
+import { DataPortabilitySection } from "@/features/settings/DataPortabilitySection";
+import { DangerZoneSection, DeleteAccountBody } from "@/features/account/DangerZoneSection";
+import { useDeleteAccount } from "@/features/account/account.hooks";
+import { AJUSTES_DE_PRUEBA, CUENTA_DE_PRUEBA } from "@/features/settings/settings-fixtures";
 
 /** El ancho del teléfono de las capturas, con el margen de la casa encendido. */
 function Telefono({ children }: { children: ReactNode }) {
@@ -50,6 +60,46 @@ const PAPELERA_VACIA = [
 ];
 
 const glifo = "size-5 stroke-[1.8]";
+
+/** Lo que responde `github.status` sin cuenta enlazada, configurada o no. */
+function estadoGithub(configured: boolean): QueryStub {
+  return { name: getFunctionName(api.github.status), value: { connected: false, login: null, lastSyncedAt: null, revoked: false, configured } };
+}
+
+/**
+ * `Seeded` con la respuesta de una acción además de las queries: la hoja de
+ * Conexiones pregunta a `github.status` si la integración existe, y `Seeded`
+ * sólo siembra queries. El mismo árbol, con el segundo argumento del cliente.
+ */
+function SeededConEscrituras({ stubs, escrituras, children }: { stubs: QueryStub[]; escrituras: QueryStub[]; children: ReactNode }) {
+  const [client] = useState(() => makeTestConvexClient(stubs, escrituras) as unknown as ConvexReactClient);
+  return (
+    <ConvexProviderWithAuth client={client} useAuth={useTestAuth}>
+      <ConvexQueryCacheProvider expiration={0} maxIdleEntries={0}>
+        {children}
+      </ConvexQueryCacheProvider>
+    </ConvexProviderWithAuth>
+  );
+}
+
+const PAPELERA_CON_FILAS = [
+  seedQuery(api.tasks.list, { items: [{ id: "t1", title: "Comprar tinta", deletedAt: "2026-10-12T15:00:00.000Z" }], restantes: 0 }),
+  seedQuery(api.pages.trashed, [{ id: "p1", title: "La daga", deletedAt: "2026-10-14T10:00:00.000Z", subpageCount: 2 }]),
+  seedQuery(api.entities.trashed, []),
+  seedQuery(api.folders.trashed, [{ id: "f1", name: "Parte 1", deletedAt: "2026-10-15T10:00:00.000Z", subfolderCount: 3 }]),
+  seedQuery(api.stickyNotes.trashed, [{ id: "n1", title: null, content: "Falta el mapa", deletedAt: "2026-10-10T10:00:00.000Z" }]),
+];
+
+const DIGESTS = [
+  { id: "d1", source: "claude-code", externalId: "a", createdAt: "2026-10-17T21:40:00.000Z", bytes: 4210 },
+  { id: "d2", source: "claude-code", externalId: "b", createdAt: "2026-10-16T19:05:00.000Z", bytes: 3870 },
+];
+
+/** El cuerpo de la confirmación de borrar la cuenta, con su acción. */
+function BorrarCuenta() {
+  const deleteAccount = useDeleteAccount();
+  return <DeleteAccountBody email="prueba@usekino.dev" onClose={() => {}} deleteAccount={deleteAccount} enfocar={false} />;
+}
 
 export function SettingsSection() {
   return (
@@ -94,9 +144,23 @@ export function SettingsSection() {
               <IndexRow icon={<Bell aria-hidden className={glifo} />} title="Recordatorios" meta={undefined} onOpen={() => {}} />
             </Telefono>
           </Specimen>
-          <Specimen label="Lo irreversible" hint='tone="danger"'>
+          <Specimen label="Lo irreversible, en su sitio" hint="DangerZoneSection: la última fila de Una vez">
             <Telefono>
-              <IndexRow tone="danger" icon={<Trash2 aria-hidden className={glifo} />} title="Borrar la cuenta" meta="Todo, sin papelera; antes puedes exportarlo" onOpen={() => {}} />
+              <Seeded stubs={[seedQuery(api.users.current, CUENTA_DE_PRUEBA)]}>
+                <IndexRow icon={<Trash2 aria-hidden className={glifo} />} title="Papelera" meta="Lo borrado, hasta que lo restaures" onOpen={() => {}} />
+                <DangerZoneSection />
+              </Seeded>
+            </Telefono>
+          </Specimen>
+          <Specimen label="Valor sin chevron" hint="IndexRow sin onOpen: el valor queda en la columna de los demás">
+            <Telefono>
+              <IndexRow icon={<Bell aria-hidden className={glifo} />} title="Recordatorios" meta="Resumen a las 8:00" value="Medios" onOpen={() => {}} />
+              <IndexRow icon={<Bell aria-hidden className={glifo} />} title="Informativa" meta="Sólo dice su valor" value="Medios" />
+            </Telefono>
+          </Specimen>
+          <Specimen label="Avisos bloqueados" hint='IndexRow tone="warn": abre cómo desbloquearlos'>
+            <Telefono>
+              <IndexRow icon={<Smartphone aria-hidden className={glifo} />} title="Avisos en este dispositivo" meta="Bloqueados en este navegador" tone="warn" onOpen={() => {}} />
             </Telefono>
           </Specimen>
         </div>
@@ -169,8 +233,54 @@ export function SettingsSection() {
               </Seeded>
             </Telefono>
           </Specimen>
+          <Specimen label="Papelera con filas" hint="TrashSection: restaurar avisa con Deshacer">
+            <Telefono>
+              <Seeded stubs={PAPELERA_CON_FILAS}>
+                <TrashSection />
+              </Seeded>
+            </Telefono>
+          </Specimen>
+          <Specimen label="Conexiones, sin la integración" hint="ConnectionsSection: la fila dice que no está disponible">
+            <Telefono>
+              <SeededConEscrituras
+                stubs={[seedQuery(api.connections.list, [{ provider: "github", connected: false, lastSyncedAt: null, linkedSystems: 0 }])]}
+                escrituras={[estadoGithub(false)]}
+              >
+                <ConnectionsSection />
+              </SeededConEscrituras>
+            </Telefono>
+          </Specimen>
+          <Specimen label="Diario de sesiones" hint="DigestsSection: fecha y tamaño, nunca el contenido">
+            <Telefono>
+              <Seeded stubs={[seedQuery(api.digests.list, DIGESTS)]}>
+                <DigestsSection />
+              </Seeded>
+            </Telefono>
+          </Specimen>
+          <Specimen label="Datos y exportación" hint="DataPortabilitySection">
+            <Telefono>
+              <DataPortabilitySection />
+            </Telefono>
+          </Specimen>
+          <Specimen label="Zona horaria distinta" hint="TimezoneSheetBody: las dos zonas y usar la de aquí">
+            <Telefono>
+              <TimezoneSheetBody cuenta="America/Santo_Domingo" dispositivo="Europe/Madrid" cambiando={false} usarLaDeAqui={() => {}} />
+            </Telefono>
+          </Specimen>
+          <Specimen label="Avisos bloqueados, la hoja" hint="AvisosBloqueadosBody">
+            <Telefono>
+              <AvisosBloqueadosBody />
+            </Telefono>
+          </Specimen>
+          <Specimen label="Borrar tu cuenta" hint="DeleteAccountBody: la copia antes y el correo para confirmar">
+            <Telefono>
+              <Seeded stubs={[]}>
+                <BorrarCuenta />
+              </Seeded>
+            </Telefono>
+          </Specimen>
           <Specimen label="Atajos de teclado, sólo escritorio" hint="ShortcutsSection">
-            <div className="w-[28rem] max-w-full">
+            <div className="w-[28rem] max-w-[calc(100vw-4rem)]">
               <ShortcutsSection />
             </div>
           </Specimen>
