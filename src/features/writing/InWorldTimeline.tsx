@@ -216,9 +216,11 @@ function TimelineRow({
             <button
               type="button"
               onClick={onOpen}
-              className="block max-w-full truncate rounded-md py-1 text-left text-base font-semibold text-foreground focus-ring hover:underline"
+              // El nombre mide una línea; el antes invisible alarga el toque a
+              // 48 px sin mover el texto ni el numeral del margen.
+              className="relative block max-w-full rounded-md py-1 text-left text-base font-semibold text-foreground focus-ring hover:underline before:absolute before:inset-x-0 before:-inset-y-2 before:content-['']"
             >
-              {entry.name}
+              <span className="block truncate">{entry.name}</span>
             </button>
             <p className="text-sm text-muted-foreground">
               {entry.when ?? "sin fecha en la historia"}
