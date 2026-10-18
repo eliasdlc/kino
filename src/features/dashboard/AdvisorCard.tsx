@@ -1,10 +1,10 @@
 'use client';
 
 import { useState } from 'react';
-import { Lightbulb, Clock, ArrowRight, Loader2 } from 'lucide-react';
+import { Lightbulb, Clock, ArrowRight } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { cn } from '@/lib/utils';
 import { useAdvisorAction } from '@/features/tasks/tasks.hooks';
+import { SectionHead } from './SectionHead';
 import type { AdvisorPattern, PatternId } from '@/features/energy/energy.advisor';
 import type { AdvisorBulkAction } from '@/features/energy/energy.types';
 
@@ -20,18 +20,11 @@ const ICONS: Record<PatternId, React.FC<{ className?: string }>> = {
   disorganization: Lightbulb,
 };
 
-function severityColor(severity: number): string {
-  if (severity >= 3) return 'text-task-overdue';
-  if (severity >= 2) return 'text-primary';
-  return 'text-muted-foreground';
-}
-
-function severityBg(severity: number): string {
-  if (severity >= 3) return 'border-task-overdue/20 bg-task-overdue/10';
-  if (severity >= 2) return 'border-primary/20 bg-primary';
-  return 'border-border bg-card';
-}
-
+/**
+ * El patrón que queda, bajo el plan: un título con hairline, el glifo en el
+ * margen, la frase en la columna de texto y una sola acción. La gravedad no
+ * tiñe nada: la dice la frase, y el bloque se va cuando la acción se aplica.
+ */
 export function AdvisorCard({ pattern, actionTaskIds, actionLabel, bulkAction }: Props) {
   const [dismissed, setDismissed] = useState(false);
   const { mutate: runAction, isPending } = useAdvisorAction();
@@ -49,35 +42,22 @@ export function AdvisorCard({ pattern, actionTaskIds, actionLabel, bulkAction }:
   }
 
   return (
-    <div className={cn('rounded-2xl border p-4 space-y-3 shadow-(--shadow)', severityBg(pattern.severity))}>
-      <div className="flex items-start gap-3">
-        <div className={cn('shrink-0 mt-0.5', severityColor(pattern.severity))}>
-          <Icon className="w-4 h-4" />
-        </div>
-        <div className="flex-1 min-w-0 space-y-0.5">
-          <p className={cn('text-xs font-semibold uppercase tracking-wide', severityColor(pattern.severity))}>
-            {pattern.label}
-          </p>
-          <p className="text-sm text-foreground">{pattern.message}</p>
+    <section aria-label={pattern.label}>
+      <SectionHead title={pattern.label} />
+      <div className="grid grid-cols-[var(--margen)_1fr] items-start pt-3">
+        <span className="flex justify-center pt-0.5 text-muted-foreground" aria-hidden>
+          <Icon className="size-4" />
+        </span>
+        <div className="min-w-0 space-y-3">
+          <p className="text-sm text-body">{pattern.message}</p>
+          {hasAction && (
+            <Button variant="secondary" onClick={handleAction} disabled={isPending} aria-busy={isPending}>
+              <ArrowRight className="size-4" />
+              {actionLabel}
+            </Button>
+          )}
         </div>
       </div>
-
-      {hasAction && (
-        <div className="flex items-center gap-2 pl-7">
-          <Button
-            size="sm"
-            variant="outline"
-            className="h-7 text-xs gap-1.5"
-            onClick={handleAction}
-            disabled={isPending}
-          >
-            {isPending
-              ? <Loader2 className="w-3 h-3 animate-spin" />
-              : <ArrowRight className="w-3 h-3" />}
-            {actionLabel}
-          </Button>
-        </div>
-      )}
-    </div>
+    </section>
   );
 }
