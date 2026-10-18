@@ -244,3 +244,18 @@ export function nodeRadius(mentionCount: number): number {
   const grown = base + Math.sqrt(Math.max(0, mentionCount)) * 4;
   return Math.min(38, grown);
 }
+
+/** Radio en px CSS del blanco táctil de un nodo: 48 px de diámetro. */
+export const NODE_HIT_RADIUS_PX = 24;
+
+/**
+ * Radio, en unidades del viewBox, que necesita un nodo para que el dedo lo
+ * acierte. El lienzo es cuadrado con `preserveAspectRatio` por defecto, así
+ * que el viewBox se ajusta al lado corto: `span` unidades ocupan `shortSidePx`
+ * píxeles. Con zoom el span baja y el blanco encoge en unidades, para medir
+ * siempre lo mismo en la pantalla. Nunca es menor que el círculo dibujado.
+ */
+export function nodeHitRadius(drawnRadius: number, span: number, shortSidePx: number): number {
+  if (shortSidePx <= 0) return drawnRadius;
+  return Math.max(drawnRadius, (NODE_HIT_RADIUS_PX * span) / shortSidePx);
+}
