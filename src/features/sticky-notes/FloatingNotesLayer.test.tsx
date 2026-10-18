@@ -62,6 +62,12 @@ const mutaciones = (convex: ReturnType<typeof makeTestConvexClient>) =>
 const envoltorios = (container: HTMLElement) =>
   [...container.querySelectorAll<HTMLElement>(".absolute.w-44")];
 
+/** Borrar pide confirmación: el diálogo nombra la nota y su botón borra. */
+async function confirmarBorrado() {
+  const dialogo = await screen.findByRole("dialog", { name: "Eliminar nota" });
+  await userEvent.click(within(dialogo).getByRole("button", { name: "Eliminar" }));
+}
+
 /** Mueve el puntero apretado. Pasado el umbral de 4 px es arrastre; antes, click. */
 async function arrastrar(desde: Element, dx: number, dy = 40) {
   await userEvent.pointer([
@@ -72,10 +78,12 @@ async function arrastrar(desde: Element, dx: number, dy = 40) {
 }
 
 describe("los controles de una nota flotante", () => {
-  it("la X la borra", async () => {
+  it("la X la borra después de confirmar", async () => {
     const { convex } = pintar();
 
     await userEvent.click(screen.getByRole("button", { name: "Eliminar nota" }));
+    expect(mutaciones(convex)).toEqual([]);
+    await confirmarBorrado();
 
     expect(mutaciones(convex)).toEqual([
       { kind: "mutation", name: "stickyNotes:remove", args: { id: NOTA.id } },
@@ -223,6 +231,7 @@ describe("el arrastre de una nota flotante", () => {
     const { convex } = pintar();
 
     await arrastrar(screen.getByRole("button", { name: "Eliminar nota" }), 120);
+    await confirmarBorrado();
 
     // La nota se borra y nadie guarda una posición: el botón no es un asa.
     expect(mutaciones(convex).map((c) => c.name)).toEqual(["stickyNotes:remove"]);
