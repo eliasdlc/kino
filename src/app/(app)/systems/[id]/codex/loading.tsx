@@ -1,8 +1,8 @@
 import { Skeleton } from "@/components/ui/skeleton";
-import { BreadcrumbSkeleton, PageHeaderSkeleton } from "@/components/Skeletons";
+import { BreadcrumbSkeleton, PageHeaderSkeleton, RowsSkeleton } from "@/components/Skeletons";
 import { PageWrapper } from "@/components/PageWrapper";
 
-/** Copia la forma de `codex/page.tsx`: cabecera, título, las pestañas y la rejilla. */
+/** Copia la forma de `codex/page.tsx`: cabecera, título, las pestañas y el índice. */
 export default function CodexLoading() {
   return (
     <div aria-busy className="w-full">
@@ -11,17 +11,20 @@ export default function CodexLoading() {
       </div>
       <PageWrapper className="w-full">
         <PageHeaderSkeleton voz />
-        {/* CodexNav: las cuatro lecturas */}
-        <div className="flex items-center gap-1 border-b border-border/50 pb-2">
+        {/* CodexNav: las cuatro lecturas como pestañas-palabra */}
+        <div className="flex items-end gap-x-5 border-b border-border">
           {[0, 1, 2, 3].map((i) => (
-            <Skeleton key={i} className="h-6 w-24 rounded" />
+            <div key={i} className="flex h-[2.85rem] items-center">
+              <Skeleton className="h-4 w-20 rounded" />
+            </div>
           ))}
         </div>
-        {/* Biblioteca de entidades */}
-        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-          {Array.from({ length: 6 }).map((_, i) => (
-            <Skeleton key={i} className="h-28 rounded-xl" />
-          ))}
+        {/* Biblioteca: el título de la primera sección y sus filas numeradas */}
+        <div>
+          <div className="flex min-h-[2.85rem] items-end border-b border-input pb-[0.45rem]">
+            <Skeleton className="h-5 w-28 rounded" />
+          </div>
+          <RowsSkeleton rows={5} margin="numeral" />
         </div>
       </PageWrapper>
     </div>
