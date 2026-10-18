@@ -87,7 +87,7 @@ export const MentionList = forwardRef<MentionListRef, MentionListProps>(
               onClick={() => command(item)}
               onMouseEnter={() => setSelected(i)}
               className={cn(
-                "flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left transition-colors",
+                "flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left transition-colors pointer-coarse:min-h-[2.85rem]",
                 i === selected
                   ? "bg-accent text-accent-foreground"
                   : "text-foreground hover:bg-accent/50",

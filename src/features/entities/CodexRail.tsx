@@ -61,7 +61,7 @@ export function CodexRail({
                   type="button"
                   onClick={() => setOpenEntityId(e.id)}
                   className={cn(
-                    "flex min-w-0 flex-1 items-center gap-2 rounded-md px-2 py-1.5 text-left text-sm transition-colors hover:bg-accent/50",
+                    "flex min-w-0 flex-1 items-center gap-2 rounded-md px-2 py-1.5 text-left text-sm transition-colors hover:bg-accent/50 focus-ring pointer-coarse:min-h-[2.85rem]",
                   )}
                 >
                   <Icon className="size-3.5 shrink-0 text-muted-foreground" />
