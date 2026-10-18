@@ -14,6 +14,7 @@ import { WritingSessionButton } from "@/features/writing/WritingSessionButton";
 import { ReferenceTable } from "@/features/writing/ReferenceTable";
 import { ChapterHistory } from "@/features/writing/ChapterHistory";
 import { ChapterSummaryPanel } from "@/features/writing/ChapterSummaryPanel";
+import { unidadDe } from "@/features/writing/unidad";
 import { usePinnedReferences } from "@/features/writing/pinned-references";
 import { SectionHead } from "@/features/dashboard/SectionHead";
 import { MargenDeUnaLinea, UNA_LINEA } from "@/shared/components/una-linea";
@@ -59,7 +60,7 @@ export interface EditorPanelProps {
 
 export default function EditorPanel({ open, onOpenChange, ...props }: EditorPanelProps) {
   const isMobile = useIsMobile();
-  const titulo = props.writer ? `Este ${props.medium?.unit.noun ?? "capítulo"}` : "Este documento";
+  const titulo = props.writer ? unidadDe(props.medium?.unit).Este : "Este documento";
 
   if (isMobile) {
     return (
@@ -120,13 +121,20 @@ function PanelBody({
       {/* Las dos acciones del capítulo. En escritorio están en la barra. */}
       {writer && movil && (
         <section aria-label="Acciones del capítulo">
-          <WritingSessionButton pageId={page.id} pageTitle={page.title} systemId={systemId} variant="fila" />
+          <WritingSessionButton
+            pageId={page.id}
+            pageTitle={page.title}
+            systemId={systemId}
+            unit={medium?.unit}
+            onStart={onClose}
+            variant="fila"
+          />
           <ChapterStatusToggle
             pageId={page.id}
             systemId={systemId}
             title={page.title}
             initialCompletedAt={page.completedAt}
-            unitNoun={medium?.unit.noun}
+            unit={medium?.unit}
             variant="fila"
           />
         </section>
@@ -147,7 +155,7 @@ function PanelBody({
         <section className={bloque}>
           <ManuscriptOutline
             items={outline}
-            heading={`Índice del ${medium?.unit.noun ?? "capítulo"}`}
+            heading={`Índice ${unidadDe(medium?.unit).del}`}
             onJump={saltar}
           />
         </section>
