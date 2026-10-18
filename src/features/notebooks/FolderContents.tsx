@@ -5,7 +5,8 @@ import { MarginRow } from "@/components/ui/margin-row";
 import { MarginRowSkeleton } from "@/components/Skeletons";
 import { useFolderChildren } from "@/features/folders/folders.hooks";
 import type { PageListItemTransport } from "@/features/pages/pages.types";
-import { useSystemManifest } from "@/features/systems/systems.hooks";
+import { useRowManifest } from "@/features/systems/systems.hooks";
+import type { ArchetypeManifest } from "@/shared/lib/system-types";
 import { countNoun } from "./index-format";
 import { NotebookRow } from "./NotebookRow";
 
@@ -15,6 +16,8 @@ interface FolderContentsProps {
   /** Los documentos de la carpeta, que la lista del sistema ya trae. */
   pages: PageListItemTransport[];
   now?: Date;
+  /** El vocabulario del sistema, que la lista ya tiene. */
+  manifest?: ArchetypeManifest;
 }
 
 /**
@@ -22,8 +25,8 @@ interface FolderContentsProps {
  * glifo de carpeta en el margen y sus documentos numerados. Las subcarpetas se
  * piden al desplegar y no antes; los documentos ya venían con el sistema.
  */
-export function FolderContents({ systemId, folderId, pages, now }: FolderContentsProps) {
-  const manifest = useSystemManifest(systemId);
+export function FolderContents({ systemId, folderId, pages, now, manifest: manifestProp }: FolderContentsProps) {
+  const manifest = useRowManifest(systemId, manifestProp);
   const { data: children, isLoading } = useFolderChildren(folderId);
   const documentos = pages.filter((p) => p.folderId === folderId && !p.parentPageId);
 
@@ -59,6 +62,7 @@ export function FolderContents({ systemId, folderId, pages, now }: FolderContent
           index={i + 1}
           href={`/systems/${systemId}/pages/${page.id}`}
           now={now}
+          manifest={manifest}
         />
       ))}
     </>
