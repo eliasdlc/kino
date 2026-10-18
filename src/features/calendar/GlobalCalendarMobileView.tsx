@@ -235,7 +235,7 @@ export function GlobalCalendarMobileView({
               onClick={() => onOpenTask(task)}
               aria-label={`${placementTime(task)}, ${task.title}`}
               margin={
-                <span className="block pt-2 text-sm font-semibold text-muted-foreground tabular-nums">{placementTime(task)}</span>
+                <span className="block pt-2.5 pr-1 text-[0.8rem] font-semibold text-muted-foreground tabular-nums">{placementTime(task)}</span>
               }
               trailing={<ChevronRight className="size-4 text-muted-foreground" aria-hidden />}
             >
