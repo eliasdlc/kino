@@ -3,14 +3,16 @@
  * el servidor va a hacer con la elegida, con las cifras de las mismas
  * constantes; elegir otra la guarda al tocarla; apagar los recordatorios deja
  * quieto el resto de la hoja; y la hoja dice cuándo los avisos no van a
- * llegar (sin dispositivos, sin correo) en vez de prometerlos.
+ * llegar (sin dispositivos, sin correo) en vez de prometerlos. Una hora
+ * cambiada se guarda aunque la hoja se cierre sin salir del campo.
  */
 import { describe, expect, it } from "vitest";
-import { screen, waitFor } from "@testing-library/react";
+import { fireEvent, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { api } from "@convex/_generated/api";
 import { makeTestConvexClient, renderWithProviders, stubMutation, stubMutationPending, stubQuery } from "@/shared/testing/render";
-import { describirIntensidad, horaCorta, RemindersSection } from "./RemindersSection";
+import { describirIntensidad, RemindersSection } from "./RemindersSection";
+import { horaCorta } from "./settings-copy";
 
 const AJUSTES = {
   dailyEnergyLimit: 50,
@@ -82,6 +84,18 @@ describe("RemindersSection", () => {
 
     await userEvent.click(screen.getByRole("button", { name: /Enviar una prueba/ }));
     expect(convex.calls).toContainEqual({ kind: "action", name: "notifications:probar", args: {} });
+  });
+
+  it("una hora cambiada se guarda aunque la hoja se cierre sin salir del campo", () => {
+    const convex = cliente({ dispositivos: 1, pushConfigurado: true, correoConfigurado: true });
+    const { unmount } = renderWithProviders(<RemindersSection />, { convex });
+
+    // El selector del teléfono cambia el valor y la hoja se cierra con el foco
+    // todavía dentro: no hay blur que esperar.
+    fireEvent.change(screen.getByLabelText("Hora del resumen"), { target: { value: "09:30" } });
+    unmount();
+
+    expect(convex.calls).toContainEqual({ kind: "mutation", name: "settings:update", args: { morningDigestTime: "09:30" } });
   });
 
   it("la hora del índice se dice corta", () => {
