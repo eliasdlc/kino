@@ -6,8 +6,11 @@ import { BubbleMenu } from "@tiptap/react/menus";
 import { ConvexError } from "convex/values";
 import { Ellipsis, StickyNote } from "lucide-react";
 import { toast } from "sonner";
+import { api } from "@convex/_generated/api";
 import { cn } from "@/lib/utils";
+import { useConvexQuery } from "@/shared/convex/hooks";
 import { usePage, useUpdatePage } from "./pages.hooks";
+import { BOTON_MAS, FILA_DEL_TITULO, LETRA_DEL_TITULO, RESERVA_CODEX, usePrimeraPintura } from "./primera-pintura";
 import { useSharedEditor } from "./EditorContext";
 import { TableMenus } from "./TableMenus";
 import { EditorThumbBar } from "./EditorThumbBar";
@@ -78,6 +81,14 @@ export function NotebookEditor({
     screen: { x: number; y: number };
   } | null>(null);
   const [mentionEntityId, setMentionEntityId] = useState<string | null>(null);
+  // La fila del codex se reserva mientras llegan sus fichas, con el mismo alto
+  // que la primera pintura le guardó: el cuerpo no baja cuando aparecen.
+  const fichasDelServidor = usePrimeraPintura()?.fichasDelCodex ?? 0;
+  const { data: fichas } = useConvexQuery(
+    api.entities.byPage,
+    writer && fichasDelServidor > 0 ? { pageId: page.id } : "skip",
+  );
+  const reservarCodex = writer && fichasDelServidor > 0 && fichas === undefined;
   const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   /** Lo tecleado que el temporizador todavía no ha dado por vencido. */
   const pendingPatch = useRef<PagePatch | null>(null);
@@ -375,7 +386,7 @@ export function NotebookEditor({
   return (
     <>
       <div className="flex flex-col gap-4 h-full">
-        <div className="flex items-start gap-2">
+        <div className={FILA_DEL_TITULO}>
           {/* El título de un manuscrito es texto, no interfaz: va en la misma
               Literata que el cuerpo, en redonda. */}
           <textarea
@@ -388,7 +399,10 @@ export function NotebookEditor({
             }}
             placeholder="Sin título"
             aria-label="Título"
-            className="block min-w-0 flex-1 resize-none overflow-hidden border-none bg-transparent p-0 font-serif text-[1.76rem] leading-[1.2] font-semibold tracking-[-0.01em] text-foreground placeholder:text-muted-foreground/60 focus:outline-none"
+            className={cn(
+              "block min-w-0 flex-1 resize-none overflow-hidden border-none bg-transparent p-0 text-foreground placeholder:text-muted-foreground/60 focus:outline-none",
+              LETRA_DEL_TITULO,
+            )}
             maxLength={500}
           />
           {onOpenPanel && (
@@ -396,7 +410,7 @@ export function NotebookEditor({
               type="button"
               onClick={onOpenPanel}
               aria-label={writer ? "Más del capítulo" : "Más del documento"}
-              className="press -mr-2 -mt-1 flex size-[2.85rem] shrink-0 items-center justify-center rounded-full text-muted-foreground transition-[color,background-color,transform] duration-(--dur-toque) ease-(--ease-pluma) focus-ring hover:bg-secondary hover:text-foreground md:hidden"
+              className={BOTON_MAS}
             >
               <Ellipsis className="size-5" />
             </button>
@@ -407,7 +421,11 @@ export function NotebookEditor({
             hacer lo mismo. */}
         {writer && (
           <div className="md:hidden">
-            <CodexChips pageId={page.id} systemId={systemId} />
+            {reservarCodex ? (
+              <div aria-hidden className={RESERVA_CODEX} />
+            ) : (
+              <CodexChips pageId={page.id} systemId={systemId} />
+            )}
           </div>
         )}
         <div className={cn("tiptap-editor flex-1 relative", writer && "tiptap-writer")}>
