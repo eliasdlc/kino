@@ -6,8 +6,11 @@ import { cn } from "@/lib/utils"
  * El estado vacío de Diario: un título en display, una frase en la voz
  * (Literata en cursiva) y, si hay algo que hacer, una acción. Sin
  * ilustración: una página en blanco es una invitación a escribir. Va en la
- * columna de texto; quien lo monta dentro de una página con margen lo sangra
- * con `pl-(--margen)` o lo mete en una MarginRow.
+ * columna de texto: en una página con margen se sangra con `pl-(--margen)`.
+ *
+ * Cuándo usar: una lista o una página sin contenido, siempre con la acción
+ * si existe una. Nunca para un error (eso lleva mensaje y causa) ni para una
+ * carga (eso es un esqueleto).
  */
 function EmptyState({
   title,

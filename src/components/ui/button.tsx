@@ -5,9 +5,10 @@ import { Slot } from "radix-ui"
 import { cn } from "@/lib/utils"
 
 const buttonVariants = cva(
-  // Un toque encoge la pastilla a .97 (press) en --dur-toque; el foco es el
-  // anillo único de la casa (focus-ring). Nada baja un píxel ni se difumina.
-  "group/button press inline-flex shrink-0 items-center justify-center rounded-full border border-transparent bg-clip-padding text-sm font-semibold whitespace-nowrap transition-[color,background-color,border-color,box-shadow,transform] duration-(--dur-toque) select-none focus-ring disabled:pointer-events-none disabled:opacity-50 aria-invalid:border-destructive [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-5",
+  // Un toque encoge la pastilla a .97 (press) en --dur-toque con pluma; el
+  // foco es el anillo único de la casa (focus-ring). Transiciona color y
+  // transform, nunca la sombra: el glow de la primaria no cambia.
+  "group/button press inline-flex shrink-0 items-center justify-center rounded-full border border-transparent bg-clip-padding text-sm font-semibold whitespace-nowrap transition-[color,background-color,border-color,transform] duration-(--dur-toque) ease-(--ease-pluma) select-none focus-ring disabled:pointer-events-none disabled:opacity-50 aria-invalid:border-destructive [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-5",
   {
     variants: {
       variant: {

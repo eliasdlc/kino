@@ -48,10 +48,12 @@ function DrawerOverlay({
 }
 
 /**
- * La hoja inferior de Diario. Sube en --dur-hoja con la curva pluma (vaul
- * anima el transform) y lleva la única sombra del producto, que en oscuro es
- * un paso de tono. Trae asa y un botón Cerrar visible de 2.85rem: arrastrar
- * el asa es opcional, nunca necesario.
+ * La hoja inferior de Diario. Sube en --dur-hoja con la curva pluma y se
+ * recoge en --dur-pagina con tinta: lo impone la regla `[data-vaul-drawer]`
+ * de globals.css, porque vaul inyecta su propio CSS a 500 ms y una clase no
+ * le gana. Lleva la única sombra del producto, que en oscuro es un paso de
+ * tono. Trae asa y un botón Cerrar visible de 2.85rem: arrastrar el asa es
+ * opcional, nunca necesario.
  */
 function DrawerContent({
   className,
@@ -67,12 +69,12 @@ function DrawerContent({
       <DrawerPrimitive.Content
         data-slot="drawer-content"
         className={cn(
-          "fixed inset-x-0 bottom-0 z-(--z-modal) flex max-h-[92dvh] flex-col rounded-t-xl border-t border-border bg-popover text-sm text-popover-foreground shadow-(--shadow) outline-none [transition-duration:var(--dur-hoja)] [transition-timing-function:var(--ease-pluma)]",
+          "fixed inset-x-0 bottom-0 z-(--z-modal) flex max-h-[92dvh] flex-col rounded-t-xl border-t border-border bg-popover text-sm text-popover-foreground shadow-(--shadow) outline-none",
           className
         )}
         {...props}
       >
-        <div data-slot="drawer-handle" className="mx-auto mt-3 h-1.5 w-10 shrink-0 rounded-full bg-ln2" />
+        <div data-slot="drawer-handle" aria-hidden="true" className="mx-auto mt-3 h-1.5 w-10 shrink-0 rounded-full bg-ln2" />
         {showCloseButton && (
           <DrawerPrimitive.Close data-slot="drawer-close" asChild>
             <Button variant="ghost" size="icon" className="absolute top-1.5 right-1.5">

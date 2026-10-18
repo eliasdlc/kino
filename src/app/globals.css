@@ -115,7 +115,13 @@
    Contrastes WCAG sobre --bg, luminancia relativa (claro / oscuro):
    ink 15,4 / 16,2; body 8,9 / 12,2; mute 5,1 / 6,7; ac 5,5 / 9,3;
    warn 5,7 / 6,8; ok 4,9 / 9,0; danger 6,3 / 6,1; on sobre ac 5,9 / 9,5.
-   Todo AA; mute y ac también AA a 13 px. */
+   AA vale para texto de rol sobre --bg (mute y ac también a 13 px). Sobre
+   sf2 ok baja a 4,5 en claro. Como borde (no texto), ln2 da 1,4 / 1,6 y sf2
+   1,1 / 1,3: ninguno llega a 3:1, así que el texto identifica el control y
+   el hairline sólo lo dibuja. El par tintado (texto de rol sobre su tinte al
+   15 %) no llega a 4,5 en claro; por eso cada rol semántico tiene su texto
+   de tinte (--ac-text y compañía), el rol mezclado con tinta al 28 %, que da
+   5,1 a 6,7 sobre el tinte en reposo y 4,5 o más en hover al 25 %. */
 :root {
   --bg: #f8f5ef;
   --sf: #fffdf9;
@@ -128,6 +134,10 @@
   --warn: #a83f22;
   --ok: #1e7a45;
   --danger: #b3123a;
+  --ac-text: color-mix(in srgb, var(--ac) 72%, var(--ink));
+  --warn-text: color-mix(in srgb, var(--warn) 72%, var(--ink));
+  --ok-text: color-mix(in srgb, var(--ok) 72%, var(--ink));
+  --danger-text: color-mix(in srgb, var(--danger) 72%, var(--ink));
   --ln: color-mix(in srgb, var(--ink) 8%, transparent);
   --ln2: color-mix(in srgb, var(--ink) 16%, transparent);
   --glow: color-mix(in srgb, var(--ac) 35%, transparent);
@@ -136,6 +146,11 @@
      tono. El fondo detrás de un overlay oscurece con la tinta. */
   --shadow: 0 0.6rem 1.6rem color-mix(in srgb, var(--ink) 8%, transparent);
   --scrim: color-mix(in srgb, var(--ink) 20%, transparent);
+  /* El vidrio sólo lo lee la barra inferior actual; Diario no lo usa y el
+     shell retira estos tres tokens con ella. */
+  --glass: color-mix(in srgb, var(--sf) 84%, transparent);
+  --glass-ln: color-mix(in srgb, var(--ink) 8%, transparent);
+  --glass-on: color-mix(in srgb, var(--ac) 14%, transparent);
 
   /* El margen de Diario: la columna de 3.1rem a la izquierda de toda página
      donde viven el glifo, el numeral, el círculo y la nota adhesiva. El texto
@@ -225,11 +240,18 @@
   --warn: #e8836a;
   --ok: #5fcb8a;
   --danger: #ff5c7a;
+  /* En oscuro el rol ya contrasta sobre su tinte: el texto del par es el rol. */
+  --ac-text: var(--ac);
+  --warn-text: var(--warn);
+  --ok-text: var(--ok);
+  --danger-text: var(--danger);
   --glow: color-mix(in srgb, var(--ac) 55%, transparent);
   /* En oscuro la elevación es un paso de tono, nunca una sombra. El fondo
      detrás de un overlay se funde con el papel oscuro. */
   --shadow: none;
   --scrim: color-mix(in srgb, var(--bg) 60%, transparent);
+  --glass: color-mix(in srgb, var(--sf) 82%, transparent);
+  --glass-ln: color-mix(in srgb, var(--ink) 9%, transparent);
   --task-done-foreground: var(--bg);
 }
 
@@ -310,11 +332,14 @@
   }
 }
 
+/* `backwards` y no `both`: al terminar no queda ningún transform puesto, así
+   que un pie o una cabecera `position: fixed` dentro de la página animada
+   siguen anclados al viewport. */
 @utility anim-entrar-pagina {
-  animation: entrar-pagina var(--dur-pagina) var(--ease-pluma) both;
+  animation: entrar-pagina var(--dur-pagina) var(--ease-pluma) backwards;
 }
 @utility anim-subir-hoja {
-  animation: subir-hoja var(--dur-hoja) var(--ease-pluma) both;
+  animation: subir-hoja var(--dur-hoja) var(--ease-pluma) backwards;
 }
 @utility anim-recoger-hoja {
   animation: recoger-hoja var(--dur-hoja) var(--ease-tinta) both;
@@ -322,12 +347,38 @@
 @utility anim-tachar {
   animation: tachar var(--dur-tachar) var(--ease-pluma) both;
 }
-/* Un toque: la pastilla o el círculo se encoge a .97 mientras se mantiene. */
+/* Un toque: la pastilla o el círculo se encoge a .97 mientras se mantiene.
+   Sólo pone el transform; quien lo usa declara `transform` en su propia lista
+   de transición con --dur-toque y pluma, para que dos reglas de transition no
+   se pisen. */
 @utility press {
-  transition: transform var(--dur-toque) var(--ease-pluma);
   &:active {
     transform: scale(0.97);
   }
+}
+
+/* La hoja inferior (vaul) inyecta su CSS sin capa y a 500 ms con su propia
+   curva, y le gana a cualquier clase de Tailwind. Estas reglas le imponen el
+   sistema de la casa: sube en --dur-hoja con pluma, se recoge en --dur-pagina
+   con tinta, y el fondo acompaña en --dur-pagina. Van con importante porque
+   vaul también escribe la transición en línea al soltar el asa. */
+[data-vaul-drawer] {
+  transition-duration: var(--dur-hoja) !important;
+  transition-timing-function: var(--ease-pluma) !important;
+  animation-duration: var(--dur-hoja) !important;
+  animation-timing-function: var(--ease-pluma) !important;
+}
+[data-vaul-drawer][data-state="closed"] {
+  transition-duration: var(--dur-pagina) !important;
+  transition-timing-function: var(--ease-tinta) !important;
+  animation-duration: var(--dur-pagina) !important;
+  animation-timing-function: var(--ease-tinta) !important;
+}
+[data-vaul-overlay] {
+  transition-duration: var(--dur-pagina) !important;
+  transition-timing-function: var(--ease-pluma) !important;
+  animation-duration: var(--dur-pagina) !important;
+  animation-timing-function: var(--ease-pluma) !important;
 }
 
 /* TipTap editor styles */
@@ -455,7 +506,7 @@
 }
 /* Corte guía del plot grid (KIN-141): abre el capítulo solo para cargar el arco
    de la primera escena. No es un separador entre dos escenas, así que no se
-   pinta, ni en el editor ni leyendo. */
+   pinta — ni en el editor ni leyendo. */
 :is(.tiptap-editor .ProseMirror, .reading-surface) .scene-break[data-leading="true"] {
   display: none;
 }
@@ -556,9 +607,7 @@
   }
 }
 
-/* ── Landing (marketing): confetti del demo + punto "ahora" pulsante.
-   pulse-now y hero-float son bucles; los usan HeroDemo, LandingHero y
-   SegmentSections, y se van cuando la landing pase por su fase. ── */
+/* ── Landing (marketing): confetti del demo + punto "ahora" pulsante ──────── */
 @keyframes marketing-confetti {
   0%   { transform: translate(-50%, -50%) rotate(0deg) scale(1); opacity: 1; }
   100% { transform: translate(var(--tx), var(--ty)) rotate(320deg) scale(0); opacity: 0; }
@@ -838,7 +887,9 @@
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,
-  *::after {
+  *::after,
+  [data-vaul-drawer],
+  [data-vaul-overlay] {
     animation-duration: 0.01ms !important;
     animation-iteration-count: 1 !important;
     transition-duration: 0.01ms !important;

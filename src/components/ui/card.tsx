@@ -4,10 +4,12 @@ import { cn } from "@/lib/utils"
 
 /**
  * Una superficie con hairline y sin sombra en ningún modo: en claro es papel
- * sobre papel y en oscuro un paso de tono. Diario no tiene card por defecto:
- * en el teléfono una lista nunca se agrupa en una, se escribe con filas de
- * margen. La card queda para el escritorio y el shell (un panel lateral, un
- * bloque de ajustes de dos columnas), donde una superficie sí separa.
+ * sobre papel y en oscuro un paso de tono.
+ *
+ * Cuándo usar: sólo en el escritorio y en el shell (un panel lateral, un
+ * bloque de ajustes de dos columnas), donde una superficie sí separa. Diario
+ * no tiene card por defecto: en el teléfono una lista nunca se agrupa en una,
+ * se escribe con MarginRow.
  */
 function Card({
   className,

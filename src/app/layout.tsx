@@ -21,8 +21,11 @@ const jetbrainsMono = JetBrains_Mono({ subsets: ["latin"], variable: "--font-jet
 const literata = Literata({ subsets: ["latin"], style: ["normal", "italic"], variable: "--font-literata", display: "swap" });
 
 // Los toasts leen los roles: sonner pinta con estas variables y sigue al
-// tema por la clase `dark`, sin richColors. En el teléfono suben por encima
-// del chrome inferior para que el pie no los tape.
+// tema por la clase `dark`, sin richColors. Suben por encima del chrome
+// inferior en todo ancho (offset y mobileOffset con el mismo cálculo: sonner
+// sólo aplica el segundo bajo 600 px, y el chrome existe hasta 767). Las
+// acciones (Deshacer, Cancelar) son pastillas de 2.85rem; van con importante
+// porque sonner las fija a 24 px con un selector de atributo.
 const toasterStyle = {
   "--normal-bg": "var(--sf)",
   "--normal-text": "var(--ink)",
@@ -89,7 +92,15 @@ export default function RootLayout({
         <Toaster
           position="bottom-right"
           style={toasterStyle}
+          offset={{ bottom: "calc(var(--kino-bottom-chrome) + 1rem)" }}
           mobileOffset={{ bottom: "calc(var(--kino-bottom-chrome) + 1rem)" }}
+          toastOptions={{
+            classNames: {
+              toast: "font-sans",
+              actionButton: "h-[2.85rem]! rounded-full! px-4! text-sm! font-semibold! bg-primary! text-primary-foreground!",
+              cancelButton: "h-[2.85rem]! rounded-full! px-4! text-sm! font-semibold! bg-secondary! text-secondary-foreground!",
+            },
+          }}
         />
       </body>
     </html>

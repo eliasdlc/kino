@@ -2,6 +2,7 @@
 
 import * as React from "react"
 
+import { cn } from "@/lib/utils"
 import { useIsMobile } from "@/hooks/use-mobile"
 import {
   Dialog,
@@ -96,8 +97,9 @@ function ResponsiveDialogHeader({
   ...props
 }: React.ComponentProps<typeof DialogHeader>) {
   const isMobile = useIsMobile()
-  // El padding del header del drawer ya lo aporta el contenedor scrolleable
-  if (isMobile) return <DrawerHeader className={className ?? "p-0"} {...props} />
+  // El padding del header del drawer ya lo aporta el contenedor scrolleable;
+  // la reserva a la derecha es la del botón Cerrar, que es absoluto.
+  if (isMobile) return <DrawerHeader className={cn("p-0 pr-12", className)} {...props} />
   return <DialogHeader className={className} {...props} />
 }
 

@@ -9,24 +9,44 @@ import { cn } from "@/lib/utils"
  * para la cifra, el valor o el chevron. Las filas se separan con un hairline
  * y la última no lo lleva. Un bloque que no es fila (la cota, un párrafo) se
  * alinea con la columna de texto usando `pl-(--margen)`.
+ *
+ * Tocable: con `href` la fila entera es un enlace, con `onClick` un botón;
+ * las dos llevan el foco único y el toque de la casa. Sin ninguno es un div,
+ * y entonces lo tocable va dentro (el círculo de completar).
+ *
+ * Cuándo usar: toda lista del teléfono (tareas, índice, ajustes). Card queda
+ * para el escritorio y el shell, nunca para agrupar una lista en móvil.
  */
 function MarginRow({
   margin,
   trailing,
+  href,
+  onClick,
   className,
   children,
   ...props
-}: React.ComponentProps<"div"> & {
+}: Omit<React.ComponentProps<"div">, "onClick"> & {
   /** Lo que va en el margen: un glifo, un numeral, un círculo. */
   margin: React.ReactNode
   /** Lo que va a la derecha: una cifra, un valor, un chevron. */
   trailing?: React.ReactNode
+  /** Destino: la fila entera es un enlace. */
+  href?: string
+  /** Acción: la fila entera es un botón. */
+  onClick?: React.MouseEventHandler<HTMLElement>
 }) {
+  const tocable = Boolean(href || onClick)
+  const Comp = (href ? "a" : onClick ? "button" : "div") as "div"
   return (
-    <div
+    <Comp
       data-slot="margin-row"
+      {...(href ? { href } : {})}
+      {...(onClick && !href ? { type: "button" } : {})}
+      onClick={onClick}
       className={cn(
-        "grid min-h-[3.4rem] grid-cols-[var(--margen)_1fr_auto] items-center border-b border-border last:border-b-0",
+        "grid min-h-[3.4rem] w-full grid-cols-[var(--margen)_1fr_auto] items-center border-b border-border text-left last:border-b-0",
+        tocable &&
+          "press cursor-pointer transition-[background-color,transform] duration-(--dur-toque) ease-(--ease-pluma) focus-ring hover:bg-sf2/60",
         className
       )}
       {...props}
@@ -42,7 +62,7 @@ function MarginRow({
           {trailing}
         </div>
       )}
-    </div>
+    </Comp>
   )
 }
 

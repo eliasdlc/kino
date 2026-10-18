@@ -10,14 +10,16 @@ const badgeVariants = cva(
     variants: {
       variant: {
         // Un badge es un par tintado: el color acompaña a la palabra o al
-        // glifo, nunca la sustituye, así que ninguna variante es un bloque lleno.
-        default: "bg-primary/15 text-primary [a]:hover:bg-primary/25",
-        warn: "bg-task-overdue/15 text-task-overdue [a]:hover:bg-task-overdue/25",
-        ok: "bg-task-done/15 text-task-done [a]:hover:bg-task-done/25",
+        // glifo, nunca la sustituye, así que ninguna variante es un bloque
+        // lleno. El texto es el rol mezclado con tinta (--*-text) para dar
+        // 4,5 o más sobre el tinte en claro, también en hover.
+        default: "bg-primary/15 text-(--ac-text) [a]:hover:bg-primary/25",
+        warn: "bg-task-overdue/15 text-(--warn-text) [a]:hover:bg-task-overdue/25",
+        ok: "bg-task-done/15 text-(--ok-text) [a]:hover:bg-task-done/25",
         secondary:
           "bg-secondary text-secondary-foreground [a]:hover:bg-secondary/80",
         destructive:
-          "bg-destructive/15 text-destructive [a]:hover:bg-destructive/25",
+          "bg-destructive/15 text-(--danger-text) [a]:hover:bg-destructive/25",
         outline:
           "border-border text-foreground [a]:hover:bg-muted [a]:hover:text-muted-foreground",
         ghost:
