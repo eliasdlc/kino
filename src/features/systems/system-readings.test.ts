@@ -2,6 +2,7 @@
  * Criterio: la cabecera de un sistema lee tres cifras de lo que el sistema ya
  * sabe, y no pinta la que no tiene dato. El coral sólo va con la palabra que
  * dice el estado ("dormido"), y escritura lee palabras y sesiones, no tareas.
+ * Una suma que salió de una lista cortada en su tope se dice como mínimo.
  */
 import { describe, expect, it } from "vitest";
 import { signalReadings, writingReadings } from "./system-readings";
@@ -45,5 +46,10 @@ describe("writingReadings", () => {
     const r = writingReadings({ wordsToday: 250, totalWords: 1240, wordGoal: null, daysSinceSession: 31, staleAfter: 3 });
     expect(r[1]).toEqual({ value: "1.240", label: "palabras en total" });
     expect(r[2]).toEqual({ value: "31", label: "días dormido", tone: "warn" });
+  });
+
+  it("si la lista de manuscritos paró en su tope, la cifra es un mínimo y lo dice", () => {
+    const r = writingReadings({ wordsToday: 0, totalWords: 48000, wordGoal: 80000, daysSinceSession: 1, staleAfter: 3, parcial: true });
+    expect(r[1]).toEqual({ value: "48.000+", label: "de 80.000" });
   });
 });

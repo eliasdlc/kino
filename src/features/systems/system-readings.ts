@@ -45,12 +45,18 @@ export function writingReadings(input: {
   daysSinceSession: number | null;
   /** Desde cuántos días se dice dormido. */
   staleAfter: number;
+  /**
+   * Si la suma salió de una lista que paró en su tope: hay más manuscritos
+   * de los que se leyeron, así que la cifra es un mínimo y lo dice con «+».
+   */
+  parcial?: boolean;
 }): Reading[] {
+  const total = `${formatCount(input.totalWords)}${input.parcial ? "+" : ""}`;
   const readings: Reading[] = [
     { value: formatCount(input.wordsToday), label: "palabras hoy" },
     input.wordGoal
-      ? { value: formatCount(input.totalWords), label: `de ${formatCount(input.wordGoal)}` }
-      : { value: formatCount(input.totalWords), label: "palabras en total" },
+      ? { value: total, label: `de ${formatCount(input.wordGoal)}` }
+      : { value: total, label: "palabras en total" },
   ];
   const dias = input.daysSinceSession;
   if (dias !== null) {
