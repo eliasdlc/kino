@@ -25,9 +25,8 @@ interface DraggableTaskCardProps {
 }
 
 /**
- * Wraps TaskCard with drag capabilities.
- * Done/archived tasks are not draggable.
- * When actively dragging, the original card shows a ghosted placeholder.
+ * La fila de tarea con arrastre, para los tableros de escritorio. Una hecha no
+ * se arrastra; mientras se arrastra, la original queda a media opacidad.
  */
 export function DraggableTaskCard({
   task,
@@ -73,10 +72,9 @@ export function DraggableTaskCard({
       {...attributes}
       {...listeners}
       onKeyDown={handleKeyDown}
-      className={cn(
-        "touch-none", // Prevents scroll jank on mobile during drag
-        isDragging && "opacity-40 border-dashed pointer-events-none"
-      )}
+      // Sin `touch-none`: el arrastre es sólo de ratón y teclado (MouseSensor),
+      // así que el dedo desplaza la página como en cualquier otra lista.
+      className={cn(isDragging && "pointer-events-none opacity-40")}
     >
       {compact ? (
         <PlanningTaskCard
