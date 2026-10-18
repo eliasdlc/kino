@@ -7,6 +7,7 @@ import {
   Dialog,
   DialogContent,
   DialogDescription,
+  DialogFooter,
   DialogHeader,
   DialogTitle,
   DialogTrigger,
@@ -15,14 +16,17 @@ import {
   Drawer,
   DrawerContent,
   DrawerDescription,
+  DrawerFooter,
   DrawerHeader,
   DrawerTitle,
   DrawerTrigger,
 } from "@/components/ui/drawer"
 
 /**
- * Mismo API que Dialog, pero en mobile (<768px) se renderiza como bottom
- * sheet (Drawer/vaul): se siente nativo y convive mejor con el teclado.
+ * Mismo API que Dialog, pero en mobile (<768px) se renderiza como la hoja
+ * inferior de Diario (Drawer/vaul): se siente nativa y convive mejor con el
+ * teclado. La hoja trae asa y botón Cerrar; `showCloseButton` vale en los
+ * dos modos.
  *
  * `mobileClassName` en Content permite sobreescribir clases solo del drawer
  * (el `className` de desktop suele traer max-w/centrados que no aplican).
@@ -54,6 +58,7 @@ function ResponsiveDialogTrigger({
 function ResponsiveDialogContent({
   className,
   mobileClassName,
+  showCloseButton,
   children,
   ...props
 }: React.ComponentProps<typeof DialogContent> & {
@@ -62,7 +67,7 @@ function ResponsiveDialogContent({
   const isMobile = useIsMobile()
   if (isMobile) {
     return (
-      <DrawerContent className={mobileClassName}>
+      <DrawerContent className={mobileClassName} showCloseButton={showCloseButton}>
         <div className="space-y-4 overflow-y-auto p-4 pb-[calc(1rem+env(safe-area-inset-bottom))]">
           {children}
         </div>
@@ -70,10 +75,20 @@ function ResponsiveDialogContent({
     )
   }
   return (
-    <DialogContent className={className} {...props}>
+    <DialogContent className={className} showCloseButton={showCloseButton} {...props}>
       {children}
     </DialogContent>
   )
+}
+
+function ResponsiveDialogFooter({
+  className,
+  ...props
+}: React.ComponentProps<typeof DialogFooter>) {
+  const isMobile = useIsMobile()
+  // El contenedor scrolleable ya lleva el padding y el área segura.
+  if (isMobile) return <DrawerFooter className={className ?? "p-0 pb-0"} {...props} />
+  return <DialogFooter className={className} {...props} />
 }
 
 function ResponsiveDialogHeader({
@@ -106,6 +121,7 @@ export {
   ResponsiveDialog,
   ResponsiveDialogContent,
   ResponsiveDialogDescription,
+  ResponsiveDialogFooter,
   ResponsiveDialogHeader,
   ResponsiveDialogTitle,
   ResponsiveDialogTrigger,

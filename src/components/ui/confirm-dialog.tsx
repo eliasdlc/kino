@@ -1,13 +1,13 @@
 "use client";
 
 import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
+  ResponsiveDialog,
+  ResponsiveDialogContent,
+  ResponsiveDialogDescription,
+  ResponsiveDialogFooter,
+  ResponsiveDialogHeader,
+  ResponsiveDialogTitle,
+} from "@/components/ui/responsive-dialog";
 import { Button } from "@/components/ui/button";
 
 interface ConfirmDialogProps {
@@ -19,6 +19,10 @@ interface ConfirmDialogProps {
   onCancel: () => void;
 }
 
+/**
+ * La confirmación de lo irreversible. En escritorio es un diálogo; en el
+ * teléfono, la hoja inferior, con las dos acciones a 2.85rem bajo el pulgar.
+ */
 export function ConfirmDialog({
   open,
   title,
@@ -28,21 +32,21 @@ export function ConfirmDialog({
   onCancel,
 }: ConfirmDialogProps) {
   return (
-    <Dialog open={open} onOpenChange={(val) => { if (!val) onCancel(); }}>
-      <DialogContent showCloseButton={false}>
-        <DialogHeader>
-          <DialogTitle>{title}</DialogTitle>
-          <DialogDescription>{description}</DialogDescription>
-        </DialogHeader>
-        <DialogFooter>
+    <ResponsiveDialog open={open} onOpenChange={(val) => { if (!val) onCancel(); }}>
+      <ResponsiveDialogContent showCloseButton={false}>
+        <ResponsiveDialogHeader>
+          <ResponsiveDialogTitle>{title}</ResponsiveDialogTitle>
+          <ResponsiveDialogDescription>{description}</ResponsiveDialogDescription>
+        </ResponsiveDialogHeader>
+        <ResponsiveDialogFooter>
           <Button variant="outline" onClick={onCancel}>
             Cancelar
           </Button>
           <Button variant="destructive" onClick={onConfirm} autoFocus>
             {confirmLabel}
           </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
+        </ResponsiveDialogFooter>
+      </ResponsiveDialogContent>
+    </ResponsiveDialog>
   );
 }
