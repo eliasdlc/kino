@@ -19,12 +19,13 @@ function getServerSnapshot() {
 }
 
 /**
- * Si el viewport es de teléfono (menos de 768 px). Lee `matchMedia` en el
- * primer render del cliente, no en un efecto: antes arrancaba en `false` y
- * cambiaba después de pintar, así que un teléfono pintaba primero la rama de
- * escritorio (el `Dialog` en vez de la hoja, el sidebar entero) y saltaba al
- * hidratar. Lo que se puede decidir con CSS (`hidden md:flex`) no pasa por
- * aquí; este hook es para lo que de verdad cambia de componente.
+ * Si el viewport es de teléfono (menos de 768 px). Fuera de la hidratación lee
+ * `matchMedia` en el render, no en un efecto: antes arrancaba en `false` y
+ * cambiaba después de pintar, así que un teléfono abría primero la rama de
+ * escritorio (el `Dialog` en vez de la hoja). En la hidratación React usa la
+ * instantánea del servidor (escritorio) y corrige en el mismo commit; por eso
+ * lo visible del shell (sidebar, pie, cabecera) se decide con CSS (`md:`) y no
+ * pasa por aquí. Este hook es para lo que de verdad cambia de componente.
  */
 export function useIsMobile() {
   return React.useSyncExternalStore(subscribe, getSnapshot, getServerSnapshot)

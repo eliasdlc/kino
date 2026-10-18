@@ -47,7 +47,7 @@ export function PageHeaderSkeleton({ accion = false, voz = false }: { accion?: b
       <div className="grid min-w-0 grid-cols-[var(--margen)_1fr] md:grid-cols-[0_1fr]">
         <span aria-hidden />
         <div className="space-y-2">
-          <Skeleton className="h-[1.7rem] w-36" />
+          <Skeleton className="h-[2.115rem] w-36" />
           {voz && <Skeleton className="h-4 w-56 max-w-full" />}
         </div>
       </div>
