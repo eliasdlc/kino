@@ -4,6 +4,8 @@
  * nada: el envoltorio capturaba el puntero en el `pointerdown` y se quedaba con
  * el `click`, y los eventos de los menús (que React sube por su árbol aunque
  * estén montados en `<body>`) arrancaban un arrastre en vez de activar su item.
+ * El arrastre mueve la nota con `transform` y escribe una vez al soltar, y es
+ * del ratón: un dedo sobre la nota desplaza el cuaderno.
  */
 import { useRef } from "react";
 import { describe, expect, it } from "vitest";
@@ -186,6 +188,35 @@ describe("el arrastre de una nota flotante", () => {
     expect(escritas).toHaveLength(1);
     expect(escritas[0]!.name).toBe("stickyNotes:update");
     expect(escritas[0]!.args).toMatchObject({ id: NOTA.id, positionSide: "over" });
+  });
+
+  it("mientras se arrastra, la nota viaja en transform y su top y left no cambian", async () => {
+    const { container } = pintar();
+    const nota = envoltorios(container)[0]!;
+    const antes = { top: nota.style.top, left: nota.style.left };
+
+    await userEvent.pointer([
+      { target: screen.getByText("Idea de tesis"), coords: { clientX: 200, clientY: 200 }, keys: "[MouseLeft>]" },
+      { coords: { clientX: 260, clientY: 240 } },
+    ]);
+
+    expect(nota).toHaveAttribute("data-dragging");
+    expect(nota.style.transform).toMatch(/translate\(/);
+    expect({ top: nota.style.top, left: nota.style.left }).toEqual(antes);
+    await userEvent.pointer({ keys: "[/MouseLeft]" });
+  });
+
+  it("un dedo no arrastra la nota: desplaza el cuaderno y no escribe nada", async () => {
+    const { convex, container } = pintar();
+
+    await userEvent.pointer([
+      { target: screen.getByText("Idea de tesis"), coords: { clientX: 200, clientY: 200 }, keys: "[TouchA>]" },
+      { pointerName: "TouchA", coords: { clientX: 320, clientY: 260 } },
+      { keys: "[/TouchA]" },
+    ]);
+
+    expect(envoltorios(container)[0]).not.toHaveAttribute("data-dragging");
+    expect(mutaciones(convex).filter((c) => c.name === "stickyNotes:update")).toHaveLength(0);
   });
 
   it("empezar sobre un botón pulsa, no arrastra", async () => {
