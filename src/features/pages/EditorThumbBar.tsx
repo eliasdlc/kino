@@ -138,8 +138,9 @@ export function EditorThumbBar({
       aria-label="Formato"
       data-slot="editor-thumb-bar"
       className={cn(
-        "inset-x-0 bottom-0 z-(--z-overlay) flex items-center justify-between border-t border-border bg-background px-[max(0.5rem,env(safe-area-inset-left))] md:hidden",
-        forceVisible ? "relative" : "fixed",
+        "inset-x-0 bottom-0 z-(--z-overlay) flex items-center justify-between border-t border-border bg-background px-[max(0.5rem,env(safe-area-inset-left))]",
+        // En la app es sólo del teléfono; el catálogo la enseña en cualquier ancho.
+        forceVisible ? "relative" : "fixed md:hidden",
         inset === 0 && "pb-[env(safe-area-inset-bottom)]",
       )}
       style={{
