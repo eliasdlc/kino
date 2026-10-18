@@ -1,8 +1,9 @@
 /**
  * Criterio: la curva del día es CSS y se puede leer sin verla. La barra de la
  * hora actual queda marcada (y es la única), cada barra lleva su altura como
- * transform y no como height, y la figura cuenta en una frase el pico, lo
- * previsto a esta hora y los registros.
+ * transform y no como height, la figura cuenta en una frase el pico, lo
+ * previsto a esta hora y los registros, y quien la ve lee las 6, las 12 y las
+ * 18 bajo su columna.
  */
 import { describe, expect, it } from "vitest";
 import { screen } from "@testing-library/react";
@@ -40,5 +41,15 @@ describe("EnergyChart", () => {
     expect(figura.getAttribute("aria-label")).toMatch(/Pico previsto de 9 AM a 12 PM/);
     expect(figura.getAttribute("aria-label")).toMatch(/A las 3 PM se prevén 40/);
     expect(figura.getAttribute("aria-label")).toMatch(/1 registro: 72 a las 9 AM/);
+  });
+
+  it("rotula las 6, las 12 y las 18 bajo su columna, fuera del nombre accesible", () => {
+    const { container } = renderWithProviders(<EnergyChart data={DATA} peak={{ start: 9, end: 12 }} currentHour={15} />);
+    const horas = container.querySelector<HTMLElement>("[data-slot=curve-hours]");
+    expect(horas).toHaveAttribute("aria-hidden", "true");
+    expect(horas).toHaveClass("text-muted-foreground", "tabular-nums");
+    const rotulos = [...(horas?.children ?? [])] as HTMLElement[];
+    expect(rotulos.map((r) => r.textContent)).toEqual(["6", "12", "18"]);
+    expect(rotulos.map((r) => r.style.gridColumnStart)).toEqual(["7", "13", "19"]);
   });
 });
