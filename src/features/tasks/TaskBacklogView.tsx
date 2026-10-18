@@ -2,6 +2,8 @@ import { useState } from "react";
 import type { TaskTransport } from "./tasks.types";
 import { useTasks, useFolderTasks, useToggleTask, useDeleteTaskWithUndo } from "./tasks.hooks";
 import { DefaultTaskCard } from "./cards/DefaultTaskCard";
+import { EmptyState } from "@/components/ui/empty-state";
+import { SectionHead } from "@/features/dashboard/SectionHead";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { useTaskKeyboardNavigation } from "./useTaskKeyboardNavigation";
 import { useSystemManifest } from "@/features/systems/systems.hooks";
@@ -46,18 +48,15 @@ export function TaskBacklogView({ systemId, initialData, folderId, folderInitial
     return (
         <div className="flex flex-col gap-4 w-full h-full">
             <div className="space-y-1">
-                <h2 className="text-2xl font-bold">Backlog</h2>
-                <p className="text-sm text-muted-foreground">
+                <SectionHead title="Backlog" count={backlogTasks.length > 0 ? `${backlogTasks.length}` : undefined} />
+                <p className="pt-1 pl-(--margen) text-sm text-muted-foreground">
                     Tareas sin programar. Asígnales una fecha para moverlas a planificación.
                 </p>
             </div>
             {backlogTasks.length === 0 ? (
-                <div className="flex flex-col items-center justify-center py-10 text-center space-y-2 border border-dashed rounded-lg bg-card">
-                    <p className="text-base font-medium">{empty.title}</p>
-                    <p className="text-sm text-muted-foreground">{empty.hint}</p>
-                </div>
+                <EmptyState className="pl-(--margen)" title={empty.title} description={empty.hint} />
             ) : (
-                <div className="flex flex-col gap-3 w-full">
+                <div className="w-full">
                     {backlogTasks.map((task) => (
                         <DefaultTaskCard
                             key={task.id}
