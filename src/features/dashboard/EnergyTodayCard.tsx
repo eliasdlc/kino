@@ -13,7 +13,7 @@ import {
   useUpdateCheckinAccuracy,
 } from '@/features/energy/energy.hooks';
 import { findPeakRange } from '@convex/lib/energy/curve';
-import { formatHour, CHRONOTYPE_LABELS } from '@/features/energy/energy.utils';
+import { formatHourRange, CHRONOTYPE_LABELS } from '@/features/energy/energy.utils';
 import type { CheckinSlot } from '@/features/energy/energy.schemas';
 import type { Chronotype } from '@/features/energy/energy.utils';
 import type { TodayCheckinRowTransport } from '@/features/energy/energy.types';
@@ -41,6 +41,20 @@ interface EnergyTodayCardProps {
 
 const SLOT_MIDPOINT: Record<CheckinSlot, number> = { morning: 9, afternoon: 15, evening: 20 };
 const SLOT_DE: Record<CheckinSlot, string> = { morning: 'de la mañana', afternoon: 'de la tarde', evening: 'de la noche' };
+const SLOT_LA: Record<CheckinSlot, string> = { morning: 'La mañana', afternoon: 'La tarde', evening: 'La noche' };
+const SLOT_ORDER: CheckinSlot[] = ['morning', 'afternoon', 'evening'];
+
+/**
+ * Los tramos que ya se pueden registrar: el de ahora y los anteriores. Un
+ * check-in es una observación (la energía que tienes ahora) y el servidor la
+ * cruza con la previsión guardada de su tramo y recalibra la curva con ella:
+ * uno "por adelantado" sería una conjetura contada como medida, que movería
+ * la curva y el veredicto de la previsión sin haber pasado. La madrugada es
+ * noche, así que de 0 a 5 los tres tramos del día ya están abiertos.
+ */
+export function registrableSlots(currentSlot: CheckinSlot): CheckinSlot[] {
+  return SLOT_ORDER.slice(0, SLOT_ORDER.indexOf(currentSlot) + 1);
+}
 
 function buildChartData(curve: number[], checkins: TodayCheckinRowTransport[], timezone: string): ChartEntry[] {
   return Array.from({ length: 24 }, (_, hour) => {
@@ -96,6 +110,8 @@ export function EnergyTodayCard({
   const [showForm, setShowForm] = useState(false);
 
   const isCurrent = selectedSlot === currentSlot;
+  const registrable = registrableSlots(currentSlot);
+  const isFuture = !registrable.includes(selectedSlot);
   const slotCheckin = checkins.find((c) => c.slot === selectedSlot) ?? null;
   const currentSlotCheckin = checkins.find((c) => c.slot === currentSlot) ?? null;
 
@@ -153,6 +169,7 @@ export function EnergyTodayCard({
           <EnergyCheckinForm
             defaultLevel={Math.max(1, slotCheckin?.currentLevel ?? (projectedValue || 70))}
             initialSlot={selectedSlot}
+            slots={registrable}
             isPending={isPending}
             onSubmit={handleSubmit}
             onCancel={() => setShowForm(false)}
@@ -183,7 +200,7 @@ export function EnergyTodayCard({
               <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-1 text-[0.74rem] text-muted-foreground">
                 <span className="inline-flex items-center gap-1.5">
                   <span className="size-2 rounded-xs bg-primary" aria-hidden />
-                  {peak ? `Pico ${formatHour(peak.start)} a ${formatHour(peak.end)}` : 'Tu pico'}
+                  {peak ? `Pico ${formatHourRange(peak.start, peak.end)}` : 'Tu pico'}
                 </span>
                 <span className="inline-flex items-center gap-1.5">
                   <span className="size-2 rounded-full border-[1.5px] border-foreground bg-background" aria-hidden />
@@ -220,8 +237,15 @@ export function EnergyTodayCard({
           />
 
           {/* El botón registra el tramo que se está mirando: si la cota dice
-              "Mañana", la etiqueta y lo que se guarda dicen mañana también. */}
-          {slotCheckin ? (
+              "Mañana", la etiqueta y lo que se guarda dicen mañana también. Un
+              tramo que aún no llegó se mira (su cota es lo previsto) pero no se
+              registra: la línea ocupa el alto de la pastilla, así que cambiar
+              de tramo no mueve lo de abajo. */}
+          {isFuture ? (
+            <p data-slot="tramo-futuro" className="flex min-h-[3.2rem] items-center justify-center text-[0.82rem] text-muted-foreground">
+              {SLOT_LA[selectedSlot]} se registra cuando llegue.
+            </p>
+          ) : slotCheckin ? (
             <Button variant="secondary" className="w-full" onClick={() => setShowForm(true)}>
               Actualizar el check-in {SLOT_DE[selectedSlot]}
             </Button>
