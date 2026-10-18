@@ -1,8 +1,8 @@
 /**
- * Criterio: la fila de una captura es la misma fila que la de una tarea, con su
- * marca a la izquierda y el glifo de su tipo en el hueco que Bandeja ya
- * reservaba. Lo que no lleva es casilla: una captura no se completa, se
- * confirma, y confirmar abre otra pantalla.
+ * Criterio: la fila de una captura es la misma fila de margen que la de una
+ * tarea, con su barra a la izquierda y el glifo de su tipo, nombrado en
+ * español, en el margen. Lo que no lleva es casilla: una captura no se
+ * completa, se confirma, y confirmar abre otra pantalla.
  */
 import { describe, expect, it, vi } from "vitest";
 import { screen } from "@testing-library/react";
@@ -43,7 +43,7 @@ describe("CaptureRow", () => {
     pintar(captura({ kind: "link", url: "https://react.dev/learn" }));
 
     expect(screen.getByText("https://react.dev/learn")).toBeVisible();
-    expect(screen.getByLabelText("link")).toBeInTheDocument();
+    expect(screen.getByLabelText("enlace")).toBeInTheDocument();
   });
 
   it("una foto sin texto dice que es una foto, no un nombre inventado", () => {
@@ -80,6 +80,13 @@ describe("CaptureRow", () => {
     pintar(captura({ status: "expired", diasRestantes: 0, avisa: false }));
 
     expect(screen.getByText("Caducó sin confirmar")).toBeVisible();
+  });
+
+  it("la fila entera mide el táctil de la casa y se lee con su tipo", () => {
+    pintar(captura({ kind: "voice" }));
+
+    const fila = screen.getByRole("button", { name: /nota de voz: Nota de voz/ });
+    expect(fila).toHaveClass("min-h-[3.4rem]");
   });
 
   it("tocarla la abre", async () => {
