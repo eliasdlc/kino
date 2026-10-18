@@ -72,8 +72,8 @@ const resumeChapter: WritingRule = ({ openChapter }) => {
     title: `Retoma «${title?.trim() || "el capítulo sin título"}»`,
     reason:
       daysSinceEdit === 0
-        ? `Lo tocaste hoy y sigue sin terminar · ${wordCount.toLocaleString("es")} palabras en ${folderName}.`
-        : `Es lo último que escribiste, hace ${daysSinceEdit} ${daysSinceEdit === 1 ? "día" : "días"} · ${wordCount.toLocaleString("es")} palabras en ${folderName}.`,
+        ? `Lo tocaste hoy y sigue sin terminar; ${wordCount.toLocaleString("es")} palabras en ${folderName}.`
+        : `Es lo último que escribiste, hace ${daysSinceEdit} ${daysSinceEdit === 1 ? "día" : "días"}; ${wordCount.toLocaleString("es")} palabras en ${folderName}.`,
     target: { kind: "page", id: pageId },
     // Lo que quedó a medias gana casi siempre: retomar cuesta menos que abrir.
     weight: 90 - Math.min(20, daysSinceEdit),
