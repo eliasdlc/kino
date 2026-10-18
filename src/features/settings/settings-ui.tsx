@@ -352,9 +352,10 @@ export function SettingsSheet({
     <ResponsiveDialog open={open} onOpenChange={onOpenChange}>
       <ResponsiveDialogContent className={cn('max-h-[88dvh] overflow-y-auto sm:max-w-lg', wide && 'sm:max-w-4xl')}>
         {/* En el teléfono el título se queda arriba al desplazar una hoja larga,
-            con el fondo de la hoja: el texto ya no pasa por debajo del asa ni
-            del botón Cerrar. La explicación sí se desplaza. */}
-        <ResponsiveDialogHeader className="max-md:sticky max-md:-top-4 max-md:z-10 max-md:-mx-4 max-md:-mt-4 max-md:bg-popover max-md:pt-4 max-md:pr-14 max-md:pb-2 max-md:pl-4">
+            con el fondo de la hoja: el texto ya no pasa por debajo del asa. La
+            franja acaba antes de la columna del botón Cerrar (absoluto, en la
+            hoja), que si no quedaría tapado. La explicación sí se desplaza. */}
+        <ResponsiveDialogHeader className="max-md:sticky max-md:-top-4 max-md:z-10 max-md:-mt-4 max-md:mr-10 max-md:-ml-4 max-md:bg-popover max-md:pt-4 max-md:pr-0 max-md:pb-2 max-md:pl-4">
           <ResponsiveDialogTitle>{title}</ResponsiveDialogTitle>
         </ResponsiveDialogHeader>
         {description ? (
