@@ -4,6 +4,7 @@ import { serverQuery } from "@/shared/convex/server";
 import type { BreadcrumbItem } from "@/components/PageBreadcrumb";
 import { NotebookEditorLayout } from "@/features/pages/NotebookEditorLayout";
 import { MEDIUM_CONFIG, resolveMedium } from "@/shared/lib/mediums";
+import { SanitizedHtml } from "@/shared/components/SanitizedHtml";
 import { getServerSession } from "@/shared/utils/session";
 
 interface PageEditorRouteProps {
@@ -84,7 +85,6 @@ export default async function PageEditorRoute({ params, searchParams }: PageEdit
     <NotebookEditorLayout
       page={page}
       systemId={systemId}
-      systemName={system.name}
       breadcrumbItems={breadcrumbItems}
       parentNotebook={parentNotebook ? { id: parentNotebook.id, title: parentNotebook.title } : null}
       initialSubPages={initialSubPages}
@@ -92,6 +92,15 @@ export default async function PageEditorRoute({ params, searchParams }: PageEdit
       obra={obra}
       obraMetadata={writer ? (folder?.metadata ?? null) : null}
       medium={medium}
+      firstPaint={
+        // El texto se sanea y se pinta aquí, en el servidor: llega en la primera
+        // pintura con la clase del editor, sin esperar al chunk de Tiptap y sin
+        // mandar al navegador la librería del saneo.
+        <SanitizedHtml
+          html={page.content}
+          className="tiptap ProseMirror min-h-[60vh] text-sm leading-7"
+        />
+      }
     />
   );
 }
