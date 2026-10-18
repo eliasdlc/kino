@@ -3,8 +3,8 @@ import { BreadcrumbSkeleton } from "@/components/Skeletons";
 
 export default function ReadingLoading() {
   return (
-    <div className="w-full">
-      <div className="sticky top-0 z-(--z-raised) border-b bg-background px-4 py-2.5 md:px-6">
+    <div aria-busy className="w-full">
+      <div className="sticky top-0 z-(--z-raised) hidden border-b bg-background px-4 py-2.5 md:block md:px-6">
         <BreadcrumbSkeleton segments={4} />
       </div>
       <div className="mx-auto w-full max-w-4xl p-4 md:p-8">
@@ -13,7 +13,7 @@ export default function ReadingLoading() {
             <Skeleton className="h-5 w-48 rounded" />
             <Skeleton className="h-3 w-64 rounded" />
           </div>
-          <Skeleton className="h-9 w-32 rounded-md" />
+          <Skeleton className="h-[2.85rem] w-32 rounded-full" />
         </div>
         {/* Columna de lectura: líneas de texto, no cards */}
         <div className="space-y-3">

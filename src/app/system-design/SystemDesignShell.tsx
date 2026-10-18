@@ -43,7 +43,7 @@ const TOC: Array<{ id: string; number: string; label: string }> = [
   { id: "energia", number: "11", label: "Energía visible" },
   { id: "tareas", number: "12", label: "Tareas: vistas" },
   { id: "notebooks", number: "13", label: "Notebooks y notas" },
-  { id: "mobile", number: "14", label: "Mobile" },
+  { id: "mobile", number: "14", label: "Shell" },
   { id: "codex", number: "15", label: "Codex" },
   { id: "mediums", number: "16", label: "Bloques por medium" },
   { id: "motivacion", number: "17", label: "Motivación" },

@@ -50,6 +50,12 @@ export const metadata: Metadata = {
 };
 
 export const viewport: Viewport = {
+  // La página llega a los bordes del dispositivo y el shell suma las áreas
+  // seguras con env() (cabecera arriba, pie abajo); sin `cover` esos env()
+  // valen cero. Con el teclado abierto el viewport encoge, así que las hojas
+  // de abajo (paleta, nueva tarea) suben con él en vez de quedar tapadas.
+  viewportFit: "cover",
+  interactiveWidget: "resizes-content",
   // Los dos valores de `--bg` (globals.css). La barra del navegador en móvil
   // sigue la preferencia del sistema, no la clase `dark`: quien fuerza un
   // tema distinto al del SO verá la barra del otro, que es el límite del

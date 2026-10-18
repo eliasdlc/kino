@@ -12,7 +12,6 @@ import {
   CommandSeparator,
   CommandShortcut,
 } from "@/components/ui/command";
-import { useHotkey } from "@/shared/hooks/useHotkey";
 import { useSystems } from "@/features/systems/systems.hooks";
 import { useQuickAddStore } from "@/features/tasks/quick-add.store";
 import { useSearch } from "@/features/search/search.hooks";
@@ -20,19 +19,8 @@ import { SEARCH_MIN_LENGTH, SEARCH_SOURCES, type SearchResultType } from "@/feat
 import { SearchSnippet } from "@/features/search/SearchSnippet";
 import { SearchEmptyState } from "@/features/search/SearchEmptyState";
 import { useCommandPaletteStore } from "./command-palette.store";
-import {
-  Calendar,
-  FileText,
-  Inbox,
-  LayoutDashboard,
-  List,
-  ListChecks,
-  Plus,
-  Settings,
-  Layers,
-  Hash,
-  StickyNote,
-} from "lucide-react";
+import { DESTINOS } from "@/components/navigation";
+import { FileText, Hash, Layers, ListChecks, Plus, Settings, StickyNote } from "lucide-react";
 import { getSystemColor } from "@/shared/utils/system-colors";
 
 /** Un glifo por fuente: sin él la clase del resultado sólo la diría su grupo. */
@@ -44,10 +32,14 @@ const ICONO: Record<SearchResultType, typeof ListChecks> = {
   system: Layers,
 };
 
+/**
+ * La paleta: acciones, los destinos de la lista única de navegación con su
+ * atajo `g` + letra, los sistemas y Ajustes; y, desde dos letras, la búsqueda.
+ * El atajo `mod+k` y la carga diferida viven en `GlobalCommandPaletteLazy`.
+ */
 export function GlobalCommandPalette() {
   const open = useCommandPaletteStore((s) => s.open);
   const setOpen = useCommandPaletteStore((s) => s.setOpen);
-  const toggle = useCommandPaletteStore((s) => s.toggle);
   const router = useRouter();
   const { data: systems } = useSystems();
   const setQuickAddOpen = useQuickAddStore((s) => s.setOpen);
@@ -57,13 +49,7 @@ export function GlobalCommandPalette() {
   const { data: page, isFetching } = useSearch(query);
   const results = page?.items ?? [];
 
-  const inboxSystem = systems?.find((s) => s.isInbox);
   const regularSystems = systems?.filter((s) => !s.isInbox) ?? [];
-
-  useHotkey(["mod+k"], (e) => {
-    e.preventDefault();
-    toggle();
-  });
 
   const handleOpenChange = React.useCallback(
     (next: boolean) => {
@@ -139,38 +125,18 @@ export function GlobalCommandPalette() {
               <CommandItem onSelect={() => runCommand(() => setQuickAddOpen(true))}>
                 <Plus className="mr-2 h-4 w-4" />
                 <span>Nueva tarea</span>
-                <CommandShortcut>⌘I</CommandShortcut>
+                <CommandShortcut className="pointer-coarse:hidden">Ctrl I</CommandShortcut>
               </CommandItem>
             </CommandGroup>
             <CommandSeparator />
             <CommandGroup heading="Navegación">
-              {inboxSystem && (
-                <CommandItem onSelect={() => runCommand(() => router.push(`/systems/${inboxSystem.id}`))}>
-                  <Inbox className={`mr-2 h-4 w-4 text-${getSystemColor(inboxSystem.color)}`} />
-                  <span>{inboxSystem.name}</span>
-                  <CommandShortcut>G I</CommandShortcut>
+              {DESTINOS.map((destino) => (
+                <CommandItem key={destino.href} onSelect={() => runCommand(() => router.push(destino.href))}>
+                  <destino.icon className="mr-2 h-4 w-4" />
+                  <span>{destino.label}</span>
+                  <CommandShortcut className="pointer-coarse:hidden">G {destino.tecla.toUpperCase()}</CommandShortcut>
                 </CommandItem>
-              )}
-              <CommandItem onSelect={() => runCommand(() => router.push("/dashboard"))}>
-                <LayoutDashboard className="mr-2 h-4 w-4" />
-                <span>Dashboard</span>
-                <CommandShortcut>G D</CommandShortcut>
-              </CommandItem>
-              <CommandItem onSelect={() => runCommand(() => router.push("/systems"))}>
-                <Layers className="mr-2 h-4 w-4" />
-                <span>Todos los sistemas</span>
-                <CommandShortcut>G S</CommandShortcut>
-              </CommandItem>
-              <CommandItem onSelect={() => runCommand(() => router.push("/tasks"))}>
-                <List className="mr-2 h-4 w-4" />
-                <span>Tareas</span>
-                <CommandShortcut>G T</CommandShortcut>
-              </CommandItem>
-              <CommandItem onSelect={() => runCommand(() => router.push("/calendar"))}>
-                <Calendar className="mr-2 h-4 w-4" />
-                <span>Calendario</span>
-                <CommandShortcut>G C</CommandShortcut>
-              </CommandItem>
+              ))}
             </CommandGroup>
             {regularSystems.length > 0 && (
               <>
@@ -189,10 +155,10 @@ export function GlobalCommandPalette() {
               </>
             )}
             <CommandSeparator />
-            <CommandGroup heading="Ajustes">
+            <CommandGroup heading="Cuenta">
               <CommandItem onSelect={() => runCommand(() => router.push("/settings"))}>
                 <Settings className="mr-2 h-4 w-4" />
-                <span>Atajos de teclado</span>
+                <span>Ajustes</span>
               </CommandItem>
             </CommandGroup>
           </>

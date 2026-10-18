@@ -2,7 +2,7 @@
  * Criterio: las primitivas de acción y formulario obedecen a la geometría de
  * Diario. Un botón es un pill de 2.85rem (el táctil mínimo) y la acción
  * primaria lleva el glow del acento, nunca una sombra; `xs` y `sm` no bajan
- * de ese táctil en el teléfono y sólo encogen desde `md`. Un campo es un pill
+ * de ese táctil en el teléfono y sólo encogen desde `md` con puntero fino. Un campo es un pill
  * de la misma altura y el área una superficie de 1.125rem. Todos comparten un
  * único foco visible (`focus-ring`), y el interruptor amplía su zona de toque
  * a 2.85rem sin agrandar el dibujo.
@@ -40,11 +40,11 @@ describe("las primitivas de acción", () => {
     for (const nombre of ["Deshacer", "Mover"]) {
       const b = screen.getByRole("button", { name: nombre });
       expect(b.className).toContain("h-[2.85rem]");
-      expect(b.className).toMatch(/\bmd:h-/);
+      expect(b.className).toMatch(/\bmd:pointer-fine:h-/);
     }
     const icono = screen.getByRole("button", { name: "Cerrar" });
     expect(icono.className).toContain("size-[2.85rem]");
-    expect(icono.className).toMatch(/\bmd:size-/);
+    expect(icono.className).toMatch(/\bmd:pointer-fine:size-/);
   });
 
   it("la acción primaria grande mide 3.2rem y los iconos son círculos", () => {
