@@ -20,13 +20,24 @@ interface AudioWaveProps {
  */
 export const BYTES_MAXIMOS_DE_ONDA = 12 * 1024 * 1024;
 
-/** Decodifica el audio para sacar su forma. Sin soporte, o si pesa demasiado, no hay onda. */
+/**
+ * Decodifica el audio para sacar su forma. Sin soporte, o si pesa demasiado, no
+ * hay onda. El tamaño se mira en la cabecera antes de leer el cuerpo: leerlo
+ * entero para descubrir que sobraba ya era pagar la descarga y la memoria.
+ */
 async function leerPicos(src: string): Promise<number[]> {
   const Contexto = window.AudioContext ?? (window as { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
   if (!Contexto) return [];
   const contexto = new Contexto();
   try {
-    const datos = await (await fetch(src)).arrayBuffer();
+    const respuesta = await fetch(src);
+    const anunciado = Number(respuesta.headers.get("content-length") ?? 0);
+    if (anunciado > BYTES_MAXIMOS_DE_ONDA) {
+      void respuesta.body?.cancel();
+      return [];
+    }
+    const datos = await respuesta.arrayBuffer();
+    // Sin cabecera de tamaño, el cuerpo leído todavía puede pasarse.
     if (datos.byteLength > BYTES_MAXIMOS_DE_ONDA) return [];
     const buffer = await contexto.decodeAudioData(datos);
     return picosDe(buffer.getChannelData(0));
