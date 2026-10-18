@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import type { RefObject } from "react";
-import { Plus, StickyNote } from "lucide-react";
+import { Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
@@ -30,6 +30,7 @@ import { StickyNoteCreator } from "./StickyNoteCreator";
 import { StackNoteSheet } from "./StackNoteSheet";
 import { dropNote } from "./drop-note";
 import { clampToCanvas, NOTE_W, type NotebookMetrics } from "./sticky-position";
+import { IndexHead } from "@/features/notebooks/IndexHead";
 import type { StickyNoteItem } from "./sticky-notes.types";
 
 /**
@@ -239,21 +240,22 @@ export function StickyNotesGrid(props: Props) {
   return (
     <>
       <div className="space-y-3">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-[0.06em] text-muted-foreground">
-            <StickyNote className="size-4" />
-            Notas
-          </div>
-          <Button
-            variant="ghost"
-            size="sm"
-            className="h-7 gap-1 text-xs text-muted-foreground"
-            onClick={(e) => setCreatorAnchor({ x: e.clientX, y: e.clientY })}
-          >
-            <Plus className="size-3" />
-            Añadir
-          </Button>
-        </div>
+        {/* El título de sección de Diario: la palabra en Bricolage y la acción
+            con nombre a la derecha, a 48 px en el teléfono. */}
+        <IndexHead
+          title="Notas"
+          trailing={
+            <Button
+              variant="ghost"
+              size="sm"
+              className="text-muted-foreground md:pointer-fine:h-8"
+              onClick={(e) => setCreatorAnchor({ x: e.clientX, y: e.clientY })}
+            >
+              <Plus aria-hidden className="size-4" />
+              Añadir nota
+            </Button>
+          }
+        />
 
         {isLoading && (
           <div className="flex flex-wrap gap-3">
