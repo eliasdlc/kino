@@ -12,6 +12,9 @@ import {
   type LucideIcon,
 } from "lucide-react";
 import { EntityFicheSheet } from "@/features/entities/EntityFicheSheet";
+import { MarginRow } from "@/components/ui/margin-row";
+import { Skeleton } from "@/components/ui/skeleton";
+import { WritingSectionHead } from "./WritingSectionHead";
 import { SuggestionList, type SuggestionEmptyState } from "@/shared/suggestions/SuggestionList";
 import { useStudio } from "./writing.hooks";
 import type { SuggestionKind, WritingSuggestion } from "./studio";
@@ -51,10 +54,14 @@ export function Studio({ systemId }: { systemId: string }) {
   const [openEntityId, setOpenEntityId] = useState<string | null>(null);
 
   if (isLoading) {
+    // La forma de lo que llega: un encabezado con su hairline y dos filas.
     return (
-      <div className="space-y-3">
-        <div className="h-5 w-40 rounded-md bg-muted" />
-        <div className="h-16 w-full rounded-xl bg-muted" />
+      <div aria-busy className="space-y-2">
+        <div className="border-b border-border pb-2">
+          <Skeleton className="h-6 w-40" />
+        </div>
+        <Skeleton className="h-[3.4rem] w-full rounded-md" />
+        <Skeleton className="h-[3.4rem] w-full rounded-md" />
       </div>
     );
   }
@@ -65,12 +72,10 @@ export function Studio({ systemId }: { systemId: string }) {
   return (
     <div className="space-y-6">
       <section className="space-y-2">
-        <div className="flex flex-col gap-1 sm:flex-row sm:items-baseline sm:justify-between sm:gap-3">
-          <h2 className="text-[1.06rem] font-bold tracking-[-0.01em]">Qué escribir hoy</h2>
-          <p className="text-xs text-muted-foreground">
-            Derivado de tus sesiones y tu texto. Sin IA.
-          </p>
-        </div>
+        <WritingSectionHead title="Qué escribir hoy" meta="Sin IA" />
+        <p className="text-sm text-muted-foreground">
+          Sale de tus sesiones y de tu texto: cada señal dice de dónde.
+        </p>
 
         <SuggestionList<WritingSuggestion>
           suggestions={suggestions}
@@ -82,30 +87,32 @@ export function Studio({ systemId }: { systemId: string }) {
 
       {gaps.length > 0 && (
         <section className="space-y-2">
-          <h2 className="text-[1.06rem] font-bold tracking-[-0.01em]">Fichas por escribir</h2>
-          <p className="text-xs text-muted-foreground">
+          <WritingSectionHead
+            title="Fichas por escribir"
+            meta={gaps.length === 1 ? "1 ficha" : `${gaps.length} fichas`}
+          />
+          <p className="pl-(--margen) text-sm text-muted-foreground">
             Aparecen en el texto y no tienen ni una línea que las describa. Es el
             hueco de continuidad más barato de tapar.
           </p>
-          <ul className="space-y-1.5">
-            {gaps.map((gap) => (
-              <li key={gap.entityId}>
-                {/* min-h-11: el mínimo táctil. Con una sola línea de texto se
-                    quedaba en unos 40px, y en un teléfono el nombre y el recuento
-                    no caben en la misma fila, así que se apilan hasta sm. */}
-                <button
-                  type="button"
+          <ul>
+            {gaps.map((gap, index) => (
+              <li key={gap.entityId} className="border-b border-border last:border-b-0">
+                <MarginRow
                   onClick={() => setOpenEntityId(gap.entityId)}
-                  className="flex min-h-11 w-full flex-col items-start gap-0.5 rounded-xl border border-border bg-card px-3 py-2 text-left transition-colors hover:bg-accent/40 sm:flex-row sm:items-center sm:gap-3"
+                  className="border-b-0"
+                  margin={
+                    <span className="font-display text-base font-bold text-muted-foreground tabular-nums">
+                      {index + 1}
+                    </span>
+                  }
+                  trailing={`${gap.mentions} ${gap.mentions === 1 ? "mención" : "menciones"}`}
                 >
-                  <span className="min-w-0 max-w-full flex-1 truncate text-sm font-medium">
-                    {gap.name}
+                  <span className="block truncate text-base font-semibold text-foreground">{gap.name}</span>
+                  <span className="block text-sm text-muted-foreground">
+                    en {gap.chapters} {gap.chapters === 1 ? "capítulo" : "capítulos"}
                   </span>
-                  <span className="shrink-0 text-xs text-muted-foreground tabular-nums">
-                    {gap.mentions} menciones · {gap.chapters}{" "}
-                    {gap.chapters === 1 ? "capítulo" : "capítulos"}
-                  </span>
-                </button>
+                </MarginRow>
               </li>
             ))}
           </ul>

@@ -51,13 +51,13 @@ function JournalDayRow({ entry }: { entry: JournalDay }) {
         <p className="mt-0.5 font-mono text-xs text-muted-foreground">
           {entry.words >= 0 ? "+" : ""}
           {entry.words.toLocaleString("es")} palabras
-          {entry.minutes > 0 ? ` · ${formatMinutes(entry.minutes)}` : ""}
-          {` · ${entry.cumulativeWords.toLocaleString("es")} acumuladas`}
+          {entry.minutes > 0 ? `, ${formatMinutes(entry.minutes)}` : ""}
+          {`, ${entry.cumulativeWords.toLocaleString("es")} acumuladas`}
         </p>
       )}
 
       {chapters.length > 0 && (
-        <p className="mt-0.5 truncate text-xs text-muted-foreground">{chapters.join(" · ")}</p>
+        <p className="mt-0.5 truncate text-xs text-muted-foreground">{chapters.join(", ")}</p>
       )}
 
       {entry.milestones.length > 0 && (
@@ -121,7 +121,7 @@ export function WorkJournalDialog({
             <p className="font-mono text-xs text-muted-foreground">
               {journal.totalWords.toLocaleString("es")} palabras
               {journal.wordGoal ? ` de ${journal.wordGoal.toLocaleString("es")}` : ""}
-              {` · ${journal.days.length} ${journal.days.length === 1 ? "día" : "días"} con actividad`}
+              {`, ${journal.days.length} ${journal.days.length === 1 ? "día" : "días"} con actividad`}
             </p>
             <ul className="mt-3">
               {journal.days.map((entry) => (

@@ -7,11 +7,13 @@ import {
   ChevronUp,
   CornerDownLeft,
   Hourglass,
-  Loader2,
   Rewind,
   X,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { EmptyState } from "@/components/ui/empty-state";
+import { Skeleton } from "@/components/ui/skeleton";
+import { WritingSectionHead } from "./WritingSectionHead";
 import {
   Select,
   SelectContent,
@@ -19,7 +21,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { cn } from "@/lib/utils";
 import { useFolders } from "@/features/folders/folders.hooks";
 import { EntityFicheSheet } from "@/features/entities/EntityFicheSheet";
 import { useReorderTimeline, useTimeline, useUnplaceEvent } from "./writing.hooks";
@@ -91,14 +92,15 @@ export function InWorldTimeline({ systemId }: { systemId: string }) {
             ))}
           </SelectContent>
         </Select>
-        <p className="text-xs text-muted-foreground">
-          Orden de la historia · el capítulo indica dónde se cuenta
+        <p className="text-sm text-muted-foreground">
+          En el orden de la historia; el capítulo dice dónde se cuenta.
         </p>
       </div>
 
       {isLoading ? (
-        <div className="flex h-40 items-center justify-center rounded-lg border border-dashed">
-          <Loader2 className="size-5 animate-spin text-muted-foreground" />
+        <div aria-busy className="space-y-px">
+          <Skeleton className="h-[4.6rem] w-full rounded-md" />
+          <Skeleton className="h-[4.6rem] w-full rounded-md" />
         </div>
       ) : placed.length === 0 && unplaced.length === 0 ? (
         <Empty
@@ -108,7 +110,7 @@ export function InWorldTimeline({ systemId }: { systemId: string }) {
       ) : (
         <>
           {placed.length > 0 && (
-            <ol className="relative space-y-2 border-l border-border pl-6">
+            <ol>
               {placed.map((entry, i) => (
                 <TimelineRow
                   key={entry.entityId}
@@ -128,20 +130,18 @@ export function InWorldTimeline({ systemId }: { systemId: string }) {
 
           {unplaced.length > 0 && (
             <section className="space-y-2">
-              <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-                Sin ubicar en el tiempo
-              </h3>
-              <ul className="space-y-2">
+              <WritingSectionHead as="h3" title="Sin ubicar en el tiempo" meta={unplaced.length} />
+              <ul>
                 {unplaced.map((entry) => (
                   <li
                     key={entry.entityId}
-                    className="flex items-center gap-3 rounded-lg border border-dashed bg-card p-3"
+                    className="grid min-h-[3.4rem] grid-cols-[var(--margen)_1fr_auto] items-center border-b border-border last:border-b-0"
                   >
-                    <Hourglass className="size-4 shrink-0 text-muted-foreground" />
+                    <Hourglass aria-hidden className="size-5 justify-self-center text-muted-foreground" />
                     <button
                       type="button"
                       onClick={() => setOpenEntityId(entry.entityId)}
-                      className="min-w-0 flex-1 truncate text-left text-sm font-medium hover:underline"
+                      className="min-w-0 truncate rounded-md py-2 text-left text-base font-semibold text-foreground focus-ring hover:underline"
                     >
                       {entry.name}
                     </button>
@@ -152,7 +152,7 @@ export function InWorldTimeline({ systemId }: { systemId: string }) {
                       disabled={reorder.isPending}
                       onClick={() => place(entry)}
                     >
-                      <CornerDownLeft className="size-3.5" />
+                      <CornerDownLeft aria-hidden className="size-4" />
                       Ubicar
                     </Button>
                   </li>
@@ -174,15 +174,15 @@ export function InWorldTimeline({ systemId }: { systemId: string }) {
 }
 
 function Empty({ title, hint }: { title: string; hint: string }) {
-  return (
-    <div className="rounded-lg border border-dashed p-10 text-center">
-      <Hourglass className="mx-auto size-8 text-muted-foreground/40" />
-      <p className="mt-2 text-sm font-medium">{title}</p>
-      <p className="mx-auto mt-1 max-w-md text-sm text-muted-foreground">{hint}</p>
-    </div>
-  );
+  return <EmptyState title={title} description={hint} />;
 }
 
+/**
+ * Un evento ubicado: su puesto en el tiempo de la historia como numeral en el
+ * margen, el nombre que abre su ficha, cuándo pasa, y en qué capítulos se
+ * cuenta. «Se cuenta antes de tiempo» es una palabra de estado y va en coral.
+ * Subir, bajar y sacar se ven en un dedo y aparecen al pasar en escritorio.
+ */
 function TimelineRow({
   entry,
   systemId,
@@ -205,98 +205,89 @@ function TimelineRow({
   onOpen: () => void;
 }) {
   return (
-    <li className="group relative rounded-lg border bg-card p-3">
-      <span
-        aria-hidden
-        className={cn(
-          "absolute -left-[27px] top-5 size-2.5 rounded-full border-2 border-background",
-          entry.outOfOrder ? "bg-foreground" : "bg-muted-foreground/50",
-        )}
-      />
+    <li className="group grid grid-cols-[var(--margen)_1fr] items-start border-b border-border py-2 last:border-b-0">
+      <span className="flex h-[2.15rem] items-center justify-center font-display text-base font-bold text-muted-foreground tabular-nums">
+        {position}
+      </span>
 
-      <div className="flex items-start gap-3">
-        <span className="mt-0.5 shrink-0 font-mono text-xs text-muted-foreground">
-          {position}
-        </span>
-
-        <div className="min-w-0 flex-1 space-y-1">
-          <div className="flex flex-wrap items-center gap-2">
+      <div className="min-w-0 space-y-1">
+        <div className="flex items-start justify-between gap-2">
+          <div className="min-w-0">
             <button
               type="button"
               onClick={onOpen}
-              className="truncate text-sm font-medium hover:underline"
+              className="block max-w-full truncate rounded-md py-1 text-left text-base font-semibold text-foreground focus-ring hover:underline"
             >
               {entry.name}
             </button>
-            {entry.when && (
-              <span className="text-xs text-muted-foreground">{entry.when}</span>
-            )}
-            {entry.outOfOrder && (
-              <span className="flex items-center gap-1 rounded-full bg-accent px-2 py-0.5 text-[11px] text-muted-foreground">
-                <Rewind className="size-3" />
-                se cuenta antes de tiempo
-              </span>
-            )}
+            <p className="text-sm text-muted-foreground">
+              {entry.when ?? "sin fecha en la historia"}
+              {entry.outOfOrder && (
+                <>
+                  {", "}
+                  <span className="inline-flex items-center gap-1 text-warn">
+                    <Rewind aria-hidden className="size-3.5" />
+                    se cuenta antes de tiempo
+                  </span>
+                </>
+              )}
+            </p>
           </div>
 
-          {(entry.what ?? entry.summary) && (
-            <p className="line-clamp-2 text-sm text-muted-foreground">
-              {entry.what ?? entry.summary}
-            </p>
-          )}
-
-          {entry.narratedIn.length === 0 ? (
-            <p className="text-xs text-muted-foreground/70">
-              Todavía no se cuenta en esta obra.
-            </p>
-          ) : (
-            <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
-              {entry.narratedIn.map((n) => (
-                <Link
-                  key={n.pageId}
-                  href={`/systems/${systemId}/pages/${n.pageId}`}
-                  className="text-xs text-muted-foreground underline-offset-2 hover:text-foreground hover:underline"
-                >
-                  Cap. {n.index}
-                  {n.title ? ` · ${n.title}` : ""}
-                </Link>
-              ))}
-            </div>
-          )}
+          <div className="-mr-2 flex shrink-0 items-center md:opacity-0 md:transition-opacity md:group-hover:opacity-100 md:focus-within:opacity-100">
+            <Button
+              variant="ghost"
+              size="icon"
+              className="md:pointer-fine:size-9"
+              disabled={isFirst || busy}
+              onClick={() => onMove(-1)}
+              aria-label={`Mover «${entry.name}» antes en el tiempo`}
+            >
+              <ChevronUp className="size-5" />
+            </Button>
+            <Button
+              variant="ghost"
+              size="icon"
+              className="md:pointer-fine:size-9"
+              disabled={isLast || busy}
+              onClick={() => onMove(1)}
+              aria-label={`Mover «${entry.name}» después en el tiempo`}
+            >
+              <ChevronDown className="size-5" />
+            </Button>
+            <Button
+              variant="ghost"
+              size="icon"
+              className="text-muted-foreground md:pointer-fine:size-9"
+              disabled={busy}
+              onClick={onUnplace}
+              aria-label={`Sacar «${entry.name}» de la cronología`}
+            >
+              <X className="size-5" />
+            </Button>
+          </div>
         </div>
 
-        <div className="flex shrink-0 items-center gap-0.5 md:opacity-0 md:transition-opacity md:group-hover:opacity-100 md:focus-within:opacity-100">
-          <Button
-            variant="ghost"
-            size="icon"
-            className="size-7"
-            disabled={isFirst || busy}
-            onClick={() => onMove(-1)}
-            aria-label={`Mover «${entry.name}» antes en el tiempo`}
-          >
-            <ChevronUp className="size-4" />
-          </Button>
-          <Button
-            variant="ghost"
-            size="icon"
-            className="size-7"
-            disabled={isLast || busy}
-            onClick={() => onMove(1)}
-            aria-label={`Mover «${entry.name}» después en el tiempo`}
-          >
-            <ChevronDown className="size-4" />
-          </Button>
-          <Button
-            variant="ghost"
-            size="icon"
-            className="size-7 text-muted-foreground"
-            disabled={busy}
-            onClick={onUnplace}
-            aria-label={`Sacar «${entry.name}» de la cronología`}
-          >
-            <X className="size-4" />
-          </Button>
-        </div>
+        {(entry.what ?? entry.summary) && (
+          <p className="line-clamp-2 text-sm text-body">{entry.what ?? entry.summary}</p>
+        )}
+
+        {entry.narratedIn.length === 0 ? (
+          <p className="text-sm text-muted-foreground">Todavía no se cuenta en esta obra.</p>
+        ) : (
+          <div className="flex flex-wrap items-center gap-x-3">
+            {entry.narratedIn.map((n) => (
+              <Link
+                key={n.pageId}
+                href={`/systems/${systemId}/pages/${n.pageId}`}
+                className="inline-flex min-h-9 items-center rounded-md text-sm text-muted-foreground underline-offset-2 focus-ring hover:text-foreground hover:underline pointer-coarse:min-h-[2.85rem]"
+              >
+                Capítulo {n.index}
+                {n.title ? `: ${n.title}` : ""}
+              </Link>
+            ))}
+          </div>
+        )}
       </div>
     </li>
   );
