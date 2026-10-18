@@ -49,8 +49,12 @@ function VerificationLoopLine({ loop }: { loop: VerificationLoop }) {
   );
 }
 
+/**
+ * El consejo es prosa, no un estado cerrado: el del pico va en tinta y peso,
+ * nunca en el verde de lo hecho.
+ */
 const TONE_TEXT: Record<string, string> = {
-  peak: 'text-task-done',
+  peak: 'font-semibold text-foreground',
   before: 'text-body',
   after: 'text-muted-foreground',
   rest: 'text-muted-foreground',
@@ -93,16 +97,18 @@ export function LearningInsightCard({ insight }: LearningInsightCardProps) {
     <div className="space-y-2.5 py-2.5">
       {/* Pico + consejo contextual */}
       <div className="space-y-0.5">
-        {peak ? (
+        {/* Sin pico, el consejo ya dice que el ritmo se está aprendiendo: un
+            renglón propio que lo repitiera sería la misma frase dos veces. */}
+        {peak && (
           <p className="text-sm text-body">
-            Rindes mejor entre{' '}
+            Rindes mejor de{' '}
             <b className="font-semibold text-foreground">{formatHourRange(peak.start, peak.end)}</b>
             {chronotype && <span className="text-muted-foreground">, cronotipo {CHRONOTYPE_LABELS[chronotype]}</span>}.
           </p>
-        ) : (
-          <p className="text-sm text-muted-foreground">Tu ritmo todavía se está aprendiendo.</p>
         )}
-        <p className={cn('text-[0.82rem] font-medium', TONE_TEXT[advice.tone])}>{advice.text}</p>
+        <p data-slot="peak-advice" className={cn('text-[0.82rem] font-medium', TONE_TEXT[advice.tone])}>
+          {advice.text}
+        </p>
       </div>
 
       {/* El ciclo del día: predicción guardada vs. lo que confirmaste (4.2) */}
@@ -137,9 +143,11 @@ export function LearningInsightCard({ insight }: LearningInsightCardProps) {
             </span>
           </span>
         </div>
-        <div className="h-1.5 overflow-hidden rounded-full bg-secondary">
+        {/* Una medida, no una acción: el relleno va en tinta sobre el renglón
+            de --input, y el ámbar queda para lo primario y lo activo. */}
+        <div data-slot="personalization-bar" className="h-1.5 overflow-hidden rounded-full bg-input">
           <div
-            className="h-full w-full origin-left rounded-full bg-primary transition-transform duration-(--dur-tachar) ease-(--ease-pluma)"
+            className="h-full w-full origin-left rounded-full bg-foreground transition-transform duration-(--dur-tachar) ease-(--ease-pluma)"
             style={{ transform: `scaleX(${(pct / 100).toFixed(3)})` }}
           />
         </div>
