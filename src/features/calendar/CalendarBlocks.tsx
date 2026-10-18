@@ -132,34 +132,41 @@ function TaskBlockInner({
     data: dragData,
   });
 
+  // El bloque es un contenedor con dos hermanos: el botón que abre y arrastra,
+  // y el tirador de redimensionar. Antes el tirador iba dentro del botón, un
+  // control anidado en otro.
   return (
     <div
       ref={setNodeRef}
-      {...attributes}
-      {...listeners}
-      role="button"
-      aria-label={`${format(d, "HH:mm")}, ${task.title}`}
-      onClick={() => onOpen(task)}
-      onKeyDown={(e) => {
-        // Un rol de botón se activa con Intro y con Espacio.
-        if (e.key === "Enter" || e.key === " ") {
-          e.preventDefault();
-          onOpen(task);
-        }
-      }}
-      className={cn(
-        "focus-ring absolute right-0.5 left-0.5 cursor-grab overflow-hidden rounded-md border px-1.5 pt-0.5 pb-2 text-xs leading-tight select-none active:cursor-grabbing",
-        PRIORITY_CHIP[task.effectivePriority ?? "medium"],
-        isDragging && "opacity-30",
-      )}
+      className={cn("absolute right-0.5 left-0.5", isDragging && "opacity-30")}
       style={{ top, height }}
-      title={task.title}
     >
-      <span className="font-semibold tabular-nums">{format(d, "HH:mm")} </span>
-      <span className="truncate">{task.title}</span>
-      {/* El tirador de redimensionar: sólo con puntero fino, el dedo cambia la
-          duración en el detalle. */}
       <div
+        {...attributes}
+        {...listeners}
+        role="button"
+        aria-label={`${format(d, "HH:mm")}, ${task.title}`}
+        onClick={() => onOpen(task)}
+        onKeyDown={(e) => {
+          // Un rol de botón se activa con Intro y con Espacio.
+          if (e.key === "Enter" || e.key === " ") {
+            e.preventDefault();
+            onOpen(task);
+          }
+        }}
+        className={cn(
+          "focus-ring h-full w-full cursor-grab overflow-hidden rounded-md border px-1.5 pt-0.5 pb-2 text-xs leading-tight select-none active:cursor-grabbing",
+          PRIORITY_CHIP[task.effectivePriority ?? "medium"],
+        )}
+        title={task.title}
+      >
+        <span className="font-semibold tabular-nums">{format(d, "HH:mm")} </span>
+        <span className="truncate">{task.title}</span>
+      </div>
+      {/* El tirador de redimensionar: sólo con puntero fino, el dedo cambia la
+          duración en el detalle. Es del ratón, no del lector de pantalla. */}
+      <div
+        aria-hidden
         className="absolute right-0 bottom-0 left-0 flex h-2.5 cursor-row-resize items-center justify-center opacity-40 transition-opacity duration-(--dur-toque) hover:opacity-80 pointer-coarse:hidden"
         onClick={(e) => e.stopPropagation()}
         onPointerDown={(e) => {
