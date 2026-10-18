@@ -5,35 +5,36 @@ import { Link2, Plus } from "lucide-react";
 import { api } from "@convex/_generated/api";
 import { getConvexClient } from "@/shared/convex/client";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
 import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from "@/components/ui/popover";
+  ResponsiveDialog,
+  ResponsiveDialogContent,
+  ResponsiveDialogDescription,
+  ResponsiveDialogHeader,
+  ResponsiveDialogTitle,
+} from "@/components/ui/responsive-dialog";
+import { MarginRow } from "@/components/ui/margin-row";
+import { MargenDeUnaLinea, UNA_LINEA } from "./one-line-row";
 import { useTasks } from "@/features/tasks/tasks.hooks";
 import { useToggleTask } from "@/features/tasks/tasks.hooks";
 import { useLinkedTasks, useLinkTask, useUnlinkTask } from "./pages.hooks";
-import { LinkedTaskCard } from "./LinkedTaskCard";
+import { ESTADO_TAREA, LinkedTaskCard } from "./LinkedTaskCard";
 import { TaskDetailSheet } from "@/features/tasks/TaskDetailSheet";
 import { CreateTaskDialog } from "@/features/tasks/CreateTaskDialog";
 import type { LinkedTaskTransport } from "./pages.types";
 import type { TaskTransport } from "@/features/tasks/tasks.types";
 import { Skeleton } from "@/components/ui/skeleton";
 
-const STATUS_VARIANT: Record<string, "default" | "secondary" | "outline"> = {
-  backlog: "outline",
-  week: "secondary",
-  today: "default",
-  done: "secondary",
-  archived: "outline",
-};
-
 interface LinkedTasksPanelProps {
   pageId: string;
   systemId: string;
 }
 
+/**
+ * Las tareas enlazadas a la página: un encabezado con sus dos acciones
+ * (vincular una que ya existe, crear una nueva ya vinculada) y debajo las
+ * filas de `LinkedTaskCard`. Vincular abre una hoja con nombre en el teléfono
+ * y un diálogo en escritorio, nunca un popover que el teclado tape.
+ */
 export function LinkedTasksPanel({ pageId, systemId }: LinkedTasksPanelProps) {
   const { data: linked = [], isLoading } = useLinkedTasks(pageId);
   const { data: allTasks = [] } = useTasks(systemId, []);
@@ -81,91 +82,79 @@ export function LinkedTasksPanel({ pageId, systemId }: LinkedTasksPanelProps) {
   }
 
   return (
-    <div className="space-y-3">
-      {/* Header with actions */}
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-1.5 text-sm font-medium">
-          <Link2 className="size-4" />
-          Linked tasks
-        </div>
-        <div className="flex items-center gap-1">
-          {/* Link existing task */}
-          <Popover open={linkPopoverOpen} onOpenChange={setLinkPopoverOpen}>
-            <PopoverTrigger asChild>
-              <Button variant="ghost" size="sm" className="h-8 gap-1.5 text-xs text-muted-foreground">
-                <Plus className="size-3.5" />
-                Link
-              </Button>
-            </PopoverTrigger>
-            <PopoverContent className="w-72 p-2" align="end">
-              {available.length === 0 ? (
-                <p className="text-sm text-muted-foreground text-center py-3">
-                  No hay tareas disponibles para vincular
-                </p>
-              ) : (
-                <div className="flex flex-col gap-1 max-h-64 overflow-y-auto">
-                  {available.map((task) => (
-                    <button
-                      key={task.id}
-                      type="button"
-                      onClick={() => {
-                        linkTask(task.id);
-                        setLinkPopoverOpen(false);
-                      }}
-                      className="flex items-center gap-2 px-2.5 py-2 rounded text-sm hover:bg-accent text-left"
-                    >
-                      <span className="flex-1 truncate">{task.title}</span>
-                      <Badge variant={STATUS_VARIANT[task.status] ?? "outline"} className="text-[11px] shrink-0">
-                        {task.status}
-                      </Badge>
-                    </button>
-                  ))}
-                </div>
-              )}
-            </PopoverContent>
-          </Popover>
-
-          {/* Create new task + auto-link */}
-          <CreateTaskDialog
-            systemId={systemId}
-            open={createOpen}
-            onOpenChange={setCreateOpen}
-            onTaskCreated={handleTaskCreated}
-          />
-          <Button
-            variant="ghost"
-            size="sm"
-            className="h-8 gap-1.5 text-xs text-muted-foreground"
-            onClick={() => setCreateOpen(true)}
-          >
-            <Plus className="size-3.5" />
-            New
+    <div className="space-y-1">
+      <div className="flex items-end justify-between gap-2 border-b border-border pb-1">
+        <h3 className="pb-1 text-xs font-semibold whitespace-nowrap uppercase tracking-[0.06em] text-muted-foreground">
+          Tareas vinculadas
+        </h3>
+        <div className="-mr-2 flex items-center">
+          <Button variant="ghost" size="sm" className={ACCION} onClick={() => setLinkPopoverOpen(true)}>
+            <Link2 className="size-4" />
+            Vincular
+          </Button>
+          <Button variant="ghost" size="sm" className={ACCION} onClick={() => setCreateOpen(true)}>
+            <Plus className="size-4" />
+            Nueva
           </Button>
         </div>
       </div>
 
-      {/* Loading state */}
+      <CreateTaskDialog
+        systemId={systemId}
+        open={createOpen}
+        onOpenChange={setCreateOpen}
+        onTaskCreated={handleTaskCreated}
+      />
+
+      <ResponsiveDialog open={linkPopoverOpen} onOpenChange={setLinkPopoverOpen}>
+        <ResponsiveDialogContent className="max-w-md">
+          <ResponsiveDialogHeader>
+            <ResponsiveDialogTitle>Vincular una tarea</ResponsiveDialogTitle>
+            <ResponsiveDialogDescription>
+              Queda enlazada a esta página y la ves desde aquí.
+            </ResponsiveDialogDescription>
+          </ResponsiveDialogHeader>
+          {available.length === 0 ? (
+            <p className="py-3 text-sm text-muted-foreground">
+              Todas las tareas de este sistema ya están vinculadas, o todavía no hay ninguna.
+            </p>
+          ) : (
+            <div className="max-h-[55dvh] overflow-y-auto">
+              {available.map((task) => (
+                <MarginRow
+                  key={task.id}
+                  onClick={() => {
+                    linkTask(task.id);
+                    setLinkPopoverOpen(false);
+                  }}
+                  className={UNA_LINEA}
+                  margin={<MargenDeUnaLinea><Link2 aria-hidden className="size-4" /></MargenDeUnaLinea>}
+                  trailing={ESTADO_TAREA[task.status] ?? null}
+                >
+                  <span className="block truncate text-base text-foreground">{task.title}</span>
+                </MarginRow>
+              ))}
+            </div>
+          )}
+        </ResponsiveDialogContent>
+      </ResponsiveDialog>
+
       {isLoading && (
-        <div className="space-y-2">
+        <div aria-busy className="space-y-px">
           {[1, 2].map((i) => (
-            <Skeleton key={i} className="h-16 w-full rounded-lg" />
+            <Skeleton key={i} className="h-[3.4rem] w-full rounded-md" />
           ))}
         </div>
       )}
 
-      {/* Empty state */}
       {!isLoading && visibleLinked.length === 0 && (
-        <div className="flex flex-col items-center gap-2 py-6 text-center">
-          <p className="text-sm text-muted-foreground">Aún no hay tareas vinculadas.</p>
-          <p className="text-xs text-muted-foreground/60">
-            Link existing tasks or create new ones to track work related to this page.
-          </p>
-        </div>
+        <p className="py-3 text-sm text-muted-foreground">
+          Ninguna tarea apunta a esta página. Vincula una o crea la siguiente desde aquí.
+        </p>
       )}
 
-      {/* TaskTransport cards */}
       {!isLoading && visibleLinked.length > 0 && (
-        <div className="flex flex-col gap-2">
+        <div>
           {visibleLinked.map((task: LinkedTaskTransport) => (
             <LinkedTaskCard
               key={task.id}
@@ -178,7 +167,6 @@ export function LinkedTasksPanel({ pageId, systemId }: LinkedTasksPanelProps) {
         </div>
       )}
 
-      {/* TaskTransport detail sheet: opens when editing a linked task */}
       <TaskDetailSheet
         task={editTask}
         systemId={systemId}
@@ -191,3 +179,6 @@ export function LinkedTasksPanel({ pageId, systemId }: LinkedTasksPanelProps) {
     </div>
   );
 }
+
+/** Las acciones del encabezado: palabra con glifo, 48 px en un dedo. */
+const ACCION = "h-9 gap-1 px-2 text-sm text-muted-foreground hover:text-foreground pointer-coarse:h-[2.85rem]";
