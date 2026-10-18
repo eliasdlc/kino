@@ -35,7 +35,7 @@ function pintura(extra: Partial<PrimeraPintura> = {}): PrimeraPintura {
     fichasDelCodex: 2,
     onOpenPanel: () => {},
     guardarScroll: () => {},
-    tomarScroll: () => 0,
+    tomarScroll: () => null,
     ...extra,
   };
 }
@@ -83,17 +83,39 @@ describe("primera pintura del capítulo", () => {
   });
 
   it("el editor arranca en el scroll donde quedó la primera pintura", async () => {
-    let guardado = 320;
-    const scroller = document.createElement("div");
-    const ref = { current: scroller };
+    const contenedor = document.createElement("div");
+    let guardado: { contenedor: HTMLElement; top: number } | null = { contenedor, top: 320 };
     renderWithProviders(
-      <PrimeraPinturaContext.Provider value={pintura({ tomarScroll: () => { const top = guardado; guardado = 0; return top; } })}>
+      <PrimeraPinturaContext.Provider
+        value={pintura({
+          tomarScroll: () => {
+            const scroll = guardado;
+            guardado = null;
+            return scroll;
+          },
+        })}
+      >
         <EditorProvider initialContent={page.content ?? ""}>
-          <ConservarScroll scrollRef={ref} />
+          <ConservarScroll />
         </EditorProvider>
       </PrimeraPinturaContext.Provider>,
     );
-    await waitFor(() => expect(scroller.scrollTop).toBe(320));
-    expect(guardado).toBe(0);
+    await waitFor(() => expect(contenedor.scrollTop).toBe(320));
+    expect(guardado).toBeNull();
+  });
+
+  it("al irse, la primera pintura apunta qué se desplazaba y cuánto", () => {
+    const guardarScroll = vi.fn();
+    const { container, unmount } = renderWithProviders(
+      <div data-testid="main" style={{ overflowY: "auto" }}>
+        <PrimeraPinturaContext.Provider value={pintura({ guardarScroll })}>
+          <PrimeraPinturaDelEditor />
+        </PrimeraPinturaContext.Provider>
+      </div>,
+    );
+    const main = container.querySelector<HTMLElement>("[data-testid=main]")!;
+    main.scrollTop = 420;
+    unmount();
+    expect(guardarScroll).toHaveBeenCalledWith({ contenedor: main, top: 420 });
   });
 });
