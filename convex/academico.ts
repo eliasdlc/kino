@@ -120,24 +120,23 @@ async function carpetasPorNombre(
 /** Lo que no distingue una materia de otra: artículos y preposiciones. */
 const VACIAS = new Set(['a', 'al', 'de', 'del', 'e', 'el', 'en', 'la', 'las', 'los', 'y']);
 
-/**
- * Las palabras con significado de un nombre de materia, sin el código de
- * sección que la PVA antepone ("CSTI-1930-5225 - ").
- */
-const palabras = (nombre: string) =>
-  nombre
-    .replace(/^[a-z]{2,6}-[\d-]+\s*-\s*/, '')
-    .split(/[^a-z0-9]+/)
-    .filter((p) => p.length > 0 && !VACIAS.has(p));
+/** El nombre sin el código de sección que la PVA antepone ("CSTI-1930-5225 - "). */
+const sinCodigo = (nombre: string) => nombre.replace(/^[a-z]{2,6}-[\d-]+\s*-\s*/, '');
+
+/** Las palabras con significado de un nombre ya plano y sin código. */
+const palabras = (nombre: string) => nombre.split(/[^a-z0-9]+/).filter((p) => p.length > 0 && !VACIAS.has(p));
 
 /** Una palabra abrevia a la otra: "seg" a "seguridad", "concurr" a "concurrente". */
 const abrevia = (a: string, b: string) => a === b || (Math.min(a.length, b.length) >= 3 && (a.startsWith(b) || b.startsWith(a)));
+
+/** Las mismas palabras, en el mismo orden, abreviadas o no. */
+const iguales = (a: string[], b: string[]) => a.length === b.length && a.every((palabra, i) => abrevia(palabra, b[i]));
 
 /**
  * Las palabras del nombre más corto aparecen, en orden y abreviadas o no, en el
  * más largo. "Proyect Integr Desarr Sotfware" contiene a "Proyecto Integrador".
  */
-function seAbrevian(a: string[], b: string[]) {
+function contenidas(a: string[], b: string[]) {
   const [corto, largo] = a.length <= b.length ? [a, b] : [b, a];
   if (corto.length === 0) return false;
   let i = 0;
@@ -148,26 +147,33 @@ function seAbrevian(a: string[], b: string[]) {
 }
 
 /**
- * La carpeta de la materia: por nombre exacto, luego porque uno contiene al
- * otro, y luego porque uno abrevia al otro palabra por palabra.
+ * La carpeta de la materia, de lo más estricto a lo más laxo: el nombre exacto,
+ * las mismas palabras abreviadas o no, y por último las de uno dentro del otro.
+ * Todo sin el código de sección ni artículos.
  *
  * La PVA llama a la materia "CSTI-1930-5225 - Seg. en Tecnología Información"
- * y la carpeta se llama "Seguridad en Tecnologia de Informacion": ninguno
- * contiene al otro, pero "seg" abrevia "seguridad" y el resto coincide. En cada
- * paso, con una sola candidata alcanza; con dos no se elige ninguna, porque
- * poner la tarea en la materia equivocada es peor que dejarla suelta.
+ * y la carpeta se llama "Seguridad en Tecnologia de Informacion": "seg"
+ * abrevia "seguridad" y el resto coincide. Que lo estricto vaya primero es lo
+ * que impide que una carpeta "Ingles" se quede con "Inglés para las
+ * Ingenierías" cuando existe "Ingles para Ingenierias". En cada paso, con una
+ * sola candidata alcanza; con dos no se elige ninguna, porque poner la tarea en
+ * la materia equivocada es peor que dejarla suelta.
  */
 function carpetaDe(mapa: Map<string, Id<'folders'>>, item: AcademicoItem): Id<'folders'> | undefined {
   if (!item.courseName) return undefined;
-  const nombre = plano(item.courseName);
-  const exacta = mapa.get(nombre);
-  if (exacta) return exacta;
-  const entradas = [...mapa.entries()];
-  const contenidas = entradas.filter(([clave]) => clave.includes(nombre) || nombre.includes(clave));
-  if (contenidas.length > 0) return contenidas.length === 1 ? contenidas[0][1] : undefined;
+  const nombre = sinCodigo(plano(item.courseName));
   const suyas = palabras(nombre);
-  const abreviadas = entradas.filter(([clave]) => seAbrevian(suyas, palabras(clave)));
-  return abreviadas.length === 1 ? abreviadas[0][1] : undefined;
+  const entradas = [...mapa.entries()].map(([clave, id]) => ({ clave, id, palabras: palabras(clave) }));
+  const pasos = [
+    (c: (typeof entradas)[number]) => c.clave === nombre,
+    (c: (typeof entradas)[number]) => iguales(suyas, c.palabras),
+    (c: (typeof entradas)[number]) => contenidas(suyas, c.palabras),
+  ];
+  for (const paso of pasos) {
+    const candidatas = entradas.filter(paso);
+    if (candidatas.length > 0) return candidatas.length === 1 ? candidatas[0].id : undefined;
+  }
+  return undefined;
 }
 
 /** Lo que el barrido cambiaría de una tarea que ya existe. Vacío significa que no se toca. */

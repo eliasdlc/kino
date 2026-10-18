@@ -127,6 +127,37 @@ describe('dónde cae lo que publica el aula', () => {
     expect(porId.get('assign:3')).toBe(integrador);
   });
 
+  it('prefiere la materia con las mismas palabras a la que sólo comparte una', async () => {
+    const { t, userId, systemId, seguridad, actual } = await seed();
+    const [ingles, ingenierias, ii, iii] = await t.run(async (ctx) => {
+      const otra = await ctx.db.get(seguridad);
+      const copia = (name: string) => ctx.db.insert('folders', { ...otra!, _id: undefined, _creationTime: undefined, name, academicPeriodId: actual } as never);
+      return [await copia('Ingles'), await copia('Ingles para Ingenierias'), await copia('Ingles II'), await copia('Ingles III')];
+    });
+
+    // "Ingles" está dentro de los otros tres nombres, e "Ingles II" dentro de
+    // "Ingles III": por contención, la primera tarea caería en "Ingles" y la
+    // segunda en ninguna. Con el código quitado y las palabras completas antes
+    // que las contenidas, cada una cae en la suya.
+    await t.mutation(internal.academico.sincronizar, {
+      userId,
+      systemId,
+      items: [
+        item({ externalId: 'assign:1', courseName: 'CSTI-1920-3307 - Inglés para las Ingenierías' }),
+        item({ externalId: 'assign:2', courseName: 'CSTI-1900-3298 - Inglés III' }),
+        // Abreviada no hay nombre exacto que la salve: "ii" no abrevia "iii"
+        // porque una abreviatura necesita tres letras.
+        item({ externalId: 'assign:3', courseName: 'CSTI-1900-3299 - Ingl. III' }),
+      ],
+    });
+
+    const porId = new Map((await tareas(t, userId)).map((tarea) => [tarea.externalId, tarea.folderId]));
+    expect(porId.get('assign:1')).toBe(ingenierias);
+    expect(porId.get('assign:2')).toBe(iii);
+    expect(porId.get('assign:3')).toBe(iii);
+    expect([ingles, ii]).not.toContain(porId.get('assign:1'));
+  });
+
   it('no elige entre dos materias que la abreviatura alcanza por igual', async () => {
     const { t, userId, systemId, seguridad, actual } = await seed();
     await t.run(async (ctx) => {
