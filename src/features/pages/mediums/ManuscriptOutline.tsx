@@ -1,7 +1,7 @@
 "use client";
 
 import { Asterisk, BookOpen, Hash, RectangleHorizontal } from "lucide-react";
-import { PanelHeading } from "../PanelHeading";
+import { SectionHead } from "@/features/dashboard/SectionHead";
 import type { OutlineItem, OutlineKind } from "./outline";
 
 const KIND_ICON: Record<OutlineKind, typeof Hash> = {
@@ -35,7 +35,7 @@ export function ManuscriptOutline({
 }) {
   return (
     <div className="space-y-1">
-      <PanelHeading>{heading}</PanelHeading>
+      <SectionHead as="h3" title={heading} />
 
       {items.length === 0 ? (
         // Solo llega aquí el manuscrito: la lista de un documento normal no se
