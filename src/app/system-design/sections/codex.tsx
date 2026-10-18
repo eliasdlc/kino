@@ -20,7 +20,7 @@ import type { MentionedEntityTransport } from "@/features/entities/entities.type
 /**
  * El Codex (PLAN-11 W2): el universo de la obra visto desde el capítulo abierto.
  *
- * Ni el rail ni la ficha reciben datos por props — los sacan del cache, igual que
+ * Ni el rail ni la ficha reciben datos por props: los sacan del cache, igual que
  * en el editor. Cada specimen siembra su propio cliente, que es lo que permite
  * enseñar varios estados del mismo componente en la misma página.
  */
@@ -83,7 +83,7 @@ const MENTION_ITEMS: MentionItem[] = [
 
 /**
  * Universo de muestra para el grafo. El layout es determinista, así que este
- * specimen dibuja siempre el mismo mapa — se puede comparar entre despliegues.
+ * specimen dibuja siempre el mismo mapa, y se puede comparar entre despliegues.
  */
 const GRAPH_NODES: GraphNode[] = [
   { id: mid("aurelia"), name: "Aurelia", type: "character", mentionCount: 22, workIds: [] },
@@ -132,7 +132,7 @@ export function CodexSection() {
               vacío. Un specimen etiquetado "Cargando" que pintase el vacío mentiría,
               y este catálogo sirve justamente para fiarse de lo que se ve. */}
 
-          <Specimen label="Con fijado" hint="pinnedIds — la mesa de referencias de W4">
+          <Specimen label="Con fijado" hint="pinnedIds: la mesa de referencias de W4">
             <Seeded stubs={seedRail(CAST)}>
               <div className="w-full max-w-64">
                 <CodexRail
@@ -186,7 +186,7 @@ export function CodexSection() {
             </div>
           </Specimen>
 
-          <Specimen label="Todo suelto" hint="sin relaciones — todos los bordes punteados">
+          <Specimen label="Todo suelto" hint="sin relaciones: todos los bordes punteados">
             <div className="w-full">
               <GraphCanvas layout={layoutGraph(GRAPH_NODES, [])} onOpen={noop} />
             </div>
