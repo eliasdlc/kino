@@ -7,10 +7,29 @@ export function useUserSettings() {
   return useConvexQuery(api.settings.get, {});
 }
 
+/**
+ * El contrato de guardado de Ajustes: todo guarda al tocar. No hay aviso de
+ * éxito, porque el control ya enseña el valor nuevo y deshacer es volver a
+ * tocarlo; un toast por cada paso del límite o cada opción del tema sería
+ * ruido. Sólo se avisa cuando no se guardó, y entonces el control vuelve al
+ * valor de la cuenta.
+ */
 export function useUpdateUserSettings() {
   return useConvexMutation(api.settings.update, {
-    onSuccess: () => toast.success('Ajustes guardados'),
     onError: () => toast.error('No se pudieron guardar los ajustes'),
+  });
+}
+
+/**
+ * El perfil de energía con el mismo contrato que el resto de Ajustes: cada
+ * campo se guarda al tocarlo y sin toast de éxito. No usa
+ * `useUpdateEnergyProfile` de energía porque ese avisa en cada guardado, que
+ * es lo justo para un formulario con botón y demasiado para un control que
+ * guarda en cada toque.
+ */
+export function useSaveEnergyProfile() {
+  return useConvexMutation(api.energy.updateProfile, {
+    onError: () => toast.error('No se pudo guardar tu perfil de energía'),
   });
 }
 
