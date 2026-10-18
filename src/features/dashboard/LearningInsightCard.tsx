@@ -39,9 +39,9 @@ function VerificationLoopLine({ loop }: { loop: VerificationLoop }) {
       </p>
       <p className="text-[0.82rem] text-muted-foreground">
         {loop.improvementPct !== null
-          ? `Con ese dato la previsión mejoró ${loop.improvementPct} %, personalización ${loop.alphaAfterPct} %.`
+          ? `Con ese dato la previsión mejoró ${loop.improvementPct}\u00a0%, personalización ${loop.alphaAfterPct}\u00a0%.`
           : loop.alphaAfterPct !== null
-            ? `La previsión ya lo esperaba y no se movió, personalización ${loop.alphaAfterPct} %.`
+            ? `La previsión ya lo esperaba y no se movió, personalización ${loop.alphaAfterPct}\u00a0%.`
             : 'Ese check-in es anterior a la medición de cuánto mejora la previsión con cada dato.'}
         {!loop.fromLearnedCurve && ' Salió de tu cronotipo: todavía sin curva aprendida tuya.'}
       </p>
@@ -118,7 +118,7 @@ export function LearningInsightCard({ insight }: LearningInsightCardProps) {
           )}
           {accuracy !== null && (
             <p>
-              Según tu feedback, acertada el <b className="font-semibold text-foreground">{accuracy.rate} %</b> de las veces.
+              Según tu feedback, acertada el <b className="font-semibold text-foreground">{accuracy.rate}{'\u00a0'}%</b> de las veces.
             </p>
           )}
         </div>
@@ -130,7 +130,7 @@ export function LearningInsightCard({ insight }: LearningInsightCardProps) {
           <span className="text-[0.82rem] text-muted-foreground">Personalización</span>
           <span className="flex items-center gap-2">
             <Sparkline values={sparkline} />
-            <span className="text-[0.84rem] font-semibold tabular-nums">{personalizationPct} %</span>
+            <span className="text-[0.84rem] font-semibold tabular-nums">{personalizationPct}{'\u00a0'}%</span>
             <span className={cn('inline-flex items-center gap-0.5 text-xs tabular-nums', trendColor)}>
               <TrendIcon className="size-3" aria-hidden />
               {trend !== 'flat' && `${trendDelta > 0 ? '+' : ''}${trendDelta}`}
