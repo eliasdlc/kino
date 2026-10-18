@@ -14,15 +14,20 @@ import { ReturnNotice } from "@/features/today/ReturnNotice";
 import { DashboardBottomRow } from "@/features/dashboard/DashboardBottomRow";
 import { QuickAddFromUrl } from "@/features/tasks/QuickAddFromUrl";
 import { getServerSession } from "@/shared/utils/session";
+import { HOY_COLUMNS, HOY_ENERGY_COLUMN, HOY_PAGE, HOY_PLAN_COLUMN } from "@/features/dashboard/HoySkeleton";
 
 export const metadata = { title: "Hoy - Kino" };
 
 /**
- * Hoy es la cota: la cifra del día y su frase primero, la curva debajo, el
- * check-in en línea, el presupuesto como barra fina, y el plan como lista de
- * dos niveles. Los avisos son una línea al pie, nunca una tarjeta antes de la
- * cifra, y nada vacío ocupa espacio. En laptop la energía va a la izquierda y
- * el plan a la derecha; en el teléfono es la misma pantalla, estrecha.
+ * Hoy es una página de Diario con la cota como cabecera: la cifra del día y
+ * su frase primero, la curva debajo, el check-in en línea, el presupuesto como
+ * barra fina, y el plan como filas de margen bajo un título con hairline. No
+ * hay cards: las secciones son encabezados y renglones. Los avisos son una
+ * línea al pie, nunca una tarjeta antes de la cifra, y nada vacío ocupa
+ * espacio. En laptop la energía va a la izquierda y el plan a la derecha; en
+ * el teléfono es la misma página, estrecha. El canto y las columnas son los
+ * de `HoySkeleton`, el esqueleto de `loading.tsx`, y llevan el área segura de
+ * los lados como `PageWrapper`.
  *
  * Encima del plan hay como mucho **una** línea, la que el servidor elige entre
  * todos los candidatos del día (`convex/today.ts`). Antes había dos tarjetas
@@ -46,12 +51,12 @@ export default async function DashboardPage() {
   const energyItems = toTransport(dailyPlan.energyPlan?.items);
 
   return (
-    <div className="mx-auto max-w-6xl px-5 py-5 md:px-8 md:py-6">
+    <div className={HOY_PAGE}>
       <QuickAddFromUrl />
       <InterruptionLine />
 
-      <div className="md:grid md:grid-cols-[minmax(0,1fr)_minmax(0,1.25fr)] md:gap-10">
-        <section aria-label="Energía de hoy" className="md:border-r md:border-border md:pr-10">
+      <div className={HOY_COLUMNS}>
+        <section aria-label="Energía de hoy" className={HOY_ENERGY_COLUMN}>
           <EnergyTodayCard
             clock={dailyPlan.clock}
             initialCheckins={dailyPlan.checkins}
@@ -61,7 +66,7 @@ export default async function DashboardPage() {
           />
         </section>
 
-        <div className="mt-8 flex flex-col gap-6 md:mt-0">
+        <div className={HOY_PLAN_COLUMN}>
           {/* Los dos van antes del plan y no después: los dos hablan de la
               cifra del día, y detrás de un plan de doce tareas el que dice que
               el día no cabe queda a un scroll de la cifra que lo dice. Ninguno
