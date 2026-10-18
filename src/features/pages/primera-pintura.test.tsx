@@ -1,6 +1,7 @@
 /**
  * Criterio: la primera pintura del capítulo reserva lo mismo que el editor que
- * la sustituye. La fila del título lleva Más a 2.85rem en las dos, la fila del
+ * la sustituye. La fila del título lleva la puerta del panel a 2.85rem y con su
+ * palabra visible («Capítulo») en las dos, la fila del
  * codex tiene su alto mientras llegan las fichas, y el editor arranca en el
  * scroll donde la primera pintura se quedó.
  */
@@ -32,6 +33,7 @@ function pintura(extra: Partial<PrimeraPintura> = {}): PrimeraPintura {
     titulo: "La subida",
     cuerpo: <p>La cota del día marcaba 134.</p>,
     writer: true,
+    etiquetaMas: "Capítulo",
     fichasDelCodex: 2,
     onOpenPanel: () => {},
     guardarScroll: () => {},
@@ -49,7 +51,7 @@ describe("primera pintura del capítulo", () => {
         <PrimeraPinturaDelEditor />
       </PrimeraPinturaContext.Provider>,
     );
-    expect(screen.getByRole("button", { name: "Más del capítulo" })).toHaveClass("size-[2.85rem]");
+    expect(screen.getByRole("button", { name: /^Capítulo: sesión, estado y más$/ })).toHaveClass("h-[2.85rem]");
     expect(reserva(container)).toBeInTheDocument();
   });
 
@@ -72,7 +74,7 @@ describe("primera pintura del capítulo", () => {
       </PrimeraPinturaContext.Provider>,
       { convex },
     );
-    expect(screen.getByRole("button", { name: "Más del capítulo" })).toHaveClass("size-[2.85rem]");
+    expect(screen.getByRole("button", { name: /^Capítulo: sesión, estado y más$/ })).toHaveClass("h-[2.85rem]");
     expect(reserva(container)).toBeInTheDocument();
 
     act(() => convex.publish(stubQuery(api.entities.byPage, [
