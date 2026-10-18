@@ -1,21 +1,35 @@
 import type { Metadata, Viewport } from "next";
 import { ClerkProvider } from "@clerk/nextjs";
-import { Bricolage_Grotesque, Inter, JetBrains_Mono, Literata } from "next/font/google";
+import { Bricolage_Grotesque, Figtree, JetBrains_Mono, Literata } from "next/font/google";
 import "./globals.css";
 import { cn } from "@/lib/utils";
 import { Toaster } from "sonner";
+import type { CSSProperties } from "react";
 import { SITE_URL } from "@/shared/lib/site-url";
 import { rootThemeScript } from "@/shared/lib/theme-script";
 import { clerkAppearance, clerkLocalization } from "@/features/auth/clerk-appearance";
 import { ConvexClientProvider } from "@/shared/convex/client";
 
 // Las caras del producto, cargadas una sola vez para la app y el marketing:
-// Inter para el texto, Bricolage para la cifra y los títulos, JetBrains para
-// datos y código. Literata es la serif de lectura del arquetipo Writing.
-const inter = Inter({ subsets: ["latin"], variable: "--font-inter" });
+// Figtree para la interfaz, Bricolage para la cota y los títulos, Literata
+// para la prosa y para la voz (la frase de la cota, la intención de un
+// sistema), por eso trae cursiva. JetBrains es para datos y código y no se
+// precarga: ninguna pantalla la necesita antes de pintar.
+const figtree = Figtree({ subsets: ["latin"], variable: "--font-figtree", display: "swap" });
 const bricolage = Bricolage_Grotesque({ subsets: ["latin"], variable: "--font-bricolage", display: "swap" });
-const jetbrainsMono = JetBrains_Mono({ subsets: ["latin"], variable: "--font-jetbrains-mono", display: "swap" });
-const literata = Literata({ subsets: ["latin"], variable: "--font-literata" });
+const jetbrainsMono = JetBrains_Mono({ subsets: ["latin"], variable: "--font-jetbrains-mono", display: "swap", preload: false });
+const literata = Literata({ subsets: ["latin"], style: ["normal", "italic"], variable: "--font-literata", display: "swap" });
+
+// Los toasts leen los roles: sonner pinta con estas variables y sigue al
+// tema por la clase `dark`, sin richColors. En el teléfono suben por encima
+// del chrome inferior para que el pie no los tape.
+const toasterStyle = {
+  "--normal-bg": "var(--sf)",
+  "--normal-text": "var(--ink)",
+  "--normal-border": "var(--ln2)",
+  "--border-radius": "1.125rem",
+  "--font-family": "var(--font-sans)",
+} as CSSProperties;
 
 
 export const metadata: Metadata = {
@@ -33,12 +47,13 @@ export const metadata: Metadata = {
 };
 
 export const viewport: Viewport = {
-  // Los dos valores de `--background`. La barra del navegador en móvil sigue la
-  // preferencia del sistema, no la clase `dark`: quien fuerza un tema distinto
-  // al del SO verá la barra del otro, que es el límite del atributo.
+  // Los dos valores de `--bg` (globals.css). La barra del navegador en móvil
+  // sigue la preferencia del sistema, no la clase `dark`: quien fuerza un
+  // tema distinto al del SO verá la barra del otro, que es el límite del
+  // atributo.
   themeColor: [
-    { media: "(prefers-color-scheme: light)", color: "#ffffff" },
-    { media: "(prefers-color-scheme: dark)", color: "#161616" },
+    { media: "(prefers-color-scheme: light)", color: "#f8f5ef" },
+    { media: "(prefers-color-scheme: dark)", color: "#171512" },
   ],
 };
 
@@ -51,7 +66,7 @@ export default function RootLayout({
     <html
       lang="es"
       suppressHydrationWarning
-      className={cn("h-full", "antialiased", "font-sans", inter.variable, bricolage.variable, jetbrainsMono.variable, literata.variable)}
+      className={cn("h-full", "antialiased", "font-sans", figtree.variable, bricolage.variable, jetbrainsMono.variable, literata.variable)}
     >
       <head>
         <script dangerouslySetInnerHTML={{ __html: rootThemeScript }} />
@@ -71,7 +86,11 @@ export default function RootLayout({
         >
           <ConvexClientProvider>{children}</ConvexClientProvider>
         </ClerkProvider>
-        <Toaster richColors position="bottom-right" />
+        <Toaster
+          position="bottom-right"
+          style={toasterStyle}
+          mobileOffset={{ bottom: "calc(var(--kino-bottom-chrome) + 1rem)" }}
+        />
       </body>
     </html>
   );

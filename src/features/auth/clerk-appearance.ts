@@ -28,7 +28,7 @@ export const clerkAppearance: Appearance = {
     colorInputForeground: "var(--ink)",
     colorDanger: "var(--danger)",
     borderRadius: "1rem",
-    fontFamily: "var(--font-inter), sans-serif",
+    fontFamily: "var(--font-sans), sans-serif",
   },
   elements: {
     cardBox: "shadow-none border border-border rounded-2xl",
