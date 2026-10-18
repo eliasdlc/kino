@@ -14,11 +14,12 @@
  * - `tasks.reminders.hooks.ts` recordatorios
  * - `tasks.today.hooks.ts`     el plan comprometido de hoy
  *
- * Ninguna mutación de tareas es optimista: esperan la respuesta, y la
- * suscripción de Convex repinta cada lista cuando la base cambia. El patrón
- * optimista vive en `useConvexMutation` (`@/shared/convex/hooks`), con la
- * opción `optimisticUpdate`, y hoy lo usa un solo hook: `useUpdateStickyNote`,
- * para que una nota soltada no vuelva a su sitio viejo durante el viaje.
+ * Completar es la única mutación de tareas optimista (`useToggleTask` y
+ * `useToggleTodayTask`, con `toggleLocally` de `tasks.optimistic.ts`): el
+ * círculo se rellena en el toque y Convex lo deshace solo si falla. Las demás
+ * esperan la respuesta, y la suscripción repinta cada lista cuando la base
+ * cambia. El patrón vive en `useConvexMutation` (`@/shared/convex/hooks`),
+ * opción `optimisticUpdate`; también lo usa `useUpdateStickyNote`.
  */
 
 export {
