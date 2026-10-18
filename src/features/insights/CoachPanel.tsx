@@ -69,7 +69,7 @@ function SuggestionSlot() {
             // Mientras se mueve, el botón lo dice en palabras: ningún spinner.
             <Button
               variant="ghost"
-              className="-mr-3 shrink-0 px-3"
+              className="shrink-0 px-3"
               disabled={moving === task.id}
               aria-busy={moving === task.id}
               onClick={() => moveToToday(task.id)}
@@ -132,7 +132,7 @@ function StaleSlot() {
               Sin actividad hace {s.daysSinceActivity} días
             </p>
           </div>
-          <Button variant="ghost" className="-mr-3 shrink-0 px-3" asChild>
+          <Button variant="ghost" className="shrink-0 px-3" asChild>
             <Link href={`/systems/${s.systemId}`}>Retomar</Link>
           </Button>
         </li>
@@ -150,23 +150,28 @@ const TABS: { id: Tab; label: string }[] = [
 ];
 
 /**
- * El coach de Hoy: tres pestañas de palabra, sin icono, cada una con su
- * blanco de 48 px y la elegida subrayada en tinta. Los textos crecen con la
- * letra del sistema (rem, nunca píxeles fijos), y lo que está en curso se dice
- * con una palabra, no con un spinner.
+ * El coach de Hoy: tres botones de palabra, sin icono, cada uno con su blanco
+ * de 48 px y el elegido subrayado en tinta. Son botones con `aria-pressed` y
+ * no un patrón de pestañas a medias: un lector que anuncia pestañas promete
+ * flechas y foco rodante, y aquí basta con elegir qué mirar. Los textos
+ * crecen con la letra del sistema (rem, nunca píxeles fijos), y lo que está
+ * en curso se dice con una palabra, no con un spinner.
+ *
+ * Los botones de cada fila no se salen del borde derecho con un margen
+ * negativo: el panel tiene scroll vertical, y un hijo que sobresale abre
+ * también un recorrido horizontal y recorta su propio blanco.
  */
 export function CoachPanel() {
   const [tab, setTab] = useState<Tab>('suggestion');
 
   return (
     <div className="flex h-full min-h-0 flex-col">
-      <div role="tablist" aria-label="Coach" className="flex shrink-0 gap-1 border-b border-border">
+      <div role="group" aria-label="Qué mirar del coach" className="flex shrink-0 gap-1 border-b border-border">
         {TABS.map(({ id, label }) => (
           <button
             key={id}
             type="button"
-            role="tab"
-            aria-selected={tab === id}
+            aria-pressed={tab === id}
             onClick={() => setTab(id)}
             className={cn(
               'focus-ring -mb-px inline-flex min-h-[2.85rem] items-center border-b-2 px-3 text-[0.84rem] font-semibold transition-colors duration-(--dur-toque) ease-(--ease-pluma) first:pl-0',
@@ -180,7 +185,7 @@ export function CoachPanel() {
         ))}
       </div>
 
-      <div role="tabpanel" className="min-h-0 flex-1 overflow-y-auto pt-2">
+      <div data-slot="coach-content" className="min-h-0 flex-1 overflow-y-auto pt-2">
         {tab === 'suggestion' && <SuggestionSlot />}
         {tab === 'energy' && <EnergySlot />}
         {tab === 'stale' && <StaleSlot />}
