@@ -9,8 +9,8 @@ import { useSystemEntities } from "@/features/entities/entities.hooks";
 import { ENTITY_TYPE_ICON, ENTITY_TYPE_LABEL } from "@/features/entities/entities.ui";
 import { EntityFicheSheet } from "@/features/entities/EntityFicheSheet";
 import type { EntityListItemTransport } from "@/features/entities/entities.types";
-import { PanelHeading } from "@/features/pages/PanelHeading";
-import { UNA_LINEA } from "@/features/pages/one-line-row";
+import { SectionHead } from "@/features/dashboard/SectionHead";
+import { UNA_LINEA } from "@/shared/components/una-linea";
 
 /**
  * Mesa de referencias (PLAN-11 §7): las fichas que el autor deja fijadas para
@@ -50,7 +50,7 @@ export function ReferenceTable({
 
   return (
     <div className="space-y-2">
-      <PanelHeading>Mesa de referencias</PanelHeading>
+      <SectionHead as="h3" title="Mesa de referencias" />
 
       {!canPin && (
         <p className="text-sm text-muted-foreground">
