@@ -10,7 +10,14 @@ import { api } from "@convex/_generated/api";
 import { cn } from "@/lib/utils";
 import { useConvexQuery } from "@/shared/convex/hooks";
 import { usePage, useUpdatePage } from "./pages.hooks";
-import { BOTON_MAS, FILA_DEL_TITULO, LETRA_DEL_TITULO, RESERVA_CODEX, usePrimeraPintura } from "./primera-pintura";
+import {
+  BOTON_MAS,
+  FILA_DEL_TITULO,
+  LETRA_DEL_TITULO,
+  RESERVA_CODEX,
+  nombreDelBotonMas,
+  usePrimeraPintura,
+} from "./primera-pintura";
 import { useSharedEditor } from "./EditorContext";
 import { TableMenus } from "./TableMenus";
 import { EditorThumbBar } from "./EditorThumbBar";
@@ -83,7 +90,10 @@ export function NotebookEditor({
   const [mentionEntityId, setMentionEntityId] = useState<string | null>(null);
   // La fila del codex se reserva mientras llegan sus fichas, con el mismo alto
   // que la primera pintura le guardó: el cuerpo no baja cuando aparecen.
-  const fichasDelServidor = usePrimeraPintura()?.fichasDelCodex ?? 0;
+  const primeraPintura = usePrimeraPintura();
+  const fichasDelServidor = primeraPintura?.fichasDelCodex ?? 0;
+  // La palabra de la puerta: la del layout si la hay; fuera de él, «Capítulo».
+  const etiquetaMas = writer ? (primeraPintura?.etiquetaMas ?? "Capítulo") : null;
   const { data: fichas } = useConvexQuery(
     api.entities.byPage,
     writer && fichasDelServidor > 0 ? { pageId: page.id } : "skip",
@@ -409,10 +419,11 @@ export function NotebookEditor({
             <button
               type="button"
               onClick={onOpenPanel}
-              aria-label={writer ? "Más del capítulo" : "Más del documento"}
+              aria-label={nombreDelBotonMas(etiquetaMas)}
               className={BOTON_MAS}
             >
-              <Ellipsis className="size-5" />
+              {etiquetaMas && <span>{etiquetaMas}</span>}
+              <Ellipsis aria-hidden className="size-5" />
             </button>
           )}
         </div>
