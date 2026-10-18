@@ -8,7 +8,8 @@ import { Button } from "@/components/ui/button";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { useDeleteFolder, useUpdateFolder } from "@/features/folders/folders.hooks";
 import type { FolderWithCounts } from "@/features/folders/folders.types";
-import { useSystemManifest } from "@/features/systems/systems.hooks";
+import { useRowManifest } from "@/features/systems/systems.hooks";
+import type { ArchetypeManifest } from "@/shared/lib/system-types";
 import { cn } from "@/lib/utils";
 import { countNoun, joinMeta, toRoman } from "./index-format";
 import { RenameDialog } from "./RenameDialog";
@@ -32,6 +33,8 @@ export interface FolderRowProps {
    */
   children?: React.ReactNode;
   defaultOpen?: boolean;
+  /** El vocabulario del sistema, que la lista ya tiene: así la fila no se suscribe a los sistemas. */
+  manifest?: ArchetypeManifest;
   className?: string;
 }
 
@@ -55,9 +58,10 @@ export function FolderRow({
   extraActions = [],
   children,
   defaultOpen = false,
+  manifest: manifestProp,
   className,
 }: FolderRowProps) {
-  const manifest = useSystemManifest(systemId);
+  const manifest = useRowManifest(systemId, manifestProp);
   const folderRole = manifest.folderRole;
   const noun = folderRole?.noun ?? "carpeta";
   const { mutate: updateFolder, isPending: renaming } = useUpdateFolder(systemId);
