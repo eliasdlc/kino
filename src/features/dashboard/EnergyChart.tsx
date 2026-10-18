@@ -1,5 +1,5 @@
 import { cn } from '@/lib/utils';
-import { formatHour } from '@/features/energy/energy.utils';
+import { formatHour, formatHourRange } from '@/features/energy/energy.utils';
 
 export interface ChartEntry {
   hour: number;
@@ -23,7 +23,7 @@ export function curveSummary(data: ChartEntry[], peak: { start: number; end: num
   const registros = data.filter((d) => d.actual != null);
   const partes = [
     'Curva de energía del día.',
-    peak ? `Pico previsto de ${formatHour(peak.start)} a ${formatHour(peak.end)}.` : null,
+    peak ? `Pico previsto de ${formatHourRange(peak.start, peak.end)}.` : null,
     ahora != null ? `A las ${formatHour(currentHour)} se prevén ${ahora}.` : null,
     registros.length > 0
       ? `${registros.length} registro${registros.length === 1 ? '' : 's'}: ${registros
@@ -44,8 +44,9 @@ export const HOUR_TICKS = [6, 12, 18] as const;
  * La curva del día en CSS: 24 barras de una rejilla, cada una escalada con
  * `scaleY` desde abajo (nunca con `height`), las del pico en el acento y la
  * de ahora en tinta. Un registro es un punto en su columna, a la altura del
- * valor. No se anima: una curva que crece cada vez que se abre Hoy es un
- * bucle disfrazado. La figura entera lleva su frase como nombre accesible, y
+ * valor. Las barras van sin radio: `scaleY` escala también la esquina, que se
+ * estiraría en las altas y se perdería en el suelo. No se anima: una curva
+ * que crece cada vez que se abre Hoy es un bucle disfrazado. La figura entera lleva su frase como nombre accesible, y
  * debajo van rotuladas las 6, las 12 y las 18 en mute.
  */
 export function EnergyChart({ data, peak, currentHour, className }: EnergyChartProps) {
@@ -69,7 +70,7 @@ export function EnergyChart({ data, peak, currentHour, className }: EnergyChartP
                 data-now={isNow ? '' : undefined}
                 data-peak={peakHour ? '' : undefined}
                 className={cn(
-                  'block h-full w-full origin-bottom rounded-[2px]',
+                  'block h-full w-full origin-bottom',
                   peakHour ? 'bg-primary' : isNow ? 'bg-foreground' : 'bg-input',
                 )}
                 // 4 % como suelo para que una hora a cero siga dibujando el renglón.
