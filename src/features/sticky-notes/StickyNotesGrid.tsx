@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import type { RefObject } from "react";
 import { Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -94,7 +94,11 @@ function DraggableNote({
   context: NoteContext;
   activeId: string | null;
 }) {
-  const { attributes, listeners, setNodeRef, isDragging } = useDraggable({ id: note.id });
+  // Sin `attributes`: dnd-kit pone `role="button"` y un tabindex en el
+  // envoltorio, que contiene los botones de la propia nota (un control dentro
+  // de otro). Aquí no hay sensor de teclado, así que esa parada de Tab no
+  // movía nada; con teclado, la nota se mueve por nombre desde su menú.
+  const { listeners, setNodeRef, isDragging } = useDraggable({ id: note.id });
   const { setNodeRef: setDropRef, isOver } = useDroppable({ id: note.id });
 
   const setRef = (el: HTMLElement | null) => {
@@ -105,13 +109,13 @@ function DraggableNote({
   return (
     <div
       ref={setRef}
+      data-arrastrable
       {...listeners}
-      {...attributes}
       style={{ transform: isDragging ? undefined : `rotate(${tiltOf(note.id)}deg)` }}
       className={cn(
         // Mientras se edita, la bandeja de colores asoma por debajo y tiene
         // que pintarse sobre la fila siguiente: el foco dentro la sube.
-        "relative touch-none transition-transform focus-within:z-(--z-raised)",
+        "relative touch-none transition-transform duration-(--dur-toque) ease-(--ease-pluma) focus-within:z-(--z-raised)",
         // Levantada, en la cuadrícula queda su hueco: la nota va en el puntero.
         isDragging && "opacity-25",
         isOver && activeId !== note.id && "ring-2 ring-primary/60 rounded-lg scale-105"
@@ -172,9 +176,14 @@ function NotesRow({
 
 export function StickyNotesGrid(props: Props) {
   const isPage = "pageId" in props && !!props.pageId;
-  const context: NoteContext = isPage
-    ? { pageId: props.pageId as string }
-    : { folderId: props.folderId as string };
+  // Estable entre renders: la tarjeta va en `memo` y un contexto nuevo cada vez
+  // la volvería a pintar entera.
+  const pageId = isPage ? (props.pageId as string) : undefined;
+  const folderId = !isPage ? (props.folderId as string) : undefined;
+  const context: NoteContext = useMemo(
+    () => (pageId ? { pageId } : { folderId: folderId as string }),
+    [pageId, folderId]
+  );
 
   const pageQuery = useStickyNotesByPage(isPage ? (props.pageId as string) : "");
   const folderQuery = useStickyNotesByFolder(!isPage ? (props.folderId as string) : "");
