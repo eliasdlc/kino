@@ -13,6 +13,9 @@ import { useOnlineStatus } from "./offline.hooks";
  *
  * Desaparece solo: cuando vuelve la conexión y la cola se vacía, no queda nada
  * que confirmar ni que cerrar.
+ *
+ * Es papel con hairline, como el pie: sin desenfoque, sin borde blanco y sin
+ * sombra. La palabra va en tinta suave y el glifo en mute; no es una alarma.
  */
 export function OfflineIndicator() {
   const isOnline = useOnlineStatus();
@@ -23,10 +26,10 @@ export function OfflineIndicator() {
     <div
       role="status"
       aria-live="polite"
-      className="fixed bottom-[calc(var(--kino-bottom-chrome)+0.5rem)] left-4 z-(--z-modal) md:bottom-4 pointer-events-none"
+      className="fixed bottom-[calc(var(--kino-bottom-chrome)+0.5rem)] left-[max(1rem,env(safe-area-inset-left))] z-(--z-modal) md:bottom-4 pointer-events-none"
     >
-      <div className="flex items-center gap-2 rounded-full border border-white/10 bg-background/90 px-3 py-1.5 text-xs text-muted-foreground shadow-sm backdrop-blur">
-        <CloudOff size={12} aria-hidden />
+      <div className="flex items-center gap-2 rounded-full border border-border bg-background px-3 py-1.5 text-sm font-semibold text-body">
+        <CloudOff className="size-4 text-muted-foreground" aria-hidden />
         <span>Sin conexión</span>
       </div>
     </div>
