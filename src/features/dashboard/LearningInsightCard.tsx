@@ -1,7 +1,7 @@
-import { TrendingUp, TrendingDown, Minus, Sparkles, Target, Gauge, Crosshair, CircleSlash } from 'lucide-react';
+import { TrendingUp, TrendingDown, Minus } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { formatHourRange, CHRONOTYPE_LABELS } from '@/features/energy/energy.utils';
-import { VERDICT_LABELS, type PredictionVerdict, type VerificationLoop } from '@/features/energy/energy.prediction';
+import type { PredictionVerdict, VerificationLoop } from '@/features/energy/energy.prediction';
 import type { LearningInsight } from '@/features/energy/energy.types';
 import { SLOT_LABELS } from './energyDisplay';
 
@@ -9,85 +9,81 @@ interface LearningInsightCardProps {
   insight: LearningInsight;
 }
 
-const VERDICT_ICON: Record<PredictionVerdict, typeof Target> = {
-  hit: Target,
-  close: Crosshair,
-  miss: CircleSlash,
-};
-
-const VERDICT_TONE: Record<PredictionVerdict, string> = {
-  hit: 'text-task-done',
-  close: 'text-primary',
-  miss: 'text-task-overdue',
+/**
+ * El veredicto como palabra de estado. Va en peso y en tinta; sólo el fallo
+ * lleva coral, y lo lleva junto a su palabra.
+ */
+const VERDICT_WORD: Record<PredictionVerdict, string> = {
+  hit: 'Acertada',
+  close: 'Cerca',
+  miss: 'Fallida',
 };
 
 /**
- * El ciclo del día: predije X, confirmaste Y, mi modelo mejoró Z.
+ * El ciclo del día en una línea bajo hairline: lo previsto, lo que
+ * registraste y cuánto aprendió la previsión con ese dato. Sin caja: es un
+ * renglón más de la sección.
  *
  * Todo sale de datos guardados (la predicción se escribió antes del check-in y el
  * alpha se guardó antes y después de recalibrar) así que ninguna de las tres
- * cifras se reconstruye a posteriori.
+ * cifras se reconstruye a posteriori. El sujeto es la previsión, nunca Kino.
  */
-function VerificationLoopBlock({ loop }: { loop: VerificationLoop }) {
-  const Icon = VERDICT_ICON[loop.verdict];
-  const tone = VERDICT_TONE[loop.verdict];
-
+function VerificationLoopLine({ loop }: { loop: VerificationLoop }) {
   return (
-    <div className="rounded-lg border bg-muted/30 px-3 py-2 space-y-1">
-      <div className="flex items-center gap-1.5">
-        <Icon className={cn('w-3.5 h-3.5 shrink-0', tone)} />
-        <span className={cn('text-xs font-semibold', tone)}>{VERDICT_LABELS[loop.verdict]}</span>
-        <span className="text-xs text-muted-foreground">· {SLOT_LABELS[loop.slot].toLowerCase()}</span>
-      </div>
-
-      <p className="text-xs">
-        Predije <span className="font-semibold tabular-nums">{loop.predictedLevel}</span>
-        {' · reportaste '}
-        <span className="font-semibold tabular-nums">{loop.reportedLevel}</span>
-        <span className={cn('ml-1 tabular-nums', tone)}>
-          ({loop.delta > 0 ? '+' : ''}{loop.delta})
-        </span>
+    <div data-slot="verification-loop" className="space-y-1 border-t border-border pt-2.5">
+      <p className="text-sm text-body tabular-nums">
+        <b className={cn('font-semibold', loop.verdict === 'miss' ? 'text-task-overdue' : 'text-foreground')}>
+          {VERDICT_WORD[loop.verdict]}
+        </b>
+        {` en la ${SLOT_LABELS[loop.slot].toLowerCase()}: previsto ${loop.predictedLevel}, registraste ${loop.reportedLevel} (${loop.delta > 0 ? '+' : ''}${loop.delta}).`}
       </p>
-
-      <p className="text-xs text-muted-foreground">
+      <p className="text-[0.82rem] text-muted-foreground">
         {loop.improvementPct !== null
-          ? `Con ese dato mi modelo de ti mejoró ${loop.improvementPct} %: personalización ${loop.alphaAfterPct} %.`
+          ? `Con ese dato la previsión mejoró ${loop.improvementPct}\u00a0%, personalización ${loop.alphaAfterPct}\u00a0%.`
           : loop.alphaAfterPct !== null
-            ? `Mi modelo no se movió con ese dato, ya te esperaba así: personalización ${loop.alphaAfterPct} %.`
-            : 'Ese check-in es anterior a que empezara a medir cuánto mejoro con cada dato.'}
+            ? `La previsión ya lo esperaba y no se movió, personalización ${loop.alphaAfterPct}\u00a0%.`
+            : 'Ese check-in es anterior a la medición de cuánto mejora la previsión con cada dato.'}
+        {!loop.fromLearnedCurve && ' Salió de tu cronotipo: todavía sin curva aprendida tuya.'}
       </p>
-
-      {!loop.fromLearnedCurve && (
-        <p className="text-[0.65rem] text-muted-foreground/70">
-          Esa predicción salió de tu cronotipo: todavía no tenía curva aprendida tuya.
-        </p>
-      )}
     </div>
   );
 }
 
+/**
+ * El consejo es prosa, no un estado cerrado: el del pico va en tinta y peso,
+ * nunca en el verde de lo hecho.
+ */
 const TONE_TEXT: Record<string, string> = {
-  peak: 'text-task-done',
-  before: 'text-primary',
+  peak: 'font-semibold text-foreground',
+  before: 'text-body',
   after: 'text-muted-foreground',
   rest: 'text-muted-foreground',
 };
 
+/**
+ * Las últimas semanas de personalización en barras de una rejilla, escaladas
+ * con `scaleY` desde abajo (nunca con `height`) y sin animación.
+ */
 function Sparkline({ values }: { values: number[] }) {
   if (values.length < 2) return null;
   return (
-    <div className="flex items-end gap-0.5 h-5" aria-hidden>
+    <span className="flex h-5 items-end gap-0.5" aria-hidden>
       {values.map((v, i) => (
-        <div
+        <span
           key={i}
-          className="w-1 rounded-sm bg-primary/70 transition-[height] duration-500"
-          style={{ height: `${Math.max(8, v)}%` }}
+          className="block h-full w-1 origin-bottom rounded-[1px] bg-input"
+          style={{ transform: `scaleY(${(Math.max(8, Math.min(100, v)) / 100).toFixed(2)})` }}
         />
       ))}
-    </div>
+    </span>
   );
 }
 
+/**
+ * Tu patrón: el pico en tinta y en peso, el consejo de ahora, el ciclo de la
+ * última predicción y la personalización. Todo en renglones de la columna de
+ * texto, sin caja ni pastillas teñidas: el acento queda para lo activo.
+ */
 export function LearningInsightCard({ insight }: LearningInsightCardProps) {
   const { peak, advice, personalizationPct, trend, trendDelta, sparkline, correlationFactor, accuracy, chronotype, loop } =
     insight;
@@ -95,71 +91,67 @@ export function LearningInsightCard({ insight }: LearningInsightCardProps) {
   const TrendIcon = trend === 'up' ? TrendingUp : trend === 'down' ? TrendingDown : Minus;
   const trendColor =
     trend === 'up' ? 'text-task-done' : trend === 'down' ? 'text-task-overdue' : 'text-muted-foreground';
+  const pct = Math.max(0, Math.min(100, personalizationPct));
 
   return (
-    <div className="px-4 py-2.5 space-y-2">
+    <div className="space-y-2.5 py-2.5">
       {/* Pico + consejo contextual */}
       <div className="space-y-0.5">
-        {peak ? (
-          <p className="text-sm">
-            Rindes mejor entre{' '}
-            <span className="font-semibold text-primary">
-              {formatHourRange(peak.start, peak.end)}
-            </span>
-            {chronotype && (
-              <span className="text-muted-foreground"> · cronotipo {CHRONOTYPE_LABELS[chronotype]}</span>
-            )}
+        {/* Sin pico, el consejo ya dice que el ritmo se está aprendiendo: un
+            renglón propio que lo repitiera sería la misma frase dos veces. */}
+        {peak && (
+          <p className="text-sm text-body">
+            Rindes mejor de{' '}
+            <b className="font-semibold text-foreground">{formatHourRange(peak.start, peak.end)}</b>
+            {chronotype && <span className="text-muted-foreground">, cronotipo {CHRONOTYPE_LABELS[chronotype]}</span>}.
           </p>
-        ) : (
-          <p className="text-sm text-muted-foreground">Kino está conociendo tu ritmo</p>
         )}
-        <p className={cn('text-xs font-medium', TONE_TEXT[advice.tone])}>{advice.text}</p>
+        <p data-slot="peak-advice" className={cn('text-[0.82rem] font-medium', TONE_TEXT[advice.tone])}>
+          {advice.text}
+        </p>
       </div>
 
       {/* El ciclo del día: predicción guardada vs. lo que confirmaste (4.2) */}
-      {loop && <VerificationLoopBlock loop={loop} />}
+      {loop && <VerificationLoopLine loop={loop} />}
 
-      {/* Insights: correlación + precisión */}
+      {/* Insights: correlación + precisión, como renglones y no como pastillas */}
       {(correlationFactor !== null || accuracy !== null) && (
-        <div className="flex flex-wrap gap-1.5">
+        <div className="space-y-0.5 border-t border-border pt-2.5 text-[0.82rem] text-body tabular-nums">
           {correlationFactor !== null && (
-            <span className="inline-flex items-center gap-1 text-xs rounded-md bg-task-done/15 text-task-done px-2 py-1">
-              <Target className="w-3 h-3 shrink-0" />
-              {correlationFactor}× más tareas los días que registras
-            </span>
+            <p>
+              <b className="font-semibold text-foreground">{correlationFactor}×</b> más tareas los días que registras.
+            </p>
           )}
           {accuracy !== null && (
-            <span className="inline-flex items-center gap-1 text-xs rounded-md bg-muted px-2 py-1 text-muted-foreground">
-              <Gauge className="w-3 h-3 shrink-0" />
-              Según tu feedback: acertada {accuracy.rate}%
-            </span>
+            <p>
+              Según tu feedback, acertada el <b className="font-semibold text-foreground">{accuracy.rate}{'\u00a0'}%</b> de las veces.
+            </p>
           )}
         </div>
       )}
 
       {/* Personalización + tendencia + sparkline */}
-      <div className="space-y-1">
+      <div className="space-y-1.5 border-t border-border pt-2.5">
         <div className="flex items-center justify-between gap-2">
-          <span className="inline-flex items-center gap-1 text-xs text-muted-foreground">
-            <Sparkles className="w-3 h-3" />
-            Personalización
-          </span>
-          <div className="flex items-center gap-2">
+          <span className="text-[0.82rem] text-muted-foreground">Personalización</span>
+          <span className="flex items-center gap-2">
             <Sparkline values={sparkline} />
-            <span className="text-xs font-semibold tabular-nums">{personalizationPct}%</span>
+            <span className="text-[0.84rem] font-semibold tabular-nums">{personalizationPct}{'\u00a0'}%</span>
             <span className={cn('inline-flex items-center gap-0.5 text-xs tabular-nums', trendColor)}>
-              <TrendIcon className="w-3 h-3" />
+              <TrendIcon className="size-3" aria-hidden />
               {trend !== 'flat' && `${trendDelta > 0 ? '+' : ''}${trendDelta}`}
             </span>
-          </div>
+          </span>
         </div>
-        <div className="h-1.5 rounded-full bg-muted overflow-hidden">
+        {/* Una medida, no una acción: el relleno va en tinta sobre el renglón
+            de --input, y el ámbar queda para lo primario y lo activo. */}
+        <div data-slot="personalization-bar" className="h-1.5 overflow-hidden rounded-full bg-input">
           <div
-            className="h-full rounded-full bg-primary transition-all duration-700 ease-out"
-            style={{ width: `${personalizationPct}%` }}
+            className="h-full w-full origin-left rounded-full bg-foreground transition-transform duration-(--dur-tachar) ease-(--ease-pluma)"
+            style={{ transform: `scaleX(${(pct / 100).toFixed(3)})` }}
           />
         </div>
-        <p className="text-[0.65rem] text-muted-foreground/60">Basado en tus hábitos reales de trabajo</p>
+        <p className="text-[0.78rem] text-muted-foreground">Basado en tus hábitos reales de trabajo.</p>
       </div>
     </div>
   );

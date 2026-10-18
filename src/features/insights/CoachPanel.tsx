@@ -2,7 +2,6 @@
 
 import { useState } from 'react';
 import Link from 'next/link';
-import { ArrowRight, BarChart2, Moon, Loader2 } from 'lucide-react';
 import { useMutation } from 'convex/react';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
@@ -18,13 +17,14 @@ type Tab = 'suggestion' | 'energy' | 'stale';
 
 // ── Skeleton & empty state ────────────────────────────────────────────────
 
+/** Renglones esperando, sin latido. */
 function SlotSkeleton({ rows }: { rows: number }) {
   return (
-    <div className="space-y-2.5 ">
+    <div className="space-y-3" aria-busy>
       {Array.from({ length: rows }).map((_, i) => (
-        <div key={i} className="space-y-1">
-          <div className="h-2.5 w-3/4 bg-muted rounded" />
-          <div className="h-2 w-1/2 bg-muted/60 rounded" />
+        <div key={i} className="space-y-1.5">
+          <div className="h-3 w-3/4 rounded bg-muted" />
+          <div className="h-2.5 w-1/2 rounded bg-muted/60" />
         </div>
       ))}
     </div>
@@ -32,7 +32,7 @@ function SlotSkeleton({ rows }: { rows: number }) {
 }
 
 function EmptyState({ message }: { message: string }) {
-  return <p className="text-xs text-muted-foreground">{message}</p>;
+  return <p className="text-[0.84rem] text-muted-foreground">{message}</p>;
 }
 
 // ── Slot: Sugerencia del día ──────────────────────────────────────────────
@@ -58,26 +58,23 @@ function SuggestionSlot() {
   if (!tasks?.length) return <EmptyState message="Sin sugerencias por ahora" />;
 
   return (
-    <ul className="space-y-2">
+    <ul>
       {tasks.map((task) => (
-        <li key={task.id} className="flex items-start gap-2 min-w-0">
-          <div className="flex-1 min-w-0">
-            <p className="text-xs font-medium leading-snug truncate">{task.title}</p>
-            <p className="text-[10px] text-muted-foreground truncate">{task.why}</p>
+        <li key={task.id} className="flex min-w-0 items-center gap-2 border-b border-border py-1 last:border-b-0">
+          <div className="min-w-0 flex-1">
+            <p className="truncate text-sm leading-snug font-semibold">{task.title}</p>
+            <p className="truncate text-[0.78rem] text-muted-foreground">{task.why}</p>
           </div>
           {task.status !== 'today' && (
+            // Mientras se mueve, el botón lo dice en palabras: ningún spinner.
             <Button
-              size="sm"
               variant="ghost"
-              className="h-6 px-2 text-[10px] shrink-0 hover:bg-muted"
+              className="shrink-0 px-3"
               disabled={moving === task.id}
+              aria-busy={moving === task.id}
               onClick={() => moveToToday(task.id)}
             >
-              {moving === task.id ? (
-                <Loader2 className="w-3 h-3 animate-spin" />
-              ) : (
-                'Hacer ahora'
-              )}
+              {moving === task.id ? 'Moviendo' : 'Hacer ahora'}
             </Button>
           )}
         </li>
@@ -98,17 +95,16 @@ function EnergySlot() {
   return (
     <ul className="space-y-2.5">
       {data.systems.slice(0, 5).map((s) => (
-        <li key={s.systemId} className="space-y-0.5">
-          <div className="flex justify-between">
-            <span className="text-[10px] text-muted-foreground truncate">{s.systemName}</span>
-            <span className="text-[10px] text-muted-foreground shrink-0 ml-1">
-              {s.percentage}%
-            </span>
+        <li key={s.systemId} className="space-y-1">
+          <div className="flex justify-between gap-2 text-[0.82rem] text-muted-foreground">
+            <span className="truncate">{s.systemName}</span>
+            <span className="shrink-0 tabular-nums">{s.percentage} %</span>
           </div>
-          <div className="h-1 rounded-full bg-muted overflow-hidden">
+          {/* La barra se escala con scaleX desde la izquierda, nunca con width. */}
+          <div className="h-1 overflow-hidden rounded-full bg-muted">
             <div
-              className="h-full rounded-full bg-primary/70 transition-all duration-500"
-              style={{ width: `${s.percentage}%` }}
+              className="h-full w-full origin-left rounded-full bg-primary/70"
+              style={{ transform: `scaleX(${(Math.max(0, Math.min(100, s.percentage)) / 100).toFixed(3)})` }}
             />
           </div>
         </li>
@@ -127,21 +123,16 @@ function StaleSlot() {
     return <EmptyState message="Todos los sistemas activos" />;
 
   return (
-    <ul className="space-y-2">
+    <ul>
       {systems.slice(0, 4).map((s) => (
-        <li key={s.systemId} className="flex items-center justify-between gap-2 min-w-0">
-          <div className="flex-1 min-w-0">
-            <p className="text-xs font-medium truncate">{s.systemName}</p>
-            <p className="text-[10px] text-muted-foreground">
+        <li key={s.systemId} className="flex min-w-0 items-center justify-between gap-2 border-b border-border py-1 last:border-b-0">
+          <div className="min-w-0 flex-1">
+            <p className="truncate text-sm font-semibold">{s.systemName}</p>
+            <p className="text-[0.78rem] text-muted-foreground tabular-nums">
               Sin actividad hace {s.daysSinceActivity} días
             </p>
           </div>
-          <Button
-            size="sm"
-            variant="ghost"
-            className="h-6 px-2 text-[10px] shrink-0 hover:bg-muted"
-            asChild
-          >
+          <Button variant="ghost" className="shrink-0 px-3" asChild>
             <Link href={`/systems/${s.systemId}`}>Retomar</Link>
           </Button>
         </li>
@@ -152,38 +143,49 @@ function StaleSlot() {
 
 // ── Panel principal ───────────────────────────────────────────────────────
 
-const TABS: { id: Tab; label: string; Icon: React.FC<{ className?: string }> }[] = [
-  { id: 'suggestion', label: 'Sugerencia', Icon: ArrowRight },
-  { id: 'energy', label: 'Energía', Icon: BarChart2 },
-  { id: 'stale', label: 'Sistemas', Icon: Moon },
+const TABS: { id: Tab; label: string }[] = [
+  { id: 'suggestion', label: 'Sugerencia' },
+  { id: 'energy', label: 'Energía' },
+  { id: 'stale', label: 'Sistemas' },
 ];
 
+/**
+ * El coach de Hoy: tres botones de palabra, sin icono, cada uno con su blanco
+ * de 48 px y el elegido subrayado en tinta. Son botones con `aria-pressed` y
+ * no un patrón de pestañas a medias: un lector que anuncia pestañas promete
+ * flechas y foco rodante, y aquí basta con elegir qué mirar. Los textos
+ * crecen con la letra del sistema (rem, nunca píxeles fijos), y lo que está
+ * en curso se dice con una palabra, no con un spinner.
+ *
+ * Los botones de cada fila no se salen del borde derecho con un margen
+ * negativo: el panel tiene scroll vertical, y un hijo que sobresale abre
+ * también un recorrido horizontal y recorta su propio blanco.
+ */
 export function CoachPanel() {
   const [tab, setTab] = useState<Tab>('suggestion');
 
   return (
-    <div className="flex flex-col h-full min-h-0">
-      {/* Tab bar */}
-      <div className="flex border-b shrink-0">
-        {TABS.map(({ id, label, Icon }) => (
+    <div className="flex h-full min-h-0 flex-col">
+      <div role="group" aria-label="Qué mirar del coach" className="flex shrink-0 gap-1 border-b border-border">
+        {TABS.map(({ id, label }) => (
           <button
             key={id}
+            type="button"
+            aria-pressed={tab === id}
             onClick={() => setTab(id)}
             className={cn(
-              'flex items-center gap-1 px-2.5 py-1.5 text-[10px] font-semibold border-b-2 transition-colors',
+              'focus-ring -mb-px inline-flex min-h-[2.85rem] items-center border-b-2 px-3 text-[0.84rem] font-semibold transition-colors duration-(--dur-toque) ease-(--ease-pluma) first:pl-0',
               tab === id
-                ? 'border-foreground text-foreground -mb-px'
+                ? 'border-foreground text-foreground'
                 : 'border-transparent text-muted-foreground hover:text-foreground',
             )}
           >
-            <Icon className="w-3 h-3" />
             {label}
           </button>
         ))}
       </div>
 
-      {/* Tab content: scrolls within the card */}
-      <div className="flex-1 min-h-0 overflow-y-auto px-3 py-2.5">
+      <div data-slot="coach-content" className="min-h-0 flex-1 overflow-y-auto pt-2">
         {tab === 'suggestion' && <SuggestionSlot />}
         {tab === 'energy' && <EnergySlot />}
         {tab === 'stale' && <StaleSlot />}

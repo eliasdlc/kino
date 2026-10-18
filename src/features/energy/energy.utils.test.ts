@@ -8,6 +8,8 @@ import {
   computeLearnedCurve,
   emptyAccuracyBySlot,
   CHRONOTYPE_CURVES,
+  formatHourRange,
+  buildPeakAdvice,
   type CalibrationSignals,
 } from './energy.utils';
 import type { Task } from '@/features/tasks/tasks.types';
@@ -310,5 +312,21 @@ describe('computeLearnedCurve', () => {
     expect(b.slotAlphas.evening).toBeGreaterThan(a.slotAlphas.evening);
     // mayor alpha → más cerca del dato empírico (más alto que la teórica)
     expect(b.curve[20]!).toBeGreaterThan(a.curve[20]!);
+  });
+});
+
+// Criterio: un rango de horas se escribe de una sola manera en toda la
+// pantalla, "10 AM a 12 PM", con el periodo en cada hora y sin raya.
+describe('formatHourRange', () => {
+  it('writes every range as "<hour> a <hour>" with both periods', () => {
+    expect(formatHourRange(10, 12)).toBe('10 AM a 12 PM');
+    expect(formatHourRange(18, 20)).toBe('6 PM a 8 PM');
+    expect(formatHourRange(18, 24)).toBe('6 PM a 12 AM');
+  });
+
+  it('is the form the peak advice uses too', () => {
+    const advice = buildPeakAdvice({ start: 10, end: 12 }, 8);
+    expect(advice.text).toContain('(10 AM a 12 PM)');
+    expect(advice.text).not.toMatch(/[\u2013\u2014]/);
   });
 });
