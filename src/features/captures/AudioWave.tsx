@@ -13,13 +13,21 @@ interface AudioWaveProps {
   className?: string;
 }
 
-/** Decodifica el audio para sacar su forma. Sin soporte, no hay onda. */
+/**
+ * Por encima de esto la onda no se dibuja: decodificar una nota de veinte
+ * minutos pide cientos de megas de PCM en memoria para pintar 40 barras, y en
+ * un teléfono eso es la pestaña entera. El control y la duración se quedan.
+ */
+export const BYTES_MAXIMOS_DE_ONDA = 12 * 1024 * 1024;
+
+/** Decodifica el audio para sacar su forma. Sin soporte, o si pesa demasiado, no hay onda. */
 async function leerPicos(src: string): Promise<number[]> {
   const Contexto = window.AudioContext ?? (window as { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
   if (!Contexto) return [];
   const contexto = new Contexto();
   try {
     const datos = await (await fetch(src)).arrayBuffer();
+    if (datos.byteLength > BYTES_MAXIMOS_DE_ONDA) return [];
     const buffer = await contexto.decodeAudioData(datos);
     return picosDe(buffer.getChannelData(0));
   } catch {
@@ -67,7 +75,7 @@ export function AudioWave({ src, segundos, className }: AudioWaveProps) {
         type="button"
         onClick={alternar}
         aria-label={sonando ? "Pausar la nota de voz" : "Reproducir la nota de voz"}
-        className="grid size-12 shrink-0 place-items-center rounded-full bg-secondary text-primary"
+        className="press focus-ring grid size-[2.85rem] shrink-0 place-items-center rounded-full bg-secondary text-primary transition-transform duration-(--dur-toque) ease-(--ease-pluma)"
       >
         {sonando ? <Pause className="size-5" /> : <Play className="size-5" />}
       </button>
