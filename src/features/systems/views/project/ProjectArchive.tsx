@@ -3,11 +3,12 @@
 import { Progress } from "@/components/ui/progress";
 
 import { useState } from "react";
-import { ChevronDown, Flag, Archive, Trash2 } from "lucide-react";
+import { ChevronDown, Trash2 } from "lucide-react";
 import { format } from "date-fns";
 import { es } from "date-fns/locale";
 import { cn } from "@/lib/utils";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
+import { EmptyState } from "@/components/ui/empty-state";
 import { useTasks, useToggleTask } from "@/features/tasks/tasks.hooks";
 import { useDeleteSprint } from "@/features/sprints/sprints.hooks";
 import { ProjectTaskCard } from "@/features/tasks/cards/ProjectTaskCard";
@@ -24,21 +25,28 @@ interface ProjectArchiveProps {
 function ProgressBar({ done, total }: { done: number; total: number }) {
   const pct = total > 0 ? Math.round((done / total) * 100) : 0;
   return (
-    <div className="flex items-center gap-2">
+    <span className="mt-1.5 flex items-center gap-2">
       <Progress value={pct} className="flex-1" aria-label={`${done} de ${total} hechas`} />
-      <span className="text-xs text-muted-foreground font-mono shrink-0">{done}/{total}</span>
-    </div>
+      <span className="shrink-0 text-xs text-mute tabular-nums">{done}/{total}</span>
+    </span>
   );
 }
 
+/**
+ * Un ciclo cerrado es una fila del índice: su numeral en el margen, el nombre,
+ * cuándo se cerró y cuánto se hizo, y se pliega para enseñar sus tarjetas.
+ * Sin caja: la fila se separa con el hairline, como las carpetas.
+ */
 function SprintAccordion({
   sprint,
+  index,
   tasks,
   systemId,
   onEdit,
   onDelete,
 }: {
   sprint: SprintTransport;
+  index: number;
   tasks: TaskTransport[];
   systemId: string;
   onEdit?: (task: TaskTransport) => void;
@@ -50,35 +58,50 @@ function SprintAccordion({
   const closedAt = sprint.completedAt
     ? format(new Date(sprint.completedAt), "d 'de' MMM, yyyy", { locale: es })
     : null;
+  const panelId = `ciclo-${sprint.id}`;
 
   return (
-    <div className="rounded-xl border bg-muted/20">
-      <div className="flex items-center">
-        <button type="button" onClick={() => setOpen((v) => !v)} className="flex-1 min-w-0 flex items-center gap-3 p-4 text-left">
-          <Flag size={16} className="shrink-0 text-muted-foreground" />
-          <div className="flex-1 min-w-0">
-            <div className="flex items-center gap-2">
-              <span className="font-semibold truncate">{sprint.name}</span>
-              {closedAt && <span className="text-xs text-muted-foreground shrink-0">cerrado {closedAt}</span>}
-            </div>
+    <div className="border-b border-border last:border-b-0">
+      <div className="grid grid-cols-[var(--margen)_1fr_auto] items-center">
+        <span aria-hidden className="flex justify-center self-start pt-[0.85rem] text-sm text-mute tabular-nums">
+          {index}
+        </span>
+        <button
+          type="button"
+          aria-expanded={open}
+          aria-controls={panelId}
+          onClick={() => setOpen((v) => !v)}
+          className="press flex min-h-[3.4rem] min-w-0 items-center gap-2 py-2 text-left transition-[background-color,transform] duration-(--dur-toque) ease-(--ease-pluma) focus-ring"
+        >
+          <span className="block min-w-0 flex-1">
+            <span className="flex items-baseline gap-2">
+              <span className="truncate text-base font-semibold">{sprint.name}</span>
+              {closedAt && <span className="shrink-0 text-xs text-muted-foreground">cerrado el {closedAt}</span>}
+            </span>
             <ProgressBar done={done} total={tasks.length} />
-          </div>
-          <ChevronDown size={16} className={cn("shrink-0 text-muted-foreground transition-transform", open && "rotate-180")} />
+          </span>
+          <ChevronDown
+            aria-hidden
+            className={cn(
+              "size-4 shrink-0 text-muted-foreground transition-transform duration-(--dur-toque) ease-(--ease-pluma)",
+              open && "rotate-180",
+            )}
+          />
         </button>
         <button
           type="button"
           onClick={() => onDelete(sprint)}
-          className="shrink-0 px-3 self-stretch text-muted-foreground hover:text-destructive"
-          aria-label="Eliminar ciclo"
+          className="ml-1 flex size-[2.85rem] shrink-0 items-center justify-center rounded-full text-muted-foreground transition-colors duration-(--dur-toque) hover:text-destructive focus-ring md:pointer-fine:size-9"
+          aria-label={`Eliminar el ciclo ${sprint.name}`}
         >
-          <Trash2 size={16} />
+          <Trash2 aria-hidden className="size-4" />
         </button>
       </div>
 
       {open && (
-        <div className="px-4 pb-4 space-y-2 border-t border-border/50 pt-3">
+        <div id={panelId} className="space-y-2 pb-4 pl-(--margen)">
           {tasks.length === 0 ? (
-            <p className="text-xs text-muted-foreground text-center py-3">Este ciclo no tenía tarjetas.</p>
+            <p className="py-2 text-sm text-muted-foreground">Este ciclo no tenía tarjetas.</p>
           ) : (
             tasks.map((task) => (
               <ProjectTaskCard
@@ -106,21 +129,20 @@ export function ProjectArchive({ systemId, initialData, sprints, onEdit }: Proje
 
   if (completed.length === 0) {
     return (
-      <div className="flex flex-col items-center justify-center py-12 text-center space-y-2 border border-dashed rounded-lg bg-card">
-        <Archive size={24} className="text-muted-foreground" />
-        <p className="text-base font-medium">Aún no hay sprints cerrados</p>
-        <p className="text-sm text-muted-foreground max-w-sm">
-          Cuando cierres un ciclo desde el board, aparecerá aquí con sus tarjetas agrupadas.
-        </p>
-      </div>
+      <EmptyState
+        className="pl-(--margen)"
+        title="Aún no hay ciclos cerrados"
+        description="Cuando cierres un ciclo desde el tablero, aparece aquí con sus tarjetas agrupadas."
+      />
     );
   }
 
   return (
-    <div className="space-y-3">
-      {completed.map((sprint) => (
+    <div>
+      {completed.map((sprint, i) => (
         <SprintAccordion
           key={sprint.id}
+          index={i + 1}
           sprint={sprint}
           tasks={tasks.filter((t) => t.sprintId === sprint.id && !t.deletedAt)}
           systemId={systemId}
