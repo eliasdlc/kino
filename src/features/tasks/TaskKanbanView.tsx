@@ -166,7 +166,7 @@ export function TaskKanbanView({ systemId, initialData, folderId, folderInitialD
               return (
                 <MarginRow
                   key={column.id}
-                  margin={<ArrowRightLeft className="mt-[0.55rem] size-[1.15rem]" />}
+                  margin={<ArrowRightLeft className="mt-[0.8rem] size-[1.15rem]" />}
                   trailing={actual ? "ahora" : undefined}
                   aria-disabled={actual || undefined}
                   onClick={() => {
