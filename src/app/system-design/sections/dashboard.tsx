@@ -138,7 +138,7 @@ function PaperInMargin({ color, text }: { color: string; text: string }) {
   const paper = STICKY_NOTE_COLORS[color] ?? STICKY_NOTE_COLORS.yellow!;
   return (
     <span
-      className="font-serif block size-[2.6rem] -rotate-[4deg] overflow-hidden rounded-[0.3rem] p-[0.28rem] text-[0.6rem] leading-[1.15] break-words hyphens-auto"
+      className="font-serif block size-[2.6rem] -rotate-[4deg] overflow-hidden rounded-[0.3rem] p-[0.28rem] text-[0.6rem] leading-[1.15]"
       style={{ ...paperStyle(paper.hex), color: paper.textHex }}
       aria-label={`Nota: ${text}`}
     >
@@ -276,11 +276,11 @@ export function DashboardSection() {
         description="Hoy no tiene notas adhesivas: viven en los manuscritos, y se quedan donde se pegan. Cuando una asome en una página de Diario, es papel real en el margen de su fila, con su color y su sombra, y nunca entra en la columna de texto."
       >
         <div className="max-w-xl">
-          <MarginRow margin={<PaperInMargin color="yellow" text="Fecha del examen" />} trailing="cap. 3">
+          <MarginRow margin={<PaperInMargin color="yellow" text="La fecha" />} trailing="cap. 3">
             <span className="font-serif block text-base leading-tight">El tercer manuscrito</span>
             <span className="mt-0.5 block text-[0.82rem] text-muted-foreground">1.240 palabras, editado ayer</span>
           </MarginRow>
-          <MarginRow margin={<PaperInMargin color="blue" text="Tono del diálogo" />} trailing="cap. 4">
+          <MarginRow margin={<PaperInMargin color="blue" text="El tono" />} trailing="cap. 4">
             <span className="font-serif block text-base leading-tight">La carta que no llegó</span>
             <span className="mt-0.5 block text-[0.82rem] text-muted-foreground">860 palabras, hace tres días</span>
           </MarginRow>
