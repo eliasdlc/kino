@@ -1,46 +1,27 @@
 /**
- * Criterio: el diálogo de nueva tarea existe aunque la cuenta no tenga Inbox.
- * Exigía Inbox y devolvía null sin él, así que en una cuenta sin Inbox el orbe
- * de la barra, el atajo del teclado y el del icono se pintaban y no hacían
- * nada: un affordance muerto en el botón más visible del teléfono.
+ * Criterio: sin ningún sistema no hay dónde crear una tarea, así que nueva
+ * tarea no se pinta, y una apertura pedida por el atajo se cierra en vez de
+ * quedarse esperando: si no, el diálogo saltaría solo el día que naciera el
+ * primer sistema.
  */
-import { describe, expect, it, vi, beforeEach } from "vitest";
-import { screen, within } from "@testing-library/react";
+import { afterEach, describe, expect, it, vi } from "vitest";
+import { waitFor } from "@testing-library/react";
 import { api } from "@convex/_generated/api";
-import { makeSystem, mid } from "@/app/system-design/mock-data";
 import { makeTestConvexClient, renderWithProviders, stubQuery } from "@/shared/testing/render";
 import { useQuickAddStore } from "./quick-add.store";
 import { GlobalQuickAddDialog } from "./GlobalQuickAddDialog";
 
 vi.mock("next/navigation", async () => (await import("@/shared/testing/navigation")).navigationMock());
 
-const SEMESTRE = makeSystem({ id: mid("sys-1"), name: "Semestre actual", isInbox: false });
-const BANDEJA = makeSystem({ id: mid("sys-0"), name: "Bandeja", isInbox: true });
+afterEach(() => useQuickAddStore.getState().setOpen(false));
 
-const con = (sistemas: ReturnType<typeof makeSystem>[]) =>
-  makeTestConvexClient([stubQuery(api.systems.list, sistemas)]);
+describe("GlobalQuickAddDialog sin sistemas", () => {
+  it("no pinta nada y cierra la apertura pedida", async () => {
+    useQuickAddStore.getState().setOpen(true);
+    const convex = makeTestConvexClient([stubQuery(api.systems.list, [])]);
+    const { container } = renderWithProviders(<GlobalQuickAddDialog />, { convex });
 
-beforeEach(() => useQuickAddStore.getState().setOpen(true));
-
-describe("GlobalQuickAddDialog", () => {
-  it("sin Inbox abre igual, sobre el primer sistema de la cuenta", () => {
-    renderWithProviders(<GlobalQuickAddDialog />, { convex: con([SEMESTRE]) });
-
-    const dialogo = screen.getByRole("dialog");
-    expect(dialogo).toBeVisible();
-    expect(within(dialogo).getByText("Sistema")).toBeVisible();
-    expect(within(dialogo).getAllByRole("combobox")[0]).toHaveTextContent("Semestre actual");
-  });
-
-  it("con Inbox sigue eligiéndolo a él", () => {
-    renderWithProviders(<GlobalQuickAddDialog />, { convex: con([BANDEJA, SEMESTRE]) });
-
-    expect(within(screen.getByRole("dialog")).getAllByRole("combobox")[0]).toHaveTextContent("Bandeja");
-  });
-
-  it("sin ningún sistema no se pinta: no hay destino que ofrecer", () => {
-    renderWithProviders(<GlobalQuickAddDialog />, { convex: con([]) });
-
-    expect(screen.queryByRole("dialog")).toBeNull();
+    await waitFor(() => expect(useQuickAddStore.getState().open).toBe(false));
+    expect(container).toBeEmptyDOMElement();
   });
 });
