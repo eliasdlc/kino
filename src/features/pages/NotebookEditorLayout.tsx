@@ -12,8 +12,10 @@ import type { BreadcrumbItem } from "@/components/PageBreadcrumb";
 import type { PageDetailTransport, PageListItemTransport } from "./pages.types";
 import type { WriterObra } from "./WriterStatusBar";
 import type { MediumManifest } from "@/shared/lib/mediums";
+import { unidadDe } from "@/features/writing/unidad";
 import {
   BOTON_MAS,
+  nombreDelBotonMas,
   FILA_DEL_TITULO,
   LETRA_DEL_TITULO,
   PrimeraPinturaContext,
@@ -69,10 +71,11 @@ export function PrimeraPinturaDelEditor() {
               <button
                 type="button"
                 onClick={pintura?.onOpenPanel}
-                aria-label={pintura?.writer ? "Más del capítulo" : "Más del documento"}
+                aria-label={nombreDelBotonMas(pintura?.etiquetaMas ?? null)}
                 className={BOTON_MAS}
               >
-                <Ellipsis className="size-5" />
+                {pintura?.etiquetaMas && <span>{pintura.etiquetaMas}</span>}
+                <Ellipsis aria-hidden className="size-5" />
               </button>
             </div>
             {pintura?.writer && (
@@ -214,7 +217,7 @@ export function NotebookEditorLayout({
             systemId={systemId}
             title={livePage.title}
             initialCompletedAt={page.completedAt}
-            unitNoun={medium?.unit.noun}
+            unit={medium?.unit}
           />
         )}
         <button
@@ -234,6 +237,7 @@ export function NotebookEditorLayout({
             titulo: title,
             cuerpo: firstPaint,
             writer,
+            etiquetaMas: writer ? unidadDe(medium?.unit).Noun : null,
             fichasDelCodex,
             onOpenPanel: openPanel,
             guardarScroll: guardarScroll,
