@@ -78,7 +78,7 @@ describe("las primitivas de formulario", () => {
     expect(screen.getByText("Título").className).toContain("font-semibold");
   });
 
-  it("el interruptor encendido es el acento, apagado es superficie, y su zona de toque mide 2.85rem", () => {
+  it("el interruptor encendido es el acento, apagado es superficie, su zona de toque mide 2.85rem y el pulgar lleva hairline", () => {
     renderWithProviders(<Switch aria-label="Recordatorios" defaultChecked />);
     const sw = screen.getByRole("switch", { name: "Recordatorios" });
     expect(sw).toBeChecked();
@@ -87,5 +87,15 @@ describe("las primitivas de formulario", () => {
     expect(sw.className).toContain("after:-inset-y-[0.8rem]");
     expect(sw.className).toContain("focus-ring");
     expect(sw.className).not.toMatch(/\[\d+px\]/);
+    expect(sw.querySelector("[data-slot=switch-thumb]")?.className).toContain("border-ln2");
+  });
+
+  it("el botón transiciona color y transform con pluma, nunca la sombra", () => {
+    renderWithProviders(<Button>Guardar</Button>);
+    const boton = screen.getByRole("button", { name: "Guardar" });
+    expect(boton.className).toContain("press");
+    expect(boton.className).toMatch(/transition-\[[^\]]*transform[^\]]*\]/);
+    expect(boton.className).not.toMatch(/transition-\[[^\]]*box-shadow/);
+    expect(boton.className).toContain("ease-(--ease-pluma)");
   });
 });

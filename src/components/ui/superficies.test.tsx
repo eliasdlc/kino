@@ -4,8 +4,8 @@
  * popover y el menú son bloques con hairline y sin sombra. La única sombra es
  * el token `--shadow` (ninguna en oscuro) y la llevan sólo el diálogo y las
  * hojas. La hoja inferior trae asa y un botón Cerrar visible, y el pie del
- * diálogo no sangra una banda gris. Las pestañas siguen siendo un segmento
- * pill y la activa el acento.
+ * diálogo no sangra una banda gris. Las pestañas son un segmento pill y la
+ * activa se dice en tinta, no en ámbar: estar en una vista es un estado.
  */
 import { describe, expect, it } from "vitest";
 import { screen } from "@testing-library/react";
@@ -80,7 +80,7 @@ describe("los overlays", () => {
 });
 
 describe("las pestañas", () => {
-  it("son un segmento pill y la activa es el acento", () => {
+  it("son un segmento pill y la activa va en tinta, sin glow", () => {
     renderWithProviders(
       <Tabs defaultValue="hoy">
         <TabsList>
@@ -94,7 +94,9 @@ describe("las pestañas", () => {
     const activa = screen.getByRole("tab", { name: "Hoy" });
     expect(activa).toHaveAttribute("data-state", "active");
     expect(activa.className).toContain("rounded-full");
-    expect(activa.className).toContain("data-active:bg-primary");
+    expect(activa.className).toContain("data-active:bg-foreground");
+    expect(activa.className).not.toContain("data-active:bg-primary");
+    expect(activa.className).not.toContain("--glow");
     expect(activa.className).toContain("focus-ring");
     expect(activa.className).not.toMatch(/\[\d+px\]/);
   });
