@@ -3,18 +3,19 @@
 import { useState } from "react";
 import { format, isSameDay, isToday, isWithinInterval, startOfDay, endOfDay } from "date-fns";
 import { es } from "date-fns/locale";
-import { ChevronLeft, ChevronRight, MoreVertical, CalendarDays, Trash2 } from "lucide-react";
+import { CalendarDays, ChevronLeft, ChevronRight, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { EmptyState } from "@/components/ui/empty-state";
+import { MarginRow } from "@/components/ui/margin-row";
 import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuLabel,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
+  ResponsiveDialog,
+  ResponsiveDialogContent,
+  ResponsiveDialogDescription,
+  ResponsiveDialogHeader,
+  ResponsiveDialogTitle,
+} from "@/components/ui/responsive-dialog";
 import { cn } from "@/lib/utils";
-import { PlanningTaskCard } from "./PlanningTaskCard";
+import { TaskRow } from "./TaskRow";
 import { MultiDayTaskBar } from "./MultiDayTaskBar";
 import type { TaskTransport } from "./tasks.types";
 import { parseDueDate, parseTaskDay } from "./tasks.utils";
@@ -36,9 +37,10 @@ interface TaskPlanningMobileViewProps {
 }
 
 /**
- * Variante mobile de Planificación: un día a la vez con pills de la semana
- * arriba. Sin drag & drop: mover de día se hace desde el menú "⋮" de cada
- * tarea, que en touch es mucho más fiable que arrastrar.
+ * Planificación en el teléfono: un día a la vez, con los siete días de la
+ * semana arriba (el elegido en tinta) y las tareas del día como filas de
+ * tarea. Sin arrastre: mover de día es una operación con nombre, "Mover a otro
+ * día", que abre una hoja con los siete días en renglones de 48 px.
  */
 export function TaskPlanningMobileView({
   weekDates,
@@ -57,6 +59,7 @@ export function TaskPlanningMobileView({
 }: TaskPlanningMobileViewProps) {
   // Índice del día seleccionado (0 = lunes). Se mantiene al cambiar de semana.
   const [selectedIndex, setSelectedIndex] = useState(() => (new Date().getDay() + 6) % 7);
+  const [moviendo, setMoviendo] = useState<TaskTransport | null>(null);
 
   const selectedDate = weekDates[selectedIndex]!;
   const selectedISO = format(selectedDate, "yyyy-MM-dd");
@@ -82,28 +85,28 @@ export function TaskPlanningMobileView({
   return (
     <div className="flex flex-col gap-3">
       {/* Navegación de semana */}
-      <div className="flex items-center justify-between gap-2">
-        <Button variant="ghost" size="icon" className="size-8 shrink-0" onClick={onPrevWeek} aria-label="Semana anterior">
+      <div className="flex items-center justify-between gap-1">
+        <Button variant="ghost" size="icon" className="shrink-0" onClick={onPrevWeek} aria-label="Semana anterior">
           <ChevronLeft className="size-5" />
         </Button>
-        <h2 className="text-base font-bold capitalize truncate">
+        <h2 className="truncate font-display text-[1.25rem] leading-tight font-bold tracking-[-0.02em] first-letter:uppercase">
           {monthHeading}
-          <span className="text-sm font-normal text-muted-foreground ml-1.5">· S{weekNumber}</span>
+          <span className="ml-1.5 font-sans text-sm font-normal text-muted-foreground tabular-nums">semana {weekNumber}</span>
         </h2>
-        <div className="flex items-center gap-1 shrink-0">
+        <div className="flex shrink-0 items-center">
           {weekOffset !== 0 && (
-            <Button variant="outline" size="sm" className="h-8 px-2 text-xs" onClick={onResetWeek}>
+            <Button variant="ghost" size="sm" onClick={onResetWeek}>
               Hoy
             </Button>
           )}
-          <Button variant="ghost" size="icon" className="size-8" onClick={onNextWeek} aria-label="Semana siguiente">
+          <Button variant="ghost" size="icon" onClick={onNextWeek} aria-label="Semana siguiente">
             <ChevronRight className="size-5" />
           </Button>
         </div>
       </div>
 
-      {/* Pills de días */}
-      <div className="grid grid-cols-7 gap-1">
+      {/* Los días de la semana: el elegido en tinta, hoy en ámbar. */}
+      <div className="grid grid-cols-7 gap-1" role="radiogroup" aria-label="Día">
         {weekDates.map((date, i) => {
           const selected = i === selectedIndex;
           const today = isToday(date);
@@ -111,43 +114,24 @@ export function TaskPlanningMobileView({
             <button
               key={date.toISOString()}
               type="button"
+              role="radio"
+              aria-checked={selected}
+              aria-label={format(date, "EEEE d", { locale: es })}
               onClick={() => setSelectedIndex(i)}
               className={cn(
-                "flex flex-col items-center gap-0.5 rounded-lg py-1.5 transition-colors",
-                selected
-                  ? "bg-primary text-primary-foreground"
-                  : today
-                    ? "bg-primary/10 text-primary"
-                    : "text-muted-foreground hover:bg-accent"
+                "press focus-ring flex min-h-[3.4rem] flex-col items-center justify-center gap-0.5 rounded-full transition-[color,background-color,transform] duration-(--dur-toque) ease-(--ease-pluma)",
+                selected ? "bg-foreground text-background" : today ? "text-primary" : "text-muted-foreground hover:bg-sf2",
               )}
             >
-              <span className="text-[10px] font-semibold uppercase tracking-wide">
-                {format(date, "EEEEE", { locale: es })}
-              </span>
-              <span className="text-sm font-bold leading-none">{format(date, "d")}</span>
+              <span className="text-[0.7rem] font-semibold uppercase">{format(date, "EEEEE", { locale: es })}</span>
+              <span className="text-sm leading-none font-bold tabular-nums">{format(date, "d")}</span>
               <span
-                className={cn(
-                  "size-1 rounded-full",
-                  hasTasks(date)
-                    ? selected
-                      ? "bg-primary-foreground/70"
-                      : "bg-primary/60"
-                    : "bg-transparent"
-                )}
+                className={cn("size-1 rounded-full", hasTasks(date) ? (selected ? "bg-background/70" : "bg-muted-foreground/60") : "bg-transparent")}
+                aria-hidden
               />
             </button>
           );
         })}
-      </div>
-
-      {/* Encabezado del día seleccionado */}
-      <div className={cn("flex items-baseline gap-1.5 border-b pb-1.5", isToday(selectedDate) ? "border-primary/30" : "border-border")}>
-        <span className={cn("text-[11px] font-semibold uppercase tracking-wider", isToday(selectedDate) ? "text-primary" : "text-muted-foreground")}>
-          {format(selectedDate, "EEEE", { locale: es })}
-        </span>
-        <span className={cn("text-xl font-bold leading-none", isToday(selectedDate) ? "text-primary" : "text-foreground")}>
-          {format(selectedDate, "d")}
-        </span>
       </div>
 
       {/* Tareas multi-día que pasan por este día */}
@@ -159,66 +143,60 @@ export function TaskPlanningMobileView({
         </div>
       )}
 
-      {/* Tareas del día */}
       {dayTasks.length === 0 && dayMultiTasks.length === 0 ? (
-        <div className="py-10 text-center text-sm text-muted-foreground">
-          Nada planificado para este día.
-        </div>
+        <EmptyState
+          className="pl-(--margen)"
+          title="Nada para este día"
+          description="Un día sin plan también es un plan."
+        />
       ) : (
-        <div className="flex flex-col gap-2 pb-4">
+        <div className="pb-4">
           {dayTasks.map((task) => (
-            <div key={task.id} className="flex items-stretch gap-1">
-              <div className="flex-1 min-w-0">
-                <PlanningTaskCard
-                  task={task}
-                  onToggle={onToggle}
-                  onDelete={onDelete}
-                  onEdit={onEdit}
-                />
-              </div>
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <button
-                    type="button"
-                    className="flex items-center px-1.5 rounded-lg text-muted-foreground hover:bg-accent"
-                    aria-label="Acciones de la tarea"
-                  >
-                    <MoreVertical className="size-4" />
-                  </button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="end" className="w-48">
-                  <DropdownMenuLabel className="flex items-center gap-1.5">
-                    <CalendarDays className="size-3.5" />
-                    Mover a…
-                  </DropdownMenuLabel>
-                  {weekDates.map((date) => {
-                    const dayISO = format(date, "yyyy-MM-dd");
-                    return (
-                      <DropdownMenuItem
-                        key={dayISO}
-                        disabled={dayISO === selectedISO}
-                        onClick={() => onMoveToDay(task.id, dayISO)}
-                        className="capitalize"
-                      >
-                        {format(date, "EEEE d", { locale: es })}
-                        {isToday(date) && <span className="ml-auto text-xs text-muted-foreground">hoy</span>}
-                      </DropdownMenuItem>
-                    );
-                  })}
-                  <DropdownMenuSeparator />
-                  <DropdownMenuItem
-                    onClick={() => onDelete(task)}
-                    className="text-destructive focus:text-destructive"
-                  >
-                    <Trash2 className="size-3.5 mr-1.5" />
-                    Eliminar
-                  </DropdownMenuItem>
-                </DropdownMenuContent>
-              </DropdownMenu>
-            </div>
+            <TaskRow
+              key={task.id}
+              task={task}
+              density="lista"
+              onComplete={() => onToggle(task.id)}
+              onOpen={onEdit ? () => onEdit(task) : undefined}
+              actions={[
+                { label: "Mover a otro día", icon: CalendarDays, onSelect: () => setMoviendo(task) },
+                { label: "Mover a la papelera", icon: Trash2, destructive: true, onSelect: () => onDelete(task) },
+              ]}
+            />
           ))}
         </div>
       )}
+
+      <ResponsiveDialog open={moviendo !== null} onOpenChange={(open) => !open && setMoviendo(null)}>
+        <ResponsiveDialogContent className="sm:max-w-sm">
+          <ResponsiveDialogHeader>
+            <ResponsiveDialogTitle>Mover a otro día</ResponsiveDialogTitle>
+            <ResponsiveDialogDescription className="line-clamp-2">{moviendo?.title}</ResponsiveDialogDescription>
+          </ResponsiveDialogHeader>
+          <div>
+            {weekDates.map((date) => {
+              const dayISO = format(date, "yyyy-MM-dd");
+              const actual = dayISO === selectedISO;
+              return (
+                <MarginRow
+                  key={dayISO}
+                  margin={<span className="mt-[0.5rem] text-sm font-semibold tabular-nums">{format(date, "d")}</span>}
+                  trailing={isToday(date) ? "hoy" : actual ? "ahora" : undefined}
+                  onClick={() => {
+                    if (!moviendo || actual) return;
+                    onMoveToDay(moviendo.id, dayISO);
+                    setMoviendo(null);
+                  }}
+                  aria-disabled={actual || undefined}
+                  className={cn("min-h-[3.2rem] text-base font-semibold text-foreground", actual && "opacity-50")}
+                >
+                  <span className="capitalize">{format(date, "EEEE", { locale: es })}</span>
+                </MarginRow>
+              );
+            })}
+          </div>
+        </ResponsiveDialogContent>
+      </ResponsiveDialog>
     </div>
   );
 }
