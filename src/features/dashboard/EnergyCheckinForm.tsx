@@ -25,7 +25,9 @@ interface EnergyCheckinFormProps {
 /**
  * El check-in en la misma página: el tramo y el sueño son segmentos en tinta
  * (elegir es un estado, no una acción), el nivel es la cifra en Bricolage y el
- * acento sobre un deslizador, y Guardar es la única pastilla del acento.
+ * acento sobre un deslizador, y Guardar es la única pastilla del acento. Las
+ * horas de cada tramo van debajo de su palabra, en el color pleno de la
+ * opción y sin opacidad, para que se lean también en la no elegida.
  */
 export function EnergyCheckinForm({ defaultLevel, initialSlot, isPending, onSubmit, onCancel }: EnergyCheckinFormProps) {
   const [slot, setSlot] = useState<CheckinSlot>(initialSlot);
@@ -44,9 +46,9 @@ export function EnergyCheckinForm({ defaultLevel, initialSlot, isPending, onSubm
           return {
             value: s,
             label: (
-              <span className="inline-flex items-baseline gap-1.5">
+              <span className="inline-flex flex-col items-center leading-[1.1]">
                 {SLOT_LABELS[s]}
-                <span className="text-[0.7rem] font-medium opacity-70 tabular-nums">{start} a {end}</span>
+                <span data-slot="slot-hours" className="text-[0.74rem] font-medium tabular-nums">{start} a {end}</span>
               </span>
             ),
           };
