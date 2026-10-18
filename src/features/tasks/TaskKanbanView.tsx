@@ -1,241 +1,200 @@
 "use client";
 
-import { useState, useCallback } from "react";
-import {
-  DndContext,
-  PointerSensor,
-  KeyboardSensor,
-  useSensor,
-  useSensors,
-  type DragStartEvent,
-  type DragEndEvent,
-} from "@dnd-kit/core";
+import dynamic from "next/dynamic";
+import { useState } from "react";
+import { ArrowRightLeft, Trash2 } from "lucide-react";
 import type { TaskTransport } from "./tasks.types";
-import type { TaskDragData } from "./dnd/dnd.types";
 import { useTasks, useFolderTasks, useToggleTask, useDeleteTaskWithUndo, useUpdateTask } from "./tasks.hooks";
 import { useFolders } from "@/features/folders/folders.hooks";
-import { DraggableTaskCard } from "./dnd/DraggableTaskCard";
-import { DroppableColumn } from "./dnd/DroppableColumn";
-import { TaskDragOverlay } from "./dnd/TaskDragOverlay";
-import { Progress } from "@/components/ui/progress";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
+import { EmptyState } from "@/components/ui/empty-state";
+import { MarginRow } from "@/components/ui/margin-row";
+import { Segmented } from "@/components/ui/segmented";
+import {
+  ResponsiveDialog,
+  ResponsiveDialogContent,
+  ResponsiveDialogDescription,
+  ResponsiveDialogHeader,
+  ResponsiveDialogTitle,
+} from "@/components/ui/responsive-dialog";
+import { SectionHead } from "@/features/dashboard/SectionHead";
+import { useIsMobile } from "@/hooks/use-mobile";
 import { useTaskKeyboardNavigation } from "./useTaskKeyboardNavigation";
 import { useSystemManifest } from "@/features/systems/systems.hooks";
 import { tasksEmptyCopy } from "@/shared/lib/archetype-copy";
+import { TaskRow } from "./TaskRow";
+import { kanbanColumnOf, kanbanColumns, kanbanMoveData, type KanbanGroupBy } from "./kanban";
 
 interface TaskKanbanViewProps {
-    systemId: string;
-    initialData: TaskTransport[];
-    folderId?: string;
-    folderInitialData?: TaskTransport[];
-    onEdit?: (task: TaskTransport) => void;
-    keyboardDisabled?: boolean;
-    defaultGroupBy?: KanbanGroupBy;
+  systemId: string;
+  initialData: TaskTransport[];
+  folderId?: string;
+  folderInitialData?: TaskTransport[];
+  onEdit?: (task: TaskTransport) => void;
+  keyboardDisabled?: boolean;
+  defaultGroupBy?: KanbanGroupBy;
 }
 
-type KanbanGroupBy = "energy" | "priority" | "project";
+/**
+ * Las columnas con arrastre, aparte: `@dnd-kit` se descarga sólo en
+ * escritorio y al abrir Acción.
+ */
+const TaskKanbanBoard = dynamic(() => import("./TaskKanbanBoard"), {
+  ssr: false,
+  loading: () => <p className="py-6 text-sm text-muted-foreground">Abriendo el tablero</p>,
+});
 
-interface ColumnDef {
-    id: string;
-    label: string;
-    description: string;
-}
+const AGRUPAR = [
+  { value: "energy", label: "Energía" },
+  { value: "priority", label: "Prioridad" },
+  { value: "project", label: "Proyecto" },
+] as const;
 
-/** Columna sentinel para tareas sin folder/proyecto. */
-const NO_PROJECT = "sin-proyecto";
-
-const ENERGY_COLUMNS: ColumnDef[] = [
-    { id: "high", label: "Energía alta", description: "Tareas que requieren mucho foco." },
-    { id: "medium", label: "Energía media", description: "Trabajo constante, foco moderado." },
-    { id: "low", label: "Energía baja", description: "Tareas ligeras, fáciles de retomar." },
-];
-
-const PRIORITY_COLUMNS: ColumnDef[] = [
-    { id: "critical", label: "Crítica", description: "Deja todo lo demás." },
-    { id: "high", label: "Alta", description: "Hazlas pronto." },
-    { id: "medium", label: "Media", description: "Prioridad normal." },
-    { id: "low", label: "Baja", description: "Cuando haya espacio." },
-];
-
-/** Campo de la tarea que define en qué columna cae, según el agrupamiento. */
-function taskGroupKey(task: TaskTransport, groupBy: KanbanGroupBy): string {
-    if (groupBy === "energy") return task.energyLevel ?? "medium";
-    if (groupBy === "priority") return task.priority ?? "medium";
-    return task.folderId ?? NO_PROJECT;
-}
-
+/**
+ * Acción: las tareas de la semana agrupadas por energía, prioridad o
+ * proyecto, y el progreso de la semana como una cifra. En escritorio son
+ * columnas con arrastre de ratón. En el teléfono, las mismas columnas son
+ * secciones con título y hairline, y mover es una operación con nombre: la
+ * acción "Mover a otra columna" abre una hoja con las columnas en renglones.
+ */
 export function TaskKanbanView({ systemId, initialData, folderId, folderInitialData, onEdit, keyboardDisabled, defaultGroupBy = "energy" }: TaskKanbanViewProps) {
-    // Use folder-scoped or system-scoped tasks depending on context
-    const systemQuery = useTasks(systemId, initialData);
-    const folderQuery = useFolderTasks(systemId, folderId ?? "", folderInitialData);
-    const { data: tasks } = folderId ? folderQuery : systemQuery;
+  const systemQuery = useTasks(systemId, initialData);
+  const folderQuery = useFolderTasks(systemId, folderId ?? "", folderInitialData);
+  const { data: tasks } = folderId ? folderQuery : systemQuery;
 
-    const { mutate: toggleTask } = useToggleTask(systemId, folderId);
-    const { mutate: deleteTask } = useDeleteTaskWithUndo(systemId, folderId);
-    const { mutate: updateTask } = useUpdateTask(systemId);
-    const { data: folders = [] } = useFolders(systemId);
+  const { mutate: toggleTask } = useToggleTask(systemId, folderId);
+  const { mutate: deleteTask } = useDeleteTaskWithUndo(systemId, folderId);
+  const { mutate: updateTask } = useUpdateTask(systemId);
+  const { data: folders = [] } = useFolders(systemId);
+  const isMobile = useIsMobile();
 
-    const [groupBy, setGroupBy] = useState<KanbanGroupBy>(defaultGroupBy);
-    const [activeTask, setActiveTask] = useState<TaskTransport | null>(null);
+  const [groupBy, setGroupBy] = useState<KanbanGroupBy>(defaultGroupBy);
+  const [deleteTarget, setDeleteTarget] = useState<TaskTransport | null>(null);
+  const [moviendo, setMoviendo] = useState<TaskTransport | null>(null);
+  const manifest = useSystemManifest(systemId);
+  const empty = tasksEmptyCopy(manifest, "action");
 
-    const projectColumns: ColumnDef[] = [
-        ...folders.map((f) => ({ id: f.id, label: f.name, description: "" })),
-        { id: NO_PROJECT, label: "Sin proyecto", description: "Tareas sin folder asignado." },
-    ];
-    const columns =
-        groupBy === "energy" ? ENERGY_COLUMNS
-        : groupBy === "priority" ? PRIORITY_COLUMNS
-        : projectColumns;
+  const columns = kanbanColumns(groupBy, folders);
 
-    const sensors = useSensors(
-        useSensor(PointerSensor, {
-            activationConstraint: { distance: 8 },
-        }),
-        useSensor(KeyboardSensor, keyboardDisabled ? { keyboardCodes: { start: [], cancel: [], end: [] } } : {})
-    );
+  // Las hechas cuentan para el progreso; las columnas enseñan sólo lo abierto.
+  const actionableTasks = tasks?.filter(
+    (t) => t.status === "today" || t.status === "tomorrow" || t.status === "week" || t.status === "done",
+  ) ?? [];
+  const activeTasks = actionableTasks.filter((t) => t.status !== "done");
+  const tasksOf = (columnId: string) => activeTasks.filter((t) => kanbanColumnOf(t, groupBy) === columnId);
 
-    // Include "done" alongside active statuses to compute progress correctly
-    const actionableTasks = tasks?.filter(
-      (t) => t.status === "today" || t.status === "tomorrow" || t.status === "week" || t.status === "done"
-    ) ?? [];
-    // Only show non-done tasks in the columns
-    const activeTasks = actionableTasks.filter((t) => t.status !== "done");
+  const { focusedTaskId } = useTaskKeyboardNavigation(activeTasks, {
+    onSelect: onEdit,
+    onToggle: toggleTask,
+    onDelete: setDeleteTarget,
+  }, {
+    enabled: !keyboardDisabled && deleteTarget === null && moviendo === null,
+  });
 
-    const handleDragStart = useCallback((event: DragStartEvent) => {
-        const data = event.active.data.current as TaskDragData | undefined;
-        if (data?.task) {
-            setActiveTask(data.task);
-        }
-    }, []);
+  function move(task: TaskTransport, columnId: string) {
+    updateTask({ taskId: task.id, data: kanbanMoveData(groupBy, columnId) });
+  }
 
-    const handleDragEnd = useCallback(
-        (event: DragEndEvent) => {
-            setActiveTask(null);
+  if (!tasks || activeTasks.length === 0) {
+    return <EmptyState className="pl-(--margen)" title={empty.title} description={empty.hint} />;
+  }
 
-            const { active, over } = event;
-            if (!over) return;
+  const doneCount = actionableTasks.length - activeTasks.length;
 
-            const data = active.data.current as TaskDragData | undefined;
-            if (!data) return;
+  return (
+    <div className="flex w-full flex-col gap-4">
+      <div className="flex flex-wrap items-end justify-between gap-3">
+        <div>
+          <h2 className="font-display text-[1.25rem] leading-tight font-bold tracking-[-0.02em]">Progreso de la semana</h2>
+          <p className="text-sm text-muted-foreground tabular-nums">
+            {doneCount} de {actionableTasks.length} hechas
+          </p>
+        </div>
+        <Segmented<KanbanGroupBy> aria-label="Agrupar por" value={groupBy} onValueChange={setGroupBy} options={AGRUPAR} />
+      </div>
 
-            const targetId = over.id as string;
+      {isMobile ? (
+        <div className="space-y-5">
+          {columns.map((column) => {
+            const columnTasks = tasksOf(column.id);
+            if (columnTasks.length === 0) return null;
+            return (
+              <section key={column.id} aria-label={column.label}>
+                <SectionHead title={column.label} as="h3" count={`${columnTasks.length}`} />
+                {columnTasks.map((task) => (
+                  <TaskRow
+                    key={task.id}
+                    task={task}
+                    density="lista"
+                    focused={task.id === focusedTaskId}
+                    onComplete={() => toggleTask(task.id)}
+                    onOpen={onEdit ? () => onEdit(task) : undefined}
+                    actions={[
+                      { label: "Mover a otra columna", icon: ArrowRightLeft, onSelect: () => setMoviendo(task) },
+                      { label: "Mover a la papelera", icon: Trash2, destructive: true, onSelect: () => setDeleteTarget(task) },
+                    ]}
+                  />
+                ))}
+              </section>
+            );
+          })}
+        </div>
+      ) : (
+        <TaskKanbanBoard
+          systemId={systemId}
+          groupBy={groupBy}
+          columns={columns}
+          tasksOf={tasksOf}
+          focusedTaskId={focusedTaskId}
+          keyboardDisabled={keyboardDisabled}
+          onToggle={(id) => toggleTask(id)}
+          onDelete={setDeleteTarget}
+          onEdit={onEdit}
+          onMove={move}
+        />
+      )}
 
-            // Same column: no-op
-            if (targetId === data.sourceId) return;
+      <ResponsiveDialog open={moviendo !== null} onOpenChange={(open) => !open && setMoviendo(null)}>
+        <ResponsiveDialogContent className="sm:max-w-sm">
+          <ResponsiveDialogHeader>
+            <ResponsiveDialogTitle>Mover a otra columna</ResponsiveDialogTitle>
+            <ResponsiveDialogDescription className="line-clamp-2">{moviendo?.title}</ResponsiveDialogDescription>
+          </ResponsiveDialogHeader>
+          <div>
+            {columns.map((column) => {
+              const actual = moviendo ? kanbanColumnOf(moviendo, groupBy) === column.id : false;
+              return (
+                <MarginRow
+                  key={column.id}
+                  margin={<ArrowRightLeft className="mt-[0.55rem] size-[1.15rem]" />}
+                  trailing={actual ? "ahora" : undefined}
+                  aria-disabled={actual || undefined}
+                  onClick={() => {
+                    if (!moviendo || actual) return;
+                    move(moviendo, column.id);
+                    setMoviendo(null);
+                  }}
+                  className={actual ? "min-h-[3.2rem] text-base font-semibold opacity-50" : "min-h-[3.2rem] text-base font-semibold text-foreground"}
+                >
+                  {column.label}
+                </MarginRow>
+              );
+            })}
+          </div>
+        </ResponsiveDialogContent>
+      </ResponsiveDialog>
 
-            updateTask({
-                taskId: data.task.id,
-                data: data.sourceType === "priority"
-                    ? { priority: targetId as TaskTransport["priority"] }
-                    : data.sourceType === "project"
-                    ? { folderId: targetId === NO_PROJECT ? null : targetId }
-                    : { energyLevel: targetId as TaskTransport["energyLevel"] },
-            });
-        },
-        [updateTask]
-    );
-
-    const handleDragCancel = useCallback(() => {
-        setActiveTask(null);
-    }, []);
-
-    const [deleteTarget, setDeleteTarget] = useState<TaskTransport | null>(null);
-    const manifest = useSystemManifest(systemId);
-    const empty = tasksEmptyCopy(manifest, "action");
-
-    const { focusedTaskId } = useTaskKeyboardNavigation(activeTasks, {
-        onSelect: onEdit,
-        onToggle: toggleTask,
-        onDelete: setDeleteTarget,
-    }, {
-        enabled: !keyboardDisabled && deleteTarget === null
-    });
-
-    if (!tasks || activeTasks.length === 0) {
-        return (
-            <div className="flex flex-col items-center justify-center py-12 text-center space-y-2 border border-dashed rounded-lg bg-card mt-6">
-                <p className="text-base font-medium">{empty.title}</p>
-                <p className="text-sm text-muted-foreground max-w-sm">{empty.hint}</p>
-            </div>
-        );
-    }
-
-    const doneCount = actionableTasks.filter((t) => t.status === "done").length;
-    const progressPercent = actionableTasks.length > 0 ? (doneCount / actionableTasks.length) * 100 : 0;
-
-    return (
-        <DndContext
-            id="task-action-dnd"
-            sensors={sensors}
-            onDragStart={handleDragStart}
-            onDragEnd={handleDragEnd}
-            onDragCancel={handleDragCancel}
-        >
-            <div className="flex flex-col gap-4 w-full h-full">
-                <div className="flex items-center justify-between gap-2 flex-wrap">
-                    <h2 className="text-2xl font-bold">Progreso de la semana</h2>
-                    <select
-                        value={groupBy}
-                        onChange={(e) => setGroupBy(e.target.value as KanbanGroupBy)}
-                        className="text-sm bg-muted border-0 rounded-md px-2 py-1 text-muted-foreground"
-                    >
-                        <option value="energy">Por energía</option>
-                        <option value="priority">Por prioridad</option>
-                        <option value="project">Por proyecto</option>
-                    </select>
-                </div>
-                <Progress value={progressPercent} className="h-2" />
-                <div className={`grid grid-cols-1 sm:grid-cols-2 ${groupBy === "priority" || groupBy === "project" ? "lg:grid-cols-4" : "lg:grid-cols-3"} gap-3 w-full`}>
-                    {columns.map((column) => {
-                        const columnTasks = activeTasks.filter(
-                            (task) => taskGroupKey(task, groupBy) === column.id
-                        );
-
-                        return (
-                            <DroppableColumn
-                                key={column.id}
-                                id={column.id}
-                                className="flex flex-col gap-2 min-w-0"
-                            >
-                                <h3 className="font-semibold text-base">{column.label}</h3>
-                                {column.description && (
-                                    <p className="text-sm text-muted-foreground">{column.description}</p>
-                                )}
-                                <div className="flex flex-col gap-2">
-                                    {columnTasks.map((task) => (
-                                        <DraggableTaskCard
-                                            key={task.id}
-                                            task={task}
-                                            systemId={systemId}
-                                            sourceType={groupBy}
-                                            sourceId={column.id}
-                                            isFocused={task.id === focusedTaskId}
-                                            onToggle={(id) => toggleTask(id)}
-                                            onDelete={() => setDeleteTarget(task)}
-                                            onEdit={onEdit}
-                                        />
-                                    ))}
-                                </div>
-                            </DroppableColumn>
-                        );
-                    })}
-                </div>
-            </div>
-
-            {/* Floating drag preview */}
-            <TaskDragOverlay activeTask={activeTask} systemId={systemId} />
-
-            <ConfirmDialog
-              open={deleteTarget !== null}
-              title="Mover a la papelera"
-              description={`"${deleteTarget?.title}" se moverá a la papelera.`}
-              confirmLabel="Mover a la papelera"
-              onConfirm={() => {
-                if (deleteTarget) deleteTask(deleteTarget.id);
-                setDeleteTarget(null);
-              }}
-              onCancel={() => setDeleteTarget(null)}
-            />
-        </DndContext>
-    );
+      <ConfirmDialog
+        open={deleteTarget !== null}
+        title="Mover a la papelera"
+        description={`"${deleteTarget?.title}" se moverá a la papelera.`}
+        confirmLabel="Mover a la papelera"
+        onConfirm={() => {
+          if (deleteTarget) deleteTask(deleteTarget.id);
+          setDeleteTarget(null);
+        }}
+        onCancel={() => setDeleteTarget(null)}
+      />
+    </div>
+  );
 }
