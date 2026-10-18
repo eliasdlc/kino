@@ -1,9 +1,6 @@
 import { cn } from "@/lib/utils";
 
-interface PageWrapperProps {
-  children: React.ReactNode;
-  className?: string;
-}
+type PageWrapperProps = React.HTMLAttributes<HTMLDivElement>;
 
 interface PageHeaderProps {
   title: string;
@@ -46,9 +43,10 @@ export function PageHeader({ title, description, actions, margin }: PageHeaderPr
  * aquí lo usan los bloques que no son fila (`pl-(--margen)`) y una página
  * que no lo quiera lo pliega con `[--margen:0]`.
  */
-export function PageWrapper({ children, className }: PageWrapperProps) {
+export function PageWrapper({ children, className, ...props }: PageWrapperProps) {
   return (
     <div
+      {...props}
       data-slot="page"
       className={cn(
         "w-full space-y-5 py-5 pl-[max(1.25rem,env(safe-area-inset-left))] pr-[max(1.25rem,env(safe-area-inset-right))] md:px-8 md:py-6",

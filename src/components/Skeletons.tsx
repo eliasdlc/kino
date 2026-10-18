@@ -37,6 +37,26 @@ export function TitleSkeleton({ voz = false }: { voz?: boolean }) {
 }
 
 /**
+ * La cabecera de pantalla esperando, con la misma rejilla que `PageHeader`: el
+ * título en la columna de texto a la derecha del margen en el teléfono, la
+ * acción debajo y alineada con él, y las dos en un renglón desde sm.
+ */
+export function PageHeaderSkeleton({ accion = false, voz = false }: { accion?: boolean; voz?: boolean }) {
+  return (
+    <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+      <div className="grid min-w-0 grid-cols-[var(--margen)_1fr] md:grid-cols-[0_1fr]">
+        <span aria-hidden />
+        <div className="space-y-2">
+          <Skeleton className="h-[1.7rem] w-36" />
+          {voz && <Skeleton className="h-4 w-56 max-w-full" />}
+        </div>
+      </div>
+      {accion && <Skeleton className="h-[2.85rem] w-40 shrink-0 rounded-full max-sm:ml-(--margen)" />}
+    </div>
+  );
+}
+
+/**
  * Una fila de margen esperando: lo que va en el margen (un círculo, un
  * numeral), el título y su meta, y la cola. La misma rejilla que `MarginRow`.
  */
