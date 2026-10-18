@@ -4,13 +4,14 @@ import * as React from "react"
 import { Command as CommandPrimitive } from "cmdk"
 
 import { cn } from "@/lib/utils"
+import { useIsMobile } from "@/hooks/use-mobile"
 import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog"
+  ResponsiveDialog,
+  ResponsiveDialogContent,
+  ResponsiveDialogDescription,
+  ResponsiveDialogHeader,
+  ResponsiveDialogTitle,
+} from "@/components/ui/responsive-dialog"
 import {
   InputGroup,
   InputGroupAddon,
@@ -33,6 +34,11 @@ function Command({
   )
 }
 
+/**
+ * El buscador global. En escritorio es un diálogo centrado en el tercio
+ * superior; en el teléfono es la hoja inferior, con asa y Cerrar visible,
+ * porque un modal a un tercio deja la lista sin sitio cuando sube el teclado.
+ */
 function CommandDialog({
   title = "Buscar o saltar a",
   description = "Escribe para buscar una acción o un destino.",
@@ -41,33 +47,35 @@ function CommandDialog({
   showCloseButton = false,
   shouldFilter,
   ...props
-}: React.ComponentProps<typeof Dialog> & {
+}: React.ComponentProps<typeof ResponsiveDialog> & {
   title?: string
   description?: string
   className?: string
   showCloseButton?: boolean
   shouldFilter?: boolean
 }) {
+  const isMobile = useIsMobile()
   return (
-    <Dialog {...props}>
-      <DialogHeader className="sr-only">
-        <DialogTitle>{title}</DialogTitle>
-        <DialogDescription>{description}</DialogDescription>
-      </DialogHeader>
-      <DialogContent
+    <ResponsiveDialog {...props}>
+      <ResponsiveDialogContent
         className={cn(
           "top-1/3 translate-y-0 overflow-hidden rounded-xl p-0",
           className
         )}
-        showCloseButton={showCloseButton}
+        mobileClassName="[&>div]:p-2 [&>div]:pt-12"
+        showCloseButton={isMobile || showCloseButton}
       >
+        <ResponsiveDialogHeader className="sr-only">
+          <ResponsiveDialogTitle>{title}</ResponsiveDialogTitle>
+          <ResponsiveDialogDescription>{description}</ResponsiveDialogDescription>
+        </ResponsiveDialogHeader>
         <Command
           shouldFilter={shouldFilter}
           className="[&_[cmdk-group-heading]]:px-2 [&_[cmdk-group-heading]]:font-medium [&_[cmdk-group-heading]]:text-muted-foreground [&_[cmdk-group]:not([hidden])_~[cmdk-group]]:pt-0 [&_[cmdk-group]]:px-2 [&_[cmdk-input-wrapper]_svg]:size-5 [&_[cmdk-item]]:px-2 [&_[cmdk-item]_svg]:size-5">
           {children}
         </Command>
-      </DialogContent>
-    </Dialog>
+      </ResponsiveDialogContent>
+    </ResponsiveDialog>
   )
 }
 

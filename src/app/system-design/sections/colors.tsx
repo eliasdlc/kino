@@ -2,7 +2,7 @@
 
 import { Section, SubSection, TokenSwatch } from "../helpers";
 import { COLOR_VALUES } from "@/shared/types/enums";
-import { getSystemColor, getSystemColorHex } from "@/shared/utils/system-colors";
+import { getSystemColor, getSystemColorCss } from "@/shared/utils/system-colors";
 import {
   STICKY_NOTE_COLORS,
   paperStyle,
@@ -71,7 +71,7 @@ const SIDEBAR_TOKENS: Array<{ token: string; usage: string }> = [
 
 function TokenGrid({ tokens }: { tokens: Array<{ token: string; usage: string }> }) {
   return (
-    <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 xl:grid-cols-3">
+    <div className="grid grid-cols-1 gap-x-8 sm:grid-cols-2 xl:grid-cols-3">
       {tokens.map((t) => (
         <TokenSwatch key={t.token} token={t.token} usage={t.usage} />
       ))}
@@ -98,7 +98,7 @@ export function ColorsSection() {
     >
       <SubSection
         title="Roles"
-        description="El contrato de la identidad. Los tokens de shadcn de abajo no declaran ningún color: cada uno vale var(--rol)."
+        description="El contrato de la identidad. Los tokens de shadcn de abajo no declaran ningún color: cada uno vale var(--rol). Los contrastes valen para texto de rol sobre bg; como borde, ln2 y sf2 no llegan a 3:1, así que el texto identifica el control. El badge usa el texto de tinte (--ac-text, --ok-text, --warn-text, --danger-text): el rol mezclado con tinta al 28 % en claro, para dar 4,5 o más sobre su tinte también en hover."
       >
         <TokenGrid tokens={ROLE_TOKENS} />
       </SubSection>
@@ -135,7 +135,7 @@ export function ColorsSection() {
       >
         <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-4">
           {COLOR_VALUES.map((color) => {
-            const hex = getSystemColorHex(color);
+            const hex = getSystemColorCss(color);
             return (
               <div
                 key={color}

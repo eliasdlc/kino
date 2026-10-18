@@ -41,7 +41,7 @@ const SYSTEM_COLOR_CSS: Record<ColorValue, string> = {
   white:  "var(--sf2)",
 };
 
-/** Returns a CSS color for a system color (a hex or a role variable), for inline styles. */
-export function getSystemColorHex(color: string): string {
+/** Returns a CSS color value for a system color: a hex for the eight chromatic ones, a role variable for the three neutrals. Never concatenate alpha onto it. */
+export function getSystemColorCss(color: string): string {
   return SYSTEM_COLOR_CSS[color as ColorValue] ?? "var(--mute)";
 }
