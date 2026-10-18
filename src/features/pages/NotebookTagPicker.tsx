@@ -3,7 +3,7 @@
 import { cn } from "@/lib/utils";
 import { useTags } from "@/features/tags/tags.hooks";
 import { tagDotClass } from "@/features/tags/tag-colors";
-import { PanelHeading } from "./PanelHeading";
+import { SectionHead } from "@/features/dashboard/SectionHead";
 import { usePageTags, useAddPageTag, useRemovePageTag } from "./pages.hooks";
 
 interface NotebookTagPickerProps {
@@ -40,7 +40,7 @@ export function NotebookTagPicker({ pageId, systemId, className }: NotebookTagPi
 
   return (
     <section className={cn("space-y-2", className)}>
-      <PanelHeading>Etiquetas</PanelHeading>
+      <SectionHead as="h3" title="Etiquetas" />
       <div className="flex flex-wrap gap-1.5 pt-1">
         {allTags.map((tag) => {
           const active = activeIds.has(tag.id);
