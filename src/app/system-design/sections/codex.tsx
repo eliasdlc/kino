@@ -11,6 +11,8 @@ import {
   makeEntityDetail, mid } from "../mock-data";
 import { Button } from "@/components/ui/button";
 import { CodexRail } from "@/features/entities/CodexRail";
+import { CodexLibrary } from "@/features/entities/CodexLibrary";
+import { CodexNav } from "@/features/entities/CodexNav";
 import { EntityFicheSheet } from "@/features/entities/EntityFicheSheet";
 import { MentionList, type MentionItem } from "@/features/entities/MentionList";
 import { GraphCanvas } from "@/features/entities/UniverseGraph";
@@ -74,6 +76,19 @@ function FicheSpecimen() {
 }
 
 const noop = () => {};
+
+/** El elenco de la biblioteca: lo que devuelve `entities.bySystem`. */
+const LIBRARY = CAST.map((e) => ({
+  id: e.id,
+  systemId: MOCK_SYSTEM_ID,
+  type: e.type,
+  name: e.name,
+  aliases: [],
+  summary: e.summary ?? null,
+  coverImageUrl: null,
+  createdAt: makeEntityDetail().createdAt,
+  updatedAt: makeEntityDetail().updatedAt,
+}));
 
 /** El popup del @ tiene su propio tipo: entidades existentes + la opción de crear. */
 const MENTION_ITEMS: MentionItem[] = [
@@ -141,6 +156,29 @@ export function CodexSection() {
                   pinnedIds={[CAST[0].id]}
                   onTogglePin={noop}
                 />
+              </div>
+            </Seeded>
+          </Specimen>
+        </SpecimenGrid>
+      </SubSection>
+
+      <SubSection
+        title="Biblioteca del codex"
+        description="CodexLibrary: el elenco del mundo como índice, no como rejilla de cards. Una sección por tipo con su palabra en Bricolage y la cuenta en mute; una fila por entidad con su numeral en el margen, que abre la ficha. Encima, CodexNav: las lecturas son pestañas-palabra en tinta."
+      >
+        <SpecimenGrid>
+          <Specimen label="Con elenco" hint="entities.bySystem con personajes y lugares">
+            <Seeded stubs={[seedQuery(api.entities.bySystem, LIBRARY)]}>
+              <div className="w-full max-w-xl space-y-4">
+                <CodexNav systemId={MOCK_SYSTEM_ID} current="biblioteca" />
+                <CodexLibrary systemId={MOCK_SYSTEM_ID} />
+              </div>
+            </Seeded>
+          </Specimen>
+          <Specimen label="Universo vacío" hint="EmptyState en la columna de texto">
+            <Seeded stubs={[seedQuery(api.entities.bySystem, [])]}>
+              <div className="w-full max-w-xl">
+                <CodexLibrary systemId={MOCK_SYSTEM_ID} />
               </div>
             </Seeded>
           </Specimen>
