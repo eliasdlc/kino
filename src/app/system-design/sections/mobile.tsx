@@ -70,7 +70,7 @@ export function MobileSection() {
 
       <SubSection
         title="La cabecera corrida"
-        description="En una pantalla raíz, la marca a la izquierda y la puerta a Ajustes a la derecha, un botón de 48 px con la palabra. En una anidada, «‹ padre» con el nombre del padre en ámbar. El título de la pantalla no está aquí: el único h1 va con la página."
+        description="En una pantalla raíz, la marca a la izquierda y la puerta a Ajustes a la derecha, un botón de 48 px con la palabra. En una anidada, «‹ padre» con el nombre del padre en tinta y el chevron en mute: el ámbar queda para la palabra activa del pie. El título de la pantalla no está aquí: el único h1 va con la página."
       >
         <div className="flex flex-wrap gap-6">
           <Specimen label="Raíz: Tareas" hint='rutaActual="/tasks"'>
