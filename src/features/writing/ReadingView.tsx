@@ -1,16 +1,10 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import {
-  BookOpen,
-  ChevronLeft,
-  ChevronRight,
-  Columns2,
-  Printer,
-  ScrollText,
-  Sun,
-} from "lucide-react";
+import { ChevronLeft, ChevronRight, Printer } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { EmptyState } from "@/components/ui/empty-state";
+import { Segmented } from "@/components/ui/segmented";
 import { cn } from "@/lib/utils";
 import { SanitizedHtml } from "@/shared/components/SanitizedHtml";
 import { MEDIUM_CONFIG } from "@/shared/lib/mediums";
@@ -29,6 +23,11 @@ import type { Manuscript } from "./writing.manuscript";
  * El capítulo se pinta por `SanitizedHtml`: el contenido de una página ya no lo
  * escribe sólo el editor del usuario, el MCP también, y eso puede traer HTML que
  * el editor nunca habría producido.
+ *
+ * Diario: el título de la obra en display como título de pantalla, la meta
+ * debajo separada por comas, y una fila de acciones de 48 px (compilar, el
+ * segmento Paginado o Continuo en tinta, papel e imprimir). Cada capítulo abre
+ * con su numeral en Bricolage y su título en Literata, como en un libro.
  */
 
 type Mode = "paged" | "scroll";
@@ -96,80 +95,59 @@ export function ReadingView({
     return () => cancelAnimationFrame(id);
   }, [autoPrint, empty]);
 
+  const unidades =
+    manuscript.chapters.length === 1 ? medium.unit.noun : medium.unit.nounPlural;
+  const unidadMayuscula = medium.unit.noun.charAt(0).toUpperCase() + medium.unit.noun.slice(1);
+
   return (
-    <div
-      className="mx-auto w-full max-w-4xl"
-      data-paper={paper ? "on" : undefined}
-    >
-      <div className="reading-no-print mb-6 flex flex-wrap items-center justify-between gap-3">
-        <div className="min-w-0">
-          <h1 className="truncate text-lg font-semibold">{manuscript.title}</h1>
-          <p className="text-xs text-muted-foreground">
-            {medium.label} · {manuscript.chapters.length}{" "}
-            {manuscript.chapters.length === 1
-              ? medium.unit.noun
-              : medium.unit.nounPlural}{" "}
-            · {manuscript.totalWords.toLocaleString("es")} palabras
+    <div className="mx-auto w-full max-w-4xl" data-paper={paper ? "on" : undefined}>
+      <header className="reading-no-print mb-8 space-y-4">
+        <div className="space-y-1">
+          <h1 className="font-display text-[1.41rem] leading-tight font-bold tracking-[-0.02em] text-foreground">
+            {manuscript.title}
+          </h1>
+          <p className="text-sm text-muted-foreground">
+            {medium.label}, {manuscript.chapters.length} {unidades},{" "}
+            {manuscript.totalWords.toLocaleString("es")} palabras
           </p>
         </div>
 
-        <div className="flex shrink-0 items-center gap-1">
+        <div className="flex flex-wrap items-center gap-2">
           <CompileMenu
             folderId={manuscript.folderId}
             systemId={manuscript.systemId}
             manuscript={manuscript}
           />
           {canPage && (
-            <Button
-              variant="outline"
-              size="sm"
-              className="gap-1.5"
-              onClick={() => setMode((m) => (m === "paged" ? "scroll" : "paged"))}
-            >
-              {paged ? (
-                <>
-                  <ScrollText className="size-4" />
-                  Continuo
-                </>
-              ) : (
-                <>
-                  <Columns2 className="size-4" />
-                  Paginado
-                </>
-              )}
-            </Button>
+            <Segmented<Mode>
+              aria-label="Cómo se lee"
+              value={mode}
+              onValueChange={setMode}
+              options={[
+                { value: "paged", label: "Paginado" },
+                { value: "scroll", label: "Continuo" },
+              ]}
+            />
           )}
           <Button
-            variant="outline"
-            size="icon"
-            className="size-9"
+            variant="ghost"
             aria-pressed={paper}
-            aria-label="Fondo papel"
             onClick={() => setPaper((p) => !p)}
+            className="aria-pressed:bg-foreground aria-pressed:text-background"
           >
-            <Sun className="size-4" />
+            Papel
           </Button>
-          <Button
-            variant="outline"
-            size="icon"
-            className="size-9"
-            aria-label="Imprimir o guardar como PDF"
-            onClick={() => window.print()}
-          >
-            <Printer className="size-4" />
+          <Button variant="ghost" size="icon" aria-label="Imprimir o guardar como PDF" onClick={() => window.print()}>
+            <Printer className="size-5" />
           </Button>
         </div>
-      </div>
+      </header>
 
       {empty ? (
-        <div className="rounded-lg border border-dashed p-12 text-center">
-          <BookOpen className="mx-auto size-8 text-muted-foreground/40" />
-          <p className="mt-2 text-sm font-medium">Todavía no hay nada que leer</p>
-          <p className="mt-1 text-sm text-muted-foreground">
-            Escribe algo en un {medium.unit.noun} y vuelve: leerse en otro formato
-            enseña cosas que el editor esconde.
-          </p>
-        </div>
+        <EmptyState
+          title="Todavía no hay nada que leer"
+          description={`Escribe algo en un ${medium.unit.noun} y vuelve: leerse en otro formato enseña cosas que el editor esconde.`}
+        />
       ) : (
         <div className="relative">
           <div
@@ -178,17 +156,23 @@ export function ReadingView({
             data-layout={layout}
             className={cn("reading-surface", paged && "reading-paged")}
           >
-            {manuscript.chapters.map((chapter) => (
-              <section key={chapter.id} className="reading-chapter">
-                <h2 className="reading-chapter-title mb-6 text-center text-base font-semibold uppercase tracking-widest text-muted-foreground">
-                  {chapter.title?.trim() || "Sin título"}
-                </h2>
+            {manuscript.chapters.map((chapter, index) => (
+              <section key={chapter.id} className="reading-chapter" aria-labelledby={`capitulo-${chapter.id}`}>
+                <header className="reading-chapter-title mb-8 text-center">
+                  {/* Un span y no un párrafo: la prosa de lectura justifica y sangra
+                      cada párrafo, y el numeral va centrado. */}
+                  <span aria-hidden className="block font-display text-xl font-bold text-muted-foreground tabular-nums">
+                    {index + 1}
+                  </span>
+                  <h2 id={`capitulo-${chapter.id}`} className="mt-1! mb-0! font-serif text-xl leading-snug font-semibold text-foreground">
+                    <span className="sr-only">{unidadMayuscula} {index + 1}: </span>
+                    {chapter.title?.trim() || "Sin título"}
+                  </h2>
+                </header>
                 {chapter.content ? (
                   <SanitizedHtml html={chapter.content} />
                 ) : (
-                  <p className="text-center text-sm text-muted-foreground">
-                    (en blanco)
-                  </p>
+                  <p className="text-center font-voice text-base italic text-muted-foreground">En blanco todavía.</p>
                 )}
               </section>
             ))}
@@ -199,20 +183,19 @@ export function ReadingView({
               <Button
                 variant="ghost"
                 size="icon"
-                className="size-9"
                 disabled={atStart}
                 onClick={() => turn(-1)}
                 aria-label="Página anterior"
               >
                 <ChevronLeft className="size-5" />
               </Button>
-              <span className="text-xs text-muted-foreground">
-                Se pasa página con las flechas
+              <span className="text-sm text-muted-foreground">
+                <span className="pointer-coarse:hidden">También con las flechas del teclado</span>
+                <span className="hidden pointer-coarse:inline">También deslizando la página</span>
               </span>
               <Button
                 variant="ghost"
                 size="icon"
-                className="size-9"
                 disabled={atEnd}
                 onClick={() => turn(1)}
                 aria-label="Página siguiente"
