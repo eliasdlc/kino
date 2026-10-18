@@ -149,11 +149,6 @@
      tono. El fondo detrás de un overlay oscurece con la tinta. */
   --shadow: 0 0.6rem 1.6rem color-mix(in srgb, var(--ink) 8%, transparent);
   --scrim: color-mix(in srgb, var(--ink) 20%, transparent);
-  /* El vidrio sólo lo lee la barra inferior actual; Diario no lo usa y el
-     shell retira estos tres tokens con ella. */
-  --glass: color-mix(in srgb, var(--sf) 84%, transparent);
-  --glass-ln: color-mix(in srgb, var(--ink) 8%, transparent);
-  --glass-on: color-mix(in srgb, var(--ac) 14%, transparent);
 
   /* El margen de Diario: la columna de 3.1rem a la izquierda de toda página
      donde viven el glifo, el numeral, el círculo y la nota adhesiva. El texto
@@ -253,8 +248,6 @@
      detrás de un overlay se funde con el papel oscuro. */
   --shadow: none;
   --scrim: color-mix(in srgb, var(--bg) 60%, transparent);
-  --glass: color-mix(in srgb, var(--sf) 82%, transparent);
-  --glass-ln: color-mix(in srgb, var(--ink) 9%, transparent);
   --task-done-foreground: var(--bg);
 }
 
