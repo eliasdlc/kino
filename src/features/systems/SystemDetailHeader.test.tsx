@@ -42,7 +42,7 @@ describe("SystemDetailHeader", () => {
     renderMobile(<SystemDetailHeader system={NOVELA} signals={senales} landing="docs" />, { convex: escritura() });
 
     expect(screen.getByRole("heading", { level: 1, name: "La casa de las cotas" })).toBeInTheDocument();
-    expect(screen.getByText("Escritura, energía alta, diario")).toBeInTheDocument();
+    expect(screen.getByText("Escritura, energía alta, cada día")).toBeInTheDocument();
     expect(screen.getByText(NOVELA.identityStatement!)).toHaveClass("font-voice", "italic");
   });
 

@@ -37,7 +37,8 @@ interface SystemDetailHeaderProps {
 
 /** Los valores del enum, en español y en minúscula: van en el eyebrow. */
 const ENERGY_LABEL: Record<string, string> = { high: "energía alta", medium: "energía media", low: "energía baja" };
-const FREQUENCY_LABEL: Record<string, string> = { daily: "diario", weekly: "semanal", monthly: "mensual" };
+// «cada día» y no «diario»: en una obra, Diario es la bitácora de trabajo.
+const FREQUENCY_LABEL: Record<string, string> = { daily: "cada día", weekly: "cada semana", monthly: "cada mes" };
 
 /** La pestaña-palabra que es un enlace a otra pantalla (Estudio, Codex), con la forma de las de superficie. */
 const WORD_LINK =
@@ -72,8 +73,9 @@ async function exportJson(system: SystemTransport) {
 function WritingReadings({ systemId, signals }: { systemId: string; signals: SystemSignals }) {
   const { data: overview } = useWritingOverview(systemId);
   const { data: obras = [] } = useFolders(systemId);
-  const { data: pages = [] } = usePages(systemId);
-  if (!overview) return <Readings readings={null} />;
+  // `usePages` lee hasta su tope: si paró ahí, la suma es un mínimo.
+  const { data: pages = [], restantes } = usePages(systemId);
+  if (!overview) return <Readings readings={null} lineas={2} />;
   const metas = obras.map((o) => readWordGoal((o.metadata ?? {}) as Record<string, unknown>) ?? 0);
   const goal = metas.reduce((a, b) => a + b, 0);
   const sesiones = overview.works.map((w) => w.daysSinceLastSession).filter((d): d is number => d !== null);
@@ -87,20 +89,37 @@ function WritingReadings({ systemId, signals }: { systemId: string; signals: Sys
         daysSinceSession:
           sesiones.length > 0 ? Math.min(...sesiones) : signals.stale ? signals.daysSinceLastActivity : null,
         staleAfter: DIAS_DORMIDA,
+        parcial: restantes > 0,
       })}
     />
   );
 }
 
-/** Tres cifras en Bricolage, cada una con su palabra debajo. Mientras llegan, su forma. */
-export function Readings({ readings }: { readings: Reading[] | null }) {
+/**
+ * Tres cifras en Bricolage, cada una con su palabra debajo. Mientras llegan,
+ * su forma con la tipografía real: la cifra en su alto de línea y la palabra
+ * en `lineas` renglones (las de escritura, como «días dormido», parten en dos
+ * en el teléfono).
+ */
+export function Readings({ readings, lineas = 1 }: { readings: Reading[] | null; lineas?: 1 | 2 }) {
   if (readings === null) {
     return (
-      <div aria-hidden className="grid grid-cols-3 gap-x-4 pt-1 md:flex md:gap-x-10">
+      <div aria-hidden className="grid grid-cols-3 gap-x-4 gap-y-3 pt-1 md:flex md:gap-x-10">
         {[0, 1, 2].map((i) => (
-          <div key={i} className="space-y-1.5">
-            <div className="h-7 w-12 rounded-md bg-muted" />
-            <div className="h-3 w-20 rounded-md bg-muted" />
+          <div key={i} className="flex flex-col">
+            <span className="font-display text-[1.6rem] leading-none md:text-[1.76rem]">
+              <span className="inline-block h-[0.8em] w-12 rounded-md bg-muted align-middle" />
+            </span>
+            <span className="pt-1 text-sm leading-tight">
+              <span className="block">
+                <span className="inline-block h-[0.72em] w-20 max-w-full rounded-md bg-muted align-middle" />
+              </span>
+              {lineas === 2 && (
+                <span className="block md:hidden">
+                  <span className="inline-block h-[0.72em] w-12 rounded-md bg-muted align-middle" />
+                </span>
+              )}
+            </span>
           </div>
         ))}
       </div>
@@ -223,7 +242,7 @@ export function SystemDetailHeader({ system, signals, landing = "tasks", initial
                   aria-hidden
                   className={cn("size-4 transition-transform duration-(--dur-toque)", triggerOpen && "rotate-180")}
                 />
-                Contexto de activación
+                Cuándo empiezo
               </button>
             )}
             <SystemRadiografia systemId={system.id} />
