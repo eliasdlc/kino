@@ -2,8 +2,8 @@
 
 import { useState } from 'react';
 import { Button } from '@/components/ui/button';
+import { Segmented } from '@/components/ui/segmented';
 import { Slider } from '@/components/ui/slider';
-import { cn } from '@/lib/utils';
 import type { CheckinSlot } from '@/features/energy/energy.schemas';
 import type { SleepQuality } from '@/features/energy/energy.utils';
 import { SLOT_LABELS, SLOT_HOURS, SLEEP_LABELS } from './energyDisplay';
@@ -22,43 +22,11 @@ interface EnergyCheckinFormProps {
   onCancel: () => void;
 }
 
-/** Una fila de pills de una sola elección: el elegido es el acento. */
-function Choice<T extends string>({
-  options,
-  value,
-  onChange,
-  label,
-}: {
-  options: { value: T; label: string; hint?: string }[];
-  value: T;
-  onChange: (v: T) => void;
-  label: string;
-}) {
-  return (
-    <div className="flex gap-2" role="radiogroup" aria-label={label}>
-      {options.map((o) => {
-        const selected = o.value === value;
-        return (
-          <button
-            key={o.value}
-            type="button"
-            role="radio"
-            aria-checked={selected}
-            onClick={() => onChange(o.value)}
-            className={cn(
-              'flex h-[2.8rem] flex-1 flex-col items-center justify-center rounded-full text-sm font-semibold leading-none transition-colors',
-              selected ? 'bg-primary text-primary-foreground' : 'bg-secondary text-foreground hover:bg-secondary/70',
-            )}
-          >
-            {o.label}
-            {o.hint && <span className={cn('mt-0.5 text-[0.65rem] font-medium', selected ? 'opacity-80' : 'text-muted-foreground')}>{o.hint}</span>}
-          </button>
-        );
-      })}
-    </div>
-  );
-}
-
+/**
+ * El check-in en la misma página: el tramo y el sueño son segmentos en tinta
+ * (elegir es un estado, no una acción), el nivel es la cifra en Bricolage y el
+ * acento sobre un deslizador, y Guardar es la única pastilla del acento.
+ */
 export function EnergyCheckinForm({ defaultLevel, initialSlot, isPending, onSubmit, onCancel }: EnergyCheckinFormProps) {
   const [slot, setSlot] = useState<CheckinSlot>(initialSlot);
   const [level, setLevel] = useState(defaultLevel);
@@ -66,19 +34,28 @@ export function EnergyCheckinForm({ defaultLevel, initialSlot, isPending, onSubm
 
   return (
     <div className="space-y-5">
-      <Choice
-        label="Tramo del día"
+      <Segmented
+        aria-label="Tramo del día"
         value={slot}
-        onChange={setSlot}
+        onValueChange={setSlot}
+        className="w-full [&>button]:flex-1"
         options={(Object.keys(SLOT_LABELS) as CheckinSlot[]).map((s) => {
           const [start, end] = SLOT_HOURS[s];
-          return { value: s, label: SLOT_LABELS[s], hint: `${start} a ${end}h` };
+          return {
+            value: s,
+            label: (
+              <span className="inline-flex items-baseline gap-1.5">
+                {SLOT_LABELS[s]}
+                <span className="text-[0.7rem] font-medium opacity-70 tabular-nums">{start} a {end}</span>
+              </span>
+            ),
+          };
         })}
       />
 
       <div className="space-y-3">
         <div className="flex items-baseline justify-between">
-          <p className="text-sm text-foreground/80">¿Cómo está tu energía?</p>
+          <p className="font-voice text-[0.98rem] text-body italic">¿Cómo está tu energía?</p>
           <span className="font-display text-2xl font-bold text-primary tabular-nums">{level}</span>
         </div>
         <Slider
@@ -94,19 +71,20 @@ export function EnergyCheckinForm({ defaultLevel, initialSlot, isPending, onSubm
 
       {slot === 'morning' && (
         <div className="space-y-2">
-          <p className="text-sm text-foreground/80">¿Cómo dormiste?</p>
-          <Choice
-            label="Sueño"
+          <p className="font-voice text-[0.98rem] text-body italic">¿Cómo dormiste?</p>
+          <Segmented
+            aria-label="Sueño"
             value={sleep}
-            onChange={setSleep}
+            onValueChange={setSleep}
+            className="w-full [&>button]:flex-1"
             options={(['good', 'partial', 'poor'] as const).map((q) => ({ value: q, label: SLEEP_LABELS[q] ?? q }))}
           />
         </div>
       )}
 
       <div className="flex gap-2">
-        <Button size="lg" onClick={() => onSubmit({ level, slot, sleep })} disabled={isPending} className="flex-1">
-          {isPending ? 'Guardando…' : 'Guardar'}
+        <Button size="lg" onClick={() => onSubmit({ level, slot, sleep })} disabled={isPending} aria-busy={isPending} className="flex-1">
+          {isPending ? 'Guardando' : 'Guardar'}
         </Button>
         <Button size="lg" variant="secondary" onClick={onCancel} disabled={isPending}>
           Cancelar

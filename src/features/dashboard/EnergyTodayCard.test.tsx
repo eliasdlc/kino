@@ -1,11 +1,9 @@
 /**
- * Qué se prueba: que la tarjeta que se abre todos los días no tiene ninguna
- * animación en bucle, y que la cifra de energía acaba siendo la misma con el
- * movimiento encendido y apagado.
- *
- * Lo segundo importa porque esa cifra no la anima CSS sino JavaScript: una
- * cuenta de 0 hasta el valor. Un apagado que sólo tocara CSS la dejaría
- * contando, y quien pidió menos movimiento vería justo lo que pidió no ver.
+ * Criterio: la cota que se abre todos los días no tiene ninguna animación en
+ * bucle, usa el tramo que dice el servidor, pone la palabra que la explica
+ * como h1 de la pantalla y enlaza la fecha al calendario con un blanco de
+ * 48 px; y la cifra acaba siendo la misma con el movimiento encendido y
+ * apagado, porque la cuenta la hace JavaScript y el CSS no la alcanza.
  */
 
 import { describe, expect, it, vi } from "vitest";
@@ -53,7 +51,19 @@ describe("EnergyTodayCard", () => {
         projectedCurve={CURVA} chronotype="intermediate" />,
     );
     expect(screen.getByText("73")).toBeVisible();
-    expect(screen.getByText(/viernes, 11 de septiembre/i)).toBeVisible();
+    const fecha = screen.getByRole("link", { name: /viernes, 11 de septiembre/i });
+    expect(fecha).toHaveAttribute("href", "/calendar");
+    expect(fecha.className).toContain("min-h-[2.85rem]");
+  });
+
+  it("la palabra de la cota es el h1 de la pantalla y la frase va en la voz", () => {
+    setReducedMotion(true);
+    pintar();
+    const h1 = screen.getByRole("heading", { level: 1 });
+    expect(h1).toHaveTextContent("Ahora, energía alta.");
+    expect(h1).toHaveClass("font-display");
+    expect(screen.getByText("Buen momento para lo más exigente.")).toHaveClass("font-voice", "italic");
+    expect(screen.getByRole("radiogroup", { name: "Tramo del día" })).toBeInTheDocument();
   });
 
   it("no deja ninguna animación en bucle, ni por clase ni en un style inline", () => {
@@ -91,7 +101,7 @@ describe("EnergyTodayCard", () => {
 
       // A mitad de la cuenta va por el camino: ni en cero ni en la cifra final.
       await act(async () => void fotogramas.shift()?.(arranque + 275));
-      const enCamino = Number(container.querySelector(".tabular-nums")?.textContent);
+      const enCamino = Number(container.querySelector("[data-slot=cota]")?.textContent);
       expect(enCamino).toBeGreaterThan(0);
       expect(enCamino).toBeLessThan(82);
 
