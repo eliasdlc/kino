@@ -142,9 +142,9 @@ export function KinoSection() {
 
       <SubSection
         title="Task cards — estados"
-        description="DefaultTaskCard (sistemas custom) en todos sus estados de scheduling y prioridad. El checkbox y el expandir son interactivos."
+        description="DefaultTaskCard (sistemas custom) en todos sus estados de fecha y prioridad. Ya no es una card: es la fila de tarea en densidad lista, una debajo de otra con su hairline. El círculo y las acciones son interactivos."
       >
-        <div className="grid grid-cols-1 gap-3 lg:grid-cols-2">
+        <div className="max-w-2xl">
           {[
             makeTask({ id: mid("t-1"), title: "Tarea normal (today)", status: "today" }),
             makeTask({
