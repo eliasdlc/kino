@@ -115,9 +115,10 @@ export function UniverseGraph({ systemId }: { systemId: string }) {
                 onClick={() => toggleType(type)}
                 aria-pressed={on}
                 className={cn(
-                  "flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs transition-colors",
+                  // Ver u ocultar un tipo es un estado: en tinta, no en ámbar.
+                  "flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs transition-colors focus-ring pointer-coarse:min-h-[2.85rem] pointer-coarse:px-3.5 pointer-coarse:text-sm",
                   on
-                    ? "border-primary/40 bg-accent text-foreground"
+                    ? "border-foreground bg-foreground text-background"
                     : "border-border text-muted-foreground hover:text-foreground",
                 )}
               >
@@ -233,13 +234,13 @@ export function GraphCanvas({ layout, onOpen }: GraphCanvasProps) {
   return (
     <div className="relative overflow-hidden rounded-lg border bg-muted/10">
       <div className="absolute right-2 top-2 z-(--z-raised) flex flex-col gap-1">
-        <Button variant="outline" size="icon" className="size-8" onClick={() => zoom(ZOOM_STEP)} aria-label="Acercar">
+        <Button variant="outline" size="icon-sm" onClick={() => zoom(ZOOM_STEP)} aria-label="Acercar">
           <Plus className="size-4" />
         </Button>
-        <Button variant="outline" size="icon" className="size-8" onClick={() => zoom(1 / ZOOM_STEP)} aria-label="Alejar">
+        <Button variant="outline" size="icon-sm" onClick={() => zoom(1 / ZOOM_STEP)} aria-label="Alejar">
           <Minus className="size-4" />
         </Button>
-        <Button variant="outline" size="icon" className="size-8" onClick={() => setView(initial)} aria-label="Ajustar a la vista">
+        <Button variant="outline" size="icon-sm" onClick={() => setView(initial)} aria-label="Ajustar a la vista">
           <Maximize2 className="size-4" />
         </Button>
       </div>
