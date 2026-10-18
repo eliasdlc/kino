@@ -17,9 +17,18 @@ export const FILA_DEL_TITULO = "flex items-start gap-2";
 export const LETRA_DEL_TITULO =
   "font-serif text-[1.76rem] leading-[1.2] font-semibold tracking-[-0.01em]";
 
-/** La puerta del panel en el título: 2.85rem, sólo bajo md. */
+/**
+ * La puerta del panel en el título: 2.85rem de alto, sólo bajo md. En un
+ * manuscrito lleva su palabra («Capítulo», «Escena») delante de los tres puntos,
+ * porque ahí viven el estado y la sesión y un «…» solo no se adivina.
+ */
 export const BOTON_MAS =
-  "press -mr-2 -mt-1 flex size-[2.85rem] shrink-0 items-center justify-center rounded-full text-muted-foreground transition-[color,background-color,transform] duration-(--dur-toque) ease-(--ease-pluma) focus-ring hover:bg-secondary hover:text-foreground md:hidden";
+  "press -mr-2 -mt-1 flex h-[2.85rem] min-w-[2.85rem] shrink-0 items-center justify-center gap-1 rounded-full px-2.5 text-sm font-medium text-muted-foreground transition-[color,background-color,transform] duration-(--dur-toque) ease-(--ease-pluma) focus-ring hover:bg-secondary hover:text-foreground md:hidden";
+
+/** El nombre de esa puerta: empieza por la palabra que se ve. */
+export function nombreDelBotonMas(etiqueta: string | null): string {
+  return etiqueta ? `${etiqueta}: sesión, estado y más` : "Más del documento";
+}
 
 /**
  * El alto de la fila del codex mientras llegan sus fichas: el de una ficha
@@ -31,6 +40,8 @@ export type PrimeraPintura = {
   titulo: string;
   cuerpo: React.ReactNode;
   writer: boolean;
+  /** La palabra de la puerta del panel («Capítulo»); null en un documento. */
+  etiquetaMas: string | null;
   /** Cuántas fichas del codex tiene el capítulo, según el servidor. */
   fichasDelCodex: number;
   onOpenPanel: () => void;
