@@ -1,10 +1,11 @@
 "use client";
 
-import { Download, Image as ImageIcon } from "lucide-react";
+import { Archive, Download, Image as ImageIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { ReclaimSpaceSection } from "@/features/uploads/ReclaimSpaceSection";
 import { useExportImages, useExportWorkspace } from "./settings.hooks";
 import { ExportManifestTable } from "./ExportManifestTable";
+import { ControlRow } from "./settings-ui";
 
 /**
  * Irse de Kino con todo. Dos descargas y no una: los datos primero, que es lo
@@ -18,58 +19,37 @@ export function DataPortabilitySection() {
   const imagenes = useExportImages();
 
   return (
-    <div className="space-y-4">
-      <div>
-        <h2 className="text-lg font-semibold">Datos y portabilidad</h2>
-        <p className="text-sm text-muted-foreground">
-          Bájate tu workspace entero: un JSON por tabla para reimportarlo y un Markdown por
-          capítulo para leerlo en cualquier otra herramienta.
-        </p>
-      </div>
-
-      <div className="flex items-center justify-between gap-4 rounded-lg border p-4">
-        <div className="space-y-0.5">
-          <p className="text-sm font-medium">Exportar los datos</p>
-          <p className="text-xs text-muted-foreground">
-            Un ZIP con un JSON por tabla y un Markdown por capítulo. Las tablas que viajan son las
-            que la lista de abajo marca.
-          </p>
-        </div>
-        <Button
-          variant="outline"
-          size="sm"
-          className="gap-2 shrink-0"
-          disabled={datos.isPending}
-          onClick={() => datos.mutate()}
-        >
-          <Download className="size-4" />
+    <div>
+      <ControlRow
+        icon={<Archive aria-hidden className="size-5 stroke-[1.8]" />}
+        title="Exportar los datos"
+        meta="Un ZIP con un JSON por tabla y un Markdown por capítulo. Viajan las tablas que la lista de abajo marca."
+      >
+        <Button variant="outline" disabled={datos.isPending} onClick={() => datos.mutate()}>
+          <Download aria-hidden className="size-4" />
           {datos.isPending ? "Preparando el ZIP" : "Exportar ZIP"}
         </Button>
-      </div>
+      </ControlRow>
 
-      <div className="flex items-center justify-between gap-4 rounded-lg border p-4">
-        <div className="space-y-0.5">
-          <p className="text-sm font-medium">Exportar las imágenes</p>
-          <p className="text-xs text-muted-foreground">
-            Van aparte porque bajarlas tarda. Descomprime este ZIP al lado del otro y los enlaces
-            de los Markdown quedan en su sitio.
-          </p>
-        </div>
-        <Button
-          variant="outline"
-          size="sm"
-          className="gap-2 shrink-0"
-          disabled={imagenes.isPending}
-          onClick={() => imagenes.mutate()}
-        >
-          <ImageIcon className="size-4" />
+      <ControlRow
+        icon={<ImageIcon aria-hidden className="size-5 stroke-[1.8]" />}
+        title="Exportar las imágenes"
+        meta="Van aparte porque bajarlas tarda. Descomprime este ZIP al lado del otro y los enlaces de los Markdown quedan en su sitio."
+      >
+        <Button variant="outline" disabled={imagenes.isPending} onClick={() => imagenes.mutate()}>
+          <ImageIcon aria-hidden className="size-4" />
           {imagenes.isPending ? "Bajando las imágenes" : "Bajar imágenes"}
         </Button>
+      </ControlRow>
+
+      <div className="space-y-6 pt-4 pl-(--margen)">
+        <ExportManifestTable />
+        <ReclaimSpaceSection />
       </div>
-
-      <ExportManifestTable />
-
-      <ReclaimSpaceSection />
     </div>
   );
 }
+
+/** Lo que la hoja explica arriba. */
+export const DATOS_DESCRIPCION =
+  "Bájate todo lo tuyo: un JSON por tabla para reimportarlo y un Markdown por capítulo para leerlo en cualquier otra herramienta.";

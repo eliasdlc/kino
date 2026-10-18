@@ -2,13 +2,13 @@
 
 import { Suspense } from 'react';
 import { api } from '@convex/_generated/api';
-import { Skeleton } from '@/components/ui/skeleton';
 import { useConvexQuery } from '@/shared/convex/hooks';
 import { GithubConnectionSection } from '@/features/github-sync/GithubConnectionSection';
 import { enPantalla } from '@/features/connections/providers';
+import { SheetLoading } from './settings-ui';
 
 /**
- * Las fuentes conectadas, dentro de Ajustes hasta que haya una segunda.
+ * Las fuentes conectadas, en su hoja de Ajustes hasta que haya una segunda.
  *
  * La lista sale del servidor y no de una constante del cliente, y eso es lo que
  * hace que aquí no se pinte nunca un proveedor sin código detrás: el schema
@@ -28,26 +28,41 @@ const PANEL: Record<string, () => React.ReactNode> = {
   ),
 };
 
+const NOMBRE: Record<string, string> = { github: 'GitHub' };
+
+/** Las fuentes que se pintan, con la misma lista que la hoja. */
+function useFuentes() {
+  const { data } = useConvexQuery(api.connections.list, {});
+  return data?.filter((fuente) => enPantalla(fuente.provider));
+}
+
+/**
+ * La meta de la fila del índice: qué fuente hay y si está conectada. Sale de
+ * la misma query que la hoja, no de la acción que pregunta a GitHub, así que
+ * abrir Ajustes no llama a nadie fuera.
+ */
+export function useConnectionsMeta(): string | undefined {
+  const fuentes = useFuentes();
+  if (!fuentes) return undefined;
+  if (fuentes.length === 0) return 'Ninguna fuente disponible';
+  return fuentes
+    .map((f) => `${NOMBRE[f.provider] ?? f.provider}, ${f.connected ? 'conectada' : 'sin conectar'}`)
+    .join('; ');
+}
+
 export function ConnectionsSection() {
-  const { data: fuentes, isLoading } = useConvexQuery(api.connections.list, {});
+  const fuentes = useFuentes();
 
+  if (!fuentes) return <SheetLoading rows={2} />;
   return (
-    <div className="space-y-4">
-      <div>
-        <h2 className="text-lg font-semibold">Conexiones</h2>
-        <p className="text-sm text-muted-foreground">
-          De dónde entra trabajo que no escribiste tú. Lo que traiga una fuente no pisa lo que
-          añadas encima: la energía, la fecha y el plan de hoy siguen siendo tuyos.
-        </p>
-      </div>
-
-      {isLoading ? (
-        <Skeleton className="h-24 w-full rounded-lg" />
-      ) : (
-        (fuentes ?? [])
-          .filter((fuente) => enPantalla(fuente.provider))
-          .map((fuente) => <div key={fuente.provider}>{PANEL[fuente.provider]?.()}</div>)
-      )}
+    <div className="space-y-4 pl-(--margen)">
+      {fuentes.map((fuente) => (
+        <div key={fuente.provider}>{PANEL[fuente.provider]?.()}</div>
+      ))}
     </div>
   );
 }
+
+/** Lo que la hoja explica arriba, con la misma frase que antes llevaba la sección. */
+export const CONEXIONES_DESCRIPCION =
+  'De dónde entra trabajo que no escribiste tú. Lo que traiga una fuente no pisa lo que añadas encima: la energía, la fecha y el plan de hoy siguen siendo tuyos.';

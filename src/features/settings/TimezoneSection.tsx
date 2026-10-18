@@ -1,56 +1,80 @@
 'use client';
 
+import { useState, useSyncExternalStore } from 'react';
 import { Globe } from 'lucide-react';
-import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
-import { Skeleton } from '@/components/ui/skeleton';
-import { useUserSettings, useUpdateUserSettings } from './settings.hooks';
+import { IndexRow, Pendiente, SettingsSheet } from './settings-ui';
+import { useUpdateUserSettings, useUserSettings } from './settings.hooks';
 
-export function TimezoneSection() {
-  const { data, isLoading } = useUserSettings();
+const nada = () => () => {};
+
+/** La zona del dispositivo. En el servidor no se sabe, y adivinarla rompería la hidratación. */
+function useZonaDelDispositivo(): string | null {
+  return useSyncExternalStore(
+    nada,
+    () => Intl.DateTimeFormat().resolvedOptions().timeZone,
+    () => null,
+  );
+}
+
+/** "America/Santo_Domingo" a "Santo Domingo": la ciudad, que es como se reconoce una zona. */
+export function ciudadDe(zona: string): string {
+  return (zona.split('/').at(-1) ?? zona).replaceAll('_', ' ');
+}
+
+/**
+ * La zona horaria de la cuenta, que decide a qué hora llegan los avisos de
+ * "vence hoy". Si coincide con la del dispositivo la fila sólo informa; si no,
+ * la fila abre una hoja que enseña las dos y deja usar la de aquí. No cambia
+ * sola: un viaje no debería mover los avisos sin que lo decidas.
+ */
+export function TimezoneRow() {
+  const { data } = useUserSettings();
   const { mutate, isPending } = useUpdateUserSettings();
+  const dispositivo = useZonaDelDispositivo();
+  const [abierta, setAbierta] = useState(false);
 
-  const deviceTz = Intl.DateTimeFormat().resolvedOptions().timeZone;
-  const mismatch = data != null && data.timezone !== deviceTz;
+  const cuenta = data?.timezone;
+  const listo = cuenta !== undefined && dispositivo !== null;
+  const distinta = listo && cuenta !== dispositivo;
 
   return (
-    <div className="space-y-4">
-      <div>
-        <h2 className="text-lg font-semibold">Zona horaria</h2>
-        <p className="text-sm text-muted-foreground">
-          Define a qué hora llegan los recordatorios de «vence hoy/mañana».
-        </p>
-      </div>
-
-      <div className="flex items-center justify-between rounded-lg border p-4 gap-4">
-        <div className="flex items-center gap-3 min-w-0">
-          <Globe className="size-4 text-muted-foreground shrink-0" />
-          <div className="space-y-0.5 min-w-0">
-            <Label className="text-sm font-medium">Zona horaria de tu cuenta</Label>
-            {isLoading ? (
-              <Skeleton className="h-4 w-40" />
-            ) : (
-              <p className="text-xs text-muted-foreground truncate">
-                {data?.timezone}
-                {mismatch
-                  ? `: tu dispositivo está en ${deviceTz}`
-                  : ': coincide con tu dispositivo'}
-              </p>
-            )}
+    <>
+      <IndexRow
+        icon={<Globe aria-hidden className="size-5 stroke-[1.8]" />}
+        title="Zona horaria"
+        meta={!listo ? undefined : distinta ? `Este dispositivo está en ${ciudadDe(dispositivo ?? '')}` : 'La de este dispositivo'}
+        value={cuenta ? ciudadDe(cuenta) : <Pendiente className="w-20" />}
+        onOpen={distinta ? () => setAbierta(true) : undefined}
+      />
+      {distinta && dispositivo !== null && (
+        <SettingsSheet
+          open={abierta}
+          onOpenChange={setAbierta}
+          title="Zona horaria"
+          description="Decide a qué hora llegan los avisos de lo que vence hoy y mañana."
+        >
+          <dl className="space-y-3 pb-4 pl-(--margen) text-sm">
+            <div>
+              <dt className="text-muted-foreground">Tu cuenta</dt>
+              <dd className="text-base font-semibold text-foreground">{cuenta}</dd>
+            </div>
+            <div>
+              <dt className="text-muted-foreground">Este dispositivo</dt>
+              <dd className="text-base font-semibold text-foreground">{dispositivo}</dd>
+            </div>
+          </dl>
+          <div className="pl-(--margen)">
+            <Button
+              size="lg"
+              disabled={isPending}
+              onClick={() => mutate({ timezone: dispositivo }, { onSuccess: () => setAbierta(false) })}
+            >
+              {isPending ? 'Cambiando la zona' : 'Usar la de este dispositivo'}
+            </Button>
           </div>
-        </div>
-
-        {mismatch && (
-          <Button
-            size="sm"
-            onClick={() => mutate({ timezone: deviceTz })}
-            disabled={isPending}
-            className="shrink-0"
-          >
-            {isPending ? 'Guardando…' : 'Usar la del dispositivo'}
-          </Button>
-        )}
-      </div>
-    </div>
+        </SettingsSheet>
+      )}
+    </>
   );
 }

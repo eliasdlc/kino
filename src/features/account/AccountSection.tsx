@@ -5,28 +5,35 @@ import { clerkAppearance } from '@/features/auth/clerk-appearance';
 
 /**
  * Nombre, correo, contraseña, proveedores y sesiones activas viven en el panel
- * de Clerk, embebido aquí. `routing="hash"` mantiene sus pestañas en la URL de
- * Ajustes sin pedir una ruta propia.
+ * de Clerk, dentro de la hoja de Cuenta. Se carga sólo al abrir la hoja (la
+ * importa `next/dynamic` desde el índice): era lo que más pesaba de Ajustes y
+ * lo que, al llegar tarde arriba de todo, empujaba la pantalla entera.
+ *
+ * Viste los tokens de Diario a través de `clerkAppearance`; aquí sólo se le
+ * quita la caja, porque la hoja ya es la superficie. `routing="hash"` mantiene
+ * sus pestañas (Perfil, Seguridad) en la URL de Ajustes sin pedir una ruta.
  */
 export function AccountSection() {
   return (
-    <div className="space-y-4">
-      {/* El panel de Clerk trae su propia cabecera "Cuenta": una sola, la suya. */}
-      <UserProfile
-        routing="hash"
-        appearance={{
-          ...clerkAppearance,
-          elements: {
-            ...clerkAppearance.elements,
-            rootBox: 'w-full',
-            cardBox: 'w-full shadow-none border border-border rounded-2xl',
-            navbar: 'hidden',
-            navbarMobileMenuRow: 'hidden',
-            headerTitle: 'hidden',
-            headerSubtitle: 'hidden',
-          },
-        }}
-      />
-    </div>
+    <UserProfile
+      routing="hash"
+      appearance={{
+        ...clerkAppearance,
+        elements: {
+          ...clerkAppearance.elements,
+          // Clerk pinta su caja con estilos propios que ganan a una clase
+          // normal: el `!` es lo que la quita de verdad.
+          rootBox: '!w-full',
+          cardBox: '!w-full !max-w-none !shadow-none !border-0 !rounded-none !bg-transparent',
+          scrollBox: '!rounded-none !shadow-none !border-0 !bg-transparent',
+          navbar: '!border-0 !bg-transparent',
+          navbarMobileMenuRow: '!bg-transparent',
+          pageScrollBox: '!px-0 !py-2',
+          // El título de la página repetiría el de la hoja.
+          headerTitle: 'hidden',
+          headerSubtitle: 'hidden',
+        },
+      }}
+    />
   );
 }

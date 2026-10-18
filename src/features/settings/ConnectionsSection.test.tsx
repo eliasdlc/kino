@@ -1,7 +1,8 @@
 /**
  * Criterio: Ajustes ofrece como fuente conectada sólo la que tiene código
  * detrás. El schema admite siete proveedores y seis nunca se implementaron;
- * pintarlos sería ofrecer un control que no responde.
+ * pintarlos sería ofrecer un control que no responde. La fila del índice lo
+ * resume desde la misma lista, sin llamar a la acción que pregunta a GitHub.
  */
 import { describe, expect, it, vi } from "vitest";
 
@@ -10,7 +11,7 @@ vi.mock("next/navigation", async () => (await import("@/shared/testing/navigatio
 import { screen } from "@testing-library/react";
 import { api } from "@convex/_generated/api";
 import { makeTestConvexClient, renderWithProviders, stubQuery } from "@/shared/testing/render";
-import { ConnectionsSection } from "./ConnectionsSection";
+import { CONEXIONES_DESCRIPCION, ConnectionsSection, useConnectionsMeta } from "./ConnectionsSection";
 
 /** Los seis valores del schema que nunca tuvieron código detrás. */
 const MUERTOS = ["Google Calendar", "Jira", "Slack", "Microsoft Teams", "Notion", "iCal"];
@@ -33,8 +34,14 @@ describe("ConnectionsSection", () => {
     }
   });
 
-  it("dice que lo que traiga una fuente no pisa lo que añadas encima", () => {
-    renderWithProviders(<ConnectionsSection />, { convex: conFuentes([]) });
-    expect(screen.getByText(/no pisa lo que añadas encima/)).toBeVisible();
+  it("la fila del índice dice si GitHub está conectada, sin preguntarle a GitHub", () => {
+    function Meta() {
+      return <p>{useConnectionsMeta() ?? "cargando"}</p>;
+    }
+    const convex = conFuentes([{ provider: "github", connected: false, lastSyncedAt: null, linkedSystems: 0 }]);
+    renderWithProviders(<Meta />, { convex });
+    expect(screen.getByText("GitHub, sin conectar")).toBeVisible();
+    expect(convex.calls).toEqual([]);
+    expect(CONEXIONES_DESCRIPCION).toMatch(/no pisa lo que añadas encima/);
   });
 });
