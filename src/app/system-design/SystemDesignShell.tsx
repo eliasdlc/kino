@@ -39,7 +39,7 @@ const TOC: Array<{ id: string; number: string; label: string }> = [
   { id: "overlays", number: "07", label: "Overlays" },
   { id: "contenido", number: "08", label: "Contenido y datos" },
   { id: "kino", number: "09", label: "Componentes Kino" },
-  { id: "dashboard", number: "10", label: "Dashboard" },
+  { id: "dashboard", number: "10", label: "Hoy" },
   { id: "energia", number: "11", label: "Energía visible" },
   { id: "tareas", number: "12", label: "Tareas: vistas" },
   { id: "notebooks", number: "13", label: "Notebooks y notas" },
