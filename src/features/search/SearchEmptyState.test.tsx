@@ -4,13 +4,14 @@
  * que el hueco diga «tu nota no existe» en vez de «no la encontré».
  */
 import { describe, expect, it } from "vitest";
-import { render, screen } from "@testing-library/react";
+import { screen } from "@testing-library/react";
+import { renderWithProviders } from "@/shared/testing/render";
 import { SEARCH_SOURCES } from "./search.types";
 import { SearchEmptyState } from "./SearchEmptyState";
 
 describe("SearchEmptyState", () => {
   it("nombra las cinco fuentes y el término que se buscó", () => {
-    render(<SearchEmptyState query="marco teorico" />);
+    renderWithProviders(<SearchEmptyState query="marco teorico" />);
 
     const linea = screen.getByText(/Nada con/).textContent!;
     for (const fuente of SEARCH_SOURCES) expect(linea).toContain(fuente.fuente);
@@ -18,8 +19,14 @@ describe("SearchEmptyState", () => {
     expect(SEARCH_SOURCES).toHaveLength(5);
   });
 
+  it("la línea del vacío habla en la voz, como los demás vacíos", () => {
+    renderWithProviders(<SearchEmptyState query="daga" />);
+
+    expect(screen.getByText(/Nada con/)).toHaveClass("font-voice", "italic");
+  });
+
   it("declara el tope de ocho por fuente, que hoy no se ve por ningún lado", () => {
-    render(<SearchEmptyState query="daga" />);
+    renderWithProviders(<SearchEmptyState query="daga" />);
 
     expect(screen.getByText(/se enseñan los 8 primeros resultados/)).toBeVisible();
   });
