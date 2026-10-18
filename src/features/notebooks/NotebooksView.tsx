@@ -129,7 +129,7 @@ export function NotebooksView({ systemId, academic = false, periods = [], initia
   return (
     <div className="w-full space-y-7">
       {isLoading && (
-        <div aria-busy aria-label="Cargando la biblioteca">
+        <div role="status" aria-busy aria-label="Cargando la biblioteca">
           <RowsSkeleton rows={5} margin="numeral" />
         </div>
       )}
@@ -169,6 +169,7 @@ export function NotebooksView({ systemId, academic = false, periods = [], initia
                     folder={folder}
                     systemId={systemId}
                     periods={periods}
+                    manifest={manifest}
                     tasks={tasks.filter((task) => task.folderId === folder.id)}
                     href={`/systems/${systemId}/folders/${folder.id}`}
                   />
@@ -179,8 +180,9 @@ export function NotebooksView({ systemId, academic = false, periods = [], initia
                     folder={folder}
                     systemId={systemId}
                     href={`/systems/${systemId}/folders/${folder.id}`}
+                    manifest={manifest}
                   >
-                    <FolderContents systemId={systemId} folderId={folder.id} pages={pages} />
+                    <FolderContents systemId={systemId} folderId={folder.id} pages={pages} manifest={manifest} />
                   </FolderRow>
                 ),
               )}
@@ -237,6 +239,7 @@ export function NotebooksView({ systemId, academic = false, periods = [], initia
                   page={page}
                   systemId={systemId}
                   href={`/systems/${systemId}/pages/${page.id}`}
+                  manifest={manifest}
                 />
               ))}
             </div>
