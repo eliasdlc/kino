@@ -9,7 +9,8 @@ import { SEARCH_PER_SOURCE, SEARCH_SOURCES } from "./search.types";
  */
 export function SearchEmptyState({ query }: { query: string }) {
   const fuentes = SEARCH_SOURCES.map((f) => f.fuente);
-  const enumeradas = `${fuentes.slice(0, -1).join(", ")} ni ${fuentes.at(-1)}`;
+  // "en A, B o C": "ni" sólo vale con la negación delante de cada una.
+  const enumeradas = `${fuentes.slice(0, -1).join(", ")} o ${fuentes.at(-1)}`;
 
   return (
     <div className="space-y-1 px-4 py-6 text-center">

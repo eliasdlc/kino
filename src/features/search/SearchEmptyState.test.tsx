@@ -19,6 +19,14 @@ describe("SearchEmptyState", () => {
     expect(SEARCH_SOURCES).toHaveLength(5);
   });
 
+  it("enumera con «o», no con un «ni» que pide negación delante de cada fuente", () => {
+    renderWithProviders(<SearchEmptyState query="daga" />);
+
+    const linea = screen.getByText(/Nada con/).textContent!;
+    expect(linea).toMatch(new RegExp(` o ${SEARCH_SOURCES.at(-1)!.fuente}\\.$`));
+    expect(linea).not.toMatch(/ ni /);
+  });
+
   it("la línea del vacío habla en la voz, como los demás vacíos", () => {
     renderWithProviders(<SearchEmptyState query="daga" />);
 
