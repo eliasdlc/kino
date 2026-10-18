@@ -67,13 +67,16 @@ type WritingRule = SuggestionRule<StudioSignals, WritingSuggestion>;
 const resumeChapter: WritingRule = ({ openChapter }) => {
   if (!openChapter) return null;
   const { title, folderName, wordCount, daysSinceEdit, pageId } = openChapter;
+  // Un manuscrito suelto llega con la obra «sin obra»: «palabras en sin obra»
+  // no se lee, así que dice qué es.
+  const donde = folderName === "sin obra" ? "un manuscrito suelto" : folderName;
   return {
     kind: "resume-chapter",
     title: `Retoma «${title?.trim() || "el capítulo sin título"}»`,
     reason:
       daysSinceEdit === 0
-        ? `Lo tocaste hoy y sigue sin terminar; ${wordCount.toLocaleString("es")} palabras en ${folderName}.`
-        : `Es lo último que escribiste, hace ${daysSinceEdit} ${daysSinceEdit === 1 ? "día" : "días"}; ${wordCount.toLocaleString("es")} palabras en ${folderName}.`,
+        ? `Lo tocaste hoy y sigue sin terminar; ${wordCount.toLocaleString("es")} palabras en ${donde}.`
+        : `Es lo último que escribiste, hace ${daysSinceEdit} ${daysSinceEdit === 1 ? "día" : "días"}; ${wordCount.toLocaleString("es")} palabras en ${donde}.`,
     target: { kind: "page", id: pageId },
     // Lo que quedó a medias gana casi siempre: retomar cuesta menos que abrir.
     weight: 90 - Math.min(20, daysSinceEdit),

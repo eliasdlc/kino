@@ -26,6 +26,15 @@ describe("buildWritingSuggestions", () => {
     expect(buildWritingSuggestions(signals())).toEqual([]);
   });
 
+  it("retomar dice el sitio sin punto medio, y un manuscrito suelto se nombra como tal", () => {
+    const [retomar] = buildWritingSuggestions(
+      signals({
+        openChapter: { pageId: "p1", title: "Biblia", folderName: "sin obra", wordCount: 136, daysSinceEdit: 31 },
+      }),
+    );
+    expect(retomar.reason).toBe("Es lo último que escribiste, hace 31 días; 136 palabras en un manuscrito suelto.");
+  });
+
   it("retomar lo que quedó a medias va primero", () => {
     const out = buildWritingSuggestions(
       signals({
