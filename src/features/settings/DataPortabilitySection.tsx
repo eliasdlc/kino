@@ -49,7 +49,3 @@ export function DataPortabilitySection() {
     </div>
   );
 }
-
-/** Lo que la hoja explica arriba. */
-export const DATOS_DESCRIPCION =
-  "Bájate todo lo tuyo: un JSON por tabla para reimportarlo y un Markdown por capítulo para leerlo en cualquier otra herramienta.";
