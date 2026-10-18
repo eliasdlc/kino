@@ -51,21 +51,20 @@ export function TasksPageClient({ systems }: TasksPageProps) {
 
   return (
     <div className={cn(TAREAS_PAGINA, vista === 'calendario' && 'max-w-none')}>
-      <PageHeader
-        title="Tareas"
-        actions={
-          // En el teléfono crear es el orbe del pie; el botón sólo duplicaría.
-          <Button onClick={() => setOpen(true)} className="max-md:hidden">
-            <Plus className="size-5" />
-            Nueva tarea
-          </Button>
-        }
-      />
+      {/* La acción va fuera de PageHeader: en el teléfono crear es el orbe del
+          pie, y un hueco de acciones vacío dejaría un salto bajo el título. */}
+      <div className="flex items-start justify-between gap-3">
+        <PageHeader title="Tareas" />
+        <Button onClick={() => setOpen(true)} className="max-md:hidden">
+          <Plus className="size-5" />
+          Nueva tarea
+        </Button>
+      </div>
 
-      {/* La voz va fuera de PageHeader: dentro, su bloque no crece en una fila
-          flex con acciones y la frase se parte palabra por palabra en escritorio. */}
+      {/* La voz también va fuera: dentro de PageHeader, junto a una acción, su
+          bloque no crece y la frase se parte palabra por palabra en escritorio. */}
       <p className="-mt-3 pl-(--margen) font-voice text-base leading-snug text-body italic md:pl-0">
-        Lo sugerido sale de tu energía de hoy y de lo que vence.
+        {vista === 'lista' ? 'Lo sugerido sale de tu energía de hoy y de lo que vence.' : 'La semana, con lo que tiene hora y lo que falta programar.'}
       </p>
 
       <Segmented<Vista>
