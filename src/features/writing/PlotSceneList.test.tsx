@@ -3,15 +3,19 @@
  * en el teléfono) y las dos reescriben el manuscrito. Lo que se prueba aquí es
  * que emiten **la misma operación**: si divergen, mover una escena significaría
  * una cosa distinta según la pantalla desde la que se mueva. Y que cada Mover
- * dice qué escena mueve, porque reescribe el texto.
+ * dice qué escena mueve, porque reescribe el texto: la hoja nombra la escena,
+ * el aviso dice qué pasó y Deshacer aplica la operación inversa.
  */
-import { describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
+import { toast } from "sonner";
 import { screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { renderWithProviders } from "@/shared/testing/render";
 import { PlotSceneList } from "./PlotSceneList";
 import { arcStats, describirArco } from "./PlotGridView";
 import type { PlotGrid } from "./writing.plot";
+
+vi.mock("sonner", () => ({ toast: vi.fn() }));
 
 const GRID: PlotGrid = {
   folderId: "obra-1" as never,
@@ -34,13 +38,24 @@ const GRID: PlotGrid = {
   ],
 };
 
-function setup(busy = false) {
-  const onApply = vi.fn();
+type Apply = React.ComponentProps<typeof PlotSceneList>["onApply"];
+
+function setup(busy = false, grid: PlotGrid = GRID) {
+  const onApply = vi.fn<Apply>();
   renderWithProviders(
-    <PlotSceneList grid={GRID} systemId="sys-1" busy={busy} onApply={onApply} />,
+    <PlotSceneList grid={grid} systemId="sys-1" busy={busy} onApply={onApply} />,
   );
   return { onApply, user: userEvent.setup() };
 }
+
+/** Lo que el aviso ofrece como Deshacer, tras confirmar el servidor la operación. */
+function deshacerDelAviso(onApply: ReturnType<typeof setup>["onApply"]) {
+  void onApply.mock.calls[0]![1]?.onSuccess?.(GRID as never, onApply.mock.calls[0]![0]!);
+  const [, opciones] = vi.mocked(toast).mock.calls[0]!;
+  return (opciones as { action: { label: string; onClick: () => void } }).action;
+}
+
+beforeEach(() => vi.mocked(toast).mockClear());
 
 /** Abre el panel de mover de la primera escena del primer capítulo. */
 async function openFirstMove(user: ReturnType<typeof userEvent.setup>) {
@@ -70,7 +85,8 @@ describe("PlotSceneList", () => {
     const dialog = screen.getByRole("dialog");
     await user.click(within(dialog).getByRole("button", { name: /La carta/ }));
 
-    expect(onApply).toHaveBeenCalledExactlyOnceWith({
+    expect(onApply).toHaveBeenCalledOnce();
+    expect(onApply.mock.calls[0]![0]).toEqual({
       kind: "move",
       chapterId: "cap-1",
       index: 0,
@@ -87,7 +103,8 @@ describe("PlotSceneList", () => {
     const dialog = screen.getByRole("dialog");
     await user.click(within(dialog).getByRole("button", { name: /Herencia/ }));
 
-    expect(onApply).toHaveBeenCalledExactlyOnceWith({
+    expect(onApply).toHaveBeenCalledOnce();
+    expect(onApply.mock.calls[0]![0]).toEqual({
       kind: "arc",
       chapterId: "cap-1",
       index: 0,
@@ -101,10 +118,11 @@ describe("PlotSceneList", () => {
 
     const dialog = screen.getByRole("dialog");
     // "Llegada" es su capítulo actual y "Duelo" su arco actual: los dos inertes.
-    const here = within(dialog).getByRole<HTMLButtonElement>("button", { name: /Llegada/ });
-    const sameArc = within(dialog).getByRole<HTMLButtonElement>("button", { name: /Duelo/ });
-    expect(here).toBeDisabled();
-    expect(sameArc).toBeDisabled();
+    // No son botones: no hay nada que tocar donde la escena ya está.
+    expect(within(dialog).queryByRole("button", { name: /Llegada/ })).not.toBeInTheDocument();
+    expect(within(dialog).queryByRole("button", { name: /Duelo/ })).not.toBeInTheDocument();
+    await user.click(within(dialog).getByText("Llegada"));
+    expect(within(dialog).getByText("aquí está")).toBeVisible();
     expect(onApply).not.toHaveBeenCalled();
   });
 
@@ -116,6 +134,64 @@ describe("PlotSceneList", () => {
       "Mover la escena 2 de Llegada",
       "Mover la escena 1 de La carta",
     ]);
+  });
+});
+
+describe("PlotSceneList, lo que se ve al mover", () => {
+  it("la hoja nombra la escena: su número, su capítulo y su arranque", async () => {
+    const { user } = setup();
+    await openFirstMove(user);
+    const dialog = screen.getByRole("dialog");
+    expect(within(dialog).getByRole("heading", { name: "Mover la escena 1 de Llegada" })).toBeVisible();
+    expect(within(dialog).getByText("Marta empujó la puerta")).toBeVisible();
+  });
+
+  it("al mover, el aviso dice adónde fue y Deshacer la devuelve a su sitio", async () => {
+    const { onApply, user } = setup();
+    await openFirstMove(user);
+    await user.click(within(screen.getByRole("dialog")).getByRole("button", { name: /La carta/ }));
+
+    const accion = deshacerDelAviso(onApply);
+    expect(vi.mocked(toast).mock.calls[0]![0]).toBe("Escena movida a La carta");
+    expect(accion.label).toBe("Deshacer");
+    accion.onClick();
+    expect(onApply.mock.calls[1]![0]).toEqual({
+      kind: "move",
+      chapterId: "cap-2",
+      index: 1,
+      toChapterId: "cap-1",
+      toIndex: 0,
+    });
+  });
+
+  it("al cambiar de arco, Deshacer vuelve al arco que tenía", async () => {
+    const { onApply, user } = setup();
+    await openFirstMove(user);
+    await user.click(within(screen.getByRole("dialog")).getByRole("button", { name: /Herencia/ }));
+
+    deshacerDelAviso(onApply).onClick();
+    expect(onApply.mock.calls[1]![0]).toEqual({ kind: "arc", chapterId: "cap-1", index: 0, arc: "Duelo" });
+  });
+
+  it("mientras reescribe lo dice también en el teléfono", () => {
+    setup(true);
+    expect(screen.getByRole("status")).toHaveTextContent("Reescribiendo el capítulo");
+  });
+
+  it("sin arcos no ofrece una lista inútil, sino el primer arco, y las filas no repiten «sin arco»", async () => {
+    const sinArcos: PlotGrid = {
+      ...GRID,
+      arcs: [],
+      chapters: GRID.chapters.map((c) => ({ ...c, scenes: c.scenes.map((s) => ({ ...s, arc: null })) })),
+    };
+    const { onApply, user } = setup(false, sinArcos);
+    expect(screen.queryByText(/sin arco/)).not.toBeInTheDocument();
+    await openFirstMove(user);
+    const dialog = screen.getByRole("dialog");
+    expect(within(dialog).queryByText("Sin arco")).not.toBeInTheDocument();
+    await user.type(within(dialog).getByRole("textbox", { name: "Arco nuevo" }), "Duelo");
+    await user.click(within(dialog).getByRole("button", { name: "Poner" }));
+    expect(onApply.mock.calls[0]![0]).toEqual({ kind: "arc", chapterId: "cap-1", index: 0, arc: "Duelo" });
   });
 });
 
