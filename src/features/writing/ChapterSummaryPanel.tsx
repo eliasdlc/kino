@@ -3,6 +3,8 @@
 import { useState } from "react";
 import { Quote } from "lucide-react";
 import { MarginRow } from "@/components/ui/margin-row";
+import { SectionHead } from "@/features/dashboard/SectionHead";
+import { MargenDeUnaLinea, UNA_LINEA } from "@/shared/components/una-linea";
 import { useChapterSummary } from "./writing.hooks";
 
 /**
@@ -20,15 +22,13 @@ export function ChapterSummaryPanel({ pageId }: { pageId: string }) {
 
   return (
     <div>
-      <h3 className="mb-1 border-b border-border pb-2 text-xs font-semibold uppercase tracking-[0.06em] text-muted-foreground">
-        Resumen
-      </h3>
+      <SectionHead as="h3" title="Resumen" className="mb-1" />
 
       {!asked ? (
         <MarginRow
           onClick={() => setAsked(true)}
-          className="[&>[data-slot=margin-row-margin]]:self-center [&>[data-slot=margin-row-margin]]:pt-0"
-          margin={<span className="flex items-center"><Quote aria-hidden className="size-5" /></span>}
+          className={UNA_LINEA}
+          margin={<MargenDeUnaLinea><Quote aria-hidden className="size-5" /></MargenDeUnaLinea>}
         >
           <span className="block text-base text-foreground">Resumir este capítulo</span>
         </MarginRow>
