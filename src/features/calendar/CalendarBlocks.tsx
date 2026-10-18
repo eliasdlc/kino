@@ -18,7 +18,7 @@ import {
 } from "./calendar.layout";
 
 /**
- * Piezas de presentación de la rejilla del calendario (KIN-146 · FE-05).
+ * Piezas de presentación de la rejilla del calendario (KIN-146, FE-05).
  * Extraídas de `GlobalCalendarView` tal cual: sólo pintan y arrastran, la
  * geometría la resuelve `calendar.layout.ts`.
  */
@@ -31,27 +31,37 @@ export const PRIORITY_CHIP: Record<string, string> = {
   low: "bg-card border-border text-muted-foreground",
 };
 
-export function AllDayCell({ day, tasks }: { day: Date; tasks: TaskTransport[] }) {
+export function AllDayCell({
+  day,
+  tasks,
+  onOpenTask,
+}: {
+  day: Date;
+  tasks: TaskTransport[];
+  onOpenTask: (task: TaskTransport) => void;
+}) {
   const { setNodeRef, isOver } = useDroppable({ id: `allday:${dayKey(day)}` });
   return (
     <div
       ref={setNodeRef}
       className={cn(
-        "border-r last:border-r-0 p-1 min-h-[32px] space-y-0.5 transition-colors",
+        "min-h-[2rem] space-y-0.5 border-r border-border p-1 transition-colors duration-(--dur-toque) ease-(--ease-pluma) last:border-r-0",
         isOver && "bg-primary/10",
         isToday(day) && "bg-primary/5",
       )}
     >
       {tasks.map((t) => (
-        <div
+        <button
           key={t.id}
+          type="button"
+          onClick={() => onOpenTask(t)}
           className={cn(
-            "px-1.5 py-0.5 rounded border text-[11px] truncate",
+            "focus-ring block w-full truncate rounded-md border px-1.5 py-0.5 text-left text-xs pointer-coarse:min-h-[2.85rem]",
             PRIORITY_CHIP[t.effectivePriority ?? "medium"],
           )}
         >
           {t.title}
-        </div>
+        </button>
       ))}
     </div>
   );
@@ -71,7 +81,7 @@ export function DroppableSlot({
     <div
       ref={setNodeRef}
       className={cn(
-        "absolute w-full border-t border-border/40 transition-colors",
+        "absolute w-full border-t border-border/40 transition-colors duration-(--dur-toque) ease-(--ease-pluma)",
         isOver && "bg-primary/15",
         hour % 2 === 0 ? "border-border/40" : "border-border/20",
         energyCapacity !== undefined && !isOver && energyBgClass(energyCapacity),
@@ -84,12 +94,14 @@ export function DroppableSlot({
 interface TaskBlockProps {
   task: TaskTransport;
   overrideDuration?: number;
+  /** Abre el detalle. Un clic sin mover no arrastra (el sensor pide 6 px). */
+  onOpen: (task: TaskTransport) => void;
   onResizeStart: (e: React.PointerEvent, task: TaskTransport, startMinutes: number) => void;
 }
 
 // Wrapper sin hooks: el early-return (tarea sin fecha ubicable) vive aquí, para
 // que TaskBlockInner nunca llame useDraggable condicionalmente (rules-of-hooks).
-export function TaskBlock({ task, overrideDuration, onResizeStart }: TaskBlockProps) {
+export function TaskBlock({ task, overrideDuration, onOpen, onResizeStart }: TaskBlockProps) {
   const placementDate = getPlacementDate(task);
   const d = placementDate ? parseDueDate(placementDate) : null;
   if (!d) return null;
@@ -98,6 +110,7 @@ export function TaskBlock({ task, overrideDuration, onResizeStart }: TaskBlockPr
       task={task}
       d={d}
       overrideDuration={overrideDuration}
+      onOpen={onOpen}
       onResizeStart={onResizeStart}
     />
   );
@@ -107,6 +120,7 @@ function TaskBlockInner({
   task,
   d,
   overrideDuration,
+  onOpen,
   onResizeStart,
 }: TaskBlockProps & { d: Date }) {
   const estimatedMinutes = overrideDuration ?? parseEstimatedMinutes(task.estimatedTime);
@@ -123,21 +137,29 @@ function TaskBlockInner({
       ref={setNodeRef}
       {...attributes}
       {...listeners}
+      role="button"
+      aria-label={`${format(d, "HH:mm")}, ${task.title}`}
+      onClick={() => onOpen(task)}
+      onKeyDown={(e) => {
+        if (e.key === "Enter") onOpen(task);
+      }}
       className={cn(
-        "absolute left-0.5 right-0.5 rounded border px-1.5 pt-0.5 pb-2 text-[11px] leading-tight select-none cursor-grab active:cursor-grabbing overflow-hidden",
+        "focus-ring absolute right-0.5 left-0.5 cursor-grab overflow-hidden rounded-md border px-1.5 pt-0.5 pb-2 text-xs leading-tight select-none active:cursor-grabbing",
         PRIORITY_CHIP[task.effectivePriority ?? "medium"],
         isDragging && "opacity-30",
       )}
       style={{ top, height }}
       title={task.title}
     >
-      <span className="font-medium">{format(d, "HH:mm")} </span>
+      <span className="font-semibold tabular-nums">{format(d, "HH:mm")} </span>
       <span className="truncate">{task.title}</span>
-      {/* Resize handle */}
+      {/* El tirador de redimensionar: sólo con puntero fino, el dedo cambia la
+          duración en el detalle. */}
       <div
-        className="absolute bottom-0 left-0 right-0 h-2.5 cursor-row-resize flex items-center justify-center opacity-40 hover:opacity-80"
+        className="absolute right-0 bottom-0 left-0 flex h-2.5 cursor-row-resize items-center justify-center opacity-40 transition-opacity duration-(--dur-toque) hover:opacity-80 pointer-coarse:hidden"
+        onClick={(e) => e.stopPropagation()}
         onPointerDown={(e) => {
-          e.stopPropagation(); // don't trigger drag
+          e.stopPropagation(); // que no arranque el arrastre
           onResizeStart(e, task, estimatedMinutes);
         }}
       >
@@ -151,10 +173,13 @@ export function UnscheduledChip({
   task,
   suggestedHour,
   onAcceptSuggestion,
+  onProgramar,
 }: {
   task: TaskTransport;
   suggestedHour: number | null;
   onAcceptSuggestion: (task: TaskTransport, hour: number) => void;
+  /** La hoja con nombre: lo que el dedo hace en vez de arrastrar. */
+  onProgramar: (task: TaskTransport) => void;
 }) {
   const dragData: TaskDragData = { task, sourceType: "unscheduled", sourceId: "unscheduled" };
   const { attributes, listeners, setNodeRef, isDragging } = useDraggable({
@@ -164,7 +189,7 @@ export function UnscheduledChip({
   return (
     <div
       className={cn(
-        "rounded border text-xs select-none",
+        "rounded-md border text-sm select-none",
         PRIORITY_CHIP[task.effectivePriority ?? "medium"],
         isDragging && "opacity-30",
       )}
@@ -173,21 +198,30 @@ export function UnscheduledChip({
         ref={setNodeRef}
         {...attributes}
         {...listeners}
-        className="px-2 py-1 truncate cursor-grab active:cursor-grabbing"
+        className="cursor-grab truncate px-2 pt-1.5 pb-1 active:cursor-grabbing"
         title={task.title}
       >
         {task.title}
       </div>
-      {suggestedHour !== null && (
+      <div className="flex flex-wrap items-center gap-x-2 px-1 pb-1">
+        {suggestedHour !== null && (
+          <button
+            type="button"
+            className="focus-ring rounded-full px-1 text-xs font-semibold text-primary transition-colors duration-(--dur-toque) hover:underline pointer-coarse:min-h-[2.85rem]"
+            onClick={() => onAcceptSuggestion(task, suggestedHour)}
+          >
+            A las {format(new Date(2000, 0, 1, suggestedHour), "HH:mm")}
+          </button>
+        )}
         <button
           type="button"
-          className="w-full text-left px-2 pb-1 text-[10px] text-primary/80 hover:text-primary flex items-center gap-1 leading-tight"
-          onClick={() => onAcceptSuggestion(task, suggestedHour)}
+          className="focus-ring rounded-full px-1 text-xs font-semibold text-muted-foreground transition-colors duration-(--dur-toque) hover:text-foreground pointer-coarse:min-h-[2.85rem]"
+          aria-label={`Programar ${task.title}`}
+          onClick={() => onProgramar(task)}
         >
-          <span>Sugerido a las {format(new Date(2000, 0, 1, suggestedHour), "HH:mm")}</span>
-          <span className="text-primary/50">→</span>
+          Programar
         </button>
-      )}
+      </div>
     </div>
   );
 }
