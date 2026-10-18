@@ -358,7 +358,7 @@ function CalendarioEscritorio({
               {/* Cabeceras de día */}
               <div
                 className="sticky top-0 z-(--z-raised) grid border-b border-border bg-background"
-                style={{ gridTemplateColumns: `3.3rem repeat(${colCount}, 1fr)` }}
+                style={{ gridTemplateColumns: `3.3rem repeat(${colCount}, minmax(0, 1fr))` }}
               >
                 <div className="border-r border-border" />
                 {displayDays.map((day) => (
@@ -389,7 +389,7 @@ function CalendarioEscritorio({
               </div>
 
               {/* Todo el día */}
-              <div className="grid border-b border-border" style={{ gridTemplateColumns: `3.3rem repeat(${colCount}, 1fr)` }}>
+              <div className="grid border-b border-border" style={{ gridTemplateColumns: `3.3rem repeat(${colCount}, minmax(0, 1fr))` }}>
                 <div className="flex items-center justify-end border-r border-border px-1 py-1.5 text-right text-xs leading-tight text-muted-foreground">
                   Todo el día
                 </div>
@@ -404,7 +404,7 @@ function CalendarioEscritorio({
               </div>
 
               {/* Rejilla de horas */}
-              <div className="grid" style={{ gridTemplateColumns: `3.3rem repeat(${colCount}, 1fr)` }}>
+              <div className="grid" style={{ gridTemplateColumns: `3.3rem repeat(${colCount}, minmax(0, 1fr))` }}>
                 <div className="border-r border-border" style={{ height: TOTAL_HEIGHT }}>
                   {HOURS.map((hour) => (
                     <div
