@@ -1,6 +1,6 @@
 'use client';
 
-import { Suspense, useEffect, useRef, useState, type RefObject } from 'react';
+import { Suspense, useCallback, useEffect, useRef, useState } from 'react';
 import dynamic from 'next/dynamic';
 import { useRouter, useSearchParams } from 'next/navigation';
 import {
@@ -92,19 +92,19 @@ const precargar = (hoja: keyof typeof cargar) => () => void cargar[hoja]();
  * abrir la hoja y a avisar del OAuth. Se limpia al cerrar y no al abrir porque
  * el panel de GitHub lee el resultado de ahí mientras está a la vista. Es el
  * único que lee la URL y va en su propio límite de Suspense, para que el resto
- * del índice se pinte sin esperarla; deja en `limpiar` lo que hace el cierre.
+ * del índice se pinte sin esperarla; registra con `alCerrar` lo que hace el cierre.
  */
-function RegresoDeGithub({ abrir, limpiar }: { abrir: Abrir; limpiar: RefObject<() => void> }) {
+function RegresoDeGithub({ abrir, alCerrar }: { abrir: Abrir; alCerrar: (limpiar: () => void) => void }) {
   const router = useRouter();
   const github = useSearchParams().get('github');
   useEffect(() => {
     if (github) abrir('conexiones');
   }, [github, abrir]);
   useEffect(() => {
-    limpiar.current = () => {
+    alCerrar(() => {
       if (github !== null) router.replace('/settings', { scroll: false });
-    };
-  }, [github, limpiar, router]);
+    });
+  }, [github, alCerrar, router]);
   return null;
 }
 
@@ -257,6 +257,9 @@ function ConnectionsRow({ abrir }: { abrir: Abrir }) {
 export function SettingsIndex() {
   const [hoja, setHoja] = useState<Hoja | null>(null);
   const limpiarGithub = useRef<() => void>(() => {});
+  const alCerrarConexiones = useCallback((limpiar: () => void) => {
+    limpiarGithub.current = limpiar;
+  }, []);
   const cerrar = (open: boolean) => {
     if (open) return;
     if (hoja === 'conexiones') limpiarGithub.current();
@@ -266,7 +269,7 @@ export function SettingsIndex() {
   return (
     <div data-slot="settings-index" className="max-w-[40rem] space-y-8 pb-10">
       <Suspense>
-        <RegresoDeGithub abrir={setHoja} limpiar={limpiarGithub} />
+        <RegresoDeGithub abrir={setHoja} alCerrar={alCerrarConexiones} />
       </Suspense>
 
       <SettingsGroup title="Cada día">
