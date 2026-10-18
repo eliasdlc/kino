@@ -71,6 +71,7 @@ export function FolderDocuments({
               folder={child}
               systemId={systemId}
               href={`/systems/${systemId}/folders/${child.id}`}
+              manifest={manifest}
             />
           ))}
           {folderPages.map((page, i) => (
@@ -80,6 +81,7 @@ export function FolderDocuments({
               page={page}
               systemId={systemId}
               href={`/systems/${systemId}/pages/${page.id}`}
+              manifest={manifest}
             />
           ))}
           {restantes > 0 && (
