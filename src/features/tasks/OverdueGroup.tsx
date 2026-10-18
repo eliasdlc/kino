@@ -122,7 +122,7 @@ export function OverdueGroup({ tasks, systemMap, onOpen, onToggle }: OverdueGrou
             {MOVES.map(({ status, label }) => (
               <MarginRow
                 key={status}
-                margin={<CalendarClock className="mt-[0.55rem] size-[1.15rem]" />}
+                margin={<CalendarClock className="mt-[0.8rem] size-[1.15rem]" />}
                 onClick={() => {
                   setMoving(false);
                   bulkMove({ taskIds: ids, status });
