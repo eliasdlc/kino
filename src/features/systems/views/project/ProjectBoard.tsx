@@ -135,11 +135,13 @@ export function ProjectBoard({ systemId, initialData, sprintFilter, onEdit, keyb
             <DroppableColumn
               key={col.id}
               id={col.id}
-              className="flex flex-col gap-2 min-w-0 rounded-xl border bg-muted/20 p-3"
+              // Una columna es una sección, no una caja: su palabra en
+              // Bricolage sobre un hairline fuerte y la cuenta en mute.
+              className="flex min-w-0 flex-col gap-2 p-1"
             >
-              <div className="flex items-center justify-between">
-                <h3 className="font-semibold text-sm">{col.label}</h3>
-                <span className="text-xs text-muted-foreground font-mono">{colTasks.length}</span>
+              <div className="flex min-h-[2.85rem] items-end justify-between gap-3 border-b border-input pb-[0.45rem]">
+                <h3 className="font-display text-base leading-tight font-bold tracking-[-0.01em]">{col.label}</h3>
+                <span className="text-sm text-mute tabular-nums">{colTasks.length}</span>
               </div>
               <div className="flex flex-col gap-2 min-h-[40px]">
                 {colTasks.map((task) => (
