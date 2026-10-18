@@ -107,7 +107,7 @@ export function CascadeInboxMode({ tasks, open, onOpenChange }: CascadeInboxMode
           {DESTINOS.map(({ status, label, tecla, icon: Icon }) => (
             <MarginRow
               key={label}
-              margin={<Icon className="mt-[0.55rem] size-[1.15rem]" />}
+              margin={<Icon className="mt-[0.8rem] size-[1.15rem]" />}
               trailing={isMobile ? undefined : <kbd className="font-mono text-xs">{tecla}</kbd>}
               onClick={() => choose(status)}
               className="min-h-[3.2rem] text-base font-semibold text-foreground"
