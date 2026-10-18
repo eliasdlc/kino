@@ -1,6 +1,6 @@
 'use client';
 
-import { Suspense, useEffect, useState } from 'react';
+import { Suspense, useEffect, useRef, useState, type RefObject } from 'react';
 import dynamic from 'next/dynamic';
 import { useRouter, useSearchParams } from 'next/navigation';
 import {
@@ -87,29 +87,25 @@ const precargar = (hoja: keyof typeof cargar) => () => void cargar[hoja]();
 
 /**
  * El regreso del OAuth de GitHub cae en /settings?github=…: la hoja de
- * Conexiones se abre sola para que el resultado se vea donde ocurrió. Va en
- * su propio límite de Suspense porque lee la URL.
+ * Conexiones se abre sola para que el resultado se vea donde ocurrió. Al
+ * cerrarla, la URL deja de decir `?github=`: si no, un refresco volvería a
+ * abrir la hoja y a avisar del OAuth. Se limpia al cerrar y no al abrir porque
+ * el panel de GitHub lee el resultado de ahí mientras está a la vista. Es el
+ * único que lee la URL y va en su propio límite de Suspense, para que el resto
+ * del índice se pinte sin esperarla; deja en `limpiar` lo que hace el cierre.
  */
-function AbrirDesdeLaUrl({ abrir }: { abrir: Abrir }) {
+function RegresoDeGithub({ abrir, limpiar }: { abrir: Abrir; limpiar: RefObject<() => void> }) {
+  const router = useRouter();
   const github = useSearchParams().get('github');
   useEffect(() => {
     if (github) abrir('conexiones');
   }, [github, abrir]);
+  useEffect(() => {
+    limpiar.current = () => {
+      if (github !== null) router.replace('/settings', { scroll: false });
+    };
+  }, [github, limpiar, router]);
   return null;
-}
-
-/**
- * Al cerrar Conexiones, la URL deja de decir `?github=`: si no, un refresco
- * volvería a abrir la hoja y a avisar del OAuth. Se limpia al cerrar y no al
- * abrir porque el panel de GitHub lee el resultado de ahí mientras está a la
- * vista.
- */
-function useLimpiarRegresoDeGithub() {
-  const router = useRouter();
-  const params = useSearchParams();
-  return () => {
-    if (params.get('github') !== null) router.replace('/settings', { scroll: false });
-  };
 }
 
 /** La meta de los avisos de este dispositivo: el estado del permiso y cuántos hay en la cuenta. */
@@ -260,17 +256,17 @@ function ConnectionsRow({ abrir }: { abrir: Abrir }) {
  */
 export function SettingsIndex() {
   const [hoja, setHoja] = useState<Hoja | null>(null);
-  const limpiarGithub = useLimpiarRegresoDeGithub();
+  const limpiarGithub = useRef<() => void>(() => {});
   const cerrar = (open: boolean) => {
     if (open) return;
-    if (hoja === 'conexiones') limpiarGithub();
+    if (hoja === 'conexiones') limpiarGithub.current();
     setHoja(null);
   };
 
   return (
     <div data-slot="settings-index" className="max-w-[40rem] space-y-8 pb-10">
       <Suspense>
-        <AbrirDesdeLaUrl abrir={setHoja} />
+        <RegresoDeGithub abrir={setHoja} limpiar={limpiarGithub} />
       </Suspense>
 
       <SettingsGroup title="Cada día">
