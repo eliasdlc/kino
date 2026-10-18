@@ -1,9 +1,9 @@
 /**
  * Criterio: todo llega marcado, desmarcar lo que no sirve cuesta un toque,
- * confirmar dice cuántos va a crear, y descartar la captura entera es otro
- * toque también cuando el agente propuso algo. Y ningún control se pinta sin
- * comportamiento: una captura que nadie ha leído no enseña una lista vacía con
- * un botón que no haría nada.
+ * confirmar dice cuántos va a crear y a dónde fueron, y descartar la captura
+ * entera es otro toque también cuando el agente propuso algo. Y ningún control
+ * se pinta sin comportamiento: una captura que nadie ha leído no enseña una
+ * lista vacía, y ofrece dejarla donde está además de descartarla.
  */
 import { describe, expect, it, vi } from "vitest";
 import { screen } from "@testing-library/react";
@@ -67,7 +67,7 @@ describe("ShareConfirm", () => {
     await userEvent.click(screen.getByRole("button", { name: /Entregar el diagrama ER/ }));
     await userEvent.click(screen.getByRole("button", { name: "Confirmar 2" }));
 
-    expect(onConfirm).toHaveBeenCalledExactlyOnceWith([0, 2]);
+    expect(onConfirm).toHaveBeenCalledExactlyOnceWith([0, 2], [{ systemId: null, nombre: "Bandeja", cuenta: 2 }]);
   });
 
   it("sin nada marcado el botón lo dice y no deja confirmar", async () => {
@@ -87,6 +87,20 @@ describe("ShareConfirm", () => {
     expect(screen.queryByRole("button", { name: /Confirmar/ })).toBeNull();
     expect(screen.getByRole("button", { name: "Descartarla" })).toBeVisible();
     expect(onConfirm).not.toHaveBeenCalled();
+  });
+
+  it("la que nadie leyó se puede dejar donde está, sin descartarla", async () => {
+    const onOpenChange = vi.fn();
+    const onDiscard = vi.fn();
+    renderMobile(
+      <ShareConfirm captura={captura({ proposedItems: null })} open onOpenChange={onOpenChange} onConfirm={vi.fn()} onDiscard={onDiscard} />,
+    );
+
+    expect(screen.getByRole("link", { name: "Cómo conectar tu agente" })).toHaveAttribute("href", "/docs#mcp");
+    await userEvent.click(screen.getByRole("button", { name: "Dejarla aquí" }));
+
+    expect(onOpenChange).toHaveBeenCalledWith(false);
+    expect(onDiscard).not.toHaveBeenCalled();
   });
 
   it("descartar la que nadie leyó es una decisión, y se pide una vez", async () => {
