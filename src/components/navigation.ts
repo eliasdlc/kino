@@ -50,7 +50,7 @@ export function destinoActivo(href: Destino["href"], pathname: string): boolean 
  */
 export type Cabecera =
   | { tipo: "raiz" }
-  | { tipo: "anidada"; padreHref: string; padreLabel: string | null; systemId?: string };
+  | { tipo: "anidada"; padreHref: string; padreLabel: string | null; systemId?: string; carpetaId?: string };
 
 export function cabeceraDe(pathname: string): Cabecera {
   if (pathname === "/settings" || pathname.startsWith("/settings/")) {
@@ -60,13 +60,17 @@ export function cabeceraDe(pathname: string): Cabecera {
   if (!sistema) return { tipo: "raiz" };
   const [, systemId, resto] = sistema;
   if (!resto) return { tipo: "anidada", padreHref: "/systems", padreLabel: "Sistemas" };
+  // Lectura y tablero sólo existen para una obra: el Volver la nombra. La
+  // cabecera que conoce las carpetas cambia «Obra» por su título con
+  // `carpetaId`; mientras no lo sepa, la palabra ya dice adónde vuelve.
   const carpeta = resto.match(/^\/folders\/([^/]+)\/(tablero|lectura)$/);
   if (carpeta) {
     return {
       tipo: "anidada",
       padreHref: `/systems/${systemId}/folders/${carpeta[1]}`,
-      padreLabel: "Carpeta",
+      padreLabel: "Obra",
       systemId,
+      carpetaId: carpeta[1],
     };
   }
   return { tipo: "anidada", padreHref: `/systems/${systemId}`, padreLabel: null, systemId };
