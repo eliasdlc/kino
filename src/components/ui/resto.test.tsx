@@ -1,8 +1,9 @@
 /**
- * Criterio: el badge es un par tintado (color sobre el mismo color al 15 por
- * ciento), nunca un bloque lleno, y trae las variantes de estado que el
- * producto necesita con su palabra: vencida y hecho. La barra de progreso es
- * superficie con el acento encima. Ninguna lleva px.
+ * Criterio: el badge es un par tintado (el rol al 15 por ciento de fondo y el
+ * texto de tinte del rol, que en claro lleva tinta mezclada para dar 4,5 o
+ * más), nunca un bloque lleno, y trae las variantes de estado que el producto
+ * necesita con su palabra: vencida y hecha. La barra de progreso es superficie
+ * con el acento encima. Ninguna lleva px.
  */
 import { describe, expect, it } from "vitest";
 import { screen } from "@testing-library/react";
@@ -20,9 +21,11 @@ describe("el badge", () => {
       </>,
     );
     expect(screen.getByText("Semana").className).toContain("bg-primary/15");
+    expect(screen.getByText("Semana").className).toContain("text-(--ac-text)");
     expect(screen.getByText("Semana").className).not.toMatch(/\bbg-primary\b(?!\/)/);
-    expect(screen.getByText("vencida").className).toContain("text-task-overdue");
+    expect(screen.getByText("vencida").className).toContain("text-(--warn-text)");
     expect(screen.getByText("hecha").className).toContain("bg-task-done/15");
+    expect(screen.getByText("hecha").className).toContain("text-(--ok-text)");
     expect(screen.getByText("Semana").className).not.toMatch(/\[\d+px\]/);
   });
 });

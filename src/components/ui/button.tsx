@@ -5,7 +5,10 @@ import { Slot } from "radix-ui"
 import { cn } from "@/lib/utils"
 
 const buttonVariants = cva(
-  "group/button inline-flex shrink-0 items-center justify-center rounded-full border border-transparent bg-clip-padding text-sm font-semibold whitespace-nowrap transition-[color,background-color,border-color,box-shadow,transform] outline-none select-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 active:not-aria-[haspopup]:translate-y-px disabled:pointer-events-none disabled:opacity-50 aria-invalid:border-destructive aria-invalid:ring-3 aria-invalid:ring-destructive/20 dark:aria-invalid:border-destructive/50 dark:aria-invalid:ring-destructive/40 [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-5",
+  // Un toque encoge la pastilla a .97 (press) en --dur-toque con pluma; el
+  // foco es el anillo único de la casa (focus-ring). Transiciona color y
+  // transform, nunca la sombra: el glow de la primaria no cambia.
+  "group/button press inline-flex shrink-0 items-center justify-center rounded-full border border-transparent bg-clip-padding text-sm font-semibold whitespace-nowrap transition-[color,background-color,border-color,transform] duration-(--dur-toque) ease-(--ease-pluma) select-none focus-ring disabled:pointer-events-none disabled:opacity-50 aria-invalid:border-destructive [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-5",
   {
     variants: {
       variant: {
@@ -17,22 +20,24 @@ const buttonVariants = cva(
         ghost:
           "hover:bg-muted hover:text-foreground aria-expanded:bg-muted aria-expanded:text-foreground dark:hover:bg-muted/50",
         destructive:
-          "bg-destructive/10 text-destructive hover:bg-destructive/20 focus-visible:border-destructive/40 focus-visible:ring-destructive/20 dark:bg-destructive/20 dark:hover:bg-destructive/30 dark:focus-visible:ring-destructive/40",
+          "bg-destructive/10 text-destructive hover:bg-destructive/20 dark:bg-destructive/20 dark:hover:bg-destructive/30",
         link: "text-primary underline-offset-4 hover:underline",
       },
       size: {
         // Alturas en rem: crecen con el tamaño de letra del sistema. La acción
-        // primaria (lg) mide 3.2rem, el táctil mínimo lo da default a 2.85rem.
+        // primaria (lg) mide 3.2rem; el táctil mínimo lo da default a 2.85rem.
+        // xs y sm existen para el escritorio: en el teléfono miden el táctil
+        // y sólo encogen desde md, así que ningún botón queda bajo 48 px.
         default:
-          "h-[2.85rem] gap-2 px-4 in-data-[slot=button-group]:rounded-md has-data-[icon=inline-end]:pr-3 has-data-[icon=inline-start]:pl-3",
-        xs: "h-8 gap-1.5 px-3 text-xs in-data-[slot=button-group]:rounded-md has-data-[icon=inline-end]:pr-2 has-data-[icon=inline-start]:pl-2 [&_svg:not([class*='size-'])]:size-3.5",
-        sm: "h-10 gap-1.5 px-3.5 in-data-[slot=button-group]:rounded-md has-data-[icon=inline-end]:pr-2.5 has-data-[icon=inline-start]:pl-2.5",
+          "h-[2.85rem] gap-2 px-4 has-data-[icon=inline-end]:pr-3 has-data-[icon=inline-start]:pl-3",
+        xs: "h-[2.85rem] gap-1.5 px-3 text-xs md:h-8 has-data-[icon=inline-end]:pr-2 has-data-[icon=inline-start]:pl-2 [&_svg:not([class*='size-'])]:size-3.5",
+        sm: "h-[2.85rem] gap-1.5 px-3.5 md:h-10 has-data-[icon=inline-end]:pr-2.5 has-data-[icon=inline-start]:pl-2.5",
         lg: "h-[3.2rem] gap-2 px-[1.1rem] has-data-[icon=inline-end]:pr-3.5 has-data-[icon=inline-start]:pl-3.5",
         icon: "size-[2.85rem]",
         "icon-xs":
-          "size-8 in-data-[slot=button-group]:rounded-md [&_svg:not([class*='size-'])]:size-3.5",
+          "size-[2.85rem] md:size-8 [&_svg:not([class*='size-'])]:size-3.5",
         "icon-sm":
-          "size-10 in-data-[slot=button-group]:rounded-md",
+          "size-[2.85rem] md:size-10",
         "icon-lg": "size-[3.2rem]",
       },
     },
