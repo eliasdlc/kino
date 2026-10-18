@@ -4,7 +4,6 @@ import { useState } from "react";
 import { Link2, Plus } from "lucide-react";
 import { api } from "@convex/_generated/api";
 import { getConvexClient } from "@/shared/convex/client";
-import { Button } from "@/components/ui/button";
 import {
   ResponsiveDialog,
   ResponsiveDialogContent,
@@ -13,7 +12,8 @@ import {
   ResponsiveDialogTitle,
 } from "@/components/ui/responsive-dialog";
 import { MarginRow } from "@/components/ui/margin-row";
-import { MargenDeUnaLinea, UNA_LINEA } from "./one-line-row";
+import { SectionHead } from "@/features/dashboard/SectionHead";
+import { MargenDeUnaLinea, UNA_LINEA } from "@/shared/components/una-linea";
 import { useTasks } from "@/features/tasks/tasks.hooks";
 import { useToggleTask } from "@/features/tasks/tasks.hooks";
 import { useLinkedTasks, useLinkTask, useUnlinkTask } from "./pages.hooks";
@@ -30,9 +30,10 @@ interface LinkedTasksPanelProps {
 }
 
 /**
- * Las tareas enlazadas a la página: un encabezado con sus dos acciones
- * (vincular una que ya existe, crear una nueva ya vinculada) y debajo las
- * filas de `LinkedTaskCard`. Vincular abre una hoja con nombre en el teléfono
+ * Las tareas enlazadas a la página: el título de sección, las filas de
+ * `LinkedTaskCard` y al final las dos acciones como filas de margen (vincular
+ * una que ya existe, crear una que nace vinculada), igual que «Fijar una
+ * referencia» en la mesa. Vincular abre una hoja con nombre en el teléfono
  * y un diálogo en escritorio, nunca un popover que el teclado tape.
  */
 export function LinkedTasksPanel({ pageId, systemId }: LinkedTasksPanelProps) {
@@ -41,7 +42,7 @@ export function LinkedTasksPanel({ pageId, systemId }: LinkedTasksPanelProps) {
   const { mutate: linkTask } = useLinkTask(pageId);
   const { mutate: unlinkTask } = useUnlinkTask(pageId);
   const { mutate: toggleTask } = useToggleTask(systemId);
-  const [linkPopoverOpen, setLinkPopoverOpen] = useState(false);
+  const [vincularAbierto, setVincularAbierto] = useState(false);
   const [createOpen, setCreateOpen] = useState(false);
 
   // Full task data for the edit sheet: fetched on-demand when user clicks edit
@@ -83,21 +84,7 @@ export function LinkedTasksPanel({ pageId, systemId }: LinkedTasksPanelProps) {
 
   return (
     <div className="space-y-1">
-      <div className="flex items-end justify-between gap-2 border-b border-border pb-1">
-        <h3 className="pb-1 text-xs font-semibold whitespace-nowrap uppercase tracking-[0.06em] text-muted-foreground">
-          Tareas vinculadas
-        </h3>
-        <div className="-mr-2 flex items-center">
-          <Button variant="ghost" size="sm" className={ACCION} onClick={() => setLinkPopoverOpen(true)}>
-            <Link2 className="size-4" />
-            Vincular
-          </Button>
-          <Button variant="ghost" size="sm" className={ACCION} onClick={() => setCreateOpen(true)}>
-            <Plus className="size-4" />
-            Nueva
-          </Button>
-        </div>
-      </div>
+      <SectionHead as="h3" title="Tareas vinculadas" count={visibleLinked.length || undefined} />
 
       <CreateTaskDialog
         systemId={systemId}
@@ -106,7 +93,7 @@ export function LinkedTasksPanel({ pageId, systemId }: LinkedTasksPanelProps) {
         onTaskCreated={handleTaskCreated}
       />
 
-      <ResponsiveDialog open={linkPopoverOpen} onOpenChange={setLinkPopoverOpen}>
+      <ResponsiveDialog open={vincularAbierto} onOpenChange={setVincularAbierto}>
         <ResponsiveDialogContent className="max-w-md">
           <ResponsiveDialogHeader>
             <ResponsiveDialogTitle>Vincular una tarea</ResponsiveDialogTitle>
@@ -125,7 +112,7 @@ export function LinkedTasksPanel({ pageId, systemId }: LinkedTasksPanelProps) {
                   key={task.id}
                   onClick={() => {
                     linkTask(task.id);
-                    setLinkPopoverOpen(false);
+                    setVincularAbierto(false);
                   }}
                   className={UNA_LINEA}
                   margin={<MargenDeUnaLinea><Link2 aria-hidden className="size-4" /></MargenDeUnaLinea>}
@@ -149,7 +136,7 @@ export function LinkedTasksPanel({ pageId, systemId }: LinkedTasksPanelProps) {
 
       {!isLoading && visibleLinked.length === 0 && (
         <p className="py-3 text-sm text-muted-foreground">
-          Ninguna tarea apunta a esta página. Vincula una o crea la siguiente desde aquí.
+          Ninguna tarea apunta a esta página. Vincula una o crea la siguiente aquí abajo.
         </p>
       )}
 
@@ -167,6 +154,21 @@ export function LinkedTasksPanel({ pageId, systemId }: LinkedTasksPanelProps) {
         </div>
       )}
 
+      <MarginRow
+        onClick={() => setVincularAbierto(true)}
+        className={UNA_LINEA}
+        margin={<MargenDeUnaLinea><Link2 aria-hidden className="size-5" /></MargenDeUnaLinea>}
+      >
+        <span className="block text-base text-foreground">Vincular una tarea</span>
+      </MarginRow>
+      <MarginRow
+        onClick={() => setCreateOpen(true)}
+        className={UNA_LINEA}
+        margin={<MargenDeUnaLinea><Plus aria-hidden className="size-5" /></MargenDeUnaLinea>}
+      >
+        <span className="block text-base text-foreground">Nueva tarea, ya vinculada</span>
+      </MarginRow>
+
       <TaskDetailSheet
         task={editTask}
         systemId={systemId}
@@ -180,5 +182,3 @@ export function LinkedTasksPanel({ pageId, systemId }: LinkedTasksPanelProps) {
   );
 }
 
-/** Las acciones del encabezado: palabra con glifo, 48 px en un dedo. */
-const ACCION = "h-9 gap-1 px-2 text-sm text-muted-foreground hover:text-foreground pointer-coarse:h-[2.85rem]";
