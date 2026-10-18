@@ -1,21 +1,23 @@
-import { screen } from '@testing-library/react';
+/**
+ * Criterio: Bandeja en sus estados. El que más importa es el de un item: una
+ * lista vacía con una cosa flotando es el estado que nadie diseña y el que
+ * casi todo el mundo ve el primer día. Completar tacha en el sitio con
+ * Deshacer, descartar una captura también se deshace, y confirmar dice cuántas
+ * tareas creó y dónde.
+ */
+import { act, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { describe, expect, it, vi } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { api } from '@convex/_generated/api';
 import { makeSystem, makeTask, mid } from '@/app/system-design/mock-data';
-import { makeTestConvexClient, renderMobile, stubQuery } from '@/shared/testing/render';
+import { makeTestConvexClient, renderMobile, stubMutation, stubQuery } from '@/shared/testing/render';
 import type { CaptureItem } from '@/features/captures/captures.types';
 import { ITEMS_PARA_EMPUJAR } from '@/features/systems/GroupNudge';
-import { InboxView, ITEMS_VISIBLES } from './InboxView';
+import { avisoDeConfirmadas, DESHACER_MS, InboxView, ITEMS_VISIBLES } from './InboxView';
 
-/**
- * Bandeja en sus estados. El que más importa es el de un item: una lista
- * vacía con una cosa flotando es el estado que nadie diseña y el que casi todo
- * el mundo ve el primer día. Y completar tacha en el sitio con Deshacer, sin
- * que la fila se vaya mientras se mira.
- */
+vi.mock('next/navigation', async () => (await import('@/shared/testing/navigation')).navigationMock());
 
-const toastSpy = vi.hoisted(() => Object.assign(vi.fn((..._args: unknown[]) => 'aviso'), { dismiss: vi.fn() }));
+const toastSpy = vi.hoisted(() => Object.assign(vi.fn<(...args: unknown[]) => string>(() => 'aviso'), { dismiss: vi.fn() }));
 vi.mock('sonner', () => ({ toast: toastSpy }));
 
 function captura(campos: Partial<CaptureItem> = {}): CaptureItem {
@@ -77,7 +79,7 @@ describe('InboxView', () => {
     expect(opciones.duration).toBe(4000);
     expect(opciones.action.label).toBe('Deshacer');
 
-    opciones.action.onClick();
+    act(() => opciones.action.onClick());
 
     expect(convex.calls.filter((c) => c.name === 'tasks:toggle')).toHaveLength(2);
   });
@@ -129,5 +131,89 @@ describe('InboxView', () => {
     renderMobile(<InboxView system={BANDEJA} initialTasks={[...items(2), ...cerradas]} />);
 
     expect(screen.getAllByRole('listitem')).toHaveLength(2);
+  });
+
+  it('el contador se oye con su palabra, no como un número suelto', () => {
+    renderMobile(<InboxView system={BANDEJA} initialTasks={items(2)} initialCaptures={[]} />);
+
+    expect(screen.getByText('2 por repartir')).toHaveClass('sr-only');
+  });
+
+  it('con capturas, la frase dice que tocarla abre lo que propone', () => {
+    renderMobile(<InboxView system={BANDEJA} initialTasks={[]} initialCaptures={[captura()]} />);
+
+    expect(screen.getByText('1 captura por revisar: tócala.')).toBeVisible();
+  });
+});
+
+describe('InboxView, las capturas', () => {
+  afterEach(() => vi.useRealTimers());
+
+  it('descartar se va de la lista, ofrece Deshacer y deshacer la devuelve sin borrar nada', async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    const { convex } = renderMobile(
+      <InboxView system={BANDEJA} initialTasks={[]} initialCaptures={[captura({ proposedItems: null })]} />,
+    );
+
+    await userEvent.click(screen.getByRole('button', { name: /https:\/\/react\.dev\/learn/ }));
+    await userEvent.click(within(await screen.findByRole('dialog')).getByRole('button', { name: 'Descartarla' }));
+
+    expect(screen.queryByText('https://react.dev/learn', { selector: 'li *' })).not.toBeInTheDocument();
+    const opciones = toastSpy.mock.calls.at(-1)?.[1] as unknown as { duration: number; action: { label: string; onClick: () => void } };
+    expect(toastSpy.mock.calls.at(-1)?.[0]).toBe('Captura descartada');
+    expect(opciones.action.label).toBe('Deshacer');
+
+    act(() => opciones.action.onClick());
+    act(() => vi.advanceTimersByTime(DESHACER_MS + 100));
+
+    // La hoja todavía se está cerrando y tapa la lista para el árbol de
+    // accesibilidad: la fila se busca por su texto.
+    expect(screen.getByText('https://react.dev/learn', { selector: 'li *' })).toBeInTheDocument();
+    expect(convex.calls.filter((c) => c.name === 'captures:descartar')).toHaveLength(0);
+  });
+
+  it('sin deshacer, la captura se descarta al pasar los 4 s', async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    const { convex } = renderMobile(
+      <InboxView system={BANDEJA} initialTasks={[]} initialCaptures={[captura({ proposedItems: null })]} />,
+    );
+
+    await userEvent.click(screen.getByRole('button', { name: /https:\/\/react\.dev\/learn/ }));
+    await userEvent.click(within(await screen.findByRole('dialog')).getByRole('button', { name: 'Descartarla' }));
+    expect(convex.calls.filter((c) => c.name === 'captures:descartar')).toHaveLength(0);
+
+    act(() => vi.advanceTimersByTime(DESHACER_MS + 100));
+
+    expect(convex.calls.filter((c) => c.name === 'captures:descartar')).toEqual([
+      { kind: 'mutation', name: 'captures:descartar', args: { id: 'cap-1' } },
+    ]);
+  });
+
+  it('confirmar dice cuántas tareas creó y dónde', async () => {
+    const convex = makeTestConvexClient([], [stubMutation(api.captures.confirmar, { creadas: 2 })]);
+    renderMobile(
+      <InboxView
+        system={BANDEJA}
+        initialTasks={[]}
+        initialCaptures={[captura({ proposedItems: [{ title: 'Repasar el parcial' }, { title: 'Pedir la rúbrica' }] })]}
+      />,
+      { convex },
+    );
+
+    await userEvent.click(screen.getByRole('button', { name: /https:\/\/react\.dev\/learn/ }));
+    await userEvent.click(within(await screen.findByRole('dialog')).getByRole('button', { name: 'Confirmar 2' }));
+
+    expect(convex.calls).toContainEqual({ kind: 'mutation', name: 'captures:confirmar', args: { id: 'cap-1', indices: [0, 1] } });
+    await vi.waitFor(() => expect(toastSpy.mock.calls.at(-1)?.[0]).toBe('2 tareas creadas en Bandeja'));
+  });
+
+  it('el aviso de confirmadas reparte la cuenta por destino', () => {
+    expect(
+      avisoDeConfirmadas([
+        { systemId: 'tesis', nombre: 'Tesis', cuenta: 2 },
+        { systemId: null, nombre: 'Bandeja', cuenta: 1 },
+      ]),
+    ).toBe('3 tareas creadas: 2 en Tesis, 1 en Bandeja');
+    expect(avisoDeConfirmadas([{ systemId: 'tesis', nombre: 'Tesis', cuenta: 1 }])).toBe('1 tarea creada en Tesis');
   });
 });

@@ -1,6 +1,7 @@
 'use client';
 
-import { useRef, useState } from 'react';
+import { useEffect, useId, useRef, useState } from 'react';
+import { useRouter } from 'next/navigation';
 import { Check, GitBranch, Link2, Mic } from 'lucide-react';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
@@ -14,8 +15,7 @@ import { useTasks, useToggleTask } from '@/features/tasks/tasks.hooks';
 import type { TaskTransport } from '@/features/tasks/tasks.types';
 import { GroupNudge } from '@/features/systems/GroupNudge';
 import { CaptureRow } from '@/features/captures/CaptureRow';
-import { ShareConfirm } from '@/features/captures/ShareConfirm';
-import { resumenSinConfirmar } from '@/features/captures/captures.copy';
+import { ShareConfirm, type DestinoConfirmado } from '@/features/captures/ShareConfirm';
 import {
   useCaptures,
   useConfirmCapture,
@@ -46,6 +46,17 @@ const SOURCE_GLYPHS: Record<string, { Icono: typeof Link2; nombre: string }> = {
   voice: { Icono: Mic, nombre: 'nota de voz' },
 };
 
+/**
+ * "3 tareas creadas: 2 en Tesis, 1 en Bandeja", o "1 tarea creada en Tesis":
+ * lo que cierra el ciclo de capturar y confirmar, con a dónde fue cada una.
+ */
+export function avisoDeConfirmadas(destinos: DestinoConfirmado[]): string {
+  const total = destinos.reduce((suma, d) => suma + d.cuenta, 0);
+  const cabeza = total === 1 ? '1 tarea creada' : `${total} tareas creadas`;
+  if (destinos.length === 1) return `${cabeza} en ${destinos[0]!.nombre}`;
+  return `${cabeza}: ${destinos.map((d) => `${d.cuenta} en ${d.nombre}`).join(', ')}`;
+}
+
 interface InboxViewProps extends SystemViewProps {
   /**
    * Las capturas que el servidor ya leyó. Sin ellas la lista se pintaba vacía
@@ -53,6 +64,8 @@ interface InboxViewProps extends SystemViewProps {
    * ellas llega entera en el primer pintado.
    */
   initialCaptures?: CaptureItem[];
+  /** El nivel del título: el catálogo lo baja a h2 para no meter un h1 de más. */
+  tituloComo?: 'h1' | 'h2';
 }
 
 /**
@@ -61,16 +74,23 @@ interface InboxViewProps extends SystemViewProps {
  * aquí es mirar lo que entró y repartirlo.
  *
  * Es una página de Diario: el título en la columna de texto, una sola lista de
- * filas de margen (las capturas con su glifo y su barra de acento, las tareas
- * con el círculo de completar de 48 px) y el vacío dicho con `EmptyState`.
- * Completar una tarea la tacha en su sitio y ofrece Deshacer 4 s; la fila
- * tachada no se va hasta la próxima visita, para que la lista no salte.
+ * filas de margen (las capturas con su glifo y su estado en palabras, las
+ * tareas con el círculo de completar de 48 px) y el vacío dicho con
+ * `EmptyState`. Completar una tarea la tacha en su sitio y ofrece Deshacer 4 s;
+ * la fila tachada no se va hasta la próxima visita, para que la lista no salte.
+ *
+ * Descartar una captura es la única acción que borra algo que puede no tener
+ * copia (una foto, una nota de voz), así que tampoco es inmediata: la fila se
+ * va, el aviso ofrece Deshacer 4 s y la mutación sale al terminar ese tiempo,
+ * o al salir de Bandeja. Confirmar dice cuántas tareas creó y dónde.
  *
  * Aquí vive el primero de los dos empujes del principio 7. Es una fila de
  * estado sin pregunta, así que no pasa por la cola de una sola interrupción ni
  * gasta la apertura del día (D-18).
  */
-export function InboxView({ system, initialTasks, initialCaptures }: InboxViewProps) {
+export function InboxView({ system, initialTasks, initialCaptures, tituloComo = 'h1' }: InboxViewProps) {
+  const router = useRouter();
+  const tituloId = useId();
   const { data: tasks = [] } = useTasks(system.id, initialTasks);
   const { mutate: toggle } = useToggleTask(system.id);
   const { data: capturas = [] } = useCaptures(initialCaptures);
@@ -84,13 +104,44 @@ export function InboxView({ system, initialTasks, initialCaptures }: InboxViewPr
   // cuente como hechas, y el Deshacer sólo devuelve lo que se tachó aquí.
   const [tachadas, setTachadas] = useState<ReadonlySet<string>>(() => new Set());
   const avisos = useRef(new Map<string, string | number>());
+  // Las capturas descartadas que todavía se pueden deshacer: fuera de la
+  // lista ya, con su mutación esperando en un temporizador.
+  const [descartando, setDescartando] = useState<ReadonlySet<string>>(() => new Set());
+  const porDescartar = useRef(new Map<string, ReturnType<typeof setTimeout>>());
+
+  // Salir de Bandeja no deshace: lo que se descartó y no se deshizo, se descarta.
+  useEffect(() => {
+    const pendientes = porDescartar.current;
+    return () => {
+      for (const [id, temporizador] of pendientes) {
+        clearTimeout(temporizador);
+        descartar(id);
+      }
+      pendientes.clear();
+    };
+  }, [descartar]);
 
   const pending = tasks.filter((task) => task.status !== 'done');
   const enLista = tasks.filter((task) => task.status !== 'done' || tachadas.has(task.id));
-  const sinConfirmar = capturas.filter((captura) => captura.status === 'pending');
+  const visibles = capturas.filter((captura) => !descartando.has(captura.id));
+  const sinConfirmar = visibles.filter((captura) => captura.status === 'pending');
   const visible = enLista.slice(0, ITEMS_VISIBLES);
   const rest = enLista.length - visible.length;
-  const resumen = resumenSinConfirmar(sinConfirmar.length);
+  // La línea bajo el título existe siempre que haya algo, para que el
+  // esqueleto la reserve y las filas no bajen al llegar. Con capturas dice
+  // cuántas esperan y qué se hace con ellas; con un solo item, para qué sirve
+  // el sitio (una lista con una cosa flotando es el estado que casi todos ven
+  // el primer día).
+  const resumen = sinConfirmar.length > 0;
+  const linea = resumen
+    ? sinConfirmar.length === 1
+      ? '1 captura por revisar: tócala.'
+      : `${sinConfirmar.length} capturas por revisar: toca una.`
+    : pending.length === 1
+      ? 'Una cosa esperando. Ábrela para mandarla a un sistema, o déjala ahí.'
+      : pending.length > 1
+        ? 'Ábrelas para mandarlas a un sistema, o déjalas ahí.'
+        : null;
 
   function deshacer(task: TaskTransport) {
     if (!avisos.current.has(task.id)) return;
@@ -119,11 +170,52 @@ export function InboxView({ system, initialTasks, initialCaptures }: InboxViewPr
     avisos.current.set(task.id, aviso);
   }
 
-  return (
-    <section aria-labelledby="bandeja-titulo" className="space-y-4">
-      <Header id="bandeja-titulo" count={pending.length + capturas.length} resumen={resumen} />
+  function devolverCaptura(id: string) {
+    const temporizador = porDescartar.current.get(id);
+    if (temporizador === undefined) return;
+    clearTimeout(temporizador);
+    porDescartar.current.delete(id);
+    setDescartando((prev) => {
+      const next = new Set(prev);
+      next.delete(id);
+      return next;
+    });
+  }
 
-      {enLista.length === 0 && capturas.length === 0 ? (
+  function descartarCaptura(captura: CaptureItem) {
+    setDescartando((prev) => new Set(prev).add(captura.id));
+    porDescartar.current.set(
+      captura.id,
+      setTimeout(() => {
+        porDescartar.current.delete(captura.id);
+        descartar(captura.id);
+      }, DESHACER_MS),
+    );
+    toast('Captura descartada', {
+      duration: DESHACER_MS,
+      action: { label: 'Deshacer', onClick: () => devolverCaptura(captura.id) },
+    });
+  }
+
+  function confirmarCaptura(captura: CaptureItem, indices: number[], destinos: DestinoConfirmado[]) {
+    confirmar(
+      { id: captura.id, indices },
+      {
+        onSuccess: () => {
+          const fuera = destinos.length === 1 && destinos[0]!.systemId !== null ? destinos[0]! : null;
+          toast(avisoDeConfirmadas(destinos), {
+            action: fuera ? { label: `Abrir ${fuera.nombre}`, onClick: () => router.push(`/systems/${fuera.systemId}`) } : undefined,
+          });
+        },
+      },
+    );
+  }
+
+  return (
+    <section aria-labelledby={tituloId} className="space-y-4">
+      <Header id={tituloId} Titular={tituloComo} count={pending.length + visibles.length} linea={linea} />
+
+      {enLista.length === 0 && visibles.length === 0 ? (
         <EmptyState
           className="pl-(--margen)"
           title="Nada por repartir"
@@ -138,16 +230,8 @@ export function InboxView({ system, initialTasks, initialCaptures }: InboxViewPr
         <div>
           <GroupNudge count={pending.length} onTriage={() => setTriaging(true)} />
 
-          {/* Con un solo item la lista no es una lista: es una cosa, y decir para
-              qué sirve este sitio vale más que dibujar una fila suelta. */}
-          {pending.length === 1 && capturas.length === 0 && (
-            <p className="pb-1 pl-(--margen) text-sm text-muted-foreground">
-              Una cosa esperando. Ábrela para mandarla a un sistema, o déjala ahí.
-            </p>
-          )}
-
           <ul className="[&>li:last-child>*]:border-b-0">
-            {capturas.map((captura) => (
+            {visibles.map((captura) => (
               <CaptureRow key={captura.id} captura={captura} onOpen={setConfirmando} />
             ))}
             {visible.map((task) => (
@@ -173,12 +257,12 @@ export function InboxView({ system, initialTasks, initialCaptures }: InboxViewPr
         captura={confirmando}
         open={confirmando !== null}
         onOpenChange={(next) => !next && setConfirmando(null)}
-        onConfirm={(indices) => {
-          if (confirmando) confirmar({ id: confirmando.id, indices });
+        onConfirm={(indices, destinos) => {
+          if (confirmando) confirmarCaptura(confirmando, indices, destinos);
           setConfirmando(null);
         }}
         onDiscard={() => {
-          if (confirmando) descartar(confirmando.id);
+          if (confirmando) descartarCaptura(confirmando);
           setConfirmando(null);
         }}
       />
@@ -261,22 +345,36 @@ function InboxTaskRow({
 }
 
 /**
- * El título de Bandeja con la misma rejilla que `PageHeader`: el h1 en la
- * columna de texto, a la derecha del margen; la cuenta a la derecha, en mute y
- * tabular; debajo, cuántas capturas esperan confirmación.
+ * El título de Bandeja con la rejilla de una fila: el h1 en la columna de
+ * texto, a la derecha del margen, también en escritorio, porque las filas de
+ * abajo llevan su glifo en el margen y el título se alinea con su texto (en
+ * `PageHeader` el margen se pliega en escritorio, y aquí no puede). La cuenta
+ * a la derecha, en mute y tabular, con su palabra para el lector de pantalla;
+ * debajo, la línea que dice qué espera.
  */
-function Header({ id, count, resumen }: { id: string; count: number; resumen: string | null }) {
+function Header({
+  id,
+  Titular,
+  count,
+  linea,
+}: {
+  id: string;
+  Titular: 'h1' | 'h2';
+  count: number;
+  linea: string | null;
+}) {
   return (
-    <div className="grid grid-cols-[var(--margen)_1fr_auto] items-baseline md:grid-cols-[0_1fr_auto]">
+    <div className="grid grid-cols-[var(--margen)_1fr_auto] items-baseline">
       <span aria-hidden />
       <div className="min-w-0 space-y-1">
-        <h1 id={id} className="font-display text-[1.41rem] font-bold tracking-[-0.02em]">
+        <Titular id={id} className="font-display text-[1.41rem] font-bold tracking-[-0.02em]">
           Bandeja
-        </h1>
-        {resumen && <p className="text-sm text-muted-foreground">{resumen}</p>}
+        </Titular>
+        {linea && <p className="text-sm text-muted-foreground">{linea}</p>}
       </div>
-      <span className="font-display text-lg font-bold text-muted-foreground tabular-nums" aria-label={`${count} por repartir`}>
-        {count}
+      <span className="font-display text-lg font-bold text-muted-foreground tabular-nums">
+        <span aria-hidden>{count}</span>
+        <span className="sr-only">{count} por repartir</span>
       </span>
     </div>
   );
