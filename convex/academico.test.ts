@@ -101,6 +101,52 @@ describe('dónde cae lo que publica el aula', () => {
     expect(tarea.folderId).toBe(seguridad);
   });
 
+  it('encuentra la materia con el nombre real de la PVA, código y abreviaturas incluidos', async () => {
+    const { t, userId, systemId, seguridad, actual } = await seed();
+    const [moviles, integrador] = await t.run(async (ctx) => {
+      const otra = await ctx.db.get(seguridad);
+      const copia = (name: string) => ctx.db.insert('folders', { ...otra!, _id: undefined, _creationTime: undefined, name, academicPeriodId: actual } as never);
+      return [await copia('Desarrollo de Aplicaciones Moviles'), await copia('Proyecto Integrador')];
+    });
+
+    // Los nombres tal cual los publica la PVA. Antes del arreglo, los tres
+    // caían sueltos: ninguno contiene al nombre de su carpeta ni al revés.
+    await t.mutation(internal.academico.sincronizar, {
+      userId,
+      systemId,
+      items: [
+        item({ externalId: 'assign:1', courseName: 'CSTI-1930-5225 - Seg. en Tecnología Información' }),
+        item({ externalId: 'assign:2', courseName: 'CSTI-1930-5235 - Desarrollo de Aplicac. Móviles' }),
+        item({ externalId: 'assign:3', courseName: 'CSTI-1920-5770 - Proyect Integr Desarr Sotfware' }),
+      ],
+    });
+
+    const porId = new Map((await tareas(t, userId)).map((tarea) => [tarea.externalId, tarea.folderId]));
+    expect(porId.get('assign:1')).toBe(seguridad);
+    expect(porId.get('assign:2')).toBe(moviles);
+    expect(porId.get('assign:3')).toBe(integrador);
+  });
+
+  it('no elige entre dos materias que la abreviatura alcanza por igual', async () => {
+    const { t, userId, systemId, seguridad, actual } = await seed();
+    await t.run(async (ctx) => {
+      const otra = await ctx.db.get(seguridad);
+      await ctx.db.insert('folders', { ...otra!, _id: undefined, _creationTime: undefined, name: 'Seguros en Tecnologia de Informacion', academicPeriodId: actual } as never);
+    });
+
+    const res = await t.mutation(internal.academico.sincronizar, {
+      userId,
+      systemId,
+      items: [item({ externalId: 'assign:1', courseName: 'CSTI-1930-5225 - Seg. en Tecnología Información' })],
+    });
+
+    // "seg" abrevia "seguridad" y también "seguros": poner la tarea en la
+    // equivocada es peor que dejarla suelta y decirlo.
+    const [tarea] = await tareas(t, userId);
+    expect(tarea.folderId).toBeUndefined();
+    expect(res.sinCarpeta).toEqual(['CSTI-1930-5225 - Seg. en Tecnología Información']);
+  });
+
   it('deja suelta la tarea de una materia que no tiene carpeta, y lo dice', async () => {
     const { t, userId, systemId } = await seed();
 

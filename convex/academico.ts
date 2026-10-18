@@ -117,19 +117,57 @@ async function carpetasPorNombre(
   return mapa;
 }
 
-/** La carpeta de la materia, por nombre exacto y luego por prefijo. */
+/** Lo que no distingue una materia de otra: artículos y preposiciones. */
+const VACIAS = new Set(['a', 'al', 'de', 'del', 'e', 'el', 'en', 'la', 'las', 'los', 'y']);
+
+/**
+ * Las palabras con significado de un nombre de materia, sin el código de
+ * sección que la PVA antepone ("CSTI-1930-5225 - ").
+ */
+const palabras = (nombre: string) =>
+  nombre
+    .replace(/^[a-z]{2,6}-[\d-]+\s*-\s*/, '')
+    .split(/[^a-z0-9]+/)
+    .filter((p) => p.length > 0 && !VACIAS.has(p));
+
+/** Una palabra abrevia a la otra: "seg" a "seguridad", "concurr" a "concurrente". */
+const abrevia = (a: string, b: string) => a === b || (Math.min(a.length, b.length) >= 3 && (a.startsWith(b) || b.startsWith(a)));
+
+/**
+ * Las palabras del nombre más corto aparecen, en orden y abreviadas o no, en el
+ * más largo. "Proyect Integr Desarr Sotfware" contiene a "Proyecto Integrador".
+ */
+function seAbrevian(a: string[], b: string[]) {
+  const [corto, largo] = a.length <= b.length ? [a, b] : [b, a];
+  if (corto.length === 0) return false;
+  let i = 0;
+  for (const palabra of largo) {
+    if (i < corto.length && abrevia(corto[i], palabra)) i++;
+  }
+  return i === corto.length;
+}
+
+/**
+ * La carpeta de la materia: por nombre exacto, luego porque uno contiene al
+ * otro, y luego porque uno abrevia al otro palabra por palabra.
+ *
+ * La PVA llama a la materia "CSTI-1930-5225 - Seg. en Tecnología Información"
+ * y la carpeta se llama "Seguridad en Tecnologia de Informacion": ninguno
+ * contiene al otro, pero "seg" abrevia "seguridad" y el resto coincide. En cada
+ * paso, con una sola candidata alcanza; con dos no se elige ninguna, porque
+ * poner la tarea en la materia equivocada es peor que dejarla suelta.
+ */
 function carpetaDe(mapa: Map<string, Id<'folders'>>, item: AcademicoItem): Id<'folders'> | undefined {
   if (!item.courseName) return undefined;
   const nombre = plano(item.courseName);
   const exacta = mapa.get(nombre);
   if (exacta) return exacta;
-  // La PVA llama a la materia "Seg. en Tecnología Información" y la carpeta se
-  // llama "Seguridad en Tecnologia de Informacion": una contiene a la otra por
-  // un lado o por el otro, y con una sola candidata eso alcanza. Con dos, no
-  // se elige ninguna, porque poner la tarea en la materia equivocada es peor
-  // que dejarla suelta.
-  const parecidas = [...mapa.entries()].filter(([clave]) => clave.includes(nombre) || nombre.includes(clave));
-  return parecidas.length === 1 ? parecidas[0][1] : undefined;
+  const entradas = [...mapa.entries()];
+  const contenidas = entradas.filter(([clave]) => clave.includes(nombre) || nombre.includes(clave));
+  if (contenidas.length > 0) return contenidas.length === 1 ? contenidas[0][1] : undefined;
+  const suyas = palabras(nombre);
+  const abreviadas = entradas.filter(([clave]) => seAbrevian(suyas, palabras(clave)));
+  return abreviadas.length === 1 ? abreviadas[0][1] : undefined;
 }
 
 /** Lo que el barrido cambiaría de una tarea que ya existe. Vacío significa que no se toca. */
