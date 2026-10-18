@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Coffee } from 'lucide-react';
 import Link from 'next/link';
 import { toast } from 'sonner';
@@ -11,7 +11,6 @@ import {
   useRemoveFromPlan,
 } from '@/features/tasks/tasks.hooks';
 import { useFocusTimer } from '@/features/tasks/FocusTimerProvider';
-import { EmptyState } from '@/components/ui/empty-state';
 import { Skeleton } from '@/components/ui/skeleton';
 import { userTomorrow } from '@/shared/time';
 import { PlanTaskRow } from './PlanTaskRow';
@@ -29,19 +28,29 @@ export const UNDO_MS = 4000;
 
 const PRIORITY_ORDER: Record<string, number> = { critical: 0, high: 1, medium: 2, low: 3 };
 
-// Confeti al cerrar el plan: doce puntos en transform y opacity, 700 ms, y el
-// bloque global de reduced motion lo apaga con el resto.
+// Confeti al cerrar el plan: doce puntos en transform y opacity, y el bloque
+// global de reduced motion lo apaga con el resto.
+const CONFETTI_COUNT = 12;
+const CONFETTI_FLIGHT_MS = 700;
+const CONFETTI_STAGGER_MS = 30;
+/**
+ * Cuándo se desmonta: el vuelo del último punto (su retraso más los 700 ms)
+ * y un margen, para que ninguna partícula se corte a media trayectoria.
+ */
+export const CONFETTI_REMOVE_MS = CONFETTI_FLIGHT_MS + (CONFETTI_COUNT - 1) * CONFETTI_STAGGER_MS + 70;
+
 function ConfettiBurst() {
-  const spans = Array.from({ length: 12 }, (_, i) => ({ id: i, angle: (i / 12) * 360 }));
+  const spans = Array.from({ length: CONFETTI_COUNT }, (_, i) => ({ id: i, angle: (i / CONFETTI_COUNT) * 360 }));
   return (
     <div className="pointer-events-none absolute inset-0 overflow-hidden" aria-hidden>
       {spans.map(({ id, angle }) => (
         <span
           key={id}
+          data-slot="confetti"
           className="absolute top-1/2 left-1/2 size-2 rounded-full bg-primary"
           style={{
-            animation: `confetti-fly 700ms ease-out forwards`,
-            animationDelay: `${id * 30}ms`,
+            animation: `confetti-fly ${CONFETTI_FLIGHT_MS}ms var(--ease-pluma) forwards`,
+            animationDelay: `${id * CONFETTI_STAGGER_MS}ms`,
             '--angle': `${angle}deg`,
           } as React.CSSProperties}
         />
@@ -81,12 +90,35 @@ function PlanSkeleton() {
 }
 
 /**
+ * El vacío del plan. Va en h3 y no en h2: el h1 de la pantalla es la palabra
+ * de la cota y "Plan de hoy" ya es el h2 de la sección, así que el titular del
+ * vacío cuelga de él. Por la misma razón pesa menos que el título de sección:
+ * Figtree en peso, no Bricolage, y la frase en la voz debajo.
+ */
+function PlanEmpty({ title, description, action }: { title: string; description: string; action: React.ReactNode }) {
+  return (
+    <div data-slot="plan-empty" className="flex flex-col items-start gap-1 py-5 pl-(--margen)">
+      <h3 className="text-base leading-tight font-semibold text-foreground">{title}</h3>
+      <p className="font-voice text-[0.98rem] leading-snug text-body italic">{description}</p>
+      <div className="mt-1">{action}</div>
+    </div>
+  );
+}
+
+const linkAccion = 'focus-ring inline-flex h-[2.85rem] items-center rounded-full font-semibold text-primary';
+
+/**
  * El plan de hoy: un título con hairline y filas de margen debajo. Completar
  * es un toque en el círculo: la fila se tacha, un aviso de cuatro segundos
  * ofrece Deshacer, y la fila tachada se queda en su sitio hasta la siguiente
  * visita, porque una lista que recoloca sus renglones a los cuatro segundos
  * mueve lo que la persona está leyendo. Lo vacío y lo hecho del todo son un
  * estado vacío en la columna de texto, no una tarjeta.
+ *
+ * El Deshacer del aviso devuelve el estado de antes de completar, no alterna:
+ * si la fila ya se deshizo con el círculo, el aviso se cierra en ese toque, y
+ * un Deshacer tardío que llegue igual no hace nada. La mutación del servidor
+ * es un flip, así que alternar a ciegas volvería a dejar la tarea hecha.
  */
 export function TodayPlanCard({ noProfile, energyItems }: TodayPlanCardProps) {
   const { data: planTasks = [], isLoading } = useTodayPlanTasks();
@@ -96,6 +128,14 @@ export function TodayPlanCard({ noProfile, energyItems }: TodayPlanCardProps) {
   const { openModeDialog } = useFocusTimer();
 
   const [showConfetti, setShowConfetti] = useState(false);
+  const confettiTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  useEffect(() => () => {
+    if (confettiTimer.current) clearTimeout(confettiTimer.current);
+  }, []);
+  // Las que se completaron aquí y siguen hechas según el último gesto de la
+  // persona, con el aviso que ofrece deshacerlas. Es la fuente del Deshacer:
+  // no depende de que el servidor ya haya contestado.
+  const completedHere = useRef(new Map<string, string | number | undefined>());
   // Las tachadas en esta visita. Siguen en su fila aunque el servidor ya las
   // cuente como hechas; la próxima apertura de Hoy las baja a "hechas hoy".
   const [struck, setStruck] = useState<ReadonlySet<string>>(() => new Set());
@@ -119,23 +159,40 @@ export function TodayPlanCard({ noProfile, energyItems }: TodayPlanCardProps) {
     });
   const settledDone = doneTasks.filter((t) => !struck.has(t.id)).length;
 
+  /** Vuelve a pendiente sólo si el último gesto la dejó hecha: idempotente. */
+  function undo(taskId: string) {
+    if (!completedHere.current.has(taskId)) return;
+    completedHere.current.delete(taskId);
+    toggle({ taskId });
+  }
+
   function strike(task: TaskTransport) {
     const willBeAllDone = pendingTasks.filter((t) => t.id !== task.id).length === 0;
     setStruck((prev) => new Set(prev).add(task.id));
     toggle({ taskId: task.id });
-    toast(`Hecha: ${task.title}`, {
+    const toastId = toast(`Hecha: ${task.title}`, {
       duration: UNDO_MS,
-      action: { label: 'Deshacer', onClick: () => toggle({ taskId: task.id }) },
+      action: { label: 'Deshacer', onClick: () => undo(task.id) },
     });
+    completedHere.current.set(task.id, toastId);
     if (willBeAllDone) {
       setShowConfetti(true);
-      setTimeout(() => setShowConfetti(false), 900);
+      if (confettiTimer.current) clearTimeout(confettiTimer.current);
+      confettiTimer.current = setTimeout(() => setShowConfetti(false), CONFETTI_REMOVE_MS);
     }
   }
 
   function handleToggle(task: TaskTransport) {
-    if (task.status === 'done') toggle({ taskId: task.id });
-    else strike(task);
+    if (task.status !== 'done' && !completedHere.current.has(task.id)) {
+      strike(task);
+      return;
+    }
+    // Deshacer con el círculo cierra el aviso: su Deshacer ya no tiene nada
+    // que devolver.
+    const toastId = completedHere.current.get(task.id);
+    if (toastId !== undefined) toast.dismiss(toastId);
+    if (completedHere.current.has(task.id)) undo(task.id);
+    else toggle({ taskId: task.id });
   }
 
   const duration = totalEstimated(pendingTasks);
@@ -158,12 +215,11 @@ export function TodayPlanCard({ noProfile, energyItems }: TodayPlanCardProps) {
       {isLoading && <PlanSkeleton />}
 
       {!isLoading && noProfile && (
-        <EmptyState
-          className="pl-(--margen)"
+        <PlanEmpty
           title="Sin perfil de energía"
           description="El plan sale de tu perfil de energía; sin él no hay con qué proponerlo."
           action={
-            <Link href="/onboarding" className="focus-ring inline-flex h-[2.85rem] items-center rounded-full font-semibold text-primary">
+            <Link href="/onboarding" className={linkAccion}>
               Configurarlo
             </Link>
           }
@@ -171,12 +227,11 @@ export function TodayPlanCard({ noProfile, energyItems }: TodayPlanCardProps) {
       )}
 
       {!isLoading && !noProfile && !showRows && doneCount > 0 && (
-        <EmptyState
-          className="pl-(--margen)"
+        <PlanEmpty
           title="Todo hecho por hoy"
           description={`${doneCount} tarea${doneCount === 1 ? '' : 's'} cerrada${doneCount === 1 ? '' : 's'}. El resto del día es tuyo.`}
           action={
-            <Link href="/tasks" className="focus-ring inline-flex h-[2.85rem] items-center rounded-full font-semibold text-primary">
+            <Link href="/tasks" className={linkAccion}>
               Ver sugerencias
             </Link>
           }
@@ -184,12 +239,11 @@ export function TodayPlanCard({ noProfile, energyItems }: TodayPlanCardProps) {
       )}
 
       {!isLoading && !noProfile && isEmpty && (
-        <EmptyState
-          className="pl-(--margen)"
-          title="Nada en el plan de hoy"
+        <PlanEmpty
+          title="Nada en el plan"
           description="Una página en blanco. Las sugerencias esperan en Tareas."
           action={
-            <Link href="/tasks" className="focus-ring inline-flex h-[2.85rem] items-center rounded-full font-semibold text-primary">
+            <Link href="/tasks" className={linkAccion}>
               Ver sugerencias
             </Link>
           }
