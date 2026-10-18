@@ -107,7 +107,7 @@ export function ButtonsSection() {
             </Button>
           </Specimen>
           <Specimen label="Guardando" hint="texto de estado y disabled; nunca un spinner">
-            <Button disabled>Guardando</Button>
+            <Button disabled aria-busy>Guardando</Button>
           </Specimen>
           <Specimen label="Foco" hint="Tab: el anillo del acento con 2 px de aire (focus-ring)">
             <Button variant="outline">Tabúlame</Button>

@@ -59,7 +59,7 @@ function TacharDemo() {
             aria-label={hecha ? "Marcar pendiente" : "Marcar hecha"}
             aria-pressed={hecha}
             onClick={() => setHecha((h) => !h)}
-            className="press flex size-[2.85rem] items-center justify-center rounded-full focus-ring"
+            className="press flex size-[2.85rem] items-center justify-center rounded-full transition-transform duration-(--dur-toque) ease-(--ease-pluma) focus-ring"
           >
             <span
               className={`block size-[1.35rem] rounded-full border-[1.6px] border-ln2 ${hecha ? "anim-tachar" : ""}`}
@@ -149,7 +149,7 @@ export function FoundationsSection() {
         <div className="mt-4">
           <Specimen label="press" hint="scale .97 al mantener, --dur-toque; viene en Button y Segmented">
             <Button>Mantén pulsado</Button>
-            <button type="button" className="press flex size-[2.85rem] items-center justify-center rounded-full bg-secondary focus-ring" aria-label="Círculo">
+            <button type="button" className="press flex size-[2.85rem] items-center justify-center rounded-full bg-secondary transition-transform duration-(--dur-toque) ease-(--ease-pluma) focus-ring" aria-label="Círculo">
               <span className="block size-[1.35rem] rounded-full border-[1.6px] border-ln2" />
             </button>
           </Specimen>
@@ -166,8 +166,8 @@ export function FoundationsSection() {
             margin={<span className="font-display text-lg font-bold text-primary">I</span>}
             trailing={<ChevronRight className="size-5" />}
           >
-            <p className="text-base font-semibold text-foreground">Primera parte: la subida</p>
-            <p className="text-sm text-muted-foreground">Fila tocable (onClick): Tab para ver el foco</p>
+            <span className="block text-base font-semibold text-foreground">Primera parte: la subida</span>
+            <span className="block text-sm text-muted-foreground">Fila tocable (onClick): Tab para ver el foco</span>
           </MarginRow>
           <MarginRow margin={<Folder className="size-5" />}>
             <p className="text-base font-medium text-foreground">Capítulos 1 a 5</p>
