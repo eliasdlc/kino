@@ -32,7 +32,7 @@ export function MobileHeader({ rutaActual }: { rutaActual?: string } = {}) {
       : null;
 
   return (
-    <header className="sticky top-0 z-(--z-overlay) flex h-[3.2rem] shrink-0 items-center justify-between border-b border-border bg-background pl-2 pr-1 md:hidden">
+    <header className="sticky top-0 z-(--z-overlay) flex min-h-[3.2rem] shrink-0 items-center justify-between border-b border-border bg-background pt-[env(safe-area-inset-top)] pl-[max(0.5rem,env(safe-area-inset-left))] pr-[max(0.25rem,env(safe-area-inset-right))] md:hidden">
       {cabecera.tipo === "raiz" ? (
         <>
           <Link
@@ -43,7 +43,7 @@ export function MobileHeader({ rutaActual }: { rutaActual?: string } = {}) {
           </Link>
           <Link
             href="/settings"
-            className="flex h-[2.85rem] min-w-[2.85rem] items-center justify-center rounded-md px-3 text-sm font-semibold text-muted-foreground transition-colors duration-(--dur-toque) ease-(--ease-pluma) focus-ring hover:text-foreground"
+            className="flex h-[2.85rem] min-w-[2.85rem] items-center justify-center rounded-md px-3 text-sm font-semibold text-foreground transition-colors duration-(--dur-toque) ease-(--ease-pluma) focus-ring hover:text-primary"
           >
             Ajustes
           </Link>
@@ -51,9 +51,9 @@ export function MobileHeader({ rutaActual }: { rutaActual?: string } = {}) {
       ) : (
         <Link
           href={cabecera.padreHref}
-          className="flex h-[2.85rem] max-w-[75%] items-center gap-0.5 rounded-md pr-3 text-base font-semibold text-primary transition-colors duration-(--dur-toque) ease-(--ease-pluma) focus-ring"
+          className="flex h-[2.85rem] max-w-[75%] items-center gap-0.5 rounded-md pr-3 text-base font-semibold text-foreground transition-colors duration-(--dur-toque) ease-(--ease-pluma) focus-ring hover:text-primary"
         >
-          <ChevronLeft className="size-5 shrink-0 stroke-[2.2]" aria-hidden />
+          <ChevronLeft className="size-5 shrink-0 stroke-[2.2] text-muted-foreground" aria-hidden />
           <span className="truncate">{padre}</span>
         </Link>
       )}
