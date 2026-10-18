@@ -3,7 +3,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 /** La forma de Hoy mientras llega: la cota a la izquierda, el plan a la derecha. */
 export default function DashboardLoading() {
   return (
-    <div className="mx-auto max-w-6xl px-5 py-5 md:px-8 md:py-6">
+    <div aria-busy className="mx-auto max-w-6xl px-5 py-5 md:px-8 md:py-6">
       <div className="md:grid md:grid-cols-[minmax(0,1fr)_minmax(0,1.25fr)] md:gap-10">
         <div className="space-y-4 md:border-r md:border-border md:pr-10">
           <Skeleton className="h-3 w-40" />
