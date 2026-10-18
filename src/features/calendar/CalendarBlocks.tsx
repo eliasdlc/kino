@@ -141,7 +141,11 @@ function TaskBlockInner({
       aria-label={`${format(d, "HH:mm")}, ${task.title}`}
       onClick={() => onOpen(task)}
       onKeyDown={(e) => {
-        if (e.key === "Enter") onOpen(task);
+        // Un rol de botón se activa con Intro y con Espacio.
+        if (e.key === "Enter" || e.key === " ") {
+          e.preventDefault();
+          onOpen(task);
+        }
       }}
       className={cn(
         "focus-ring absolute right-0.5 left-0.5 cursor-grab overflow-hidden rounded-md border px-1.5 pt-0.5 pb-2 text-xs leading-tight select-none active:cursor-grabbing",
@@ -169,6 +173,12 @@ function TaskBlockInner({
   );
 }
 
+/**
+ * Una tarea sin fecha en la columna de escritorio: una fila de índice con
+ * hairline, no una caja. El título se arrastra con el ratón a un hueco; debajo,
+ * la hora que pide su energía (en tinta subrayada: es una sugerencia, no la
+ * acción primaria) y "Programar", que abre la misma hoja que el teléfono.
+ */
 export function UnscheduledChip({
   task,
   suggestedHour,
@@ -188,26 +198,26 @@ export function UnscheduledChip({
   });
   return (
     <div
-      className={cn(
-        "rounded-md border text-sm select-none",
-        PRIORITY_CHIP[task.effectivePriority ?? "medium"],
-        isDragging && "opacity-30",
-      )}
+      data-slot="sin-programar-fila"
+      className={cn("border-b border-border py-2 text-sm select-none last:border-b-0", isDragging && "opacity-30")}
     >
       <div
         ref={setNodeRef}
         {...attributes}
         {...listeners}
-        className="cursor-grab truncate px-2 pt-1.5 pb-1 active:cursor-grabbing"
+        className={cn(
+          "cursor-grab line-clamp-2 leading-snug text-foreground active:cursor-grabbing",
+          task.effectivePriority === "critical" ? "font-bold" : "font-semibold",
+        )}
         title={task.title}
       >
         {task.title}
       </div>
-      <div className="flex flex-wrap items-center gap-x-2 px-1 pb-1">
+      <div className="mt-1 flex flex-wrap items-center gap-x-3">
         {suggestedHour !== null && (
           <button
             type="button"
-            className="focus-ring rounded-full px-1 text-xs font-semibold text-primary transition-colors duration-(--dur-toque) hover:underline pointer-coarse:min-h-[2.85rem]"
+            className="focus-ring rounded-sm text-xs font-semibold text-foreground underline decoration-input underline-offset-2 transition-[text-decoration-color] duration-(--dur-toque) ease-(--ease-pluma) hover:decoration-foreground pointer-coarse:min-h-[2.85rem]"
             onClick={() => onAcceptSuggestion(task, suggestedHour)}
           >
             A las {format(new Date(2000, 0, 1, suggestedHour), "HH:mm")}
@@ -215,7 +225,7 @@ export function UnscheduledChip({
         )}
         <button
           type="button"
-          className="focus-ring rounded-full px-1 text-xs font-semibold text-muted-foreground transition-colors duration-(--dur-toque) hover:text-foreground pointer-coarse:min-h-[2.85rem]"
+          className="focus-ring rounded-sm text-xs font-semibold text-muted-foreground transition-colors duration-(--dur-toque) ease-(--ease-pluma) hover:text-foreground pointer-coarse:min-h-[2.85rem]"
           aria-label={`Programar ${task.title}`}
           onClick={() => onProgramar(task)}
         >
