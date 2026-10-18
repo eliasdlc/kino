@@ -14,7 +14,7 @@ import {
 import { EntityFicheSheet } from "@/features/entities/EntityFicheSheet";
 import { MarginRow } from "@/components/ui/margin-row";
 import { Skeleton } from "@/components/ui/skeleton";
-import { WritingSectionHead } from "./WritingSectionHead";
+import { SectionHead } from "@/features/dashboard/SectionHead";
 import { SuggestionList, type SuggestionEmptyState } from "@/shared/suggestions/SuggestionList";
 import { useStudio } from "./writing.hooks";
 import type { SuggestionKind, WritingSuggestion } from "./studio";
@@ -72,13 +72,13 @@ export function Studio({ systemId }: { systemId: string }) {
   return (
     <div className="space-y-6">
       <section className="space-y-2">
-        <WritingSectionHead title="Qué escribir hoy" meta="Sin IA" />
+        <SectionHead title="Qué escribir hoy" />
         <p className="text-sm text-muted-foreground">
-          Sale de tus sesiones y de tu texto: cada señal dice de dónde.
+          Sale de tus sesiones y de tu texto, sin IA que lo adivine: cada señal dice de dónde.
         </p>
 
         <SuggestionList<WritingSuggestion>
-          suggestions={suggestions}
+          suggestions={suggestions.map(conRazonLegible)}
           quiet={NADA_QUE_SENALAR}
           iconFor={(suggestion) => ICON[suggestion.kind]}
           hrefFor={(suggestion) => targetHref(suggestion, systemId)}
@@ -87,9 +87,9 @@ export function Studio({ systemId }: { systemId: string }) {
 
       {gaps.length > 0 && (
         <section className="space-y-2">
-          <WritingSectionHead
+          <SectionHead
             title="Fichas por escribir"
-            meta={gaps.length === 1 ? "1 ficha" : `${gaps.length} fichas`}
+            count={gaps.length === 1 ? "1 ficha" : `${gaps.length} fichas`}
           />
           <p className="pl-(--margen) text-sm text-muted-foreground">
             Aparecen en el texto y no tienen ni una línea que las describa. Es el
@@ -127,6 +127,18 @@ export function Studio({ systemId }: { systemId: string }) {
       />
     </div>
   );
+}
+
+/**
+ * La razón tal como la arma `studio.ts`, también si la arma un despliegue de
+ * Convex anterior: aquel separaba con un punto medio y decía «palabras en sin
+ * obra». Cuando Convex sirva el texto nuevo esto no cambia nada.
+ */
+export function conRazonLegible<T extends { reason: string }>(suggestion: T): T {
+  const reason = suggestion.reason
+    .replace(/\s+\u00b7\s+/g, "; ")
+    .replace(/palabras en sin obra/g, "palabras en un manuscrito suelto");
+  return reason === suggestion.reason ? suggestion : { ...suggestion, reason };
 }
 
 function targetHref(suggestion: WritingSuggestion, systemId: string): string | null {
