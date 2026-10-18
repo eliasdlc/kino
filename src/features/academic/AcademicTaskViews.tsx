@@ -41,13 +41,14 @@ function TaskViewNav({ value, onChange }: { value: View; onChange: (next: View) 
             aria-selected={active}
             onClick={() => onChange(view)}
             className={cn(
-              "relative min-h-11 shrink-0 px-2 text-sm font-semibold transition-colors",
-              active ? "text-primary" : "text-muted-foreground hover:text-foreground",
+              // La vista elegida es un estado: en tinta, como las pestañas-palabra.
+              "relative min-h-[2.85rem] shrink-0 px-2 text-sm font-semibold transition-colors duration-(--dur-toque) focus-ring",
+              active ? "text-foreground" : "text-muted-foreground hover:text-foreground",
             )}
           >
             <span className="sm:hidden">{LABELS[view].short}</span>
             <span className="hidden sm:inline">{LABELS[view].long}</span>
-            {active && <span aria-hidden className="absolute inset-x-2 bottom-1.5 h-0.5 rounded-full bg-primary" />}
+            {active && <span aria-hidden className="absolute inset-x-2 -bottom-px h-0.5 rounded-full bg-foreground" />}
           </button>
         );
       })}
