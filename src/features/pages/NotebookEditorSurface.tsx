@@ -65,25 +65,33 @@ function TypewriterScroll({
 
 /**
  * El editor arranca donde quedó la primera pintura. Quien empezó a leer y bajó
- * mientras llegaba Tiptap no vuelve arriba cuando llega: el contenedor con
- * scroll es otro, así que se le da el mismo `scrollTop`. Se repite en el
- * siguiente cuadro porque el texto del editor puede montarse después.
+ * mientras llegaba Tiptap no vuelve arriba cuando llega: al cambiar de árbol,
+ * el texto del editor se monta un instante después y el contenedor recorta su
+ * scroll a lo poco que hay. Se le devuelve el suyo en cuanto el texto cabe,
+ * mirando unos pocos cuadros y nada más.
  */
-export function ConservarScroll({ scrollRef }: { scrollRef: React.RefObject<HTMLDivElement | null> }) {
+const CUADROS_PARA_VOLVER = 12;
+
+export function ConservarScroll() {
   const editor = useSharedEditor();
   const pintura = usePrimeraPintura();
 
   useLayoutEffect(() => {
-    const scroller = scrollRef.current;
-    if (!editor || !scroller || !pintura) return;
-    const top = pintura.tomarScroll();
-    if (top <= 0) return;
-    scroller.scrollTop = top;
-    const cuadro = requestAnimationFrame(() => {
-      if (scroller.scrollTop !== top) scroller.scrollTop = top;
-    });
+    if (!editor || !pintura) return;
+    const guardado = pintura.tomarScroll();
+    if (!guardado || guardado.top <= 0) return;
+    const { contenedor, top } = guardado;
+    let cuadros = 0;
+    let cuadro = 0;
+    const volver = () => {
+      contenedor.scrollTop = top;
+      if (Math.abs(contenedor.scrollTop - top) > 1 && cuadros++ < CUADROS_PARA_VOLVER) {
+        cuadro = requestAnimationFrame(volver);
+      }
+    };
+    volver();
     return () => cancelAnimationFrame(cuadro);
-  }, [editor, pintura, scrollRef]);
+  }, [editor, pintura]);
 
   return null;
 }
@@ -405,7 +413,7 @@ export default function NotebookEditorSurface({
           )}
 
           {writer && <TypewriterScroll enabled={focusMode} scrollRef={scrollRef} />}
-          <ConservarScroll scrollRef={scrollRef} />
+          <ConservarScroll />
 
           {/* El índice ya no es del manuscrito: todo documento lo deriva, porque
               el carril de títulos de un apunte come de aquí igual que el panel
