@@ -2,18 +2,21 @@
 
 import { useState } from "react";
 import { isBefore, startOfToday } from "date-fns";
-import { ChevronDown, MoreHorizontal } from "lucide-react";
+import { CalendarClock, ChevronDown } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
+import { MarginRow } from "@/components/ui/margin-row";
 import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
+  ResponsiveDialog,
+  ResponsiveDialogContent,
+  ResponsiveDialogDescription,
+  ResponsiveDialogHeader,
+  ResponsiveDialogTitle,
+} from "@/components/ui/responsive-dialog";
 import { useBulkMove } from "./tasks.hooks";
 import { parseDueDate } from "./tasks.utils";
-import { TaskListRow } from "./TaskListRow";
+import { TaskRow } from "./TaskRow";
+import { useListaTachable } from "./useTachar";
 import type { TaskTransport } from "./tasks.types";
 
 interface OverdueGroupProps {
@@ -28,7 +31,7 @@ const ACTIVE_STATUSES = new Set(["backlog", "week", "tomorrow", "today", "planni
 const MOVES = [
   { status: "today", label: "Hoy" },
   { status: "tomorrow", label: "Mañana" },
-  { status: "week", label: "Semana" },
+  { status: "week", label: "Esta semana" },
 ] as const;
 
 export function getOverdueTasks(tasks: TaskTransport[]): TaskTransport[] {
@@ -42,71 +45,96 @@ export function getOverdueTasks(tasks: TaskTransport[]): TaskTransport[] {
 }
 
 /**
- * Las vencidas, arriba de la lista, con las mismas filas que el resto. La
- * cabecera es una fila: el título con la cuenta a la izquierda y, a la
- * derecha, mover todas de golpe. En laptop las tres acciones caben; en el
- * teléfono van en un menú para no pisar el título.
+ * Las vencidas, arriba de la lista, como su propia sección de Diario: el
+ * título con la cuenta y un hairline, las mismas filas que el resto. Mover
+ * todas de golpe es una operación con nombre: el botón abre una hoja con los
+ * tres destinos en renglones de 48 px, igual en el teléfono que en escritorio.
+ * El título pliega la sección.
  */
 export function OverdueGroup({ tasks, systemMap, onOpen, onToggle }: OverdueGroupProps) {
   const [collapsed, setCollapsed] = useState(false);
+  const [moving, setMoving] = useState(false);
   const { mutate: bulkMove, isPending } = useBulkMove();
+  const { filas, struck, handleToggle } = useListaTachable(tasks, onToggle);
 
-  if (tasks.length === 0) return null;
+  if (filas.length === 0) return null;
 
   const ids = tasks.map((t) => t.id);
 
   return (
-    <div className="border-b border-border">
-      <div className="flex items-center justify-between gap-3 px-4 py-2.5">
+    <section aria-labelledby="vencidas-titulo">
+      <div className="flex items-center justify-between gap-3 border-b border-input pb-[0.2rem]">
         <button
           type="button"
           onClick={() => setCollapsed((v) => !v)}
-          className="flex min-w-0 flex-1 items-center gap-2 text-left"
+          className="focus-ring -ml-1 flex min-h-[2.85rem] min-w-0 items-center gap-2 rounded-full pr-2 pl-1 text-left"
           aria-expanded={!collapsed}
         >
-          <ChevronDown className={cn("size-4 shrink-0 text-muted-foreground transition-transform", collapsed && "-rotate-90")} />
-          <span className="truncate text-sm font-semibold">Pendientes de antes</span>
-          <span className="text-xs text-muted-foreground tabular-nums">{tasks.length}</span>
+          <h2 id="vencidas-titulo" className="font-display text-[1.25rem] leading-[1.15] font-bold tracking-[-0.02em]">
+            Vencidas
+          </h2>
+          <ChevronDown
+            className={cn(
+              "size-4 shrink-0 text-muted-foreground transition-transform duration-(--dur-toque) ease-(--ease-pluma)",
+              collapsed && "-rotate-90",
+            )}
+            aria-hidden
+          />
         </button>
-
-        <div className="hidden items-center gap-1.5 md:flex">
-          <span className="text-xs text-muted-foreground">Mover a</span>
-          {MOVES.map(({ status, label }) => (
-            <Button
-              key={status}
-              size="xs"
-              variant="secondary"
-              disabled={isPending}
-              onClick={() => bulkMove({ taskIds: ids, status })}
-            >
-              {label}
+        <span className="flex items-center gap-1">
+          <span className="text-[0.84rem] text-muted-foreground tabular-nums">
+            {tasks.length} tarea{tasks.length === 1 ? "" : "s"}
+          </span>
+          {tasks.length > 0 && (
+            <Button size="sm" variant="ghost" disabled={isPending} onClick={() => setMoving(true)} className="-mr-2">
+              Mover todas
             </Button>
-          ))}
-        </div>
-
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <Button size="icon-xs" variant="ghost" className="md:hidden" aria-label="Mover todas" disabled={isPending}>
-              <MoreHorizontal className="size-4" />
-            </Button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="end">
-            {MOVES.map(({ status, label }) => (
-              <DropdownMenuItem key={status} onSelect={() => bulkMove({ taskIds: ids, status })}>
-                Mover todas a {label.toLowerCase()}
-              </DropdownMenuItem>
-            ))}
-          </DropdownMenuContent>
-        </DropdownMenu>
+          )}
+        </span>
       </div>
 
       {!collapsed && (
-        <div className="divide-y divide-border">
-          {tasks.map((t) => (
-            <TaskListRow key={t.id} task={t} systemMap={systemMap} onToggle={onToggle} onOpen={onOpen} />
+        <div>
+          {filas.map((t) => (
+            <TaskRow
+              key={t.id}
+              task={t}
+              density="lista"
+              className="min-h-[3.9rem]"
+              struck={struck.has(t.id)}
+              context={systemMap.get(t.systemId)?.name}
+              onComplete={() => handleToggle(t)}
+              onOpen={() => onOpen(t)}
+            />
           ))}
         </div>
       )}
-    </div>
+
+      <ResponsiveDialog open={moving} onOpenChange={setMoving}>
+        <ResponsiveDialogContent className="sm:max-w-sm">
+          <ResponsiveDialogHeader>
+            <ResponsiveDialogTitle>Mover las vencidas</ResponsiveDialogTitle>
+            <ResponsiveDialogDescription>
+              {tasks.length} tarea{tasks.length === 1 ? "" : "s"}. La fecha límite no cambia; cambia cuándo las haces.
+            </ResponsiveDialogDescription>
+          </ResponsiveDialogHeader>
+          <div>
+            {MOVES.map(({ status, label }) => (
+              <MarginRow
+                key={status}
+                margin={<CalendarClock className="mt-[0.55rem] size-[1.15rem]" />}
+                onClick={() => {
+                  setMoving(false);
+                  bulkMove({ taskIds: ids, status });
+                }}
+                className="min-h-[3.2rem] text-base font-semibold text-foreground"
+              >
+                A {label.toLowerCase()}
+              </MarginRow>
+            ))}
+          </div>
+        </ResponsiveDialogContent>
+      </ResponsiveDialog>
+    </section>
   );
 }
