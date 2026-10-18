@@ -1,81 +1,146 @@
 "use client";
 
 import Link from "next/link";
-import { useFolders, useUpdateFolder } from "@/features/folders/folders.hooks";
+import { useState } from "react";
+import { BookOpen, Folder, History, Layers, Plus } from "lucide-react";
+import { useFolderChildren, useFolders, useUpdateFolder } from "@/features/folders/folders.hooks";
 import { usePages, useCreatePage } from "@/features/pages/pages.hooks";
 import { NewFolderInline } from "@/features/folders/NewFolderInline";
 import { SYSTEM_TYPE_CONFIG } from "@/shared/lib/system-types";
-import {
-  MEDIUM_CONFIG,
-  MEDIUM_OPTIONS,
-  resolveMedium,
-  type MediumId,
-} from "@/shared/lib/mediums";
+import { MEDIUM_CONFIG, MEDIUM_OPTIONS, resolveMedium, type MediumId } from "@/shared/lib/mediums";
+import { capitalize } from "@/shared/lib/system-manifest";
 import { WritingPulse } from "@/features/writing/WritingPulse";
 import { WorkJournalDialog } from "@/features/writing/WorkJournalDialog";
 import { useWritingOverview } from "@/features/writing/writing.hooks";
 import { CompileMenu } from "@/features/writing/CompileMenu";
-import { useState } from "react";
-import {
-  BookMarked,
-  BookOpen,
-  CheckCircle2,
-  FileText,
-  Feather,
-  History,
-  Layers,
-  Plus,
-  Sparkles,
-} from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { EmptyState } from "@/components/ui/empty-state";
+import { MarginRow } from "@/components/ui/margin-row";
+import { Progress } from "@/components/ui/progress";
+import { RowsSkeleton } from "@/components/Skeletons";
+import { FolderRow } from "@/features/notebooks/FolderRow";
+import { IndexHead } from "@/features/notebooks/IndexHead";
+import { NotebookRow } from "@/features/notebooks/NotebookRow";
+import { NATIVE_SELECT_CLASS } from "@/features/notebooks/native-select";
+import { countNoun, formatCount, joinMeta } from "@/features/notebooks/index-format";
+import { cn } from "@/lib/utils";
 import type { PageListItemTransport } from "@/features/pages/pages.types";
 import type { FolderWithCounts } from "@/features/folders/folders.types";
 import type { WorkPulse } from "@/features/writing/writing.types";
 import type { SystemViewProps } from "./SystemDetailView";
+import { DIAS_DORMIDA, readWordGoal } from "./writing-meta";
 
 const folderRole = SYSTEM_TYPE_CONFIG.writing.folderRole!;
+const pageRole = SYSTEM_TYPE_CONFIG.writing.pageRole;
 
-function WordProgress({ words, goal }: { words: number; goal: number | null }) {
-  if (!goal || goal <= 0) {
-    return <span className="font-mono text-xs text-muted-foreground">{words.toLocaleString("es")} palabras</span>;
-  }
-  const pct = Math.min(100, Math.round((words / goal) * 100));
-  return (
-    <div className="flex items-center gap-2">
-      <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-muted">
-        <div className="h-full rounded-full bg-primary transition-all duration-500" style={{ width: `${pct}%` }} />
-      </div>
-      <span className="shrink-0 font-mono text-xs text-muted-foreground">
-        {words.toLocaleString("es")} / {goal.toLocaleString("es")}
-      </span>
-    </div>
-  );
-}
 
-function readWordGoal(meta: Record<string, unknown>): number | null {
-  if (typeof meta.wordGoal === "number") return meta.wordGoal;
-  if (typeof meta.wordGoal === "string") return Number(meta.wordGoal) || null;
-  return null;
-}
+/** La pastilla de una acción con nombre de la obra: Leer, Tablero, Capítulo. */
+const CHIP = "gap-1.5 [&_svg]:size-4";
 
-function ObraCard({ obra, manuscripts, systemId, pulse }: {
+interface ObraProps {
   obra: FolderWithCounts;
-  manuscripts: PageListItemTransport[];
+  index: number;
+  /** Los documentos del sistema; la obra se queda con los suyos y los de sus partes. */
+  pages: PageListItemTransport[];
   systemId: string;
   /** Pulso derivado de las sesiones reales; null si la obra nunca tuvo una. */
   pulse: WorkPulse | null;
+  now?: Date;
+}
+
+/**
+ * Una obra como fila del índice, desplegada: el numeral romano, su medio, sus
+ * manuscritos y lo escrito contra la meta. Al desplegarse enseña la barra de
+ * la meta, las acciones con nombre (Leer, Tablero, Capítulo, Diario,
+ * Compilar), el medio como un select de verdad, sus partes y sus manuscritos
+ * numerados.
+ */
+export function ObraRow({ obra, index, pages, systemId, pulse, now }: ObraProps) {
+  // Las partes (subcarpetas) cuentan: una obra cuyos capítulos viven en
+  // "Capítulos 1 a 5" no tiene cero manuscritos. Un nivel, que es lo que el
+  // índice enseña al desplegarla.
+  const { data: partes = [] } = useFolderChildren(obra.id);
+  const parteIds = new Set(partes.map((p) => p.id));
+  const manuscripts = pages.filter((p) => p.folderId === obra.id);
+  const todos = pages.filter((p) => p.folderId === obra.id || (p.folderId !== null && parteIds.has(p.folderId)));
+  const meta = (obra.metadata ?? {}) as Record<string, unknown>;
+  // El medium gobierna la estructura del editor: se normaliza al leer, así las
+  // obras con el texto libre de antes ("novela", "guión") siguen funcionando.
+  const medium = MEDIUM_CONFIG[resolveMedium(meta)];
+  const wordGoal = readWordGoal(meta);
+  const totalWords = todos.reduce((sum, p) => sum + p.wordCount, 0);
+  // Días sin escribir, contra sesiones reales y no contra `updatedAt`:
+  // renombrar un capítulo no debería resucitar una obra parada.
+  const stale = pulse?.daysSinceLastSession ?? null;
+  const dormida = stale !== null && stale >= DIAS_DORMIDA;
+
+  return (
+    <FolderRow
+      folder={obra}
+      systemId={systemId}
+      index={index}
+      href={`/systems/${systemId}/folders/${obra.id}`}
+      defaultOpen
+      meta={
+        <>
+          {dormida && (
+            <>
+              <span className="font-semibold text-task-overdue">dormida</span>
+              {`, ${stale} días sin sesión, `}
+            </>
+          )}
+          {joinMeta([
+            medium.label,
+            countNoun(todos.length, pageRole.noun, pageRole.nounPlural),
+            wordGoal ? `${formatCount(totalWords)} de ${formatCount(wordGoal)}` : `${formatCount(totalWords)} palabras`,
+          ])}
+        </>
+      }
+    >
+      <ObraBody
+        obra={obra}
+        partes={partes}
+        manuscripts={manuscripts}
+        hayTexto={todos.length > 0}
+        systemId={systemId}
+        mediumId={medium.id}
+        wordGoal={wordGoal}
+        totalWords={totalWords}
+        now={now}
+      />
+    </FolderRow>
+  );
+}
+
+function ObraBody({
+  obra,
+  partes,
+  manuscripts,
+  hayTexto,
+  systemId,
+  mediumId,
+  wordGoal,
+  totalWords,
+  now,
+}: {
+  obra: FolderWithCounts;
+  partes: FolderWithCounts[];
+  manuscripts: PageListItemTransport[];
+  /** La obra tiene algo que leer, en ella o en sus partes. */
+  hayTexto: boolean;
+  systemId: string;
+  mediumId: MediumId;
+  wordGoal: number | null;
+  totalWords: number;
+  now?: Date;
 }) {
   const { mutate: createPage, isPending } = useCreatePage(systemId);
   const { mutate: updateFolder } = useUpdateFolder(systemId);
   const [journalOpen, setJournalOpen] = useState(false);
   const meta = (obra.metadata ?? {}) as Record<string, unknown>;
-  // El medium gobierna la estructura del editor (W3): se normaliza al leer, así
-  // las obras con el texto libre de W1/W2 ("novela", "guión") siguen funcionando.
-  const medium = MEDIUM_CONFIG[resolveMedium(meta)];
-  const wordGoal = readWordGoal(meta);
-  const totalWords = manuscripts.reduce((sum, p) => sum + p.wordCount, 0);
-  // Días sin escribir: se mide contra sesiones reales, no contra `updatedAt` de
-  // las pages: renombrar un capítulo no debería resucitar una obra parada.
-  const stale = pulse?.daysSinceLastSession ?? null;
+  const medium = MEDIUM_CONFIG[mediumId];
+  const unit = medium.unit.noun;
+  const pct = wordGoal ? Math.min(100, Math.round((totalWords / wordGoal) * 100)) : null;
 
   /** Reescribe la metadata con las claves del manifiesto (el legacy `kind` sale). */
   function changeMedium(next: MediumId) {
@@ -95,196 +160,179 @@ function ObraCard({ obra, manuscripts, systemId, pulse }: {
   }
 
   function addManuscript() {
-    const unit = medium.unit.noun;
     createPage({
       folderId: obra.id,
-      title: `${unit.charAt(0).toUpperCase()}${unit.slice(1)} ${manuscripts.length + 1}`,
+      title: `${capitalize(unit)} ${manuscripts.length + 1}`,
       // Los mediums estructurados nacen con su esqueleto; la prosa, en blanco.
       content: medium.template || undefined,
     });
   }
 
   return (
-    <div className="rounded-xl border bg-muted/20 p-4 space-y-3">
-      <div className="flex items-start gap-2">
-        <BookMarked size={18} className="mt-0.5 shrink-0 text-primary" />
-        <div className="min-w-0 flex-1">
-          <div className="flex items-center gap-2">
-            <span className="font-semibold truncate">{obra.name}</span>
-            <select
-              aria-label="Medium de la obra"
-              value={medium.id}
-              onChange={(e) => changeMedium(e.target.value as MediumId)}
-              className="shrink-0 rounded bg-muted px-1.5 py-0.5 text-[10px] uppercase tracking-wide text-muted-foreground outline-none transition-colors hover:text-foreground focus:ring-1 focus:ring-primary/40"
-            >
-              {MEDIUM_OPTIONS.map((opt) => (
-                <option key={opt.value} value={opt.value}>
-                  {opt.label}
-                </option>
-              ))}
-            </select>
-          </div>
-          {stale != null && stale >= 3 && (
-            <p className="mt-0.5 text-xs text-amber-500">
-              {SYSTEM_TYPE_CONFIG.writing.staleTemplate
-                .replace("{nombre}", obra.name)
-                .replace("{n}", String(stale))}
-            </p>
+    <>
+      <div className="space-y-3 py-3 pl-(--margen)">
+        {pct !== null && (
+          <Progress value={pct} aria-label={`${formatCount(totalWords)} de ${formatCount(wordGoal!)} palabras`} />
+        )}
+        <div className="flex flex-wrap items-center gap-2">
+          {hayTexto && (
+            <>
+              <Button asChild variant="secondary" size="sm" className={CHIP}>
+                <Link href={`/systems/${systemId}/folders/${obra.id}/lectura`}>
+                  <BookOpen aria-hidden />
+                  Leer
+                </Link>
+              </Button>
+              <Button asChild variant="secondary" size="sm" className={CHIP}>
+                <Link href={`/systems/${systemId}/folders/${obra.id}/tablero`}>
+                  <Layers aria-hidden />
+                  Tablero
+                </Link>
+              </Button>
+            </>
           )}
+          <Button
+            variant="secondary"
+            size="sm"
+            className={CHIP}
+            disabled={isPending}
+            onClick={addManuscript}
+            aria-label={medium.unit.newLabel}
+          >
+            <Plus aria-hidden />
+            {isPending ? "Creando" : capitalize(unit)}
+          </Button>
+          <Button variant="secondary" size="sm" className={CHIP} onClick={() => setJournalOpen(true)}>
+            <History aria-hidden />
+            Diario
+          </Button>
+          {hayTexto && <CompileMenu folderId={obra.id} systemId={systemId} />}
+          <label className="sr-only" htmlFor={`medio-${obra.id}`}>
+            Medio de la obra
+          </label>
+          <select
+            id={`medio-${obra.id}`}
+            value={mediumId}
+            onChange={(e) => changeMedium(e.target.value as MediumId)}
+            className={cn(NATIVE_SELECT_CLASS, "w-auto text-sm font-semibold md:pointer-fine:h-10")}
+          >
+            {MEDIUM_OPTIONS.map((opt) => (
+              <option key={opt.value} value={opt.value}>
+                {opt.label}
+              </option>
+            ))}
+          </select>
         </div>
       </div>
 
-      <WordProgress words={totalWords} goal={wordGoal} />
-
-      <div className="space-y-1">
-        {manuscripts.map((m) => (
-          <Link
-            key={m.id}
-            href={`/systems/${systemId}/pages/${m.id}`}
-            className="flex items-center gap-2 rounded-md px-2 py-1.5 text-sm text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
-          >
-            {m.completedAt ? (
-              <CheckCircle2 size={14} className="shrink-0 text-primary" />
-            ) : (
-              <FileText size={14} className="shrink-0" />
-            )}
-            <span className="flex-1 truncate">{m.title || "Sin título"}</span>
-            <span className="shrink-0 font-mono text-xs">{m.wordCount.toLocaleString("es")}</span>
-          </Link>
-        ))}
-      </div>
-
-      <div className="flex items-center gap-4">
-        <button
-          type="button"
-          disabled={isPending}
-          onClick={addManuscript}
-          className="flex items-center gap-1.5 text-sm text-muted-foreground transition-colors hover:text-foreground disabled:opacity-50"
+      {partes.map((parte) => (
+        <MarginRow
+          key={parte.id}
+          href={`/systems/${systemId}/folders/${parte.id}`}
+          margin={<Folder className="mt-[0.45rem] size-5" aria-hidden />}
         >
-          <Plus size={15} />
-          {medium.unit.newLabel}
-        </button>
-        <button
-          type="button"
-          onClick={() => setJournalOpen(true)}
-          className="flex items-center gap-1.5 text-sm text-muted-foreground transition-colors hover:text-foreground"
-        >
-          <History size={15} />
-          Diario
-        </button>
-        {manuscripts.length > 0 && (
-          <>
-            <Link
-              href={`/systems/${systemId}/folders/${obra.id}/lectura`}
-              className="flex items-center gap-1.5 text-sm text-muted-foreground transition-colors hover:text-foreground"
-            >
-              <BookOpen size={15} />
-              Leer
-            </Link>
-            <Link
-              href={`/systems/${systemId}/folders/${obra.id}/tablero`}
-              className="flex items-center gap-1.5 text-sm text-muted-foreground transition-colors hover:text-foreground"
-            >
-              <Layers size={15} />
-              Tablero
-            </Link>
-            <CompileMenu folderId={obra.id} systemId={systemId} />
-          </>
-        )}
-      </div>
+          <span className="block truncate text-foreground">{parte.name}</span>
+          <span className="block text-sm text-muted-foreground">
+            {countNoun(parte.pageCount, pageRole.noun, pageRole.nounPlural)}
+          </span>
+        </MarginRow>
+      ))}
+      {manuscripts.map((m, i) => (
+        <NotebookRow
+          key={m.id}
+          page={m}
+          systemId={systemId}
+          index={i + 1}
+          href={`/systems/${systemId}/pages/${m.id}`}
+          now={now}
+        />
+      ))}
 
-      <WorkJournalDialog
-        folderId={obra.id}
-        folderName={obra.name}
-        open={journalOpen}
-        onOpenChange={setJournalOpen}
-      />
-    </div>
+      <WorkJournalDialog folderId={obra.id} folderName={obra.name} open={journalOpen} onOpenChange={setJournalOpen} />
+    </>
   );
 }
 
 /**
- * Writing. El único arquetipo pages-first: abre en la biblioteca de obras
- * (folders) con sus manuscritos (pages). El progreso de palabras se deriva del
- * contenido Tiptap (nunca un contador persistido). La prueba del manifiesto: un
- * arquetipo radicalmente distinto montado con un manifiesto + esta vista.
+ * Escritura: la biblioteca de obras como índice. Cada obra es una fila con
+ * numeral romano que se despliega en sus acciones, sus partes y sus
+ * manuscritos numerados con la cifra de palabras a la derecha. Lo que no tiene
+ * obra va aparte, para no perderlo. Las palabras se derivan del contenido,
+ * nunca de un contador persistido.
  */
 export function SystemWritingView({ system }: SystemViewProps) {
-  const { data: obras = [] } = useFolders(system.id);
-  const { data: pages = [] } = usePages(system.id);
+  const { data: obras = [], isLoading: obrasLoading } = useFolders(system.id);
+  const { data: pages = [], isLoading: pagesLoading } = usePages(system.id);
   const { data: overview } = useWritingOverview(system.id);
 
+  const isLoading = obrasLoading || pagesLoading;
   // Manuscritos sueltos (sin obra): se muestran aparte para no perderlos.
-  const looseManuscripts = pages.filter((p) => !p.folderId);
+  const looseManuscripts = pages.filter((p) => !p.folderId && !p.parentPageId);
   const pulseByFolder = new Map((overview?.works ?? []).map((w) => [w.folderId, w]));
 
+  const nuevaObra = (
+    <NewFolderInline
+      systemId={system.id}
+      label={folderRole.newLabel}
+      placeholder={folderRole.placeholder}
+      fields={folderRole.fields}
+    />
+  );
+
   return (
-    <div className="space-y-4">
-      <WritingPulse systemId={system.id} />
+    <div className="space-y-7">
+      <section aria-labelledby={`${system.id}-obras`}>
+        <IndexHead id={`${system.id}-obras`} title={capitalize(folderRole.nounPlural)} trailing={nuevaObra} />
+        {isLoading ? (
+          <div aria-busy aria-label="Cargando las obras">
+            <RowsSkeleton rows={4} margin="numeral" />
+          </div>
+        ) : obras.length === 0 ? (
+          <EmptyState
+            className="pl-(--margen)"
+            title="Todavía no tienes obras"
+            description="Un libro, un blog, un cómic: crea la primera y ponle una meta de palabras."
+          />
+        ) : (
+          <div>
+            {obras.map((obra, i) => (
+              <ObraRow
+                key={obra.id}
+                obra={obra}
+                index={i + 1}
+                pages={pages}
+                systemId={system.id}
+                pulse={pulseByFolder.get(obra.id) ?? null}
+              />
+            ))}
+          </div>
+        )}
+      </section>
 
-      <div className="flex items-center justify-between gap-3">
-        <NewFolderInline
-          systemId={system.id}
-          label={folderRole.newLabel}
-          placeholder={folderRole.placeholder}
-          icon={folderRole.icon}
-          fields={folderRole.fields}
-        />
-        <div className="flex shrink-0 items-center gap-2">
-          <Link
-            href={`/systems/${system.id}/estudio`}
-            className="flex items-center gap-1.5 rounded-md border border-border px-2.5 py-1.5 text-sm text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
-          >
-            <Sparkles size={15} className="shrink-0" />
-            Estudio
-          </Link>
-          <Link
-            href={`/systems/${system.id}/codex`}
-            className="flex items-center gap-1.5 rounded-md border border-border px-2.5 py-1.5 text-sm text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
-          >
-            <BookOpen size={15} className="shrink-0" />
-            Codex
-          </Link>
-        </div>
-      </div>
-
-      {obras.length === 0 && looseManuscripts.length === 0 ? (
-        <div className="rounded-lg border border-dashed p-8 text-center space-y-2">
-          <Feather className="mx-auto size-8 text-muted-foreground/40" />
-          <p className="text-sm text-muted-foreground">
-            Crea una obra (un libro, un blog, un cómic) y ponle una meta de palabras.
-          </p>
-        </div>
-      ) : (
-        <div className="space-y-3">
-          {obras.map((obra) => (
-            <ObraCard
-              key={obra.id}
-              obra={obra}
-              manuscripts={pages.filter((p) => p.folderId === obra.id)}
-              systemId={system.id}
-              pulse={pulseByFolder.get(obra.id) ?? null}
-            />
-          ))}
-
-          {looseManuscripts.length > 0 && (
-            <div className="rounded-xl border bg-muted/10 p-4 space-y-1">
-              <p className="mb-2 text-xs text-muted-foreground">Sin obra</p>
-              {looseManuscripts.map((m) => (
-                <Link
-                  key={m.id}
-                  href={`/systems/${system.id}/pages/${m.id}`}
-                  className="flex items-center gap-2 rounded-md px-2 py-1.5 text-sm text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
-                >
-                  <FileText size={14} className="shrink-0" />
-                  <span className="flex-1 truncate">{m.title || "Sin título"}</span>
-                  <span className="shrink-0 font-mono text-xs">{m.wordCount.toLocaleString("es")}</span>
-                </Link>
-              ))}
-            </div>
-          )}
-        </div>
+      {!isLoading && looseManuscripts.length > 0 && (
+        <section aria-labelledby={`${system.id}-sin-obra`}>
+          <IndexHead
+            id={`${system.id}-sin-obra`}
+            title="Sin obra"
+            trailing={countNoun(looseManuscripts.length, pageRole.noun, pageRole.nounPlural)}
+          />
+          <div>
+            {looseManuscripts.map((m, i) => (
+              <NotebookRow
+                key={m.id}
+                page={m}
+                systemId={system.id}
+                index={i + 1}
+                href={`/systems/${system.id}/pages/${m.id}`}
+              />
+            ))}
+          </div>
+        </section>
       )}
+
+      {/* La ventana creativa, la racha y la meta del día: contexto de la
+          biblioteca, debajo de ella y no delante. */}
+      <WritingPulse systemId={system.id} />
     </div>
   );
 }
