@@ -1,6 +1,7 @@
 /**
- * Criterio: todo llega marcado, desmarcar lo que no sirve cuesta un toque, y
- * confirmar dice cuántos va a crear. Y ningún control se pinta sin
+ * Criterio: todo llega marcado, desmarcar lo que no sirve cuesta un toque,
+ * confirmar dice cuántos va a crear, y descartar la captura entera es otro
+ * toque también cuando el agente propuso algo. Y ningún control se pinta sin
  * comportamiento: una captura que nadie ha leído no enseña una lista vacía con
  * un botón que no haría nada.
  */
@@ -105,6 +106,21 @@ describe("ShareConfirm", () => {
   it("la nota que el agente puso en un item se lee debajo de su título", () => {
     pintar();
 
-    expect(screen.getByText("Tesis")).toBeVisible();
+    expect(screen.getByText(/Tesis/)).toBeVisible();
+  });
+
+  it("cada item dice a dónde va: el sistema propuesto o Bandeja", () => {
+    pintar();
+
+    expect(screen.getAllByText(/^a Bandeja/)).toHaveLength(PROPUESTOS.length);
+  });
+
+  it("una captura mal leída se descarta entera sin desmarcar uno por uno", async () => {
+    const { onDiscard, onConfirm } = pintar();
+
+    await userEvent.click(screen.getByRole("button", { name: "Descartar la captura" }));
+
+    expect(onDiscard).toHaveBeenCalledOnce();
+    expect(onConfirm).not.toHaveBeenCalled();
   });
 });
