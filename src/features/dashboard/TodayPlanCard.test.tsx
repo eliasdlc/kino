@@ -140,6 +140,9 @@ describe("TodayPlanCard", () => {
       fireEvent.click(circulo("Leer el capítulo 3"));
       const puntos = container.querySelectorAll<HTMLElement>("[data-slot=confetti]");
       expect(puntos).toHaveLength(12);
+      // Relleno `both`: en su retraso cada punto ya está en su primer fotograma.
+      for (const punto of puntos) expect(punto.style.animation).toMatch(/\bboth$/);
+      expect(puntos[0]!.parentElement).toHaveClass("motion-reduce:hidden");
       const ultimo = puntos[puntos.length - 1]!;
       const vuelo = parseInt(ultimo.style.animationDelay, 10) + parseInt(ultimo.style.animation.match(/(\d+)ms/)![1]!, 10);
       expect(CONFETTI_REMOVE_MS).toBeGreaterThan(vuelo);
