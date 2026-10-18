@@ -16,19 +16,26 @@ import { getServerSession } from "@/shared/utils/session";
  * Aquí el id se resuelve en el servidor con `systems.inbox` y la superficie se
  * pinta directamente. **No es un redirect**: un redirect duplicaría el viaje y
  * dejaría la URL en `/systems/<uuid>`, que no es compartible ni memorizable.
+ *
+ * Las capturas se leen aquí, a la vez que Bandeja: sin ellas la pantalla decía
+ * "vacía" un instante a quien sólo tenía capturas, y luego las capturas
+ * entraban empujando la lista.
  */
 export default async function BandejaPage() {
   const session = await getServerSession();
   if (!session) redirect("/login");
 
-  const inbox = await serverQuery(api.systems.inbox, {});
+  const [inbox, captures] = await Promise.all([
+    serverQuery(api.systems.inbox, {}),
+    serverQuery(api.captures.pendientes, {}),
+  ]);
   if (!inbox) notFound();
 
   const tasks = await serverQuery(api.tasks.bySystem, { systemId: inbox.id });
 
   return (
     <PageWrapper className="w-full">
-      <InboxView system={inbox} initialTasks={tasks} />
+      <InboxView system={inbox} initialTasks={tasks} initialCaptures={captures} />
     </PageWrapper>
   );
 }
