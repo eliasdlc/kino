@@ -2,7 +2,6 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { FolderPlus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   ResponsiveDialog,
@@ -22,7 +21,8 @@ interface FolderViewToolbarProps {
 }
 
 /**
- * Crear dentro de un contenedor. Los sustantivos salen del manifiesto del
+ * Crear dentro de un contenedor, dicho en el título de su índice como dos
+ * acciones con nombre. Los sustantivos salen del manifiesto del
  * arquetipo, nunca escritos a mano: en un sistema académico esto ofrece una
  * clase y un apunte, no una subcarpeta y un notebook.
  */
@@ -32,13 +32,14 @@ export function FolderViewToolbar({ systemId, folderId }: FolderViewToolbarProps
   const folderRole = manifest.folderRole;
   const pageRole = manifest.pageRole;
   // Un arquetipo cuyo contenedor no se anida no ofrece crear otro aquí dentro.
-  const subfolderLabel =
-    folderRole && folderRole.nests !== false ? `${folderRole.gender === "f" ? "Nueva" : "Nuevo"} ${folderRole.noun}` : null;
+  // Dentro de una obra o un área lo que se crea es una parte de ella, no otra
+  // obra: "Nueva obra" dentro de una obra se leía como una obra hermana.
+  const subfolderLabel = folderRole && folderRole.nests !== false ? "Nueva parte" : null;
   const pageLabel = `${pageRole.gender === "f" ? "Nueva" : "Nuevo"} ${pageRole.noun}`;
   const [folderDialogOpen, setFolderDialogOpen] = useState(false);
   const [folderName, setFolderName] = useState("");
   const { mutate: createFolder, isPending } = useCreateFolder(systemId);
-  const { mutateAsync: createPage } = useCreatePage(systemId);
+  const { mutateAsync: createPage, isPending: creatingPage } = useCreatePage(systemId);
 
   function handleCreateFolder() {
     if (!folderName.trim()) return;
@@ -61,40 +62,44 @@ export function FolderViewToolbar({ systemId, folderId }: FolderViewToolbarProps
 
   return (
     <>
-      <div className="flex items-center gap-2">
+      <span className="flex flex-wrap items-center justify-end gap-x-1">
         {subfolderLabel && (
-          <Button size="sm" variant="outline" className="gap-1.5" onClick={() => setFolderDialogOpen(true)}>
-            <FolderPlus className="size-3.5" />
+          <Button variant="link" size="sm" className="px-1" onClick={() => setFolderDialogOpen(true)}>
             {subfolderLabel}
           </Button>
         )}
-        <Button size="sm" variant="outline" className="gap-1.5" onClick={handleCreateNotebook}>
-          {pageLabel}
+        <Button variant="link" size="sm" className="px-1" disabled={creatingPage} onClick={handleCreateNotebook}>
+          {creatingPage ? "Creando" : pageLabel}
         </Button>
-      </div>
+      </span>
 
       <ResponsiveDialog open={folderDialogOpen} onOpenChange={setFolderDialogOpen}>
         <ResponsiveDialogContent>
           <ResponsiveDialogHeader>
             <ResponsiveDialogTitle>{subfolderLabel ?? "Nueva carpeta"}</ResponsiveDialogTitle>
           </ResponsiveDialogHeader>
-          <div className="flex flex-col gap-4 pt-1">
+          <form
+            className="flex flex-col gap-4 pt-1"
+            onSubmit={(e) => {
+              e.preventDefault();
+              handleCreateFolder();
+            }}
+          >
             <div className="space-y-1.5">
               <Label htmlFor="subfolder-name">Nombre</Label>
               <Input
                 id="subfolder-name"
                 autoFocus
-                placeholder={folderRole?.placeholder ?? "Nombre de la carpeta"}
+                placeholder={folderRole?.placeholder ?? "Nombre"}
                 value={folderName}
                 onChange={(e) => setFolderName(e.target.value)}
-                onKeyDown={(e) => { if (e.key === "Enter") handleCreateFolder(); }}
                 maxLength={255}
               />
             </div>
-            <Button onClick={handleCreateFolder} disabled={!folderName.trim() || isPending}>
-              {isPending ? "Creando..." : `Crear ${folderRole?.noun ?? "carpeta"}`}
+            <Button type="submit" disabled={!folderName.trim() || isPending}>
+              {isPending ? "Creando" : "Crear parte"}
             </Button>
-          </div>
+          </form>
         </ResponsiveDialogContent>
       </ResponsiveDialog>
     </>

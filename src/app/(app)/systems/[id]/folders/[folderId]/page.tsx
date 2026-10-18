@@ -5,13 +5,15 @@ import { notFound, redirect } from "next/navigation";
 import { api } from "@convex/_generated/api";
 import { serverQuery } from "@/shared/convex/server";
 import { PageBreadcrumb } from "@/components/PageBreadcrumb";
-import { Skeleton } from "@/components/ui/skeleton";
+import { PageHeader, PageWrapper } from "@/components/PageWrapper";
+import { RowsSkeleton } from "@/components/Skeletons";
 import { FolderDocuments } from "@/features/notebooks/FolderDocuments";
+import { Folder } from "lucide-react";
+import { IndexHead } from "@/features/notebooks/IndexHead";
 
 import { TasksList } from "@/features/tasks/TasksList";
 import { resolveSystemManifest } from "@/shared/lib/system-manifest";
 import { containerDetailEmptyCopy } from "@/shared/lib/archetype-copy";
-import { Separator } from "@/components/ui/separator";
 import { getServerSession } from "@/shared/utils/session";
 
 interface FolderViewRouteProps {
@@ -55,27 +57,20 @@ export default async function FolderViewRoute({ params, searchParams }: FolderVi
       <div className="sticky top-0 z-(--z-raised) hidden border-b bg-background px-4 py-2.5 md:block md:px-6">
         <PageBreadcrumb items={breadcrumbItems} />
       </div>
-      <div className="p-4 md:p-6">
+      <PageWrapper className="w-full">
         <Suspense fallback={<FolderSkeleton />}>
           <FolderContent systemId={systemId} folderId={folderId} folder={folder} system={system} />
         </Suspense>
-      </div>
+      </PageWrapper>
     </div>
   );
 }
 
+/** El índice de la carpeta esperando: las filas numeradas de sus documentos. */
 function FolderSkeleton() {
   return (
-    <div className="space-y-6">
-      <div className="flex gap-2">
-        <div className="h-8 w-32 rounded-full bg-muted" />
-        <div className="h-8 w-28 rounded-full bg-muted" />
-      </div>
-      <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-        {Array.from({ length: 4 }).map((_, index) => (
-          <Skeleton key={index} className="h-28 w-full rounded-2xl" />
-        ))}
-      </div>
+    <div aria-busy>
+      <RowsSkeleton rows={4} margin="numeral" />
     </div>
   );
 }
@@ -115,11 +110,16 @@ async function FolderContent({
   );
 
   if (!academic) {
+    // El glifo del contenedor del arquetipo (la obra, el área), no uno genérico.
+    const Glyph = resolveSystemManifest(system).folderRole?.icon ?? Folder;
     return (
-      <div className="space-y-6">
+      <div className="space-y-7">
+        <PageHeader title={folder.name} margin={<Glyph className="size-5" aria-hidden />} />
         {documents}
-        <Separator />
-        <TasksList systemId={systemId} initialData={[]} folderId={folderId} folderInitialData={folderTasks} />
+        <section aria-labelledby={`${folderId}-tareas`} className="space-y-3">
+          <IndexHead id={`${folderId}-tareas`} title="Tareas" />
+          <TasksList systemId={systemId} initialData={[]} folderId={folderId} folderInitialData={folderTasks} />
+        </section>
       </div>
     );
   }

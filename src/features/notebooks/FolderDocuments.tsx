@@ -1,11 +1,16 @@
 "use client";
 
-import { Files } from "lucide-react";
+import { EmptyState } from "@/components/ui/empty-state";
 import { useFolderChildren, type FolderChildrenTransport } from "@/features/folders/folders.hooks";
-import { usePages, type PageListTransport } from "@/features/pages/pages.hooks";
-import { FolderCard } from "./FolderCard";
-import { NotebookCard } from "./NotebookCard";
+import { api } from "@convex/_generated/api";
+import { useConvexQuery } from "@/shared/convex/hooks";
+import type { PageListTransport } from "@/features/pages/pages.hooks";
+import { useSystemManifest } from "@/features/systems/systems.hooks";
+import { capitalize } from "@/shared/lib/system-manifest";
+import { FolderRow } from "./FolderRow";
 import { FolderViewToolbar } from "./FolderViewToolbar";
+import { IndexHead } from "./IndexHead";
+import { NotebookRow } from "./NotebookRow";
 
 interface FolderDocumentsProps {
   systemId: string;
@@ -17,12 +22,16 @@ interface FolderDocumentsProps {
 }
 
 /**
- * Lo que contiene una carpeta: sus subcarpetas y sus páginas.
+ * Lo que contiene una carpeta, como índice: sus subcarpetas con numeral
+ * romano y sus documentos numerados, bajo un título que lleva las dos
+ * acciones de crear.
  *
  * Se suscribe en vez de vivir de las props del servidor porque renombrar una
- * página desde su tarjeta dejaba el nombre viejo hasta recargar: el servidor
+ * página desde su fila dejaba el nombre viejo hasta recargar: el servidor
  * había pintado una foto y nadie la revalidaba. El render del servidor entra
- * como `initialData`, así que no hay parpadeo.
+ * como `initialData`, así que no hay parpadeo. La lista del servidor ya viene
+ * filtrada por esta carpeta, y la suscripción pide lo mismo: `usePages` del
+ * sistema entero leía todos sus documentos para enseñar los de una carpeta.
  */
 export function FolderDocuments({
   systemId,
@@ -31,49 +40,47 @@ export function FolderDocuments({
   initialPages,
   emptyCopy,
 }: FolderDocumentsProps) {
+  const manifest = useSystemManifest(systemId);
   const { data: children = [] } = useFolderChildren(folderId, initialChildren);
-  const { data: pages = [] } = usePages(systemId, initialPages);
+  // Los mismos argumentos que la lectura del servidor: así su foto sirve de
+  // `initialData` y la suscripción sólo lee los documentos de esta carpeta.
+  const { data } = useConvexQuery(api.pages.bySystem, { systemId, folderId }, { initialData: initialPages });
+  const pages = data?.items ?? [];
   const folderPages = pages.filter((page) => page.folderId === folderId && !page.parentPageId);
   const hasContent = children.length > 0 || folderPages.length > 0;
 
   return (
-    <>
-      <FolderViewToolbar systemId={systemId} folderId={folderId} />
+    <section aria-labelledby={`${folderId}-contenido`}>
+      <IndexHead
+        id={`${folderId}-contenido`}
+        title={capitalize(manifest.pageRole.nounPlural)}
+        trailing={<FolderViewToolbar systemId={systemId} folderId={folderId} />}
+      />
 
       {!hasContent ? (
-        <div className="rounded-lg border border-dashed p-10 text-center space-y-2">
-          <Files className="size-8 text-muted-foreground/40 mx-auto" />
-          <p className="text-sm font-medium">{emptyCopy.title}</p>
-          <p className="text-sm text-muted-foreground">{emptyCopy.hint}</p>
-        </div>
+        <EmptyState className="pl-(--margen)" title={emptyCopy.title} description={emptyCopy.hint} />
       ) : (
-        <div className="space-y-6">
-          {children.length > 0 && (
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-              {children.map((child) => (
-                <FolderCard
-                  key={child.id}
-                  folder={child}
-                  systemId={systemId}
-                  href={`/systems/${systemId}/folders/${child.id}`}
-                />
-              ))}
-            </div>
-          )}
-          {folderPages.length > 0 && (
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-              {folderPages.map((page) => (
-                <NotebookCard
-                  key={page.id}
-                  page={page}
-                  systemId={systemId}
-                  href={`/systems/${systemId}/pages/${page.id}`}
-                />
-              ))}
-            </div>
-          )}
+        <div>
+          {children.map((child, i) => (
+            <FolderRow
+              key={child.id}
+              index={i + 1}
+              folder={child}
+              systemId={systemId}
+              href={`/systems/${systemId}/folders/${child.id}`}
+            />
+          ))}
+          {folderPages.map((page, i) => (
+            <NotebookRow
+              key={page.id}
+              index={i + 1}
+              page={page}
+              systemId={systemId}
+              href={`/systems/${systemId}/pages/${page.id}`}
+            />
+          ))}
         </div>
       )}
-    </>
+    </section>
   );
 }
