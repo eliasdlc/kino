@@ -1,6 +1,7 @@
 'use client';
 
 import { useMemo } from 'react';
+import { toast } from 'sonner';
 import { Box, FileText, Folder, ListTodo, RotateCcw, StickyNote } from 'lucide-react';
 import { api } from '@convex/_generated/api';
 import { Button } from '@/components/ui/button';
@@ -30,6 +31,11 @@ type Clase = 'task' | 'page' | 'entity' | 'folder' | 'note';
 
 const ICONO = { task: ListTodo, page: FileText, entity: Box, folder: Folder, note: StickyNote } as const;
 const ETIQUETA = { task: 'Tarea', page: 'Capítulo', entity: 'Entidad', folder: 'Carpeta', note: 'Nota adhesiva' } as const;
+/** "Carpeta restaurada", "Capítulo restaurado": el participio concuerda con la clase. */
+const RESTAURADA = { task: 'restaurada', page: 'restaurado', entity: 'restaurada', folder: 'restaurada', note: 'restaurada' } as const;
+
+/** Cuánto vive el aviso de restaurar con su Deshacer. */
+export const DESHACER_MS = 5000;
 
 interface Fila {
   readonly clase: Clase;
@@ -54,6 +60,38 @@ export function TrashSection() {
     folder: useConvexMutation(api.folders.restore, { map: (id: string) => ({ id }) }),
     note: useConvexMutation(api.stickyNotes.restore, { map: (id: string) => ({ id }) }),
   } as const;
+  // Deshacer es volver a borrarlo: la misma mutación que lo trajo aquí.
+  const borrar = {
+    task: useConvexMutation(api.tasks.remove, { map: (id: string) => ({ id }) }),
+    page: useConvexMutation(api.pages.remove, { map: (id: string) => ({ id }) }),
+    entity: useConvexMutation(api.entities.remove, { map: (id: string) => ({ id }) }),
+    folder: useConvexMutation(api.folders.remove, { map: (id: string) => ({ id }) }),
+    note: useConvexMutation(api.stickyNotes.remove, { map: (id: string) => ({ id }) }),
+  } as const;
+
+  /**
+   * Restaurar saca la fila de la vista, así que, a diferencia de un control
+   * que enseña su valor nuevo, sí dice qué volvió, con Deshacer. Un segundo
+   * toque en el mismo Deshacer no la borra dos veces.
+   */
+  function alRestaurar(fila: Fila) {
+    restaurar[fila.clase].mutate(fila.id, {
+      onSuccess: () => {
+        let deshecho = false;
+        toast(`${ETIQUETA[fila.clase]} ${RESTAURADA[fila.clase]}: ${fila.titulo}`, {
+          duration: DESHACER_MS,
+          action: {
+            label: 'Deshacer',
+            onClick: () => {
+              if (deshecho) return;
+              deshecho = true;
+              borrar[fila.clase].mutate(fila.id);
+            },
+          },
+        });
+      },
+    });
+  }
 
   const cargando =
     tareas.isLoading || capitulos.isLoading || entidades.isLoading || carpetas.isLoading || notas.isLoading;
@@ -102,7 +140,7 @@ export function TrashSection() {
   return (
     <ul>
       {filas.map((fila) => (
-        <TrashRow key={`${fila.clase}:${fila.id}`} fila={fila} onRestore={() => restaurar[fila.clase].mutate(fila.id)} />
+        <TrashRow key={`${fila.clase}:${fila.id}`} fila={fila} onRestore={() => alRestaurar(fila)} />
       ))}
     </ul>
   );
