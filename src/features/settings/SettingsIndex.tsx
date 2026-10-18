@@ -29,6 +29,7 @@ import { CONEXIONES_DESCRIPCION, useConnectionsMeta } from './ConnectionsSection
 import { DATOS_DESCRIPCION } from './DataPortabilitySection';
 import { IndexRow, Pendiente, SettingsGroup, SettingsSheet, SheetLoading, SwitchRow } from './settings-ui';
 import { useUserSettings } from './settings.hooks';
+import { cn } from '@/lib/utils';
 
 /**
  * Lo que cada hoja pinta llega cuando se abre: el índice no carga el panel de
@@ -278,17 +279,24 @@ export function SettingsIndexSkeleton() {
   const fila = (key: string, opts: { alta?: boolean; soloEscritorio?: boolean } = {}) => (
     <div
       key={key}
-      className={`grid min-h-[3.4rem] grid-cols-[var(--margen)_1fr_auto] items-center border-b border-border last:border-b-0 ${opts.soloEscritorio ? 'max-md:hidden' : ''}`}
+      className={cn(
+        'grid min-h-[3.4rem] grid-cols-[var(--margen)_1fr_auto] items-center border-b border-border last:border-b-0',
+        opts.alta && '@container',
+        opts.soloEscritorio && 'max-md:hidden',
+      )}
     >
       <span className="flex justify-center self-start pt-[0.15rem]">
-        <Pendiente className={`size-5 rounded-full ${opts.alta ? 'mt-[1.4rem]' : 'mt-[0.5rem]'}`} />
+        <Pendiente className={cn('mt-[0.5rem] size-5 rounded-full', opts.alta && '@min-[20.2rem]:mt-[1.4rem]')} />
       </span>
       <span className="block min-w-0 py-2">
         {opts.alta ? (
           <>
-            <span className="flex h-[3.35rem] items-center justify-between gap-3">
-              <Pendiente className="h-4 w-12" />
-              <Pendiente className="h-[3.35rem] w-[14rem] rounded-full" />
+            {/* Las mismas clases que la línea de ThemeRow: cambia de forma en el mismo ancho. */}
+            <span className="flex flex-col items-start gap-2 @min-[20.2rem]:flex-row @min-[20.2rem]:items-center @min-[20.2rem]:justify-between @min-[20.2rem]:gap-3">
+              <span className="flex h-6 items-center">
+                <Pendiente className="h-4 w-12" />
+              </span>
+              <Pendiente className="h-[3.35rem] w-[13.9rem] rounded-full" />
             </span>
             <span className="mt-1 flex h-5 items-center">
               <Pendiente className="w-48" />

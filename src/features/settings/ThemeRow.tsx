@@ -64,8 +64,13 @@ export function ThemeRow() {
   }
 
   return (
-    <MarginRow margin={<SunMoon aria-hidden className="mt-[1.4rem] size-5 stroke-[1.8]" />}>
-      <span className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1">
+    <MarginRow margin={<SunMoon aria-hidden className="mt-[0.5rem] size-5 stroke-[1.8] @min-[20.2rem]:mt-[1.4rem]" />} className="@container">
+      {/* El segmento va en el renglón del título cuando la fila mide 20.2rem o
+          más (393 px de pantalla); en un teléfono más estrecho, debajo. Lo
+          decide una consulta de contenedor y no lo que salga de envolver, así
+          que el esqueleto, con las mismas clases, cambia en el mismo punto y
+          la fila no salta al cargar. */}
+      <span data-slot="theme-row-line" className="flex flex-col items-start gap-2 @min-[20.2rem]:flex-row @min-[20.2rem]:items-center @min-[20.2rem]:justify-between @min-[20.2rem]:gap-3">
         <span id={tituloId} className="text-base leading-6 font-semibold text-foreground">
           Tema
         </span>
