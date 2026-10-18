@@ -106,7 +106,7 @@ export function BulkActionBar({ selectedIds, onClear, onVaciar }: BulkActionBarP
             {opciones.map(({ key, label, icon: Icon, run }) => (
               <MarginRow
                 key={key}
-                margin={<Icon className="mt-[0.55rem] size-[1.15rem]" />}
+                margin={<Icon className="mt-[0.8rem] size-[1.15rem]" />}
                 onClick={run}
                 className="min-h-[3.2rem] text-base font-semibold text-foreground"
               >
