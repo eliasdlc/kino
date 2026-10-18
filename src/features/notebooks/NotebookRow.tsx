@@ -7,7 +7,8 @@ import { MarginRow } from "@/components/ui/margin-row";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { useDeletePage, useUpdatePage } from "@/features/pages/pages.hooks";
 import type { PageListItemTransport } from "@/features/pages/pages.types";
-import { useSystemManifest } from "@/features/systems/systems.hooks";
+import { useRowManifest } from "@/features/systems/systems.hooks";
+import type { ArchetypeManifest } from "@/shared/lib/system-types";
 import { cn } from "@/lib/utils";
 import { formatCount, joinMeta, relativeDay } from "./index-format";
 import { RenameDialog } from "./RenameDialog";
@@ -21,6 +22,8 @@ export interface NotebookRowProps {
   href: string;
   /** Cuándo se tocó, para que la fecha relativa no dependa del reloj del test. */
   now?: Date;
+  /** El vocabulario del sistema, que la lista ya tiene: así la fila no se suscribe a los sistemas. */
+  manifest?: ArchetypeManifest;
   className?: string;
 }
 
@@ -30,8 +33,8 @@ export interface NotebookRowProps {
  * mute (cuándo, sus etiquetas, si está terminado) y la cifra de palabras a la
  * derecha. Sin vista previa ni chips de etiqueta: la etiqueta entra en la meta.
  */
-export function NotebookRow({ page, systemId, index, href, now, className }: NotebookRowProps) {
-  const manifest = useSystemManifest(systemId);
+export function NotebookRow({ page, systemId, index, href, now, manifest: manifestProp, className }: NotebookRowProps) {
+  const manifest = useRowManifest(systemId, manifestProp);
   const noun = manifest.pageRole.noun;
   const { mutate: deletePage } = useDeletePage(systemId);
   const { mutate: updatePage, isPending: renaming } = useUpdatePage(page.id, systemId);

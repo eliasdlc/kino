@@ -1,12 +1,15 @@
 /**
  * Criterio: un documento es una fila numerada con su título en Literata, la
  * meta en una línea (cuándo, sus etiquetas, terminado) y la cifra de palabras
- * a la derecha. Sin vista previa del contenido.
+ * a la derecha. Sin vista previa del contenido. Con el vocabulario que le da
+ * su lista no se suscribe a los sistemas, que cambian con cada tarea.
  */
 import { screen } from "@testing-library/react";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
+import { getFunctionName } from "convex/server";
+import { SYSTEM_TYPE_CONFIG } from "@/shared/lib/system-types";
 import { makePage, mid, MOCK_SYSTEM_ID } from "@/app/system-design/mock-data";
-import { renderWithProviders } from "@/shared/testing/render";
+import { makeTestConvexClient, renderWithProviders } from "@/shared/testing/render";
 import { NotebookRow } from "./NotebookRow";
 
 const AHORA = new Date(2026, 9, 18, 12);
@@ -58,5 +61,23 @@ describe("NotebookRow", () => {
     );
     expect(screen.getByRole("link", { name: "Sin título" })).toBeInTheDocument();
     expect(screen.getByText("palabra")).toBeInTheDocument();
+  });
+
+  it("con el vocabulario que le da su lista no se suscribe a la lista de sistemas", () => {
+    const convex = makeTestConvexClient();
+    const watch = vi.spyOn(convex, "watchQuery");
+    renderWithProviders(
+      <NotebookRow
+        page={makePage({ id: mid("p9"), title: "Capítulo 3" })}
+        systemId={MOCK_SYSTEM_ID}
+        index={1}
+        href="/pagina"
+        now={AHORA}
+        manifest={SYSTEM_TYPE_CONFIG.writing}
+      />,
+      { convex },
+    );
+    expect(screen.getByRole("link", { name: "Capítulo 3" })).toBeInTheDocument();
+    expect(watch.mock.calls.map(([query]) => getFunctionName(query))).not.toContain("systems:list");
   });
 });
