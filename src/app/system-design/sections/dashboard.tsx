@@ -20,6 +20,8 @@ import { STICKY_NOTE_COLORS, paperStyle } from "@/features/sticky-notes/sticky-n
 import { EnergyCheckinForm } from "@/features/dashboard/EnergyCheckinForm";
 import { FocusNowCard } from "@/features/dashboard/FocusNowCard";
 import { PlanTaskRow } from "@/features/dashboard/PlanTaskRow";
+import { TodayPlanCard } from "@/features/dashboard/TodayPlanCard";
+import { CoachPanel } from "@/features/insights/CoachPanel";
 import { WeeklyTrendsCard } from "@/features/dashboard/WeeklyTrendsCard";
 import { LearningInsightCard } from "@/features/dashboard/LearningInsightCard";
 import { AdvisorCard } from "@/features/dashboard/AdvisorCard";
@@ -31,7 +33,6 @@ import type { TaskTransport } from "@/features/tasks/tasks.types";
 
 const noop = () => {};
 
-/** El día en sobregiro, con las tres que menos urgencia tienen. */
 /** El instrumento descalibrado: catorce mediciones y su error. */
 const TECHO_APAGADO = {
   mutedAt: "2026-09-08T00:00:00.000Z",
@@ -51,6 +52,7 @@ const TECHO_APAGADO = {
   }),
 };
 
+/** El día en sobregiro, con las tres que menos urgencia tienen. */
 const SOBREGIRO = {
   committed: 62,
   limit: 50,
@@ -78,6 +80,24 @@ const cerrada = (completedVia: string | null) =>
   ({ id: mid("t1"), title: "Entregar el informe", completedAt: new Date().toISOString(), completedVia }) as unknown as TaskTransport;
 
 const conTiempo = (totalMinutes: number) => [seedQuery(api.tasks.timeLogSummary, { totalMinutes, sessionCount: 3 })];
+
+/** El plan de hoy tal como lo devuelve el servidor, para los estados de TodayPlanCard. */
+const conPlan = (tareas: TaskTransport[]) => [seedQuery(api.tasks.todayPlan, tareas)];
+
+const PLAN_PENDIENTE = [
+  makeTask({ id: mid("q1"), title: "Leer el capítulo 3", priority: "high", effectivePriority: "high", estimatedTime: "00:45:00" }),
+  makeTask({ id: mid("q2"), title: "Escribir el resumen de la clase", estimatedTime: "00:30:00" }),
+];
+
+const PLAN_CERRADO = PLAN_PENDIENTE.map((t) => ({ ...t, status: "done" }) as TaskTransport);
+
+/** Lo que el coach sugiere hoy, una pendiente que se puede traer al plan. */
+const SUGERENCIAS = [
+  seedQuery(api.insights.suggest, [
+    { id: mid("s1"), title: "Repasar el capítulo 4", why: "vence mañana, energía media", status: "inbox" },
+    { id: mid("s2"), title: "Llamar a la biblioteca", why: "lleva una semana esperando", status: "inbox" },
+  ]),
+];
 
 /** Una fila que se tacha al tocar y se queda en su sitio: el gesto de Hoy, sin servidor. */
 function StruckRowDemo() {
@@ -118,7 +138,7 @@ function PaperInMargin({ color, text }: { color: string; text: string }) {
   const paper = STICKY_NOTE_COLORS[color] ?? STICKY_NOTE_COLORS.yellow!;
   return (
     <span
-      className="font-serif block size-[2.6rem] -rotate-[4deg] overflow-hidden rounded-[0.3rem] p-[0.3rem] text-[0.56rem] leading-[1.2]"
+      className="font-serif block size-[2.6rem] -rotate-[4deg] overflow-hidden rounded-[0.3rem] p-[0.28rem] text-[0.6rem] leading-[1.15] break-words hyphens-auto"
       style={{ ...paperStyle(paper.hex), color: paper.textHex }}
       aria-label={`Nota: ${text}`}
     >
@@ -143,7 +163,7 @@ export function DashboardSection() {
     >
       <SubSection
         title="La cota"
-        description="La cifra del día en Bricolage 800 y en el acento, con su cuenta de 550 ms aislada en EnergyCount; la palabra que la explica es el h1 de la pantalla y la frase va en la voz, Literata cursiva. Debajo, la curva, el tramo como segmento en tinta y el registro como pastilla. La fecha de arriba enlaza al calendario. Interactivo (el guardado falla sin backend)."
+        description="La cifra del día en Bricolage 800 y en el acento, con su cuenta de 550 ms aislada en EnergyCount; la palabra que la explica es el h1 de la pantalla y la frase va en la voz, Literata cursiva. Debajo, la curva con sus horas, el tramo como segmento en tinta y el registro como pastilla; elegir otro tramo cambia la lectura y el botón registra ese tramo. La fecha de arriba enlaza al calendario y se lee como enlace, con icono y chevron. Interactivo (el guardado falla sin backend)."
       >
         <div className="max-w-xl">
           <EnergyTodayCard
@@ -157,7 +177,7 @@ export function DashboardSection() {
 
       <SubSection
         title="La cuenta de la cota"
-        description="EnergyCount sola: cuenta de 0 al valor en 550 ms con ease-out cúbico; con movimiento reducido la cifra sale ya puesta. Es la única cifra de este tamaño en el producto."
+        description="EnergyCount sola: cuenta de 0 al valor en 550 ms con ease-out cúbico sobre una reserva invisible con la cifra final, así que el ancho no cambia mientras cuenta y la frase de al lado no salta. Con movimiento reducido el CSS enseña la reserva desde el primer pintado. Es la única cifra de este tamaño en el producto."
       >
         <div className="flex items-end gap-8">
           <EnergyCount value={64} />
@@ -168,7 +188,7 @@ export function DashboardSection() {
 
       <SubSection
         title="La curva del día"
-        description="EnergyChart en CSS puro: 24 barras de una rejilla escaladas con scaleY (nunca height), el pico en el acento, la hora actual en tinta y cada registro como un punto a la altura de su valor. No se anima. La figura lleva su frase como nombre accesible."
+        description="EnergyChart en CSS puro: 24 barras de una rejilla escaladas con scaleY (nunca height), el pico en el acento, la hora actual en tinta y cada registro como un punto a la altura de su valor; debajo, las 6, las 12 y las 18 en mute. No se anima. La figura lleva su frase como nombre accesible."
       >
         <div className="max-w-xl pl-(--margen)">
           <EnergyChart data={chartData} peak={{ start: 9, end: 12 }} currentHour={15} />
@@ -209,33 +229,99 @@ export function DashboardSection() {
       </SubSection>
 
       <SubSection
+        title="Los estados del plan"
+        description="TodayPlanCard con el plan sembrado. Mientras carga, tres filas de margen quietas, sin latido. Vacío, todo hecho y sin perfil van en la columna de texto con un h3 en Figtree bajo el h2 de la sección, la frase en la voz y una sola acción. Con tareas, tocar el círculo tacha la fila y abre el aviso de cuatro segundos con Deshacer (el aviso sale abajo; el guardado no llega a un servidor aquí). El Deshacer devuelve lo de antes, no alterna."
+      >
+        <SpecimenGrid cols={2}>
+          <Specimen label="Cargando" hint="la query sin respuesta" className="items-stretch">
+            <Seeded stubs={[]}>
+              <div className="w-full">
+                <TodayPlanCard noProfile={false} />
+              </div>
+            </Seeded>
+          </Specimen>
+          <Specimen label="Vacío" hint="todayPlan: []" className="items-stretch">
+            <Seeded stubs={conPlan([])}>
+              <div className="w-full">
+                <TodayPlanCard noProfile={false} />
+              </div>
+            </Seeded>
+          </Specimen>
+          <Specimen label="Todo hecho" hint="las dos cerradas en otra visita" className="items-stretch">
+            <Seeded stubs={conPlan(PLAN_CERRADO)}>
+              <div className="w-full">
+                <TodayPlanCard noProfile={false} />
+              </div>
+            </Seeded>
+          </Specimen>
+          <Specimen label="Sin perfil" hint="noProfile" className="items-stretch">
+            <Seeded stubs={conPlan([])}>
+              <div className="w-full">
+                <TodayPlanCard noProfile />
+              </div>
+            </Seeded>
+          </Specimen>
+          <Specimen label="Con tareas, y el aviso de Deshacer" hint="toca un círculo" className="items-stretch">
+            <Seeded stubs={conPlan(PLAN_PENDIENTE)}>
+              <div className="w-full">
+                <TodayPlanCard noProfile={false} />
+              </div>
+            </Seeded>
+          </Specimen>
+        </SpecimenGrid>
+      </SubSection>
+
+      <SubSection
         title="La nota adhesiva en el margen"
         description="Hoy no tiene notas adhesivas: viven en los manuscritos, y se quedan donde se pegan. Cuando una asome en una página de Diario, es papel real en el margen de su fila, con su color y su sombra, y nunca entra en la columna de texto."
       >
         <div className="max-w-xl">
-          <MarginRow margin={<PaperInMargin color="yellow" text="Preguntar la fecha del examen" />} trailing="cap. 3">
+          <MarginRow margin={<PaperInMargin color="yellow" text="Fecha del examen" />} trailing="cap. 3">
             <span className="font-serif block text-base leading-tight">El tercer manuscrito</span>
             <span className="mt-0.5 block text-[0.82rem] text-muted-foreground">1.240 palabras, editado ayer</span>
           </MarginRow>
-          <MarginRow margin={<PaperInMargin color="blue" text="Revisar el tono del diálogo" />} trailing="cap. 4">
+          <MarginRow margin={<PaperInMargin color="blue" text="Tono del diálogo" />} trailing="cap. 4">
             <span className="font-serif block text-base leading-tight">La carta que no llegó</span>
             <span className="mt-0.5 block text-[0.82rem] text-muted-foreground">860 palabras, hace tres días</span>
           </MarginRow>
         </div>
       </SubSection>
 
-      <SubSection title="La fila inferior" description="Los bloques de abajo del plan, cada uno con su título y hairline, sin caja alrededor.">
+      <SubSection title="La fila inferior" description="Los bloques de abajo del plan, cada uno con su título y hairline, sin caja alrededor. El coach lleva pestañas de palabra de 48 px y botones del táctil, con el estado en curso dicho en una palabra; Tu patrón es una columna de renglones, con el pico en tinta y el ciclo de la última predicción como una línea bajo hairline.">
         <SpecimenGrid cols={2}>
-          <Specimen label="Últimos 7 días" hint="tasa de completado y energía de 7 días" className="items-stretch">
+          <Specimen label="CoachPanel" hint="pestañas de 48 px, sin spinner" className="items-stretch">
+            <Seeded stubs={SUGERENCIAS}>
+              <div className="w-full">
+                <SectionHead title="Coach" />
+                <CoachPanel />
+              </div>
+            </Seeded>
+          </Specimen>
+          <Specimen label="WeeklyTrendsCard" hint="tasa de completado y energía de 7 días" className="items-stretch">
             <div className="w-full">
               <SectionHead title="Últimos 7 días" />
               <WeeklyTrendsCard trends={mockWeeklyTrend()} />
             </div>
           </Specimen>
-          <Specimen label="Tu patrón" hint="pico, precisión, personalización" className="items-stretch">
+          <Specimen label="LearningInsightCard" hint="pico, ciclo, precisión, personalización" className="items-stretch">
             <div className="w-full">
               <SectionHead title="Tu patrón" />
-              <LearningInsightCard insight={mockLearningInsight()} />
+              <LearningInsightCard
+                insight={mockLearningInsight({
+                  loop: {
+                    slot: "morning",
+                    predictedLevel: 60,
+                    reportedLevel: 72,
+                    delta: 12,
+                    verdict: "close",
+                    alphaBeforePct: 37,
+                    alphaAfterPct: 41,
+                    improvementPct: 4,
+                    fromLearnedCurve: true,
+                    userVerdict: null,
+                  },
+                })}
+              />
             </div>
           </Specimen>
         </SpecimenGrid>
@@ -243,7 +329,7 @@ export function DashboardSection() {
 
       <SubSection
         title="El día que no cabe"
-        description="La salida del sobregiro: la cifra delante, el día como sujeto, y las tres del plan que menos urgencia tienen ya elegidas. En ámbar, porque el rojo queda para lo irreversible y pasarse del techo no lo es. Sin botón de dejarlo así: el bloque se va cuando el día vuelve a caber, no cuando alguien lo silencia."
+        description="La salida del sobregiro y el techo apagado, como secciones de Diario: título con hairline, la frase con la cifra en tinta, las filas en la columna de texto con su cifra en mute, sin borde ni relleno, y como mucho una pastilla del acento, la acción. Sin rojo: queda para lo irreversible y pasarse del techo no lo es. Sin botón de dejarlo así: el bloque se va cuando el día vuelve a caber. En el techo apagado el sujeto es la previsión, y los días que fallaron van en tinta y peso; toca uno para ver su línea."
       >
         <SpecimenGrid cols={2}>
           <Specimen label="OverBudgetExit" hint="62 de 50 puntos" className="items-stretch">
