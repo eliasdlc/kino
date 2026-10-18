@@ -6,9 +6,10 @@ import { makeTestConvexClient, renderMobile, stubQuery } from '@/shared/testing/
 import { CeilingMutedNotice } from './CeilingMutedNotice';
 
 /**
- * El único momento donde Kino pierde en público. Lo que se prueba es que la
- * cifra va antes que nada y que las catorce mediciones están, cada una con su
- * fila y ninguna apuntando a un dato que no existe.
+ * El único momento en que la previsión pierde en público. Lo que se prueba es
+ * que la cifra va antes que nada, que el sujeto es la previsión y no Kino, que
+ * no hay caja alrededor, y que las catorce mediciones están, cada una con su
+ * línea y ninguna apuntando a un dato que no existe.
  */
 
 const DIAS = 14;
@@ -41,15 +42,22 @@ describe('CeilingMutedNotice', () => {
   it('la cifra va delante de todo, con los días encima de los que se midió', () => {
     renderMobile(<CeilingMutedNotice />, { convex: cliente(CONFESION) });
 
-    expect(
-      screen.getByRole('heading', { name: 'Me equivoqué 31 puntos al día, 14 días seguidos.' }),
-    ).toBeInTheDocument();
+    expect(screen.getByText('La previsión falló 31 puntos al día, 14 días seguidos.')).toHaveClass('text-foreground');
+  });
+
+  it('es una sección con título y hairline, sin borde ni relleno', () => {
+    renderMobile(<CeilingMutedNotice />, { convex: cliente(CONFESION) });
+
+    const bloque = screen.getByRole('region', { name: 'El techo, apagado' });
+    expect(bloque.className).not.toMatch(/border|bg-|rounded/);
+    expect(bloque.querySelectorAll('[class*="bg-"]')).toHaveLength(0);
+    expect(bloque.textContent).not.toMatch(/Me equivoqu|Apagué|Sigo midiendo|\bdije\b/);
   });
 
   it('dice qué deja de hacer, y qué sigue haciendo', () => {
     renderMobile(<CeilingMutedNotice />, { convex: cliente(CONFESION) });
 
-    expect(screen.getByText(/Sigo midiendo el día, pero dejo de opinar/)).toBeInTheDocument();
+    expect(screen.getByText(/El día se sigue midiendo, pero sin opinar/)).toBeInTheDocument();
   });
 
   it('las catorce están, y ninguna es un control muerto', () => {
@@ -61,13 +69,13 @@ describe('CeilingMutedNotice', () => {
     for (const celda of celdas) expect(celda.className).toContain('h-12');
   });
 
-  it('cada una señala su fila: su día, lo que dije y lo que registraste', async () => {
+  it('cada una señala su línea: su día, lo previsto y lo que registraste', async () => {
     const user = userEvent.setup();
     renderMobile(<CeilingMutedNotice />, { convex: cliente(CONFESION) });
 
     await user.click(screen.getAllByRole('button')[0]!);
 
-    expect(screen.getByText(/2026-08-20: dije 50 y registraste 19/)).toBeInTheDocument();
+    expect(screen.getByText(/2026-08-20: previsto 50, registraste 19/)).toBeInTheDocument();
     expect(screen.getByText('31 de error.')).toBeInTheDocument();
   });
 
