@@ -49,24 +49,20 @@ export function InstallPrompt() {
   if (!visible) return null;
 
   return (
-    <div className="fixed bottom-[calc(var(--kino-bottom-chrome)+0.5rem)] md:bottom-6 left-4 right-4 md:left-auto md:right-6 md:w-80 z-(--z-overlay) rounded-xl border bg-card shadow-lg p-4 flex items-start gap-3">
-      <div className="flex-1 min-w-0 space-y-1">
-        <p className="text-sm font-medium">Instalar Kino</p>
-        <p className="text-xs text-muted-foreground">
-          Agrégalo a tu pantalla de inicio para acceso rápido y notificaciones.
+    <div className="fixed inset-x-4 bottom-[calc(var(--kino-bottom-chrome)+0.5rem)] z-(--z-overlay) flex items-start gap-2 rounded-xl border border-border bg-card p-4 shadow-(--shadow) md:inset-x-auto md:right-6 md:bottom-6 md:w-80">
+      <div className="min-w-0 flex-1 space-y-1">
+        <p className="font-display text-base font-bold tracking-tight">Instalar Kino</p>
+        <p className="text-sm text-muted-foreground">
+          Agrégalo a tu pantalla de inicio para abrirlo en un toque y recibir avisos.
         </p>
-        <Button size="sm" className="mt-2 h-8 text-xs gap-1.5" onClick={handleInstall}>
-          <Download className="size-3.5" />
+        <Button size="sm" className="mt-2" onClick={handleInstall}>
+          <Download className="size-4" />
           Instalar
         </Button>
       </div>
-      <button
-        onClick={handleDismiss}
-        className="text-muted-foreground hover:text-foreground transition-colors shrink-0"
-        aria-label="Descartar"
-      >
-        <X className="size-4" />
-      </button>
+      <Button variant="ghost" size="icon-sm" onClick={handleDismiss} aria-label="Descartar" className="-mt-2 -mr-2 shrink-0 text-muted-foreground">
+        <X className="size-5" />
+      </Button>
     </div>
   );
 }
