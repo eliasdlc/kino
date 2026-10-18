@@ -79,7 +79,12 @@ export function RowActions({ subject, actions, revealOnHover = true, className }
                     setOpen(false);
                     action.onSelect();
                   }}
-                  className={cn("font-semibold", action.destructive && "text-destructive [&_[data-slot=margin-row-margin]]:text-destructive")}
+                  // Una operación es una línea: el glifo se centra con su etiqueta
+                  // en vez de anclarse arriba como en una fila de dos niveles.
+                  className={cn(
+                    "font-semibold [&_[data-slot=margin-row-margin]]:self-center [&_[data-slot=margin-row-margin]]:pt-0",
+                    action.destructive && "text-destructive [&_[data-slot=margin-row-margin]]:text-destructive",
+                  )}
                 >
                   {action.label}
                 </MarginRow>
