@@ -1,5 +1,7 @@
 "use client";
 
+import { Progress } from "@/components/ui/progress";
+
 import { useState } from "react";
 import { ChevronDown, Flag, Archive, Trash2 } from "lucide-react";
 import { format } from "date-fns";
@@ -23,9 +25,7 @@ function ProgressBar({ done, total }: { done: number; total: number }) {
   const pct = total > 0 ? Math.round((done / total) * 100) : 0;
   return (
     <div className="flex items-center gap-2">
-      <div className="flex-1 h-1.5 rounded-full bg-muted overflow-hidden">
-        <div className="h-full bg-primary rounded-full transition-all" style={{ width: `${pct}%` }} />
-      </div>
+      <Progress value={pct} className="flex-1" aria-label={`${done} de ${total} hechas`} />
       <span className="text-xs text-muted-foreground font-mono shrink-0">{done}/{total}</span>
     </div>
   );
@@ -59,7 +59,7 @@ function SprintAccordion({
           <div className="flex-1 min-w-0">
             <div className="flex items-center gap-2">
               <span className="font-semibold truncate">{sprint.name}</span>
-              {closedAt && <span className="text-xs text-muted-foreground shrink-0">· cerrado {closedAt}</span>}
+              {closedAt && <span className="text-xs text-muted-foreground shrink-0">cerrado {closedAt}</span>}
             </div>
             <ProgressBar done={done} total={tasks.length} />
           </div>

@@ -1,13 +1,15 @@
 'use client';
 
 import { useState } from 'react';
-import Link from 'next/link';
+import { MarginRow } from '@/components/ui/margin-row';
+import { IndexHead } from '@/features/notebooks/IndexHead';
+import { toRoman } from '@/features/notebooks/index-format';
 import { CreateTaskDialog } from '@/features/tasks/CreateTaskDialog';
 import { TaskDetailSheet } from '@/features/tasks/TaskDetailSheet';
 import { useTasks, useToggleTask } from '@/features/tasks/tasks.hooks';
 import type { TaskTransport } from '@/features/tasks/tasks.types';
 import { useFolders } from '@/features/folders/folders.hooks';
-import { findTaskKind, resolveSystemManifest } from '@/shared/lib/system-manifest';
+import { capitalize, findTaskKind, resolveSystemManifest } from '@/shared/lib/system-manifest';
 import type { SystemViewProps } from './SystemDetailView';
 
 /**
@@ -42,17 +44,15 @@ export function PersonalView({ system, initialTasks }: SystemViewProps) {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-7">
       <div className="flex items-center justify-end">
         <CreateTaskDialog systemId={system.id} />
       </div>
 
-      <section aria-labelledby="personal-hoy" className="space-y-1">
-        <h3 id="personal-hoy" className="text-xs font-bold tracking-[0.12em] text-muted-foreground uppercase">
-          Hoy
-        </h3>
+      <section aria-labelledby="personal-hoy">
+        <IndexHead id="personal-hoy" title="Hoy" trailing={hoy.length > 0 ? String(hoy.length) : undefined} />
         {hoy.length === 0 ? (
-          <p className="pt-1 text-sm text-muted-foreground">
+          <p className="py-3 pl-(--margen) text-sm text-muted-foreground">
             Hoy no hay nada de este sistema en el plan.
           </p>
         ) : (
@@ -60,23 +60,29 @@ export function PersonalView({ system, initialTasks }: SystemViewProps) {
             {hoy.map((task) => {
               const kind = findTaskKind(manifest, task.metadata?.kind);
               return (
-                <li key={task.id} className="flex items-center gap-3 border-b border-border last:border-0">
-                  <button
-                    type="button"
-                    aria-label={`Completar ${task.title}`}
-                    onClick={() => toggle(task.id)}
-                    className="ml-1 size-5 shrink-0 rounded-sm border-2 border-input transition-colors hover:border-primary"
-                  />
-                  <button
-                    type="button"
-                    onClick={() => setOpen(task)}
-                    className="min-h-12 min-w-0 flex-1 truncate py-3 text-left text-sm"
+                <li key={task.id} className="border-b border-border last:border-b-0">
+                  <MarginRow
+                    className="border-b-0"
+                    margin={
+                      <button
+                        type="button"
+                        aria-label={`Completar ${task.title}`}
+                        onClick={() => toggle(task.id)}
+                        className="press group/circulo -mt-[0.35rem] flex size-[2.85rem] items-center justify-center rounded-full transition-transform duration-(--dur-toque) ease-(--ease-pluma) focus-ring"
+                      >
+                        <span className="size-[1.4rem] rounded-full border-2 border-ln2 transition-colors duration-(--dur-toque) group-hover/circulo:border-ok" />
+                      </button>
+                    }
+                    trailing={kind ? kind.label : undefined}
                   >
-                    {task.title}
-                  </button>
-                  {kind && (
-                    <span className="shrink-0 text-xs text-muted-foreground">{kind.label}</span>
-                  )}
+                    <button
+                      type="button"
+                      onClick={() => setOpen(task)}
+                      className="block w-full rounded-sm text-left font-semibold text-foreground focus-ring"
+                    >
+                      {task.title}
+                    </button>
+                  </MarginRow>
                 </li>
               );
             })}
@@ -84,34 +90,38 @@ export function PersonalView({ system, initialTasks }: SystemViewProps) {
         )}
       </section>
 
-      <section aria-labelledby="personal-areas" className="space-y-1">
-        <h3
-          id="personal-areas"
-          className="text-xs font-bold tracking-[0.12em] text-muted-foreground uppercase"
-        >
-          {manifest.folderRole?.nounPlural ?? 'Carpetas'}
-        </h3>
+      <section aria-labelledby="personal-areas">
+        <IndexHead id="personal-areas" title={capitalize(manifest.folderRole?.nounPlural ?? 'carpetas')} />
         {folders.length === 0 ? (
-          <p className="pt-1 text-sm text-muted-foreground">
+          <p className="py-3 pl-(--margen) text-sm text-muted-foreground">
             Todavía no hay {manifest.folderRole?.nounPlural ?? 'carpetas'}. Lo que crees aquí
             aterriza directo en el sistema.
           </p>
         ) : (
-          <ul>
-            {folders.map((folder) => (
-              <li key={folder.id} className="border-b border-border last:border-0">
-                <Link
+          <div>
+            {folders.map((folder, i) => {
+              const pendientes = pendientesPorArea.get(folder.id) ?? 0;
+              return (
+                <MarginRow
+                  key={folder.id}
                   href={`/systems/${system.id}/folders/${folder.id}`}
-                  className="flex min-h-12 items-center gap-3 py-3 text-sm"
+                  margin={
+                    <span aria-hidden className="mt-[0.55rem] block font-display text-base leading-none font-bold">
+                      {toRoman(i + 1)}
+                    </span>
+                  }
+                  trailing={
+                    <span>
+                      <span className="font-semibold text-foreground">{pendientes}</span>
+                      <span className="sr-only"> {pendientes === 1 ? 'pendiente' : 'pendientes'}</span>
+                    </span>
+                  }
                 >
-                  <span className="min-w-0 flex-1 truncate">{folder.name}</span>
-                  <span className="shrink-0 font-mono text-xs text-muted-foreground tabular-nums">
-                    {pendientesPorArea.get(folder.id) ?? 0}
-                  </span>
-                </Link>
-              </li>
-            ))}
-          </ul>
+                  <span className="block truncate text-foreground">{folder.name}</span>
+                </MarginRow>
+              );
+            })}
+          </div>
         )}
       </section>
 

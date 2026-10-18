@@ -1,5 +1,6 @@
 import { screen } from '@testing-library/react';
 import { describe, expect, it } from 'vitest';
+import { capitalize } from '@/shared/lib/system-manifest';
 import { api } from '@convex/_generated/api';
 import { makeFolder, makeSystem, makeTask, mid } from '@/app/system-design/mock-data';
 import { makeTestConvexClient, renderMobile, stubQuery } from '@/shared/testing/render';
@@ -33,7 +34,7 @@ describe('PersonalView', () => {
   it('nombra el contenedor con el plural del manifiesto', () => {
     renderMobile(<PersonalView system={CASA} initialTasks={[]} />, { convex: conCarpetas([SALUD]) });
 
-    expect(screen.getByRole('heading', { name: AREAS })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: capitalize(AREAS) })).toBeInTheDocument();
     expect(screen.getByText('Salud')).toBeInTheDocument();
   });
 
@@ -49,8 +50,8 @@ describe('PersonalView', () => {
       convex: conCarpetas([SALUD]),
     });
 
-    const secciones = screen.getAllByRole('heading', { level: 3 }).map((h) => h.textContent);
-    expect(secciones).toEqual(['Hoy', AREAS]);
+    const secciones = screen.getAllByRole('heading', { level: 2 }).map((h) => h.textContent);
+    expect(secciones).toEqual(['Hoy', capitalize(AREAS)]);
     expect(screen.getByText('Caminar 30 minutos')).toBeInTheDocument();
     // El tipo de tarea también sale del manifiesto: "Hábito", no "habit".
     expect(screen.getByText(HABITO)).toBeInTheDocument();

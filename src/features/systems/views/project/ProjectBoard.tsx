@@ -117,19 +117,17 @@ export function ProjectBoard({ systemId, initialData, sprintFilter, onEdit, keyb
       onDragEnd={handleDragEnd}
       onDragCancel={() => setActiveTask(null)}
     >
-      <div className="flex items-center gap-2 text-xs text-muted-foreground">
-        <span>{metrics.active} activas</span>
-        <span>·</span>
-        <span>{metrics.done} hechas</span>
+      <p className="text-sm text-muted-foreground">
+        {`${metrics.active} activas, ${metrics.done} hechas`}
         {metrics.stalled > 0 && (
           <>
-            <span>·</span>
-            <span className="text-amber-600 dark:text-amber-400">
+            {", "}
+            <span className="font-semibold text-warn">
               {metrics.stalled} estancada{metrics.stalled > 1 ? "s" : ""}
             </span>
           </>
         )}
-      </div>
+      </p>
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 w-full items-start mt-3">
         {PROJECT_BOARD_COLUMNS.map((col) => {
           const colTasks = visible.filter((t) => boardColumnOf(t) === col.id);
