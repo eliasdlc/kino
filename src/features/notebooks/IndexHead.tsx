@@ -30,7 +30,11 @@ export function IndexHead({
         {title}
       </Tag>
       {trailing !== undefined && trailing !== null && trailing !== false && (
-        <div className="-mb-2 ml-auto flex shrink-0 items-center text-[0.84rem] text-muted-foreground tabular-nums">{trailing}</div>
+        // Una acción de 48 px baja hasta el hairline; una cuenta en texto se
+        // queda sobre él, en la línea del título.
+        <div className="ml-auto flex shrink-0 items-center text-[0.84rem] text-muted-foreground tabular-nums has-[a,button]:-mb-2">
+          {trailing}
+        </div>
       )}
     </div>
   );
