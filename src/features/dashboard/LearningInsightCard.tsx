@@ -97,7 +97,7 @@ export function LearningInsightCard({ insight }: LearningInsightCardProps) {
     trend === 'up' ? 'text-task-done' : trend === 'down' ? 'text-task-overdue' : 'text-muted-foreground';
 
   return (
-    <div className="px-4 py-2.5 space-y-2">
+    <div className="py-2.5 space-y-2">
       {/* Pico + consejo contextual */}
       <div className="space-y-0.5">
         {peak ? (

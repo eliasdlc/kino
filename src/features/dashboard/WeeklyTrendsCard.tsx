@@ -45,12 +45,12 @@ export function WeeklyTrendsCard({ trends }: Props) {
 
   if (!hasAnyData) {
     return (
-      <p className="px-4 py-3 text-xs text-muted-foreground">Sin datos aún.</p>
+      <p className="py-3 text-xs text-muted-foreground">Sin datos aún.</p>
     );
   }
 
   return (
-    <div className="px-4 py-3 space-y-4">
+    <div className="py-3 space-y-4">
       {/* Barras de completado */}
       <div className="space-y-4">
         <p className="text-xs text-muted-foreground">Tasa de completado</p>
