@@ -48,7 +48,14 @@ function useCountUp(target: number, enabled: boolean): number {
  * La cifra de la cota, sola. Bricolage 800 a 4.4rem en el acento, con su
  * cuenta de 550 ms en ease-out cúbico. Vive aparte para que los fotogramas de
  * la cuenta repinten este span y nada más: la curva, el segmento y el
- * formulario no se enteran. Con movimiento reducido la cifra sale ya puesta.
+ * formulario no se enteran.
+ *
+ * El ancho no se mueve mientras cuenta: un span invisible con la cifra final
+ * ocupa el sitio en el flujo, y los dígitos que cuentan van encima, fuera del
+ * flujo. Así "0" y "60" miden lo mismo para la frase de al lado, que no salta
+ * de una línea a dos al cruzar el 10. Con movimiento reducido el CSS enseña
+ * la reserva desde el primer pintado, antes incluso de hidratar, y la cuenta
+ * no llega a verse. El lector de pantalla oye la cifra final una sola vez.
  */
 export function EnergyCount({ value, className }: { value: number; className?: string }) {
   const animate = !usePrefersReducedMotion();
@@ -57,11 +64,17 @@ export function EnergyCount({ value, className }: { value: number; className?: s
     <span
       data-slot="cota"
       className={cn(
-        'font-display text-[4.4rem] leading-[0.86] font-extrabold tracking-[-0.04em] text-primary tabular-nums',
+        'relative inline-block font-display text-[4.4rem] leading-[0.86] font-extrabold tracking-[-0.04em] text-primary tabular-nums',
         className,
       )}
     >
-      {shown}
+      <span className="sr-only">{value}</span>
+      <span data-slot="cota-reserva" aria-hidden className="invisible motion-reduce:visible">
+        {value}
+      </span>
+      <span data-slot="cota-cifra" aria-hidden className="absolute top-0 left-0 motion-reduce:invisible">
+        {shown}
+      </span>
     </span>
   );
 }
