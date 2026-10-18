@@ -1,7 +1,6 @@
 "use client";
 
 import dynamic from "next/dynamic";
-import { Loader2 } from "lucide-react";
 
 /**
  * El grafo se carga solo cuando se abre su pestaña. Mismo patrón que las
@@ -13,8 +12,8 @@ const UniverseGraph = dynamic(
   {
     ssr: false,
     loading: () => (
-      <div className="flex h-96 items-center justify-center rounded-lg border border-dashed">
-        <Loader2 className="size-5 animate-spin text-muted-foreground" />
+      <div aria-busy className="flex h-96 items-center justify-center rounded-xl bg-muted">
+        <p className="text-sm text-muted-foreground">Trazando el universo</p>
       </div>
     ),
   },

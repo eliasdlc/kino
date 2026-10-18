@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useRef, useState } from "react";
-import { Loader2, Maximize2, Minus, Network, Plus } from "lucide-react";
+import { Maximize2, Minus, Network, Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   Select,
@@ -80,8 +80,8 @@ export function UniverseGraph({ systemId }: { systemId: string }) {
 
   if (isLoading) {
     return (
-      <div className="flex h-96 items-center justify-center rounded-lg border border-dashed">
-        <Loader2 className="size-5 animate-spin text-muted-foreground" />
+      <div aria-busy className="flex h-96 items-center justify-center rounded-xl bg-muted">
+        <p className="text-sm text-muted-foreground">Trazando el universo</p>
       </div>
     );
   }
@@ -293,7 +293,7 @@ export function GraphCanvas({ layout, onOpen }: GraphCanvasProps) {
               onClick={() => onOpen(node.id)}
             >
               <title>
-                {`${node.name} · ${node.degree === 0 ? "sin relaciones" : `${node.degree} relaciones`}`}
+                {`${node.name}, ${node.degree === 0 ? "sin relaciones" : `${node.degree} relaciones`}`}
               </title>
               <circle
                 cx={node.x}

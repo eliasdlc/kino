@@ -2,7 +2,7 @@
 
 import { useRef, useState } from "react";
 import Image from "next/image";
-import { ImagePlus, X, Loader2 } from "lucide-react";
+import { ImagePlus, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { uploadImageFile } from "@/features/uploads/uploads.client";
 import { useUpdateEntity } from "./entities.hooks";
@@ -105,12 +105,8 @@ export function EntityImages({
             disabled={busy === "cover"}
             className="flex aspect-[3/1] w-full items-center justify-center gap-2 text-sm text-muted-foreground transition-colors hover:bg-accent/40"
           >
-            {busy === "cover" ? (
-              <Loader2 className="size-4 animate-spin" />
-            ) : (
-              <ImagePlus className="size-4" />
-            )}
-            Subir portada
+            <ImagePlus aria-hidden className="size-4" />
+            {busy === "cover" ? "Subiendo" : "Subir portada"}
           </button>
         )}
       </div>
@@ -128,8 +124,8 @@ export function EntityImages({
               onClick={() =>
                 update.mutate({ images: entity.images.filter((u) => u !== url) })
               }
-              className="absolute right-0.5 top-0.5 rounded bg-background/80 p-0.5 text-muted-foreground opacity-0 transition-opacity hover:text-destructive group-hover:opacity-100"
-              title="Quitar imagen"
+              className="absolute right-0.5 top-0.5 flex items-center justify-center rounded bg-background/80 p-0.5 text-muted-foreground transition-opacity hover:text-destructive focus-ring md:pointer-fine:opacity-0 md:pointer-fine:group-hover:opacity-100 md:pointer-fine:focus-visible:opacity-100"
+              aria-label="Quitar imagen"
             >
               <X className="size-3" />
             </button>
@@ -145,9 +141,9 @@ export function EntityImages({
           title="Añadir referencia"
         >
           {busy === "gallery" ? (
-            <Loader2 className="size-4 animate-spin" />
+            <span className="text-xs font-semibold">Subiendo</span>
           ) : (
-            <ImagePlus className="size-4" />
+            <ImagePlus aria-hidden className="size-4" />
           )}
         </button>
       </div>

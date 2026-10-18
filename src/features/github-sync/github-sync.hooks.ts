@@ -110,7 +110,7 @@ export function describeSyncResult(result: SyncResult): string {
     partes.push(`${result.sprintsCreated} sprint(s) nuevo(s)`);
   }
 
-  const resumen = partes.join(" · ");
+  const resumen = partes.join(", ");
 
   if (result.truncated) {
     const cola = "Faltan issues por traer: sincroniza otra vez y sigue desde donde se quedó.";

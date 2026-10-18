@@ -72,8 +72,8 @@ export function GithubConnectionSection() {
               <p className="truncate text-xs text-muted-foreground">
                 {data.login ? `@${data.login}` : "Conectada"}
                 {data.lastSyncedAt
-                  ? ` · última sincronización ${new Date(data.lastSyncedAt).toLocaleString()}`
-                  : " · sin sincronizar todavía"}
+                  ? `, última sincronización ${new Date(data.lastSyncedAt).toLocaleString()}`
+                  : ", sin sincronizar todavía"}
               </p>
             ) : (
               <p className="text-xs text-muted-foreground">Ninguna</p>

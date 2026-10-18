@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from "react";
 import Link from "next/link";
-import { Trash2, Plus, X, Loader2, ArrowRight } from "lucide-react";
+import { Trash2, Plus, X, ArrowRight } from "lucide-react";
 import {
   ResponsiveDialog,
   ResponsiveDialogContent,
@@ -219,8 +219,7 @@ function EntityFicheForm({
 
       <div className="flex items-center gap-2">
         <Button onClick={save} disabled={update.isPending} className="gap-2">
-          {update.isPending && <Loader2 className="size-3.5 animate-spin" />}
-          Guardar
+          {update.isPending ? "Guardando" : "Guardar"}
         </Button>
         {update.isSuccess && !update.isPending && (
           <span className="text-xs text-muted-foreground">Guardado</span>

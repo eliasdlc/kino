@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { Search, Plus, Loader2 } from "lucide-react";
+import { Search, Plus } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
@@ -218,8 +218,7 @@ function CreateEntityDialog({
             onClick={submit}
             disabled={!name.trim() || create.isPending}
           >
-            {create.isPending && <Loader2 className="size-4 animate-spin" />}
-            Crear
+            {create.isPending ? "Creando" : "Crear"}
           </Button>
         </div>
       </ResponsiveDialogContent>

@@ -25,7 +25,7 @@ describe("describeSyncResult", () => {
 
   it("cuenta lo que entró y lo que cambió", () => {
     expect(describeSyncResult(resultado({ imported: 2, updated: 1, sprintsCreated: 1 }))).toBe(
-      "2 importada(s) · 1 actualizada(s) · 1 sprint(s) nuevo(s)",
+      "2 importada(s), 1 actualizada(s), 1 sprint(s) nuevo(s)",
     );
   });
 
