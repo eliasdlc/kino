@@ -1,15 +1,17 @@
-import { describe, expect, it, vi } from "vitest";
-import { render, screen, within } from "@testing-library/react";
-import userEvent from "@testing-library/user-event";
-import { PlotSceneList } from "./PlotSceneList";
-import type { PlotGrid } from "./writing.plot";
-
 /**
  * El tablero de escenas tiene dos vistas (la rejilla en escritorio y esta lista
  * en el teléfono) y las dos reescriben el manuscrito. Lo que se prueba aquí es
  * que emiten **la misma operación**: si divergen, mover una escena significaría
- * una cosa distinta según la pantalla desde la que se mueva.
+ * una cosa distinta según la pantalla desde la que se mueva. Y que cada Mover
+ * dice qué escena mueve, porque reescribe el texto.
  */
+import { describe, expect, it, vi } from "vitest";
+import { screen, within } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
+import { renderWithProviders } from "@/shared/testing/render";
+import { PlotSceneList } from "./PlotSceneList";
+import { arcStats, describirArco } from "./PlotGridView";
+import type { PlotGrid } from "./writing.plot";
 
 const GRID: PlotGrid = {
   folderId: "obra-1" as never,
@@ -34,7 +36,7 @@ const GRID: PlotGrid = {
 
 function setup(busy = false) {
   const onApply = vi.fn();
-  render(
+  renderWithProviders(
     <PlotSceneList grid={GRID} systemId="sys-1" busy={busy} onApply={onApply} />,
   );
   return { onApply, user: userEvent.setup() };
@@ -42,15 +44,13 @@ function setup(busy = false) {
 
 /** Abre el panel de mover de la primera escena del primer capítulo. */
 async function openFirstMove(user: ReturnType<typeof userEvent.setup>) {
-  const rows = screen.getAllByRole("button", { name: "Mover" });
-  await user.click(rows[0]!);
+  await user.click(screen.getByRole("button", { name: "Mover la escena 1 de Llegada" }));
 }
 
 describe("PlotSceneList", () => {
   it("enseña todos los capítulos y sus escenas sin desplazamiento horizontal", () => {
     setup();
 
-    // getBy* ya lanza si no encuentra: la aserción es que los seis existen.
     for (const text of [
       "Llegada",
       "La carta",
@@ -59,7 +59,7 @@ describe("PlotSceneList", () => {
       "2 escenas",
       "1 escena",
     ]) {
-      expect(screen.getByText(text)).toBeTruthy();
+      expect(screen.getByText(text)).toBeVisible();
     }
   });
 
@@ -103,8 +103,32 @@ describe("PlotSceneList", () => {
     // "Llegada" es su capítulo actual y "Duelo" su arco actual: los dos inertes.
     const here = within(dialog).getByRole<HTMLButtonElement>("button", { name: /Llegada/ });
     const sameArc = within(dialog).getByRole<HTMLButtonElement>("button", { name: /Duelo/ });
-    expect(here.disabled).toBe(true);
-    expect(sameArc.disabled).toBe(true);
+    expect(here).toBeDisabled();
+    expect(sameArc).toBeDisabled();
     expect(onApply).not.toHaveBeenCalled();
   });
+
+  it("cada Mover nombra su escena y su capítulo, y no hay dos iguales", () => {
+    setup();
+    const nombres = screen.getAllByRole("button", { name: /^Mover la escena/ }).map((b) => b.getAttribute("aria-label"));
+    expect(nombres).toEqual([
+      "Mover la escena 1 de Llegada",
+      "Mover la escena 2 de Llegada",
+      "Mover la escena 1 de La carta",
+    ]);
+  });
 });
+
+describe("estado de cada arco en la rejilla", () => {
+  it("suma escenas y palabras por arco, y las escenas sin arco van aparte", () => {
+    const porArco = arcStats(GRID);
+    expect(describirArco(porArco.get("Duelo"))).toBe("1 escena, 320 palabras");
+    expect(describirArco(porArco.get("Herencia"))).toBe("1 escena, 210 palabras");
+    expect(describirArco(porArco.get("__sin_arco__"))).toBe("1 escena, 145 palabras");
+  });
+
+  it("un arco sin escenas lo dice en vez de enseñar un cero", () => {
+    expect(describirArco(undefined)).toBe("sin escenas");
+  });
+});
+

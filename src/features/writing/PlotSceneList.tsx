@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { ArrowRight, Check, Tag } from "lucide-react";
+import { ArrowRight, Check } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   ResponsiveDialog,
@@ -30,6 +30,11 @@ import type { PlotChapter, PlotGrid, PlotScene } from "./writing.plot";
  * Sin arrastre, a propósito. La rejilla ya decía que la vía explícita tiene que
  * existir siempre porque un arrastre accidental reescribe el manuscrito; en una
  * pantalla táctil esa vía no es la alternativa, es la única.
+ *
+ * Diario: cada capítulo abre con su numeral en el margen y su título en
+ * Literata sobre un hairline; cada escena es una fila con su número en el
+ * margen, el arranque del texto en Literata y Mover a 48 px. La hoja de mover
+ * es una hoja con nombre de filas de margen, no una lista de cajas.
  */
 
 type Apply = ReturnType<typeof usePlotOperation>["mutate"];
@@ -54,42 +59,49 @@ export function PlotSceneList({
     : undefined;
 
   return (
-    <div className="space-y-4">
-      <p className="text-xs text-muted-foreground">
+    <div className="space-y-6">
+      <p className="pl-(--margen) text-sm text-muted-foreground">
         Las escenas salen del texto. Moverlas reescribe el capítulo, así que no hay un orden
         aparte que se pueda desincronizar.
       </p>
 
-      {grid.chapters.map((chapter, i) => (
-        <section key={chapter.chapterId} className="space-y-1.5">
-          <div className="flex items-baseline justify-between gap-3">
-            <Link
-              href={`/systems/${systemId}/pages/${chapter.chapterId}`}
-              className="min-w-0 truncate text-sm font-medium hover:underline"
-            >
-              {chapter.title?.trim() || `Capítulo ${i + 1}`}
-            </Link>
-            <span className="shrink-0 font-mono text-[11px] text-muted-foreground">
-              {chapter.scenes.length === 1 ? "1 escena" : `${chapter.scenes.length} escenas`}
-            </span>
-          </div>
+      {grid.chapters.map((chapter, i) => {
+        const titulo = chapter.title?.trim() || `Capítulo ${i + 1}`;
+        return (
+          <section key={chapter.chapterId} aria-labelledby={`capitulo-${chapter.chapterId}`}>
+            <div className="grid grid-cols-[var(--margen)_1fr_auto] items-baseline gap-y-1 border-b border-border pb-2">
+              <span aria-hidden className="text-center font-display text-lg font-bold text-muted-foreground tabular-nums">
+                {i + 1}
+              </span>
+              <h2 id={`capitulo-${chapter.chapterId}`} className="min-w-0">
+                <Link
+                  href={`/systems/${systemId}/pages/${chapter.chapterId}`}
+                  className="line-clamp-2 rounded-md font-serif text-lg leading-snug font-semibold text-foreground focus-ring hover:underline"
+                >
+                  {titulo}
+                </Link>
+              </h2>
+              <span className="pl-2.5 text-sm text-muted-foreground tabular-nums">
+                {chapter.scenes.length === 1 ? "1 escena" : `${chapter.scenes.length} escenas`}
+              </span>
+            </div>
 
-          {chapter.scenes.length === 0 ? (
-            <p className="rounded-lg border border-dashed px-3 py-4 text-center text-xs text-muted-foreground/60">
-              Sin escenas todavía
-            </p>
-          ) : (
-            chapter.scenes.map((s) => (
-              <SceneRow
-                key={s.index}
-                scene={s}
-                busy={busy}
-                onMove={() => setMoving({ chapterId: chapter.chapterId, index: s.index })}
-              />
-            ))
-          )}
-        </section>
-      ))}
+            {chapter.scenes.length === 0 ? (
+              <p className="py-3 pl-(--margen) text-sm text-muted-foreground">Sin escenas todavía</p>
+            ) : (
+              chapter.scenes.map((s) => (
+                <SceneRow
+                  key={s.index}
+                  scene={s}
+                  chapterTitle={titulo}
+                  busy={busy}
+                  onMove={() => setMoving({ chapterId: chapter.chapterId, index: s.index })}
+                />
+              ))
+            )}
+          </section>
+        );
+      })}
 
       <ResponsiveDialog open={moving !== null} onOpenChange={(o) => !o && setMoving(null)}>
         <ResponsiveDialogContent className="max-w-md" mobileClassName="max-h-[80dvh]">
@@ -116,38 +128,33 @@ export function PlotSceneList({
 
 function SceneRow({
   scene,
+  chapterTitle,
   busy,
   onMove,
 }: {
   scene: PlotScene;
+  chapterTitle: string;
   busy: boolean;
   onMove: () => void;
 }) {
   return (
-    <div className="flex items-start gap-2 rounded-lg border bg-card p-3">
-      <div className="min-w-0 flex-1">
-        <p className="mb-1 flex flex-wrap items-center gap-x-2 gap-y-1 font-mono text-[10px] text-muted-foreground">
-          <span>
-            Escena {scene.index + 1} · {scene.wordCount.toLocaleString("es")} palabras
-          </span>
-          {scene.arc && (
-            <span className="inline-flex items-center gap-1 rounded-full bg-muted px-2 py-0.5 text-foreground">
-              <Tag className="size-2.5" />
-              {scene.arc}
-            </span>
-          )}
-        </p>
-        <p className="line-clamp-3 text-xs text-muted-foreground">
-          {scene.preview || "Escena en blanco"}
+    <div className="grid grid-cols-[var(--margen)_1fr_auto] items-start gap-y-1 border-b border-border py-2.5 last:border-b-0">
+      <span aria-hidden className="pt-0.5 text-center text-sm font-semibold text-muted-foreground tabular-nums">
+        {scene.index + 1}
+      </span>
+      <div className="min-w-0">
+        <p className="line-clamp-2 font-serif text-base text-body">{scene.preview || "Escena en blanco"}</p>
+        <p className="mt-0.5 text-sm text-muted-foreground tabular-nums">
+          {scene.wordCount.toLocaleString("es")} palabras{scene.arc ? `, ${scene.arc}` : ", sin arco"}
         </p>
       </div>
-      {/* 44px de alto: el mínimo táctil, y esta acción reescribe el manuscrito. */}
+      {/* Esta acción reescribe el manuscrito: 48 px y un nombre que dice cuál. */}
       <Button
         variant="outline"
-        size="sm"
-        className="h-11 shrink-0 px-3"
+        className="ml-2.5 shrink-0"
         disabled={busy}
         onClick={onMove}
+        aria-label={`Mover la escena ${scene.index + 1} de ${chapterTitle}`}
       >
         Mover
       </Button>
@@ -196,63 +203,97 @@ function MovePanel({
   }
 
   return (
-    <div className="space-y-5 overflow-y-auto px-4 pb-6 sm:px-0 sm:pb-0">
-      <section>
-        <p className="mb-2 text-xs font-medium text-muted-foreground">A qué capítulo</p>
-        <div className="space-y-1">
+    <div className="space-y-5">
+      <section className="space-y-1">
+        <h3 className="border-b border-border pb-2 text-xs font-semibold uppercase tracking-[0.06em] text-muted-foreground">
+          A qué capítulo
+        </h3>
+        <div>
           {grid.chapters.map((c, i) => {
             const here = c.chapterId === from.chapterId;
             return (
-              <button
+              <SheetRow
                 key={c.chapterId}
-                type="button"
-                disabled={busy || here}
                 onClick={() => moveTo(c)}
-                className={cn(
-                  "flex min-h-11 w-full items-center gap-2 rounded-lg border px-3 py-2 text-left text-sm transition-colors",
-                  here ? "bg-muted text-muted-foreground" : "hover:bg-accent",
-                )}
+                disabled={busy || here}
+                current={here}
+                margin={
+                  <span className="font-display text-base font-bold text-muted-foreground tabular-nums">{i + 1}</span>
+                }
+                trailing={here ? "aquí está" : <ArrowRight aria-hidden className="size-4" />}
               >
-                <span className="min-w-0 flex-1 truncate">
+                <span className={cn("block truncate font-serif text-base", here ? "text-muted-foreground" : "text-foreground")}>
                   {c.title?.trim() || `Capítulo ${i + 1}`}
                 </span>
-                {here ? (
-                  <span className="shrink-0 text-xs">aquí está</span>
-                ) : (
-                  <ArrowRight className="size-4 shrink-0 text-muted-foreground" />
-                )}
-              </button>
+              </SheetRow>
             );
           })}
         </div>
-        <p className="mt-1.5 text-[11px] text-muted-foreground">
+        <p className="pl-(--margen) text-sm text-muted-foreground">
           La escena se coloca al final del capítulo que elijas.
         </p>
       </section>
 
-      <section>
-        <p className="mb-2 text-xs font-medium text-muted-foreground">Con qué arco</p>
-        <div className="space-y-1">
+      <section className="space-y-1">
+        <h3 className="border-b border-border pb-2 text-xs font-semibold uppercase tracking-[0.06em] text-muted-foreground">
+          Con qué arco
+        </h3>
+        <div>
           {arcs.map((arc) => {
             const current = (scene.arc ?? null) === arc;
             return (
-              <button
+              <SheetRow
                 key={arc ?? SIN_ARCO_LABEL}
-                type="button"
-                disabled={busy || current}
                 onClick={() => setArc(arc)}
-                className={cn(
-                  "flex min-h-11 w-full items-center gap-2 rounded-lg border px-3 py-2 text-left text-sm transition-colors",
-                  current ? "bg-muted text-muted-foreground" : "hover:bg-accent",
-                )}
+                disabled={busy || current}
+                current={current}
+                margin={current ? <Check aria-hidden className="size-5 text-foreground" /> : null}
               >
-                <span className="min-w-0 flex-1 truncate">{arc ?? SIN_ARCO_LABEL}</span>
-                {current && <Check className="size-4 shrink-0" />}
-              </button>
+                <span className={cn("block truncate text-base", current ? "font-semibold text-foreground" : "text-foreground")}>
+                  {arc ?? SIN_ARCO_LABEL}
+                </span>
+              </SheetRow>
             );
           })}
         </div>
       </section>
     </div>
+  );
+}
+
+/**
+ * Una opción de la hoja de mover: la rejilla de la fila de margen en un botón
+ * de verdad, que se deshabilita donde la escena ya está (un `div` no se puede
+ * deshabilitar, y quien navega con teclado tiene que saber por qué no va).
+ */
+function SheetRow({
+  margin,
+  trailing,
+  current,
+  disabled,
+  onClick,
+  children,
+}: {
+  margin: React.ReactNode;
+  trailing?: React.ReactNode;
+  current: boolean;
+  disabled: boolean;
+  onClick: () => void;
+  children: React.ReactNode;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      disabled={disabled}
+      aria-current={current || undefined}
+      className="press grid min-h-[3.4rem] w-full grid-cols-[var(--margen)_1fr_auto] items-center border-b border-border text-left transition-[background-color,transform] duration-(--dur-toque) ease-(--ease-pluma) focus-ring last:border-b-0 enabled:hover:bg-sf2/60 disabled:cursor-default"
+    >
+      <span className="flex justify-center text-muted-foreground">{margin}</span>
+      <span className="block min-w-0 py-2">{children}</span>
+      {trailing !== undefined && (
+        <span className="pl-2.5 text-right text-sm whitespace-nowrap text-muted-foreground">{trailing}</span>
+      )}
+    </button>
   );
 }
