@@ -14,6 +14,16 @@ interface TaskFilterPanelProps {
   onChange: (next: TaskFilters) => void;
 }
 
+/**
+ * Una ficha de filtro: 48 px de alto en el teléfono (el táctil mínimo) y 2rem
+ * con ratón. Elegida va en tinta, como el segmento: filtrar es un estado, no
+ * una acción, y el ámbar es de la acción.
+ */
+const PILL =
+  'press focus-ring inline-flex h-[2.85rem] items-center rounded-full border px-3.5 text-sm font-medium transition-[color,background-color,border-color,transform] duration-(--dur-toque) ease-(--ease-pluma) md:pointer-fine:h-8 md:pointer-fine:px-3 md:pointer-fine:text-xs';
+const PILL_ON = 'border-foreground bg-foreground text-background';
+const PILL_OFF = 'border-border text-muted-foreground hover:border-foreground/40 hover:text-foreground';
+
 function toggle<T extends string>(arr: T[], val: T): T[] {
   return arr.includes(val) ? arr.filter((v) => v !== val) : [...arr, val];
 }
@@ -28,17 +38,19 @@ type PillGroupProps<T extends string> = {
 function PillGroup<T extends string>({ label, options, selected, onToggle }: PillGroupProps<T>) {
   return (
     <div className="space-y-1.5">
-      <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wide">{label}</p>
+      <p className="text-xs font-semibold tracking-[0.06em] text-muted-foreground uppercase">{label}</p>
       <div className="flex flex-wrap gap-1.5">
         {options.map(({ value, label: l }) => (
           <button
             key={value}
+            type="button"
+            aria-pressed={selected.includes(value)}
             onClick={() => onToggle(value)}
             className={cn(
-              'text-xs px-2.5 py-1 rounded-full border transition-colors',
+              PILL,
               selected.includes(value)
-                ? 'border-primary bg-primary/10 text-primary'
-                : 'border-border text-muted-foreground hover:bg-accent/50',
+                ? PILL_ON
+                : PILL_OFF,
             )}
           >
             {l}
@@ -53,8 +65,8 @@ const STATUS_OPTIONS = [
   { value: 'backlog', label: 'Backlog' },
   { value: 'today', label: 'Hoy' },
   { value: 'tomorrow', label: 'Mañana' },
-  { value: 'week', label: 'Semana' },
-  { value: 'done', label: 'Hecho' },
+  { value: 'week', label: 'Esta semana' },
+  { value: 'done', label: 'Hechas' },
 ];
 
 const PRIORITY_OPTIONS = [
@@ -105,7 +117,7 @@ export function TaskFilterPanel({ filters, systems, onChange }: TaskFilterPanelP
   const systemOptions = systems.map((s) => ({ value: s.id, label: s.name }));
 
   return (
-    <div className="border rounded-xl bg-card p-4 space-y-4">
+    <div className="space-y-5">
       <PillGroup label="Estado" options={STATUS_OPTIONS} selected={filters.status} onToggle={(v) => set('status', toggle(filters.status, v))} />
       {systemOptions.length > 0 && (
         <PillGroup label="Sistema" options={systemOptions} selected={filters.system} onToggle={(v) => set('system', toggle(filters.system, v))} />
@@ -116,17 +128,19 @@ export function TaskFilterPanel({ filters, systems, onChange }: TaskFilterPanelP
 
       {/* Fecha: single select */}
       <div className="space-y-1.5">
-        <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wide">Fecha</p>
+        <p className="text-xs font-semibold tracking-[0.06em] text-muted-foreground uppercase">Fecha</p>
         <div className="flex flex-wrap gap-1.5">
           {DATE_OPTIONS.map(({ value, label }) => (
             <button
               key={value}
+              type="button"
+              aria-pressed={filters.dateRange === value}
               onClick={() => set('dateRange', filters.dateRange === value ? '' : value)}
               className={cn(
-                'text-xs px-2.5 py-1 rounded-full border transition-colors',
+                PILL,
                 filters.dateRange === value
-                  ? 'border-primary bg-primary/10 text-primary'
-                  : 'border-border text-muted-foreground hover:bg-accent/50',
+                  ? PILL_ON
+                  : PILL_OFF,
               )}
             >
               {label}
@@ -137,17 +151,19 @@ export function TaskFilterPanel({ filters, systems, onChange }: TaskFilterPanelP
 
       {/* Ordenar */}
       <div className="space-y-1.5">
-        <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wide">Ordenar por</p>
+        <p className="text-xs font-semibold tracking-[0.06em] text-muted-foreground uppercase">Ordenar por</p>
         <div className="flex flex-wrap gap-1.5">
           {SORT_OPTIONS.map(({ value, label }) => (
             <button
               key={value}
+              type="button"
+              aria-pressed={filters.sort === value}
               onClick={() => set('sort', value)}
               className={cn(
-                'text-xs px-2.5 py-1 rounded-full border transition-colors',
+                PILL,
                 filters.sort === value
-                  ? 'border-primary bg-primary/10 text-primary'
-                  : 'border-border text-muted-foreground hover:bg-accent/50',
+                  ? PILL_ON
+                  : PILL_OFF,
               )}
             >
               {label}
@@ -158,17 +174,19 @@ export function TaskFilterPanel({ filters, systems, onChange }: TaskFilterPanelP
 
       {/* Agrupar */}
       <div className="space-y-1.5">
-        <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wide">Agrupar por</p>
+        <p className="text-xs font-semibold tracking-[0.06em] text-muted-foreground uppercase">Agrupar por</p>
         <div className="flex flex-wrap gap-1.5">
           {GROUP_OPTIONS.map(({ value, label }) => (
             <button
               key={value}
+              type="button"
+              aria-pressed={filters.group === value}
               onClick={() => set('group', filters.group === value ? '' : value)}
               className={cn(
-                'text-xs px-2.5 py-1 rounded-full border transition-colors',
+                PILL,
                 filters.group === value
-                  ? 'border-primary bg-primary/10 text-primary'
-                  : 'border-border text-muted-foreground hover:bg-accent/50',
+                  ? PILL_ON
+                  : PILL_OFF,
               )}
             >
               {label}
