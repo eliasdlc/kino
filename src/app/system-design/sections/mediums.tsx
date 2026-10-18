@@ -4,6 +4,7 @@ import { Section, SubSection, Specimen, SpecimenGrid } from "../helpers";
 import { SCREENPLAY_LABELS } from "@/features/pages/mediums/screenplay.extension";
 import { ReadingView } from "@/features/writing/ReadingView";
 import { makeManuscript, mid } from "../mock-data";
+import { EscrituraEditorSubsections } from "./escritura-editor";
 
 /**
  * Los bloques por medium (PLAN-11 W3).
@@ -39,6 +40,8 @@ const SCREENPLAY_LINES: Array<{ node: keyof typeof SCREENPLAY_LABELS; text: stri
 export function MediumsSection() {
   return (
     <Section id="mediums" number="16" title="Bloques por medium">
+      <EscrituraEditorSubsections />
+
       <SubSection
         title="Separador de escena"
         description="El corte dentro del capítulo. Atom: no se escribe dentro de él."

@@ -429,8 +429,8 @@ function makeLooseThread(overrides: Partial<LooseThread> = {}): LooseThread {
     type: "object",
     totalMentions: 2,
     chapterCount: 1,
-    firstChapter: { index: 2, id: uuid(600), title: "Capítulo 2 · El gremio" },
-    lastChapter: { index: 2, id: uuid(600), title: "Capítulo 2 · El gremio" },
+    firstChapter: { index: 2, id: uuid(600), title: "Capítulo 2: El gremio" },
+    lastChapter: { index: 2, id: uuid(600), title: "Capítulo 2: El gremio" },
     silentChapters: 5,
     resolved: false,
     reopened: false,
@@ -562,8 +562,8 @@ export function makeManuscript(overrides: Partial<Manuscript> = {}): Manuscript 
     medium,
     totalWords: 148,
     chapters: [
-      { id: uuid(900), title: "Capítulo 1 · La niebla", content: body, wordCount: 84, completed: true },
-      { id: uuid(901), title: "Capítulo 2 · El gremio", content: body, wordCount: 64, completed: false },
+      { id: uuid(900), title: "Capítulo 1: La niebla", content: body, wordCount: 84, completed: true },
+      { id: uuid(901), title: "Capítulo 2: El gremio", content: body, wordCount: 64, completed: false },
     ],
     ...overrides,
   };
@@ -583,7 +583,7 @@ export function makePlotGrid(overrides: Partial<PlotGrid> = {}): PlotGrid {
     chapters: [
       {
         chapterId: uuid(950),
-        title: "Capítulo 1 · La niebla",
+        title: "Capítulo 1: La niebla",
         scenes: [
           scene(0, "Aurelia", "La niebla no levantó ese día, ni el siguiente. Aurelia lo anotó en el margen del mapa.", 640),
           scene(1, "El gremio", "Bruno la encontró en el taller, con la carta desplegada y la tinta todavía fresca.", 410),
@@ -591,7 +591,7 @@ export function makePlotGrid(overrides: Partial<PlotGrid> = {}): PlotGrid {
       },
       {
         chapterId: uuid(951),
-        title: "Capítulo 2 · El gremio",
+        title: "Capítulo 2: El gremio",
         scenes: [
           scene(0, "El gremio", "Firmaron sin leerlo. Nadie preguntó en nombre de qué casa hablaba Bruno.", 520),
           scene(1, null, "El posadero cerró antes de tiempo y no dio explicaciones.", 180),
