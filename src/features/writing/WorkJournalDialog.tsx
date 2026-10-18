@@ -121,7 +121,7 @@ export function WorkJournalDialog({
 
   return (
     <ResponsiveDialog open={open} onOpenChange={onOpenChange}>
-      <ResponsiveDialogContent className="max-h-[85vh] max-w-lg overflow-y-auto">
+      <ResponsiveDialogContent className="max-h-[85dvh] max-w-lg overflow-y-auto">
         <ResponsiveDialogHeader>
           <ResponsiveDialogTitle>Diario de {folderName}</ResponsiveDialogTitle>
         </ResponsiveDialogHeader>
