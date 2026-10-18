@@ -194,9 +194,13 @@ function PanelBody({
         <ExportRows page={page} medium={medium} />
       </section>
 
-      <section className={bloque}>
-        <EditorShortcutsHelp medium={medium} />
-      </section>
+      {/* Los atajos son de teclado físico: en el teléfono no hay a quién
+          enseñárselos, y la barra del pulgar ya pone el formato a mano. */}
+      {!movil && (
+        <section className={bloque}>
+          <EditorShortcutsHelp medium={medium} />
+        </section>
+      )}
     </div>
   );
 }
