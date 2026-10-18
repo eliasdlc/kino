@@ -52,6 +52,10 @@ interface PlanTaskRowProps {
  * rellena con --ok y el título cae a mute; la fila no se mueve de su sitio.
  * Las otras acciones (timer, mañana, quitar) caben en un solo menú de 48 px,
  * que en escritorio aparece al pasar el ratón.
+ *
+ * El círculo tiene un solo nombre, "Completar" y el título, y su estado lo
+ * dice `aria-pressed`: un nombre que cambia a "Deshacer" a la vez que el
+ * estado pasa a pulsado se lee como dos señales que se contradicen.
  */
 export function PlanTaskRow({ task, struck = false, onComplete, onMoveToTomorrow, onRemove, onStartTimer }: PlanTaskRowProps) {
   const isDone = task.status === 'done';
@@ -83,7 +87,7 @@ export function PlanTaskRow({ task, struck = false, onComplete, onMoveToTomorrow
           type="button"
           onClick={onComplete}
           className="press focus-ring -mt-[0.15rem] flex size-[2.85rem] items-center justify-center rounded-full transition-transform duration-(--dur-toque) ease-(--ease-pluma)"
-          aria-label={isDone ? 'Deshacer' : 'Completar'}
+          aria-label={`Completar ${task.title}`}
           aria-pressed={isDone}
         >
           <span
@@ -101,7 +105,11 @@ export function PlanTaskRow({ task, struck = false, onComplete, onMoveToTomorrow
       trailing={
         <span className="inline-flex items-center gap-1">
           {dur && <span className={cn(isDone && 'line-through')}>{dur}</span>}
-          {!isDone && (
+          {/* Hecha, la fila pierde el menú pero conserva su hueco: la duración
+              y el título no se mueven en horizontal al tachar. */}
+          {isDone ? (
+            <span data-slot="menu-hueco" className="-mr-2 block size-[2.85rem] md:size-8" aria-hidden />
+          ) : (
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <Button
