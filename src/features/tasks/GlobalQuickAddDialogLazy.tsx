@@ -27,7 +27,12 @@ export function GlobalQuickAddDialogLazy() {
   // El chunk baja cuando el navegador queda libre, para que el primer toque
   // no espere la descarga sin acuse; no entra en el bundle del shell.
   useEffect(() => {
-    if (!("requestIdleCallback" in window)) return;
+    const ahorro = (navigator as Navigator & { connection?: { saveData?: boolean } }).connection?.saveData;
+    if (ahorro) return;
+    if (!("requestIdleCallback" in window)) {
+      const id = setTimeout(() => void cargar(), 2000);
+      return () => clearTimeout(id);
+    }
     const id = window.requestIdleCallback(() => void cargar(), { timeout: 4000 });
     return () => window.cancelIdleCallback(id);
   }, []);
