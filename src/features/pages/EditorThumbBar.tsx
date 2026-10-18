@@ -64,7 +64,10 @@ export function EditorThumbBar({
   forceVisible?: boolean;
 }) {
   const tecladoAbierto = useTecladoAbierto();
-  const inset = useTecladoInset();
+  // En el catálogo no hay teclado: la barra se queda en su sitio aunque el
+  // viewport visual del navegador mida distinto que la ventana.
+  const tecladoInset = useTecladoInset();
+  const inset = forceVisible ? 0 : tecladoInset;
   const [enTexto, setEnTexto] = useState(() => editor.isFocused);
   const barra = useRef<HTMLDivElement>(null);
   const visible = forceVisible || (tecladoAbierto && enTexto);
@@ -138,7 +141,9 @@ export function EditorThumbBar({
       aria-label="Formato"
       data-slot="editor-thumb-bar"
       className={cn(
-        "inset-x-0 bottom-0 z-(--z-overlay) flex items-center justify-between border-t border-border bg-background px-[max(0.5rem,env(safe-area-inset-left))]",
+        // Siete botones de 2.85rem y el divisor caben en 360 px con un canto de
+        // 0.25rem; con la letra del sistema más grande, la fila se desplaza.
+        "inset-x-0 bottom-0 z-(--z-overlay) flex items-center justify-between overflow-x-auto border-t border-border bg-background px-[max(0.25rem,env(safe-area-inset-left))] [scrollbar-width:none]",
         // En la app es sólo del teléfono; el catálogo la enseña en cualquier ancho.
         forceVisible ? "relative" : "fixed md:hidden",
         inset === 0 && "pb-[env(safe-area-inset-bottom)]",
