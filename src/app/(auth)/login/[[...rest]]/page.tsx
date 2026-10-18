@@ -1,11 +1,12 @@
 import { Suspense } from "react";
+import { FormularioEsperando } from "@/features/auth/Puerta";
 import { LoginPage } from "@/features/auth/LoginPage";
 
-export const metadata = { title: "Iniciar sesión · Kino" };
+export const metadata = { title: "Entrar, Kino" };
 
 export default function Page() {
     return (
-        <Suspense>
+        <Suspense fallback={<FormularioEsperando />}>
             <LoginPage />
         </Suspense>
     );

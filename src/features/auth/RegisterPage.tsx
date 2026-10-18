@@ -2,6 +2,8 @@
 
 import { SignUp } from "@clerk/nextjs";
 import { useSearchParams } from "next/navigation";
+import { clerkPuertaAppearance } from "./clerk-appearance";
+import { Puerta } from "./Puerta";
 
 /**
  * Crear cuenta. El segmento de la landing por arquetipo viaja en la URL y
@@ -10,5 +12,9 @@ import { useSearchParams } from "next/navigation";
 export function RegisterPage() {
   const segment = useSearchParams().get("para");
   const after = segment ? `/onboarding?para=${encodeURIComponent(segment)}` : "/onboarding";
-  return <SignUp forceRedirectUrl={after} signInUrl="/login" />;
+  return (
+    <Puerta titulo="Crea tu cuenta" voz="Después, una sola pregunta y estás en Hoy.">
+      <SignUp forceRedirectUrl={after} signInUrl="/login" appearance={clerkPuertaAppearance} />
+    </Puerta>
+  );
 }
