@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { Loader2, LayoutGrid, PanelLeft, PanelRight } from "lucide-react";
+import { LayoutGrid, PanelLeft, PanelRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { useSharedEditor } from "@/features/pages/EditorContext";
@@ -198,8 +198,9 @@ export function StickyNoteCreator({
                 key={c}
                 type="button"
                 onClick={() => setColor(c)}
-                aria-label={c}
-                className="size-6 rounded-full transition-all"
+                aria-label={cls.label}
+                aria-pressed={color === c}
+                className="size-6 rounded-full transition-[transform,border-color] duration-(--dur-toque) ease-(--ease-pluma) focus-ring pointer-coarse:size-8"
                 style={{
                   backgroundColor: cls.hex,
                   border: `2.5px solid ${color === c ? "#00000055" : "transparent"}`,
@@ -215,9 +216,9 @@ export function StickyNoteCreator({
           <div className="grid grid-cols-3 gap-1.5">
             {(
               [
-                { id: "left", icon: PanelLeft, label: "Margen izq." },
+                { id: "left", icon: PanelLeft, label: "Izquierda" },
                 { id: "grid", icon: LayoutGrid, label: "Cuadrícula" },
-                { id: "right", icon: PanelRight, label: "Margen der." },
+                { id: "right", icon: PanelRight, label: "Derecha" },
               ] as const
             ).map(({ id, icon: Icon, label }) => (
               <button
@@ -225,7 +226,7 @@ export function StickyNoteCreator({
                 type="button"
                 onClick={() => setPlacement(id)}
                 className={cn(
-                  "flex flex-col items-center gap-1 py-2 rounded-xl text-[11px] font-medium transition-all",
+                  "press flex min-h-[2.85rem] flex-col items-center justify-center gap-1 py-2 rounded-xl text-xs font-semibold transition-[color,background-color,transform] duration-(--dur-toque) ease-(--ease-pluma) focus-ring",
                   placement === id
                     ? "bg-foreground text-background"
                     : "bg-muted text-muted-foreground hover:bg-muted/80"
@@ -249,8 +250,7 @@ export function StickyNoteCreator({
             onClick={handleSave}
             disabled={isPending || (!title.trim() && !content.trim())}
           >
-            {isPending && <Loader2 className="size-3.5 animate-spin mr-1.5" />}
-            {isPending ? "Guardando..." : "Guardar"}
+            {isPending ? "Guardando" : "Guardar"}
           </Button>
         </div>
       </div>

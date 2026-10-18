@@ -157,7 +157,7 @@ describe("editar sobre el papel", () => {
 
     await userEvent.click(screen.getByText("Idea de tesis"));
     await screen.findByPlaceholderText("Título...");
-    await userEvent.click(screen.getByRole("button", { name: "pink" }));
+    await userEvent.click(screen.getByRole("button", { name: "Rosa" }));
 
     expect(mutaciones(convex)).toEqual([
       { kind: "mutation", name: "stickyNotes:update", args: { id: NOTA.id, color: "pink" } },
@@ -166,7 +166,7 @@ describe("editar sobre el papel", () => {
 
   it("la bandeja queda inerte mientras la nota no se edita", async () => {
     const { container } = pintar();
-    const bandeja = () => screen.getByRole("button", { name: "pink", hidden: true }).parentElement!;
+    const bandeja = () => screen.getByRole("button", { name: "Rosa", hidden: true }).parentElement!;
 
     expect(bandeja()).toHaveAttribute("inert");
     await userEvent.click(screen.getByText("Idea de tesis"));

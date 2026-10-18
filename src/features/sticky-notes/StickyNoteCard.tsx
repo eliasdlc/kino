@@ -17,6 +17,8 @@ import {
   ContextMenuTrigger,
 } from "@/components/ui/context-menu";
 import { cn } from "@/lib/utils";
+import { useIsMobile } from "@/hooks/use-mobile";
+import { RowActions } from "@/features/notebooks/RowActions";
 import { useSharedEditor } from "@/features/pages/EditorContext";
 import { useUpdateStickyNote, useDeleteStickyNote } from "./sticky-notes.hooks";
 import { removeAnchorMark, isAnnotationAnchor } from "./anchor-utils";
@@ -57,6 +59,7 @@ export function StickyNoteCard({ note, context, onStack }: StickyNoteCardProps) 
   const [content, setContent] = useState("");
   const colors = STICKY_NOTE_COLORS[note.color] ?? STICKY_NOTE_COLORS.yellow!;
   const { lit, light } = useAnchorHighlight();
+  const isMobile = useIsMobile();
 
   // La nota es media pareja sólo si su ancla anota una frase. La de posición no
   // marca ningún texto, así que no hay nada al otro lado que encender.
@@ -179,7 +182,7 @@ export function StickyNoteCard({ note, context, onStack }: StickyNoteCardProps) 
             data-no-drag
             inert={!editando}
             className={cn(
-              "absolute inset-x-3 top-full z-0 -mt-2 flex flex-wrap justify-center gap-1.5 rounded-b-lg border border-border bg-card px-2 pb-2 pt-4 shadow-md transition-transform duration-200 ease-out",
+              "absolute inset-x-3 top-full z-0 -mt-2 flex flex-wrap justify-center gap-1.5 rounded-b-xl border border-border bg-card px-2 pb-2 pt-4 shadow-(--shadow) transition-transform duration-(--dur-hoja) ease-(--ease-pluma) pointer-coarse:inset-x-0 pointer-coarse:gap-0",
               editando ? "translate-y-0" : "-translate-y-full"
             )}
             {...sinArrastre}
@@ -192,15 +195,20 @@ export function StickyNoteCard({ note, context, onStack }: StickyNoteCardProps) 
                   key={c}
                   type="button"
                   onClick={() => updateNote({ noteId: note.id, data: { color: c as typeof note.color } })}
-                  aria-label={c}
+                  aria-label={cls.label}
                   aria-pressed={elegido}
-                  className="size-5 rounded-full transition-transform"
-                  style={{
-                    backgroundColor: cls.hex,
-                    border: `2px solid ${elegido ? "var(--foreground)" : "transparent"}`,
-                    transform: elegido ? "scale(1.2)" : "scale(1)",
-                  }}
-                />
+                  className="flex size-5 items-center justify-center rounded-full focus-ring pointer-coarse:size-[2.85rem]"
+                >
+                  <span
+                    aria-hidden
+                    className="size-5 rounded-full transition-transform duration-(--dur-toque) ease-(--ease-pluma) pointer-coarse:size-7"
+                    style={{
+                      backgroundColor: cls.hex,
+                      border: `2px solid ${elegido ? "var(--foreground)" : "transparent"}`,
+                      transform: elegido ? "scale(1.2)" : "scale(1)",
+                    }}
+                  />
+                </button>
               );
             })}
           </div>
@@ -209,7 +217,7 @@ export function StickyNoteCard({ note, context, onStack }: StickyNoteCardProps) 
             data-sticky-note
             data-lit={encendida ? "" : undefined}
             className={cn(
-              "group relative z-10 flex size-44 flex-col gap-1 overflow-hidden rounded-lg p-3.5",
+              "group relative z-10 flex size-44 flex-col gap-1 overflow-hidden rounded-[0.3rem] p-3.5 focus-ring",
               editando ? "cursor-text" : "cursor-pointer"
             )}
             style={{
@@ -294,55 +302,83 @@ export function StickyNoteCard({ note, context, onStack }: StickyNoteCardProps) 
               </>
             )}
 
-            {/* Los dos controles de la esquina. `data-no-drag` es lo que los
-                saca del arrastre en la capa flotante: la tarjeta entera mueve
-                la nota menos este trozo, que se pulsa. */}
+            {/* Los controles de la esquina. `data-no-drag` es lo que los saca
+                del arrastre en la capa flotante: la tarjeta entera mueve la
+                nota menos este trozo, que se pulsa. En el teléfono son uno
+                solo de 48 px que abre la hoja con las operaciones por nombre,
+                incluido dónde va la nota: sin arrastre, la posición también
+                se elige por nombre. */}
             <div
               data-no-drag
-              className="absolute top-1.5 right-1.5 flex items-center gap-0.5 md:opacity-0 md:group-hover:opacity-100 transition-opacity"
+              className="absolute top-1.5 right-1.5 flex items-center gap-0.5 transition-opacity duration-(--dur-toque) md:pointer-fine:opacity-0 md:pointer-fine:group-hover:opacity-100 md:pointer-fine:focus-within:opacity-100 pointer-coarse:top-0 pointer-coarse:right-0"
               onClick={(e) => e.stopPropagation()}
             >
-              {context.pageId && (
-                <DropdownMenu>
-                  <DropdownMenuTrigger asChild>
-                    <button
-                      type="button"
-                      className="size-5 rounded flex items-center justify-center hover:bg-black/15"
-                      aria-label="Opciones de posición"
-                    >
-                      <MoreHorizontal className="size-3" style={{ color: colors.textHex }} />
-                    </button>
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent align="end" className="w-44">
-                    {note.positionSide !== "left" && (
-                      <DropdownMenuItem className="gap-2 text-xs" onClick={() => pinToSide("left")}>
-                        <PanelLeft className="size-3" /> Margen izquierdo
-                      </DropdownMenuItem>
-                    )}
-                    {note.positionSide !== "right" && (
-                      <DropdownMenuItem className="gap-2 text-xs" onClick={() => pinToSide("right")}>
-                        <PanelRight className="size-3" /> Margen derecho
-                      </DropdownMenuItem>
-                    )}
-                    {note.positionSide && (
-                      <>
-                        <DropdownMenuSeparator />
-                        <DropdownMenuItem className="gap-2 text-xs" onClick={() => pinToSide(null)}>
-                          <LayoutGrid className="size-3" /> Mandar a la cuadrícula
-                        </DropdownMenuItem>
-                      </>
-                    )}
-                  </DropdownMenuContent>
-                </DropdownMenu>
+              {isMobile ? (
+                <RowActions
+                  subject={note.title?.trim() || "Nota"}
+                  revealOnHover={false}
+                  className="text-inherit hover:bg-black/10"
+                  actions={[
+                    { label: "Editar", icon: Pencil, onSelect: empezarAEditar },
+                    { label: note.isEureka ? "Quitar eureka" : "Marcar eureka", icon: Lightbulb, onSelect: toggleEureka },
+                    ...(context.pageId && note.positionSide !== "left"
+                      ? [{ label: "Pegar en el margen izquierdo", icon: PanelLeft, onSelect: () => pinToSide("left") }]
+                      : []),
+                    ...(context.pageId && note.positionSide !== "right"
+                      ? [{ label: "Pegar en el margen derecho", icon: PanelRight, onSelect: () => pinToSide("right") }]
+                      : []),
+                    ...(context.pageId && note.positionSide
+                      ? [{ label: "Mandar a la cuadrícula", icon: LayoutGrid, onSelect: () => pinToSide(null) }]
+                      : []),
+                    ...(onStack ? [{ label: "Apilar sobre otra nota", icon: Layers, onSelect: onStack }] : []),
+                    { label: "Eliminar", icon: Trash2, destructive: true, onSelect: () => deleteNote(note.id) },
+                  ]}
+                />
+              ) : (
+                <>
+                  {context.pageId && (
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <button
+                          type="button"
+                          className="flex size-6 items-center justify-center rounded hover:bg-black/15 focus-ring"
+                          aria-label="Opciones de posición"
+                        >
+                          <MoreHorizontal className="size-3.5" style={{ color: colors.textHex }} />
+                        </button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="end" className="w-52">
+                        {note.positionSide !== "left" && (
+                          <DropdownMenuItem onClick={() => pinToSide("left")}>
+                            <PanelLeft /> Margen izquierdo
+                          </DropdownMenuItem>
+                        )}
+                        {note.positionSide !== "right" && (
+                          <DropdownMenuItem onClick={() => pinToSide("right")}>
+                            <PanelRight /> Margen derecho
+                          </DropdownMenuItem>
+                        )}
+                        {note.positionSide && (
+                          <>
+                            <DropdownMenuSeparator />
+                            <DropdownMenuItem onClick={() => pinToSide(null)}>
+                              <LayoutGrid /> Mandar a la cuadrícula
+                            </DropdownMenuItem>
+                          </>
+                        )}
+                      </DropdownMenuContent>
+                    </DropdownMenu>
+                  )}
+                  <button
+                    type="button"
+                    onClick={() => deleteNote(note.id)}
+                    className="flex size-6 items-center justify-center rounded hover:bg-black/15 focus-ring"
+                    aria-label="Eliminar nota"
+                  >
+                    <X className="size-3.5" style={{ color: colors.textHex }} />
+                  </button>
+                </>
               )}
-              <button
-                type="button"
-                onClick={() => deleteNote(note.id)}
-                className="size-5 rounded flex items-center justify-center hover:bg-black/15"
-                aria-label="Eliminar nota"
-              >
-                <X className="size-3" style={{ color: colors.textHex }} />
-              </button>
             </div>
           </div>
         </div>

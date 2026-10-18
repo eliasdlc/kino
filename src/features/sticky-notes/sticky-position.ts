@@ -40,8 +40,12 @@ export function resolveColumnX(
   return x;
 }
 
-/** Ancho de la tarjeta flotante en px (la clase `w-44`). */
-export const NOTE_W = 176;
+/**
+ * Lado de la nota en px: la clase `size-44` mide 11rem, y la raíz de la casa
+ * es 17 px, así que son 187 y no los 176 de una raíz de 16. Con 176 la nota
+ * podía quedarse 11 px más allá del borde que el recorte creía respetar.
+ */
+export const NOTE_W = 11 * 17;
 
 /**
  * Lo minimo que tiene que asomar de una nota para poder volver a cogerla. No es
