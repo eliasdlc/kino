@@ -9,6 +9,7 @@ import { parseDueDate } from "@/features/tasks/tasks.utils";
 import { FolderRow } from "@/features/notebooks/FolderRow";
 import { joinMeta } from "@/features/notebooks/index-format";
 import { cn } from "@/lib/utils";
+import type { ArchetypeManifest } from "@/shared/lib/system-types";
 import { MoveToCycleDialog } from "./MoveToCycleMenu";
 import type { AcademicPeriod } from "./academic.hooks";
 
@@ -19,6 +20,8 @@ interface ClassRowProps {
   tasks: TaskTransport[];
   periods: AcademicPeriod[];
   href: string;
+  /** El vocabulario del sistema, que la lista ya tiene. */
+  manifest?: ArchetypeManifest;
 }
 
 /** Lo que falta por entregar en la clase. */
@@ -50,7 +53,7 @@ function metaString(metadata: Record<string, unknown> | null, key: string): stri
  * en la meta, cuántas cosas faltan, y la entrega más próxima a la derecha.
  * Vencida va en coral y siempre con la palabra delante.
  */
-export function ClassRow({ folder, systemId, index, tasks, periods, href }: ClassRowProps) {
+export function ClassRow({ folder, systemId, index, tasks, periods, href, manifest }: ClassRowProps) {
   const [moving, setMoving] = useState(false);
   const professor = metaString(folder.metadata as Record<string, unknown> | null, "professor");
   const schedule = metaString(folder.metadata as Record<string, unknown> | null, "schedule");
@@ -64,6 +67,7 @@ export function ClassRow({ folder, systemId, index, tasks, periods, href }: Clas
         systemId={systemId}
         index={index}
         href={href}
+        manifest={manifest}
         meta={
           <>
             {due && (
