@@ -292,7 +292,7 @@ export function TaskRowActions({ title, actions }: { title: string; actions: Tas
                 return (
                   <MarginRow
                     key={a.label}
-                    margin={<Icon className="mt-[0.55rem] size-[1.15rem]" />}
+                    margin={<Icon className="mt-[0.8rem] size-[1.15rem]" />}
                     onClick={() => {
                       if (a.disabled) return;
                       setOpen(false);
