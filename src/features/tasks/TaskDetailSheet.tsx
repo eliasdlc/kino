@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { parseDueDate } from "./tasks.utils";
-import { Timer } from "lucide-react";
+import { Check, Timer } from "lucide-react";
 import {
   ResponsiveDialog,
   ResponsiveDialogContent,
@@ -31,7 +31,8 @@ import type { TaskTypeValue } from "@/shared/types/enums";
 import { SubtaskList } from "./SubtaskList";
 import { ItemEventList } from "./ItemEventList";
 import { TaskRemindersSection } from "./TaskRemindersSection";
-import { useUpdateTask } from "./tasks.hooks";
+import { useToggleTask, useUpdateTask } from "./tasks.hooks";
+import { UNDO_MS } from "./useTachar";
 import { RecurrencePicker } from "./RecurrencePicker";
 import { useFolders } from "@/features/folders/folders.hooks";
 import { useSprints } from "@/features/sprints/sprints.hooks";
@@ -67,17 +68,25 @@ interface TaskDetailSheetProps {
   systemId: string;
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  /**
+   * Quien pinta la fila la tacha: así la fila de debajo queda tachada en su
+   * sitio con su Deshacer. Sin él, la hoja completa por su cuenta y ofrece el
+   * Deshacer en el aviso.
+   */
+  onComplete?: (task: TaskTransport) => void;
 }
 
 interface TaskDetailFormProps {
   task: TaskTransport;
   systemId: string;
   onClose: () => void;
+  onComplete?: (task: TaskTransport) => void;
 }
 
-function TaskDetailForm({ task, systemId, onClose }: TaskDetailFormProps) {
+function TaskDetailForm({ task, systemId, onClose, onComplete }: TaskDetailFormProps) {
   const isMobile = useIsMobile();
   const { mutate: updateTask, isPending } = useUpdateTask(systemId);
+  const { mutate: toggleTask } = useToggleTask(systemId);
   const { data: folders = [] } = useFolders(systemId);
   const { data: sprints = [] } = useSprints(systemId);
   const activeSprints = sprints.filter((s) => s.status === "active");
@@ -179,6 +188,25 @@ function TaskDetailForm({ task, systemId, onClose }: TaskDetailFormProps) {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [title, description, priority, energyLevel, taskType, dueDate, startDate, selectedFolderId, sprintId, contextTagId, recurrenceRule, metadata]);
 
+  /**
+   * Completar desde la hoja: guarda lo que quedara sin guardar, tacha la fila
+   * (o completa y avisa, si nadie pinta la fila) y la hoja se recoge.
+   */
+  function handleComplete() {
+    const data = buildDirtyData();
+    if (title.trim() && Object.keys(data).length > 0) updateTask({ taskId: task.id, data });
+    if (onComplete) {
+      onComplete(task);
+    } else {
+      toggleTask(task.id);
+      toast(`Hecha: ${task.title}`, {
+        duration: UNDO_MS,
+        action: { label: "Deshacer", onClick: () => toggleTask(task.id) },
+      });
+    }
+    onClose();
+  }
+
   function handleSave() {
     if (!title.trim()) return;
     const data = buildDirtyData();
@@ -203,6 +231,25 @@ function TaskDetailForm({ task, systemId, onClose }: TaskDetailFormProps) {
           autoFocus={!isMobile}
         />
       </div>
+
+      {!isDone && (
+        <div data-slot="task-detail-actions" className="flex flex-col gap-2 sm:flex-row">
+          <Button size="lg" className="sm:flex-1" onClick={handleComplete}>
+            <Check className="size-5" />
+            Marcar como hecha
+          </Button>
+          <Button
+            size="lg"
+            variant="secondary"
+            onClick={() => !anotherRunning && openModeDialog({ id: task.id, title: task.title, systemId })}
+            disabled={anotherRunning}
+            className={cn("sm:flex-1", isThisRunning && "text-primary")}
+          >
+            <Timer className="size-5" />
+            {isThisRunning ? "En foco" : "Iniciar foco"}
+          </Button>
+        </div>
+      )}
 
       <div className="space-y-1.5">
         <Label>Tipo</Label>
@@ -370,21 +417,6 @@ function TaskDetailForm({ task, systemId, onClose }: TaskDetailFormProps) {
       </div>
 
       <div className="mt-auto flex items-center justify-between gap-3">
-        {!isDone && (
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => !anotherRunning && openModeDialog({ id: task.id, title: task.title, systemId })}
-            disabled={anotherRunning}
-            className={cn(
-              "gap-1.5",
-              isThisRunning && "border-primary/50 text-primary",
-            )}
-          >
-            <Timer size={14} className={cn(isThisRunning && "")} />
-            {isThisRunning ? "En foco" : "Iniciar foco"}
-          </Button>
-        )}
         {saveStatus === "saved" && (
           <span className="text-sm text-muted-foreground">Guardado</span>
         )}
@@ -402,7 +434,13 @@ function TaskDetailForm({ task, systemId, onClose }: TaskDetailFormProps) {
   );
 }
 
-export function TaskDetailSheet({ task, systemId, open, onOpenChange }: TaskDetailSheetProps) {
+/**
+ * El detalle de una tarea es una hoja (en el teléfono, la hoja inferior; en
+ * escritorio, un diálogo) que se abre sobre la lista sin moverla. Completar
+ * es su acción primaria: la hoja se recoge y deja la fila tachada debajo, que
+ * se queda en su sitio hasta la siguiente visita.
+ */
+export function TaskDetailSheet({ task, systemId, open, onOpenChange, onComplete }: TaskDetailSheetProps) {
   return (
     <ResponsiveDialog open={open} onOpenChange={onOpenChange}>
       <ResponsiveDialogContent className="sm:max-w-lg max-h-[90vh] overflow-y-auto">
@@ -415,6 +453,7 @@ export function TaskDetailSheet({ task, systemId, open, onOpenChange }: TaskDeta
             task={task}
             systemId={systemId}
             onClose={() => onOpenChange(false)}
+            onComplete={onComplete}
           />
         )}
       </ResponsiveDialogContent>
