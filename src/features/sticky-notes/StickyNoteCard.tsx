@@ -341,7 +341,7 @@ export function StickyNoteCard({ note, context, onStack }: StickyNoteCardProps) 
                       <DropdownMenuTrigger asChild>
                         <button
                           type="button"
-                          className="flex size-6 items-center justify-center rounded hover:bg-black/15 focus-ring"
+                          className="flex size-6 items-center justify-center rounded hover:bg-black/15 focus-ring pointer-coarse:size-[2.85rem]"
                           aria-label="Opciones de posición"
                         >
                           <MoreHorizontal className="size-3.5" style={{ color: colors.textHex }} />
@@ -372,7 +372,7 @@ export function StickyNoteCard({ note, context, onStack }: StickyNoteCardProps) 
                   <button
                     type="button"
                     onClick={() => deleteNote(note.id)}
-                    className="flex size-6 items-center justify-center rounded hover:bg-black/15 focus-ring"
+                    className="flex size-6 items-center justify-center rounded hover:bg-black/15 focus-ring pointer-coarse:size-[2.85rem]"
                     aria-label="Eliminar nota"
                   >
                     <X className="size-3.5" style={{ color: colors.textHex }} />
