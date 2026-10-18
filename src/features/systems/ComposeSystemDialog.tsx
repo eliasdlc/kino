@@ -239,16 +239,16 @@ export function ComposeSystemDialog({ system, open, onOpenChange }: ComposeSyste
                 {kinds.map((kind) => (
                   <span
                     key={kind.id}
-                    className="inline-flex items-center gap-1.5 rounded-md border border-border bg-muted/50 px-2 py-1 text-xs"
+                    className="inline-flex items-center gap-1.5 rounded-full border border-border bg-muted/50 py-1 pl-3 pr-1.5 text-xs pointer-coarse:py-0 pointer-coarse:pr-0 pointer-coarse:text-sm"
                   >
                     {kind.label}
                     <button
                       type="button"
                       aria-label={`Quitar ${kind.label}`}
                       onClick={() => setKinds(kinds.filter((k) => k.id !== kind.id))}
-                      className="text-muted-foreground hover:text-foreground"
+                      className="flex items-center justify-center rounded-full text-muted-foreground hover:text-foreground focus-ring pointer-coarse:size-[2.85rem]"
                     >
-                      <X className="size-3" />
+                      <X aria-hidden className="size-3 pointer-coarse:size-4" />
                     </button>
                   </span>
                 ))}
@@ -289,9 +289,9 @@ export function ComposeSystemDialog({ system, open, onOpenChange }: ComposeSyste
           {/* Tabs */}
           <section className="space-y-3 pt-4 border-t border-border">
             <div>
-              <Label>Tabs visibles</Label>
+              <Label>Pestañas visibles</Label>
               <p className="text-xs text-muted-foreground">
-                El funnel completo o solo el tramo que usas. El marcado abre por defecto.
+                Todo el recorrido o sólo el tramo que usas. La que elijas en «Abre en» es la primera que se ve.
               </p>
             </div>
             <div className="flex flex-wrap gap-2">
@@ -301,10 +301,11 @@ export function ComposeSystemDialog({ system, open, onOpenChange }: ComposeSyste
                   <button
                     key={tab}
                     type="button"
+                    aria-pressed={on}
                     onClick={() => toggleTab(tab)}
-                    className={`rounded-md border px-2.5 py-1 text-xs transition-colors ${
+                    className={`rounded-full border px-2.5 py-1 text-xs transition-colors focus-ring pointer-coarse:min-h-[2.85rem] pointer-coarse:px-3.5 pointer-coarse:text-sm ${
                       on
-                        ? "border-foreground/30 bg-muted text-foreground"
+                        ? "border-foreground bg-foreground text-background"
                         : "border-border text-muted-foreground hover:border-muted-foreground/50"
                     }`}
                   >
@@ -319,8 +320,9 @@ export function ComposeSystemDialog({ system, open, onOpenChange }: ComposeSyste
                 <button
                   key={tab}
                   type="button"
+                  aria-pressed={defaultTab === tab}
                   onClick={() => setDefaultTab(tab)}
-                  className={`rounded-md px-2 py-1 text-xs transition-colors ${
+                  className={`rounded-full px-2.5 py-1 text-xs transition-colors focus-ring pointer-coarse:min-h-[2.85rem] pointer-coarse:px-3.5 pointer-coarse:text-sm ${
                     defaultTab === tab
                       ? "bg-foreground text-background"
                       : "text-muted-foreground hover:text-foreground"
