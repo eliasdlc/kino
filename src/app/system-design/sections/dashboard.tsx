@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import { api } from "@convex/_generated/api";
 import { Section, SubSection, Specimen, SpecimenGrid, Seeded, seedQuery } from "../helpers";
 import {
@@ -11,14 +12,17 @@ import {
   mockAdvisorPattern,
   MOCK_CURVE, mid } from "../mock-data";
 import { EnergyTodayCard } from "@/features/dashboard/EnergyTodayCard";
-import { EnergyChart } from "@/features/dashboard/EnergyChart";
+import { EnergyChart, curveSummary } from "@/features/dashboard/EnergyChart";
+import { EnergyCount } from "@/features/dashboard/EnergyCount";
+import { SectionHead } from "@/features/dashboard/SectionHead";
+import { MarginRow } from "@/components/ui/margin-row";
+import { STICKY_NOTE_COLORS, paperStyle } from "@/features/sticky-notes/sticky-note-colors";
 import { EnergyCheckinForm } from "@/features/dashboard/EnergyCheckinForm";
 import { FocusNowCard } from "@/features/dashboard/FocusNowCard";
 import { PlanTaskRow } from "@/features/dashboard/PlanTaskRow";
 import { WeeklyTrendsCard } from "@/features/dashboard/WeeklyTrendsCard";
 import { LearningInsightCard } from "@/features/dashboard/LearningInsightCard";
 import { AdvisorCard } from "@/features/dashboard/AdvisorCard";
-import { QuickAccessCard } from "@/features/dashboard/QuickAccessCard";
 import { OverBudgetExit } from "@/features/energy/OverBudgetExit";
 import { CeilingMutedNotice } from "@/features/energy/CeilingMutedNotice";
 import { ReturnNotice } from "@/features/today/ReturnNotice";
@@ -75,6 +79,54 @@ const cerrada = (completedVia: string | null) =>
 
 const conTiempo = (totalMinutes: number) => [seedQuery(api.tasks.timeLogSummary, { totalMinutes, sessionCount: 3 })];
 
+/** Una fila que se tacha al tocar y se queda en su sitio: el gesto de Hoy, sin servidor. */
+function StruckRowDemo() {
+  const [done, setDone] = useState<Record<string, boolean>>({ p1: true });
+  const [struck, setStruck] = useState<Record<string, boolean>>({ p1: true });
+  const filas = [
+    makeTask({ id: mid("p1"), title: "Terminar informe de laboratorio", priority: "critical", estimatedTime: "01:30:00" }),
+    makeTask({ id: mid("p2"), title: "Revisar correos de la beca", estimatedTime: "00:30:00" }),
+    makeTask({ id: mid("p3"), title: "Salir a caminar", priority: "low", energyLevel: "low", dueDate: "2026-09-08T12:00:00.000Z" }),
+  ];
+  const clave = (t: TaskTransport) => (t.title.startsWith("Terminar") ? "p1" : t.title.startsWith("Revisar") ? "p2" : "p3");
+  return (
+    <div className="max-w-xl">
+      <SectionHead title="Plan de hoy" count="3 tareas, 1 hecha, 2:00" />
+      {filas.map((t) => {
+        const k = clave(t);
+        return (
+          <PlanTaskRow
+            key={k}
+            task={{ ...t, status: done[k] ? "done" : "today" } as TaskTransport}
+            struck={Boolean(struck[k])}
+            onComplete={() => {
+              setDone((d) => ({ ...d, [k]: !d[k] }));
+              setStruck((s) => ({ ...s, [k]: true }));
+            }}
+            onMoveToTomorrow={noop}
+            onRemove={noop}
+            onStartTimer={noop}
+          />
+        );
+      })}
+    </div>
+  );
+}
+
+/** La nota adhesiva como papel real pegada en el margen de una fila. */
+function PaperInMargin({ color, text }: { color: string; text: string }) {
+  const paper = STICKY_NOTE_COLORS[color] ?? STICKY_NOTE_COLORS.yellow!;
+  return (
+    <span
+      className="font-serif block size-[2.6rem] -rotate-[4deg] overflow-hidden rounded-[0.3rem] p-[0.3rem] text-[0.56rem] leading-[1.2]"
+      style={{ ...paperStyle(paper.hex), color: paper.textHex }}
+      aria-label={`Nota: ${text}`}
+    >
+      {text}
+    </span>
+  );
+}
+
 const chartData = MOCK_CURVE.map((predicted, hour) => ({
   hour,
   predicted,
@@ -86,12 +138,12 @@ export function DashboardSection() {
     <Section
       id="dashboard"
       number="10"
-      title="Dashboard"
-      description="Las piezas de Hoy con datos de muestra: la cota, el plan de dos niveles, el enfoque y la fila de lo que Kino sabe. En laptop la energía va a la izquierda y el plan a la derecha; en el teléfono es la misma pantalla, estrecha."
+      title="Hoy"
+      description="Las piezas de Hoy con datos de muestra: la cota con su cuenta, la curva de 24 barras en CSS, las filas de margen del plan que se tachan en su sitio, y las secciones con título y hairline que sustituyen a las cards. En laptop la energía va a la izquierda y el plan a la derecha; en el teléfono es la misma página, estrecha."
     >
       <SubSection
-        title="EnergyTodayCard"
-        description="El hero de energía: número con halo, curva proyectada vs. check-ins reales, selector de franja y formulario. Interactivo (el submit falla sin backend)."
+        title="La cota"
+        description="La cifra del día en Bricolage 800 y en el acento, con su cuenta de 550 ms aislada en EnergyCount; la palabra que la explica es el h1 de la pantalla y la frase va en la voz, Literata cursiva. Debajo, la curva, el tramo como segmento en tinta y el registro como pastilla. La fecha de arriba enlaza al calendario. Interactivo (el guardado falla sin backend)."
       >
         <div className="max-w-xl">
           <EnergyTodayCard
@@ -104,21 +156,28 @@ export function DashboardSection() {
       </SubSection>
 
       <SubSection
-        title="EnergyChart"
-        description="La curva 24h aislada (recharts): línea predicha + puntos de check-in reales + banda de pico."
+        title="La cuenta de la cota"
+        description="EnergyCount sola: cuenta de 0 al valor en 550 ms con ease-out cúbico; con movimiento reducido la cifra sale ya puesta. Es la única cifra de este tamaño en el producto."
       >
-        <div className="max-w-xl rounded-lg border border-border bg-card p-4">
-          <EnergyChart
-            data={chartData}
-            peak={{ start: 9, end: 12 }}
-            currentHour={new Date().getHours()}
-            animate={false}
-          />
+        <div className="flex items-end gap-8">
+          <EnergyCount value={64} />
+          <EnergyCount value={88} />
+          <EnergyCount value={23} />
         </div>
       </SubSection>
 
-      <SubSection title="EnergyCheckinForm" description="Formulario de check-in: slider de nivel, franja y calidad de sueño.">
-        <div className="max-w-md rounded-lg border border-border bg-card p-4">
+      <SubSection
+        title="La curva del día"
+        description="EnergyChart en CSS puro: 24 barras de una rejilla escaladas con scaleY (nunca height), el pico en el acento, la hora actual en tinta y cada registro como un punto a la altura de su valor. No se anima. La figura lleva su frase como nombre accesible."
+      >
+        <div className="max-w-xl pl-(--margen)">
+          <EnergyChart data={chartData} peak={{ start: 9, end: 12 }} currentHour={15} />
+          <p className="mt-2 text-xs text-muted-foreground">{`Lo que lee un lector de pantalla: "${curveSummary(chartData, { start: 9, end: 12 }, 15)}"`}</p>
+        </div>
+      </SubSection>
+
+      <SubSection title="El check-in" description="El formulario en la misma página: tramo y sueño como segmentos en tinta, la cifra en Bricolage sobre el deslizador, Guardar como única pastilla del acento.">
+        <div className="max-w-md">
           <EnergyCheckinForm
             defaultLevel={65}
             initialSlot="morning"
@@ -130,8 +189,8 @@ export function DashboardSection() {
       </SubSection>
 
       <SubSection
-        title="FocusNowCard"
-        description="Recomienda sesiones de foco según energía actual. Sin plan de hoy (no hay fetch aquí) muestra el estado sin tarea."
+        title="Enfoque ahora"
+        description="La primera tarea del plan con las sesiones que le caben a la energía de este momento, bajo su título con hairline. Sin plan de hoy (no hay fetch aquí) no se pinta nada."
       >
         <div className="max-w-md">
           <FocusNowCard
@@ -143,43 +202,39 @@ export function DashboardSection() {
       </SubSection>
 
       <SubSection
-        title="PlanTaskRow"
-        description="La fila del plan de hoy: la primera va destacada; hover muestra acciones (timer, mañana, quitar)."
+        title="La fila del plan y la tachada"
+        description="PlanTaskRow es una fila de margen: el círculo de 48 px en el margen, el título a dos líneas, la meta con la palabra en peso y sólo vencida en coral, la duración en mute a la derecha. Un toque tacha la fila: el círculo se rellena con --ok, el título cae a mute y la fila se queda en su sitio. Las demás acciones viven en un menú de 48 px que en escritorio aparece al pasar el ratón. Tócalas."
       >
-        <div className="max-w-xl divide-y divide-border rounded-lg border border-border bg-card">
-          <PlanTaskRow
-            task={makeTask({ title: "Terminar informe de laboratorio", priority: "critical", estimatedTime: "01:30:00" })}
-            onComplete={noop}
-            onMoveToTomorrow={noop}
-            onRemove={noop}
-            onStartTimer={noop}
-          />
-          <PlanTaskRow
-            task={makeTask({ id: mid("p2"), title: "Revisar correos de la beca", estimatedTime: "00:30:00" })}
-            onComplete={noop}
-            onMoveToTomorrow={noop}
-            onRemove={noop}
-            onStartTimer={noop}
-          />
-          <PlanTaskRow
-            task={makeTask({ id: mid("p3"), title: "Salir a caminar", priority: "low", energyLevel: "low" })}
-            onComplete={noop}
-            onMoveToTomorrow={noop}
-            onRemove={noop}
-            onStartTimer={noop}
-          />
+        <StruckRowDemo />
+      </SubSection>
+
+      <SubSection
+        title="La nota adhesiva en el margen"
+        description="Hoy no tiene notas adhesivas: viven en los manuscritos, y se quedan donde se pegan. Cuando una asome en una página de Diario, es papel real en el margen de su fila, con su color y su sombra, y nunca entra en la columna de texto."
+      >
+        <div className="max-w-xl">
+          <MarginRow margin={<PaperInMargin color="yellow" text="Preguntar la fecha del examen" />} trailing="cap. 3">
+            <span className="font-serif block text-base leading-tight">El tercer manuscrito</span>
+            <span className="mt-0.5 block text-[0.82rem] text-muted-foreground">1.240 palabras, editado ayer</span>
+          </MarginRow>
+          <MarginRow margin={<PaperInMargin color="blue" text="Revisar el tono del diálogo" />} trailing="cap. 4">
+            <span className="font-serif block text-base leading-tight">La carta que no llegó</span>
+            <span className="mt-0.5 block text-[0.82rem] text-muted-foreground">860 palabras, hace tres días</span>
+          </MarginRow>
         </div>
       </SubSection>
 
-      <SubSection title="Fila inferior (WeeklyTrends + LearningInsight)">
+      <SubSection title="La fila inferior" description="Los bloques de abajo del plan, cada uno con su título y hairline, sin caja alrededor.">
         <SpecimenGrid cols={2}>
-          <Specimen label="WeeklyTrendsCard" hint="tasa de completado + energía de 7 días" className="items-stretch">
-            <div className="w-full rounded-lg border border-border bg-card">
+          <Specimen label="Últimos 7 días" hint="tasa de completado y energía de 7 días" className="items-stretch">
+            <div className="w-full">
+              <SectionHead title="Últimos 7 días" />
               <WeeklyTrendsCard trends={mockWeeklyTrend()} />
             </div>
           </Specimen>
-          <Specimen label="LearningInsightCard" hint="«Kino te conoce»: pico, precisión, personalización" className="items-stretch">
-            <div className="w-full rounded-lg border border-border bg-card">
+          <Specimen label="Tu patrón" hint="pico, precisión, personalización" className="items-stretch">
+            <div className="w-full">
+              <SectionHead title="Tu patrón" />
               <LearningInsightCard insight={mockLearningInsight()} />
             </div>
           </Specimen>
@@ -261,18 +316,6 @@ export function DashboardSection() {
             </Seeded>
           </Specimen>
         </SpecimenGrid>
-      </SubSection>
-
-      <SubSection title="QuickAccessCard" description="Acceso rápido a sistemas con punto de color.">
-        <div className="max-w-md">
-          <QuickAccessCard
-            systems={[
-              { id: mid("s1"), name: "Universidad", color: "blue", icon: "book" },
-              { id: mid("s2"), name: "Side project", color: "purple", icon: "rocket" },
-              { id: mid("s3"), name: "Salud", color: "green", icon: "heart" },
-            ]}
-          />
-        </div>
       </SubSection>
 
     </Section>
