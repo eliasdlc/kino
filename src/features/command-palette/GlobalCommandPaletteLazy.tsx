@@ -1,7 +1,7 @@
 "use client";
 
 import dynamic from "next/dynamic";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useHotkey } from "@/shared/hooks/useHotkey";
 import { useCommandPaletteStore } from "./command-palette.store";
 
@@ -12,8 +12,9 @@ import { useCommandPaletteStore } from "./command-palette.store";
  * aquí, ligero, es el atajo: `mod+k` tiene que funcionar antes de que la
  * paleta exista.
  */
+const cargar = () => import("./GlobalCommandPalette");
 const GlobalCommandPalette = dynamic(
-  () => import("./GlobalCommandPalette").then((m) => m.GlobalCommandPalette),
+  () => cargar().then((m) => m.GlobalCommandPalette),
   { ssr: false },
 );
 
@@ -23,6 +24,14 @@ export function GlobalCommandPaletteLazy() {
   // Una vez pedida, se queda: el estado se ajusta en el render, sin efecto.
   const [pedida, setPedida] = useState(open);
   if (open && !pedida) setPedida(true);
+
+  // El chunk baja cuando el navegador queda libre, para que el primer toque
+  // no espere la descarga sin acuse; no entra en el bundle del shell.
+  useEffect(() => {
+    if (!("requestIdleCallback" in window)) return;
+    const id = window.requestIdleCallback(() => void cargar(), { timeout: 4000 });
+    return () => window.cancelIdleCallback(id);
+  }, []);
 
   useHotkey(["mod+k"], (e) => {
     e.preventDefault();

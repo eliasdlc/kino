@@ -1,7 +1,7 @@
 "use client";
 
 import dynamic from "next/dynamic";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useHotkey } from "@/shared/hooks/useHotkey";
 import { useQuickAddStore } from "./quick-add.store";
 
@@ -11,8 +11,9 @@ import { useQuickAddStore } from "./quick-add.store";
  * que el orbe, el atajo o el icono lo piden, y se queda montado. El atajo
  * `mod+i` vive aquí para funcionar desde la primera tecla.
  */
+const cargar = () => import("./GlobalQuickAddDialog");
 const GlobalQuickAddDialog = dynamic(
-  () => import("./GlobalQuickAddDialog").then((m) => m.GlobalQuickAddDialog),
+  () => cargar().then((m) => m.GlobalQuickAddDialog),
   { ssr: false },
 );
 
@@ -22,6 +23,14 @@ export function GlobalQuickAddDialogLazy() {
   // Una vez pedido, se queda: el estado se ajusta en el render, sin efecto.
   const [pedido, setPedido] = useState(open);
   if (open && !pedido) setPedido(true);
+
+  // El chunk baja cuando el navegador queda libre, para que el primer toque
+  // no espere la descarga sin acuse; no entra en el bundle del shell.
+  useEffect(() => {
+    if (!("requestIdleCallback" in window)) return;
+    const id = window.requestIdleCallback(() => void cargar(), { timeout: 4000 });
+    return () => window.cancelIdleCallback(id);
+  }, []);
 
   useHotkey(["mod+i"], (e) => {
     e.preventDefault();

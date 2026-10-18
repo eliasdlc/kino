@@ -125,7 +125,7 @@ export function GlobalCommandPalette() {
               <CommandItem onSelect={() => runCommand(() => setQuickAddOpen(true))}>
                 <Plus className="mr-2 h-4 w-4" />
                 <span>Nueva tarea</span>
-                <CommandShortcut>⌘I</CommandShortcut>
+                <CommandShortcut className="pointer-coarse:hidden">Ctrl I</CommandShortcut>
               </CommandItem>
             </CommandGroup>
             <CommandSeparator />
@@ -134,7 +134,7 @@ export function GlobalCommandPalette() {
                 <CommandItem key={destino.href} onSelect={() => runCommand(() => router.push(destino.href))}>
                   <destino.icon className="mr-2 h-4 w-4" />
                   <span>{destino.label}</span>
-                  <CommandShortcut>G {destino.tecla.toUpperCase()}</CommandShortcut>
+                  <CommandShortcut className="pointer-coarse:hidden">G {destino.tecla.toUpperCase()}</CommandShortcut>
                 </CommandItem>
               ))}
             </CommandGroup>

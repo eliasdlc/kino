@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Inbox } from "lucide-react";
 import { useSystems } from "@/features/systems/systems.hooks";
 import { Label } from "@/components/ui/label";
@@ -35,8 +35,13 @@ export function GlobalQuickAddDialog() {
   const defaultSystem = inboxSystem ?? regularSystems[0];
   const targetSystemId = selectedSystemId ?? defaultSystem?.id ?? "";
 
-  // Sin ningún sistema no hay dónde crear la tarea, y entonces sí es correcto
-  // no pintar nada: no hay destino que ofrecer.
+  // Sin ningún sistema no hay dónde crear la tarea: no se pinta nada, y una
+  // apertura pedida por el atajo se cierra para que el diálogo no salte solo
+  // el día que nazca el primer sistema.
+  const sinDestino = systems !== undefined && !defaultSystem;
+  useEffect(() => {
+    if (sinDestino && open) setOpen(false);
+  }, [sinDestino, open, setOpen]);
   if (!defaultSystem) return null;
 
   return (
@@ -59,7 +64,7 @@ export function GlobalQuickAddDialog() {
                 <SelectItem value={inboxSystem.id}>
                   <span className="flex items-center gap-2">
                     <Inbox size={12} />
-                    {inboxSystem.name}
+                    Bandeja
                   </span>
                 </SelectItem>
               )}
