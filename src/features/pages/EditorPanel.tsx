@@ -15,8 +15,8 @@ import { ReferenceTable } from "@/features/writing/ReferenceTable";
 import { ChapterHistory } from "@/features/writing/ChapterHistory";
 import { ChapterSummaryPanel } from "@/features/writing/ChapterSummaryPanel";
 import { usePinnedReferences } from "@/features/writing/pinned-references";
-import { PanelHeading } from "./PanelHeading";
-import { MargenDeUnaLinea, UNA_LINEA } from "./one-line-row";
+import { SectionHead } from "@/features/dashboard/SectionHead";
+import { MargenDeUnaLinea, UNA_LINEA } from "@/shared/components/una-linea";
 import { LinkedTasksPanel } from "./LinkedTasksPanel";
 import { NotebookTagPicker } from "./NotebookTagPicker";
 import { EditorShortcutsHelp } from "./EditorShortcutsHelp";
@@ -133,7 +133,7 @@ function PanelBody({
       )}
 
       <section className={cn(bloque, !(writer && movil) && "pt-2")}>
-        <PanelHeading>Páginas</PanelHeading>
+        <SectionHead as="h3" title="Páginas" />
         <PageIndex
           rootPageId={rootPageId}
           currentPage={page}
@@ -190,7 +190,7 @@ function PanelBody({
       </section>
 
       <section className={bloque}>
-        <PanelHeading>Exportar</PanelHeading>
+        <SectionHead as="h3" title="Exportar" />
         <ExportRows page={page} medium={medium} />
       </section>
 
