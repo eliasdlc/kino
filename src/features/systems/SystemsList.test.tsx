@@ -1,7 +1,8 @@
 /**
  * Criterio: Sistemas es un índice, no una rejilla de tarjetas. La Bandeja va
- * primero y lleva a /bandeja, dormido va en coral delante de la meta, buscar
- * aparece sólo cuando hay sistemas que buscar, y sin sistemas hay una acción.
+ * primero y lleva a /bandeja, dormido va en coral delante de la meta y la
+ * meta cabe en una línea, buscar aparece sólo cuando hay sistemas que buscar,
+ * y sin sistemas hay una acción.
  */
 import { screen } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
@@ -29,11 +30,18 @@ describe("SystemsList", () => {
     expect(enlaces[1]).toHaveAttribute("href", `/systems/${mid("a")}`);
   });
 
-  it("un sistema dormido lo dice en coral delante de su meta", async () => {
+  it("un sistema dormido lo dice en coral delante de su meta, en una sola línea", async () => {
     renderMobile(<SystemsList />, {
-      convex: con([bandeja, makeSystem({ id: mid("s"), name: "Salud", templateType: "personal", stale: true })]),
+      convex: con([
+        bandeja,
+        makeSystem({ id: mid("s"), name: "Salud", templateType: "personal", stale: true, daysSinceLastActivity: 9, activeTaskCount: 3 }),
+      ]),
     });
-    expect(await screen.findByText("dormido,")).toHaveClass("text-task-overdue");
+    const palabra = await screen.findByText("dormido");
+    expect(palabra).toHaveClass("text-task-overdue");
+    // La meta dice una cosa: desde cuándo duerme y cuánto tiene activo, sin el tipo.
+    expect(palabra.parentElement).toHaveTextContent(/^dormido hace 9 días, 3 activas$/);
+    expect(palabra.parentElement).toHaveClass("truncate");
   });
 
   it("buscar sólo aparece cuando hay sistemas que buscar", async () => {

@@ -13,8 +13,12 @@ import { SystemRow } from "./SystemRow";
 import { CreateSystemDialog } from "./CreateSystemDialog";
 import type { SystemTransport } from "./systems.types";
 
-/** Con más sistemas que éstos, el índice ofrece buscar; con menos, el campo sería ruido. */
-export const BUSCAR_DESDE = 6;
+/**
+ * Desde cuántos sistemas propios el índice ofrece buscar. Con menos, la
+ * lista entera cabe en una pantalla y el campo empuja la primera fila hacia
+ * abajo sin servir a nadie.
+ */
+export const BUSCAR_DESDE = 10;
 
 /**
  * Los sistemas como índice: la Bandeja primero y debajo cada sistema, una fila
@@ -22,7 +26,10 @@ export const BUSCAR_DESDE = 6;
  * renglones, no tarjetas.
  */
 export function SystemsList() {
-  const { data: systems, isLoading, isError } = useSystems();
+  // Un fallo de la consulta no llega como `isError` (el hook lo deja fijo en
+  // falso): Convex lo lanza en el render y lo recoge `(app)/error.tsx`, que
+  // es el estado de error real de esta pantalla.
+  const { data: systems, isLoading } = useSystems();
   const { mutate: deleteSystem } = useDeleteSystem();
   const [editTarget, setEditTarget] = useState<SystemTransport | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<SystemTransport | null>(null);
@@ -30,17 +37,9 @@ export function SystemsList() {
 
   if (isLoading) {
     return (
-      <div aria-busy aria-label="Cargando los sistemas">
+      <div role="status" aria-busy aria-label="Cargando los sistemas">
         <RowsSkeleton rows={5} margin="numeral" />
       </div>
-    );
-  }
-
-  if (isError) {
-    return (
-      <p role="alert" className="pl-(--margen) text-sm text-destructive">
-        No se pudieron cargar los sistemas. Recarga la página para intentarlo otra vez.
-      </p>
     );
   }
 

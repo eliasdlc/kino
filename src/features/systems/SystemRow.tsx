@@ -19,6 +19,12 @@ export function activityLabel(days: number | null): string {
   return `hace ${days} días`;
 }
 
+/** Lo que sigue a "dormido" en la meta: " hace 9 días", o nada si nunca hubo actividad. */
+function dormidoDesde(days: number | null): string {
+  if (days === null || days < 2) return "";
+  return ` hace ${days} días`;
+}
+
 interface SystemRowProps {
   system: SystemWithSignalsTransport;
   onEdit?: () => void;
@@ -39,13 +45,15 @@ export function SystemRow({ system, onEdit, onDelete }: SystemRowProps) {
   const href = system.isInbox ? "/bandeja" : `/systems/${system.id}`;
   const name = system.isInbox ? "Bandeja" : system.name;
 
+  const activas = `${formatCount(count)} ${count === 1 ? "activa" : "activas"}`;
+  const dormido = system.stale && !system.isInbox;
+  // Una línea por fila. Dormido ya dice la última actividad, así que ocupa su
+  // sitio y el tipo se cae: el glifo del margen ya lo dice.
   const meta = system.isInbox
     ? count === 0 ? "Nada sin repartir" : `${formatCount(count)} sin repartir`
-    : joinMeta([
-        manifest.label,
-        `${formatCount(count)} ${count === 1 ? "activa" : "activas"}`,
-        activityLabel(system.daysSinceLastActivity),
-      ]);
+    : dormido
+      ? `${dormidoDesde(system.daysSinceLastActivity)}, ${activas}`
+      : joinMeta([manifest.label, activas, activityLabel(system.daysSinceLastActivity)]);
 
   return (
     <MarginRow
@@ -72,8 +80,8 @@ export function SystemRow({ system, onEdit, onDelete }: SystemRowProps) {
       >
         {name}
       </Link>
-      <span className="line-clamp-2 text-sm text-muted-foreground">
-        {system.stale && !system.isInbox && <span className="font-semibold text-task-overdue">dormido, </span>}
+      <span className="block truncate text-sm text-muted-foreground">
+        {dormido && <span className="font-semibold text-task-overdue">dormido</span>}
         {meta}
       </span>
     </MarginRow>
