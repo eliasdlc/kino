@@ -23,7 +23,7 @@ export function PageHeader({ title, description, actions, margin }: PageHeaderPr
         <span data-slot="page-header-margin" className="flex justify-center self-start pt-1 text-muted-foreground md:hidden">
           {margin}
         </span>
-        <div className="min-w-0 space-y-1">
+        <div className="col-start-2 min-w-0 space-y-1">
           <h1 className="font-display text-[1.41rem] font-bold tracking-[-0.02em]">{title}</h1>
           {description && (
             <p className="font-voice text-base italic leading-snug text-body">{description}</p>
