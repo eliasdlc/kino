@@ -99,24 +99,27 @@ export function SystemRadiografia({ systemId }: { systemId: string }) {
   }
 
   return (
-    <div className="pl-6">
+    <div className="contents">
       <button
         type="button"
         onClick={() => writeOpen(!open)}
         aria-expanded={open}
-        className="flex items-center gap-1 text-xs text-muted-foreground transition-colors hover:text-foreground"
+        className="inline-flex min-h-[2.85rem] items-center gap-1.5 rounded-full text-sm font-semibold text-muted-foreground transition-colors duration-(--dur-toque) ease-(--ease-pluma) hover:text-foreground focus-ring md:pointer-fine:min-h-9"
       >
-        <ChevronDown className={cn("size-3 transition-transform", open && "rotate-180")} />
-        <span className="font-medium">Radiografía</span>
+        <ChevronDown
+          aria-hidden
+          className={cn("size-4 transition-transform duration-(--dur-toque) ease-(--ease-pluma)", open && "rotate-180")}
+        />
+        Radiografía
       </button>
 
       {open && (
-        <div className="mt-2 space-y-2">
+        <div className="basis-full space-y-2 pb-1">
           {isLoading || !data ? (
             <RadiografiaSkeleton />
           ) : (
             <>
-              <p className="text-xs leading-relaxed text-muted-foreground">{data.paragraph}</p>
+              <p className="text-sm leading-relaxed text-body">{data.paragraph}</p>
               <SuggestionList<SystemFact>
                 suggestions={data.facts}
                 unstarted={SIN_EMPEZAR}

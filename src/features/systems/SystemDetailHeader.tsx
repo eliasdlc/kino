@@ -1,23 +1,12 @@
 "use client";
 
-import { useSearchParams } from "next/navigation";
-import { useState, useSyncExternalStore } from "react";
-import { useRouter } from "next/navigation";
-import { format } from "date-fns";
-import { es } from "date-fns/locale";
-import { Badge } from "@/components/ui/badge";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
-import { Button } from "@/components/ui/button";
-import { AlertTriangle, ChevronDown, Download, MoreHorizontal, Pencil, Trash2 } from "lucide-react";
-import { useDeleteSystem } from "./systems.hooks";
-import { getSystemColor } from "@/shared/utils/system-colors";
+import Link from "next/link";
+import { useSearchParams, useRouter } from "next/navigation";
+import { useState } from "react";
+import { ChevronDown, Download, Pencil, Trash2 } from "lucide-react";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
+import { useDeleteSystem } from "./systems.hooks";
 import { EditSystemDialog } from "./EditSystemDialog";
 import { SystemRadiografia } from "./SystemRadiografia";
 import type { SystemTransport } from "./systems.types";
@@ -25,7 +14,16 @@ import { type SystemSignals, formatStaleAdvisor } from "./systems.signals";
 import { capitalize, resolveSystemManifest } from "@/shared/lib/system-manifest";
 import { cn } from "@/lib/utils";
 import { CyclePicker } from "@/features/academic/CyclePicker";
-import { surfaceOf, type Surface } from "./SystemSurfaces";
+import { RowActions, type RowAction } from "@/features/notebooks/RowActions";
+import { joinMeta } from "@/features/notebooks/index-format";
+import { useFolders } from "@/features/folders/folders.hooks";
+import { usePages } from "@/features/pages/pages.hooks";
+import { useWritingOverview } from "@/features/writing/writing.hooks";
+import { surfaceOf, systemSurfaces, type Surface } from "./system-surfaces";
+import { ICON_MAP } from "./system-icons";
+import { systemTileStyle } from "./system-tint";
+import { signalReadings, writingReadings, type Reading } from "./system-readings";
+import { DIAS_DORMIDA, readWordGoal } from "./views/writing-meta";
 import type { AcademicPeriod } from "@/features/academic/academic.hooks";
 
 interface SystemDetailHeaderProps {
@@ -37,31 +35,18 @@ interface SystemDetailHeaderProps {
   initialPeriods?: AcademicPeriod[];
 }
 
-/** Los valores del enum, en español y en minúscula: van en una línea de meta. */
+/** Los valores del enum, en español y en minúscula: van en el eyebrow. */
 const ENERGY_LABEL: Record<string, string> = { high: "energía alta", medium: "energía media", low: "energía baja" };
 const FREQUENCY_LABEL: Record<string, string> = { daily: "diario", weekly: "semanal", monthly: "mensual" };
 
-/** Texto legible de la última actividad relativa a hoy. */
-function activityLabel(daysSinceLastActivity: number | null): string {
-  if (daysSinceLastActivity === null) return "sin actividad aún";
-  if (daysSinceLastActivity === 0) return "última tarea hoy";
-  if (daysSinceLastActivity === 1) return "última tarea ayer";
-  return `sin actividad hace ${daysSinceLastActivity} días`;
-}
+/** La pestaña-palabra que es un enlace a otra pantalla (Estudio, Codex), con la forma de las de superficie. */
+const WORD_LINK =
+  "inline-flex h-[2.85rem] items-center px-1 text-sm font-semibold whitespace-nowrap text-muted-foreground transition-colors duration-(--dur-toque) ease-(--ease-pluma) hover:text-foreground focus-ring";
 
-// Preferencia de colapso del header, compartida entre sistemas y persistida en
-// localStorage. useSyncExternalStore mantiene el SSR consistente (snapshot del
-// servidor = abierto) sin disparar mismatch de hidratación.
-const HEADER_OPEN_KEY = "systemHeaderOpen";
-const headerOpenListeners = new Set<() => void>();
+/** Un disclosure de la cabecera: una palabra con su chevron, 48 px en touch. */
+export const DISCLOSURE =
+  "inline-flex min-h-[2.85rem] items-center gap-1.5 rounded-full text-sm font-semibold text-muted-foreground transition-colors duration-(--dur-toque) ease-(--ease-pluma) hover:text-foreground focus-ring md:pointer-fine:min-h-9";
 
-function subscribeHeaderOpen(cb: () => void) {
-  headerOpenListeners.add(cb);
-  return () => headerOpenListeners.delete(cb);
-}
-function readHeaderOpen() {
-  return localStorage.getItem(HEADER_OPEN_KEY) !== "false";
-}
 /** Cambia de superficie sin renderizar la ruta en el servidor. */
 function chooseSurface(tab: Surface) {
   const url = new URL(window.location.href);
@@ -70,210 +55,209 @@ function chooseSurface(tab: Surface) {
   window.history.pushState(null, "", `${url.pathname}${url.search}`);
 }
 
-function setHeaderOpen(value: boolean) {
-  localStorage.setItem(HEADER_OPEN_KEY, String(value));
-  headerOpenListeners.forEach((l) => l());
+async function exportJson(system: SystemTransport) {
+  const res = await fetch(`/api/systems/${system.id}/export`);
+  if (!res.ok) return;
+  const data = await res.json();
+  const blob = new Blob([JSON.stringify(data, null, 2)], { type: "application/json;charset=utf-8" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = `${(system.name ?? "sistema").toLowerCase().replace(/[^a-z0-9]+/g, "-")}.json`;
+  a.click();
+  URL.revokeObjectURL(url);
 }
 
+/** Las lecturas de un sistema de escritura salen de sus obras y sus sesiones, no de las tareas. */
+function WritingReadings({ systemId, signals }: { systemId: string; signals: SystemSignals }) {
+  const { data: overview } = useWritingOverview(systemId);
+  const { data: obras = [] } = useFolders(systemId);
+  const { data: pages = [] } = usePages(systemId);
+  if (!overview) return <Readings readings={null} />;
+  const metas = obras.map((o) => readWordGoal((o.metadata ?? {}) as Record<string, unknown>) ?? 0);
+  const goal = metas.reduce((a, b) => a + b, 0);
+  const sesiones = overview.works.map((w) => w.daysSinceLastSession).filter((d): d is number => d !== null);
+  return (
+    <Readings
+      readings={writingReadings({
+        wordsToday: overview.wordsToday,
+        totalWords: pages.reduce((sum, p) => sum + p.wordCount, 0),
+        wordGoal: goal > 0 ? goal : null,
+        // Sin una sesión registrada, el sistema dormido lo dice con sus días sin actividad.
+        daysSinceSession:
+          sesiones.length > 0 ? Math.min(...sesiones) : signals.stale ? signals.daysSinceLastActivity : null,
+        staleAfter: DIAS_DORMIDA,
+      })}
+    />
+  );
+}
+
+/** Tres cifras en Bricolage, cada una con su palabra debajo. Mientras llegan, su forma. */
+export function Readings({ readings }: { readings: Reading[] | null }) {
+  if (readings === null) {
+    return (
+      <div aria-hidden className="grid grid-cols-3 gap-x-4 pt-1 md:flex md:gap-x-10">
+        {[0, 1, 2].map((i) => (
+          <div key={i} className="space-y-1.5">
+            <div className="h-7 w-12 rounded-md bg-muted" />
+            <div className="h-3 w-20 rounded-md bg-muted" />
+          </div>
+        ))}
+      </div>
+    );
+  }
+  return (
+    <dl className="grid grid-cols-3 gap-x-4 gap-y-3 pt-1 md:flex md:gap-x-10">
+      {readings.map((r) => (
+        <div key={r.label} className="flex flex-col-reverse justify-end">
+          <dt className="pt-1 text-sm leading-tight text-muted-foreground">{r.label}</dt>
+          <dd
+            className={cn(
+              "font-display text-[1.6rem] leading-none font-bold tracking-[-0.02em] whitespace-nowrap tabular-nums md:text-[1.76rem]",
+              r.tone === "warn" ? "text-task-overdue" : "text-foreground",
+            )}
+          >
+            {r.value}
+          </dd>
+        </div>
+      ))}
+    </dl>
+  );
+}
+
+/**
+ * La cabecera de un sistema, de Diario: el icono del arquetipo en un tile
+ * teñido con el color del sistema, en el margen; el eyebrow con tipo, energía
+ * y frecuencia; el nombre en Bricolage; la intención en Literata cursiva; tres
+ * lecturas en cifras, y debajo las pestañas-palabra. Las acciones van en una
+ * hoja con nombre en el teléfono.
+ */
 export function SystemDetailHeader({ system, signals, landing = "tasks", initialPeriods }: SystemDetailHeaderProps) {
   const currentTab = surfaceOf(useSearchParams().get("tab"), landing);
   const router = useRouter();
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [editOpen, setEditOpen] = useState(false);
   const [triggerOpen, setTriggerOpen] = useState(false);
-  const open = useSyncExternalStore(subscribeHeaderOpen, readHeaderOpen, () => true);
   const { mutate: deleteSystem } = useDeleteSystem();
-  const cls = getSystemColor(system.color);
 
-  const toggleOpen = () => setHeaderOpen(!open);
-  const typeConfig = resolveSystemManifest(system);
-  const TypeIcon = typeConfig.icon;
-  const staleAdvisor = formatStaleAdvisor(system, signals);
-  const nextDue = signals.nextDueDate ? new Date(signals.nextDueDate) : null;
+  const manifest = resolveSystemManifest(system);
+  const Icon = ICON_MAP[system.icon ?? ""] ?? manifest.icon;
+  const writing = system.templateType === "writing";
+  const readings = writing ? null : signalReadings(signals);
+  // El aviso de dormido sólo cuando ninguna cifra lo dice ya: en escritura lo
+  // dicen la tercera lectura y la fila de cada obra.
+  const staleAdvisor =
+    !system.isInbox && !writing && !readings?.some((r) => r.tone === "warn") ? formatStaleAdvisor(system, signals) : null;
+
+  const eyebrow = system.isInbox
+    ? "Bandeja"
+    : joinMeta([
+        manifest.label,
+        system.energyIdeal && (ENERGY_LABEL[system.energyIdeal] ?? system.energyIdeal),
+        system.expectedFrequency && (FREQUENCY_LABEL[system.expectedFrequency] ?? system.expectedFrequency),
+        !system.isActive && "inactivo",
+      ]);
+
+  const actions: RowAction[] = [
+    ...(!system.isInbox ? [{ label: "Editar sistema", icon: Pencil, onSelect: () => setEditOpen(true) }] : []),
+    { label: "Exportar JSON", icon: Download, onSelect: () => void exportJson(system) },
+    ...(!system.isInbox
+      ? [{ label: "Eliminar sistema", icon: Trash2, destructive: true, onSelect: () => setConfirmDelete(true) }]
+      : []),
+  ];
+
+  const surfaces = systemSurfaces(landing).map((tab) => ({
+    tab,
+    label: tab === "tasks" ? "Tareas" : capitalize(manifest.pageRole.nounPlural),
+  }));
 
   return (
-    <div className="w-full">
-      {/* Title row: toggles the detail */}
-      <div className="flex items-start justify-between gap-3 min-w-0">
-        {/* El nombre y el ciclo comparten línea cuando caben. Cuando no, el
-            ciclo baja a la suya en vez de pisar el nombre del sistema. */}
-        <div className="flex min-w-0 flex-1 flex-wrap items-center gap-x-3 gap-y-1.5">
-        <button
-          type="button"
-          onClick={toggleOpen}
-          aria-expanded={open}
-          className="flex min-w-0 grow basis-64 items-center gap-3 overflow-hidden text-left"
-        >
-          <ChevronDown
-            className={cn(
-              "size-4 shrink-0 text-muted-foreground transition-transform",
-              !open && "-rotate-90",
-            )}
-          />
-          <span className={`size-3 rounded-full shrink-0 bg-${cls}`} />
-          <h1 className="min-w-0 truncate font-display text-[1.41rem] font-bold tracking-[-0.02em]">
+    <div className="w-full space-y-5">
+      <header className="grid grid-cols-[var(--margen)_1fr_auto] gap-y-3">
+        <span className="flex justify-start self-start pt-1">
+          <span
+            aria-hidden
+            data-slot="system-tile"
+            className="flex size-[2.4rem] items-center justify-center rounded-xl"
+            style={systemTileStyle(system.color)}
+          >
+            <Icon className="size-5" strokeWidth={1.8} />
+          </span>
+        </span>
+
+        <div className="min-w-0 space-y-2">
+          <p className="text-xs font-semibold tracking-[0.06em] text-muted-foreground uppercase">{eyebrow}</p>
+          <h1 className="font-display text-[1.9rem] leading-[1.08] font-bold tracking-[-0.025em] text-balance wrap-anywhere">
             {system.name}
           </h1>
-          {system.isInbox && (
-            <Badge variant="outline" className="shrink-0">Inbox</Badge>
+          {system.identityStatement && (
+            <p className="font-voice text-[1.06rem] leading-normal text-body italic">{system.identityStatement}</p>
           )}
-          {!system.isActive && (
-            <Badge variant="destructive" className="shrink-0">Inactivo</Badge>
-          )}
-          {!system.isInbox && signals.stale && (
-            <Badge variant="warn" className="shrink-0 gap-1">
-              <AlertTriangle className="size-3" />
-              dormido
-            </Badge>
-          )}
-        </button>
-        {/* El año y el ciclo, en la cabecera: un filtro, no una pantalla. */}
-        {system.templateType === "academic" && <CyclePicker system={system} initialPeriods={initialPeriods} />}
         </div>
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <Button
-              variant="secondary"
-              size="icon-sm"
-              aria-label={`Acciones de ${system.name}`}
-              className="shrink-0"
-            >
-              <MoreHorizontal className="size-4" />
-            </Button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="end" className="w-44">
-            {!system.isInbox && (
-              <DropdownMenuItem
-                className="flex items-center gap-2"
-                onClick={() => setEditOpen(true)}
-              >
-                <Pencil className="size-4" />
-                Editar sistema
-              </DropdownMenuItem>
-            )}
-            <DropdownMenuItem
-              className="flex items-center gap-2"
-              onClick={async () => {
-                const res = await fetch(`/api/systems/${system.id}/export`);
-                if (!res.ok) return;
-                const data = await res.json();
-                const blob = new Blob([JSON.stringify(data, null, 2)], {
-                  type: "application/json;charset=utf-8",
-                });
-                const url = URL.createObjectURL(blob);
-                const a = document.createElement("a");
-                a.href = url;
-                a.download = `${(system.name ?? "sistema").toLowerCase().replace(/[^a-z0-9]+/g, "-")}.json`;
-                a.click();
-                URL.revokeObjectURL(url);
-              }}
-            >
-              <Download className="size-4" />
-              Exportar JSON
-            </DropdownMenuItem>
-            {!system.isInbox && (
-              <>
-                <DropdownMenuSeparator />
-                <DropdownMenuItem
-                  className="text-destructive focus:text-destructive flex items-center gap-2"
-                  onClick={() => setConfirmDelete(true)}
-                >
-                  <Trash2 className="size-4" />
-                  Eliminar sistema
-                </DropdownMenuItem>
-              </>
-            )}
-          </DropdownMenuContent>
-        </DropdownMenu>
-      </div>
 
-      {open && (
-      <div className="mt-3 space-y-2.5">
-      {/* Identity statement */}
-      {system.identityStatement && (
-        <p className="pl-6 text-[0.95rem] text-foreground/80">
-          {system.identityStatement}
-        </p>
-      )}
+        <div className="self-start pl-2">
+          <RowActions subject={system.name} actions={actions} revealOnHover={false} />
+        </div>
 
-      {/* Una línea de meta: el tipo, la energía ideal y la frecuencia, en texto */}
-      <p className="flex flex-wrap items-center gap-x-1.5 pl-6 text-xs text-muted-foreground">
-        <span className="inline-flex items-center gap-1">
-          <TypeIcon className="size-3.5" />
-          {typeConfig.label}
-        </span>
-        {system.energyIdeal && <span>· {ENERGY_LABEL[system.energyIdeal] ?? system.energyIdeal}</span>}
-        {system.expectedFrequency && <span>· {FREQUENCY_LABEL[system.expectedFrequency] ?? system.expectedFrequency}</span>}
-      </p>
+        <div className="col-start-2 col-end-4 min-w-0 space-y-3">
+          {writing ? <WritingReadings systemId={system.id} signals={signals} /> : <Readings readings={readings} />}
 
-      {/* Trigger context: collapsible */}
-      {system.triggerContext && (
-        <div className="pl-6">
-          <button
-            onClick={() => setTriggerOpen((v) => !v)}
-            className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors"
-          >
-            <ChevronDown className={cn("size-3 transition-transform", triggerOpen && "rotate-180")} />
-            <span className="font-medium">Contexto de activación</span>
-          </button>
-          {triggerOpen && (
-            <p className="mt-1 text-xs text-muted-foreground leading-relaxed">
-              {system.triggerContext}
+          {staleAdvisor && (
+            <p className="text-sm text-body">
+              <span className="font-semibold text-task-overdue">dormido</span>
+              {`. ${staleAdvisor}`}
             </p>
           )}
-        </div>
-      )}
 
-      {/* Stats reactivos */}
-      <div className="flex items-center gap-x-4 gap-y-1 flex-wrap pl-6 text-xs text-muted-foreground">
-        <span>
-          {signals.activeTaskCount} activa{signals.activeTaskCount !== 1 ? "s" : ""}
-        </span>
-        {nextDue && (
-          <span>próxima: {format(nextDue, "d MMM", { locale: es })}</span>
-        )}
-        <span>{activityLabel(signals.daysSinceLastActivity)}</span>
-      </div>
+          {system.templateType === "academic" && <CyclePicker system={system} initialPeriods={initialPeriods} />}
 
-      {/* Advisor: solo cuando stale */}
-      {staleAdvisor && (
-        <div className="ml-6 flex items-center gap-2 rounded-xl border border-border bg-card px-3 py-2 text-xs text-foreground/80">
-          <AlertTriangle className="size-3.5 shrink-0 text-task-overdue" />
-          <span>{staleAdvisor}</span>
-        </div>
-      )}
-
-      {/* La radiografía: lo que pasa dentro del sistema, con la fila que lo
-          respalda. Cuelga de la cabecera y no de una pestaña propia porque es
-          contexto de lo que ya se está mirando, no un sitio al que se va. */}
-      <SystemRadiografia systemId={system.id} />
-      </div>
-      )}
-
-      {/* Las pestañas: un segmento pill fuera de la cabecera; el elegido es el
-          acento. Cambian con `pushState`, sin pedirle la página al servidor. */}
-      <div className="mt-4 inline-flex rounded-full bg-secondary p-1" role="tablist" aria-label="Contenido del sistema">
-        {(
-          [
-            { tab: "tasks", label: "Tareas" },
-            { tab: "docs", label: capitalize(typeConfig.pageRole.nounPlural) },
-          ] as const
-        ).map(({ tab, label }) => (
-          <button
-            key={tab}
-            type="button"
-            role="tab"
-            aria-selected={currentTab === tab}
-            onClick={() => chooseSurface(tab)}
-            className={cn(
-              "flex h-10 items-center rounded-full px-4 text-sm font-semibold transition-colors",
-              currentTab === tab ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground",
+          <div className="flex flex-wrap gap-x-5">
+            {system.triggerContext && (
+              <button
+                type="button"
+                onClick={() => setTriggerOpen((v) => !v)}
+                aria-expanded={triggerOpen}
+                className={DISCLOSURE}
+              >
+                <ChevronDown
+                  aria-hidden
+                  className={cn("size-4 transition-transform duration-(--dur-toque)", triggerOpen && "rotate-180")}
+                />
+                Contexto de activación
+              </button>
             )}
-          >
-            {label}
-          </button>
-        ))}
-      </div>
+            <SystemRadiografia systemId={system.id} />
+          </div>
+          {triggerOpen && system.triggerContext && (
+            <p className="text-sm leading-relaxed text-body">{system.triggerContext}</p>
+          )}
+        </div>
+      </header>
+
+      {/* Las pestañas-palabra: la elegida en tinta con su subrayado. Cambian
+          de superficie con `pushState`, sin pedirle la página al servidor;
+          Estudio y Codex son pantallas, así que son enlaces. */}
+      <Tabs value={currentTab} onValueChange={(v) => chooseSurface(v as Surface)}>
+        <div className="flex items-end gap-x-5 overflow-x-auto border-b border-border">
+          <TabsList variant="line" aria-label="Contenido del sistema" className="w-auto gap-5 border-b-0">
+            {surfaces.map(({ tab, label }) => (
+              <TabsTrigger key={tab} value={tab}>
+                {label}
+              </TabsTrigger>
+            ))}
+          </TabsList>
+          {writing && (
+            <>
+              <Link href={`/systems/${system.id}/estudio`} className={WORD_LINK}>
+                Estudio
+              </Link>
+              <Link href={`/systems/${system.id}/codex`} className={WORD_LINK}>
+                Codex
+              </Link>
+            </>
+          )}
+        </div>
+      </Tabs>
 
       <ConfirmDialog
         open={confirmDelete}
@@ -281,18 +265,12 @@ export function SystemDetailHeader({ system, signals, landing = "tasks", initial
         description={`"${system.name}" y todo su contenido se eliminarán permanentemente. Esta acción no se puede deshacer.`}
         onConfirm={() => {
           setConfirmDelete(false);
-          deleteSystem(system.id, {
-            onSuccess: () => router.push("/systems"),
-          });
+          deleteSystem(system.id, { onSuccess: () => router.push("/systems") });
         }}
         onCancel={() => setConfirmDelete(false)}
       />
 
-      <EditSystemDialog
-        system={system}
-        open={editOpen}
-        onOpenChange={setEditOpen}
-      />
+      <EditSystemDialog system={system} open={editOpen} onOpenChange={setEditOpen} />
     </div>
   );
 }

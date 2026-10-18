@@ -3,9 +3,9 @@ import { PageWrapper } from "@/components/PageWrapper";
 import { BreadcrumbSkeleton, RowsSkeleton } from "@/components/Skeletons";
 
 /**
- * La forma de un sistema: las migas, la cabecera (el glifo en el margen, el
- * eyebrow, el nombre, la intención y tres cifras), las pestañas-palabra y la
- * lista de filas de la superficie que abre.
+ * La forma de un sistema: las migas, la cabecera (el tile del glifo en el
+ * margen, el eyebrow, el nombre, la intención y tres cifras), las
+ * pestañas-palabra y la lista de filas de la superficie que abre.
  */
 export default function SystemLoading() {
   return (
@@ -15,15 +15,15 @@ export default function SystemLoading() {
       </div>
 
       <PageWrapper className="w-full">
-        <div className="grid grid-cols-[var(--margen)_1fr] md:grid-cols-[0_1fr]">
-          <span className="flex justify-center self-start pt-1 md:hidden">
-            <Skeleton className="size-7 rounded-md" />
+        <div className="grid grid-cols-[var(--margen)_1fr]">
+          <span className="flex justify-start self-start pt-1">
+            <Skeleton className="size-[2.4rem] rounded-xl" />
           </span>
           <div className="space-y-3">
             <Skeleton className="h-3 w-44" />
-            <Skeleton className="h-8 w-3/4" />
+            <Skeleton className="h-[2.05rem] w-3/4" />
             <Skeleton className="h-5 w-full" />
-            <div className="flex gap-8 pt-1">
+            <div className="grid grid-cols-3 gap-x-4 pt-1 md:flex md:gap-x-10">
               {[0, 1, 2].map((i) => (
                 <div key={i} className="space-y-1.5">
                   <Skeleton className="h-7 w-12" />
