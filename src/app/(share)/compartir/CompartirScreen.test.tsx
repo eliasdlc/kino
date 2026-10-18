@@ -94,7 +94,8 @@ describe("CompartirScreen", () => {
     renderMobile(<CompartirScreen registro={registro({ text: "idea" })} previewUrl={null} />);
 
     expect(screen.getByRole("link", { name: "Abrir Bandeja" })).toHaveAttribute("href", "/bandeja");
-    expect(screen.getByRole("link", { name: "Compartir otra cosa" })).toHaveAttribute("href", "/dashboard");
+    // La segunda dice adónde lleva: antes prometía "compartir otra cosa" y abría Hoy.
+    expect(screen.getByRole("link", { name: "Ir a Hoy" })).toHaveAttribute("href", "/dashboard");
   });
 });
 

@@ -10,18 +10,18 @@ import { Button } from "@/components/ui/button";
  */
 export default function CompartirError({ reset }: { error: Error; reset: () => void }) {
   return (
-    <main className="mx-auto flex min-h-[100dvh] w-full max-w-md flex-col gap-6 p-5">
-      <header className="space-y-1">
-        <h1 className="font-display text-3xl font-bold tracking-[-0.03em]">No pudimos abrirlo</h1>
-        <p className="text-sm text-muted-foreground">
+    <main className="mx-auto flex min-h-dvh w-full max-w-md flex-col gap-6 pt-[max(1.25rem,env(safe-area-inset-top))] pr-[max(1.25rem,env(safe-area-inset-right))] pb-[max(1.25rem,env(safe-area-inset-bottom))] pl-[max(1.25rem,env(safe-area-inset-left))]">
+      <header className="space-y-2">
+        <h1 className="font-display text-[2rem] leading-[1.05] font-bold tracking-[-0.03em]">No se pudo abrir</h1>
+        <p className="font-voice text-[1.06rem] italic leading-snug text-body">
           Lo que compartiste sigue guardado en el teléfono y aparecerá en Bandeja. No se perdió.
         </p>
       </header>
-      <div className="space-y-2">
-        <Button onClick={reset} className="h-12 w-full rounded-full text-base">
+      <div className="mt-auto space-y-2">
+        <Button size="lg" onClick={reset} className="w-full text-base">
           Reintentar
         </Button>
-        <Button asChild variant="secondary" className="h-12 w-full rounded-full text-base">
+        <Button asChild size="lg" variant="secondary" className="w-full text-base">
           <Link href="/bandeja">Abrir Bandeja</Link>
         </Button>
       </div>

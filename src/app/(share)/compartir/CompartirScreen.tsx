@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { FileText, ImageIcon, Link2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { MarginRow } from "@/components/ui/margin-row";
 import { Skeleton } from "@/components/ui/skeleton";
 import { AudioWave } from "@/features/captures/AudioWave";
 import type { RegistroCompartido } from "@/features/captures/shareTarget";
@@ -32,23 +33,32 @@ function donde(registro: RegistroCompartido, problema: string | null): string {
   return "Guardado en el teléfono. Sale solo cuando vuelva la red.";
 }
 
+/** La página del recibo: papel a toda la altura visible, con el área segura. */
+const PAGINA =
+  "mx-auto flex min-h-dvh w-full max-w-md flex-col gap-6 pt-[max(1.25rem,env(safe-area-inset-top))] pr-[max(1.25rem,env(safe-area-inset-right))] pb-[max(1.25rem,env(safe-area-inset-bottom))] pl-[max(1.25rem,env(safe-area-inset-left))]";
+
 function Encabezado({ titulo, linea }: { titulo: string; linea: string }) {
   return (
-    <header className="space-y-1">
-      <h1 className="font-display text-3xl font-bold tracking-[-0.03em]">{titulo}</h1>
-      <p className="text-sm text-muted-foreground">{linea}</p>
+    <header className="space-y-2">
+      <h1 className="font-display text-[2rem] leading-[1.05] font-bold tracking-[-0.03em]">{titulo}</h1>
+      <p className="text-base leading-snug text-body">{linea}</p>
     </header>
   );
 }
 
+/**
+ * Las dos salidas, abajo, donde llega el pulgar. La segunda va a Hoy y lo
+ * dice: antes se llamaba "Compartir otra cosa" y llevaba a Hoy, que no abre
+ * nada para compartir (compartir se hace desde la otra app).
+ */
 function Salidas() {
   return (
-    <div className="space-y-2">
-      <Button asChild className="h-12 w-full rounded-full text-base">
+    <div className="mt-auto space-y-2">
+      <Button asChild size="lg" className="w-full text-base">
         <Link href="/bandeja">Abrir Bandeja</Link>
       </Button>
-      <Button asChild variant="secondary" className="h-12 w-full rounded-full text-base">
-        <Link href="/dashboard">Compartir otra cosa</Link>
+      <Button asChild size="lg" variant="secondary" className="w-full text-base">
+        <Link href="/dashboard">Ir a Hoy</Link>
       </Button>
     </div>
   );
@@ -64,14 +74,16 @@ function Contenido({ registro, previewUrl }: { registro: RegistroCompartido; pre
           <img
             src={previewUrl}
             alt={registro.name ?? "Lo que compartiste"}
-            className="max-h-64 w-full rounded-2xl object-cover"
+            className="max-h-64 w-full rounded-xl object-cover"
           />
         ) : (
-          <div className="grid h-40 w-full place-items-center rounded-2xl bg-secondary text-muted-foreground">
-            <ImageIcon className="size-8" />
+          <div className="grid h-40 w-full place-items-center rounded-xl bg-secondary text-muted-foreground">
+            <ImageIcon className="size-8" aria-hidden />
           </div>
         )}
-        <p className="truncate text-sm font-medium">{registro.name ?? "Foto"}</p>
+        <MarginRow margin={<ImageIcon className="mt-2 size-5" aria-hidden />}>
+          <span className="block truncate font-medium">{registro.name ?? "Foto"}</span>
+        </MarginRow>
       </div>
     );
   }
@@ -86,18 +98,18 @@ function Contenido({ registro, previewUrl }: { registro: RegistroCompartido; pre
 
   if (registro.kind === "link") {
     return (
-      <div className="flex items-center gap-3">
-        <Link2 className="size-5 shrink-0 text-muted-foreground" />
-        <span className="min-w-0 flex-1 truncate text-sm font-medium">{registro.url}</span>
-      </div>
+      <MarginRow margin={<Link2 className="mt-2 size-5" aria-hidden />}>
+        <span className="block truncate font-medium">{registro.url}</span>
+      </MarginRow>
     );
   }
 
   return (
-    <div className="flex items-start gap-3">
-      <FileText className="mt-0.5 size-5 shrink-0 text-muted-foreground" />
-      <p className="min-w-0 flex-1 whitespace-pre-wrap break-words text-sm">{registro.text}</p>
-    </div>
+    <MarginRow margin={<FileText className="mt-2 size-5" aria-hidden />}>
+      <span className="block whitespace-pre-wrap break-words font-voice text-[1.06rem] leading-relaxed text-foreground">
+        {registro.text}
+      </span>
+    </MarginRow>
   );
 }
 
@@ -113,7 +125,7 @@ function Contenido({ registro, previewUrl }: { registro: RegistroCompartido; pre
 export function CompartirScreen({ registro, previewUrl, perdido, problema = null }: CompartirScreenProps) {
   if (perdido) {
     return (
-      <main className="mx-auto flex min-h-[100dvh] w-full max-w-md flex-col gap-6 p-5">
+      <main className={PAGINA}>
         <Encabezado
           titulo="No encontramos esto"
           linea="Si lo compartiste hace un momento, sigue en la cola del teléfono y aparecerá en Bandeja."
@@ -125,24 +137,24 @@ export function CompartirScreen({ registro, previewUrl, perdido, problema = null
 
   if (!registro) {
     return (
-      <main className="mx-auto flex min-h-[100dvh] w-full max-w-md flex-col gap-6 p-5">
+      <main aria-busy className={PAGINA}>
         <div className="space-y-2">
-          <Skeleton className="h-8 w-40" />
+          <Skeleton className="h-[2.1rem] w-40" />
           <Skeleton className="h-4 w-56" />
         </div>
-        <Skeleton className="h-44 w-full rounded-2xl" />
-        <div className="space-y-2">
-          <Skeleton className="h-12 w-full rounded-full" />
-          <Skeleton className="h-12 w-full rounded-full" />
+        <Skeleton className="h-44 w-full rounded-xl" />
+        <div className="mt-auto space-y-2">
+          <Skeleton className="h-[3.2rem] w-full rounded-full" />
+          <Skeleton className="h-[3.2rem] w-full rounded-full" />
         </div>
       </main>
     );
   }
 
   return (
-    <main className="mx-auto flex min-h-[100dvh] w-full max-w-md flex-col gap-6 p-5">
+    <main className={PAGINA}>
       <Encabezado titulo={problema ? "No se pudo guardar" : "Guardado"} linea={donde(registro, problema)} />
-      <section className="rounded-2xl border border-border bg-card p-4">
+      <section aria-label="Lo que compartiste">
         <Contenido registro={registro} previewUrl={previewUrl} />
       </section>
       <Salidas />
