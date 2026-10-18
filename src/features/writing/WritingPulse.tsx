@@ -50,7 +50,8 @@ function Streak({ overview }: { overview: WritingOverview }) {
     >
       <Flame
         aria-hidden
-        className={cn("size-4", overview.streakIncludesToday ? "text-primary" : "text-muted-foreground")}
+        // Hoy ya cuenta: es un estado cumplido, en --ok. El ámbar es de la acción.
+        className={cn("size-4", overview.streakIncludesToday ? "text-ok" : "text-muted-foreground")}
       />
       {label} de racha
     </span>
@@ -118,7 +119,7 @@ function DailyGoal({
         // Crece en transform desde la izquierda, nunca en ancho.
         <span aria-hidden className="h-1 w-12 overflow-hidden rounded-full bg-secondary">
           <span
-            className="block h-full w-full origin-left rounded-full bg-primary transition-transform duration-(--dur-cuenta) ease-(--ease-pluma)"
+            className="block h-full w-full origin-left rounded-full bg-foreground transition-transform duration-(--dur-cuenta) ease-(--ease-pluma)"
             style={{ transform: `scaleX(${pct / 100})` }}
           />
         </span>
@@ -133,8 +134,12 @@ function DailyGoal({
  *
  * Una fila de Diario y no un recuadro teñido: el amanecer en el margen, el
  * consejo en la voz (Literata en cursiva) y debajo la racha y la meta, que se
- * toca para cambiarla. El ámbar no tiñe el bloque: sólo enciende la llama
- * cuando la racha ya cuenta hoy y la barra de la meta.
+ * toca para cambiarla. El ámbar no tiñe el bloque: la llama se enciende en
+ * --ok cuando la racha ya cuenta hoy y la barra de la meta va en tinta.
+ *
+ * La fila de la racha y la meta se reserva desde la primera pintura con el alto
+ * del botón de la meta (2.85rem): cuando llegan los datos no empuja la
+ * biblioteca que va debajo.
  */
 export function WritingPulse({ systemId }: { systemId: string }) {
   const { data: overview } = useWritingOverview(systemId);
@@ -148,13 +153,19 @@ export function WritingPulse({ systemId }: { systemId: string }) {
       <span className="block font-voice text-base italic leading-snug text-body">
         {overview ? advisorText(overview) : "Escribe en tu mejor ventana creativa: tu pico de energía."}
       </span>
-      {overview && (
-        <span className="mt-1 flex flex-wrap items-center gap-x-3 -ml-3">
-          <span className="pl-3">
-            <Streak overview={overview} />
-          </span>
+      {overview ? (
+        // -ml-3 alinea el lápiz de la meta (px-3) con la columna de texto; la
+        // racha, cuando existe, recupera esos 0.75rem con su propio pl-3.
+        <span data-slot="writing-pulse-meta" className="mt-1 flex min-h-[2.85rem] flex-wrap items-center gap-x-3 -ml-3">
+          {overview.streakDays > 0 && (
+            <span className="pl-3">
+              <Streak overview={overview} />
+            </span>
+          )}
           <DailyGoal systemId={systemId} overview={overview} />
         </span>
+      ) : (
+        <span aria-hidden data-slot="writing-pulse-meta" className="mt-1 block h-[2.85rem]" />
       )}
     </MarginRow>
   );
