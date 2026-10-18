@@ -485,5 +485,16 @@ export function NotebookEditor({
 /** Deja la altura del campo en la de su contenido, sin barra de desplazamiento. */
 function ajustarAlto(campo: HTMLTextAreaElement) {
   campo.style.height = "auto";
-  campo.style.height = `${campo.scrollHeight}px`;
+  const linea = parseFloat(getComputedStyle(campo).lineHeight);
+  campo.style.height = `${altoEnLineas(campo.scrollHeight, linea)}px`;
+}
+
+/**
+ * El alto de un título de `n` líneas: `n` veces su interlínea, igual que el
+ * párrafo de la primera pintura. El `scrollHeight` de un textarea redondea
+ * hacia arriba y suma unos 3 px; con él, el cuerpo bajaba al llegar el editor.
+ */
+export function altoEnLineas(scrollHeight: number, interlinea: number): number {
+  if (!Number.isFinite(interlinea) || interlinea <= 0) return scrollHeight;
+  return Math.max(1, Math.round(scrollHeight / interlinea)) * interlinea;
 }
