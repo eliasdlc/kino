@@ -3,7 +3,8 @@
  * dice su estado con `aria-pressed`, tocarlo no le quita el foco al texto
  * (el `pointerdown` no hace su acción por defecto), Nota y Más llaman a quien
  * abre la nota y el panel, y la mención pone su espacio delante si hace falta.
- * Sin teclado abierto la barra no existe.
+ * Sin teclado abierto la barra no existe, y la que enseña el catálogo se
+ * queda en su sitio aunque el viewport visual mida menos que la ventana.
  */
 import { useEffect } from "react";
 import { describe, expect, it, vi } from "vitest";
@@ -87,5 +88,18 @@ describe("EditorThumbBar", () => {
       insertarDisparador(editorDe(), "@");
     });
     expect(editorDe().state.doc.textContent).toBe("Inés @ subió a la loma");
+  });
+
+  it("la barra del catálogo no sube con un viewport visual más bajo que la ventana", async () => {
+    const original = window.visualViewport;
+    const falso = Object.assign(new EventTarget(), { height: window.innerHeight - 300, offsetTop: 0 });
+    Object.defineProperty(window, "visualViewport", { configurable: true, value: falso });
+    try {
+      pintar();
+      const barra = await screen.findByRole("toolbar", { name: "Formato" });
+      expect(barra.style.transform).toBe("");
+    } finally {
+      Object.defineProperty(window, "visualViewport", { configurable: true, value: original });
+    }
   });
 });
