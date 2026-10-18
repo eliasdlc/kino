@@ -3,6 +3,8 @@
  * de la obra es el único h1, cada capítulo abre con su numeral y su título, el
  * modo de leer es un segmento (Paginado o Continuo) con una opción siempre
  * elegida, y una obra sin texto lo dice con un estado vacío y no con una caja.
+ * El papel es un interruptor con nombre visible que dice su estado, e imprimir
+ * se lee con su palabra.
  */
 import { describe, expect, it, vi } from "vitest";
 import { screen } from "@testing-library/react";
@@ -50,5 +52,14 @@ describe("ReadingView", () => {
       <ReadingView manuscript={{ ...obra, chapters: obra.chapters.map((c) => ({ ...c, content: "" })) }} />,
     );
     expect(screen.getByRole("heading", { name: "Todavía no hay nada que leer" })).toBeVisible();
+  });
+
+  it("el papel es un interruptor con nombre y estado, e imprimir dice su palabra", async () => {
+    renderWithProviders(<ReadingView manuscript={obra} />);
+    const papel = screen.getByRole("button", { name: "Papel cálido" });
+    expect(papel).toHaveAttribute("aria-pressed", "false");
+    await userEvent.click(papel);
+    expect(papel).toHaveAttribute("aria-pressed", "true");
+    expect(screen.getByRole("button", { name: /^Imprimir/ })).toHaveTextContent("Imprimir");
   });
 });
