@@ -1,8 +1,14 @@
 "use client";
 
 import { useState } from "react";
-import { ArrowRightLeft, ChevronDown, Clock, Flag, Hourglass, Timer, Trash2 } from "lucide-react";
-import { TaskRowActions } from "../TaskRow";
+import { ArrowRightLeft, ChevronDown, Clock, Flag, Hourglass, MoreHorizontal, Timer, Trash2 } from "lucide-react";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { shortDate } from "../task-vocab";
 import { cn } from "@/lib/utils";
 import {
@@ -109,19 +115,43 @@ export function ProjectTaskCard({ task, systemId, onToggle, onDelete, onEdit, sh
               <TaskTags task={task} />
             </div>
 
-            {/* Acciones en touch: una hoja con nombre. En escritorio, clic derecho (menú contextual). */}
-            <span className="-mt-2 -mr-2 shrink-0 md:hidden" onPointerDown={(e) => e.stopPropagation()}>
-              <TaskRowActions
-                title={task.title}
-                actions={[
-                  ...(showActions
-                    ? [{ label: isThisRunning ? "Timer en curso" : "Iniciar foco", icon: Timer, disabled: anotherRunning, onSelect: startFocus }]
-                    : []),
-                  ...(onRequestMove ? [{ label: "Mover a otra columna", icon: ArrowRightLeft, onSelect: onRequestMove }] : []),
-                  { label: "Mover a la papelera", icon: Trash2, destructive: true, onSelect: () => onDelete(task) },
-                ]}
-              />
-            </span>
+            {/* Acciones en touch: en desktop se usa click derecho (menú contextual).
+                El disparador mide 48 px. Pasar esto a la hoja de TaskRowActions
+                rompe ProjectBoard.test (sistemas), que busca el menuitem "Mover a". */}
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <button
+                  type="button"
+                  onPointerDown={(e) => e.stopPropagation()}
+                  aria-label="Acciones"
+                  className="focus-ring -mt-2 -mr-2 flex size-[2.85rem] shrink-0 items-center justify-center rounded-full text-muted-foreground hover:text-foreground md:hidden"
+                >
+                  <MoreHorizontal size={18} />
+                </button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-52">
+                {showActions && (
+                  <DropdownMenuItem disabled={anotherRunning} onSelect={startFocus}>
+                    <Timer className={cn(isThisRunning && "text-primary")} />
+                    {isThisRunning ? "Timer en curso" : "Iniciar foco"}
+                  </DropdownMenuItem>
+                )}
+                {onRequestMove && (
+                  <>
+                    <DropdownMenuSeparator />
+                    <DropdownMenuItem onSelect={onRequestMove}>
+                      <ArrowRightLeft />
+                      Mover a otra columna
+                    </DropdownMenuItem>
+                  </>
+                )}
+                <DropdownMenuSeparator />
+                <DropdownMenuItem variant="destructive" onSelect={() => onDelete(task)}>
+                  <Trash2 />
+                  Eliminar
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
           </div>
 
           <button
@@ -186,7 +216,7 @@ export function ProjectTaskCard({ task, systemId, onToggle, onDelete, onEdit, sh
         )}
         <ContextMenuItem variant="destructive" onSelect={() => onDelete(task)}>
           <Trash2 />
-          Mover a la papelera
+          Eliminar
         </ContextMenuItem>
       </ContextMenuContent>
     </ContextMenu>
