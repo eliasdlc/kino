@@ -5,8 +5,21 @@ import { Button } from '@/components/ui/button';
 import { Segmented } from '@/components/ui/segmented';
 import { Slider } from '@/components/ui/slider';
 import type { CheckinSlot } from '@/features/energy/energy.schemas';
-import type { SleepQuality } from '@/features/energy/energy.utils';
+import { formatHourRange, type SleepQuality } from '@/features/energy/energy.utils';
 import { SLOT_LABELS, SLOT_HOURS, SLEEP_LABELS } from './energyDisplay';
+
+const ALL_SLOTS = Object.keys(SLOT_LABELS) as CheckinSlot[];
+
+/** La palabra del tramo y sus horas debajo, en dos renglones que caben en 48 px. */
+function SlotLabel({ slot }: { slot: CheckinSlot }) {
+  const [start, end] = SLOT_HOURS[slot];
+  return (
+    <span className="inline-flex flex-col items-center leading-[1.1]">
+      {SLOT_LABELS[slot]}
+      <span data-slot="slot-hours" className="text-[0.74rem] font-medium tabular-nums">{formatHourRange(start, end)}</span>
+    </span>
+  );
+}
 
 export interface CheckinValues {
   level: number;
@@ -17,6 +30,8 @@ export interface CheckinValues {
 interface EnergyCheckinFormProps {
   defaultLevel: number;
   initialSlot: CheckinSlot;
+  /** Los tramos que se pueden registrar ahora; por defecto, los tres. */
+  slots?: readonly CheckinSlot[];
   isPending: boolean;
   onSubmit: (values: CheckinValues) => void;
   onCancel: () => void;
@@ -27,33 +42,38 @@ interface EnergyCheckinFormProps {
  * (elegir es un estado, no una acción), el nivel es la cifra en Bricolage y el
  * acento sobre un deslizador, y Guardar es la única pastilla del acento. Las
  * horas de cada tramo van debajo de su palabra, en el color pleno de la
- * opción y sin opacidad, para que se lean también en la no elegida.
+ * opción y sin opacidad, para que se lean también en la no elegida. Sólo se
+ * ofrecen los tramos que ya llegaron: un check-in mide la energía de ahora.
  */
-export function EnergyCheckinForm({ defaultLevel, initialSlot, isPending, onSubmit, onCancel }: EnergyCheckinFormProps) {
-  const [slot, setSlot] = useState<CheckinSlot>(initialSlot);
+export function EnergyCheckinForm({
+  defaultLevel,
+  initialSlot,
+  slots = ALL_SLOTS,
+  isPending,
+  onSubmit,
+  onCancel,
+}: EnergyCheckinFormProps) {
+  const [slot, setSlot] = useState<CheckinSlot>(slots.includes(initialSlot) ? initialSlot : slots[slots.length - 1]!);
   const [level, setLevel] = useState(defaultLevel);
   const [sleep, setSleep] = useState<SleepQuality>('good');
 
   return (
     <div className="space-y-5">
-      <Segmented
-        aria-label="Tramo del día"
-        value={slot}
-        onValueChange={setSlot}
-        className="w-full [&>button]:flex-1"
-        options={(Object.keys(SLOT_LABELS) as CheckinSlot[]).map((s) => {
-          const [start, end] = SLOT_HOURS[s];
-          return {
-            value: s,
-            label: (
-              <span className="inline-flex flex-col items-center leading-[1.1]">
-                {SLOT_LABELS[s]}
-                <span data-slot="slot-hours" className="text-[0.74rem] font-medium tabular-nums">{start} a {end}</span>
-              </span>
-            ),
-          };
-        })}
-      />
+      {/* Sólo los tramos que ya llegaron: con uno solo no hay nada que elegir,
+          y el tramo se dice con sus horas, al mismo alto que el segmento. */}
+      {slots.length > 1 ? (
+        <Segmented
+          aria-label="Tramo del día"
+          value={slot}
+          onValueChange={setSlot}
+          className="w-full [&>button]:flex-1"
+          options={slots.map((s) => ({ value: s, label: <SlotLabel slot={s} /> }))}
+        />
+      ) : (
+        <p data-slot="tramo-unico" className="flex min-h-[3.35rem] items-center justify-center text-sm font-semibold text-foreground">
+          <SlotLabel slot={slot} />
+        </p>
+      )}
 
       <div className="space-y-3">
         <div className="flex items-baseline justify-between">
