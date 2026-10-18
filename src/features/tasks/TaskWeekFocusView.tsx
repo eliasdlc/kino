@@ -4,6 +4,8 @@ import { useState, useEffect, useRef, type ReactNode } from "react";
 import { differenceInCalendarDays, startOfToday } from "date-fns";
 import { useTasks, useToggleTask, useDeleteTaskWithUndo } from "./tasks.hooks";
 import { DefaultTaskCard } from "./cards/DefaultTaskCard";
+import { EmptyState } from "@/components/ui/empty-state";
+import { SectionHead } from "@/features/dashboard/SectionHead";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { parseDueDate } from "./tasks.utils";
 import type { TaskTransport } from "./tasks.types";
@@ -39,13 +41,10 @@ function Section({
 }) {
   if (tasks.length === 0) return null;
   return (
-    <div className="space-y-2">
-      <div className="flex items-baseline gap-2 px-1">
-        <h3 className="text-sm font-semibold">{title}</h3>
-        {hint && <span className="text-xs text-muted-foreground">{hint}</span>}
-      </div>
-      <div className="space-y-2">{tasks.map(renderTask)}</div>
-    </div>
+    <section aria-label={title}>
+      <SectionHead title={title} as="h3" count={hint} />
+      <div>{tasks.map(renderTask)}</div>
+    </section>
   );
 }
 
@@ -136,14 +135,14 @@ export function TaskWeekFocusView({ systemId, initialData, onEdit, highlight }: 
   return (
     <div className="space-y-5">
       {/* Línea cálida: la certeza emocional */}
-      <div className="rounded-xl border bg-muted/30 px-4 py-3">
-        <p className="text-sm font-medium">{reassurance}</p>
-      </div>
+      <p className="pl-(--margen) font-voice text-base leading-snug text-body italic">{reassurance}</p>
 
       {active.length === 0 ? (
-        <div className="py-12 text-center text-muted-foreground text-sm">
-          Semana despejada. Cuando agregues entregas, aparecerán aquí ordenadas por cuánto tiempo tienes.
-        </div>
+        <EmptyState
+          className="pl-(--margen)"
+          title="Semana despejada"
+          description="Cuando agregues entregas, aparecerán aquí ordenadas por cuánto tiempo tienes."
+        />
       ) : (
         <>
           <Section
