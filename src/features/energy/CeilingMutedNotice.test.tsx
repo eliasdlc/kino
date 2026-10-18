@@ -9,7 +9,8 @@ import { CeilingMutedNotice } from './CeilingMutedNotice';
  * El único momento en que la previsión pierde en público. Lo que se prueba es
  * que la cifra va antes que nada, que el sujeto es la previsión y no Kino, que
  * no hay caja alrededor, y que las catorce mediciones están, cada una con su
- * línea y ninguna apuntando a un dato que no existe.
+ * línea y ninguna apuntando a un dato que no existe. Cada día se toca, así
+ * que mide 48 px también a lo ancho.
  */
 
 const DIAS = 14;
@@ -85,5 +86,15 @@ describe('CeilingMutedNotice', () => {
     });
 
     expect(screen.queryByRole('region')).not.toBeInTheDocument();
+  });
+
+  it('cada día mide el táctil de 48 px a lo ancho, sin pasar de siete por renglón', () => {
+    const { container } = renderMobile(<CeilingMutedNotice />, { convex: cliente(CONFESION) });
+
+    const rejilla = container.querySelector('[data-slot="ceiling-days"]');
+    expect(rejilla).toHaveClass('grid-cols-[repeat(auto-fill,minmax(2.85rem,1fr))]', 'max-w-[23.8rem]');
+    const dias = rejilla?.querySelectorAll('button') ?? [];
+    expect(dias).toHaveLength(DIAS);
+    for (const dia of dias) expect(dia).toHaveClass('h-12', 'min-w-[2.85rem]');
   });
 });
