@@ -141,9 +141,11 @@ export function InWorldTimeline({ systemId }: { systemId: string }) {
                     <button
                       type="button"
                       onClick={() => setOpenEntityId(entry.entityId)}
-                      className="min-w-0 truncate rounded-md py-2 text-left text-base font-semibold text-foreground focus-ring hover:underline"
+                      // El antes invisible lleva el toque a 48 px, como en las
+                      // filas ubicadas, sin mover el nombre.
+                      className="relative min-w-0 rounded-md py-1 text-left text-base font-semibold text-foreground focus-ring hover:underline before:absolute before:inset-x-0 before:-inset-y-2 before:content-['']"
                     >
-                      {entry.name}
+                      <span className="block truncate">{entry.name}</span>
                     </button>
                     <Button
                       variant="ghost"
@@ -236,7 +238,7 @@ function TimelineRow({
             </p>
           </div>
 
-          <div className="-mr-2 flex shrink-0 items-center md:opacity-0 md:transition-opacity md:group-hover:opacity-100 md:focus-within:opacity-100">
+          <div className="-mr-2 flex shrink-0 items-center transition-opacity duration-(--dur-toque) ease-(--ease-pluma) md:pointer-fine:opacity-0 md:pointer-fine:group-hover:opacity-100 md:pointer-fine:focus-within:opacity-100">
             <Button
               variant="ghost"
               size="icon"
