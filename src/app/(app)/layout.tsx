@@ -26,10 +26,9 @@ import { MantenerAvisos } from "@/features/notifications/MantenerAvisos";
  * sola vuelta con las dos lecturas en paralelo: la fila de `users` y los
  * ajustes. La fila decide si la persona termina el onboarding antes de ver
  * ninguna pantalla, y el tema tiene que conocerse antes de la primera pintura
- * o un dispositivo estrenado da un destello. Lo demás llega en streaming: el
- * menú de cuenta del sidebar y cada página detrás de su `loading.tsx`, así que
- * la cabecera, el pie y el sidebar se pintan antes que los datos de cualquier
- * pantalla.
+ * o un dispositivo estrenado da un destello. Cada página llega en streaming
+ * detrás de su `loading.tsx`, así que la cabecera, el pie y el sidebar se
+ * pintan antes que los datos de cualquier pantalla.
  */
 export default async function AppLayout({
   children,
@@ -47,11 +46,7 @@ export default async function AppLayout({
   if (!user.onboardingCompleted) redirect("/onboarding");
   const theme = settings.theme ?? "system";
 
-  const cuenta: Promise<CuentaDelSidebar> = Promise.resolve({
-    name: user.name,
-    email: user.email,
-    image: user.image ?? null,
-  });
+  const cuenta: CuentaDelSidebar = { name: user.name, email: user.email, image: user.image ?? null };
 
   return (
     <Providers initialTheme={theme}>

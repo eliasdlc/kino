@@ -11,6 +11,8 @@ import { BottomNav } from "./BottomNav";
 import { SystemsSidebar } from "@/features/systems/SystemsSidebar";
 import { DESTINOS, DESTINOS_MOVIL, cabeceraDe, destinoActivo } from "./navigation";
 
+// El menú de cuenta es de Clerk; aquí sólo importan los destinos.
+vi.mock("@/features/systems/SidebarUserMenu", () => ({ SidebarUserMenu: () => null }));
 vi.mock("next/navigation", async () => (await import("@/shared/testing/navigation")).navigationMock());
 
 function hrefsDe(nav: HTMLElement) {
@@ -25,7 +27,7 @@ describe("la lista única de navegación", () => {
     const pie = hrefsDe(screen.getByRole("navigation", { name: "Secciones" }));
     expect(pie).toEqual(DESTINOS_MOVIL.map((d) => d.href));
 
-    renderWithProviders(<SystemsSidebar cuenta={new Promise(() => {})} />);
+    renderWithProviders(<SystemsSidebar cuenta={{ name: "Prueba", email: "prueba@usekino.dev", image: null }} />);
     const sidebar = within(screen.getByRole("complementary", { name: "Navegación" })).getByRole("navigation", { name: "Secciones" });
     expect(hrefsDe(sidebar)).toEqual(DESTINOS.map((d) => d.href));
     for (const d of DESTINOS) {

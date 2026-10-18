@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Suspense, use, useEffect, useMemo } from "react";
+import { useEffect, useMemo } from "react";
 import type { LucideIcon } from "lucide-react";
 import { PanelLeftClose, PanelLeftOpen, Plus, Search } from "lucide-react";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
@@ -18,7 +18,7 @@ import { SystemTreeItem } from "./SystemTreeItem";
 import { DESTINOS, destinoActivo } from "@/components/navigation";
 import { cn } from "@/lib/utils";
 
-/** Lo que el menú de cuenta necesita de la fila de `users`. Llega como promesa, en streaming. */
+/** Lo que el menú de cuenta necesita de la fila de `users`, que el layout ya leyó. */
 export interface CuentaDelSidebar {
   name?: string;
   email?: string;
@@ -26,7 +26,7 @@ export interface CuentaDelSidebar {
 }
 
 interface SystemsSidebarProps {
-  cuenta: Promise<CuentaDelSidebar>;
+  cuenta: CuentaDelSidebar;
 }
 
 interface NavItemProps {
@@ -76,33 +76,6 @@ function NavItem({ href, icon: Icon, label, active, collapsed, badge }: NavItemP
       <TooltipTrigger asChild>{link}</TooltipTrigger>
       <TooltipContent side="right">{label}</TooltipContent>
     </Tooltip>
-  );
-}
-
-/** El menú de cuenta, cuando la fila de `users` llega. */
-function MenuDeCuenta({ cuenta, collapsed }: { cuenta: Promise<CuentaDelSidebar>; collapsed: boolean }) {
-  const user = use(cuenta);
-  return (
-    <SidebarUserMenu
-      userName={user.name}
-      userEmail={user.email}
-      userImage={user.image}
-      collapsed={collapsed}
-    />
-  );
-}
-
-function MenuDeCuentaEsperando({ collapsed }: { collapsed: boolean }) {
-  return (
-    <div className={cn("flex items-center gap-2.5 p-1.5", collapsed && "justify-center")}>
-      <Skeleton className="size-8 shrink-0 rounded-full" />
-      {!collapsed && (
-        <div className="flex-1 space-y-1.5">
-          <Skeleton className="h-3.5 w-24" />
-          <Skeleton className="h-3 w-32" />
-        </div>
-      )}
-    </div>
   );
 }
 
@@ -269,9 +242,12 @@ export function SystemsSidebar({ cuenta }: SystemsSidebarProps) {
 
         {/* La cuenta */}
         <div className="shrink-0 border-t border-sidebar-border p-2">
-          <Suspense fallback={<MenuDeCuentaEsperando collapsed={collapsed} />}>
-            <MenuDeCuenta cuenta={cuenta} collapsed={collapsed} />
-          </Suspense>
+          <SidebarUserMenu
+            userName={cuenta.name}
+            userEmail={cuenta.email}
+            userImage={cuenta.image}
+            collapsed={collapsed}
+          />
         </div>
       </aside>
     </TooltipProvider>
