@@ -386,7 +386,7 @@ export const SYSTEM_TYPE_CONFIG: Record<SystemType, ArchetypeManifest> = {
       // atajos y formato de export. Las obras creadas antes de W3 guardaron texto
       // libre ("novela", "guión"); `resolveMedium` las normaliza al leerlas.
       fields: [
-        { id: 'medium', label: 'Medium', input: 'select', options: MEDIUM_OPTIONS },
+        { id: 'medium', label: 'Medio', input: 'select', options: MEDIUM_OPTIONS },
         { id: 'wordGoal', label: 'Meta de palabras', input: 'number' },
         { id: 'targetDate', label: 'Fecha objetivo', input: 'date' },
         // Mesa de referencias (§7): entidades que el autor quiere a la vista
