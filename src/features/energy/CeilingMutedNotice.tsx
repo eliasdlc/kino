@@ -46,7 +46,10 @@ export function CeilingMutedNotice() {
           El día se sigue midiendo, pero sin opinar sobre cuánto cabe.
         </p>
 
-        <ul className="grid grid-cols-7">
+        {/* Cada día se toca (abre su línea), así que mide el táctil de 48 px
+            también a lo ancho: tantas columnas de 2.85rem como quepan, y como
+            mucho siete. A 393 son seis por renglón, en vez de siete de 42 px. */}
+        <ul data-slot="ceiling-days" className="grid max-w-[23.8rem] grid-cols-[repeat(auto-fill,minmax(2.85rem,1fr))]">
           {honestidad.predicciones.map((prediccion) => {
             const clave = `${prediccion.date}:${prediccion.slot}`;
             return (
@@ -57,7 +60,7 @@ export function CeilingMutedNotice() {
                   aria-label={`${prediccion.date}, error de ${prediccion.error} puntos`}
                   onClick={() => setAbierta(abierta === clave ? null : clave)}
                   data-fallo={prediccion.error > honestidad.umbral}
-                  className="focus-ring grid h-12 w-full place-items-center rounded-md text-sm text-muted-foreground tabular-nums decoration-2 underline-offset-[0.35em] transition-colors duration-(--dur-toque) ease-(--ease-pluma) aria-pressed:text-foreground aria-pressed:underline aria-pressed:decoration-primary data-[fallo=true]:font-bold data-[fallo=true]:text-foreground"
+                  className="focus-ring grid h-12 w-full min-w-[2.85rem] place-items-center rounded-md text-sm text-muted-foreground tabular-nums decoration-2 underline-offset-[0.35em] transition-colors duration-(--dur-toque) ease-(--ease-pluma) aria-pressed:text-foreground aria-pressed:underline aria-pressed:decoration-primary data-[fallo=true]:font-bold data-[fallo=true]:text-foreground"
                 >
                   {diaDe(prediccion.date)}
                 </button>
