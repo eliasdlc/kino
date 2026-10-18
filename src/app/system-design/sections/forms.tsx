@@ -42,29 +42,29 @@ export function FormsSection() {
     >
       <SubSection title="Input y Textarea">
         <SpecimenGrid cols={3}>
-          <Specimen label="Default" hint="con Label asociado">
+          <Specimen label="Normal" hint="con Label asociado">
             <div className="w-full space-y-2">
               <Label htmlFor="ds-name">Nombre del sistema</Label>
               <Input id="ds-name" placeholder="Universidad" />
             </div>
           </Specimen>
-          <Specimen label="Disabled">
+          <Specimen label="Deshabilitado">
             <div className="w-full space-y-2">
               <Label htmlFor="ds-dis">Campo bloqueado</Label>
               <Input id="ds-dis" disabled placeholder="No editable" />
             </div>
           </Specimen>
-          <Specimen label="Inválido" hint="aria-invalid: borde carmesí y mensaje debajo">
+          <Specimen label="Inválido" hint="aria-invalid: borde carmesí y siempre un mensaje debajo, el color solo no basta">
             <div className="w-full space-y-2">
               <Label htmlFor="ds-inv">Email</Label>
               <Input id="ds-inv" aria-invalid defaultValue="no-es-un-email" />
               <p className="text-xs text-destructive">Introduce un email válido.</p>
             </div>
           </Specimen>
-          <Specimen label="Textarea">
+          <Specimen label="Área de texto">
             <Textarea placeholder="Descripción de la tarea" className="w-full" />
           </Specimen>
-          <Specimen label="Textarea disabled">
+          <Specimen label="Área deshabilitada">
             <Textarea disabled placeholder="Bloqueada" className="w-full" />
           </Specimen>
         </SpecimenGrid>
@@ -106,7 +106,7 @@ export function FormsSection() {
 
       <SubSection title="Select">
         <SpecimenGrid cols={3}>
-          <Specimen label="Default">
+          <Specimen label="Normal">
             <Select defaultValue="medium">
               <SelectTrigger className="w-full">
                 <SelectValue placeholder="Prioridad" />
@@ -122,7 +122,7 @@ export function FormsSection() {
               </SelectContent>
             </Select>
           </Specimen>
-          <Specimen label="Placeholder">
+          <Specimen label="Sin valor">
             <Select>
               <SelectTrigger className="w-full">
                 <SelectValue placeholder="Elige un sistema" />
@@ -133,7 +133,7 @@ export function FormsSection() {
               </SelectContent>
             </Select>
           </Specimen>
-          <Specimen label="Disabled">
+          <Specimen label="Deshabilitado">
             <Select disabled>
               <SelectTrigger className="w-full">
                 <SelectValue placeholder="Bloqueado" />
@@ -148,12 +148,12 @@ export function FormsSection() {
 
       <SubSection title="Switch, Slider y Progress">
         <SpecimenGrid cols={3}>
-          <Specimen label="Switch" hint="apagado, encendido, deshabilitado; zona de toque 2.85rem">
+          <Specimen label="Interruptor" hint="apagado, encendido, deshabilitado; zona de toque 2.85rem, pulgar con hairline">
             <Switch aria-label="Apagado" />
             <Switch defaultChecked aria-label="Encendido" />
             <Switch disabled aria-label="Deshabilitado" />
           </Specimen>
-          <Specimen label="Slider" hint="controla el Progress de al lado">
+          <Specimen label="Deslizador" hint="pista de 2.85rem de alto; controla el progreso de al lado">
             <Slider
               value={[progress]}
               onValueChange={([v]) => setProgress(v)}
@@ -162,7 +162,7 @@ export function FormsSection() {
               className="w-full"
             />
           </Specimen>
-          <Specimen label="Progress" hint={`value={${progress}}`}>
+          <Specimen label="Progreso" hint={`value={${progress}}`}>
             <Progress value={progress} className="w-full" />
           </Specimen>
         </SpecimenGrid>
@@ -173,13 +173,13 @@ export function FormsSection() {
         description="Calendar (react-day-picker) con celdas de 2.85rem en el teléfono y 2rem desde md; TimePicker propio sobre Command. La fecha es un instante con hora opcional."
       >
         <SpecimenGrid cols={3}>
-          <Specimen label="Calendar" hint="selección simple">
+          <Specimen label="Calendario" hint="selección simple; el día enfocado con flechas lleva el anillo">
             <Calendar mode="single" selected={date} onSelect={setDate} />
           </Specimen>
-          <Specimen label="TimePicker" hint='value="09:30"'>
+          <Specimen label="Hora" hint='TimePicker, value="09:30"'>
             <TimePicker value={time} onChange={setTime} />
           </Specimen>
-          <Specimen label="TimePicker disabled">
+          <Specimen label="Hora deshabilitada">
             <TimePicker disabled />
           </Specimen>
         </SpecimenGrid>

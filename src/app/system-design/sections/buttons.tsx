@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Kbd } from "@/components/ui/kbd";
 import { Segmented } from "@/components/ui/segmented";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { EmptyState } from "@/components/ui/empty-state";
 import { Plus, Trash2, ChevronDown, Sparkles, Play } from "lucide-react";
 
@@ -32,7 +33,7 @@ export function ButtonsSection() {
     <Section
       id="botones"
       number="05"
-      title="Botones, segmentos, badges y vacíos"
+      title="Botones, segmentos, pestañas, badges y vacíos"
       description="Toda acción es una pastilla de 2.85rem (el táctil mínimo) que se encoge a .97 al tocar; la primaria mide 3.2rem y lleva el glow del acento en vez de sombra. Un solo foco visible, el anillo del acento. Todo estado (seleccionado, hecho) también es pastilla o círculo, y se dice en tinta, no en ámbar."
     >
       <SubSection
@@ -99,7 +100,7 @@ export function ButtonsSection() {
 
       <SubSection title="Estados">
         <SpecimenGrid cols={4}>
-          <Specimen label="Disabled" hint="opacity-50, sin eventos">
+          <Specimen label="Deshabilitado" hint="opacity-50, sin eventos">
             <Button disabled>Guardar</Button>
             <Button variant="outline" disabled>
               Cancelar
@@ -108,7 +109,7 @@ export function ButtonsSection() {
           <Specimen label="Guardando" hint="texto de estado y disabled; nunca un spinner">
             <Button disabled>Guardando</Button>
           </Specimen>
-          <Specimen label="Focus" hint="Tab: el anillo del acento con 2 px de aire (focus-ring)">
+          <Specimen label="Foco" hint="Tab: el anillo del acento con 2 px de aire (focus-ring)">
             <Button variant="outline">Tabúlame</Button>
           </Specimen>
           <Specimen label="Destructivo" hint="carmesí tintado: sólo lo irreversible">
@@ -120,8 +121,8 @@ export function ButtonsSection() {
       </SubSection>
 
       <SubSection
-        title="Segmented"
-        description="De dos a cuatro opciones sobre sf2, la elegida en tinta. Grupo de radios de 2.85rem: una opción activa siempre, flechas para moverse. Es el control del tema en Ajustes y de Lista o Calendario en Tareas."
+        title="Segmented (segmento)"
+        description="De dos a cuatro opciones sobre sf2, cada una de 2.85rem, la elegida en tinta. Grupo de radios: una opción activa siempre y las flechas eligen. Cuándo usar: para elegir un valor entre dos y cuatro (tema, tramo, Lista o Calendario) sin cambiar de pantalla. Para moverse entre secciones de una misma pantalla, Tabs."
       >
         <SpecimenGrid cols={3}>
           <Specimen label="Tres opciones" hint={`value="${tema}"`}>
@@ -146,7 +147,32 @@ export function ButtonsSection() {
         </SpecimenGrid>
       </SubSection>
 
-      <SubSection title="Badge" description="Un par tintado: el color acompaña a la palabra, nunca la sustituye. Pastilla de 1.4rem, texto xs; no es táctil porque no es acción.">
+      <SubSection
+        title="Tabs (pestañas)"
+        description="Cuándo usar: para moverse entre secciones de una misma pantalla (Manuscritos, Tareas, Estudio, Codex). La activa se dice en tinta, igual que en Segmented: estar en una vista es un estado, no una acción. `line` son las pestañas-palabra de Diario, subrayadas sobre un hairline; `default` es el segmento pill para el escritorio."
+      >
+        <SpecimenGrid cols={2}>
+          <Specimen label="Línea" hint='variant="line": palabras de 2.85rem, subrayado en ámbar'>
+            <Tabs defaultValue="manuscritos" className="w-full">
+              <TabsList variant="line">
+                <TabsTrigger value="manuscritos">Manuscritos</TabsTrigger>
+                <TabsTrigger value="tareas">Tareas</TabsTrigger>
+                <TabsTrigger value="estudio">Estudio</TabsTrigger>
+              </TabsList>
+            </Tabs>
+          </Specimen>
+          <Specimen label="Pill" hint="default: la activa en tinta sobre sf2">
+            <Tabs defaultValue="hoy">
+              <TabsList>
+                <TabsTrigger value="hoy">Hoy</TabsTrigger>
+                <TabsTrigger value="semana">Semana</TabsTrigger>
+              </TabsList>
+            </Tabs>
+          </Specimen>
+        </SpecimenGrid>
+      </SubSection>
+
+      <SubSection title="Badge" description="Un par tintado: el color acompaña a la palabra, nunca la sustituye. El texto es el rol mezclado con tinta (--ok-text y compañía) para contrastar 4,5 o más sobre el tinte en claro. Pastilla de 1.4rem, texto xs; no es táctil porque no es acción.">
         <SpecimenGrid cols={3}>
           <Specimen label="Variantes">
             {BADGES.map((v) => (
@@ -171,8 +197,8 @@ export function ButtonsSection() {
       </SubSection>
 
       <SubSection
-        title="EmptyState"
-        description="Un título en display, una frase en la voz y, si hay algo que hacer, una acción. Sin ilustración: una página en blanco invita a escribir. Va en la columna de texto."
+        title="EmptyState (estado vacío)"
+        description="Un título en display, una frase en la voz y, si hay algo que hacer, una acción. Sin ilustración: una página en blanco invita a escribir. Va en la columna de texto. Cuándo usar: una lista o una página sin contenido, siempre con la acción si existe; nunca para un error (lleva mensaje y causa) ni para una carga (es un esqueleto)."
       >
         <SpecimenGrid cols={2}>
           <Specimen label="Con acción">
@@ -191,7 +217,7 @@ export function ButtonsSection() {
       <SubSection title="Kbd" description="Atajos de teclado en menús, tooltips y command palette.">
         <div className="flex flex-wrap items-center gap-4 rounded-xl border border-dashed border-border p-4">
           <span className="flex items-center gap-1 text-sm text-muted-foreground">
-            Buscar <Kbd>Ctrl K</Kbd>
+            Buscar <Kbd>Ctrl K</Kbd> o <Kbd>Cmd K</Kbd>
           </span>
           <span className="flex items-center gap-1 text-sm text-muted-foreground">
             Captura rápida <Kbd>Q</Kbd>

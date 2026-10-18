@@ -2,8 +2,8 @@
 
 import { Section, SubSection, Specimen, SpecimenGrid } from "../helpers";
 
-const SCALE: Array<{ cls: string; usage: string }> = [
-  { cls: "font-display text-[4.4rem] font-extrabold leading-[.86] tracking-[-.04em] text-primary tabular-nums", usage: "La cota: Bricolage 800, 4.4rem, en el acento" },
+const SCALE: Array<{ cls: string; usage: string; sample?: string }> = [
+  { cls: "font-display text-[4.4rem] font-extrabold leading-[.86] tracking-[-.04em] text-primary tabular-nums", usage: "La cota: Bricolage 800, 4.4rem, en el acento", sample: "64" },
   { cls: "font-display text-[1.9rem] font-bold leading-[1.02] tracking-[-.025em]", usage: "Título de pantalla: Bricolage 700, 1.9rem" },
   { cls: "font-display text-xl font-bold leading-tight tracking-tight", usage: "Encabezado de sección y título de overlay: Bricolage 700, 1.25rem" },
   { cls: "font-display text-[1.55rem] font-bold tabular-nums", usage: "Cifra de lectura (palabras hoy, días sin sesión): Bricolage 700" },
@@ -68,7 +68,7 @@ export function TypographySection() {
         <div className="divide-y divide-border rounded-xl border border-border">
           {SCALE.map((s) => (
             <div key={s.cls} className="flex flex-wrap items-baseline gap-x-6 gap-y-1 p-4">
-              <span className={`${s.cls} min-w-0`}>Gestión de energía</span>
+              <span className={`${s.cls} min-w-0`}>{s.sample ?? "Gestión de energía"}</span>
               <span className="w-full text-xs text-muted-foreground sm:ml-auto sm:w-auto sm:shrink-0">
                 {s.usage}
               </span>
@@ -93,6 +93,16 @@ export function TypographySection() {
           <p style={{ textAlign: "justify", textIndent: "1.4em" }}>
             Escribió la primera frase dos veces. La segunda versión era peor, así que
             recuperó la primera y siguió adelante, que es lo único que un borrador pide.
+          </p>
+        </div>
+        <div
+          data-paper="on"
+          className="mt-4 max-w-xl rounded-xl p-6 font-serif"
+          style={{ fontSize: "1.0625rem", lineHeight: 1.85 }}
+        >
+          <p style={{ textAlign: "justify" }}>
+            El papel cálido del editor (data-paper=&quot;on&quot;): se activa por columna del
+            editor y no toca el resto de la app. Se conserva de la dirección anterior.
           </p>
         </div>
       </SubSection>

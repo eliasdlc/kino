@@ -5,6 +5,7 @@ import { Section, SubSection, Specimen, SpecimenGrid } from "../helpers";
 import { Button } from "@/components/ui/button";
 import { MarginRow } from "@/components/ui/margin-row";
 import { Folder, ChevronRight } from "lucide-react";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 
 const RADII: Array<{ name: string; cls: string; note: string }> = [
   { name: "rounded-full", cls: "rounded-full", note: "999: toda acción y todo estado (botón, campo, segmento, círculo)" },
@@ -25,7 +26,8 @@ const MOTION: Array<{ name: string; token: string; note: string }> = [
 
 /**
  * Cada keyframe se dispara al tocar y corre una sola vez: la clave cambia,
- * el nodo se vuelve a montar y la animación `both` lo deja asentado.
+ * el nodo se vuelve a montar y la animación corre desde su primer fotograma
+ * (`backwards`) sin dejar ningún transform puesto al acabar.
  */
 function KeyframeDemo({ label, hint, cls, children }: { label: string; hint: string; cls: string; children: React.ReactNode }) {
   const [tick, setTick] = useState(0);
@@ -104,19 +106,19 @@ export function FoundationsSection() {
 
       <SubSection
         title="Elevación"
-        description="Ninguna en las páginas. Una sola sombra, el token --shadow (0 .6rem 1.6rem, tinta al 8 %), sólo en claro y sólo para la hoja inferior, el diálogo y la nota adhesiva. En oscuro --shadow vale none y la elevación es un paso de tono: bg, sf, sf2."
+        description="Ninguna en las páginas. Una sola sombra, el token --shadow (0 .6rem 1.6rem, tinta al 8 %), sólo en claro y sólo para la hoja inferior, el diálogo y la nota adhesiva. En oscuro --shadow vale none y la elevación es un paso de tono: bg, sf, sf2. Los tres niveles van aquí sobre el mismo papel para que se comparen; en claro la diferencia es la sombra, en oscuro es el tono."
       >
-        <SpecimenGrid cols={3}>
-          <Specimen label="Página" hint="bg, sin sombra">
-            <div className="h-20 w-full rounded-xl bg-background" />
+        <div className="grid grid-cols-1 gap-x-8 sm:grid-cols-3">
+          <Specimen label="Página" hint="bg, sin hairline ni sombra">
+            <div className="flex h-24 w-full items-end rounded-xl bg-background p-3 text-xs text-muted-foreground">sólo el papel</div>
           </Specimen>
           <Specimen label="Superficie" hint="sf con hairline (card, menú, popover)">
-            <div className="h-20 w-full rounded-xl border border-border bg-card" />
+            <div className="flex h-24 w-full items-end rounded-xl border border-border bg-card p-3 text-xs text-muted-foreground">sf y hairline</div>
           </Specimen>
           <Specimen label="Hoja y diálogo" hint="sf con --shadow; en oscuro, ninguna">
-            <div className="h-20 w-full rounded-xl border border-border bg-popover shadow-(--shadow)" />
+            <div className="flex h-24 w-full items-end rounded-xl border border-border bg-popover p-3 text-xs text-muted-foreground shadow-(--shadow)">sf y la única sombra</div>
           </Specimen>
-        </SpecimenGrid>
+        </div>
       </SubSection>
 
       <SubSection
@@ -155,17 +157,21 @@ export function FoundationsSection() {
       </SubSection>
 
       <SubSection
-        title="El margen"
-        description="Una columna de 3.1rem (--margen) a la izquierda de toda página: ahí viven el glifo, el numeral, el círculo y la nota adhesiva. El texto nunca entra en el margen. MarginRow reparte margen, texto y cola en grid-cols-[var(--margen)_1fr_auto]; un bloque que no es fila (la cota, un párrafo) se sangra con pl-(--margen)."
+        title="El margen: MarginRow"
+        description="Una columna de 3.1rem (--margen) a la izquierda de toda página: ahí viven el glifo, el numeral, el círculo y la nota adhesiva. El texto nunca entra en el margen. MarginRow reparte margen, texto y cola en grid-cols-[var(--margen)_1fr_auto]; con href u onClick la fila entera es tocable, con foco y toque de la casa; sin ellos, lo tocable va dentro (el círculo). Un bloque que no es fila (la cota, un párrafo) se sangra con pl-(--margen). Cuándo usar: toda lista del teléfono (tareas, índice, ajustes)."
       >
         <div className="max-w-md">
-          <MarginRow margin={<span className="font-display text-lg font-bold text-primary">I</span>} trailing={<ChevronRight className="size-5" />}>
+          <MarginRow
+            onClick={() => {}}
+            margin={<span className="font-display text-lg font-bold text-primary">I</span>}
+            trailing={<ChevronRight className="size-5" />}
+          >
             <p className="text-base font-semibold text-foreground">Primera parte: la subida</p>
-            <p className="text-sm text-muted-foreground">Novela, 3 manuscritos, 0 de 80.000</p>
+            <p className="text-sm text-muted-foreground">Fila tocable (onClick): Tab para ver el foco</p>
           </MarginRow>
           <MarginRow margin={<Folder className="size-5" />}>
             <p className="text-base font-medium text-foreground">Capítulos 1 a 5</p>
-            <p className="text-sm text-muted-foreground">3 manuscritos</p>
+            <p className="text-sm text-muted-foreground">3 manuscritos, fila sin acción</p>
           </MarginRow>
           <MarginRow margin={<span className="font-display text-lg font-bold">1</span>} trailing={<span><b className="block text-sm font-semibold text-foreground">1.240</b>palabras</span>}>
             <p className="font-serif text-base text-foreground">El clima que no cabe</p>
@@ -174,6 +180,22 @@ export function FoundationsSection() {
           <p className="mt-4 pl-(--margen) font-voice text-base italic text-body">
             Un párrafo que no es fila se alinea con la columna de texto.
           </p>
+        </div>
+      </SubSection>
+
+      <SubSection
+        title="Card frente a MarginRow"
+        description="Cuándo usar Card: sólo en el escritorio y en el shell (un panel lateral, un bloque de ajustes de dos columnas), donde una superficie sí separa. Es superficie con hairline y sin sombra en ningún modo. Nunca para agrupar una lista en el teléfono: ahí la lista son filas de margen."
+      >
+        <div className="max-w-md">
+          <Card size="sm">
+            <CardHeader>
+              <CardTitle>Panel de escritorio</CardTitle>
+            </CardHeader>
+            <CardContent className="text-sm text-muted-foreground">
+              Un bloque que en una pantalla ancha necesita su propio borde.
+            </CardContent>
+          </Card>
         </div>
       </SubSection>
 

@@ -32,9 +32,9 @@ import { ComposableSection } from "./sections/composable";
 const TOC: Array<{ id: string; number: string; label: string }> = [
   { id: "colores", number: "01", label: "Colores" },
   { id: "tipografia", number: "02", label: "Tipografía" },
-  { id: "fundamentos", number: "03", label: "Radios y sombras" },
+  { id: "fundamentos", number: "03", label: "Radio, movimiento y margen" },
   { id: "iconos", number: "04", label: "Iconografía" },
-  { id: "botones", number: "05", label: "Botones y badges" },
+  { id: "botones", number: "05", label: "Botones, segmentos y vacíos" },
   { id: "formularios", number: "06", label: "Formularios" },
   { id: "overlays", number: "07", label: "Overlays" },
   { id: "contenido", number: "08", label: "Contenido y datos" },

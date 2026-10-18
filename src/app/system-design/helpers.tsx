@@ -2,6 +2,7 @@
 
 import { ConvexQueryCacheProvider } from "convex-helpers/react/cache";
 import { cn } from "@/lib/utils";
+import { MarginRow } from "@/components/ui/margin-row";
 import { useState, useSyncExternalStore, type ReactNode } from "react";
 import { ConvexProviderWithAuth, type ConvexReactClient } from "convex/react";
 import { getFunctionName, type FunctionReference } from "convex/server";
@@ -84,7 +85,7 @@ export function Section({
     <section id={id} className="scroll-mt-24 border-t border-border pt-10 pb-4">
       <div className="mb-8">
         <p className="font-mono text-xs text-muted-foreground">{number}</p>
-        <h2 className="mt-1 text-2xl font-semibold tracking-tight">{title}</h2>
+        <h2 className="mt-1 font-display text-[1.9rem] leading-[1.02] font-bold tracking-[-.025em]">{title}</h2>
         {description && (
           <p className="mt-2 max-w-2xl text-sm text-muted-foreground">{description}</p>
         )}
@@ -105,7 +106,7 @@ export function SubSection({
 }) {
   return (
     <div>
-      <h3 className="text-base font-medium">{title}</h3>
+      <h3 className="font-display text-xl leading-tight font-bold tracking-tight">{title}</h3>
       {description && (
         <p className="mt-1 max-w-2xl text-sm text-muted-foreground">{description}</p>
       )}
@@ -114,7 +115,11 @@ export function SubSection({
   );
 }
 
-/** Caja etiquetada que envuelve una variante/estado concreto de un componente. */
+/**
+ * Una variante o estado concreto de un componente, con su etiqueta encima y
+ * un hairline debajo. Sin caja: el catálogo es una página de cuaderno, no
+ * cards apiladas.
+ */
 export function Specimen({
   label,
   hint,
@@ -128,18 +133,18 @@ export function Specimen({
   children: ReactNode;
 }) {
   return (
-    <div className="flex min-w-0 flex-col gap-2">
+    <div className="flex min-w-0 flex-col gap-3 border-b border-border pb-5">
+      <div>
+        <p className="text-xs font-semibold text-foreground">{label}</p>
+        {hint && <p className="font-mono text-[11px] text-muted-foreground">{hint}</p>}
+      </div>
       <div
         className={cn(
-          "flex min-h-24 flex-1 flex-wrap content-center items-center gap-3 rounded-xl border border-dashed border-border bg-card/50 p-4",
+          "flex min-h-16 flex-1 flex-wrap content-center items-center gap-3 py-1",
           className
         )}
       >
         {children}
-      </div>
-      <div className="px-1">
-        <p className="text-xs font-medium text-foreground">{label}</p>
-        {hint && <p className="font-mono text-[11px] text-muted-foreground">{hint}</p>}
       </div>
     </div>
   );
@@ -161,7 +166,7 @@ export function SpecimenGrid({
   return <div className={cn("grid grid-cols-1 gap-4", colClasses)}>{children}</div>;
 }
 
-/** Swatch de un token semántico de color (lee la variable CSS en runtime). */
+/** Un token de color como fila de margen: la muestra en el margen, el nombre y su uso en el texto. Lee la variable CSS en vivo. */
 export function TokenSwatch({
   token,
   usage,
@@ -172,15 +177,16 @@ export function TokenSwatch({
   usage?: string;
 }) {
   return (
-    <div className="flex items-center gap-3 rounded-xl border border-border bg-card p-2.5">
-      <div
-        className="size-10 shrink-0 rounded-md border border-border/60"
-        style={{ background: `var(--${token})` }}
-      />
-      <div className="min-w-0">
-        <p className="truncate font-mono text-xs font-medium">--{token}</p>
-        {usage && <p className="truncate text-[11px] text-muted-foreground">{usage}</p>}
-      </div>
-    </div>
+    <MarginRow
+      margin={
+        <span
+          className="mt-1 block size-8 rounded-full border border-border/60"
+          style={{ background: `var(--${token})` }}
+        />
+      }
+    >
+      <p className="font-mono text-xs font-medium">--{token}</p>
+      {usage && <p className="text-[11px] text-muted-foreground">{usage}</p>}
+    </MarginRow>
   );
 }
