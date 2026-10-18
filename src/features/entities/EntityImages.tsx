@@ -89,13 +89,15 @@ export function EntityImages({
               className="object-cover"
               unoptimized
             />
+            {/* Con ratón asoma al pasar por encima; en el teléfono no hay
+                encima, así que se ve siempre y mide 2.85rem. */}
             <button
               type="button"
               onClick={() => update.mutate({ coverImageUrl: null })}
-              className="absolute right-1.5 top-1.5 rounded bg-background/80 p-1 text-muted-foreground opacity-0 transition-opacity hover:text-destructive group-hover:opacity-100"
-              title="Quitar portada"
+              className="absolute right-1.5 top-1.5 flex items-center justify-center rounded-full bg-background/85 p-1 text-muted-foreground transition-opacity hover:text-destructive focus-ring pointer-coarse:size-[2.85rem] pointer-coarse:right-1 pointer-coarse:top-1 md:pointer-fine:opacity-0 md:pointer-fine:group-hover:opacity-100 md:pointer-fine:focus-visible:opacity-100"
+              aria-label="Quitar portada"
             >
-              <X className="size-3.5" />
+              <X aria-hidden className="size-4" />
             </button>
           </div>
         ) : (
@@ -116,18 +118,22 @@ export function EntityImages({
         {entity.images.map((url) => (
           <div
             key={url}
-            className="group relative size-14 overflow-hidden rounded-md border border-border"
+            className="group relative size-14 rounded-md border border-border pointer-coarse:size-[4.5rem]"
           >
-            <Image src={url} alt="" fill sizes="56px" className="object-cover" unoptimized />
+            <span className="absolute inset-0 overflow-hidden rounded-[inherit]">
+              <Image src={url} alt="" fill sizes="72px" className="object-cover" unoptimized />
+            </span>
+            {/* El aspa se ve pequeña pero el botón llega a 2.85rem en el
+                teléfono: sale un poco de la miniatura para no taparla entera. */}
             <button
               type="button"
               onClick={() =>
                 update.mutate({ images: entity.images.filter((u) => u !== url) })
               }
-              className="absolute right-0.5 top-0.5 flex items-center justify-center rounded bg-background/80 p-0.5 text-muted-foreground transition-opacity hover:text-destructive focus-ring md:pointer-fine:opacity-0 md:pointer-fine:group-hover:opacity-100 md:pointer-fine:focus-visible:opacity-100"
+              className="absolute right-0.5 top-0.5 flex items-center justify-center rounded bg-background/80 p-0.5 text-muted-foreground transition-opacity hover:text-destructive focus-ring pointer-coarse:-right-2 pointer-coarse:-top-2 pointer-coarse:size-[2.85rem] pointer-coarse:items-start pointer-coarse:justify-end pointer-coarse:bg-transparent pointer-coarse:p-2.5 md:pointer-fine:opacity-0 md:pointer-fine:group-hover:opacity-100 md:pointer-fine:focus-visible:opacity-100"
               aria-label="Quitar imagen"
             >
-              <X className="size-3" />
+              <X aria-hidden className="size-3 pointer-coarse:size-5 pointer-coarse:rounded-full pointer-coarse:bg-background/90 pointer-coarse:p-0.5" />
             </button>
           </div>
         ))}
@@ -136,7 +142,7 @@ export function EntityImages({
           onClick={() => galleryInput.current?.click()}
           disabled={busy === "gallery"}
           className={cn(
-            "flex size-14 items-center justify-center rounded-md border border-dashed border-border text-muted-foreground transition-colors hover:bg-accent/40",
+            "flex size-14 items-center justify-center rounded-md border border-dashed border-border text-muted-foreground transition-colors hover:bg-accent/40 focus-ring pointer-coarse:size-[4.5rem]",
           )}
           title="Añadir referencia"
         >
