@@ -5,6 +5,7 @@ import Link from "next/link";
 import { Download, FileText, Printer } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { MarginRow } from "@/components/ui/margin-row";
+import { UNA_LINEA } from "@/shared/components/una-linea";
 import {
   ResponsiveDialog,
   ResponsiveDialogContent,
@@ -166,7 +167,6 @@ export function CompileMenu({
 }
 
 /** Filas de una línea: el glifo del margen centrado con el texto. */
-const UNA_LINEA = "[&>[data-slot=margin-row-margin]]:self-center [&>[data-slot=margin-row-margin]]:pt-0";
 
 function metaOf(manuscript: Manuscript): CompileMeta {
   return {
