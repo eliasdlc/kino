@@ -60,7 +60,7 @@ export function BottomNav({ rutaActual }: { rutaActual?: string } = {}) {
   return (
     <nav
       aria-label="Secciones"
-      className="fixed inset-x-0 bottom-0 z-(--z-overlay) grid grid-cols-[1fr_auto] items-center gap-2 border-t border-border bg-background px-3 pb-[env(safe-area-inset-bottom)] md:hidden"
+      className="fixed inset-x-0 bottom-0 z-(--z-overlay) grid grid-cols-[1fr_auto] items-center gap-1.5 border-t border-border bg-background px-2 pb-[env(safe-area-inset-bottom)] md:hidden"
       style={{ minHeight: `calc(${ALTO_PIE} + env(safe-area-inset-bottom))` }}
     >
       <div className="grid h-[3.3rem] grid-cols-5">
@@ -81,7 +81,7 @@ export function BottomNav({ rutaActual }: { rutaActual?: string } = {}) {
         type="button"
         onClick={() => setQuickAddOpen(true)}
         aria-label="Nueva tarea"
-        className="press flex size-[3.3rem] items-center justify-center rounded-full bg-primary text-primary-foreground shadow-[0_.5em_1.4em_-.4em_var(--glow)] transition-[background-color,transform] duration-(--dur-toque) ease-(--ease-pluma) focus-ring hover:bg-primary/90"
+        className="press flex size-[2.85rem] items-center justify-center rounded-full bg-primary text-primary-foreground shadow-[0_.5em_1.4em_-.4em_var(--glow)] transition-[background-color,transform] duration-(--dur-toque) ease-(--ease-pluma) focus-ring hover:bg-primary/90"
       >
         <Plus className="size-6" />
       </button>
