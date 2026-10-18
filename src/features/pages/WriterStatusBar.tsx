@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef } from "react";
-import { Flame, Focus, Minimize2, Target } from "lucide-react";
+import { Flame, Focus, Minimize2, Scroll, Target } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useSharedEditor } from "./EditorContext";
 import { useWordCount } from "./use-word-count";
@@ -25,6 +25,12 @@ const STREAK_MILESTONES = [7, 30, 100, 365];
  * Status bar del arquetipo Writing (PLAN-11 §7): palabras del capítulo en vivo,
  * progreso de la obra contra su meta y racha. El conteo se deriva del contenido
  * Tiptap: nunca un contador persistido (D12: derivar > mantener).
+ *
+ * Es un grupo con nombre y no una región viva: la cifra cambia en cada pausa
+ * de tecleo y un lector de pantalla no tiene por qué repetir la barra entera.
+ * La racha que ya cuenta hoy va en --ok y el progreso de la obra en tinta: el
+ * ámbar se queda para la acción. «Papel cálido» y «Enfoque» son interruptores
+ * con borde cuando están apagados y tinta llena cuando están puestos.
  */
 export function WriterStatusBar({
   obra,
@@ -92,7 +98,7 @@ export function WriterStatusBar({
     // se teclea, así que baja con el texto y deja de competir; escribiendo, lo
     // que se toca es la barra del pulgar. Papel con hairline, sin vidrio.
     <div
-      role="status"
+      role="group"
       aria-label="Estado del capítulo"
       className="z-(--z-raised) flex flex-wrap items-center gap-x-4 gap-y-1 border-t border-border bg-background px-4 py-1 text-sm text-muted-foreground md:sticky md:bottom-0 md:flex-nowrap md:px-6"
     >
@@ -119,7 +125,7 @@ export function WriterStatusBar({
             >
               <div
                 data-slot="progreso"
-                className="h-full w-full origin-left rounded-full bg-primary transition-transform duration-(--dur-cuenta) ease-(--ease-pluma)"
+                className="h-full w-full origin-left rounded-full bg-foreground transition-transform duration-(--dur-cuenta) ease-(--ease-pluma)"
                 style={{ transform: `scaleX(${pct / 100})` }}
               />
             </div>
@@ -140,7 +146,7 @@ export function WriterStatusBar({
             aria-hidden
             className={cn(
               "size-3.5",
-              overview.streakIncludesToday ? "text-primary" : "text-muted-foreground",
+              overview.streakIncludesToday ? "text-ok" : "text-muted-foreground",
             )}
           />
           {overview.streakDays === 1 ? "1 día" : `${overview.streakDays} días`}
@@ -156,7 +162,8 @@ export function WriterStatusBar({
             className={BOTON}
             title="Escribir sobre papel cálido"
           >
-            Papel
+            <Scroll aria-hidden className="size-4" />
+            Papel cálido
           </button>
         )}
         {onToggleFocus && (
@@ -176,6 +183,9 @@ export function WriterStatusBar({
   );
 }
 
-/** Los dos interruptores de la barra: palabra en tinta si está activo, 48 px en un dedo. */
+/**
+ * Los dos interruptores de la barra: borde cuando están apagados, tinta llena
+ * cuando están puestos, 48 px en un dedo.
+ */
 const BOTON =
-  "flex h-9 items-center gap-1.5 rounded-full px-3 text-sm font-medium transition-[color,background-color] duration-(--dur-toque) ease-(--ease-pluma) focus-ring hover:text-foreground aria-pressed:bg-foreground aria-pressed:text-background pointer-coarse:h-[2.85rem]";
+  "flex h-9 items-center gap-1.5 rounded-full border border-input px-3 text-sm font-medium transition-[color,background-color,border-color] duration-(--dur-toque) ease-(--ease-pluma) focus-ring hover:text-foreground aria-pressed:border-foreground aria-pressed:bg-foreground aria-pressed:text-background pointer-coarse:h-[2.85rem]";
