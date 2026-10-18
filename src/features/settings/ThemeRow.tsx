@@ -46,8 +46,9 @@ export function textoTema(modo: ThemeMode, sistemaOscuro: boolean | null): strin
 /**
  * El tema como segmento en tinta, en línea en el índice: un toque, y no los
  * cinco del select de antes. Aplica al instante en este dispositivo y viaja a
- * la cuenta para el siguiente que estrene. La línea de debajo espera a saber
- * qué eligió este dispositivo para no contradecir al segmento ni un instante.
+ * la cuenta para el siguiente que estrene. El segmento y la línea de debajo
+ * esperan a saber qué eligió este dispositivo: ni marcan Sistema por defecto
+ * ni contradicen lo elegido un instante.
  */
 export function ThemeRow() {
   const mode = useThemeStore((s) => s.mode);
@@ -74,7 +75,15 @@ export function ThemeRow() {
         <span id={tituloId} className="text-base leading-6 font-semibold text-foreground">
           Tema
         </span>
-        <Segmented aria-labelledby={tituloId} value={mode} onValueChange={elegir} options={OPCIONES} />
+        {/* Antes de saber qué eligió este dispositivo el store dice "system"
+            por defecto: marcarlo haría saltar el segmento de Sistema al valor
+            real en cada carga. Mientras tanto, la pastilla del mismo tamaño
+            que deja el esqueleto. */}
+        {hydrated ? (
+          <Segmented aria-labelledby={tituloId} value={mode} onValueChange={elegir} options={OPCIONES} />
+        ) : (
+          <Pendiente className="h-[3.35rem] w-[13.9rem] rounded-full" />
+        )}
       </span>
       <span data-slot="settings-meta" aria-live="polite" className="mt-1 block h-5 truncate text-sm leading-5 text-muted-foreground">
         {texto ?? <Pendiente className="w-48" />}
