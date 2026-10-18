@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { Download, X } from "lucide-react";
+import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 
 const DISMISSED_KEY = "kino-install-prompt-dismissed";
@@ -48,19 +49,42 @@ export function InstallPrompt() {
 
   if (!visible) return null;
 
+  return <InstallStrip onInstall={handleInstall} onDismiss={handleDismiss} />;
+}
+
+/**
+ * La tira de instalar: papel con un hairline encima del pie en el teléfono y
+ * una tarjeta en la esquina desde md. `fijo` en falso la deja en el flujo,
+ * para el catálogo.
+ */
+export function InstallStrip({
+  onInstall,
+  onDismiss,
+  fijo = true,
+}: {
+  onInstall: () => void;
+  onDismiss: () => void;
+  fijo?: boolean;
+}) {
   return (
-    <div className="fixed inset-x-0 bottom-(--kino-bottom-chrome) z-(--z-overlay) flex items-start gap-2 border-t border-border bg-background px-5 py-4 md:inset-x-auto md:right-6 md:bottom-6 md:w-80 md:rounded-xl md:border md:shadow-(--shadow)">
+    <div
+      className={cn(
+        "flex items-start gap-2 border-t border-border bg-background px-5 py-4",
+        fijo &&
+          "fixed inset-x-0 bottom-(--kino-bottom-chrome) z-(--z-overlay) md:inset-x-auto md:right-6 md:bottom-6 md:w-80 md:rounded-xl md:border md:shadow-(--shadow)",
+      )}
+    >
       <div className="min-w-0 flex-1 space-y-1">
         <p className="font-display text-base font-bold tracking-tight">Instalar Kino</p>
         <p className="text-sm text-muted-foreground">
           Agrégalo a tu pantalla de inicio para abrirlo en un toque y recibir avisos.
         </p>
-        <Button size="sm" className="mt-2" onClick={handleInstall}>
+        <Button size="sm" className="mt-2" onClick={onInstall}>
           <Download className="size-4" />
           Instalar
         </Button>
       </div>
-      <Button variant="ghost" size="icon-sm" onClick={handleDismiss} aria-label="Descartar" className="-mt-2 -mr-2 shrink-0 text-muted-foreground">
+      <Button variant="ghost" size="icon-sm" onClick={onDismiss} aria-label="Descartar" className="-mt-2 -mr-2 shrink-0 text-muted-foreground">
         <X className="size-5" />
       </Button>
     </div>

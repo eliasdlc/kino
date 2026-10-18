@@ -5,7 +5,8 @@ import { Section, SubSection, Specimen } from "../helpers";
 import { MobileHeader } from "@/components/MobileHeader";
 import { BottomNav } from "@/components/BottomNav";
 import { PageError } from "@/components/PageError";
-import { PageSkeleton, RowsSkeleton, TitleSkeleton } from "@/components/Skeletons";
+import { PageHeaderSkeleton, PageSkeleton, RowsSkeleton, TitleSkeleton } from "@/components/Skeletons";
+import { InstallStrip } from "@/components/InstallPrompt";
 import TasksLoading from "@/app/(app)/tasks/loading";
 
 /**
@@ -109,6 +110,11 @@ export function MobileSection() {
               <PageSkeleton />
             </Telefono>
           </Specimen>
+          <Specimen label="Cabecera de pantalla esperando" hint="PageHeaderSkeleton accion voz: la misma rejilla que PageHeader">
+            <div className="w-[360px] px-5 py-4">
+              <PageHeaderSkeleton accion voz />
+            </div>
+          </Specimen>
           <Specimen label="Piezas" hint="TitleSkeleton, RowsSkeleton con numeral">
             <div className="w-[360px] px-5 py-4">
               <TitleSkeleton voz />
@@ -118,6 +124,17 @@ export function MobileSection() {
             </div>
           </Specimen>
         </div>
+      </SubSection>
+
+      <SubSection
+        title="Instalar"
+        description="La tira que ofrece instalar la app cuando el navegador lo permite: papel con hairline encima del pie, el título en display, una pastilla Instalar y Descartar a 48 px. Se descarta para siempre en este dispositivo."
+      >
+        <Specimen label="Tira de instalar en el teléfono" hint="InstallStrip, fijo={false}">
+          <div className="w-[393px]">
+            <InstallStrip onInstall={() => {}} onDismiss={() => {}} fijo={false} />
+          </div>
+        </Specimen>
       </SubSection>
 
       <SubSection
