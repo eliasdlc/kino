@@ -37,8 +37,8 @@ describe('estados vacíos por arquetipo', () => {
       hint: 'Crea el primer apunte y, si quieres, agrúpalos en clases.',
     });
     expect(pagesEmptyCopy(SYSTEM_TYPE_CONFIG.project)).toEqual({
-      title: 'Todavía no tienes docs',
-      hint: 'Crea el primer doc para empezar a escribir.',
+      title: 'Todavía no tienes documentos',
+      hint: 'Crea el primer documento para empezar a escribir.',
     });
   });
 
