@@ -14,6 +14,7 @@ import {
 import { EnergyTodayCard } from "@/features/dashboard/EnergyTodayCard";
 import { EnergyChart, curveSummary } from "@/features/dashboard/EnergyChart";
 import { EnergyCount } from "@/features/dashboard/EnergyCount";
+import { HoySkeleton } from "@/features/dashboard/HoySkeleton";
 import { SectionHead } from "@/features/dashboard/SectionHead";
 import { MarginRow } from "@/components/ui/margin-row";
 import { STICKY_NOTE_COLORS, paperStyle } from "@/features/sticky-notes/sticky-note-colors";
@@ -163,7 +164,7 @@ export function DashboardSection() {
     >
       <SubSection
         title="La cota"
-        description="La cifra del día en Bricolage 800 y en el acento, con su cuenta de 550 ms aislada en EnergyCount; la palabra que la explica es el h1 de la pantalla y la frase va en la voz, Literata cursiva. Debajo, la curva con sus horas, el tramo como segmento en tinta y el registro como pastilla; elegir otro tramo cambia la lectura y el botón registra ese tramo. La fecha de arriba enlaza al calendario y se lee como enlace, con icono y chevron. Interactivo (el guardado falla sin backend)."
+        description="La cifra del día en Bricolage 800 y en el acento, con su cuenta de 550 ms aislada en EnergyCount; la palabra que la explica es el h1 de la pantalla y la frase va en la voz, Literata cursiva. Debajo, la curva con sus horas, el tramo como segmento en tinta y el registro como pastilla; elegir otro tramo cambia la lectura y el botón registra ese tramo; un tramo que aún no llegó (aquí, la noche) se mira pero no se registra, y una línea en mute ocupa el sitio de la pastilla. La fecha de arriba enlaza al calendario y se lee como enlace, con icono y chevron. Interactivo (el guardado falla sin backend)."
       >
         <div className="max-w-xl">
           <EnergyTodayCard
@@ -172,6 +173,15 @@ export function DashboardSection() {
             projectedCurve={MOCK_CURVE}
             chronotype="morning"
           />
+        </div>
+      </SubSection>
+
+      <SubSection
+        title="Hoy esperando"
+        description="El esqueleto de /dashboard (HoySkeleton, el mismo que monta loading.tsx): el canto y las dos columnas de la página, la fecha, la cota con la cifra a 4.4rem (unos 5.2rem de ancho), la palabra, la frase y el origen, la curva con su renglón de horas y su leyenda, el segmento y la pastilla de registrar a su alto real, la barra del presupuesto, y el plan con su título sobre hairline y tres filas de margen con el círculo de 1.35rem. Quieto: un esqueleto no late."
+      >
+        <div data-specimen="hoy-skeleton">
+          <HoySkeleton />
         </div>
       </SubSection>
 
@@ -188,7 +198,7 @@ export function DashboardSection() {
 
       <SubSection
         title="La curva del día"
-        description="EnergyChart en CSS puro: 24 barras de una rejilla escaladas con scaleY (nunca height), el pico en el acento, la hora actual en tinta y cada registro como un punto a la altura de su valor; debajo, las 6, las 12 y las 18 en mute. No se anima. La figura lleva su frase como nombre accesible."
+        description="EnergyChart en CSS puro: 24 barras de una rejilla escaladas con scaleY (nunca height), el pico en el acento, la hora actual en tinta, sin radio para que scaleY no estire las esquinas, y cada registro como un punto a la altura de su valor; debajo, las 6, las 12 y las 18 en mute. No se anima. La figura lleva su frase como nombre accesible."
       >
         <div className="max-w-xl pl-(--margen)">
           <EnergyChart data={chartData} peak={{ start: 9, end: 12 }} currentHour={15} />
@@ -196,7 +206,7 @@ export function DashboardSection() {
         </div>
       </SubSection>
 
-      <SubSection title="El check-in" description="El formulario en la misma página: tramo y sueño como segmentos en tinta, la cifra en Bricolage sobre el deslizador, Guardar como única pastilla del acento.">
+      <SubSection title="El check-in" description="El formulario en la misma página: tramo y sueño como segmentos en tinta, con las horas del tramo escritas como en la curva (6 AM a 12 PM), la cifra en Bricolage sobre el deslizador, Guardar como única pastilla del acento. En Hoy sólo ofrece los tramos que ya llegaron; aquí van los tres.">
         <div className="max-w-md">
           <EnergyCheckinForm
             defaultLevel={65}
@@ -287,9 +297,9 @@ export function DashboardSection() {
         </div>
       </SubSection>
 
-      <SubSection title="La fila inferior" description="Los bloques de abajo del plan, cada uno con su título y hairline, sin caja alrededor. El coach lleva pestañas de palabra de 48 px y botones del táctil, con el estado en curso dicho en una palabra; Tu patrón es una columna de renglones, con el pico en tinta y el ciclo de la última predicción como una línea bajo hairline.">
+      <SubSection title="La fila inferior" description="Los bloques de abajo del plan, cada uno con su título y hairline, sin caja alrededor. El coach lleva tres vistas de palabra de 48 px (botones con aria-pressed, no pestañas) y botones del táctil que no sobresalen del panel, con el estado en curso dicho en una palabra; Tu patrón es una columna de renglones, con el pico y su consejo en tinta, la personalización como una medida en tinta y el ciclo de la última predicción como una línea bajo hairline; sin pico, una sola frase dice que el ritmo se está aprendiendo. Los últimos 7 días llevan una frase por tira para el lector de pantalla y, sin datos, una frase en la voz.">
         <SpecimenGrid cols={2}>
-          <Specimen label="CoachPanel" hint="pestañas de 48 px, sin spinner" className="items-stretch">
+          <Specimen label="CoachPanel" hint="vistas de 48 px, sin spinner" className="items-stretch">
             <Seeded stubs={SUGERENCIAS}>
               <div className="w-full">
                 <SectionHead title="Coach" />
@@ -301,6 +311,27 @@ export function DashboardSection() {
             <div className="w-full">
               <SectionHead title="Últimos 7 días" />
               <WeeklyTrendsCard trends={mockWeeklyTrend()} />
+            </div>
+          </Specimen>
+          <Specimen label="WeeklyTrendsCard sin datos" hint="la semana todavía vacía" className="items-stretch">
+            <div className="w-full">
+              <SectionHead title="Últimos 7 días" />
+              <WeeklyTrendsCard trends={{ snapshots: [], checkins: [] } as unknown as ReturnType<typeof mockWeeklyTrend>} />
+            </div>
+          </Specimen>
+          <Specimen label="LearningInsightCard sin pico" hint="el ritmo todavía se aprende" className="items-stretch">
+            <div className="w-full">
+              <SectionHead title="Tu patrón" />
+              <LearningInsightCard
+                insight={mockLearningInsight({
+                  peak: null,
+                  advice: { tone: "after", text: "Tu ritmo todavía se está aprendiendo: registra tu energía para afinarlo." },
+                  personalizationPct: 5,
+                  sparkline: [],
+                  correlationFactor: null,
+                  accuracy: null,
+                })}
+              />
             </div>
           </Specimen>
           <Specimen label="LearningInsightCard" hint="pico, ciclo, precisión, personalización" className="items-stretch">
