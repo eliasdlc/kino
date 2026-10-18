@@ -1,15 +1,29 @@
 "use client";
 
-import { Section, SubSection, Specimen, SpecimenGrid } from "../helpers";
+import { Section, SubSection, Specimen, SpecimenGrid, Seeded, seedQuery } from "../helpers";
 import {
   makeFolder,
   makePage,
+  makeSystem,
   makeStickyNote,
   makeLinkedTask,
   daysFromNow,
   MOCK_SYSTEM_ID, mid } from "../mock-data";
-import { FolderCard } from "@/features/notebooks/FolderCard";
-import { NotebookCard } from "@/features/notebooks/NotebookCard";
+import { api } from "@convex/_generated/api";
+import { Feather, Pencil, Trash2 } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { FolderRow } from "@/features/notebooks/FolderRow";
+import { FolderContents } from "@/features/notebooks/FolderContents";
+import { NotebookRow } from "@/features/notebooks/NotebookRow";
+import { IndexHead } from "@/features/notebooks/IndexHead";
+import { RowActions } from "@/features/notebooks/RowActions";
+import { ObraRow } from "@/features/systems/views/SystemWritingView";
+import { Readings } from "@/features/systems/SystemDetailHeader";
+import { systemTileStyle } from "@/features/systems/system-tint";
+import { SystemColorPicker, SystemIconPicker } from "@/features/systems/SystemPickers";
+import { NewFolderInline } from "@/features/folders/NewFolderInline";
+import { SYSTEM_TYPE_CONFIG } from "@/shared/lib/system-types";
+import { useState } from "react";
 import { StickyNoteCard } from "@/features/sticky-notes/StickyNoteCard";
 import { LinkedTaskCard } from "@/features/pages/LinkedTaskCard";
 import { DocumentRail, RailCard } from "@/features/pages/DocumentRail";
@@ -18,61 +32,202 @@ import type { ReactNode } from "react";
 
 const noop = () => {};
 
+/** Un día fijo, para que "ayer" y "12 sept" no dependan del reloj de quien mira. */
+const HOY = new Date(2026, 9, 18, 12);
+
+/** Las filas preguntan por el sistema para hablar su vocabulario: aquí, uno de escritura. */
+const INDICE_STUBS = [
+  seedQuery(api.systems.list, [makeSystem({ id: MOCK_SYSTEM_ID, name: "La casa de las cotas", templateType: "writing", color: "purple" })]),
+  seedQuery(api.folders.children, [makeFolder({ id: mid("parte-1"), name: "Capítulos 1 a 5", subfolderCount: 0, pageCount: 3 })]),
+];
+
+/** Los manuscritos de la obra del specimen. */
+const PAGINAS_OBRA = [
+  makePage({ id: mid("po-1"), title: "El clima que no cabe", folderId: mid("obra-1"), wordCount: 1240, updatedAt: new Date(2026, 9, 17).toISOString() }),
+  makePage({ id: mid("po-2"), title: "La subida", folderId: mid("obra-1"), wordCount: 0, updatedAt: new Date(2026, 8, 12).toISOString() }),
+];
+
+/** Dos manuscritos de una carpeta. */
+const PAGINAS_DE_CARPETA = [
+  makePage({ id: mid("pc-1"), title: "El clima que no cabe", folderId: mid("fr-2"), wordCount: 1240, updatedAt: new Date(2026, 9, 17).toISOString() }),
+  makePage({ id: mid("pc-2"), title: "La subida", folderId: mid("fr-2"), wordCount: 0, updatedAt: new Date(2026, 8, 12).toISOString() }),
+];
+
 export function NotebooksSection() {
   return (
     <Section
       id="notebooks"
       number="13"
-      title="Notebooks, páginas y sticky notes"
-      description="Los objetos físicos del arquetipo de escritura/notas: carpetas con papeles que asoman, cards de página con preview, post-its y tareas vinculadas a una página."
+      title="Índice, documentos y notas adhesivas"
+      description="La biblioteca de un sistema como índice de Diario: títulos de sección con hairline, carpetas con numeral romano que se despliegan, documentos numerados con su cifra de palabras, y la nota adhesiva como papel. Nada es una tarjeta."
     >
       <SubSection
-        title="FolderCard"
-        description="Carpeta física sobre PhysicalCard: pestaña, solapa y papeles que se abanican en hover (solo si tiene contenido)."
+        title="IndexHead"
+        description="El título de una sección del índice: la palabra en Bricolage, a la derecha su cuenta en mute o su acción con nombre, y un hairline fuerte debajo. Sustituye a la caja que agrupaba."
       >
-        <div className="grid max-w-lg grid-cols-2 gap-4">
-          <FolderCard
-            folder={makeFolder({ name: "Apuntes de clase" })}
-            systemId={MOCK_SYSTEM_ID}
-            onClick={noop}
-          />
-          <FolderCard
-            folder={makeFolder({ id: mid("f2"), name: "Carpeta vacía", subfolderCount: 0, pageCount: 0 })}
-            systemId={MOCK_SYSTEM_ID}
-            onClick={noop}
-          />
-        </div>
+        <SpecimenGrid cols={2}>
+          <Specimen label="Con acción" className="items-stretch">
+            <div className="w-full">
+              <IndexHead title="Obras" trailing={<Button variant="link" size="sm" className="px-1">Nueva obra</Button>} />
+            </div>
+          </Specimen>
+          <Specimen label="Con cuenta" className="items-stretch">
+            <div className="w-full">
+              <IndexHead title="Sin obra" trailing="1 manuscrito" />
+            </div>
+          </Specimen>
+        </SpecimenGrid>
       </SubSection>
 
       <SubSection
-        title="NotebookCard"
-        description="Card de página: fecha relativa (TODAY/YESTERDAY/…), preview del contenido, contador de palabras, tags con pill de color."
+        title="FolderRow"
+        description="Una carpeta (obra, clase, área, milestone) como fila de índice: numeral romano en mute en el margen, el nombre, lo que contiene con el vocabulario del sistema. Tocar el nombre abre la carpeta; el chevron la despliega aquí con sus hijas, sangradas sólo por el margen. Renombrar y eliminar son operaciones con nombre: menú en escritorio, hoja en el teléfono. Sustituye a FolderCard."
       >
-        <div className="grid max-w-2xl grid-cols-1 gap-4 sm:grid-cols-2">
-          <NotebookCard
-            page={makePage({
-              tags: [
-                { id: mid("t1"), title: "importante", color: "red", systemId: MOCK_SYSTEM_ID, isDefault: false },
-                { id: mid("t2"), title: "reunión", color: "blue", systemId: MOCK_SYSTEM_ID, isDefault: false },
-              ],
-            })}
-            systemId={MOCK_SYSTEM_ID}
-            href="#"
-          />
-          <NotebookCard
-            page={makePage({
-              id: mid("pg2"),
-              title: "Capítulo 3 — El regreso",
-              isPinned: true,
-              wordCount: 2431,
-              updatedAt: daysFromNow(-1),
-              contentPreview: "La casa dormía cuando ella bajó a la cocina…",
-              subPageCount: 2,
-            })}
-            systemId={MOCK_SYSTEM_ID}
-            href="#"
-          />
-        </div>
+        <Seeded stubs={INDICE_STUBS}>
+          <div className="w-full max-w-xl">
+            <FolderRow folder={makeFolder({ id: mid("fr-1"), name: "Apuntes de clase" })} systemId={MOCK_SYSTEM_ID} index={1} href="#" />
+            <FolderRow
+              folder={makeFolder({ id: mid("fr-2"), name: "Primera parte: la subida", subfolderCount: 1, pageCount: 2 })}
+              systemId={MOCK_SYSTEM_ID}
+              index={2}
+              href="#"
+              defaultOpen
+            >
+              <FolderContents systemId={MOCK_SYSTEM_ID} folderId={mid("fr-2")} pages={PAGINAS_DE_CARPETA} now={HOY} />
+            </FolderRow>
+            <FolderRow
+              folder={makeFolder({ id: mid("fr-3"), name: "Carpeta vacía", subfolderCount: 0, pageCount: 0 })}
+              systemId={MOCK_SYSTEM_ID}
+              index={3}
+              href="#"
+            >
+              <FolderContents systemId={MOCK_SYSTEM_ID} folderId={mid("fr-3")} pages={[]} now={HOY} />
+            </FolderRow>
+          </div>
+        </Seeded>
+      </SubSection>
+
+      <SubSection
+        title="NotebookRow"
+        description="Un documento como fila numerada: el número en mute en el margen, el título en Literata, la meta en mute (cuándo, sus etiquetas, terminado en --ok) y la cifra de palabras a la derecha. Sin vista previa ni chips de etiqueta. Sustituye a NotebookCard."
+      >
+        <Seeded stubs={INDICE_STUBS}>
+          <div className="w-full max-w-xl">
+            <NotebookRow
+              page={makePage({
+                id: mid("nr-1"),
+                title: "El clima que no cabe",
+                wordCount: 1240,
+                updatedAt: new Date(2026, 9, 17).toISOString(),
+                tags: [
+                  { id: mid("t1"), title: "importante", color: "red", systemId: MOCK_SYSTEM_ID, isDefault: false },
+                  { id: mid("t2"), title: "reunión", color: "blue", systemId: MOCK_SYSTEM_ID, isDefault: false },
+                ],
+              })}
+              systemId={MOCK_SYSTEM_ID}
+              index={1}
+              href="#"
+              now={HOY}
+            />
+            <NotebookRow
+              page={makePage({ id: mid("nr-2"), title: "Don Fermín lee la cota", wordCount: 860, completedAt: new Date(2026, 8, 12).toISOString(), updatedAt: new Date(2026, 8, 12).toISOString() } as never)}
+              systemId={MOCK_SYSTEM_ID}
+              index={2}
+              href="#"
+              now={HOY}
+            />
+            <NotebookRow
+              page={makePage({ id: mid("nr-3"), title: null, wordCount: 0, updatedAt: HOY.toISOString() })}
+              systemId={MOCK_SYSTEM_ID}
+              index={3}
+              href="#"
+              now={HOY}
+            />
+          </div>
+        </Seeded>
+      </SubSection>
+
+      <SubSection
+        title="ObraRow"
+        description="Una obra de escritura, desplegada: medio, manuscritos y palabras contra la meta en la meta; dormida en coral con la palabra delante. Al desplegarse, la barra de la meta por transform, las acciones con nombre en pastillas (Leer, Tablero, Capítulo, Diario, Compilar), el medio como select nativo de 48 px, sus partes con el glifo de carpeta y sus manuscritos numerados."
+      >
+        <Seeded stubs={INDICE_STUBS}>
+          <div className="w-full max-w-xl">
+            <ObraRow
+              obra={makeFolder({ id: mid("obra-1"), name: "Primera parte: la subida", metadata: { medium: "novel", wordGoal: 80000 }, subfolderCount: 0, pageCount: 2 })}
+              index={1}
+              pages={PAGINAS_OBRA}
+              systemId={MOCK_SYSTEM_ID}
+              pulse={{ folderId: mid("obra-1"), lastSessionAt: null, daysSinceLastSession: 31 }}
+              now={HOY}
+            />
+          </div>
+        </Seeded>
+      </SubSection>
+
+      <SubSection
+        title="RowActions"
+        description="Las operaciones de una fila con su nombre. En escritorio con ratón el botón aparece al pasar por la fila; en touch mide 2.85rem y abre una hoja con una fila de 48 px por operación, lo irreversible al final y en carmesí."
+      >
+        <SpecimenGrid cols={2}>
+          <Specimen label="Visible siempre" hint="la cabecera de un sistema">
+            <RowActions
+              subject="La casa de las cotas"
+              revealOnHover={false}
+              actions={[
+                { label: "Editar sistema", icon: Pencil, onSelect: noop },
+                { label: "Eliminar sistema", icon: Trash2, destructive: true, onSelect: noop },
+              ]}
+            />
+          </Specimen>
+          <Specimen label="Cabecera de sistema: tile y lecturas" hint="las tres cifras salen del manifiesto">
+            <div className="flex items-start gap-4">
+              <span aria-hidden className="flex size-[2.4rem] items-center justify-center rounded-xl" style={systemTileStyle("purple")}>
+                <Feather className="size-5" />
+              </span>
+              <Readings
+                readings={[
+                  { value: "0", label: "palabras hoy" },
+                  { value: "136", label: "de 80.000" },
+                  { value: "31", label: "días dormido", tone: "warn" },
+                ]}
+              />
+            </div>
+          </Specimen>
+          <Specimen label="Lecturas esperando" hint="la forma de las tres cifras, sin animar">
+            <Readings readings={null} />
+          </Specimen>
+          <Specimen label="Tile de los neutros" hint="blanco, gris y negro no tienen tinte que prestar">
+            <div className="flex gap-3">
+              {(["white", "gray", "black", "yellow"] as const).map((c) => (
+                <span key={c} aria-hidden className="flex size-[2.4rem] items-center justify-center rounded-xl" style={systemTileStyle(c)}>
+                  <Feather className="size-5" />
+                </span>
+              ))}
+            </div>
+          </Specimen>
+        </SpecimenGrid>
+      </SubSection>
+
+      <SubSection
+        title="Crear y elegir"
+        description="Crear una carpeta es una acción con nombre en el título de su sección que abre una hoja con un campo de 48 px por campo del manifiesto. El color y el icono de un sistema son radios de 48 px en touch; el elegido, en tinta o en el tile teñido."
+      >
+        <SpecimenGrid cols={2}>
+          <Specimen label="NewFolderInline" hint="toca para abrir la hoja">
+            <Seeded stubs={INDICE_STUBS}>
+              <NewFolderInline
+                systemId={MOCK_SYSTEM_ID}
+                label="Nueva obra"
+                placeholder="Nombre de la obra"
+                fields={SYSTEM_TYPE_CONFIG.writing.folderRole!.fields}
+              />
+            </Seeded>
+          </Specimen>
+          <Specimen label="SystemColorPicker" className="items-stretch">
+            <PickerDemo />
+          </Specimen>
+        </SpecimenGrid>
       </SubSection>
 
       <SubSection
@@ -211,6 +366,18 @@ function RailStage({ children }: { children: ReactNode }) {
         <div className="h-2 w-3/5 rounded bg-muted" />
       </div>
       {children}
+    </div>
+  );
+}
+
+/** Los dos selectores de un sistema, enlazados: el icono elegido toma el tile del color elegido. */
+function PickerDemo() {
+  const [color, setColor] = useState("purple");
+  const [icon, setIcon] = useState("feather");
+  return (
+    <div className="w-full space-y-3">
+      <SystemColorPicker value={color} onChange={setColor} />
+      <SystemIconPicker value={icon} color={color} onChange={setIcon} />
     </div>
   );
 }

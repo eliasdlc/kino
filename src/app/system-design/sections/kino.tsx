@@ -4,8 +4,7 @@ import { api } from "@convex/_generated/api";
 
 import { Section, SubSection, Specimen, Seeded, seedQuery } from "../helpers";
 import { makeSystem, makeTask, daysFromNow, MOCK_SYSTEM_ID, mid } from "../mock-data";
-import { SystemCard } from "@/features/systems/SystemCard";
-import { PhysicalCard } from "@/components/PhysicalCard";
+import { SystemRow } from "@/features/systems/SystemRow";
 import { TaskCardFor } from "@/features/tasks/cards/TaskCardFor";
 import { ItemEventList } from "@/features/tasks/ItemEventList";
 import { AgentActivityRow } from "@/features/today/AgentActivityRow";
@@ -78,65 +77,31 @@ export function KinoSection() {
       description="Componentes propios del producto, renderizados con datos de muestra: son los mismos componentes de producción, así que cualquier cambio en ellos se refleja aquí."
     >
       <SubSection
-        title="SystemCard"
-        description="La card física de /systems: cuerpo del color del sistema, cremallera con hover, banda de etiqueta. Estados: normal, stale (anillo ámbar) y hover (levita + abre cremallera)."
+        title="SystemRow"
+        description="El índice de /systems: el glifo del sistema en su color en el margen, el nombre, y en la meta tipo, activas y última actividad. Dormido va en coral con la palabra delante. La Bandeja es la primera fila y lleva a /bandeja. Las operaciones con nombre van en el botón de la derecha: menú en escritorio, hoja inferior en el teléfono."
       >
-        <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4">
-          <SystemCard
-            system={makeSystem({ name: "Universidad", color: "blue", templateType: "academic" })}
+        <div className="w-full max-w-xl">
+          <SystemRow system={makeSystem({ id: mid("sr-inbox"), name: "Inbox", isInbox: true, templateType: "inbox", activeTaskCount: 4 })} />
+          <SystemRow
+            system={makeSystem({ id: mid("sr-uni"), name: "Universidad", color: "blue", templateType: "academic", icon: "graduation" })}
             onEdit={noop}
             onDelete={noop}
           />
-          <SystemCard
-            system={makeSystem({
-              name: "Side project",
-              color: "purple",
-              templateType: "project",
-              activeTaskCount: 3,
-            })}
+          <SystemRow
+            system={makeSystem({ id: mid("sr-novela"), name: "La casa de las cotas", color: "purple", templateType: "writing", icon: "feather", activeTaskCount: 1, daysSinceLastActivity: 0 })}
             onEdit={noop}
             onDelete={noop}
           />
-          <SystemCard
-            system={makeSystem({
-              name: "Novela",
-              color: "orange",
-              templateType: "writing",
-              activeTaskCount: 1,
-            })}
+          <SystemRow
+            system={makeSystem({ id: mid("sr-salud"), name: "Salud", color: "green", templateType: "personal", icon: "heart", stale: true, activeTaskCount: 2, daysSinceLastActivity: 14 })}
             onEdit={noop}
             onDelete={noop}
           />
-          <SystemCard
-            system={makeSystem({
-              name: "Salud",
-              color: "green",
-              templateType: "personal",
-              stale: true,
-              activeTaskCount: 0,
-            })}
+          <SystemRow
+            system={makeSystem({ id: mid("sr-blanco"), name: "Papeles", color: "white", templateType: "custom", icon: "folder", activeTaskCount: 0, daysSinceLastActivity: null })}
             onEdit={noop}
             onDelete={noop}
           />
-        </div>
-      </SubSection>
-
-      <SubSection
-        title="PhysicalCard (marco genérico)"
-        description="El marco reutilizable de objeto físico: superficie cuadrada, clip redondeado 20/28px, hover lift. El cuerpo visual lo pone cada consumidor (sistemas, folders…)."
-      >
-        <div className="grid max-w-md grid-cols-2 gap-4">
-          <PhysicalCard ariaLabel="Ejemplo simple" onClick={noop}>
-            <div className="absolute inset-0 bg-gradient-to-br from-teal-500 to-teal-700" />
-            <div className="absolute inset-x-0 bottom-0 h-1/3 bg-card p-3">
-              <p className="text-xs font-semibold">Cuerpo libre</p>
-            </div>
-          </PhysicalCard>
-          <PhysicalCard ariaLabel="Ejemplo plano" onClick={noop}>
-            <div className="absolute inset-0 flex items-center justify-center bg-muted">
-              <p className="text-sm text-muted-foreground">children</p>
-            </div>
-          </PhysicalCard>
         </div>
       </SubSection>
 

@@ -1,7 +1,7 @@
 "use client";
 
 import { CyclePicker } from "@/features/academic/CyclePicker";
-import { ClassCard } from "@/features/academic/ClassCard";
+import { ClassRow } from "@/features/academic/ClassRow";
 import { DefaultTaskCard } from "@/features/tasks/cards/DefaultTaskCard";
 import { Suspense, useState } from "react";
 import { DndContext } from "@dnd-kit/core";
@@ -99,18 +99,20 @@ export function TasksViewsSection() {
               <CyclePicker system={makeSystem({ templateType: "academic" })} initialPeriods={ACADEMIC_PERIODS} />
             </Suspense>
           </Specimen>
-          <Specimen label="Tarjeta de clase" hint="La rejilla de apuntes de un sistema académico. Dice quién la da, cuándo se ve y qué está por entregar.">
+          <Specimen label="Fila de clase" hint="El índice de un sistema académico. Dice quién la da, cuándo se ve, cuánto falta y la entrega más próxima.">
             <Suspense fallback={<div className="h-32" />}>
-              <div className="grid max-w-3xl gap-3 sm:grid-cols-2">
-                <ClassCard
+              <div className="w-full max-w-xl">
+                <ClassRow
+                  index={1}
                   folder={{ ...makeFolder({ name: "Inteligencia de Negocios" }), metadata: { professor: "Prof. Rodríguez", schedule: "Lun y Mie 9:00" }, subfolderCount: 0, pageCount: 9 }}
                   systemId={MOCK_SYSTEM_ID}
                   periods={ACADEMIC_PERIODS}
                   tasks={[makeTask({ title: "Práctica 4", dueDate: daysFromNow(-1) }), makeTask({ title: "Parcial 2", dueDate: daysFromNow(6) })]}
                   href="#"
                 />
-                <ClassCard
-                  folder={{ ...makeFolder({ name: "Seminario de Investigación Aplicada a la Ingeniería de Software" }), metadata: {}, subfolderCount: 0, pageCount: 0 }}
+                <ClassRow
+                  index={2}
+                  folder={{ ...makeFolder({ id: mid("seminario"), name: "Seminario de Investigación Aplicada a la Ingeniería de Software" }), metadata: {}, subfolderCount: 0, pageCount: 0 }}
                   systemId={MOCK_SYSTEM_ID}
                   periods={ACADEMIC_PERIODS}
                   tasks={[]}
