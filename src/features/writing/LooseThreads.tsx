@@ -179,11 +179,13 @@ function ThreadRow({
           type="button"
           onClick={onOpen}
           className={cn(
-            "block max-w-full truncate rounded-md py-1 text-left text-base font-semibold focus-ring hover:underline",
+            // El nombre mide una línea; el antes invisible alarga el toque a
+            // 48 px sin mover el texto ni el glifo del margen.
+            "relative block max-w-full rounded-md py-1 text-left text-base font-semibold focus-ring hover:underline before:absolute before:inset-x-0 before:-inset-y-2 before:content-['']",
             thread.resolved ? "text-muted-foreground" : "text-foreground",
           )}
         >
-          {thread.name}
+          <span className="block truncate">{thread.name}</span>
         </button>
         <p className="text-sm text-muted-foreground">
           {thread.totalMentions === 1 ? "1 mención" : `${thread.totalMentions} menciones`}
