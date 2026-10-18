@@ -34,8 +34,8 @@ export function ChapterHistory({ pageId }: { pageId: string }) {
       </h3>
       <MarginRow
         onClick={() => setOpen(true)}
-        className="items-start"
-        margin={<span className="flex h-[2.15rem] items-center"><History aria-hidden className="size-5" /></span>}
+        className="[&>[data-slot=margin-row-margin]]:self-center [&>[data-slot=margin-row-margin]]:pt-0"
+        margin={<span className="flex items-center"><History aria-hidden className="size-5" /></span>}
       >
         <span className="block text-base text-foreground">Versiones del capítulo</span>
       </MarginRow>

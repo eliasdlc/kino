@@ -27,8 +27,8 @@ export function ChapterSummaryPanel({ pageId }: { pageId: string }) {
       {!asked ? (
         <MarginRow
           onClick={() => setAsked(true)}
-          className="items-start"
-          margin={<span className="flex h-[2.15rem] items-center"><Quote aria-hidden className="size-5" /></span>}
+          className="[&>[data-slot=margin-row-margin]]:self-center [&>[data-slot=margin-row-margin]]:pt-0"
+          margin={<span className="flex items-center"><Quote aria-hidden className="size-5" /></span>}
         >
           <span className="block text-base text-foreground">Resumir este capítulo</span>
         </MarginRow>

@@ -113,6 +113,7 @@ export function CompileMenu({
               <MarginRow
                 onClick={disponible ? () => run("text").then(() => setOpen(false)) : undefined}
                 aria-disabled={!disponible || undefined}
+                className={UNA_LINEA}
                 margin={<FileText aria-hidden className="size-5" />}
                 trailing={!manuscript ? "Preparando" : null}
               >
@@ -121,11 +122,12 @@ export function CompileMenu({
               <MarginRow
                 onClick={disponible ? () => run("docx").then(() => setOpen(false)) : undefined}
                 aria-disabled={!disponible || undefined}
+                className={UNA_LINEA}
                 margin={<FileText aria-hidden className="size-5" />}
               >
                 <span className="block text-base text-foreground">Word (.docx)</span>
               </MarginRow>
-              <MarginRow href={pdfHref} margin={<Printer aria-hidden className="size-5" />}>
+              <MarginRow href={pdfHref} className={UNA_LINEA} margin={<Printer aria-hidden className="size-5" />}>
                 <span className="block text-base text-foreground">PDF, imprimiendo la lectura</span>
               </MarginRow>
             </div>
@@ -162,6 +164,9 @@ export function CompileMenu({
     </DropdownMenu>
   );
 }
+
+/** Filas de una línea: el glifo del margen centrado con el texto. */
+const UNA_LINEA = "[&>[data-slot=margin-row-margin]]:self-center [&>[data-slot=margin-row-margin]]:pt-0";
 
 function metaOf(manuscript: Manuscript): CompileMeta {
   return {
