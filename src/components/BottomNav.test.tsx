@@ -114,4 +114,31 @@ describe("BottomNav", () => {
     });
     expect(screen.getByRole("navigation", { name: "Secciones" })).toBeInTheDocument();
   });
+
+  it("se retira cuando el viewport visual encoge como un teclado, no como las barras del navegador", () => {
+    const viewport = Object.assign(new EventTarget(), { height: 852 });
+    Object.defineProperty(window, "visualViewport", { configurable: true, value: viewport });
+    window.innerHeight = 852;
+    renderMobile(<BottomNav />);
+    expect(screen.getByRole("navigation", { name: "Secciones" })).toBeInTheDocument();
+
+    act(() => {
+      viewport.height = 790;
+      viewport.dispatchEvent(new Event("resize"));
+    });
+    expect(screen.getByRole("navigation", { name: "Secciones" })).toBeInTheDocument();
+
+    act(() => {
+      viewport.height = 520;
+      viewport.dispatchEvent(new Event("resize"));
+    });
+    expect(screen.queryByRole("navigation", { name: "Secciones" })).toBeNull();
+
+    act(() => {
+      viewport.height = 852;
+      viewport.dispatchEvent(new Event("resize"));
+    });
+    expect(screen.getByRole("navigation", { name: "Secciones" })).toBeInTheDocument();
+    Object.defineProperty(window, "visualViewport", { configurable: true, value: undefined });
+  });
 });

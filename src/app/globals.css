@@ -163,13 +163,12 @@
   --z-modal: 30;
   --z-toast: 40;
 
-  /* Lo que el chrome inferior le quita a la pantalla del teléfono: el pie con
-     su margen, el banner del timer cuando corre y el área segura del
+  /* Lo que el chrome inferior le quita a la pantalla del teléfono: el pie, el banner del timer cuando corre y el área segura del
      dispositivo. Se suma aquí y en ningún otro sitio; `<main>` reserva
      leyendo la variable, nunca un número, así que mover el pie es cambiar
      una línea. En escritorio no hay chrome abajo y vale cero. `BottomNav` la
      pone a cero mientras el teclado está abierto. */
-  --kino-bottom-nav: 5.4rem;
+  --kino-bottom-nav: 4rem;
   --kino-bottom-timer: 0rem;
   --kino-bottom-chrome: 0px;
 

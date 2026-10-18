@@ -16,8 +16,6 @@ import { DESTINOS_MOVIL, destinoActivo } from "./navigation";
  */
 const UMBRAL_TECLADO = 150;
 
-/** Lo que mide el pie sin el área segura. `<main>` lo reserva por la variable. */
-const ALTO_PIE = "4rem";
 
 /**
  * El pie del teléfono: papel con un hairline arriba, cinco palabras y el orbe
@@ -46,11 +44,9 @@ export function BottomNav({ rutaActual }: { rutaActual?: string } = {}) {
 
   useEffect(() => {
     const raiz = document.documentElement;
-    raiz.style.setProperty("--kino-bottom-nav", ALTO_PIE);
     if (tecladoAbierto) raiz.style.setProperty("--kino-bottom-chrome", "0px");
     else raiz.style.removeProperty("--kino-bottom-chrome");
     return () => {
-      raiz.style.removeProperty("--kino-bottom-nav");
       raiz.style.removeProperty("--kino-bottom-chrome");
     };
   }, [tecladoAbierto]);
@@ -61,7 +57,7 @@ export function BottomNav({ rutaActual }: { rutaActual?: string } = {}) {
     <nav
       aria-label="Secciones"
       className="fixed inset-x-0 bottom-0 z-(--z-overlay) grid grid-cols-[1fr_auto] items-center gap-1.5 border-t border-border bg-background px-2 pb-[env(safe-area-inset-bottom)] md:hidden"
-      style={{ minHeight: `calc(${ALTO_PIE} + env(safe-area-inset-bottom))` }}
+      style={{ minHeight: "calc(var(--kino-bottom-nav) + env(safe-area-inset-bottom))" }}
     >
       <div className="grid h-[3.3rem] grid-cols-5">
         {DESTINOS_MOVIL.map((destino) => (

@@ -128,7 +128,7 @@ export function FocusTimerWidget() {
   const mobileWidget = (
     <div
       className={cn(
-        'md:hidden fixed bottom-[calc(var(--kino-bottom-nav)+0.2rem)] left-0 right-0 z-(--z-overlay)',
+        'md:hidden fixed bottom-[calc(var(--kino-bottom-nav)+env(safe-area-inset-bottom))] left-0 right-0 z-(--z-overlay)',
         'flex items-center gap-3 border-t bg-card/95 backdrop-blur-sm px-4 py-2.5',
         isBreak ? 'border-secondary bg-secondary' : 'border-border',
         isExpired && 'border-primary/30',
