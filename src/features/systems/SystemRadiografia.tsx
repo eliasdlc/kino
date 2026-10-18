@@ -24,7 +24,7 @@ import type { TaskTransport } from "@/features/tasks/tasks.types";
 import type { FactKind, SystemFact } from "./radiografia";
 
 /**
- * La radiografía del sistema: un párrafo de estado con su fecha y hasta seis
+ * Cómo va el sistema (su radiografía): un párrafo de estado con su fecha y hasta seis
  * hechos, cada uno con la fila que lo respalda.
  *
  * Nace colapsada y se queda como la dejes. Eso no es sólo una preferencia de
@@ -110,7 +110,7 @@ export function SystemRadiografia({ systemId }: { systemId: string }) {
           aria-hidden
           className={cn("size-4 transition-transform duration-(--dur-toque) ease-(--ease-pluma)", open && "rotate-180")}
         />
-        Radiografía
+        Cómo va
       </button>
 
       {open && (
