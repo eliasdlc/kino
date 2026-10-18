@@ -1,7 +1,7 @@
 "use client";
 
 import type { MediumManifest } from "@/shared/lib/mediums";
-import { PanelHeading } from "./PanelHeading";
+import { SectionHead } from "@/features/dashboard/SectionHead";
 
 /**
  * Reference of the Markdown shortcuts the editor understands (KIN-69). The input
@@ -48,7 +48,7 @@ export function EditorShortcutsHelp({ medium = null }: { medium?: MediumManifest
 
   return (
     <div className="space-y-2">
-      <PanelHeading>Atajos de formato</PanelHeading>
+      <SectionHead as="h3" title="Atajos de formato" />
       <ul className="space-y-2">
         {shortcuts.map(({ keys, label }) => (
           <li key={keys} className="flex items-center justify-between gap-3 text-sm">
