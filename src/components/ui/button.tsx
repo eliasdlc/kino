@@ -27,17 +27,19 @@ const buttonVariants = cva(
         // Alturas en rem: crecen con el tamaño de letra del sistema. La acción
         // primaria (lg) mide 3.2rem; el táctil mínimo lo da default a 2.85rem.
         // xs y sm existen para el escritorio: en el teléfono miden el táctil
-        // y sólo encogen desde md, así que ningún botón queda bajo 48 px.
+        // y sólo encogen desde md con puntero fino (ratón o trackpad). Una
+        // tableta táctil pasa de 768 px y sigue tocándose con el dedo, así que
+        // con puntero grueso se quedan en 2.85rem a cualquier ancho.
         default:
           "h-[2.85rem] gap-2 px-4 has-data-[icon=inline-end]:pr-3 has-data-[icon=inline-start]:pl-3",
-        xs: "h-[2.85rem] gap-1.5 px-3 text-xs md:h-8 has-data-[icon=inline-end]:pr-2 has-data-[icon=inline-start]:pl-2 [&_svg:not([class*='size-'])]:size-3.5",
-        sm: "h-[2.85rem] gap-1.5 px-3.5 md:h-10 has-data-[icon=inline-end]:pr-2.5 has-data-[icon=inline-start]:pl-2.5",
+        xs: "h-[2.85rem] gap-1.5 px-3 text-xs md:pointer-fine:h-8 has-data-[icon=inline-end]:pr-2 has-data-[icon=inline-start]:pl-2 [&_svg:not([class*='size-'])]:size-3.5",
+        sm: "h-[2.85rem] gap-1.5 px-3.5 md:pointer-fine:h-10 has-data-[icon=inline-end]:pr-2.5 has-data-[icon=inline-start]:pl-2.5",
         lg: "h-[3.2rem] gap-2 px-[1.1rem] has-data-[icon=inline-end]:pr-3.5 has-data-[icon=inline-start]:pl-3.5",
         icon: "size-[2.85rem]",
         "icon-xs":
-          "size-[2.85rem] md:size-8 [&_svg:not([class*='size-'])]:size-3.5",
+          "size-[2.85rem] md:pointer-fine:size-8 [&_svg:not([class*='size-'])]:size-3.5",
         "icon-sm":
-          "size-[2.85rem] md:size-10",
+          "size-[2.85rem] md:pointer-fine:size-10",
         "icon-lg": "size-[3.2rem]",
       },
     },

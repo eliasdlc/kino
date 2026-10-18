@@ -2,10 +2,12 @@
  * Criterio: el diálogo de nueva tarea existe aunque la cuenta no tenga Inbox.
  * Exigía Inbox y devolvía null sin él, así que en una cuenta sin Inbox el orbe
  * de la barra, el atajo del teclado y el del icono se pintaban y no hacían
- * nada: un affordance muerto en el botón más visible del teléfono.
+ * nada: un affordance muerto en el botón más visible del teléfono. Sin ningún
+ * sistema no hay destino: no se pinta, y la apertura pedida se cierra para que
+ * el diálogo no salte solo el día que nazca el primer sistema.
  */
 import { describe, expect, it, vi, beforeEach } from "vitest";
-import { screen, within } from "@testing-library/react";
+import { screen, waitFor, within } from "@testing-library/react";
 import { api } from "@convex/_generated/api";
 import { makeSystem, mid } from "@/app/system-design/mock-data";
 import { makeTestConvexClient, renderWithProviders, stubQuery } from "@/shared/testing/render";
@@ -38,9 +40,10 @@ describe("GlobalQuickAddDialog", () => {
     expect(within(screen.getByRole("dialog")).getAllByRole("combobox")[0]).toHaveTextContent("Bandeja");
   });
 
-  it("sin ningún sistema no se pinta: no hay destino que ofrecer", () => {
+  it("sin ningún sistema no se pinta y cierra la apertura pedida", async () => {
     renderWithProviders(<GlobalQuickAddDialog />, { convex: con([]) });
 
     expect(screen.queryByRole("dialog")).toBeNull();
+    await waitFor(() => expect(useQuickAddStore.getState().open).toBe(false));
   });
 });

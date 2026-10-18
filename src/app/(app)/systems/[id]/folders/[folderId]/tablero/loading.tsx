@@ -3,8 +3,8 @@ import { BreadcrumbSkeleton } from "@/components/Skeletons";
 
 export default function PlotBoardLoading() {
   return (
-    <div className="w-full">
-      <div className="sticky top-0 z-(--z-raised) border-b bg-background px-4 py-2.5 md:px-6">
+    <div aria-busy className="w-full">
+      <div className="sticky top-0 z-(--z-raised) hidden border-b bg-background px-4 py-2.5 md:block md:px-6">
         <BreadcrumbSkeleton segments={4} />
       </div>
       <div className="space-y-6 p-4 md:p-6">
@@ -18,7 +18,7 @@ export default function PlotBoardLoading() {
             <div key={col} className="min-w-56 flex-1 space-y-2">
               <Skeleton className="h-4 w-32 rounded" />
               {Array.from({ length: col === 2 ? 3 : 2 }).map((_, i) => (
-                <Skeleton key={i} className="h-24 rounded-lg" />
+                <Skeleton key={i} className="h-24 rounded-xl" />
               ))}
             </div>
           ))}
