@@ -19,6 +19,7 @@ import { RecurrencePicker } from "@/features/tasks/RecurrencePicker";
 import { MultiDayTaskBar } from "@/features/tasks/MultiDayTaskBar";
 import { BoardCard } from "@/features/systems/views/project/BoardCard";
 import { SprintBar } from "@/features/systems/views/project/SprintBar";
+import { ProjectArchive } from "@/features/systems/views/project/ProjectArchive";
 import { InboxView } from "@/features/systems/views/InboxView";
 import { PersonalView } from "@/features/systems/views/PersonalView";
 import { makeFolder, makeSystem } from "../mock-data";
@@ -196,8 +197,8 @@ export function TasksViewsSection() {
       </SubSection>
 
       <SubSection
-        title="Board kanban (project) — BoardCard y SprintBar"
-        description="La card arrastrable del board con badge de estancamiento («Xd sin avanzar») y la barra de ciclos con filtro. Columnas: Por hacer · En progreso · En review · Hecho."
+        title="Board kanban (project): BoardCard, SprintBar y ProjectArchive"
+        description="La card arrastrable del board con badge de estancamiento («Xd sin avanzar») y la barra de ciclos con filtro: el filtro elegido va en tinta, a 2.85rem en el teléfono. Columnas: Por hacer, En progreso, En review y Hecho, cada una con su palabra sobre un hairline y no en una caja. El archivo es un índice de ciclos cerrados que se pliegan."
       >
         <div className="max-w-2xl space-y-4">
           <SprintBar
@@ -244,6 +245,22 @@ export function TasksViewsSection() {
               </div>
             </DndContext>
           </ClientOnly>
+          <Seeded stubs={[seedQuery(api.tasks.bySystem, [makeTask({ id: mid("arch-1"), title: "Cerrar la landing", sprintId: mid("spr-2"), status: "done" })])]}>
+            <Specimen label="Archivo con un ciclo cerrado" hint="ProjectArchive: numeral en el margen, fila que se pliega, borrar con nombre">
+              <div className="w-full">
+                <ProjectArchive
+                  systemId={MOCK_SYSTEM_ID}
+                  initialData={[makeTask({ id: mid("arch-1"), title: "Cerrar la landing", sprintId: mid("spr-2"), status: "done" })]}
+                  sprints={[makeSprint({ id: mid("spr-2"), name: "Ciclo 2", status: "completed", completedAt: daysFromNow(-3) } as never)]}
+                />
+              </div>
+            </Specimen>
+            <Specimen label="Archivo vacío" hint="EmptyState, en la columna de texto">
+              <div className="w-full">
+                <ProjectArchive systemId={MOCK_SYSTEM_ID} initialData={[]} sprints={[]} />
+              </div>
+            </Specimen>
+          </Seeded>
         </div>
       </SubSection>
 
