@@ -4,7 +4,7 @@
  * rama de escritorio (el diálogo centrado, el sidebar) y saltaba al hidratar.
  */
 import { describe, expect, it } from "vitest";
-import { render } from "@testing-library/react";
+import { renderWithProviders as render } from "@/shared/testing/render";
 import { useIsMobile } from "./use-mobile";
 
 function Sonda({ vistos }: { vistos: boolean[] }) {
