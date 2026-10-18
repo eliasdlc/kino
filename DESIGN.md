@@ -21,11 +21,11 @@ Display face: Bricolage Grotesque, 800 en la cota y 700 en los títulos de panta
 
 Body face: Figtree para la interfaz, botones, pastillas, pestañas, etiquetas, texto corrido y el subhead en 700 (`src/app/layout.tsx`, variable `--font-figtree`; `globals.css` `--font-sans` y `--font-heading`); Literata como serif de prosa (`--font-serif`) y como voz (`--font-voice`, en cursiva: la frase de la cota, la intención de un sistema, el estado vacío), cargada en redonda y cursiva; JetBrains Mono para datos y código, sin precarga (`--font-mono`). Las cuatro por `next/font/google`, autoalojadas. Inter salió con Diario: no estaba en las palabras de Elias.
 
-Brand hue: #e8b04b, el ámbar de hue 38 (`src/app/globals.css:79-80` y `:181`); su par claro #8a5a00 (`:90`) tiene el mismo hue.
+Brand hue: #e8b04b, el ámbar de hue 38 (`src/app/globals.css`, bloque de roles `:root` y `.dark`); su par claro #8a5a00 tiene el mismo hue.
 
 Neutrals: teñidos con el hue del ámbar (38) a saturación 12, papel y no gris (`globals.css`, bloque de roles). Claro: --bg #f8f5ef, --sf #fffdf9, --sf2 #efeae0, --ink #211d16, --body #4a443a, --mute #6f685c. Oscuro: --bg #171512, --sf #221f1a, --sf2 #2f2b24, --ink #f5f1ea, --body #d9d3c8, --mute #a39c8f. El --bg claro ya no coincide con ninguna escala de Tailwind.
 
-Accent: #8a5a00 en claro y #e8b04b en oscuro (`globals.css:90` y `:181`), con `--on` encima (#ffffff y #1a1204). Va en dos sitios: la acción (botón primario, orbe de crear, enlace) y la selección (pestaña activa, destino activo de la barra, foco). Las excepciones decididas están en la sección Acento.
+Accent: #8a5a00 en claro y #e8b04b en oscuro (`globals.css`, `--ac` en `:root` y en `.dark`), con `--on` encima (#ffffff y #1a1204). Va en dos sitios: la acción (botón primario, orbe de crear, enlace) y la selección (subrayado de la pestaña activa, destino activo del pie, foco). La pestaña y el segmento elegidos van en tinta, no en ámbar. Las excepciones decididas están en la sección Acento.
 
 Radius: dos valores en rem sobre la raíz de 17 (`globals.css`, `--radius-*`): la pastilla (999, `rounded-full`) en toda acción y estado (botón, campo, select, segmento, círculo de completar, tooltip), y 1.125rem (19,1 px, `rounded-xl`; lg, 2xl y 3xl valen lo mismo) en lo poco que es superficie: hoja inferior, diálogo, menú, popover, área de texto, card de escritorio. Debajo, dos detalles: 0.3rem la nota adhesiva, 0.5rem el resalte de una fila de menú o una tecla. No hay card por defecto en el teléfono, así que no hay radio de card.
 
@@ -33,7 +33,7 @@ Signature: la cota. La energía del día como cifra en Bricolage a 4.18rem en el
 
 Borrowed from: las primitivas son shadcn/ui en estilo `radix-vega` sobre Radix (`components.json:3`), la hoja inferior es vaul (`ResponsiveDialog`, `Drawer`), los iconos lucide (`components.json:13`). La dirección Diario (18 de octubre de 2026) toma de Things 3 las listas sin caja, el círculo grande de completar y los encabezados de sección como títulos; de Bear la densidad tipográfica y las pestañas como palabras subrayadas; de Apple Notes el índice plegable y el Volver con el nombre del padre. La cota sigue siendo la cifra de Readiness de Oura y el anillo de Apple Health: una cifra grande que se explica con una palabra.
 
-Rejected default: lo que el scaffold traía y no se quedó: `baseColor: "neutral"` de shadcn (`components.json:9`), su `--radius: 0.625rem` uniforme (sigue declarado en `globals.css:120` sin que la escala lo lea), Geist de create-next-app (quedan sus SVG en `public/next.svg`, `public/vercel.svg`), y Framer Motion (`AGENTS.md:306`). Rechazados por Elias: petróleo 196 y salvia 150 como color (DECISIONS:44), Literata como display y una sola familia (DECISIONS:45), el ritual y la lista calma como estructura de Hoy (DECISIONS:43), las manchas radiales y el gradiente del marketing (DECISIONS:51).
+Rejected default: lo que el scaffold traía y no se quedó: `baseColor: "neutral"` de shadcn (`components.json:9`), su `--radius: 0.625rem` uniforme (retirado de `globals.css` en el rework 2: la escala es `--radius-sm/md/xl`), Geist de create-next-app (quedan sus SVG en `public/next.svg`, `public/vercel.svg`), Framer Motion (`AGENTS.md:306`) e Inter, la cara que el scaffold de shadcn traía y que Diario cambió por Figtree. Rechazados por Elias: petróleo 196 y salvia 150 como color (DECISIONS:44), Literata como display y una sola familia (DECISIONS:45), el ritual y la lista calma como estructura de Hoy (DECISIONS:43), las manchas radiales y el gradiente del marketing (DECISIONS:51).
 
 Imagery: ninguna propia. La app enseña el contenido de la persona (imágenes de entidades en `src/features/entities/EntityImages.tsx`, referencias en `src/features/writing/ReferenceTable.tsx`, lo compartido en `src/app/(share)/compartir/CompartirScreen.tsx:64`) y la landing enseña el producto vivo (`HeroDemo` en `src/features/marketing/landing/LandingHero.tsx:44`); `public/` no tiene fotografía ni ilustración. Aceptado el 16 de octubre: que la razón sea que el producto es el instrumento y la imagen sería decorado.
 
@@ -75,17 +75,17 @@ La regla es acción y selección. Las excepciones que ya están decididas, cada 
 
 ## Tipografía
 
-Dos caras y una mono, más la serif de lectura (`globals.css:15-26`). La display nunca va en una primitiva: `src/components/ui/faces.test.ts:1-7` falla si alguna la usa.
+Tres caras y una mono (`globals.css`, `@theme`). La display sólo va en títulos: en las primitivas la permiten únicamente el título de un overlay (dialog, drawer, sheet) y el de EmptyState, y Literata (`font-voice`) sólo la frase de EmptyState; `src/components/ui/faces.test.ts` nombra a cualquier otra primitiva que las use.
 
 | Estilo | Valor | Dónde |
 |---|---|---|
 | Cifra (la cota) | Bricolage 700, 4.18rem, interlínea 0.86, -0.03em, cifras tabulares | `EnergyTodayCard.tsx:175` |
 | Título de pantalla | Bricolage 700, 1.41rem, -0.02em | `src/components/PageWrapper.tsx:18` |
 | Encabezado | Bricolage 700, `text-xl`, -0.02em | `OverBudgetExit.tsx:45`, `src/features/energy/CeilingMutedNotice.tsx:38` |
-| Subhead | Inter 700 (`font-heading`), -0.01em | `globals.css:22-23`, `EnergyTodayCard.tsx:180` |
-| Cuerpo | Inter 400, `text-base` = 17 px | `globals.css:197-205` |
-| UI | Inter entre `text-sm` y `text-xs` | `src/app/system-design/sections/typography.tsx:61` |
-| Eyebrow | Inter 600, `text-xs`, mayúsculas, +0.06em | `EnergyTodayCard.tsx:157` |
+| Subhead | Figtree 700 (`font-heading`), -0.01em | `globals.css` `--font-heading`, `EnergyTodayCard.tsx:180` |
+| Cuerpo | Figtree 400, `text-base` = 17 px | `globals.css`, `@layer base` |
+| UI | Figtree entre `text-sm` y `text-xs` | `src/app/system-design/sections/typography.tsx` |
+| Eyebrow | Figtree 600, `text-xs`, mayúsculas, +0.06em | `EnergyTodayCard.tsx:157` |
 | Prosa de escritor | Literata 1.0625rem, interlínea 1.85, justificada con sangría de libro | `globals.css:292-305` |
 
 La landing usa la display a escala de marketing con `clamp` (por ejemplo `src/features/marketing/landing/LandingFinalCta.tsx:12`).
@@ -101,11 +101,11 @@ La landing usa la display a escala de marketing con `clamp` (por ejemplo `src/fe
 | Nivel | Claro | Oscuro |
 |---|---|---|
 | Superficie | `--sf` blanco sobre `--bg` teñido, con hairline | paso de tono a `--sf` |
-| Elevada (card, menú, diálogo) | una sombra, `0 10px 30px` ink al 8% (`globals.css:101`) | ninguna: `--shadow: none` (`:189-190`) |
-| Acento (acción primaria) | glow del acento al 35% (`:97`, `button.tsx:12`) | al 55% (`:186`) |
+| Hoja y diálogo (Dialog, Drawer, Sheet) | una sola sombra, `0 .6rem 1.6rem` ink al 8% (`globals.css`, `--shadow`) | ninguna: `--shadow: none` |
+| Acento (acción primaria) | glow del acento al 35% (`--glow`, `button.tsx`) | al 55% |
 | Vidrio (barra inferior) | `--sf` al 84%, hairline al 8% (`:98-99`) | al 82%, hairline al 9% (`:187-188`), con `blur 1.4rem saturate 1.8` (`src/components/BottomNav.tsx:72`) |
 
-La card es superficie con hairline y la sombra del token (`card.tsx:15`, criterio en `src/components/ui/superficies.test.tsx:1-7`). Diálogo y cajón van a 1.375rem con la misma sombra (`dialog.tsx:64`, `drawer.tsx:59`).
+La card es superficie con hairline y sin sombra en ningún modo (`card.tsx`, criterio en `src/components/ui/superficies.test.tsx`). Diálogo, hoja inferior y hoja lateral van a 1.125rem con la sombra del token (`dialog.tsx`, `drawer.tsx`, `sheet.tsx`).
 
 ## Táctil y chrome
 
@@ -134,12 +134,9 @@ Una sola familia, lucide-react (`components.json:13`, `package.json:64`, `AGENTS
 
 Hallazgos de esta lectura. Ninguno se corrige aquí: cada uno es un PR de UI con sus capturas.
 
-- `src/app/layout.tsx:36-42` dice que `themeColor` son "los dos valores de `--background`", pero declara #ffffff y #161616, y `--bg` vale #f5f5f4 y #131211.
 - La barra inferior lleva una sombra negra fija también en oscuro (`BottomNav.tsx:72`), donde la elevación es un paso de tono (`globals.css:189`).
-- `xs` y `sm` del botón (2rem y 2.5rem, 34 y 42,5 px) quedan bajo el táctil de 48 (`button.tsx:28-29`).
-- El hairline común es ink al 8% (`globals.css:95`); la gramática dice 6%.
+- El hairline común es ink al 8% (`globals.css`, `--ln`); la gramática dice 6%.
 - El copy visible de la cota usa el punto medio como separador (`EnergyTodayCard.tsx:153`, `:181`, `:187`), y la casa no lo usa.
-- El catálogo describe una escala que ya no existe: "los radios derivan todos de --radius" (`foundations.tsx:21`) y "escala Tailwind por defecto" (`typography.tsx:61`).
 - La energía baja es roja (`colors.tsx:186`), y el rojo está reservado a lo irreversible (DECISIONS:44).
 - Ocho ficheros escriben neutros stock de Tailwind (`LinkedTaskCard.tsx`, `sticky-note-colors.ts`, `FolderCard.tsx`, `NotebookCard.tsx`, `QuickAccessCard.tsx`, `tag-colors.ts`, `NotebookTagPicker.tsx`, `NotebooksView.tsx`, más el gris de la paleta de sistema en `globals.css:8-10`). El hook bloquea la línea que los vuelva a escribir, y el cierre de turno avisa en cuanto se toca cualquiera de esos ficheros, porque relee el fichero entero.
 
