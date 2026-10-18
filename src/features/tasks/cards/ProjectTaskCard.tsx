@@ -1,8 +1,9 @@
 "use client";
 
 import { useState } from "react";
-import { format } from "date-fns";
-import { ArrowRightLeft, ChevronDown, Clock, Flag, Hourglass, MoreHorizontal, Timer, Trash2 } from "lucide-react";
+import { ArrowRightLeft, ChevronDown, Clock, Flag, Hourglass, Timer, Trash2 } from "lucide-react";
+import { TaskRowActions } from "../TaskRow";
+import { shortDate } from "../task-vocab";
 import { cn } from "@/lib/utils";
 import {
   ContextMenu,
@@ -11,17 +12,9 @@ import {
   ContextMenuSeparator,
   ContextMenuTrigger,
 } from "@/components/ui/context-menu";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
 import { useTags } from "@/features/tags/tags.hooks";
 import { tagDotClass } from "@/features/tags/tag-colors";
 import { useSprints } from "@/features/sprints/sprints.hooks";
-import { parseDueDate } from "../tasks.utils";
 import { useTaskCard } from "./useTaskCard";
 import { TaskTags } from "./parts/TaskTags";
 import { SubtaskProgressBars } from "./parts/SubtaskProgressBars";
@@ -90,8 +83,8 @@ export function ProjectTaskCard({ task, systemId, onToggle, onDelete, onEdit, sh
       <ContextMenuTrigger asChild>
         <div
           className={cn(
-            "bg-card border border-border rounded-[18px] p-[18px] flex flex-col gap-3.5 shadow-sm",
-            "motion-safe:transition-colors hover:border-foreground/20",
+            "flex flex-col gap-3.5 rounded-xl border border-border bg-card p-[18px]",
+            "transition-colors duration-(--dur-toque) ease-(--ease-pluma) hover:border-foreground/20",
             isDone && "opacity-50",
           )}
         >
@@ -116,41 +109,19 @@ export function ProjectTaskCard({ task, systemId, onToggle, onDelete, onEdit, sh
               <TaskTags task={task} />
             </div>
 
-            {/* Acciones en touch: en desktop se usa click derecho (context menu). */}
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <button
-                  type="button"
-                  onPointerDown={(e) => e.stopPropagation()}
-                  aria-label="Acciones"
-                  className="md:hidden shrink-0 -mr-1 -mt-1 p-1 text-muted-foreground/85 hover:text-foreground/85"
-                >
-                  <MoreHorizontal size={18} />
-                </button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" className="w-52">
-                {showActions && (
-                  <DropdownMenuItem disabled={anotherRunning} onSelect={startFocus}>
-                    <Timer className={cn(isThisRunning && "text-primary")} />
-                    {isThisRunning ? "Timer en curso" : "Iniciar foco"}
-                  </DropdownMenuItem>
-                )}
-                {onRequestMove && (
-                  <>
-                    <DropdownMenuSeparator />
-                    <DropdownMenuItem onSelect={onRequestMove}>
-                      <ArrowRightLeft />
-                      Mover a...
-                    </DropdownMenuItem>
-                  </>
-                )}
-                <DropdownMenuSeparator />
-                <DropdownMenuItem variant="destructive" onSelect={() => onDelete(task)}>
-                  <Trash2 />
-                  Eliminar
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
+            {/* Acciones en touch: una hoja con nombre. En escritorio, clic derecho (menú contextual). */}
+            <span className="-mt-2 -mr-2 shrink-0 md:hidden" onPointerDown={(e) => e.stopPropagation()}>
+              <TaskRowActions
+                title={task.title}
+                actions={[
+                  ...(showActions
+                    ? [{ label: isThisRunning ? "Timer en curso" : "Iniciar foco", icon: Timer, disabled: anotherRunning, onSelect: startFocus }]
+                    : []),
+                  ...(onRequestMove ? [{ label: "Mover a otra columna", icon: ArrowRightLeft, onSelect: onRequestMove }] : []),
+                  { label: "Mover a la papelera", icon: Trash2, destructive: true, onSelect: () => onDelete(task) },
+                ]}
+              />
+            </span>
           </div>
 
           <button
@@ -169,7 +140,7 @@ export function ProjectTaskCard({ task, systemId, onToggle, onDelete, onEdit, sh
               {task.dueDate && (
                 <span className={cn("inline-flex items-center gap-1.5", dueUrgent ? "text-task-overdue" : "text-muted-foreground")}>
                   <Clock size={15} />
-                  {isOverdue ? "Vencida" : dueDays === 0 ? "Hoy" : format(parseDueDate(task.dueDate), "MMM d")}
+                  {isOverdue ? `vencida ${shortDate(task.dueDate)}` : dueDays === 0 ? "hoy" : shortDate(task.dueDate)}
                 </span>
               )}
               {estimate && (
@@ -189,9 +160,9 @@ export function ProjectTaskCard({ task, systemId, onToggle, onDelete, onEdit, sh
               onPointerDown={(e) => e.stopPropagation()}
               onClick={(e) => { e.stopPropagation(); setIsExpanded((v) => !v); }}
               aria-label={isExpanded ? "Ocultar subtareas" : "Mostrar subtareas"}
-              className="text-muted-foreground/65 hover:text-foreground/85 transition-colors"
+              className="focus-ring -mr-2 flex size-[2.85rem] items-center justify-center rounded-full text-muted-foreground transition-colors hover:text-foreground md:pointer-fine:size-8"
             >
-              <ChevronDown size={14} className={cn("transition-transform", isExpanded && "rotate-180")} />
+              <ChevronDown size={16} className={cn("transition-transform duration-(--dur-toque) ease-(--ease-pluma)", isExpanded && "rotate-180")} />
             </button>
           </div>
 
@@ -215,7 +186,7 @@ export function ProjectTaskCard({ task, systemId, onToggle, onDelete, onEdit, sh
         )}
         <ContextMenuItem variant="destructive" onSelect={() => onDelete(task)}>
           <Trash2 />
-          Eliminar
+          Mover a la papelera
         </ContextMenuItem>
       </ContextMenuContent>
     </ContextMenu>
