@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import Link from 'next/link';
 import { hourInTimeZone } from '@/shared/time';
-import { Moon } from 'lucide-react';
+import { CalendarDays, ChevronRight, Moon } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Segmented } from '@/components/ui/segmented';
 import { cn } from '@/lib/utils';
@@ -69,7 +69,12 @@ function dateLabel(date: string): string {
  * renglón con la palabra que la explica (el h1 de la pantalla) y con la frase
  * en la voz, Literata cursiva; debajo, de dónde sale. La curva, el segmento
  * del tramo, el check-in y el presupuesto cuelgan de ella, alineados con la
- * columna de texto del margen. La fecha de arriba es un enlace al calendario.
+ * columna de texto del margen. La fecha de arriba es un enlace al calendario
+ * y se lee como tal: icono de calendario delante y chevron detrás, en mute,
+ * que pasan a tinta al pasar el ratón.
+ *
+ * El segmento del tramo y el botón dicen lo mismo: elegir "Mañana" cambia la
+ * lectura de la cota y el botón pasa a registrar (o actualizar) la mañana.
  */
 export function EnergyTodayCard({
   clock,
@@ -135,17 +140,19 @@ export function EnergyTodayCard({
       {/* La fecha es la cabecera de la página y la puerta al calendario. */}
       <Link
         href="/calendar"
-        className="focus-ring -mx-2 inline-flex min-h-[2.85rem] w-fit items-center rounded-full px-2 text-xs font-semibold tracking-[0.06em] text-muted-foreground uppercase transition-colors duration-(--dur-toque) hover:text-foreground"
+        className="group/fecha focus-ring -mx-2 inline-flex min-h-[2.85rem] w-fit items-center gap-[0.45em] rounded-full px-2 text-xs font-semibold tracking-[0.06em] text-muted-foreground uppercase transition-colors duration-(--dur-toque) ease-(--ease-pluma) hover:text-foreground"
       >
+        <CalendarDays data-slot="fecha-icono" className="size-[1.15em] shrink-0" aria-hidden />
         {dateLabel(clock.date)}
+        <ChevronRight className="size-[1.15em] shrink-0 transition-transform duration-(--dur-toque) ease-(--ease-pluma) group-hover/fecha:translate-x-[0.15em]" aria-hidden />
       </Link>
 
       {showForm ? (
         <>
-          <h1 className="sr-only">Registrar energía {SLOT_DE[currentSlot]}</h1>
+          <h1 className="sr-only">Registrar energía {SLOT_DE[selectedSlot]}</h1>
           <EnergyCheckinForm
-            defaultLevel={Math.max(1, projectedValue || 70)}
-            initialSlot={currentSlot}
+            defaultLevel={Math.max(1, slotCheckin?.currentLevel ?? (projectedValue || 70))}
+            initialSlot={selectedSlot}
             isPending={isPending}
             onSubmit={handleSubmit}
             onCancel={() => setShowForm(false)}
@@ -162,7 +169,7 @@ export function EnergyTodayCard({
               <p className="mt-1.5 text-[0.78rem] text-muted-foreground">{origin}</p>
               {isReal && diff !== null && storedPrediction && (
                 <p className="mt-0.5 text-[0.78rem] text-muted-foreground tabular-nums">
-                  Predije {storedPrediction.predictedLevel}, {diff > 0 ? '+' : ''}
+                  Previsto {storedPrediction.predictedLevel}, {diff > 0 ? '+' : ''}
                   {diff} frente a lo previsto.
                 </p>
               )}
@@ -173,7 +180,7 @@ export function EnergyTodayCard({
           {chartData && (
             <div className="space-y-1.5 pl-(--margen)">
               <EnergyChart data={chartData} peak={peak} currentHour={currentHour} />
-              <div className="flex items-center justify-between text-[0.74rem] text-muted-foreground">
+              <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-1 text-[0.74rem] text-muted-foreground">
                 <span className="inline-flex items-center gap-1.5">
                   <span className="size-2 rounded-xs bg-primary" aria-hidden />
                   {peak ? `Pico ${formatHour(peak.start)} a ${formatHour(peak.end)}` : 'Tu pico'}
@@ -202,20 +209,25 @@ export function EnergyTodayCard({
                 <span className="inline-flex items-center gap-1.5">
                   {SLOT_LABELS[slot]}
                   {checkins.some((c) => c.slot === slot) && (
-                    <span className="size-1.5 rounded-full bg-current" aria-label="con check-in" />
+                    <>
+                      <span className="size-1.5 rounded-full bg-current" aria-hidden />
+                      <span className="sr-only">, con check-in</span>
+                    </>
                   )}
                 </span>
               ),
             }))}
           />
 
-          {currentSlotCheckin ? (
-            <Button variant="secondary" className="w-full" onClick={() => { setSelectedSlot(currentSlot); setShowForm(true); }}>
-              Actualizar el check-in {SLOT_DE[currentSlot]}
+          {/* El botón registra el tramo que se está mirando: si la cota dice
+              "Mañana", la etiqueta y lo que se guarda dicen mañana también. */}
+          {slotCheckin ? (
+            <Button variant="secondary" className="w-full" onClick={() => setShowForm(true)}>
+              Actualizar el check-in {SLOT_DE[selectedSlot]}
             </Button>
           ) : (
-            <Button size="lg" className="w-full" onClick={() => { setSelectedSlot(currentSlot); setShowForm(true); }}>
-              Registrar energía {SLOT_DE[currentSlot]}
+            <Button size="lg" className="w-full" onClick={() => setShowForm(true)}>
+              Registrar energía {SLOT_DE[selectedSlot]}
             </Button>
           )}
 
