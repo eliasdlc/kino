@@ -10,14 +10,7 @@ import { useEnergyProfile } from '@/features/energy/energy.hooks';
 import { ControlRow, SheetLoading, Stepper, TrailingRow } from './settings-ui';
 import { useBorrador } from './use-borrador';
 import { useSaveEnergyProfile } from './settings.hooks';
-
-export type Chronotype = 'morning' | 'intermediate' | 'evening';
-
-export const CRONOTIPOS: ReadonlyArray<{ value: Chronotype; label: string; desc: string }> = [
-  { value: 'morning', label: 'Mañana', desc: 'Rindes mejor antes del mediodía; después de comer la energía baja.' },
-  { value: 'intermediate', label: 'Mixto', desc: 'Tu energía es bastante estable a lo largo del día.' },
-  { value: 'evening', label: 'Noche', desc: 'Arrancas lento y agarras velocidad en la tarde o la noche.' },
-];
+import { CRONOTIPOS, type Chronotype } from './settings-copy';
 
 const RECHARGE_PRESETS: RechargePreset[] = [
   { label: 'Dormir una siesta', delta: 20 },
@@ -37,9 +30,9 @@ export const MAX_PRESETS = 8;
 const glifo = 'size-5 stroke-[1.8]';
 
 /**
- * Lo que declaras de tu energía, en la hoja de Energía. Es la hipótesis de
- * partida y no la verdad: lo medido manda sobre lo declarado, y cuando ya hay
- * curva medida la hoja lo dice.
+ * Lo que declaras de tu energía, en la hoja de Perfil de energía. Es el punto
+ * de partida y no la verdad: lo medido manda sobre lo declarado, y cuando ya
+ * hay curva medida la hoja lo dice.
  *
  * Mismo contrato que el resto de Ajustes: cada control guarda al tocarlo, sin
  * botón Guardar. El cronotipo y las pastillas se escriben en el toque; las
@@ -94,8 +87,8 @@ export function EnergyProfileSection() {
     <div>
       <p className="pb-3 pl-(--margen) font-voice text-base leading-snug text-body italic">
         {data.hasLearnedCurve
-          ? 'Tu curva ya está medida: esto mueve la hipótesis de partida, no lo medido.'
-          : 'Lo que declaras aquí es la hipótesis de partida; lo medido mandará sobre ella.'}
+          ? 'Tu curva ya está medida: esto sólo mueve el punto de partida, no lo medido.'
+          : 'Lo que declaras aquí es el punto de partida; con el tiempo, lo medido pesa más.'}
       </p>
 
       <ControlRow icon={<Sunrise aria-hidden className={glifo} />} title="Cuándo rindes más" meta={elegido.desc}>
