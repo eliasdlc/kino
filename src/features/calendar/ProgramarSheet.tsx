@@ -40,7 +40,9 @@ function hora(h: number): string {
  * dos rutas escriben lo mismo (`startDate` con hora, o `dueDate` del día).
  *
  * Cada opción mide 2.85rem y un toque decide y cierra: no hay confirmar,
- * porque la tarea queda a la vista en el día y cambiarla es otro toque.
+ * porque la tarea queda a la vista en el día, el aviso dice dónde quedó y
+ * cambiarla es otro toque. Una tarea que ya tiene fecha usa la misma hoja
+ * para moverse, y entonces se llama "Mover".
  */
 export function ProgramarSheet({ task, day, open, onOpenChange, suggestedHour, onSchedule }: ProgramarSheetProps) {
   function elegir(programacion: Programacion) {
@@ -49,11 +51,13 @@ export function ProgramarSheet({ task, day, open, onOpenChange, suggestedHour, o
     onSchedule(task, programacion);
   }
 
+  const mover = Boolean(task?.startDate || task?.dueDate);
+
   return (
     <ResponsiveDialog open={open} onOpenChange={onOpenChange}>
       <ResponsiveDialogContent className="sm:max-w-md">
         <ResponsiveDialogHeader>
-          <ResponsiveDialogTitle>Programar</ResponsiveDialogTitle>
+          <ResponsiveDialogTitle>{mover ? "Mover" : "Programar"}</ResponsiveDialogTitle>
           <ResponsiveDialogDescription>
             {task ? `${task.title}, el ${format(day, "EEEE d 'de' MMMM", { locale: es })}` : ""}
           </ResponsiveDialogDescription>
