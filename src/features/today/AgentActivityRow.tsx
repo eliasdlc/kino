@@ -52,20 +52,19 @@ export function AgentActivityRow() {
   const donde = data.sistemas.length === 0 ? "" : ` en ${data.sistemas.join(" y ")}`;
 
   return (
-    <div className="mt-4 space-y-2 border-t border-border/60 pt-3">
-      <p className="text-sm text-foreground/80">
+    <div className="space-y-1 border-t border-border pt-3">
+      <p className="text-sm text-body">
         Tu agente {frase(data.acciones)}
         {donde}.
       </p>
 
-      <div className="flex items-center gap-3">
-        <Button variant="link" size="sm" className="h-auto px-0" onClick={() => setAbierto((previo) => !previo)}>
+      <div className="-ml-3 flex flex-wrap items-center gap-1">
+        <Button variant="link" className="px-3" onClick={() => setAbierto((previo) => !previo)}>
           {abierto ? "Ocultar las acciones" : `Ver las ${data.total} acciones`}
         </Button>
         <Button
           variant="ghost"
-          size="sm"
-          className="h-auto px-0 text-muted-foreground"
+          className="px-3 text-muted-foreground"
           disabled={isPending}
           onClick={() =>
             deshacer(

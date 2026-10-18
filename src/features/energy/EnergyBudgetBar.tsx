@@ -27,7 +27,7 @@ function message(
 }
 
 /**
- * Presupuesto de energía del día, visible (Fase 4.1 · D2).
+ * Presupuesto de energía del día, visible (Fase 4.1, D2).
  *
  * Se deriva del cache del plan de hoy más el límite de ajustes: hereda el patrón
  * optimista sin una petición extra, así que comprometer una tarea mueve la barra
@@ -42,19 +42,21 @@ export function EnergyBudgetBar({ className }: EnergyBudgetBarProps) {
   const over = budget.state === 'over';
   const fillPct = Math.min(100, budget.pct);
   const spentWidth = Math.min(budget.spentPct, fillPct);
-  const pendingWidth = Math.max(0, fillPct - spentWidth);
 
   return (
     <div className={className}>
       <div className="flex items-center justify-between gap-2 text-xs text-muted-foreground">
         <span className="truncate">Energía comprometida</span>
-        <span className="shrink-0 tabular-nums" title="Puntos por tarea: alta 5 · media 3 · baja 1">
+        <span className="shrink-0 tabular-nums" title="Puntos por tarea: alta 5, media 3, baja 1">
           {budget.committed} de {budget.limit}
         </span>
       </div>
 
+      {/* Dos capas a todo el ancho, escaladas con scaleX desde la izquierda:
+          lo pendiente debajo, hasta el total; lo cumplido encima. Anima
+          transform y nunca width, así que mover la barra no recalcula nada. */}
       <div
-        className="mt-1.5 flex h-1.5 w-full overflow-hidden rounded-full bg-secondary"
+        className="relative mt-1.5 h-1.5 w-full overflow-hidden rounded-full bg-secondary"
         role="progressbar"
         aria-valuenow={budget.committed}
         aria-valuemin={0}
@@ -62,12 +64,20 @@ export function EnergyBudgetBar({ className }: EnergyBudgetBarProps) {
         aria-label="Energía comprometida hoy"
       >
         <div
-          className={cn('h-full transition-[width] duration-300 ease-out', over ? 'bg-task-overdue' : 'bg-primary')}
-          style={{ width: `${spentWidth}%` }}
+          data-slot="budget-pending"
+          className={cn(
+            'absolute inset-0 origin-left transition-transform duration-(--dur-tachar) ease-(--ease-pluma)',
+            over ? 'bg-task-overdue/40' : 'bg-primary/40',
+          )}
+          style={{ transform: `scaleX(${(fillPct / 100).toFixed(3)})` }}
         />
         <div
-          className={cn('h-full transition-[width] duration-300 ease-out', over ? 'bg-task-overdue/40' : 'bg-primary/40')}
-          style={{ width: `${pendingWidth}%` }}
+          data-slot="budget-spent"
+          className={cn(
+            'absolute inset-0 origin-left transition-transform duration-(--dur-tachar) ease-(--ease-pluma)',
+            over ? 'bg-task-overdue' : 'bg-primary',
+          )}
+          style={{ transform: `scaleX(${(spentWidth / 100).toFixed(3)})` }}
         />
       </div>
 

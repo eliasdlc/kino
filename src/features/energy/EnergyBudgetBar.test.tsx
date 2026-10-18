@@ -2,7 +2,8 @@
  * Qué se prueba: que la barra del presupuesto pone la cifra delante y nunca a
  * Kino de sujeto. En sobregiro es donde más tienta escribir que el producto
  * hace algo ("Kino no te frena"), y es justo el estado en el que la persona
- * necesita el número, no una voz.
+ * necesita el número, no una voz. Y que la barra se mueve con scaleX y nunca
+ * con width.
  */
 
 import { describe, expect, it, vi } from "vitest";
@@ -58,6 +59,21 @@ describe("EnergyBudgetBar", () => {
     const { container } = renderWithProviders(<EnergyBudgetBar />);
 
     expect(container.querySelector(".bg-task-overdue")).not.toBeNull();
+  });
+
+  it("las dos capas se escalan con scaleX desde la izquierda, sin tocar width", () => {
+    conBudget({ committed: 8, spent: 4, limit: 20, pct: 40, spentPct: 20, remaining: 12 });
+    const { container } = renderWithProviders(<EnergyBudgetBar />);
+
+    const pendiente = container.querySelector<HTMLElement>("[data-slot=budget-pending]");
+    const cumplido = container.querySelector<HTMLElement>("[data-slot=budget-spent]");
+    expect(pendiente?.style.transform).toBe("scaleX(0.400)");
+    expect(cumplido?.style.transform).toBe("scaleX(0.200)");
+    for (const capa of [pendiente, cumplido]) {
+      expect(capa).toHaveClass("origin-left", "transition-transform");
+      expect(capa?.style.width).toBe("");
+      expect(capa?.className).not.toMatch(/transition-\[width\]|transition-all/);
+    }
   });
 
   it("sin presupuesto no pinta nada, en vez de una barra vacía que no significa nada", () => {

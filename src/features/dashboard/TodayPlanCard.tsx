@@ -1,8 +1,9 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Coffee } from 'lucide-react';
 import Link from 'next/link';
+import { toast } from 'sonner';
 import {
   useTodayPlanTasks,
   useToggleTodayTask,
@@ -10,9 +11,10 @@ import {
   useRemoveFromPlan,
 } from '@/features/tasks/tasks.hooks';
 import { useFocusTimer } from '@/features/tasks/FocusTimerProvider';
-import { Skeleton } from '@/components/ui/skeleton';
 import { userTomorrow } from '@/shared/time';
 import { PlanTaskRow } from './PlanTaskRow';
+import { SectionHead } from './SectionHead';
+import { PlanRowsSkeleton } from './HoySkeleton';
 import type { EnergyPlanItemTransport } from '@/features/energy/energy.planner';
 import type { TaskTransport } from '@/features/tasks/tasks.types';
 
@@ -21,18 +23,37 @@ interface TodayPlanCardProps {
   energyItems?: EnergyPlanItemTransport[];
 }
 
-// Confetti burst: 12 spans, CSS keyframes, GPU-only
+/** Lo que dura el Deshacer de una fila tachada. */
+export const UNDO_MS = 4000;
+
+const PRIORITY_ORDER: Record<string, number> = { critical: 0, high: 1, medium: 2, low: 3 };
+
+// Confeti al cerrar el plan: doce puntos en transform y opacity. El relleno es
+// `both`: durante su retraso cada punto ya está en su primer fotograma, centrado,
+// así que ninguno se ve quieto fuera de sitio ni salta al arrancar. Con
+// movimiento reducido no se pinta: el bloque global acorta la animación pero no
+// el retraso, y quedarían doce puntos quietos apagándose de uno en uno.
+const CONFETTI_COUNT = 12;
+const CONFETTI_FLIGHT_MS = 700;
+const CONFETTI_STAGGER_MS = 30;
+/**
+ * Cuándo se desmonta: el vuelo del último punto (su retraso más los 700 ms)
+ * y un margen, para que ninguna partícula se corte a media trayectoria.
+ */
+export const CONFETTI_REMOVE_MS = CONFETTI_FLIGHT_MS + (CONFETTI_COUNT - 1) * CONFETTI_STAGGER_MS + 70;
+
 function ConfettiBurst() {
-  const spans = Array.from({ length: 12 }, (_, i) => ({ id: i, angle: (i / 12) * 360 }));
+  const spans = Array.from({ length: CONFETTI_COUNT }, (_, i) => ({ id: i, angle: (i / CONFETTI_COUNT) * 360 }));
   return (
-    <div className="pointer-events-none absolute inset-0 overflow-hidden">
+    <div className="pointer-events-none absolute inset-0 overflow-hidden motion-reduce:hidden" aria-hidden>
       {spans.map(({ id, angle }) => (
         <span
           key={id}
-          className="absolute top-1/2 left-1/2 size-2 rounded-full bg-primary will-change-transform"
+          data-slot="confetti"
+          className="absolute top-1/2 left-1/2 size-2 rounded-full bg-primary"
           style={{
-            animation: `confetti-fly 700ms ease-out forwards`,
-            animationDelay: `${id * 30}ms`,
+            animation: `confetti-fly ${CONFETTI_FLIGHT_MS}ms var(--ease-pluma) both`,
+            animationDelay: `${id * CONFETTI_STAGGER_MS}ms`,
             '--angle': `${angle}deg`,
           } as React.CSSProperties}
         />
@@ -52,17 +73,36 @@ export function totalEstimated(tasks: readonly TaskTransport[]): string {
   return `${Math.floor(minutes / 60)}:${String(minutes % 60).padStart(2, '0')}`;
 }
 
-/** Una línea de estado: lo que antes era una tarjeta vacía. */
-function Line({ children }: { children: React.ReactNode }) {
+/**
+ * El vacío del plan. Va en h3 y no en h2: el h1 de la pantalla es la palabra
+ * de la cota y "Plan de hoy" ya es el h2 de la sección, así que el titular del
+ * vacío cuelga de él. Por la misma razón pesa menos que el título de sección:
+ * Figtree en peso, no Bricolage, y la frase en la voz debajo.
+ */
+function PlanEmpty({ title, description, action }: { title: string; description: string; action: React.ReactNode }) {
   return (
-    <div className="rounded-xl border border-border bg-card px-4 py-3 text-sm text-foreground/80">{children}</div>
+    <div data-slot="plan-empty" className="flex flex-col items-start gap-1 py-5 pl-(--margen)">
+      <h3 className="text-base leading-tight font-semibold text-foreground">{title}</h3>
+      <p className="font-voice text-[0.98rem] leading-snug text-body italic">{description}</p>
+      <div className="mt-1">{action}</div>
+    </div>
   );
 }
 
+const linkAccion = 'focus-ring inline-flex h-[2.85rem] items-center rounded-full font-semibold text-primary';
+
 /**
- * El plan de hoy: una lista de dos niveles sin bordes entre filas más que la
- * hairline. La cabecera dice cuántas tareas y cuánto suman; el vacío y el
- * "todo hecho" son una línea, no una tarjeta.
+ * El plan de hoy: un título con hairline y filas de margen debajo. Completar
+ * es un toque en el círculo: la fila se tacha, un aviso de cuatro segundos
+ * ofrece Deshacer, y la fila tachada se queda en su sitio hasta la siguiente
+ * visita, porque una lista que recoloca sus renglones a los cuatro segundos
+ * mueve lo que la persona está leyendo. Lo vacío y lo hecho del todo son un
+ * estado vacío en la columna de texto, no una tarjeta.
+ *
+ * El Deshacer del aviso devuelve el estado de antes de completar, no alterna:
+ * si la fila ya se deshizo con el círculo, el aviso se cierra en ese toque, y
+ * un Deshacer tardío que llegue igual no hace nada. La mutación del servidor
+ * es un flip, así que alternar a ciegas volvería a dejar la tarea hecha.
  */
 export function TodayPlanCard({ noProfile, energyItems }: TodayPlanCardProps) {
   const { data: planTasks = [], isLoading } = useTodayPlanTasks();
@@ -72,39 +112,72 @@ export function TodayPlanCard({ noProfile, energyItems }: TodayPlanCardProps) {
   const { openModeDialog } = useFocusTimer();
 
   const [showConfetti, setShowConfetti] = useState(false);
+  const confettiTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  useEffect(() => () => {
+    if (confettiTimer.current) clearTimeout(confettiTimer.current);
+  }, []);
+  // Las que se completaron aquí y siguen hechas según el último gesto de la
+  // persona, con el aviso que ofrece deshacerlas. Es la fuente del Deshacer:
+  // no depende de que el servidor ya haya contestado.
+  const completedHere = useRef(new Map<string, string | number | undefined>());
+  // Las tachadas en esta visita. Siguen en su fila aunque el servidor ya las
+  // cuente como hechas; la próxima apertura de Hoy las baja a "hechas hoy".
+  const [struck, setStruck] = useState<ReadonlySet<string>>(() => new Set());
 
-  const PRIORITY_ORDER: Record<string, number> = { critical: 0, high: 1, medium: 2, low: 3 };
-
-  const pendingTasks = planTasks
-    .filter((t) => t.status !== 'done')
-    .sort((a, b) => (PRIORITY_ORDER[a.effectivePriority] ?? 2) - (PRIORITY_ORDER[b.effectivePriority] ?? 2));
-
+  const pendingTasks = planTasks.filter((t) => t.status !== 'done');
   const doneTasks = planTasks.filter((t) => t.status === 'done');
   const totalToday = planTasks.length;
   const doneCount = doneTasks.length;
-  const progressPct = totalToday > 0 ? Math.round((doneCount / totalToday) * 100) : 0;
-  const allDone = pendingTasks.length === 0 && doneCount > 0;
   const isEmpty = totalToday === 0;
 
-  function handleComplete(taskId: string) {
-    const willBeAllDone = pendingTasks.filter((t) => t.id !== taskId).length === 0;
+  const energyOrderMap = new Map(energyItems?.map((item, i) => [item.task.id, i]));
+  const breakBeforeIds = new Set(energyItems?.filter((item) => item.breakBefore).map((item) => item.task.id) ?? []);
+
+  // Las filas visibles: las pendientes más las tachadas aquí, en el orden del
+  // plan, que no depende del estado y por eso no salta al tachar.
+  const visible = planTasks
+    .filter((t) => t.status !== 'done' || struck.has(t.id))
+    .sort((a, b) => {
+      if (energyItems?.length) return (energyOrderMap.get(a.id) ?? 999) - (energyOrderMap.get(b.id) ?? 999);
+      return (PRIORITY_ORDER[a.effectivePriority] ?? 2) - (PRIORITY_ORDER[b.effectivePriority] ?? 2);
+    });
+  const settledDone = doneTasks.filter((t) => !struck.has(t.id)).length;
+
+  /** Vuelve a pendiente sólo si el último gesto la dejó hecha: idempotente. */
+  function undo(taskId: string) {
+    if (!completedHere.current.has(taskId)) return;
+    completedHere.current.delete(taskId);
     toggle({ taskId });
+  }
+
+  function strike(task: TaskTransport) {
+    const willBeAllDone = pendingTasks.filter((t) => t.id !== task.id).length === 0;
+    setStruck((prev) => new Set(prev).add(task.id));
+    toggle({ taskId: task.id });
+    const toastId = toast(`Hecha: ${task.title}`, {
+      duration: UNDO_MS,
+      action: { label: 'Deshacer', onClick: () => undo(task.id) },
+    });
+    completedHere.current.set(task.id, toastId);
     if (willBeAllDone) {
       setShowConfetti(true);
-      setTimeout(() => setShowConfetti(false), 900);
+      if (confettiTimer.current) clearTimeout(confettiTimer.current);
+      confettiTimer.current = setTimeout(() => setShowConfetti(false), CONFETTI_REMOVE_MS);
     }
   }
 
-  const energyOrderMap = new Map(energyItems?.map((item, i) => [item.task.id, i]));
-  const breakBeforeIds = new Set(
-    energyItems?.filter((item) => item.breakBefore).map((item) => item.task.id) ?? [],
-  );
-
-  const orderedPending = energyItems?.length
-    ? [...pendingTasks].sort(
-        (a, b) => (energyOrderMap.get(a.id) ?? 999) - (energyOrderMap.get(b.id) ?? 999),
-      )
-    : pendingTasks;
+  function handleToggle(task: TaskTransport) {
+    if (task.status !== 'done' && !completedHere.current.has(task.id)) {
+      strike(task);
+      return;
+    }
+    // Deshacer con el círculo cierra el aviso: su Deshacer ya no tiene nada
+    // que devolver.
+    const toastId = completedHere.current.get(task.id);
+    if (toastId !== undefined) toast.dismiss(toastId);
+    if (completedHere.current.has(task.id)) undo(task.id);
+    else toggle({ taskId: task.id });
+  }
 
   const duration = totalEstimated(pendingTasks);
   const summary = [
@@ -113,94 +186,86 @@ export function TodayPlanCard({ noProfile, energyItems }: TodayPlanCardProps) {
     duration,
   ]
     .filter(Boolean)
-    .join(' · ');
+    .join(', ');
+
+  const showRows = visible.length > 0;
 
   return (
     <section aria-label="Plan de hoy" className="relative">
       {showConfetti && <ConfettiBurst />}
 
-      <div className="flex items-baseline justify-between gap-3">
-        <h2 className="text-[1.06rem] font-bold tracking-[-0.01em]">Plan de hoy</h2>
-        {summary && <span className="text-xs text-muted-foreground tabular-nums">{summary}</span>}
-      </div>
+      <SectionHead title="Plan de hoy" count={summary} />
 
-      {totalToday > 0 && (
-        <div className="mt-2 h-1 w-full overflow-hidden rounded-full bg-secondary" aria-hidden>
-          <div className="h-full bg-primary transition-[width] duration-300 ease-out" style={{ width: `${progressPct}%` }} />
-        </div>
-      )}
+      {isLoading && <PlanRowsSkeleton />}
 
-      <div className="mt-2">
-        {isLoading && (
-          <div className="space-y-3 py-2">
-            {[0, 1, 2].map((i) => (
-              <div key={i} className="grid grid-cols-[1.3rem_1fr] gap-3">
-                <Skeleton className="size-[1.3rem] rounded-full" />
-                <Skeleton className={i === 0 ? 'h-4 w-4/5' : i === 1 ? 'h-4 w-3/5' : 'h-4 w-2/3'} />
-              </div>
-            ))}
-          </div>
-        )}
-
-        {!isLoading && noProfile && (
-          <Line>
-            Kino necesita tu perfil de energía para proponer un plan.{' '}
-            <Link href="/onboarding" className="font-semibold text-primary">
+      {!isLoading && noProfile && (
+        <PlanEmpty
+          title="Sin perfil de energía"
+          description="El plan sale de tu perfil de energía; sin él no hay con qué proponerlo."
+          action={
+            <Link href="/onboarding" className={linkAccion}>
               Configurarlo
             </Link>
-          </Line>
-        )}
+          }
+        />
+      )}
 
-        {!isLoading && !noProfile && allDone && (
-          <Line>
-            Todo hecho por hoy: {doneCount} tarea{doneCount === 1 ? '' : 's'}.{' '}
-            <Link href="/tasks" className="font-semibold text-primary">
+      {!isLoading && !noProfile && !showRows && doneCount > 0 && (
+        <PlanEmpty
+          title="Todo hecho por hoy"
+          description={`${doneCount} tarea${doneCount === 1 ? '' : 's'} cerrada${doneCount === 1 ? '' : 's'}. El resto del día es tuyo.`}
+          action={
+            <Link href="/tasks" className={linkAccion}>
               Ver sugerencias
             </Link>
-          </Line>
-        )}
+          }
+        />
+      )}
 
-        {!isLoading && !noProfile && isEmpty && (
-          <Line>
-            No hay tareas en el plan de hoy.{' '}
-            <Link href="/tasks" className="font-semibold text-primary">
-              Ver sugerencias de Kino
+      {!isLoading && !noProfile && isEmpty && (
+        <PlanEmpty
+          title="Nada en el plan"
+          description="Una página en blanco. Las sugerencias esperan en Tareas."
+          action={
+            <Link href="/tasks" className={linkAccion}>
+              Ver sugerencias
             </Link>
-          </Line>
-        )}
+          }
+        />
+      )}
 
-        {!isLoading && !noProfile && !allDone && !isEmpty && (
-          <div className="divide-y divide-border">
-            {orderedPending.map((task, i) => (
-              <div key={task.id}>
-                {breakBeforeIds.has(task.id) && i > 0 && (
-                  <div className="flex items-center gap-2 py-2 text-xs text-muted-foreground">
-                    <Coffee className="size-3.5 shrink-0" />
-                    <span>Pausa sugerida aquí</span>
-                  </div>
-                )}
-                <PlanTaskRow
-                  task={task}
-                  onComplete={() => handleComplete(task.id)}
-                  onMoveToTomorrow={() =>
-                    moveToTomorrow({
-                      taskId: task.id,
-                      tomorrow: userTomorrow(Intl.DateTimeFormat().resolvedOptions().timeZone),
-                    })
-                  }
-                  onRemove={() => removeFromPlan({ taskId: task.id })}
-                  onStartTimer={() => openModeDialog({ id: task.id, title: task.title, systemId: task.systemId })}
-                />
-              </div>
-            ))}
-            {doneCount > 0 && (
-              <p className="py-2.5 text-xs text-muted-foreground">
-                {doneCount} hecha{doneCount === 1 ? '' : 's'} hoy
-              </p>
-            )}
-          </div>
-        )}
-      </div>
+      {!isLoading && !noProfile && showRows && (
+        <div>
+          {visible.map((task, i) => (
+            <div key={task.id} className="border-b border-border last:border-b-0">
+              {breakBeforeIds.has(task.id) && i > 0 && (
+                <div className="flex items-center gap-2 py-2 pl-(--margen) text-[0.82rem] text-muted-foreground">
+                  <Coffee className="size-3.5 shrink-0" />
+                  <span>Pausa sugerida aquí</span>
+                </div>
+              )}
+              <PlanTaskRow
+                task={task}
+                struck={struck.has(task.id)}
+                onComplete={() => handleToggle(task)}
+                onMoveToTomorrow={() =>
+                  moveToTomorrow({
+                    taskId: task.id,
+                    tomorrow: userTomorrow(Intl.DateTimeFormat().resolvedOptions().timeZone),
+                  })
+                }
+                onRemove={() => removeFromPlan({ taskId: task.id })}
+                onStartTimer={() => openModeDialog({ id: task.id, title: task.title, systemId: task.systemId })}
+              />
+            </div>
+          ))}
+          {settledDone > 0 && (
+            <p className="py-2.5 pl-(--margen) text-[0.82rem] text-muted-foreground tabular-nums">
+              {settledDone} hecha{settledDone === 1 ? '' : 's'} hoy
+            </p>
+          )}
+        </div>
+      )}
     </section>
   );
 }
