@@ -194,7 +194,9 @@ function ThreadRow({
         <p className="mt-1 text-sm text-body">{threadSummary(thread)}</p>
         <Link
           href={`/systems/${systemId}/pages/${thread.lastChapter.id}`}
-          className="inline-flex min-h-9 items-center rounded-md text-sm font-medium text-primary underline-offset-2 focus-ring hover:underline pointer-coarse:min-h-[2.85rem]"
+          // Un enlace secundario: tinta apagada y subrayado, el ámbar queda para la
+          // acción primaria de la pantalla.
+          className="inline-flex min-h-9 items-center rounded-md text-sm text-muted-foreground underline underline-offset-2 transition-colors duration-(--dur-toque) ease-(--ease-pluma) focus-ring hover:text-foreground pointer-coarse:min-h-[2.85rem]"
         >
           Ir a esa aparición
         </Link>
@@ -206,7 +208,7 @@ function ThreadRow({
         disabled={isPending}
         aria-busy={isPending || undefined}
         onClick={() => resolve({ entityId: thread.entityId, resolved: !thread.resolved })}
-        className="shrink-0 gap-1.5 text-muted-foreground md:opacity-0 md:transition-opacity md:group-hover:opacity-100 md:focus-visible:opacity-100"
+        className="shrink-0 gap-1.5 text-muted-foreground transition-opacity duration-(--dur-toque) ease-(--ease-pluma) md:pointer-fine:opacity-0 md:pointer-fine:group-hover:opacity-100 md:pointer-fine:focus-visible:opacity-100"
       >
         {thread.resolved ? (
           <>
