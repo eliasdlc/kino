@@ -21,6 +21,11 @@ interface CompartirScreenProps {
    * que es prometer algo que no iba a pasar.
    */
   problema?: string | null;
+  /**
+   * Dentro de otra página (el catálogo) el recibo no es la página: va en un
+   * div y su título es un h2, para no meter un segundo `main` ni un segundo h1.
+   */
+  incrustada?: boolean;
 }
 
 /**
@@ -37,11 +42,12 @@ function donde(registro: RegistroCompartido, problema: string | null): string {
 const PAGINA =
   "mx-auto flex min-h-dvh w-full max-w-md flex-col gap-6 pt-[max(1.25rem,env(safe-area-inset-top))] pr-[max(1.25rem,env(safe-area-inset-right))] pb-[max(1.25rem,env(safe-area-inset-bottom))] pl-[max(1.25rem,env(safe-area-inset-left))]";
 
-function Encabezado({ titulo, linea }: { titulo: string; linea: string }) {
+/** El título y la línea de dónde quedó, en la voz como en las demás puertas. */
+function Encabezado({ titulo, linea, Titular }: { titulo: string; linea: string; Titular: "h1" | "h2" }) {
   return (
     <header className="space-y-2">
-      <h1 className="font-display text-[2rem] leading-[1.05] font-bold tracking-[-0.03em]">{titulo}</h1>
-      <p className="text-base leading-snug text-body">{linea}</p>
+      <Titular className="font-display text-[2rem] leading-[1.05] font-bold tracking-[-0.03em]">{titulo}</Titular>
+      <p className="font-voice text-[1.06rem] italic leading-snug text-body">{linea}</p>
     </header>
   );
 }
@@ -122,22 +128,27 @@ function Contenido({ registro, previewUrl }: { registro: RegistroCompartido; pre
  * piezas globales antes de pintar nada y resuelve la sesión con un redirect, que
  * es la misma trampa del POST por otro camino.
  */
-export function CompartirScreen({ registro, previewUrl, perdido, problema = null }: CompartirScreenProps) {
+export function CompartirScreen({ registro, previewUrl, perdido, problema = null, incrustada = false }: CompartirScreenProps) {
+  const Pagina = incrustada ? "div" : "main";
+  const Titular = incrustada ? "h2" : "h1";
+  const pagina = incrustada ? PAGINA.replace("min-h-dvh", "min-h-[36rem]") : PAGINA;
+
   if (perdido) {
     return (
-      <main className={PAGINA}>
+      <Pagina className={pagina}>
         <Encabezado
+          Titular={Titular}
           titulo="No encontramos esto"
           linea="Si lo compartiste hace un momento, sigue en la cola del teléfono y aparecerá en Bandeja."
         />
         <Salidas />
-      </main>
+      </Pagina>
     );
   }
 
   if (!registro) {
     return (
-      <main aria-busy className={PAGINA}>
+      <Pagina aria-busy className={pagina}>
         <div className="space-y-2">
           <Skeleton className="h-[2.1rem] w-40" />
           <Skeleton className="h-4 w-56" />
@@ -147,17 +158,44 @@ export function CompartirScreen({ registro, previewUrl, perdido, problema = null
           <Skeleton className="h-[3.2rem] w-full rounded-full" />
           <Skeleton className="h-[3.2rem] w-full rounded-full" />
         </div>
-      </main>
+      </Pagina>
     );
   }
 
   return (
-    <main className={PAGINA}>
-      <Encabezado titulo={problema ? "No se pudo guardar" : "Guardado"} linea={donde(registro, problema)} />
+    <Pagina className={pagina}>
+      <Encabezado Titular={Titular} titulo={problema ? "No se pudo guardar" : "Guardado"} linea={donde(registro, problema)} />
       <section aria-label="Lo que compartiste">
         <Contenido registro={registro} previewUrl={previewUrl} />
       </section>
       <Salidas />
-    </main>
+    </Pagina>
+  );
+}
+
+/**
+ * El único error del producto que puede prometer algo: lo compartido ya está
+ * guardado en el teléfono antes de que esta pantalla exista, así que se dice
+ * dónde quedó en vez de mandar a la pantalla de error de la app. Lo pinta
+ * `compartir/error.tsx`; vive aquí para que el catálogo lo enseñe igual.
+ */
+export function CompartirFallo({ onReintentar, incrustada = false }: { onReintentar: () => void; incrustada?: boolean }) {
+  const Pagina = incrustada ? "div" : "main";
+  return (
+    <Pagina className={incrustada ? PAGINA.replace("min-h-dvh", "min-h-[30rem]") : PAGINA}>
+      <Encabezado
+        Titular={incrustada ? "h2" : "h1"}
+        titulo="No se pudo abrir"
+        linea="Lo que compartiste sigue guardado en el teléfono y aparecerá en Bandeja. No se perdió."
+      />
+      <div className="mt-auto space-y-2">
+        <Button size="lg" onClick={onReintentar} className="w-full text-base">
+          Reintentar
+        </Button>
+        <Button asChild size="lg" variant="secondary" className="w-full text-base">
+          <Link href="/bandeja">Abrir Bandeja</Link>
+        </Button>
+      </div>
+    </Pagina>
   );
 }
