@@ -9,14 +9,19 @@ import { ArchetypeGallery } from "@/features/onboarding/ArchetypeGallery";
 import { GlobalCalendarMobileView } from "@/features/calendar/GlobalCalendarMobileView";
 import { ProgramarSheet } from "@/features/calendar/ProgramarSheet";
 import { groupTasksByDay } from "@/features/calendar/calendar.layout";
+import { startOfWeek } from "date-fns";
 import { InboxView } from "@/features/systems/views/InboxView";
 import { GroupNudge } from "@/features/systems/GroupNudge";
 import { CaptureRow } from "@/features/captures/CaptureRow";
 import { ShareConfirm } from "@/features/captures/ShareConfirm";
-import { FormularioEsperando, PuertaEncabezado } from "@/features/auth/Puerta";
-import { OfflineIndicator } from "@/features/offline/OfflineIndicator";
+import { PuertaEncabezado, PuertaEsperando } from "@/features/auth/Puerta";
+import { PUERTA_CREAR, PUERTA_ENTRAR } from "@/features/auth/puertas.copy";
+import { PastillaSinConexion } from "@/features/offline/OfflineIndicator";
 import { Reintentar } from "@/features/offline/Reintentar";
-import { CompartirScreen } from "@/app/(share)/compartir/CompartirScreen";
+import { CompartirFallo, CompartirScreen } from "@/app/(share)/compartir/CompartirScreen";
+import { AudioWave } from "@/features/captures/AudioWave";
+import { SearchEmptyState } from "@/features/search/SearchEmptyState";
+import { CalendarioEscritorio } from "@/features/calendar/CalendarioEscritorio";
 import type { TaskTransport } from "@/features/tasks/tasks.types";
 import {
   ARCHETYPE_LIST,
@@ -69,6 +74,38 @@ function CalendarioSpecimen({ tareas }: { tareas: TaskTransport[] }) {
         unscheduledTasks={SIN_FECHA}
         onProgramar={noop}
         onOpenTask={noop}
+        onComplete={noop}
+        tituloComo="h2"
+      />
+    </div>
+  );
+}
+
+/**
+ * La rejilla de escritorio con la columna de sin programar en filas de índice.
+ * Lleva `@dnd-kit` dentro; en la app se carga sola en escritorio.
+ */
+function EscritorioSpecimen() {
+  const [semana, setSemana] = useState(() => startOfWeek(new Date(), { weekStartsOn: 1 }));
+  const [dia, setDia] = useState(() => new Date(new Date().setHours(0, 0, 0, 0)));
+  return (
+    <div className="h-[34rem] w-full overflow-hidden rounded-xl border border-border bg-background">
+      <CalendarioEscritorio
+        datos={{
+          byDayAllDay: groupTasksByDay(DIA_CON_TAREAS, { timed: false }),
+          timedByDay: groupTasksByDay(DIA_CON_TAREAS, { timed: true }),
+          unscheduledTasks: SIN_FECHA,
+          sugerencia: (task) => (task.energyLevel === "low" ? 16 : 10),
+        }}
+        weekStart={semana}
+        onWeekStart={setSemana}
+        selectedDay={dia}
+        onSelectDay={setDia}
+        projectedCurve={[]}
+        onUpdate={noop}
+        onProgramar={noop}
+        onOpenTask={noop}
+        onAcceptSuggestion={noop}
       />
     </div>
   );
@@ -106,6 +143,18 @@ function ConfirmarSpecimen() {
         Abrir la captura con propuestas
       </Button>
       <ShareConfirm captura={CAPTURA_CON_ITEMS} open={open} onOpenChange={setOpen} onConfirm={() => setOpen(false)} onDiscard={() => setOpen(false)} />
+    </>
+  );
+}
+
+function SinLeerSpecimen() {
+  const [open, setOpen] = useState(false);
+  return (
+    <>
+      <Button variant="secondary" onClick={() => setOpen(true)}>
+        Abrir una captura que nadie ha leído
+      </Button>
+      <ShareConfirm captura={CAPTURA_POR_CADUCAR} open={open} onOpenChange={setOpen} onConfirm={() => setOpen(false)} onDiscard={() => setOpen(false)} />
     </>
   );
 }
@@ -161,7 +210,7 @@ export function OnboardingSection() {
     >
       <SubSection
         title="El calendario en el teléfono"
-        description="La semana arriba en una tira de siete días de 2.85rem, el elegido en tinta y hoy con el numeral en ámbar; un punto por tarea hasta tres. Debajo, el día: las de hora con la hora en el margen, a cualquier hora (23:15 también), y las de todo el día con su glifo. Tocar una fila abre el detalle; una sin fecha se programa con una hoja, no arrastrando."
+        description="La cabecera en dos renglones (título con Hoy, fecha con las flechas) para caber desde 320 px. La semana en una tira de siete días de 2.85rem hasta el canto del papel, el elegido en tinta y hoy con el numeral en ámbar; un punto por tarea hasta tres. Debajo, el día: las de hora con la hora en el margen, a cualquier hora (23:15 también), y las de todo el día con su glifo. Tocar una fila abre el detalle; a la derecha, Mover (la misma hoja que programa) y el círculo de completar de 48 px. El vacío lleva a las que no tienen fecha."
       >
         <SpecimenGrid cols={2}>
           <Specimen label="Un día con tareas" hint="con hora, todo el día y sin programar" className="items-stretch">
@@ -174,32 +223,43 @@ export function OnboardingSection() {
               <CalendarioSpecimen tareas={[]} />
             </ClientOnly>
           </Specimen>
-          <Specimen label="ProgramarSheet" hint="la operación con nombre que sustituye al arrastre">
+          <Specimen label="ProgramarSheet" hint="la operación con nombre que sustituye al arrastre; con fecha se llama Mover">
             <ProgramarSpecimen />
           </Specimen>
         </SpecimenGrid>
       </SubSection>
 
       <SubSection
+        title="El calendario en escritorio"
+        description="Un trozo aparte que sólo se pide en escritorio, porque trae @dnd-kit: el teléfono no lo descarga. La columna de sin programar es un índice de filas con hairline, como en el teléfono, con la hora que pide la energía en tinta subrayada (es una sugerencia, no la acción primaria) y Programar. Los bloques de la rejilla se abren con clic, Intro o Espacio, y se arrastran sólo con el ratón."
+      >
+        <Specimen label="CalendarioEscritorio" hint="semana, todo el día, bloques y sin programar" className="items-stretch">
+          <ClientOnly>
+            <EscritorioSpecimen />
+          </ClientOnly>
+        </Specimen>
+      </SubSection>
+
+      <SubSection
         title="Bandeja"
-        description="Una sola lista de filas de margen: la captura con su glifo en el margen y la barra de acento (gris si caducó), la tarea con el círculo de 48 px que tacha en su sitio y ofrece Deshacer 4 s. Las capturas llegan leídas por el servidor, así que no hay un instante de vacía. El empuje de ocho es una fila con la cifra en el margen."
+        description="Una sola lista de filas de margen: la captura con su glifo en el margen y su estado en palabras (sin leer, cuántas propone, cuándo llegó, de dónde; caducada en coral), la tarea con el círculo de 48 px que tacha en su sitio y ofrece Deshacer 4 s. Bajo el título, siempre una línea que dice qué espera. Descartar una captura también ofrece Deshacer 4 s y confirmar dice cuántas tareas creó y dónde. El empuje de ocho es una fila con la cifra en el margen."
       >
         <SpecimenGrid cols={2}>
           <Specimen label="Con capturas y tareas" hint="initialCaptures del servidor" className="items-stretch">
             <Seeded stubs={[seedQuery(api.tasks.bySystem, SUELTAS)]}>
               <div className="w-full max-w-[393px]">
-                <InboxView system={BANDEJA} initialTasks={SUELTAS} initialCaptures={[CAPTURA_CON_ITEMS, CAPTURA_POR_CADUCAR]} />
+                <InboxView system={BANDEJA} initialTasks={SUELTAS} initialCaptures={[CAPTURA_CON_ITEMS, CAPTURA_POR_CADUCAR]} tituloComo="h2" />
               </div>
             </Seeded>
           </Specimen>
           <Specimen label="Vacía" hint="EmptyState con la acción de capturar" className="items-stretch">
             <Seeded stubs={[seedQuery(api.tasks.bySystem, [])]}>
               <div className="w-full max-w-[393px]">
-                <InboxView system={BANDEJA} initialTasks={[]} initialCaptures={[]} />
+                <InboxView system={BANDEJA} initialTasks={[]} initialCaptures={[]} tituloComo="h2" />
               </div>
             </Seeded>
           </Specimen>
-          <Specimen label="CaptureRow" hint="enlace, por caducar y caducada" className="items-stretch">
+          <Specimen label="CaptureRow" hint="con propuestas, por caducar y caducada" className="items-stretch">
             <ul className="w-full max-w-[393px] [&>li:last-child>*]:border-b-0">
               <CaptureRow captura={CAPTURA_CON_ITEMS} onOpen={noop} />
               <CaptureRow captura={CAPTURA_POR_CADUCAR} onOpen={noop} />
@@ -211,30 +271,37 @@ export function OnboardingSection() {
               <GroupNudge count={12} onTriage={noop} />
             </div>
           </Specimen>
-          <Specimen label="ShareConfirm" hint="marcas en tinta, destino de cada una, descartar entera">
+          <Specimen label="ShareConfirm" hint="marcas en tinta, títulos enteros, la lista se desplaza y Confirmar se queda">
             <ConfirmarSpecimen />
+          </Specimen>
+          <Specimen label="ShareConfirm sin leer" hint="cómo conectar el agente, Dejarla aquí, Descartarla">
+            <SinLeerSpecimen />
+          </Specimen>
+          <Specimen label="AudioWave" hint="reproduce de verdad; por encima de 12 MB no lee el cuerpo ni dibuja onda" className="items-stretch">
+            <div className="w-full max-w-[24rem]">
+              <AudioWave src="/sounds/no-existe.webm" segundos={47} />
+            </div>
           </Specimen>
         </SpecimenGrid>
       </SubSection>
 
       <SubSection
         title="Las puertas"
-        description="Entrar y crear cuenta llevan el título en Bricolage y una frase del producto en la voz, y el formulario de Clerk se asienta en el papel, sin card. Mientras Clerk carga, su esqueleto. Offline dice qué sí funciona sin red y reintenta de verdad; el recibo de compartir dice dónde quedó lo compartido."
+        description="Entrar y crear cuenta llevan la marca de la cabecera (la palabra Kino, sin tile), el título en Bricolage y una frase del producto en la voz, y el formulario de Clerk se asienta en el papel, sin card ni sombras, con campos, enlace del pie y ojo de la contraseña a 48 px. Antes de hidratar ya se pintan el título, la frase y la forma del formulario con sus huecos reales. Offline dice qué sí funciona sin red y reintenta de verdad; el recibo de compartir y su error dicen dónde quedó lo compartido, en la voz."
       >
         <SpecimenGrid cols={2}>
-          <Specimen label="Entrar, mientras Clerk carga" hint="PuertaEncabezado + FormularioEsperando" className="items-stretch">
-            <div className="w-full max-w-[26rem] space-y-6">
-              <PuertaEncabezado titulo="Entra a tu día" voz="Tu energía de hoy y lo que toca, donde lo dejaste." />
-              <FormularioEsperando />
+          <Specimen label="Entrar, antes de hidratar" hint="PuertaEsperando: el fallback de la ruta" className="items-stretch">
+            <div className="w-full max-w-[26rem]">
+              <PuertaEsperando {...PUERTA_ENTRAR} tituloComo="h2" />
             </div>
           </Specimen>
           <Specimen label="Crear cuenta" hint="la frase dice qué viene después" className="items-stretch">
             <div className="w-full max-w-[26rem]">
-              <PuertaEncabezado titulo="Crea tu cuenta" voz="Después, una sola pregunta y estás en Hoy." />
+              <PuertaEncabezado {...PUERTA_CREAR} tituloComo="h2" />
             </div>
           </Specimen>
           <Specimen label="OfflineIndicator" hint="papel con hairline, sin desenfoque ni sombra">
-            <OfflineIndicator enCatalogo />
+            <PastillaSinConexion />
           </Specimen>
           <Specimen label="Reintentar" hint="sin red lo dice en vez de recargar" className="items-stretch">
             <div className="w-full max-w-[24rem]">
@@ -246,7 +313,18 @@ export function OnboardingSection() {
               <CompartirScreen
                 registro={{ id: "reg-cat", ownerId: null, kind: "text", name: null, size: 0, text: "Idea para la tesis: medir la energía antes de planear, no después.", url: null, receivedAt: 0, estado: "subida", blob: null }}
                 previewUrl={null}
+                incrustada
               />
+            </div>
+          </Specimen>
+          <Specimen label="El error de compartir" hint="compartir/error.tsx: dice que no se perdió" className="items-stretch">
+            <div className="w-full max-w-[393px] overflow-hidden rounded-xl border border-border bg-background">
+              <CompartirFallo onReintentar={noop} incrustada />
+            </div>
+          </Specimen>
+          <Specimen label="SearchEmptyState" hint="dice dónde miró, en la voz, con «o»" className="items-stretch">
+            <div className="w-full max-w-[26rem]">
+              <SearchEmptyState query="marco teórico" />
             </div>
           </Specimen>
         </SpecimenGrid>
