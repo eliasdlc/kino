@@ -3,6 +3,8 @@
 import { useState } from "react";
 import { History, RotateCcw } from "lucide-react";
 import { MarginRow } from "@/components/ui/margin-row";
+import { SectionHead } from "@/features/dashboard/SectionHead";
+import { MargenDeUnaLinea, UNA_LINEA } from "@/shared/components/una-linea";
 import { Button } from "@/components/ui/button";
 import {
   ResponsiveDialog,
@@ -29,19 +31,17 @@ export function ChapterHistory({ pageId }: { pageId: string }) {
 
   return (
     <div>
-      <h3 className="mb-1 border-b border-border pb-2 text-xs font-semibold uppercase tracking-[0.06em] text-muted-foreground">
-        Historial
-      </h3>
+      <SectionHead as="h3" title="Historial" className="mb-1" />
       <MarginRow
         onClick={() => setOpen(true)}
-        className="[&>[data-slot=margin-row-margin]]:self-center [&>[data-slot=margin-row-margin]]:pt-0"
-        margin={<span className="flex items-center"><History aria-hidden className="size-5" /></span>}
+        className={UNA_LINEA}
+        margin={<MargenDeUnaLinea><History aria-hidden className="size-5" /></MargenDeUnaLinea>}
       >
         <span className="block text-base text-foreground">Versiones del capítulo</span>
       </MarginRow>
 
       <ResponsiveDialog open={open} onOpenChange={setOpen}>
-        <ResponsiveDialogContent className="max-h-[85vh] max-w-2xl overflow-y-auto">
+        <ResponsiveDialogContent className="max-h-[85dvh] max-w-2xl overflow-y-auto">
           <ResponsiveDialogHeader>
             <ResponsiveDialogTitle>Versiones del capítulo</ResponsiveDialogTitle>
           </ResponsiveDialogHeader>
