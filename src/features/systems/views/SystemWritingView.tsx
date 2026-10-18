@@ -8,7 +8,8 @@ import { usePages, useCreatePage } from "@/features/pages/pages.hooks";
 import { NewFolderInline } from "@/features/folders/NewFolderInline";
 import { SYSTEM_TYPE_CONFIG } from "@/shared/lib/system-types";
 import { MEDIUM_CONFIG, MEDIUM_OPTIONS, resolveMedium, type MediumId } from "@/shared/lib/mediums";
-import { capitalize } from "@/shared/lib/system-manifest";
+import { capitalize, resolveSystemManifest } from "@/shared/lib/system-manifest";
+import type { ArchetypeManifest } from "@/shared/lib/system-types";
 import { WritingPulse } from "@/features/writing/WritingPulse";
 import { WorkJournalDialog } from "@/features/writing/WorkJournalDialog";
 import { useWritingOverview } from "@/features/writing/writing.hooks";
@@ -40,29 +41,32 @@ const CHIP = "gap-1.5 [&_svg]:size-4";
 interface ObraProps {
   obra: FolderWithCounts;
   index: number;
-  /** Los documentos del sistema; la obra se queda con los suyos y los de sus partes. */
-  pages: PageListItemTransport[];
+  /** Los documentos del sistema por carpeta: la obra toma los suyos y los de sus partes. */
+  pagesByFolder: ReadonlyMap<string, PageListItemTransport[]>;
   systemId: string;
+  /** El vocabulario del sistema, una vez para todas las filas. */
+  manifest: ArchetypeManifest;
+  /** Desplegada al llegar: sólo la primera, para no montar todas las obras a la vez. */
+  defaultOpen?: boolean;
   /** Pulso derivado de las sesiones reales; null si la obra nunca tuvo una. */
   pulse: WorkPulse | null;
   now?: Date;
 }
 
 /**
- * Una obra como fila del índice, desplegada: el numeral romano, su medio, sus
+ * Una obra como fila del índice, plegable: el numeral romano, su medio, sus
  * manuscritos y lo escrito contra la meta. Al desplegarse enseña la barra de
  * la meta, las acciones con nombre (Leer, Tablero, Capítulo, Diario,
  * Compilar), el medio como un select de verdad, sus partes y sus manuscritos
  * numerados.
  */
-export function ObraRow({ obra, index, pages, systemId, pulse, now }: ObraProps) {
+export function ObraRow({ obra, index, pagesByFolder, systemId, manifest, defaultOpen = false, pulse, now }: ObraProps) {
   // Las partes (subcarpetas) cuentan: una obra cuyos capítulos viven en
   // "Capítulos 1 a 5" no tiene cero manuscritos. Un nivel, que es lo que el
   // índice enseña al desplegarla.
   const { data: partes = [] } = useFolderChildren(obra.id);
-  const parteIds = new Set(partes.map((p) => p.id));
-  const manuscripts = pages.filter((p) => p.folderId === obra.id);
-  const todos = pages.filter((p) => p.folderId === obra.id || (p.folderId !== null && parteIds.has(p.folderId)));
+  const manuscripts = pagesByFolder.get(obra.id) ?? [];
+  const todos = [...manuscripts, ...partes.flatMap((parte) => pagesByFolder.get(parte.id) ?? [])];
   const meta = (obra.metadata ?? {}) as Record<string, unknown>;
   // El medium gobierna la estructura del editor: se normaliza al leer, así las
   // obras con el texto libre de antes ("novela", "guión") siguen funcionando.
@@ -80,7 +84,8 @@ export function ObraRow({ obra, index, pages, systemId, pulse, now }: ObraProps)
       systemId={systemId}
       index={index}
       href={`/systems/${systemId}/folders/${obra.id}`}
-      defaultOpen
+      defaultOpen={defaultOpen}
+      manifest={manifest}
       meta={
         <>
           {dormida && (
@@ -101,8 +106,11 @@ export function ObraRow({ obra, index, pages, systemId, pulse, now }: ObraProps)
         obra={obra}
         partes={partes}
         manuscripts={manuscripts}
-        hayTexto={todos.length > 0}
+        // Leer, Tablero y Compilar leen los capítulos de la carpeta de la obra,
+        // no los de sus partes: sólo se ofrecen si ahí hay algo que leer.
+        hayTexto={manuscripts.length > 0}
         systemId={systemId}
+        manifest={manifest}
         mediumId={medium.id}
         wordGoal={wordGoal}
         totalWords={totalWords}
@@ -118,6 +126,7 @@ function ObraBody({
   manuscripts,
   hayTexto,
   systemId,
+  manifest,
   mediumId,
   wordGoal,
   totalWords,
@@ -126,9 +135,10 @@ function ObraBody({
   obra: FolderWithCounts;
   partes: FolderWithCounts[];
   manuscripts: PageListItemTransport[];
-  /** La obra tiene algo que leer, en ella o en sus partes. */
+  /** La obra tiene capítulos propios: lo que leen la lectura, el tablero y compilar. */
   hayTexto: boolean;
   systemId: string;
+  manifest: ArchetypeManifest;
   mediumId: MediumId;
   wordGoal: number | null;
   totalWords: number;
@@ -245,6 +255,7 @@ function ObraBody({
           index={i + 1}
           href={`/systems/${systemId}/pages/${m.id}`}
           now={now}
+          manifest={manifest}
         />
       ))}
 
@@ -264,11 +275,20 @@ export function SystemWritingView({ system }: SystemViewProps) {
   const { data: obras = [], isLoading: obrasLoading } = useFolders(system.id);
   const { data: pages = [], isLoading: pagesLoading } = usePages(system.id);
   const { data: overview } = useWritingOverview(system.id);
+  const manifest = resolveSystemManifest(system);
 
   const isLoading = obrasLoading || pagesLoading;
   // Manuscritos sueltos (sin obra): se muestran aparte para no perderlos.
   const looseManuscripts = pages.filter((p) => !p.folderId && !p.parentPageId);
   const pulseByFolder = new Map((overview?.works ?? []).map((w) => [w.folderId, w]));
+  // Una pasada por los documentos para todas las obras, no una por obra.
+  const pagesByFolder = new Map<string, PageListItemTransport[]>();
+  for (const page of pages) {
+    if (!page.folderId) continue;
+    const lista = pagesByFolder.get(page.folderId);
+    if (lista) lista.push(page);
+    else pagesByFolder.set(page.folderId, [page]);
+  }
 
   const nuevaObra = (
     <NewFolderInline
@@ -284,7 +304,7 @@ export function SystemWritingView({ system }: SystemViewProps) {
       <section aria-labelledby={`${system.id}-obras`}>
         <IndexHead id={`${system.id}-obras`} title={capitalize(folderRole.nounPlural)} trailing={nuevaObra} />
         {isLoading ? (
-          <div aria-busy aria-label="Cargando las obras">
+          <div role="status" aria-busy aria-label="Cargando las obras">
             <RowsSkeleton rows={4} margin="numeral" />
           </div>
         ) : obras.length === 0 ? (
@@ -300,8 +320,10 @@ export function SystemWritingView({ system }: SystemViewProps) {
                 key={obra.id}
                 obra={obra}
                 index={i + 1}
-                pages={pages}
+                pagesByFolder={pagesByFolder}
                 systemId={system.id}
+                manifest={manifest}
+                defaultOpen={i === 0}
                 pulse={pulseByFolder.get(obra.id) ?? null}
               />
             ))}
@@ -324,6 +346,7 @@ export function SystemWritingView({ system }: SystemViewProps) {
                 systemId={system.id}
                 index={i + 1}
                 href={`/systems/${system.id}/pages/${m.id}`}
+                manifest={manifest}
               />
             ))}
           </div>
