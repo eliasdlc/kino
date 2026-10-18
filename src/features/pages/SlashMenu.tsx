@@ -28,6 +28,13 @@ export type SlashMenuProps = {
   command: (item: SlashItem) => void;
 };
 
+/**
+ * La superficie del menú: radio de superficie, la sombra de la casa y un ancho
+ * que nunca pasa de la pantalla menos su canto. En un dedo cada fila mide 48 px.
+ */
+const MENU =
+  "w-[min(16rem,calc(100vw-1rem))] rounded-xl border border-border bg-popover text-popover-foreground shadow-(--shadow)";
+
 export const SlashMenu = forwardRef<SlashMenuRef, SlashMenuProps>(
   function SlashMenu({ items, command }, ref) {
     const [selected, setSelected] = useState(0);
@@ -70,8 +77,8 @@ export const SlashMenu = forwardRef<SlashMenuRef, SlashMenuProps>(
 
     if (!items.length) {
       return (
-        <div className="w-64 rounded-lg border border-border bg-popover p-2 text-xs text-muted-foreground shadow-lg">
-          Sin resultados
+        <div className={cn(MENU, "p-3 text-sm text-muted-foreground")}>
+          Ningún bloque se llama así
         </div>
       );
     }
@@ -79,7 +86,9 @@ export const SlashMenu = forwardRef<SlashMenuRef, SlashMenuProps>(
     return (
       <div
         ref={listRef}
-        className="w-64 max-h-72 overflow-y-auto rounded-lg border border-border bg-popover p-1 shadow-lg"
+        role="listbox"
+        aria-label="Insertar bloque"
+        className={cn(MENU, "max-h-72 overflow-y-auto p-1")}
       >
         {items.map((item, i) => {
           const Icon = item.icon;
@@ -87,17 +96,17 @@ export const SlashMenu = forwardRef<SlashMenuRef, SlashMenuProps>(
             <button
               key={item.title}
               type="button"
+              role="option"
+              aria-selected={i === selected}
               data-index={i}
               onClick={() => command(item)}
               onMouseEnter={() => setSelected(i)}
               className={cn(
-                "flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left transition-colors",
-                i === selected
-                  ? "bg-accent text-accent-foreground"
-                  : "text-foreground hover:bg-accent/50"
+                "flex w-full items-center gap-2.5 rounded-md px-2 py-1.5 text-left text-foreground transition-colors duration-(--dur-toque) ease-(--ease-pluma) pointer-coarse:min-h-[2.85rem]",
+                i === selected ? "bg-secondary" : "hover:bg-secondary/60"
               )}
             >
-              <span className="flex size-7 shrink-0 items-center justify-center rounded border border-border bg-background">
+              <span className="flex size-7 shrink-0 items-center justify-center text-muted-foreground">
                 <Icon className="size-4" />
               </span>
               <span className="min-w-0">
