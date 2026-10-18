@@ -101,10 +101,13 @@ export default async function PageEditorRoute({ params, searchParams }: PageEdit
       firstPaint={
         // El texto se sanea y se pinta aquí, en el servidor: llega en la primera
         // pintura con la clase del editor, sin esperar al chunk de Tiptap y sin
-        // mandar al navegador la librería del saneo.
+        // mandar al navegador la librería del saneo. Lleva también lo que el
+        // CSS de ProseMirror le pone al editor al crearlo (espacios que se
+        // conservan, sin ligaduras): sin eso las líneas cortan en otra palabra
+        // y el texto se recoloca al llegar el editor.
         <SanitizedHtml
           html={page.content}
-          className="tiptap ProseMirror min-h-[60vh] text-sm leading-7"
+          className="tiptap ProseMirror min-h-[60vh] text-sm leading-7 break-words whitespace-break-spaces [font-feature-settings:'liga'_0] [font-variant-ligatures:none]"
         />
       }
     />
