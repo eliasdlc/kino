@@ -26,12 +26,22 @@ export function Pendiente({ className }: { className?: string }) {
   return <span aria-hidden data-slot="pendiente" className={cn('inline-block h-3.5 w-36 rounded-md bg-muted align-middle', className)} />;
 }
 
+/**
+ * Las clases del título de un grupo, compartidas con el esqueleto. Arranca
+ * donde arranca el h1 de la página: en la columna de texto en el teléfono
+ * (el h1 de `PageHeader` deja el margen a su izquierda) y en el borde desde md
+ * (donde `PageHeader` pliega su margen). El hairline va de borde a borde: el
+ * texto no entra en el margen, la línea sí lo cruza.
+ */
+export const TITULO_GRUPO =
+  'border-b border-ln2 pb-2 pl-(--margen) font-display text-[1.18rem] font-bold tracking-[-0.02em] text-foreground md:pl-0';
+
 /** Un grupo del índice: el título de sección en display y un hairline debajo. Sin caja. */
 export function SettingsGroup({ title, children, className }: { title: string; children: ReactNode; className?: string }) {
   const id = useId();
   return (
     <section aria-labelledby={id} data-slot="settings-group" className={className}>
-      <h2 id={id} className="border-b border-ln2 pb-2 font-display text-[1.18rem] font-bold tracking-[-0.02em] text-foreground">
+      <h2 id={id} className={TITULO_GRUPO}>
         {title}
       </h2>
       <div>{children}</div>
@@ -86,7 +96,9 @@ export function IndexRow({
   meta,
   value,
   onOpen,
+  onPrefetch,
   tone,
+  wrap,
   className,
 }: {
   icon: ReactNode;
@@ -96,25 +108,33 @@ export function IndexRow({
   value?: ReactNode;
   /** Sin `onOpen` la fila es informativa y no lleva chevron. */
   onOpen?: () => void;
-  tone?: 'danger';
+  /** Al apuntar o enfocar la fila: para traer el código de su hoja antes del toque. */
+  onPrefetch?: () => void;
+  tone?: 'danger' | 'warn';
+  /** La meta en varias líneas, para una fila de hoja que explica. */
+  wrap?: boolean;
   className?: string;
 }) {
   return (
     <MarginRow
       margin={<span className={cn('mt-[0.5rem] flex', tone === 'danger' && 'text-destructive')}>{icon}</span>}
       onClick={onOpen}
+      onPointerEnter={onPrefetch}
+      onFocus={onPrefetch}
       aria-haspopup={onOpen ? 'dialog' : undefined}
       className={className}
       trailing={
         onOpen || value !== undefined ? (
           <span className="inline-flex items-center gap-1">
             {value}
-            {onOpen && <ChevronRight aria-hidden className="size-4 shrink-0" />}
+            {/* Sin chevron, su hueco: el valor queda en la misma columna que
+                los valores de las filas que abren hoja. */}
+            {onOpen ? <ChevronRight aria-hidden className="size-4 shrink-0" /> : <span aria-hidden className="size-4 shrink-0" />}
           </span>
         ) : undefined
       }
     >
-      <Texto title={title} meta={meta} tone={tone} />
+      <Texto title={title} meta={meta} tone={tone} wrap={wrap} />
     </MarginRow>
   );
 }
@@ -229,6 +249,16 @@ export function SwitchRow({
 }
 
 /**
+ * El paso siguiente sobre la rejilla del paso: de 47 con paso 5, + da 50 y
+ * - da 45, y de 1 + da 5. Un valor fuera de la rejilla (el mínimo, o uno que
+ * venía de antes) vuelve a ella en el primer toque en vez de arrastrar el
+ * desfase para siempre. Los topes los pone quien lo llama.
+ */
+export function siguientePaso(value: number, step: number, direccion: 1 | -1): number {
+  return direccion === 1 ? Math.floor(value / step) * step + step : Math.ceil(value / step) * step - step;
+}
+
+/**
  * El stepper de Instrumento, injertado en Diario: un toque por paso, la cifra
  * en Bricolage entre los dos botones de 2.85rem. Sustituye al campo con botón
  * Guardar y al deslizador: con el pulgar, un toque exacto gana a arrastrar.
@@ -258,9 +288,9 @@ export function Stepper({
   stepLabel: string;
 }) {
   const listo = value !== undefined;
-  const mover = (delta: number) => {
+  const mover = (direccion: 1 | -1) => {
     if (value === undefined) return;
-    onChange(Math.min(max, Math.max(min, value + delta)));
+    onChange(Math.min(max, Math.max(min, siguientePaso(value, step, direccion))));
   };
   return (
     <span role="group" aria-labelledby={labelledBy} data-slot="stepper" className="inline-flex items-center rounded-full border border-ln2">
@@ -270,7 +300,7 @@ export function Stepper({
         size="icon"
         aria-label={`Restar ${stepLabel}`}
         disabled={!listo || value <= min}
-        onClick={() => mover(-step)}
+        onClick={() => mover(-1)}
       >
         <Minus aria-hidden />
       </Button>
@@ -290,7 +320,7 @@ export function Stepper({
         size="icon"
         aria-label={`Sumar ${stepLabel}`}
         disabled={!listo || value >= max}
-        onClick={() => mover(step)}
+        onClick={() => mover(1)}
       >
         <Plus aria-hidden />
       </Button>
@@ -321,24 +351,27 @@ export function SettingsSheet({
   return (
     <ResponsiveDialog open={open} onOpenChange={onOpenChange}>
       <ResponsiveDialogContent className={cn('max-h-[88dvh] overflow-y-auto sm:max-w-lg', wide && 'sm:max-w-4xl')}>
-        <ResponsiveDialogHeader>
+        {/* En el teléfono el título se queda arriba al desplazar una hoja larga,
+            con el fondo de la hoja: el texto ya no pasa por debajo del asa ni
+            del botón Cerrar. La explicación sí se desplaza. */}
+        <ResponsiveDialogHeader className="max-md:sticky max-md:-top-4 max-md:z-10 max-md:-mx-4 max-md:-mt-4 max-md:bg-popover max-md:pt-4 max-md:pr-14 max-md:pb-2 max-md:pl-4">
           <ResponsiveDialogTitle>{title}</ResponsiveDialogTitle>
-          {description ? (
-            <ResponsiveDialogDescription className="text-sm leading-snug text-body">{description}</ResponsiveDialogDescription>
-          ) : (
-            <ResponsiveDialogDescription className="sr-only">{title}</ResponsiveDialogDescription>
-          )}
         </ResponsiveDialogHeader>
+        {description ? (
+          <ResponsiveDialogDescription className="text-sm leading-snug text-body">{description}</ResponsiveDialogDescription>
+        ) : (
+          <ResponsiveDialogDescription className="sr-only">{title}</ResponsiveDialogDescription>
+        )}
         <div data-slot="settings-sheet-body">{children}</div>
       </ResponsiveDialogContent>
     </ResponsiveDialog>
   );
 }
 
-/** Lo que ocupa una hoja mientras llega su código: tres filas del alto real. */
-export function SheetLoading({ rows = 3 }: { rows?: number }) {
+/** Lo que ocupa una hoja mientras llega su código: filas del alto real, o el alto que la hoja reserva. */
+export function SheetLoading({ rows = 3, className }: { rows?: number; className?: string }) {
   return (
-    <div aria-busy>
+    <div aria-busy className={className}>
       {Array.from({ length: rows }).map((_, i) => (
         <div key={i} className="grid min-h-[3.4rem] grid-cols-[var(--margen)_1fr] items-center border-b border-border py-2 last:border-b-0">
           <span />
