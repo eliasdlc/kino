@@ -1,7 +1,8 @@
 /**
  * Criterio: abrir una clase enseña lo que contiene, no un índice de pestañas.
  * Los apuntes van arriba y las entregas debajo, en la misma página, y el ciclo
- * es una etiqueta que se toca para mover la clase, no un formulario.
+ * es una etiqueta que se toca para mover la clase, no un formulario. El
+ * título va en la columna de texto también cuando el margen se pliega.
  */
 import { describe, expect, it, vi } from "vitest";
 import { fireEvent, screen } from "@testing-library/react";
@@ -67,6 +68,13 @@ describe("AcademicSubjectView", () => {
     renderSubject();
     const tabs = screen.getAllByRole("tab").map((tab) => tab.textContent);
     expect(tabs.join(" ")).not.toContain("Apuntes");
+  });
+
+  it("el título se queda en la columna de texto cuando el glifo del margen se oculta", () => {
+    renderSubject();
+
+    // Sin columna fija, en escritorio el texto caía en la del margen, de ancho cero.
+    expect(screen.getByRole("heading", { level: 1, name: "Cálculo III" }).parentElement).toHaveClass("col-start-2");
   });
 
   it("enseña el profesor y el horario de la clase", () => {

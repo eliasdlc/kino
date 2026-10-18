@@ -63,7 +63,9 @@ export function AcademicSubjectView({ system, folder, subject, periods, initialT
         <span aria-hidden className="flex justify-center self-start pt-1 text-muted-foreground md:hidden">
           <GraduationCap className="size-5" />
         </span>
-        <div className="min-w-0 space-y-1.5">
+        {/* `col-start-2`: en escritorio el glifo se oculta y sin esto el texto
+            caía en la columna de ancho cero, una letra por línea. */}
+        <div className="col-start-2 min-w-0 space-y-1.5">
           <h1 className="font-display text-[1.41rem] font-bold tracking-[-0.02em] wrap-anywhere">{folder.name}</h1>
           {meta && <p className="text-sm text-muted-foreground">{meta}</p>}
           <Button
