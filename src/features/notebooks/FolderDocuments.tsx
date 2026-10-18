@@ -11,6 +11,7 @@ import { FolderRow } from "./FolderRow";
 import { FolderViewToolbar } from "./FolderViewToolbar";
 import { IndexHead } from "./IndexHead";
 import { NotebookRow } from "./NotebookRow";
+import { countNoun } from "./index-format";
 
 interface FolderDocumentsProps {
   systemId: string;
@@ -46,6 +47,8 @@ export function FolderDocuments({
   // `initialData` y la suscripción sólo lee los documentos de esta carpeta.
   const { data } = useConvexQuery(api.pages.bySystem, { systemId, folderId }, { initialData: initialPages });
   const pages = data?.items ?? [];
+  // La lectura para en su tope y lo marca con `restantes`: si paró, se dice.
+  const restantes = data?.restantes ?? 0;
   const folderPages = pages.filter((page) => page.folderId === folderId && !page.parentPageId);
   const hasContent = children.length > 0 || folderPages.length > 0;
 
@@ -79,6 +82,11 @@ export function FolderDocuments({
               href={`/systems/${systemId}/pages/${page.id}`}
             />
           ))}
+          {restantes > 0 && (
+            <p className="pt-3 pl-(--margen) text-sm text-muted-foreground">
+              {`Se muestran ${countNoun(folderPages.length, manifest.pageRole.noun, manifest.pageRole.nounPlural)}; hay más que no caben en esta lista. Usa Buscar para llegar al resto.`}
+            </p>
+          )}
         </div>
       )}
     </section>
