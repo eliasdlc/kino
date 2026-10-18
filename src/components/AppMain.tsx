@@ -16,7 +16,7 @@ import { PageSkeleton } from "./Skeletons";
  */
 export function AppMain({ children }: { children: React.ReactNode }) {
   return (
-    <main className="flex-1 overflow-y-auto bg-background" style={{ paddingBottom: "var(--kino-bottom-chrome)" }}>
+    <main className="flex-1 overflow-x-hidden overflow-y-auto bg-background" style={{ paddingBottom: "var(--kino-bottom-chrome)" }}>
       <Suspense fallback={<PageSkeleton />}>
         <PageTransition>{children}</PageTransition>
       </Suspense>
