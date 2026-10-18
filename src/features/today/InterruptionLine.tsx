@@ -182,19 +182,23 @@ export function InterruptionLine() {
 
   return (
     <>
-      {/* En el teléfono el texto va arriba y las acciones debajo: los dos
-          botones en la misma fila dejaban la línea en tres palabras y un
-          recorte, que es no decir nada. Desde `sm` vuelve a ser una fila. */}
-      <div className="mb-4 flex flex-col gap-2 rounded-xl border border-border bg-card px-4 py-3 sm:flex-row sm:items-center sm:gap-3">
-        <div className="flex min-w-0 items-start gap-3 sm:flex-1 sm:items-center">
-          <contenido.icono className="mt-0.5 size-4 shrink-0 text-muted-foreground sm:mt-0" />
-          <p className="min-w-0 line-clamp-2 text-sm text-foreground/80">{contenido.texto}</p>
-        </div>
-        <div className="flex shrink-0 items-center gap-3 self-end sm:self-auto">
-          <Button variant="link" size="sm" className="h-auto px-0" onClick={actuar}>
+      {/* Una línea de Diario sobre la cota: el glifo en el margen, la frase en
+          la columna de texto y un hairline debajo. Las dos acciones van bajo la
+          frase, cada una con su blanco de 48 px; en el teléfono la frase tiene
+          así la columna entera y no queda en tres palabras y un recorte. */}
+      <div
+        data-slot="interruption-line"
+        className="mb-4 grid grid-cols-[var(--margen)_1fr] border-b border-border pb-1 sm:grid-cols-[var(--margen)_1fr_auto] sm:items-center"
+      >
+        <span className="flex justify-center pt-[0.2rem] text-muted-foreground sm:pt-0">
+          <contenido.icono className="size-4 shrink-0" aria-hidden />
+        </span>
+        <p className="min-w-0 line-clamp-2 text-sm text-body">{contenido.texto}</p>
+        <div className="col-start-2 -ml-3 flex flex-wrap items-center gap-1 sm:col-start-3 sm:ml-0">
+          <Button variant="link" className="px-3 font-semibold" onClick={actuar}>
             {contenido.accion}
           </Button>
-          <Button variant="ghost" size="sm" className="h-auto px-0 text-muted-foreground" onClick={responder}>
+          <Button variant="ghost" className="px-3 text-muted-foreground" onClick={responder}>
             {contenido.descarte ?? 'Ahora no'}
           </Button>
         </div>
