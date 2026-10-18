@@ -11,10 +11,10 @@ import {
   useRemoveFromPlan,
 } from '@/features/tasks/tasks.hooks';
 import { useFocusTimer } from '@/features/tasks/FocusTimerProvider';
-import { Skeleton } from '@/components/ui/skeleton';
 import { userTomorrow } from '@/shared/time';
 import { PlanTaskRow } from './PlanTaskRow';
 import { SectionHead } from './SectionHead';
+import { PlanRowsSkeleton } from './HoySkeleton';
 import type { EnergyPlanItemTransport } from '@/features/energy/energy.planner';
 import type { TaskTransport } from '@/features/tasks/tasks.types';
 
@@ -28,8 +28,11 @@ export const UNDO_MS = 4000;
 
 const PRIORITY_ORDER: Record<string, number> = { critical: 0, high: 1, medium: 2, low: 3 };
 
-// Confeti al cerrar el plan: doce puntos en transform y opacity, y el bloque
-// global de reduced motion lo apaga con el resto.
+// Confeti al cerrar el plan: doce puntos en transform y opacity. El relleno es
+// `both`: durante su retraso cada punto ya está en su primer fotograma, centrado,
+// así que ninguno se ve quieto fuera de sitio ni salta al arrancar. Con
+// movimiento reducido no se pinta: el bloque global acorta la animación pero no
+// el retraso, y quedarían doce puntos quietos apagándose de uno en uno.
 const CONFETTI_COUNT = 12;
 const CONFETTI_FLIGHT_MS = 700;
 const CONFETTI_STAGGER_MS = 30;
@@ -42,14 +45,14 @@ export const CONFETTI_REMOVE_MS = CONFETTI_FLIGHT_MS + (CONFETTI_COUNT - 1) * CO
 function ConfettiBurst() {
   const spans = Array.from({ length: CONFETTI_COUNT }, (_, i) => ({ id: i, angle: (i / CONFETTI_COUNT) * 360 }));
   return (
-    <div className="pointer-events-none absolute inset-0 overflow-hidden" aria-hidden>
+    <div className="pointer-events-none absolute inset-0 overflow-hidden motion-reduce:hidden" aria-hidden>
       {spans.map(({ id, angle }) => (
         <span
           key={id}
           data-slot="confetti"
           className="absolute top-1/2 left-1/2 size-2 rounded-full bg-primary"
           style={{
-            animation: `confetti-fly ${CONFETTI_FLIGHT_MS}ms var(--ease-pluma) forwards`,
+            animation: `confetti-fly ${CONFETTI_FLIGHT_MS}ms var(--ease-pluma) both`,
             animationDelay: `${id * CONFETTI_STAGGER_MS}ms`,
             '--angle': `${angle}deg`,
           } as React.CSSProperties}
@@ -68,25 +71,6 @@ export function totalEstimated(tasks: readonly TaskTransport[]): string {
   }, 0);
   if (minutes === 0) return '';
   return `${Math.floor(minutes / 60)}:${String(minutes % 60).padStart(2, '0')}`;
-}
-
-/** Tres filas de margen esperando, sin latido. */
-function PlanSkeleton() {
-  return (
-    <div aria-busy>
-      {[0, 1, 2].map((i) => (
-        <div key={i} className="grid min-h-[3.4rem] grid-cols-[var(--margen)_1fr] items-center border-b border-border last:border-b-0">
-          <div className="flex justify-center">
-            <Skeleton className="size-[1.35rem] rounded-full" />
-          </div>
-          <div className="space-y-1.5 py-2">
-            <Skeleton className={i === 0 ? 'h-4 w-4/5' : i === 1 ? 'h-4 w-3/5' : 'h-4 w-2/3'} />
-            <Skeleton className="h-3 w-2/5" />
-          </div>
-        </div>
-      ))}
-    </div>
-  );
 }
 
 /**
@@ -212,7 +196,7 @@ export function TodayPlanCard({ noProfile, energyItems }: TodayPlanCardProps) {
 
       <SectionHead title="Plan de hoy" count={summary} />
 
-      {isLoading && <PlanSkeleton />}
+      {isLoading && <PlanRowsSkeleton />}
 
       {!isLoading && noProfile && (
         <PlanEmpty
