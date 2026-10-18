@@ -50,9 +50,10 @@ export function SidebarUserMenu({
   return (
     <DropdownMenu>
       <DropdownMenuTrigger
+        aria-label={collapsed ? `Cuenta de ${userName ?? "Usuario"}` : undefined}
         className={cn(
-          "group flex items-center rounded-lg outline-none motion-safe:transition-colors hover:bg-sidebar-accent focus-visible:ring-2 focus-visible:ring-sidebar-ring",
-          collapsed ? "justify-center p-1.5" : "gap-2.5 p-1.5 pr-2 w-full"
+          "group flex items-center rounded-lg outline-none motion-safe:transition-colors hover:bg-sidebar-accent focus-ring pointer-coarse:min-h-[2.85rem]",
+          collapsed ? "justify-center p-1.5 pointer-coarse:min-w-[2.85rem]" : "gap-2.5 p-1.5 pr-2 w-full"
         )}
       >
         <Avatar className="size-8 shrink-0">
@@ -90,7 +91,7 @@ export function SidebarUserMenu({
         </DropdownMenuLabel>
         <DropdownMenuSeparator />
         <DropdownMenuItem asChild>
-          <Link href="/settings" className="flex items-center gap-2">
+          <Link href="/settings">
             <Settings className="size-4" />
             Ajustes
           </Link>
@@ -100,7 +101,7 @@ export function SidebarUserMenu({
           onClick={handleSignOut}
           className="text-destructive focus:text-destructive"
         >
-          <LogOut className="size-4 mr-2" />
+          <LogOut className="size-4" />
           Cerrar sesión
         </DropdownMenuItem>
       </DropdownMenuContent>

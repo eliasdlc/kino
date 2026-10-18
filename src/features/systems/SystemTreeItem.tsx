@@ -23,7 +23,8 @@ import { useFolders, useCreateFolder } from "../folders/folders.hooks";
 import { useSystemsTreeStore } from "./systems.store";
 import { useDeleteSystem } from "./systems.hooks";
 import { ICON_MAP, DEFAULT_ICON } from "./system-icons";
-import { getSystemColor } from "@/shared/utils/system-colors";
+import { getSystemColorCss } from "@/shared/utils/system-colors";
+import { systemGlyphStyle } from "./system-tint";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import type { SystemWithSignalsTransport } from "./systems.types";
@@ -108,7 +109,7 @@ export function SystemTreeItem({
   const typeConfig = resolveSystemManifest(system);
   const folderRole = typeConfig.folderRole;
   const Icon = ICON_MAP[system.icon ?? ''] ?? typeConfig?.icon ?? DEFAULT_ICON;
-  const cls = getSystemColor(system.color);
+  const glyph = systemGlyphStyle(system.color);
   const isStale = system.stale;
 
   if (collapsed) {
@@ -117,12 +118,13 @@ export function SystemTreeItem({
         <TooltipTrigger asChild>
           <Link
             href={`/systems/${system.id}`}
-            className={`relative flex justify-center p-2.5 rounded-lg transition-colors ${isActive
+            aria-label={system.name}
+            className={`relative flex justify-center p-2.5 rounded-lg transition-colors focus-ring pointer-coarse:min-h-[2.85rem] pointer-coarse:items-center ${isActive
               ? "bg-sidebar-accent text-sidebar-accent-foreground"
               : "text-muted-foreground hover:bg-sidebar-accent/50 hover:text-sidebar-foreground"
               }`}
           >
-            <Icon className={`size-5 shrink-0 text-${cls}`} />
+            <Icon aria-hidden className="size-5 shrink-0" style={glyph} />
             {isStale && (
               <span className="absolute right-1 top-1 size-2 rounded-full bg-muted-foreground ring-2 ring-sidebar" />
             )}
@@ -137,31 +139,32 @@ export function SystemTreeItem({
     <div>
       {/* SystemTransport row */}
       <div
-        className={`group relative flex items-center gap-1.5 px-2 py-2 rounded-lg text-sm transition-colors ${isActive
+        className={`group relative flex items-center gap-1.5 px-2 py-2 rounded-lg text-sm transition-colors pointer-coarse:min-h-[2.85rem] pointer-coarse:py-0 ${isActive
           ? "bg-sidebar-accent text-sidebar-foreground font-medium"
           : "text-muted-foreground hover:bg-sidebar-accent/50 hover:text-sidebar-foreground"
           }`}
       >
         {isActive && (
-          <span className={`absolute left-0 top-1/2 -translate-y-1/2 h-5 w-1 rounded-r-full bg-${cls}`} />
+          <span className="absolute left-0 top-1/2 -translate-y-1/2 h-5 w-1 rounded-r-full" style={{ backgroundColor: getSystemColorCss(system.color) }} />
         )}
         {/* Chevron */}
         <button
           onClick={() => toggle(system.id)}
-          aria-label={isExpanded ? "Contraer" : "Expandir"}
-          className="p-0.5 rounded hover:bg-sidebar-accent shrink-0"
+          aria-label={isExpanded ? `Contraer ${system.name}` : `Expandir ${system.name}`}
+          aria-expanded={isExpanded}
+          className="flex shrink-0 items-center justify-center rounded p-0.5 hover:bg-sidebar-accent focus-ring pointer-coarse:size-[2.85rem] pointer-coarse:-my-1"
         >
           <ChevronRight
-            className={`size-4 transition-transform duration-150 ${isExpanded ? "rotate-90" : ""}`}
+            className={`size-4 transition-transform duration-(--dur-toque) ease-(--ease-pluma) ${isExpanded ? "rotate-90" : ""}`}
           />
         </button>
 
         {/* SystemTransport link */}
         <Link
           href={`/systems/${system.id}`}
-          className="flex items-center gap-2 flex-1 min-w-0"
+          className="flex items-center gap-2 flex-1 min-w-0 self-stretch rounded focus-ring"
         >
-          <Icon className={`size-5 shrink-0 text-${cls}`} />
+          <Icon aria-hidden className="size-5 shrink-0" style={glyph} />
           <span className="truncate flex-1">{system.name}</span>
           {isPinned && (
             <Pin className="size-3 shrink-0 text-muted-foreground/60 group-hover:hidden" />
@@ -186,7 +189,10 @@ export function SystemTreeItem({
             <Tooltip>
               <TooltipTrigger asChild>
                 <DropdownMenuTrigger asChild>
-                  <button className="opacity-0 group-hover:opacity-100 p-0.5 rounded hover:bg-sidebar-accent shrink-0 transition-opacity">
+                  <button
+                    aria-label={`Opciones de ${system.name}`}
+                    className="flex shrink-0 items-center justify-center rounded p-0.5 opacity-0 transition-opacity hover:bg-sidebar-accent focus-ring focus-visible:opacity-100 group-hover:opacity-100 data-[state=open]:opacity-100 pointer-coarse:size-[2.85rem] pointer-coarse:-my-1 pointer-coarse:opacity-100"
+                  >
                     <MoreHorizontal className="size-4" />
                   </button>
                 </DropdownMenuTrigger>
@@ -244,12 +250,12 @@ export function SystemTreeItem({
               <Link
                 key={folder.id}
                 href={`/systems/${system.id}/folders/${folder.id}`}
-                className={`flex items-center gap-2 px-2.5 py-1.5 rounded-md text-sm transition-colors ${activeFolderId === folder.id
+                className={`flex items-center gap-2 px-2.5 py-1.5 rounded-md text-sm transition-colors focus-ring pointer-coarse:min-h-[2.85rem] ${activeFolderId === folder.id
                   ? "bg-sidebar-accent text-sidebar-accent-foreground font-medium"
                   : "text-muted-foreground hover:bg-sidebar-accent/50 hover:text-sidebar-foreground"
                   }`}
               >
-                <Folder className={`size-4 shrink-0 text-${cls}`} />
+                <Folder aria-hidden className="size-4 shrink-0" style={glyph} />
                 <span className="truncate flex-1">{folder.name}</span>
               </Link>
             ))}
@@ -275,7 +281,7 @@ export function SystemTreeItem({
                   if (!newFolderName.trim()) setIsCreating(false);
                 }}
                 placeholder={folderRole?.placeholder ?? "Nombre de la carpeta"}
-                className="flex-1 bg-transparent text-sm outline-none border-b border-sidebar-primary text-sidebar-foreground placeholder:text-muted-foreground/60"
+                className="flex-1 bg-transparent text-sm outline-none border-b border-sidebar-primary text-sidebar-foreground placeholder:text-muted-foreground/60 pointer-coarse:min-h-[2.85rem] pointer-coarse:text-base"
               />
             </div>
           )}
