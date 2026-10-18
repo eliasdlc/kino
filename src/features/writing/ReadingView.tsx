@@ -1,7 +1,7 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
-import { ChevronLeft, ChevronRight, Printer } from "lucide-react";
+import { memo, useCallback, useEffect, useRef, useState } from "react";
+import { ChevronLeft, ChevronRight, Printer, Scroll } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { EmptyState } from "@/components/ui/empty-state";
 import { Segmented } from "@/components/ui/segmented";
@@ -25,10 +25,20 @@ import type { Manuscript } from "./writing.manuscript";
  * el editor nunca habría producido.
  *
  * Diario: el título de la obra en display como título de pantalla, la meta
- * debajo separada por comas, y una fila de acciones de 48 px (compilar, el
- * segmento Paginado o Continuo en tinta, papel e imprimir). Cada capítulo abre
- * con su numeral en Bricolage y su título en Literata, como en un libro.
+ * debajo separada por comas, y las acciones de 48 px en dos grupos que se
+ * parten juntos: compilar con el segmento Paginado o Continuo en tinta, y
+ * «Papel cálido» con «Imprimir». En el teléfono son dos renglones alineados; en
+ * el escritorio, uno. Cada capítulo abre con su numeral en Bricolage y su título
+ * en Literata, como en un libro.
  */
+
+/**
+ * El cuerpo saneado de un capítulo. Memorizado por su HTML: cambiar a papel o
+ * a Continuo vuelve a pintar la cabecera, no a sanear la obra entera.
+ */
+const CuerpoDelCapitulo = memo(function CuerpoDelCapitulo({ html }: { html: string }) {
+  return <SanitizedHtml html={html} />;
+});
 
 type Mode = "paged" | "scroll";
 
@@ -112,41 +122,49 @@ export function ReadingView({
           </p>
         </div>
 
-        <div className="flex flex-wrap items-center gap-2">
-          <CompileMenu
-            folderId={manuscript.folderId}
-            systemId={manuscript.systemId}
-            manuscript={manuscript}
-          />
-          {canPage && (
-            <Segmented<Mode>
-              aria-label="Cómo se lee"
-              value={mode}
-              onValueChange={setMode}
-              options={[
-                { value: "paged", label: "Paginado" },
-                { value: "scroll", label: "Continuo" },
-              ]}
+        <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
+          <div className="flex flex-wrap items-center gap-2">
+            <CompileMenu
+              folderId={manuscript.folderId}
+              systemId={manuscript.systemId}
+              manuscript={manuscript}
             />
-          )}
-          <Button
-            variant="ghost"
-            aria-pressed={paper}
-            onClick={() => setPaper((p) => !p)}
-            className="aria-pressed:bg-foreground aria-pressed:text-background"
-          >
-            Papel
-          </Button>
-          <Button variant="ghost" size="icon" aria-label="Imprimir o guardar como PDF" onClick={() => window.print()}>
-            <Printer className="size-5" />
-          </Button>
+            {canPage && (
+              <Segmented<Mode>
+                aria-label="Cómo se lee"
+                value={mode}
+                onValueChange={setMode}
+                options={[
+                  { value: "paged", label: "Paginado" },
+                  { value: "scroll", label: "Continuo" },
+                ]}
+              />
+            )}
+          </div>
+          <div className="flex items-center gap-2">
+            {/* Un interruptor con forma: borde cuando está apagado, tinta llena
+                cuando está puesto. El nombre dice qué cambia. */}
+            <Button
+              variant="outline"
+              aria-pressed={paper}
+              onClick={() => setPaper((p) => !p)}
+              className="aria-pressed:border-foreground aria-pressed:bg-foreground aria-pressed:text-background aria-pressed:hover:bg-foreground/90"
+            >
+              <Scroll aria-hidden />
+              Papel cálido
+            </Button>
+            <Button variant="ghost" onClick={() => window.print()} aria-label="Imprimir o guardar como PDF">
+              <Printer aria-hidden />
+              Imprimir
+            </Button>
+          </div>
         </div>
       </header>
 
       {empty ? (
         <EmptyState
           title="Todavía no hay nada que leer"
-          description={`Escribe algo en un ${medium.unit.noun} y vuelve: leerse en otro formato enseña cosas que el editor esconde.`}
+          description="Escribe algo y vuelve: leerse en otro formato enseña cosas que el editor esconde."
         />
       ) : (
         <div className="relative">
@@ -170,7 +188,7 @@ export function ReadingView({
                   </h2>
                 </header>
                 {chapter.content ? (
-                  <SanitizedHtml html={chapter.content} />
+                  <CuerpoDelCapitulo html={chapter.content} />
                 ) : (
                   <p className="text-center font-voice text-base italic text-muted-foreground">En blanco todavía.</p>
                 )}
