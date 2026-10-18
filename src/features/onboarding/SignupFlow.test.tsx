@@ -31,6 +31,12 @@ describe('SignupFlow', () => {
     expect(screen.queryByRole('slider')).not.toBeInTheDocument();
   });
 
+  it('dice qué pasa al entrar, antes de tocar', () => {
+    renderMobile(<SignupFlow />);
+
+    expect(screen.getByText('Entras a Hoy con el plan sembrado para este trabajo.')).toBeVisible();
+  });
+
   it('el botón de entrar está activo desde el primer momento', () => {
     renderMobile(<SignupFlow />, { convex: cliente() });
 
