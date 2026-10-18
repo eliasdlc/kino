@@ -119,9 +119,12 @@
    sf2 ok baja a 4,5 en claro. Como borde (no texto), ln2 da 1,4 / 1,6 y sf2
    1,1 / 1,3: ninguno llega a 3:1, así que el texto identifica el control y
    el hairline sólo lo dibuja. El par tintado (texto de rol sobre su tinte al
-   15 %) no llega a 4,5 en claro; por eso cada rol semántico tiene su texto
-   de tinte (--ac-text y compañía), el rol mezclado con tinta al 28 %, que da
-   5,1 a 6,7 sobre el tinte en reposo y 4,5 o más en hover al 25 %. */
+   15 %) no llega a 4,5 en claro ni, para warn y danger, en oscuro; por eso
+   cada rol semántico tiene su texto de tinte (--ac-text y compañía), el rol
+   mezclado con tinta: al 28 % en claro, al 40 % en oscuro. En reposo (tinte
+   al 15 % sobre bg, sf o sf2) da 5,2 o más en los dos modos; en hover (al
+   25 %) 4,5 o más sobre los tres, con sf2 en claro como el caso más justo
+   (ok 4,5). globals.test.ts recalcula estas cifras. */
 :root {
   --bg: #f8f5ef;
   --sf: #fffdf9;
@@ -241,10 +244,10 @@
   --ok: #5fcb8a;
   --danger: #ff5c7a;
   /* En oscuro el rol ya contrasta sobre su tinte: el texto del par es el rol. */
-  --ac-text: var(--ac);
-  --warn-text: var(--warn);
-  --ok-text: var(--ok);
-  --danger-text: var(--danger);
+  --ac-text: color-mix(in srgb, var(--ac) 60%, var(--ink));
+  --warn-text: color-mix(in srgb, var(--warn) 60%, var(--ink));
+  --ok-text: color-mix(in srgb, var(--ok) 60%, var(--ink));
+  --danger-text: color-mix(in srgb, var(--danger) 60%, var(--ink));
   --glow: color-mix(in srgb, var(--ac) 55%, transparent);
   /* En oscuro la elevación es un paso de tono, nunca una sombra. El fondo
      detrás de un overlay se funde con el papel oscuro. */
@@ -889,6 +892,7 @@
   *::before,
   *::after,
   [data-vaul-drawer],
+  [data-vaul-drawer][data-state="closed"],
   [data-vaul-overlay] {
     animation-duration: 0.01ms !important;
     animation-iteration-count: 1 !important;

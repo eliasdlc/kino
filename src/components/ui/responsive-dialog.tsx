@@ -69,7 +69,7 @@ function ResponsiveDialogContent({
   if (isMobile) {
     return (
       <DrawerContent className={mobileClassName} showCloseButton={showCloseButton}>
-        <div className="space-y-4 overflow-y-auto p-4 pb-[calc(1rem+env(safe-area-inset-bottom))]">
+        <div data-slot="responsive-dialog-body" className="space-y-4 overflow-y-auto p-4 pb-[calc(1rem+env(safe-area-inset-bottom))]">
           {children}
         </div>
       </DrawerContent>
@@ -88,7 +88,7 @@ function ResponsiveDialogFooter({
 }: React.ComponentProps<typeof DialogFooter>) {
   const isMobile = useIsMobile()
   // El contenedor scrolleable ya lleva el padding y el área segura.
-  if (isMobile) return <DrawerFooter className={className ?? "p-0 pb-0"} {...props} />
+  if (isMobile) return <DrawerFooter className={cn("p-0 pb-0", className)} {...props} />
   return <DialogFooter className={className} {...props} />
 }
 

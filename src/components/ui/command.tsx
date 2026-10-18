@@ -62,7 +62,7 @@ function CommandDialog({
           "top-1/3 translate-y-0 overflow-hidden rounded-xl p-0",
           className
         )}
-        mobileClassName="[&>div]:p-2 [&>div]:pt-12"
+        mobileClassName="[&>[data-slot=responsive-dialog-body]]:p-2 [&>[data-slot=responsive-dialog-body]]:pt-[2.3rem]"
         showCloseButton={isMobile || showCloseButton}
       >
         <ResponsiveDialogHeader className="sr-only">
