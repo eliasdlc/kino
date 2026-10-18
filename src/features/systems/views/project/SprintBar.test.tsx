@@ -3,7 +3,8 @@
  * TypeScript, y el chip de un ciclo activo enseña su progreso. El literal
  * `SprintTransport` entró aquí en un renombrado mecánico dentro de un PR de 208
  * ficheros que estuvo abierto nueve minutos con los tests en verde: este es el
- * test que faltaba.
+ * test que faltaba. Y el filtro elegido es un estado: se anuncia con
+ * `aria-pressed`, no sólo con el color.
  */
 import { describe, expect, it, vi } from "vitest";
 import { screen } from "@testing-library/react";
@@ -38,6 +39,15 @@ describe("SprintBar", () => {
 
     const chip = screen.getByRole("button", { name: /Ciclo 3/ });
     expect(chip).toHaveTextContent("1/2");
+  });
+
+  it("el filtro elegido se anuncia como pulsado y los demás no", () => {
+    renderWithProviders(
+      <SprintBar systemId={String(CICLO.systemId)} sprints={[CICLO]} tasks={TAREAS} sprintFilter={CICLO.id} onSelectFilter={() => {}} />,
+    );
+
+    expect(screen.getByRole("button", { name: /Ciclo 3/ })).toHaveAttribute("aria-pressed", "true");
+    expect(screen.getByRole("button", { name: "Todas" })).toHaveAttribute("aria-pressed", "false");
   });
 
   it("el filtro de las que no tienen ciclo también habla en palabras", () => {
