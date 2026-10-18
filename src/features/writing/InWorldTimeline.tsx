@@ -13,7 +13,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { EmptyState } from "@/components/ui/empty-state";
 import { Skeleton } from "@/components/ui/skeleton";
-import { WritingSectionHead } from "./WritingSectionHead";
+import { SectionHead } from "@/features/dashboard/SectionHead";
 import {
   Select,
   SelectContent,
@@ -130,7 +130,7 @@ export function InWorldTimeline({ systemId }: { systemId: string }) {
 
           {unplaced.length > 0 && (
             <section className="space-y-2">
-              <WritingSectionHead as="h3" title="Sin ubicar en el tiempo" meta={unplaced.length} />
+              <SectionHead as="h3" title="Sin ubicar en el tiempo" count={unplaced.length} />
               <ul>
                 {unplaced.map((entry) => (
                   <li
