@@ -6,6 +6,8 @@ import { cn } from "@/lib/utils";
 import { MarginRow } from "@/components/ui/margin-row";
 import { useToggleChapterComplete } from "./writing.hooks";
 import { useCelebrateOnce } from "./celebrate";
+import { unidadDe } from "./unidad";
+import type { MediumUnit } from "@/shared/lib/mediums";
 
 /**
  * El check de estado del capítulo (PLAN-11 §7). Terminar un capítulo es el hito
@@ -17,22 +19,32 @@ import { useCelebrateOnce } from "./celebrate";
  * en vez de girar un icono. Dos formas: la palabra de la barra del escritorio
  * (`barra`) y la fila del panel del teléfono (`fila`), con el círculo en el
  * margen y 48 px de alto.
+ *
+ * El nombre ya dice el estado y lo que hace el toque («En curso: marcar la
+ * escena como terminada»), así que no lleva `aria-pressed`: un lector no lo
+ * repite dos veces. El sustantivo concuerda con el medium (la escena, la
+ * entrega, el episodio). En la barra, la palabra reserva el ancho de la más
+ * larga para no empujar al vecino al cambiar.
  */
+const PALABRAS = ["En curso", "Guardando", "Terminado"] as const;
+
 export function ChapterStatusToggle({
   pageId,
   systemId,
   title,
   initialCompletedAt,
-  unitNoun = "capítulo",
+  unit,
   variant = "barra",
 }: {
   pageId: string;
   systemId: string;
   title: string | null;
   initialCompletedAt: Date | string | null;
-  unitNoun?: string;
+  /** La unidad del medium; sin ella, «capítulo». */
+  unit?: MediumUnit | null;
   variant?: "barra" | "fila";
 }) {
+  const u = unidadDe(unit);
   const [completed, setCompleted] = useState(initialCompletedAt !== null);
   const { mutate: toggle, isPending } = useToggleChapterComplete(pageId, systemId);
   const celebrateOnce = useCelebrateOnce();
@@ -56,18 +68,18 @@ export function ChapterStatusToggle({
 
   const Icono = completed ? CheckCircle2 : Circle;
   const palabra = isPending ? "Guardando" : completed ? "Terminado" : "En curso";
+  const accion = completed ? `marcar ${u.el} como en curso` : `marcar ${u.el} como ${u.terminado}`;
 
   if (variant === "fila") {
     return (
       <MarginRow
         margin={<Icono aria-hidden className={cn("size-6", completed && "text-ok")} />}
         onClick={handleClick}
-        aria-pressed={completed}
         aria-busy={isPending || undefined}
         trailing={<span className={cn(completed && "text-ok")}>{palabra}</span>}
       >
         <span className="block text-base font-semibold text-foreground">
-          {completed ? `${capitalizar(unitNoun)} terminado` : `Marcar el ${unitNoun} como terminado`}
+          {completed ? `${u.Noun} ${u.terminado}` : `Marcar ${u.el} como ${u.terminado}`}
         </span>
         <span className="block text-sm text-muted-foreground">Entra al diario de la obra</span>
       </MarginRow>
@@ -78,20 +90,24 @@ export function ChapterStatusToggle({
     <button
       type="button"
       onClick={handleClick}
-      aria-pressed={completed}
       aria-busy={isPending || undefined}
       className={cn(
         "press flex h-9 shrink-0 items-center gap-1.5 rounded-full px-3 text-sm font-medium transition-[color,background-color,transform] duration-(--dur-toque) ease-(--ease-pluma) focus-ring hover:bg-secondary pointer-coarse:h-[2.85rem]",
         completed ? "text-ok" : "text-muted-foreground hover:text-foreground",
       )}
-      title={completed ? `Marcar ${unitNoun} como en curso` : `Marcar ${unitNoun} como terminado`}
     >
       <Icono aria-hidden className="size-4" />
-      {palabra}
+      {/* Las tres palabras en la misma celda: la visible manda y las otras dos,
+          ocultas, fijan el ancho de la más larga. */}
+      <span className="grid">
+        <span className="col-start-1 row-start-1">{palabra}</span>
+        {PALABRAS.filter((otra) => otra !== palabra).map((otra) => (
+          <span key={otra} aria-hidden className="invisible col-start-1 row-start-1">
+            {otra}
+          </span>
+        ))}
+      </span>
+      {!isPending && <span className="sr-only">: {accion}</span>}
     </button>
   );
-}
-
-function capitalizar(texto: string): string {
-  return texto.charAt(0).toUpperCase() + texto.slice(1);
 }
