@@ -34,11 +34,28 @@ export type PrimeraPintura = {
   /** Cuántas fichas del codex tiene el capítulo, según el servidor. */
   fichasDelCodex: number;
   onOpenPanel: () => void;
-  /** Apunta dónde quedó el scroll de la primera pintura. */
-  guardarScroll: (top: number) => void;
+  /** Apunta qué contenedor desplazaba la primera pintura y dónde quedó. */
+  guardarScroll: (scroll: ScrollGuardado) => void;
   /** Lo devuelve una sola vez, al editor que arranca ahí. */
-  tomarScroll: () => number;
+  tomarScroll: () => ScrollGuardado | null;
 };
+
+/**
+ * El contenedor que desplaza el texto y su `scrollTop`. En el teléfono es el
+ * `main` de la app; en escritorio, la columna del editor.
+ */
+export type ScrollGuardado = { contenedor: HTMLElement; top: number };
+
+/** El antepasado más cercano que de verdad se desplaza, empezando por el propio nodo. */
+export function contenedorConScroll(desde: HTMLElement | null): HTMLElement | null {
+  let nodo = desde;
+  while (nodo) {
+    const { overflowY } = getComputedStyle(nodo);
+    if ((overflowY === "auto" || overflowY === "scroll") && nodo.scrollTop > 0) return nodo;
+    nodo = nodo.parentElement;
+  }
+  return null;
+}
 
 export const PrimeraPinturaContext = createContext<PrimeraPintura | null>(null);
 

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import dynamic from "next/dynamic";
 import { Ellipsis, PanelRight } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -18,7 +18,9 @@ import {
   LETRA_DEL_TITULO,
   PrimeraPinturaContext,
   RESERVA_CODEX,
+  contenedorConScroll,
   usePrimeraPintura,
+  type ScrollGuardado,
 } from "./primera-pintura";
 
 /**
@@ -32,15 +34,21 @@ import {
  */
 export function PrimeraPinturaDelEditor() {
   const pintura = usePrimeraPintura();
+  const columna = useRef<HTMLDivElement>(null);
+  const guardar = pintura?.guardarScroll;
+
+  // Al irse, apunta qué se desplazaba y cuánto: el editor que llega arranca ahí.
+  useLayoutEffect(() => {
+    const nodo = columna.current;
+    return () => {
+      const contenedor = contenedorConScroll(nodo);
+      if (contenedor) guardar?.({ contenedor, top: contenedor.scrollTop });
+    };
+  }, [guardar]);
+
   return (
     <div aria-busy className="relative flex flex-1 flex-col overflow-hidden">
-      <div
-        data-slot="primera-pintura"
-        className="flex-1 overflow-y-auto"
-        onScroll={(e) => {
-          pintura?.guardarScroll(e.currentTarget.scrollTop);
-        }}
-      >
+      <div ref={columna} data-slot="primera-pintura" className="flex-1 overflow-y-auto">
         <div
           className={cn(
             "mx-auto space-y-8 py-6 pl-[max(1.25rem,env(safe-area-inset-left))] pr-[max(1.25rem,env(safe-area-inset-right))] md:px-6 md:py-8",
@@ -144,7 +152,7 @@ export function NotebookEditorLayout({
   const [outline, setOutline] = useState<OutlineItem[]>([]);
   const jumpRef = useRef<((pos: number) => void) | null>(null);
   // El scroll de la primera pintura, para que el editor arranque donde quedó.
-  const scrollDeLaPrimeraPintura = useRef(0);
+  const scrollDeLaPrimeraPintura = useRef<ScrollGuardado | null>(null);
 
   // El título se escribe en el editor pero lo pintan las migas, el nombre de la
   // sesión de escritura, el interruptor de capítulo y el del archivo exportado.
@@ -154,6 +162,15 @@ export function NotebookEditorLayout({
   const liveBreadcrumb = breadcrumbItems.map((item, index) =>
     index === breadcrumbItems.length - 1 ? { ...item, label: title || "Sin título" } : item,
   );
+
+  function guardarScroll(scroll: ScrollGuardado) {
+    scrollDeLaPrimeraPintura.current = scroll;
+  }
+  function tomarScroll() {
+    const scroll = scrollDeLaPrimeraPintura.current;
+    scrollDeLaPrimeraPintura.current = null;
+    return scroll;
+  }
 
   function openPanel() {
     setPanelMounted(true);
@@ -219,14 +236,8 @@ export function NotebookEditorLayout({
             writer,
             fichasDelCodex,
             onOpenPanel: openPanel,
-            guardarScroll: (top) => {
-              scrollDeLaPrimeraPintura.current = top;
-            },
-            tomarScroll: () => {
-              const top = scrollDeLaPrimeraPintura.current;
-              scrollDeLaPrimeraPintura.current = 0;
-              return top;
-            },
+            guardarScroll: guardarScroll,
+            tomarScroll: tomarScroll,
           }}
         >
           <NotebookEditorSurface
