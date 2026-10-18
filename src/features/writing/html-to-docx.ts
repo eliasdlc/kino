@@ -78,7 +78,7 @@ function blockFor(el: Element): DocxBlock[] {
     return items.flatMap((li, i) => {
       const runs = runsOf(li);
       if (isBlank(runs)) return [];
-      const marker = el.tagName === "OL" ? `${i + 1}. ` : "· ";
+      const marker = el.tagName === "OL" ? `${i + 1}. ` : "• ";
       return [{ kind: "paragraph" as const, runs: [{ text: marker }, ...runs] }];
     });
   }
