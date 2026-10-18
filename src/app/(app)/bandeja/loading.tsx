@@ -2,13 +2,17 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { PageWrapper } from "@/components/PageWrapper";
 import { RowsSkeleton } from "@/components/Skeletons";
 
-/** La forma de Bandeja: título, cifra y las filas de captura con su círculo. */
+/**
+ * La forma de Bandeja: el título en la columna de texto con la cuenta a la
+ * derecha, y las filas de margen con su círculo.
+ */
 export default function BandejaLoading() {
   return (
     <PageWrapper aria-busy className="w-full">
-      <div className="flex items-baseline gap-3">
-        <Skeleton className="h-7 w-28" />
-        <Skeleton className="ml-auto h-4 w-6" />
+      <div className="grid grid-cols-[var(--margen)_1fr_auto] items-center md:grid-cols-[0_1fr_auto]">
+        <span />
+        <Skeleton className="h-[2.115rem] w-32" />
+        <Skeleton className="h-5 w-6" />
       </div>
       <RowsSkeleton rows={5} margin="circle" />
     </PageWrapper>
