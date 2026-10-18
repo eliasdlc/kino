@@ -192,7 +192,7 @@ export function buildPeakAdvice(
     return { tone: 'rest', text: 'Hora de bajar el ritmo y recargar para mañana.' };
   }
   if (!peak) {
-    return { tone: 'after', text: 'Aún estoy aprendiendo tu ritmo: registra tu energía para afinar.' };
+    return { tone: 'after', text: 'Tu ritmo todavía se está aprendiendo: registra tu energía para afinarlo.' };
   }
   if (h >= peak.start && h < peak.end) {
     return { tone: 'peak', text: 'Estás en tu pico: aprovéchalo para lo más difícil.' };
