@@ -27,6 +27,8 @@ describe("EnergyChart", () => {
     expect(pico).toHaveAttribute("data-peak");
     expect(pico?.style.transform).toBe("scaleY(0.88)");
     expect(pico?.style.height).toBe("");
+    // Sin radio: scaleY estiraría la esquina en las barras altas.
+    expect(pico?.className).not.toMatch(/rounded/);
     expect(container.querySelector("[data-actual='72']")).toBeInTheDocument();
     for (const el of container.querySelectorAll<HTMLElement>("*")) {
       expect(el.style.animation).toBe("");
