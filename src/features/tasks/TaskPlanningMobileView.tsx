@@ -180,7 +180,7 @@ export function TaskPlanningMobileView({
               return (
                 <MarginRow
                   key={dayISO}
-                  margin={<span className="mt-[0.5rem] text-sm font-semibold tabular-nums">{format(date, "d")}</span>}
+                  margin={<span className="mt-[0.8rem] text-sm font-semibold tabular-nums">{format(date, "d")}</span>}
                   trailing={isToday(date) ? "hoy" : actual ? "ahora" : undefined}
                   onClick={() => {
                     if (!moviendo || actual) return;
