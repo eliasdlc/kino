@@ -1,8 +1,10 @@
 /**
  * Criterio: "Tu patrón" se lee como renglones de Diario. El ciclo del día es
  * una línea bajo hairline y no una caja, el pico va en tinta y no en el
- * acento, ningún texto lleva punto medio, y el sujeto es la previsión o la
- * persona, nunca el producto en primera persona.
+ * acento, el consejo del pico va en tinta y peso y no en verde, la barra de
+ * personalización es una medida en tinta y no ámbar, sin pico no se repite la
+ * misma frase dos veces, ningún texto lleva punto medio, y el sujeto es la
+ * previsión o la persona, nunca el producto en primera persona.
  */
 import { describe, expect, it } from "vitest";
 import { screen } from "@testing-library/react";
@@ -27,7 +29,7 @@ describe("LearningInsightCard", () => {
     const { container } = renderWithProviders(<LearningInsightCard insight={mockLearningInsight({ loop: LOOP })} />);
 
     const ciclo = container.querySelector("[data-slot=verification-loop]");
-    expect(ciclo).not.toBeNull();
+    expect(ciclo).toBeInTheDocument();
     expect(ciclo).toHaveClass("border-t");
     expect(ciclo?.className).not.toMatch(/rounded|bg-/);
     expect(ciclo).toHaveTextContent("Cerca en la mañana: previsto 60, registraste 72 (+12).");
@@ -37,9 +39,35 @@ describe("LearningInsightCard", () => {
   it("el pico va en tinta y en peso, no en el acento", () => {
     renderWithProviders(<LearningInsightCard insight={mockLearningInsight()} />);
 
-    const pico = screen.getByText("9 AM – 12 PM");
+    const pico = screen.getByText("9 AM a 12 PM");
     expect(pico).toHaveClass("text-foreground", "font-semibold");
     expect(pico).not.toHaveClass("text-primary");
+  });
+
+  it("el consejo del pico va en tinta y peso, y la personalización en tinta", () => {
+    const { container } = renderWithProviders(<LearningInsightCard insight={mockLearningInsight()} />);
+
+    const consejo = container.querySelector("[data-slot=peak-advice]");
+    expect(consejo).toHaveClass("text-foreground", "font-semibold");
+    expect(consejo).not.toHaveClass("text-task-done");
+    const barra = container.querySelector("[data-slot=personalization-bar]");
+    expect(barra).toHaveClass("bg-input");
+    expect(barra?.firstElementChild).toHaveClass("bg-foreground");
+    expect(barra?.innerHTML).not.toContain("bg-primary");
+  });
+
+  it("sin pico dice una sola vez que el ritmo se está aprendiendo", () => {
+    renderWithProviders(
+      <LearningInsightCard
+        insight={mockLearningInsight({
+          peak: null,
+          advice: { tone: "after", text: "Tu ritmo todavía se está aprendiendo: registra tu energía para afinarlo." },
+        })}
+      />,
+    );
+
+    expect(screen.getAllByText(/Tu ritmo todavía se está aprendiendo/)).toHaveLength(1);
+    expect(screen.queryByText(/Rindes mejor/)).not.toBeInTheDocument();
   });
 
   it("ni punto medio ni el producto como sujeto en primera persona", () => {
