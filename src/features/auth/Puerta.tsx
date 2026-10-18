@@ -30,14 +30,21 @@ export function FormularioEsperando() {
 export function Puerta({ titulo, voz, children }: { titulo: string; voz: string; children: React.ReactNode }) {
   return (
     <div className="space-y-6">
-      <header className="space-y-2">
-        <h1 className="font-display text-[2rem] leading-[1.05] font-bold tracking-[-0.03em]">{titulo}</h1>
-        <p className="font-voice text-[1.06rem] italic leading-snug text-body">{voz}</p>
-      </header>
+      <PuertaEncabezado titulo={titulo} voz={voz} />
       <ClerkLoading>
         <FormularioEsperando />
       </ClerkLoading>
       {children}
     </div>
+  );
+}
+
+/** El título y la frase de una puerta, sin Clerk: lo que el catálogo enseña. */
+export function PuertaEncabezado({ titulo, voz }: { titulo: string; voz: string }) {
+  return (
+    <header className="space-y-2">
+      <h1 className="font-display text-[2rem] leading-[1.05] font-bold tracking-[-0.03em]">{titulo}</h1>
+      <p className="font-voice text-[1.06rem] italic leading-snug text-body">{voz}</p>
+    </header>
   );
 }

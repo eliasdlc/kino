@@ -17,16 +17,21 @@ import { useOnlineStatus } from "./offline.hooks";
  * Es papel con hairline, como el pie: sin desenfoque, sin borde blanco y sin
  * sombra. La palabra va en tinta suave y el glifo en mute; no es una alarma.
  */
-export function OfflineIndicator() {
+export function OfflineIndicator({ enCatalogo = false }: { enCatalogo?: boolean } = {}) {
   const isOnline = useOnlineStatus();
 
-  if (isOnline) return null;
+  // El catálogo la enseña en su sitio del specimen, aunque haya red.
+  if (isOnline && !enCatalogo) return null;
 
   return (
     <div
       role="status"
       aria-live="polite"
-      className="fixed bottom-[calc(var(--kino-bottom-chrome)+0.5rem)] left-[max(1rem,env(safe-area-inset-left))] z-(--z-modal) md:bottom-4 pointer-events-none"
+      className={
+        enCatalogo
+          ? "pointer-events-none"
+          : "fixed bottom-[calc(var(--kino-bottom-chrome)+0.5rem)] left-[max(1rem,env(safe-area-inset-left))] z-(--z-modal) md:bottom-4 pointer-events-none"
+      }
     >
       <div className="flex items-center gap-2 rounded-full border border-border bg-background px-3 py-1.5 text-sm font-semibold text-body">
         <CloudOff className="size-4 text-muted-foreground" aria-hidden />
