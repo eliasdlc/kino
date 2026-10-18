@@ -29,13 +29,18 @@ export default async function PageEditorRoute({ params, searchParams }: PageEdit
   const writer = system.templateType === "writing";
   const isSubPage = !!page.parentPageId;
   const rootPageId = page.parentPageId ?? pageId;
-  const [folder, parentNotebook, initialSubPages, allPages] = await Promise.all([
+  const [folder, parentNotebook, initialSubPages, allPages, fichasDelCodex] = await Promise.all([
     page.folderId ? serverQuery(api.folders.detail, { id: page.folderId }) : null,
     page.parentPageId ? serverQuery(api.pages.byId, { id: page.parentPageId }) : null,
     serverQuery(api.pages.subpages, { id: rootPageId }),
     writer && page.folderId
       ? serverQuery(api.pages.bySystem, { systemId, folderId: page.folderId }).then((result) => result.items)
       : [],
+    // Las fichas del codex que nombra el capítulo: su fila va encima del texto,
+    // y la primera pintura le guarda el sitio para que el texto no baje.
+    writer
+      ? serverQuery(api.entities.byPage, { pageId }).then((rows) => rows.length).catch(() => 0)
+      : 0,
   ]);
   const folderAncestors = folder?.breadcrumb ?? [];
 
@@ -92,6 +97,7 @@ export default async function PageEditorRoute({ params, searchParams }: PageEdit
       obra={obra}
       obraMetadata={writer ? (folder?.metadata ?? null) : null}
       medium={medium}
+      fichasDelCodex={fichasDelCodex}
       firstPaint={
         // El texto se sanea y se pinta aquí, en el servidor: llega en la primera
         // pintura con la clase del editor, sin esperar al chunk de Tiptap y sin
