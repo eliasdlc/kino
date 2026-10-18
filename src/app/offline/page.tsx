@@ -1,6 +1,7 @@
 import { Share2, WifiOff } from "lucide-react";
 import { MarginRow } from "@/components/ui/margin-row";
 import { Reintentar } from "@/features/offline/Reintentar";
+import { SectionHead } from "@/features/dashboard/SectionHead";
 
 export const metadata = { title: "Sin conexión, Kino" };
 
@@ -21,12 +22,7 @@ export default function OfflinePage() {
       </header>
 
       <section aria-labelledby="offline-si">
-        <h2
-          id="offline-si"
-          className="border-b border-input pb-[0.45rem] font-display text-[1.25rem] leading-[1.15] font-bold tracking-[-0.02em]"
-        >
-          Sin red sí puedes
-        </h2>
+        <SectionHead id="offline-si" title="Sin red sí puedes" />
         <MarginRow margin={<Share2 className="mt-2 size-5" aria-hidden />}>
           <span className="block font-semibold">Compartir hacia Kino</span>
           <span className="block text-sm text-muted-foreground">Se guarda en el teléfono y sube solo a Bandeja cuando vuelva la red.</span>

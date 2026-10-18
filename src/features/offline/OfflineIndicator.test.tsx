@@ -1,15 +1,15 @@
+/*
+ * Criterio: sin red, la pastilla lo dice como papel con hairline (sin
+ * desenfoque, sin borde blanco, sin sombra) y desaparece con la red. Y el
+ * reintento de la pantalla offline no recarga a ciegas: sin red lo dice, y
+ * con red vuelve a pedir la pantalla que falló.
+ */
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { renderMobile } from "@/shared/testing/render";
 import { OfflineIndicator } from "./OfflineIndicator";
 import { Reintentar } from "./Reintentar";
-
-/*
- * Criterio: sin red, la pastilla lo dice como papel con hairline (sin
- * desenfoque, sin borde blanco, sin sombra) y desaparece con la red. Y el
- * reintento de la pantalla offline no recarga a ciegas: sin red lo dice.
- */
 
 function conRed(online: boolean) {
   vi.spyOn(window.navigator, "onLine", "get").mockReturnValue(online);
@@ -44,5 +44,17 @@ describe("Reintentar", () => {
     await userEvent.click(screen.getByRole("button", { name: "Reintentar" }));
 
     expect(screen.getByRole("status")).toHaveTextContent("Todavía no hay red");
+  });
+
+  it("con red recarga la pantalla que falló", async () => {
+    conRed(true);
+    const recargar = vi.fn();
+    vi.spyOn(window, "location", "get").mockReturnValue({ ...window.location, reload: recargar });
+    renderMobile(<Reintentar />);
+
+    await userEvent.click(screen.getByRole("button", { name: "Reintentar" }));
+
+    expect(recargar).toHaveBeenCalledOnce();
+    expect(screen.getByRole("status")).toHaveTextContent("");
   });
 });
