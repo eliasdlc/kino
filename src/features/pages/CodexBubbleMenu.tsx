@@ -5,7 +5,7 @@ import type { Editor } from "@tiptap/react";
 import { ENTITY_TYPE_ICON, ENTITY_TYPE_LABEL } from "@/features/entities/entities.ui";
 import { createEntityApi } from "@/features/entities/entities.client";
 import type { EntityType } from "@/features/entities/entities.attributes";
-import { cn } from "@/lib/utils";
+import { BUBBLE_BUTTON } from "./bubble-styles";
 
 const OFFER_TYPES: EntityType[] = ["character", "location", "object"];
 
@@ -58,8 +58,8 @@ export function CodexSelectionActions({
 
   return (
     <>
-      <span className="mx-0.5 h-4 w-px bg-border" />
-      <span className="px-1 text-xs font-medium text-muted-foreground">Codex</span>
+      <span aria-hidden className="mx-0.5 h-4 w-px shrink-0 bg-border" />
+      <span className="px-1 text-xs font-semibold text-muted-foreground">Codex</span>
       {OFFER_TYPES.map((type) => {
         const Icon = ENTITY_TYPE_ICON[type];
         return (
@@ -68,13 +68,11 @@ export function CodexSelectionActions({
             type="button"
             disabled={busy}
             title={`Añadir al codex como ${ENTITY_TYPE_LABEL[type].toLowerCase()}`}
+            aria-label={`Añadir al codex como ${ENTITY_TYPE_LABEL[type].toLowerCase()}`}
             onClick={() => addToCodex(type)}
-            className={cn(
-              "flex items-center gap-1 rounded px-1.5 py-1 text-xs font-medium transition-colors",
-              "text-muted-foreground hover:bg-accent hover:text-foreground disabled:opacity-50",
-            )}
+            className={BUBBLE_BUTTON}
           >
-            <Icon className="size-3.5" />
+            <Icon className="size-4" />
           </button>
         );
       })}

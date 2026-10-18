@@ -4,18 +4,22 @@ import type { Editor } from "@tiptap/react";
 import { BubbleMenu } from "@tiptap/react/menus";
 import { Trash2 } from "lucide-react";
 import { cn } from "@/lib/utils";
-
-const menuContainer =
-  "flex items-center gap-1 bg-popover border border-border rounded-lg px-1.5 py-1 shadow-lg";
-const menuButton =
-  "flex items-center gap-1 px-2 py-1 rounded text-xs font-medium transition-colors text-muted-foreground hover:text-foreground hover:bg-accent";
+import { BUBBLE, BUBBLE_BUTTON } from "./bubble-styles";
 
 /**
- * Contextual table toolbar (KIN-65): a BubbleMenu shown while the cursor is
- * inside a table: add/remove rows & columns, toggle header row, delete table.
- * Table insertion lives in the slash menu (KIN-67).
+ * Las operaciones de una tabla (KIN-65), en un menú que aparece mientras el
+ * cursor está dentro: filas, columnas, la fila de encabezado y borrarla.
+ * Insertar una tabla vive en el menú `/` (KIN-67).
+ *
+ * Arriba de la tabla, como el menú de la selección: en un teléfono lo de abajo
+ * es el teclado. Cada operación dice lo que hace con una palabra, sin signos
+ * sueltos, y en un dedo mide 48 px; la fila entera se desplaza en horizontal
+ * si no cabe, en vez de partirse.
  */
 export function TableMenus({ editor }: { editor: Editor }) {
+  const correr = (accion: (cadena: ReturnType<Editor["chain"]>) => ReturnType<Editor["chain"]>) =>
+    accion(editor.chain().focus()).run();
+
   return (
     <BubbleMenu
       editor={editor}
@@ -23,58 +27,33 @@ export function TableMenus({ editor }: { editor: Editor }) {
       shouldShow={({ editor }) => editor.isActive("table")}
       options={{ placement: "top" }}
     >
-      <div className={menuContainer}>
-          <button
-            type="button"
-            className={menuButton}
-            title="Añadir fila debajo"
-            onClick={() => editor.chain().focus().addRowAfter().run()}
-          >
-            Fila +
-          </button>
-          <button
-            type="button"
-            className={menuButton}
-            title="Borrar fila"
-            onClick={() => editor.chain().focus().deleteRow().run()}
-          >
-            Fila −
-          </button>
-          <span className="w-px h-4 bg-border" />
-          <button
-            type="button"
-            className={menuButton}
-            title="Añadir columna a la derecha"
-            onClick={() => editor.chain().focus().addColumnAfter().run()}
-          >
-            Col +
-          </button>
-          <button
-            type="button"
-            className={menuButton}
-            title="Borrar columna"
-            onClick={() => editor.chain().focus().deleteColumn().run()}
-          >
-            Col −
-          </button>
-          <span className="w-px h-4 bg-border" />
-          <button
-            type="button"
-            className={menuButton}
-            title="Alternar fila de encabezado"
-            onClick={() => editor.chain().focus().toggleHeaderRow().run()}
-          >
-            Header
-          </button>
-          <button
-            type="button"
-            className={cn(menuButton, "hover:text-destructive")}
-            title="Borrar tabla"
-            onClick={() => editor.chain().focus().deleteTable().run()}
-          >
-            <Trash2 className="size-3" />
-          </button>
-        </div>
+      <div role="toolbar" aria-label="Tabla" className={cn(BUBBLE, "max-w-[calc(100vw-1rem)] overflow-x-auto")}>
+        <button type="button" className={BUBBLE_BUTTON} onClick={() => correr((c) => c.addRowAfter())}>
+          Añadir fila
+        </button>
+        <button type="button" className={BUBBLE_BUTTON} onClick={() => correr((c) => c.deleteRow())}>
+          Quitar fila
+        </button>
+        <span aria-hidden className="mx-0.5 h-4 w-px shrink-0 bg-border" />
+        <button type="button" className={BUBBLE_BUTTON} onClick={() => correr((c) => c.addColumnAfter())}>
+          Añadir columna
+        </button>
+        <button type="button" className={BUBBLE_BUTTON} onClick={() => correr((c) => c.deleteColumn())}>
+          Quitar columna
+        </button>
+        <span aria-hidden className="mx-0.5 h-4 w-px shrink-0 bg-border" />
+        <button type="button" className={BUBBLE_BUTTON} onClick={() => correr((c) => c.toggleHeaderRow())}>
+          Encabezado
+        </button>
+        <button
+          type="button"
+          aria-label="Borrar la tabla"
+          className={cn(BUBBLE_BUTTON, "hover:text-destructive")}
+          onClick={() => correr((c) => c.deleteTable())}
+        >
+          <Trash2 className="size-4" />
+        </button>
+      </div>
     </BubbleMenu>
   );
 }

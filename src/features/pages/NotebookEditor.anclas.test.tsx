@@ -63,7 +63,7 @@ function pintar() {
   return { convex, editorDe: () => editor! };
 }
 
-/** Selecciona «limites» y pulsa Sticky, que es como se anota una frase. */
+/** Selecciona «limites» y pulsa Nota, que es como se anota una frase. */
 async function anotarUnaFrase(editorDe: () => Editor) {
   await waitFor(() => expect(editorDe()).not.toBeNull());
   const editor = editorDe();
@@ -71,7 +71,7 @@ async function anotarUnaFrase(editorDe: () => Editor) {
   act(() => {
     editor.commands.setTextSelection({ from: inicio, to: inicio + "limites".length });
   });
-  await userEvent.click(await screen.findByRole("button", { name: /Sticky/ }));
+  await userEvent.click(await screen.findByRole("button", { name: "Nota" }));
 }
 
 describe("anotar una frase desde la selección", () => {
