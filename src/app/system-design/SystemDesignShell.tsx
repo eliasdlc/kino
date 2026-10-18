@@ -62,9 +62,15 @@ export function SystemDesignShell() {
   const [client] = useState(() => makeTestConvexClient() as unknown as ConvexReactClient);
 
   // Toggle local de tema: manipula la clase .dark del <html> igual que el
-  // ThemeProvider de la app, pero sin persistir — es una herramienta de
-  // comparación y arranca siempre en light para ser predecible.
+  // ThemeProvider de la app, sin persistir. Arranca con el tema que la app
+  // guardó (`kino-theme`) o el del sistema, para que el catálogo se vea como
+  // la pantalla de la que viene y las capturas en oscuro salgan oscuras.
   const [dark, setDark] = useState(false);
+  useEffect(() => {
+    const guardado = window.localStorage.getItem("kino-theme");
+    const sistema = window.matchMedia("(prefers-color-scheme: dark)").matches;
+    setDark(guardado === "dark" || (guardado !== "light" && sistema));
+  }, []);
   useEffect(() => {
     document.documentElement.classList.toggle("dark", dark);
   }, [dark]);
