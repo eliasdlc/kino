@@ -8,7 +8,16 @@ import { DndContext } from "@dnd-kit/core";
 import { Section, SubSection, Specimen, SpecimenGrid, ClientOnly, Seeded, seedQuery } from "../helpers";
 import { api } from "@convex/_generated/api";
 import { makeTask, makeSprint, daysFromNow, MOCK_SYSTEM_ID, mid, CAPTURA_CON_ITEMS, CAPTURA_POR_CADUCAR } from "../mock-data";
-import { TaskListRow } from "@/features/tasks/TaskListRow";
+import { TaskRow } from "@/features/tasks/TaskRow";
+import { KinoSuggestedSection } from "@/features/tasks/KinoSuggestedSection";
+import { TasksPageSkeleton } from "@/features/tasks/TasksSkeleton";
+import { CascadeInboxMode } from "@/features/tasks/CascadeInboxMode";
+import { TaskFilterPanel } from "@/features/tasks/TaskFilterPanel";
+import { TaskDetailSheet } from "@/features/tasks/TaskDetailSheet";
+import { Segmented } from "@/components/ui/segmented";
+import { Button } from "@/components/ui/button";
+import { DEFAULT_FILTERS, type TaskFilters } from "@/lib/taskFilters";
+import { CalendarArrowUp, ListChecks, Play, Trash2, X } from "lucide-react";
 import { CaptureRow } from "@/features/captures/CaptureRow";
 import { OverdueGroup } from "@/features/tasks/OverdueGroup";
 import { PlanningTaskCard } from "@/features/tasks/PlanningTaskCard";
@@ -61,6 +70,64 @@ const VIDA = [
   makeTask({ id: mid("p-5"), systemId: PERSONAL.id, title: "Pedir la analítica", status: "backlog", folderId: AREAS[0]!.id, metadata: { kind: "errand" } }),
 ];
 
+/** Lo sugerido del catálogo: lo que devuelve `insights.suggest`, con su porqué. */
+const SUGERIDAS = [
+  { ...makeTask({ id: mid("s1"), title: "Parcial de Cálculo III", priority: "critical", effectivePriority: "critical", dueDate: daysFromNow(-2), estimatedTime: "02:00" }), importanceScore: 90, why: "vencida", energyBand: "high" },
+  { ...makeTask({ id: mid("s2"), title: "Bajar de la PVA: informaciones generales y el desglose del primer mes", priority: "high", effectivePriority: "high", dueDate: daysFromNow(1) }), importanceScore: 70, why: "vence mañana", energyBand: "high" },
+  { ...makeTask({ id: mid("s3"), title: "Caminar 30 minutos", energyLevel: "low", inTodayPlan: true }), importanceScore: 40, why: "planeada para hoy", energyBand: "high" },
+];
+
+function TasksPageSpecimens() {
+  const [vista, setVista] = useState<"lista" | "calendario">("lista");
+  return (
+    <SpecimenGrid cols={2}>
+      <Specimen label="Segmento Lista | Calendario" hint="selección en tinta; Calendario monta el calendario global, cargado aparte">
+        <Segmented
+          aria-label="Vista de tareas"
+          value={vista}
+          onValueChange={setVista}
+          options={[
+            { value: "lista", label: "Lista" },
+            { value: "calendario", label: "Calendario" },
+          ]}
+        />
+      </Specimen>
+      <Specimen label="Lo sugerido" hint="tres filas plan; agregar al plan en la cola, ya en el plan con el check en --ok" className="items-stretch">
+        <Seeded stubs={[seedQuery(api.insights.suggest, SUGERIDAS)]}>
+          <div className="w-full">
+            <KinoSuggestedSection />
+          </div>
+        </Seeded>
+      </Specimen>
+      <Specimen label="Esqueleto de /tasks" hint="mismas alturas que la página: título, voz, segmento, secciones de 3,9rem por fila" className="items-stretch">
+        <div className="w-full overflow-hidden rounded-xl border border-border">
+          <TasksPageSkeleton />
+        </div>
+      </Specimen>
+    </SpecimenGrid>
+  );
+}
+
+function TasksSheetsSpecimens() {
+  const [abierta, setAbierta] = useState<"detalle" | "repaso" | "filtros" | null>(null);
+  const [filtros, setFiltros] = useState<TaskFilters>(DEFAULT_FILTERS);
+  const tarea = makeTask({ id: mid("h1"), title: "Reescribir la apertura del capítulo 1", priority: "high", effectivePriority: "high", dueDate: daysFromNow(0), estimatedTime: "00:50" });
+  return (
+    <div className="flex flex-wrap gap-2">
+      <Button variant="secondary" onClick={() => setAbierta("detalle")}>Detalle de tarea</Button>
+      <Button variant="secondary" onClick={() => setAbierta("repaso")}>Repasar una a una</Button>
+      <Button variant="secondary" onClick={() => setAbierta("filtros")}>Filtros</Button>
+      <TaskDetailSheet task={tarea} systemId={MOCK_SYSTEM_ID} open={abierta === "detalle"} onOpenChange={(o) => !o && setAbierta(null)} onComplete={() => setAbierta(null)} />
+      <CascadeInboxMode tasks={[tarea, makeTask({ id: mid("h2"), title: "Pagar el dominio" })]} open={abierta === "repaso"} onOpenChange={(o) => !o && setAbierta(null)} />
+      {abierta === "filtros" && (
+        <div className="w-full max-w-lg rounded-xl border border-border p-4">
+          <TaskFilterPanel filters={filtros} systems={[{ id: MOCK_SYSTEM_ID, name: "Universidad" }]} onChange={setFiltros} />
+        </div>
+      )}
+    </div>
+  );
+}
+
 const SYSTEM_MAP = new Map([
   [MOCK_SYSTEM_ID, { id: MOCK_SYSTEM_ID, name: "Universidad", color: "blue" }],
 ]);
@@ -80,14 +147,14 @@ export function TasksViewsSection() {
     <Section
       id="tareas"
       number="12"
-      title="Tareas — vistas y controles"
-      description="Las demás representaciones de una tarea (fila de lista global, card de planning, card del board kanban) y los pickers que las editan."
+      title="Tareas: la fila, la página y sus hojas"
+      description="Una sola fila de tarea con tres densidades (plan, lista, compacta) para Hoy, /tasks, las vistas de sistema y Planificación; la página de Tareas con su segmento Lista o Calendario; las hojas que reemplazan menús y arrastre en el teléfono; los pickers que editan una tarea."
     >
       <SubSection title="Títulos completos y ciclos académicos" description="Cards con altura natural y árbol de años, ciclos y materias.">
         <Specimen label="Título largo en Acción y Planificación">
-          <div className="grid max-w-3xl items-start gap-4 md:grid-cols-2">
+          <div className="max-w-3xl">
             <DefaultTaskCard task={makeTask({ title: "Bajar de la PVA: informaciones generales y el desglose del primer mes", priority: "high" })} systemId={MOCK_SYSTEM_ID} onToggle={noop} onDelete={noop} onEdit={noop} />
-            <div className="max-w-48"><PlanningTaskCard task={makeTask({ title: "Bajar de la PVA: informaciones generales y el desglose del primer mes" })} onToggle={noop} onDelete={noop} onEdit={noop} /></div>
+            <div className="mt-4 max-w-48"><PlanningTaskCard task={makeTask({ title: "Bajar de la PVA: informaciones generales y el desglose del primer mes" })} onToggle={noop} onDelete={noop} onEdit={noop} /></div>
           </div>
         </Specimen>
         <Seeded stubs={[
@@ -122,43 +189,87 @@ export function TasksViewsSection() {
         </Seeded>
       </SubSection>
       <SubSection
-        title="TaskListRow"
-        description="Fila de la vista global /tasks: badge de prioridad, sistema con punto de color, selección múltiple."
+        title="TaskRow"
+        description="La fila de tarea común. El círculo de 48 px en el margen; vencida es la palabra en coral delante de la fecha; crítica y alta son peso, no color; hecha es --ok y el título tachado. Las acciones salen en una hoja en el teléfono y en un menú en escritorio."
       >
-        <div className="max-w-2xl space-y-1">
-          <TaskListRow
-            task={makeTask({ title: "Fila normal con sistema", priority: "high", dueDate: daysFromNow(3) })}
-            systemMap={SYSTEM_MAP}
-            onToggle={noop}
-            onOpen={noop}
-          />
-          <TaskListRow
-            task={makeTask({ id: mid("r2"), title: "Fila enfocada (navegación con teclado)" })}
-            systemMap={SYSTEM_MAP}
-            onToggle={noop}
-            onOpen={noop}
-            isFocused
-          />
-          <TaskListRow
-            task={makeTask({ id: mid("r3"), title: "Fila seleccionada (bulk)" })}
-            systemMap={SYSTEM_MAP}
-            onToggle={noop}
-            onOpen={noop}
-            isSelected
-            onSelectionToggle={noop}
-          />
-          <TaskListRow
-            task={makeTask({ id: mid("r4"), title: "Completada", status: "done" })}
-            systemMap={SYSTEM_MAP}
-            onToggle={noop}
-            onOpen={noop}
-          />
+        <div className="max-w-2xl">
+          <Specimen label="plan" hint="Hoy y lo sugerido: título en 600, duración en la cola">
+            <div className="w-full">
+              <TaskRow
+                task={makeTask({ id: mid("r1"), title: "Parcial de Cálculo III", priority: "critical", effectivePriority: "critical", dueDate: daysFromNow(-3), estimatedTime: "01:30" })}
+                density="plan"
+                onComplete={noop}
+                onOpen={noop}
+                actions={[
+                  { label: "Iniciar timer", icon: Play, onSelect: noop },
+                  { label: "Mover a mañana", icon: CalendarArrowUp, onSelect: noop },
+                  { label: "Quitar del plan", icon: X, onSelect: noop },
+                ]}
+              />
+              <TaskRow
+                task={makeTask({ id: mid("r2"), title: "Tachada en esta visita: se queda en su sitio", status: "done", estimatedTime: "00:45" })}
+                density="plan"
+                struck
+                onComplete={noop}
+                actions={[{ label: "Iniciar timer", icon: Play, onSelect: noop }]}
+              />
+            </div>
+          </Specimen>
+          <Specimen label="lista" hint="/tasks y las vistas de sistema: el sistema en la meta, título en 500">
+            <div className="w-full">
+              <TaskRow
+                task={makeTask({ id: mid("r3"), title: "Preparar la presentación del proyecto final", priority: "high", effectivePriority: "high", dueDate: daysFromNow(2) })}
+                context="Universidad"
+                onComplete={noop}
+                onOpen={noop}
+                actions={[
+                  { label: "Seleccionar", icon: ListChecks, onSelect: noop },
+                  { label: "Mover a la papelera", icon: Trash2, destructive: true, onSelect: noop },
+                ]}
+                selection={{ selected: false, visible: false, onToggle: noop }}
+              />
+              <TaskRow
+                task={makeTask({ id: mid("r4"), title: "Fila seleccionada: la casilla en tinta", energyLevel: "low" })}
+                context="Casa y salud"
+                onComplete={noop}
+                onOpen={noop}
+                selection={{ selected: true, visible: true, onToggle: noop }}
+              />
+              <TaskRow
+                task={makeTask({ id: mid("r5"), title: "Fila con el foco del teclado (j y k)" })}
+                context="Universidad"
+                focused
+                onComplete={noop}
+                onOpen={noop}
+              />
+            </div>
+          </Specimen>
+          <Specimen label="compacta" hint="columnas estrechas: título en text-sm, sin cola, margen estrecho con ratón">
+            <div className="grid w-full grid-cols-2 gap-4 sm:max-w-md">
+              <PlanningTaskCard task={makeTask({ id: mid("r6"), title: "Leer el capítulo 4", dueDate: daysFromNow(1) })} onToggle={noop} onDelete={noop} onEdit={noop} />
+              <PlanningTaskCard task={makeTask({ id: mid("r7"), title: "Examen parcial", taskType: "event", dueDate: daysFromNow(-1) })} onToggle={noop} onDelete={noop} onEdit={noop} />
+            </div>
+          </Specimen>
         </div>
       </SubSection>
 
       <SubSection
+        title="Página de Tareas"
+        description="El segmento Lista o Calendario (la segunda puerta del teléfono al calendario), lo sugerido con el presupuesto, y el esqueleto que reserva las alturas de verdad."
+      >
+        <TasksPageSpecimens />
+      </SubSection>
+
+      <SubSection
+        title="Hojas de Tareas"
+        description="Lo que en escritorio era menú, select o arrastre, en el teléfono es una hoja con operaciones con nombre en renglones de 48 px."
+      >
+        <TasksSheetsSpecimens />
+      </SubSection>
+
+      <SubSection
         title="OverdueGroup"
-        description="Grupo colapsable de vencidas con acción bulk «mover a hoy»."
+        description="Las vencidas como su propia sección: el título pliega, Mover todas abre una hoja con los tres destinos."
       >
         <div className="max-w-2xl">
           <OverdueGroup
@@ -175,7 +286,7 @@ export function TasksViewsSection() {
 
       <SubSection
         title="PlanningTaskCard"
-        description="La card compacta de la vista de planning semanal."
+        description="La fila compacta de la semana de Planificación."
       >
         <div className="grid max-w-2xl grid-cols-1 gap-2 sm:grid-cols-2">
           <PlanningTaskCard
@@ -271,9 +382,9 @@ export function TasksViewsSection() {
 
       <SubSection
         title="BulkActionBar"
-        description="Barra de acciones al seleccionar varias tareas: fecha, prioridad, vaciar selección."
+        description="La selección múltiple: la cuenta en tinta y operaciones con nombre en botones de 48 px. Fechar y Prioridad abren una hoja."
       >
-        <div className="max-w-2xl overflow-hidden rounded-lg border border-border">
+        <div className="max-w-2xl">
           <BulkActionBar
             selectedIds={new Set(["a", "b", "c"])}
             onClear={noop}
