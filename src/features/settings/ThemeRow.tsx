@@ -1,0 +1,79 @@
+'use client';
+
+import { useId, useSyncExternalStore } from 'react';
+import { SunMoon } from 'lucide-react';
+import { MarginRow } from '@/components/ui/margin-row';
+import { Segmented } from '@/components/ui/segmented';
+import { useThemeStore, type ThemeMode } from '@/components/ThemeProvider';
+import { Pendiente } from './settings-ui';
+import { useUpdateUserSettings } from './settings.hooks';
+
+const OPCIONES: ReadonlyArray<{ value: ThemeMode; label: string }> = [
+  { value: 'light', label: 'Claro' },
+  { value: 'dark', label: 'Oscuro' },
+  { value: 'system', label: 'Sistema' },
+];
+
+const OSCURO = '(prefers-color-scheme: dark)';
+
+function suscribir(avisar: () => void) {
+  const mql = window.matchMedia(OSCURO);
+  mql.addEventListener('change', avisar);
+  return () => mql.removeEventListener('change', avisar);
+}
+
+/** El tema que el dispositivo pide ahora. En el servidor no se sabe: null. */
+function useSistemaOscuro(): boolean | null {
+  return useSyncExternalStore(
+    suscribir,
+    () => window.matchMedia(OSCURO).matches,
+    () => null,
+  );
+}
+
+/**
+ * Lo que dice la línea de debajo del segmento. Sale del mismo valor que
+ * marca el segmento y, con Sistema, del tema que el dispositivo pide en este
+ * momento, así que nunca puede decir "sigue al sistema" con Oscuro marcado.
+ */
+export function textoTema(modo: ThemeMode, sistemaOscuro: boolean | null): string | undefined {
+  if (modo === 'light') return 'Siempre claro en este dispositivo';
+  if (modo === 'dark') return 'Siempre oscuro en este dispositivo';
+  if (sistemaOscuro === null) return undefined;
+  return `Sigue al dispositivo: ahora ${sistemaOscuro ? 'oscuro' : 'claro'}`;
+}
+
+/**
+ * El tema como segmento en tinta, en línea en el índice: un toque, y no los
+ * cinco del select de antes. Aplica al instante en este dispositivo y viaja a
+ * la cuenta para el siguiente que estrene. La línea de debajo espera a saber
+ * qué eligió este dispositivo para no contradecir al segmento ni un instante.
+ */
+export function ThemeRow() {
+  const mode = useThemeStore((s) => s.mode);
+  const hydrated = useThemeStore((s) => s.hydrated);
+  const setMode = useThemeStore((s) => s.setMode);
+  const sistemaOscuro = useSistemaOscuro();
+  const { mutate } = useUpdateUserSettings();
+  const tituloId = useId();
+  const texto = hydrated ? textoTema(mode, sistemaOscuro) : undefined;
+
+  function elegir(next: ThemeMode) {
+    setMode(next);
+    mutate({ theme: next });
+  }
+
+  return (
+    <MarginRow margin={<SunMoon aria-hidden className="mt-[1.4rem] size-5 stroke-[1.8]" />}>
+      <span className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1">
+        <span id={tituloId} className="text-base leading-6 font-semibold text-foreground">
+          Tema
+        </span>
+        <Segmented aria-labelledby={tituloId} value={mode} onValueChange={elegir} options={OPCIONES} />
+      </span>
+      <span data-slot="settings-meta" aria-live="polite" className="mt-1 block h-5 truncate text-sm leading-5 text-muted-foreground">
+        {texto ?? <Pendiente className="w-48" />}
+      </span>
+    </MarginRow>
+  );
+}
