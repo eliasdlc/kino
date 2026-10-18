@@ -10,6 +10,7 @@ import { useEstadoAvisos, useProbarAvisos } from '@/features/notifications/notif
 import { ControlRow, SheetLoading, SwitchRow } from './settings-ui';
 import { useBorrador } from './use-borrador';
 import { useUpdateUserSettings, useUserSettings } from './settings.hooks';
+import { INTENSIDADES } from './settings-copy';
 
 /**
  * Cuánto y cuándo insisten los recordatorios, en su hoja.
@@ -18,12 +19,6 @@ import { useUpdateUserSettings, useUserSettings } from './settings.hooks';
  * servidor calcula los avisos (`convex/lib/recordatorios.ts`): cambiar una
  * cifra allí cambia lo que se promete aquí, y no pueden contar cosas distintas.
  */
-
-export const INTENSIDADES: ReadonlyArray<{ value: Intensidad; label: string }> = [
-  { value: 'low', label: 'Bajos' },
-  { value: 'medium', label: 'Medios' },
-  { value: 'aggressive', label: 'Agresivos' },
-];
 
 function enumerar(items: string[]): string {
   return items.length <= 1 ? (items[0] ?? '') : `${items.slice(0, -1).join(', ')} y ${items.at(-1)}`;
@@ -38,42 +33,43 @@ export function describirIntensidad(i: Intensidad): { antes: string; vencida: st
   };
 }
 
-/** "08:00" a "8:00" y "22:00" a "22": la hora como se dice, para la meta del índice. */
-export function horaCorta(hhmm: string, conMinutos = true): string {
-  const [h, m] = hhmm.split(':');
-  const hora = String(Number(h));
-  if (m === '00' && !conMinutos) return hora;
-  return `${hora}:${m}`;
-}
-
 /**
  * Un reloj nativo y no el `TimePicker` de la app: en el móvil abre el selector
- * del sistema, y no arrastra la paleta de comandos al chunk de Ajustes. Guarda
- * al salir del campo, no en cada tecla, para no escribir ajustes a medias.
- * Mide el táctil de la casa, 2.85rem.
+ * del sistema, y no arrastra la paleta de comandos al chunk de Ajustes.
+ *
+ * Guarda como el stepper: cada cambio completo se ve al instante y se escribe
+ * cuando los cambios paran, y si la hoja se cierra con un cambio pendiente se
+ * escribe en ese momento. No espera a que el campo pierda el foco: el selector
+ * del teléfono puede cerrar la hoja sin que eso ocurra.
+ *
+ * El ancho lo pone la hora misma (`w-auto`): "08:00 AM" en en-US y
+ * "08:00 a. m." en es-DO caben enteros junto al icono del selector, que con un
+ * ancho fijo se comía la última letra. Mide el táctil de la casa, 2.85rem.
  */
 function RelojInput({
   value,
-  onChange,
+  guardar,
   disabled,
   label,
 }: {
   value: string;
-  onChange: (value: string) => void;
+  guardar: (value: string, terminado: () => void) => void;
   disabled?: boolean;
   label: string;
 }) {
+  const [hora, cambiar] = useBorrador(value, guardar);
   return (
     <Input
       type="time"
       aria-label={label}
-      className="h-[2.85rem] w-[8rem] px-3 text-base tabular-nums dark:[color-scheme:dark]"
-      defaultValue={value}
-      key={value}
+      className="h-[2.85rem] w-auto min-w-[7.5rem] px-3 text-base tabular-nums dark:[color-scheme:dark]"
+      value={hora ?? value}
       disabled={disabled}
-      onBlur={(e) => {
+      onChange={(e) => {
         const next = e.currentTarget.value;
-        if (/^\d{2}:\d{2}$/.test(next) && next !== value) onChange(next);
+        // Un campo a medio escribir vale "": no se guarda y el reloj vuelve a
+        // la última hora completa.
+        if (/^\d{2}:\d{2}$/.test(next)) cambiar(next);
       }}
     />
   );
@@ -82,7 +78,7 @@ function RelojInput({
 function textoEstado(estado: ReturnType<typeof useEstadoAvisos>['data']): string {
   if (estado === undefined) return 'Mirando tus dispositivos';
   if (!estado.pushConfigurado) return 'El push todavía no está configurado en el servidor.';
-  if (estado.dispositivos === 0) return 'Ningún dispositivo tiene el push activado. Actívalo en cada uno desde Ajustes.';
+  if (estado.dispositivos === 0) return 'Ningún dispositivo tiene el push activado. Actívalo en cada uno con «Avisos en este dispositivo».';
   return `Push activado en ${estado.dispositivos} dispositivo${estado.dispositivos === 1 ? '' : 's'}.`;
 }
 
@@ -150,7 +146,7 @@ export function RemindersSection() {
             value={data.morningDigestTime}
             disabled={apagados}
             label="Hora del resumen"
-            onChange={(value) => mutate({ morningDigestTime: value })}
+            guardar={(morningDigestTime, terminado) => mutate({ morningDigestTime }, { onSettled: terminado })}
           />
         </ControlRow>
 
@@ -159,19 +155,24 @@ export function RemindersSection() {
           title="Horas de silencio"
           meta="Nada suena en esta franja. Lo que vence de noche o temprano recibe una última llamada una hora antes."
         >
-          <RelojInput
-            value={data.quietHoursStart}
-            disabled={apagados}
-            label="Silencio desde"
-            onChange={(value) => mutate({ quietHoursStart: value })}
-          />
-          <span className="text-sm text-muted-foreground">a</span>
-          <RelojInput
-            value={data.quietHoursEnd}
-            disabled={apagados}
-            label="Silencio hasta"
-            onChange={(value) => mutate({ quietHoursEnd: value })}
-          />
+          {/* Desde y hasta en dos renglones alineados: dos relojes y una "a"
+              no caben en uno a 393 px, y partidos dejaban la "a" colgando. */}
+          <span className="grid grid-cols-[auto_auto] items-center gap-x-3 gap-y-2">
+            <span className="text-sm text-muted-foreground">Desde</span>
+            <RelojInput
+              value={data.quietHoursStart}
+              disabled={apagados}
+              label="Silencio desde"
+              guardar={(quietHoursStart, terminado) => mutate({ quietHoursStart }, { onSettled: terminado })}
+            />
+            <span className="text-sm text-muted-foreground">Hasta</span>
+            <RelojInput
+              value={data.quietHoursEnd}
+              disabled={apagados}
+              label="Silencio hasta"
+              guardar={(quietHoursEnd, terminado) => mutate({ quietHoursEnd }, { onSettled: terminado })}
+            />
+          </span>
         </ControlRow>
 
         <SwitchRow
@@ -188,7 +189,13 @@ export function RemindersSection() {
           onCheckedChange={(checked) => mutate({ emailReminders: checked })}
         />
 
-        <ControlRow icon={<Send aria-hidden className={glifo} />} title="Comprobar que llegan" meta={textoEstado(estado)}>
+        <ControlRow
+          icon={<Send aria-hidden className={glifo} />}
+          title="Comprobar que llegan"
+          // Dos renglones reservados: el estado llega después de la hoja y el
+          // más largo ocupa dos en 393 px; así el botón no baja al llegar.
+          meta={<span className="block min-h-10">{textoEstado(estado)}</span>}
+        >
           <Button variant="outline" disabled={probando || apagados} onClick={() => probar({})}>
             {probando ? 'Enviando la prueba' : 'Enviar una prueba'}
           </Button>
