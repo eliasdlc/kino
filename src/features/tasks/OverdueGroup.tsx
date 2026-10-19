@@ -15,15 +15,23 @@ import {
 } from "@/components/ui/responsive-dialog";
 import { useBulkMove } from "./tasks.hooks";
 import { parseDueDate } from "./tasks.utils";
-import { TaskRow } from "./TaskRow";
-import { useListaTachable } from "./useTachar";
+import { TaskRow, type TaskRowProps } from "./TaskRow";
 import type { TaskTransport } from "./tasks.types";
+import { LISTA_FILA_ALTO } from "./TasksSkeleton";
 
 interface OverdueGroupProps {
+  /** Las vencidas de ahora: las que cuenta el título y mueve "Mover todas". */
   tasks: TaskTransport[];
+  /** Las filas que se pintan: las de ahora más las tachadas en esta visita, en su orden. */
+  filas: readonly TaskTransport[];
+  struck: ReadonlySet<string>;
   systemMap: Map<string, { id: string; name: string; color: string | null }>;
   onOpen: (task: TaskTransport) => void;
-  onToggle: (taskId: string) => void;
+  onComplete: (task: TaskTransport) => void;
+  /** La fila que tiene el foco del teclado (j y k recorren también las vencidas). */
+  focusedTaskId?: string | null;
+  /** Las acciones y la selección de cada fila, las mismas que en Todas las tareas. */
+  filaDe?: (task: TaskTransport) => Pick<TaskRowProps, "actions" | "selection">;
 }
 
 const ACTIVE_STATUSES = new Set(["backlog", "week", "tomorrow", "today", "planning", "action"]);
@@ -46,16 +54,17 @@ export function getOverdueTasks(tasks: TaskTransport[]): TaskTransport[] {
 
 /**
  * Las vencidas, arriba de la lista, como su propia sección de Diario: el
- * título con la cuenta y un hairline, las mismas filas que el resto. Mover
- * todas de golpe es una operación con nombre: el botón abre una hoja con los
- * tres destinos en renglones de 48 px, igual en el teléfono que en escritorio.
- * El título pliega la sección.
+ * título con la cuenta y un hairline, las mismas filas que el resto, con sus
+ * mismas acciones y su casilla de selección. Mover todas de golpe es una
+ * operación con nombre: el botón abre una hoja con los tres destinos en
+ * renglones de 48 px, igual en el teléfono que en escritorio. El título pliega
+ * la sección. Las filas y el tachado los lleva la lista (`AllTasksList`), para
+ * que el teclado recorra vencidas y todas como una sola lista.
  */
-export function OverdueGroup({ tasks, systemMap, onOpen, onToggle }: OverdueGroupProps) {
+export function OverdueGroup({ tasks, filas, struck, systemMap, onOpen, onComplete, focusedTaskId, filaDe }: OverdueGroupProps) {
   const [collapsed, setCollapsed] = useState(false);
   const [moving, setMoving] = useState(false);
   const { mutate: bulkMove, isPending } = useBulkMove();
-  const { filas, struck, handleToggle } = useListaTachable(tasks, onToggle);
 
   if (filas.length === 0) return null;
 
@@ -100,11 +109,13 @@ export function OverdueGroup({ tasks, systemMap, onOpen, onToggle }: OverdueGrou
               key={t.id}
               task={t}
               density="lista"
-              className="min-h-[3.9rem]"
+              className={LISTA_FILA_ALTO}
               struck={struck.has(t.id)}
               context={systemMap.get(t.systemId)?.name}
-              onComplete={() => handleToggle(t)}
+              focused={t.id === focusedTaskId}
+              onComplete={() => onComplete(t)}
               onOpen={() => onOpen(t)}
+              {...filaDe?.(t)}
             />
           ))}
         </div>
