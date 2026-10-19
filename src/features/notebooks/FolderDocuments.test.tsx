@@ -1,7 +1,8 @@
 /**
  * Criterio: los documentos de una carpeta son un índice numerado, y cuando la
  * lectura paró en su tope la carpeta lo dice en vez de dar la lista por
- * completa. Sin tope, no hay aviso.
+ * completa. Sin tope, no hay aviso. Con el sistema que el servidor ya leyó,
+ * las acciones del título están completas desde el primer render.
  */
 import { describe, expect, it, vi } from "vitest";
 import { screen } from "@testing-library/react";
@@ -48,5 +49,23 @@ describe("FolderDocuments", () => {
   it("con la lista completa no avisa de nada", () => {
     montar(0);
     expect(screen.queryByText(/hay más que no caben/)).not.toBeInTheDocument();
+  });
+
+  it("con el sistema del servidor las dos acciones del título están desde el primer render", () => {
+    const lista = { items: PAGINAS, restantes: 0 };
+    // Sin la lista de sistemas en el cliente: lo que se pinta sale del sistema dado.
+    renderMobile(
+      <FolderDocuments
+        systemId={MOCK_SYSTEM_ID}
+        folderId={CARPETA}
+        initialChildren={[]}
+        initialPages={lista}
+        emptyCopy={{ title: "Vacía", hint: "Nada" }}
+        system={SISTEMA}
+      />,
+      { convex: makeTestConvexClient([stubQuery(api.folders.children, []), stubQuery(api.pages.bySystem, lista)]) },
+    );
+    expect(screen.getByRole("heading", { name: "Manuscritos" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /Nueva parte/ })).toBeInTheDocument();
   });
 });

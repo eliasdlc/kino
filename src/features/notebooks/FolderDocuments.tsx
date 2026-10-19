@@ -5,8 +5,8 @@ import { useFolderChildren, type FolderChildrenTransport } from "@/features/fold
 import { api } from "@convex/_generated/api";
 import { useConvexQuery } from "@/shared/convex/hooks";
 import type { PageListTransport } from "@/features/pages/pages.hooks";
-import { useSystemManifest } from "@/features/systems/systems.hooks";
-import { capitalize } from "@/shared/lib/system-manifest";
+import { useRowManifest } from "@/features/systems/systems.hooks";
+import { capitalize, resolveSystemManifest } from "@/shared/lib/system-manifest";
 import { FolderRow } from "./FolderRow";
 import { FolderViewToolbar } from "./FolderViewToolbar";
 import { IndexHead } from "./IndexHead";
@@ -20,6 +20,12 @@ interface FolderDocumentsProps {
   initialChildren: FolderChildrenTransport;
   initialPages: PageListTransport;
   emptyCopy: { title: string; hint: string };
+  /**
+   * El sistema que el servidor ya leyó. Con él el vocabulario está desde el
+   * primer render: sin él, las acciones del título llegaban con la lista de
+   * sistemas, pasaban de una a dos y el índice bajaba 25 px.
+   */
+  system?: Parameters<typeof resolveSystemManifest>[0];
 }
 
 /**
@@ -40,8 +46,9 @@ export function FolderDocuments({
   initialChildren,
   initialPages,
   emptyCopy,
+  system,
 }: FolderDocumentsProps) {
-  const manifest = useSystemManifest(systemId);
+  const manifest = useRowManifest(systemId, system ? resolveSystemManifest(system) : undefined);
   const { data: children = [] } = useFolderChildren(folderId, initialChildren);
   // Los mismos argumentos que la lectura del servidor: así su foto sirve de
   // `initialData` y la suscripción sólo lee los documentos de esta carpeta.
@@ -57,7 +64,7 @@ export function FolderDocuments({
       <IndexHead
         id={`${folderId}-contenido`}
         title={capitalize(manifest.pageRole.nounPlural)}
-        trailing={<FolderViewToolbar systemId={systemId} folderId={folderId} />}
+        trailing={<FolderViewToolbar systemId={systemId} folderId={folderId} manifest={manifest} />}
       />
 
       {!hasContent ? (
