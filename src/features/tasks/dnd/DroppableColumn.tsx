@@ -13,8 +13,8 @@ interface DroppableColumnProps {
 
 /**
  * Generic droppable container.
- * Applies visual feedback (dashed border + tinted background) when a task
- * is hovering over it.
+ * Mientras una tarea pasa por encima, el fondo sube a sf2 con el hairline
+ * fuerte: un estado, en tinta, no el ámbar de la acción.
  */
 export function DroppableColumn({ id, children, className }: DroppableColumnProps) {
   const { setNodeRef, isOver } = useDroppable({ id });
@@ -23,8 +23,8 @@ export function DroppableColumn({ id, children, className }: DroppableColumnProp
     <div
       ref={setNodeRef}
       className={cn(
-        "transition-colors duration-200 rounded-lg",
-        isOver && "bg-primary/5 ring-2 ring-dashed ring-primary/30",
+        "rounded-md transition-[background-color,box-shadow] duration-(--dur-toque) ease-(--ease-pluma)",
+        isOver && "bg-sf2 ring-1 ring-input",
         className
       )}
     >

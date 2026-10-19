@@ -64,8 +64,8 @@ function TaskChip({
       {...attributes}
       onClick={onClick}
       className={cn(
-        "px-1.5 py-1 rounded-md bg-background border border-border text-xs leading-tight",
-        "cursor-pointer hover:border-primary/50 transition-colors truncate",
+        "truncate rounded-md bg-secondary px-1.5 py-1 text-xs leading-tight",
+        "cursor-pointer transition-[background-color] duration-(--dur-toque) ease-(--ease-pluma) hover:bg-sf2",
         isDragging && "opacity-30"
       )}
       title={task.title}
@@ -204,15 +204,15 @@ export default function TaskCalendarBoard({ month, setMonth, days, byDay, withou
                   key={day.toISOString()}
                   id={dayId(day)}
                   className={cn(
-                    "min-h-[88px] rounded-lg border p-1.5 flex flex-col gap-1",
-                    inMonth ? "bg-muted/20" : "bg-transparent opacity-40",
-                    isToday(day) && "ring-1 ring-primary/40"
+                    // Una celda es un renglón del mes: hairline arriba, sin caja ni fondo.
+                    "flex min-h-[5.2rem] flex-col gap-1 rounded-none border-t border-border p-1.5",
+                    !inMonth && "opacity-40"
                   )}
                 >
                   <span
                     className={cn(
-                      "text-xs font-medium px-0.5",
-                      isToday(day) ? "text-primary" : "text-muted-foreground"
+                      "px-0.5 text-xs tabular-nums",
+                      isToday(day) ? "font-bold text-primary" : "font-medium text-muted-foreground"
                     )}
                   >
                     {format(day, "d")}
@@ -238,9 +238,9 @@ export default function TaskCalendarBoard({ month, setMonth, days, byDay, withou
         </div>
       </div>
 
-      <DragOverlay>
+      <DragOverlay dropAnimation={{ duration: 160, easing: "cubic-bezier(0.2, 0.8, 0.2, 1)" }}>
         {draggingTask && (
-          <div className="opacity-90 rotate-1 shadow-xl max-w-44 px-2 py-1 rounded-md bg-background border border-border text-xs font-medium truncate">
+          <div className="max-w-44 truncate rounded-md border border-input bg-background px-2 py-1 text-xs font-medium">
             {draggingTask.title}
           </div>
         )}
