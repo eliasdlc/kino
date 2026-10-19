@@ -70,7 +70,7 @@ export default function EditorPanel({ open, onOpenChange, ...props }: EditorPane
             <DrawerTitle className="font-display text-lg font-bold tracking-[-0.02em]">{titulo}</DrawerTitle>
           </DrawerHeader>
           <div className="overflow-y-auto px-5 pt-2 pb-[calc(1.25rem+env(safe-area-inset-bottom))]">
-            <PanelBody {...props} onClose={() => onOpenChange(false)} movil />
+            <EditorPanelBody {...props} onClose={() => onOpenChange(false)} movil />
           </div>
         </DrawerContent>
       </Drawer>
@@ -84,14 +84,15 @@ export default function EditorPanel({ open, onOpenChange, ...props }: EditorPane
           <SheetTitle className="font-display text-lg font-bold tracking-[-0.02em]">{titulo}</SheetTitle>
         </SheetHeader>
         <div className="flex-1 overflow-y-auto px-5 pb-6">
-          <PanelBody {...props} onClose={() => onOpenChange(false)} movil={false} />
+          <EditorPanelBody {...props} onClose={() => onOpenChange(false)} movil={false} />
         </div>
       </SheetContent>
     </Sheet>
   );
 }
 
-function PanelBody({
+/** El cuerpo de la hoja, sin la hoja: lo monta también el catálogo. */
+export function EditorPanelBody({
   page,
   systemId,
   rootPageId,
