@@ -4,11 +4,12 @@ import { Skeleton } from "@/components/ui/skeleton";
 /** El título de una sección del índice esperando, con la geometría de `IndexHead`. */
 function IndexHeadSkeleton({ cola = false }: { cola?: boolean }) {
   return (
-    <div className="flex min-h-[2.85rem] items-end justify-between border-b border-input pb-[0.45rem]">
+    <div className="flex min-h-[2.85rem] flex-wrap items-end justify-between gap-x-3 border-b border-input pb-[0.45rem]">
       <span className="font-display text-[1.25rem] leading-[1.15]">
         <span className="inline-block h-[0.72em] w-28 rounded-md bg-muted align-middle" />
       </span>
-      {cola && <Skeleton className="h-4 w-24" />}
+      {/* Las dos acciones de 48 px que bajan hasta el hairline, como en `IndexHead`. */}
+      {cola && <Skeleton className="-mb-2 h-[2.85rem] w-[15rem] max-w-full rounded-full" />}
     </div>
   );
 }
