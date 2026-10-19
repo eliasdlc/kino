@@ -19,10 +19,11 @@ function Renglon({ className, ancho }: { className: string; ancho: string }) {
 
 /**
  * La forma de un sistema, con la geometría de `SystemDetailHeader`: el tile
- * en el margen, la columna de texto y la de acciones, el eyebrow, el nombre,
- * la intención en dos renglones, las tres lecturas, la fila de «Cómo va» de
- * 48 px y las pestañas-palabra de 48 px sobre su hairline. Después, las
- * filas de la superficie. Así el índice no salta cuando llega la página.
+ * en el margen, la columna de texto y la de acciones, el eyebrow y el nombre
+ * en dos renglones en el teléfono, la intención en dos, las tres lecturas
+ * con su palabra en dos, la fila de «Cómo va» de 48 px y las pestañas-palabra
+ * de 48 px sobre su hairline. Después, las filas de la superficie. Así el
+ * índice no salta cuando llega la página.
  */
 export default function SystemLoading() {
   return (
@@ -39,8 +40,16 @@ export default function SystemLoading() {
             </span>
 
             <div className="min-w-0 space-y-2">
-              <Renglon className="text-xs" ancho="w-44" />
-              <Renglon className="font-display text-[1.9rem] leading-[1.08]" ancho="w-3/4" />
+              {/* En el teléfono el eyebrow (tipo, energía, frecuencia) y el nombre
+                  en 1.9rem parten casi siempre en dos renglones; en escritorio, uno. */}
+              <div>
+                <Renglon className="text-xs" ancho="w-44" />
+                <Renglon className="text-xs md:hidden" ancho="w-20" />
+              </div>
+              <div>
+                <Renglon className="font-display text-[1.9rem] leading-[1.08]" ancho="w-3/4" />
+                <Renglon className="font-display text-[1.9rem] leading-[1.08] md:hidden" ancho="w-1/2" />
+              </div>
               <div>
                 <Renglon className="text-[1.06rem] leading-normal" ancho="w-full" />
                 <Renglon className="text-[1.06rem] leading-normal" ancho="w-2/3" />
@@ -52,7 +61,7 @@ export default function SystemLoading() {
             </div>
 
             <div className="col-start-2 col-end-4 min-w-0 space-y-3">
-              <Readings readings={null} />
+              <Readings readings={null} lineas={2} />
               <div className="flex min-h-[2.85rem] items-center md:pointer-fine:min-h-9">
                 <Skeleton className="h-4 w-20" />
               </div>
