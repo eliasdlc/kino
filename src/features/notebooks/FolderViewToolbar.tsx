@@ -13,10 +13,13 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useCreateFolder } from "@/features/folders/folders.hooks";
 import { useCreatePage } from "@/features/pages/pages.hooks";
-import { useSystemManifest } from "@/features/systems/systems.hooks";
+import { useRowManifest } from "@/features/systems/systems.hooks";
+import type { ArchetypeManifest } from "@/shared/lib/system-types";
 
 interface FolderViewToolbarProps {
   systemId: string;
+  /** El vocabulario que la carpeta ya tiene: las acciones salen completas desde el primer render. */
+  manifest?: ArchetypeManifest;
   folderId: string;
 }
 
@@ -26,9 +29,9 @@ interface FolderViewToolbarProps {
  * arquetipo, nunca escritos a mano: en un sistema académico esto ofrece una
  * clase y un apunte, no una subcarpeta y un notebook.
  */
-export function FolderViewToolbar({ systemId, folderId }: FolderViewToolbarProps) {
+export function FolderViewToolbar({ systemId, folderId, manifest: manifestProp }: FolderViewToolbarProps) {
   const router = useRouter();
-  const manifest = useSystemManifest(systemId);
+  const manifest = useRowManifest(systemId, manifestProp);
   const folderRole = manifest.folderRole;
   const pageRole = manifest.pageRole;
   // Un arquetipo cuyo contenedor no se anida no ofrece crear otro aquí dentro.
