@@ -15,7 +15,7 @@ import { useTasks, useUpdateTask } from "./tasks.hooks";
 import { parseDueDate } from "./tasks.utils";
 import type { TaskTransport } from "./tasks.types";
 import { TaskCalendarMobileView } from "./TaskCalendarMobileView";
-import { useIsMobile } from "@/hooks/use-mobile";
+import { usePunteroGrueso } from "./use-puntero-grueso";
 
 interface TaskCalendarViewProps {
   systemId: string;
@@ -62,11 +62,18 @@ export function TaskCalendarView({ systemId, initialData, onNavigateToAction }: 
   const gridEnd = endOfWeek(endOfMonth(month), { weekStartsOn: 1 });
   const days = eachDayOfInterval({ start: gridStart, end: gridEnd });
 
-  const isMobile = useIsMobile();
+  const tactil = usePunteroGrueso();
 
-  // En mobile los chips de texto no entran en celdas de ~45px: grid con dots
-  // + agenda del día seleccionado, sin drag & drop.
-  if (isMobile) {
+  // Mientras no se sabe el puntero (la hidratación) no se monta ninguno: un
+  // teléfono no llega a pedir el mes con arrastre.
+  if (tactil === null) {
+    return <p className="py-6 pl-(--margen) text-sm text-muted-foreground">Abriendo el mes</p>;
+  }
+
+  // Con el dedo los chips de texto no entran en celdas de ~45px y el arrastre
+  // no es un gesto: rejilla con puntos y la agenda del día elegido. Lo decide
+  // el puntero, no el ancho: una tableta táctil también recibe la agenda.
+  if (tactil) {
     return (
       <TaskCalendarMobileView
         month={month}
