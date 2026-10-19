@@ -350,7 +350,10 @@ export function SettingsSheet({
 }) {
   return (
     <ResponsiveDialog open={open} onOpenChange={onOpenChange}>
-      <ResponsiveDialogContent className={cn('max-h-[88dvh] overflow-y-auto sm:max-w-lg max-md:[&_[data-slot=drawer-close]]:z-20', wide && 'sm:max-w-4xl')}>
+      <ResponsiveDialogContent
+        className={cn('max-h-[88dvh] overflow-y-auto sm:max-w-lg', wide && 'sm:max-w-4xl')}
+        mobileClassName="[&_[data-slot=drawer-close]]:z-20"
+      >
         {/* En el teléfono el título se queda arriba al desplazar una hoja larga,
             con el fondo de la hoja a todo el ancho: nada del texto asoma junto
             al botón Cerrar, que queda por encima de la franja. La explicación
