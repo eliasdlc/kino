@@ -5,7 +5,7 @@
  * título va en la columna de texto también cuando el margen se pliega.
  */
 import { describe, expect, it, vi } from "vitest";
-import { fireEvent, screen } from "@testing-library/react";
+import { fireEvent, screen, within } from "@testing-library/react";
 import { makeTestConvexClient, renderMobile } from "@/shared/testing/render";
 import { setNavigation } from "@/shared/testing/navigation";
 import { AcademicSubjectView } from "./AcademicSubjectView";
@@ -61,13 +61,15 @@ describe("AcademicSubjectView", () => {
     const entregas = screen.getByRole("heading", { name: "Entregas y exámenes" });
     expect(apuntes).toBeVisible();
     // Los apuntes antes que las entregas: la carpeta enseña primero lo que contiene.
-    expect(apuntes.compareDocumentPosition(entregas) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(apuntes.compareDocumentPosition(entregas) & Node.DOCUMENT_POSITION_FOLLOWING).toBe(Node.DOCUMENT_POSITION_FOLLOWING);
   });
 
   it("no separa tareas y apuntes en pestañas", () => {
     renderSubject();
-    const tabs = screen.getAllByRole("tab").map((tab) => tab.textContent);
-    expect(tabs.join(" ")).not.toContain("Apuntes");
+    const vistas = within(screen.getByRole("group", { name: "Vistas de tareas" }))
+      .getAllByRole("button")
+      .map((vista) => vista.textContent);
+    expect(vistas.join(" ")).not.toContain("Apuntes");
   });
 
   it("el título se queda en la columna de texto cuando el glifo del margen se oculta", () => {
