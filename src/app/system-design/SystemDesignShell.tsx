@@ -9,6 +9,7 @@ import { Button } from "@/components/ui/button";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { SystemTypeProvider } from "@/components/SystemTypeProvider";
 import { FocusTimerProvider } from "@/features/tasks/FocusTimerProvider";
+import { useThemeStore } from "@/components/ThemeProvider";
 import { ColorsSection } from "./sections/colors";
 import { TypographySection } from "./sections/typography";
 import { FoundationsSection } from "./sections/foundations";
@@ -66,12 +67,15 @@ export function SystemDesignShell() {
   // Toggle local de tema: manipula la clase .dark del <html> igual que el
   // ThemeProvider de la app, sin persistir. Arranca con el tema que la app
   // guardó (`kino-theme`) o el del sistema, para que el catálogo se vea como
-  // la pantalla de la que viene y las capturas en oscuro salgan oscuras.
+  // la pantalla de la que viene y las capturas en oscuro salgan oscuras. El
+  // store del tema también se hidrata con esa elección, para que los
+  // specimens que lo leen (la fila de Tema de Ajustes) se pinten enteros.
   const [dark, setDark] = useState(false);
   useEffect(() => {
     const guardado = window.localStorage.getItem("kino-theme");
     const sistema = window.matchMedia("(prefers-color-scheme: dark)").matches;
     setDark(guardado === "dark" || (guardado !== "light" && sistema));
+    useThemeStore.getState().hydrate(guardado === "dark" || guardado === "light" ? guardado : "system");
   }, []);
   useEffect(() => {
     document.documentElement.classList.toggle("dark", dark);
