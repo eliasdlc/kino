@@ -18,6 +18,14 @@ export const LETRA_DEL_TITULO =
   "font-serif text-[1.76rem] leading-[1.2] font-semibold tracking-[-0.01em]";
 
 /**
+ * El cuerpo de un manuscrito: la letra del escritor y la partición de palabras.
+ * La prosa va justificada (globals.css); sin partir palabras, una columna de
+ * teléfono abre ríos entre ellas. Las dos pinturas la llevan, así que las
+ * líneas se parten igual en las dos.
+ */
+export const CUERPO_DEL_ESCRITOR = "tiptap-writer hyphens-auto";
+
+/**
  * La puerta del panel en el título: 2.85rem de alto, sólo bajo md. En un
  * manuscrito lleva su palabra («Capítulo», «Escena») delante de los tres puntos,
  * porque ahí viven el estado y la sesión y un «…» solo no se adivina.
