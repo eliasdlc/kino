@@ -119,7 +119,7 @@ export function SystemTreeItem({
           <Link
             href={`/systems/${system.id}`}
             aria-label={system.name}
-            className={`relative flex justify-center p-2.5 rounded-lg transition-colors focus-ring pointer-coarse:min-h-[2.85rem] pointer-coarse:items-center ${isActive
+            className={`relative flex justify-center p-2.5 rounded-lg transition-[color,background-color] duration-(--dur-toque) ease-(--ease-pluma) focus-ring pointer-coarse:min-h-[2.85rem] pointer-coarse:items-center ${isActive
               ? "bg-sidebar-accent text-sidebar-accent-foreground"
               : "text-muted-foreground hover:bg-sidebar-accent/50 hover:text-sidebar-foreground"
               }`}
@@ -137,9 +137,9 @@ export function SystemTreeItem({
 
   return (
     <div>
-      {/* SystemTransport row */}
+      {/* La fila del sistema */}
       <div
-        className={`group relative flex items-center gap-1.5 px-2 py-2 rounded-lg text-sm transition-colors pointer-coarse:min-h-[2.85rem] pointer-coarse:py-0 ${isActive
+        className={`group relative flex items-center gap-1.5 px-2 py-2 rounded-lg text-sm transition-[color,background-color] duration-(--dur-toque) ease-(--ease-pluma) pointer-coarse:min-h-[2.85rem] pointer-coarse:py-0 ${isActive
           ? "bg-sidebar-accent text-sidebar-foreground font-medium"
           : "text-muted-foreground hover:bg-sidebar-accent/50 hover:text-sidebar-foreground"
           }`}
@@ -159,7 +159,7 @@ export function SystemTreeItem({
           />
         </button>
 
-        {/* SystemTransport link */}
+        {/* El enlace al sistema */}
         <Link
           href={`/systems/${system.id}`}
           className="flex items-center gap-2 flex-1 min-w-0 self-stretch rounded focus-ring"
@@ -191,7 +191,7 @@ export function SystemTreeItem({
                 <DropdownMenuTrigger asChild>
                   <button
                     aria-label={`Opciones de ${system.name}`}
-                    className="flex shrink-0 items-center justify-center rounded p-0.5 opacity-0 transition-opacity hover:bg-sidebar-accent focus-ring focus-visible:opacity-100 group-hover:opacity-100 data-[state=open]:opacity-100 pointer-coarse:size-[2.85rem] pointer-coarse:-my-1 pointer-coarse:opacity-100"
+                    className="flex shrink-0 items-center justify-center rounded p-0.5 opacity-0 transition-[opacity,background-color] duration-(--dur-toque) ease-(--ease-pluma) hover:bg-sidebar-accent focus-ring focus-visible:opacity-100 group-hover:opacity-100 data-[state=open]:opacity-100 pointer-coarse:size-[2.85rem] pointer-coarse:-my-1 pointer-coarse:opacity-100"
                   >
                     <MoreHorizontal className="size-4" />
                   </button>
@@ -250,7 +250,7 @@ export function SystemTreeItem({
               <Link
                 key={folder.id}
                 href={`/systems/${system.id}/folders/${folder.id}`}
-                className={`flex items-center gap-2 px-2.5 py-1.5 rounded-md text-sm transition-colors focus-ring pointer-coarse:min-h-[2.85rem] ${activeFolderId === folder.id
+                className={`flex items-center gap-2 px-2.5 py-1.5 rounded-md text-sm transition-[color,background-color] duration-(--dur-toque) ease-(--ease-pluma) focus-ring pointer-coarse:min-h-[2.85rem] ${activeFolderId === folder.id
                   ? "bg-sidebar-accent text-sidebar-accent-foreground font-medium"
                   : "text-muted-foreground hover:bg-sidebar-accent/50 hover:text-sidebar-foreground"
                   }`}
