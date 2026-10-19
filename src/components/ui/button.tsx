@@ -7,12 +7,12 @@ import { cn } from "@/lib/utils"
 const buttonVariants = cva(
   // Un toque encoge la pastilla a .97 (press) en --dur-toque con pluma; el
   // foco es el anillo único de la casa (focus-ring). Transiciona color y
-  // transform, nunca la sombra: el glow de la primaria no cambia.
+  // transform; ninguna variante lleva sombra ni halo, el papel no se eleva.
   "group/button press inline-flex shrink-0 items-center justify-center rounded-full border border-transparent bg-clip-padding text-sm font-semibold whitespace-nowrap transition-[color,background-color,border-color,transform] duration-(--dur-toque) ease-(--ease-pluma) select-none focus-ring disabled:pointer-events-none disabled:opacity-50 aria-invalid:border-destructive [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-5",
   {
     variants: {
       variant: {
-        default: "bg-primary text-primary-foreground shadow-[0_.5em_1.4em_-.4em_var(--glow)] hover:bg-primary/90",
+        default: "bg-primary text-primary-foreground hover:bg-primary/90",
         outline:
           "border-input bg-transparent hover:bg-muted hover:text-foreground aria-expanded:bg-muted aria-expanded:text-foreground",
         secondary:

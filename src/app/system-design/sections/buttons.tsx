@@ -34,7 +34,7 @@ export function ButtonsSection() {
       id="botones"
       number="05"
       title="Botones, segmentos, pestañas, badges y vacíos"
-      description="Toda acción es una pastilla de 2.85rem (el táctil mínimo) que se encoge a .97 al tocar; la primaria mide 3.2rem y lleva el glow del acento en vez de sombra. Un solo foco visible, el anillo del acento. Todo estado (seleccionado, hecho) también es pastilla o círculo, y se dice en tinta, no en ámbar."
+      description="Toda acción es una pastilla de 2.85rem (el táctil mínimo) que se encoge a .97 al tocar; la primaria mide 3.2rem y se distingue por el ámbar, sin sombra ni halo. Un solo foco visible, el anillo del acento. Todo estado (seleccionado, hecho) también es pastilla o círculo, y se dice en tinta, no en ámbar."
     >
       <SubSection
         title="Matriz de variantes y tamaños"
