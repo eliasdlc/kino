@@ -1,3 +1,4 @@
+import { cn } from "@/lib/utils";
 import { notFound, redirect } from "next/navigation";
 import { api } from "@convex/_generated/api";
 import { serverQuery } from "@/shared/convex/server";
@@ -104,10 +105,16 @@ export default async function PageEditorRoute({ params, searchParams }: PageEdit
         // mandar al navegador la librería del saneo. Lleva también lo que el
         // CSS de ProseMirror le pone al editor al crearlo (espacios que se
         // conservan, sin ligaduras): sin eso las líneas cortan en otra palabra
-        // y el texto se recoloca al llegar el editor.
+        // y el texto se recoloca al llegar el editor. El editor envuelve el
+        // texto de cada elemento de lista en un párrafo, que en un manuscrito
+        // va justificado; el HTML guardado a veces no lo trae, así que en un
+        // manuscrito la lista se justifica aquí también.
         <SanitizedHtml
           html={page.content}
-          className="tiptap ProseMirror min-h-[60vh] text-sm leading-7 break-words whitespace-break-spaces [font-feature-settings:'liga'_0] [font-variant-ligatures:none]"
+          className={cn(
+            "tiptap ProseMirror min-h-[60vh] text-sm leading-7 break-words whitespace-break-spaces [font-feature-settings:'liga'_0] [font-variant-ligatures:none]",
+            writer && "[&_li]:text-justify",
+          )}
         />
       }
     />
