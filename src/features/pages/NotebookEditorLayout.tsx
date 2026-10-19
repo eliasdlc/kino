@@ -102,9 +102,10 @@ const NotebookEditorSurface = dynamic(() => import("./NotebookEditorSurface"), {
 });
 
 // El panel (índice, codex, referencias, versiones, etiquetas, tareas, exportar)
-// es un solo chunk aparte que se pide la primera vez que se abre: nadie lo
-// necesita para empezar a escribir.
-const EditorPanel = dynamic(() => import("./EditorPanel"), { ssr: false });
+// es un solo chunk aparte fuera del JavaScript inicial: nadie lo necesita para
+// empezar a escribir. Se precarga en reposo y se monta la primera vez que se abre.
+const cargarPanel = () => import("./EditorPanel");
+const EditorPanel = dynamic(cargarPanel, { ssr: false });
 
 interface NotebookEditorLayoutProps {
   page: PageDetailTransport;
@@ -179,6 +180,18 @@ export function NotebookEditorLayout({
     setPanelMounted(true);
     setPanelOpen(true);
   }
+
+  // El chunk del panel se pide en reposo, después de la primera pintura: el
+  // primer toque en la puerta del panel abre la hoja al instante y no espera a
+  // la red. Sin requestIdleCallback (Safari), un segundo después.
+  useEffect(() => {
+    if (typeof window.requestIdleCallback === "function") {
+      const id = window.requestIdleCallback(() => void cargarPanel(), { timeout: 4000 });
+      return () => window.cancelIdleCallback(id);
+    }
+    const id = window.setTimeout(() => void cargarPanel(), 1000);
+    return () => window.clearTimeout(id);
+  }, []);
 
   // Esc sale del modo focus (PLAN-11 §7).
   useEffect(() => {
