@@ -4,7 +4,7 @@ import type { TaskTypeValue } from "@/shared/types/enums";
 import { ENERGY_WORD, PRIORITY_WORD } from "./task-vocab";
 
 /**
- * Lógica pura del detalle de tarea (KIN-146 · FE-05).
+ * Lógica pura del detalle de tarea (KIN-146, FE-05).
  *
  * Extraído de `TaskDetailSheet` sin cambiar comportamiento. Lo que más importa
  * aquí es `buildDirtyTaskData`: decide qué campos viajan al servidor en cada

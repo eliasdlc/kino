@@ -7,7 +7,7 @@ import type { ParsedQuickInput } from "./quick-date-parse";
 import { PRIORITY_WORD } from "./task-vocab";
 
 /**
- * Schema y lógica pura del diálogo de crear tarea (KIN-146 · FE-05).
+ * Schema y lógica pura del diálogo de crear tarea (KIN-146, FE-05).
  *
  * Extraído de `CreateTaskDialog` sin cambiar comportamiento. Lo que gana más
  * con la salida es `buildStudyPlanTasks`: el plan de repaso de un examen se

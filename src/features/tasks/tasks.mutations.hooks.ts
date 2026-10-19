@@ -33,7 +33,7 @@ export function useCreateTask(_systemId: string, _folderId?: string) {
       // Mensaje neutro con el destino real (sirve desde QuickAdd global o desde
       // un sistema): no asume que haya un "Action tab" en pantalla.
       const where = statusLabel[newTask.status] ?? "tu lista";
-      toast.success(`"${newTask.title}" creada · ${where}`);
+      toast.success(`"${newTask.title}" creada en ${where}`);
     },
     onError: (err) => toast.error(err.message ?? "No se pudo crear la tarea"),
   });

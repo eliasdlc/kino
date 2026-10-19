@@ -310,7 +310,7 @@ export function TasksViewsSection() {
 
       <SubSection
         title="Board kanban (project) — BoardCard y SprintBar"
-        description="La card arrastrable del board con badge de estancamiento («Xd sin avanzar») y la barra de ciclos con filtro. Columnas: Por hacer · En progreso · En review · Hecho."
+        description="La card arrastrable del board con badge de estancamiento («Xd sin avanzar») y la barra de ciclos con filtro. Columnas: Por hacer, En progreso, En review, Hecho."
       >
         <div className="max-w-2xl space-y-4">
           <SprintBar
