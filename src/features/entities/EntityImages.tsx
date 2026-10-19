@@ -94,7 +94,7 @@ export function EntityImages({
             <button
               type="button"
               onClick={() => update.mutate({ coverImageUrl: null })}
-              className="absolute right-1.5 top-1.5 flex items-center justify-center rounded-full bg-background/85 p-1 text-muted-foreground transition-opacity hover:text-destructive focus-ring pointer-coarse:size-[2.85rem] pointer-coarse:right-1 pointer-coarse:top-1 md:pointer-fine:opacity-0 md:pointer-fine:group-hover:opacity-100 md:pointer-fine:focus-visible:opacity-100"
+              className="absolute right-1.5 top-1.5 flex items-center justify-center rounded-full bg-background/85 p-1 text-muted-foreground transition-[opacity,color] duration-(--dur-toque) ease-(--ease-pluma) hover:text-destructive focus-ring pointer-coarse:size-[2.85rem] pointer-coarse:right-1 pointer-coarse:top-1 md:pointer-fine:opacity-0 md:pointer-fine:group-hover:opacity-100 md:pointer-fine:focus-visible:opacity-100"
               aria-label="Quitar portada"
             >
               <X aria-hidden className="size-4" />
@@ -105,7 +105,7 @@ export function EntityImages({
             type="button"
             onClick={() => coverInput.current?.click()}
             disabled={busy === "cover"}
-            className="flex aspect-[3/1] w-full items-center justify-center gap-2 text-sm text-muted-foreground transition-colors hover:bg-accent/40"
+            className="flex aspect-[3/1] w-full items-center justify-center gap-2 text-sm text-muted-foreground transition-[background-color] duration-(--dur-toque) ease-(--ease-pluma) hover:bg-accent/40 focus-ring"
           >
             <ImagePlus aria-hidden className="size-4" />
             {busy === "cover" ? "Subiendo" : "Subir portada"}
@@ -130,7 +130,7 @@ export function EntityImages({
               onClick={() =>
                 update.mutate({ images: entity.images.filter((u) => u !== url) })
               }
-              className="absolute right-0.5 top-0.5 flex items-center justify-center rounded bg-background/80 p-0.5 text-muted-foreground transition-opacity hover:text-destructive focus-ring pointer-coarse:-right-2 pointer-coarse:-top-2 pointer-coarse:size-[2.85rem] pointer-coarse:items-start pointer-coarse:justify-end pointer-coarse:bg-transparent pointer-coarse:p-2.5 md:pointer-fine:opacity-0 md:pointer-fine:group-hover:opacity-100 md:pointer-fine:focus-visible:opacity-100"
+              className="absolute right-0.5 top-0.5 flex items-center justify-center rounded bg-background/80 p-0.5 text-muted-foreground transition-[opacity,color] duration-(--dur-toque) ease-(--ease-pluma) hover:text-destructive focus-ring pointer-coarse:-right-2 pointer-coarse:-top-2 pointer-coarse:size-[2.85rem] pointer-coarse:items-start pointer-coarse:justify-end pointer-coarse:bg-transparent pointer-coarse:p-2.5 md:pointer-fine:opacity-0 md:pointer-fine:group-hover:opacity-100 md:pointer-fine:focus-visible:opacity-100"
               aria-label="Quitar imagen"
             >
               <X aria-hidden className="size-3 pointer-coarse:size-5 pointer-coarse:rounded-full pointer-coarse:bg-background/90 pointer-coarse:p-0.5" />
@@ -142,7 +142,7 @@ export function EntityImages({
           onClick={() => galleryInput.current?.click()}
           disabled={busy === "gallery"}
           className={cn(
-            "flex size-14 items-center justify-center rounded-md border border-dashed border-border text-muted-foreground transition-colors hover:bg-accent/40 focus-ring pointer-coarse:size-[4.5rem]",
+            "flex size-14 items-center justify-center rounded-md border border-dashed border-border text-muted-foreground transition-[background-color] duration-(--dur-toque) ease-(--ease-pluma) hover:bg-accent/40 focus-ring pointer-coarse:size-[4.5rem]",
           )}
           title="Añadir referencia"
         >
