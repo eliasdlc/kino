@@ -172,7 +172,8 @@ export function ReadingView({
             ref={scroller}
             onScroll={paged ? syncEdges : undefined}
             data-layout={layout}
-            className={cn("reading-surface", paged && "reading-paged")}
+            // Justificado con partición de palabras: sin ríos en una columna estrecha.
+            className={cn("reading-surface hyphens-auto", paged && "reading-paged")}
           >
             {manuscript.chapters.map((chapter, index) => (
               <section key={chapter.id} className="reading-chapter" aria-labelledby={`capitulo-${chapter.id}`}>
