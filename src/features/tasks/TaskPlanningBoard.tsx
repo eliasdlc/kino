@@ -32,6 +32,8 @@ export interface TaskPlanningBoardProps {
   singleDayTasks: TaskTransport[];
   multiDayTasks: TaskTransport[];
   focusedTaskId: string | null;
+  /** Las tachadas en esta visita: siguen en su día con el círculo lleno. */
+  struck?: ReadonlySet<string>;
   keyboardDisabled?: boolean;
   onPrevWeek: () => void;
   onNextWeek: () => void;
@@ -57,6 +59,7 @@ export default function TaskPlanningBoard({
   singleDayTasks,
   multiDayTasks,
   focusedTaskId,
+  struck,
   keyboardDisabled,
   onPrevWeek,
   onNextWeek,
@@ -174,6 +177,7 @@ export default function TaskPlanningBoard({
                             sourceId={dayISO}
                             compact
                             isFocused={task.id === focusedTaskId}
+                            struck={struck?.has(task.id)}
                             onToggle={onToggle}
                             onDelete={() => onDelete(task)}
                             onEdit={onEdit}
