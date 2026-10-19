@@ -453,6 +453,7 @@ const GraphScene = memo(function GraphScene({
           dim={neighbours !== null && !neighbours.has(node.id)}
           active={hoverId === node.id}
           hitRadius={nodeHitRadius(nodeRadius(node.mentionCount), hitSpan, shortSidePx)}
+          unitsPerPx={shortSidePx > 0 ? hitSpan / shortSidePx : 1}
           onOpen={onOpen}
           onOpenFromKeyboard={onOpenFromKeyboard}
           onHover={onHover}
@@ -483,7 +484,8 @@ function GraphEdgeLine({
         dim ? "opacity-15" : "opacity-70",
       )}
     >
-      <line x1={a.x} y1={a.y} x2={b.x} y2={b.y} />
+      {/* El trazo se mide en píxeles: con el viewBox encogido no se pierde. */}
+      <line x1={a.x} y1={a.y} x2={b.x} y2={b.y} vectorEffect="non-scaling-stroke" />
       {edge.label && !dim && (
         <text
           x={(a.x + b.x) / 2}
@@ -503,6 +505,7 @@ function GraphNodeButton({
   dim,
   active,
   hitRadius,
+  unitsPerPx,
   onOpen,
   onOpenFromKeyboard,
   onHover,
@@ -512,14 +515,20 @@ function GraphNodeButton({
   dim: boolean;
   active: boolean;
   hitRadius: number;
+  /** Unidades del viewBox por píxel de pantalla: lo que mide el dibujo en el teléfono. */
+  unitsPerPx: number;
   onOpen: (id: string) => void;
   onOpenFromKeyboard: (id: string) => void;
   onHover: (id: string) => void;
   onLeave: (id: string) => void;
 }) {
-  const r = nodeRadius(node.mentionCount);
+  // En un lienzo de 350 px el viewBox de 1000 encoge todo a un tercio: el
+  // círculo y su nombre tienen un mínimo en pantalla (11 px de radio, 12 px
+  // de letra) para que se lean sin zoom. En escritorio manda el tamaño propio.
+  const r = Math.max(nodeRadius(node.mentionCount), 11 * unitsPerPx);
+  const fontSize = Math.max(13, 12 * unitsPerPx);
   const Icon = ENTITY_TYPE_ICON[node.type];
-  const iconSize = Math.min(20, r * 1.1);
+  const iconSize = Math.min(Math.max(20, 14 * unitsPerPx), r * 1.1);
   return (
     <g
       role="button"
@@ -559,9 +568,9 @@ function GraphNodeButton({
       <circle
         cx={node.x}
         cy={node.y}
-        r={r + 4}
+        r={r + 4 * unitsPerPx}
         className="fill-none stroke-ring opacity-0 group-focus-visible/nodo:opacity-100"
-        strokeWidth={2}
+        strokeWidth={2 * unitsPerPx}
         pointerEvents="none"
       />
       <circle
@@ -573,6 +582,7 @@ function GraphNodeButton({
           active && "stroke-primary",
         )}
         strokeWidth={2}
+        vectorEffect="non-scaling-stroke"
         // Sin una sola relación: borde punteado. Ver de un vistazo qué
         // no está conectado con nada es media razón para abrir el mapa.
         strokeDasharray={node.degree === 0 ? "4 4" : undefined}
@@ -585,9 +595,10 @@ function GraphNodeButton({
       </g>
       <text
         x={node.x}
-        y={node.y + r + 15}
+        y={node.y + r + fontSize * 1.15}
         textAnchor="middle"
-        className="fill-foreground text-[13px] font-medium"
+        fontSize={fontSize}
+        className="fill-foreground font-medium"
       >
         {node.name}
       </text>
