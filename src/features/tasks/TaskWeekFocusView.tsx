@@ -6,9 +6,9 @@ import { useTasks, useToggleTask, useDeleteTaskWithUndo } from "./tasks.hooks";
 import { DefaultTaskCard } from "./cards/DefaultTaskCard";
 import { EmptyState } from "@/components/ui/empty-state";
 import { SectionHead } from "@/features/dashboard/SectionHead";
-import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { parseDueDate } from "./tasks.utils";
 import type { TaskTransport } from "./tasks.types";
+import { useTacharEnSitio } from "./useTachar";
 
 interface TaskWeekFocusViewProps {
   systemId: string;
@@ -52,13 +52,17 @@ function Section({
  * EstaSemanaTab: la vista por defecto de Academic. Responde "¿estoy bien?"
  * con un runway simple (días hasta la entrega), no un calendario. Hoy se limita
  * a 3; lo demás tiene tiempo. La línea de arriba da la certeza emocional.
+ * Completar tacha la fila en su sitio con Deshacer de cuatro segundos; mover
+ * a la papelera no pregunta, el aviso trae Deshacer.
  */
 export function TaskWeekFocusView({ systemId, initialData, onEdit, highlight }: TaskWeekFocusViewProps) {
   const { data: allTasks = [] } = useTasks(systemId, initialData);
   const { mutate: toggleTask } = useToggleTask(systemId);
   const { mutate: deleteTask } = useDeleteTaskWithUndo(systemId);
 
-  const [deleteTarget, setDeleteTarget] = useState<TaskTransport | null>(null);
+  // Completar tacha la fila en su sección con Deshacer: la vista esconde las
+  // hechas, y sin esto la fila se iba en el mismo toque y las de abajo subían.
+  const { struck, handleToggle, estadoDe } = useTacharEnSitio((id) => toggleTask(id));
 
   // Resaltado temporal: hace scroll a la tarea y la marca por ~1s.
   // Se deriva en render (no setState síncrono en effect): la tarea está
@@ -76,7 +80,8 @@ export function TaskWeekFocusView({ systemId, initialData, onEdit, highlight }: 
   }, [highlight]);
 
   const today = startOfToday();
-  const active = allTasks.filter((t) => !t.deletedAt && t.status !== "done");
+  const active = allTasks.filter((t) => !t.deletedAt && estadoDe(t) !== "done");
+  const abiertas = active.filter((t) => t.status !== "done");
 
   // Candidatas a "Hoy": vencidas o que vencen hoy. Vencidas primero, luego prioridad.
   const urgent = active
@@ -90,7 +95,7 @@ export function TaskWeekFocusView({ systemId, initialData, onEdit, highlight }: 
 
   const hoy = urgent.slice(0, HOY_LIMIT);
   const hoyOverflow = urgent.length - hoy.length;
-  const overdueCount = active.filter((t) => daysUntil(t, today) < 0).length;
+  const overdueCount = abiertas.filter((t) => daysUntil(t, today) < 0).length;
 
   const tieneTiempo = active
     .filter((t) => {
@@ -103,12 +108,20 @@ export function TaskWeekFocusView({ systemId, initialData, onEdit, highlight }: 
     .filter((t) => daysUntil(t, today) > 7) // incluye sin fecha (Infinity)
     .sort((a, b) => daysUntil(a, today) - daysUntil(b, today));
 
-  const reassurance =
-    overdueCount > 0
-      ? `Tienes ${overdueCount} atrasada${overdueCount !== 1 ? "s" : ""}: arranquemos por ahí, con calma.`
-      : urgent.length === 0
-        ? "Nada vence hoy. Vas con tiempo."
-        : `Vas al día: ${hoy.length} para hoy, lo demás tiene espacio.`;
+  // La palabra de estado va en coral y el resto de la frase en la voz: es una
+  // línea, no un aviso en caja.
+  const reassurance: ReactNode =
+    overdueCount > 0 ? (
+      <>
+        Tienes {overdueCount}{" "}
+        <b className="font-semibold text-task-overdue not-italic">atrasada{overdueCount !== 1 ? "s" : ""}</b>: arranquemos
+        por ahí, con calma.
+      </>
+    ) : urgent.length === 0 ? (
+      "Nada vence hoy. Vas con tiempo."
+    ) : (
+      `Vas al día: ${hoy.length} para hoy, lo demás tiene espacio.`
+    );
 
   function renderTask(task: TaskTransport) {
     return (
@@ -124,8 +137,9 @@ export function TaskWeekFocusView({ systemId, initialData, onEdit, highlight }: 
           systemId={systemId}
           systemType="academic"
           isFocused={task.id === highlightedId}
-          onToggle={(id) => toggleTask(id)}
-          onDelete={() => setDeleteTarget(task)}
+          struck={struck.has(task.id)}
+          onToggle={() => handleToggle(task)}
+          onDelete={() => deleteTask(task.id)}
           onEdit={onEdit}
         />
       </div>
@@ -156,17 +170,6 @@ export function TaskWeekFocusView({ systemId, initialData, onEdit, highlight }: 
         </>
       )}
 
-      <ConfirmDialog
-        open={deleteTarget !== null}
-        title="Mover a la papelera"
-        description={`"${deleteTarget?.title}" se moverá a la papelera.`}
-        confirmLabel="Mover a la papelera"
-        onConfirm={() => {
-          if (deleteTarget) deleteTask(deleteTarget.id);
-          setDeleteTarget(null);
-        }}
-        onCancel={() => setDeleteTarget(null)}
-      />
     </div>
   );
 }
