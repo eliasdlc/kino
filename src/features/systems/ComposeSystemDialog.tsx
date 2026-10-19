@@ -303,7 +303,7 @@ export function ComposeSystemDialog({ system, open, onOpenChange }: ComposeSyste
                     type="button"
                     aria-pressed={on}
                     onClick={() => toggleTab(tab)}
-                    className={`rounded-full border px-2.5 py-1 text-xs transition-colors focus-ring pointer-coarse:min-h-[2.85rem] pointer-coarse:px-3.5 pointer-coarse:text-sm ${
+                    className={`rounded-full border px-2.5 py-1 text-xs transition-[color,background-color,border-color] duration-(--dur-toque) ease-(--ease-pluma) focus-ring pointer-coarse:min-h-[2.85rem] pointer-coarse:px-3.5 pointer-coarse:text-sm ${
                       on
                         ? "border-foreground bg-foreground text-background"
                         : "border-border text-muted-foreground hover:border-muted-foreground/50"
@@ -322,7 +322,7 @@ export function ComposeSystemDialog({ system, open, onOpenChange }: ComposeSyste
                   type="button"
                   aria-pressed={defaultTab === tab}
                   onClick={() => setDefaultTab(tab)}
-                  className={`rounded-full px-2.5 py-1 text-xs transition-colors focus-ring pointer-coarse:min-h-[2.85rem] pointer-coarse:px-3.5 pointer-coarse:text-sm ${
+                  className={`rounded-full px-2.5 py-1 text-xs transition-[color,background-color] duration-(--dur-toque) ease-(--ease-pluma) focus-ring pointer-coarse:min-h-[2.85rem] pointer-coarse:px-3.5 pointer-coarse:text-sm ${
                     defaultTab === tab
                       ? "bg-foreground text-background"
                       : "text-muted-foreground hover:text-foreground"
@@ -334,11 +334,10 @@ export function ComposeSystemDialog({ system, open, onOpenChange }: ComposeSyste
             </div>
           </section>
 
-          {/* Preview del vocabulario */}
-          <section className="space-y-2 rounded-lg border border-dashed p-3">
-            <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
-              Así se va a leer
-            </p>
+          {/* El vocabulario como se va a leer: una sección más, con su título
+              y su hairline, no una caja punteada dentro del formulario. */}
+          <section className="space-y-2 pt-4 border-t border-border">
+            <p className="text-sm leading-none font-semibold text-foreground">Así se va a leer</p>
             {containersPreview && (
               <p className="text-sm">
                 <span className="font-medium">{containersPreview.title}.</span>{" "}
