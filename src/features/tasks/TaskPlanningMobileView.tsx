@@ -27,6 +27,8 @@ interface TaskPlanningMobileViewProps {
   weekNumber: number;
   singleDayTasks: TaskTransport[];
   multiDayTasks: TaskTransport[];
+  /** Las tachadas en esta visita: se quedan en su día con el círculo lleno. */
+  struck?: ReadonlySet<string>;
   onPrevWeek: () => void;
   onNextWeek: () => void;
   onResetWeek: () => void;
@@ -49,6 +51,7 @@ export function TaskPlanningMobileView({
   weekNumber,
   singleDayTasks,
   multiDayTasks,
+  struck,
   onPrevWeek,
   onNextWeek,
   onResetWeek,
@@ -60,6 +63,10 @@ export function TaskPlanningMobileView({
   // Índice del día seleccionado (0 = lunes). Se mantiene al cambiar de semana.
   const [selectedIndex, setSelectedIndex] = useState(() => (new Date().getDay() + 6) % 7);
   const [moviendo, setMoviendo] = useState<TaskTransport | null>(null);
+  // La hoja conserva la última tarea mientras se recoge: si el título se
+  // vaciara al cerrar, la descripción saltaría a mitad de la salida.
+  const [ultima, setUltima] = useState<TaskTransport | null>(null);
+  if (moviendo && moviendo !== ultima) setUltima(moviendo);
 
   const selectedDate = weekDates[selectedIndex]!;
   const selectedISO = format(selectedDate, "yyyy-MM-dd");
@@ -89,9 +96,11 @@ export function TaskPlanningMobileView({
         <Button variant="ghost" size="icon" className="shrink-0" onClick={onPrevWeek} aria-label="Semana anterior">
           <ChevronLeft className="size-5" />
         </Button>
-        <h2 className="truncate font-display text-[1.25rem] leading-tight font-bold tracking-[-0.02em] first-letter:uppercase">
-          {monthHeading}
-          <span className="ml-1.5 font-sans text-sm font-normal text-muted-foreground tabular-nums">semana {weekNumber}</span>
+        {/* "semana N" va en su propia línea: junto a "Hoy" el título no cabe y
+            cortaba justo el número de la semana. */}
+        <h2 className="min-w-0 text-center font-display text-[1.25rem] leading-tight font-bold tracking-[-0.02em]">
+          <span className="block first-letter:uppercase">{monthHeading}</span>
+          <span className="block font-sans text-sm font-normal text-muted-foreground tabular-nums">semana {weekNumber}</span>
         </h2>
         <div className="flex shrink-0 items-center">
           {weekOffset !== 0 && (
@@ -106,7 +115,21 @@ export function TaskPlanningMobileView({
       </div>
 
       {/* Los días de la semana: el elegido en tinta, hoy en ámbar. */}
-      <div className="grid grid-cols-7 gap-1" role="radiogroup" aria-label="Día">
+      {/* Sin hueco entre días: con hueco, cada día medía 47 px y no los 48 del
+          dedo. Las flechas eligen el día de al lado, como en un grupo de radios. */}
+      <div
+        className="grid grid-cols-7"
+        role="radiogroup"
+        aria-label="Día"
+        onKeyDown={(e) => {
+          const paso = e.key === "ArrowRight" || e.key === "ArrowDown" ? 1 : e.key === "ArrowLeft" || e.key === "ArrowUp" ? -1 : 0;
+          if (!paso) return;
+          e.preventDefault();
+          const siguiente = (selectedIndex + paso + 7) % 7;
+          setSelectedIndex(siguiente);
+          (e.currentTarget.children[siguiente] as HTMLElement | undefined)?.focus();
+        }}
+      >
         {weekDates.map((date, i) => {
           const selected = i === selectedIndex;
           const today = isToday(date);
@@ -116,6 +139,7 @@ export function TaskPlanningMobileView({
               type="button"
               role="radio"
               aria-checked={selected}
+              tabIndex={selected ? 0 : -1}
               aria-label={format(date, "EEEE d", { locale: es })}
               onClick={() => setSelectedIndex(i)}
               className={cn(
@@ -156,6 +180,7 @@ export function TaskPlanningMobileView({
               key={task.id}
               task={task}
               density="lista"
+              struck={struck?.has(task.id)}
               onComplete={() => onToggle(task.id)}
               onOpen={onEdit ? () => onEdit(task) : undefined}
               actions={[
@@ -171,7 +196,7 @@ export function TaskPlanningMobileView({
         <ResponsiveDialogContent className="sm:max-w-sm">
           <ResponsiveDialogHeader>
             <ResponsiveDialogTitle>Mover a otro día</ResponsiveDialogTitle>
-            <ResponsiveDialogDescription className="line-clamp-2">{moviendo?.title}</ResponsiveDialogDescription>
+            <ResponsiveDialogDescription className="line-clamp-2">{ultima?.title}</ResponsiveDialogDescription>
           </ResponsiveDialogHeader>
           <div>
             {weekDates.map((date) => {
