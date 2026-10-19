@@ -85,8 +85,8 @@ export function applyFilters(tasks: TaskTransport[], f: TaskFilters): TaskTransp
     if (f.system.length && !f.system.includes(t.systemId)) return false;
     if (f.priority.length && !f.priority.includes(t.effectivePriority ?? '')) return false;
     if (f.energy.length && !f.energy.includes(t.energyLevel ?? '')) return false;
-    // Una tarea sin tipo es una tarea: "Tarea" la encuentra.
-    if (f.type.length && !f.type.includes(t.taskType ?? 'task')) return false;
+    // Una tarea sin tipo, o con el `todo` de antes, es una tarea: "Tarea" la encuentra.
+    if (f.type.length && !f.type.includes(t.taskType == null || t.taskType === 'todo' ? 'task' : t.taskType)) return false;
     if (f.tag.length && !f.tag.includes(t.contextTagId ?? '')) return false;
     if (f.dateRange) {
       const due = t.dueDate ? parseDueDate(t.dueDate) : null;
