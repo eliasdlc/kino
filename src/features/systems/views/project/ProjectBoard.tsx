@@ -140,7 +140,7 @@ export function ProjectBoard({ systemId, initialData, sprintFilter, onEdit, keyb
               className="flex min-w-0 flex-col gap-2 p-1"
             >
               <div className="flex min-h-[2.85rem] items-end justify-between gap-3 border-b border-input pb-[0.45rem]">
-                <h3 className="font-display text-base leading-tight font-bold tracking-[-0.01em]">{col.label}</h3>
+                <h2 className="font-display text-base leading-tight font-bold tracking-[-0.01em]">{col.label}</h2>
                 <span className="text-sm text-mute tabular-nums">{colTasks.length}</span>
               </div>
               <div className="flex flex-col gap-2 min-h-[40px]">
