@@ -2,6 +2,8 @@
  * Criterio: la biblioteca del codex es un índice y no una rejilla de cards:
  * una sección por tipo con su título y su cuenta, una fila numerada por
  * entidad que abre su ficha, y un estado vacío con título cuando no hay nada.
+ * Una búsqueda sin coincidencias lo dice y deja limpiarla; mientras carga, la
+ * forma es la del índice, no una frase.
  */
 import { describe, expect, it, vi } from "vitest";
 import { screen, within } from "@testing-library/react";
@@ -49,5 +51,28 @@ describe("CodexLibrary", () => {
     renderWithProviders(<CodexLibrary systemId={MOCK_SYSTEM_ID} />, { convex });
 
     expect(screen.getByRole("heading", { name: "Tu universo está vacío" })).toBeVisible();
+  });
+
+  it("una búsqueda sin coincidencias lo dice y ofrece limpiarla", async () => {
+    const convex = makeTestConvexClient([stubQuery(api.entities.bySystem, ELENCO as never)]);
+    renderWithProviders(<CodexLibrary systemId={MOCK_SYSTEM_ID} />, { convex });
+
+    await userEvent.type(screen.getByRole("textbox", { name: "Buscar en el universo" }), "zz");
+    expect(screen.getByText('Nada en el universo se llama "zz".')).toBeVisible();
+
+    await userEvent.click(screen.getByRole("button", { name: "Limpiar" }));
+    expect(screen.getByRole("region", { name: "Personajes" })).toBeVisible();
+  });
+
+  it("mientras carga enseña la forma del índice", () => {
+    renderWithProviders(<CodexLibrary systemId={MOCK_SYSTEM_ID} />, { convex: makeTestConvexClient() });
+    expect(screen.getByRole("status", { name: "Cargando el universo" }).querySelector("[data-slot=index-head]")).toBeInTheDocument();
+  });
+
+  it("el diálogo de nueva entidad nombra sus campos", async () => {
+    const convex = makeTestConvexClient([stubQuery(api.entities.bySystem, [])]);
+    renderWithProviders(<CodexLibrary systemId={MOCK_SYSTEM_ID} />, { convex });
+    await userEvent.click(screen.getByRole("button", { name: "Nueva entidad" }));
+    expect(await screen.findByRole("textbox", { name: "Nombre" })).toBeInTheDocument();
   });
 });

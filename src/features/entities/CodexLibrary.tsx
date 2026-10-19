@@ -1,12 +1,13 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useId, useMemo, useState } from "react";
 import { Search, Plus } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { EmptyState } from "@/components/ui/empty-state";
 import { MarginRow } from "@/components/ui/margin-row";
 import { IndexHead } from "@/features/notebooks/IndexHead";
 import { Button } from "@/components/ui/button";
+import { RowsSkeleton } from "@/components/Skeletons";
 import { Label } from "@/components/ui/label";
 import {
   ResponsiveDialog,
@@ -39,6 +40,8 @@ import type { EntityListItemTransport } from "./entities.types";
  * un click.
  */
 export function CodexLibrary({ systemId }: { systemId: string }) {
+  // Un fallo de la consulta no llega como `isError`: Convex lo lanza en el
+  // render y lo recoge el `error.tsx` de la ruta, que es su estado de error.
   const { data: entities = [], isLoading } = useSystemEntities(systemId);
   const [query, setQuery] = useState("");
   const [openEntityId, setOpenEntityId] = useState<string | null>(null);
@@ -63,6 +66,7 @@ export function CodexLibrary({ systemId }: { systemId: string }) {
   }, [entities, query]);
 
   const total = entities.length;
+  const hallados = [...grouped.values()].reduce((n, list) => n + list.length, 0);
 
   return (
     <div className="space-y-5">
@@ -77,20 +81,32 @@ export function CodexLibrary({ systemId }: { systemId: string }) {
             className="pl-8"
           />
         </div>
-        <Button className="gap-2" onClick={() => setCreating(true)}>
+        {/* Sin el brillo del botón: en una página de Diario nada flota. */}
+        <Button className="gap-2 shadow-none" onClick={() => setCreating(true)}>
           <Plus className="size-4" />
           Nueva entidad
         </Button>
       </div>
 
       {isLoading ? (
-        <p className="pl-(--margen) text-sm text-muted-foreground">Cargando el universo</p>
+        // La forma del índice que va a llegar: un título de sección y filas numeradas.
+        <div role="status" aria-busy aria-label="Cargando el universo">
+          <IndexHead title={<span aria-hidden className="inline-block h-[0.72em] w-28 rounded-md bg-muted align-middle" />} />
+          <RowsSkeleton rows={4} margin="numeral" />
+        </div>
       ) : total === 0 ? (
         <EmptyState
           className="pl-(--margen)"
           title="Tu universo está vacío"
           description="Menciona personajes, lugares u objetos con @ mientras escribes, o crea uno aquí."
         />
+      ) : hallados === 0 ? (
+        <p className="flex flex-wrap items-center gap-x-2 pl-(--margen) text-sm text-muted-foreground">
+          <span>{`Nada en el universo se llama "${query.trim()}".`}</span>
+          <Button variant="link" size="sm" className="px-1" onClick={() => setQuery("")}>
+            Limpiar
+          </Button>
+        </p>
       ) : (
         // Un índice por tipo, como el de las carpetas: el título de sección
         // con su cuenta y una fila por entidad con su numeral en el margen.
@@ -101,7 +117,7 @@ export function CodexLibrary({ systemId }: { systemId: string }) {
             if (!list || list.length === 0) return null;
             return (
               <section key={type} aria-labelledby={`codex-${type}`}>
-                <IndexHead id={`codex-${type}`} as="h3" title={ENTITY_TYPE_LABEL_PLURAL[type]} trailing={list.length} />
+                <IndexHead id={`codex-${type}`} title={ENTITY_TYPE_LABEL_PLURAL[type]} trailing={list.length} />
                 {list.map((e, i) => (
                   <MarginRow
                     key={e.id}
@@ -154,6 +170,7 @@ function CreateEntityDialog({
   const [name, setName] = useState("");
   const [type, setType] = useState<EntityType>("character");
   const create = useCreateEntity(systemId);
+  const campo = useId();
 
   function submit() {
     const trimmed = name.trim();
@@ -178,8 +195,11 @@ function CreateEntityDialog({
         </ResponsiveDialogHeader>
         <div className="space-y-3">
           <div className="space-y-1.5">
-            <Label className="text-xs text-muted-foreground">Nombre</Label>
+            <Label htmlFor={`${campo}-nombre`} className="text-xs text-muted-foreground">
+              Nombre
+            </Label>
             <Input
+              id={`${campo}-nombre`}
               autoFocus
               value={name}
               onChange={(e) => setName(e.target.value)}
@@ -188,9 +208,11 @@ function CreateEntityDialog({
             />
           </div>
           <div className="space-y-1.5">
-            <Label className="text-xs text-muted-foreground">Tipo</Label>
+            <Label htmlFor={`${campo}-tipo`} className="text-xs text-muted-foreground">
+              Tipo
+            </Label>
             <Select value={type} onValueChange={(v) => setType(v as EntityType)}>
-              <SelectTrigger className="w-full">
+              <SelectTrigger id={`${campo}-tipo`} className="w-full">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
