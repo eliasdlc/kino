@@ -24,6 +24,8 @@ export interface TaskKanbanBoardProps {
   columns: KanbanColumn[];
   tasksOf: (columnId: string) => TaskTransport[];
   focusedTaskId: string | null;
+  /** Las tachadas en esta visita: siguen en su columna, con el círculo lleno. */
+  struck?: ReadonlySet<string>;
   keyboardDisabled?: boolean;
   onToggle: (taskId: string) => void;
   onDelete: (task: TaskTransport) => void;
@@ -42,6 +44,7 @@ export default function TaskKanbanBoard({
   columns,
   tasksOf,
   focusedTaskId,
+  struck,
   keyboardDisabled,
   onToggle,
   onDelete,
@@ -103,6 +106,7 @@ export default function TaskKanbanBoard({
                     sourceId={column.id}
                     compact
                     isFocused={task.id === focusedTaskId}
+                    struck={struck?.has(task.id)}
                     onToggle={onToggle}
                     onDelete={() => onDelete(task)}
                     onEdit={onEdit}
