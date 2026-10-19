@@ -3,7 +3,7 @@
 import { useUrlView } from "@/shared/hooks/use-url-view";
 import { useState } from "react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { CreateTaskDialog } from "@/features/tasks/CreateTaskDialog";
+import { NewTaskButton } from "../NewTaskButton";
 import { TaskDetailSheet } from "@/features/tasks/TaskDetailSheet";
 import { TaskPlanningView } from "@/features/tasks/TaskPlanningView";
 import { useTasks } from "@/features/tasks/tasks.hooks";
@@ -32,7 +32,7 @@ export function SystemProjectView({ system, initialTasks }: SystemViewProps) {
       <Tabs value={tab} onValueChange={setTab} className="w-full flex flex-col gap-4">
         <div className="flex items-center gap-2">
           <TabsList>
-            <TabsTrigger value="board">Board</TabsTrigger>
+            <TabsTrigger value="board">Tablero</TabsTrigger>
             <TabsTrigger value="planning">
               <span className="md:hidden">Plan</span>
               <span className="hidden md:inline">Planificación</span>
@@ -42,7 +42,7 @@ export function SystemProjectView({ system, initialTasks }: SystemViewProps) {
               <span className="hidden md:inline">Archivadas</span>
             </TabsTrigger>
           </TabsList>
-          <CreateTaskDialog systemId={system.id} />
+          <NewTaskButton systemId={system.id} />
         </div>
 
         <TabsContent value="board" className="flex flex-col gap-4">
