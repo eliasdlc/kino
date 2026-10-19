@@ -55,6 +55,18 @@ describe("GlobalCalendarView en el teléfono", () => {
     expect(screen.getByText(/Correr temprano/)).toBeVisible();
   });
 
+  it("la duración de la meta no parte la cifra de su unidad en un ancho estrecho", () => {
+    const tareas = [makeTask({ id: mid("cal-dur"), title: "Leer el capítulo cuatro", dueDate: hoyALas(9), estimatedTime: "01:00" })];
+    renderMobile(<GlobalCalendarView />, {
+      convex: makeTestConvexClient([stubQuery(api.tasks.calendar, tareas)]),
+    });
+
+    // Leído del texto sin normalizar: las consultas de Testing Library tratan
+    // el espacio duro como un espacio cualquiera.
+    const fila = screen.getByRole("button", { name: "09:00, Leer el capítulo cuatro" });
+    expect(fila.textContent).toContain("1\u00a0h");
+  });
+
   it("no carga @dnd-kit ni la rejilla de escritorio, tampoco al hidratar", () => {
     // La hidratación usa la instantánea del servidor: si esa dijera
     // "escritorio", el teléfono pintaría la rejilla antes de saltar. El
