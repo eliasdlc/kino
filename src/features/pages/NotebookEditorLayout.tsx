@@ -19,6 +19,7 @@ import {
   FILA_DEL_TITULO,
   LETRA_DEL_TITULO,
   PrimeraPinturaContext,
+  CUERPO_DEL_ESCRITOR,
   RESERVA_CODEX,
   contenedorConScroll,
   usePrimeraPintura,
@@ -83,7 +84,7 @@ export function PrimeraPinturaDelEditor() {
                 {pintura.fichasDelCodex > 0 && <div aria-hidden className={RESERVA_CODEX} />}
               </div>
             )}
-            <div className={cn("tiptap-editor relative flex-1", pintura?.writer && "tiptap-writer")}>
+            <div className={cn("tiptap-editor relative flex-1", pintura?.writer && CUERPO_DEL_ESCRITOR)}>
               {pintura?.cuerpo}
             </div>
           </div>
