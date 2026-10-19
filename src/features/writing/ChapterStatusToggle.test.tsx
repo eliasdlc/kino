@@ -24,6 +24,8 @@ describe("ChapterStatusToggle", () => {
     expect(boton).not.toHaveAttribute("aria-pressed");
     expect(boton).toHaveClass("text-ok");
     expect(boton).not.toHaveClass("text-primary");
+    // La palabra reserva el ancho de la más larga y se queda a la izquierda.
+    expect(boton.querySelector(".grid")).toHaveClass("text-left");
   });
 
   it("mientras se guarda lo dice con una palabra", async () => {
