@@ -47,7 +47,8 @@ import { useManuscript } from "./writing.hooks";
  *
  * En el teléfono las tres salidas son una hoja con nombre y filas de 48 px; en
  * escritorio, un menú. Mientras se compila, el botón lo dice con su palabra
- * («Compilando»), sin icono que gire.
+ * («Compilando»), sin icono que gire; en la hoja del teléfono, que tapa el
+ * botón, lo dice también una línea de estado bajo las filas.
  */
 export function CompileMenu({
   folderId,
@@ -112,7 +113,9 @@ export function CompileMenu({
             </ResponsiveDialogHeader>
             <div>
               <MarginRow
-                onClick={disponible ? () => run("text").then(() => setOpen(false)) : undefined}
+                // Siempre un botón: sin manuscrito sigue siendo una fila que se
+                // anuncia como deshabilitada, no un div mudo.
+                onClick={() => disponible && run("text").then(() => setOpen(false))}
                 aria-disabled={!disponible || undefined}
                 className={UNA_LINEA}
                 margin={<FileText aria-hidden className="size-5" />}
@@ -121,7 +124,7 @@ export function CompileMenu({
                 <span className="block text-base text-foreground">{textLabel}</span>
               </MarginRow>
               <MarginRow
-                onClick={disponible ? () => run("docx").then(() => setOpen(false)) : undefined}
+                onClick={() => disponible && run("docx").then(() => setOpen(false))}
                 aria-disabled={!disponible || undefined}
                 className={UNA_LINEA}
                 margin={<FileText aria-hidden className="size-5" />}
@@ -131,6 +134,10 @@ export function CompileMenu({
               <MarginRow href={pdfHref} className={UNA_LINEA} margin={<Printer aria-hidden className="size-5" />}>
                 <span className="block text-base text-foreground">PDF, imprimiendo la lectura</span>
               </MarginRow>
+              {/* Reservada: aparecer no empuja nada. */}
+              <p role="status" className="min-h-6 pt-2 pl-(--margen) text-sm text-muted-foreground">
+                {busy !== null ? "Compilando" : ""}
+              </p>
             </div>
           </ResponsiveDialogContent>
         </ResponsiveDialog>
@@ -165,8 +172,6 @@ export function CompileMenu({
     </DropdownMenu>
   );
 }
-
-/** Filas de una línea: el glifo del margen centrado con el texto. */
 
 function metaOf(manuscript: Manuscript): CompileMeta {
   return {
