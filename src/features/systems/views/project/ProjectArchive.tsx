@@ -9,7 +9,7 @@ import { es } from "date-fns/locale";
 import { cn } from "@/lib/utils";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { EmptyState } from "@/components/ui/empty-state";
-import { useTasks, useToggleTask } from "@/features/tasks/tasks.hooks";
+import { useDeleteTaskWithUndo, useTasks, useToggleTask } from "@/features/tasks/tasks.hooks";
 import { useDeleteSprint } from "@/features/sprints/sprints.hooks";
 import { ProjectTaskCard } from "@/features/tasks/cards/ProjectTaskCard";
 import type { TaskTransport } from "@/features/tasks/tasks.types";
@@ -54,6 +54,9 @@ function SprintAccordion({
 }) {
   const [open, setOpen] = useState(false);
   const { mutate: toggleTask } = useToggleTask(systemId);
+  // Eliminar una tarjeta archivada la manda a la papelera con su Deshacer,
+  // como en el tablero: antes la opción estaba en el menú y no hacía nada.
+  const { mutate: deleteTask } = useDeleteTaskWithUndo(systemId);
   const done = tasks.filter((t) => t.status === "done").length;
   const closedAt = sprint.completedAt
     ? format(new Date(sprint.completedAt), "d 'de' MMM, yyyy", { locale: es })
@@ -109,7 +112,7 @@ function SprintAccordion({
                 task={task}
                 systemId={systemId}
                 onToggle={(id) => toggleTask(id)}
-                onDelete={() => {}}
+                onDelete={(t) => deleteTask(t.id)}
                 onEdit={onEdit}
               />
             ))
