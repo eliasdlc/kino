@@ -33,10 +33,7 @@ export function SystemProjectView({ system, initialTasks }: SystemViewProps) {
         <div className="flex items-center gap-2">
           <TabsList>
             <TabsTrigger value="board">Tablero</TabsTrigger>
-            <TabsTrigger value="planning">
-              <span className="md:hidden">Plan</span>
-              <span className="hidden md:inline">Planificación</span>
-            </TabsTrigger>
+            <TabsTrigger value="planning">Plan</TabsTrigger>
             <TabsTrigger value="archive">
               <span className="md:hidden">Archivo</span>
               <span className="hidden md:inline">Archivadas</span>
