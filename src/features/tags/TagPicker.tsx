@@ -60,7 +60,7 @@ export function TagPicker({ systemId, value, onChange, label, allowCreate }: Tag
             type="button"
             onClick={() => onChange(selected ? null : tag.id)}
             className={cn(
-              "inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium border transition-[color,background-color,border-color] duration-(--dur-toque) focus-ring pointer-coarse:min-h-[2.85rem] pointer-coarse:px-3.5 pointer-coarse:text-sm",
+              "inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium border transition-[color,background-color,border-color] duration-(--dur-toque) ease-(--ease-pluma) focus-ring pointer-coarse:min-h-[2.85rem] pointer-coarse:px-3.5 pointer-coarse:text-sm",
               selected
                 ? "bg-muted border-foreground/30 text-foreground"
                 : "bg-transparent border-border text-muted-foreground hover:border-muted-foreground/50",
@@ -101,7 +101,7 @@ export function TagPicker({ systemId, value, onChange, label, allowCreate }: Tag
           <button
             type="button"
             onClick={() => setAdding(true)}
-            className="inline-flex items-center gap-1 rounded-full border border-dashed border-border px-2.5 py-1 text-xs font-medium text-muted-foreground transition-colors hover:border-muted-foreground/50 focus-ring pointer-coarse:min-h-[2.85rem] pointer-coarse:px-3.5 pointer-coarse:text-sm"
+            className="inline-flex items-center gap-1 rounded-full border border-dashed border-border px-2.5 py-1 text-xs font-medium text-muted-foreground transition-[color,border-color] duration-(--dur-toque) ease-(--ease-pluma) hover:border-muted-foreground/50 focus-ring pointer-coarse:min-h-[2.85rem] pointer-coarse:px-3.5 pointer-coarse:text-sm"
           >
             <Plus size={12} /> Categoría
           </button>
