@@ -403,7 +403,7 @@ function AppearancesSection({
             <Link
               href={`/systems/${systemId}/pages/${ap.pageId}`}
               className={cn(
-                "flex items-center justify-between gap-2 rounded-md px-2 py-1.5 text-sm transition-colors hover:bg-accent/50 focus-ring pointer-coarse:min-h-[2.85rem]",
+                "flex items-center justify-between gap-2 rounded-md px-2 py-1.5 text-sm transition-[color,background-color] duration-(--dur-toque) ease-(--ease-pluma) hover:bg-accent/50 focus-ring pointer-coarse:min-h-[2.85rem]",
               )}
             >
               <span className="min-w-0 flex-1 truncate">
