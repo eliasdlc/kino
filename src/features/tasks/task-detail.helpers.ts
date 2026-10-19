@@ -1,6 +1,7 @@
 import { parseDueDate } from "./tasks.utils";
 import type { TaskTransport, UpdateTaskInput } from "./tasks.types";
 import type { TaskTypeValue } from "@/shared/types/enums";
+import { ENERGY_WORD, PRIORITY_WORD } from "./task-vocab";
 
 /**
  * Lógica pura del detalle de tarea (KIN-146 · FE-05).
@@ -11,18 +12,13 @@ import type { TaskTypeValue } from "@/shared/types/enums";
  * reglas: y son reglas con historia (ver los comentarios).
  */
 
-export const PRIORITY_LABELS: Record<string, string> = {
-  critical: "Crítica",
-  high: "Alta",
-  medium: "Media",
-  low: "Baja",
-};
-
-export const ENERGY_LABELS: Record<string, string> = {
-  high: "Alta",
-  medium: "Media",
-  low: "Baja",
-};
+/**
+ * Las palabras de prioridad y energía salen de `task-vocab`: un solo
+ * vocabulario. Estos nombres se quedan como alias porque el timer (del shell)
+ * todavía importa `ENERGY_LABELS` de aquí.
+ */
+export const PRIORITY_LABELS: Record<string, string> = PRIORITY_WORD;
+export const ENERGY_LABELS: Record<string, string> = ENERGY_WORD;
 
 export function formatDuration(minutes: number): string {
   if (minutes < 60) return `${minutes} min`;

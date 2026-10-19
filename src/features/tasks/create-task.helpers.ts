@@ -4,6 +4,7 @@ import { dayToLocalISO } from "./tasks.utils";
 import { createTaskSchema } from "./tasks.schemas";
 import { minutesToTimeString } from "./EstimatedTimePicker";
 import type { ParsedQuickInput } from "./quick-date-parse";
+import { PRIORITY_WORD } from "./task-vocab";
 
 /**
  * Schema y lógica pura del diálogo de crear tarea (KIN-146 · FE-05).
@@ -40,12 +41,8 @@ export const STEP_FIELDS: Record<1 | 2 | 3, (keyof FormValues)[]> = {
   3: [],
 };
 
-export const PRIORITY_LABELS: Record<string, string> = {
-  critical: "Urgente",
-  high: "Alta",
-  medium: "Media",
-  low: "Baja",
-};
+/** La prioridad del alta dice lo mismo que la fila y el detalle: Crítica, no Urgente. */
+export const PRIORITY_LABELS: Record<string, string> = PRIORITY_WORD;
 
 export function formatDuration(mins: number): string {
   const h = Math.floor(mins / 60);
