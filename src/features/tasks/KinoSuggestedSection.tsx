@@ -1,32 +1,37 @@
 'use client';
 
 import { useState } from 'react';
-import { CalendarPlus, Check } from 'lucide-react';
 import { toast } from 'sonner';
 import { EmptyState } from '@/components/ui/empty-state';
 import { SectionHead } from '@/features/dashboard/SectionHead';
 import { EnergyBudgetBar } from '@/features/energy/EnergyBudgetBar';
 import { useEnergyBudget } from '@/features/energy/energy.hooks';
+import { useUserSettings } from '@/features/settings/settings.hooks';
 import { crossesLimitWith } from '@/features/energy/energy.budget';
-import { useSuggestedTasks, useAddToTodayPlan, useToggleTodayTask, type SuggestedTask } from './tasks.hooks';
+import { useSuggestedTasks, useAddToTodayPlan, useToggleTodayTask, useTodayPlanTasks, type SuggestedTask } from './tasks.hooks';
+import { getOverdueTasks } from './OverdueGroup';
 import { TaskDetailSheet } from './TaskDetailSheet';
 import { TaskRow } from './TaskRow';
 import { useListaTachable } from './useTachar';
-import { LISTA_FILA_ALTO, ListaSkeleton } from './TasksSkeleton';
+import { LISTA_FILA_ALTO, ListaSkeleton, PresupuestoSkeleton } from './TasksSkeleton';
 import type { TaskTransport } from './tasks.types';
 
 /** Cuántas sugerencias se ven: siete caben en una pantalla de teléfono sin volverse otra lista. */
 const VISIBLES = 7;
 
 /**
- * Agregar al plan, en la cola de la fila: 48 px, el glifo y su estado. Ya en
- * el plan se queda en su sitio con el check en --ok y deja de ser botón.
+ * Agregar al plan, en la cola de la fila: la palabra, no un glifo suelto, en
+ * 48 px de alto. Ya en el plan dice "en el plan" en mute y deja de ser botón:
+ * el --ok es de hecha, y un check verde junto a un círculo vacío decía a la
+ * vez hecha y pendiente. Las dos ocupan el mismo ancho, para que el título no
+ * se reparta en otras líneas al agregar.
  */
 function AddToPlan({ added, onAdd, title }: { added: boolean; onAdd: () => void; title: string }) {
+  const caja = '-mr-2 inline-flex min-h-[2.85rem] min-w-[5.6rem] items-center justify-end px-2 text-sm';
   if (added) {
     return (
-      <span className="-mr-2 inline-flex size-[2.85rem] items-center justify-center text-task-done" aria-label={`${title} ya está en el plan`} role="img">
-        <Check className="size-[1.1rem]" strokeWidth={2.4} />
+      <span className={`${caja} text-muted-foreground`} aria-label={`${title} ya está en el plan`} role="img">
+        en el plan
       </span>
     );
   }
@@ -35,9 +40,9 @@ function AddToPlan({ added, onAdd, title }: { added: boolean; onAdd: () => void;
       type="button"
       onClick={onAdd}
       aria-label={`Agregar ${title} al plan de hoy`}
-      className="press focus-ring -mr-2 inline-flex size-[2.85rem] items-center justify-center rounded-full text-muted-foreground transition-[color,transform] duration-(--dur-toque) ease-(--ease-pluma) hover:text-primary"
+      className={`${caja} press focus-ring rounded-full font-semibold text-foreground transition-[background-color,transform] duration-(--dur-toque) ease-(--ease-pluma) hover:bg-sf2/60`}
     >
-      <CalendarPlus className="size-[1.1rem]" />
+      Al plan
     </button>
   );
 }
@@ -49,9 +54,15 @@ function AddToPlan({ added, onAdd, title }: { added: boolean; onAdd: () => void;
  * fila de tarea (vencida, prioridad, energía), que ya es el porqué que manda
  * el servidor dicho con el vocabulario común. Agregar al plan es la cola de
  * cada fila; completar, el círculo, con la fila tachada en su sitio y Deshacer.
+ *
+ * Una vencida no se sugiere aquí: tiene su sección justo debajo, y en las dos
+ * a la vez se tachaba en una y saltaba en la otra. Mientras el presupuesto
+ * no se sabe, su renglón guarda el sitio a su altura real.
  */
 export function KinoSuggestedSection() {
-  const { data: suggestions = [], isLoading } = useSuggestedTasks();
+  const { data: sugeridas = [], isLoading } = useSuggestedTasks();
+  const { isLoading: ajustesCargando } = useUserSettings();
+  const { isLoading: planCargando } = useTodayPlanTasks();
   const { mutate: addToPlan } = useAddToTodayPlan();
   const { mutate: complete } = useToggleTodayTask();
   const budget = useEnergyBudget();
@@ -59,6 +70,8 @@ export function KinoSuggestedSection() {
   const [addedIds, setAddedIds] = useState<Set<string>>(new Set());
   const [selectedTask, setSelectedTask] = useState<TaskTransport | null>(null);
 
+  const vencidas = new Set(getOverdueTasks(sugeridas as TaskTransport[]).map((t) => t.id));
+  const suggestions = sugeridas.filter((t) => !vencidas.has(t.id));
   const { filas, struck, handleToggle } = useListaTachable(suggestions.slice(0, VISIBLES), (taskId) => complete({ taskId }));
 
   function handleAdd(task: SuggestedTask) {
@@ -82,15 +95,23 @@ export function KinoSuggestedSection() {
     <section aria-labelledby="sugerido-titulo">
       <SectionHead id="sugerido-titulo" title="Sugerido para hoy" count={isLoading || filas.length === 0 ? undefined : `${filas.length} tarea${filas.length === 1 ? '' : 's'}`} />
 
-      <EnergyBudgetBar className="py-3 pl-(--margen)" />
+      {ajustesCargando || planCargando ? <PresupuestoSkeleton /> : <EnergyBudgetBar className="py-3 pl-(--margen)" />}
 
       {isLoading ? (
         <ListaSkeleton filas={3} />
       ) : filas.length === 0 ? (
         <EmptyState
           className="pl-(--margen)"
-          title={suggestions.length === 0 ? 'Nada que sugerir' : 'Todo lo sugerido está en el plan'}
-          description={suggestions.length === 0 ? 'No quedan tareas abiertas. El resto del día es tuyo.' : 'Lo que sigue lo eliges tú, desde la lista de abajo.'}
+          title={
+            suggestions.length > 0 ? 'Todo lo sugerido está en el plan' : vencidas.size > 0 ? 'Lo urgente está en Vencidas' : 'Nada que sugerir'
+          }
+          description={
+            suggestions.length > 0
+              ? 'Lo que sigue lo eliges tú, desde la lista de abajo.'
+              : vencidas.size > 0
+                ? 'Empieza por ahí: está justo debajo.'
+                : 'No quedan tareas abiertas. El resto del día es tuyo.'
+          }
         />
       ) : (
         <div>
@@ -107,7 +128,7 @@ export function KinoSuggestedSection() {
                 onOpen={() => setSelectedTask(task)}
                 trailing={
                   task.status === 'done' ? (
-                    <span className="-mr-2 block size-[2.85rem]" aria-hidden />
+                    <span className="-mr-2 block min-h-[2.85rem] min-w-[5.6rem]" aria-hidden />
                   ) : (
                     <AddToPlan added={added} onAdd={() => handleAdd(task as SuggestedTask)} title={task.title} />
                   )
