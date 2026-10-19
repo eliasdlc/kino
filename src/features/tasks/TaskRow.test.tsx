@@ -1,8 +1,9 @@
 /**
  * Criterio: una sola fila de tarea para todo el producto. En lista lleva el
- * sistema delante en la meta, vencida en coral y alta como peso, no color; en
- * el teléfono sus acciones salen en una hoja con su nombre (no un menú
- * flotante) y cada renglón ejecuta su operación; la compacta no tiene cola.
+ * sistema delante en la meta, vencida en coral y alta como peso, no color; con
+ * el dedo sus acciones salen en una hoja con su nombre (no un menú flotante) y
+ * cada renglón ejecuta su operación; la compacta no tiene cola; el ticket del
+ * tablero, que se cierra moviéndolo, no ofrece el círculo como botón.
  */
 import { describe, expect, it, vi } from "vitest";
 import { fireEvent, screen } from "@testing-library/react";
@@ -10,6 +11,7 @@ import { Trash2 } from "lucide-react";
 import { renderMobile, renderWithProviders } from "@/shared/testing/render";
 import type { TaskTransport } from "./tasks.types";
 import { TaskRow } from "./TaskRow";
+import { conDedo } from "./puntero.testing";
 
 function tarea(over: Partial<TaskTransport> = {}): TaskTransport {
   return {
@@ -39,7 +41,8 @@ describe("TaskRow", () => {
     expect(screen.getByRole("button", { name: /^Completar Preparar/ })).toHaveClass("size-[2.85rem]");
   });
 
-  it("en el teléfono las acciones abren una hoja con renglones con nombre", () => {
+  it("con el dedo las acciones abren una hoja con renglones con nombre", () => {
+    conDedo();
     const papelera = vi.fn();
     renderMobile(
       <TaskRow
@@ -60,5 +63,10 @@ describe("TaskRow", () => {
     const { container } = renderWithProviders(<TaskRow task={tarea()} density="compacta" onComplete={vi.fn()} />);
     expect(container.querySelector("[data-slot=margin-row-trailing]")).toBeNull();
     expect(screen.getByText(/proyecto final/)).toHaveClass("text-sm", "line-clamp-3");
+  });
+
+  it("sin completable el círculo es un aro, no un botón", () => {
+    renderWithProviders(<TaskRow task={tarea()} completable={false} onComplete={vi.fn()} />);
+    expect(screen.queryByRole("button", { name: /^Completar/ })).toBeNull();
   });
 });

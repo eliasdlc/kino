@@ -18,10 +18,10 @@ import {
   ResponsiveDialogHeader,
   ResponsiveDialogTitle,
 } from '@/components/ui/responsive-dialog';
-import { useIsMobile } from '@/hooks/use-mobile';
 import { cn } from '@/lib/utils';
 import type { TaskTransport } from './tasks.types';
 import { dueMeta, energyMeta, estimatedLabel, priorityMeta } from './task-vocab';
+import { usePunteroGrueso } from './use-puntero-grueso';
 
 /**
  * Las tres densidades de la misma fila:
@@ -48,6 +48,12 @@ export interface TaskRowProps {
   /** Tachada en esta visita: el círculo se rellena con la animación y la fila no se mueve. */
   struck?: boolean;
   onComplete: () => void;
+  /**
+   * Falso cuando la fila no se completa con el círculo: el ticket del tablero
+   * de proyecto se termina moviéndolo a Hecho. El margen conserva el aro (lleno
+   * si ya está hecha) para que la fila siga siendo la misma, pero no es botón.
+   */
+  completable?: boolean;
   /** Abre el detalle: el título y la meta son un solo botón. */
   onOpen?: () => void;
   /** Lo que va antes de la fecha en la meta: el sistema, la carpeta, el porqué. */
@@ -107,6 +113,7 @@ export function TaskRow({
   density = 'lista',
   struck = false,
   onComplete,
+  completable = true,
   onOpen,
   context,
   meta,
@@ -151,6 +158,20 @@ export function TaskRow({
     </>
   );
 
+  const circulo = (
+    <span
+      className={cn(
+        'flex items-center justify-center rounded-full border-[1.6px] transition-[background-color,border-color,transform] duration-(--dur-tachar) ease-(--ease-pluma)',
+        compacta ? 'size-[1.2rem]' : 'size-[1.35rem]',
+        isDone ? 'border-task-done bg-task-done text-task-done-foreground' : 'border-input group-hover:border-foreground/60',
+        isDone && struck && 'anim-tachar',
+      )}
+      aria-hidden
+    >
+      {isDone && <Check className="size-3" strokeWidth={3} />}
+    </span>
+  );
+
   return (
     <MarginRow
       data-struck={struck ? '' : undefined}
@@ -164,28 +185,22 @@ export function TaskRow({
         className,
       )}
       margin={
-        <button
-          type="button"
-          onClick={onComplete}
-          className={cn(
-            'press focus-ring -mt-[0.15rem] flex size-[2.85rem] items-center justify-center rounded-full transition-transform duration-(--dur-toque) ease-(--ease-pluma)',
-            compacta && 'md:pointer-fine:size-8',
-          )}
-          aria-label={`Completar ${task.title}`}
-          aria-pressed={isDone}
-        >
-          <span
+        completable ? (
+          <button
+            type="button"
+            onClick={onComplete}
             className={cn(
-              'flex items-center justify-center rounded-full border-[1.6px] transition-[background-color,border-color,transform] duration-(--dur-tachar) ease-(--ease-pluma)',
-              compacta ? 'size-[1.2rem]' : 'size-[1.35rem]',
-              isDone ? 'border-task-done bg-task-done text-task-done-foreground' : 'border-input group-hover:border-foreground/60',
-              isDone && struck && 'anim-tachar',
+              'press focus-ring -mt-[0.15rem] flex size-[2.85rem] items-center justify-center rounded-full transition-transform duration-(--dur-toque) ease-(--ease-pluma)',
+              compacta && 'md:pointer-fine:size-8',
             )}
-            aria-hidden
+            aria-label={`Completar ${task.title}`}
+            aria-pressed={isDone}
           >
-            {isDone && <Check className="size-3" strokeWidth={3} />}
-          </span>
-        </button>
+            {circulo}
+          </button>
+        ) : (
+          <span className={cn('-mt-[0.15rem] flex size-[2.85rem] items-center justify-center', compacta && 'md:pointer-fine:size-8')}>{circulo}</span>
+        )
       }
       trailing={
         cola || conAcciones || selection ? (
@@ -195,7 +210,7 @@ export function TaskRow({
               <SelectionBox selected={selection.selected} onToggle={selection.onToggle} title={task.title} />
             )}
             {selection && !selection.visible && !selection.selected && (
-              <span className="hidden md:inline-flex">
+              <span className="hidden md:pointer-fine:inline-flex">
                 <SelectionBox selected={false} onToggle={selection.onToggle} title={task.title} hoverOnly />
               </span>
             )}
@@ -203,7 +218,7 @@ export function TaskRow({
               (struck && isDone ? (
                 // Tachada, la fila pierde el menú pero conserva su hueco: la
                 // duración y el título no se mueven en horizontal.
-                <span data-slot="menu-hueco" className="-mr-2 block size-[2.85rem] md:size-8" aria-hidden />
+                <span data-slot="menu-hueco" className="-mr-2 block size-[2.85rem] md:size-8 md:pointer-coarse:size-[2.85rem]" aria-hidden />
               ) : (
                 <TaskRowActions title={task.title} actions={actions!} />
               ))}
@@ -239,8 +254,8 @@ function SelectionBox({ selected, onToggle, title, hoverOnly }: { selected: bool
       aria-checked={selected}
       aria-label={`Seleccionar ${title}`}
       className={cn(
-        'focus-ring flex size-[2.85rem] items-center justify-center rounded-full md:size-8',
-        hoverOnly && 'md:opacity-0 md:transition-opacity md:group-hover:opacity-100 md:group-focus-within:opacity-100',
+        'focus-ring flex size-[2.85rem] items-center justify-center rounded-full md:pointer-fine:size-8',
+        hoverOnly && 'md:opacity-0 md:transition-opacity md:duration-(--dur-toque) md:group-hover:opacity-100 md:group-focus-within:opacity-100',
       )}
     >
       <span
@@ -257,57 +272,63 @@ function SelectionBox({ selected, onToggle, title, hoverOnly }: { selected: bool
 }
 
 /**
- * Las acciones de una fila. En el teléfono, un botón de 48 px abre una hoja
- * con las acciones nombradas en renglones de 48 px: un menú flotante pide
- * puntería y el pulgar no la tiene. En escritorio, un menú que aparece al
- * pasar el ratón o con el foco.
+ * Las acciones de una fila. Con el dedo, un botón de 48 px abre una hoja con
+ * las acciones nombradas en renglones de 48 px: un menú flotante pide
+ * puntería y el pulgar no la tiene. Con ratón, un menú que aparece al pasar o
+ * con el foco. Lo decide el puntero, no el ancho: una tableta se toca.
+ *
+ * El botón mide lo mismo en los dos caminos y en la hidratación, cuando aún
+ * no se sabe el puntero, para que la cola de la fila no cambie de ancho y el
+ * título no se reparta en otras líneas al terminar de cargar.
  */
 export function TaskRowActions({ title, actions }: { title: string; actions: TaskRowAction[] }) {
-  const isMobile = useIsMobile();
+  const tactil = usePunteroGrueso();
   const [open, setOpen] = useState(false);
   const comunes = actions.filter((a) => !a.destructive);
   const destructivas = actions.filter((a) => a.destructive);
+  const disparador = cn(
+    '-mr-2 size-[2.85rem] text-muted-foreground md:pointer-fine:size-8',
+    'md:pointer-fine:opacity-0 md:pointer-fine:transition-opacity md:pointer-fine:duration-(--dur-toque) md:pointer-fine:group-hover:opacity-100 md:pointer-fine:group-focus-within:opacity-100 md:pointer-fine:aria-expanded:opacity-100',
+  );
+  // El nombre es el mismo en todas las filas: Hoy lo busca así (PlanTaskRow.test).
+  const nombre = 'Más acciones';
 
-  if (isMobile) {
+  if (tactil !== false) {
     return (
       <>
-        <Button
-          size="icon"
-          variant="ghost"
-          aria-label="Más acciones"
-          className="-mr-2 text-muted-foreground"
-          onClick={() => setOpen(true)}
-        >
+        <Button size="icon" variant="ghost" aria-label={nombre} className={disparador} onClick={() => tactil && setOpen(true)}>
           <MoreHorizontal />
         </Button>
-        <ResponsiveDialog open={open} onOpenChange={setOpen}>
-          <ResponsiveDialogContent>
-            <ResponsiveDialogHeader>
-              <ResponsiveDialogTitle className="line-clamp-2">{title}</ResponsiveDialogTitle>
-              <ResponsiveDialogDescription className="sr-only">Acciones de la tarea</ResponsiveDialogDescription>
-            </ResponsiveDialogHeader>
-            <div data-slot="task-row-actions-sheet">
-              {actions.map((a) => {
-                const Icon = a.icon;
-                return (
-                  <MarginRow
-                    key={a.label}
-                    margin={<Icon className="mt-[0.8rem] size-[1.15rem]" />}
-                    onClick={() => {
-                      if (a.disabled) return;
-                      setOpen(false);
-                      a.onSelect();
-                    }}
-                    aria-disabled={a.disabled || undefined}
-                    className={cn('min-h-[3.2rem] text-base font-semibold', a.destructive ? 'text-destructive' : 'text-foreground', a.disabled && 'opacity-50')}
-                  >
-                    {a.label}
-                  </MarginRow>
-                );
-              })}
-            </div>
-          </ResponsiveDialogContent>
-        </ResponsiveDialog>
+        {tactil && (
+          <ResponsiveDialog open={open} onOpenChange={setOpen}>
+            <ResponsiveDialogContent className="sm:max-w-sm">
+              <ResponsiveDialogHeader>
+                <ResponsiveDialogTitle className="line-clamp-2">{title}</ResponsiveDialogTitle>
+                <ResponsiveDialogDescription className="sr-only">Acciones de la tarea</ResponsiveDialogDescription>
+              </ResponsiveDialogHeader>
+              <div data-slot="task-row-actions-sheet">
+                {actions.map((a) => {
+                  const Icon = a.icon;
+                  return (
+                    <MarginRow
+                      key={a.label}
+                      margin={<Icon className="mt-[0.8rem] size-[1.15rem]" />}
+                      onClick={() => {
+                        if (a.disabled) return;
+                        setOpen(false);
+                        a.onSelect();
+                      }}
+                      aria-disabled={a.disabled || undefined}
+                      className={cn('min-h-[3.2rem] text-base font-semibold', a.destructive ? 'text-destructive' : 'text-foreground', a.disabled && 'opacity-50')}
+                    >
+                      {a.label}
+                    </MarginRow>
+                  );
+                })}
+              </div>
+            </ResponsiveDialogContent>
+          </ResponsiveDialog>
+        )}
       </>
     );
   }
@@ -315,12 +336,7 @@ export function TaskRowActions({ title, actions }: { title: string; actions: Tas
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
-        <Button
-          size="icon-xs"
-          variant="ghost"
-          aria-label="Más acciones"
-          className="-mr-2 text-muted-foreground md:opacity-0 md:transition-opacity md:group-hover:opacity-100 md:group-focus-within:opacity-100 md:aria-expanded:opacity-100"
-        >
+        <Button size="icon" variant="ghost" aria-label={nombre} className={disparador}>
           <MoreHorizontal />
         </Button>
       </DropdownMenuTrigger>
