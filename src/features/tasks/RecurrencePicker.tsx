@@ -1,14 +1,8 @@
 "use client";
 
 import { useState } from "react";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
+import { Fichas } from "./Fichas";
 import { RECURRENCE_PRESETS, isValidRRule } from "./recurrence";
 
 const PRESET_VALUES: string[] = [
@@ -18,21 +12,29 @@ const PRESET_VALUES: string[] = [
 ];
 
 const OPTIONS = [
-  { value: "none", label: "Sin repetición" },
-  { value: RECURRENCE_PRESETS.daily, label: "Diariamente" },
-  { value: RECURRENCE_PRESETS.weekly, label: "Semanalmente" },
-  { value: RECURRENCE_PRESETS.monthly, label: "Mensualmente" },
-  { value: "custom", label: "Personalizar…" },
+  { value: "none", label: "No se repite" },
+  { value: RECURRENCE_PRESETS.daily, label: "Cada día" },
+  { value: RECURRENCE_PRESETS.weekly, label: "Cada semana" },
+  { value: RECURRENCE_PRESETS.monthly, label: "Cada mes" },
+  { value: "custom", label: "Otra regla" },
 ];
 
 interface RecurrencePickerProps {
   value: string | null | undefined;
   onChange: (value: string | null) => void;
+  /** Id del rótulo que nombra el grupo (el margen del detalle); sin él, el grupo se llama "Repetición". */
+  labelledBy?: string;
 }
 
-export function RecurrencePicker({ value, onChange }: RecurrencePickerProps) {
+/**
+ * La repetición en fichas de 48 px, la elegida en tinta: cinco opciones caben
+ * de un vistazo y un `Select` de escritorio no es un gesto del pulgar. "Otra
+ * regla" abre el campo de la regla RRULE.
+ */
+
+export function RecurrencePicker({ value, onChange, labelledBy }: RecurrencePickerProps) {
   // "custom" cuando hay una regla que no es preset. El estado local recuerda que
-  // el usuario eligió "Personalizar…" aunque el input esté momentáneamente vacío.
+  // la persona eligió "Otra regla" aunque el input esté momentáneamente vacío.
   const isPresetValue = !!value && PRESET_VALUES.includes(value);
   const [customMode, setCustomMode] = useState(!!value && !isPresetValue);
 
@@ -56,18 +58,7 @@ export function RecurrencePicker({ value, onChange }: RecurrencePickerProps) {
 
   return (
     <div className="space-y-2">
-      <Select value={selectValue} onValueChange={handleSelect}>
-        <SelectTrigger>
-          <SelectValue />
-        </SelectTrigger>
-        <SelectContent>
-          {OPTIONS.map((opt) => (
-            <SelectItem key={opt.value} value={opt.value}>
-              {opt.label}
-            </SelectItem>
-          ))}
-        </SelectContent>
-      </Select>
+      <Fichas label="Repetición" labelledBy={labelledBy} options={OPTIONS} selected={[showCustom ? "custom" : selectValue]} onToggle={handleSelect} />
 
       {showCustom && (
         <div className="space-y-1">
