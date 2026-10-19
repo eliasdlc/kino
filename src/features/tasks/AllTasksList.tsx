@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useCallback, useMemo } from 'react';
+import { memo, useState, useCallback, useLayoutEffect, useMemo, useRef } from 'react';
 import { useRouter, useSearchParams, usePathname } from 'next/navigation';
 import { Check, ListChecks, Plus, SlidersHorizontal, Trash2, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -98,6 +98,54 @@ const GROUP_ORDER: Record<string, number> = {
  * en una hoja; mover a la papelera no pregunta, el aviso trae Deshacer. Con
  * algo elegido, la barra de la selección se pega al pie de la pantalla.
  */
+interface Manejadores {
+  completar: (task: TaskTransport) => void;
+  abrir: (task: TaskTransport) => void;
+  elegir: (taskId: string) => void;
+  borrar: (taskId: string) => void;
+}
+
+/**
+ * Una fila de Todas las tareas, memoizada: sólo vuelve a pintarse si cambia
+ * su tarea o su estado (tachada, con foco, elegida). Los manejadores llegan
+ * estables desde la lista.
+ */
+const FilaDeTodas = memo(function FilaDeTodas({
+  task,
+  struck,
+  context,
+  focused,
+  selected,
+  seleccionando,
+  h,
+}: {
+  task: TaskTransport;
+  struck: boolean;
+  context?: string;
+  focused: boolean;
+  selected: boolean;
+  seleccionando: boolean;
+  h: Manejadores;
+}) {
+  return (
+    <TaskRow
+      task={task}
+      density="lista"
+      className={LISTA_FILA_ALTO}
+      struck={struck}
+      context={context}
+      focused={focused}
+      onComplete={() => h.completar(task)}
+      onOpen={() => h.abrir(task)}
+      actions={[
+        { label: selected ? 'Quitar de la selección' : 'Seleccionar', icon: ListChecks, onSelect: () => h.elegir(task.id) },
+        { label: 'Mover a la papelera', icon: Trash2, onSelect: () => h.borrar(task.id), destructive: true },
+      ]}
+      selection={{ selected, visible: seleccionando, onToggle: () => h.elegir(task.id) }}
+    />
+  );
+});
+
 export function AllTasksList({ systems }: AllTasksListProps) {
   const router = useRouter();
   const pathname = usePathname();
@@ -231,21 +279,36 @@ export function AllTasksList({ systems }: AllTasksListProps) {
     };
   }
 
+  // Las filas de Todas reciben manejadores estables (leen los del último
+  // render por una ref, puesta antes de pintar), así que completar una no
+  // vuelve a pintar las otras 199.
+  const manejadores = useRef<Manejadores | null>(null);
+  useLayoutEffect(() => {
+    manejadores.current = { completar: handleToggle, abrir: setSelectedTask, elegir: toggleSelection, borrar: deleteTask };
+  }, [handleToggle, toggleSelection, deleteTask]);
+  const estables = useMemo<Manejadores>(
+    () => ({
+      completar: (t) => manejadores.current?.completar(t),
+      abrir: (t) => manejadores.current?.abrir(t),
+      elegir: (id) => manejadores.current?.elegir(id),
+      borrar: (id) => manejadores.current?.borrar(id),
+    }),
+    [],
+  );
+
   function renderRows(items: readonly TaskTransport[]) {
     return (
       <div>
         {items.map((t) => (
-          <TaskRow
+          <FilaDeTodas
             key={t.id}
             task={t}
-            density="lista"
-            className={LISTA_FILA_ALTO}
             struck={struck.has(t.id)}
             context={systemMap.get(t.systemId)?.name}
             focused={t.id === focusedTaskId}
-            onComplete={() => handleToggle(t)}
-            onOpen={() => setSelectedTask(t)}
-            {...filaDe(t)}
+            selected={selectedTaskIds.has(t.id)}
+            seleccionando={seleccionando}
+            h={estables}
           />
         ))}
       </div>
