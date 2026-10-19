@@ -116,9 +116,9 @@ export function SettingsSection() {
         <div className="flex flex-wrap gap-6">
           <Specimen label="Índice con datos" hint="SettingsIndex">
             <Telefono>
-              <Seeded stubs={SEMILLA_INDICE}>
+              <SeededConEscrituras stubs={SEMILLA_INDICE} escrituras={[estadoGithub(true)]}>
                 <SettingsIndex />
-              </Seeded>
+              </SeededConEscrituras>
             </Telefono>
           </Specimen>
           <Specimen label="Índice esperando" hint="SettingsIndexSkeleton, en settings/loading.tsx">
