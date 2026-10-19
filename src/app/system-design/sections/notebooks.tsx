@@ -25,6 +25,8 @@ import { NewFolderInline } from "@/features/folders/NewFolderInline";
 import { SYSTEM_TYPE_CONFIG } from "@/shared/lib/system-types";
 import { useState } from "react";
 import { StickyNoteCard } from "@/features/sticky-notes/StickyNoteCard";
+import { StickyNoteCreator } from "@/features/sticky-notes/StickyNoteCreator";
+import { TagPicker } from "@/features/tags/TagPicker";
 import { LinkedTaskCard } from "@/features/pages/LinkedTaskCard";
 import { DocumentRail, RailCard } from "@/features/pages/DocumentRail";
 import type { OutlineItem } from "@/features/pages/mediums/outline";
@@ -156,8 +158,10 @@ export function NotebooksSection() {
             <ObraRow
               obra={makeFolder({ id: mid("obra-1"), name: "Primera parte: la subida", metadata: { medium: "novel", wordGoal: 80000 }, subfolderCount: 0, pageCount: 2 })}
               index={1}
-              pages={PAGINAS_OBRA}
+              pagesByFolder={new Map([[mid("obra-1"), PAGINAS_OBRA]])}
               systemId={MOCK_SYSTEM_ID}
+              manifest={SYSTEM_TYPE_CONFIG.writing}
+              defaultOpen
               pulse={{ folderId: mid("obra-1"), lastSessionAt: null, daysSinceLastSession: 31 }}
               now={HOY}
             />
@@ -224,8 +228,40 @@ export function NotebooksSection() {
               />
             </Seeded>
           </Specimen>
-          <Specimen label="SystemColorPicker" className="items-stretch">
+          <Specimen label="SystemColorPicker y SystemIconPicker" hint="cada uno es una sola parada de Tab: las flechas mueven y eligen, Inicio y Fin van a los extremos" className="items-stretch">
             <PickerDemo />
+          </Specimen>
+          <Specimen label="TagPicker" hint="la categoría de un documento o una tarea: tocar la elegida la quita" className="items-stretch">
+            <Seeded stubs={[seedQuery(api.tags.bySystem, CATEGORIAS)]}>
+              <TagDemo />
+            </Seeded>
+          </Specimen>
+          <Specimen label="TagPicker sin categorías" hint="con allowCreate ofrece crear la primera; sin él no se pinta" className="items-stretch">
+            <Seeded stubs={[seedQuery(api.tags.bySystem, [])]}>
+              <TagPicker systemId={MOCK_SYSTEM_ID} value={null} onChange={noop} label="Categoría" allowCreate />
+            </Seeded>
+          </Specimen>
+        </SpecimenGrid>
+      </SubSection>
+
+      <SubSection
+        title="StickyNoteCreator"
+        description="La nota nueva, abierta junto a donde se pidió: el papel ya en su color, el título y el texto, los colores (círculo de 1.5rem dentro de un botón de 2.85rem en el teléfono), dónde va en una página (Izquierda, Cuadrícula, Derecha) y Guardar. Cancelar, Escape o tocar fuera no dejan nada detrás: el ancla en el texto se escribe al guardar."
+      >
+        <SpecimenGrid cols={2}>
+          <Specimen label="En una página" hint="con selector de colocación">
+            <Seeded stubs={[]}>
+              <CreatorDemo context={{ pageId: mid("p1") }} label="Nueva nota en la página" />
+            </Seeded>
+          </Specimen>
+          <Specimen label="Desde una frase seleccionada" hint="cita el texto anotado y va al margen izquierdo">
+            <Seeded stubs={[]}>
+              <CreatorDemo
+                context={{ pageId: mid("p1") }}
+                textAnchor="La niebla no levantó ese día, ni el siguiente."
+                label="Anotar la frase"
+              />
+            </Seeded>
           </Specimen>
         </SpecimenGrid>
       </SubSection>
@@ -367,6 +403,57 @@ function RailStage({ children }: { children: ReactNode }) {
       </div>
       {children}
     </div>
+  );
+}
+
+/** Las categorías de un sistema de muestra. */
+const CATEGORIAS = [
+  { id: mid("cat-1"), title: "Investigación", color: "blue", systemId: MOCK_SYSTEM_ID, isDefault: false },
+  { id: mid("cat-2"), title: "Borrador", color: "orange", systemId: MOCK_SYSTEM_ID, isDefault: false },
+  { id: mid("cat-3"), title: "Revisar", color: "red", systemId: MOCK_SYSTEM_ID, isDefault: false },
+];
+
+function TagDemo() {
+  const [tag, setTag] = useState<string | null>(mid("cat-2"));
+  return <TagPicker systemId={MOCK_SYSTEM_ID} value={tag} onChange={setTag} label="Categoría" allowCreate />;
+}
+
+/**
+ * El creador sólo existe mientras está abierto y se coloca junto a un punto de
+ * la pantalla, así que el specimen trae su disparador y le pasa dónde está.
+ */
+function CreatorDemo({
+  context,
+  textAnchor,
+  label,
+}: {
+  context: { pageId: string };
+  textAnchor?: string;
+  label: string;
+}) {
+  const [anchor, setAnchor] = useState<{ x: number; y: number } | null>(null);
+  return (
+    <>
+      <Button
+        variant="outline"
+        size="sm"
+        onClick={(e) => {
+          const r = e.currentTarget.getBoundingClientRect();
+          setAnchor({ x: r.left, y: r.bottom + 8 });
+        }}
+      >
+        {label}
+      </Button>
+      {anchor && (
+        <StickyNoteCreator
+          context={context}
+          anchorPoint={anchor}
+          textAnchor={textAnchor}
+          selectionAnchor={textAnchor ? { anchorId: "catalogo", from: 0, to: 0 } : undefined}
+          onClose={() => setAnchor(null)}
+        />
+      )}
+    </>
   );
 }
 
