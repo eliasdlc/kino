@@ -42,9 +42,8 @@ export function GithubConnectionSection() {
         <div className="min-w-0 space-y-1">
           <h3 className="text-base leading-6 font-semibold text-foreground">GitHub</h3>
           <p className="text-sm leading-5 text-muted-foreground">
-            Conecta tu cuenta para traer los issues de un repositorio al board de un
-            sistema de tipo proyecto. La lectura va en un solo sentido: nada se
-            escribe de vuelta en GitHub.
+            Conecta tu cuenta para traer los issues de un repositorio al tablero de
+            un sistema de tipo proyecto. Sólo se lee: nada se escribe en GitHub.
           </p>
           <div className="text-sm leading-5" aria-live="polite">
             {isLoading ? (

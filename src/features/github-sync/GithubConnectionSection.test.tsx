@@ -34,7 +34,7 @@ describe("GithubConnectionSection", () => {
 
     expect(await screen.findByRole("link", { name: "Conectar" })).toBeVisible();
     expect(screen.getByText("Sin cuenta conectada.")).toBeVisible();
-    expect(screen.queryByText(/Kino sólo lee/)).toBeNull();
-    expect(screen.getByText(/nada se escribe de vuelta en GitHub/)).toBeVisible();
+    expect(screen.queryByText(/Kino sólo lee/)).not.toBeInTheDocument();
+    expect(screen.getByText(/Sólo se lee: nada se escribe en GitHub/)).toBeVisible();
   });
 });
