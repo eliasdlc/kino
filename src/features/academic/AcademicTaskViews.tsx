@@ -17,7 +17,7 @@ type View = (typeof VIEWS)[number];
 const LABELS: Record<View, { long: string; short: string }> = {
   "esta-semana": { long: "Esta semana", short: "Semana" },
   calendar: { long: "Calendario", short: "Calendario" },
-  planning: { long: "Planificación", short: "Plan" },
+  planning: { long: "Plan", short: "Plan" },
   archive: { long: "Archivadas", short: "Archivo" },
 };
 
