@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
-import { Plus, Flag, CheckCircle2, Trash2 } from "lucide-react";
+import { Plus, Flag, CheckCircle2, Trash2, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useCreateSprint, useCloseSprint, useDeleteSprint } from "@/features/sprints/sprints.hooks";
 import type { SprintTransport } from "@/features/sprints/sprints.types";
@@ -44,9 +44,15 @@ export function SprintBar({ systemId, sprints, tasks, sprintFilter, onSelectFilt
   const active = sprints.filter((s) => s.status === "active");
   const selectedActive = active.find((s) => s.id === sprintFilter) ?? null;
 
+  function cancelar() {
+    setName("");
+    setAdding(false);
+  }
+
   function submit() {
     const trimmed = name.trim();
-    if (!trimmed) return;
+    // Enter y salir del campo pueden llegar los dos: un solo ciclo.
+    if (!trimmed || creating) return;
     createSprint(
       { name: trimmed },
       {
@@ -93,21 +99,38 @@ export function SprintBar({ systemId, sprints, tasks, sprintFilter, onSelectFilt
       </button>
 
       {adding ? (
-        <input
-          autoFocus
-          value={name}
-          onChange={(e) => setName(e.target.value)}
-          onKeyDown={(e) => {
-            if (e.key === "Enter") submit();
-            if (e.key === "Escape") setAdding(false);
-          }}
-          onBlur={() => {
-            if (!name.trim()) setAdding(false);
-          }}
-          placeholder="Nombre del ciclo"
-          aria-label="Nombre del ciclo"
-          className="h-[2.85rem] rounded-full border bg-muted px-3.5 text-base outline-none focus-ring md:pointer-fine:h-8 md:pointer-fine:text-xs"
-        />
+        // En el teléfono no hay Escape: salir del campo crea el ciclo si tiene
+        // nombre, y la X lo descarta. La X no le quita el foco al campo antes
+        // de su toque, para que salir no cree lo que se quería descartar.
+        <span className="inline-flex items-center gap-1">
+          <input
+            autoFocus
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") submit();
+              if (e.key === "Escape") cancelar();
+            }}
+            onBlur={() => {
+              if (name.trim()) submit();
+              else setAdding(false);
+            }}
+            enterKeyHint="done"
+            placeholder="Nombre del ciclo"
+            aria-label="Nombre del ciclo"
+            className="h-[2.85rem] rounded-full border bg-muted px-3.5 text-base outline-none focus-ring md:pointer-fine:h-8 md:pointer-fine:text-xs"
+          />
+          <Button
+            size="icon"
+            variant="ghost"
+            aria-label="Descartar el ciclo nuevo"
+            onPointerDown={(e) => e.preventDefault()}
+            onClick={cancelar}
+            className="text-muted-foreground md:pointer-fine:size-8"
+          >
+            <X aria-hidden className="size-4" />
+          </Button>
+        </span>
       ) : (
         <Button size="sm" variant="ghost" onClick={() => setAdding(true)} disabled={creating} className="md:pointer-fine:h-8 md:pointer-fine:text-xs">
           <Plus aria-hidden className="size-4" /> Nuevo ciclo
