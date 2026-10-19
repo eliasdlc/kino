@@ -20,6 +20,8 @@ import { MultiDayTaskBar } from "@/features/tasks/MultiDayTaskBar";
 import { BoardCard } from "@/features/systems/views/project/BoardCard";
 import { SprintBar } from "@/features/systems/views/project/SprintBar";
 import { ProjectArchive } from "@/features/systems/views/project/ProjectArchive";
+import { ProjectBoard } from "@/features/systems/views/project/ProjectBoard";
+import { AcademicTaskViews } from "@/features/academic/AcademicTaskViews";
 import { InboxView } from "@/features/systems/views/InboxView";
 import { PersonalView } from "@/features/systems/views/PersonalView";
 import { makeFolder, makeSystem } from "../mock-data";
@@ -62,6 +64,21 @@ const VIDA = [
   makeTask({ id: mid("p-5"), systemId: PERSONAL.id, title: "Pedir la analítica", status: "backlog", folderId: AREAS[0]!.id, metadata: { kind: "errand" } }),
 ];
 
+/** Un tablero con tarjetas en tres de sus cuatro columnas: la vacía también se ve. */
+const TABLERO = [
+  makeTask({ id: mid("pb-1"), title: "Diseñar el índice de sistemas", boardStatus: "todo", status: "week" }),
+  makeTask({ id: mid("pb-2"), title: "Migrar las notas al sistema", boardStatus: "todo", status: "backlog" }),
+  makeTask({ id: mid("pb-3"), title: "Radiografía del sistema", boardStatus: "in_progress", boardStatusChangedAt: daysFromNow(-9), status: "today" }),
+  makeTask({ id: mid("pb-4"), title: "Cerrar la landing", boardStatus: "done", status: "done", completedAt: daysFromNow(-1) }),
+];
+
+/** Entregas y exámenes de un ciclo académico, para la navegación de sus vistas. */
+const ENTREGAS = [
+  makeTask({ id: mid("at-1"), title: "Práctica 4: normalización", taskType: "task", dueDate: daysFromNow(1), status: "week" }),
+  makeTask({ id: mid("at-2"), title: "Parcial 2", taskType: "event", startDate: daysFromNow(3), dueDate: daysFromNow(3), status: "week", metadata: { eventSubtype: "exam" } }),
+  makeTask({ id: mid("at-3"), title: "Leer el capítulo 6", dueDate: daysFromNow(5), status: "week" }),
+];
+
 const SYSTEM_MAP = new Map([
   [MOCK_SYSTEM_ID, { id: MOCK_SYSTEM_ID, name: "Universidad", color: "blue" }],
 ]);
@@ -81,7 +98,7 @@ export function TasksViewsSection() {
     <Section
       id="tareas"
       number="12"
-      title="Tareas — vistas y controles"
+      title="Tareas: vistas y controles"
       description="Las demás representaciones de una tarea (fila de lista global, card de planning, card del board kanban) y los pickers que las editan."
     >
       <SubSection title="Títulos completos y ciclos académicos" description="Cards con altura natural y árbol de años, ciclos y materias.">
@@ -262,6 +279,38 @@ export function TasksViewsSection() {
             </Specimen>
           </Seeded>
         </div>
+      </SubSection>
+
+      <SubSection
+        title="ProjectBoard"
+        description="El tablero entero de un sistema project, con su cabecera de cifras (activas, hechas y estancadas en ámbar). Cada columna es una sección y no una caja: su palabra en Bricolage sobre un hairline fuerte y la cuenta en mute a la derecha, a 2.85rem de alto. Una columna sin tarjetas conserva su título y su cero. En el teléfono no se arrastra: cada tarjeta lleva Mover, que abre la hoja de columnas."
+      >
+        <ClientOnly>
+          <Seeded stubs={[seedQuery(api.tasks.bySystem, TABLERO)]}>
+            <div className="w-full max-w-5xl">
+              <ProjectBoard systemId={MOCK_SYSTEM_ID} initialData={TABLERO} sprintFilter={null} onEdit={noop} />
+            </div>
+          </Seeded>
+        </ClientOnly>
+      </SubSection>
+
+      <SubSection
+        title="AcademicTaskViews"
+        description="Las entregas y exámenes de un sistema académico o de una clase. Las cuatro vistas (Esta semana, Calendario, Planificación, Archivadas) son pestañas-palabra en tinta con su subrayado, no cuatro cajas: pesan lo que pesa una línea de texto y miden 2.85rem para el dedo. En el teléfono dicen la palabra corta. A la derecha, crear. La pestaña elegida vive en la URL, así que en este catálogo cambiarla añade ?view= a la dirección."
+      >
+        <Suspense fallback={<div className="h-[2.85rem]" />}>
+          <Seeded
+            stubs={[
+              seedQuery(api.tasks.bySystem, ENTREGAS),
+              seedQuery(api.folders.bySystem, []),
+              seedQuery(api.tags.bySystem, []),
+            ]}
+          >
+            <div className="w-full max-w-3xl">
+              <AcademicTaskViews systemId={MOCK_SYSTEM_ID} initialTasks={ENTREGAS} />
+            </div>
+          </Seeded>
+        </Suspense>
       </SubSection>
 
       <SubSection
