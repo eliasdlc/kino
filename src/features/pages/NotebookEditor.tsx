@@ -4,7 +4,7 @@ import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react
 import { EditorContent } from "@tiptap/react";
 import { BubbleMenu } from "@tiptap/react/menus";
 import { ConvexError } from "convex/values";
-import { Ellipsis, StickyNote } from "lucide-react";
+import { Ellipsis } from "lucide-react";
 import { toast } from "sonner";
 import { api } from "@convex/_generated/api";
 import { cn } from "@/lib/utils";
@@ -22,9 +22,8 @@ import {
 import { useSharedEditor } from "./EditorContext";
 import { TableMenus } from "./TableMenus";
 import { EditorThumbBar } from "./EditorThumbBar";
-import { BUBBLE, BUBBLE_BUTTON } from "./bubble-styles";
 import { CodexChips } from "@/features/entities/CodexChips";
-import { CodexSelectionActions } from "./CodexBubbleMenu";
+import { SelectionToolbar } from "./SelectionToolbar";
 import { EntityFicheSheet } from "@/features/entities/EntityFicheSheet";
 import { StickyNoteCreator } from "@/features/sticky-notes/StickyNoteCreator";
 import type { PageDetailTransport } from "./pages.types";
@@ -443,18 +442,7 @@ export function NotebookEditor({
         <div className={cn("tiptap-editor flex-1 relative", writer && CUERPO_DEL_ESCRITOR)}>
           {editor && (
             <BubbleMenu editor={editor} options={{ placement: "top" }}>
-              <div className={BUBBLE}>
-                <button
-                  type="button"
-                  onClick={handleCreateSticky}
-                  className={BUBBLE_BUTTON}
-                  title="Pegar una nota adhesiva a lo seleccionado"
-                >
-                  <StickyNote className="size-4" />
-                  Nota
-                </button>
-                {writer && <CodexSelectionActions editor={editor} systemId={systemId} />}
-              </div>
+              <SelectionToolbar editor={editor} writer={writer} systemId={systemId} onNote={handleCreateSticky} />
             </BubbleMenu>
           )}
           {editor && <TableMenus editor={editor} />}
