@@ -6,8 +6,9 @@ import { api } from "@convex/_generated/api";
 import { serverQuery } from "@/shared/convex/server";
 import { PageBreadcrumb } from "@/components/PageBreadcrumb";
 import { PageHeader, PageWrapper } from "@/components/PageWrapper";
-import { RowsSkeleton } from "@/components/Skeletons";
+import { PageHeaderSkeleton } from "@/components/Skeletons";
 import { FolderDocuments } from "@/features/notebooks/FolderDocuments";
+import { FolderBodySkeleton } from "@/features/notebooks/FolderSkeleton";
 import { Folder } from "lucide-react";
 import { IndexHead } from "@/features/notebooks/IndexHead";
 
@@ -40,6 +41,10 @@ export default async function FolderViewRoute({ params, searchParams }: FolderVi
   // Volver al sistema devuelve a la superficie desde la que se entró, con el
   // mismo ciclo: perder el filtro al subir un nivel obligaba a volver a
   // elegirlo en cada ida y vuelta.
+  const academic = system.templateType === "academic";
+  // El glifo del contenedor del arquetipo (la obra, el área), no uno genérico.
+  const Glyph = resolveSystemManifest(system).folderRole?.icon ?? Folder;
+
   const systemHref = `/systems/${systemId}?tab=docs${cycle ? `&cycle=${encodeURIComponent(cycle)}` : ""}`;
 
   const breadcrumbItems = [
@@ -58,19 +63,35 @@ export default async function FolderViewRoute({ params, searchParams }: FolderVi
         <PageBreadcrumb items={breadcrumbItems} />
       </div>
       <PageWrapper className="w-full">
-        <Suspense fallback={<FolderSkeleton />}>
-          <FolderContent systemId={systemId} folderId={folderId} folder={folder} system={system} />
-        </Suspense>
+        {academic ? (
+          // La materia pinta su propia cabecera con su ciclo: espera entera.
+          <Suspense
+            fallback={
+              <div aria-busy className="space-y-7">
+                <PageHeaderSkeleton />
+                <FolderBodySkeleton />
+              </div>
+            }
+          >
+            <FolderContent systemId={systemId} folderId={folderId} folder={folder} system={system} />
+          </Suspense>
+        ) : (
+          // El título ya se sabe: se pinta fuera del `Suspense` y no
+          // desaparece mientras llega el índice.
+          <div className="space-y-7">
+            <PageHeader title={folder.name} margin={<Glyph className="size-5" aria-hidden />} />
+            <Suspense
+              fallback={
+                <div aria-busy>
+                  <FolderBodySkeleton />
+                </div>
+              }
+            >
+              <FolderContent systemId={systemId} folderId={folderId} folder={folder} system={system} />
+            </Suspense>
+          </div>
+        )}
       </PageWrapper>
-    </div>
-  );
-}
-
-/** El índice de la carpeta esperando: las filas numeradas de sus documentos. */
-function FolderSkeleton() {
-  return (
-    <div aria-busy>
-      <RowsSkeleton rows={4} margin="numeral" />
     </div>
   );
 }
@@ -110,11 +131,8 @@ async function FolderContent({
   );
 
   if (!academic) {
-    // El glifo del contenedor del arquetipo (la obra, el área), no uno genérico.
-    const Glyph = resolveSystemManifest(system).folderRole?.icon ?? Folder;
     return (
       <div className="space-y-7">
-        <PageHeader title={folder.name} margin={<Glyph className="size-5" aria-hidden />} />
         {documents}
         <section aria-labelledby={`${folderId}-tareas`} className="space-y-3">
           <IndexHead id={`${folderId}-tareas`} title="Tareas" />
