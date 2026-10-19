@@ -127,6 +127,7 @@ async function FolderContent({
       initialChildren={children}
       initialPages={allPages}
       emptyCopy={emptyCopy}
+      system={system}
     />
   );
 
