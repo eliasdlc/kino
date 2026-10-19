@@ -19,6 +19,8 @@ interface DraggableTaskCardProps {
   isFocused?: boolean;
   /** Renderiza la variante compacta (columnas estrechas de Planificación). */
   compact?: boolean;
+  /** Tachada en esta visita: se queda en su columna con el círculo lleno. */
+  struck?: boolean;
   onToggle: (taskId: string) => void;
   onDelete: (task: TaskTransport) => void;
   onEdit?: (task: TaskTransport) => void;
@@ -36,6 +38,7 @@ export function DraggableTaskCard({
   systemType,
   isFocused,
   compact,
+  struck,
   onToggle,
   onDelete,
   onEdit,
@@ -80,6 +83,7 @@ export function DraggableTaskCard({
         <PlanningTaskCard
           task={task}
           isFocused={isFocused}
+          struck={struck}
           onToggle={onToggle}
           onDelete={onDelete}
           onEdit={onEdit}
@@ -90,6 +94,7 @@ export function DraggableTaskCard({
           task={task}
           systemId={systemId}
           isFocused={isFocused}
+          struck={struck}
           onToggle={onToggle}
           onDelete={onDelete}
           onEdit={onEdit}

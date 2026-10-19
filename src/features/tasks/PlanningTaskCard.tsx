@@ -8,6 +8,8 @@ import { dueMeta } from "./task-vocab";
 interface PlanningTaskCardProps {
   task: TaskTransport;
   isFocused?: boolean;
+  /** Tachada en esta visita: se queda en su día o su columna con el círculo lleno. */
+  struck?: boolean;
   onToggle: (taskId: string) => void;
   onDelete: (task: TaskTransport) => void;
   onEdit?: (task: TaskTransport) => void;
@@ -38,12 +40,13 @@ function planningMeta(task: TaskTransport): React.ReactNode[] {
  * meta se reduce a la fecha (y evento) y no hay cola. El círculo mide 48 px en
  * el teléfono, donde la vista es una lista y no columnas; con ratón encoge.
  */
-export function PlanningTaskCard({ task, isFocused, onToggle, onDelete, onEdit }: PlanningTaskCardProps) {
+export function PlanningTaskCard({ task, isFocused, struck, onToggle, onDelete, onEdit }: PlanningTaskCardProps) {
   return (
     <TaskRow
       task={task}
       density="compacta"
       focused={isFocused}
+      struck={struck}
       onComplete={() => onToggle(task.id)}
       onOpen={onEdit ? () => onEdit(task) : undefined}
       meta={planningMeta(task)}
