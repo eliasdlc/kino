@@ -40,16 +40,20 @@ export type SystemViewType = 'timeline' | 'kanban' | 'progress' | 'list' | 'cust
 /** Módulos de tab del funnel universal (base reutilizable). */
 export type SystemTabId = 'backlog' | 'planning' | 'action' | 'archive';
 
+/**
+ * En español y con la misma palabra en el teléfono y en el escritorio: el
+ * estado vacío manda a «Plan», y en el teléfono no existía «Planificación».
+ */
 export const SYSTEM_TAB_LABELS: Record<SystemTabId, string> = {
-  backlog: "Backlog",
-  planning: "Planificación",
+  backlog: "Pendientes",
+  planning: "Plan",
   action: "Acción",
   archive: "Archivo",
 };
 
 /** Etiquetas cortas para mobile: caben 4 tabs en una fila sin scroll. */
 export const SYSTEM_TAB_SHORT_LABELS: Record<SystemTabId, string> = {
-  backlog: "Backlog",
+  backlog: "Pendientes",
   planning: "Plan",
   action: "Acción",
   archive: "Archivo",
