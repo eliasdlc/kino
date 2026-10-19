@@ -40,6 +40,10 @@ type Hoja = "fechar" | "prioridad" | null;
  * nombre, en botones de 48 px. Fechar y Prioridad abren una hoja con sus
  * opciones en renglones (en el teléfono, la hoja inferior), no un menú
  * flotante que pide puntería.
+ *
+ * Va al final de la lista y se pega al pie de lo que se ve, por encima del pie
+ * de navegación (`--kino-bottom-chrome`, que ya suma el área segura): quien
+ * elige la fila 15 de 25 tiene las operaciones a mano sin volver arriba.
  */
 export function BulkActionBar({ selectedIds, onClear, onVaciar }: BulkActionBarProps) {
   const ids = [...selectedIds];
@@ -68,7 +72,12 @@ export function BulkActionBar({ selectedIds, onClear, onVaciar }: BulkActionBarP
       : PRIORITY_OPTIONS.map((o) => ({ key: o.value, label: o.label, icon: Flag, run: () => update(o.value) }));
 
   return (
-    <div role="toolbar" aria-label="Acciones de la selección" className="flex flex-wrap items-center gap-1.5 border-y border-border py-2 pl-(--margen)">
+    <div
+      role="toolbar"
+      aria-label="Acciones de la selección"
+      data-slot="bulk-action-bar"
+      className="sticky bottom-(--kino-bottom-chrome) z-10 flex flex-wrap items-center gap-1.5 border-t border-input bg-background py-2 pl-(--margen)"
+    >
       <span className="mr-1 text-sm font-semibold text-foreground tabular-nums">
         {count} seleccionada{count !== 1 ? "s" : ""}
       </span>
