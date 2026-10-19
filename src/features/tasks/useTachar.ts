@@ -2,6 +2,7 @@
 
 import { useCallback, useRef, useState } from 'react';
 import { toast } from 'sonner';
+import type { TaskStatus } from './tasks.state-machine';
 import type { TaskTransport } from './tasks.types';
 
 /** Lo que dura el Deshacer de una fila tachada. El mismo que el plan de Hoy. */
@@ -14,10 +15,12 @@ export const UNDO_MS = 4000;
  * recoloca sus renglones a los cuatro segundos mueve lo que la persona está
  * leyendo (y eso es CLS).
  *
- * El Deshacer devuelve el estado de antes de completar, no alterna: la
- * mutación es un flip, así que alternar a ciegas un Deshacer tardío volvería a
- * dejar la tarea hecha. Si la persona deshace con el círculo, el aviso se
- * cierra en ese toque.
+ * El Deshacer reabre la tarea una sola vez, no alterna: la mutación es un
+ * flip, así que alternar a ciegas un Deshacer tardío volvería a dejar la tarea
+ * hecha. Reabrir la deja donde el servidor pone una tarea reabierta (Hoy, ver
+ * `tasks.state-machine.ts`), no necesariamente donde estaba: una de la semana
+ * o del backlog vuelve a Hoy. Si la persona deshace con el círculo, el aviso
+ * se cierra en ese toque.
  *
  * `toggle` es la mutación (optimista: `useToggleTask` o `useToggleTodayTask`).
  * `onStrike` avisa cuándo se tachó, por si la lista quiere celebrarlo.
@@ -98,4 +101,31 @@ export function useListaTachable(
   }
 
   return { filas, struck, handleToggle };
+}
+
+/**
+ * Tachar en las vistas de sistema, que filtran por estado (el Backlog enseña
+ * `backlog`, Acción y Planificación esconden las hechas). Al completar, la
+ * suscripción trae la tarea en `done` en el mismo toque (es optimista) y esas
+ * listas la sacaban sin tachado ni Deshacer: la fila desaparecía y las de abajo
+ * subían.
+ *
+ * `estadoDe` es el estado con el que la vista debe filtrar y agrupar: el de
+ * antes de completar mientras la fila siga tachada en esta visita, y el real
+ * en cuanto se deshace o en la siguiente visita. La fila se pinta con la tarea
+ * real (hecha, con su círculo lleno) y `struck` dice cuál animar.
+ */
+export function useTacharEnSitio(toggle: (taskId: string) => void) {
+  const [antes, setAntes] = useState<ReadonlyMap<string, TaskStatus>>(() => new Map());
+  const { struck, handleToggle } = useTachar(toggle, (task) => {
+    setAntes((prev) => new Map(prev).set(task.id, task.status as TaskStatus));
+  });
+
+  const estadoDe = useCallback(
+    (task: TaskTransport): TaskStatus =>
+      task.status === 'done' && struck.has(task.id) ? (antes.get(task.id) ?? (task.status as TaskStatus)) : (task.status as TaskStatus),
+    [antes, struck],
+  );
+
+  return { struck, handleToggle, estadoDe };
 }
