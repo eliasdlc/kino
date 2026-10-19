@@ -104,10 +104,11 @@ export function useSyncGithub(systemId: string) {
  */
 export function describeSyncResult(result: SyncResult): string {
   const partes: string[] = [];
-  if (result.imported > 0) partes.push(`${result.imported} importada(s)`);
-  if (result.updated > 0) partes.push(`${result.updated} actualizada(s)`);
+  // Plural de verdad y el vocabulario del proyecto: un sprint es un ciclo.
+  if (result.imported > 0) partes.push(`${result.imported} ${result.imported === 1 ? "importada" : "importadas"}`);
+  if (result.updated > 0) partes.push(`${result.updated} ${result.updated === 1 ? "actualizada" : "actualizadas"}`);
   if (result.sprintsCreated > 0) {
-    partes.push(`${result.sprintsCreated} sprint(s) nuevo(s)`);
+    partes.push(`${result.sprintsCreated} ${result.sprintsCreated === 1 ? "ciclo nuevo" : "ciclos nuevos"}`);
   }
 
   const resumen = partes.join(", ");

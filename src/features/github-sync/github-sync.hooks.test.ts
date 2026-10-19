@@ -25,14 +25,14 @@ describe("describeSyncResult", () => {
 
   it("cuenta lo que entró y lo que cambió", () => {
     expect(describeSyncResult(resultado({ imported: 2, updated: 1, sprintsCreated: 1 }))).toBe(
-      "2 importada(s), 1 actualizada(s), 1 sprint(s) nuevo(s)",
+      "2 importadas, 1 actualizada, 1 ciclo nuevo",
     );
   });
 
   it("truncado avisa de que faltan y de que el siguiente refresco sigue desde ahí", () => {
     const texto = describeSyncResult(resultado({ imported: 300, truncated: true }));
 
-    expect(texto).toContain("300 importada(s)");
+    expect(texto).toContain("300 importadas");
     expect(texto).toContain("sigue desde donde se quedó");
   });
 
