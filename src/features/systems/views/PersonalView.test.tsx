@@ -1,3 +1,9 @@
+/**
+ * Criterio: un sistema personal habla con su manifiesto. El plural de sus
+ * áreas y el nombre de cada clase de tarea (hábito, recado, evento) salen de
+ * `SYSTEM_TYPE_CONFIG.personal`, no de texto escrito en la vista, así que
+ * cambiar una palabra del arquetipo la cambia aquí sin tocar el componente.
+ */
 import { screen } from '@testing-library/react';
 import { describe, expect, it } from 'vitest';
 import { capitalize } from '@/shared/lib/system-manifest';
