@@ -2,7 +2,7 @@
 
 import dynamic from "next/dynamic";
 import { usePlanningWeek } from "@/shared/hooks/use-url-view";
-import { useMemo, useState } from "react";
+import { useMemo } from "react";
 import {
   addDays,
   addWeeks,
@@ -17,10 +17,10 @@ import { es } from "date-fns/locale";
 import { useTasks, useFolderTasks, useToggleTask, useDeleteTaskWithUndo, useUpdateTask } from "./tasks.hooks";
 import type { TaskTransport } from "./tasks.types";
 import { parseDueDate, parseTaskDay, dayToLocalISO } from "./tasks.utils";
-import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { useTaskKeyboardNavigation } from "./useTaskKeyboardNavigation";
 import { TaskPlanningMobileView } from "./TaskPlanningMobileView";
-import { useIsMobile } from "@/hooks/use-mobile";
+import { usePunteroGrueso } from "./use-puntero-grueso";
+import { useTacharEnSitio } from "./useTachar";
 
 /**
  * La semana con arrastre, aparte: `@dnd-kit` sólo se descarga en escritorio y
@@ -45,6 +45,11 @@ interface TaskPlanningViewProps {
   keyboardDisabled?: boolean;
 }
 
+/**
+ * Planificación: la semana, con lo que se trabaja cada día. Completar tacha la
+ * fila en su día con Deshacer de cuatro segundos; mover a la papelera no
+ * pregunta, el aviso trae Deshacer.
+ */
 export function TaskPlanningView({ systemId, initialData, folderId, folderInitialData, onEdit, keyboardDisabled }: TaskPlanningViewProps) {
   // Use folder-scoped or system-scoped tasks depending on context
   const systemQuery = useTasks(systemId, initialData);
@@ -54,6 +59,7 @@ export function TaskPlanningView({ systemId, initialData, folderId, folderInitia
   const { mutate: toggleTask } = useToggleTask(systemId, folderId);
   const { mutate: deleteTask } = useDeleteTaskWithUndo(systemId, folderId);
   const { mutate: updateTask } = useUpdateTask(systemId);
+  const { struck, handleToggle, estadoDe } = useTacharEnSitio((id) => toggleTask(id));
 
   // Week navigation: 0 = current week, 1 = next, -1 = previous
   const [weekOffset, setWeekOffset] = usePlanningWeek();
@@ -79,7 +85,8 @@ export function TaskPlanningView({ systemId, initialData, folderId, folderInitia
 
   const visibleTasks = useMemo(() => {
     return tasks.filter((task) => {
-      if (task.status === "done") return false;
+      // Una tachada en esta visita se queda en su día hasta la siguiente.
+      if (estadoDe(task) === "done") return false;
 
       // Multi-day task: has startDate and dueDate, and they are different
       if (task.startDate && task.dueDate && !sameDueDay(task.startDate, task.dueDate)) {
@@ -100,7 +107,7 @@ export function TaskPlanningView({ systemId, initialData, folderId, folderInitia
       }
       return false;
     });
-  }, [tasks, weekDates]);
+  }, [tasks, weekDates, estadoDe]);
 
   const multiDayTasks = useMemo(() => {
     return visibleTasks.filter(
@@ -114,17 +121,21 @@ export function TaskPlanningView({ systemId, initialData, folderId, folderInitia
     );
   }, [visibleTasks]);
 
-  const [deleteTarget, setDeleteTarget] = useState<TaskTransport | null>(null);
+  const completar = (id: string) => {
+    const task = visibleTasks.find((t) => t.id === id);
+    if (task) handleToggle(task);
+  };
+  const papelera = (task: TaskTransport) => deleteTask(task.id);
 
   const { focusedTaskId } = useTaskKeyboardNavigation(visibleTasks, {
     onSelect: onEdit,
-    onToggle: toggleTask,
-    onDelete: setDeleteTarget,
+    onToggle: completar,
+    onDelete: papelera,
   }, {
-    enabled: !keyboardDisabled && deleteTarget === null
+    enabled: !keyboardDisabled
   });
 
-  const isMobile = useIsMobile();
+  const tactil = usePunteroGrueso();
 
   // startDate es timestamptz: se manda la medianoche LOCAL (no el día pelado,
   // que se guardaría a medianoche UTC y corre el día en zonas negativas).
@@ -132,72 +143,55 @@ export function TaskPlanningView({ systemId, initialData, folderId, folderInitia
     updateTask({ taskId, data: { startDate: dayToLocalISO(dayISO) } });
   }
 
-  // En el teléfono las siete columnas no caben y el arrastre no es un gesto
-  // del pulgar: un día a la vez, y mover de día con una hoja con nombre.
-  if (isMobile) {
-    return (
-      <>
-        <TaskPlanningMobileView
-          weekDates={weekDates}
-          weekOffset={weekOffset}
-          monthHeading={monthHeading}
-          weekNumber={weekNumber}
-          singleDayTasks={singleDayTasks}
-          multiDayTasks={multiDayTasks}
-          onPrevWeek={() => setWeekOffset((v) => v - 1)}
-          onNextWeek={() => setWeekOffset((v) => v + 1)}
-          onResetWeek={() => setWeekOffset(0)}
-          onToggle={(id) => toggleTask(id)}
-          onDelete={setDeleteTarget}
-          onEdit={onEdit}
-          onMoveToDay={moveToDay}
-        />
-        <ConfirmDialog
-          open={deleteTarget !== null}
-          title="Mover a la papelera"
-          description={`"${deleteTarget?.title}" se moverá a la papelera.`}
-          confirmLabel="Mover a la papelera"
-          onConfirm={() => {
-            if (deleteTarget) deleteTask(deleteTarget.id);
-            setDeleteTarget(null);
-          }}
-          onCancel={() => setDeleteTarget(null)}
-        />
-      </>
-    );
+  // Mientras no se sabe el puntero (la hidratación) no se monta ninguna de las
+  // dos semanas: un teléfono no llega a pedir la del arrastre.
+  if (tactil === null) {
+    return <p className="py-6 pl-(--margen) text-sm text-muted-foreground">Abriendo la semana</p>;
   }
 
-  return (
-    <>
-      <TaskPlanningBoard
-        systemId={systemId}
+  // Con el dedo, las siete columnas no caben o no se arrastran: un día a la
+  // vez, y mover de día con una hoja con nombre. Lo decide el puntero: una
+  // tableta táctil ancha también recibe la hoja.
+  if (tactil) {
+    return (
+      <TaskPlanningMobileView
         weekDates={weekDates}
         weekOffset={weekOffset}
         monthHeading={monthHeading}
         weekNumber={weekNumber}
         singleDayTasks={singleDayTasks}
         multiDayTasks={multiDayTasks}
-        focusedTaskId={focusedTaskId}
-        keyboardDisabled={keyboardDisabled}
+        struck={struck}
         onPrevWeek={() => setWeekOffset((v) => v - 1)}
         onNextWeek={() => setWeekOffset((v) => v + 1)}
         onResetWeek={() => setWeekOffset(0)}
-        onToggle={(id) => toggleTask(id)}
-        onDelete={setDeleteTarget}
+        onToggle={completar}
+        onDelete={papelera}
         onEdit={onEdit}
         onMoveToDay={moveToDay}
       />
-      <ConfirmDialog
-        open={deleteTarget !== null}
-        title="Mover a la papelera"
-        description={`"${deleteTarget?.title}" se moverá a la papelera.`}
-        confirmLabel="Mover a la papelera"
-        onConfirm={() => {
-          if (deleteTarget) deleteTask(deleteTarget.id);
-          setDeleteTarget(null);
-        }}
-        onCancel={() => setDeleteTarget(null)}
-      />
-    </>
+    );
+  }
+
+  return (
+    <TaskPlanningBoard
+      systemId={systemId}
+      weekDates={weekDates}
+      weekOffset={weekOffset}
+      monthHeading={monthHeading}
+      weekNumber={weekNumber}
+      singleDayTasks={singleDayTasks}
+      multiDayTasks={multiDayTasks}
+      focusedTaskId={focusedTaskId}
+      struck={struck}
+      keyboardDisabled={keyboardDisabled}
+      onPrevWeek={() => setWeekOffset((v) => v - 1)}
+      onNextWeek={() => setWeekOffset((v) => v + 1)}
+      onResetWeek={() => setWeekOffset(0)}
+      onToggle={completar}
+      onDelete={papelera}
+      onEdit={onEdit}
+      onMoveToDay={moveToDay}
+    />
   );
 }
