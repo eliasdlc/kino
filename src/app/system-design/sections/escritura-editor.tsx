@@ -1,14 +1,18 @@
 "use client";
 
-import { Heading1, Heading2, List, Quote, StickyNote, Table as TableIcon, Trash2 } from "lucide-react";
+import { Heading1, Heading2, List, Quote, Table as TableIcon } from "lucide-react";
 import { api } from "@convex/_generated/api";
 import { SubSection, Specimen, SpecimenGrid, Seeded, ClientOnly, seedQuery } from "../helpers";
-import { MOCK_SYSTEM_ID, makePlotGrid, mid } from "../mock-data";
+import { MOCK_FOLDER_ID, MOCK_SYSTEM_ID, makeLinkedTask, makeManuscript, makePlotGrid, mid } from "../mock-data";
 import { EditorProvider, useSharedEditor } from "@/features/pages/EditorContext";
 import { EditorThumbBar } from "@/features/pages/EditorThumbBar";
 import { WriterStatusBar } from "@/features/pages/WriterStatusBar";
 import { SlashMenu, type SlashItem } from "@/features/pages/SlashMenu";
-import { BUBBLE, BUBBLE_BUTTON } from "@/features/pages/bubble-styles";
+import { SelectionToolbar } from "@/features/pages/SelectionToolbar";
+import { TableToolbar } from "@/features/pages/TableMenus";
+import { EditorPanelBody } from "@/features/pages/EditorPanel";
+import { CompileMenu } from "@/features/writing/CompileMenu";
+import { MEDIUM_CONFIG } from "@/shared/lib/mediums";
 import { LinkedTaskCard } from "@/features/pages/LinkedTaskCard";
 import { ChapterStatusToggle } from "@/features/writing/ChapterStatusToggle";
 import { WritingSessionButton } from "@/features/writing/WritingSessionButton";
@@ -21,13 +25,17 @@ import { LinkedTasksPanel } from "@/features/pages/LinkedTasksPanel";
 import { EditorShortcutsHelp } from "@/features/pages/EditorShortcutsHelp";
 import type { OutlineItem } from "@/features/pages/mediums/outline";
 import type { WritingOverview } from "@/features/writing/writing.types";
-import type { LinkedTaskTransport } from "@/features/pages/pages.types";
+import type { PageDetailTransport } from "@/features/pages/pages.types";
 
 /**
  * El chrome del editor de escritura (rework 2, Diario). En el teléfono el
  * editor se queda con lo que escribir necesita: la barra del pulgar sobre el
  * teclado, el menú `/`, la barra de estado y el volver de la cabecera. Lo
- * demás vive en el panel, que abre Más.
+ * demás vive en el panel, que abre la puerta del título («Capítulo»).
+ *
+ * Los menús flotantes se pintan con sus propios componentes (la barra de la
+ * selección, la de la tabla, el cuerpo del panel), no con réplicas: si el
+ * componente cambia, el catálogo cambia con él.
  */
 
 const PROSA = "<p>La cota del día marcaba 134 y nadie en la casa sabía leerla salvo Inés.</p>";
@@ -56,26 +64,50 @@ function BarraDelPulgar({ mention }: { mention: boolean }) {
   return <EditorThumbBar editor={editor} mention={mention} onNote={() => {}} onMore={() => {}} forceVisible />;
 }
 
-const TAREAS: LinkedTaskTransport[] = [
-  {
+function BarraDeSeleccion() {
+  const editor = useSharedEditor();
+  if (!editor) return null;
+  return <SelectionToolbar editor={editor} writer systemId={MOCK_SYSTEM_ID} onNote={() => {}} />;
+}
+
+function BarraDeTabla() {
+  const editor = useSharedEditor();
+  if (!editor) return null;
+  return <TableToolbar editor={editor} />;
+}
+
+const TABLA =
+  "<table><tbody><tr><th><p>Quién</p></th><th><p>Dónde</p></th></tr><tr><td><p>Inés</p></td><td><p>La casa</p></td></tr></tbody></table>";
+
+const TAREAS = [
+  makeLinkedTask({
     id: mid("lt1"),
     title: "Releer el capítulo 2 en voz alta",
-    status: "today",
     priority: "high",
-    taskType: null,
     dueDate: "2026-09-08T12:00:00",
-    estimatedTime: 25,
-  } as unknown as LinkedTaskTransport,
-  {
-    id: mid("lt2"),
-    title: "Buscar el nombre del perro",
-    status: "done",
-    priority: "medium",
-    taskType: null,
-    dueDate: null,
-    estimatedTime: null,
-  } as unknown as LinkedTaskTransport,
+    estimatedTime: "00:25:00",
+  }),
+  makeLinkedTask({ id: mid("lt2"), title: "Buscar el nombre del perro", status: "done" }),
 ];
+
+const CAPITULO: PageDetailTransport = {
+  id: mid("p"),
+  userId: mid(2),
+  folderId: MOCK_FOLDER_ID,
+  systemId: MOCK_SYSTEM_ID,
+  parentPageId: null,
+  title: "Interior, cocina",
+  content: PROSA,
+  isPinned: false,
+  completedAt: null,
+  deletedAt: null,
+  clientRequestId: null,
+  createdAt: "2026-09-01T10:00:00.000Z",
+  updatedAt: "2026-10-01T10:00:00.000Z",
+  createdVia: "session",
+  agentEditPolicy: "confirmation_required",
+  linkedTasks: [],
+};
 
 const INDICE: OutlineItem[] = [
   { pos: 1, kind: "heading", label: "La subida", depth: 0, preview: null },
@@ -184,33 +216,32 @@ export function EscrituraEditorSubsections() {
       >
         <SpecimenGrid cols={3}>
           <Specimen label="Menú de bloques" hint="SlashMenu">
-            <SlashMenu items={SLASH} command={() => {}} />
-          </Specimen>
-          <Specimen label="Selección" hint="BubbleMenu: Nota y codex">
-            <div className={BUBBLE}>
-              <button type="button" className={BUBBLE_BUTTON}>
-                <StickyNote className="size-4" />
-                Nota
-              </button>
-              <span aria-hidden className="mx-0.5 h-4 w-px bg-border" />
-              <span className="px-1 text-xs font-semibold text-muted-foreground">Codex</span>
+            <div className="w-64 max-w-full">
+              <SlashMenu items={SLASH} command={() => {}} />
             </div>
           </Specimen>
-          <Specimen label="Tabla" hint="TableMenus, palabras y no signos">
-            <div className={BUBBLE}>
-              <button type="button" className={BUBBLE_BUTTON}>Añadir fila</button>
-              <button type="button" className={BUBBLE_BUTTON}>Quitar fila</button>
-              <button type="button" className={BUBBLE_BUTTON} aria-label="Borrar la tabla">
-                <Trash2 className="size-4" />
-              </button>
-            </div>
+          <Specimen label="Selección" hint="SelectionToolbar: Nota y codex">
+            <ClientOnly>
+              <EditorProvider initialContent={PROSA}>
+                <BarraDeSeleccion />
+              </EditorProvider>
+            </ClientOnly>
+          </Specimen>
+          <Specimen label="Tabla" hint="TableToolbar: palabras enteras, se desplaza si no cabe">
+            <ClientOnly>
+              <div className="w-full max-w-[22rem]">
+                <EditorProvider initialContent={TABLA}>
+                  <BarraDeTabla />
+                </EditorProvider>
+              </div>
+            </ClientOnly>
           </Specimen>
         </SpecimenGrid>
       </SubSection>
 
       <SubSection
         title="Barra de estado del manuscrito"
-        description="Palabras del capítulo, progreso de la obra (crece en transform) y racha. Papel con hairline, sin vidrio. Papel y Enfoque son interruptores en tinta."
+        description="Palabras del capítulo, progreso de la obra en tinta (crece en transform) y racha en --ok. Papel con hairline, sin vidrio. Papel cálido y Enfoque son interruptores: borde apagados, tinta llena puestos."
       >
         <Specimen label="Con obra y meta" hint="WriterStatusBar">
           <ClientOnly>
@@ -233,7 +264,7 @@ export function EscrituraEditorSubsections() {
 
       <SubSection
         title="Acciones del capítulo"
-        description="En escritorio, palabras en la barra de arriba; en el teléfono, filas de margen al principio del panel. Terminado es --ok con su palabra; guardando lo dice sin girar nada."
+        description="En escritorio, palabras en la barra de arriba que reservan el ancho de la más larga; en el teléfono, filas de margen al principio del panel. Terminado es --ok con su palabra; guardando lo dice sin girar nada. El sustantivo concuerda con el medium."
       >
         <SpecimenGrid cols={2}>
           <Specimen label="Barra de escritorio" hint="variant barra">
@@ -251,6 +282,25 @@ export function EscrituraEditorSubsections() {
                 systemId={MOCK_SYSTEM_ID}
                 title="La subida"
                 initialCompletedAt="2026-10-01"
+                variant="fila"
+              />
+            </div>
+          </Specimen>
+          <Specimen label="En un guion" hint="unit escena: «la escena», «terminada»" className="items-stretch">
+            <div className="w-full max-w-sm">
+              <WritingSessionButton
+                pageId={mid("p")}
+                pageTitle="Interior, cocina"
+                systemId={MOCK_SYSTEM_ID}
+                unit={MEDIUM_CONFIG.screenplay.unit}
+                variant="fila"
+              />
+              <ChapterStatusToggle
+                pageId={mid("p4")}
+                systemId={MOCK_SYSTEM_ID}
+                title="Interior, cocina"
+                initialCompletedAt={null}
+                unit={MEDIUM_CONFIG.screenplay.unit}
                 variant="fila"
               />
             </div>
@@ -273,11 +323,48 @@ export function EscrituraEditorSubsections() {
 
       <SubSection
         title="Panel del editor"
-        description="Lo que abre Más en el teléfono (una hoja de abajo) y el botón del panel en escritorio. Cada bloque es un título con hairline y filas de margen; nada baja de 48 px en un dedo, y lo que en escritorio espera al hover se ve siempre en el teléfono."
+        description="Lo que abre la puerta del título en el teléfono (una hoja de abajo) y el botón del panel en escritorio. Cada bloque es un título con hairline y filas de margen; nada baja de 48 px en un dedo, y lo que en escritorio espera al hover se ve siempre en el teléfono."
       >
         <ClientOnly>
           <PanelDelEditor />
         </ClientOnly>
+      </SubSection>
+
+      <SubSection
+        title="La hoja del panel entera"
+        description="El cuerpo de la hoja tal como lo monta el editor del teléfono: la sesión y el estado arriba, luego páginas, índice, codex, mesa, resumen, versiones, etiquetas, tareas y exportar. Los bloques sin datos enseñan su forma quieta."
+      >
+        <Specimen label="Esta escena" hint="EditorPanelBody, movil, guion" className="items-stretch">
+          <ClientOnly>
+            <div className="w-[393px] max-w-full px-5">
+              <Seeded stubs={[seedQuery(api.tags.bySystem, ETIQUETAS), seedQuery(api.pages.tags, [])]}>
+                <EditorPanelBody
+                  page={CAPITULO}
+                  systemId={MOCK_SYSTEM_ID}
+                  rootPageId={mid("p")}
+                  initialSubPages={[]}
+                  writer
+                  obra={null}
+                  obraMetadata={null}
+                  medium={MEDIUM_CONFIG.screenplay}
+                  outline={INDICE}
+                  onJump={() => {}}
+                  onClose={() => {}}
+                  movil
+                />
+              </Seeded>
+            </div>
+          </ClientOnly>
+        </Specimen>
+      </SubSection>
+
+      <SubSection
+        title="Compilar"
+        description="Un botón con su palabra («Compilando» mientras trabaja, sin icono que gire). En escritorio abre un menú; en el teléfono, una hoja con tres filas de 48 px y una línea de estado reservada."
+      >
+        <Specimen label="Con la obra cargada" hint="CompileMenu">
+          <CompileMenu folderId={MOCK_FOLDER_ID} systemId={MOCK_SYSTEM_ID} manuscript={makeManuscript()} />
+        </Specimen>
       </SubSection>
 
       <SubSection
