@@ -6,7 +6,7 @@ import { useFolders } from "@/features/folders/folders.hooks";
 import { NewFolderInline } from "@/features/folders/NewFolderInline";
 import { DefaultTaskCard } from "@/features/tasks/cards/DefaultTaskCard";
 import { TaskDetailSheet } from "@/features/tasks/TaskDetailSheet";
-import { CreateTaskDialog } from "@/features/tasks/CreateTaskDialog";
+import { NewTaskButton } from "../NewTaskButton";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { SYSTEM_TYPE_CONFIG } from "@/shared/lib/system-types";
 import { ChevronDown } from "lucide-react";
@@ -140,7 +140,7 @@ export function SystemEntrepreneurialView({ system, initialTasks }: SystemViewPr
   return (
     <div className="space-y-4">
       <div className="flex justify-end">
-        <CreateTaskDialog systemId={system.id} />
+        <NewTaskButton systemId={system.id} />
       </div>
 
       <section aria-labelledby={`${system.id}-milestones`}>
