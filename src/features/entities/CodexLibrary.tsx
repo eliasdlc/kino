@@ -122,7 +122,7 @@ export function CodexLibrary({ systemId }: { systemId: string }) {
                   <MarginRow
                     key={e.id}
                     onClick={() => setOpenEntityId(e.id)}
-                    margin={<span className="text-sm text-mute tabular-nums">{i + 1}</span>}
+                    margin={<span className="mt-[0.55rem] block text-sm leading-none text-mute tabular-nums">{i + 1}</span>}
                   >
                     <span className="block truncate text-base font-semibold text-foreground">{e.name}</span>
                     <span className="line-clamp-2 block text-sm text-muted-foreground">
