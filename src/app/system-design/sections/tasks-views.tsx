@@ -128,6 +128,11 @@ function TasksSheetsSpecimens() {
   );
 }
 
+const VENCIDAS = [
+  makeTask({ id: mid("o1"), title: "Entregar práctica 4", dueDate: daysFromNow(-2) }),
+  makeTask({ id: mid("o2"), title: "Pagar matrícula", dueDate: daysFromNow(-5), priority: "critical", status: "done" }),
+];
+
 const SYSTEM_MAP = new Map([
   [MOCK_SYSTEM_ID, { id: MOCK_SYSTEM_ID, name: "Universidad", color: "blue" }],
 ]);
@@ -269,17 +274,16 @@ export function TasksViewsSection() {
 
       <SubSection
         title="OverdueGroup"
-        description="Las vencidas como su propia sección: el título pliega, Mover todas abre una hoja con los tres destinos."
+        description="Las vencidas como su propia sección: el título pliega, Mover todas abre una hoja con los tres destinos. La segunda está tachada en esta visita: se queda en su renglón."
       >
         <div className="max-w-2xl">
           <OverdueGroup
-            tasks={[
-              makeTask({ id: mid("o1"), title: "Entregar práctica 4", dueDate: daysFromNow(-2) }),
-              makeTask({ id: mid("o2"), title: "Pagar matrícula", dueDate: daysFromNow(-5), priority: "critical" }),
-            ]}
+            tasks={VENCIDAS}
+            filas={VENCIDAS}
+            struck={new Set([VENCIDAS[1]!.id])}
             systemMap={SYSTEM_MAP}
             onOpen={noop}
-            onToggle={noop}
+            onComplete={noop}
           />
         </div>
       </SubSection>
