@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { SYSTEM_TYPE_CONFIG } from './system-types';
+import { SYSTEM_TAB_LABELS, SYSTEM_TAB_SHORT_LABELS, SYSTEM_TYPE_CONFIG } from './system-types';
 import { resolveManifest } from './system-manifest';
 import {
   containerDetailEmptyCopy,
@@ -53,6 +53,13 @@ describe('estados vacíos por arquetipo', () => {
     expect(tasksEmptyCopy(SYSTEM_TYPE_CONFIG.academic, 'backlog').hint).toContain('tus clases');
     expect(tasksEmptyCopy(SYSTEM_TYPE_CONFIG.writing, 'action').hint).toContain('tus obras');
     expect(tasksEmptyCopy(SYSTEM_TYPE_CONFIG.project, 'backlog').hint).not.toContain('tus');
+  });
+
+  it('manda a la pestaña con la palabra que la pestaña dice en el teléfono y en el escritorio', () => {
+    const hint = tasksEmptyCopy(SYSTEM_TYPE_CONFIG.project, 'action').hint;
+    expect(SYSTEM_TAB_LABELS.planning).toBe(SYSTEM_TAB_SHORT_LABELS.planning);
+    expect(hint).toContain(`Ve a ${SYSTEM_TAB_SHORT_LABELS.planning} `);
+    expect(SYSTEM_TAB_LABELS.backlog).toBe('Pendientes');
   });
 
   it('habla el idioma que el usuario compuso en un sistema custom', () => {
