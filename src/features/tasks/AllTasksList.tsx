@@ -2,7 +2,7 @@
 
 import { useState, useCallback, useMemo } from 'react';
 import { useRouter, useSearchParams, usePathname } from 'next/navigation';
-import { ListChecks, Plus, SlidersHorizontal, Trash2, X } from 'lucide-react';
+import { Check, ListChecks, Plus, SlidersHorizontal, Trash2, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { EmptyState } from '@/components/ui/empty-state';
 import {
@@ -20,9 +20,17 @@ import {
 } from '@/lib/taskFilters';
 import { useAllTasks, useToggleTodayTask, useDeleteAnyTaskWithUndo } from './tasks.hooks';
 import { TaskRow, type TaskRowAction } from './TaskRow';
-import { TaskFilterPanel } from './TaskFilterPanel';
+import {
+  TaskFilterPanel,
+  DATE_OPTIONS,
+  ENERGY_OPTIONS,
+  GROUP_OPTIONS,
+  PRIORITY_OPTIONS,
+  SORT_OPTIONS,
+  STATUS_OPTIONS,
+  TYPE_OPTIONS,
+} from './TaskFilterPanel';
 import { TaskDetailSheet } from './TaskDetailSheet';
-import { ConfirmDialog } from '@/components/ui/confirm-dialog';
 import { useTaskKeyboardNavigation } from './useTaskKeyboardNavigation';
 import { useHotkey } from '@/shared/hooks/useHotkey';
 import { useQuickAddStore } from './quick-add.store';
@@ -43,11 +51,36 @@ interface AllTasksListProps {
   systems: SystemInfo[];
 }
 
-const FILTER_CHIP_LABELS: Partial<Record<keyof TaskFilters, string>> = {
-  status: 'Estado', system: 'Sistema', priority: 'Prioridad',
-  energy: 'Energía', type: 'Tipo', tag: 'Etiqueta', dateRange: 'Fecha',
-  group: 'Agrupar', sort: 'Orden',
-};
+/** Una ficha de filtro activo: dice el valor que quita, no el nombre del campo. */
+interface FichaActiva {
+  key: keyof TaskFilters;
+  /** El valor que quita, en los filtros de varios valores. */
+  value?: string;
+  label: string;
+}
+
+function palabra(options: readonly { value: string; label: string }[], value: string): string {
+  return options.find((o) => o.value === value)?.label ?? value;
+}
+
+/**
+ * Las fichas de lo que está filtrado, una por valor: "Crítica", "Energía
+ * alta", "Próximos 7 días". Antes decían "Prioridad" o "Fecha", y para saber
+ * qué filtraban había que reabrir la hoja.
+ */
+function fichasActivas(filters: TaskFilters, systems: readonly SystemInfo[]): FichaActiva[] {
+  const fichas: FichaActiva[] = [];
+  for (const v of filters.status) fichas.push({ key: 'status', value: v, label: palabra(STATUS_OPTIONS, v) });
+  for (const v of filters.system) fichas.push({ key: 'system', value: v, label: systems.find((s) => s.id === v)?.name ?? 'Un sistema' });
+  for (const v of filters.priority) fichas.push({ key: 'priority', value: v, label: `Prioridad ${palabra(PRIORITY_OPTIONS, v).toLowerCase()}` });
+  for (const v of filters.energy) fichas.push({ key: 'energy', value: v, label: `Energía ${palabra(ENERGY_OPTIONS, v).toLowerCase()}` });
+  for (const v of filters.type) fichas.push({ key: 'type', value: v, label: palabra(TYPE_OPTIONS, v) });
+  if (filters.tag.length > 0) fichas.push({ key: 'tag', label: filters.tag.length === 1 ? 'Una etiqueta' : `${filters.tag.length} etiquetas` });
+  if (filters.dateRange) fichas.push({ key: 'dateRange', label: palabra(DATE_OPTIONS, filters.dateRange) });
+  if (filters.group) fichas.push({ key: 'group', label: `Por ${palabra(GROUP_OPTIONS, filters.group).toLowerCase()}` });
+  if (filters.sort !== DEFAULT_FILTERS.sort) fichas.push({ key: 'sort', label: `Orden: ${palabra(SORT_OPTIONS, filters.sort).toLowerCase()}` });
+  return fichas;
+}
 
 const GROUP_ORDER: Record<string, number> = {
   'Crítica': 0, 'Alta': 1, 'Media': 2, 'Baja': 3,
@@ -57,12 +90,13 @@ const GROUP_ORDER: Record<string, number> = {
 
 /**
  * Todas las tareas, como una sección de Diario: el título con la cuenta y un
- * hairline, una línea de herramientas (Filtros abre una hoja; las fichas de
- * los filtros activos se quitan de un toque) y las filas, sin caja. Las
- * vencidas van antes, en su propia sección. Completar tacha la fila en su
- * sitio con Deshacer; el título abre el detalle en una hoja; las acciones de
- * fila (seleccionar, enviar a la papelera) salen en una hoja en el teléfono y
- * en un menú en escritorio.
+ * hairline, una línea de herramientas (Filtros abre una hoja con la cuenta
+ * viva, Limpiar y "Ver N tareas"; Seleccionar enseña las casillas de todas las
+ * filas; las fichas dicen el valor que quitan) y las filas, sin caja. Las
+ * vencidas van antes, en su propia sección, con las mismas acciones.
+ * Completar tacha la fila en su sitio con Deshacer; el título abre el detalle
+ * en una hoja; mover a la papelera no pregunta, el aviso trae Deshacer. Con
+ * algo elegido, la barra de la selección se pega al pie de la pantalla.
  */
 export function AllTasksList({ systems }: AllTasksListProps) {
   const router = useRouter();
@@ -85,8 +119,10 @@ export function AllTasksList({ systems }: AllTasksListProps) {
     [tareaEnlazada, tasks],
   );
   const selectedTask = elegida ?? enlazada;
-  const [deleteTarget, setDeleteTarget] = useState<TaskTransport | null>(null);
   const [selectedTaskIds, setSelectedTaskIds] = useState<Set<string>>(new Set());
+  // Seleccionar sin pasar por la hoja de cada fila: el botón enseña las
+  // casillas de todas y se elige de un toque.
+  const [modoSeleccion, setModoSeleccion] = useState(false);
   const [cascadeOpen, setCascadeOpen] = useState(false);
 
   const toggleSelection = useCallback((taskId: string) => {
@@ -98,7 +134,10 @@ export function AllTasksList({ systems }: AllTasksListProps) {
     });
   }, []);
 
-  const clearSelection = useCallback(() => setSelectedTaskIds(new Set()), []);
+  const clearSelection = useCallback(() => {
+    setSelectedTaskIds(new Set());
+    setModoSeleccion(false);
+  }, []);
 
   const systemMap = useMemo(
     () => new Map(systems.map((s) => [s.id, s])),
@@ -117,15 +156,24 @@ export function AllTasksList({ systems }: AllTasksListProps) {
     [router, pathname],
   );
 
-  const removeFilterChip = (key: keyof TaskFilters) => {
+  const quitarFicha = ({ key, value }: FichaActiva) => {
     const reset: Partial<TaskFilters> = {};
-    if (Array.isArray(filters[key])) reset[key] = [] as never;
+    const actual = filters[key];
+    if (Array.isArray(actual)) reset[key] = (value === undefined ? [] : actual.filter((v) => v !== value)) as never;
     else reset[key] = (key === 'sort' ? DEFAULT_FILTERS.sort : '') as never;
     handleFiltersChange({ ...filters, ...reset });
   };
+  const limpiarFiltros = () => handleFiltersChange({ ...DEFAULT_FILTERS, sort: filters.sort });
 
   const overdueTasks = useMemo(() => getOverdueTasks(tasks), [tasks]);
-  const overdueIds = useMemo(() => new Set(overdueTasks.map((t) => t.id)), [overdueTasks]);
+  const vencidas = useListaTachable(overdueTasks, (taskId) => toggleTask({ taskId }));
+  // Una vencida tachada en esta visita sigue en su sección y no se cuenta como
+  // una más de Todas: si no, al dejar de estar vencida aparecería también
+  // abajo, como fila hecha, y empujaría lo que hay debajo.
+  const overdueIds = useMemo(
+    () => new Set([...overdueTasks.map((t) => t.id), ...vencidas.struck]),
+    [overdueTasks, vencidas.struck],
+  );
 
   // Las vencidas tienen su sección arriba: aquí no se repiten, salvo que un
   // filtro de fecha las pida a propósito.
@@ -139,25 +187,27 @@ export function AllTasksList({ systems }: AllTasksListProps) {
 
   const { filas, struck, handleToggle } = useListaTachable(filtered, (taskId) => toggleTask({ taskId }));
 
-  // Active chips (only keys with values set)
-  const activeChips = (Object.keys(FILTER_CHIP_LABELS) as (keyof TaskFilters)[]).filter((k) => {
-    const v = filters[k];
-    return Array.isArray(v) ? v.length > 0 : !!v && v !== 'priority' && v !== 'list';
-  });
+  const fichas = fichasActivas(filters, systems);
   const filterCount = countActiveFilters(filters);
 
-  // Keyboard navigation: j/k move focus, x toggles selection, shift+j/k range-select
-  const { focusedTaskId } = useTaskKeyboardNavigation(filtered, {
+  // j y k recorren lo que se ve, en el orden en que se ve: las vencidas y
+  // luego todas, con las tachadas en su sitio. x elige, shift+j/k elige un
+  // tramo.
+  const navegables = useMemo(
+    () => [...(vencidas.filas as TaskTransport[]), ...(filas as TaskTransport[])],
+    [vencidas.filas, filas],
+  );
+  const { focusedTaskId } = useTaskKeyboardNavigation(navegables, {
     onSelect: setSelectedTask,
     onSelectionToggle: toggleSelection,
   }, {
-    enabled: !selectedTask && !deleteTarget,
+    enabled: !selectedTask && !showFilters,
   });
 
   // esc clears selection (only when something is selected, avoids conflicting with other esc handlers)
-  useHotkey('escape', clearSelection, { enabled: selectedTaskIds.size > 0 });
+  useHotkey('escape', clearSelection, { enabled: selectedTaskIds.size > 0 || modoSeleccion });
 
-  const seleccionando = selectedTaskIds.size > 0;
+  const seleccionando = selectedTaskIds.size > 0 || modoSeleccion;
 
   function accionesDe(t: TaskTransport): TaskRowAction[] {
     return [
@@ -166,8 +216,19 @@ export function AllTasksList({ systems }: AllTasksListProps) {
         icon: ListChecks,
         onSelect: () => toggleSelection(t.id),
       },
-      { label: 'Mover a la papelera', icon: Trash2, onSelect: () => setDeleteTarget(t), destructive: true },
+      { label: 'Mover a la papelera', icon: Trash2, onSelect: () => deleteTask(t.id), destructive: true },
     ];
+  }
+
+  function filaDe(t: TaskTransport) {
+    return {
+      actions: accionesDe(t),
+      selection: {
+        selected: selectedTaskIds.has(t.id),
+        visible: seleccionando,
+        onToggle: () => toggleSelection(t.id),
+      },
+    };
   }
 
   function renderRows(items: readonly TaskTransport[]) {
@@ -184,12 +245,7 @@ export function AllTasksList({ systems }: AllTasksListProps) {
             focused={t.id === focusedTaskId}
             onComplete={() => handleToggle(t)}
             onOpen={() => setSelectedTask(t)}
-            actions={accionesDe(t)}
-            selection={{
-              selected: selectedTaskIds.has(t.id),
-              visible: seleccionando,
-              onToggle: () => toggleSelection(t.id),
-            }}
+            {...filaDe(t)}
           />
         ))}
       </div>
@@ -232,45 +288,51 @@ export function AllTasksList({ systems }: AllTasksListProps) {
 
   return (
     <>
-      {!seleccionando && (
-        <OverdueGroup
-          tasks={overdueTasks}
-          systemMap={systemMap}
-          onOpen={setSelectedTask}
-          onToggle={(id) => toggleTask({ taskId: id })}
-        />
-      )}
+      <OverdueGroup
+        tasks={overdueTasks}
+        filas={vencidas.filas}
+        struck={vencidas.struck}
+        systemMap={systemMap}
+        onOpen={setSelectedTask}
+        onComplete={vencidas.handleToggle}
+        focusedTaskId={focusedTaskId}
+        filaDe={filaDe}
+      />
 
       <section aria-labelledby="todas-titulo">
         <SectionHead id="todas-titulo" title="Todas las tareas" count={isLoading ? undefined : cuenta} />
 
-        {/* Herramientas: la hoja de filtros y las fichas de lo que está activo. */}
+        {/* Herramientas: la hoja de filtros, la selección y las fichas de lo
+            que está activo, cada una con el valor que quita. */}
         <div className="flex flex-wrap items-center gap-1.5 py-2 pl-(--margen)">
           <Button size="sm" variant="secondary" onClick={() => setShowFilters(true)}>
             <SlidersHorizontal className="size-4" />
             Filtros
             {filterCount > 0 && <span className="tabular-nums">{filterCount}</span>}
           </Button>
-          {activeChips.map((key) => (
+          <Button
+            size="sm"
+            variant="ghost"
+            aria-pressed={seleccionando}
+            onClick={() => (seleccionando ? clearSelection() : setModoSeleccion(true))}
+          >
+            {seleccionando ? <Check className="size-4" /> : <ListChecks className="size-4" />}
+            {seleccionando ? 'Terminar' : 'Seleccionar'}
+          </Button>
+          {fichas.map((ficha) => (
             <Button
-              key={key}
+              key={`${ficha.key}-${ficha.value ?? ''}`}
               size="sm"
               variant="ghost"
-              onClick={() => removeFilterChip(key)}
-              aria-label={`Quitar el filtro ${FILTER_CHIP_LABELS[key]}`}
+              onClick={() => quitarFicha(ficha)}
+              aria-label={`Quitar el filtro ${ficha.label}`}
               className="text-foreground"
             >
-              {FILTER_CHIP_LABELS[key]}
+              {ficha.label}
               <X className="size-3.5 text-muted-foreground" />
             </Button>
           ))}
         </div>
-
-        <BulkActionBar
-          selectedIds={selectedTaskIds}
-          onClear={clearSelection}
-          onVaciar={seleccionando ? () => setCascadeOpen(true) : undefined}
-        />
 
         {isLoading ? (
           <ListaSkeleton filas={6} />
@@ -281,10 +343,7 @@ export function AllTasksList({ systems }: AllTasksListProps) {
               title="Nada con esos filtros"
               description="Quita uno y la lista vuelve."
               action={
-                <Button
-                  variant="secondary"
-                  onClick={() => handleFiltersChange({ ...DEFAULT_FILTERS, sort: filters.sort })}
-                >
+                <Button variant="secondary" onClick={limpiarFiltros}>
                   Limpiar filtros
                 </Button>
               }
@@ -305,15 +364,34 @@ export function AllTasksList({ systems }: AllTasksListProps) {
         ) : (
           renderGrouped(filas)
         )}
+
+        <BulkActionBar
+          selectedIds={selectedTaskIds}
+          onClear={clearSelection}
+          onVaciar={selectedTaskIds.size > 0 ? () => setCascadeOpen(true) : undefined}
+        />
       </section>
 
       <ResponsiveDialog open={showFilters} onOpenChange={setShowFilters}>
         <ResponsiveDialogContent className="sm:max-w-lg max-h-[90vh] overflow-y-auto">
           <ResponsiveDialogHeader>
             <ResponsiveDialogTitle>Filtros</ResponsiveDialogTitle>
-            <ResponsiveDialogDescription>Cada toque filtra la lista al momento.</ResponsiveDialogDescription>
+            <ResponsiveDialogDescription>Cada toque filtra la lista al momento; abajo, cuántas quedan.</ResponsiveDialogDescription>
           </ResponsiveDialogHeader>
           <TaskFilterPanel filters={filters} systems={systems} onChange={handleFiltersChange} />
+          {/* El pie de la hoja: la cuenta viva y las dos salidas, al alcance
+              del pulgar aunque la lista quede tapada. */}
+          <div
+            data-slot="filtros-pie"
+            className="sticky bottom-0 z-10 -mx-4 -mb-[calc(1rem+env(safe-area-inset-bottom))] flex gap-2 border-t border-border bg-popover px-4 pt-3 pb-[calc(1rem+env(safe-area-inset-bottom))] md:-mx-5 md:-mb-5 md:px-5 md:pb-5"
+          >
+            <Button variant="secondary" disabled={filterCount === 0} onClick={limpiarFiltros}>
+              Limpiar
+            </Button>
+            <Button className="flex-1" onClick={() => setShowFilters(false)}>
+              Ver {filtered.length} tarea{filtered.length === 1 ? '' : 's'}
+            </Button>
+          </div>
         </ResponsiveDialogContent>
       </ResponsiveDialog>
 
@@ -334,20 +412,8 @@ export function AllTasksList({ systems }: AllTasksListProps) {
         }}
       />
 
-      <ConfirmDialog
-        open={deleteTarget !== null}
-        title="Mover a la papelera"
-        description={`"${deleteTarget?.title}" se moverá a la papelera.`}
-        confirmLabel="Mover a la papelera"
-        onConfirm={() => {
-          if (deleteTarget) deleteTask(deleteTarget.id);
-          setDeleteTarget(null);
-        }}
-        onCancel={() => setDeleteTarget(null)}
-      />
-
       <CascadeInboxMode
-        tasks={filtered.filter((t) => selectedTaskIds.has(t.id))}
+        tasks={navegables.filter((t) => selectedTaskIds.has(t.id))}
         open={cascadeOpen}
         onOpenChange={(open) => {
           setCascadeOpen(open);
