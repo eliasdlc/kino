@@ -84,7 +84,7 @@ export function MediumsSection() {
         title="Guion audiovisual"
         description="Los cinco bloques del formato Final Draft. Las sangrías y mayúsculas son CSS: lo guardado es la línea tal cual la escribió el autor."
       >
-        <Specimen label="Escena completa" hint="p[data-sp] · .sp-*">
+        <Specimen label="Escena completa" hint="p[data-sp], .sp-*">
           <EditorSurface>
             {SCREENPLAY_LINES.map((line, i) => (
               <p key={i} data-sp={line.node} className={`sp-${line.node}`}>
@@ -119,13 +119,13 @@ export function MediumsSection() {
         description="La cuarta salida del MediumManifest (KIN-138): la obra como la vería quien la lee. La prosa se pagina con columnas CSS y scroll-snap —el truco de los lectores de ePub, sin partir el HTML—; el guion no, porque sus páginas se cuentan en líneas y paginarlo por píxeles sería mentir."
       >
         <SpecimenGrid>
-          <Specimen label="Novela" hint="readingLayout: book · serif, sangría, justificado">
+          <Specimen label="Novela" hint="readingLayout: book, serif, sangría, justificado">
             <div className="w-full">
               <ReadingView manuscript={makeManuscript()} />
             </div>
           </Specimen>
 
-          <Specimen label="Guion" hint="readingLayout: screenplay · sin paginado">
+          <Specimen label="Guion" hint="readingLayout: screenplay, sin paginado">
             <div className="w-full">
               <ReadingView manuscript={makeManuscript({ medium: "screenplay" })} />
             </div>
