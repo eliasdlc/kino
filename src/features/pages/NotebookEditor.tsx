@@ -12,6 +12,7 @@ import { useConvexQuery } from "@/shared/convex/hooks";
 import { usePage, useUpdatePage } from "./pages.hooks";
 import {
   BOTON_MAS,
+  CUERPO_DEL_ESCRITOR,
   FILA_DEL_TITULO,
   LETRA_DEL_TITULO,
   RESERVA_CODEX,
@@ -439,7 +440,7 @@ export function NotebookEditor({
             )}
           </div>
         )}
-        <div className={cn("tiptap-editor flex-1 relative", writer && "tiptap-writer")}>
+        <div className={cn("tiptap-editor flex-1 relative", writer && CUERPO_DEL_ESCRITOR)}>
           {editor && (
             <BubbleMenu editor={editor} options={{ placement: "top" }}>
               <div className={BUBBLE}>
