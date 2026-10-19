@@ -11,6 +11,8 @@ import {
   makeEntityDetail, mid } from "../mock-data";
 import { Button } from "@/components/ui/button";
 import { CodexRail } from "@/features/entities/CodexRail";
+import { CodexChips } from "@/features/entities/CodexChips";
+import { EntityImages } from "@/features/entities/EntityImages";
 import { CodexLibrary } from "@/features/entities/CodexLibrary";
 import { CodexNav } from "@/features/entities/CodexNav";
 import { EntityFicheSheet } from "@/features/entities/EntityFicheSheet";
@@ -76,6 +78,21 @@ function FicheSpecimen() {
 }
 
 const noop = () => {};
+
+/**
+ * Una imagen de muestra dibujada aquí mismo: el catálogo no sube nada ni
+ * depende de un servidor de imágenes, y el recorte de la portada se ve igual.
+ */
+function muestra(fondo: string, tinta: string): string {
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 300 100"><rect width="300" height="100" fill="${fondo}"/><path d="M0 70 Q75 40 150 62 T300 50 V100 H0Z" fill="${tinta}" opacity=".55"/><circle cx="235" cy="28" r="12" fill="${tinta}" opacity=".35"/></svg>`;
+  return `data:image/svg+xml,${encodeURIComponent(svg)}`;
+}
+
+/** Aurelia con portada y dos referencias en la galería. */
+const CON_IMAGENES = makeEntityDetail({
+  coverImageUrl: muestra("#e9e2d4", "#6b5a43"),
+  images: [muestra("#dfe6e9", "#3f5661"), muestra("#efe1d9", "#8a4b3a")],
+});
 
 /** El elenco de la biblioteca: lo que devuelve `entities.bySystem`. */
 const LIBRARY = CAST.map((e) => ({
@@ -186,6 +203,50 @@ export function CodexSection() {
       </SubSection>
 
       <SubSection
+        title="CodexChips"
+        description="Las entidades del capítulo abierto en una fila bajo el título, en el teléfono: el mismo codex del rail a un toque, sin tapar el texto. Cada ficha mide 2.85rem y abre la hoja de la entidad. La fila se desplaza en horizontal y, sin entidades, no se pinta."
+      >
+        <SpecimenGrid cols={2}>
+          <Specimen label="Con entidades" hint="entities.byPage con tres; toca una para abrir su ficha" className="items-stretch">
+            <Seeded stubs={[...seedRail(CAST), seedQuery(api.entities.byId, makeEntityDetail())]}>
+              <div className="w-full max-w-sm overflow-hidden px-4">
+                <CodexChips pageId={MOCK_PAGE_ID} systemId={MOCK_SYSTEM_ID} />
+              </div>
+            </Seeded>
+          </Specimen>
+          <Specimen label="Capítulo sin menciones" hint="no deja una fila vacía: aquí no se pinta nada">
+            <Seeded stubs={seedRail([])}>
+              <div className="w-full max-w-sm px-4">
+                <CodexChips pageId={MOCK_PAGE_ID} systemId={MOCK_SYSTEM_ID} />
+              </div>
+            </Seeded>
+          </Specimen>
+        </SpecimenGrid>
+      </SubSection>
+
+      <SubSection
+        title="EntityImages"
+        description="La portada y la galería de referencias de una entidad, dentro de su ficha. Subir comprime a WebP en el cliente; sin almacenamiento configurado dice el error sin romper la ficha. Con ratón, quitar asoma al pasar por encima; en el teléfono se ve siempre y mide 2.85rem, y la miniatura crece a 4.5rem para que el aspa no la tape."
+      >
+        <SpecimenGrid cols={2}>
+          <Specimen label="Sin imágenes" hint="Subir portada y el hueco punteado de la galería" className="items-stretch">
+            <Seeded stubs={[]}>
+              <div className="w-full max-w-sm">
+                <EntityImages entity={makeEntityDetail()} systemId={MOCK_SYSTEM_ID} />
+              </div>
+            </Seeded>
+          </Specimen>
+          <Specimen label="Con portada y referencias" hint="pasa el puntero para ver Quitar portada y Quitar imagen" className="items-stretch">
+            <Seeded stubs={[]}>
+              <div className="w-full max-w-sm">
+                <EntityImages entity={CON_IMAGENES} systemId={MOCK_SYSTEM_ID} />
+              </div>
+            </Seeded>
+          </Specimen>
+        </SpecimenGrid>
+      </SubSection>
+
+      <SubSection
         title="Ficha de entidad"
         description="ResponsiveDialog: sheet en desktop, drawer en móvil. Atributos por tipo, relaciones y apariciones."
       >
@@ -218,7 +279,7 @@ export function CodexSection() {
         description="Solo render sobre entity_relations. Monocromo: el tipo se lee por icono y el peso por tamaño. Se arrastra para desplazar y hay zoom; el borde punteado marca una entidad sin ninguna relación."
       >
         <SpecimenGrid>
-          <Specimen label="Universo conectado" hint="GraphCanvas · 6 entidades, 5 relaciones">
+          <Specimen label="Universo conectado" hint="GraphCanvas: 6 entidades, 5 relaciones">
             <div className="w-full">
               <GraphCanvas layout={layoutGraph(GRAPH_NODES, GRAPH_EDGES)} onOpen={noop} />
             </div>
