@@ -28,6 +28,21 @@ interface LinkedTaskCardProps {
 const MESES = ["ene", "feb", "mar", "abr", "may", "jun", "jul", "ago", "sept", "oct", "nov", "dic"];
 
 /** La fecha de entrega dicha con su estado delante, y si toca, en coral. */
+/**
+ * La estimación llega como reloj («00:25:00», «1:30»): se lee en minutos u
+ * horas, nunca el reloj crudo seguido de «min».
+ */
+export function duracionEstimada(reloj: string | null | undefined): string | null {
+  if (!reloj) return null;
+  const [h = "0", m = "0"] = reloj.split(":");
+  const total = (parseInt(h, 10) || 0) * 60 + (parseInt(m, 10) || 0);
+  if (total <= 0) return null;
+  if (total < 60) return `${total} min`;
+  const horas = Math.floor(total / 60);
+  const resto = total % 60;
+  return resto ? `${horas} h ${resto} min` : `${horas} h`;
+}
+
 export function fechaDeEntrega(dueDate: string, hoy = new Date()): { texto: string; vencida: boolean } {
   const fecha = parseDueDate(dueDate);
   const dias = differenceInCalendarDays(fecha, hoy);
@@ -51,6 +66,7 @@ export function LinkedTaskCard({ task, onToggle, onEdit, onUnlink }: LinkedTaskC
   const isDone = task.status === "done";
   const typeConfig = getTaskTypeConfig(task.taskType ?? undefined);
   const entrega = task.dueDate ? fechaDeEntrega(task.dueDate) : null;
+  const duracion = duracionEstimada(task.estimatedTime);
   const prioridadAlta = task.priority === "critical" || task.priority === "high";
 
   return (
@@ -104,7 +120,7 @@ export function LinkedTaskCard({ task, onToggle, onEdit, onUnlink }: LinkedTaskC
               <span className={cn(entrega.vencida && "text-warn")}>{entrega.texto}</span>
             </>
           )}
-          {task.estimatedTime ? `, ${task.estimatedTime} min` : null}
+          {duracion ? `, ${duracion}` : null}
         </span>
       </button>
 
