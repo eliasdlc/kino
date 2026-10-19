@@ -45,8 +45,9 @@ function estimacionLegible(tiempo: string | null | undefined): string | null {
   if (!tiempo) return null;
   const [h = 0, m = 0] = tiempo.split(":").map(Number);
   if (!h && !m) return null;
-  if (!h) return `${m} min`;
-  return m ? `${h} h ${m}` : `${h} h`;
+  // Espacio duro: la cifra y su unidad no se separan al partir el renglón.
+  if (!h) return `${m}\u00a0min`;
+  return m ? `${h}\u00a0h\u00a0${m}` : `${h}\u00a0h`;
 }
 
 /** La línea de meta de una fila: el estado con su palabra, la prioridad en peso, la energía. */
