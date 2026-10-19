@@ -593,10 +593,12 @@ function GraphNodeButton({
       >
         <Icon width={iconSize} height={iconSize} />
       </g>
+      {/* Cerca de un borde el nombre crece hacia dentro: con la letra de
+          teléfono, un nombre centrado en un nodo del canto se salía del lienzo. */}
       <text
-        x={node.x}
+        x={node.x < 250 ? node.x - r : node.x > 750 ? node.x + r : node.x}
         y={node.y + r + fontSize * 1.15}
-        textAnchor="middle"
+        textAnchor={node.x < 250 ? "start" : node.x > 750 ? "end" : "middle"}
         fontSize={fontSize}
         className="fill-foreground font-medium"
       >
