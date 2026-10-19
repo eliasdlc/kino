@@ -131,14 +131,30 @@ export function PlotGridView({
   }
 
   if (isLoading) {
-    // La forma de lo que llega: un capítulo con sus escenas, quieta.
-    return (
-      <div aria-busy className="space-y-2">
-        <div className="border-b border-border pb-2">
-          <Skeleton className="h-6 w-56" />
+    // La forma de lo que llega, quieta: en el teléfono un capítulo con sus
+    // escenas; en escritorio, columnas de capítulo bajo su hairline.
+    if (isMobile) {
+      return (
+        <div aria-busy className="space-y-2">
+          <div className="border-b border-border pb-2">
+            <Skeleton className="h-6 w-56" />
+          </div>
+          <Skeleton className="h-[4.6rem] w-full rounded-md" />
+          <Skeleton className="h-[4.6rem] w-full rounded-md" />
         </div>
-        <Skeleton className="h-[4.6rem] w-full rounded-md" />
-        <Skeleton className="h-[4.6rem] w-full rounded-md" />
+      );
+    }
+    return (
+      <div aria-busy className="flex gap-4 pt-12">
+        {[0, 1, 2].map((i) => (
+          <div key={i} className="w-64 shrink-0 space-y-2">
+            <div className="border-b border-input pb-2">
+              <Skeleton className="h-10 w-40" />
+            </div>
+            <Skeleton className="h-[4.6rem] w-full rounded-md" />
+            <Skeleton className="h-[4.6rem] w-full rounded-md" />
+          </div>
+        ))}
       </div>
     );
   }
