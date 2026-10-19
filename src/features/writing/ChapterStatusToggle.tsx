@@ -98,8 +98,9 @@ export function ChapterStatusToggle({
     >
       <Icono aria-hidden className="size-4" />
       {/* Las tres palabras en la misma celda: la visible manda y las otras dos,
-          ocultas, fijan el ancho de la más larga. */}
-      <span className="grid">
+          ocultas, fijan el ancho de la más larga. A la izquierda: un botón
+          centra su texto, y la palabra corta quedaría flotando. */}
+      <span className="grid text-left">
         <span className="col-start-1 row-start-1">{palabra}</span>
         {PALABRAS.filter((otra) => otra !== palabra).map((otra) => (
           <span key={otra} aria-hidden className="invisible col-start-1 row-start-1">
