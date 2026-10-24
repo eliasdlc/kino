@@ -19,7 +19,14 @@ function montar(): Editor {
   return new Editor({ element: el, extensions: [StarterKit, ReviewHighlight], content: DOCUMENTO });
 }
 
-const comentario = (id: string, quote: string) => ({ id, quote, prefix: null, suffix: null, severity: "important" as const });
+const comentario = (id: string, quote: string) => ({
+  id,
+  quote,
+  prefix: null,
+  suffix: null,
+  severity: "important" as const,
+  category: "evidence" as const,
+});
 
 describe("el resaltado de revisión", () => {
   it("pinta la cita aunque cruce una negrita, y no la guarda en el HTML", () => {
@@ -30,6 +37,14 @@ describe("el resaltado de revisión", () => {
     expect([...pintado].map((n) => n.textContent).join("")).toBe("firewall perimetral");
     expect(editor.getHTML()).not.toContain("review");
     expect(editor.getHTML()).toBe(DOCUMENTO);
+  });
+
+  it("lleva el color de su tipo y el peso de su importancia", () => {
+    const editor = montar();
+    setHighlightComments(editor, [comentario("c1", "respaldos")]);
+    const pintado = editor.view.dom.querySelector('[data-review-id="c1"]')!;
+    expect(pintado).toHaveClass("review-cat-evidence");
+    expect(pintado).toHaveClass("review-anchor-important");
   });
 
   it("enciende el comentario activo", () => {

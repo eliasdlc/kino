@@ -30,7 +30,7 @@ export function ReviewBridge({ pageId }: { pageId: string }) {
   const open = useMemo(() => (data?.comments ?? []).filter((c) => c.status === "open"), [data]);
   // La lista cambia de identidad con cada respuesta del servidor; lo que el
   // editor necesita saber sólo cambia cuando cambian estas claves.
-  const firma = open.map((c) => `${c.id}:${c.severity ?? ""}`).join("|");
+  const firma = open.map((c) => `${c.id}:${c.severity ?? ""}:${c.category ?? ""}`).join("|");
 
   useEffect(() => {
     if (!editor || editor.isDestroyed) return;
@@ -40,6 +40,7 @@ export function ReviewBridge({ pageId }: { pageId: string }) {
       prefix: c.prefix,
       suffix: c.suffix,
       severity: c.severity,
+      category: c.category,
     }));
     setHighlightComments(editor, comments);
     // `open` sale de `firma`: depender de la lista repintaría en cada lectura.

@@ -1,8 +1,9 @@
 /**
- * Criterio: el panel dice cuánto queda en palabras y por peso, esconde la
- * propuesta hasta que se pide (la que se ve antes de pensar se acepta sin
- * pensar), y cada cierre llega al servidor con su forma: resuelto, o
- * descartado con el motivo que leerá la siguiente pasada.
+ * Criterio: el panel dice cuánto queda en palabras y por peso, deja trabajar
+ * un solo tipo de comentario a la vez, esconde la propuesta hasta que se pide
+ * (la que se ve antes de pensar se acepta sin pensar), y cada cierre llega al
+ * servidor con su forma: resuelto, o descartado con el motivo que leerá la
+ * siguiente pasada.
  */
 import { describe, expect, it } from "vitest";
 import { fireEvent, screen, waitFor } from "@testing-library/react";
@@ -95,6 +96,20 @@ describe("el panel de revisión", () => {
     expect(screen.getByText("Quedan 1 crítico y 1 detalle")).toBeVisible();
     expect(screen.getByRole("progressbar")).toHaveAttribute("aria-valuenow", "33");
     expect(screen.getByText("El diagnóstico exagera los controles.")).toBeVisible();
+  });
+
+  it("la leyenda de tipos filtra la lista, y volver a pulsarla la devuelve entera", async () => {
+    montar(CON_REVISION);
+    await screen.findByText("1 de 3 cerrados");
+    const redaccion = screen.getByRole("button", { name: /Redacción/ });
+
+    fireEvent.click(redaccion);
+    expect(redaccion).toHaveAttribute("aria-pressed", "true");
+    expect(screen.getByText("Falta la coma.")).toBeVisible();
+    expect(screen.queryByText("Nombra qué controles faltan.")).not.toBeInTheDocument();
+
+    fireEvent.click(redaccion);
+    expect(screen.getByText("Nombra qué controles faltan.")).toBeVisible();
   });
 
   it("esconde la propuesta hasta que se pide", async () => {

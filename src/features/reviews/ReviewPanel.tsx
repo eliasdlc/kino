@@ -15,7 +15,7 @@ import { CommentCard } from "./CommentCard";
 import { ReviewProgressBar } from "./ReviewProgressBar";
 import { ASK_LABEL, agentPrompt, nextAsk } from "./agent-prompt";
 import { closingSummary } from "./closing-summary";
-import { workOrder } from "./review-labels";
+import { CATEGORY_LABEL, CATEGORY_ORDER, workOrder } from "./review-labels";
 import { askSchema } from "./reviews.schemas";
 import {
   useAskAboutText,
@@ -25,9 +25,14 @@ import {
   useReplyToComment,
   useResolveComment,
 } from "./reviews.hooks";
-import type { PageReviewView, ReviewComment } from "./reviews.types";
+import type { PageReviewView, ReviewCategory, ReviewComment } from "./reviews.types";
 
 type Pestana = "open" | "closed";
+
+/** El tipo por el que se filtra: una categoría, las preguntas de la persona, o todos. */
+type Tipo = ReviewCategory | "question";
+
+const tipoDe = (c: ReviewComment): Tipo => c.category ?? "question";
 
 /**
  * El panel de revisión. En escritorio es una columna junto al texto, para que
@@ -84,7 +89,11 @@ export function ReviewPanelBody({
   const posiciones = useMemo(() => new Map(ui.anchors.order.map((id, i) => [id, i])), [ui.anchors.order]);
   const abiertos = useMemo(() => workOrder(comments.filter((c) => c.status === "open"), posiciones), [comments, posiciones]);
   const cerrados = useMemo(() => comments.filter((c) => c.status !== "open"), [comments]);
-  const visibles = pestana === "open" ? abiertos : cerrados;
+  const [tipo, setTipo] = useState<Tipo | null>(null);
+  // Lo que se recorre con anterior y siguiente es lo que se ve: filtrar por un
+  // tipo es decidir trabajar sólo en eso un rato.
+  const enRuta = useMemo(() => (tipo ? abiertos.filter((c) => tipoDe(c) === tipo) : abiertos), [abiertos, tipo]);
+  const visibles = pestana === "open" ? enRuta : tipo ? cerrados.filter((c) => tipoDe(c) === tipo) : cerrados;
   const reviewerDe = useMemo(() => {
     const porId = new Map((data?.reviews ?? []).map((r) => [r.id, r.reviewer]));
     return (c: ReviewComment) => (c.reviewId ? (porId.get(c.reviewId) ?? null) : (data?.reviews[0]?.reviewer ?? null));
@@ -113,8 +122,8 @@ export function ReviewPanelBody({
 
   /** Tras cerrar uno, el siguiente abierto se enciende solo: el trabajo sigue sin buscarlo. */
   function siguienteTras(id: string) {
-    const i = abiertos.findIndex((c) => c.id === id);
-    const resto = abiertos.filter((c) => c.id !== id);
+    const i = enRuta.findIndex((c) => c.id === id);
+    const resto = enRuta.filter((c) => c.id !== id);
     if (resto.length === 0) return null;
     return (resto[Math.min(Math.max(i, 0), resto.length - 1)] ?? resto[0])!.id;
   }
@@ -128,12 +137,12 @@ export function ReviewPanelBody({
     };
   }
 
-  const indice = activeId ? abiertos.findIndex((c) => c.id === activeId) : -1;
+  const indice = activeId ? enRuta.findIndex((c) => c.id === activeId) : -1;
   function paso(delta: number) {
-    if (abiertos.length === 0) return;
-    const next = indice === -1 ? 0 : (indice + delta + abiertos.length) % abiertos.length;
+    if (enRuta.length === 0) return;
+    const next = indice === -1 ? 0 : (indice + delta + enRuta.length) % enRuta.length;
     setPestana("open");
-    activar(abiertos[next]!.id);
+    activar(enRuta[next]!.id);
   }
 
   const latest = data?.reviews[0] ?? null;
@@ -148,7 +157,7 @@ export function ReviewPanelBody({
               <ChevronLeft />
             </Button>
             <span className="min-w-12 text-center text-xs tabular-nums text-muted-foreground">
-              {indice === -1 ? `${abiertos.length} por cerrar` : `${indice + 1} de ${abiertos.length}`}
+              {indice === -1 ? `${enRuta.length} por cerrar` : `${indice + 1} de ${enRuta.length}`}
             </span>
             <Button variant="ghost" size="icon-sm" aria-label="Comentario siguiente" onClick={() => paso(1)}>
               <ChevronRight />
@@ -197,6 +206,8 @@ export function ReviewPanelBody({
           </div>
         )}
 
+        {abiertos.length > 0 && <Leyenda abiertos={abiertos} tipo={tipo} onTipo={setTipo} />}
+
         {pestana === "open" && abiertos.length === 0 && cerrados.length > 0 && (
           <p className="text-sm text-muted-foreground">No queda nada por cerrar en este documento.</p>
         )}
@@ -222,6 +233,42 @@ export function ReviewPanelBody({
 
         <Preguntar pageId={pageId} />
       </div>
+    </div>
+  );
+}
+
+/**
+ * Qué tipos de comentario quedan, cada uno con su color y su cuenta. Es la
+ * leyenda de los colores del texto y, pulsada, un filtro: tocar «Argumento»
+ * deja sólo esos, y volver a tocarlo los devuelve todos.
+ */
+function Leyenda({ abiertos, tipo, onTipo }: { abiertos: readonly ReviewComment[]; tipo: Tipo | null; onTipo: (t: Tipo | null) => void }) {
+  const cuenta = new Map<Tipo, number>();
+  for (const c of abiertos) cuenta.set(tipoDe(c), (cuenta.get(tipoDe(c)) ?? 0) + 1);
+  const tipos = [...CATEGORY_ORDER, "question" as const].filter((t) => cuenta.has(t));
+  if (tipos.length < 2 && tipo === null) return null;
+
+  return (
+    <div role="group" aria-label="Filtrar por tipo" className="flex flex-wrap gap-1.5">
+      {tipos.map((t) => (
+        <button
+          key={t}
+          type="button"
+          aria-pressed={tipo === t}
+          onClick={() => onTipo(tipo === t ? null : t)}
+          className={cn(
+            "inline-flex min-h-8 items-center gap-1.5 rounded-full border px-2.5 text-xs font-semibold transition-colors",
+            t === "question" ? "[--rv:var(--ac)]" : `review-cat-${t}`,
+            tipo === t
+              ? "border-[var(--rv)] bg-[color-mix(in_srgb,var(--rv)_14%,transparent)] text-foreground"
+              : "border-border text-muted-foreground hover:text-foreground",
+          )}
+        >
+          <span className="size-2 rounded-full bg-[var(--rv)]" aria-hidden />
+          {t === "question" ? "Preguntas" : CATEGORY_LABEL[t]}
+          <span className="tabular-nums">{cuenta.get(t)}</span>
+        </button>
+      ))}
     </div>
   );
 }

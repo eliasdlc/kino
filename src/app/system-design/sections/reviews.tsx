@@ -113,16 +113,21 @@ export function ReviewsSection() {
     >
       <SubSection
         title="El fragmento en el texto"
-        description="Subrayado, no lavado: el ámbar de fondo es de la nota adhesiva. La severidad va en el peso de la raya. El comentario que se está mirando gana el lavado."
+        description="El color dice el tipo; el peso de la raya, la importancia: crítico grueso, importante normal, detalle punteado. Un lavado suave deja ver de un vistazo qué hay y dónde; el comentario que se está mirando lo sube. Una pregunta de la persona va en ámbar."
       >
         <div className="tiptap-editor max-w-2xl rounded-lg border bg-card p-6 text-sm leading-7">
           <p>
-            Mi impresión general es que QSD ya tiene{" "}
-            <span className="review-anchor review-anchor-critical">todas las medidas de seguridad requeridas</span> pero
-            aún no han sido probadas. Usaría la frase <span className="review-anchor review-anchor-important">Yo lo inferí</span>{" "}
-            cuando falte{" "}
-            <span className="review-anchor review-anchor-suggestion review-anchor-active">información de verificación</span>, y{" "}
-            <span className="review-anchor review-anchor-question">esto</span> cuando haya pregunta.
+            <span className="review-anchor review-anchor-important review-cat-structure">La información puede ser clasificada como prueba</span>{" "}
+            si se encuentra en el caso. Mi impresión es que QSD ya tiene{" "}
+            <span className="review-anchor review-anchor-critical review-cat-argument review-anchor-active">
+              todas las medidas de seguridad requeridas
+            </span>
+            , según{" "}
+            <span className="review-anchor review-anchor-important review-cat-evidence">el informe mensual del proveedor</span>. Será
+            llamada <span className="review-anchor review-anchor-suggestion review-cat-clarity">información de verificación</span> cuando
+            falte algo. Usaría la frase <span className="review-anchor review-anchor-important review-cat-style">Yo lo inferí</span>, y{" "}
+            <span className="review-anchor review-anchor-suggestion review-cat-grammar">como prueba</span> lleva coma. Sobre{" "}
+            <span className="review-anchor review-anchor-question">esto</span> tengo una pregunta.
           </p>
         </div>
       </SubSection>
@@ -149,7 +154,7 @@ export function ReviewsSection() {
 
       <SubSection
         title="CommentCard"
-        description="Qué fragmento, qué pasa y por qué, una pista para pensarlo y la propuesta sólo si se pide. Un fragmento reescrito ofrece «Lo arreglé»; uno que ya no está se tacha."
+        description="La franja y el icono llevan el color del tipo; la señal de tres barras, la importancia. Después: qué fragmento, qué pasa y por qué, una pista para pensarlo y la propuesta sólo si se pide. Un fragmento reescrito ofrece «Lo arreglé»; uno que ya no está se tacha."
       >
         <SpecimenGrid cols={3}>
           <Specimen label="Abierto, activo" hint="anchor here" className="items-start">

@@ -28,10 +28,13 @@ export interface HighlightComment {
   suffix: string | null;
   /** El peso del subrayado. Una pregunta de la persona no lleva severidad. */
   severity: "critical" | "important" | "suggestion" | null;
+  /** El color del subrayado. Una pregunta de la persona no lleva tipo. */
+  category: "structure" | "argument" | "evidence" | "clarity" | "style" | "grammar" | null;
 }
 
 interface TrackedRange extends DocRange {
   severity: HighlightComment["severity"];
+  category: HighlightComment["category"];
 }
 
 interface HighlightState {
@@ -51,6 +54,7 @@ function pintar(state: EditorState["doc"], ranges: ReadonlyMap<string, TrackedRa
   const decorations: Decoration[] = [];
   for (const [id, range] of ranges) {
     const clases = ["review-anchor", `review-anchor-${range.severity ?? "question"}`];
+    if (range.category) clases.push(`review-cat-${range.category}`);
     if (id === active) clases.push("review-anchor-active");
     decorations.push(Decoration.inline(range.from, range.to, { class: clases.join(" "), "data-review-id": id }));
   }
@@ -80,14 +84,14 @@ function aplicar(tr: Transaction, prev: HighlightState, newState: EditorState): 
     for (const comment of meta.comments) {
       const tracked = ranges.get(comment.id);
       if (tracked) {
-        next.set(comment.id, { ...tracked, severity: comment.severity });
+        next.set(comment.id, { ...tracked, severity: comment.severity, category: comment.category });
         continue;
       }
       // Esta misma transacción acaba de borrar su fragmento: no se busca otro igual.
       if (tr.docChanged && prev.ranges.has(comment.id)) continue;
       projection ??= docText(newState.doc);
       const found = locateInDoc(projection, { exact: comment.quote, prefix: comment.prefix, suffix: comment.suffix });
-      if (found) next.set(comment.id, { ...found, severity: comment.severity });
+      if (found) next.set(comment.id, { ...found, severity: comment.severity, category: comment.category });
     }
     ranges = next;
     cambio = true;

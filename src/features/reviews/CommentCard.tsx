@@ -5,7 +5,8 @@ import { Check, CornerDownLeft, Lightbulb, RotateCcw, Sparkles } from "lucide-re
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
-import { CATEGORY_ICON, CATEGORY_LABEL, QUESTION_ICON, SEVERITY_LABEL, authorLabel } from "./review-labels";
+import { CATEGORY_ICON, CATEGORY_LABEL, QUESTION_ICON, authorLabel } from "./review-labels";
+import { SeverityMark } from "./SeverityMark";
 import { BODY_MAX } from "@convex/lib/reviews";
 import { replySchema } from "./reviews.schemas";
 import type { AnchorState, ReviewComment } from "./reviews.types";
@@ -75,26 +76,20 @@ export function CommentCard({
       aria-current={active || undefined}
       onClick={handlers.onActivate}
       className={cn(
-        "group/comment scroll-mt-4 rounded-[1.125rem] border bg-background p-3.5 text-sm transition-[border-color,background-color,opacity] duration-200",
-        active ? "border-primary/60 bg-primary/[0.04]" : "border-border hover:border-[var(--ln2)]",
+        // El color del tipo entra por `--rv` (globals.css): la franja de la
+        // izquierda y el icono lo llevan, y el texto sigue en tinta.
+        "group/comment scroll-mt-4 rounded-[1.125rem] border border-l-[0.25rem] border-l-[var(--rv)] bg-background p-3.5 text-sm transition-[border-color,background-color,opacity] duration-200",
+        comment.category ? `review-cat-${comment.category}` : "[--rv:var(--ac)]",
+        active
+          ? "border-y-[var(--rv)] border-r-[var(--rv)] bg-[color-mix(in_srgb,var(--rv)_6%,transparent)]"
+          : "border-y-border border-r-border hover:border-y-[var(--ln2)] hover:border-r-[var(--ln2)]",
         !abierto && "opacity-75",
       )}
     >
       <header className="mb-2 flex items-center gap-2 text-xs">
-        <CategoryIcon className="size-3.5 shrink-0 text-muted-foreground" aria-hidden />
-        <span className="text-muted-foreground">{etiqueta}</span>
-        {comment.severity && (
-          <span
-            className={cn(
-              "ml-auto",
-              comment.severity === "critical" && "font-bold text-foreground",
-              comment.severity === "important" && "font-semibold text-foreground",
-              comment.severity === "suggestion" && "text-muted-foreground",
-            )}
-          >
-            {SEVERITY_LABEL[comment.severity]}
-          </span>
-        )}
+        <CategoryIcon className="size-3.5 shrink-0 text-[var(--rv)]" aria-hidden />
+        <span className="font-semibold text-[var(--rv)]">{etiqueta}</span>
+        {comment.severity && <SeverityMark severity={comment.severity} className="ml-auto" />}
       </header>
 
       <blockquote
