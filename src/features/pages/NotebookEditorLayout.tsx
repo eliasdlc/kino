@@ -20,6 +20,9 @@ import { ChapterHistory } from "@/features/writing/ChapterHistory";
 import { ChapterSummaryPanel } from "@/features/writing/ChapterSummaryPanel";
 import { usePinnedReferences } from "@/features/writing/pinned-references";
 import { EditorShortcutsHelp } from "./EditorShortcutsHelp";
+import { ReviewProvider } from "@/features/reviews/ReviewContext";
+import { ReviewPanel } from "@/features/reviews/ReviewPanel";
+import { ReviewToggle } from "@/features/reviews/ReviewToggle";
 import { useSubPages, useCreateSubPage } from "./pages.hooks";
 import { htmlToMarkdown, exportFileMeta } from "./export/html-to-markdown";
 import { downloadBlob, slugify } from "@/shared/utils/download";
@@ -278,6 +281,9 @@ export function NotebookEditorLayout({
   }, [focusMode]);
 
   return (
+    // La revisión es de este cuaderno: el botón de la barra, el panel y el
+    // editor comparten qué comentario está encendido.
+    <ReviewProvider>
     <div className="flex h-full overflow-hidden flex-col">
       {/* Breadcrumb bar: oculta en modo focus para dejar solo el texto */}
       <div
@@ -301,6 +307,7 @@ export function NotebookEditorLayout({
             unitNoun={medium?.unit.noun}
           />
         )}
+        <ReviewToggle pageId={page.id} />
         <Button
           variant="ghost"
           size="icon"
@@ -327,6 +334,7 @@ export function NotebookEditorLayout({
           onOutline={setOutline}
           jumpRef={jumpRef}
         />
+        {!focusMode && <ReviewPanel pageId={page.id} title={livePage.title} />}
       </div>
 
       {/* Floating right panel */}
@@ -425,5 +433,6 @@ export function NotebookEditorLayout({
         </SheetContent>
       </Sheet>
     </div>
+    </ReviewProvider>
   );
 }

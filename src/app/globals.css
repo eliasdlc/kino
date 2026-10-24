@@ -534,6 +534,36 @@
   box-decoration-break: clone;
 }
 
+/* ── Fragmentos con comentario de revisión ──────────────────────────────────
+   Subrayado y no lavado: el lavado ámbar ya es de la nota adhesiva, y un
+   subrayado no tapa el texto que hay que leer para arreglarlo. La severidad va
+   en el peso de la raya, como la prioridad va en el peso de la tinta: crítico
+   grueso, importante normal, detalle punteado. El activo gana el lavado, que
+   es lo que dice «este es el que estás mirando». */
+.review-anchor {
+  text-decoration-line: underline;
+  text-decoration-color: color-mix(in srgb, var(--ac) 75%, transparent);
+  text-decoration-thickness: 0.12em;
+  text-underline-offset: 0.24em;
+  text-decoration-skip-ink: none;
+  cursor: pointer;
+  border-radius: 0.2rem;
+  -webkit-box-decoration-break: clone;
+  box-decoration-break: clone;
+  transition: background-color 200ms ease-out;
+}
+.review-anchor-critical {
+  text-decoration-thickness: 0.18em;
+  text-decoration-color: var(--ac);
+}
+.review-anchor-suggestion,
+.review-anchor-question {
+  text-decoration-style: dotted;
+}
+.review-anchor-active {
+  background: color-mix(in srgb, var(--ac) 20%, transparent);
+}
+
 /* Ancla de posicion: sostiene la nota junto a su parrafo y no marca nada. */
 .sticky-anchor-mark[data-anchor-muted] {
   background: transparent;
