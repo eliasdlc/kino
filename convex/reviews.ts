@@ -4,7 +4,7 @@ import type { Doc, Id } from './_generated/dataModel';
 import type { MutationCtx, QueryCtx } from './_generated/server';
 import { forbidden, invalid, notFound } from './lib/errors';
 import { recordEvent } from './eventLog';
-import { kinoZodMutation, kinoZodQuery, type Caller, type Channel } from './lib/fn';
+import { kinoZodMutation, kinoZodProposal, kinoZodQuery, type Caller, type Channel } from './lib/fn';
 import {
   AFFIX_MAX,
   BODY_MAX,
@@ -28,10 +28,12 @@ import { reviewCategory, reviewSeverity, type ActorChannel, type CommentTurn, ty
 // a uno mientras una barra se llena. Kino no lee el texto con ningún modelo:
 // guarda lo que el agente escribió, comprueba que lo que cita existe y mide.
 //
-// Comentar es escritura reversible (`direct`): un comentario no toca el texto
-// de nadie y se descarta con un gesto. Lo que sí suplanta la voz, reescribir
-// el documento, sigue pasando por `update_page` y su confirmación; aplicar una
-// propuesta lo hace la persona en su editor, nunca el servidor.
+// Comentar es proponer (`proposed`): un comentario no toca el texto de nadie y
+// espera a que la persona decida qué hace con él, así que un agente con alcance
+// `propose` revisa igual que uno con `write`. Dar algo por resuelto sí es un
+// hecho y pide `write`. Lo que suplanta la voz, reescribir el documento, sigue
+// pasando por `update_page` y su confirmación; aplicar una propuesta lo hace la
+// persona en su editor, nunca el servidor.
 //
 // ── Retención ──────────────────────────────────────────────────────────────
 // No se podan. Son el rastro de cómo se trabajó un texto, unidades por página
@@ -87,7 +89,7 @@ function reviewItem(doc: Doc<'pageReviews'>, comments: readonly Doc<'pageComment
     author: autorDe(doc.createdVia),
     closedAt: iso(doc.closedAt),
     createdAt: iso(doc.createdAt)!,
-    // Sólo las pasadas abiertas traen su barra: una cerrada ya dijo lo que tenía que decir.
+    // Las abiertas traen su barra, y la última aunque esté cerrada; las demás ya dijeron lo que tenían que decir.
     progress: comments ? reviewProgress(comments) : null,
   };
 }
@@ -147,9 +149,15 @@ async function sellarPasada(ctx: MutationCtx, reviewId: Id<'pageReviews'> | unde
   return false;
 }
 
-/** La barra de la página: los comentarios de cada pasada abierta, juntos. */
+/**
+ * La barra de la página: los comentarios de cada pasada abierta, juntos. Sin
+ * ninguna abierta, la de la última pasada, que es la que se acaba de cerrar:
+ * una barra que se vacía en el instante en que se llena borra el momento.
+ */
 async function barraDeLaPagina(ctx: QueryCtx | MutationCtx, reviews: readonly Doc<'pageReviews'>[]) {
-  const abiertas = reviews.filter((r) => r.closedAt === undefined);
+  const abiertas = reviews.some((r) => r.closedAt === undefined)
+    ? reviews.filter((r) => r.closedAt === undefined)
+    : reviews.slice(0, 1);
   const porPasada = new Map<Id<'pageReviews'>, Doc<'pageComments'>[]>();
   for (const review of abiertas) porPasada.set(review._id, await deLaPasada(ctx, review._id));
   return { abiertas: porPasada, progress: reviewProgress([...porPasada.values()].flat()) };
@@ -305,7 +313,7 @@ async function abiertosDisponibles(ctx: MutationCtx, pageId: Id<'pages'>, nuevos
  * el texto guardado, no se escribe ninguna y el error dice cuáles fallaron,
  * para que el agente las corrija y reintente.
  */
-export const create = kinoZodMutation({
+export const create = kinoZodProposal({
   args: {
     pageId: zid('pages'),
     summary: z.string().trim().max(SUMMARY_MAX).optional(),
@@ -428,7 +436,8 @@ function conRespuesta(doc: Doc<'pageComments'>, channel: Channel, body: string, 
   return [...doc.replies, { id: crypto.randomUUID(), body, via: channel, createdAt: now }];
 }
 
-async function registrar(ctx: MutationCtx & Caller, doc: Doc<'pageComments'>, action: string, payload: Record<string, unknown> = {}) {
+/** Deja la fila del log. La acción va escrita como `action:` en cada llamada para que `item-events.test.ts` la encuentre. */
+async function registrar(ctx: MutationCtx & Caller, doc: Doc<'pageComments'>, { action }: { action: string }) {
   await recordEvent(ctx, {
     userId: ctx.user._id,
     systemId: doc.systemId,
@@ -436,12 +445,12 @@ async function registrar(ctx: MutationCtx & Caller, doc: Doc<'pageComments'>, ac
     action,
     targetType: 'page',
     targetId: doc.pageId,
-    payload: { commentId: doc._id, ...payload },
+    payload: { commentId: doc._id },
   });
 }
 
 /** Contestar en el hilo. Le pasa el turno al otro lado. */
-export const reply = kinoZodMutation({
+export const reply = kinoZodProposal({
   args: { id: zid('pageComments'), body: cuerpo },
   handler: async (ctx, { id, body }) => {
     const doc = await ownComment(ctx, ctx.user._id, id);
@@ -452,7 +461,7 @@ export const reply = kinoZodMutation({
       awaiting: doc.status === 'open' ? turnoTras(ctx.channel) : undefined,
       updatedAt: now,
     });
-    await registrar(ctx, doc, 'pageComment.reply');
+    await registrar(ctx, doc, { action: 'pageComment.reply' });
     return commentItem((await ctx.db.get(id))!);
   },
 });
@@ -492,7 +501,7 @@ export const resolve = kinoZodMutation({
       replies: note ? conRespuesta(doc, ctx.channel, note, now) : doc.replies,
       updatedAt: now,
     });
-    await registrar(ctx, doc, 'pageComment.resolve');
+    await registrar(ctx, doc, { action: 'pageComment.resolve' });
     return trasCerrar(ctx, id);
   },
 });
@@ -503,7 +512,7 @@ export const resolve = kinoZodMutation({
  * a ciegas. El motivo, si lo hay, queda en el hilo para que la siguiente pasada
  * lo lea. El agente sólo retira los suyos.
  */
-export const dismiss = kinoZodMutation({
+export const dismiss = kinoZodProposal({
   args: { id: zid('pageComments'), reason: z.string().trim().min(1).max(BODY_MAX).optional() },
   handler: async (ctx, { id, reason }) => {
     const doc = await ownComment(ctx, ctx.user._id, id);
@@ -521,7 +530,7 @@ export const dismiss = kinoZodMutation({
       replies: reason ? conRespuesta(doc, ctx.channel, reason, now) : doc.replies,
       updatedAt: now,
     });
-    await registrar(ctx, doc, 'pageComment.dismiss');
+    await registrar(ctx, doc, { action: 'pageComment.dismiss' });
     return trasCerrar(ctx, id);
   },
 });
@@ -540,7 +549,7 @@ export const reopen = kinoZodMutation({
       resolvedVia: undefined,
       updatedAt: Date.now(),
     });
-    await registrar(ctx, doc, 'pageComment.reopen');
+    await registrar(ctx, doc, { action: 'pageComment.reopen' });
     return trasCerrar(ctx, id);
   },
 });
@@ -549,7 +558,7 @@ export const reopen = kinoZodMutation({
  * Corregir un comentario propio: el agente afina lo que dijo en una segunda
  * pasada, la persona su pregunta. Nadie reescribe lo que escribió el otro.
  */
-export const update = kinoZodMutation({
+export const update = kinoZodProposal({
   args: {
     id: zid('pageComments'),
     body: cuerpo.optional(),
@@ -572,7 +581,7 @@ export const update = kinoZodMutation({
       if (data.category !== undefined) patch.category = data.category;
     }
     await ctx.db.patch(id, patch);
-    await registrar(ctx, doc, 'pageComment.update');
+    await registrar(ctx, doc, { action: 'pageComment.update' });
     return commentItem((await ctx.db.get(id))!);
   },
 });

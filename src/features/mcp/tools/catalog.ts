@@ -669,7 +669,7 @@ const REVIEW_SEVERITY = z.enum(["critical", "important", "suggestion"]);
  * cada uno con su porqué, y sin reescribir la voz de nadie.
  */
 const reviews: readonly Tool[] = [
-  writeTool(api.reviews.create, {
+  proposeTool(api.reviews.create, {
     name: "review_page",
     description:
       "Deja una pasada de revisión sobre una página de Kino: comentarios anclados a fragmentos del texto que la persona irá cerrando uno a uno mientras una barra se llena. Lee antes la página con get_page. Cada comentario cita en `quote` un fragmento EXACTO del texto (una frase o menos, copiado tal cual del markdown de get_page); si ese fragmento aparece más de una vez, añade `prefix` o `suffix` con unas palabras de alrededor. Si una sola cita no se encuentra, no se guarda nada y el error dice cuáles corregir. " +
@@ -707,7 +707,7 @@ const reviews: readonly Tool[] = [
       "Lista, en todas las páginas, los hilos de comentario donde la persona preguntó o contestó y espera tu respuesta, con el título de su página. Contesta cada uno con reply_to_page_comment.",
     input: z.object({}),
   }),
-  writeTool(api.reviews.reply, {
+  proposeTool(api.reviews.reply, {
     name: "reply_to_page_comment",
     description:
       "Contesta en el hilo de un comentario: responde una pregunta de la persona, explica un comentario tuyo o reconoce que tenía razón. Le pasa el turno a la persona. Si su respuesta te convence de que el comentario sobra, retíralo con withdraw_page_comment.",
@@ -719,13 +719,13 @@ const reviews: readonly Tool[] = [
       "Da por resuelto un comentario de revisión después de COMPROBAR en el texto actual (get_page) que el problema ya no está. Nunca lo resuelvas sólo porque su cita cambió: el cambio puede no arreglarlo. `note` deja en el hilo qué comprobaste. Las preguntas de la persona no se resuelven aquí: contéstalas.",
     input: z.object({ id, note: z.string().min(1).max(4000).optional() }),
   }),
-  writeTool(api.reviews.dismiss, {
+  proposeTool(api.reviews.dismiss, {
     name: "withdraw_page_comment",
     description:
       "Retira un comentario tuyo que ya no aplica o en el que te equivocaste. `reason` queda en el hilo. Sólo retira los tuyos; uno de la persona no se toca.",
     input: z.object({ id, reason: z.string().min(1).max(4000).optional() }),
   }),
-  writeTool(api.reviews.update, {
+  proposeTool(api.reviews.update, {
     name: "update_page_comment",
     description:
       "Corrige un comentario tuyo: su explicación, su pista, su propuesta, su severidad o su categoría. `null` en hint o suggestion las quita. Para discrepar con algo que escribió la persona, contesta en el hilo.",

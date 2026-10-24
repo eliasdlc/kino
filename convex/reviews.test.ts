@@ -126,6 +126,8 @@ describe('cerrar la pasada', () => {
 
     let panel = await asAna.query(api.reviews.byPage, { pageId });
     expect(panel.reviews[0]!.closedAt).not.toBeNull();
+    // La barra se queda llena: la de la pasada que se acaba de cerrar.
+    expect(panel.progress).toMatchObject({ total: 2, open: 0, fraction: 1 });
     expect(panel.comments.find((c) => c.id === segundo!.id)!.replies[0]).toMatchObject({ author: 'person', body: 'Lo quiero así' });
 
     await asAna.mutation(api.reviews.reopen, { id: primero!.id });
@@ -181,6 +183,20 @@ describe('el hilo', () => {
     const vista = await agente.query(api.reviews.forAgent, { pageId });
     const anclas = Object.fromEntries(vista.comments.map((c) => [c.quote, c.anchor]));
     expect(anclas).toEqual({ 'firewall perimetral': 'found', 'como prueba': 'missing' });
+  });
+});
+
+describe('el alcance', () => {
+  it('un agente que sólo propone revisa y contesta, pero no da nada por resuelto', async () => {
+    const { t, pageId } = await seed();
+    const proponente = t.withIdentity({ ...ana, issuer: MCP_TOKEN_ISSUER, kino_scope: 'propose', kino_client: 'claude_desktop' });
+
+    await proponente.mutation(api.reviews.create, { pageId, comments: [critico] });
+    const [comentario] = (await proponente.query(api.reviews.forAgent, { pageId })).comments;
+    await expect(proponente.mutation(api.reviews.reply, { id: comentario!.id, body: 'Mira la tabla 1.' })).resolves.toBeTruthy();
+
+    const error = await proponente.mutation(api.reviews.resolve, { id: comentario!.id }).catch((e: unknown) => e);
+    expect(errorData(error).code).toBe('FORBIDDEN_SCOPE');
   });
 });
 
