@@ -64,6 +64,8 @@ export const LECTORES: Record<string, Lector> = {
   energyPredictions: (ctx, userId) => ctx.db.query('energyPredictions').withIndex('by_user_day_slot', (q) => q.eq('userId', userId)).take(EXPORT_TABLE_CAP),
   behaviorSnapshots: (ctx, userId) => ctx.db.query('behaviorSnapshots').withIndex('by_user_day', (q) => q.eq('userId', userId)).take(EXPORT_TABLE_CAP),
   timeLogs: (ctx, userId) => ctx.db.query('timeLogs').withIndex('by_user_started', (q) => q.eq('userId', userId)).take(EXPORT_TABLE_CAP),
+  pageReviews: (ctx, userId) => ctx.db.query('pageReviews').withIndex('by_user', (q) => q.eq('userId', userId)).take(EXPORT_TABLE_CAP),
+  pageComments: (ctx, userId) => ctx.db.query('pageComments').withIndex('by_user', (q) => q.eq('userId', userId)).take(EXPORT_TABLE_CAP),
 };
 
 /** Filas que cuelgan de las páginas de la persona, que es como se llega a las tablas de relación. */

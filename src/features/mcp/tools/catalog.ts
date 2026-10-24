@@ -603,6 +603,14 @@ export const SIN_TOOL: readonly string[] = [
   "captures:descartar",
   "captures:pendientes",
   "systems:radiografia",
+  // Una pregunta sobre el texto la abre la persona desde su editor; el agente
+  // comenta con `review_page`, que comprueba la cita.
+  "reviews:ask",
+  // La vista del panel. El agente lee `list_page_comments`, que además le dice
+  // si cada cita sigue en el texto.
+  "reviews:byPage",
+  // Reabrir deshace un cierre de la persona: es su gesto, no el del agente.
+  "reviews:reopen",
 ];
 
 /** Y las tres que sí: `captures:porFuente`, `captures:entregar` y `captures:resolver`, abajo. */
@@ -650,4 +658,86 @@ const captures: readonly Tool[] = [
   }),
 ];
 
-export const CATALOG: readonly Tool[] = [...captures, ...energy, ...entities, ...events, ...folders, ...insights, ...pages, ...stickyNotes, ...systems, ...tasks, ...writing];
+// ── Revisión de documentos ───────────────────────────────────────────────────
+
+const REVIEW_CATEGORY = z.enum(["structure", "argument", "evidence", "clarity", "style", "grammar"]);
+const REVIEW_SEVERITY = z.enum(["critical", "important", "suggestion"]);
+
+/**
+ * El agente revisa como revisa una persona con criterio, y la prosa de estas
+ * tools es donde se le enseña: pocos comentarios, de lo grande a lo pequeño,
+ * cada uno con su porqué, y sin reescribir la voz de nadie.
+ */
+const reviews: readonly Tool[] = [
+  proposeTool(api.reviews.create, {
+    name: "review_page",
+    description:
+      "Deja una pasada de revisión sobre una página de Kino: comentarios anclados a fragmentos del texto que la persona irá cerrando uno a uno mientras una barra se llena. Lee antes la página con get_page. Cada comentario cita en `quote` un fragmento EXACTO del texto (una frase o menos, copiado tal cual del markdown de get_page); si ese fragmento aparece más de una vez, añade `prefix` o `suffix` con unas palabras de alrededor. Si una sola cita no se encuentra, no se guarda nada y el error dice cuáles corregir. " +
+      "Cómo revisar: doce comentarios o menos (el techo es 20), de lo grande a lo pequeño (structure, argument, evidence antes que clarity, style, grammar). `severity`: critical si impide que el texto cumpla su propósito, important si lo debilita, suggestion si es un detalle. En `body` di qué pasa en ESE fragmento, por qué importa y cuál es el siguiente paso; sin elogios genéricos. `hint` es opcional: una pregunta que haga pensar a la persona antes de ver la solución. `suggestion` es opcional: el texto que sustituiría a la cita, que la persona sólo ve si lo pide; no reescribas su voz cuando el problema es de fondo. `summary` es el veredicto de conjunto en dos o tres frases. Escribe en el idioma del documento.",
+    input: z.object({
+      pageId: id,
+      summary: z.string().max(4000).optional().describe("Veredicto de conjunto de la pasada"),
+      reviewer: z.string().max(60).optional().describe("Cómo te presentas, por ejemplo Claude"),
+      comments: z
+        .array(
+          z.object({
+            quote: z.string().min(1).max(1000).describe("Fragmento exacto del texto, una frase o menos"),
+            prefix: z.string().max(200).optional().describe("Palabras justo antes de la cita, si se repite"),
+            suffix: z.string().max(200).optional().describe("Palabras justo después de la cita, si se repite"),
+            category: REVIEW_CATEGORY,
+            severity: REVIEW_SEVERITY,
+            body: z.string().min(1).max(4000).describe("Qué pasa aquí, por qué importa y qué hacer"),
+            hint: z.string().max(500).optional().describe("Una pregunta para pensar antes de leer la solución"),
+            suggestion: z.string().max(2000).optional().describe("Texto que sustituiría a la cita"),
+          }),
+        )
+        .min(1)
+        .max(20),
+    }),
+  }),
+  readTool(api.reviews.forAgent, {
+    name: "list_page_comments",
+    description:
+      "Lista los comentarios de revisión de una página con sus hilos, para una segunda pasada. Cada comentario trae `anchor`: `found` si su cita sigue en el texto guardado, `missing` si ya no está (la persona lo reescribió o lo borró). Un `missing` no es un arreglo comprobado: relee la página con get_page y decide. `awaiting: agent` marca los hilos donde la persona te contestó. `status` es `open` (por defecto) o `all`.",
+    input: z.object({ pageId: id, status: z.enum(["open", "all"]).optional() }),
+  }),
+  readTool(api.reviews.awaitingAgent, {
+    name: "list_comments_awaiting_reply",
+    description:
+      "Lista, en todas las páginas, los hilos de comentario donde la persona preguntó o contestó y espera tu respuesta, con el título de su página. Contesta cada uno con reply_to_page_comment.",
+    input: z.object({}),
+  }),
+  proposeTool(api.reviews.reply, {
+    name: "reply_to_page_comment",
+    description:
+      "Contesta en el hilo de un comentario: responde una pregunta de la persona, explica un comentario tuyo o reconoce que tenía razón. Le pasa el turno a la persona. Si su respuesta te convence de que el comentario sobra, retíralo con withdraw_page_comment.",
+    input: z.object({ id, body: z.string().min(1).max(4000) }),
+  }),
+  writeTool(api.reviews.resolve, {
+    name: "resolve_page_comment",
+    description:
+      "Da por resuelto un comentario de revisión después de COMPROBAR en el texto actual (get_page) que el problema ya no está. Nunca lo resuelvas sólo porque su cita cambió: el cambio puede no arreglarlo. `note` deja en el hilo qué comprobaste. Las preguntas de la persona no se resuelven aquí: contéstalas.",
+    input: z.object({ id, note: z.string().min(1).max(4000).optional() }),
+  }),
+  proposeTool(api.reviews.dismiss, {
+    name: "withdraw_page_comment",
+    description:
+      "Retira un comentario tuyo que ya no aplica o en el que te equivocaste. `reason` queda en el hilo. Sólo retira los tuyos; uno de la persona no se toca.",
+    input: z.object({ id, reason: z.string().min(1).max(4000).optional() }),
+  }),
+  proposeTool(api.reviews.update, {
+    name: "update_page_comment",
+    description:
+      "Corrige un comentario tuyo: su explicación, su pista, su propuesta, su severidad o su categoría. `null` en hint o suggestion las quita. Para discrepar con algo que escribió la persona, contesta en el hilo.",
+    input: z.object({
+      id,
+      body: z.string().min(1).max(4000).optional(),
+      hint: z.string().max(500).nullable().optional(),
+      suggestion: z.string().max(2000).nullable().optional(),
+      severity: REVIEW_SEVERITY.optional(),
+      category: REVIEW_CATEGORY.optional(),
+    }),
+  }),
+];
+
+export const CATALOG: readonly Tool[] = [...captures, ...energy, ...entities, ...events, ...folders, ...insights, ...pages, ...reviews, ...stickyNotes, ...systems, ...tasks, ...writing];

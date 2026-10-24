@@ -234,6 +234,16 @@ export const DESHACER: Record<string, FormaDeDeshacer> = {
   'stickyNote.restore': { forma: 'inverse' },
   'stickyNote.stack': { forma: 'fields' },
 
+  // La revisión se deshace desde el propio comentario, no desde el log: un
+  // cierre se reabre, un comentario se descarta con su motivo.
+  'review.create': { forma: 'no', motivo: 'Una revisión se retira comentario a comentario: descartar uno deja escrito por qué.' },
+  'pageComment.ask': { forma: 'no', motivo: 'Una pregunta se cierra desde su comentario.' },
+  'pageComment.reply': { forma: 'no', motivo: 'Una respuesta ya la leyó el otro lado del hilo; lo que falte se dice en otra.' },
+  'pageComment.resolve': { forma: 'no', motivo: 'Se deshace con Reabrir, desde el comentario.' },
+  'pageComment.dismiss': { forma: 'no', motivo: 'Se deshace con Reabrir, desde el comentario.' },
+  'pageComment.reopen': { forma: 'no', motivo: 'Se vuelve a cerrar desde el comentario.' },
+  'pageComment.update': { forma: 'no', motivo: 'Lo corrige quien lo escribió, otra vez, desde su comentario.' },
+
   'system.create': { forma: 'inverse' },
   'system.update': { forma: 'fields' },
   'system.remove': { forma: 'inverse' },

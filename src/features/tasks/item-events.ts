@@ -87,6 +87,15 @@ export const FRASES: Record<string, { item: string; verbo: string; clase: string
   "stickyNote.restore": { item: "la sacó de la papelera", clase: "nota", resumen: (n) => `${n} ${n === 1 ? "nota" : "notas"}`, verbo: "sacó de la papelera" },
   "stickyNote.stack": { item: "la apiló sobre otra", clase: "nota", resumen: (n) => `${n} ${n === 1 ? "nota" : "notas"}`, verbo: "apiló" },
 
+  // La revisión de un documento. El objeto de la fila es la página.
+  "review.create": { item: "dejó una revisión", clase: "revisión", resumen: (n) => `${n} ${n === 1 ? "revisión" : "revisiones"}`, verbo: "revisó" },
+  "pageComment.ask": { item: "preguntó sobre un fragmento", clase: "pregunta", resumen: (n) => `${n} ${n === 1 ? "pregunta" : "preguntas"}`, verbo: "preguntó en" },
+  "pageComment.reply": { item: "contestó un comentario", clase: "respuesta", resumen: (n) => `${n} ${n === 1 ? "respuesta" : "respuestas"}`, verbo: "contestó en" },
+  "pageComment.resolve": { item: "resolvió un comentario", clase: "comentario resuelto", resumen: (n) => `${n} ${n === 1 ? "comentario resuelto" : "comentarios resueltos"}`, verbo: "resolvió en" },
+  "pageComment.dismiss": { item: "descartó un comentario", clase: "comentario descartado", resumen: (n) => `${n} ${n === 1 ? "comentario descartado" : "comentarios descartados"}`, verbo: "descartó en" },
+  "pageComment.reopen": { item: "reabrió un comentario", clase: "comentario reabierto", resumen: (n) => `${n} ${n === 1 ? "comentario reabierto" : "comentarios reabiertos"}`, verbo: "reabrió en" },
+  "pageComment.update": { item: "corrigió un comentario", clase: "comentario corregido", resumen: (n) => `${n} ${n === 1 ? "comentario corregido" : "comentarios corregidos"}`, verbo: "corrigió en" },
+
   "system.create": { item: "creó este sistema", clase: "sistema", resumen: (n) => `${n} ${n === 1 ? "sistema" : "sistemas"}`, verbo: "creó" },
   "system.update": { item: "editó este sistema", clase: "sistema", resumen: (n) => `${n} ${n === 1 ? "sistema" : "sistemas"}`, verbo: "editó" },
   "system.remove": { item: "lo archivó", clase: "sistema", resumen: (n) => `${n} ${n === 1 ? "sistema" : "sistemas"}`, verbo: "archivó" },

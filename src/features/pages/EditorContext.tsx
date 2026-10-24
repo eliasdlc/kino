@@ -11,6 +11,7 @@ import { Table, TableRow, TableHeader, TableCell } from "@tiptap/extension-table
 import { TaskList, TaskItem } from "@tiptap/extension-list";
 import { StickyAnchorMark } from "@/features/sticky-notes/sticky-anchor.extension";
 import { StickyAnchorPaint } from "@/features/sticky-notes/anchor-paint.extension";
+import { ReviewHighlight } from "@/features/reviews/review-highlight.extension";
 import { SlashCommand } from "./slash-command.extension";
 import { LinkMarkdown } from "./link-markdown.extension";
 import { ImageUrlPaste } from "./image-paste.extension";
@@ -74,6 +75,8 @@ export function EditorProvider({
       StickyAnchorMark,
       // El color de cada frase anotada, que no se guarda con el texto.
       StickyAnchorPaint,
+      // Los fragmentos con comentario de revisión. Tampoco se guardan con el texto.
+      ReviewHighlight,
       ...(codex
         ? [CodexMention.configure({ systemId: codex.systemId, HTMLAttributes: {} })]
         : []),

@@ -9,7 +9,9 @@ import { ALL_TOOLS } from "./index";
  * aprendidos. Quitar uno rompe a quien lo usa; añadir uno es una decisión que
  * pasa por aquí.
  *
- * Son 71. Tres son los ojos prestados: `list_captures` lista lo que espera por
+ * Son 78. Siete son la revisión de documentos, de `review_page` a
+ * `withdraw_page_comment`: el agente comenta, contesta y comprueba, y nunca
+ * reescribe. Tres son los ojos prestados: `list_captures` lista lo que espera por
  * fuente, `get_capture` entrega la captura para que el agente la mire con su
  * clave y `resolve_capture` recibe lo que leyó, sin crear nada. Las seis que faltan respecto a la lista de antes se
  * retiraron a propósito y no vuelven sin reabrir el principio 2: las cinco de
@@ -57,11 +59,13 @@ const CONTRACT = [
   "link_entities",
   "link_task_to_page",
   "list_captures",
+  "list_comments_awaiting_reply",
   "list_entities",
   "list_folder_sticky_notes",
   "list_folder_tasks",
   "list_folders",
   "list_item_events",
+  "list_page_comments",
   "list_page_sticky_notes",
   "list_page_tasks",
   "list_pages",
@@ -74,11 +78,14 @@ const CONTRACT = [
   "propose_change",
   "propose_day_blocks",
   "reorder_by_importance",
+  "reply_to_page_comment",
   "resolve_capture",
+  "resolve_page_comment",
   "restore_folder",
   "restore_page",
   "restore_sticky_note",
   "restore_task",
+  "review_page",
   "save_learning_checkpoint",
   "schedule_task_block",
   "search_story",
@@ -87,9 +94,11 @@ const CONTRACT = [
   "update_entity",
   "update_folder",
   "update_page",
+  "update_page_comment",
   "update_sticky_note",
   "update_system",
   "update_task",
+  "withdraw_page_comment",
 ] as const;
 
 describe("catálogo del MCP", () => {
@@ -196,13 +205,16 @@ describe("lo que existe y no se expone", () => {
     expect(nombres).not.toContain("captures:crear");
   });
 
-  it("las cinco están clasificadas: decidir no exponerlas es una decisión escrita", () => {
+  it("las ocho están clasificadas: decidir no exponerlas es una decisión escrita", () => {
     expect(SIN_TOOL).toEqual([
       "captures:crear",
       "captures:confirmar",
       "captures:descartar",
       "captures:pendientes",
       "systems:radiografia",
+      "reviews:ask",
+      "reviews:byPage",
+      "reviews:reopen",
     ]);
   });
 

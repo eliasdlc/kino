@@ -28,6 +28,7 @@ import { MediumsSection } from "./sections/mediums";
 import { MotivationSection } from "./sections/motivation";
 import { OnboardingSection } from "./sections/onboarding";
 import { ComposableSection } from "./sections/composable";
+import { ReviewsSection } from "./sections/reviews";
 
 const TOC: Array<{ id: string; number: string; label: string }> = [
   { id: "colores", number: "01", label: "Colores" },
@@ -49,6 +50,7 @@ const TOC: Array<{ id: string; number: string; label: string }> = [
   { id: "motivacion", number: "17", label: "Motivación" },
   { id: "onboarding", number: "18", label: "Onboarding por identidad" },
   { id: "componible", number: "19", label: "Sistema componible" },
+  { id: "revision", number: "20", label: "Revisión de documentos" },
 ];
 
 /**
@@ -148,6 +150,7 @@ export function SystemDesignShell() {
                   <MotivationSection />
                   <OnboardingSection />
                   <ComposableSection />
+                  <ReviewsSection />
                 </main>
               </div>
             </div>
