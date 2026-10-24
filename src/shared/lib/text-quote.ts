@@ -33,19 +33,19 @@ export interface NormalizedText {
 
 /** Caracteres que se reescriben a su forma llana antes de comparar. */
 const EQUIVALENTES: Record<string, string> = {
-  "“": '"',
-  "”": '"',
-  "„": '"',
-  "«": '"',
-  "»": '"',
-  "‘": "'",
-  "’": "'",
-  "‚": "'",
+  "\u201C": '"',
+  "\u201D": '"',
+  "\u201E": '"',
+  "\u00AB": '"',
+  "\u00BB": '"',
+  "\u2018": "'",
+  "\u2019": "'",
+  "\u201A": "'",
   "`": "'",
-  "–": "-",
-  "—": "-",
-  "‑": "-",
-  "…": "...",
+  "\u2013": "-",
+  "\u2014": "-",
+  "\u2011": "-",
+  "\u2026": "...",
 };
 
 /** Marcadores de markdown que el agente puede arrastrar al citar y el editor no guarda. */
