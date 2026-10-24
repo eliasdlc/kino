@@ -227,6 +227,31 @@ export type InterruptionKind = Infer<typeof interruptionKind>;
 export const vocabularyWord = literals(['pagina', 'notaAdhesiva', 'etiqueta']);
 export type VocabularyWord = Infer<typeof vocabularyWord>;
 
+/**
+ * La revisión de un documento. Las categorías van de lo grande a lo pequeño,
+ * que es el orden en que se arreglan: corregir la coma de un párrafo que la
+ * estructura va a mover es trabajo tirado. La severidad son tres pesos y no
+ * una nota del documento: lo que se mide es la revisión, nunca el texto.
+ */
+export const reviewCategory = literals(['structure', 'argument', 'evidence', 'clarity', 'style', 'grammar']);
+export type ReviewCategory = Infer<typeof reviewCategory>;
+export const reviewSeverity = literals(['critical', 'important', 'suggestion']);
+export type ReviewSeverity = Infer<typeof reviewSeverity>;
+export const commentStatus = literals(['open', 'resolved', 'dismissed']);
+export type CommentStatus = Infer<typeof commentStatus>;
+/**
+ * Cómo se cerró un comentario resuelto. `edited` es la persona reescribiendo
+ * el fragmento con sus palabras, `applied` es aceptar la propuesta tal cual,
+ * `marked` es darlo por bueno sin tocar nada y `verified` es el agente
+ * comprobando en una segunda pasada que ya está. Se distinguen porque no valen
+ * lo mismo: arreglarlo tú es lo que se celebra.
+ */
+export const commentResolution = literals(['edited', 'applied', 'marked', 'verified']);
+export type CommentResolution = Infer<typeof commentResolution>;
+/** Quién tiene la palabra en un hilo: a quién le toca contestar. */
+export const commentTurn = literals(['person', 'agent']);
+export type CommentTurn = Infer<typeof commentTurn>;
+
 export const captureStatus = literals(['pending', 'confirmed', 'discarded', 'expired']);
 export const captureKind = literals(['voice', 'photo', 'link', 'text', 'email', 'file']);
 
@@ -638,6 +663,71 @@ export default defineSchema({
   })
     .index('by_pgId', ['pgId'])
     .index('by_page_created', ['pageId', 'createdAt'])
+    .index('by_user', ['userId']),
+
+  // Una pasada de revisión sobre una página: el veredicto de conjunto y la
+  // barra que se llena a medida que sus comentarios se cierran. La escribe el
+  // agente de la persona por el conector; Kino no manda el texto a ningún
+  // modelo. `closedAt` se escribe cuando el último comentario abierto se cierra,
+  // y es lo que hace que la celebración salga una vez y no en cada carga.
+  pageReviews: defineTable({
+    userId: v.id('users'),
+    pageId: v.id('pages'),
+    systemId: v.id('systems'),
+    summary: v.optional(v.string()),
+    // Cómo se presenta quien revisó («Claude»). Es una etiqueta para leer, no
+    // una identidad: el origen verificable es `createdVia` y `sourceClientId`.
+    reviewer: v.optional(v.string()),
+    sourceClientId: v.optional(v.string()),
+    closedAt: v.optional(ts),
+    ...authorship,
+    createdAt: ts,
+    updatedAt: ts,
+  })
+    .index('by_page_created', ['pageId', 'createdAt'])
+    .index('by_user', ['userId']),
+
+  // Un comentario anclado a un fragmento de una página. El ancla no vive en el
+  // HTML del documento sino aquí, como la cita del W3C (`quote` más su
+  // contexto): así comentar no reescribe el texto de nadie, y un fragmento que
+  // ya no está se ve como tal en vez de desaparecer con su comentario.
+  // Sin `reviewId` es una pregunta que abrió la persona sobre su texto.
+  pageComments: defineTable({
+    userId: v.id('users'),
+    pageId: v.id('pages'),
+    systemId: v.id('systems'),
+    reviewId: v.optional(v.id('pageReviews')),
+    quote: v.string(),
+    prefix: v.optional(v.string()),
+    suffix: v.optional(v.string()),
+    category: v.optional(reviewCategory),
+    severity: v.optional(reviewSeverity),
+    body: v.string(),
+    // Una pregunta para pensar antes de leer la respuesta.
+    hint: v.optional(v.string()),
+    // El texto que sustituiría a la cita. Se enseña sólo si se pide.
+    suggestion: v.optional(v.string()),
+    status: commentStatus,
+    resolution: v.optional(commentResolution),
+    resolvedAt: v.optional(ts),
+    resolvedVia: v.optional(actorChannel),
+    // Ausente = nadie espera a nadie (cerrado, o recién abierto sin pregunta).
+    awaiting: v.optional(commentTurn),
+    replies: v.array(
+      v.object({
+        id: v.string(),
+        body: v.string(),
+        via: actorChannel,
+        createdAt: ts,
+      }),
+    ),
+    ...authorship,
+    createdAt: ts,
+    updatedAt: ts,
+  })
+    .index('by_page_status_updated', ['pageId', 'status', 'updatedAt'])
+    .index('by_review', ['reviewId'])
+    .index('by_user_awaiting', ['userId', 'awaiting'])
     .index('by_user', ['userId']),
 
   // El universo de la historia, compartido a nivel de sistema.

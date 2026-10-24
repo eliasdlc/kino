@@ -46,6 +46,8 @@ export const EXPORT_TABLES: readonly ExportTable[] = [
   { tabla: "energyPredictions", etiqueta: "Predicciones de energía", formato: "JSON" },
   { tabla: "behaviorSnapshots", etiqueta: "Fotos diarias de actividad", formato: "JSON" },
   { tabla: "timeLogs", etiqueta: "Tiempo registrado", formato: "JSON" },
+  { tabla: "pageReviews", etiqueta: "Revisiones de documentos", formato: "JSON" },
+  { tabla: "pageComments", etiqueta: "Comentarios de revisión", formato: "JSON" },
 
   { tabla: "userBilling", etiqueta: "Facturación", formato: null, motivo: "Sin código de pagos: la tabla está vacía." },
   { tabla: "usageCounters", etiqueta: "Contadores de uso", formato: null, motivo: "Cuentas de infraestructura, no contenido tuyo." },
