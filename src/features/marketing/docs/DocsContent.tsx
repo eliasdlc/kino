@@ -17,6 +17,7 @@ import {
   Timer,
   type LucideIcon,
 } from "lucide-react";
+import { CLAUDE_ADD_CONNECTOR_URL, CLAUDE_CODE_COMMANDS, CODEX_COMMANDS, MCP_RESOURCE_URL } from "@/features/mcp/connect";
 import { EnergyCurveViz } from "./EnergyCurveViz";
 import { btnPrimary } from "../styles";
 
@@ -404,29 +405,42 @@ export function DocsContent() {
           <code className="font-jetbrains text-[13px] text-foreground/75">propose_day_blocks</code>,{" "}
           <code className="font-jetbrains text-[13px] text-foreground/75">suggest_next_action</code> …).
         </p>
-        <p className="mb-2 text-[15px] font-semibold text-foreground/85">Conectar en 2 pasos</p>
+        <p className="mb-2 text-[15px] font-semibold text-foreground/85">Cómo se conecta</p>
         <ol className="mb-4 flex list-decimal flex-col gap-1.5 pl-[18px] text-[14.5px] text-foreground/75">
           <li>
             Añade el conector con la URL{" "}
-            <span className="font-jetbrains text-[13px] text-primary">https://www.usekino.dev/api/mcp</span>.
-            No hay claves que copiar: es un conector remoto.
+            <span className="font-jetbrains text-[13px] text-primary">{MCP_RESOURCE_URL}</span>, tal
+            cual, con <span className="font-jetbrains text-[13px]">www</span>. No hay claves que copiar:
+            es un conector remoto.
           </li>
           <li>
-            Tu cliente abre la pantalla de autorización de Kino. Entras con tu cuenta, eliges qué
-            puede hacer el asistente (<strong className="text-foreground/85">leer</strong>,{" "}
-            <strong className="text-foreground/85">proponer</strong> o{" "}
-            <strong className="text-foreground/85">escribir</strong>) y listo. Puedes revocar el acceso
-            cuando quieras desde tu cuenta.
+            Autoriza. Tu cliente abre la pantalla de permisos de Kino, entras con tu cuenta y le das
+            acceso para <strong className="text-foreground/85">leer</strong>,{" "}
+            <strong className="text-foreground/85">proponer</strong> y{" "}
+            <strong className="text-foreground/85">escribir</strong>, con los límites que esa pantalla
+            explica.
           </li>
         </ol>
+        <p className="mb-4 text-[14.5px] text-foreground/75">
+          En claude.ai, Claude Desktop y el móvil:{" "}
+          <a href={CLAUDE_ADD_CONNECTOR_URL} className="font-semibold text-primary underline underline-offset-4">
+            añadir Kino a Claude
+          </a>
+          , revisa los datos y confirma. Se añade una vez y sirve en los tres, y en Claude Code si
+          entras con la misma cuenta de Claude.
+        </p>
         <pre className="overflow-x-auto rounded-[14px] border border-border bg-card px-5 py-[18px] font-jetbrains text-[13px] leading-[1.7] text-muted-foreground">
-          <span className="text-muted-foreground"># Claude Code</span>
+          <span className="text-muted-foreground"># Claude Code: el segundo comando abre el navegador para autorizar</span>
           {"\n"}
-          <span className="text-task-done">claude</span> mcp add --transport http kino https://www.usekino.dev/api/mcp
+          {CLAUDE_CODE_COMMANDS.join("\n")}
           {"\n\n"}
-          <span className="text-muted-foreground"># claude.ai y Claude Desktop: Ajustes → Conectores → Añadir conector personalizado</span>
+          <span className="text-muted-foreground"># Codex (CLI, extensión del IDE y app)</span>
           {"\n"}
-          <span className="text-muted-foreground"># y pega la misma URL.</span>
+          {CODEX_COMMANDS.join("\n")}
+          {"\n\n"}
+          <span className="text-muted-foreground"># ChatGPT: añade un servidor MCP personalizado desde su configuración</span>
+          {"\n"}
+          <span className="text-muted-foreground"># y pega la misma URL. Depende de tu plan de ChatGPT.</span>
         </pre>
       </Section>
 
