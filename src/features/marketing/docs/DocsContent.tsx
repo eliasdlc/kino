@@ -410,8 +410,7 @@ export function DocsContent() {
           <li>
             Añade el conector con la URL{" "}
             <span className="font-jetbrains text-[13px] text-primary">{MCP_RESOURCE_URL}</span>, tal
-            cual, con <span className="font-jetbrains text-[13px]">www</span>. No hay claves que copiar:
-            es un conector remoto.
+            cual. No hay claves que copiar: es un conector remoto.
           </li>
           <li>
             Autoriza. Tu cliente abre la pantalla de permisos de Kino, entras con tu cuenta y le das
