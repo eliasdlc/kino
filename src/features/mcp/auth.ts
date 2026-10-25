@@ -117,6 +117,9 @@ type Verify<R> = (req: R, bearer?: string) => Promise<AuthInfo | undefined>;
  * volver a entrar: tras un login bueno, una clave que falta en el servidor se
  * veía como un login caducado y el cliente entraba en bucle. Aquí la excepción
  * se queda como un fallo marcado, y `faultResponse` lo contesta con su motivo.
+ *
+ * Sólo con un token delante: sin él no hay conexión que decir que sigue
+ * válida, y el 401 es lo que hace que el cliente empiece el OAuth.
  */
 export function withServerFaults<R>(verify: Verify<R>): Verify<R> {
   return async (req, bearer) => {
@@ -124,6 +127,7 @@ export function withServerFaults<R>(verify: Verify<R>): Verify<R> {
       return await verify(req, bearer);
     } catch (error) {
       console.error("El conector MCP falló al autorizar una petición:", error);
+      if (!bearer) return undefined;
       const motivo = error instanceof Error ? error.message : String(error);
       return { token: bearer ?? "", clientId: "", scopes: [], extra: { [FAULT]: motivo.slice(0, 300) } };
     }
