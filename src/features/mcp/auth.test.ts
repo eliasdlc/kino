@@ -1,9 +1,19 @@
-import { createLocalJWKSet, exportJWK, generateKeyPair, jwtVerify } from "jose";
+import { createLocalJWKSet, decodeProtectedHeader, exportJWK, generateKeyPair, jwtVerify } from "jose";
+import { withMcpAuth } from "mcp-handler";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { MCP_CLIENT_CLAIM, MCP_TOKEN_AUDIENCE, MCP_TOKEN_ISSUER } from "@convex/lib/mcpToken";
 import { allows, SCOPES } from "@convex/lib/scopes";
 import { ALL_TOOLS } from "./tools";
-import { MCP_OAUTH_SCOPES, MCP_SCOPE_CONSENT, MCP_SCOPE_RESOURCE, mintConvexToken, publicJwks, scopeFor } from "./auth";
+import {
+  faultResponse,
+  MCP_OAUTH_SCOPES,
+  MCP_SCOPE_CONSENT,
+  MCP_SCOPE_RESOURCE,
+  mintConvexToken,
+  publicJwks,
+  scopeFor,
+  withServerFaults,
+} from "./auth";
 
 describe("scopeFor · de los scopes de Clerk al alcance de Convex", () => {
   it("sin ninguno de los tres, el conector sólo lee", () => {
@@ -96,6 +106,56 @@ describe("mintConvexToken · el token que Convex valida", () => {
     const { keys } = publicJwks({ kty: "EC", crv: "P-256", x: "x", y: "y", d: "secreto" });
     expect(keys[0]).not.toHaveProperty("d");
     expect(keys[0]).toMatchObject({ kid: "kino-mcp", alg: "ES256", use: "sig" });
+  });
+
+  it("una máquina de pruebas firma con su propio kid, y su mitad pública lo lleva", async () => {
+    process.env.KINO_MCP_KEY_ID = "kino-mcp-agentbox";
+    try {
+      const token = await mintConvexToken({ clerkId: "user_123", scope: "read" });
+      expect(decodeProtectedHeader(token).kid).toBe("kino-mcp-agentbox");
+      expect(publicJwks({ kty: "EC", crv: "P-256", x: "x", y: "y" }).keys[0].kid).toBe("kino-mcp-agentbox");
+    } finally {
+      delete process.env.KINO_MCP_KEY_ID;
+    }
+  });
+});
+
+describe("withServerFaults · un fallo de Kino no se disfraza de login caducado", () => {
+  const url = "https://www.usekino.dev/api/mcp";
+  const post = () => new Request(url, { method: "POST", headers: { Authorization: "Bearer oat_valido" } });
+  // El mismo envoltorio que la ruta, y un handler que hace lo que hace la ruta
+  // antes de montar el servidor: contestar el fallo si lo hay.
+  const route = (verify: Parameters<typeof withServerFaults<Request>>[0]) =>
+    withMcpAuth((req: Request) => faultResponse(req.auth) ?? new Response("tools", { status: 200 }), withServerFaults(verify), {
+      required: true,
+      resourceMetadataPath: "/.well-known/oauth-protected-resource/api/mcp",
+      resourceUrl: "https://www.usekino.dev",
+    });
+
+  it("si la verificación lanza, responde 503 con el motivo y no corre ninguna tool", async () => {
+    const res = await route(async () => {
+      throw new Error("Falta KINO_MCP_SIGNING_JWK: el conector MCP no puede firmar tokens para Convex.");
+    })(post());
+
+    expect(res.status).toBe(503);
+    expect(res.headers.get("WWW-Authenticate")).toBeNull();
+    const body = (await res.json()) as { error: { message: string } };
+    expect(body.error.message).toContain("no hace falta volver a entrar");
+    expect(body.error.message).toContain("Falta KINO_MCP_SIGNING_JWK");
+  });
+
+  it("sin token válido sigue siendo 401 con la metadata, que es lo que arranca el OAuth", async () => {
+    const res = await route(async () => undefined)(post());
+
+    expect(res.status).toBe(401);
+    expect(res.headers.get("WWW-Authenticate")).toContain("oauth-protected-resource/api/mcp");
+  });
+
+  it("con un token válido pasa al servidor", async () => {
+    const res = await route(async (_req, bearer) => ({ token: bearer!, clientId: "claude", scopes: [], extra: {} }))(post());
+
+    expect(res.status).toBe(200);
+    expect(await res.text()).toBe("tools");
   });
 });
 

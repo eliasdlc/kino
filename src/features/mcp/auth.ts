@@ -1,7 +1,7 @@
+import type { AuthInfo } from "@modelcontextprotocol/sdk/server/auth/types.js";
 import { importJWK, SignJWT, type JWK } from "jose";
 import { MCP_CLIENT_CLAIM, MCP_TOKEN_ALGORITHM, MCP_TOKEN_AUDIENCE, MCP_TOKEN_ISSUER } from "@convex/lib/mcpToken";
 import { SCOPES, type Scope } from "@convex/lib/scopes";
-import { SITE_URL } from "@/shared/lib/site-url";
 
 /**
  * Quién puede entrar por `/api/mcp` y con qué alcance.
@@ -12,8 +12,7 @@ import { SITE_URL } from "@/shared/lib/site-url";
  * traduce los scopes concedidos al alcance que Convex entiende.
  */
 
-/** El recurso que protege el OAuth. Es la URL que el cliente configura. */
-export const MCP_RESOURCE_URL = `${SITE_URL}/api/mcp`;
+export { MCP_RESOURCE_URL } from "./connect";
 
 /**
  * Clerk exige que un scope personalizado lleve un recurso delante
@@ -52,7 +51,15 @@ export const MCP_SCOPE_CONSENT: Record<Scope, string> = {
 
 /** Vida del token que se firma para Convex. Cubre una petición del protocolo. */
 const TOKEN_TTL = "10m";
-const KEY_ID = "kino-mcp";
+
+/**
+ * El `kid` con el que se firma. Por defecto el de siempre; una máquina de
+ * pruebas firma con su propia clave y su propio `kid`, y el JWKS del
+ * deployment de dev lleva las dos públicas sin que una pise a la otra.
+ */
+function keyId(): string {
+  return process.env.KINO_MCP_KEY_ID || "kino-mcp";
+}
 
 /**
  * El alcance efectivo de una concesión: el más fuerte de los tres que Kino
@@ -83,7 +90,7 @@ let signingKey: Promise<CryptoKey | Uint8Array> | undefined;
 export async function mintConvexToken(input: { clerkId: string; scope: Scope; clientId?: string }): Promise<string> {
   signingKey ??= importJWK(signingJwk(), MCP_TOKEN_ALGORITHM);
   return new SignJWT({ kino_scope: input.scope, [MCP_CLIENT_CLAIM]: input.clientId })
-    .setProtectedHeader({ alg: MCP_TOKEN_ALGORITHM, kid: KEY_ID })
+    .setProtectedHeader({ alg: MCP_TOKEN_ALGORITHM, kid: keyId() })
     .setIssuer(MCP_TOKEN_ISSUER)
     .setAudience(MCP_TOKEN_AUDIENCE)
     .setSubject(input.clerkId)
@@ -93,8 +100,47 @@ export async function mintConvexToken(input: { clerkId: string; scope: Scope; cl
 }
 
 /** La mitad pública de la clave, tal como Convex la espera en `KINO_MCP_JWKS`. */
-export function publicJwks(privateJwk: JWK): { keys: JWK[] } {
-  const publicJwk: JWK = { ...privateJwk, kid: KEY_ID, alg: MCP_TOKEN_ALGORITHM, use: "sig" };
+export function publicJwks(privateJwk: JWK, kid = keyId()): { keys: JWK[] } {
+  const publicJwk: JWK = { ...privateJwk, kid, alg: MCP_TOKEN_ALGORITHM, use: "sig" };
   delete publicJwk.d;
   return { keys: [publicJwk] };
+}
+
+/** Dónde viaja, dentro de `extra`, un fallo de Kino al autorizar. */
+const FAULT = "kinoFault";
+
+type Verify<R> = (req: R, bearer?: string) => Promise<AuthInfo | undefined>;
+
+/**
+ * Separa "tu token no vale" de "Kino falló". `withMcpAuth` convierte cualquier
+ * excepción de la verificación en un 401, y un cliente que recibe 401 pide
+ * volver a entrar: tras un login bueno, una clave que falta en el servidor se
+ * veía como un login caducado y el cliente entraba en bucle. Aquí la excepción
+ * se queda como un fallo marcado, y `faultResponse` lo contesta con su motivo.
+ */
+export function withServerFaults<R>(verify: Verify<R>): Verify<R> {
+  return async (req, bearer) => {
+    try {
+      return await verify(req, bearer);
+    } catch (error) {
+      console.error("El conector MCP falló al autorizar una petición:", error);
+      const motivo = error instanceof Error ? error.message : String(error);
+      return { token: bearer ?? "", clientId: "", scopes: [], extra: { [FAULT]: motivo.slice(0, 300) } };
+    }
+  };
+}
+
+/**
+ * La respuesta a un fallo marcado por `withServerFaults`, o nada si la
+ * petición no trae ninguno. Es un 503 con un error JSON-RPC que el cliente
+ * enseña tal cual, y nunca llega a montar el servidor: no corre ninguna tool.
+ */
+export function faultResponse(auth: AuthInfo | undefined): Response | undefined {
+  const fault = auth?.extra?.[FAULT];
+  if (typeof fault !== "string") return undefined;
+  const message = `Kino falló al autorizar esta petición; tu conexión sigue siendo válida y no hace falta volver a entrar. Motivo: ${fault}`;
+  return Response.json(
+    { jsonrpc: "2.0", error: { code: -32603, message }, id: null },
+    { status: 503, headers: { "Retry-After": "30" } },
+  );
 }
