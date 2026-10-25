@@ -434,7 +434,7 @@ export function DocsContent() {
           {"\n"}
           {CLAUDE_CODE_COMMANDS.join("\n")}
           {"\n\n"}
-          <span className="text-muted-foreground"># Codex (CLI, extensión del IDE y app)</span>
+          <span className="text-muted-foreground"># Codex (CLI, IDE y app): el primero ya abre el navegador; el segundo, si lo cerraste</span>
           {"\n"}
           {CODEX_COMMANDS.join("\n")}
           {"\n\n"}

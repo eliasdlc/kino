@@ -23,9 +23,11 @@ export const CLAUDE_ADD_CONNECTOR_URL = `https://claude.ai/customize/connectors?
 })}`;
 
 /**
- * Los dos comandos de cada CLI. El primero sólo guarda la configuración; el
- * segundo abre el navegador para autorizar. Sin el segundo el cliente se queda
- * en "Needs authentication" y parece que no pasó nada. Claude Code guarda por
+ * Los dos comandos de cada CLI. En Claude Code el primero sólo guarda la
+ * configuración y el segundo abre el navegador para autorizar; sin el segundo
+ * se queda en "Needs authentication" y parece que no pasó nada. En Codex el
+ * primero ya abre el navegador, y el segundo lo repite si se cerró antes de
+ * autorizar. Claude Code guarda por
  * defecto el servidor sólo para la carpeta donde se añadió; con `--scope user`
  * Kino está en todas.
  */
