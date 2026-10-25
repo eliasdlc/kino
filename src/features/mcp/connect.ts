@@ -1,8 +1,8 @@
 import { SITE_URL } from "@/shared/lib/site-url";
 
 /**
- * Cómo se conecta cada agente al conector remoto. Lo leen la doc pública y
- * Ajustes, y no importa nada de servidor para poder ir al navegador.
+ * Cómo se conecta cada agente al conector remoto. No importa nada de servidor,
+ * para que la doc pública y la app puedan leerlo en el navegador.
  */
 
 /** El recurso que protege el OAuth. Es la URL que el cliente configura. */
@@ -25,10 +25,12 @@ export const CLAUDE_ADD_CONNECTOR_URL = `https://claude.ai/customize/connectors?
 /**
  * Los dos comandos de cada CLI. El primero sólo guarda la configuración; el
  * segundo abre el navegador para autorizar. Sin el segundo el cliente se queda
- * en "Needs authentication" y parece que no pasó nada.
+ * en "Needs authentication" y parece que no pasó nada. Claude Code guarda por
+ * defecto el servidor sólo para la carpeta donde se añadió; con `--scope user`
+ * Kino está en todas.
  */
 export const CLAUDE_CODE_COMMANDS = [
-  `claude mcp add --transport http ${MCP_SERVER_NAME} ${MCP_RESOURCE_URL}`,
+  `claude mcp add --scope user --transport http ${MCP_SERVER_NAME} ${MCP_RESOURCE_URL}`,
   `claude mcp login ${MCP_SERVER_NAME}`,
 ] as const;
 

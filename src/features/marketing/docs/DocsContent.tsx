@@ -426,7 +426,8 @@ export function DocsContent() {
             añadir Kino a Claude
           </a>
           , revisa los datos y confirma. Se añade una vez y sirve en los tres, y en Claude Code si
-          entras con la misma cuenta de Claude.
+          entras con la misma cuenta de Claude. En un plan Team o Enterprise de Claude lo añade
+          quien administra la organización.
         </p>
         <pre className="overflow-x-auto rounded-[14px] border border-border bg-card px-5 py-[18px] font-jetbrains text-[13px] leading-[1.7] text-muted-foreground">
           <span className="text-muted-foreground"># Claude Code: el segundo comando abre el navegador para autorizar</span>

@@ -16,4 +16,8 @@ describe("cómo se conecta cada asistente", () => {
       expect(login).toMatch(/^(claude|codex) mcp login kino$/);
     }
   });
+
+  it("Claude Code lo guarda para todas las carpetas, no sólo para la que estaba abierta", () => {
+    expect(CLAUDE_CODE_COMMANDS[0]).toContain("--scope user");
+  });
 });
