@@ -10,7 +10,8 @@ vi.mock("@clerk/mcp-tools/next", () => ({ verifyClerkToken: clerk.verifyClerkTok
 
 const { POST } = await import("./route");
 
-const post = (bearer?: string) =>
+// `reason` es lo que el middleware de Clerk deja en `x-clerk-auth-reason`.
+const post = (bearer?: string, reason?: string) =>
   POST(
     new Request("http://localhost:3000/api/mcp", {
       method: "POST",
@@ -18,6 +19,7 @@ const post = (bearer?: string) =>
         "Content-Type": "application/json",
         Accept: "application/json, text/event-stream",
         ...(bearer ? { Authorization: `Bearer ${bearer}` } : {}),
+        ...(reason ? { "x-clerk-auth-reason": reason } : {}),
       },
       body: JSON.stringify({ jsonrpc: "2.0", id: 1, method: "tools/list", params: {} }),
     }),
@@ -50,7 +52,26 @@ describe("/api/mcp · el fallo de Kino y el token inválido no se confunden", ()
     expect(res.headers.get("WWW-Authenticate")).toContain("oauth-protected-resource/api/mcp");
   });
 
-  it("sin token, aunque Clerk falle, 401: no hay conexión que decir que sigue válida", async () => {
+  it("si Clerk no puede verificar el token por un fallo suyo, 503 con su motivo, no 401", async () => {
+    clerk.verifyClerkToken.mockReturnValue(undefined);
+
+    for (const reason of ["unexpected-error", "secret-key-invalid"]) {
+      const res = await post("oat_1", reason);
+      expect(res.status, reason).toBe(503);
+      const body = (await res.json()) as { error: { message: string } };
+      expect(body.error.message).toContain(reason);
+    }
+  });
+
+  it("si el token es el que falla, 401 aunque Clerk diga por qué", async () => {
+    clerk.verifyClerkToken.mockReturnValue(undefined);
+
+    for (const reason of ["token-invalid", "token-verification-failed", "token-type-mismatch"]) {
+      expect((await post("oat_1", reason)).status, reason).toBe(401);
+    }
+  });
+
+  it("sin token, aunque Clerk falle, 401: lo que toca es empezar el OAuth", async () => {
     clerk.auth.mockRejectedValue(new Error("clerkMiddleware no detectado"));
 
     const res = await post();

@@ -109,6 +109,9 @@ describe("mintConvexToken · el token que Convex valida", () => {
   });
 
   it("una máquina de pruebas firma con su propio kid, y su mitad pública lo lleva", async () => {
+    process.env.KINO_MCP_KEY_ID = "";
+    // Una variable vacía en Vercel no puede dejar el token sin kid.
+    expect(decodeProtectedHeader(await mintConvexToken({ clerkId: "user_123", scope: "read" })).kid).toBe("kino-mcp");
     process.env.KINO_MCP_KEY_ID = "kino-mcp-agentbox";
     try {
       const token = await mintConvexToken({ clerkId: "user_123", scope: "read" });
@@ -136,12 +139,19 @@ describe("withServerFaults · un fallo de Kino no se disfraza de login caducado"
     const res = await route(async () => {
       throw new Error("Falta KINO_MCP_SIGNING_JWK: el conector MCP no puede firmar tokens para Convex.");
     })(post());
+    const largo = await route(async () => {
+      throw new Error("x".repeat(1000));
+    })(post());
 
     expect(res.status).toBe(503);
     expect(res.headers.get("WWW-Authenticate")).toBeNull();
     const body = (await res.json()) as { error: { message: string } };
-    expect(body.error.message).toContain("no hace falta volver a entrar");
+    expect(body.error.message).toContain("volver a entrar no lo arregla");
     expect(body.error.message).toContain("Falta KINO_MCP_SIGNING_JWK");
+    // El motivo es texto de un error ajeno: se recorta para no volcar un mensaje entero.
+    const recortado = ((await largo.json()) as { error: { message: string } }).error.message;
+    expect(recortado.endsWith("x".repeat(300))).toBe(true);
+    expect(recortado).not.toContain("x".repeat(301));
   });
 
   it("sin token válido sigue siendo 401 con la metadata, que es lo que arranca el OAuth", async () => {

@@ -118,8 +118,8 @@ type Verify<R> = (req: R, bearer?: string) => Promise<AuthInfo | undefined>;
  * veía como un login caducado y el cliente entraba en bucle. Aquí la excepción
  * se queda como un fallo marcado, y `faultResponse` lo contesta con su motivo.
  *
- * Sólo con un token delante: sin él no hay conexión que decir que sigue
- * válida, y el 401 es lo que hace que el cliente empiece el OAuth.
+ * Sólo con un token delante: sin él lo que toca es empezar el OAuth, y eso
+ * lo hace el 401.
  */
 export function withServerFaults<R>(verify: Verify<R>): Verify<R> {
   return async (req, bearer) => {
@@ -142,7 +142,7 @@ export function withServerFaults<R>(verify: Verify<R>): Verify<R> {
 export function faultResponse(auth: AuthInfo | undefined): Response | undefined {
   const fault = auth?.extra?.[FAULT];
   if (typeof fault !== "string") return undefined;
-  const message = `Kino falló al autorizar esta petición; tu conexión sigue siendo válida y no hace falta volver a entrar. Motivo: ${fault}`;
+  const message = `Kino falló al autorizar esta petición, y volver a entrar no lo arregla. Motivo: ${fault}`;
   return Response.json(
     { jsonrpc: "2.0", error: { code: -32603, message }, id: null },
     { status: 503, headers: { "Retry-After": "30" } },
