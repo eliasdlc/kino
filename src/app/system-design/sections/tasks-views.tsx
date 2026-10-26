@@ -416,7 +416,10 @@ export function TasksViewsSection() {
       >
         <Seeded stubs={[seedQuery(api.tasks.list, { items: LISTA, restantes: 0 })]}>
           <div className="w-full max-w-2xl">
-            <AllTasksList systems={[{ id: MOCK_SYSTEM_ID, name: "Universidad", color: "blue" }]} />
+            {/* AllTasksList reads the URL filters; a static page prerenders it only inside Suspense. */}
+            <Suspense>
+              <AllTasksList systems={[{ id: MOCK_SYSTEM_ID, name: "Universidad", color: "blue" }]} />
+            </Suspense>
           </div>
         </Seeded>
       </SubSection>
