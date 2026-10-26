@@ -82,14 +82,14 @@ export function GlobalCalendarView() {
 
   const { data: tareasDeLaSemana } = useCalendarTasks(from, to);
   const calendarTasks = tareasDeLaSemana ?? SIN_TAREAS;
-  const { data: allTasks = [] } = useAllTasks();
+  const { data: allTasks } = useAllTasks();
   const { mutate: updateTask } = useUpdateCalendarTask(from, to);
   const { mutate: toggle } = useToggleTask("");
   const { data: energyPlan } = useTodayEnergyPlan();
   const projectedCurve = energyPlan?.projectedCurve;
 
   const unscheduledTasks = useMemo(
-    () => allTasks.filter((t) => !t.dueDate && !t.startDate && t.status !== "done" && !t.deletedAt),
+    () => (allTasks ?? SIN_TAREAS).filter((t) => !t.dueDate && !t.startDate && t.status !== "done" && !t.deletedAt),
     [allTasks],
   );
   const byDayAllDay = useMemo(() => groupTasksByDay(calendarTasks, { timed: false }), [calendarTasks]);
@@ -170,6 +170,7 @@ export function GlobalCalendarView() {
             timedByDay={timedByDay}
             unscheduledTasks={unscheduledTasks}
             cargando={tareasDeLaSemana === undefined}
+            sinProgramarCargando={allTasks === undefined}
             onProgramar={setProgramando}
             onOpenTask={setAbierta}
             onComplete={completar}

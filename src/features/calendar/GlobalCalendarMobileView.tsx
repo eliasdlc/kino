@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { EmptyState } from "@/components/ui/empty-state";
 import { MarginRow } from "@/components/ui/margin-row";
 import { RowsSkeleton } from "@/components/Skeletons";
+import { Skeleton } from "@/components/ui/skeleton";
 import { SectionHead } from "@/features/dashboard/SectionHead";
 import { cn } from "@/lib/utils";
 import type { TaskTransport } from "@/features/tasks/tasks.types";
@@ -24,6 +25,8 @@ interface GlobalCalendarMobileViewProps {
   unscheduledTasks: TaskTransport[];
   /** Las tareas de la semana todavía no llegaron: el día se pinta como esqueleto, no como vacío. */
   cargando?: boolean;
+  /** La lista de las sin fecha todavía no llegó: ni «0» ni «ya tiene fecha», un esqueleto. */
+  sinProgramarCargando?: boolean;
   /** Abre la hoja con nombre que sustituye al arrastre. */
   onProgramar: (task: TaskTransport) => void;
   /** Abre el detalle de la tarea. */
@@ -283,6 +286,7 @@ export function GlobalCalendarMobileView({
   timedByDay,
   unscheduledTasks,
   cargando = false,
+  sinProgramarCargando = false,
   onProgramar,
   onOpenTask,
   onComplete,
@@ -411,11 +415,19 @@ export function GlobalCalendarMobileView({
               )}
             />
           </span>
-          <span className="shrink-0 text-[0.84rem] text-muted-foreground tabular-nums">{unscheduledTasks.length}</span>
+          {sinProgramarCargando ? (
+            <Skeleton className="h-4 w-5 shrink-0" />
+          ) : (
+            <span className="shrink-0 text-[0.84rem] text-muted-foreground tabular-nums">{unscheduledTasks.length}</span>
+          )}
         </button>
         {verSinProgramar && (
           <div id={idLista}>
-            {unscheduledTasks.length === 0 ? (
+            {sinProgramarCargando ? (
+              <div aria-hidden>
+                <RowsSkeleton rows={2} margin="circle" />
+              </div>
+            ) : unscheduledTasks.length === 0 ? (
               <p className="py-3 pl-(--margen) text-sm text-muted-foreground">Todo lo pendiente ya tiene fecha.</p>
             ) : (
               unscheduledTasks.map((task) => (
