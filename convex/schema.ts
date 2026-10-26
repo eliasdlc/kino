@@ -231,6 +231,13 @@ export const captureStatus = literals(['pending', 'confirmed', 'discarded', 'exp
 export const captureKind = literals(['voice', 'photo', 'link', 'text', 'email', 'file']);
 
 /**
+ * Qué cliente del conector es una fila de `mcpClients`. Los ids son los de las
+ * pestañas de Ajustes > Agentes, para que la pestaña y la fila coincidan sin
+ * traducir; `otro` es cualquier cliente que Kino no reconoce por su nombre.
+ */
+export const mcpClientKind = literals(['claude', 'claude-code', 'chatgpt', 'codex', 'otro']);
+
+/**
  * Autoría. Obligatoria desde que la migración `autoriaYPapelera` la rellenó en
  * todos los documentos y los seis creadores la escriben: quién creó la cosa y
  * por qué puerta entró nunca vuelve a faltar.
@@ -817,6 +824,27 @@ export default defineSchema({
     .index('by_pgId', ['pgId'])
     .index('by_endpoint', ['endpoint'])
     .index('by_user', ['userId']),
+
+  // Un cliente OAuth del conector que ya llamó, por persona. Lo escribe la ruta
+  // `/api/mcp` (`mcpClients.registrar`), como mucho una vez por cliente cada
+  // cinco minutos; lo lee el envoltorio de `lib/fn.ts` en cada llamada del
+  // conector para que un cliente revocado no pase. Techo de 30 activos por
+  // persona.
+  mcpClients: defineTable({
+    userId: v.id('users'),
+    // El `client_id` OAuth tal como Clerk lo verificó. Nunca lo declara el agente.
+    clientId: v.string(),
+    // Qué cliente es, para la pestaña y la lista. Sale del `clientInfo` del
+    // protocolo pasado por `clienteConocido`; es una etiqueta, no una identidad.
+    kind: mcpClientKind,
+    label: v.string(),
+    scope: v.union(v.literal('read'), v.literal('propose'), v.literal('write')),
+    firstSeenAt: ts,
+    lastSeenAt: ts,
+    revokedAt: v.optional(ts),
+  })
+    .index('by_user_client', ['userId', 'clientId'])
+    .index('by_user_lastSeen', ['userId', 'lastSeenAt']),
 
   // Bitácora de las tareas programadas. No lleva userId: es del sistema.
   cronRuns: defineTable({

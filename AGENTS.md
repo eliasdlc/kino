@@ -63,7 +63,7 @@ pnpm migrate:convex                 # Importador Postgres → Convex (scripts/mi
    Subir el límite es una decisión, no un ajuste: se escribe en el comentario de la función o la ruta. Y **acotar lo pesado sigue siendo la respuesta primero**: `tasks.list` y `pages.bySystem` devuelven `{ items, restantes }` con un tope duro (`TASK_LIST_LIMIT`, `PAGE_LIST_LIMIT`), y una lectura nueva que pueda crecer sin límite nace igual.
 5. **La sesión la emite y la revoca Clerk.** La cookie `__session` es un JWT corto que Clerk renueva cada minuto contra su backend, así que cerrar una sesión desde el panel la corta de verdad en ese plazo. Kino no guarda sesiones propias ni acepta otro token de navegador.
 
-   El conector MCP remoto (`/api/mcp`) entra por el OAuth de Clerk: el cliente se registra en dinámico, el usuario consiente en la pantalla de Clerk y la ruta verifica el access token con `@clerk/mcp-tools`. Convex no puede validar ese token (su `aud` cambia por cliente), así que la ruta firma uno propio de diez minutos con el alcance en `kino_scope` (`convex/lib/mcpToken.ts`, `src/features/mcp/auth.ts`) y Convex lo acepta por el provider `customJwt` de `auth.config.ts`. No hay claves API propias ni tabla `api_keys`.
+   El conector MCP remoto (`/api/mcp`) entra por el OAuth de Clerk: el cliente se registra en dinámico, el usuario consiente en la pantalla de Clerk y la ruta verifica el access token con `@clerk/mcp-tools`. Convex no puede validar ese token (su `aud` cambia por cliente), así que la ruta firma uno propio de diez minutos con el alcance en `kino_scope` (`convex/lib/mcpToken.ts`, `src/features/mcp/auth.ts`) y Convex lo acepta por el provider `customJwt` de `auth.config.ts`. No hay claves API propias ni tabla `api_keys`. Quien usa la cuenta puede desconectar un cliente en Ajustes > Agentes: la ruta contesta 403 al siguiente request de ese `client_id`, y `lib/fn.ts` lo vuelve a comprobar en `mcpClients` en cada llamada que llega por el conector (`REVOKED`), porque un token ya acuñado vive diez minutos.
 6. **Todo lo que vive en un sistema lleva `systemId`.** Una tarea, una carpeta, una página, una nota adhesiva y una versión de capítulo pertenecen a un sistema; lo que no dice a dónde va cae en la Bandeja (`systems.inbox`). No hay nada flotante. El schema ya lo exige en `tasks` (y en `entities`, `sprints`, `timeLogs`, `academicPeriods`, `systemMembers`, `systemInvites`). En `folders`, `pages`, `stickyNotes` y `pageSnapshots` sigue opcional porque está a mitad de su expand y contract (ver «Migraciones de datos»): todo escritor ya lo escribe (`pages.create` y `folders.create` lo exigen, una nota lo hereda de su página o su carpeta, una versión de su página), `convex/migrations/contenidoConSistema.ts` rellena los documentos de antes, y volverlo obligatorio es otro deploy.
 7. **Timestamps en UTC.** Convex guarda cada instante como milisegundos desde epoch (`ts` en `convex/schema.ts`), sin zona. El frontend convierte para mostrar.
 8. **Borrado blando** en cinco tablas vía `deletedAt`: `tasks`, `folders`, `pages`, `stickyNotes` y `entities`. Toda lectura de esas tablas excluye los borrados, salvo la de la papelera; los índices `by_user_alive`, `by_folder_alive` y `by_system_alive` llevan `deletedAt` para excluirlos sin leerlos. Una carpeta se lleva su subárbol entero, y no por una ruta jerárquica: no hay `path`, el árbol se arma en memoria desde `parentId` (`subtreeIds` en `convex/folders.ts`) y toda la cascada lleva el mismo `deletedAt`, que es lo que `restore` usa para devolver justo lo que se fue con ella (ver «Borrados y cascadas»).
@@ -267,7 +267,7 @@ Así que **toda ruta fuera de Convex comprueba a mano quién llama, o escribe en
 | Ruta | Qué exige |
 |---|---|
 | `/api/export/workspace`, `/api/systems/[id]/export` | sesión de navegador (`getServerSession`). Un token del conector MCP trae `userId` y nunca `sessionId`: ahí se corta, y `export.test.ts` lo prueba |
-| `/api/mcp` | el access token de Clerk, verificado con `@clerk/mcp-tools`; de ahí sale el `kino_scope` que Convex recibe |
+| `/api/mcp` | el access token de Clerk, verificado con `@clerk/mcp-tools`; de ahí sale el `kino_scope` que Convex recibe; y que el cliente no esté revocado en `mcpClients` |
 | `/api/uploads` | sesión de navegador |
 | `/api/integrations/github/{connect,callback}` | sesión de navegador, más el `state` del OAuth |
 
@@ -418,6 +418,7 @@ está incompleta.
 | `systemMembers`, `systemInvites`, `sessionDigests`, `interruptions` | no se podan | son estado y rastro, no historia. `interruptions` guarda una fila por candidato mostrado, y son unidades al año por persona |
 | `academicPeriods` | no se podan | años y ciclos permanentes; archivar un sistema conserva su historial |
 | `cronRuns` | ver `convex/cronRuns.ts` | el snapshot diario |
+| `mcpClients` | sin poda por tiempo | techo de 30 activos por persona en `mcpClients.registrar`, el más antiguo sale al entrar uno nuevo; los revocados se quedan, porque borrar uno lo dejaría volver a entrar. Se escribe como mucho una vez por cliente cada cinco minutos |
 
 ### Borrados y cascadas
 

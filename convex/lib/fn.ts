@@ -15,7 +15,7 @@ import { allows, isScope, SCOPE_FOR_REACH, type Reach, type Scope } from './scop
 // importador) no pasan por aquí: no las llama nadie con identidad.
 
 /** Errores tipados que el cliente puede distinguir. */
-export type FnErrorCode = 'UNAUTHENTICATED' | 'FORBIDDEN_SCOPE' | 'NO_USER' | 'BUDGET_EXCEEDED';
+export type FnErrorCode = 'UNAUTHENTICATED' | 'FORBIDDEN_SCOPE' | 'NO_USER' | 'BUDGET_EXCEEDED' | 'REVOKED';
 
 function fail(code: FnErrorCode, extra: Record<string, unknown> = {}): never {
   throw new ConvexError({ code, ...extra });
@@ -39,6 +39,25 @@ function channelOf(identity: UserIdentity): Channel {
 function clienteDe(identity: UserIdentity): string | undefined {
   const claim = identity[MCP_CLIENT_CLAIM];
   return typeof claim === 'string' && claim.length > 0 ? claim : undefined;
+}
+
+/**
+ * Corta al cliente OAuth que la persona desconectó en Ajustes > Agentes. Es la
+ * comprobación de la frontera de datos: la ruta `/api/mcp` ya contesta 403 a un
+ * revocado antes de montar el servidor, y esto cubre la petición que ya iba en
+ * vuelo con un token acuñado antes, que vive hasta diez minutos. Cuesta una
+ * lectura por índice en cada llamada que llega por el conector, y ninguna en el
+ * navegador.
+ */
+async function cortarSiRevocado(db: GenericDatabaseReader<DataModel>, user: Doc<'users'>, identity: UserIdentity) {
+  if (channelOf(identity) !== 'oauth') return;
+  const clientId = clienteDe(identity);
+  if (clientId === undefined) return;
+  const fila = await db
+    .query('mcpClients')
+    .withIndex('by_user_client', (q) => q.eq('userId', user._id).eq('clientId', clientId))
+    .unique();
+  if (fila?.revokedAt !== undefined) fail('REVOKED');
 }
 
 /** Lo que el envoltorio deja en el contexto de cada función. */
@@ -143,12 +162,14 @@ async function callerForQuery(ctx: QueryCtx, required: Scope): Promise<Caller> {
   const { identity, scope } = await authorize(ctx.auth, required);
   const user = await findUser(ctx.db, identity.subject);
   if (!user) fail('NO_USER');
+  await cortarSiRevocado(ctx.db, user, identity);
   return { user, clerkId: identity.subject, scope, channel: channelOf(identity), clientId: clienteDe(identity) };
 }
 
 async function callerForMutation(ctx: MutationCtx, required: Scope): Promise<Caller> {
   const { identity, scope } = await authorize(ctx.auth, required);
   const user = await ensureUser(ctx.db, identity);
+  await cortarSiRevocado(ctx.db, user, identity);
   return { user, clerkId: identity.subject, scope, channel: channelOf(identity), clientId: clienteDe(identity) };
 }
 
@@ -341,12 +362,17 @@ export const kinoAction = (budgetMs: number = DEFAULT_BUDGET_MS, reach: Reach = 
         clerkId: identity.subject,
       });
       if (!user) fail('NO_USER');
+      const clientId = clienteDe(identity);
+      if (channel === 'oauth' && clientId !== undefined) {
+        const revocado: boolean = await ctx.runQuery(internal.mcpClients.revocado, { userId: user._id, clientId });
+        if (revocado) fail('REVOKED');
+      }
       const caller: Caller & { budget: Budget } = {
         user,
         clerkId: identity.subject,
         scope,
         channel,
-        clientId: clienteDe(identity),
+        clientId,
         budget: budgetFrom(budgetMs),
       };
       return caller;

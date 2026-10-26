@@ -262,6 +262,15 @@ async function seedOnePerTable(ctx: MutationCtx) {
     p256dhKey: 'p',
     createdAt: NOW,
   });
+  await ctx.db.insert('mcpClients', {
+    userId,
+    clientId: 'client_abc',
+    kind: 'claude-code',
+    label: 'Claude Code',
+    scope: 'write',
+    firstSeenAt: NOW,
+    lastSeenAt: NOW,
+  });
   await ctx.db.insert('cronRuns', { job: 'daily-snapshot', startedAt: NOW, ok: false });
   await ctx.db.insert('rateLimits', {
     identity: 'sess:abc',
@@ -338,8 +347,8 @@ async function seedOnePerTable(ctx: MutationCtx) {
 }
 
 describe('convex/schema', () => {
-  it('declara las treinta y siete tablas', () => {
-    expect(TABLE_NAMES).toHaveLength(37);
+  it('declara las treinta y ocho tablas', () => {
+    expect(TABLE_NAMES).toHaveLength(38);
   });
 
   it('acepta un documento mínimo en cada tabla', async () => {

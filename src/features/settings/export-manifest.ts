@@ -51,6 +51,7 @@ export const EXPORT_TABLES: readonly ExportTable[] = [
   { tabla: "usageCounters", etiqueta: "Contadores de uso", formato: null, motivo: "Cuentas de infraestructura, no contenido tuyo." },
   { tabla: "syncConnections", etiqueta: "Conexiones con GitHub", formato: null, motivo: "Guarda credenciales cifradas; fuera de Kino no sirven." },
   { tabla: "pushSubscriptions", etiqueta: "Avisos push", formato: null, motivo: "Claves del navegador, atadas a este dispositivo." },
+  { tabla: "mcpClients", etiqueta: "Agentes conectados", formato: null, motivo: "Estado de tus conexiones: fuera de Kino no sirve." },
   { tabla: "cronRuns", etiqueta: "Bitácora de los crons", formato: null, motivo: "Rastro de la máquina." },
   { tabla: "rateLimits", etiqueta: "Límites de uso", formato: null, motivo: "Rastro de la máquina." },
   { tabla: "eventLog", etiqueta: "Registro de eventos", formato: null, motivo: "Se poda a los 30 días." },
