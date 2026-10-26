@@ -15,7 +15,8 @@ import { PlotSceneList } from "./PlotSceneList";
 import { arcStats, describirArco } from "./PlotGridView";
 import type { PlotGrid } from "./writing.plot";
 
-vi.mock("sonner", () => ({ toast: vi.fn() }));
+let siguienteAviso = 0;
+vi.mock("sonner", () => ({ toast: Object.assign(vi.fn(() => `aviso-${++siguienteAviso}`), { dismiss: vi.fn() }) }));
 
 const GRID: PlotGrid = {
   folderId: "obra-1" as never,
@@ -42,20 +43,38 @@ type Apply = React.ComponentProps<typeof PlotSceneList>["onApply"];
 
 function setup(busy = false, grid: PlotGrid = GRID) {
   const onApply = vi.fn<Apply>();
-  renderWithProviders(
-    <PlotSceneList grid={grid} systemId="sys-1" busy={busy} onApply={onApply} />,
-  );
-  return { onApply, user: userEvent.setup() };
+  const vista = (g: PlotGrid) => <PlotSceneList grid={g} systemId="sys-1" busy={busy} onApply={onApply} />;
+  const { rerender } = renderWithProviders(vista(grid));
+  return { onApply, user: userEvent.setup(), mostrar: (g: PlotGrid) => rerender(vista(g)) };
 }
 
-/** Lo que el aviso ofrece como Deshacer, tras confirmar el servidor la operación. */
-function deshacerDelAviso(onApply: ReturnType<typeof setup>["onApply"]) {
-  void onApply.mock.calls[0]![1]?.onSuccess?.(GRID as never, onApply.mock.calls[0]![0]!);
-  const [, opciones] = vi.mocked(toast).mock.calls[0]!;
+/** El tablero tras mover una escena al final de otro capítulo, como lo deja el servidor. */
+function trasMover(grid: PlotGrid, de: { chapterId: string; index: number }, aChapterId: string): PlotGrid {
+  const escena = grid.chapters.find((c) => c.chapterId === de.chapterId)!.scenes[de.index]!;
+  const reindexar = (scenes: PlotGrid["chapters"][number]["scenes"]) => scenes.map((e, index) => ({ ...e, index }));
+  return {
+    ...grid,
+    chapters: grid.chapters.map((c) => {
+      if (c.chapterId === de.chapterId) return { ...c, scenes: reindexar(c.scenes.filter((e) => e.index !== de.index)) };
+      if (c.chapterId === aChapterId) return { ...c, scenes: reindexar([...c.scenes, escena]) };
+      return c;
+    }),
+  };
+}
+
+/** Confirma el servidor la última operación pedida y devuelve el Deshacer de su aviso. */
+function deshacerDelUltimoAviso(onApply: ReturnType<typeof setup>["onApply"]) {
+  const llamada = onApply.mock.calls.at(-1)!;
+  void llamada[1]?.onSuccess?.(GRID as never, llamada[0]!);
+  const [, opciones] = vi.mocked(toast).mock.calls.at(-1)!;
   return (opciones as { action: { label: string; onClick: () => void } }).action;
 }
 
-beforeEach(() => vi.mocked(toast).mockClear());
+beforeEach(() => {
+  vi.mocked(toast).mockClear();
+  vi.mocked(toast.dismiss).mockClear();
+  siguienteAviso = 0;
+});
 
 /** Abre el panel de mover de la primera escena del primer capítulo. */
 async function openFirstMove(user: ReturnType<typeof userEvent.setup>) {
@@ -147,11 +166,12 @@ describe("PlotSceneList, lo que se ve al mover", () => {
   });
 
   it("al mover, el aviso dice adónde fue y Deshacer la devuelve a su sitio", async () => {
-    const { onApply, user } = setup();
+    const { onApply, user, mostrar } = setup();
     await openFirstMove(user);
     await user.click(within(screen.getByRole("dialog")).getByRole("button", { name: /La carta/ }));
 
-    const accion = deshacerDelAviso(onApply);
+    mostrar(trasMover(GRID, { chapterId: "cap-1", index: 0 }, "cap-2"));
+    const accion = deshacerDelUltimoAviso(onApply);
     expect(vi.mocked(toast).mock.calls[0]![0]).toBe("Escena movida a La carta");
     expect(accion.label).toBe("Deshacer");
     accion.onClick();
@@ -169,8 +189,63 @@ describe("PlotSceneList, lo que se ve al mover", () => {
     await openFirstMove(user);
     await user.click(within(screen.getByRole("dialog")).getByRole("button", { name: /Herencia/ }));
 
-    deshacerDelAviso(onApply).onClick();
+    deshacerDelUltimoAviso(onApply).onClick();
     expect(onApply.mock.calls[1]![0]).toEqual({ kind: "arc", chapterId: "cap-1", index: 0, arc: "Duelo" });
+  });
+
+  it("Deshacer devuelve una escena que no era la primera a su lugar, no al principio", async () => {
+    const { onApply, user, mostrar } = setup();
+    await user.click(screen.getByRole("button", { name: "Mover la escena 2 de Llegada" }));
+    await user.click(within(screen.getByRole("dialog")).getByRole("button", { name: /La carta/ }));
+
+    mostrar(trasMover(GRID, { chapterId: "cap-1", index: 1 }, "cap-2"));
+    deshacerDelUltimoAviso(onApply).onClick();
+    expect(onApply.mock.calls[1]![0]).toEqual({
+      kind: "move",
+      chapterId: "cap-2",
+      index: 1,
+      toChapterId: "cap-1",
+      toIndex: 1,
+    });
+  });
+
+  it("un Deshacer viejo no mueve otra escena: tras otros movimientos dice que ya no se puede", async () => {
+    const escena = (index: number, preview: string) => ({ index, arc: null, preview, wordCount: 10 + preview.length * 7 + index });
+    let tablero: PlotGrid = {
+      ...GRID,
+      arcs: [],
+      chapters: [
+        { chapterId: "u", title: "Uno", scenes: [escena(0, "U0"), escena(1, "U1")] },
+        { chapterId: "d", title: "Dos", scenes: [escena(0, "D0")] },
+        { chapterId: "t", title: "Tres", scenes: [escena(0, "T0"), escena(1, "T1")] },
+      ],
+    };
+    const { onApply, user, mostrar } = setup(false, tablero);
+    const avisos: Array<{ onClick: () => void }> = [];
+
+    // U0 a Dos, D0 a Tres, T0 a Dos: cada aviso nombra un tablero que el siguiente cambió.
+    for (const [titulo, cap, aCap, destino] of [
+      ["Uno", "u", "d", "Dos"],
+      ["Dos", "d", "t", "Tres"],
+      ["Tres", "t", "d", "Dos"],
+    ] as const) {
+      await user.click(screen.getByRole("button", { name: `Mover la escena 1 de ${titulo}` }));
+      await user.click(within(screen.getByRole("dialog")).getByRole("button", { name: new RegExp(destino) }));
+      avisos.push(deshacerDelUltimoAviso(onApply));
+      tablero = trasMover(tablero, { chapterId: cap, index: 0 }, aCap);
+      mostrar(tablero);
+    }
+
+    // Cada aviso nuevo retira el anterior (el primero retira el de otro test, que no cuenta).
+    expect(vi.mocked(toast.dismiss).mock.calls.slice(1).map(([id]) => id)).toEqual(["aviso-1", "aviso-2"]);
+
+    const pedidas = onApply.mock.calls.length;
+    avisos[0]!.onClick();
+    expect(onApply).toHaveBeenCalledTimes(pedidas);
+    expect(vi.mocked(toast).mock.calls.at(-1)![0]).toMatch(/Ya no se puede deshacer/);
+    // El último sí sigue vigente.
+    avisos[2]!.onClick();
+    expect(onApply).toHaveBeenCalledTimes(pedidas + 1);
   });
 
   it("mientras reescribe lo dice también en el teléfono", () => {
