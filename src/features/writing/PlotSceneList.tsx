@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { ArrowRight, Check } from "lucide-react";
 import { toast } from "sonner";
@@ -64,6 +64,12 @@ export function PlotSceneList({
   onApply: Apply;
 }) {
   const [moving, setMoving] = useState<{ chapterId: string; index: number } | null>(null);
+  // Los avisos de Deshacer viven más que la hoja que los creó: miran el tablero
+  // de ahora, no el de cuando se movió la escena.
+  const gridRef = useRef(grid);
+  useEffect(() => {
+    gridRef.current = grid;
+  }, [grid]);
 
   const capituloDeLaEscena = moving ? grid.chapters.findIndex((c) => c.chapterId === moving.chapterId) : -1;
   const scene = moving ? grid.chapters[capituloDeLaEscena]?.scenes[moving.index] : undefined;
@@ -134,6 +140,7 @@ export function PlotSceneList({
               grid={grid}
               from={moving}
               scene={scene}
+              getGrid={() => gridRef.current}
               busy={busy}
               onApply={onApply}
               onDone={() => setMoving(null)}
@@ -190,6 +197,7 @@ function MovePanel({
   grid,
   from,
   scene,
+  getGrid,
   busy,
   onApply,
   onDone,
@@ -197,6 +205,8 @@ function MovePanel({
   grid: PlotGrid;
   from: { chapterId: string; index: number };
   scene: PlotScene;
+  /** El tablero más reciente, para comprobar al deshacer que la escena sigue donde la dejamos. */
+  getGrid: () => PlotGrid;
   busy: boolean;
   onApply: Apply;
   onDone: () => void;
@@ -212,9 +222,11 @@ function MovePanel({
       { kind: "move", chapterId: from.chapterId, index: from.index, toChapterId: target.chapterId, toIndex: llega },
       {
         onSuccess: () =>
-          avisar(`Escena movida a ${tituloDe(target, i)}`, () =>
-            onApply({ kind: "move", chapterId: target.chapterId, index: llega, toChapterId: from.chapterId, toIndex: from.index }),
-          ),
+          avisar(`Escena movida a ${tituloDe(target, i)}`, () => {
+            if (!sigueAhi(getGrid(), target.chapterId, llega, scene)) return false;
+            onApply({ kind: "move", chapterId: target.chapterId, index: llega, toChapterId: from.chapterId, toIndex: from.index });
+            return true;
+          }),
       },
     );
     onDone();
@@ -227,9 +239,11 @@ function MovePanel({
       { kind: "arc", chapterId: from.chapterId, index: from.index, arc },
       {
         onSuccess: () =>
-          avisar(arc ? `La escena pasa al arco ${arc}` : "La escena se queda sin arco", () =>
-            onApply({ kind: "arc", chapterId: from.chapterId, index: from.index, arc: antes }),
-          ),
+          avisar(arc ? `La escena pasa al arco ${arc}` : "La escena se queda sin arco", () => {
+            if (!sigueAhi(getGrid(), from.chapterId, from.index, scene)) return false;
+            onApply({ kind: "arc", chapterId: from.chapterId, index: from.index, arc: antes });
+            return true;
+          }),
       },
     );
     onDone();
@@ -314,9 +328,32 @@ function MovePanel({
   );
 }
 
-/** El aviso que dice qué cambió en el texto, con la vuelta atrás a un toque. */
-function avisar(mensaje: string, deshacer: () => void) {
-  toast(mensaje, { action: { label: "Deshacer", onClick: deshacer }, duration: 6000 });
+/** El aviso de Deshacer que sigue en pantalla, para retirarlo cuando llega uno nuevo. */
+let avisoVigente: string | number | undefined;
+
+/**
+ * El aviso que dice qué cambió en el texto, con la vuelta atrás a un toque.
+ * Cada movimiento retira el aviso anterior: su Deshacer hablaba de un tablero que
+ * ya no es éste. `deshacer` devuelve `false` si la escena ya no está donde se la
+ * dejó, y entonces el aviso lo dice en vez de mover otra cosa.
+ */
+function avisar(mensaje: string, deshacer: () => boolean) {
+  if (avisoVigente !== undefined) toast.dismiss(avisoVigente);
+  avisoVigente = toast(mensaje, {
+    action: {
+      label: "Deshacer",
+      onClick: () => {
+        if (!deshacer()) toast("Ya no se puede deshacer: la escena cambió de sitio");
+      },
+    },
+    duration: 6000,
+  });
+}
+
+/** Si en ese capítulo y lugar sigue la misma escena, por su arranque y su tamaño. */
+function sigueAhi(grid: PlotGrid, chapterId: string, index: number, scene: PlotScene): boolean {
+  const ahora = grid.chapters.find((c) => c.chapterId === chapterId)?.scenes[index];
+  return ahora?.preview === scene.preview && ahora.wordCount === scene.wordCount;
 }
 
 /** El nombre de un capítulo: su título o su número. */
