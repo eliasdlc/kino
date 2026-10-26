@@ -20,9 +20,11 @@ import { kinoZodMutation, kinoZodQuery, type Channel } from './lib/fn';
 import type { ActorChannel } from './schema';
 import { lematizar } from './lib/lemas';
 import {
+  createTaskFields,
   createTaskSchema,
   createTimeLogSchema,
   listTasksSchema,
+  refineNewTask,
   updateTaskSchema,
   type CreateTaskInput,
   type TaskStatus,
@@ -31,6 +33,7 @@ import { deriveStatusFromDate, findParentViolation } from './lib/tasks/status';
 import { calendarDayInTz, userToday } from './lib/time';
 import { effectivePriority } from '../src/shared/lib/effective-priority';
 import { recalcularAviso } from './lib/avisos';
+import { readWorkdir, resolveWorkdir, WORKDIR_PATH_MAX, WORKDIR_REMOTE_MAX } from './lib/workdir';
 
 // Las tareas. Cada mutación es una transacción, así que lo que antes eran
 // `db.transaction` y locks de aviso aquí es simplemente el cuerpo de la
@@ -647,6 +650,49 @@ async function createOne(
 export const create = kinoZodMutation({
   args: createTaskSchema,
   handler: async (ctx, data) => taskItem(await createOne(ctx, ctx.user._id, ctx.channel, ctx.user.timezone, data)),
+});
+
+/**
+ * Crear una tarea desde el conector, que puede no saber el sistema. Decide en
+ * este orden: el `systemId` que el agente pasó; si no, la regla de su carpeta
+ * o su repo (`convex/lib/workdir.ts`); si mandó carpeta y ninguna regla la
+ * cubre, no crea nada y responde `needs_system` para que el agente pregunte;
+ * y sin carpeta ni sistema, la Bandeja.
+ */
+export const createFromAgent = kinoZodMutation({
+  args: createTaskFields
+    .extend({
+      systemId: zid('systems').optional(),
+      workingDirectory: z.string().max(WORKDIR_PATH_MAX).optional(),
+      gitRemote: z.string().max(WORKDIR_REMOTE_MAX).optional(),
+    })
+    .superRefine(refineNewTask),
+  handler: async (ctx, { systemId, workingDirectory, gitRemote, ...data }) => {
+    const userId = ctx.user._id;
+    const create = async (target: Id<'systems'>) =>
+      taskItem(await createOne(ctx, userId, ctx.channel, ctx.user.timezone, { ...data, systemId: target }));
+
+    if (systemId) return { status: 'created' as const, routedBy: 'systemId' as const, task: await create(systemId) };
+
+    const workdir = readWorkdir({ workingDirectory, gitRemote });
+    if (workdir.path || workdir.repo) {
+      const match = await resolveWorkdir(ctx, userId, workdir);
+      if (!match) return { status: 'needs_system' as const, workingDirectory: workdir.path ?? null, gitRemote: workdir.repo ?? null };
+      return {
+        status: 'created' as const,
+        routedBy: 'rule' as const,
+        rule: { kind: match.rule.kind, key: match.rule.key, systemName: match.system.name },
+        task: await create(match.system._id),
+      };
+    }
+
+    const inbox = await ctx.db
+      .query('systems')
+      .withIndex('by_user_inbox', (q) => q.eq('userId', userId).eq('isInbox', true))
+      .first();
+    if (!inbox || !inbox.isActive) invalid('Falta systemId y esta cuenta no tiene Bandeja');
+    return { status: 'created' as const, routedBy: 'inbox' as const, task: await create(inbox._id) };
+  },
 });
 
 /** Exportada para la siembra del onboarding, que crea tareas sin pasar por el cliente. */
