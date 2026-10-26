@@ -1,12 +1,101 @@
 'use client';
 
-import { useCallback, useRef, useState } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react';
 import { toast } from 'sonner';
+import { useUpdateTask } from './tasks.hooks';
 import type { TaskStatus } from './tasks.state-machine';
 import type { TaskTransport } from './tasks.types';
 
 /** Lo que dura el Deshacer de una fila tachada. El mismo que el plan de Hoy. */
 export const UNDO_MS = 4000;
+
+/** Un gesto de completar. Deshacer lo apaga una sola vez, aunque se pulse tarde. */
+interface Gesto {
+  vigente: boolean;
+  aviso?: string | number;
+}
+
+/** Una fila tachada en esta visita: el estado que tenía y el gesto que la tachó. */
+interface Tachada {
+  antes: TaskStatus;
+  gesto: Gesto;
+}
+
+/** Con qué se completa (un flip) y con qué se devuelve la tarea a su estado. */
+interface Acciones {
+  toggle: (taskId: string) => void;
+  restaurar: (taskId: string, status: TaskStatus) => void;
+}
+
+/**
+ * Las filas tachadas de la visita, compartidas por todo lo que se pinta a la
+ * vez: la hoja de detalle tacha una fila que otra lista ya pintó, y las dos
+ * tienen que verla tachada en su sitio. La visita termina cuando se desmonta
+ * lo último que mira esto: la siguiente empieza limpia.
+ */
+let tachadas: ReadonlyMap<string, Tachada> = new Map();
+const oyentes = new Set<() => void>();
+const alTachar = new Set<(task: TaskTransport) => void>();
+
+function publicar(siguiente: ReadonlyMap<string, Tachada>) {
+  tachadas = siguiente;
+  for (const oyente of [...oyentes]) oyente();
+}
+
+function suscribir(oyente: () => void) {
+  if (oyentes.size === 0) tachadas = new Map();
+  oyentes.add(oyente);
+  return () => {
+    oyentes.delete(oyente);
+    if (oyentes.size === 0) tachadas = new Map();
+  };
+}
+
+const instantanea = () => tachadas;
+
+/** Las filas tachadas en esta visita, con el estado que tenían antes. */
+function useTachadas() {
+  return useSyncExternalStore(suscribir, instantanea, instantanea);
+}
+
+/**
+ * Deshacer reabre la tarea una sola vez: la devuelve al estado que tenía
+ * antes de tacharla (una de la semana vuelve a la semana, no a Hoy) y no
+ * alterna, porque alternar a ciegas un Deshacer tardío la dejaría hecha.
+ */
+function deshacer(taskId: string, antes: TaskStatus, gesto: Gesto, acciones: Acciones) {
+  if (!gesto.vigente) return;
+  gesto.vigente = false;
+  acciones.restaurar(taskId, antes);
+}
+
+/**
+ * Tacha una fila, con el Deshacer de cuatro segundos, o la reabre si el gesto
+ * que la tachó sigue vigente (el círculo de una fila tachada). Una tarea que
+ * ya venía hecha se alterna con `toggle`, que la deja donde el servidor pone
+ * una reabierta (Hoy).
+ */
+export function tacharTarea(task: TaskTransport, acciones: Acciones) {
+  const previa = tachadas.get(task.id);
+  if (task.status === 'done' || previa?.gesto.vigente) {
+    if (previa?.gesto.vigente) {
+      if (previa.gesto.aviso !== undefined) toast.dismiss(previa.gesto.aviso);
+      deshacer(task.id, previa.antes, previa.gesto, acciones);
+    } else {
+      acciones.toggle(task.id);
+    }
+    return;
+  }
+  const antes = task.status as TaskStatus;
+  const gesto: Gesto = { vigente: true };
+  publicar(new Map(tachadas).set(task.id, { antes, gesto }));
+  for (const oyente of [...alTachar]) oyente(task);
+  acciones.toggle(task.id);
+  gesto.aviso = toast(`Hecha: ${task.title}`, {
+    duration: UNDO_MS,
+    action: { label: 'Deshacer', onClick: () => deshacer(task.id, antes, gesto, acciones) },
+  });
+}
 
 /**
  * Tachar una fila, con el Deshacer de cuatro segundos. Es la conducta del plan
@@ -15,54 +104,21 @@ export const UNDO_MS = 4000;
  * recoloca sus renglones a los cuatro segundos mueve lo que la persona está
  * leyendo (y eso es CLS).
  *
- * El Deshacer reabre la tarea una sola vez, no alterna: la mutación es un
- * flip, así que alternar a ciegas un Deshacer tardío volvería a dejar la tarea
- * hecha. Reabrir la deja donde el servidor pone una tarea reabierta (Hoy, ver
- * `tasks.state-machine.ts`), no necesariamente donde estaba: una de la semana
- * o del backlog vuelve a Hoy. Si la persona deshace con el círculo, el aviso
- * se cierra en ese toque.
- *
  * `toggle` es la mutación (optimista: `useToggleTask` o `useToggleTodayTask`).
- * `onStrike` avisa cuándo se tachó, por si la lista quiere celebrarlo.
+ * Si la persona deshace con el círculo, el aviso se cierra en ese toque.
  */
-export function useTachar(toggle: (taskId: string) => void, onStrike?: (task: TaskTransport) => void) {
-  // Las completadas aquí y que siguen hechas según el último gesto, con el id
-  // de su aviso: es la fuente del Deshacer, no depende de que el servidor ya
-  // haya contestado.
-  const completedHere = useRef(new Map<string, string | number | undefined>());
-  const [struck, setStruck] = useState<ReadonlySet<string>>(() => new Set());
-
-  const undo = useCallback(
-    (taskId: string) => {
-      if (!completedHere.current.has(taskId)) return;
-      completedHere.current.delete(taskId);
-      toggle(taskId);
-    },
-    [toggle],
-  );
+export function useTachar(toggle: (taskId: string) => void) {
+  const { mutate: actualizar } = useUpdateTask('');
+  const filas = useTachadas();
+  const struck = useMemo<ReadonlySet<string>>(() => new Set(filas.keys()), [filas]);
 
   const handleToggle = useCallback(
-    (task: TaskTransport) => {
-      if (task.status !== 'done' && !completedHere.current.has(task.id)) {
-        setStruck((prev) => new Set(prev).add(task.id));
-        toggle(task.id);
-        const toastId = toast(`Hecha: ${task.title}`, {
-          duration: UNDO_MS,
-          action: { label: 'Deshacer', onClick: () => undo(task.id) },
-        });
-        completedHere.current.set(task.id, toastId);
-        onStrike?.(task);
-        return;
-      }
-      const toastId = completedHere.current.get(task.id);
-      if (toastId !== undefined) toast.dismiss(toastId);
-      if (completedHere.current.has(task.id)) undo(task.id);
-      else toggle(task.id);
-    },
-    [toggle, undo, onStrike],
+    (task: TaskTransport) =>
+      tacharTarea(task, { toggle, restaurar: (taskId, status) => actualizar({ taskId, data: { status } }) }),
+    [toggle, actualizar],
   );
 
-  return { struck, handleToggle };
+  return { struck, handleToggle, tachadas: filas };
 }
 
 /**
@@ -73,17 +129,9 @@ export function useTachar(toggle: (taskId: string) => void, onStrike?: (task: Ta
  * final. El orden se suelta en la siguiente visita, cuando la lista se monta
  * de nuevo.
  */
-export function useListaTachable(
-  items: readonly TaskTransport[],
-  toggle: (taskId: string) => void,
-  onStrike?: (task: TaskTransport) => void,
-) {
+export function useListaTachable(items: readonly TaskTransport[], toggle: (taskId: string) => void) {
   const [quietas, setQuietas] = useState<readonly TaskTransport[] | null>(null);
-  const { struck, handleToggle } = useTachar(toggle, (task) => {
-    // Se llama en el toque, con las filas del último render ya pintado.
-    setQuietas((prev) => prev ?? filas);
-    onStrike?.(task);
-  });
+  const { struck, handleToggle, tachadas: filasTachadas } = useTachar(toggle);
 
   let filas: readonly TaskTransport[] = items;
   if (quietas) {
@@ -100,7 +148,33 @@ export function useListaTachable(
     ];
   }
 
-  return { filas, struck, handleToggle };
+  // Quien tacha (el círculo de una fila o la hoja de detalle) avisa en el
+  // toque, con las filas del último render ya pintado: ahí se congela el orden.
+  const pintadas = useRef(filas);
+  useLayoutEffect(() => {
+    pintadas.current = filas;
+  });
+  useEffect(() => {
+    const congelar = () => setQuietas((prev) => prev ?? pintadas.current);
+    alTachar.add(congelar);
+    return () => {
+      alTachar.delete(congelar);
+    };
+  }, []);
+
+  return { filas, struck, handleToggle, estadoDe: estadoDeCon(filasTachadas) };
+}
+
+/**
+ * El estado con el que una vista debe filtrar y agrupar una tarea: el de antes
+ * de completar mientras la fila siga tachada en esta visita, y el real en
+ * cuanto se deshace o en la siguiente visita.
+ */
+function estadoDeCon(filas: ReadonlyMap<string, Tachada>) {
+  return (task: TaskTransport): TaskStatus => {
+    const tachada = filas.get(task.id);
+    return task.status === 'done' && tachada ? tachada.antes : (task.status as TaskStatus);
+  };
 }
 
 /**
@@ -116,16 +190,7 @@ export function useListaTachable(
  * real (hecha, con su círculo lleno) y `struck` dice cuál animar.
  */
 export function useTacharEnSitio(toggle: (taskId: string) => void) {
-  const [antes, setAntes] = useState<ReadonlyMap<string, TaskStatus>>(() => new Map());
-  const { struck, handleToggle } = useTachar(toggle, (task) => {
-    setAntes((prev) => new Map(prev).set(task.id, task.status as TaskStatus));
-  });
-
-  const estadoDe = useCallback(
-    (task: TaskTransport): TaskStatus =>
-      task.status === 'done' && struck.has(task.id) ? (antes.get(task.id) ?? (task.status as TaskStatus)) : (task.status as TaskStatus),
-    [antes, struck],
-  );
-
+  const { struck, handleToggle, tachadas: filas } = useTachar(toggle);
+  const estadoDe = useMemo(() => estadoDeCon(filas), [filas]);
   return { struck, handleToggle, estadoDe };
 }

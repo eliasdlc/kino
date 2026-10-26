@@ -47,15 +47,32 @@ describe("useListaTachable", () => {
     expect(container.querySelector("[data-struck]")).not.toBeNull();
   });
 
-  it("el Deshacer del aviso devuelve la tarea una sola vez", () => {
+  it("D3: el Deshacer devuelve la tarea a su estado de antes, una sola vez", () => {
     const toggle = vi.fn();
-    renderWithProviders(<Lista items={[tarea("a", "Primera")]} toggle={toggle} />);
+    const { convex } = renderWithProviders(<Lista items={[tarea("a", "Primera", "backlog")]} toggle={toggle} />);
     fireEvent.click(screen.getByRole("button", { name: "Completar Primera" }));
     const opciones = toastMock.mock.calls[0]![1] as { action: { label: string; onClick: () => void }; duration: number };
     expect(opciones.action.label).toBe("Deshacer");
     expect(opciones.duration).toBe(4000);
     opciones.action.onClick();
     opciones.action.onClick();
-    expect(toggle.mock.calls).toEqual([["a"], ["a"]]);
+    // Completar es un flip; deshacer no lo repite: escribe el estado guardado.
+    expect(toggle.mock.calls).toEqual([["a"]]);
+    expect(convex.calls.filter((c) => c.name === "tasks:update")).toEqual([
+      expect.objectContaining({ args: { id: "a", status: "backlog" } }),
+    ]);
+  });
+
+  it("deshacer con el círculo cierra el aviso y el Deshacer del aviso ya no hace nada", () => {
+    const toggle = vi.fn();
+    const { convex, rerender } = renderWithProviders(<Lista items={[tarea("a", "Primera", "week")]} toggle={toggle} />);
+    fireEvent.click(screen.getByRole("button", { name: "Completar Primera" }));
+    const opciones = toastMock.mock.calls[0]![1] as { action: { onClick: () => void } };
+    rerender(<Lista items={[tarea("a", "Primera", "done")]} toggle={toggle} />);
+    fireEvent.click(screen.getByRole("button", { name: "Completar Primera" }));
+    opciones.action.onClick();
+    expect(convex.calls.filter((c) => c.name === "tasks:update")).toEqual([
+      expect.objectContaining({ args: { id: "a", status: "week" } }),
+    ]);
   });
 });
