@@ -72,6 +72,31 @@ describe("ShareConfirm", () => {
     expect(onConfirm).toHaveBeenCalledExactlyOnceWith([0, 2], [{ systemId: null, nombre: "Bandeja", cuenta: 2 }]);
   });
 
+  it("un item desmarcado se puede volver a marcar", async () => {
+    pintar();
+    const item = screen.getByRole("button", { name: /Repasar el parcial/ });
+
+    await userEvent.click(item);
+    expect(item).toHaveAttribute("aria-pressed", "false");
+    await userEvent.click(item);
+
+    expect(item).toHaveAttribute("aria-pressed", "true");
+    expect(screen.getByRole("button", { name: "Confirmar 3" })).toBeEnabled();
+  });
+
+  it("mientras la confirmación va de camino el botón dice Confirmando y no se toca dos veces", async () => {
+    const onConfirm = vi.fn();
+    renderMobile(
+      <ShareConfirm captura={captura()} open enviando onOpenChange={() => {}} onConfirm={onConfirm} onDiscard={vi.fn()} />,
+    );
+
+    const boton = screen.getByRole("button", { name: "Confirmando" });
+    expect(boton).toBeDisabled();
+    await userEvent.click(boton);
+    expect(onConfirm).not.toHaveBeenCalled();
+    expect(screen.queryByRole("button", { name: /^Confirmar \d/ })).toBeNull();
+  });
+
   it("sin nada marcado el botón lo dice y no deja confirmar", async () => {
     pintar();
 
@@ -153,6 +178,22 @@ describe("ShareConfirm", () => {
     rerender(ver(captura({ id: "cap-2" as CaptureItem["id"] }), true));
 
     expect(screen.getByRole("button", { name: "Confirmar 3" })).toBeVisible();
+  });
+
+  it("mientras la hoja se cierra sigue mostrando la captura, no la de «nadie la ha leído»", () => {
+    const ver = (item: CaptureItem | null, open: boolean) => (
+      <ShareConfirm captura={item} open={open} onOpenChange={() => {}} onConfirm={vi.fn()} onDiscard={vi.fn()} />
+    );
+    const { rerender } = renderMobile(ver(captura(), true));
+
+    // Bandeja vacía la captura en cuanto confirmar sale; la hoja tarda en irse.
+    rerender(ver(null, false));
+
+    const hoja = document.querySelector('[data-slot="drawer-content"]');
+    expect(hoja).toHaveAttribute("data-state", "closed");
+    expect(screen.getByText("3 tareas propuestas")).toBeInTheDocument();
+    expect(screen.queryByText("Todavía nadie la ha leído")).toBeNull();
+    expect(screen.queryByRole("button", { name: "Descartarla" })).toBeNull();
   });
 
   it("una captura caducada lo dice y no ofrece Confirmar, que el servidor rechaza", async () => {
