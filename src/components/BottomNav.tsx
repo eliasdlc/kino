@@ -18,6 +18,12 @@ import { DESTINOS_MOVIL, destinoActivo } from "./navigation";
  * touch y sin ella la búsqueda no tenía puerta en el teléfono. Calendario no
  * cabe: se alcanza desde la fecha de Hoy y desde el segmento de Tareas.
  *
+ * Las cinco palabras reparten el ancho a partes iguales (`minmax(0,1fr)`, no
+ * `auto`: una columna no crece hasta su palabra) y la columna del orbe mide
+ * lo que el orbe, así que a 320 px «Sistemas» (49,5 px) cabe en su columna de
+ * 52 px y deja hueco a «Bandeja» y a «Buscar». Debajo de 360 px el pie cede
+ * 4 px de margen y de hueco; desde 360 px queda como estaba.
+ *
  * Toca el borde de abajo a propósito y suma el área segura del dispositivo:
  * en un teléfono con barra de gestos el pie empieza encima de ella.
  *
@@ -49,10 +55,10 @@ export function BottomNav({ rutaActual }: { rutaActual?: string } = {}) {
   return (
     <nav
       aria-label="Secciones"
-      className="fixed inset-x-0 bottom-0 z-(--z-overlay) grid grid-cols-[1fr_auto] items-center gap-1.5 border-t border-border bg-background px-2 pb-[env(safe-area-inset-bottom)] md:hidden"
+      className="fixed inset-x-0 bottom-0 z-(--z-overlay) grid grid-cols-[minmax(0,1fr)_2.85rem] items-center gap-1 border-t border-border bg-background px-1 pb-[env(safe-area-inset-bottom)] min-[360px]:gap-1.5 min-[360px]:px-2 md:hidden"
       style={{ minHeight: "calc(var(--kino-bottom-nav) + env(safe-area-inset-bottom))" }}
     >
-      <div className="grid h-[3.3rem] grid-cols-5">
+      <div className="grid h-[3.3rem] grid-cols-[repeat(5,minmax(0,1fr))]">
         {DESTINOS_MOVIL.map((destino) => (
           <Palabra
             key={destino.href}
@@ -81,7 +87,7 @@ export function BottomNav({ rutaActual }: { rutaActual?: string } = {}) {
 /** Una posición del pie, sea destino o Buscar: una palabra de 2.85rem o más de alto. */
 function palabraClass(active: boolean) {
   return cn(
-    "relative flex h-full min-h-[2.85rem] items-center justify-center rounded-md text-xs font-semibold transition-colors duration-(--dur-toque) ease-(--ease-pluma) focus-ring",
+    "relative flex h-full min-h-[2.85rem] min-w-0 items-center justify-center rounded-md text-xs font-semibold transition-colors duration-(--dur-toque) ease-(--ease-pluma) focus-ring",
     active ? "text-primary" : "text-muted-foreground hover:text-foreground",
   );
 }
