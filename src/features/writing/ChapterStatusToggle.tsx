@@ -4,6 +4,7 @@ import { useState } from "react";
 import { CheckCircle2, Circle } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { MarginRow } from "@/components/ui/margin-row";
+import { usePage } from "@/features/pages/pages.hooks";
 import { useToggleChapterComplete } from "./writing.hooks";
 import { useCelebrateOnce } from "./celebrate";
 import { unidadDe } from "./unidad";
@@ -45,16 +46,22 @@ export function ChapterStatusToggle({
   variant?: "barra" | "fila";
 }) {
   const u = unidadDe(unit);
-  const [completed, setCompleted] = useState(initialCompletedAt !== null);
+  // El valor vivo manda: el panel del teléfono se desmonta al cerrarse y el
+  // snapshot del servidor con que se monta se queda viejo. `initialCompletedAt`
+  // sólo cubre el instante antes de la primera lectura.
+  const { data: pagina } = usePage(pageId);
+  const guardado = (pagina ? pagina.completedAt : initialCompletedAt) !== null;
+  const [esperado, setEsperado] = useState<boolean | null>(null);
+  const completed = esperado ?? guardado;
   const { mutate: toggle, isPending } = useToggleChapterComplete(pageId, systemId);
   const celebrateOnce = useCelebrateOnce();
 
   function handleClick() {
     if (isPending) return;
     const next = !completed;
-    setCompleted(next);
+    setEsperado(next);
     toggle(next, {
-      onError: () => setCompleted(!next),
+      onSettled: () => setEsperado(null),
       onSuccess: () => {
         if (!next) return;
         celebrateOnce(`chapter:${pageId}`, {
