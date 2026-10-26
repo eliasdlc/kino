@@ -9,7 +9,6 @@ import { SystemAcademicView } from "./SystemAcademicView";
 import { SystemProjectView } from "./SystemProjectView";
 import { SystemEntrepreneurialView } from "./SystemEntrepreneurialView";
 import { SystemCustomView } from "./SystemCustomView";
-import { SystemWritingView } from "./SystemWritingView";
 import { InboxView } from "./InboxView";
 import { PersonalView } from "./PersonalView";
 
@@ -19,8 +18,9 @@ export interface SystemViewProps {
 }
 
 /**
- * Manda un sistema a su vista. Los seis arquetipos elegibles tienen la suya;
- * `custom` es el único que deja al usuario componer sus tabs.
+ * Manda las tareas de un sistema a su vista. Cinco arquetipos tienen la suya;
+ * `custom` es el único que deja al usuario componer sus tabs, y escritura usa
+ * el embudo universal de su manifiesto (su vista propia es la de documentos).
  */
 export function SystemDetailView({ system, initialTasks }: SystemViewProps) {
   const systemType = (system.templateType ?? "custom") as SystemType;
@@ -33,9 +33,6 @@ export function SystemDetailView({ system, initialTasks }: SystemViewProps) {
   }
   if (systemType === "entrepreneurial") {
     return <SystemEntrepreneurialView system={system} initialTasks={initialTasks} />;
-  }
-  if (systemType === "writing") {
-    return <SystemWritingView system={system} initialTasks={initialTasks} />;
   }
   if (systemType === "personal") {
     return <PersonalView system={system} initialTasks={initialTasks} />;

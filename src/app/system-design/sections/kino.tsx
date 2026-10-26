@@ -2,10 +2,12 @@
 
 import { api } from "@convex/_generated/api";
 
-import { Section, SubSection, Specimen, Seeded, seedQuery } from "../helpers";
-import { makeSystem, makeTask, daysFromNow, MOCK_SYSTEM_ID, mid } from "../mock-data";
-import { SystemCard } from "@/features/systems/SystemCard";
-import { PhysicalCard } from "@/components/PhysicalCard";
+import { Section, SubSection, Specimen, SpecimenGrid, Seeded, seedQuery } from "../helpers";
+import { makeSystem, makeTask, makeFolder, daysFromNow, MOCK_SYSTEM_ID, mid } from "../mock-data";
+import { SystemRow } from "@/features/systems/SystemRow";
+import { SystemsList } from "@/features/systems/SystemsList";
+import { SystemTreeItem } from "@/features/systems/SystemTreeItem";
+import { SidebarUserMenuView } from "@/features/systems/SidebarUserMenu";
 import { TaskCardFor } from "@/features/tasks/cards/TaskCardFor";
 import { ItemEventList } from "@/features/tasks/ItemEventList";
 import { AgentActivityRow } from "@/features/today/AgentActivityRow";
@@ -69,6 +71,31 @@ const EVENTOS = [
   },
 ];
 
+/** El índice de /systems con más de los que caben sin buscar: la Bandeja y siete sistemas. */
+const SISTEMAS = [
+  makeSystem({ id: mid("sl-inbox"), name: "Bandeja", isInbox: true, templateType: "inbox", activeTaskCount: 3 }),
+  makeSystem({ id: mid("sl-uni"), name: "Universidad", color: "blue", templateType: "academic", icon: "graduation", activeTaskCount: 6, daysSinceLastActivity: 0 }),
+  makeSystem({ id: mid("sl-novela"), name: "La casa de las cotas", color: "purple", templateType: "writing", icon: "feather", activeTaskCount: 1, daysSinceLastActivity: 2 }),
+  makeSystem({ id: mid("sl-kino"), name: "Kino", color: "orange", templateType: "project", icon: "rocket", activeTaskCount: 9, daysSinceLastActivity: 0 }),
+  makeSystem({ id: mid("sl-salud"), name: "Salud", color: "green", templateType: "personal", icon: "heart", stale: true, activeTaskCount: 2, daysSinceLastActivity: 14 }),
+  makeSystem({ id: mid("sl-tienda"), name: "La tienda", color: "teal", templateType: "entrepreneurial", icon: "money", activeTaskCount: 4, daysSinceLastActivity: 5 }),
+  makeSystem({ id: mid("sl-casa"), name: "Casa", color: "gray", templateType: "personal", icon: "home", activeTaskCount: 0, daysSinceLastActivity: 30, stale: true }),
+  makeSystem({ id: mid("sl-papeles"), name: "Papeles", color: "white", templateType: "custom", icon: "folder", activeTaskCount: 0, daysSinceLastActivity: null }),
+];
+
+/** Los sistemas del sidebar del specimen: uno activo, uno fijado y uno dormido. */
+const ARBOL = {
+  novela: makeSystem({ id: mid("st-novela"), name: "La casa de las cotas", color: "purple", templateType: "writing", icon: "feather" }),
+  uni: makeSystem({ id: mid("st-uni"), name: "Universidad", color: "blue", templateType: "academic", icon: "graduation" }),
+  salud: makeSystem({ id: mid("st-salud"), name: "Salud", color: "green", templateType: "personal", icon: "heart", stale: true, daysSinceLastActivity: 14 }),
+};
+
+/** Lo que el chevron enseña al desplegar la novela. */
+const OBRAS_DEL_ARBOL = [
+  makeFolder({ id: mid("st-obra-1"), name: "Primera parte: la subida", systemId: ARBOL.novela.id }),
+  makeFolder({ id: mid("st-obra-2"), name: "Segunda parte", systemId: ARBOL.novela.id }),
+];
+
 export function KinoSection() {
   return (
     <Section
@@ -78,43 +105,28 @@ export function KinoSection() {
       description="Componentes propios del producto, renderizados con datos de muestra: son los mismos componentes de producción, así que cualquier cambio en ellos se refleja aquí."
     >
       <SubSection
-        title="SystemCard"
-        description="La card física de /systems: cuerpo del color del sistema, cremallera con hover, banda de etiqueta. Estados: normal, stale (anillo ámbar) y hover (levita + abre cremallera)."
+        title="SystemRow"
+        description="El índice de /systems: el glifo del sistema en su color en el margen, el nombre, y en la meta tipo, activas y última actividad. Dormido va en coral con la palabra delante. La Bandeja es la primera fila y lleva a /bandeja. Las operaciones con nombre van en el botón de la derecha: menú en escritorio, hoja inferior en el teléfono."
       >
-        <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4">
-          <SystemCard
-            system={makeSystem({ name: "Universidad", color: "blue", templateType: "academic" })}
+        <div className="w-full max-w-xl">
+          <SystemRow system={makeSystem({ id: mid("sr-inbox"), name: "Inbox", isInbox: true, templateType: "inbox", activeTaskCount: 4 })} />
+          <SystemRow
+            system={makeSystem({ id: mid("sr-uni"), name: "Universidad", color: "blue", templateType: "academic", icon: "graduation" })}
             onEdit={noop}
             onDelete={noop}
           />
-          <SystemCard
-            system={makeSystem({
-              name: "Side project",
-              color: "purple",
-              templateType: "project",
-              activeTaskCount: 3,
-            })}
+          <SystemRow
+            system={makeSystem({ id: mid("sr-novela"), name: "La casa de las cotas", color: "purple", templateType: "writing", icon: "feather", activeTaskCount: 1, daysSinceLastActivity: 0 })}
             onEdit={noop}
             onDelete={noop}
           />
-          <SystemCard
-            system={makeSystem({
-              name: "Novela",
-              color: "orange",
-              templateType: "writing",
-              activeTaskCount: 1,
-            })}
+          <SystemRow
+            system={makeSystem({ id: mid("sr-salud"), name: "Salud", color: "green", templateType: "personal", icon: "heart", stale: true, activeTaskCount: 2, daysSinceLastActivity: 14 })}
             onEdit={noop}
             onDelete={noop}
           />
-          <SystemCard
-            system={makeSystem({
-              name: "Salud",
-              color: "green",
-              templateType: "personal",
-              stale: true,
-              activeTaskCount: 0,
-            })}
+          <SystemRow
+            system={makeSystem({ id: mid("sr-blanco"), name: "Papeles", color: "white", templateType: "custom", icon: "folder", activeTaskCount: 0, daysSinceLastActivity: null })}
             onEdit={noop}
             onDelete={noop}
           />
@@ -122,22 +134,69 @@ export function KinoSection() {
       </SubSection>
 
       <SubSection
-        title="PhysicalCard (marco genérico)"
-        description="El marco reutilizable de objeto físico: superficie cuadrada, clip redondeado 20/28px, hover lift. El cuerpo visual lo pone cada consumidor (sistemas, folders…)."
+        title="SystemsList"
+        description="El índice entero de /systems: la Bandeja primero y debajo una fila por sistema. Con seis sistemas o más ofrece buscar, y una búsqueda sin coincidencias lo dice con el nombre que buscaste y un Limpiar. Sin sistemas, el vacío explica qué es uno y ofrece crearlo."
       >
-        <div className="grid max-w-md grid-cols-2 gap-4">
-          <PhysicalCard ariaLabel="Ejemplo simple" onClick={noop}>
-            <div className="absolute inset-0 bg-gradient-to-br from-teal-500 to-teal-700" />
-            <div className="absolute inset-x-0 bottom-0 h-1/3 bg-card p-3">
-              <p className="text-xs font-semibold">Cuerpo libre</p>
+        <SpecimenGrid cols={2}>
+          <Specimen label="Con siete sistemas" hint="aparece el campo de buscar" className="items-stretch">
+            <Seeded stubs={[seedQuery(api.systems.list, SISTEMAS)]}>
+              <div className="w-full">
+                <SystemsList />
+              </div>
+            </Seeded>
+          </Specimen>
+          <Specimen label="Sin sistemas" hint="sólo la Bandeja: EmptyState con Crear sistema" className="items-stretch">
+            <Seeded stubs={[seedQuery(api.systems.list, [SISTEMAS[0]])]}>
+              <div className="w-full">
+                <SystemsList />
+              </div>
+            </Seeded>
+          </Specimen>
+        </SpecimenGrid>
+      </SubSection>
+
+      <SubSection
+        title="SystemTreeItem"
+        description="Un sistema en el sidebar: el glifo en su color, el nombre y, a la derecha, las opciones con el nombre del sistema (Fijar, crear su contenedor, Eliminar). El chevron dice si está desplegado y de qué sistema habla; desplegar enseña sus carpetas. El activo lleva la barra en su color, el dormido un punto en mute. En touch el chevron, las opciones y cada carpeta miden 2.85rem, y las opciones se ven siempre en vez de asomar al pasar."
+      >
+        <SpecimenGrid cols={2}>
+          <Specimen label="Expandido" hint="activo, fijado y dormido; toca el chevron de la novela para ver sus obras" className="items-stretch">
+            <Seeded stubs={[seedQuery(api.folders.bySystem, OBRAS_DEL_ARBOL)]}>
+              <div className="w-64 space-y-0.5 rounded-xl bg-sidebar p-2">
+                <SystemTreeItem system={ARBOL.novela} isActive />
+                <SystemTreeItem system={ARBOL.uni} isActive={false} isPinned />
+                <SystemTreeItem system={ARBOL.salud} isActive={false} />
+              </div>
+            </Seeded>
+          </Specimen>
+          <Specimen label="Sidebar plegado" hint="sólo el glifo; el enlace se nombra con el sistema y el dormido lleva su punto">
+            <Seeded stubs={[seedQuery(api.folders.bySystem, OBRAS_DEL_ARBOL)]}>
+              <div className="w-14 space-y-0.5 rounded-xl bg-sidebar p-2">
+                <SystemTreeItem system={ARBOL.novela} isActive collapsed />
+                <SystemTreeItem system={ARBOL.uni} isActive={false} collapsed />
+                <SystemTreeItem system={ARBOL.salud} isActive={false} collapsed />
+              </div>
+            </Seeded>
+          </Specimen>
+        </SpecimenGrid>
+      </SubSection>
+
+      <SubSection
+        title="SidebarUserMenu"
+        description="La cuenta al pie del sidebar: avatar, nombre y correo, y un menú con Ajustes y Cerrar sesión, lo irreversible al final y en carmesí. Aquí se monta SidebarUserMenuView, el dibujo sin la sesión de Clerk; en la app SidebarUserMenu le pone el cierre de sesión. En touch el disparador mide 2.85rem, también plegado."
+      >
+        <SpecimenGrid cols={2}>
+          <Specimen label="Sidebar abierto" hint="con iniciales: sin foto" className="items-stretch">
+            <div className="w-64 rounded-xl bg-sidebar p-2">
+              <SidebarUserMenuView userName={ACCOUNT.name} userEmail={ACCOUNT.email} userImage={null} onSignOut={noop} />
             </div>
-          </PhysicalCard>
-          <PhysicalCard ariaLabel="Ejemplo plano" onClick={noop}>
-            <div className="absolute inset-0 flex items-center justify-center bg-muted">
-              <p className="text-sm text-muted-foreground">children</p>
+          </Specimen>
+          <Specimen label="Sidebar plegado" hint="sólo el avatar, nombrado con la cuenta">
+            <div className="w-14 rounded-xl bg-sidebar p-2">
+              <SidebarUserMenuView userName={ACCOUNT.name} userEmail={ACCOUNT.email} userImage={null} collapsed onSignOut={noop} />
             </div>
-          </PhysicalCard>
-        </div>
+          </Specimen>
+        </SpecimenGrid>
       </SubSection>
 
       <SubSection
@@ -243,7 +302,7 @@ export function KinoSection() {
       </SubSection>
 
       <SubSection
-        title="GithubRepoPanel — estados (KIN-135)"
+        title="GithubRepoPanel: estados (KIN-135)"
         description="Barra del board de un sistema `project` para enlazar un repositorio y refrescar sus issues. Sólo la monta la vista project: ningún otro arquetipo ve esta integración. Tres estados según haya cuenta conectada y repositorio elegido, más el token caducado y el fallo al preguntar por la conexión, que degradan con aviso en vez de vaciar el board. Debajo del repositorio, en segundo plano, la salida que vuelve a empezar el recorrido cuando el cursor se quedó por detrás: arranca por los issues que llevan más tiempo sin cambiar, avanza por tramos de trescientos hacia los últimos tocados, y el texto lo dice antes de pulsarlo."
       >
         <div className="flex max-w-2xl flex-col gap-3">
@@ -417,12 +476,15 @@ export function KinoSection() {
 
       <Specimen
         label="No incluidos en el catálogo (dependen de datos reales o del layout completo)"
-        hint="SystemsSidebar completo · FocusTimerWidget (solo visible con timer activo) · vistas completas de calendario/kanban · editor Tiptap vivo · command palette global"
+        hint="SystemsSidebar completo, FocusTimerWidget (sólo visible con timer activo), vistas completas de calendario, editor Tiptap vivo y command palette global"
         className="border-solid bg-muted/30"
       >
         <p className="text-sm text-muted-foreground">
-          Estos se revisan en la app real; todas sus piezas (tokens,
-          task cards, board cards, barras de calendario) están en este catálogo.
+          Estos se revisan en la app real. SystemsSidebar queda fuera porque es
+          el layout de la app entera (la ruta activa, el plan de hoy, la paleta
+          de comandos y el estado plegado guardado en el navegador); sus piezas
+          sí están aquí: SystemTreeItem, SidebarUserMenu, las task cards, las
+          board cards y las barras de calendario.
         </p>
       </Specimen>
     </Section>

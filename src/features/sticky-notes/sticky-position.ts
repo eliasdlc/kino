@@ -40,8 +40,19 @@ export function resolveColumnX(
   return x;
 }
 
-/** Ancho de la tarjeta flotante en px (la clase `w-44`). */
-export const NOTE_W = 176;
+/**
+ * Lado de la nota en px: la clase `size-44` mide 11rem, y la raíz de la casa
+ * es 17 px, así que son 187 y no los 176 de una raíz de 16. Con 176 la nota
+ * podía quedarse 11 px más allá del borde que el recorte creía respetar.
+ */
+export const NOTE_W = 11 * 17;
+
+/**
+ * Lado con el que se recorta la nota guardada al pintarla. Es el de siempre
+ * (176) y no `NOTE_W`: una nota pegada junto a un borde se pinta exactamente
+ * donde se pegó, por mucho que la tarjeta mida hoy algo más.
+ */
+export const RENDER_CLAMP_W = 176;
 
 /**
  * Lo minimo que tiene que asomar de una nota para poder volver a cogerla. No es
@@ -69,5 +80,5 @@ export interface NotebookMetrics {
  */
 export function clampToCanvas(x: number, m: NotebookMetrics): number {
   if (m.containerW <= 0) return x;
-  return Math.min(Math.max(x, ASIDERO - NOTE_W), m.containerW - ASIDERO);
+  return Math.min(Math.max(x, ASIDERO - RENDER_CLAMP_W), m.containerW - ASIDERO);
 }

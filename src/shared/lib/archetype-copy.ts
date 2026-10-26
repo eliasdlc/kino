@@ -98,9 +98,10 @@ export function tasksEmptyCopy(manifest: ArchetypeManifest, tab: SystemTabId): E
     default:
       return {
         title: 'No hay tareas en tu semana',
+        // La pestaña se llama Plan en el teléfono y en el escritorio.
         hint: plural
-          ? `Ve a Planificación para traer trabajo de tus ${plural}.`
-          : 'No tienes trabajo programado. Ve a Planificación para organizar tareas de hoy o de la semana.',
+          ? `Ve a Plan para traer trabajo de tus ${plural}.`
+          : 'No tienes trabajo programado. Ve a Plan para organizar tareas de hoy o de la semana.',
       };
   }
 }

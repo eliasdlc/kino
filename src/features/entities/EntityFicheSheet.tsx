@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from "react";
 import Link from "next/link";
-import { Trash2, Plus, X, Loader2, ArrowRight } from "lucide-react";
+import { Trash2, Plus, X, ArrowRight } from "lucide-react";
 import {
   ResponsiveDialog,
   ResponsiveDialogContent,
@@ -219,8 +219,7 @@ function EntityFicheForm({
 
       <div className="flex items-center gap-2">
         <Button onClick={save} disabled={update.isPending} className="gap-2">
-          {update.isPending && <Loader2 className="size-3.5 animate-spin" />}
-          Guardar
+          {update.isPending ? "Guardando" : "Guardar"}
         </Button>
         {update.isSuccess && !update.isPending && (
           <span className="text-xs text-muted-foreground">Guardado</span>
@@ -303,10 +302,10 @@ function RelationsSection({
         <Button
           variant="ghost"
           size="sm"
-          className="h-7 gap-1 px-2 text-xs"
+          className="md:pointer-fine:h-8 md:pointer-fine:text-xs"
           onClick={() => setAdding((a) => !a)}
         >
-          <Plus className="size-3.5" />
+          <Plus aria-hidden className="size-4" />
           Añadir
         </Button>
       </div>
@@ -332,10 +331,10 @@ function RelationsSection({
               <button
                 type="button"
                 onClick={() => deleteRel.mutate(rel.id)}
-                className="text-muted-foreground hover:text-destructive"
-                title="Quitar relación"
+                className="flex shrink-0 items-center justify-center rounded-md text-muted-foreground hover:text-destructive focus-ring pointer-coarse:size-[2.85rem] pointer-coarse:-my-1.5"
+                aria-label={`Quitar la relación con ${rel.other.name}`}
               >
-                <X className="size-3.5" />
+                <X aria-hidden className="size-4" />
               </button>
             </li>
           );
@@ -348,11 +347,11 @@ function RelationsSection({
             value={label}
             onChange={(e) => setLabel(e.target.value)}
             placeholder="Etiqueta (rival de, vive en…)"
-            className="h-8 text-sm"
+            className="h-[2.85rem] text-base md:pointer-fine:h-8 md:pointer-fine:text-sm"
           />
           <div className="flex gap-2">
             <Select value={toId} onValueChange={setToId}>
-              <SelectTrigger className="h-8 flex-1 text-sm">
+              <SelectTrigger className="h-[2.85rem] flex-1 text-base md:pointer-fine:h-8 md:pointer-fine:text-sm">
                 <SelectValue placeholder="¿Con quién?" />
               </SelectTrigger>
               <SelectContent>
@@ -363,8 +362,8 @@ function RelationsSection({
                 ))}
               </SelectContent>
             </Select>
-            <Button size="sm" className="h-8" onClick={add} disabled={!toId || createRel.isPending}>
-              OK
+            <Button size="sm" className="md:pointer-fine:h-8" onClick={add} disabled={!toId || createRel.isPending}>
+              {createRel.isPending ? "Guardando" : "Relacionar"}
             </Button>
           </div>
         </div>
@@ -404,7 +403,7 @@ function AppearancesSection({
             <Link
               href={`/systems/${systemId}/pages/${ap.pageId}`}
               className={cn(
-                "flex items-center justify-between gap-2 rounded-md px-2 py-1.5 text-sm transition-colors hover:bg-accent/50",
+                "flex items-center justify-between gap-2 rounded-md px-2 py-1.5 text-sm transition-[color,background-color] duration-(--dur-toque) ease-(--ease-pluma) hover:bg-accent/50 focus-ring pointer-coarse:min-h-[2.85rem]",
               )}
             >
               <span className="min-w-0 flex-1 truncate">

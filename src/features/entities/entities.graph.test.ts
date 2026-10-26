@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   filterGraph,
   layoutGraph,
+  nodeHitRadius,
   nodeRadius,
   type GraphEdge,
   type GraphNode,
@@ -168,5 +169,24 @@ describe("nodeRadius", () => {
 
   it("un conteo negativo no produce un radio inválido", () => {
     expect(nodeRadius(-5)).toBeGreaterThan(0);
+  });
+});
+
+describe("nodeHitRadius", () => {
+  it("en el teléfono a vista completa el blanco mide 48 px aunque el nodo se dibuje con 14", () => {
+    const r = nodeHitRadius(14, 1000, 393);
+    expect((2 * r * 393) / 1000).toBeCloseTo(48);
+  });
+
+  it("con zoom el blanco encoge en unidades y sigue midiendo 48 px en pantalla", () => {
+    const lejos = nodeHitRadius(14, 1000, 393);
+    const cerca = nodeHitRadius(14, 250, 393);
+    expect(cerca).toBeLessThan(lejos);
+    expect((2 * cerca * 393) / 250).toBeGreaterThanOrEqual(48);
+  });
+
+  it("nunca es menor que el círculo dibujado, ni con el lienzo sin medir", () => {
+    expect(nodeHitRadius(38, 120, 900)).toBe(38);
+    expect(nodeHitRadius(20, 1000, 0)).toBe(20);
   });
 });

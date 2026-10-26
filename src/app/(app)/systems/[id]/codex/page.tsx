@@ -1,7 +1,8 @@
 import { notFound, redirect } from "next/navigation";
 import { api } from "@convex/_generated/api";
 import { serverQuery } from "@/shared/convex/server";
-import { PageWrapper } from "@/components/PageWrapper";
+import { PageHeader, PageWrapper } from "@/components/PageWrapper";
+import { Library } from "lucide-react";
 import { PageBreadcrumb } from "@/components/PageBreadcrumb";
 import { CodexLibrary } from "@/features/entities/CodexLibrary";
 import { CodexNav } from "@/features/entities/CodexNav";
@@ -40,17 +41,15 @@ export default async function CodexPage({
         />
       </div>
       <PageWrapper className="w-full">
-        <div className="mb-4">
-          <h1 className="text-xl font-semibold">Codex: {system.name}</h1>
-          <p className="text-sm text-muted-foreground">
-            El universo de tu historia: personajes, lugares, objetos y todo lo que
-            crece desde el texto.
-          </p>
-        </div>
+        <PageHeader
+          title={`Codex de ${system.name}`}
+          description="El universo de tu historia: personajes, lugares, objetos y todo lo que crece desde el texto."
+          margin={<Library aria-hidden className="size-5 stroke-[1.8]" />}
+        />
 
         <CodexNav systemId={id} current={view} />
 
-        <div className="mt-5">
+        <div>
           {view === "grafo" ? (
             <UniverseGraphLazy systemId={id} />
           ) : view === "hilos" ? (
