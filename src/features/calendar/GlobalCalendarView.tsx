@@ -52,6 +52,9 @@ function useEsEscritorio() {
   );
 }
 
+/** Mientras la semana no llega: la misma lista vacía en cada pintado, para que los memos no se rearmen. */
+const SIN_TAREAS: TaskTransport[] = [];
+
 /** "a las 10:00 del jueves 23" o "todo el día del jueves 23". */
 function cuandoQueda(dia: Date, hour: number | null): string {
   const fecha = format(dia, "EEEE d", { locale: es });
@@ -77,7 +80,8 @@ export function GlobalCalendarView() {
   const from = weekStart.toISOString();
   const to = weekEnd.toISOString();
 
-  const { data: calendarTasks = [] } = useCalendarTasks(from, to);
+  const { data: tareasDeLaSemana } = useCalendarTasks(from, to);
+  const calendarTasks = tareasDeLaSemana ?? SIN_TAREAS;
   const { data: allTasks = [] } = useAllTasks();
   const { mutate: updateTask } = useUpdateCalendarTask(from, to);
   const { mutate: toggle } = useToggleTask("");
@@ -165,6 +169,7 @@ export function GlobalCalendarView() {
             byDayAllDay={byDayAllDay}
             timedByDay={timedByDay}
             unscheduledTasks={unscheduledTasks}
+            cargando={tareasDeLaSemana === undefined}
             onProgramar={setProgramando}
             onOpenTask={setAbierta}
             onComplete={completar}
