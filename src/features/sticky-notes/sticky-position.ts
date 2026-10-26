@@ -48,6 +48,13 @@ export function resolveColumnX(
 export const NOTE_W = 11 * 17;
 
 /**
+ * Lado con el que se recorta la nota guardada al pintarla. Es el de siempre
+ * (176) y no `NOTE_W`: una nota pegada junto a un borde se pinta exactamente
+ * donde se pegó, por mucho que la tarjeta mida hoy algo más.
+ */
+export const RENDER_CLAMP_W = 176;
+
+/**
  * Lo minimo que tiene que asomar de una nota para poder volver a cogerla. No es
  * un margen de diseno: es la garantia de que nada quede fuera de alcance.
  */
@@ -73,5 +80,5 @@ export interface NotebookMetrics {
  */
 export function clampToCanvas(x: number, m: NotebookMetrics): number {
   if (m.containerW <= 0) return x;
-  return Math.min(Math.max(x, ASIDERO - NOTE_W), m.containerW - ASIDERO);
+  return Math.min(Math.max(x, ASIDERO - RENDER_CLAMP_W), m.containerW - ASIDERO);
 }

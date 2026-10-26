@@ -7,7 +7,7 @@ import { useUpdateStickyNote } from "./sticky-notes.hooks";
 import { useSharedEditor } from "@/features/pages/EditorContext";
 import { getAnchorTop } from "./anchor-utils";
 import { dropNote } from "./drop-note";
-import { clampToCanvas, NOTE_W, resolveColumnX, type NotebookMetrics } from "./sticky-position";
+import { clampToCanvas, RENDER_CLAMP_W, resolveColumnX, type NotebookMetrics } from "./sticky-position";
 import type { StickyNoteItem } from "./sticky-notes.types";
 
 interface FloatingNotesLayerProps {
@@ -120,7 +120,7 @@ function FloatingNoteItem({
   }
 
   // La nota es un cuadrado de lado fijo: el tope vertical sale de ahí.
-  const maxTop = Math.max(0, metrics.containerH - NOTE_W);
+  const maxTop = Math.max(0, metrics.containerH - RENDER_CLAMP_W);
 
   // Posición base (px, relativa al contenedor) derivada del modelo columna-relativo.
   const colX = resolveColumnX(note.positionSide, note.positionX);

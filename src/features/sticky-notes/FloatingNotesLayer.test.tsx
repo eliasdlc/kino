@@ -90,6 +90,18 @@ describe("los controles de una nota flotante", () => {
     ]);
   });
 
+  it("una nota guardada junto al borde de abajo o de la izquierda se pinta donde siempre", () => {
+    const abajo = makeStickyNote({ id: mid("n-abajo"), positionSide: "over", positionX: 0.5, positionY: 0.91, anchorId: null });
+    const izquierda = makeStickyNote({ id: mid("n-izq"), positionSide: "over", positionX: -0.45, positionY: 0.3, anchorId: null });
+    const { container } = pintar([abajo, izquierda]);
+
+    const [a, i] = envoltorios(container);
+    // 0,91 * 2000 = 1820, que cabe con el lado de 176 con el que se recorta.
+    expect(a.style.top).toBe("1820px");
+    // columnLeft 176 - 0,45 * 816 = -191, y el recorte lo deja asomando 48 px.
+    expect(i.style.left).toBe("-128px");
+  });
+
   it("pulsar el cuerpo abre el editor", async () => {
     pintar();
 
