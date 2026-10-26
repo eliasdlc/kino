@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import type { Editor } from "@tiptap/react";
+import type { Node as PMNode } from "@tiptap/pm/model";
 
 /**
  * Las palabras de un texto plano. Cuenta lo mismo que `countWords` sobre el
@@ -8,6 +9,17 @@ import type { Editor } from "@tiptap/react";
 export function contarPalabras(texto: string): number {
   const limpio = texto.replace(/\s+/g, " ").trim();
   return limpio ? limpio.split(" ").length : 0;
+}
+
+/**
+ * El texto plano de un documento para contarlo. Un salto de línea o un corte de
+ * escena separa palabras; una mención del códice es una palabra más (`@Inés`),
+ * pegada a lo que la rodea igual que en el HTML.
+ */
+export function textoParaContar(doc: PMNode): string {
+  return doc.textBetween(0, doc.content.size, " ", (hoja) =>
+    hoja.type.name === "codexMention" ? `@${hoja.attrs.label ?? ""}` : " ",
+  );
 }
 
 /** Pausa tras la última tecla antes de recontar. */
@@ -31,8 +43,7 @@ export function useWordCount(editor: Editor | null): number {
     const contar = () => {
       pendiente = null;
       if (editor.isDestroyed) return;
-      const { doc } = editor.state;
-      setPalabras(contarPalabras(doc.textBetween(0, doc.content.size, " ", " ")));
+      setPalabras(contarPalabras(textoParaContar(editor.state.doc)));
     };
     const programar = () => {
       if (pendiente) clearTimeout(pendiente);
