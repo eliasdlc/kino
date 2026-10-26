@@ -669,9 +669,9 @@ export const createTaskDoc = createOne;
 
 /**
  * Varias tareas de una vez, con la misma regla de sistema que `createFromAgent`.
- * El `systemId` de una tarea manda sobre todo; el del lote, sobre la madre y la
- * carpeta; una subtarea sin ninguno va al sistema de su madre; las demás, adonde
- * lleve la carpeta o la Bandeja. La carpeta se resuelve una vez, y si no tiene
+ * El `systemId` de una tarea manda sobre todo; una subtarea sin uno propio va al
+ * sistema de su madre aunque el lote nombre otro; las demás van al `systemId`
+ * del lote, que manda sobre la carpeta, o adonde lleve la carpeta o la Bandeja. La carpeta se resuelve una vez, y si no tiene
  * sistema no se crea ninguna.
  */
 export const bulkCreate = kinoZodMutation({
