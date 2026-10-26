@@ -8,8 +8,10 @@
 import { act, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, describe, expect, it, vi } from 'vitest';
+import { getFunctionName } from 'convex/server';
 import { api } from '@convex/_generated/api';
 import { makeSystem, makeTask, mid } from '@/app/system-design/mock-data';
+import { testRouter } from '@/shared/testing/navigation';
 import { makeTestConvexClient, renderMobile, stubMutation, stubMutationError, stubQuery } from '@/shared/testing/render';
 import type { CaptureItem } from '@/features/captures/captures.types';
 import { ITEMS_PARA_EMPUJAR } from '@/features/systems/GroupNudge';
@@ -198,6 +200,22 @@ describe('InboxView, las capturas', () => {
     ]);
   });
 
+  it('si el servidor no la descarta, la fila vuelve y un aviso lo dice', async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    toastSpy.mockClear();
+    const convex = makeTestConvexClient([], [stubMutationError(api.captures.descartar, new Error('sin red'))]);
+    renderMobile(<InboxView system={BANDEJA} initialTasks={[]} initialCaptures={[captura({ proposedItems: null })]} />, { convex });
+
+    await userEvent.click(screen.getByRole('button', { name: /https:\/\/react\.dev\/learn/ }));
+    await userEvent.click(within(await screen.findByRole('dialog')).getByRole('button', { name: 'Descartarla' }));
+    expect(screen.queryByText('https://react.dev/learn', { selector: 'li *' })).not.toBeInTheDocument();
+
+    act(() => vi.advanceTimersByTime(DESHACER_MS + 100));
+
+    await vi.waitFor(() => expect(screen.getByText('https://react.dev/learn', { selector: 'li *' })).toBeInTheDocument());
+    expect(toastSpy.mock.calls.at(-1)?.[0]).toMatch(/No se pudo descartar/);
+  });
+
   it('confirmar dice cuántas tareas creó y dónde', async () => {
     const convex = makeTestConvexClient([], [stubMutation(api.captures.confirmar, { creadas: 2 })]);
     renderMobile(
@@ -246,5 +264,110 @@ describe('InboxView, las capturas', () => {
       ]),
     ).toBe('3 tareas creadas: 2 en Tesis, 1 en Bandeja');
     expect(avisoDeConfirmadas([{ systemId: 'tesis', nombre: 'Tesis', cuenta: 1 }])).toBe('1 tarea creada en Tesis');
+  });
+});
+
+describe('InboxView, lo que el servidor y el tiempo cambian bajo la fila', () => {
+  afterEach(() => vi.useRealTimers());
+
+  const TESIS = makeSystem({ id: mid('sys-1'), name: 'Tesis' });
+  // La hoja sigue en el árbol mientras se cierra: lo que dice si está abierta es su estado.
+  const hojaCerrada = () => expect(document.querySelector('[role="dialog"]')?.getAttribute('data-state') ?? 'closed').toBe('closed');
+  const DOS = [{ title: 'Repasar el parcial' }, { title: 'Pedir la rúbrica' }];
+
+  it('la fila tachada se queda aunque el servidor ya la cuente como hecha', async () => {
+    const [tarea] = items(1);
+    const convex = makeTestConvexClient([stubQuery(api.tasks.bySystem, [tarea!])]);
+    renderMobile(<InboxView system={BANDEJA} initialTasks={[tarea!]} initialCaptures={[]} />, { convex });
+
+    await userEvent.click(screen.getByRole('button', { name: 'Completar Cosa 1' }));
+    act(() => convex.publish(stubQuery(api.tasks.bySystem, [{ ...tarea!, status: 'done' }])));
+
+    expect(screen.getByRole('button', { name: 'Completar Cosa 1' })).toHaveAttribute('aria-pressed', 'true');
+    expect(screen.getByText('Cosa 1')).toHaveClass('line-through');
+  });
+
+  it('tocar otra vez el círculo de una tachada la devuelve y retira su aviso', async () => {
+    toastSpy.dismiss.mockClear();
+    const [tarea] = items(1);
+    const { convex } = renderMobile(<InboxView system={BANDEJA} initialTasks={[tarea!]} initialCaptures={[]} />);
+
+    await userEvent.click(screen.getByRole('button', { name: 'Completar Cosa 1' }));
+    await userEvent.click(screen.getByRole('button', { name: 'Completar Cosa 1' }));
+
+    expect(screen.getByRole('button', { name: 'Completar Cosa 1' })).toHaveAttribute('aria-pressed', 'false');
+    expect(screen.getByText('Cosa 1')).not.toHaveClass('line-through');
+    expect(toastSpy.dismiss).toHaveBeenCalledWith('aviso');
+    expect(convex.calls.filter((c) => c.name === 'tasks:toggle')).toHaveLength(2);
+  });
+
+  it('salir de Bandeja con un descarte pendiente lo manda, no lo pierde', async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    const { convex, unmount } = renderMobile(
+      <InboxView system={BANDEJA} initialTasks={[]} initialCaptures={[captura({ proposedItems: null })]} />,
+    );
+    await userEvent.click(screen.getByRole('button', { name: /https:\/\/react\.dev\/learn/ }));
+    await userEvent.click(within(await screen.findByRole('dialog')).getByRole('button', { name: 'Descartarla' }));
+    expect(convex.calls.filter((c) => c.name === 'captures:descartar')).toHaveLength(0);
+
+    unmount();
+
+    expect(convex.calls.filter((c) => c.name === 'captures:descartar')).toEqual([
+      { kind: 'mutation', name: 'captures:descartar', args: { id: 'cap-1' } },
+    ]);
+  });
+
+  it('al confirmar con éxito la hoja se cierra', async () => {
+    const convex = makeTestConvexClient([], [stubMutation(api.captures.confirmar, { creadas: 2 })]);
+    renderMobile(<InboxView system={BANDEJA} initialTasks={[]} initialCaptures={[captura({ proposedItems: DOS })]} />, { convex });
+
+    await userEvent.click(screen.getByRole('button', { name: /https:\/\/react\.dev\/learn/ }));
+    await userEvent.click(within(await screen.findByRole('dialog')).getByRole('button', { name: 'Confirmar 2' }));
+
+    await vi.waitFor(hojaCerrada);
+  });
+
+  it('si confirmar falla cuando la hoja ya se cerró, un aviso lo dice', async () => {
+    toastSpy.mockClear();
+    let fallar: (error: Error) => void = () => {};
+    const enVuelo = new Promise<never>((_, rechazar) => {
+      fallar = rechazar;
+    });
+    const convex = makeTestConvexClient([], [{ name: getFunctionName(api.captures.confirmar), value: enVuelo }]);
+    renderMobile(<InboxView system={BANDEJA} initialTasks={[]} initialCaptures={[captura({ proposedItems: DOS })]} />, { convex });
+
+    await userEvent.click(screen.getByRole('button', { name: /https:\/\/react\.dev\/learn/ }));
+    await userEvent.click(within(await screen.findByRole('dialog')).getByRole('button', { name: 'Confirmar 2' }));
+    await userEvent.keyboard('{Escape}');
+    await vi.waitFor(hojaCerrada);
+
+    await act(async () => fallar(new Error('sin red')));
+
+    expect(toastSpy).toHaveBeenCalledWith(expect.stringMatching(/No se pudo confirmar/));
+  });
+
+  it('las tareas que fueron a un solo sistema ofrecen abrirlo', async () => {
+    toastSpy.mockClear();
+    const convex = makeTestConvexClient(
+      [stubQuery(api.systems.list, [BANDEJA, TESIS])],
+      [stubMutation(api.captures.confirmar, { creadas: 2 })],
+    );
+    renderMobile(
+      <InboxView
+        system={BANDEJA}
+        initialTasks={[]}
+        initialCaptures={[captura({ proposedItems: DOS.map((item) => ({ ...item, systemId: TESIS.id })) })]}
+      />,
+      { convex },
+    );
+
+    await userEvent.click(screen.getByRole('button', { name: /https:\/\/react\.dev\/learn/ }));
+    await userEvent.click(within(await screen.findByRole('dialog')).getByRole('button', { name: 'Confirmar 2' }));
+
+    await vi.waitFor(() => expect(toastSpy.mock.calls.at(-1)?.[0]).toBe('2 tareas creadas en Tesis'));
+    const { action } = toastSpy.mock.calls.at(-1)?.[1] as unknown as { action: { label: string; onClick: () => void } };
+    expect(action.label).toBe('Abrir Tesis');
+    action.onClick();
+    expect(testRouter.push).toHaveBeenCalledWith(`/systems/${TESIS.id}`);
   });
 });
