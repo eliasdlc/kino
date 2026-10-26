@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react';
 import { toast } from 'sonner';
-import { useUpdateTask } from './tasks.hooks';
+import { useToggleTask, useUpdateTask } from './tasks.hooks';
 import type { TaskStatus } from './tasks.state-machine';
 import type { TaskTransport } from './tasks.types';
 
@@ -21,7 +21,7 @@ interface Tachada {
   gesto: Gesto;
 }
 
-/** Con qué se completa (un flip) y con qué se devuelve la tarea a su estado. */
+/** Con qué se completa (un flip) y con qué se reabre la tarea en su estado. */
 interface Acciones {
   toggle: (taskId: string) => void;
   restaurar: (taskId: string, status: TaskStatus) => void;
@@ -61,7 +61,7 @@ function useTachadas() {
 /**
  * Deshacer reabre la tarea una sola vez: la devuelve al estado que tenía
  * antes de tacharla (una de la semana vuelve a la semana, no a Hoy) y no
- * alterna, porque alternar a ciegas un Deshacer tardío la dejaría hecha.
+ * alterna a ciegas, porque un Deshacer tardío la dejaría hecha.
  */
 function deshacer(taskId: string, antes: TaskStatus, gesto: Gesto, acciones: Acciones) {
   if (!gesto.vigente) return;
@@ -109,13 +109,26 @@ export function tacharTarea(task: TaskTransport, acciones: Acciones) {
  */
 export function useTachar(toggle: (taskId: string) => void) {
   const { mutate: actualizar } = useUpdateTask('');
+  const { mutateAsync: reabrir } = useToggleTask('');
   const filas = useTachadas();
   const struck = useMemo<ReadonlySet<string>>(() => new Set(filas.keys()), [filas]);
 
+  // Reabrir pasa por `toggle` porque es el camino del servidor que limpia
+  // `completedAt` (`update` sólo escribe el estado). Reabre en Hoy; si la tarea
+  // venía de otro estado, éste se escribe después. Un fallo ya lo avisa la mutación.
+  const restaurar = useCallback(
+    (taskId: string, status: TaskStatus) =>
+      void reabrir(taskId)
+        .then((reabierta) => {
+          if (reabierta.status !== status) actualizar({ taskId, data: { status } });
+        })
+        .catch(() => {}),
+    [reabrir, actualizar],
+  );
+
   const handleToggle = useCallback(
-    (task: TaskTransport) =>
-      tacharTarea(task, { toggle, restaurar: (taskId, status) => actualizar({ taskId, data: { status } }) }),
-    [toggle, actualizar],
+    (task: TaskTransport) => tacharTarea(task, { toggle, restaurar }),
+    [toggle, restaurar],
   );
 
   return { struck, handleToggle, tachadas: filas };
