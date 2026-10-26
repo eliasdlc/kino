@@ -1,6 +1,19 @@
 'use client';
 
-import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react';
+import {
+  createContext,
+  createElement,
+  useCallback,
+  useContext,
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+  useSyncExternalStore,
+  type ComponentType,
+  type ReactNode,
+} from 'react';
 import { toast } from 'sonner';
 import { useToggleTask, useUpdateTask } from './tasks.hooks';
 import type { TaskStatus } from './tasks.state-machine';
@@ -9,64 +22,108 @@ import type { TaskTransport } from './tasks.types';
 /** Lo que dura el Deshacer de una fila tachada. El mismo que el plan de Hoy. */
 export const UNDO_MS = 4000;
 
-/** Un gesto de completar. Deshacer lo apaga una sola vez, aunque se pulse tarde. */
+/** Dónde estaba la tarea antes de tacharla: ahí la devuelve Deshacer. */
+interface Antes {
+  status: TaskStatus;
+  inTodayPlan: boolean;
+}
+
+/** Un gesto de completar. Su identidad es lo que hace que Deshacer valga una sola vez. */
 interface Gesto {
-  vigente: boolean;
   aviso?: string | number;
 }
 
-/** Una fila tachada en esta visita: el estado que tenía y el gesto que la tachó. */
+/**
+ * Una fila tachada en esta visita. Mientras Deshacer viaja (reabrir y, si hace
+ * falta, escribir el estado guardado) la fila ya no se tacha, pero las vistas
+ * la siguen filtrando con su estado de antes, para que no salga y vuelva a
+ * entrar entre las dos escrituras.
+ */
 interface Tachada {
-  antes: TaskStatus;
+  antes: Antes;
   gesto: Gesto;
+  fase: 'tachada' | 'deshaciendo';
 }
 
-/** Con qué se completa (un flip) y con qué se reabre la tarea en su estado. */
-interface Acciones {
-  toggle: (taskId: string) => void;
-  restaurar: (taskId: string, status: TaskStatus) => void;
-}
+type Tachadas = ReadonlyMap<string, Tachada>;
 
 /**
- * Las filas tachadas de la visita, compartidas por todo lo que se pinta a la
- * vez: la hoja de detalle tacha una fila que otra lista ya pintó, y las dos
- * tienen que verla tachada en su sitio. La visita termina cuando se desmonta
- * lo último que mira esto: la siguiente empieza limpia.
+ * Las filas tachadas de una visita a una página, y las listas que quieren
+ * saber cuándo se tacha una para quedarse quietas.
  */
-let tachadas: ReadonlyMap<string, Tachada> = new Map();
-const oyentes = new Set<() => void>();
-const alTachar = new Set<(task: TaskTransport) => void>();
+function crearVisita() {
+  let filas: Tachadas = new Map();
+  const oyentes = new Set<() => void>();
+  const alTachar = new Set<(taskId: string) => void>();
 
-function publicar(siguiente: ReadonlyMap<string, Tachada>) {
-  tachadas = siguiente;
-  for (const oyente of [...oyentes]) oyente();
-}
+  const escribir = (cambio: (siguiente: Map<string, Tachada>) => void) => {
+    const siguiente = new Map(filas);
+    cambio(siguiente);
+    filas = siguiente;
+    for (const oyente of [...oyentes]) oyente();
+  };
+  /** Cambia la fase de la fila sólo si sigue siendo la del mismo gesto. */
+  const pasar = (taskId: string, gesto: Gesto, de: Tachada['fase'], a: Tachada['fase']) => {
+    const fila = filas.get(taskId);
+    if (fila?.gesto !== gesto || fila.fase !== de) return false;
+    escribir((m) => m.set(taskId, { ...fila, fase: a }));
+    return true;
+  };
 
-function suscribir(oyente: () => void) {
-  if (oyentes.size === 0) tachadas = new Map();
-  oyentes.add(oyente);
-  return () => {
-    oyentes.delete(oyente);
-    if (oyentes.size === 0) tachadas = new Map();
+  return {
+    filas: () => filas,
+    suscribir(oyente: () => void) {
+      oyentes.add(oyente);
+      return () => void oyentes.delete(oyente);
+    },
+    alTachar(oyente: (taskId: string) => void) {
+      alTachar.add(oyente);
+      return () => void alTachar.delete(oyente);
+    },
+    tachar(taskId: string, antes: Antes, gesto: Gesto) {
+      escribir((m) => m.set(taskId, { antes, gesto, fase: 'tachada' }));
+      for (const oyente of [...alTachar]) oyente(taskId);
+    },
+    /** Empieza a deshacer un gesto. `false` si ese gesto ya no está vigente. */
+    deshacer: (taskId: string, gesto: Gesto) => pasar(taskId, gesto, 'tachada', 'deshaciendo'),
+    /** No se pudo reabrir: la fila sigue tachada y su círculo vuelve a ofrecer deshacer. */
+    retachar: (taskId: string, gesto: Gesto) => void pasar(taskId, gesto, 'deshaciendo', 'tachada'),
+    /** Deshacer terminó: la fila vuelve a ser la de la suscripción. */
+    soltar(taskId: string, gesto: Gesto) {
+      if (filas.get(taskId)?.gesto === gesto) escribir((m) => m.delete(taskId));
+    },
   };
 }
 
-const instantanea = () => tachadas;
+type Visita = ReturnType<typeof crearVisita>;
 
-/** Las filas tachadas en esta visita, con el estado que tenían antes. */
-function useTachadas() {
-  return useSyncExternalStore(suscribir, instantanea, instantanea);
-}
+const VisitaContext = createContext<Visita | null>(null);
 
 /**
- * Deshacer reabre la tarea una sola vez: la devuelve al estado que tenía
- * antes de tacharla (una de la semana vuelve a la semana, no a Hoy) y no
- * alterna a ciegas, porque un Deshacer tardío la dejaría hecha.
+ * La visita a una página: lo que se tacha dentro, desde una fila o desde la
+ * hoja de detalle, se ve tachado en su sitio en las listas de la página que lo
+ * enseñan. Nace limpia cada vez que la página se monta. Uno anidado se une a
+ * la visita de fuera, así que una sección que se monta sola (en un test o en
+ * el catálogo) tiene la suya, y en su página comparte la de la página.
  */
-function deshacer(taskId: string, antes: TaskStatus, gesto: Gesto, acciones: Acciones) {
-  if (!gesto.vigente) return;
-  gesto.vigente = false;
-  acciones.restaurar(taskId, antes);
+export function TacharProvider({ children }: { children: ReactNode }) {
+  const deFuera = useContext(VisitaContext);
+  const [propia] = useState(crearVisita);
+  return deFuera ? children : createElement(VisitaContext.Provider, { value: propia }, children);
+}
+
+/** Monta un componente dentro de su visita: la de su página, o una propia si se monta solo. */
+export function conVisita<P extends object>(Componente: ComponentType<P>) {
+  return function ConVisita(props: P) {
+    return createElement(TacharProvider, null, createElement(Componente, props));
+  };
+}
+
+/** La visita de la página, o una de este componente si no hay ninguna encima. */
+function useVisita(): Visita {
+  const deFuera = useContext(VisitaContext);
+  const [propia] = useState(crearVisita);
+  return deFuera ?? propia;
 }
 
 /**
@@ -75,25 +132,29 @@ function deshacer(taskId: string, antes: TaskStatus, gesto: Gesto, acciones: Acc
  * ya venía hecha se alterna con `toggle`, que la deja donde el servidor pone
  * una reabierta (Hoy).
  */
-export function tacharTarea(task: TaskTransport, acciones: Acciones) {
-  const previa = tachadas.get(task.id);
-  if (task.status === 'done' || previa?.gesto.vigente) {
-    if (previa?.gesto.vigente) {
-      if (previa.gesto.aviso !== undefined) toast.dismiss(previa.gesto.aviso);
-      deshacer(task.id, previa.antes, previa.gesto, acciones);
-    } else {
-      acciones.toggle(task.id);
-    }
+function tacharTarea(
+  task: TaskTransport,
+  visita: Visita,
+  acciones: { toggle: (taskId: string) => void; deshacer: (taskId: string, gesto: Gesto) => void },
+) {
+  const previa = visita.filas().get(task.id);
+  if (previa?.fase === 'tachada') {
+    if (previa.gesto.aviso !== undefined) toast.dismiss(previa.gesto.aviso);
+    acciones.deshacer(task.id, previa.gesto);
     return;
   }
-  const antes = task.status as TaskStatus;
-  const gesto: Gesto = { vigente: true };
-  publicar(new Map(tachadas).set(task.id, { antes, gesto }));
-  for (const oyente of [...alTachar]) oyente(task);
+  if (task.status === 'done') {
+    acciones.toggle(task.id);
+    return;
+  }
+  // Tachada otra vez mientras su Deshacer viaja: su sitio sigue siendo el de antes.
+  const antes = previa?.antes ?? { status: task.status as TaskStatus, inTodayPlan: task.inTodayPlan };
+  const gesto: Gesto = {};
+  visita.tachar(task.id, antes, gesto);
   acciones.toggle(task.id);
   gesto.aviso = toast(`Hecha: ${task.title}`, {
     duration: UNDO_MS,
-    action: { label: 'Deshacer', onClick: () => deshacer(task.id, antes, gesto, acciones) },
+    action: { label: 'Deshacer', onClick: () => acciones.deshacer(task.id, gesto) },
   });
 }
 
@@ -108,85 +169,109 @@ export function tacharTarea(task: TaskTransport, acciones: Acciones) {
  * Si la persona deshace con el círculo, el aviso se cierra en ese toque.
  */
 export function useTachar(toggle: (taskId: string) => void) {
-  const { mutate: actualizar } = useUpdateTask('');
+  const visita = useVisita();
+  const tachadas = useSyncExternalStore(visita.suscribir, visita.filas, visita.filas);
+  const struck = useMemo<ReadonlySet<string>>(
+    () => new Set([...tachadas].filter(([, fila]) => fila.fase === 'tachada').map(([id]) => id)),
+    [tachadas],
+  );
+  const { mutateAsync: actualizar } = useUpdateTask('');
   const { mutateAsync: reabrir } = useToggleTask('');
-  const filas = useTachadas();
-  const struck = useMemo<ReadonlySet<string>>(() => new Set(filas.keys()), [filas]);
 
-  // Reabrir pasa por `toggle` porque es el camino del servidor que limpia
-  // `completedAt` (`update` sólo escribe el estado). Reabre en Hoy; si la tarea
-  // venía de otro estado, éste se escribe después. Un fallo ya lo avisa la mutación.
-  const restaurar = useCallback(
-    (taskId: string, status: TaskStatus) =>
-      void reabrir(taskId)
-        .then((reabierta) => {
-          if (reabierta.status !== status) actualizar({ taskId, data: { status } });
-        })
-        .catch(() => {}),
-    [reabrir, actualizar],
+  // Deshacer reabre una sola vez y devuelve la tarea a donde estaba: no
+  // alterna a ciegas, porque un Deshacer tardío la dejaría hecha. Reabrir pasa
+  // por `toggle` porque es el camino del servidor que limpia `completedAt`
+  // (`update` sólo escribe el estado), y reabre en Hoy dentro del plan; si la
+  // tarea venía de otro sitio (otro estado, o fuera del plan de hoy), éste se
+  // escribe después. Un fallo al reabrir ya lo avisa `useToggleTask`.
+  const deshacer = useCallback(
+    (taskId: string, gesto: Gesto) => {
+      if (!visita.deshacer(taskId, gesto)) return;
+      const { antes } = visita.filas().get(taskId)!;
+      void reabrir(taskId).then(
+        async (reabierta) => {
+          // Tachada otra vez mientras viajaba: manda el gesto nuevo.
+          if (visita.filas().get(taskId)?.gesto !== gesto) return;
+          const enSuSitio = reabierta.status === antes.status && (reabierta.status === 'today') === antes.inTodayPlan;
+          if (!enSuSitio) {
+            await actualizar({ taskId, data: { status: antes.status, inTodayPlan: antes.inTodayPlan } }).catch(() => {
+              toast.error('La tarea se reabrió, pero no volvió a su lista');
+            });
+          }
+          visita.soltar(taskId, gesto);
+        },
+        () => visita.retachar(taskId, gesto),
+      );
+    },
+    [visita, reabrir, actualizar],
   );
 
   const handleToggle = useCallback(
-    (task: TaskTransport) => tacharTarea(task, { toggle, restaurar }),
-    [toggle, restaurar],
+    (task: TaskTransport) => tacharTarea(task, visita, { toggle, deshacer }),
+    [visita, toggle, deshacer],
   );
 
-  return { struck, handleToggle, tachadas: filas };
+  return { struck, handleToggle, tachadas, visita };
 }
 
 /**
- * Una lista que tacha sin moverse. Mientras nadie tacha, las filas son las de
- * la suscripción. Al primer tachón se congela el orden de lo que se ve: una
+ * Una lista que tacha sin moverse. Mientras nadie tacha una de sus filas, las
+ * filas son las de la suscripción. Cuando se tacha una que esta lista enseña
+ * (desde la fila o desde la hoja), se congela el orden de lo que se ve: la
  * fila tachada sigue en su renglón aunque la suscripción ya no la traiga (lo
  * sugerido, por ejemplo, deja de sugerir una hecha), y lo nuevo entra al
- * final. El orden se suelta en la siguiente visita, cuando la lista se monta
- * de nuevo.
+ * final. Tachar en otra lista no la congela. El orden se suelta en la
+ * siguiente visita, cuando la lista se monta de nuevo.
  */
 export function useListaTachable(items: readonly TaskTransport[], toggle: (taskId: string) => void) {
   const [quietas, setQuietas] = useState<readonly TaskTransport[] | null>(null);
-  const { struck, handleToggle, tachadas: filasTachadas } = useTachar(toggle);
+  const { struck, handleToggle, tachadas, visita } = useTachar(toggle);
 
-  let filas: readonly TaskTransport[] = items;
-  if (quietas) {
+  const filas = useMemo<readonly TaskTransport[]>(() => {
+    if (!quietas) return items;
     const vivas = new Map(items.map((t) => [t.id, t]));
     const vistas = new Set(quietas.map((t) => t.id));
-    filas = [
+    return [
       ...quietas.flatMap((t) => {
         const viva = vivas.get(t.id);
         if (viva) return [viva];
         // Ya no viene: sólo se queda si la tachó la persona en esta visita.
-        return struck.has(t.id) ? [{ ...t, status: 'done' as const }] : [];
+        const tachada = tachadas.get(t.id);
+        if (!tachada) return [];
+        return [{ ...t, status: tachada.fase === 'tachada' ? ('done' as const) : tachada.antes.status }];
       }),
       ...items.filter((t) => !vistas.has(t.id)),
     ];
-  }
+  }, [items, quietas, tachadas]);
 
   // Quien tacha (el círculo de una fila o la hoja de detalle) avisa en el
-  // toque, con las filas del último render ya pintado: ahí se congela el orden.
+  // toque, con las filas del último render ya pintado: ahí se congela el orden,
+  // si la tachada es una de las suyas.
   const pintadas = useRef(filas);
   useLayoutEffect(() => {
     pintadas.current = filas;
   });
-  useEffect(() => {
-    const congelar = () => setQuietas((prev) => prev ?? pintadas.current);
-    alTachar.add(congelar);
-    return () => {
-      alTachar.delete(congelar);
-    };
-  }, []);
+  useEffect(
+    () =>
+      visita.alTachar((taskId) => {
+        if (pintadas.current.some((t) => t.id === taskId)) setQuietas((prev) => prev ?? pintadas.current);
+      }),
+    [visita],
+  );
 
-  return { filas, struck, handleToggle, estadoDe: estadoDeCon(filasTachadas) };
+  return { filas, struck, handleToggle, estadoDe: estadoDeCon(tachadas) };
 }
 
 /**
  * El estado con el que una vista debe filtrar y agrupar una tarea: el de antes
- * de completar mientras la fila siga tachada en esta visita, y el real en
- * cuanto se deshace o en la siguiente visita.
+ * de completar mientras la fila siga tachada en esta visita o su Deshacer
+ * viaje, y el real en cuanto Deshacer termina o en la siguiente visita.
  */
-function estadoDeCon(filas: ReadonlyMap<string, Tachada>) {
+function estadoDeCon(tachadas: Tachadas) {
   return (task: TaskTransport): TaskStatus => {
-    const tachada = filas.get(task.id);
-    return task.status === 'done' && tachada ? tachada.antes : (task.status as TaskStatus);
+    const fila = tachadas.get(task.id);
+    if (fila && (task.status === 'done' || fila.fase === 'deshaciendo')) return fila.antes.status;
+    return task.status as TaskStatus;
   };
 }
 
@@ -197,13 +282,12 @@ function estadoDeCon(filas: ReadonlyMap<string, Tachada>) {
  * listas la sacaban sin tachado ni Deshacer: la fila desaparecía y las de abajo
  * subían.
  *
- * `estadoDe` es el estado con el que la vista debe filtrar y agrupar: el de
- * antes de completar mientras la fila siga tachada en esta visita, y el real
- * en cuanto se deshace o en la siguiente visita. La fila se pinta con la tarea
- * real (hecha, con su círculo lleno) y `struck` dice cuál animar.
+ * `estadoDe` es el estado con el que la vista debe filtrar y agrupar (ver
+ * `estadoDeCon`). La fila se pinta con la tarea real (hecha, con su círculo
+ * lleno) y `struck` dice cuál animar.
  */
 export function useTacharEnSitio(toggle: (taskId: string) => void) {
-  const { struck, handleToggle, tachadas: filas } = useTachar(toggle);
-  const estadoDe = useMemo(() => estadoDeCon(filas), [filas]);
+  const { struck, handleToggle, tachadas } = useTachar(toggle);
+  const estadoDe = useMemo(() => estadoDeCon(tachadas), [tachadas]);
   return { struck, handleToggle, estadoDe };
 }
