@@ -287,3 +287,27 @@ describe("lo que existe y no se expone", () => {
     expect(ALL_TOOLS.map((tool) => nombreDeFuncion(tool.ref))).not.toContain("systems:radiografia");
   });
 });
+
+describe("create_page y la carpeta del agente", () => {
+  const create = ALL_TOOLS.find((tool) => tool.name === "create_page")!;
+
+  it("llama a pages:createFromAgent con la carpeta y sin exigir el sistema", async () => {
+    const call = vi.fn().mockResolvedValue({ status: "created", routedBy: "rule", rule: { kind: "path", key: "/home/ana/U", systemName: "Universidad" }, page: { id: "page_1", systemId: "sys_u" } });
+
+    const result = await create.run(call, { title: "Apuntes", content: "hola", workingDirectory: "/home/ana/U" });
+
+    expect(getFunctionName(call.mock.calls[0]![1])).toBe("pages:createFromAgent");
+    expect(call.mock.calls[0]![2]).toMatchObject({ title: "Apuntes", workingDirectory: "/home/ana/U" });
+    expect(result).toEqual({ id: "page_1", systemId: "sys_u", routedBy: "rule", rule: { kind: "path", key: "/home/ana/U", systemName: "Universidad" } });
+  });
+
+  it("sin regla, le dice al agente que pregunte una vez y vuelva a llamar a create_page", async () => {
+    const call = vi.fn().mockResolvedValue({ status: "needs_system", workingDirectory: "/home/ana/nueva", gitRemote: null });
+
+    const result = (await create.run(call, { title: "Apuntes", workingDirectory: "/home/ana/nueva" })) as Record<string, unknown>;
+
+    expect(result).toMatchObject({ created: false, needsSystem: true, workingDirectory: "/home/ana/nueva" });
+    expect(String(result.next)).toContain("create_page");
+    expect(String(result.next)).toContain("save_workdir_rule");
+  });
+});

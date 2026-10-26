@@ -77,7 +77,7 @@ const createTaskFromAgent = createTask.extend({ systemId: agentRoute.systemId })
 const createTaskWithRoute = createTaskFromAgent.extend(agentRoute);
 
 /** Lo que el agente lee cuando la carpeta no tiene sistema: qué preguntar y qué ofrecer después. */
-function needsSystem(result: { workingDirectory: string | null; gitRemote: string | null }, tool: "create_task" | "bulk_create_tasks") {
+function needsSystem(result: { workingDirectory: string | null; gitRemote: string | null }, tool: "create_task" | "bulk_create_tasks" | "create_page") {
   return {
     created: false,
     needsSystem: true,
@@ -335,17 +335,22 @@ const pages: Tool[] = [
     input: z.object({ id }),
     result: asMarkdownPage,
   }),
-  writeTool(api.pages.create, {
+  writeTool(api.pages.createFromAgent, {
     name: "create_page",
-    description: "Crea una página markdown en un sistema de Kino.",
+    description:
+      "Crea una página markdown en Kino. SISTEMA, igual que create_task: si trabajas en una carpeta local, manda SIEMPRE workingDirectory (y gitRemote si es un repo git), aunque nadie te lo pida: Kino la pone en el sistema asignado a esa carpeta. Si la persona nombró un sistema, pasa su systemId, que manda sobre la carpeta. Si la carpeta no tiene sistema, Kino no crea nada y responde needsSystem con lo que tienes que preguntar. Sin carpeta ni systemId, va a la Bandeja. Si pasas folderId o parentPageId, tienen que ser del mismo sistema.",
     input: z.object({
-      systemId: id,
+      ...agentRoute,
       folderId: id.optional(),
       parentPageId: id.optional(),
       title: z.string().max(500).optional(),
       content: pageContent,
     }),
     args: withHtmlContent,
+    result: (value) =>
+      value.status === "needs_system"
+        ? needsSystem(value, "create_page")
+        : { ...value.page, routedBy: value.routedBy, ...("rule" in value ? { rule: value.rule } : {}) },
   }),
   writeTool(api.pages.updateFromAgent, {
     name: "update_page",

@@ -350,3 +350,59 @@ describe('una subtarea se queda con el sistema de su madre', () => {
     expect(await t.run(async (ctx) => (await ctx.db.query('tasks').collect()).filter((task) => ['Primera', 'Hija'].includes(task.title)))).toHaveLength(0);
   });
 });
+
+describe('pages.createFromAgent sigue la misma regla', () => {
+  it('con regla, la página cae en el sistema de la carpeta', async () => {
+    const t = convexTest(schema, modules);
+    const { agente, ids } = await cuenta(t, ana, ['Universidad']);
+    await agente.mutation(api.workdirRules.save, { systemId: ids.Universidad!, workingDirectory: '/home/ana/Universidad' });
+
+    const res = await agente.mutation(api.pages.createFromAgent, { title: 'Apuntes', workingDirectory: '/home/ana/Universidad/tema1' });
+
+    expect(res).toMatchObject({ status: 'created', routedBy: 'rule', rule: { kind: 'path', systemName: 'Universidad' } });
+    expect(res.status === 'created' && res.page.systemId).toBe(ids.Universidad);
+  });
+
+  it('el repo manda sobre la carpeta y el systemId sobre los dos', async () => {
+    const t = convexTest(schema, modules);
+    const { agente, ids } = await cuenta(t, ana, ['Universidad', 'Kino', 'Casa']);
+    await agente.mutation(api.workdirRules.save, { systemId: ids.Universidad!, workingDirectory: '/home/ana/dev' });
+    await agente.mutation(api.workdirRules.save, { systemId: ids.Kino!, gitRemote: 'git@github.com:eliasdlc/kino.git' });
+
+    const porRepo = await agente.mutation(api.pages.createFromAgent, { title: 'Notas', workingDirectory: '/home/ana/dev/kino', gitRemote: 'https://github.com/eliasdlc/kino' });
+    const nombrado = await agente.mutation(api.pages.createFromAgent, { title: 'Otras', systemId: ids.Casa!, gitRemote: 'https://github.com/eliasdlc/kino' });
+
+    expect(porRepo.status === 'created' && porRepo.page.systemId).toBe(ids.Kino);
+    expect(nombrado).toMatchObject({ status: 'created', routedBy: 'systemId' });
+    expect(nombrado.status === 'created' && nombrado.page.systemId).toBe(ids.Casa);
+  });
+
+  it('una carpeta sin regla no crea nada y devuelve lo que hay que preguntar', async () => {
+    const t = convexTest(schema, modules);
+    const { agente } = await cuenta(t, ana, ['Casa']);
+
+    const res = await agente.mutation(api.pages.createFromAgent, { title: 'Nada', workingDirectory: '/home/ana/nueva/' });
+
+    expect(res).toEqual({ status: 'needs_system', workingDirectory: '/home/ana/nueva', gitRemote: null });
+    expect(await t.run((ctx) => ctx.db.query('pages').collect())).toHaveLength(0);
+  });
+
+  it('sin carpeta ni sistema, va a la Bandeja', async () => {
+    const t = convexTest(schema, modules);
+    const { agente } = await cuenta(t, ana, ['Universidad']);
+
+    const res = await agente.mutation(api.pages.createFromAgent, { title: 'Suelta' });
+
+    expect(res).toMatchObject({ status: 'created', routedBy: 'inbox' });
+    const sistema = await t.run(async (ctx) => ctx.db.get(res.status === 'created' ? res.page.systemId : (undefined as never)));
+    expect(sistema?.isInbox).toBe(true);
+  });
+
+  it('no mueve a nadie al sistema de otra persona', async () => {
+    const t = convexTest(schema, modules);
+    const deAna = await cuenta(t, ana, ['Casa']);
+    const deBeto = await cuenta(t, beto, ['Casa']);
+
+    expect(await codeOf(deAna.agente.mutation(api.pages.createFromAgent, { title: 'Ajena', systemId: deBeto.ids.Casa! }))).toBe('NOT_FOUND');
+  });
+});

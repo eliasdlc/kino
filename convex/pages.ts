@@ -5,6 +5,7 @@ import { ConvexError } from 'convex/values';
 import type { Doc, Id } from './_generated/dataModel';
 import type { MutationCtx, QueryCtx } from './_generated/server';
 import { countWords } from '../src/shared/lib/word-count';
+import { agentRouteFields, routeAgentCreate } from './lib/agentRoute';
 import { forbidden, invalid, notFound } from './lib/errors';
 import { kinoZodClosed, kinoZodMutation, kinoZodQuery, type Channel } from './lib/fn';
 import type { ActorChannel, AgentEditBasis } from './schema';
@@ -376,6 +377,21 @@ async function createOne(
 export const create = kinoZodMutation({
   args: createFields,
   handler: async (ctx, input) => createOne(ctx, ctx.user._id, ctx.channel, input),
+});
+
+/**
+ * Crear una página desde el conector, que puede no saber el sistema: lo decide
+ * `routeAgentCreate`, con el mismo orden que `tasks.createFromAgent`. El cliente
+ * web sigue con `create`, que exige el sistema.
+ */
+export const createFromAgent = kinoZodMutation({
+  args: { ...createFields, ...agentRouteFields },
+  handler: async (ctx, { systemId, workingDirectory, gitRemote, ...input }) => {
+    const route = await routeAgentCreate(ctx, ctx.user._id, { systemId, workingDirectory, gitRemote });
+    if (route.status === 'needs_system') return route;
+    const page = await createOne(ctx, ctx.user._id, ctx.channel, { ...input, systemId: route.systemId });
+    return { status: 'created' as const, routedBy: route.routedBy, ...('rule' in route ? { rule: route.rule } : {}), page };
+  },
 });
 
 /** Exportada para la siembra del onboarding, que crea páginas sin pasar por el cliente. */
