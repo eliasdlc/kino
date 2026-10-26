@@ -60,22 +60,18 @@ export const FALLO_AL_CONFIRMAR = { estado: "No se pudo confirmar.", detalle: "L
  */
 export function ShareConfirm({ captura, open, onOpenChange, onConfirm, onDiscard, enviando = false, fallo = false }: ShareConfirmProps) {
   const propuestos = captura?.proposedItems ?? [];
-  const [descartados, setDescartados] = useState<Set<number>>(new Set());
+  const caducada = captura?.status === "expired";
 
   return (
-    <ResponsiveDialog
-      open={open}
-      onOpenChange={(next) => {
-        if (!next) setDescartados(new Set());
-        onOpenChange(next);
-      }}
-    >
+    <ResponsiveDialog open={open} onOpenChange={onOpenChange}>
       <ResponsiveDialogContent className="sm:max-w-md">
         <ResponsiveDialogHeader>
           <ResponsiveDialogTitle>
-            {propuestos.length === 0
-              ? "Todavía nadie la ha leído"
-              : `${propuestos.length} ${propuestos.length === 1 ? "tarea propuesta" : "tareas propuestas"}`}
+            {caducada
+              ? "Caducó sin confirmar"
+              : propuestos.length === 0
+                ? "Todavía nadie la ha leído"
+                : `${propuestos.length} ${propuestos.length === 1 ? "tarea propuesta" : "tareas propuestas"}`}
           </ResponsiveDialogTitle>
           <ResponsiveDialogDescription>{captura ? tituloDe(captura) : ""}</ResponsiveDialogDescription>
         </ResponsiveDialogHeader>
@@ -84,18 +80,27 @@ export function ShareConfirm({ captura, open, onOpenChange, onConfirm, onDiscard
           <AudioWave src={captura.blobPath} segundos={captura.durationSeconds} className="pt-1" />
         )}
 
-        {propuestos.length === 0 ? (
+        {caducada || propuestos.length === 0 ? (
           <div className="space-y-3 pt-1">
-            <p className="font-voice text-base italic leading-snug text-body">
-              Pídele a tu agente que lea esta captura y las tareas caerán aquí con su destino. Mientras
-              tanto sigue guardada: no se va a ir sin avisar.
-            </p>
-            <Link
-              href="/docs#mcp"
-              className="focus-ring inline-flex min-h-[2.85rem] items-center rounded-sm text-sm font-semibold text-foreground underline decoration-input underline-offset-2 transition-[text-decoration-color] duration-(--dur-toque) ease-(--ease-pluma) hover:decoration-foreground"
-            >
-              Cómo conectar tu agente
-            </Link>
+            {caducada ? (
+              <p className="font-voice text-base italic leading-snug text-body">
+                Pasó su plazo sin que nadie la confirmara, así que ya no puede convertirse en tareas. Puedes
+                dejarla a la vista o descartarla.
+              </p>
+            ) : (
+              <>
+                <p className="font-voice text-base italic leading-snug text-body">
+                  Pídele a tu agente que lea esta captura y las tareas caerán aquí con su destino. Mientras
+                  tanto sigue guardada: no se va a ir sin avisar.
+                </p>
+                <Link
+                  href="/docs#mcp"
+                  className="focus-ring inline-flex min-h-[2.85rem] items-center rounded-sm text-sm font-semibold text-foreground underline decoration-input underline-offset-2 transition-[text-decoration-color] duration-(--dur-toque) ease-(--ease-pluma) hover:decoration-foreground"
+                >
+                  Cómo conectar tu agente
+                </Link>
+              </>
+            )}
             <div className="space-y-2">
               <Button variant="secondary" size="lg" className="w-full" onClick={() => onOpenChange(false)}>
                 Dejarla aquí
@@ -107,16 +112,8 @@ export function ShareConfirm({ captura, open, onOpenChange, onConfirm, onDiscard
           </div>
         ) : (
           <Propuestas
+            key={captura?.id}
             propuestos={propuestos}
-            descartados={descartados}
-            onAlternar={(indice) =>
-              setDescartados((previos) => {
-                const siguiente = new Set(previos);
-                if (siguiente.has(indice)) siguiente.delete(indice);
-                else siguiente.add(indice);
-                return siguiente;
-              })
-            }
             onConfirm={onConfirm}
             onDiscard={onDiscard}
             enviando={enviando}
@@ -131,25 +128,23 @@ export function ShareConfirm({ captura, open, onOpenChange, onConfirm, onDiscard
 /**
  * La lista de propuestas y sus dos salidas. Vive dentro del contenido de la
  * hoja, que sólo se monta abierta: así `useSystems` no se suscribe mientras
- * Bandeja tiene la hoja cerrada.
+ * Bandeja tiene la hoja cerrada. Quien la usa le da por `key` la captura: lo
+ * desmarcado es de esa captura y no pasa a la siguiente.
  */
 function Propuestas({
   propuestos,
-  descartados,
-  onAlternar,
   onConfirm,
   onDiscard,
   enviando,
   fallo,
 }: {
   propuestos: ItemPropuesto[];
-  descartados: Set<number>;
-  onAlternar: (indice: number) => void;
   onConfirm: (indices: number[], destinos: DestinoConfirmado[]) => void;
   onDiscard: () => void;
   enviando: boolean;
   fallo: boolean;
 }) {
+  const [descartados, setDescartados] = useState<Set<number>>(new Set());
   const { data: sistemas } = useSystems();
   const sistemaDe = (systemId: string | undefined) => (systemId ? sistemas?.find((s) => s.id === systemId) : undefined);
   const destinoDe = (systemId: string | undefined) => sistemaDe(systemId)?.name || "Bandeja";
@@ -175,7 +170,14 @@ function Propuestas({
           return (
             <li key={indice}>
               <MarginRow
-                onClick={() => onAlternar(indice)}
+                onClick={() =>
+                  setDescartados((previos) => {
+                    const siguiente = new Set(previos);
+                    if (siguiente.has(indice)) siguiente.delete(indice);
+                    else siguiente.add(indice);
+                    return siguiente;
+                  })
+                }
                 aria-pressed={marcado}
                 className="last:border-b"
                 margin={
