@@ -43,6 +43,8 @@ export function RecurrencePicker({ value, onChange, labelledBy }: RecurrencePick
   const customInvalid = showCustom && !!value && !isValidRRule(value);
 
   function handleSelect(next: string) {
+    // Tocar de nuevo la ficha activa no hace nada: sobre "Otra regla" borraría la regla escrita.
+    if (next === (showCustom ? "custom" : selectValue)) return;
     if (next === "none") {
       setCustomMode(false);
       onChange(null);
