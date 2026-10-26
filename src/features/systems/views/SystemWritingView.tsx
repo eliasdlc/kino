@@ -107,8 +107,9 @@ export function ObraRow({ obra, index, pagesByFolder, systemId, manifest, defaul
         partes={partes}
         manuscripts={manuscripts}
         // Leer, Tablero y Compilar leen los capítulos de la carpeta de la obra,
-        // no los de sus partes: sólo se ofrecen si ahí hay algo que leer.
-        hayTexto={manuscripts.length > 0}
+        // no los de sus partes: sólo se ofrecen si ahí hay algo que leer. La
+        // cuenta es la del servidor, que no se corta con el tope de la lista.
+        hayTexto={obra.pageCount > 0}
         systemId={systemId}
         manifest={manifest}
         mediumId={medium.id}

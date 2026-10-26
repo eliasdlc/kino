@@ -60,11 +60,13 @@ describe("SystemWritingView", () => {
     expect(screen.getByRole("link", { name: "Biblia de la novela" })).toBeInTheDocument();
   });
 
-  it("sin capítulos en la carpeta de la obra no ofrece Leer ni Tablero, que llevarían a una página vacía", async () => {
-    renderMobile(<SystemWritingView system={NOVELA} initialTasks={[]} />, { convex: biblioteca(0, [EN_PARTE, SUELTO]) });
+  it("sin capítulos en la carpeta de la obra no ofrece Leer, Tablero ni Compilar, que llevarían a una página vacía", async () => {
+    const vacia = makeFolder({ id: mid("obra"), name: "Primera parte", metadata: { medium: "novel" }, pageCount: 0 });
+    renderMobile(<SystemWritingView system={NOVELA} initialTasks={[]} />, { convex: biblioteca(0, [EN_PARTE, SUELTO], [vacia]) });
     expect(await screen.findByRole("button", { name: "Nuevo capítulo" })).toBeInTheDocument();
     expect(screen.queryByRole("link", { name: "Leer" })).not.toBeInTheDocument();
     expect(screen.queryByRole("link", { name: "Tablero" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /Compilar/ })).not.toBeInTheDocument();
   });
 
   it("sólo la primera obra llega desplegada; las demás esperan a que las abran", async () => {
@@ -72,5 +74,21 @@ describe("SystemWritingView", () => {
     renderMobile(<SystemWritingView system={NOVELA} initialTasks={[]} />, { convex: biblioteca(0, undefined, [OBRA, SEGUNDA]) });
     expect(await screen.findByRole("button", { name: "Plegar Primera parte" })).toHaveAttribute("aria-expanded", "true");
     expect(screen.getByRole("button", { name: "Desplegar Segunda parte" })).toHaveAttribute("aria-expanded", "false");
+  });
+
+  it("Leer y Tablero se ofrecen con los capítulos de la obra aunque el tope de la lista no los alcance", async () => {
+    const obra = makeFolder({ id: mid("obra"), name: "Primera parte", metadata: { medium: "novel" }, pageCount: 3 });
+    const otras = Array.from({ length: 200 }, (_, i) => makePage({ id: mid(`o${i}`), title: `Otra ${i}`, folderId: mid("otra") }));
+    const convex = biblioteca(0, otras, [obra]);
+    convex.publish(stubQuery(api.pages.bySystem, { items: otras, restantes: 3 }));
+    renderMobile(<SystemWritingView system={NOVELA} initialTasks={[]} />, { convex });
+
+    expect(await screen.findByRole("link", { name: "Leer" })).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Tablero" })).toBeInTheDocument();
+  });
+
+  it("con capítulos en la carpeta de la obra se ofrece Compilar", async () => {
+    renderMobile(<SystemWritingView system={NOVELA} initialTasks={[]} />, { convex: biblioteca(0) });
+    expect(await screen.findByRole("button", { name: /Compilar/ })).toBeInTheDocument();
   });
 });
