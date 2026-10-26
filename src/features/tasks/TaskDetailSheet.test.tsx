@@ -8,6 +8,8 @@
  */
 import { describe, expect, it, vi } from "vitest";
 import { fireEvent, screen, within } from "@testing-library/react";
+import { toast } from "sonner";
+import { addDays, startOfToday } from "date-fns";
 import { renderWithProviders, makeTestConvexClient } from "@/shared/testing/render";
 import type { TaskTransport } from "./tasks.types";
 import { TaskDetailSheet } from "./TaskDetailSheet";
@@ -35,6 +37,21 @@ describe("TaskDetailSheet", () => {
     renderWithProviders(<TaskDetailSheet task={tarea} systemId="s1" open onOpenChange={vi.fn()} />, { convex });
     fireEvent.click(screen.getByRole("button", { name: "Marcar como hecha" }));
     expect(convex.calls.find((c) => c.name === "tasks:toggle")?.args).toMatchObject({ id: "t1" });
+  });
+
+  it("D7: un examen que aún no sucede no se completa desde la hoja", () => {
+    const onComplete = vi.fn();
+    const onOpenChange = vi.fn();
+    const convex = makeTestConvexClient();
+    const examen = {
+      ...tarea, taskType: "event", startDate: addDays(startOfToday(), 3).toISOString(), metadata: { eventSubtype: "exam" },
+    } as unknown as TaskTransport;
+    renderWithProviders(<TaskDetailSheet task={examen} systemId="s1" open onOpenChange={onOpenChange} onComplete={onComplete} />, { convex });
+    fireEvent.click(screen.getByRole("button", { name: "Marcar como hecha" }));
+    expect(toast.error).toHaveBeenCalledWith("No puedes completar este evento antes de que suceda.");
+    expect(onComplete).not.toHaveBeenCalled();
+    expect(onOpenChange).not.toHaveBeenCalled();
+    expect(convex.calls.find((c) => c.name === "tasks:toggle")).toBeUndefined();
   });
 
   it("una hecha no ofrece completarla", () => {

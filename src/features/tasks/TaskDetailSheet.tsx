@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { useIsMobile } from "@/hooks/use-mobile";
-import { parseDueDate } from "./tasks.utils";
+import { isFutureExamOrQuiz, parseDueDate } from "./tasks.utils";
 import { Check, Timer } from "lucide-react";
 import {
   ResponsiveDialog,
@@ -23,7 +23,7 @@ import { SubtaskList } from "./SubtaskList";
 import { ItemEventList } from "./ItemEventList";
 import { TaskRemindersSection } from "./TaskRemindersSection";
 import { useToggleTask, useUpdateTask } from "./tasks.hooks";
-import { UNDO_MS } from "./useTachar";
+import { useTachar } from "./useTachar";
 import { RecurrencePicker } from "./RecurrencePicker";
 import { useFolders } from "@/features/folders/folders.hooks";
 import { useSprints } from "@/features/sprints/sprints.hooks";
@@ -86,6 +86,7 @@ function TaskDetailForm({ task, systemId, onClose, onComplete }: TaskDetailFormP
   const isMobile = useIsMobile();
   const { mutate: updateTask } = useUpdateTask(systemId);
   const { mutate: toggleTask } = useToggleTask(systemId);
+  const { handleToggle: completarEnSitio } = useTachar(toggleTask);
   const { data: folders = [] } = useFolders(systemId);
   const { data: sprints = [] } = useSprints(systemId);
   const activeSprints = sprints.filter((s) => s.status === "active");
@@ -201,20 +202,18 @@ function TaskDetailForm({ task, systemId, onClose, onComplete }: TaskDetailFormP
 
   /**
    * Completar desde la hoja: guarda lo que quedara sin guardar, tacha la fila
-   * (o completa y avisa, si nadie pinta la fila) y la hoja se recoge.
+   * en su sitio (con su Deshacer) y la hoja se recoge. Si quien la abre pinta
+   * la fila con otra lista, `onComplete` la tacha por él.
    */
   function handleComplete() {
+    if (isFutureExamOrQuiz(task)) {
+      toast.error("No puedes completar este evento antes de que suceda.");
+      return;
+    }
     pendienteRef.current();
     pendienteRef.current = () => {};
-    if (onComplete) {
-      onComplete(task);
-    } else {
-      toggleTask(task.id);
-      toast(`Hecha: ${task.title}`, {
-        duration: UNDO_MS,
-        action: { label: "Deshacer", onClick: () => toggleTask(task.id) },
-      });
-    }
+    if (onComplete) onComplete(task);
+    else completarEnSitio(task);
     onClose();
   }
 
