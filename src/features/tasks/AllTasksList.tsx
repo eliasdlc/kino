@@ -37,7 +37,7 @@ import { useQuickAddStore } from './quick-add.store';
 import { BulkActionBar } from './BulkActionBar';
 import { CascadeInboxMode } from './CascadeInboxMode';
 import { OverdueGroup, getOverdueTasks } from './OverdueGroup';
-import { useListaTachable } from './useTachar';
+import { conVisita, useListaTachable } from './useTachar';
 import { LISTA_FILA_ALTO, ListaSkeleton } from './TasksSkeleton';
 import type { TaskTransport } from './tasks.types';
 
@@ -146,7 +146,7 @@ const FilaDeTodas = memo(function FilaDeTodas({
   );
 });
 
-export function AllTasksList({ systems }: AllTasksListProps) {
+export const AllTasksList = conVisita(function AllTasksList({ systems }: AllTasksListProps) {
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
@@ -215,13 +215,11 @@ export function AllTasksList({ systems }: AllTasksListProps) {
 
   const overdueTasks = useMemo(() => getOverdueTasks(tasks), [tasks]);
   const vencidas = useListaTachable(overdueTasks, (taskId) => toggleTask({ taskId }));
-  // Una vencida tachada en esta visita sigue en su sección y no se cuenta como
-  // una más de Todas: si no, al dejar de estar vencida aparecería también
-  // abajo, como fila hecha, y empujaría lo que hay debajo.
-  const overdueIds = useMemo(
-    () => new Set([...overdueTasks.map((t) => t.id), ...vencidas.struck]),
-    [overdueTasks, vencidas.struck],
-  );
+  // Lo que Vencidas enseña no se cuenta como una más de Todas. Una vencida
+  // tachada en esta visita sigue en su sección: si no, al dejar de estar
+  // vencida aparecería también abajo, como fila hecha, y empujaría lo que hay
+  // debajo.
+  const overdueIds = useMemo(() => new Set(vencidas.filas.map((t) => t.id)), [vencidas.filas]);
 
   // Las vencidas tienen su sección arriba: aquí no se repiten, salvo que un
   // filtro de fecha las pida a propósito.
@@ -491,4 +489,4 @@ export function AllTasksList({ systems }: AllTasksListProps) {
       />
     </>
   );
-}
+});
