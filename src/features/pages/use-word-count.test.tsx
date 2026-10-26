@@ -6,9 +6,9 @@ import { describe, expect, it } from "vitest";
 import { useEffect } from "react";
 import { render, waitFor } from "@testing-library/react";
 import type { Editor } from "@tiptap/react";
-import { countWords } from "@/shared/lib/word-count";
+import { countPlainWords, countWords } from "@/shared/lib/word-count";
 import { EditorProvider, useSharedEditor } from "./EditorContext";
-import { contarPalabras, textoParaContar } from "./use-word-count";
+import { textoParaContar } from "./use-word-count";
 
 const mencion = (id: string, nombre: string) =>
   `<span data-mention="" class="codex-mention" data-entity-id="${id}" data-label="${nombre}">@${nombre}</span>`;
@@ -18,6 +18,10 @@ const CASOS = {
   "dos menciones pegadas": `<p>${mencion("e1", "Inés")}${mencion("e2", "Tomás")}llegaron</p>`,
   "un salto de línea": "<p>uno<br>dos tres</p>",
   "una lista": "<ul><li><p>uno dos</p></li><li><p>tres</p></li></ul>",
+  "un & suelto": "<p>Tom &amp; Jerry</p>",
+  "un & entre letras": "<p>R&amp;D</p>",
+  "un < y un >": "<p>5 &lt; 6 &gt; 4</p>",
+  "una mención con &": `<p>vio a ${mencion("e1", "Smith &amp; Wesson")}</p>`,
 };
 
 function Agarrar({ alTener }: { alTener: (editor: Editor) => void }) {
@@ -39,7 +43,7 @@ describe("textoParaContar", () => {
       );
       await waitFor(() => expect(editor).not.toBeNull());
       const vivo = editor as unknown as Editor;
-      expect(contarPalabras(textoParaContar(vivo.state.doc))).toBe(countWords(vivo.getHTML()));
+      expect(countPlainWords(textoParaContar(vivo.state.doc))).toBe(countWords(vivo.getHTML()));
     });
   }
 });

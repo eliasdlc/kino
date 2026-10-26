@@ -6,21 +6,20 @@
  * líneas por su interlínea, como el párrafo de la primera pintura.
  */
 import { describe, expect, it } from "vitest";
-import { countWords } from "@/shared/lib/word-count";
-import { contarPalabras } from "./use-word-count";
+import { countPlainWords, countWords } from "@/shared/lib/word-count";
 import { insetDelTeclado } from "./use-teclado-inset";
 import { altoEnLineas } from "./NotebookEditor";
 
-describe("contarPalabras", () => {
+describe("countPlainWords", () => {
   it("cuenta lo mismo que countWords sobre el HTML del mismo texto", () => {
     const html = "<h2>Uno</h2><p>La cota del día marcaba 134</p><p>y nadie sabía leerla.</p>";
     const texto = "Uno La cota del día marcaba 134 y nadie sabía leerla.";
-    expect(contarPalabras(texto)).toBe(countWords(html));
+    expect(countPlainWords(texto)).toBe(countWords(html));
   });
 
   it("un documento vacío o en blanco tiene cero palabras", () => {
-    expect(contarPalabras("")).toBe(0);
-    expect(contarPalabras("   \n ")).toBe(0);
+    expect(countPlainWords("")).toBe(0);
+    expect(countPlainWords("   \n ")).toBe(0);
   });
 });
 
