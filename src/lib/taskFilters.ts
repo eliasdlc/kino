@@ -15,7 +15,6 @@ export interface TaskFilters {
   dateRange: '' | 'overdue' | 'no-date' | 'has-date' | 'next7';
   group: '' | 'system' | 'status' | 'priority' | 'energy';
   sort: 'priority' | 'dueDate' | 'energy' | 'created';
-  view: 'list' | 'grid';
 }
 
 export const DEFAULT_FILTERS: TaskFilters = {
@@ -28,13 +27,12 @@ export const DEFAULT_FILTERS: TaskFilters = {
   dateRange: '',
   group: '',
   sort: 'priority',
-  view: 'list',
 };
 
 // ── URL serialization ──────────────────────────────────────────────────────
 
 const CSV_KEYS: (keyof TaskFilters)[] = ['status', 'system', 'priority', 'energy', 'type', 'tag'];
-const SCALAR_KEYS: (keyof TaskFilters)[] = ['dateRange', 'group', 'sort', 'view'];
+const SCALAR_KEYS: (keyof TaskFilters)[] = ['dateRange', 'group', 'sort'];
 
 export function parseFiltersFromParams(p: URLSearchParams): TaskFilters {
   const f = { ...DEFAULT_FILTERS };
