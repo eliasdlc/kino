@@ -81,7 +81,9 @@ export const registrar = kinoServicio(MCP_CLIENTS_SUBJECT)({
       return { revocado: false };
     }
 
-    const poneNombre = fila.label === SIN_NOMBRE && nombre !== undefined;
+    // Un cliente que se llama literalmente «Cliente sin nombre» no cuenta como
+    // nombre nuevo: si contara, escribiría en cada llamada.
+    const poneNombre = fila.label === SIN_NOMBRE && nombre !== undefined && nombre.label !== SIN_NOMBRE;
     if (ahora - fila.lastSeenAt >= REGISTRAR_CADA_MS || fila.scope !== scope || poneNombre) {
       await ctx.db.patch(fila._id, {
         lastSeenAt: ahora,

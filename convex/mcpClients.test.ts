@@ -131,6 +131,15 @@ describe('mcpClients.registrar', () => {
     expect(await filas()).toMatchObject([{ kind: 'codex', label: 'Codex de OpenAI' }]);
   });
 
+  it('un cliente que se llama «Cliente sin nombre» tampoco escribe más de una vez cada cinco minutos', async () => {
+    await registrar('c1', { clientName: 'Cliente sin nombre' });
+    vi.setSystemTime(T0 + 1_000);
+    await registrar('c1', { clientName: 'Cliente sin nombre' });
+    vi.setSystemTime(T0 + 2_000);
+    await registrar('c1', { clientName: 'Cliente sin nombre' });
+    expect(await filas()).toMatchObject([{ label: 'Cliente sin nombre', lastSeenAt: T0 }]);
+  });
+
   it('sin documento users (onboarding sin terminar) no escribe nada y no revoca', async () => {
     expect(await registrar('c1', { clerkId: 'user_sin_cuenta' })).toEqual({ revocado: false });
     expect(await filas()).toEqual([]);
