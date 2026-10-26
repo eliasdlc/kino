@@ -36,26 +36,32 @@ describe("BottomNav", () => {
     expect(screen.getByRole("button", { name: "Nueva tarea" }).className).toContain("rounded-full");
   });
 
-  it("a 320 px las cinco columnas reparten el ancho a partes iguales y la del orbe queda reservada", () => {
+  it("a 320 px las cinco palabras se reparten el ancho con un objetivo mínimo de 2.85rem y la del orbe queda reservada", () => {
     renderMobile(<BottomNav />);
 
-    // Sin `minmax(0,1fr)` una columna crece hasta su palabra (`auto` mínimo)
-    // y «Sistemas» se come el hueco de sus vecinas. jsdom no mide: se fija la
-    // estructura que garantiza el reparto.
+    // Debajo de 360 px la fila es flex con `justify-between`: cada palabra mide
+    // lo que su trazo con un mínimo de 2.85rem y el sobrante va entre ellas.
+    // Desde 360 px vuelve a la rejilla de columnas iguales. jsdom no maqueta:
+    // se fija la estructura que garantiza el reparto.
     const nav = screen.getByRole("navigation", { name: "Secciones" });
     expect(nav.className).toContain("grid-cols-[minmax(0,1fr)_2.85rem]");
     const palabras = nav.firstElementChild!;
-    expect(palabras.className).toContain("grid-cols-[repeat(5,minmax(0,1fr))]");
-    for (const palabra of palabras.children) expect(palabra.className).toContain("min-w-0");
+    expect(palabras.className).toContain("justify-between");
+    expect(palabras.className).toContain("min-[360px]:grid-cols-[repeat(5,minmax(0,1fr))]");
+    for (const palabra of palabras.children) {
+      expect(palabra.className).toContain("min-w-[2.85rem]");
+      expect(palabra.className).toContain("min-[360px]:min-w-0");
+    }
     expect(screen.getByRole("button", { name: "Nueva tarea" }).className).toContain("size-[2.85rem]");
   });
 
-  it("a 320 px «Sistemas» y «Bandeja» quedan con un hueco visible, contando el rem de 17 px", () => {
+  it("a 320 px las palabras no se tocan, Buscar queda aparte del orbe y el orbe conserva su margen derecho, contando el rem de 17 px", () => {
     renderMobile(<BottomNav />);
 
-    // jsdom no maqueta: se calcula el ancho de columna desde las clases del
-    // pie y el rem de `globals.css`. Con 16 px de rem «Sistemas» cabía; con
-    // 17 px el orbe, el margen y el hueco crecen un 6 % y la palabra no.
+    // jsdom no maqueta: se calcula desde las clases del pie, el rem de
+    // `globals.css` y el trazo medido en una captura a 393 px (12,75 px, sin
+    // tracking). El tracking de debajo de 360 px lo aprieta 0,025 em por
+    // letra. Los anchos son la tinta de cada palabra en esa captura.
     const css = readFileSync(join(process.cwd(), "src/app/globals.css"), "utf8");
     const rem = Number(/html\s*\{\s*font-size:\s*(\d+)px/.exec(css)?.[1]);
     expect(rem).toBeGreaterThan(0);
@@ -67,14 +73,33 @@ describe("BottomNav", () => {
 
     const nav = screen.getByRole("navigation", { name: "Secciones" });
     const orbe = Number(/_(\d+(?:\.\d+)?)rem\]/.exec(nav.className)?.[1]) * rem;
-    const columna = (320 - 2 * px(base(nav), "px") - px(base(nav), "gap") - orbe) / 5;
+    const margenDerecho = px(base(nav), "pr");
+    const hueco = px(base(nav), "gap");
+    const fila = 320 - px(base(nav), "pl") - margenDerecho - hueco - orbe;
 
-    // Trazo medido en una captura a 393 px (12,75 px, sin tracking); el
-    // tracking de debajo de 360 px lo aprieta 0,025 em por letra.
-    const tracking = base(nav.firstElementChild!).includes("tracking-tight") ? 0.025 * 0.75 * rem : 0;
-    const trazo = (medido: number, letras: number) => medido - letras * tracking;
-    const hueco = (columna - trazo(54.5, 8)) / 2 + (columna - trazo(45.5, 7)) / 2;
-    expect(hueco).toBeGreaterThanOrEqual(6);
+    const palabras = nav.firstElementChild!;
+    const tracking = base(palabras).includes("tracking-tight") ? 0.025 * 0.75 * rem : 0;
+    const minimo = 2.85 * rem;
+    const medidos: Record<string, number> = { Hoy: 23, Tareas: 40.5, Sistemas: 54.5, Bandeja: 45.5, Buscar: 40 };
+    const textos = [...palabras.children].map((el) => {
+      const etiqueta = el.textContent!;
+      return { etiqueta, trazo: medidos[etiqueta]! - etiqueta.length * tracking };
+    });
+    const objetivos = textos.map((t) => Math.max(minimo, t.trazo));
+    const sobrante = (fila - objetivos.reduce((a, b) => a + b, 0)) / (textos.length - 1);
+    expect(sobrante).toBeGreaterThanOrEqual(0);
+    const huecos = textos.slice(1).map((t, i) => {
+      const previo = textos[i]!;
+      return sobrante + (objetivos[i]! - previo.trazo) / 2 + (objetivos[i + 1]! - t.trazo) / 2;
+    });
+
+    const buscar = textos.length - 1;
+    const buscarAlOrbe = hueco + (objetivos[buscar]! - textos[buscar]!.trazo) / 2;
+
+    expect(Math.min(...huecos)).toBeGreaterThanOrEqual(4);
+    expect(buscarAlOrbe).toBeGreaterThanOrEqual(4);
+    expect(margenDerecho).toBeGreaterThanOrEqual(8);
+    expect(Math.min(...objetivos)).toBeGreaterThanOrEqual(2.85 * rem);
   });
 
   it("la palabra activa es la única en ámbar y lleva el punto", () => {
