@@ -36,23 +36,61 @@ describe("BottomNav", () => {
     expect(screen.getByRole("button", { name: "Nueva tarea" }).className).toContain("rounded-full");
   });
 
-  it("a 320 px las cinco palabras se reparten el ancho con un objetivo mínimo de 2.85rem y la del orbe queda reservada", () => {
+  it("debajo de 360 px la fila es flex con trazo apretado y desde 360 px vuelve a la rejilla de columnas iguales sin tocar margen, hueco ni tracking", () => {
     renderMobile(<BottomNav />);
 
-    // Debajo de 360 px la fila es flex con `justify-between`: cada palabra mide
-    // lo que su trazo con un mínimo de 2.85rem y el sobrante va entre ellas.
-    // Desde 360 px vuelve a la rejilla de columnas iguales. jsdom no maqueta:
-    // se fija la estructura que garantiza el reparto.
+    // jsdom no maqueta: se fija, clase a clase, qué cambia debajo de 360 px y
+    // qué debe seguir igual desde 360 px (rejilla, hueco 1.5, margen px-2 y
+    // tracking normal). Quitar cualquiera de ellas mueve el pie a 360 o más.
     const nav = screen.getByRole("navigation", { name: "Secciones" });
-    expect(nav.className).toContain("grid-cols-[minmax(0,1fr)_2.85rem]");
+    const clases = (el: Element) => new Set(el.className.split(/\s+/));
+    const navClases = clases(nav);
+    expect(navClases.has("grid-cols-[minmax(0,1fr)_2.85rem]")).toBe(true);
+    for (const c of ["gap-1", "pl-0", "pr-2", "min-[360px]:gap-1.5", "min-[360px]:px-2"]) {
+      expect(navClases.has(c), c).toBe(true);
+    }
+
     const palabras = nav.firstElementChild!;
-    expect(palabras.className).toContain("justify-between");
-    expect(palabras.className).toContain("min-[360px]:grid-cols-[repeat(5,minmax(0,1fr))]");
+    const filaClases = clases(palabras);
+    for (const c of [
+      "justify-between",
+      "tracking-tight",
+      "min-[360px]:grid",
+      "min-[360px]:grid-cols-[repeat(5,minmax(0,1fr))]",
+      "min-[360px]:tracking-normal",
+    ]) {
+      expect(filaClases.has(c), c).toBe(true);
+    }
     for (const palabra of palabras.children) {
       expect(palabra.className).toContain("min-w-[2.85rem]");
       expect(palabra.className).toContain("min-[360px]:min-w-0");
     }
     expect(screen.getByRole("button", { name: "Nueva tarea" }).className).toContain("size-[2.85rem]");
+  });
+
+  it("con el rem agrandado la fila de palabras se desplaza dentro de su caja en vez de montarse sobre el orbe, sin barra y sin recortar el anillo de foco", () => {
+    renderMobile(<BottomNav />);
+
+    // El orbe ocupa su columna fija; la fila de palabras es la única que
+    // cede. Cada palabra conserva su tamaño (`shrink-0`) y, si la suma
+    // supera la caja, la fila se desplaza en horizontal. Desde 360 px la
+    // fila no recorta (`overflow-visible`) y el anillo de foco sale entero.
+    const nav = screen.getByRole("navigation", { name: "Secciones" });
+    const fila = new Set(nav.firstElementChild!.className.split(/\s+/));
+    for (const c of [
+      "min-w-0",
+      "overflow-x-auto",
+      "overscroll-x-contain",
+      "[scrollbar-width:none]",
+      "[&::-webkit-scrollbar]:hidden",
+      "min-[360px]:overflow-visible",
+    ]) {
+      expect(fila.has(c), c).toBe(true);
+    }
+    for (const palabra of nav.firstElementChild!.children) {
+      expect(palabra.className).toContain("shrink-0");
+      expect(palabra.className).toContain("max-[359px]:focus-visible:outline-offset-[-2px]");
+    }
   });
 
   it("a 320 px las palabras no se tocan, Buscar queda aparte del orbe y el orbe conserva su margen derecho, contando el rem de 17 px", () => {
@@ -61,7 +99,9 @@ describe("BottomNav", () => {
     // jsdom no maqueta: se calcula desde las clases del pie, el rem de
     // `globals.css` y el trazo medido en una captura a 393 px (12,75 px, sin
     // tracking). El tracking de debajo de 360 px lo aprieta 0,025 em por
-    // letra. Los anchos son la tinta de cada palabra en esa captura.
+    // letra, y esa `em` es la del contenedor (17 px), no la del `text-xs` de
+    // las palabras: `tracking-tight` va en la fila, así que se hereda como
+    // -0,425 px. Los anchos son la tinta de cada palabra en esa captura.
     const css = readFileSync(join(process.cwd(), "src/app/globals.css"), "utf8");
     const rem = Number(/html\s*\{\s*font-size:\s*(\d+)px/.exec(css)?.[1]);
     expect(rem).toBeGreaterThan(0);
@@ -78,7 +118,8 @@ describe("BottomNav", () => {
     const fila = 320 - px(base(nav), "pl") - margenDerecho - hueco - orbe;
 
     const palabras = nav.firstElementChild!;
-    const tracking = base(palabras).includes("tracking-tight") ? 0.025 * 0.75 * rem : 0;
+    for (const palabra of palabras.children) expect(palabra.className).not.toContain("tracking-");
+    const tracking = base(palabras).includes("tracking-tight") ? 0.025 * rem : 0;
     const minimo = 2.85 * rem;
     const medidos: Record<string, number> = { Hoy: 23, Tareas: 40.5, Sistemas: 54.5, Bandeja: 45.5, Buscar: 40 };
     const textos = [...palabras.children].map((el) => {
