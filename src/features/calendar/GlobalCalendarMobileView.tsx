@@ -7,6 +7,7 @@ import { CalendarClock, CalendarDays, Check, ChevronDown, ChevronLeft, ChevronRi
 import { Button } from "@/components/ui/button";
 import { EmptyState } from "@/components/ui/empty-state";
 import { MarginRow } from "@/components/ui/margin-row";
+import { RowsSkeleton } from "@/components/Skeletons";
 import { SectionHead } from "@/features/dashboard/SectionHead";
 import { cn } from "@/lib/utils";
 import type { TaskTransport } from "@/features/tasks/tasks.types";
@@ -21,6 +22,8 @@ interface GlobalCalendarMobileViewProps {
   timedByDay: Map<string, TaskTransport[]>;
   /** Las que no tienen fecha: en el teléfono también existen. */
   unscheduledTasks: TaskTransport[];
+  /** Las tareas de la semana todavía no llegaron: el día se pinta como esqueleto, no como vacío. */
+  cargando?: boolean;
   /** Abre la hoja con nombre que sustituye al arrastre. */
   onProgramar: (task: TaskTransport) => void;
   /** Abre el detalle de la tarea. */
@@ -50,25 +53,37 @@ function estimacionLegible(tiempo: string | null | undefined): string | null {
   return m ? `${h}\u00a0h\u00a0${m}` : `${h}\u00a0h`;
 }
 
-/** La línea de meta de una fila: el estado con su palabra, la prioridad en peso, la energía. */
-function Meta({ task }: { task: TaskTransport }) {
+interface ParteDeMeta {
+  clave: string;
+  texto: string;
+  /** Lo que se dice con peso (vencida, prioridad) va en negrita; el resto, suelto. */
+  peso?: string;
+}
+
+/** Las partes de la línea de meta de una fila: el estado con su palabra, la prioridad en peso, la energía. */
+function partesDeMeta(task: TaskTransport): ParteDeMeta[] {
   const fecha = getPlacementDate(task);
   const hecha = task.status === "done";
   const vencida = !hecha && fecha !== null && isBefore(startOfDay(parseDueDate(fecha)), startOfToday());
   const prioridad = PRIORIDAD[task.effectivePriority];
   const duracion = estimacionLegible(task.estimatedTime);
-  const partes: React.ReactNode[] = [];
-  if (hecha) partes.push(<span key="hecha" className="font-semibold text-ok">hecha</span>);
-  if (vencida) partes.push(<b key="vencida" className="font-semibold text-task-overdue">vencida</b>);
-  if (prioridad) partes.push(<b key="prioridad" className="font-semibold text-body">{prioridad}</b>);
-  partes.push(<span key="energia">energía {ENERGIA[task.energyLevel ?? "medium"] ?? "media"}</span>);
-  if (duracion) partes.push(<span key="duracion">{duracion}</span>);
+  const partes: ParteDeMeta[] = [];
+  if (hecha) partes.push({ clave: "hecha", texto: "hecha", peso: "font-semibold text-ok" });
+  if (vencida) partes.push({ clave: "vencida", texto: "vencida", peso: "font-semibold text-task-overdue" });
+  if (prioridad) partes.push({ clave: "prioridad", texto: prioridad, peso: "font-semibold text-body" });
+  partes.push({ clave: "energia", texto: `energía ${ENERGIA[task.energyLevel ?? "medium"] ?? "media"}` });
+  if (duracion) partes.push({ clave: "duracion", texto: duracion });
+  return partes;
+}
+
+/** La línea de meta de una fila. */
+function Meta({ task }: { task: TaskTransport }) {
   return (
     <span className="block text-sm text-muted-foreground">
-      {partes.map((parte, i) => (
-        <span key={i}>
+      {partesDeMeta(task).map(({ clave, texto, peso }, i) => (
+        <span key={clave}>
           {i > 0 && ", "}
-          {parte}
+          {peso ? <b className={peso}>{texto}</b> : texto}
         </span>
       ))}
     </span>
@@ -122,6 +137,7 @@ function FilaDelDia({
 }: {
   task: TaskTransport;
   margen: React.ReactNode;
+  /** Lo que el lector de pantalla lee antes del título: la hora o «Todo el día». La meta se le suma. */
   etiqueta: string;
   onOpen: () => void;
   onMover: () => void;
@@ -162,7 +178,7 @@ function FilaDelDia({
       <button
         type="button"
         onClick={onOpen}
-        aria-label={etiqueta}
+        aria-label={[etiqueta, ...partesDeMeta(task).map((parte) => parte.texto)].join(", ")}
         className="focus-ring -my-2 block min-h-[2.85rem] w-full rounded-md py-2 text-left"
       >
         <Titulo task={task} className="line-clamp-3" />
@@ -250,8 +266,9 @@ function TiraSemana({
  * tareas con hora llevan la hora en el margen y se leen en el orden en que
  * pasan, a cualquier hora (una a las 23:15 también es del día); las de todo
  * el día llevan el glifo del día. Tocar una fila abre su detalle; su círculo
- * la completa y "Mover" la cambia de hora o de día con la misma hoja con la
- * que se programan las que no tienen fecha, que esperan abajo.
+ * la completa y "Mover" la cambia de hora, o la pasa a todo el día, dentro del día
+ * elegido, con la misma hoja con la que se programan las que no tienen
+ * fecha, que esperan abajo.
  *
  * Sin rejilla de horas vacías: diecisiete filas que no hacen nada eran una
  * rejilla de adorno, y el hueco ya lo dice la hora del margen.
@@ -265,6 +282,7 @@ export function GlobalCalendarMobileView({
   byDayAllDay,
   timedByDay,
   unscheduledTasks,
+  cargando = false,
   onProgramar,
   onOpenTask,
   onComplete,
@@ -277,7 +295,7 @@ export function GlobalCalendarMobileView({
   const sinProgramar = useRef<HTMLElement>(null);
   const todoElDia = byDayAllDay.get(dayKey(selectedDay)) ?? [];
   const conHora = timedTasksOfDay(timedByDay, selectedDay);
-  const diaVacio = todoElDia.length === 0 && conHora.length === 0;
+  const diaVacio = !cargando && todoElDia.length === 0 && conHora.length === 0;
   const fecha = format(selectedDay, "EEEE d 'de' MMMM", { locale: es });
 
   /** El vacío del día lleva a las que esperan fecha: abre la lista y la trae a la vista. */
@@ -315,6 +333,12 @@ export function GlobalCalendarMobileView({
         onSelectDay={onSelectDay}
         carga={(day) => dayLoad(byDayAllDay, timedByDay, day)}
       />
+
+      {cargando && (
+        <div aria-hidden>
+          <RowsSkeleton rows={3} margin="numeral" />
+        </div>
+      )}
 
       {diaVacio && (
         <EmptyState
