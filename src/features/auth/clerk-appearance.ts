@@ -20,10 +20,14 @@ const tocables = {
   formButtonPrimary: {
     height: OBJETIVO,
     maxHeight: "none",
-    // Ese selector (0,3,0) también gana al anillo de foco de Clerk (0,2,0), así
-    // que el anillo se repone aquí en vez de quedar sin foco visible.
+    // Clerk vuelve a poner la sombra en `:focus` y en `:focus:not(:focus-visible)`,
+    // que es lo que deja un toque de ratón o de dedo, y esas reglas pesan más que
+    // la de reposo: cada estado se neutraliza aparte. El anillo de teclado se
+    // repone al final, porque el selector (0,3,0) también gana al de Clerk.
     '&[data-variant="solid"][data-color="primary"]': {
       boxShadow: "none",
+      "&:focus": { boxShadow: "none" },
+      "&:focus:not(:focus-visible)": { boxShadow: "none" },
       "&:focus-visible": { boxShadow: "0 0 0 2px var(--sf), 0 0 0 4px var(--ink)" },
     },
   },
@@ -100,9 +104,9 @@ export const clerkAppearance: Appearance = {
 /**
  * Lo que cambia en las puertas (entrar y crear cuenta): sin card. En Diario
  * nada es una caja, así que el formulario se asienta en el papel, debajo del
- * título y la frase de la página, y el título de Clerk se calla porque el h1
- * ya lo dice. La cabecera sigue: en el paso del código y en el de la
- * contraseña lleva el correo con su botón de editar y la frase del paso. El pie pierde su banda de color y queda como una línea más.
+ * título y la frase de la página, y el título y la frase de Clerk se callan
+ * porque el h1 ya los dice. La cabecera sigue: en el paso del código y en el de
+ * la contraseña lleva el correo con su botón de editar y el enlace de volver. El pie pierde su banda de color y queda como una línea más.
  * Se aplica en el componente, no en el proveedor: la cuenta de Ajustes sigue
  * con su superficie.
  */
@@ -114,7 +118,10 @@ export const clerkPuertaAppearance: Appearance = {
     rootBox: { width: "100%" },
     cardBox: { width: "100%", maxWidth: "none", boxShadow: "none", border: "0", borderRadius: "0", background: "transparent" },
     card: { width: "100%", boxShadow: "none", border: "0", borderRadius: "0", background: "transparent", padding: "0.125rem" },
+    // El título y su frase ("para continuar a Kino") sobran: el h1 y la voz de la
+    // página ya los dicen, y la frase sola quedaba como un fragmento en minúscula.
     headerTitle: { display: "none" },
+    headerSubtitle: { display: "none" },
     footer: { background: "none", boxShadow: "none", border: "0", paddingTop: "0.5rem" },
     // El enlace mide 48 px y la frase un renglón: centrados, no a la base.
     footerAction: { padding: "0.75rem 0", alignItems: "center" },
