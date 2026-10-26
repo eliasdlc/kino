@@ -20,9 +20,11 @@ import { DESTINOS_MOVIL, destinoActivo } from "./navigation";
  *
  * Las cinco palabras reparten el ancho a partes iguales (`minmax(0,1fr)`, no
  * `auto`: una columna no crece hasta su palabra) y la columna del orbe mide
- * lo que el orbe, así que a 320 px «Sistemas» (49,5 px) cabe en su columna de
- * 52 px y deja hueco a «Bandeja» y a «Buscar». Debajo de 360 px el pie cede
- * 4 px de margen y de hueco; desde 360 px queda como estaba.
+ * lo que el orbe. El rem del producto es 17 px (`globals.css`), así que a
+ * 320 px el orbe ocupa 48,5 px y «Sistemas» (54,5 px) no cabe en una columna
+ * con margen y hueco. Debajo de 360 px el pie quita margen y hueco y aprieta
+ * el trazo de las palabras 0,025 em, sin bajar de `text-xs`; desde 360 px
+ * queda como estaba.
  *
  * Toca el borde de abajo a propósito y suma el área segura del dispositivo:
  * en un teléfono con barra de gestos el pie empieza encima de ella.
@@ -55,10 +57,10 @@ export function BottomNav({ rutaActual }: { rutaActual?: string } = {}) {
   return (
     <nav
       aria-label="Secciones"
-      className="fixed inset-x-0 bottom-0 z-(--z-overlay) grid grid-cols-[minmax(0,1fr)_2.85rem] items-center gap-1 border-t border-border bg-background px-1 pb-[env(safe-area-inset-bottom)] min-[360px]:gap-1.5 min-[360px]:px-2 md:hidden"
+      className="fixed inset-x-0 bottom-0 z-(--z-overlay) grid grid-cols-[minmax(0,1fr)_2.85rem] items-center gap-0 border-t border-border bg-background px-0 pb-[env(safe-area-inset-bottom)] min-[360px]:gap-1.5 min-[360px]:px-2 md:hidden"
       style={{ minHeight: "calc(var(--kino-bottom-nav) + env(safe-area-inset-bottom))" }}
     >
-      <div className="grid h-[3.3rem] grid-cols-[repeat(5,minmax(0,1fr))]">
+      <div className="grid h-[3.3rem] grid-cols-[repeat(5,minmax(0,1fr))] tracking-tight min-[360px]:tracking-normal">
         {DESTINOS_MOVIL.map((destino) => (
           <Palabra
             key={destino.href}
