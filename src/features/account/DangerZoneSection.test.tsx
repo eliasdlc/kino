@@ -4,11 +4,13 @@
  * el correo no coincide, el botón de borrar está apagado y nada sale.
  */
 import { describe, expect, it, vi } from 'vitest';
-import { screen } from '@testing-library/react';
+import { screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { makeTestConvexClient, renderWithProviders } from '@/shared/testing/render';
+import { api } from '@convex/_generated/api';
+import { CUENTA_DE_PRUEBA } from '@/features/settings/settings-fixtures';
+import { makeTestConvexClient, renderWithProviders, stubQuery } from '@/shared/testing/render';
 import { useDeleteAccount } from './account.hooks';
-import { DeleteAccountBody } from './DangerZoneSection';
+import { DangerZoneSection, DeleteAccountBody } from './DangerZoneSection';
 
 function Cuerpo() {
   const deleteAccount = useDeleteAccount();
@@ -35,5 +37,32 @@ describe('DeleteAccountBody', () => {
     await userEvent.click(borrar);
 
     expect(convex.calls).toContainEqual({ kind: 'action', name: 'account:remove', args: { email: 'Prueba@UseKino.dev' } });
+  });
+
+  it('un comienzo del correo no basta: sigue apagado hasta escribirlo entero', async () => {
+    renderWithProviders(<Cuerpo />, { convex: makeTestConvexClient() });
+
+    const borrar = screen.getByRole('button', { name: 'Borrar mi cuenta' });
+    await userEvent.type(screen.getByLabelText(/para confirmar/), 'prueba@usekino');
+    expect(borrar).toBeDisabled();
+  });
+
+  it('el mismo correo con otras mayúsculas y espacios alrededor sí lo habilita', async () => {
+    renderWithProviders(<Cuerpo />, { convex: makeTestConvexClient() });
+
+    await userEvent.type(screen.getByLabelText(/para confirmar/), '  PRUEBA@usekino.DEV ');
+    expect(screen.getByRole('button', { name: 'Borrar mi cuenta' })).toBeEnabled();
+  });
+});
+
+describe('DangerZoneSection', () => {
+  it('la confirmación pide el correo de la cuenta con la sesión abierta', async () => {
+    const convex = makeTestConvexClient([stubQuery(api.users.current, { ...CUENTA_DE_PRUEBA, email: 'otra.cuenta@usekino.dev' })]);
+    renderWithProviders(<DangerZoneSection />, { convex });
+
+    await userEvent.click(await screen.findByRole('button', { name: /Borrar la cuenta/ }));
+
+    const dialogo = await screen.findByRole('dialog', { name: 'Borrar tu cuenta' });
+    expect(within(dialogo).getByText('otra.cuenta@usekino.dev')).toBeVisible();
   });
 });
