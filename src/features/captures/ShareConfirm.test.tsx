@@ -8,7 +8,9 @@
 import { describe, expect, it, vi } from "vitest";
 import { screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { renderMobile } from "@/shared/testing/render";
+import { api } from "@convex/_generated/api";
+import { makeSystem, mid } from "@/app/system-design/mock-data";
+import { makeTestConvexClient, renderMobile, stubQuery } from "@/shared/testing/render";
 import { ShareConfirm } from "./ShareConfirm";
 import type { CaptureItem } from "./captures.types";
 
@@ -161,5 +163,32 @@ describe("ShareConfirm", () => {
     await userEvent.click(screen.getByRole("button", { name: "Descartarla" }));
     expect(onDiscard).toHaveBeenCalledOnce();
     expect(onConfirm).not.toHaveBeenCalled();
+  });
+
+  it("un item propuesto para un sistema dice su nombre y confirma contándolo en ese destino", async () => {
+    const tesis = makeSystem({ id: mid("sys-1"), name: "Tesis" });
+    const onConfirm = vi.fn();
+    renderMobile(
+      <ShareConfirm
+        captura={captura({ proposedItems: [{ title: "Escribir la intro", systemId: tesis.id }, { title: "Pedir la rúbrica" }] })}
+        open
+        onOpenChange={() => {}}
+        onConfirm={onConfirm}
+        onDiscard={vi.fn()}
+      />,
+      { convex: makeTestConvexClient([stubQuery(api.systems.list, [tesis])]) },
+    );
+
+    expect(screen.getByText(/^a Tesis/)).toBeVisible();
+    expect(screen.getByText(/^a Bandeja/)).toBeVisible();
+    await userEvent.click(screen.getByRole("button", { name: "Confirmar 2" }));
+
+    expect(onConfirm).toHaveBeenCalledExactlyOnceWith(
+      [0, 1],
+      [
+        { systemId: tesis.id, nombre: "Tesis", cuenta: 1 },
+        { systemId: null, nombre: "Bandeja", cuenta: 1 },
+      ],
+    );
   });
 });
