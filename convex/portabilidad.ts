@@ -34,6 +34,7 @@ export const LECTORES: Record<string, Lector> = {
     return doc ? [doc] : [];
   },
   userSettings: (ctx, userId) => ctx.db.query('userSettings').withIndex('by_user', (q) => q.eq('userId', userId)).take(EXPORT_TABLE_CAP),
+  workdirRules: (ctx, userId) => ctx.db.query('workdirRules').withIndex('by_user_kind_key', (q) => q.eq('userId', userId)).take(EXPORT_TABLE_CAP),
   systems: (ctx, userId) => ctx.db.query('systems').withIndex('by_user_sort', (q) => q.eq('userId', userId)).take(EXPORT_TABLE_CAP),
   tasks: (ctx, userId) => ctx.db.query('tasks').withIndex('by_user_alive_status', (q) => q.eq('userId', userId)).take(EXPORT_TABLE_CAP),
   sprints: (ctx, userId) => ctx.db.query('sprints').withIndex('by_user', (q) => q.eq('userId', userId)).take(EXPORT_TABLE_CAP),

@@ -25,6 +25,7 @@ export interface ExportTable {
 export const EXPORT_TABLES: readonly ExportTable[] = [
   { tabla: "users", etiqueta: "Tu cuenta", formato: "JSON" },
   { tabla: "userSettings", etiqueta: "Ajustes", formato: "JSON" },
+  { tabla: "workdirRules", etiqueta: "Dónde trabajan tus agentes", formato: "JSON" },
   { tabla: "systems", etiqueta: "Sistemas", formato: "JSON" },
   { tabla: "tasks", etiqueta: "Tareas", formato: "JSON" },
   { tabla: "sprints", etiqueta: "Ciclos", formato: "JSON" },
