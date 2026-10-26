@@ -50,6 +50,11 @@ vi.mock("@/features/tasks/tasks.hooks", () => ({
   useRemoveFromPlan: () => ({ mutate: vi.fn() }),
 }));
 
+vi.mock("@/features/tasks/TaskDetailSheet", () => ({
+  TaskDetailSheet: ({ task, open }: { task: TaskTransport | null; open: boolean }) =>
+    open && task ? <div role="dialog" aria-label="Detalle de la tarea">{task.title}</div> : null,
+}));
+
 const { TodayPlanCard, UNDO_MS, CONFETTI_REMOVE_MS } = await import("./TodayPlanCard");
 
 const titulos = () => screen.getAllByText(/Leer|Escribir/).map((el) => el.textContent);
@@ -169,5 +174,14 @@ describe("TodayPlanCard", () => {
     renderWithProviders(<TodayPlanCard noProfile={false} />);
     expect(titulos()).toEqual(["Escribir el resumen"]);
     expect(screen.getByText("1 hecha hoy")).toBeInTheDocument();
+  });
+
+  it("D10: tocar el título de una fila de Hoy abre el detalle de esa tarea", () => {
+    renderWithProviders(<TodayPlanCard noProfile={false} />);
+    expect(screen.queryByRole("dialog")).toBeNull();
+
+    fireEvent.click(screen.getByRole("button", { name: "Abrir Escribir el resumen" }));
+
+    expect(screen.getByRole("dialog", { name: "Detalle de la tarea" })).toHaveTextContent("Escribir el resumen");
   });
 });
