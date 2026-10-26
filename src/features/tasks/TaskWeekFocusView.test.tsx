@@ -46,4 +46,17 @@ describe("TaskWeekFocusView", () => {
     expect(fila.querySelectorAll("button[aria-label='Más acciones']")).toHaveLength(1);
     expect(screen.queryByRole("button", { name: /papelera/i })).toBeNull();
   });
+
+  it("D8: la fila sólo tiene el círculo de completar y Más acciones", () => {
+    const convex = makeTestConvexClient([
+      stubQuery(api.tasks.bySystem, [critica]),
+      stubQuery(api.folders.bySystem, []),
+      stubQuery(api.systems.list, []),
+    ]);
+    const { container } = renderWithProviders(<TaskWeekFocusView systemId="s1" initialData={[critica]} />, { convex });
+
+    const fila = container.querySelector("[data-slot=task-card]") as HTMLElement;
+    const nombres = [...fila.querySelectorAll("button")].map((b) => b.getAttribute("aria-label"));
+    expect(nombres).toEqual(["Completar Entregar el proyecto final", "Más acciones"]);
+  });
 });
