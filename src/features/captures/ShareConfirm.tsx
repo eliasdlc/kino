@@ -58,7 +58,12 @@ export const FALLO_AL_CONFIRMAR = { estado: "No se pudo confirmar.", detalle: "L
  * después, en la tarea: elegirlo en esta hoja pide que la confirmación lo
  * acepte.
  */
-export function ShareConfirm({ captura, open, onOpenChange, onConfirm, onDiscard, enviando = false, fallo = false }: ShareConfirmProps) {
+export function ShareConfirm({ captura: recibida, open, onOpenChange, onConfirm, onDiscard, enviando = false, fallo = false }: ShareConfirmProps) {
+  // Quien la usa vacía la captura para cerrar, y la hoja tarda en irse: mientras
+  // sale sigue con la última, en vez de pasar a «nadie la ha leído».
+  const [ultima, setUltima] = useState(recibida);
+  if (recibida && recibida !== ultima) setUltima(recibida);
+  const captura = recibida ?? ultima;
   const propuestos = captura?.proposedItems ?? [];
   const caducada = captura?.status === "expired";
 
@@ -129,7 +134,8 @@ export function ShareConfirm({ captura, open, onOpenChange, onConfirm, onDiscard
  * La lista de propuestas y sus dos salidas. Vive dentro del contenido de la
  * hoja, que sólo se monta abierta: así `useSystems` no se suscribe mientras
  * Bandeja tiene la hoja cerrada. Quien la usa le da por `key` la captura: lo
- * desmarcado es de esa captura y no pasa a la siguiente.
+ * desmarcado es de esa captura y no pasa a la siguiente, aunque la hoja siga
+ * montada mientras se cierra.
  */
 function Propuestas({
   propuestos,
