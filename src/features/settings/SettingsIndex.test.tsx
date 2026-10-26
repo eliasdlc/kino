@@ -104,12 +104,31 @@ describe('SettingsIndex', () => {
     expect(within(hoja).getByText(/En Notificaciones, elige Permitir/)).toBeVisible();
   });
 
+  it('Agentes vive en Cuenta, y cada fila del índice lleva su glifo en el margen', () => {
+    renderMobile(<SettingsIndex />, { convex: cliente() });
+
+    expect(within(screen.getByRole('region', { name: 'Cuenta' })).getByRole('button', { name: /Agentes/ })).toBeVisible();
+    expect(within(screen.getByRole('region', { name: 'Una vez' })).queryByRole('button', { name: /Agentes/ })).toBeNull();
+
+    const margenes = [...document.querySelectorAll('[data-slot="settings-index"] [data-slot="margin-row-margin"]')];
+    expect(margenes.length).toBeGreaterThan(0);
+    for (const margen of margenes) expect(margen.querySelector('svg')).not.toBeNull();
+  });
+
   it('el esqueleto tiene los mismos grupos y las mismas filas que el índice', () => {
-    renderMobile(<SettingsIndexSkeleton />);
-    const esqueleto = document.querySelector('[data-slot="settings-index-skeleton"]')!;
-    const grupos = [...esqueleto.querySelectorAll('section')];
-    expect(grupos.map((g) => g.querySelector('h2')?.textContent)).toEqual(['Cada día', 'Cuenta', 'Una vez']);
-    // Seis en Cada día, cuatro en Cuenta, cinco en Una vez (atajos sólo en escritorio).
-    expect(grupos.map((g) => g.querySelectorAll('[data-slot="settings-skeleton-row"]').length)).toEqual([6, 4, 5]);
+    const real = renderMobile(<SettingsIndex />, { convex: cliente() });
+    const delIndice = [...real.container.querySelectorAll('[data-slot="settings-group"]')].map((g) => ({
+      titulo: g.querySelector('h2')?.textContent,
+      filas: g.querySelectorAll(':scope > div > *').length,
+    }));
+    real.unmount();
+
+    const esqueleto = renderMobile(<SettingsIndexSkeleton />).container;
+    const delEsqueleto = [...esqueleto.querySelectorAll('[data-slot="settings-index-skeleton"] section')].map((g) => ({
+      titulo: g.querySelector('h2')?.textContent,
+      filas: g.querySelectorAll(':scope > div > *').length,
+    }));
+    expect(delEsqueleto).toEqual(delIndice);
+    expect(delIndice.map((g) => g.titulo)).toEqual(['Cada día', 'Cuenta', 'Una vez']);
   });
 });
