@@ -41,6 +41,16 @@ describe("TaskRow", () => {
     expect(screen.getByRole("button", { name: /^Completar Preparar/ })).toHaveClass("size-[2.85rem]");
   });
 
+  it("una vencida crítica dice vencida una sola vez y no antepone la razón del servidor", () => {
+    const { container } = renderWithProviders(
+      <TaskRow task={tarea({ priority: "critical", effectivePriority: "critical" })} onComplete={vi.fn()} />,
+    );
+    const meta = container.querySelector("[data-slot=task-row-title]")!.nextElementSibling!;
+    expect(meta.textContent?.match(/vencida/g)).toHaveLength(1);
+    expect(meta).toHaveTextContent("crítica");
+    expect(meta).not.toHaveTextContent(/prioridad/);
+  });
+
   it("con el dedo las acciones abren una hoja con renglones con nombre", () => {
     conDedo();
     const papelera = vi.fn();
