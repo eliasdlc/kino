@@ -5,7 +5,7 @@ import Link from 'next/link';
 import { CreateTaskDialog } from '@/features/tasks/CreateTaskDialog';
 import { TaskDetailSheet } from '@/features/tasks/TaskDetailSheet';
 import { useTasks, useToggleTask } from '@/features/tasks/tasks.hooks';
-import { useTacharEnSitio } from '@/features/tasks/useTachar';
+import { conVisita, useTacharEnSitio } from '@/features/tasks/useTachar';
 import type { TaskTransport } from '@/features/tasks/tasks.types';
 import { useFolders } from '@/features/folders/folders.hooks';
 import { cn } from '@/lib/utils';
@@ -24,7 +24,7 @@ import type { SystemViewProps } from './SystemDetailView';
  * Todo el vocabulario sale del manifiesto efectivo del sistema: el plural del
  * contenedor y el nombre de cada tipo de tarea. Ni un `if` por tipo.
  */
-export function PersonalView({ system, initialTasks }: SystemViewProps) {
+export const PersonalView = conVisita(function PersonalView({ system, initialTasks }: SystemViewProps) {
   const manifest = resolveSystemManifest(system);
   const { data: tasks = initialTasks } = useTasks(system.id, initialTasks);
   const { data: folders = [] } = useFolders(system.id);
@@ -134,4 +134,4 @@ export function PersonalView({ system, initialTasks }: SystemViewProps) {
       />
     </div>
   );
-}
+});
