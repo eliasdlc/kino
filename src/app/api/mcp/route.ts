@@ -2,7 +2,7 @@ import { verifyClerkToken } from "@clerk/mcp-tools/next";
 import { auth } from "@clerk/nextjs/server";
 import type { AuthInfo } from "@modelcontextprotocol/sdk/server/auth/types.js";
 import { createMcpHandler, withMcpAuth } from "mcp-handler";
-import { mintConvexToken, scopeFor } from "@/features/mcp/auth";
+import { clerkFault, faultResponse, mintConvexToken, scopeFor, withServerFaults } from "@/features/mcp/auth";
 import { registerAllTools } from "@/features/mcp/tools";
 import { convexCall } from "@/features/mcp/tools/define";
 import { SITE_URL } from "@/shared/lib/site-url";
@@ -22,6 +22,8 @@ const SERVER_VERSION = "3.0.0";
  * mismo alcance que al navegador: no hay una segunda puerta a los datos.
  */
 const mcp = (req: Request) => {
+  const fault = faultResponse(req.auth);
+  if (fault) return fault;
   const token = req.auth?.extra?.convexToken;
   if (typeof token !== "string") return new Response("Unauthorized", { status: 401 });
   return createMcpHandler(
@@ -36,9 +38,13 @@ const mcp = (req: Request) => {
  * scopes concedió. Con eso se firma el token que Convex acepta; viaja en
  * `extra` porque es lo único que las tools necesitan del caller.
  */
-const verify = async (_req: Request, bearer?: string): Promise<AuthInfo | undefined> => {
+const verify = async (req: Request, bearer?: string): Promise<AuthInfo | undefined> => {
   const info = verifyClerkToken(await auth({ acceptsToken: "oauth_token" }), bearer);
-  if (!info) return undefined;
+  if (!info) {
+    const fault = bearer ? clerkFault(req.headers) : undefined;
+    if (fault) throw new Error(`Clerk no pudo verificar el token: ${fault}`);
+    return undefined;
+  }
   const clerkId = info.extra?.userId;
   if (typeof clerkId !== "string") return undefined;
   const scope = scopeFor(info.scopes);
@@ -48,7 +54,7 @@ const verify = async (_req: Request, bearer?: string): Promise<AuthInfo | undefi
   return { ...info, extra: { ...info.extra, scope, convexToken } };
 };
 
-const handler = withMcpAuth(mcp, verify, {
+const handler = withMcpAuth(mcp, withServerFaults(verify), {
   required: true,
   resourceMetadataPath: "/.well-known/oauth-protected-resource/api/mcp",
   resourceUrl: SITE_URL,

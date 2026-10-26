@@ -23,6 +23,7 @@ import { WeeklyReviewDaySection } from "@/features/settings/WeeklyReviewDaySecti
 import { DigestsSection } from "@/features/settings/DigestsSection";
 import { TrashSection } from "@/features/settings/TrashSection";
 import { ConnectionsSection } from "@/features/settings/ConnectionsSection";
+import { AgentsSection } from "@/features/settings/AgentsSection";
 import { DataPortabilitySection } from "@/features/settings/DataPortabilitySection";
 import { AccountSection } from "@/features/account/AccountSection";
 import { DangerZoneSection } from "@/features/account/DangerZoneSection";
@@ -249,6 +250,8 @@ export default function SettingsPage() {
         {/* API Keys */}
 
         <ConnectionsSection />
+
+        <AgentsSection />
 
         <DigestsSection />
 
