@@ -61,24 +61,29 @@ const gitRemote = z
   .max(512)
   .describe("Si la carpeta es un repo git, la URL de su remoto origin (git remote get-url origin)");
 
-/**
- * `create_task` acepta además dónde trabaja el agente, y por eso el sistema es
- * opcional: el servidor lo resuelve. `bulk_create_tasks` sigue exigiéndolo.
- */
-const createTaskFromAgent = createTask.extend({
+/** La carpeta, el repo y el sistema que deciden adónde va lo que el agente crea. */
+const agentRoute = {
   systemId: id.optional().describe("El sistema que la persona nombró; manda sobre la regla de la carpeta"),
   workingDirectory: workingDirectory.optional(),
   gitRemote: gitRemote.optional(),
-});
+};
+
+/**
+ * `create_task` y `bulk_create_tasks` aceptan dónde trabaja el agente, y por
+ * eso el sistema es opcional: el servidor lo resuelve, con el mismo orden y el
+ * mismo código en las dos.
+ */
+const createTaskFromAgent = createTask.extend({ systemId: agentRoute.systemId });
+const createTaskWithRoute = createTaskFromAgent.extend(agentRoute);
 
 /** Lo que el agente lee cuando la carpeta no tiene sistema: qué preguntar y qué ofrecer después. */
-function needsSystem(result: { workingDirectory: string | null; gitRemote: string | null }) {
+function needsSystem(result: { workingDirectory: string | null; gitRemote: string | null }, tool: "create_task" | "bulk_create_tasks") {
   return {
     created: false,
     needsSystem: true,
     workingDirectory: result.workingDirectory,
     gitRemote: result.gitRemote,
-    next: "No creé nada: esta carpeta no tiene sistema asignado. Pregúntale a la persona una sola vez a qué sistema va (list_systems te da los suyos) y vuelve a llamar a create_task con ese systemId y la misma carpeta. Después ofrécele guardar la respuesta con save_workdir_rule para no volver a preguntar; si es un repo, guárdala por gitRemote. Si no quiere guardarla, sigue usando ese systemId en esta conversación sin preguntar otra vez.",
+    next: `No creé nada: esta carpeta no tiene sistema asignado. Pregúntale a la persona una sola vez a qué sistema va (list_systems te da los suyos) y vuelve a llamar a ${tool} con ese systemId y la misma carpeta. Después ofrécele guardar la respuesta con save_workdir_rule para no volver a preguntar; si es un repo, guárdala por gitRemote. Si no quiere guardarla, sigue usando ese systemId en esta conversación sin preguntar otra vez.`,
   };
 }
 
@@ -492,17 +497,21 @@ const tasks: Tool[] = [
     name: "create_task",
     description:
       'Crea una tarea en Kino. SISTEMA: si trabajas en una carpeta local, manda SIEMPRE workingDirectory (y gitRemote si es un repo git), aunque nadie te lo pida: Kino la pone en el sistema asignado a esa carpeta. Si la persona nombró un sistema, pasa su systemId, que manda sobre la carpeta. Si la carpeta no tiene sistema, Kino no crea nada y responde needsSystem con lo que tienes que preguntar. Sin carpeta ni systemId, va a la Bandeja. REGLA DE STATUS: Si no se especifica startDate ni status, usa status="week" para que la tarea aparezca en la Action View (vista principal). Solo usa status="backlog" para ideas o trabajo sin fecha. Si tienes una fecha de inicio, pásala en startDate y el status se derivará automáticamente. RECORDATORIOS: Si la tarea tiene dueDate, Kino enviará notificaciones push automáticamente (día anterior y día del vencimiento), siempre que el usuario tenga push habilitado.',
-    input: createTaskFromAgent,
+    input: createTaskWithRoute,
     result: (value) =>
       value.status === "needs_system"
-        ? needsSystem(value)
+        ? needsSystem(value, "create_task")
         : { ...value.task, routedBy: value.routedBy, ...("rule" in value ? { rule: value.rule } : {}) },
   }),
   writeTool(api.tasks.bulkCreate, {
     name: "bulk_create_tasks",
     description:
-      "Crea múltiples tareas en Kino en una sola operación (máximo 50). Para crear SUBTAREAS de una tarea padre, define parentTaskId en cada item (todas pueden apuntar al mismo padre). Útil tras generate_subtasks.",
-    input: z.object({ tasks: z.array(createTask).min(1).max(50) }),
+      "Crea múltiples tareas en Kino en una sola operación (máximo 50). SISTEMA, igual que create_task: si trabajas en una carpeta local, manda SIEMPRE workingDirectory (y gitRemote si es un repo git) junto a `tasks`, aunque nadie te lo pida: Kino pone las tareas en el sistema asignado a esa carpeta. El systemId de una tarea manda sobre todo; el systemId del lote, sobre la carpeta. Si la carpeta no tiene sistema, Kino no crea ninguna y responde needsSystem con lo que tienes que preguntar. Sin carpeta ni systemId, van a la Bandeja. Para crear SUBTAREAS de una tarea padre, define parentTaskId en cada item (todas pueden apuntar al mismo padre) y pasa el systemId de la tarea padre, que es el de outputContract.thenCallWith. Útil tras generate_subtasks.",
+    input: z.object({ ...agentRoute, tasks: z.array(createTaskFromAgent).min(1).max(50) }),
+    result: (value) =>
+      value.status === "needs_system"
+        ? needsSystem(value, "bulk_create_tasks")
+        : { routedBy: value.routedBy, ...("rule" in value ? { rule: value.rule } : {}), tasks: value.tasks },
   }),
   writeTool(api.tasks.update, {
     name: "update_task",

@@ -210,6 +210,45 @@ describe("create_task y la carpeta del agente", () => {
   });
 });
 
+describe("bulk_create_tasks y la carpeta del agente", () => {
+  const bulk = ALL_TOOLS.find((tool) => tool.name === "bulk_create_tasks")!;
+  const rule = { kind: "path", key: "/home/ana/U", systemName: "Universidad" };
+
+  it("manda la carpeta y el remoto del lote a Convex, y el sistema de cada tarea ya no es obligatorio", async () => {
+    const call = vi.fn().mockResolvedValue({ status: "created", routedBy: "rule", rule, tasks: [] });
+
+    await bulk.run(call, { tasks: [{ title: "Uno" }, { title: "Dos" }], workingDirectory: "/home/ana/U", gitRemote: "git@github.com:ana/u.git" });
+
+    expect(getFunctionName(call.mock.calls[0]![1])).toBe("tasks:bulkCreate");
+    expect(call.mock.calls[0]![2]).toMatchObject({ tasks: [{ title: "Uno" }, { title: "Dos" }], workingDirectory: "/home/ana/U", gitRemote: "git@github.com:ana/u.git" });
+  });
+
+  it("con regla, devuelve las tareas y qué regla las puso ahí", async () => {
+    const tasks = [{ id: "task_1", systemId: "sys_u" }];
+    const call = vi.fn().mockResolvedValue({ status: "created", routedBy: "rule", rule, tasks });
+
+    const result = await bulk.run(call, { tasks: [{ title: "Uno" }], workingDirectory: "/home/ana/U" });
+
+    expect(result).toEqual({ routedBy: "rule", rule, tasks });
+  });
+
+  it("sin regla, le dice al agente que pregunte una vez y vuelva a llamar a bulk_create_tasks", async () => {
+    const call = vi.fn().mockResolvedValue({ status: "needs_system", workingDirectory: "/home/ana/nueva", gitRemote: null });
+
+    const result = (await bulk.run(call, { tasks: [{ title: "Uno" }], workingDirectory: "/home/ana/nueva" })) as Record<string, unknown>;
+
+    expect(result).toMatchObject({ created: false, needsSystem: true, workingDirectory: "/home/ana/nueva", gitRemote: null });
+    expect(result.next).toContain("una sola vez");
+    expect(result.next).toContain("bulk_create_tasks");
+    expect(result.next).toContain("save_workdir_rule");
+  });
+
+  it("la descripción y las instrucciones del servidor piden la carpeta también aquí", () => {
+    expect(bulk.description).toContain("manda SIEMPRE workingDirectory");
+    expect(SERVER_INSTRUCTIONS).toContain("bulk_create_tasks");
+  });
+});
+
 /** El nombre `modulo:funcion` de la función de Convex que hay detrás. */
 function nombreDeFuncion(ref: (typeof ALL_TOOLS)[number]["ref"]): string {
   return ref ? getFunctionName(ref) : "";
