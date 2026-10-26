@@ -7,7 +7,7 @@
  */
 import { act, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { addDays, format, startOfToday } from "date-fns";
+import { addDays, endOfWeek, format, startOfToday, startOfWeek, subDays } from "date-fns";
 import { es } from "date-fns/locale";
 import { describe, expect, it, vi } from "vitest";
 import { api } from "@convex/_generated/api";
@@ -81,7 +81,7 @@ describe("GlobalCalendarView en el teléfono", () => {
 
     // Leído del texto sin normalizar: las consultas de Testing Library tratan
     // el espacio duro como un espacio cualquiera.
-    const fila = screen.getByRole("button", { name: "09:00, Leer el capítulo cuatro" });
+    const fila = screen.getByRole("button", { name: /^09:00, Leer el capítulo cuatro/ });
     expect(fila.textContent).toContain("1\u00a0h");
   });
 
@@ -91,7 +91,7 @@ describe("GlobalCalendarView en el teléfono", () => {
       convex: makeTestConvexClient([stubQuery(api.tasks.calendar, [makeTask({ id: mid("cal-largo"), title: largo, dueDate: hoyALas(8) })])]),
     });
 
-    const fila = screen.getByRole("button", { name: `08:00, ${largo}` });
+    const fila = screen.getByRole("button", { name: new RegExp(`^08:00, ${largo}`) });
     expect(within(fila).getByText(largo)).toHaveClass("line-clamp-3");
   });
 
@@ -156,7 +156,7 @@ describe("GlobalCalendarView en el teléfono, las operaciones", () => {
       convex: makeTestConvexClient([stubQuery(api.tasks.calendar, [tarea])]),
     });
 
-    await userEvent.click(screen.getByRole("button", { name: "09:00, Repasar la escena" }));
+    await userEvent.click(screen.getByRole("button", { name: /^09:00, Repasar la escena/ }));
 
     expect(await screen.findByRole("dialog", { name: "Editar tarea" })).toBeVisible();
   });
@@ -269,5 +269,97 @@ describe("GlobalCalendarView en el teléfono, las operaciones", () => {
 
     expect(screen.getByRole("button", { name: /Sin programar/ })).toHaveAttribute("aria-expanded", "true");
     expect(screen.getByText("Ordenar las notas")).toBeVisible();
+  });
+});
+
+describe("GlobalCalendarView en el teléfono, el día que se mira", () => {
+  /** Una tarea sin hora en el día dado: el día pelado a medianoche local, como lo guarda la app. */
+  const delDia = (dia: Date) => dayToLocalISO(dayKey(dia));
+
+  it("al cambiar de día la lista es la de ese día, con hora y de todo el día", async () => {
+    const hoy = startOfToday();
+    const otro = addDays(hoy, 7);
+    const tareas = [
+      makeTask({ id: mid("dia-1"), title: "Con hora de hoy", dueDate: hoyALas(9) }),
+      makeTask({ id: mid("dia-2"), title: "Todo el día de hoy", dueDate: delDia(hoy) }),
+      makeTask({
+        id: mid("dia-3"),
+        title: "Con hora de la otra semana",
+        dueDate: new Date(otro.getFullYear(), otro.getMonth(), otro.getDate(), 10).toISOString(),
+      }),
+      makeTask({ id: mid("dia-4"), title: "Todo el día de la otra semana", dueDate: delDia(otro) }),
+    ];
+    renderMobile(<GlobalCalendarView />, { convex: makeTestConvexClient([stubQuery(api.tasks.calendar, tareas)]) });
+    expect(screen.getByText("Con hora de hoy")).toBeVisible();
+    expect(screen.getByText("Todo el día de hoy")).toBeVisible();
+    expect(screen.queryByText(/de la otra semana/)).toBeNull();
+
+    await userEvent.click(screen.getByRole("button", { name: "Semana siguiente" }));
+
+    expect(screen.getByText("Con hora de la otra semana")).toBeVisible();
+    expect(screen.getByText("Todo el día de la otra semana")).toBeVisible();
+    expect(screen.queryByText(/de hoy/)).toBeNull();
+  });
+
+  it("al pasar a otra semana se pregunta por esa semana, no por la de hoy", async () => {
+    const convex = makeTestConvexClient([stubQuery(api.tasks.calendar, [])]);
+    renderMobile(<GlobalCalendarView />, { convex });
+    const semana = (dia: Date) => ({
+      from: startOfWeek(dia, { weekStartsOn: 1 }).toISOString(),
+      to: endOfWeek(dia, { weekStartsOn: 1 }).toISOString(),
+    });
+    expect(convex.watched.filter((w) => w.name === "tasks:calendar").at(-1)?.args).toEqual(semana(startOfToday()));
+
+    await userEvent.click(screen.getByRole("button", { name: "Semana siguiente" }));
+
+    const calendario = convex.watched.filter((w) => w.name === "tasks:calendar");
+    expect(calendario.at(-1)?.args).toEqual(semana(addDays(startOfToday(), 7)));
+  });
+
+  it("programar escribe el día que se mira, no hoy", async () => {
+    const suelta = makeTask({ id: mid("dia-5"), title: "Escribir la sinopsis" });
+    const { convex } = renderMobile(<GlobalCalendarView />, {
+      convex: makeTestConvexClient([
+        stubQuery(api.tasks.calendar, []),
+        stubQuery(api.tasks.list, { items: [suelta], restantes: 0 }),
+      ]),
+    });
+    const otro = addDays(startOfToday(), 7);
+
+    await userEvent.click(screen.getByRole("button", { name: "Semana siguiente" }));
+    await userEvent.click(screen.getByRole("button", { name: /Sin programar/ }));
+    await userEvent.click(screen.getByRole("button", { name: "Programar Escribir la sinopsis" }));
+    await userEvent.click(within(await screen.findByRole("dialog", { name: "Programar" })).getByRole("button", { name: "15:00" }));
+
+    expect(convex.calls).toEqual([
+      { kind: "mutation", name: "tasks:update", args: { id: suelta.id, startDate: dayToLocalISO(dayKey(otro), "15:00") } },
+    ]);
+  });
+
+  it("mientras la semana no llega pinta el esqueleto, no «Nada con fecha este día», y al llegar lo cambia", () => {
+    const convex = makeTestConvexClient([]);
+    renderMobile(<GlobalCalendarView />, { convex });
+
+    expect(screen.queryByText("Nada con fecha este día")).toBeNull();
+    expect(document.querySelectorAll('[data-slot="page"] [data-slot="skeleton"]').length).toBeGreaterThan(0);
+
+    act(() => convex.publish(stubQuery(api.tasks.calendar, [])));
+
+    expect(screen.getByText("Nada con fecha este día")).toBeVisible();
+    expect(document.querySelectorAll('[data-slot="page"] [data-slot="skeleton"]').length).toBe(0);
+  });
+
+  it("el nombre de la fila dice también si está hecha, vencida o crítica", async () => {
+    const tareas = [
+      makeTask({ id: mid("dia-6"), title: "Entregar el informe", dueDate: hoyALas(9), status: "done", effectivePriority: "critical" }),
+      makeTask({ id: mid("dia-7"), title: "Pagar la matrícula", dueDate: subDays(new Date(), 7).toISOString() }),
+    ];
+    renderMobile(<GlobalCalendarView />, { convex: makeTestConvexClient([stubQuery(api.tasks.calendar, tareas)]) });
+
+    expect(screen.getByRole("button", { name: /^09:00, Entregar el informe, hecha, crítica/ })).toBeVisible();
+
+    await userEvent.click(screen.getByRole("button", { name: "Semana anterior" }));
+
+    expect(screen.getByRole("button", { name: /, Pagar la matrícula, vencida/ })).toBeVisible();
   });
 });
