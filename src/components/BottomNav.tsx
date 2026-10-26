@@ -18,13 +18,15 @@ import { DESTINOS_MOVIL, destinoActivo } from "./navigation";
  * touch y sin ella la búsqueda no tenía puerta en el teléfono. Calendario no
  * cabe: se alcanza desde la fecha de Hoy y desde el segmento de Tareas.
  *
- * Las cinco palabras reparten el ancho a partes iguales (`minmax(0,1fr)`, no
- * `auto`: una columna no crece hasta su palabra) y la columna del orbe mide
- * lo que el orbe. El rem del producto es 17 px (`globals.css`), así que a
- * 320 px el orbe ocupa 48,5 px y «Sistemas» (54,5 px) no cabe en una columna
- * con margen y hueco. Debajo de 360 px el pie quita margen y hueco y aprieta
- * el trazo de las palabras 0,025 em, sin bajar de `text-xs`; desde 360 px
- * queda como estaba.
+ * Desde 360 px las cinco palabras reparten el ancho a partes iguales
+ * (`minmax(0,1fr)`, no `auto`: una columna no crece hasta su palabra) y la
+ * columna del orbe mide lo que el orbe. El rem del producto es 17 px
+ * (`globals.css`), así que a 320 px el orbe ocupa 48,5 px y «Sistemas»
+ * (54,5 px) no cabe en una quinta parte del resto. Debajo de 360 px la fila
+ * es flex: cada palabra mide su trazo con un mínimo de 2.85rem, el sobrante
+ * va entre ellas (`justify-between`), el trazo se aprieta 0,025 em sin bajar
+ * de `text-xs`, el orbe conserva 8,5 px a su derecha y 4,25 px lo separan de
+ * Buscar.
  *
  * Toca el borde de abajo a propósito y suma el área segura del dispositivo:
  * en un teléfono con barra de gestos el pie empieza encima de ella.
@@ -57,10 +59,10 @@ export function BottomNav({ rutaActual }: { rutaActual?: string } = {}) {
   return (
     <nav
       aria-label="Secciones"
-      className="fixed inset-x-0 bottom-0 z-(--z-overlay) grid grid-cols-[minmax(0,1fr)_2.85rem] items-center gap-0 border-t border-border bg-background px-0 pb-[env(safe-area-inset-bottom)] min-[360px]:gap-1.5 min-[360px]:px-2 md:hidden"
+      className="fixed inset-x-0 bottom-0 z-(--z-overlay) grid grid-cols-[minmax(0,1fr)_2.85rem] items-center gap-1 border-t border-border bg-background pl-0 pr-2 pb-[env(safe-area-inset-bottom)] min-[360px]:gap-1.5 min-[360px]:px-2 md:hidden"
       style={{ minHeight: "calc(var(--kino-bottom-nav) + env(safe-area-inset-bottom))" }}
     >
-      <div className="grid h-[3.3rem] grid-cols-[repeat(5,minmax(0,1fr))] tracking-tight min-[360px]:tracking-normal">
+      <div className="flex h-[3.3rem] justify-between tracking-tight min-[360px]:grid min-[360px]:grid-cols-[repeat(5,minmax(0,1fr))] min-[360px]:tracking-normal">
         {DESTINOS_MOVIL.map((destino) => (
           <Palabra
             key={destino.href}
@@ -89,7 +91,7 @@ export function BottomNav({ rutaActual }: { rutaActual?: string } = {}) {
 /** Una posición del pie, sea destino o Buscar: una palabra de 2.85rem o más de alto. */
 function palabraClass(active: boolean) {
   return cn(
-    "relative flex h-full min-h-[2.85rem] min-w-0 items-center justify-center rounded-md text-xs font-semibold transition-colors duration-(--dur-toque) ease-(--ease-pluma) focus-ring",
+    "relative flex h-full min-h-[2.85rem] min-w-[2.85rem] items-center justify-center rounded-md min-[360px]:min-w-0 text-xs font-semibold transition-colors duration-(--dur-toque) ease-(--ease-pluma) focus-ring",
     active ? "text-primary" : "text-muted-foreground hover:text-foreground",
   );
 }
