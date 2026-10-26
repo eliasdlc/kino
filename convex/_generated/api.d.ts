@@ -46,6 +46,7 @@ import type * as lib_tasks_schemas from "../lib/tasks/schemas.js";
 import type * as lib_tasks_status from "../lib/tasks/status.js";
 import type * as lib_time from "../lib/time.js";
 import type * as lib_today_queue from "../lib/today/queue.js";
+import type * as lib_workdir from "../lib/workdir.js";
 import type * as lib_writing_activity from "../lib/writing/activity.js";
 import type * as migrate from "../migrate.js";
 import type * as migrations_anclasHuerfanas from "../migrations/anclasHuerfanas.js";
@@ -72,6 +73,7 @@ import type * as tags from "../tags.js";
 import type * as tasks from "../tasks.js";
 import type * as today from "../today.js";
 import type * as users from "../users.js";
+import type * as workdirRules from "../workdirRules.js";
 import type * as writing from "../writing.js";
 
 import type {
@@ -119,6 +121,7 @@ declare const fullApi: ApiFromModules<{
   "lib/tasks/status": typeof lib_tasks_status;
   "lib/time": typeof lib_time;
   "lib/today/queue": typeof lib_today_queue;
+  "lib/workdir": typeof lib_workdir;
   "lib/writing/activity": typeof lib_writing_activity;
   migrate: typeof migrate;
   "migrations/anclasHuerfanas": typeof migrations_anclasHuerfanas;
@@ -145,6 +148,7 @@ declare const fullApi: ApiFromModules<{
   tasks: typeof tasks;
   today: typeof today;
   users: typeof users;
+  workdirRules: typeof workdirRules;
   writing: typeof writing;
 }>;
 
