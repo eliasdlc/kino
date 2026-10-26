@@ -4,7 +4,7 @@
  * sobre el título. Borrarla, que también quita su marca del texto, pide
  * confirmación, y ningún control de la nota vive dentro de otro.
  */
-import { screen, within } from "@testing-library/react";
+import { fireEvent, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { makeStickyNote, mid } from "@/app/system-design/mock-data";
@@ -180,5 +180,19 @@ describe("editar con el dedo", () => {
 
     expect(await screen.findByPlaceholderText("Escribe aquí...")).toHaveFocus();
     expect(foco).toHaveBeenCalledWith({ preventScroll: false });
+  });
+
+  it("el menú contextual también pide confirmar antes de borrar", async () => {
+    const user = userEvent.setup();
+    const { convex } = renderWithProviders(<StickyNoteCard note={nota} context={{ pageId: mid("p1") }} />);
+
+    fireEvent.contextMenu(screen.getByText("Recordar"));
+    await user.click(within(await screen.findByRole("menu")).getByRole("menuitem", { name: /Eliminar/ }));
+
+    const dialogo = await screen.findByRole("dialog", { name: "Eliminar nota" });
+    expect(borrados(convex)).toHaveLength(0);
+
+    await user.click(within(dialogo).getByRole("button", { name: "Eliminar" }));
+    expect(borrados(convex)).toHaveLength(1);
   });
 });
