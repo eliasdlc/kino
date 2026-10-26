@@ -110,6 +110,16 @@ describe("escapeXml", () => {
   });
 });
 
+describe("coverBlocks", () => {
+  it("la portada dice palabras y fecha con una coma, sin punto medio", () => {
+    const blocks = coverBlocks(META);
+    const linea = blocks.at(-1);
+    expect(linea).toMatchObject({ kind: "author" });
+    expect(linea && "runs" in linea ? linea.runs[0].text : "").toMatch(/^24\.?310 palabras, 2026-08-06$/);
+    expect(JSON.stringify(blocks)).not.toContain("\u00b7");
+  });
+});
+
 describe("buildDocxParts", () => {
   it("produce las cinco piezas que exige el formato", () => {
     const parts = buildDocxParts(coverBlocks(META));
@@ -192,6 +202,12 @@ describe("htmlToDocxBlocks", () => {
     const blocks = htmlToDocxBlocks("<ol><li>uno</li><li>dos</li></ol>", parse);
     expect(blocks).toHaveLength(2);
     expect(blocks[0]).toMatchObject({ runs: [{ text: "1. " }, { text: "uno" }] });
+  });
+
+  it("una lista sin orden lleva la viñeta y nunca un punto medio", () => {
+    const [block] = htmlToDocxBlocks("<ul><li>uno</li></ul>", parse);
+    expect(block).toMatchObject({ runs: [{ text: "\u2022 " }, { text: "uno" }] });
+    expect(JSON.stringify(block)).not.toContain("\u00b7");
   });
 
   it("las páginas y paneles del guion de manga se etiquetan y se recorren", () => {

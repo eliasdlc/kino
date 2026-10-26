@@ -15,14 +15,10 @@ import {
   type DragEndEvent,
   type DragStartEvent,
 } from "@dnd-kit/core";
-import {
-  ChevronLeft,
-  ChevronRight,
-  Layers,
-  Loader2,
-  Tag,
-} from "lucide-react";
+import { ChevronLeft, ChevronRight, Tag } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { EmptyState } from "@/components/ui/empty-state";
+import { Skeleton } from "@/components/ui/skeleton";
 import { Input } from "@/components/ui/input";
 import {
   DropdownMenu,
@@ -34,16 +30,19 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { cn } from "@/lib/utils";
 import { useIsMobile } from "@/hooks/use-mobile";
-import { PlotSceneList } from "./PlotSceneList";
+import { AYUDA_DEL_TABLERO, PlotSceneList } from "./PlotSceneList";
 import { usePlotGrid, usePlotOperation } from "./writing.hooks";
 import type { PlotChapter, PlotGrid, PlotScene } from "./writing.plot";
 
 /**
- * Plot grid (KIN-141): las escenas de la obra como tarjetas en una rejilla de
- * capítulo × arco. Reordenar la estructura moviendo tarjetas en vez de cortando
- * y pegando texto.
+ * Plot grid (KIN-141): las escenas de la obra en una rejilla de capítulo × arco.
+ * Reordenar la estructura moviendo escenas en vez de cortando y pegando texto.
  *
- * Mover una tarjeta **reescribe el texto** de los capítulos implicados. No hay un
+ * Diario también aquí: cada columna es un capítulo con su numeral y un hairline,
+ * y cada escena una fila con su número en el margen y su arranque en Literata,
+ * el mismo dibujo que el tablero del teléfono. Sin cajas ni tarjetas.
+ *
+ * Mover una escena **reescribe el texto** de los capítulos implicados. No hay un
  * orden persistido en paralelo que pueda divergir de lo escrito: las escenas se
  * siguen derivando del contenido, como desde W3.
  *
@@ -55,6 +54,11 @@ import type { PlotChapter, PlotGrid, PlotScene } from "./writing.plot";
  * desplazando en horizontal) así que ahí se sirve `PlotSceneList`, la misma
  * información en vertical y sin arrastre (KIN-170). Los datos y las operaciones
  * se resuelven aquí para las dos: una sola fuente, un solo estado de carga.
+ *
+ * Mientras una operación reescribe el texto, la pantalla lo dice con palabras
+ * («Reescribiendo el capítulo») y no con un icono que gira; cada fila de arco
+ * dice cuántas escenas y palabras lleva, que es el estado del arco de un
+ * vistazo.
  */
 
 const SIN_ARCO = "__sin_arco__";
@@ -127,9 +131,30 @@ export function PlotGridView({
   }
 
   if (isLoading) {
+    // La forma de lo que llega, quieta: en el teléfono un capítulo con sus
+    // escenas; en escritorio, columnas de capítulo bajo su hairline.
+    if (isMobile) {
+      return (
+        <div aria-busy className="space-y-2">
+          <div className="border-b border-border pb-2">
+            <Skeleton className="h-6 w-56" />
+          </div>
+          <Skeleton className="h-[4.6rem] w-full rounded-md" />
+          <Skeleton className="h-[4.6rem] w-full rounded-md" />
+        </div>
+      );
+    }
     return (
-      <div className="flex h-64 items-center justify-center rounded-lg border border-dashed">
-        <Loader2 className="size-5 animate-spin text-muted-foreground" />
+      <div aria-busy className="flex gap-4 pt-12">
+        {[0, 1, 2].map((i) => (
+          <div key={i} className="w-64 shrink-0 space-y-2">
+            <div className="border-b border-input pb-2">
+              <Skeleton className="h-10 w-40" />
+            </div>
+            <Skeleton className="h-[4.6rem] w-full rounded-md" />
+            <Skeleton className="h-[4.6rem] w-full rounded-md" />
+          </div>
+        ))}
       </div>
     );
   }
@@ -157,37 +182,39 @@ export function PlotGridView({
     return <PlotSceneList grid={data} systemId={systemId} busy={isPending} onApply={apply} />;
   }
 
+  const porArco = arcStats(data);
+
   return (
     <DndContext sensors={sensors} onDragStart={onDragStart} onDragEnd={onDragEnd}>
       <div className="space-y-3">
-        <div className="flex items-center justify-between gap-3">
-          <p className="text-xs text-muted-foreground">
-            Las escenas salen del texto. Mover una tarjeta reescribe el capítulo:
-            no hay un orden aparte que se pueda desincronizar.
+        <div className="flex min-h-9 items-center justify-between gap-3">
+          <p className="text-sm text-muted-foreground">{AYUDA_DEL_TABLERO}</p>
+          <p role="status" className="shrink-0 text-sm font-medium text-foreground">
+            {isPending ? "Reescribiendo el capítulo" : ""}
           </p>
-          {isPending && <Loader2 className="size-4 shrink-0 animate-spin text-muted-foreground" />}
         </div>
 
         <div className="overflow-x-auto pb-3 [scrollbar-gutter:stable]">
-          <table className="w-max border-separate border-spacing-2">
+          <table className="w-max border-separate border-spacing-x-4 border-spacing-y-0">
             <thead>
               <tr>
-                <th className="w-28 text-left text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                <th className="w-36 border-b border-input pb-2 text-left align-bottom text-sm font-semibold text-muted-foreground">
                   Arco
                 </th>
                 {data.chapters.map((chapter, i) => (
-                  <th key={chapter.chapterId} className="w-64 min-w-64 max-w-64 text-left align-top">
+                  <th key={chapter.chapterId} className="w-64 min-w-64 max-w-64 border-b border-input pb-2 text-left align-top font-normal">
+                    <span className="block font-display text-base font-bold text-muted-foreground tabular-nums">
+                      {i + 1}
+                    </span>
                     <Link
                       href={`/systems/${systemId}/pages/${chapter.chapterId}`}
-                      className="text-sm font-medium hover:underline"
+                      className="block rounded-md font-serif text-base font-semibold text-foreground focus-ring hover:underline"
                     >
                       {chapter.title?.trim() || `Capítulo ${i + 1}`}
                     </Link>
-                    <p className="text-xs font-normal text-muted-foreground">
-                      {chapter.scenes.length === 1
-                        ? "1 escena"
-                        : `${chapter.scenes.length} escenas`}
-                    </p>
+                    <span className="text-sm text-muted-foreground">
+                      {chapter.scenes.length === 1 ? "1 escena" : `${chapter.scenes.length} escenas`}
+                    </span>
                   </th>
                 ))}
               </tr>
@@ -195,8 +222,11 @@ export function PlotGridView({
             <tbody>
               {rows.map((arc) => (
                 <tr key={arc ?? SIN_ARCO}>
-                  <th className="w-28 align-top text-left text-xs font-medium text-muted-foreground">
-                    {arc ?? "Sin arco"}
+                  <th className="w-36 border-b border-border py-2 align-top text-left font-normal">
+                    <span className="block text-sm font-semibold text-foreground">{arc ?? "Sin arco"}</span>
+                    <span className="block text-sm text-muted-foreground tabular-nums">
+                      {describirArco(porArco.get(arc ?? SIN_ARCO))}
+                    </span>
                   </th>
                   {data.chapters.map((chapter) => (
                     <Cell
@@ -217,7 +247,8 @@ export function PlotGridView({
 
       <DragOverlay>
         {dragging && (
-          <div className="max-w-56 rounded-lg border bg-card p-2.5 text-xs shadow-lg">
+          // La escena que viaja: la misma fila, en papel y con su hairline.
+          <div className="line-clamp-3 max-w-56 border-y border-input bg-background py-2 pl-3 font-serif text-sm text-body">
             {sceneAt(data, dragging)?.preview || "Escena en blanco"}
           </div>
         )}
@@ -227,13 +258,28 @@ export function PlotGridView({
 }
 
 function Empty({ title, hint }: { title: string; hint: string }) {
-  return (
-    <div className="rounded-lg border border-dashed p-10 text-center">
-      <Layers className="mx-auto size-8 text-muted-foreground/40" />
-      <p className="mt-2 text-sm font-medium">{title}</p>
-      <p className="mx-auto mt-1 max-w-md text-sm text-muted-foreground">{hint}</p>
-    </div>
-  );
+  return <EmptyState title={title} description={hint} />;
+}
+
+type EstadoDeArco = { escenas: number; palabras: number };
+
+/** Cuántas escenas y palabras lleva cada arco: el estado del arco de un vistazo. */
+export function arcStats(grid: PlotGrid): Map<string, EstadoDeArco> {
+  const porArco = new Map<string, EstadoDeArco>();
+  for (const chapter of grid.chapters) {
+    for (const scene of chapter.scenes) {
+      const clave = scene.arc ?? SIN_ARCO;
+      const actual = porArco.get(clave) ?? { escenas: 0, palabras: 0 };
+      porArco.set(clave, { escenas: actual.escenas + 1, palabras: actual.palabras + scene.wordCount });
+    }
+  }
+  return porArco;
+}
+
+export function describirArco(estado: EstadoDeArco | undefined): string {
+  if (!estado || estado.escenas === 0) return "sin escenas";
+  const escenas = estado.escenas === 1 ? "1 escena" : `${estado.escenas} escenas`;
+  return `${escenas}, ${estado.palabras.toLocaleString("es")} palabras`;
 }
 
 /** Filas de la rejilla: los arcos usados y siempre la fila de los que no tienen. */
@@ -272,11 +318,13 @@ function Cell({
     <td
       ref={setNodeRef}
       className={cn(
-        "min-w-56 align-top rounded-lg border border-dashed p-1.5 transition-colors",
-        isOver ? "border-primary bg-accent/50" : "border-border/50",
+        // Una celda es un trozo de columna bajo su hairline; al pasar una escena
+        // por encima se tiñe de la superficie, sin caja que aparezca.
+        "min-w-56 border-b border-border align-top transition-[background-color] duration-(--dur-toque) ease-(--ease-pluma)",
+        isOver && "bg-sf2",
       )}
     >
-      <div className="space-y-1.5">
+      <div>
         {scenes.map((scene) => (
           <SceneCard
             key={scene.index}
@@ -288,9 +336,7 @@ function Cell({
           />
         ))}
         {scenes.length === 0 && (
-          <p className="px-1 py-3 text-center text-[11px] text-muted-foreground/50">
-            Sin escenas
-          </p>
+          <p className="py-3 pl-(--margen) text-sm text-muted-foreground">Sin escenas</p>
         )}
       </div>
     </td>
@@ -335,47 +381,48 @@ function SceneCard({
     <div
       ref={setNodeRef}
       className={cn(
-        "group rounded-lg border bg-card p-2.5 text-xs transition-opacity",
+        "group grid grid-cols-[var(--margen)_1fr] border-b border-border py-2.5 text-sm last:border-b-0 transition-opacity duration-(--dur-toque) ease-(--ease-pluma)",
         isDragging && "opacity-40",
       )}
     >
-      <div className="flex items-start gap-1.5">
-        <button
-          type="button"
-          {...listeners}
-          {...attributes}
-          aria-label={`Arrastrar la escena ${scene.index + 1} de ${chapter.title ?? "el capítulo"}`}
-          className="min-w-0 flex-1 cursor-grab text-left active:cursor-grabbing"
-        >
-          <span className="mb-1 block text-[0.7rem] font-semibold text-muted-foreground">
-            Escena {scene.index + 1} · {scene.wordCount.toLocaleString("es")} palabras
-          </span>
-          <span className="line-clamp-4 text-muted-foreground">
-            {scene.preview || "Escena en blanco"}
-          </span>
-        </button>
-      </div>
+      <span aria-hidden className="pt-0.5 text-center text-sm font-semibold text-muted-foreground tabular-nums">
+        {scene.index + 1}
+      </span>
+      <button
+        type="button"
+        {...listeners}
+        {...attributes}
+        aria-label={`Arrastrar la escena ${scene.index + 1} de ${chapter.title ?? "el capítulo"}`}
+        className="min-w-0 cursor-grab rounded-sm text-left focus-ring active:cursor-grabbing"
+      >
+        <span className="line-clamp-4 font-serif text-base text-body">
+          {scene.preview || "Escena en blanco"}
+        </span>
+        <span className="mt-0.5 block text-sm text-muted-foreground tabular-nums">
+          {scene.wordCount.toLocaleString("es")} palabras
+        </span>
+      </button>
 
-      <div className="mt-2 flex items-center gap-0.5 md:opacity-0 md:transition-opacity md:group-hover:opacity-100 md:focus-within:opacity-100">
+      <div className="col-start-2 mt-1 -ml-2 flex items-center gap-0.5 transition-opacity duration-(--dur-toque) ease-(--ease-pluma) md:pointer-fine:opacity-0 md:pointer-fine:group-hover:opacity-100 md:pointer-fine:focus-within:opacity-100">
         <Button
           variant="ghost"
           size="icon"
-          className="size-6"
+          className="size-9 pointer-coarse:size-[2.85rem]"
           disabled={!prevChapter || busy}
           onClick={() => moveToChapter(prevChapter)}
           aria-label="Mover al capítulo anterior"
         >
-          <ChevronLeft className="size-3.5" />
+          <ChevronLeft className="size-4" />
         </Button>
         <Button
           variant="ghost"
           size="icon"
-          className="size-6"
+          className="size-9 pointer-coarse:size-[2.85rem]"
           disabled={!nextChapter || busy}
           onClick={() => moveToChapter(nextChapter)}
           aria-label="Mover al capítulo siguiente"
         >
-          <ChevronRight className="size-3.5" />
+          <ChevronRight className="size-4" />
         </Button>
         <ArcMenu
           grid={grid}
@@ -409,11 +456,11 @@ function ArcMenu({
         <Button
           variant="ghost"
           size="icon"
-          className="size-6"
+          className="size-9 pointer-coarse:size-[2.85rem]"
           disabled={busy}
           aria-label="Cambiar el arco de la escena"
         >
-          <Tag className="size-3.5" />
+          <Tag className="size-4" />
         </Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="start" className="w-52">
@@ -443,8 +490,9 @@ function ArcMenu({
               onPick(draft.trim());
               setDraft("");
             }}
-            placeholder="Arco nuevo…"
-            className="h-7 text-xs"
+            placeholder="Arco nuevo"
+            aria-label="Arco nuevo"
+            className="h-9 text-sm"
             maxLength={60}
           />
         </div>
