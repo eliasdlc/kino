@@ -84,8 +84,8 @@ export function AgentsSection() {
       <div>
         <h2 className="text-lg font-semibold">Agentes</h2>
         <p className="text-sm text-muted-foreground">
-          Conecta Claude, ChatGPT o Codex de OpenAI con tu cuenta de Kino. Autorizas en el
-          navegador; no hay claves que copiar.
+          Conecta Claude, ChatGPT o Codex de OpenAI. Entras con tu cuenta de Kino y lo
+          autorizas; no hay claves que copiar.
         </p>
       </div>
 
