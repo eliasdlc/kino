@@ -61,7 +61,8 @@ const taskDescription = z
   .string()
   .max(TASK_DESCRIPTION_MAX, `La descripción pasa de ${TASK_DESCRIPTION_MAX.toLocaleString('es')} caracteres. Lo largo va en una página.`);
 
-export const createTaskSchema = z
+/** Los campos de una tarea nueva, sin las reglas cruzadas: la base de `createTaskSchema` y de la variante del conector. */
+export const createTaskFields = z
   .object({
     systemId: zid('systems'),
     title: z.string().min(1).max(500),
@@ -82,18 +83,22 @@ export const createTaskSchema = z
     metadata: taskMetadataSchema.optional(),
     clientRequestId: z.string().min(1).max(64).optional(),
     reminderIntensity: REMINDER_INTENSITY.nullable().optional(),
-  })
-  .superRefine((data, ctx) => {
-    if (data.taskType === 'event' && !data.startDate) {
-      ctx.addIssue({ code: 'custom', path: ['startDate'], message: 'Events require a start date' });
-    }
-    if (data.taskType === 'reminder' && !data.dueDate) {
-      ctx.addIssue({ code: 'custom', path: ['dueDate'], message: 'Reminders require a due date' });
-    }
-    if (data.startDate && data.dueDate && dueBeforeStart(data.dueDate, data.startDate)) {
-      ctx.addIssue({ code: 'custom', path: ['dueDate'], message: 'Due date cannot be before start date' });
-    }
   });
+
+/** Las reglas que cruzan campos de una tarea nueva: tipo con su fecha, y vencimiento después del inicio. */
+export function refineNewTask(data: { taskType?: string; startDate?: string; dueDate?: string }, ctx: z.RefinementCtx) {
+  if (data.taskType === 'event' && !data.startDate) {
+    ctx.addIssue({ code: 'custom', path: ['startDate'], message: 'Events require a start date' });
+  }
+  if (data.taskType === 'reminder' && !data.dueDate) {
+    ctx.addIssue({ code: 'custom', path: ['dueDate'], message: 'Reminders require a due date' });
+  }
+  if (data.startDate && data.dueDate && dueBeforeStart(data.dueDate, data.startDate)) {
+    ctx.addIssue({ code: 'custom', path: ['dueDate'], message: 'Due date cannot be before start date' });
+  }
+}
+
+export const createTaskSchema = createTaskFields.superRefine(refineNewTask);
 
 export const updateTaskSchema = z
   .object({
