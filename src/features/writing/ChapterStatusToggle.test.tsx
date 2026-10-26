@@ -10,7 +10,7 @@ import { describe, expect, it, vi } from "vitest";
 import { screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { api } from "@convex/_generated/api";
-import { makeTestConvexClient, renderWithProviders, stubMutationPending } from "@/shared/testing/render";
+import { makeTestConvexClient, renderWithProviders, stubMutation, stubMutationPending, stubQuery } from "@/shared/testing/render";
 import { ChapterStatusToggle } from "./ChapterStatusToggle";
 
 vi.mock("sonner", () => ({ toast: Object.assign(vi.fn(), { success: vi.fn(), error: vi.fn() }) }));
@@ -65,5 +65,23 @@ describe("ChapterStatusToggle", () => {
       />,
     );
     expect(screen.getByRole("button", { name: /Marcar la escena como terminada/ })).toBeVisible();
+  });
+});
+
+describe("ChapterStatusToggle, el valor vivo", () => {
+  it("lo que dice la página ahora manda sobre el snapshot con que se montó", async () => {
+    // El panel del teléfono se desmonta al cerrarse y vuelve a montarse con el
+    // snapshot de la carga, que sigue diciendo «sin terminar».
+    const convex = makeTestConvexClient(
+      [stubQuery(api.pages.byId, { completedAt: "2026-10-01T00:00:00.000Z" } as never)],
+      [stubMutation(api.writing.setCompleted, null as never)],
+    );
+    renderWithProviders(
+      <ChapterStatusToggle pageId="p1" systemId="s1" title="La subida" initialCompletedAt={null} variant="fila" />,
+      { convex },
+    );
+    const fila = await screen.findByRole("button", { name: /Capítulo terminado/ });
+    await userEvent.click(fila);
+    expect(convex.calls).toContainEqual({ kind: "mutation", name: "writing:setCompleted", args: { id: "p1", completed: false } });
   });
 });
