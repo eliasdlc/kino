@@ -170,4 +170,4 @@ run("tasks:bulkCreate", {
   ],
 });
 
-console.log(`Sembrado: 3 carpetas, 8 etiquetas, ${creadas.length + 4} tareas y un epic en "${academico.name}"; "${NOVELA}" con 2 carpetas, 4 páginas, 6 entidades y 3 tareas.`);
+console.log(`Sembrado: 3 carpetas, 8 etiquetas, ${creadas.tasks.length + 4} tareas y un epic en "${academico.name}"; "${NOVELA}" con 2 carpetas, 4 páginas, 6 entidades y 3 tareas.`);
