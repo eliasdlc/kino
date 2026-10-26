@@ -23,7 +23,7 @@ import { tasksEmptyCopy } from "@/shared/lib/archetype-copy";
 import { TaskRow } from "./TaskRow";
 import { useTacharEnSitio } from "./useTachar";
 import { usePunteroGrueso } from "./use-puntero-grueso";
-import { kanbanColumnOf, kanbanColumns, kanbanMoveData, type KanbanGroupBy } from "./kanban";
+import { kanbanColumnOf, kanbanColumns, kanbanMoveData, type KanbanColumn, type KanbanGroupBy } from "./kanban";
 
 interface TaskKanbanViewProps {
   systemId: string;
@@ -76,11 +76,8 @@ export function TaskKanbanView({ systemId, initialData, folderId, folderInitialD
   const { struck, handleToggle, estadoDe } = useTacharEnSitio((id) => toggleTask(id));
 
   const [groupBy, setGroupBy] = useState<KanbanGroupBy>(defaultGroupBy);
-  const [moviendo, setMoviendo] = useState<TaskTransport | null>(null);
-  // La hoja conserva la última tarea mientras se recoge: si el título se
-  // vaciara al cerrar, la descripción saltaría a mitad de la salida.
-  const [ultima, setUltima] = useState<TaskTransport | null>(null);
-  if (moviendo && moviendo !== ultima) setUltima(moviendo);
+  // Con una hoja de mover abierta el teclado del tablero calla.
+  const [hojaAbierta, setHojaAbierta] = useState(false);
   const manifest = useSystemManifest(systemId);
   const empty = tasksEmptyCopy(manifest, "action");
 
@@ -105,7 +102,7 @@ export function TaskKanbanView({ systemId, initialData, folderId, folderInitialD
     onToggle: completar,
     onDelete: papelera,
   }, {
-    enabled: !keyboardDisabled && moviendo === null,
+    enabled: !keyboardDisabled && !hojaAbierta,
   });
 
   function move(task: TaskTransport, columnId: string) {
@@ -134,32 +131,18 @@ export function TaskKanbanView({ systemId, initialData, folderId, folderInitialD
       {tactil === null ? (
         <p className="py-6 pl-(--margen) text-sm text-muted-foreground">Abriendo el tablero</p>
       ) : tactil ? (
-        <div className="space-y-5">
-          {columns.map((column) => {
-            const columnTasks = tasksOf(column.id);
-            if (columnTasks.length === 0) return null;
-            return (
-              <section key={column.id} aria-label={column.label}>
-                <SectionHead title={column.label} as="h3" count={`${columnTasks.length}`} />
-                {columnTasks.map((task) => (
-                  <TaskRow
-                    key={task.id}
-                    task={task}
-                    density="lista"
-                    focused={task.id === focusedTaskId}
-                    struck={struck.has(task.id)}
-                    onComplete={() => handleToggle(task)}
-                    onOpen={onEdit ? () => onEdit(task) : undefined}
-                    actions={[
-                      { label: "Mover a otra columna", icon: ArrowRightLeft, onSelect: () => setMoviendo(task) },
-                      { label: "Mover a la papelera", icon: Trash2, destructive: true, onSelect: () => papelera(task) },
-                    ]}
-                  />
-                ))}
-              </section>
-            );
-          })}
-        </div>
+        <KanbanSecciones
+          columns={columns}
+          tasksOf={tasksOf}
+          groupBy={groupBy}
+          struck={struck}
+          focusedTaskId={focusedTaskId}
+          onComplete={handleToggle}
+          onEdit={onEdit}
+          onTrash={papelera}
+          onMove={move}
+          onSheetChange={setHojaAbierta}
+        />
       ) : (
         <TaskKanbanBoard
           systemId={systemId}
@@ -175,6 +158,72 @@ export function TaskKanbanView({ systemId, initialData, folderId, folderInitialD
           onMove={move}
         />
       )}
+
+
+    </div>
+  );
+}
+
+interface KanbanSeccionesProps {
+  columns: KanbanColumn[];
+  tasksOf: (columnId: string) => TaskTransport[];
+  groupBy: KanbanGroupBy;
+  struck: ReadonlySet<string>;
+  focusedTaskId?: string | null;
+  onComplete: (task: TaskTransport) => void;
+  onEdit?: (task: TaskTransport) => void;
+  onTrash: (task: TaskTransport) => void;
+  onMove: (task: TaskTransport, columnId: string) => void;
+  /** Avisa cuándo se abre o se cierra la hoja de mover (el teclado del tablero calla mientras). */
+  onSheetChange?: (open: boolean) => void;
+}
+
+/**
+ * Acción con el dedo: las columnas son secciones con título y hairline y las
+ * tareas son filas de tarea. Mover es la operación con nombre "Mover a otra
+ * columna", que abre una hoja con las columnas en renglones de 48 px y escribe
+ * el mismo cambio que el arrastre. La hoja conserva la última tarea mientras
+ * se recoge: si el título se vaciara al cerrar, la descripción saltaría a
+ * mitad de la salida.
+ */
+export function KanbanSecciones({ columns, tasksOf, groupBy, struck, focusedTaskId, onComplete, onEdit, onTrash, onMove, onSheetChange }: KanbanSeccionesProps) {
+  const [moviendo, setMoviendoEstado] = useState<TaskTransport | null>(null);
+  const [ultima, setUltima] = useState<TaskTransport | null>(null);
+  if (moviendo && moviendo !== ultima) setUltima(moviendo);
+  const setMoviendo = (task: TaskTransport | null) => {
+    setMoviendoEstado(task);
+    onSheetChange?.(task !== null);
+  };
+  const move = onMove;
+
+  return (
+    <>
+      <div className="space-y-5">
+        {columns.map((column) => {
+          const columnTasks = tasksOf(column.id);
+          if (columnTasks.length === 0) return null;
+          return (
+            <section key={column.id} aria-label={column.label}>
+              <SectionHead title={column.label} as="h3" count={`${columnTasks.length}`} />
+              {columnTasks.map((task) => (
+                <TaskRow
+                  key={task.id}
+                  task={task}
+                  density="lista"
+                  focused={task.id === focusedTaskId}
+                  struck={struck.has(task.id)}
+                  onComplete={() => onComplete(task)}
+                  onOpen={onEdit ? () => onEdit(task) : undefined}
+                  actions={[
+                    { label: "Mover a otra columna", icon: ArrowRightLeft, onSelect: () => setMoviendo(task) },
+                    { label: "Mover a la papelera", icon: Trash2, destructive: true, onSelect: () => onTrash(task) },
+                  ]}
+                />
+              ))}
+            </section>
+          );
+        })}
+      </div>
 
       <ResponsiveDialog open={moviendo !== null} onOpenChange={(open) => !open && setMoviendo(null)}>
         <ResponsiveDialogContent className="sm:max-w-sm">
@@ -205,7 +254,6 @@ export function TaskKanbanView({ systemId, initialData, folderId, folderInitialD
           </div>
         </ResponsiveDialogContent>
       </ResponsiveDialog>
-
-    </div>
+    </>
   );
 }

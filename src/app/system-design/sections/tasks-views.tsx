@@ -14,6 +14,16 @@ import { TasksPageSkeleton } from "@/features/tasks/TasksSkeleton";
 import { CascadeInboxMode } from "@/features/tasks/CascadeInboxMode";
 import { TaskFilterPanel } from "@/features/tasks/TaskFilterPanel";
 import { TaskDetailSheet } from "@/features/tasks/TaskDetailSheet";
+import { DetailRow, VALOR_TOCABLE } from "@/features/tasks/TaskDetailFields";
+import { Fichas } from "@/features/tasks/Fichas";
+import { AllTasksList } from "@/features/tasks/AllTasksList";
+import { KanbanSecciones } from "@/features/tasks/TaskKanbanView";
+import { ENERGY_COLUMNS, kanbanColumnOf } from "@/features/tasks/kanban";
+import { TaskPlanningMobileView } from "@/features/tasks/TaskPlanningMobileView";
+import { TaskCalendarMobileView } from "@/features/tasks/TaskCalendarMobileView";
+import { TaskTrashSection } from "@/features/tasks/TaskTrashSection";
+import { es } from "date-fns/locale";
+import { addDays, eachDayOfInterval, endOfMonth, endOfWeek, format, startOfMonth, startOfWeek } from "date-fns";
 import { Segmented } from "@/components/ui/segmented";
 import { Button } from "@/components/ui/button";
 import { DEFAULT_FILTERS, type TaskFilters } from "@/lib/taskFilters";
@@ -81,7 +91,7 @@ function TasksPageSpecimens() {
   const [vista, setVista] = useState<"lista" | "calendario">("lista");
   return (
     <SpecimenGrid cols={2}>
-      <Specimen label="Segmento Lista | Calendario" hint="selección en tinta; Calendario monta el calendario global, cargado aparte">
+      <Specimen label="Segmento Lista | Calendario" hint="selección en tinta. En la página, Calendario monta el calendario global, cargado aparte; aquí va sólo el segmento">
         <Segmented
           aria-label="Vista de tareas"
           value={vista}
@@ -92,14 +102,14 @@ function TasksPageSpecimens() {
           ]}
         />
       </Specimen>
-      <Specimen label="Lo sugerido" hint="tres filas plan; agregar al plan en la cola, ya en el plan con el check en --ok" className="items-stretch">
-        <Seeded stubs={[seedQuery(api.insights.suggest, SUGERIDAS)]}>
+      <Specimen label="Lo sugerido" hint="filas plan con el presupuesto; Al plan en palabra en la cola, ya en el plan dice en el plan en mute; la vencida no se sugiere (tiene su sección)" className="items-stretch">
+        <Seeded stubs={[seedQuery(api.insights.suggest, SUGERIDAS), seedQuery(api.settings.get, { dailyEnergyLimit: 50 }), seedQuery(api.tasks.todayPlan, [])]}>
           <div className="w-full">
             <KinoSuggestedSection />
           </div>
         </Seeded>
       </Specimen>
-      <Specimen label="Esqueleto de /tasks" hint="mismas alturas que la página: título, voz, segmento, secciones de 3,9rem por fila" className="items-stretch">
+      <Specimen label="Esqueleto de /tasks" hint="pinta igual lo fijo (título, voz entera, segmento, títulos de sección) y reserva el presupuesto a 4,5rem, un hueco de Vencidas y las filas a 3,9rem" className="items-stretch">
         <div className="w-full overflow-hidden rounded-xl border border-border">
           <TasksPageSkeleton />
         </div>
@@ -119,11 +129,132 @@ function TasksSheetsSpecimens() {
       <Button variant="secondary" onClick={() => setAbierta("filtros")}>Filtros</Button>
       <TaskDetailSheet task={tarea} systemId={MOCK_SYSTEM_ID} open={abierta === "detalle"} onOpenChange={(o) => !o && setAbierta(null)} onComplete={() => setAbierta(null)} />
       <CascadeInboxMode tasks={[tarea, makeTask({ id: mid("h2"), title: "Pagar el dominio" })]} open={abierta === "repaso"} onOpenChange={(o) => !o && setAbierta(null)} />
+      {/* El contenido de la hoja de filtros; la hoja de verdad, con su pie
+          (Limpiar y Ver N tareas), se abre desde "Todas las tareas" abajo. */}
       {abierta === "filtros" && (
-        <div className="w-full max-w-lg rounded-xl border border-border p-4">
+        <div className="w-full max-w-lg border-t border-input pt-4">
           <TaskFilterPanel filters={filtros} systems={[{ id: MOCK_SYSTEM_ID, name: "Universidad" }]} onChange={setFiltros} />
         </div>
       )}
+    </div>
+  );
+}
+
+/** Los renglones del detalle, sueltos: el rótulo en el margen, el valor en la columna de texto. */
+function DetalleRenglonesSpecimen() {
+  const [prioridad, setPrioridad] = useState<string>("high");
+  const [energia, setEnergia] = useState<string>("medium");
+  return (
+    <div className="w-full max-w-lg">
+      <DetailRow label="Prioridad" id="spec-prioridad">
+        <div className="py-1.5">
+          <Fichas
+            label="Prioridad"
+            labelledBy="spec-prioridad"
+            options={[{ value: "critical", label: "Crítica" }, { value: "high", label: "Alta" }, { value: "medium", label: "Media" }, { value: "low", label: "Baja" }]}
+            selected={[prioridad]}
+            onToggle={setPrioridad}
+          />
+        </div>
+      </DetailRow>
+      <DetailRow label="Energía" id="spec-energia">
+        <div className="py-1.5">
+          <Fichas
+            label="Energía"
+            labelledBy="spec-energia"
+            options={[{ value: "high", label: "Alta" }, { value: "medium", label: "Media" }, { value: "low", label: "Baja" }]}
+            selected={[energia]}
+            onToggle={setEnergia}
+          />
+        </div>
+      </DetailRow>
+      <DetailRow label="Vence" id="spec-vence">
+        <button type="button" aria-labelledby="spec-vence" className={VALOR_TOCABLE}>
+          18 oct 2026, 14:00
+        </button>
+      </DetailRow>
+      <DetailRow label="Subtareas">
+        <p className="pt-[0.6rem] text-base text-muted-foreground">Cada una con su círculo y su papelera de 48 px</p>
+      </DetailRow>
+    </div>
+  );
+}
+
+const LISTA = [
+  makeTask({ id: mid("l1"), title: "Entregar práctica 4", dueDate: daysFromNow(-2) }),
+  makeTask({ id: mid("l2"), title: "Preparar la exposición del viernes", priority: "high", effectivePriority: "high", dueDate: daysFromNow(3), estimatedTime: "01:30" }),
+  makeTask({ id: mid("l3"), title: "Leer el capítulo dos", energyLevel: "low", status: "backlog" }),
+];
+
+/** Acción con el dedo: secciones por energía, una fila tachada en su sitio. */
+function KanbanSeccionesSpecimen() {
+  const tareas = [
+    makeTask({ id: mid("k1"), title: "Escribir la introducción", status: "today", energyLevel: "high" }),
+    makeTask({ id: mid("k2"), title: "Ordenar la bibliografía", status: "done", energyLevel: "high" }),
+    makeTask({ id: mid("k3"), title: "Responder al tutor", status: "week", energyLevel: "low" }),
+  ];
+  return (
+    <div className="w-full max-w-lg">
+      <KanbanSecciones
+        columns={ENERGY_COLUMNS}
+        tasksOf={(id) => tareas.filter((t) => kanbanColumnOf(t, "energy") === id)}
+        groupBy="energy"
+        struck={new Set([tareas[1]!.id])}
+        onComplete={noop}
+        onEdit={noop}
+        onTrash={noop}
+        onMove={noop}
+      />
+    </div>
+  );
+}
+
+/** Planificación con el dedo: un día a la vez, mover de día con una hoja. */
+function PlanificacionSpecimen() {
+  const lunes = startOfWeek(new Date(), { weekStartsOn: 1 });
+  const semana = Array.from({ length: 7 }, (_, i) => addDays(lunes, i));
+  const hoy = new Date();
+  const tareas = [
+    makeTask({ id: mid("pl1"), title: "Repasar el tema 3", startDate: hoy.toISOString(), status: "today" }),
+    makeTask({ id: mid("pl2"), title: "Mandar el correo al tutor", startDate: hoy.toISOString(), status: "done" }),
+  ];
+  return (
+    <div className="w-full max-w-sm">
+      <TaskPlanningMobileView
+        weekDates={semana}
+        weekOffset={0}
+        monthHeading={format(hoy, "MMMM yyyy", { locale: es })}
+        weekNumber={42}
+        singleDayTasks={tareas}
+        multiDayTasks={[]}
+        struck={new Set([tareas[1]!.id])}
+        onPrevWeek={noop}
+        onNextWeek={noop}
+        onResetWeek={noop}
+        onToggle={noop}
+        onDelete={noop}
+        onEdit={noop}
+        onMoveToDay={noop}
+      />
+    </div>
+  );
+}
+
+/** El mes con el dedo: la rejilla en tinta y la agenda con la fila común. */
+function MesSpecimen() {
+  const [mes, setMes] = useState(() => new Date());
+  const dias = eachDayOfInterval({ start: startOfWeek(startOfMonth(mes), { weekStartsOn: 1 }), end: endOfWeek(endOfMonth(mes), { weekStartsOn: 1 }) });
+  const hoy = format(new Date(), "yyyy-MM-dd");
+  return (
+    <div className="w-full max-w-sm">
+      <TaskCalendarMobileView
+        month={mes}
+        onMonthChange={(f) => setMes(f)}
+        days={dias}
+        byDay={new Map([[hoy, [makeTask({ id: mid("m1"), title: "Entregar el ensayo", dueDate: daysFromNow(0) })]]])}
+        withoutDate={[makeTask({ id: mid("m2"), title: "Pedir la carta de recomendación" })]}
+        onNavigateToAction={noop}
+      />
     </div>
   );
 }
@@ -273,6 +404,49 @@ export function TasksViewsSection() {
       </SubSection>
 
       <SubSection
+        title="Detalle de tarea"
+        description="Cada dato es un renglón de margen: el rótulo en el margen, en versalitas de mute, y el valor en la columna de texto sin caja. Prioridad, energía, carpeta, ciclo y repetición son fichas en tinta de 48 px; las fechas y los avisos se abren en una hoja en el teléfono. Completar y el foco van en el pie, pegado abajo."
+      >
+        <DetalleRenglonesSpecimen />
+      </SubSection>
+
+      <SubSection
+        title="Todas las tareas"
+        description="Filtros abre la hoja con la cuenta viva, Limpiar y Ver N tareas; Seleccionar enseña las casillas de todas las filas; las fichas dicen el valor que quitan; la barra de la selección se pega al pie. Mover a la papelera no pregunta: el aviso trae Deshacer."
+      >
+        <Seeded stubs={[seedQuery(api.tasks.list, { items: LISTA, restantes: 0 })]}>
+          <div className="w-full max-w-2xl">
+            <AllTasksList systems={[{ id: MOCK_SYSTEM_ID, name: "Universidad", color: "blue" }]} />
+          </div>
+        </Seeded>
+      </SubSection>
+
+      <SubSection
+        title="Acción, Planificación y el mes con el dedo"
+        description="Con el dedo (teléfono o tableta: lo decide el puntero, no el ancho) no hay arrastre. Acción son secciones por columna con Mover a otra columna; Planificación es un día a la vez con Mover a otro día; el mes es la rejilla en tinta con la agenda del día. Completar tacha la fila en su sitio con Deshacer."
+      >
+        <SpecimenGrid cols={3}>
+          <Specimen label="Acción" hint="por energía; la segunda está tachada en esta visita" className="items-stretch">
+            <KanbanSeccionesSpecimen />
+          </Specimen>
+          <Specimen label="Planificación" hint="el día elegido en tinta, hoy en ámbar de texto, sin hueco entre días" className="items-stretch">
+            <PlanificacionSpecimen />
+          </Specimen>
+          <Specimen label="Mes" hint="puntos neutros, sin color de prioridad" className="items-stretch">
+            <MesSpecimen />
+          </Specimen>
+        </SpecimenGrid>
+      </SubSection>
+
+      <SubSection title="Papelera" description="Una sección de Diario: título con la cuenta, fila de margen por tarea, Restaurar en la cola.">
+        <Seeded stubs={[seedQuery(api.tasks.list, { items: [makeTask({ id: mid("tr1"), title: "Borrador viejo del ensayo", deletedAt: daysFromNow(-1) })], restantes: 0 })]}>
+          <div className="w-full max-w-2xl">
+            <TaskTrashSection systemId={MOCK_SYSTEM_ID} />
+          </div>
+        </Seeded>
+      </SubSection>
+
+      <SubSection
         title="OverdueGroup"
         description="Las vencidas como su propia sección: el título pliega, Mover todas abre una hoja con los tres destinos. La segunda está tachada en esta visita: se queda en su renglón."
       >
@@ -309,8 +483,8 @@ export function TasksViewsSection() {
       </SubSection>
 
       <SubSection
-        title="Board kanban (project) — BoardCard y SprintBar"
-        description="La card arrastrable del board con badge de estancamiento («Xd sin avanzar») y la barra de ciclos con filtro. Columnas: Por hacer, En progreso, En review, Hecho."
+        title="Board kanban (project): BoardCard y SprintBar"
+        description="El ticket arrastrable del board, ahora la fila de tarea común con sus acciones con nombre (foco, mover a otra columna, subtareas, papelera), con el badge de estancamiento («Xd sin avanzar») y la barra de ciclos con filtro. Columnas: Por hacer, En progreso, En review, Hecho."
       >
         <div className="max-w-2xl space-y-4">
           <SprintBar
@@ -416,7 +590,7 @@ export function TasksViewsSection() {
               <EstimatedTimePicker value={estimated} onChange={setEstimated} />
             </div>
           </Specimen>
-          <Specimen label="RecurrencePicker" hint="regla de repetición" className="items-stretch">
+          <Specimen label="RecurrencePicker" hint="fichas en tinta; Otra regla abre el campo RRULE" className="items-stretch">
             <div className="w-full">
               <RecurrencePicker value={recurrence} onChange={setRecurrence} />
             </div>

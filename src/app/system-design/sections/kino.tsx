@@ -141,7 +141,7 @@ export function KinoSection() {
       </SubSection>
 
       <SubSection
-        title="Task cards — estados"
+        title="Task cards: estados"
         description="DefaultTaskCard (sistemas custom) en todos sus estados de fecha y prioridad. Ya no es una card: es la fila de tarea en densidad lista, una debajo de otra con su hairline. El círculo y las acciones son interactivos."
       >
         <div className="max-w-2xl">
@@ -210,8 +210,8 @@ export function KinoSection() {
       </SubSection>
 
       <SubSection
-        title="Task cards — por arquetipo"
-        description="La misma tarea renderizada por cada card de arquetipo (TaskCardFor decide el layout según systemType)."
+        title="Task cards: por arquetipo"
+        description="La misma tarea en cada arquetipo (TaskCardFor decide la meta según systemType). Todas son la fila de tarea común; la de proyecto tampoco es card: su aro no es botón, porque el ticket se cierra moviéndolo a Hecho."
       >
         <div className="grid grid-cols-1 gap-3 lg:grid-cols-2">
           {(
