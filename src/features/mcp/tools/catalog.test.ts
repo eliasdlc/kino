@@ -2,7 +2,7 @@ import { describe, expect, it, vi } from "vitest";
 import { z } from "zod";
 import { getFunctionName } from "convex/server";
 import { SIN_TOOL } from "./catalog";
-import { ALL_TOOLS } from "./index";
+import { ALL_TOOLS, SERVER_INSTRUCTIONS } from "./index";
 
 /**
  * El contrato visible del conector: los nombres que un agente ya tiene
@@ -80,6 +80,7 @@ const CONTRACT = [
   "restore_sticky_note",
   "restore_task",
   "save_learning_checkpoint",
+  "save_workdir_rule",
   "schedule_task_block",
   "search_story",
   "suggest_next_action",
@@ -169,6 +170,43 @@ describe("catálogo del MCP", () => {
     expect(call.mock.calls[0]![0]).toBe("mutation");
     expect(call.mock.calls[0]![2]).toMatchObject({ content: "<h2>Actualizado</h2>\n" });
     expect(result).toMatchObject({ content: "## Actualizado", contentFormat: "markdown" });
+  });
+});
+
+describe("create_task y la carpeta del agente", () => {
+  const create = ALL_TOOLS.find((tool) => tool.name === "create_task")!;
+
+  it("manda la carpeta y el remoto a Convex, y el sistema ya no es obligatorio", async () => {
+    const call = vi.fn().mockResolvedValue({ status: "created", routedBy: "rule", rule: { kind: "path", key: "/home/ana/U", systemName: "Universidad" }, task: { id: "task_1", systemId: "sys_u" } });
+
+    await create.run(call, { title: "Leer", workingDirectory: "/home/ana/U", gitRemote: "git@github.com:ana/u.git" });
+
+    expect(getFunctionName(call.mock.calls[0]![1])).toBe("tasks:createFromAgent");
+    expect(call.mock.calls[0]![2]).toMatchObject({ title: "Leer", workingDirectory: "/home/ana/U", gitRemote: "git@github.com:ana/u.git" });
+  });
+
+  it("con regla, devuelve la tarea y qué regla la puso ahí", async () => {
+    const call = vi.fn().mockResolvedValue({ status: "created", routedBy: "rule", rule: { kind: "path", key: "/home/ana/U", systemName: "Universidad" }, task: { id: "task_1", systemId: "sys_u" } });
+
+    const result = await create.run(call, { title: "Leer", workingDirectory: "/home/ana/U" });
+
+    expect(result).toEqual({ id: "task_1", systemId: "sys_u", routedBy: "rule", rule: { kind: "path", key: "/home/ana/U", systemName: "Universidad" } });
+  });
+
+  it("sin regla, le dice al agente que pregunte una vez y ofrezca guardar la respuesta", async () => {
+    const call = vi.fn().mockResolvedValue({ status: "needs_system", workingDirectory: "/home/ana/nueva", gitRemote: null });
+
+    const result = (await create.run(call, { title: "Leer", workingDirectory: "/home/ana/nueva" })) as Record<string, unknown>;
+
+    expect(result).toMatchObject({ created: false, needsSystem: true, workingDirectory: "/home/ana/nueva", gitRemote: null });
+    expect(result.next).toContain("una sola vez");
+    expect(result.next).toContain("save_workdir_rule");
+  });
+
+  it("las instrucciones del servidor y la descripción piden la carpeta sin que nadie la pida", () => {
+    expect(SERVER_INSTRUCTIONS).toContain("workingDirectory");
+    expect(SERVER_INSTRUCTIONS).toContain("sin esperar a que te lo pidan");
+    expect(create.description).toContain("manda SIEMPRE workingDirectory");
   });
 });
 

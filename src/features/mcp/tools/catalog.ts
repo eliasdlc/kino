@@ -49,6 +49,39 @@ const createTask = z.object({
   metadata: taskMetadata.optional(),
 });
 
+/** Dónde trabaja el agente. Kino lo traduce a un sistema con las reglas de `save_workdir_rule`. */
+const workingDirectory = z
+  .string()
+  .min(1)
+  .max(1024)
+  .describe("Ruta absoluta de tu carpeta de trabajo actual, por ejemplo /home/ana/Documents/Universidad");
+const gitRemote = z
+  .string()
+  .min(1)
+  .max(512)
+  .describe("Si la carpeta es un repo git, la URL de su remoto origin (git remote get-url origin)");
+
+/**
+ * `create_task` acepta además dónde trabaja el agente, y por eso el sistema es
+ * opcional: el servidor lo resuelve. `bulk_create_tasks` sigue exigiéndolo.
+ */
+const createTaskFromAgent = createTask.extend({
+  systemId: id.optional().describe("El sistema que la persona nombró; manda sobre la regla de la carpeta"),
+  workingDirectory: workingDirectory.optional(),
+  gitRemote: gitRemote.optional(),
+});
+
+/** Lo que el agente lee cuando la carpeta no tiene sistema: qué preguntar y qué ofrecer después. */
+function needsSystem(result: { workingDirectory: string | null; gitRemote: string | null }) {
+  return {
+    created: false,
+    needsSystem: true,
+    workingDirectory: result.workingDirectory,
+    gitRemote: result.gitRemote,
+    next: "No creé nada: esta carpeta no tiene sistema asignado. Pregúntale a la persona una sola vez a qué sistema va (list_systems te da los suyos) y vuelve a llamar a create_task con ese systemId y la misma carpeta. Después ofrécele guardar la respuesta con save_workdir_rule para no volver a preguntar; si es un repo, guárdala por gitRemote. Si no quiere guardarla, sigue usando ese systemId en esta conversación sin preguntar otra vez.",
+  };
+}
+
 const updateTask = z.object({
   id,
   title: z.string().min(1).max(500).optional(),
@@ -418,6 +451,12 @@ const systems: Tool[] = [
     description: "Actualiza propiedades de un sistema existente en Kino (nombre, color, ícono, propósito, etc.).",
     input: z.object({ id, name: z.string().min(1).max(255).optional(), color: z.string().optional(), ...systemFields }),
   }),
+  writeTool(api.workdirRules.save, {
+    name: "save_workdir_rule",
+    description:
+      "Guarda a qué sistema va lo que hagas en una carpeta, para que create_task lo sepa sin preguntar la próxima vez. Llámala sólo después de que la persona te dijo el sistema y aceptó guardarlo. Manda UNO de los dos: `gitRemote` si la carpeta es un repo git con remoto, porque así la regla vale en cada clon y cada worktree, o `workingDirectory` si no. Las subcarpetas heredan la regla; guardar otra vez la misma carpeta le cambia el sistema.",
+    input: z.object({ systemId: id, workingDirectory: workingDirectory.optional(), gitRemote: gitRemote.optional() }),
+  }),
 ];
 
 // ── Tareas ───────────────────────────────────────────────────────────────────
@@ -449,11 +488,15 @@ const tasks: Tool[] = [
     description: "Lista las tareas asignadas directamente a una carpeta de un sistema.",
     input: z.object({ systemId: id, folderId: id }),
   }),
-  writeTool(api.tasks.create, {
+  writeTool(api.tasks.createFromAgent, {
     name: "create_task",
     description:
-      'Crea una tarea en Kino. REGLA DE STATUS: Si no se especifica startDate ni status, usa status="week" para que la tarea aparezca en la Action View (vista principal). Solo usa status="backlog" para ideas o trabajo sin fecha. Si tienes una fecha de inicio, pásala en startDate y el status se derivará automáticamente. RECORDATORIOS: Si la tarea tiene dueDate, Kino enviará notificaciones push automáticamente (día anterior y día del vencimiento), siempre que el usuario tenga push habilitado.',
-    input: createTask,
+      'Crea una tarea en Kino. SISTEMA: si trabajas en una carpeta local, manda SIEMPRE workingDirectory (y gitRemote si es un repo git), aunque nadie te lo pida: Kino la pone en el sistema asignado a esa carpeta. Si la persona nombró un sistema, pasa su systemId, que manda sobre la carpeta. Si la carpeta no tiene sistema, Kino no crea nada y responde needsSystem con lo que tienes que preguntar. Sin carpeta ni systemId, va a la Bandeja. REGLA DE STATUS: Si no se especifica startDate ni status, usa status="week" para que la tarea aparezca en la Action View (vista principal). Solo usa status="backlog" para ideas o trabajo sin fecha. Si tienes una fecha de inicio, pásala en startDate y el status se derivará automáticamente. RECORDATORIOS: Si la tarea tiene dueDate, Kino enviará notificaciones push automáticamente (día anterior y día del vencimiento), siempre que el usuario tenga push habilitado.',
+    input: createTaskFromAgent,
+    result: (value) =>
+      value.status === "needs_system"
+        ? needsSystem(value)
+        : { ...value.task, routedBy: value.routedBy, ...("rule" in value ? { rule: value.rule } : {}) },
   }),
   writeTool(api.tasks.bulkCreate, {
     name: "bulk_create_tasks",
