@@ -196,6 +196,20 @@ describe("ShareConfirm", () => {
     expect(screen.queryByRole("button", { name: "Descartarla" })).toBeNull();
   });
 
+  it("la última se guarda al abrir con una captura, que es como Bandeja monta la hoja: vacía", () => {
+    const ver = (item: CaptureItem | null, open: boolean) => (
+      <ShareConfirm captura={item} open={open} onOpenChange={() => {}} onConfirm={vi.fn()} onDiscard={vi.fn()} />
+    );
+    const { rerender } = renderMobile(ver(null, false));
+    rerender(ver(captura(), true));
+    rerender(ver(null, false));
+
+    const hoja = document.querySelector('[data-slot="drawer-content"]');
+    expect(hoja).toHaveAttribute("data-state", "closed");
+    expect(screen.getByText("3 tareas propuestas")).toBeInTheDocument();
+    expect(screen.queryByText("Todavía nadie la ha leído")).toBeNull();
+  });
+
   it("una captura caducada lo dice y no ofrece Confirmar, que el servidor rechaza", async () => {
     const { onConfirm, onDiscard } = pintar(captura({ status: "expired", diasRestantes: 0 }));
 

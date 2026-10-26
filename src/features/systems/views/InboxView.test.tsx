@@ -345,6 +345,20 @@ describe('InboxView, lo que el servidor y el tiempo cambian bajo la fila', () =>
     await vi.waitFor(hojaCerrada);
   });
 
+  it('al confirmar, la hoja que se va sigue con su captura, no con «nadie la ha leído»', async () => {
+    const convex = makeTestConvexClient([], [stubMutation(api.captures.confirmar, { creadas: 2 })]);
+    renderMobile(<InboxView system={BANDEJA} initialTasks={[]} initialCaptures={[captura({ proposedItems: DOS })]} />, { convex });
+
+    await userEvent.click(screen.getByRole('button', { name: /https:\/\/react\.dev\/learn/ }));
+    await userEvent.click(within(await screen.findByRole('dialog')).getByRole('button', { name: 'Confirmar 2' }));
+
+    await vi.waitFor(hojaCerrada);
+    const hoja = document.querySelector('[role="dialog"]');
+    expect(hoja).not.toBeNull();
+    expect(within(hoja as HTMLElement).getByText('2 tareas propuestas')).toBeInTheDocument();
+    expect(screen.queryByText('Todavía nadie la ha leído')).toBeNull();
+  });
+
   it('si confirmar falla cuando la hoja ya se cerró, un aviso lo dice', async () => {
     toastSpy.mockClear();
     let fallar: (error: Error) => void = () => {};
