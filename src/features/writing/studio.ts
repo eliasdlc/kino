@@ -59,6 +59,9 @@ export interface StudioSignals {
   hasAnyChapter: boolean;
 }
 
+/** El nombre que el servidor pone a un capítulo sin carpeta. */
+const SIN_OBRA = "sin obra";
+
 /** Cuántos días sin tocar una obra la convierten en "parada". */
 const STALE_DAYS = 3;
 
@@ -67,16 +70,17 @@ type WritingRule = SuggestionRule<StudioSignals, WritingSuggestion>;
 const resumeChapter: WritingRule = ({ openChapter }) => {
   if (!openChapter) return null;
   const { title, folderName, wordCount, daysSinceEdit, pageId } = openChapter;
-  // Un manuscrito suelto llega con la obra «sin obra»: «palabras en sin obra»
-  // no se lee, así que dice qué es.
-  const donde = folderName === "sin obra" ? "un manuscrito suelto" : folderName;
+  // El servidor manda "sin obra" como nombre cuando el capítulo no tiene
+  // carpeta: no es un nombre, así que no va detrás de «en».
+  const donde = folderName === SIN_OBRA ? "sin obra asignada" : `en ${folderName}`;
+  const palabras = `${wordCount.toLocaleString("es")} ${wordCount === 1 ? "palabra" : "palabras"} ${donde}`;
   return {
     kind: "resume-chapter",
     title: `Retoma «${title?.trim() || "el capítulo sin título"}»`,
     reason:
       daysSinceEdit === 0
-        ? `Lo tocaste hoy y sigue sin terminar; ${wordCount.toLocaleString("es")} palabras en ${donde}.`
-        : `Es lo último que escribiste, hace ${daysSinceEdit} ${daysSinceEdit === 1 ? "día" : "días"}; ${wordCount.toLocaleString("es")} palabras en ${donde}.`,
+        ? `Lo tocaste hoy y sigue sin terminar: ${palabras}.`
+        : `Es lo último que escribiste, hace ${daysSinceEdit} ${daysSinceEdit === 1 ? "día" : "días"}: ${palabras}.`,
     target: { kind: "page", id: pageId },
     // Lo que quedó a medias gana casi siempre: retomar cuesta menos que abrir.
     weight: 90 - Math.min(20, daysSinceEdit),

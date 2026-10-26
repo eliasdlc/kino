@@ -2,7 +2,7 @@
 
 import { useRef, useState } from "react";
 import Image from "next/image";
-import { ImagePlus, X, Loader2 } from "lucide-react";
+import { ImagePlus, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { uploadImageFile } from "@/features/uploads/uploads.client";
 import { useUpdateEntity } from "./entities.hooks";
@@ -89,13 +89,15 @@ export function EntityImages({
               className="object-cover"
               unoptimized
             />
+            {/* Con ratón asoma al pasar por encima; en el teléfono no hay
+                encima, así que se ve siempre y mide 2.85rem. */}
             <button
               type="button"
               onClick={() => update.mutate({ coverImageUrl: null })}
-              className="absolute right-1.5 top-1.5 rounded bg-background/80 p-1 text-muted-foreground opacity-0 transition-opacity hover:text-destructive group-hover:opacity-100"
-              title="Quitar portada"
+              className="absolute right-1.5 top-1.5 flex items-center justify-center rounded-full bg-background/85 p-1 text-muted-foreground transition-[opacity,color] duration-(--dur-toque) ease-(--ease-pluma) hover:text-destructive focus-ring pointer-coarse:size-[2.85rem] pointer-coarse:right-1 pointer-coarse:top-1 md:pointer-fine:opacity-0 md:pointer-fine:group-hover:opacity-100 md:pointer-fine:focus-visible:opacity-100"
+              aria-label="Quitar portada"
             >
-              <X className="size-3.5" />
+              <X aria-hidden className="size-4" />
             </button>
           </div>
         ) : (
@@ -103,14 +105,10 @@ export function EntityImages({
             type="button"
             onClick={() => coverInput.current?.click()}
             disabled={busy === "cover"}
-            className="flex aspect-[3/1] w-full items-center justify-center gap-2 text-sm text-muted-foreground transition-colors hover:bg-accent/40"
+            className="flex aspect-[3/1] w-full items-center justify-center gap-2 text-sm text-muted-foreground transition-[background-color] duration-(--dur-toque) ease-(--ease-pluma) hover:bg-accent/40 focus-ring"
           >
-            {busy === "cover" ? (
-              <Loader2 className="size-4 animate-spin" />
-            ) : (
-              <ImagePlus className="size-4" />
-            )}
-            Subir portada
+            <ImagePlus aria-hidden className="size-4" />
+            {busy === "cover" ? "Subiendo" : "Subir portada"}
           </button>
         )}
       </div>
@@ -120,18 +118,22 @@ export function EntityImages({
         {entity.images.map((url) => (
           <div
             key={url}
-            className="group relative size-14 overflow-hidden rounded-md border border-border"
+            className="group relative size-14 rounded-md border border-border pointer-coarse:size-[4.5rem]"
           >
-            <Image src={url} alt="" fill sizes="56px" className="object-cover" unoptimized />
+            <span className="absolute inset-0 overflow-hidden rounded-[inherit]">
+              <Image src={url} alt="" fill sizes="72px" className="object-cover" unoptimized />
+            </span>
+            {/* El aspa se ve pequeña pero el botón llega a 2.85rem en el
+                teléfono: sale un poco de la miniatura para no taparla entera. */}
             <button
               type="button"
               onClick={() =>
                 update.mutate({ images: entity.images.filter((u) => u !== url) })
               }
-              className="absolute right-0.5 top-0.5 rounded bg-background/80 p-0.5 text-muted-foreground opacity-0 transition-opacity hover:text-destructive group-hover:opacity-100"
-              title="Quitar imagen"
+              className="absolute right-0.5 top-0.5 flex items-center justify-center rounded bg-background/80 p-0.5 text-muted-foreground transition-[opacity,color] duration-(--dur-toque) ease-(--ease-pluma) hover:text-destructive focus-ring pointer-coarse:-right-2 pointer-coarse:-top-2 pointer-coarse:size-[2.85rem] pointer-coarse:items-start pointer-coarse:justify-end pointer-coarse:bg-transparent pointer-coarse:p-2.5 md:pointer-fine:opacity-0 md:pointer-fine:group-hover:opacity-100 md:pointer-fine:focus-visible:opacity-100"
+              aria-label="Quitar imagen"
             >
-              <X className="size-3" />
+              <X aria-hidden className="size-3 pointer-coarse:size-5 pointer-coarse:rounded-full pointer-coarse:bg-background/90 pointer-coarse:p-0.5" />
             </button>
           </div>
         ))}
@@ -140,14 +142,14 @@ export function EntityImages({
           onClick={() => galleryInput.current?.click()}
           disabled={busy === "gallery"}
           className={cn(
-            "flex size-14 items-center justify-center rounded-md border border-dashed border-border text-muted-foreground transition-colors hover:bg-accent/40",
+            "flex size-14 items-center justify-center rounded-md border border-dashed border-border text-muted-foreground transition-[background-color] duration-(--dur-toque) ease-(--ease-pluma) hover:bg-accent/40 focus-ring pointer-coarse:size-[4.5rem]",
           )}
           title="Añadir referencia"
         >
           {busy === "gallery" ? (
-            <Loader2 className="size-4 animate-spin" />
+            <span className="text-xs font-semibold">Subiendo</span>
           ) : (
-            <ImagePlus className="size-4" />
+            <ImagePlus aria-hidden className="size-4" />
           )}
         </button>
       </div>

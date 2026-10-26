@@ -28,8 +28,9 @@ export type StudioReport = FunctionReturnType<typeof api.writing.studio>;
 
 /**
  * Datos de muestra para el catálogo visual. Los componentes compuestos de Kino
- * (SystemCard, task cards…) consumen filas reales de la DB; aquí las fabricamos
- * completas para que cada estado visual sea reproducible sin datos reales.
+ * (las filas del índice de sistemas, las task cards, las filas de documentos)
+ * consumen filas reales de la base; aquí las fabricamos completas para que cada
+ * estado visual sea reproducible sin datos reales.
  */
 
 /** Instante fijo del catálogo, en la misma forma que llega por la red. */
@@ -347,8 +348,8 @@ export function makeEntityDetail(overrides: Partial<EntityDetailTransport> = {})
       },
     ],
     appearances: [
-      { pageId: MOCK_PAGE_ID, pageTitle: "Capítulo 1 · La marea baja", mentionCount: 7 },
-      { pageId: uuid(303), pageTitle: "Capítulo 2 · El gremio", mentionCount: 3 },
+      { pageId: MOCK_PAGE_ID, pageTitle: "Capítulo 1: La marea baja", mentionCount: 7 },
+      { pageId: uuid(303), pageTitle: "Capítulo 2: El gremio", mentionCount: 3 },
     ],
     ...overrides,
   };
@@ -547,9 +548,9 @@ export function makeTimelineReport(
   };
 }
 
-const PROSE_CHAPTER = `<p>La niebla no levantó ese día, ni el siguiente. Aurelia lo anotó en el margen del mapa, con la letra pequeña que usaba para lo que no quería que nadie leyera.</p><p>El puerto seguía ahí abajo, respirando. Los barcos habían dejado de salir hacía dos semanas y nadie decía por qué.</p><div data-scene-break class="scene-break">* * *</div><p>Bruno la encontró en el taller, con la carta desplegada y la tinta todavía fresca.</p><p>—No vas a arreglarlo mirándolo —dijo.</p>`;
+const PROSE_CHAPTER = `<p>La niebla no levantó ese día, ni el siguiente. Aurelia lo anotó en el margen del mapa, con la letra pequeña que usaba para lo que no quería que nadie leyera.</p><p>El puerto seguía ahí abajo, respirando. Los barcos habían dejado de salir hacía dos semanas y nadie decía por qué.</p><div data-scene-break class="scene-break">* * *</div><p>Bruno la encontró en el taller, con la carta desplegada y la tinta todavía fresca.</p><p>«No vas a arreglarlo mirándolo», dijo.</p>`;
 
-const SCREENPLAY_CHAPTER = `<p data-sp="sceneHeading" class="sp-sceneHeading">int. taller de mapas — noche</p><p data-sp="action" class="sp-action">Aurelia despliega la carta sobre la mesa. La tinta todavía huele.</p><p data-sp="character" class="sp-character">aurelia</p><p data-sp="parenthetical" class="sp-parenthetical">(sin levantar la vista)</p><p data-sp="dialogue" class="sp-dialogue">Mi madre dejó este borde sin cerrar a propósito.</p>`;
+const SCREENPLAY_CHAPTER = `<p data-sp="sceneHeading" class="sp-sceneHeading">int. taller de mapas - noche</p><p data-sp="action" class="sp-action">Aurelia despliega la carta sobre la mesa. La tinta todavía huele.</p><p data-sp="character" class="sp-character">aurelia</p><p data-sp="parenthetical" class="sp-parenthetical">(sin levantar la vista)</p><p data-sp="dialogue" class="sp-dialogue">Mi madre dejó este borde sin cerrar a propósito.</p>`;
 
 export function makeManuscript(overrides: Partial<Manuscript> = {}): Manuscript {
   const medium = overrides.medium ?? "novel";
@@ -626,7 +627,7 @@ export function makeStudioReport(overrides: Partial<StudioReport> = {}): StudioR
       {
         kind: "resume-chapter",
         title: "Retoma «Capítulo 4: La niebla»",
-        reason: "Es lo último que escribiste, hace 2 días; 1.240 palabras en La marea baja.",
+        reason: "Es lo último que escribiste, hace 2 días: 1.240 palabras en La marea baja.",
         target: { kind: "page", id: MOCK_PAGE_ID },
         weight: 88,
       },

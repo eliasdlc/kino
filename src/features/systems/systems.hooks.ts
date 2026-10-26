@@ -30,6 +30,17 @@ export function useSystemManifest(systemId: string | null | undefined): Archetyp
   return resolveSystemManifest(data?.find((s) => s.id === systemId));
 }
 
+/**
+ * El manifiesto para una fila de índice: el que le pasa su lista, o el de la
+ * suscripción si nadie se lo dio. Con el manifiesto dado no se suscribe: una
+ * fila suscrita a la lista de sistemas se pintaba otra vez cada vez que
+ * cambiaba una tarea de cualquier sistema (las señales viajan en esa lista).
+ */
+export function useRowManifest(systemId: string, given?: ArchetypeManifest): ArchetypeManifest {
+  const { data } = useConvexQuery(api.systems.list, given ? "skip" : {});
+  return given ?? resolveSystemManifest(data?.find((s) => s.id === systemId));
+}
+
 export function useCreateSystem() {
   return useConvexMutation(api.systems.create);
 }

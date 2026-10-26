@@ -2,10 +2,17 @@
  * Criterio: la papelera enumera las cinco clases que se borran blando y las
  * enseña en una sola lista ordenada por cuándo se borró. Una carpeta con
  * subcarpetas dice cuántas vuelven con ella, y restaurar llama a la mutación
- * de su clase, no a la de las tareas.
+ * de su clase, no a la de las tareas. Restaurar dice qué volvió, porque la
+ * fila se va de la vista, y ofrece Deshacer, que lo devuelve a la papelera.
  */
-import { describe, expect, it } from "vitest";
-import { fireEvent, screen, within } from "@testing-library/react";
+import { describe, expect, it, vi } from "vitest";
+
+const toastMock = vi.fn<(...args: unknown[]) => string>(() => "aviso-1");
+vi.mock("sonner", () => ({
+  toast: Object.assign((...args: unknown[]) => toastMock(...args), { error: vi.fn(), success: vi.fn() }),
+}));
+
+import { fireEvent, screen, waitFor, within } from "@testing-library/react";
 import { api } from "@convex/_generated/api";
 import type { Id, TableNames } from "@convex/_generated/dataModel";
 import { makeTestConvexClient, renderWithProviders, stubQuery } from "@/shared/testing/render";
@@ -96,5 +103,25 @@ describe("TrashSection", () => {
 
     expect(screen.getByText("No has borrado nada.")).toBeVisible();
     expect(screen.queryAllByRole("listitem")).toEqual([]);
+  });
+
+  it("restaurar dice qué volvió y Deshacer lo devuelve a la papelera", async () => {
+    toastMock.mockClear();
+    const convex = client();
+    renderWithProviders(<TrashSection />, { convex });
+
+    const carpeta = screen.getAllByRole("listitem")[0]!;
+    fireEvent.click(within(carpeta).getByRole("button", { name: "Restaurar" }));
+
+    await waitFor(() => expect(toastMock).toHaveBeenCalledTimes(1));
+    const [mensaje, opciones] = toastMock.mock.calls[0] as [string, { action: { label: string; onClick: () => void } }];
+    expect(mensaje).toBe("Carpeta restaurada: Parte 1");
+    expect(opciones.action.label).toBe("Deshacer");
+
+    opciones.action.onClick();
+    expect(convex.calls).toEqual([
+      { kind: "mutation", name: "folders:restore", args: { id: "f1" } },
+      { kind: "mutation", name: "folders:remove", args: { id: "f1" } },
+    ]);
   });
 });

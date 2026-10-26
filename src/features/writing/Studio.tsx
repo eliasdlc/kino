@@ -136,8 +136,8 @@ export function Studio({ systemId }: { systemId: string }) {
  */
 export function conRazonLegible<T extends { reason: string }>(suggestion: T): T {
   const reason = suggestion.reason
-    .replace(/\s+\u00b7\s+/g, "; ")
-    .replace(/palabras en sin obra/g, "palabras en un manuscrito suelto");
+    .replace(/\s+\u00b7\s+/g, ": ")
+    .replace(/palabras en sin obra/g, "palabras sin obra asignada");
   return reason === suggestion.reason ? suggestion : { ...suggestion, reason };
 }
 

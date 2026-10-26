@@ -40,16 +40,20 @@ export type SystemViewType = 'timeline' | 'kanban' | 'progress' | 'list' | 'cust
 /** Módulos de tab del funnel universal (base reutilizable). */
 export type SystemTabId = 'backlog' | 'planning' | 'action' | 'archive';
 
+/**
+ * En español y con la misma palabra en el teléfono y en el escritorio: el
+ * estado vacío manda a «Plan», y en el teléfono no existía «Planificación».
+ */
 export const SYSTEM_TAB_LABELS: Record<SystemTabId, string> = {
-  backlog: "Backlog",
-  planning: "Planificación",
+  backlog: "Pendientes",
+  planning: "Plan",
   action: "Acción",
   archive: "Archivo",
 };
 
 /** Etiquetas cortas para mobile: caben 4 tabs en una fila sin scroll. */
 export const SYSTEM_TAB_SHORT_LABELS: Record<SystemTabId, string> = {
-  backlog: "Backlog",
+  backlog: "Pendientes",
   planning: "Plan",
   action: "Acción",
   archive: "Archivo",
@@ -272,14 +276,14 @@ export const SYSTEM_TYPE_CONFIG: Record<SystemType, ArchetypeManifest> = {
     view: 'kanban',
     // Sprints + epics + categorías ya agrupan; carpetas aquí duplicarían grouping.
     folderRole: null,
-    pageRole: { noun: 'doc', nounPlural: 'docs', gender: 'm', primary: false },
+    pageRole: { noun: 'documento', nounPlural: 'documentos', gender: 'm', primary: false },
     taskKinds: [],
     energyDefault: 'high',
     schedulingPreference: 'highMedium',
     advisorTemplate: '{nombre} lleva {n} días sin actividad: estás en tu ventana de alta energía.',
     staleTemplate: '{n} días desde última tarea en {nombre}.',
     focusMinutes: 25,
-    vocabulary: ['tablero', 'docs', 'sprints'],
+    vocabulary: ['tablero', 'documentos', 'ciclos'],
     tabs: UNIVERSAL_TABS,
     defaultTab: 'action',
   },
@@ -386,7 +390,7 @@ export const SYSTEM_TYPE_CONFIG: Record<SystemType, ArchetypeManifest> = {
       // atajos y formato de export. Las obras creadas antes de W3 guardaron texto
       // libre ("novela", "guión"); `resolveMedium` las normaliza al leerlas.
       fields: [
-        { id: 'medium', label: 'Medium', input: 'select', options: MEDIUM_OPTIONS },
+        { id: 'medium', label: 'Medio', input: 'select', options: MEDIUM_OPTIONS },
         { id: 'wordGoal', label: 'Meta de palabras', input: 'number' },
         { id: 'targetDate', label: 'Fecha objetivo', input: 'date' },
         // Mesa de referencias (§7): entidades que el autor quiere a la vista

@@ -58,7 +58,11 @@ export function formatStaleAdvisor(
   signals: SystemSignals,
 ): string | null {
   if (!signals.stale) return null;
+  // Dormido sin ninguna tarea hecha nunca no son «0 días»: esa cuenta leía
+  // como si la última hubiera sido hoy, justo al lado de la palabra dormido.
+  if (signals.daysSinceLastActivity === null) return `Todavía no hay ninguna tarea hecha en ${system.name}.`;
   const config = SYSTEM_TYPE_CONFIG[(system.templateType ?? "custom") as SystemType];
-  const n = signals.daysSinceLastActivity ?? 0;
-  return config.staleTemplate.replace("{nombre}", system.name).replace("{n}", String(n));
+  return config.staleTemplate
+    .replace("{nombre}", system.name)
+    .replace("{n}", String(signals.daysSinceLastActivity));
 }

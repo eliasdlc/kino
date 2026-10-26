@@ -24,9 +24,9 @@ const VIEJA = {
 describe("Studio", () => {
   it("la razón de un despliegue anterior se lee sin punto medio ni «en sin obra»", () => {
     expect(conRazonLegible(VIEJA).reason).toBe(
-      "Es lo último que escribiste, hace 31 días; 136 palabras en un manuscrito suelto.",
+      "Es lo último que escribiste, hace 31 días: 136 palabras sin obra asignada.",
     );
-    const nueva = { ...VIEJA, reason: "Lo tocaste hoy y sigue sin terminar; 12 palabras en La obra." };
+    const nueva = { ...VIEJA, reason: "Lo tocaste hoy y sigue sin terminar: 12 palabras en La obra." };
     expect(conRazonLegible(nueva)).toBe(nueva);
   });
 
@@ -44,7 +44,7 @@ describe("Studio", () => {
     const fila = await screen.findByRole("link", { name: /Retoma «La subida»/ });
     expect(fila).toHaveAttribute("href", "/systems/sys-1/pages/cap-1");
     expect(fila).toHaveAttribute("data-slot", "margin-row");
-    expect(screen.getByText(/136 palabras en un manuscrito suelto/)).toBeVisible();
+    expect(screen.getByText(/136 palabras sin obra asignada/)).toBeVisible();
     expect(screen.queryByText("Sin IA")).not.toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "Qué escribir hoy" })).toBeVisible();
   });
