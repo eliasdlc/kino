@@ -1,7 +1,8 @@
-import { screen } from '@testing-library/react';
+import { act, fireEvent, screen } from '@testing-library/react';
 import { describe, expect, it } from 'vitest';
+import { api } from '@convex/_generated/api';
 import { makeSystem, makeTask, mid } from '@/app/system-design/mock-data';
-import { renderMobile } from '@/shared/testing/render';
+import { makeTestConvexClient, renderMobile, stubQuery } from '@/shared/testing/render';
 import { ITEMS_PARA_EMPUJAR } from '@/features/systems/GroupNudge';
 import { InboxView, ITEMS_VISIBLES } from './InboxView';
 
@@ -75,5 +76,19 @@ describe('InboxView', () => {
     renderMobile(<InboxView system={BANDEJA} initialTasks={[...items(2), ...cerradas]} />);
 
     expect(screen.getAllByRole('listitem')).toHaveLength(2);
+  });
+
+  it('D2: completar desde la hoja deja la fila tachada en su renglón', () => {
+    const [primera, segunda] = items(2) as [ReturnType<typeof makeTask>, ReturnType<typeof makeTask>];
+    const convex = makeTestConvexClient([stubQuery(api.tasks.bySystem, [primera, segunda])]);
+    renderMobile(<InboxView system={BANDEJA} initialTasks={[primera, segunda]} />, { convex });
+
+    fireEvent.click(screen.getByRole('button', { name: 'Cosa 1' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Marcar como hecha' }));
+    act(() => convex.publish(stubQuery(api.tasks.bySystem, [{ ...primera, status: 'done' }, segunda])));
+
+    expect(screen.getAllByRole('button', { name: /^Cosa \d$/, hidden: true })).toHaveLength(2);
+    expect(screen.getByRole('button', { name: 'Cosa 1', hidden: true })).toHaveClass('line-through');
+    expect(screen.getAllByRole('button', { name: 'Completar Cosa 1', hidden: true })[0]).toHaveAttribute('aria-pressed', 'true');
   });
 });

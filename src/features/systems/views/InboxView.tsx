@@ -5,6 +5,8 @@ import { GitBranch, Link2, Mic } from 'lucide-react';
 import { CascadeInboxMode } from '@/features/tasks/CascadeInboxMode';
 import { TaskDetailSheet } from '@/features/tasks/TaskDetailSheet';
 import { useTasks, useToggleTask } from '@/features/tasks/tasks.hooks';
+import { useTacharEnSitio } from '@/features/tasks/useTachar';
+import { cn } from '@/lib/utils';
 import type { TaskTransport } from '@/features/tasks/tasks.types';
 import { GroupNudge } from '@/features/systems/GroupNudge';
 import { CaptureRow } from '@/features/captures/CaptureRow';
@@ -48,6 +50,7 @@ const SOURCE_GLYPHS: Record<string, typeof Link2> = {
 export function InboxView({ system, initialTasks }: SystemViewProps) {
   const { data: tasks = [] } = useTasks(system.id, initialTasks);
   const { mutate: toggle } = useToggleTask(system.id);
+  const { handleToggle, estadoDe } = useTacharEnSitio(toggle);
   const { data: capturas = [] } = useCaptures();
   const { mutate: confirmar } = useConfirmCapture();
   const { mutate: descartar } = useDiscardCapture();
@@ -55,7 +58,8 @@ export function InboxView({ system, initialTasks }: SystemViewProps) {
   const [open, setOpen] = useState<TaskTransport | null>(null);
   const [confirmando, setConfirmando] = useState<CaptureItem | null>(null);
 
-  const pending = tasks.filter((task) => task.status !== 'done');
+  // Una completada aquí se queda en su renglón, tachada, hasta la siguiente visita.
+  const pending = tasks.filter((task) => estadoDe(task) !== 'done');
   const sinConfirmar = capturas.filter((captura) => captura.status === 'pending');
   const visible = pending.slice(0, ITEMS_VISIBLES);
   const rest = pending.length - visible.length;
@@ -100,13 +104,20 @@ export function InboxView({ system, initialTasks }: SystemViewProps) {
               <button
                 type="button"
                 aria-label={`Completar ${task.title}`}
-                onClick={() => toggle(task.id)}
-                className="ml-1 size-5 shrink-0 rounded-sm border-2 border-input transition-colors hover:border-primary"
+                aria-pressed={task.status === 'done'}
+                onClick={() => handleToggle(task)}
+                className={cn(
+                  'ml-1 size-5 shrink-0 rounded-sm border-2 transition-colors hover:border-primary',
+                  task.status === 'done' ? 'border-task-done bg-task-done' : 'border-input',
+                )}
               />
               <button
                 type="button"
                 onClick={() => setOpen(task)}
-                className="min-h-12 min-w-0 flex-1 truncate py-3 text-left text-sm"
+                className={cn(
+                  'min-h-12 min-w-0 flex-1 truncate py-3 text-left text-sm',
+                  task.status === 'done' && 'text-muted-foreground line-through',
+                )}
               >
                 {task.title}
               </button>
@@ -139,7 +150,7 @@ export function InboxView({ system, initialTasks }: SystemViewProps) {
         }}
       />
 
-      <CascadeInboxMode tasks={pending} open={triaging} onOpenChange={setTriaging} />
+      <CascadeInboxMode tasks={pending.filter((task) => task.status !== 'done')} open={triaging} onOpenChange={setTriaging} />
       <TaskDetailSheet
         task={open}
         systemId={system.id}
