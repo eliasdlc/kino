@@ -12,6 +12,7 @@ import { KinoSuggestedSection } from './KinoSuggestedSection';
 import { AllTasksList } from './AllTasksList';
 import { useAllTasks, useSuggestedTasks, useTodayPlanTasks } from './tasks.hooks';
 import { ListaDeTareasSkeleton, TAREAS_COLUMNA, TAREAS_PAGINA, TareasCabecera, VOZ_LISTA } from './TasksSkeleton';
+import { conVisita } from './useTachar';
 
 interface SystemInfo {
   id: string;
@@ -109,7 +110,7 @@ export function TasksPageClient({ systems }: TasksPageProps) {
  * la lista entra entera y nada que ya estuviera en pantalla se mueve. Las
  * secciones vuelven a pedir lo mismo, y Convex comparte la suscripción.
  */
-function ListaDeTareas({ systems }: TasksPageProps) {
+const ListaDeTareas = conVisita(function ListaDeTareas({ systems }: TasksPageProps) {
   const sugeridas = useSuggestedTasks();
   const todas = useAllTasks();
   const ajustes = useUserSettings();
@@ -125,4 +126,4 @@ function ListaDeTareas({ systems }: TasksPageProps) {
       <AllTasksList systems={systems} />
     </>
   );
-}
+});
