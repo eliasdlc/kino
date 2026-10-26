@@ -77,12 +77,15 @@ export function NotebooksView({ systemId, academic = false, periods = [], initia
 
   const isLoading = foldersLoading || pagesLoading;
   const allRootPages = pages.filter((p) => !p.folderId && !p.parentPageId);
+  // Sólo las etiquetas que filtran algo de esta lista: una pastilla que no
+  // deja nada al tocarla es ruido de 48 px. Una etiqueta activa se sigue
+  // ofreciendo aunque ya nada la lleve, para poder quitar el filtro.
+  const usedTags = allTags.filter(
+    (tag) => activeTagIds.has(tag.id) || allRootPages.some((p) => p.tags.some((t) => t.id === tag.id))
+  );
   const rootPages =
     activeTagIds.size === 0 ? allRootPages : allRootPages.filter((p) => p.tags.some((t) => activeTagIds.has(t.id)));
   const isEmpty = !isLoading && folders.length === 0 && allRootPages.length === 0;
-  // Sólo las etiquetas que filtran algo de esta lista: una pastilla que no
-  // deja nada al tocarla es ruido de 48 px.
-  const usedTags = allTags.filter((tag) => allRootPages.some((p) => p.tags.some((t) => t.id === tag.id)));
 
   function toggleTag(tagId: string) {
     setActiveTagIds((prev) => {

@@ -5,7 +5,8 @@
  * dentro dice qué crear primero, y si la lista se recortó lo dice en vez de
  * callarse que faltan documentos.
  */
-import { screen, within } from "@testing-library/react";
+import { act, screen, within } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
 import { api } from "@convex/_generated/api";
 import { makeFolder, makePage, makeSystem, mid, MOCK_SYSTEM_ID } from "@/app/system-design/mock-data";
@@ -98,5 +99,29 @@ describe("NotebooksView", () => {
     });
 
     expect(screen.queryByText(/hay más que no caben/)).not.toBeInTheDocument();
+  });
+
+  it("el filtro por etiqueta se puede quitar aunque ninguna página la lleve ya", async () => {
+    const etiqueta = { id: mid("tag-x"), title: "Urgente", color: "red" } as never;
+    const conEtiqueta = makePage({ id: mid("p1"), title: "Con etiqueta", tags: [etiqueta] });
+    const sin = makePage({ id: mid("p2"), title: "Sin etiqueta", tags: [] });
+    const convex = makeTestConvexClient([
+      stubQuery(api.systems.list, [makeSystem({ id: MOCK_SYSTEM_ID, templateType: "writing" })]),
+      stubQuery(api.folders.bySystem, []),
+      stubQuery(api.pages.bySystem, { items: [conEtiqueta, sin], restantes: 0 }),
+      stubQuery(api.tasks.bySystem, []),
+      stubQuery(api.tags.bySystem, [etiqueta]),
+      stubQuery(api.folders.children, []),
+    ]);
+    renderWithProviders(<NotebooksView systemId={MOCK_SYSTEM_ID} />, { convex });
+    await userEvent.click(await screen.findByRole("button", { name: "Urgente" }));
+    expect(screen.queryByRole("link", { name: "Sin etiqueta" })).not.toBeInTheDocument();
+
+    await act(async () => {
+      convex.publish(stubQuery(api.pages.bySystem, { items: [{ ...conEtiqueta, tags: [] }, sin], restantes: 0 }));
+    });
+
+    await userEvent.click(await screen.findByRole("button", { name: "Urgente" }));
+    expect(screen.getByRole("link", { name: "Sin etiqueta" })).toBeInTheDocument();
   });
 });
