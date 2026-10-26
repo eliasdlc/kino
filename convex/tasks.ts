@@ -653,57 +653,95 @@ export const create = kinoZodMutation({
 });
 
 /**
- * Crear una tarea desde el conector, que puede no saber el sistema. Decide en
- * este orden: el `systemId` que el agente pasó; si no, la regla de su carpeta
- * o su repo (`convex/lib/workdir.ts`); si mandó carpeta y ninguna regla la
- * cubre, no crea nada y responde `needs_system` para que el agente pregunte;
- * y sin carpeta ni sistema, la Bandeja.
+ * A qué sistema va lo que el conector crea sin saber el sistema. Decide en este
+ * orden: el `systemId` que el agente pasó; si no, la regla de su carpeta o su
+ * repo (`convex/lib/workdir.ts`); si mandó carpeta y ninguna regla la cubre,
+ * `needs_system` para que el agente pregunte; y sin carpeta ni sistema, la
+ * Bandeja. Lo comparten `createFromAgent` y `bulkCreate`, para que las dos
+ * herramientas no puedan discrepar.
  */
+async function routeAgentCreate(
+  ctx: MutationCtx,
+  userId: Id<'users'>,
+  { systemId, workingDirectory, gitRemote }: AgentRoute,
+) {
+  if (systemId) return { status: 'routed' as const, routedBy: 'systemId' as const, systemId };
+
+  const workdir = readWorkdir({ workingDirectory, gitRemote });
+  if (workdir.path || workdir.repo) {
+    const match = await resolveWorkdir(ctx, userId, workdir);
+    if (!match) return { status: 'needs_system' as const, workingDirectory: workdir.path ?? null, gitRemote: workdir.repo ?? null };
+    return {
+      status: 'routed' as const,
+      routedBy: 'rule' as const,
+      rule: { kind: match.rule.kind, key: match.rule.key, systemName: match.system.name },
+      systemId: match.system._id,
+    };
+  }
+
+  const inbox = await ctx.db
+    .query('systems')
+    .withIndex('by_user_inbox', (q) => q.eq('userId', userId).eq('isInbox', true))
+    .first();
+  if (!inbox || !inbox.isActive) invalid('Falta systemId y esta cuenta no tiene Bandeja');
+  return { status: 'routed' as const, routedBy: 'inbox' as const, systemId: inbox._id };
+}
+
+interface AgentRoute {
+  systemId?: Id<'systems'>;
+  workingDirectory?: string;
+  gitRemote?: string;
+}
+
+const agentRouteFields = {
+  systemId: zid('systems').optional(),
+  workingDirectory: z.string().max(WORKDIR_PATH_MAX).optional(),
+  gitRemote: z.string().max(WORKDIR_REMOTE_MAX).optional(),
+};
+
+/** Crear una tarea desde el conector, que puede no saber el sistema (ver `routeAgentCreate`). */
 export const createFromAgent = kinoZodMutation({
-  args: createTaskFields
-    .extend({
-      systemId: zid('systems').optional(),
-      workingDirectory: z.string().max(WORKDIR_PATH_MAX).optional(),
-      gitRemote: z.string().max(WORKDIR_REMOTE_MAX).optional(),
-    })
-    .superRefine(refineNewTask),
+  args: createTaskFields.extend(agentRouteFields).superRefine(refineNewTask),
   handler: async (ctx, { systemId, workingDirectory, gitRemote, ...data }) => {
     const userId = ctx.user._id;
-    const create = async (target: Id<'systems'>) =>
-      taskItem(await createOne(ctx, userId, ctx.channel, ctx.user.timezone, { ...data, systemId: target }));
-
-    if (systemId) return { status: 'created' as const, routedBy: 'systemId' as const, task: await create(systemId) };
-
-    const workdir = readWorkdir({ workingDirectory, gitRemote });
-    if (workdir.path || workdir.repo) {
-      const match = await resolveWorkdir(ctx, userId, workdir);
-      if (!match) return { status: 'needs_system' as const, workingDirectory: workdir.path ?? null, gitRemote: workdir.repo ?? null };
-      return {
-        status: 'created' as const,
-        routedBy: 'rule' as const,
-        rule: { kind: match.rule.kind, key: match.rule.key, systemName: match.system.name },
-        task: await create(match.system._id),
-      };
-    }
-
-    const inbox = await ctx.db
-      .query('systems')
-      .withIndex('by_user_inbox', (q) => q.eq('userId', userId).eq('isInbox', true))
-      .first();
-    if (!inbox || !inbox.isActive) invalid('Falta systemId y esta cuenta no tiene Bandeja');
-    return { status: 'created' as const, routedBy: 'inbox' as const, task: await create(inbox._id) };
+    const route = await routeAgentCreate(ctx, userId, { systemId, workingDirectory, gitRemote });
+    if (route.status === 'needs_system') return route;
+    const task = taskItem(await createOne(ctx, userId, ctx.channel, ctx.user.timezone, { ...data, systemId: route.systemId }));
+    return { status: 'created' as const, routedBy: route.routedBy, ...('rule' in route ? { rule: route.rule } : {}), task };
   },
 });
 
 /** Exportada para la siembra del onboarding, que crea tareas sin pasar por el cliente. */
 export const createTaskDoc = createOne;
 
+/**
+ * Varias tareas de una vez, con la misma regla de sistema que `createFromAgent`.
+ * El `systemId` de una tarea manda sobre todo; las que no lo traen van adonde
+ * lleven el `systemId` del lote, la carpeta o la Bandeja. La carpeta se resuelve
+ * una vez, y si no tiene sistema no se crea ninguna.
+ */
 export const bulkCreate = kinoZodMutation({
-  args: { tasks: z.array(createTaskSchema).min(1).max(50) },
-  handler: async (ctx, { tasks }) => {
+  args: {
+    ...agentRouteFields,
+    tasks: z
+      .array(createTaskFields.extend({ systemId: zid('systems').optional() }).superRefine(refineNewTask))
+      .min(1)
+      .max(50),
+  },
+  handler: async (ctx, { tasks, ...batch }) => {
+    const userId = ctx.user._id;
+    const needsRoute = tasks.some((item) => !item.systemId);
+    const route = needsRoute ? await routeAgentCreate(ctx, userId, batch) : undefined;
+    if (route?.status === 'needs_system') return route;
+
     const created = [];
-    for (const item of tasks) created.push(await createOne(ctx, ctx.user._id, ctx.channel, ctx.user.timezone, item));
-    return created.map(taskItem);
+    for (const item of tasks) {
+      const systemId = item.systemId ?? route?.systemId;
+      if (!systemId) invalid('Falta systemId');
+      created.push(taskItem(await createOne(ctx, userId, ctx.channel, ctx.user.timezone, { ...item, systemId })));
+    }
+    const how = route ? { routedBy: route.routedBy, ...('rule' in route ? { rule: route.rule } : {}) } : { routedBy: 'systemId' as const };
+    return { status: 'created' as const, ...how, tasks: created };
   },
 });
 

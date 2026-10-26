@@ -169,6 +169,62 @@ describe('una carpeta sin regla', () => {
   });
 });
 
+describe('bulkCreate sigue la misma regla que createFromAgent', () => {
+  const tareas = [{ title: 'Uno' }, { title: 'Dos' }];
+
+  it('con regla, todas las tareas caen en el sistema de la carpeta', async () => {
+    const t = convexTest(schema, modules);
+    const { agente, ids } = await cuenta(t, ana, ['Universidad']);
+    await agente.mutation(api.workdirRules.save, { systemId: ids.Universidad!, workingDirectory: '/home/ana/Universidad' });
+
+    const res = await agente.mutation(api.tasks.bulkCreate, { tasks: tareas, workingDirectory: '/home/ana/Universidad/tema1' });
+
+    expect(res).toMatchObject({ status: 'created', routedBy: 'rule', rule: { kind: 'path', key: '/home/ana/Universidad', systemName: 'Universidad' } });
+    expect(res.status === 'created' && res.tasks.map((task) => task.systemId)).toEqual([ids.Universidad, ids.Universidad]);
+  });
+
+  it('el systemId de una tarea manda sobre el del lote, y el del lote sobre la regla', async () => {
+    const t = convexTest(schema, modules);
+    const { agente, ids } = await cuenta(t, ana, ['Universidad', 'Casa', 'Tesis']);
+    await agente.mutation(api.workdirRules.save, { systemId: ids.Universidad!, workingDirectory: '/home/ana/Universidad' });
+
+    const delLote = await agente.mutation(api.tasks.bulkCreate, { tasks: tareas, systemId: ids.Casa!, workingDirectory: '/home/ana/Universidad' });
+    const mezcla = await agente.mutation(api.tasks.bulkCreate, {
+      tasks: [{ title: 'Propia', systemId: ids.Tesis! }, { title: 'Del lote' }],
+      systemId: ids.Casa!,
+    });
+
+    expect(delLote).toMatchObject({ status: 'created', routedBy: 'systemId' });
+    expect(delLote.status === 'created' && delLote.tasks.map((task) => task.systemId)).toEqual([ids.Casa, ids.Casa]);
+    expect(mezcla.status === 'created' && mezcla.tasks.map((task) => task.systemId)).toEqual([ids.Tesis, ids.Casa]);
+  });
+
+  it('una carpeta sin regla no crea ninguna y devuelve lo que hay que preguntar', async () => {
+    const t = convexTest(schema, modules);
+    const { agente, ids } = await cuenta(t, ana, ['Casa']);
+
+    const res = await agente.mutation(api.tasks.bulkCreate, {
+      tasks: [{ title: 'Propia', systemId: ids.Casa! }, { title: 'Sin sistema' }],
+      workingDirectory: '/home/ana/nueva/',
+      gitRemote: 'https://github.com/ana/nueva.git',
+    });
+
+    expect(res).toEqual({ status: 'needs_system', workingDirectory: '/home/ana/nueva', gitRemote: 'github.com/ana/nueva' });
+    expect(await t.run((ctx) => ctx.db.query('tasks').collect())).toHaveLength(0);
+  });
+
+  it('sin carpeta ni sistema, van a la Bandeja', async () => {
+    const t = convexTest(schema, modules);
+    const { agente } = await cuenta(t, ana, ['Universidad']);
+
+    const res = await agente.mutation(api.tasks.bulkCreate, { tasks: tareas });
+
+    expect(res).toMatchObject({ status: 'created', routedBy: 'inbox' });
+    const sistemas = await t.run(async (ctx) => Promise.all((res.status === 'created' ? res.tasks : []).map((task) => ctx.db.get(task.systemId))));
+    expect(sistemas.map((sistema) => sistema?.isInbox)).toEqual([true, true]);
+  });
+});
+
 describe('cada persona, sus reglas', () => {
   it('la regla de Beto para la misma carpeta nunca decide por Ana', async () => {
     const t = convexTest(schema, modules);
