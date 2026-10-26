@@ -1,7 +1,5 @@
 import { cn } from "@/lib/utils";
-import { getTaskTypeConfig } from "../../task-type-config";
-import type { TaskTransport } from "../../tasks.types";
-import { energyMeta, PRIORITY_WORD } from "../../task-vocab";
+import { PRIORITY_WORD } from "../../task-vocab";
 
 /**
  * Las etiquetas del ticket del tablero, sobre los roles. La prioridad es peso,
@@ -40,36 +38,5 @@ export function PriorityTag({ priority, chosen }: { priority: string | null; cho
       {tag.label}
       {raised && <span className="sr-only">, subió por la fecha; la elegiste {elegida}</span>}
     </span>
-  );
-}
-
-export function TaskTypeTag({ taskType, metadata }: { taskType: string | null, metadata?: Record<string, unknown> | null }) {
-  if (!taskType) return null;
-  const config = getTaskTypeConfig(taskType, metadata);
-  return (
-    <span className={cn(TAG, "text-foreground")}>
-      {config.label}
-    </span>
-  );
-}
-
-export function EnergyTag({ energyLevel }: { energyLevel: string | null }) {
-  if (!energyLevel) return null;
-  return (
-    <span className={cn(TAG, "text-muted-foreground")}>
-      {energyMeta(energyLevel)}
-    </span>
-  );
-}
-
-/** Fila de tags del ticket: prioridad + tipo + energía. */
-export function TaskTags({ task }: { task: TaskTransport }) {
-  const config = getTaskTypeConfig(task.taskType, task.metadata);
-  return (
-    <div className="flex items-center gap-2 flex-wrap">
-      <PriorityTag priority={task.effectivePriority} chosen={task.priority} />
-      <TaskTypeTag taskType={task.taskType} metadata={task.metadata} />
-      {!config.hideEnergyAndPriority && <EnergyTag energyLevel={task.energyLevel} />}
-    </div>
   );
 }
