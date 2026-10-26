@@ -128,6 +128,7 @@ export function ReadingView({
               folderId={manuscript.folderId}
               systemId={manuscript.systemId}
               manuscript={manuscript}
+              onPrint={() => window.print()}
             />
             {canPage && (
               <Segmented<Mode>
