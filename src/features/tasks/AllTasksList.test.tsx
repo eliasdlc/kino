@@ -144,6 +144,34 @@ describe("AllTasksList", () => {
     expect(todas).toHaveTextContent("2 tareas");
   });
 
+  it("D1: completar una vencida desde la hoja la deja tachada en Vencidas y no la pasa a Todas", () => {
+    const { convex } = pintar();
+
+    fireEvent.click(screen.getByRole("button", { name: "Abrir Entregar el informe" }));
+    fireEvent.click(screen.getByRole("button", { name: "Marcar como hecha" }));
+    act(() => convex.publish(lista([{ ...vencida, status: "done" } as TaskTransport, lectura, beca])));
+
+    const vencidas = screen.getByRole("region", { name: "Vencidas" });
+    const todas = screen.getByRole("region", { name: "Todas las tareas" });
+    expect(titulosDe(vencidas)).toEqual(["Entregar el informe"]);
+    expect(within(vencidas).getByRole("button", { name: "Completar Entregar el informe" })).toHaveAttribute("aria-pressed", "true");
+    expect(titulosDe(todas)).toEqual(["Leer el capítulo dos", "Pedir la beca"]);
+  });
+
+  it("D4: agrupada por estado, la fila tachada se queda en su grupo y no salta a Completadas", () => {
+    setNavigation({ search: "group=status" });
+    const { convex } = pintar();
+
+    fireEvent.click(screen.getByRole("button", { name: "Completar Leer el capítulo dos" }));
+    act(() => convex.publish(lista([vencida, { ...lectura, status: "done" } as TaskTransport, beca])));
+
+    const todas = screen.getByRole("region", { name: "Todas las tareas" });
+    expect(within(todas).queryByRole("heading", { name: "Completadas" })).toBeNull();
+    const grupo = within(todas).getByRole("heading", { name: "Esta semana" }).parentElement!.parentElement!;
+    expect(titulosDe(grupo)).toEqual(["Leer el capítulo dos", "Pedir la beca"]);
+    expect(within(grupo).getByRole("button", { name: "Completar Leer el capítulo dos" })).toHaveAttribute("aria-pressed", "true");
+  });
+
   it("Seleccionar enseña las casillas de todas las filas sin abrir ninguna hoja", () => {
     pintar();
     const casilla = (titulo: string) => screen.getByRole("checkbox", { name: `Seleccionar ${titulo}` });

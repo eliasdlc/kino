@@ -233,7 +233,7 @@ export function AllTasksList({ systems }: AllTasksListProps) {
     return [...visible].sort(SORTERS[filters.sort]);
   }, [tasks, filters, overdueIds]);
 
-  const { filas, struck, handleToggle } = useListaTachable(filtered, (taskId) => toggleTask({ taskId }));
+  const { filas, struck, handleToggle, estadoDe } = useListaTachable(filtered, (taskId) => toggleTask({ taskId }));
 
   const fichas = fichasActivas(filters, systems);
   const filterCount = countActiveFilters(filters);
@@ -317,14 +317,17 @@ export function AllTasksList({ systems }: AllTasksListProps) {
 
   function renderGrouped(items: readonly TaskTransport[]) {
     if (!filters.group) return renderRows(items);
-    const grouped = groupTasks([...items], filters.group);
+    // Se agrupa por el estado de antes de tachar: una fila tachada se queda en
+    // su grupo hasta la siguiente visita en vez de saltar a Completadas.
+    const porId = new Map(items.map((t) => [t.id, t]));
+    const grouped = groupTasks(items.map((t) => ({ ...t, status: estadoDe(t) })), filters.group);
     const keys = [...grouped.keys()].sort(
       (a, b) => (GROUP_ORDER[a] ?? 99) - (GROUP_ORDER[b] ?? 99),
     );
     return (
       <div>
         {keys.map((key) => {
-          const groupItems = grouped.get(key) ?? [];
+          const groupItems = (grouped.get(key) ?? []).map((t) => porId.get(t.id)!);
           const groupName = filters.group === 'system'
             ? (systemMap.get(key)?.name ?? key)
             : key;
