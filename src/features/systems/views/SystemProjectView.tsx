@@ -14,12 +14,13 @@ import { SprintBar } from "./project/SprintBar";
 import { GithubRepoPanel } from "@/features/github-sync/GithubRepoPanel";
 import type { TaskTransport } from "@/features/tasks/tasks.types";
 import type { SystemViewProps } from "./SystemDetailView";
+import { conVisita } from "@/features/tasks/useTachar";
 
 /**
  * Project. Un proyecto en progreso: board kanban (eje workflow), planificación
  * semanal (eje scheduling, reutilizada de Academic) y archivadas por sprint.
  */
-export function SystemProjectView({ system, initialTasks }: SystemViewProps) {
+export const SystemProjectView = conVisita(function SystemProjectView({ system, initialTasks }: SystemViewProps) {
   const [editTask, setEditTask] = useState<TaskTransport | null>(null);
   const [tab, setTab] = useUrlView(["board", "planning", "archive"], "board");
   const [sprintFilter, setSprintFilter] = useState<string | null>(null);
@@ -93,4 +94,4 @@ export function SystemProjectView({ system, initialTasks }: SystemViewProps) {
       />
     </>
   );
-}
+});
