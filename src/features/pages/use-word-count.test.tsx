@@ -3,6 +3,7 @@
  * saca del HTML, también con menciones del códice, que son nodos sin texto propio.
  */
 import { describe, expect, it } from "vitest";
+import { useEffect } from "react";
 import { render, waitFor } from "@testing-library/react";
 import type { Editor } from "@tiptap/react";
 import { countWords } from "@/shared/lib/word-count";
@@ -19,22 +20,26 @@ const CASOS = {
   "una lista": "<ul><li><p>uno dos</p></li><li><p>tres</p></li></ul>",
 };
 
-let editor: Editor | null = null;
-function Agarrar() {
-  editor = useSharedEditor();
+function Agarrar({ alTener }: { alTener: (editor: Editor) => void }) {
+  const editor = useSharedEditor();
+  useEffect(() => {
+    if (editor) alTener(editor);
+  }, [editor, alTener]);
   return null;
 }
 
 describe("textoParaContar", () => {
   for (const [nombre, html] of Object.entries(CASOS)) {
     it(`da lo que countWords del HTML con ${nombre}`, async () => {
+      let editor: Editor | null = null;
       render(
         <EditorProvider initialContent={html} codex={{ systemId: "s" }}>
-          <Agarrar />
+          <Agarrar alTener={(e) => (editor = e)} />
         </EditorProvider>,
       );
       await waitFor(() => expect(editor).not.toBeNull());
-      expect(contarPalabras(textoParaContar(editor!.state.doc))).toBe(countWords(editor!.getHTML()));
+      const vivo = editor as unknown as Editor;
+      expect(contarPalabras(textoParaContar(vivo.state.doc))).toBe(countWords(vivo.getHTML()));
     });
   }
 });
