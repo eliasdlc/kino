@@ -141,6 +141,18 @@ describe("/api/mcp · un cliente desconectado en Ajustes no entra", () => {
     expect(kino.registerAllTools).not.toHaveBeenCalled();
   });
 
+  it("un token sin client_id no pasa: 503 y el servidor no se monta", async () => {
+    clerk.verifyClerkToken.mockReturnValue({ ...CLAUDE_CODE, clientId: undefined });
+
+    const res = await post("oat_1");
+
+    expect(res.status).toBe(503);
+    const respuesta = (await res.json()) as { error: { message: string } };
+    expect(respuesta.error.message).toContain("sin client_id");
+    expect(kino.registrarCliente).not.toHaveBeenCalled();
+    expect(kino.registerAllTools).not.toHaveBeenCalled();
+  });
+
   it("si Convex no contesta, 503 con el motivo: sin saber si está revocado, no pasa", async () => {
     kino.registrarCliente.mockRejectedValue(new Error("Convex no respondió en 5000 ms al registrar el cliente"));
 

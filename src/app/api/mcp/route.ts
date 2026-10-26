@@ -54,10 +54,10 @@ const verify = async (req: Request, bearer?: string): Promise<AuthInfo | undefin
   // Anota el cliente y pregunta si la persona ya lo desconectó. Si Convex no
   // contesta, la excepción sube a `withServerFaults` y sale un 503: sin saber si
   // está revocado, un cliente cerrado no puede pasar por un Convex caído.
-  if (info.clientId) {
-    const { revocado } = await registrarCliente({ clerkId, clientId: info.clientId, scope, clientName: await clientNameOf(req) });
-    if (revocado) return revokedAuth(info);
-  }
+  // Sin `client_id` no hay a quién comprobar, así que tampoco pasa.
+  if (!info.clientId) throw new Error("Clerk verificó un token OAuth sin client_id");
+  const { revocado } = await registrarCliente({ clerkId, clientId: info.clientId, scope, clientName: await clientNameOf(req) });
+  if (revocado) return revokedAuth(info);
   // El cliente OAuth sale de lo que Clerk verificó, no de lo que el agente
   // diga: es lo que firma sus propuestas y sus filas del log.
   const convexToken = await mintConvexToken({ clerkId, scope, clientId: info.clientId });
