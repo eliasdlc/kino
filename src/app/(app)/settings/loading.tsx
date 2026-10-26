@@ -1,18 +1,17 @@
-import { Skeleton } from "@/components/ui/skeleton";
 import { PageWrapper } from "@/components/PageWrapper";
-import { PageHeaderSkeleton, RowsSkeleton } from "@/components/Skeletons";
+import { PageHeaderSkeleton } from "@/components/Skeletons";
+import { SettingsIndexSkeleton } from "@/features/settings/SettingsIndex";
 
-/** La forma de Ajustes: el título en la columna de texto, su voz, y grupos de filas de índice. */
+/**
+ * La forma de Ajustes mientras llega: el título con su voz y los tres grupos
+ * con sus filas del alto real. Sale del mismo componente que dibuja el
+ * índice, para que el esqueleto y la pantalla no puedan dejar de coincidir.
+ */
 export default function SettingsLoading() {
   return (
     <PageWrapper aria-busy>
       <PageHeaderSkeleton voz />
-      {[0, 1, 2].map((grupo) => (
-        <section key={grupo} className="space-y-1">
-          <Skeleton className="h-5 w-24" />
-          <RowsSkeleton rows={3} margin="numeral" />
-        </section>
-      ))}
+      <SettingsIndexSkeleton />
     </PageWrapper>
   );
 }

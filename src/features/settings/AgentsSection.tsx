@@ -4,7 +4,6 @@ import { Fragment } from 'react';
 import { ExternalLink } from 'lucide-react';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
-import { Card } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import {
   CLAUDE_ADD_CONNECTOR_URL,
@@ -14,7 +13,8 @@ import {
 } from '@/features/mcp/connect';
 
 /**
- * Cómo conectar a Kino el agente que ya usas, un cliente a la vez. Los
+ * Cómo conectar a Kino el agente que ya usas, un cliente a la vez, dentro de
+ * la hoja «Agentes» de Ajustes (el título y la explicación son de la hoja). Los
  * comandos y la dirección salen de `features/mcp/connect`, la misma fuente que
  * la documentación pública, para que las dos páginas no se contradigan.
  *
@@ -54,7 +54,7 @@ function Pasos({
   nota: string;
 }) {
   return (
-    <Card className="gap-3 px-4">
+    <div className="space-y-3">
       <h3 className="text-sm font-semibold">{titulo}</h3>
       <pre className="space-y-0.5 overflow-x-auto rounded-xl border bg-background px-3 py-2.5 font-jetbrains text-xs">
         {lineas.map((linea) => (
@@ -78,21 +78,13 @@ function Pasos({
         <Button onClick={() => copiar(lineas.join('\n'), aviso)}>{boton}</Button>
       </div>
       <p className="text-sm text-muted-foreground">{nota}</p>
-    </Card>
+    </div>
   );
 }
 
 export function AgentsSection() {
   return (
-    <div className="space-y-4">
-      <div>
-        <h2 className="text-lg font-semibold">Agentes</h2>
-        <p className="text-sm text-muted-foreground">
-          Conecta Claude, ChatGPT o Codex de OpenAI. Entras con tu cuenta de Kino y lo
-          autorizas; no hay claves que copiar.
-        </p>
-      </div>
-
+    <div>
       <Tabs defaultValue="claude-code" className="gap-3">
         {/* Cuatro nombres no caben en una fila a 393 px: dos por fila hasta `sm`.
             En la rejilla un nombre puede partirse en dos líneas con el texto
@@ -110,7 +102,7 @@ export function AgentsSection() {
         </TabsList>
 
         <TabsContent value="claude">
-          <Card className="gap-3 px-4">
+          <div className="space-y-3">
             <h3 className="text-sm font-semibold">Añade Kino desde Claude</h3>
             <p className="text-sm text-muted-foreground">
               Se abre Claude con el nombre y la dirección ya puestos. Revisa los datos y confirma.
@@ -126,7 +118,7 @@ export function AgentsSection() {
                 </a>
               </Button>
             </div>
-          </Card>
+          </div>
         </TabsContent>
 
         <TabsContent value="claude-code">

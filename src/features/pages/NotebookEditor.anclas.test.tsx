@@ -145,6 +145,8 @@ describe("borrar una nota anclada", () => {
     expect(editorDe().getHTML().match(/data-anchor-id/g)).toHaveLength(2);
 
     await userEvent.click(await screen.findByRole("button", { name: "Eliminar nota" }));
+    // Borrar una nota pide confirmación, como los demás borrados.
+    await userEvent.click(await screen.findByRole("button", { name: "Eliminar" }));
 
     await waitFor(() => expect(editorDe().getHTML()).not.toContain("data-anchor-id"));
     expect(convex.calls).toEqual([

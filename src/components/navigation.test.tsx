@@ -56,6 +56,8 @@ describe("la lista única de navegación", () => {
     expect(cabeceraDe("/systems/abc")).toMatchObject({ tipo: "anidada", padreHref: "/systems", padreLabel: "Sistemas" });
     expect(cabeceraDe("/systems/abc/pages/p1")).toMatchObject({ tipo: "anidada", padreHref: "/systems/abc", systemId: "abc" });
     expect(cabeceraDe("/systems/abc/folders/f1/lectura")).toMatchObject({ padreHref: "/systems/abc/folders/f1" });
+    // Lectura y tablero vuelven a la obra y la nombran, no a una «Carpeta» genérica.
+    expect(cabeceraDe("/systems/abc/folders/f1/tablero")).toMatchObject({ padreLabel: "Obra", carpetaId: "f1" });
     expect(cabeceraDe("/settings")).toMatchObject({ padreHref: "/dashboard", padreLabel: "Hoy" });
   });
 });

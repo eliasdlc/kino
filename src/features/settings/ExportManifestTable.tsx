@@ -15,23 +15,24 @@ export function ExportManifestTable() {
 
   return (
     <div className="space-y-2">
-      <p className="text-xs text-muted-foreground">
+      <p className="text-sm text-muted-foreground">
         {viajan} de {EXPORT_TABLES.length} tablas viajan en el ZIP. Las demás dicen por qué no.
       </p>
-      <div className="overflow-hidden rounded-lg border">
-        <table className="w-full text-left text-xs">
-          <thead className="bg-muted/50">
+      {/* Sin caja: la tabla es filas con hairline, como el resto de la hoja. */}
+      <div className="overflow-x-auto">
+        <table className="w-full text-left text-sm">
+          <thead className="border-b border-ln2 text-xs text-muted-foreground">
             <tr>
-              <th scope="col" className="p-2 font-semibold">Qué</th>
-              <th scope="col" className="p-2 font-semibold">Viaja</th>
-              <th scope="col" className="p-2 font-semibold">Formato</th>
+              <th scope="col" className="py-2 pr-3 font-semibold">Qué</th>
+              <th scope="col" className="py-2 pr-3 font-semibold">Viaja</th>
+              <th scope="col" className="py-2 font-semibold">Formato</th>
             </tr>
           </thead>
-          <tbody className="divide-y">
+          <tbody className="divide-y divide-border">
             {EXPORT_TABLES.map(({ tabla, etiqueta, formato, motivo }) => (
               <tr key={tabla}>
-                <th scope="row" className="p-2 text-left font-medium">{etiqueta}</th>
-                <td className="p-2">
+                <th scope="row" className="py-2 pr-3 text-left font-medium text-foreground">{etiqueta}</th>
+                <td className="py-2 pr-3">
                   {formato === null ? (
                     <span className="flex items-center gap-1 text-muted-foreground">
                       <Minus className="size-3.5 shrink-0" aria-hidden />
@@ -44,7 +45,7 @@ export function ExportManifestTable() {
                     </span>
                   )}
                 </td>
-                <td className="p-2 text-muted-foreground">{formato ?? motivo}</td>
+                <td className="py-2 text-muted-foreground">{formato ?? motivo}</td>
               </tr>
             ))}
           </tbody>

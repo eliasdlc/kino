@@ -36,7 +36,7 @@ export function CodexRail({
         </p>
         <Link
           href={`/systems/${systemId}/codex`}
-          className="flex items-center gap-1 text-xs text-muted-foreground transition-colors hover:text-foreground"
+          className="flex items-center gap-1 text-xs text-muted-foreground transition-[color] duration-(--dur-toque) ease-(--ease-pluma) hover:text-foreground"
           title="Biblioteca del universo"
         >
           <BookOpen className="size-3.5" />
@@ -61,7 +61,7 @@ export function CodexRail({
                   type="button"
                   onClick={() => setOpenEntityId(e.id)}
                   className={cn(
-                    "flex min-w-0 flex-1 items-center gap-2 rounded-md px-2 py-1.5 text-left text-sm transition-colors hover:bg-accent/50",
+                    "flex min-w-0 flex-1 items-center gap-2 rounded-md px-2 py-1.5 text-left text-sm transition-[color,background-color] duration-(--dur-toque) ease-(--ease-pluma) hover:bg-accent/50 focus-ring pointer-coarse:min-h-[2.85rem]",
                   )}
                 >
                   <Icon className="size-3.5 shrink-0 text-muted-foreground" />
@@ -77,7 +77,7 @@ export function CodexRail({
                     aria-pressed={pinned}
                     aria-label={pinned ? `Quitar ${e.name} de la mesa` : `Fijar ${e.name} en la mesa`}
                     className={cn(
-                      "ml-0.5 shrink-0 rounded p-1 transition-colors hover:text-foreground",
+                      "ml-0.5 shrink-0 rounded p-1 transition-[color,opacity] duration-(--dur-toque) ease-(--ease-pluma) hover:text-foreground",
                       pinned
                         ? "text-primary"
                         : "text-muted-foreground opacity-100 md:opacity-0 md:group-hover:opacity-100 md:focus:opacity-100",
