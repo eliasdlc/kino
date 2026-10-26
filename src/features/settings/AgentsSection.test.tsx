@@ -178,6 +178,17 @@ describe("AgentsSection", () => {
     expect(screen.getByText(esperando("Codex de OpenAI"))).toBeVisible();
   });
 
+  it("si los de un cliente están todos desconectados, su pestaña espera una llamada nueva, no la primera", async () => {
+    const user = userEvent.setup();
+    renderWithProviders(<AgentsSection />, { convex: conLista() });
+
+    await user.click(screen.getByRole("tab", { name: "ChatGPT" }));
+    expect(
+      screen.getByText("Esperando una llamada nueva de ChatGPT. Esta línea cambia sola cuando llegue."),
+    ).toBeVisible();
+    expect(screen.queryByText(esperando("ChatGPT"))).toBeNull();
+  });
+
   it("Conectados enseña el activo con Desconectar y el revocado sin botón", () => {
     renderWithProviders(<AgentsSection />, { convex: conLista() });
     const lista = within(screen.getByRole("region", { name: "Conectados" }));

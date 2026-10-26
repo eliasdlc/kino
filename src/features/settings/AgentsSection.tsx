@@ -57,17 +57,20 @@ const haceCuanto = (ms: number) => cuandoDe(new Date(ms).toISOString());
 
 /**
  * La línea de cada pestaña: espera mientras ningún cliente de ese tipo ha
- * llamado y, cuando llega la primera llamada, cambia sola a la última. Mientras
- * la lista carga no pinta nada, para que "Esperando" no parpadee.
+ * llamado y, cuando llega la primera llamada, cambia sola a la última. Si los
+ * de ese tipo están todos desconectados, espera una llamada nueva. Mientras la
+ * lista carga no pinta nada, para que "Esperando" no parpadee.
  */
 function Espera({
   cliente,
   activos,
+  revocados,
 }: {
   cliente: (typeof CLIENTES)[number];
   activos: Conectado[] | undefined;
+  revocados: Conectado[] | undefined;
 }) {
-  if (!activos) return null;
+  if (!activos || !revocados) return null;
   const ultimo = activos
     .filter((c) => c.kind === cliente.id)
     .reduce<Conectado | undefined>((a, c) => (a && a.lastSeenAt >= c.lastSeenAt ? a : c), undefined);
@@ -75,7 +78,7 @@ function Espera({
     <p className="text-sm text-muted-foreground" aria-live="polite">
       {ultimo
         ? `Última llamada de ${cliente.nombre} ${haceCuanto(ultimo.lastSeenAt)}. Lo ves en Conectados.`
-        : `Esperando la primera llamada de ${cliente.nombre}. Esta línea cambia sola cuando llegue.`}
+        : `Esperando ${revocados.some((c) => c.kind === cliente.id) ? 'una llamada nueva' : 'la primera llamada'} de ${cliente.nombre}. Esta línea cambia sola cuando llegue.`}
     </p>
   );
 }
@@ -197,7 +200,7 @@ export function AgentsSection() {
   const { data } = useAgentesConectados();
   const activos = data?.activos;
   const espera = (id: (typeof CLIENTES)[number]['id']) => (
-    <Espera cliente={CLIENTES.find((c) => c.id === id)!} activos={activos} />
+    <Espera cliente={CLIENTES.find((c) => c.id === id)!} activos={activos} revocados={data?.revocados} />
   );
   return (
     <div className="space-y-4">
