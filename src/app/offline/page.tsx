@@ -8,7 +8,7 @@ export const metadata = { title: "Sin conexión, Kino" };
 /**
  * Lo que el service worker sirve cuando una pantalla no carga sin red. Dice
  * qué pasó, qué sí funciona sin red (lo que compartes se guarda en el teléfono
- * y sube solo) y ofrece un reintento real, abajo, donde llega el pulgar.
+ * y sube solo; lo que haces en una pestaña abierta espera en ella) y ofrece un reintento real, abajo, donde llega el pulgar.
  */
 export default function OfflinePage() {
   return (
@@ -29,7 +29,7 @@ export default function OfflinePage() {
         </MarginRow>
         <MarginRow margin={<WifiOff className="mt-2 size-5" aria-hidden />}>
           <span className="block font-semibold">Seguir en lo que ya tenías abierto</span>
-          <span className="block text-sm text-muted-foreground">Lo que guardes se manda en cuanto haya conexión.</span>
+          <span className="block text-sm text-muted-foreground">Lo que guardes espera en esta pestaña y se manda al volver la red. Si la cierras antes, se pierde.</span>
         </MarginRow>
       </section>
 
