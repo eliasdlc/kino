@@ -82,7 +82,7 @@ interface InboxViewProps extends SystemViewProps {
  * Descartar una captura es la única acción que borra algo que puede no tener
  * copia (una foto, una nota de voz), así que tampoco es inmediata: la fila se
  * va, el aviso ofrece Deshacer 4 s y la mutación sale al terminar ese tiempo,
- * o al salir de Bandeja. Confirmar dice cuántas tareas creó y dónde, y si no
+ * o al salir de Bandeja; si el servidor no la descarta, la fila vuelve y un aviso lo dice. Confirmar dice cuántas tareas creó y dónde, y si no
  * salió lo dice en la hoja, que sigue abierta.
  *
  * Aquí vive el primero de los dos empujes del principio 7. Es una fila de
@@ -196,7 +196,17 @@ export function InboxView({ system, initialTasks, initialCaptures, tituloComo = 
       captura.id,
       setTimeout(() => {
         porDescartar.current.delete(captura.id);
-        descartar(captura.id);
+        descartar(captura.id, {
+          // La captura sigue en el servidor: vuelve a la lista y lo dice.
+          onError: () => {
+            setDescartando((prev) => {
+              const next = new Set(prev);
+              next.delete(captura.id);
+              return next;
+            });
+            toast('No se pudo descartar la captura. Sigue en la lista: inténtalo de nuevo.');
+          },
+        });
       }, DESHACER_MS),
     );
     toast('Captura descartada', {
