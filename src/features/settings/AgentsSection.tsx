@@ -60,12 +60,13 @@ function Pasos({
         {lineas.map((linea) => (
           // Cada argumento va sin cortes, así la línea solo se parte en los
           // espacios y nunca después del guion de "--transport". La dirección
-          // es la excepción: con el texto grande no cabe entera en una línea.
+          // es la excepción: se parte por dentro solo si no cabe ni sola en
+          // una línea, que pasa con el texto grande.
           <code key={linea} className="block whitespace-pre-wrap">
             {linea.split(' ').map((parte, i) => (
               <Fragment key={i}>
                 {i > 0 && ' '}
-                <span className={/^https?:\/\//.test(parte) ? 'break-all' : 'whitespace-nowrap'}>
+                <span className={/^https?:\/\//.test(parte) ? 'wrap-anywhere' : 'whitespace-nowrap'}>
                   {parte}
                 </span>
               </Fragment>
