@@ -57,7 +57,7 @@ function Pasos({
       <h3 className="text-sm font-semibold">{titulo}</h3>
       <pre className="space-y-0.5 overflow-x-auto rounded-xl border bg-background px-3 py-2.5 font-jetbrains text-xs">
         {lineas.map((linea) => (
-          <code key={linea} className="block break-all whitespace-pre-wrap">
+          <code key={linea} className="block whitespace-pre-wrap [overflow-wrap:anywhere]">
             {linea}
           </code>
         ))}
@@ -82,9 +82,10 @@ export function AgentsSection() {
       </div>
 
       <Tabs defaultValue="claude-code" className="gap-3">
-        <TabsList className="group-data-horizontal/tabs:h-auto flex-wrap">
+        {/* Cuatro nombres no caben en una fila a 393 px: dos por fila hasta `sm`. */}
+        <TabsList className="group-data-horizontal/tabs:h-auto grid w-full grid-cols-2 rounded-[1.375rem] sm:flex sm:w-fit sm:rounded-full">
           {CLIENTES.map((cliente) => (
-            <TabsTrigger key={cliente.id} value={cliente.id}>
+            <TabsTrigger key={cliente.id} value={cliente.id} className="h-[2.35rem]">
               {cliente.nombre}
             </TabsTrigger>
           ))}
