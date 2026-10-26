@@ -137,4 +137,29 @@ describe("ShareConfirm", () => {
     expect(onDiscard).toHaveBeenCalledOnce();
     expect(onConfirm).not.toHaveBeenCalled();
   });
+
+  it("lo que se desmarcó en una captura no pasa a la siguiente", async () => {
+    const ver = (item: CaptureItem | null, open: boolean) => (
+      <ShareConfirm captura={item} open={open} onOpenChange={() => {}} onConfirm={vi.fn()} onDiscard={vi.fn()} />
+    );
+    const { rerender } = renderMobile(ver(captura(), true));
+    await userEvent.click(screen.getByRole("button", { name: /Repasar el parcial/ }));
+    expect(screen.getByRole("button", { name: "Confirmar 2" })).toBeVisible();
+
+    // Bandeja cierra la hoja vaciando la captura, no por el diálogo.
+    rerender(ver(null, false));
+    rerender(ver(captura({ id: "cap-2" }), true));
+
+    expect(screen.getByRole("button", { name: "Confirmar 3" })).toBeVisible();
+  });
+
+  it("una captura caducada lo dice y no ofrece Confirmar, que el servidor rechaza", async () => {
+    const { onConfirm, onDiscard } = pintar(captura({ status: "expired", diasRestantes: 0 }));
+
+    expect(screen.getByText("Caducó sin confirmar")).toBeVisible();
+    expect(screen.queryByRole("button", { name: /Confirmar|No queda nada marcado/ })).toBeNull();
+    await userEvent.click(screen.getByRole("button", { name: "Descartarla" }));
+    expect(onDiscard).toHaveBeenCalledOnce();
+    expect(onConfirm).not.toHaveBeenCalled();
+  });
 });
