@@ -7,7 +7,7 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { renderMobile } from "@/shared/testing/render";
+import { renderMobile, renderWithProviders } from "@/shared/testing/render";
 import { CompileMenu } from "./CompileMenu";
 import type { Manuscript } from "./writing.manuscript";
 
@@ -51,5 +51,20 @@ describe("CompileMenu en el teléfono", () => {
     await userEvent.click(markdown);
     await waitFor(() => expect(downloadBlob).toHaveBeenCalledWith(expect.any(Blob), "la-marea-baja.md"));
     await waitFor(() => expect(screen.getByRole("dialog", { hidden: true })).toHaveAttribute("data-state", "closed"));
+  });
+});
+
+describe("CompileMenu en escritorio", () => {
+  it("«PDF, imprimiendo la lectura» imprime ahí mismo, con el menú ya cerrado", async () => {
+    let menuAbierto: boolean | null = null;
+    const onPrint = vi.fn(() => {
+      menuAbierto = screen.queryByRole("menu") !== null;
+    });
+    renderWithProviders(<CompileMenu folderId="obra-1" systemId="sys-1" manuscript={obra} onPrint={onPrint} />);
+    await userEvent.click(screen.getByRole("button", { name: "Compilar" }));
+    await userEvent.click(await screen.findByRole("menuitem", { name: /PDF, imprimiendo la lectura/ }));
+
+    await waitFor(() => expect(onPrint).toHaveBeenCalledOnce());
+    expect(menuAbierto).toBe(false);
   });
 });
