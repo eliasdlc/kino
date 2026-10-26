@@ -11,6 +11,7 @@ import { TaskKanbanView } from "./TaskKanbanView";
 import { TaskPlanningView } from "./TaskPlanningView";
 import { TaskArchiveView } from "./TaskArchiveView";
 import { type SystemTabId, SYSTEM_TAB_LABELS, SYSTEM_TAB_SHORT_LABELS } from "@/shared/lib/system-types";
+import { conVisita } from "./useTachar";
 
 interface TasksListProps {
   systemId: string;
@@ -43,7 +44,7 @@ const TAB_META: Record<SystemTabId, { View: ComponentType<TabViewProps> }> = {
 
 const DEFAULT_TABS: SystemTabId[] = ["backlog", "planning", "action", "archive"];
 
-export function TasksList({
+export const TasksList = conVisita(function TasksList({
   systemId,
   initialData,
   folderId,
@@ -98,4 +99,4 @@ export function TasksList({
       />
     </>
   );
-}
+});
