@@ -3,7 +3,7 @@ import { auth } from "@clerk/nextjs/server";
 import type { AuthInfo } from "@modelcontextprotocol/sdk/server/auth/types.js";
 import { createMcpHandler, withMcpAuth } from "mcp-handler";
 import { clerkFault, faultResponse, mintConvexToken, scopeFor, withServerFaults } from "@/features/mcp/auth";
-import { registerAllTools } from "@/features/mcp/tools";
+import { registerAllTools, SERVER_INSTRUCTIONS } from "@/features/mcp/tools";
 import { convexCall } from "@/features/mcp/tools/define";
 import { SITE_URL } from "@/shared/lib/site-url";
 
@@ -28,7 +28,7 @@ const mcp = (req: Request) => {
   if (typeof token !== "string") return new Response("Unauthorized", { status: 401 });
   return createMcpHandler(
     (server) => registerAllTools(server, convexCall(token)),
-    { serverInfo: { name: "kino", version: SERVER_VERSION } },
+    { serverInfo: { name: "kino", version: SERVER_VERSION }, instructions: SERVER_INSTRUCTIONS },
     { basePath: "/api", maxDuration, disableSse: true },
   )(req);
 };
