@@ -237,6 +237,23 @@ describe('cada persona, sus reglas', () => {
     expect(res.status).toBe('needs_system');
   });
 
+  it('si Ana y Beto tienen regla para la misma carpeta, a cada uno le decide la suya', async () => {
+    const t = convexTest(schema, modules);
+    const deAna = await cuenta(t, ana, ['Universidad']);
+    const deBeto = await cuenta(t, beto, ['Universidad']);
+    // Beto guarda primero: una búsqueda que no filtre por persona encuentra su regla antes que la de Ana.
+    await deBeto.agente.mutation(api.workdirRules.save, { systemId: deBeto.ids.Universidad!, workingDirectory: '/home/compartida/Universidad' });
+    await deAna.agente.mutation(api.workdirRules.save, { systemId: deAna.ids.Universidad!, workingDirectory: '/home/compartida/Universidad' });
+
+    const deLaTareaDe = async (agente: typeof deAna.agente) => {
+      const res = await agente.mutation(api.tasks.createFromAgent, { title: 'x', workingDirectory: '/home/compartida/Universidad' });
+      return res.status === 'created' ? { routedBy: res.routedBy, systemId: res.task.systemId } : res.status;
+    };
+
+    expect(await deLaTareaDe(deAna.agente)).toEqual({ routedBy: 'rule', systemId: deAna.ids.Universidad });
+    expect(await deLaTareaDe(deBeto.agente)).toEqual({ routedBy: 'rule', systemId: deBeto.ids.Universidad });
+  });
+
   it('nadie guarda una regla hacia el sistema de otro', async () => {
     const t = convexTest(schema, modules);
     const deAna = await cuenta(t, ana, []);
