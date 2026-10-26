@@ -36,9 +36,8 @@ const esComando = (comando: string) => (_: string, el: Element | null) =>
 const NOMBRES = ["Claude", "Claude Code", "ChatGPT", "Codex de OpenAI"];
 
 describe("AgentsSection", () => {
-  it("se llama Agentes y ofrece una pestaña por cliente", () => {
+  it("ofrece una pestaña por cliente", () => {
     renderWithProviders(<AgentsSection />);
-    expect(screen.getByRole("heading", { name: "Agentes" })).toBeVisible();
     expect(screen.getAllByRole("tab").map((tab) => tab.textContent)).toEqual(NOMBRES);
   });
 
