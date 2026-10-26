@@ -1,5 +1,6 @@
 'use client';
 
+import { Fragment } from 'react';
 import { ExternalLink } from 'lucide-react';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
@@ -57,8 +58,15 @@ function Pasos({
       <h3 className="text-sm font-semibold">{titulo}</h3>
       <pre className="space-y-0.5 overflow-x-auto rounded-xl border bg-background px-3 py-2.5 font-jetbrains text-xs">
         {lineas.map((linea) => (
-          <code key={linea} className="block whitespace-pre-wrap [overflow-wrap:anywhere]">
-            {linea}
+          // Cada argumento va sin cortes, así la línea solo se parte en los
+          // espacios y nunca después del guion de "--transport".
+          <code key={linea} className="block whitespace-pre-wrap">
+            {linea.split(' ').map((parte, i) => (
+              <Fragment key={i}>
+                {i > 0 && ' '}
+                <span className="whitespace-nowrap">{parte}</span>
+              </Fragment>
+            ))}
           </code>
         ))}
       </pre>
