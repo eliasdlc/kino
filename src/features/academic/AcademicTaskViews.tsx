@@ -10,6 +10,7 @@ import { TaskPlanningView } from "@/features/tasks/TaskPlanningView";
 import { TaskArchiveView } from "@/features/tasks/TaskArchiveView";
 import type { TaskTransport } from "@/features/tasks/tasks.types";
 import { cn } from "@/lib/utils";
+import { conVisita } from "@/features/tasks/useTachar";
 
 const VIEWS = ["esta-semana", "calendar", "planning", "archive"] as const;
 type View = (typeof VIEWS)[number];
@@ -66,7 +67,7 @@ interface AcademicTaskViewsProps {
  * El bloque de entregas y exámenes, igual en el sistema y dentro de una clase:
  * la misma navegación, las mismas vistas y el mismo sitio para crear.
  */
-export function AcademicTaskViews({ systemId, initialTasks, folderId }: AcademicTaskViewsProps) {
+export const AcademicTaskViews = conVisita(function AcademicTaskViews({ systemId, initialTasks, folderId }: AcademicTaskViewsProps) {
   const [view, setView] = useUrlView(VIEWS, "esta-semana");
   const [editTask, setEditTask] = useState<TaskTransport | null>(null);
   const [highlight, setHighlight] = useState<{ id: string; nonce: number } | null>(null);
@@ -118,4 +119,4 @@ export function AcademicTaskViews({ systemId, initialTasks, folderId }: Academic
       />
     </>
   );
-}
+});
