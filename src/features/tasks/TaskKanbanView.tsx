@@ -194,7 +194,6 @@ export function KanbanSecciones({ columns, tasksOf, groupBy, struck, focusedTask
     setMoviendoEstado(task);
     onSheetChange?.(task !== null);
   };
-  const move = onMove;
 
   return (
     <>
@@ -242,7 +241,7 @@ export function KanbanSecciones({ columns, tasksOf, groupBy, struck, focusedTask
                   aria-disabled={actual || undefined}
                   onClick={() => {
                     if (!moviendo || actual) return;
-                    move(moviendo, column.id);
+                    onMove(moviendo, column.id);
                     setMoviendo(null);
                   }}
                   className={actual ? "min-h-[3.2rem] text-base font-semibold opacity-50" : "min-h-[3.2rem] text-base font-semibold text-foreground"}
