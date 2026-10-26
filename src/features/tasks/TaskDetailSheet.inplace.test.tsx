@@ -7,7 +7,7 @@
 import { describe, expect, it, vi } from "vitest";
 import { act, fireEvent, screen } from "@testing-library/react";
 import { api } from "@convex/_generated/api";
-import { makeTestConvexClient, renderWithProviders, stubQuery } from "@/shared/testing/render";
+import { makeTestConvexClient, renderWithProviders, stubMutation, stubQuery } from "@/shared/testing/render";
 import type { TaskTransport } from "./tasks.types";
 import { TasksList } from "./TasksList";
 
@@ -28,14 +28,14 @@ const tarea = (id: string, title: string, over: Record<string, unknown> = {}) =>
 const titulosDe = (r: HTMLElement) => [...r.querySelectorAll("[data-slot=task-row-title]")].map((n) => n.textContent);
 
 describe("completar desde la hoja de detalle", () => {
-  it("D2: la fila queda tachada en su sitio y el Deshacer devuelve su estado una sola vez", () => {
+  it("D2: la fila queda tachada en su sitio y el Deshacer devuelve su estado una sola vez", async () => {
     const a = tarea("a", "Leer el capítulo dos");
     const b = tarea("b", "Pedir la beca");
     const convex = makeTestConvexClient([
       stubQuery(api.tasks.bySystem, [a, b]),
       stubQuery(api.folders.bySystem, []),
       stubQuery(api.systems.list, []),
-    ]);
+    ], [stubMutation(api.tasks.toggle, { status: "today", completedBy: null, completedVia: null, observedMinutes: 0 })]);
     const { container } = renderWithProviders(<TasksList systemId="s1" initialData={[a, b]} visibleTabs={["backlog"]} />, { convex });
 
     fireEvent.click(screen.getByRole("button", { name: "Abrir Leer el capítulo dos" }));
@@ -49,8 +49,12 @@ describe("completar desde la hoja de detalle", () => {
     expect(aviso.action.label).toBe("Deshacer");
     act(() => aviso.action.onClick());
     act(() => aviso.action.onClick());
-    expect(convex.calls.filter((c) => c.name === "tasks:update")).toEqual([
-      expect.objectContaining({ args: { id: "a", status: "backlog" } }),
+    // Completar y reabrir son dos `toggle`; el estado guardado se escribe después, una vez.
+    await vi.waitFor(() => expect(convex.calls.filter((c) => c.name === "tasks:update")).toHaveLength(1));
+    expect(convex.calls.map((c) => [c.name, c.args])).toEqual([
+      ["tasks:toggle", { id: "a" }],
+      ["tasks:toggle", { id: "a" }],
+      ["tasks:update", { id: "a", status: "backlog" }],
     ]);
   });
 });
