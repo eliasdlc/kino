@@ -57,7 +57,7 @@ export function MobileSection() {
               <BottomNav rutaActual="/systems/abc" />
             </Telefono>
           </Specimen>
-          <Specimen label="En 320 px, el mínimo" hint="las columnas reparten el ancho; el recorte de margen por debajo de 360 px lo decide el viewport, no este marco">
+          <Specimen label="En 320 px, el mínimo" hint="el marco enseña el pie de 360 px en adelante, con columnas iguales; el teléfono de menos de 360 px lo decide el viewport, no este marco, y allí las palabras miden su trazo y la fila se desplaza si no caben">
             <Telefono className="w-[320px]!">
               <Relleno />
               <BottomNav rutaActual="/tasks" />
