@@ -74,4 +74,31 @@ describe("SystemTreeItem", () => {
     expect(screen.getByRole("link", { name: "La casa de las cotas" })).toHaveAttribute("href", `/systems/${NOVELA.id}`);
     expect(screen.queryByRole("button", { name: /Expandir/ })).not.toBeInTheDocument();
   });
+
+  it("con puntero táctil, la fila, sus botones y sus carpetas miden al menos 2,85 rem", async () => {
+    const user = userEvent.setup();
+    renderWithProviders(
+      <TooltipProvider>
+        <SystemTreeItem system={NOVELA} isActive={false} />
+      </TooltipProvider>,
+      { convex: conObras() },
+    );
+    await user.click(screen.getByRole("button", { name: "Expandir La casa de las cotas" }));
+
+    const fila = screen.getByRole("link", { name: "La casa de las cotas" }).parentElement;
+    expect(fila).toHaveClass("pointer-coarse:min-h-[2.85rem]");
+    expect(screen.getByRole("button", { name: "Contraer La casa de las cotas" })).toHaveClass("pointer-coarse:size-[2.85rem]");
+    expect(screen.getByRole("button", { name: "Opciones de La casa de las cotas" })).toHaveClass("pointer-coarse:size-[2.85rem]");
+    expect(screen.getByRole("link", { name: "Primera parte" })).toHaveClass("pointer-coarse:min-h-[2.85rem]");
+  });
+
+  it("plegado, el enlace también mide 2,85 rem con puntero táctil", () => {
+    renderWithProviders(
+      <TooltipProvider>
+        <SystemTreeItem system={NOVELA} isActive={false} collapsed />
+      </TooltipProvider>,
+      { convex: conObras() },
+    );
+    expect(screen.getByRole("link", { name: "La casa de las cotas" })).toHaveClass("pointer-coarse:min-h-[2.85rem]");
+  });
 });
