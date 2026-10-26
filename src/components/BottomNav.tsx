@@ -23,10 +23,16 @@ import { DESTINOS_MOVIL, destinoActivo } from "./navigation";
  * columna del orbe mide lo que el orbe. El rem del producto es 17 px
  * (`globals.css`), así que a 320 px el orbe ocupa 48,5 px y «Sistemas»
  * (54,5 px) no cabe en una quinta parte del resto. Debajo de 360 px la fila
- * es flex: cada palabra mide su trazo con un mínimo de 2.85rem, el sobrante
- * va entre ellas (`justify-between`), el trazo se aprieta 0,025 em sin bajar
- * de `text-xs`, el orbe conserva 8,5 px a su derecha y 4,25 px lo separan de
- * Buscar.
+ * es flex: cada palabra mide su trazo con un mínimo de 2.85rem y no se
+ * encoge (`shrink-0`), el sobrante va entre ellas (`justify-between`), el
+ * trazo se aprieta 0,025 em (la `em` del contenedor de 17 px, no la del
+ * `text-xs`: 0,425 px) sin bajar de `text-xs`, el orbe conserva 8,5 px a su
+ * derecha y 4,25 px lo separan de Buscar. El rem también sigue el tamaño de
+ * letra del sistema: con 130 % o 150 % las cinco palabras y el orbe ya no
+ * caben en 320 px, y entonces la fila de palabras se desplaza en horizontal
+ * (sin barra visible) dentro de su caja en vez de montarse sobre el orbe. Al
+ * 100 % nada se desplaza. El recorte de ese desplazamiento se llevaría el
+ * anillo de foco, por eso debajo de 360 px el anillo va por dentro.
  *
  * Toca el borde de abajo a propósito y suma el área segura del dispositivo:
  * en un teléfono con barra de gestos el pie empieza encima de ella.
@@ -62,7 +68,7 @@ export function BottomNav({ rutaActual }: { rutaActual?: string } = {}) {
       className="fixed inset-x-0 bottom-0 z-(--z-overlay) grid grid-cols-[minmax(0,1fr)_2.85rem] items-center gap-1 border-t border-border bg-background pl-0 pr-2 pb-[env(safe-area-inset-bottom)] min-[360px]:gap-1.5 min-[360px]:px-2 md:hidden"
       style={{ minHeight: "calc(var(--kino-bottom-nav) + env(safe-area-inset-bottom))" }}
     >
-      <div className="flex h-[3.3rem] justify-between tracking-tight min-[360px]:grid min-[360px]:grid-cols-[repeat(5,minmax(0,1fr))] min-[360px]:tracking-normal">
+      <div className="flex h-[3.3rem] min-w-0 justify-between overflow-x-auto overscroll-x-contain tracking-tight [scrollbar-width:none] [&::-webkit-scrollbar]:hidden min-[360px]:grid min-[360px]:grid-cols-[repeat(5,minmax(0,1fr))] min-[360px]:overflow-visible min-[360px]:tracking-normal">
         {DESTINOS_MOVIL.map((destino) => (
           <Palabra
             key={destino.href}
@@ -91,7 +97,7 @@ export function BottomNav({ rutaActual }: { rutaActual?: string } = {}) {
 /** Una posición del pie, sea destino o Buscar: una palabra de 2.85rem o más de alto. */
 function palabraClass(active: boolean) {
   return cn(
-    "relative flex h-full min-h-[2.85rem] min-w-[2.85rem] items-center justify-center rounded-md min-[360px]:min-w-0 text-xs font-semibold transition-colors duration-(--dur-toque) ease-(--ease-pluma) focus-ring",
+    "relative flex h-full min-h-[2.85rem] min-w-[2.85rem] shrink-0 items-center justify-center rounded-md max-[359px]:focus-visible:outline-offset-[-2px] min-[360px]:min-w-0 text-xs font-semibold transition-colors duration-(--dur-toque) ease-(--ease-pluma) focus-ring",
     active ? "text-primary" : "text-muted-foreground hover:text-foreground",
   );
 }
