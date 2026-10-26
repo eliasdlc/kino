@@ -19,7 +19,9 @@ import { avisoDeConfirmadas, DESHACER_MS, InboxView, ITEMS_VISIBLES } from './In
 
 vi.mock('next/navigation', async () => (await import('@/shared/testing/navigation')).navigationMock());
 
-const toastSpy = vi.hoisted(() => Object.assign(vi.fn<(...args: unknown[]) => string>(() => 'aviso'), { dismiss: vi.fn() }));
+const toastSpy = vi.hoisted(() =>
+  Object.assign(vi.fn<(...args: unknown[]) => string>(() => 'aviso'), { dismiss: vi.fn(), error: vi.fn<(...args: unknown[]) => string>() }),
+);
 vi.mock('sonner', () => ({ toast: toastSpy }));
 
 function captura(campos: Partial<CaptureItem> = {}): CaptureItem {
@@ -183,6 +185,19 @@ describe('InboxView, las capturas', () => {
     expect(convex.calls.filter((c) => c.name === 'captures:descartar')).toHaveLength(0);
   });
 
+  it('descartar desde la hoja la cierra', async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    renderMobile(<InboxView system={BANDEJA} initialTasks={[]} initialCaptures={[captura({ proposedItems: null })]} />);
+    await userEvent.click(screen.getByRole('button', { name: /https:\/\/react\.dev\/learn/ }));
+    const hoja = await screen.findByRole('dialog');
+    expect(hoja).toHaveAttribute('data-state', 'open');
+
+    await userEvent.click(within(hoja).getByRole('button', { name: 'Descartarla' }));
+
+    // Se queda en el árbol mientras se cierra: lo que dice si sigue abierta es su estado.
+    expect(document.querySelector('[role="dialog"]')?.getAttribute('data-state') ?? 'closed').toBe('closed');
+  });
+
   it('sin deshacer, la captura se descarta al pasar los 4 s', async () => {
     vi.useFakeTimers({ shouldAdvanceTime: true });
     const { convex } = renderMobile(
@@ -203,6 +218,7 @@ describe('InboxView, las capturas', () => {
   it('si el servidor no la descarta, la fila vuelve y un aviso lo dice', async () => {
     vi.useFakeTimers({ shouldAdvanceTime: true });
     toastSpy.mockClear();
+    toastSpy.error.mockClear();
     const convex = makeTestConvexClient([], [stubMutationError(api.captures.descartar, new Error('sin red'))]);
     renderMobile(<InboxView system={BANDEJA} initialTasks={[]} initialCaptures={[captura({ proposedItems: null })]} />, { convex });
 
@@ -213,7 +229,9 @@ describe('InboxView, las capturas', () => {
     act(() => vi.advanceTimersByTime(DESHACER_MS + 100));
 
     await vi.waitFor(() => expect(screen.getByText('https://react.dev/learn', { selector: 'li *' })).toBeInTheDocument());
-    expect(toastSpy.mock.calls.at(-1)?.[0]).toMatch(/No se pudo descartar/);
+    // Un fallo va por `toast.error`, como los demás de la app, no por el aviso neutro.
+    expect(toastSpy.error).toHaveBeenCalledWith(expect.stringMatching(/No se pudo descartar/));
+    expect(toastSpy).not.toHaveBeenCalledWith(expect.stringMatching(/No se pudo descartar/));
   });
 
   it('confirmar dice cuántas tareas creó y dónde', async () => {
