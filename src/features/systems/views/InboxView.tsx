@@ -204,7 +204,7 @@ export function InboxView({ system, initialTasks, initialCaptures, tituloComo = 
               next.delete(captura.id);
               return next;
             });
-            toast('No se pudo descartar la captura. Sigue en la lista: inténtalo de nuevo.');
+            toast.error('No se pudo descartar la captura. Sigue en la lista: inténtalo de nuevo.');
           },
         });
       }, DESHACER_MS),
