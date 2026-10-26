@@ -7,9 +7,9 @@
  * se lee con su palabra.
  */
 import { describe, expect, it, vi } from "vitest";
-import { screen } from "@testing-library/react";
+import { fireEvent, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { renderWithProviders } from "@/shared/testing/render";
+import { renderMobile, renderWithProviders } from "@/shared/testing/render";
 import { ReadingView } from "./ReadingView";
 import type { Manuscript } from "./writing.manuscript";
 
@@ -61,5 +61,25 @@ describe("ReadingView", () => {
     await userEvent.click(papel);
     expect(papel).toHaveAttribute("aria-pressed", "true");
     expect(screen.getByRole("button", { name: /^Imprimir/ })).toHaveTextContent("Imprimir");
+  });
+});
+
+describe("ReadingView, PDF desde Compilar en el teléfono", () => {
+  it("cada toque imprime, también tras cancelar, y la hoja ya está cerrada al imprimir", async () => {
+    const estadoAlImprimir: Array<string | null> = [];
+    const print = vi.spyOn(window, "print").mockImplementation(() => {
+      estadoAlImprimir.push(document.querySelector("[role=dialog]")?.getAttribute("data-state") ?? null);
+    });
+    renderMobile(<ReadingView manuscript={obra} autoPrint={false} />);
+
+    for (const vez of [1, 2]) {
+      // Cerrada, la hoja sigue montada hasta que acaba su animación, que jsdom no corre: sin
+      // ella el cuerpo sigue sin eventos de puntero y el toque va directo.
+      fireEvent.click(screen.getByRole("button", { name: "Compilar", hidden: true }));
+      fireEvent.click(await screen.findByRole("button", { name: /PDF, imprimiendo la lectura/ }));
+      await waitFor(() => expect(print).toHaveBeenCalledTimes(vez));
+    }
+    expect(estadoAlImprimir.every((e) => e !== "open")).toBe(true);
+    print.mockRestore();
   });
 });
