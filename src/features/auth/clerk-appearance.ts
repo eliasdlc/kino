@@ -32,6 +32,22 @@ const tocables = {
 } as const;
 
 /**
+ * El enlace del pie ("Crea una", "Entra") es navegación entre dos puertas, no
+ * la acción primaria: va en tinta y subrayado, como "Cómo conectar tu agente".
+ * El ámbar queda sólo para Continuar. El subrayado se aclara al pasar encima en
+ * vez de desaparecer, porque Clerk lo quita en `:hover`.
+ */
+const enlaceDelPie = {
+  ...tocables.footerActionLink,
+  fontWeight: 600,
+  color: "var(--ink)",
+  textDecorationLine: "underline",
+  textDecorationColor: "var(--ln2)",
+  textUnderlineOffset: "0.15em",
+  "&:hover": { color: "var(--ink)", textDecorationLine: "underline", textDecorationColor: "var(--ink)" },
+} as const;
+
+/**
  * Las pantallas de Clerk visten la identidad de Kino: el tema de shadcn lee
  * los tokens (`--background`, `--primary`, `--radius`) y las variables de aquí
  * atan lo que ese tema no toma solo, con los roles y las caras del producto.
@@ -67,7 +83,7 @@ export const clerkAppearance: Appearance = {
     formFieldInput: { ...tocables.formFieldInput, borderRadius: "9999px" },
     formFieldLabel: "font-semibold text-foreground",
     footerAction: { color: "var(--mute)", alignItems: "center" },
-    footerActionLink: { ...tocables.footerActionLink, fontWeight: 600, color: "var(--ac)" },
+    footerActionLink: enlaceDelPie,
     socialButtonsBlockButton: { ...tocables.socialButtonsBlockButton, borderRadius: "9999px" },
     // La cuenta de Ajustes: "Añadir correo", "Cambiar contraseña" y el menú de
     // tres puntos de cada fila eran texto atenuado de 32 px.
@@ -98,7 +114,7 @@ export const clerkPuertaAppearance: Appearance = {
     footerAction: { padding: "0.75rem 0", alignItems: "center" },
     formButtonPrimary: { ...tocables.formButtonPrimary, fontWeight: 600, borderRadius: "9999px" },
     formFieldInput: { ...tocables.formFieldInput, borderRadius: "9999px" },
-    footerActionLink: { ...tocables.footerActionLink, fontWeight: 600, color: "var(--ac)" },
+    footerActionLink: enlaceDelPie,
     // Clerk dibuja el borde de los botones sociales con una sombra en
     // `[data-variant="outline"]`, que gana a un `boxShadow` suelto: aquí el
     // anillo pasa a un hairline de verdad y el texto, de tinta al 62%, a tinta.

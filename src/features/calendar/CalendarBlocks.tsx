@@ -1,7 +1,7 @@
 "use client";
 
 import { useDroppable, useDraggable } from "@dnd-kit/core";
-import { format, isToday } from "date-fns";
+import { format } from "date-fns";
 import { GripVertical } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { TaskTransport } from "@/features/tasks/tasks.types";
@@ -47,7 +47,6 @@ export function AllDayCell({
       className={cn(
         "min-h-[2rem] space-y-0.5 border-r border-border p-1 transition-colors duration-(--dur-toque) ease-(--ease-pluma) last:border-r-0",
         isOver && "bg-primary/10",
-        isToday(day) && "bg-primary/5",
       )}
     >
       {tasks.map((t) => (

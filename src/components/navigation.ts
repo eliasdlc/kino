@@ -53,6 +53,9 @@ export type Cabecera =
   | { tipo: "anidada"; padreHref: string; padreLabel: string | null; systemId?: string };
 
 export function cabeceraDe(pathname: string): Cabecera {
+  // El calendario no está en el pie: en el teléfono se llega desde la fecha de
+  // Hoy, así que su cabecera vuelve allí en vez de fingir ser una raíz.
+  if (pathname === "/calendar") return { tipo: "anidada", padreHref: "/dashboard", padreLabel: "Hoy" };
   if (pathname === "/settings" || pathname.startsWith("/settings/")) {
     return { tipo: "anidada", padreHref: "/dashboard", padreLabel: "Hoy" };
   }

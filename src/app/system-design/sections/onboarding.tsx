@@ -20,6 +20,7 @@ import { PastillaSinConexion } from "@/features/offline/OfflineIndicator";
 import { Reintentar } from "@/features/offline/Reintentar";
 import { CompartirFallo, CompartirScreen } from "@/app/(share)/compartir/CompartirScreen";
 import { AudioWave } from "@/features/captures/AudioWave";
+import { muestrasDeNota, wavDe } from "../nota-de-voz";
 import { SearchEmptyState } from "@/features/search/SearchEmptyState";
 import { CalendarioEscritorio } from "@/features/calendar/CalendarioEscritorio";
 import type { TaskTransport } from "@/features/tasks/tasks.types";
@@ -44,6 +45,30 @@ import { SYSTEM_TYPE_CONFIG } from "@/shared/lib/system-types";
 
 
 const noop = () => {};
+
+/** Lo que dura la nota de muestra del specimen de AudioWave. */
+const SEGUNDOS_DE_LA_NOTA = 4;
+
+let urlDeLaNota: string | null = null;
+
+/**
+ * AudioWave con un audio que existe: la nota se genera en el navegador y se
+ * sirve como `blob:`, que es como llega una nota compartida. Se crea una vez
+ * por pestaña (pesa 64 KB) y sólo en el cliente; hasta entonces se reserva el
+ * alto del control para que la sección no salte.
+ */
+function NotaDeMuestra() {
+  return (
+    <div className="min-h-[2.85rem]">
+      <ClientOnly>
+        <AudioWave
+          src={(urlDeLaNota ??= URL.createObjectURL(wavDe(muestrasDeNota(SEGUNDOS_DE_LA_NOTA))))}
+          segundos={SEGUNDOS_DE_LA_NOTA}
+        />
+      </ClientOnly>
+    </div>
+  );
+}
 
 function aLas(hora: number, minutos = 0): string {
   const d = new Date();
@@ -143,6 +168,26 @@ function ConfirmarSpecimen() {
         Abrir la captura con propuestas
       </Button>
       <ShareConfirm captura={CAPTURA_CON_ITEMS} open={open} onOpenChange={setOpen} onConfirm={() => setOpen(false)} onDiscard={() => setOpen(false)} />
+    </>
+  );
+}
+
+/** Confirmar que no salió: la hoja sigue abierta con sus marcas y lo dice. */
+function ConfirmarFalloSpecimen() {
+  const [open, setOpen] = useState(false);
+  return (
+    <>
+      <Button variant="secondary" onClick={() => setOpen(true)}>
+        Abrir una confirmación que falló
+      </Button>
+      <ShareConfirm
+        captura={CAPTURA_CON_ITEMS}
+        open={open}
+        onOpenChange={setOpen}
+        onConfirm={noop}
+        onDiscard={() => setOpen(false)}
+        fallo
+      />
     </>
   );
 }
@@ -274,12 +319,15 @@ export function OnboardingSection() {
           <Specimen label="ShareConfirm" hint="marcas en tinta, títulos enteros, la lista se desplaza y Confirmar se queda">
             <ConfirmarSpecimen />
           </Specimen>
+          <Specimen label="ShareConfirm, no salió" hint="la hoja no se cierra: dice que no se creó nada y deja reintentar">
+            <ConfirmarFalloSpecimen />
+          </Specimen>
           <Specimen label="ShareConfirm sin leer" hint="cómo conectar el agente, Dejarla aquí, Descartarla">
             <SinLeerSpecimen />
           </Specimen>
-          <Specimen label="AudioWave" hint="reproduce de verdad; por encima de 12 MB no lee el cuerpo ni dibuja onda" className="items-stretch">
+          <Specimen label="AudioWave" hint="una nota generada aquí: suena, y la onda es la del audio y avanza al reproducir; por encima de 12 MB no lee el cuerpo ni dibuja onda" className="items-stretch">
             <div className="w-full max-w-[24rem]">
-              <AudioWave src="/sounds/no-existe.webm" segundos={47} />
+              <NotaDeMuestra />
             </div>
           </Specimen>
         </SpecimenGrid>

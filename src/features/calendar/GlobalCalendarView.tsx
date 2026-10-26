@@ -16,7 +16,7 @@ import { ProgramarSheet, type Programacion } from "./ProgramarSheet";
 import type { DatosDelCalendario } from "./CalendarioEscritorio";
 import { dayKey, groupTasksByDay, occupiedHoursForDay, suggestHour } from "./calendar.layout";
 
-/** Lo que dura el Deshacer de una tarea completada desde el calendario, el de Hoy y Bandeja. */
+/** Lo que dura el Deshacer de una tarea completada o movida desde el calendario, el de Hoy y Bandeja. */
 export const DESHACER_MS = 4000;
 
 /**
@@ -116,17 +116,23 @@ export function GlobalCalendarView() {
   /**
    * La misma escritura que soltar en un hueco (con hora) o en "Todo el día"
    * (sin ella), y una línea que dice dónde quedó: con otro día elegido, o con
-   * "Con hora" fuera de la pantalla, la hoja se cerraba sin decir nada.
+   * "Con hora" fuera de la pantalla, la hoja se cerraba sin decir nada. Como
+   * completar, se deshace 4 s: mover a "Todo el día" borra la hora, y sin
+   * Deshacer la de antes no se veía en ningún sitio.
    */
   const programar = useCallback(
     (task: TaskTransport, { hour }: Programacion) => {
       const dia = dayKey(selectedDay);
+      const antes = { startDate: task.startDate ?? null, dueDate: task.dueDate ?? null };
       if (hour === null) {
         updateTask({ taskId: task.id, data: { startDate: null, dueDate: dayToLocalISO(dia) } });
       } else {
         updateTask({ taskId: task.id, data: { startDate: dayToLocalISO(dia, `${hour.toString().padStart(2, "0")}:00`) } });
       }
-      toast(`${task.title}, ${cuandoQueda(selectedDay, hour)}`);
+      toast(`${task.title}, ${cuandoQueda(selectedDay, hour)}`, {
+        duration: DESHACER_MS,
+        action: { label: "Deshacer", onClick: () => updateTask({ taskId: task.id, data: antes }) },
+      });
     },
     [selectedDay, updateTask],
   );

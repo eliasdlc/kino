@@ -15,7 +15,7 @@ import { useTasks, useToggleTask } from '@/features/tasks/tasks.hooks';
 import type { TaskTransport } from '@/features/tasks/tasks.types';
 import { GroupNudge } from '@/features/systems/GroupNudge';
 import { CaptureRow } from '@/features/captures/CaptureRow';
-import { ShareConfirm, type DestinoConfirmado } from '@/features/captures/ShareConfirm';
+import { FALLO_AL_CONFIRMAR, ShareConfirm, type DestinoConfirmado } from '@/features/captures/ShareConfirm';
 import {
   useCaptures,
   useConfirmCapture,
@@ -82,7 +82,8 @@ interface InboxViewProps extends SystemViewProps {
  * Descartar una captura es la única acción que borra algo que puede no tener
  * copia (una foto, una nota de voz), así que tampoco es inmediata: la fila se
  * va, el aviso ofrece Deshacer 4 s y la mutación sale al terminar ese tiempo,
- * o al salir de Bandeja. Confirmar dice cuántas tareas creó y dónde.
+ * o al salir de Bandeja. Confirmar dice cuántas tareas creó y dónde, y si no
+ * salió lo dice en la hoja, que sigue abierta.
  *
  * Aquí vive el primero de los dos empujes del principio 7. Es una fila de
  * estado sin pregunta, así que no pasa por la cola de una sola interrupción ni
@@ -94,12 +95,19 @@ export function InboxView({ system, initialTasks, initialCaptures, tituloComo = 
   const { data: tasks = [] } = useTasks(system.id, initialTasks);
   const { mutate: toggle } = useToggleTask(system.id);
   const { data: capturas = [] } = useCaptures(initialCaptures);
-  const { mutate: confirmar } = useConfirmCapture();
+  const { mutate: confirmar, isPending: enviando } = useConfirmCapture();
   const { mutate: descartar } = useDiscardCapture();
   const abrirCaptura = useQuickAddStore((s) => s.setOpen);
   const [triaging, setTriaging] = useState(false);
   const [open, setOpen] = useState<TaskTransport | null>(null);
   const [confirmando, setConfirmando] = useState<CaptureItem | null>(null);
+  // La captura cuyo confirmar falló: su hoja sigue abierta y lo dice. Va por id
+  // para que abrir otra no herede el error de la anterior.
+  const [fallo, setFallo] = useState<string | null>(null);
+  const hojaAbierta = useRef<string | null>(null);
+  useEffect(() => {
+    hojaAbierta.current = confirmando?.id ?? null;
+  }, [confirmando]);
   // Las tachadas en esta visita: siguen en su fila aunque el servidor ya las
   // cuente como hechas, y el Deshacer sólo devuelve lo que se tachó aquí.
   const [tachadas, setTachadas] = useState<ReadonlySet<string>>(() => new Set());
@@ -197,15 +205,26 @@ export function InboxView({ system, initialTasks, initialCaptures, tituloComo = 
     });
   }
 
+  /**
+   * La hoja no se cierra al tocar Confirmar sino al saber que salió: si la
+   * mutación falla, la hoja sigue abierta con sus marcas y dice que no se creó
+   * nada. Si ya se había cerrado, lo dice un aviso.
+   */
   function confirmarCaptura(captura: CaptureItem, indices: number[], destinos: DestinoConfirmado[]) {
+    setFallo(null);
     confirmar(
       { id: captura.id, indices },
       {
         onSuccess: () => {
+          if (hojaAbierta.current === captura.id) setConfirmando(null);
           const fuera = destinos.length === 1 && destinos[0]!.systemId !== null ? destinos[0]! : null;
           toast(avisoDeConfirmadas(destinos), {
             action: fuera ? { label: `Abrir ${fuera.nombre}`, onClick: () => router.push(`/systems/${fuera.systemId}`) } : undefined,
           });
+        },
+        onError: () => {
+          if (hojaAbierta.current === captura.id) setFallo(captura.id);
+          else toast(`${FALLO_AL_CONFIRMAR.estado} ${FALLO_AL_CONFIRMAR.detalle}`);
         },
       },
     );
@@ -256,10 +275,15 @@ export function InboxView({ system, initialTasks, initialCaptures, tituloComo = 
       <ShareConfirm
         captura={confirmando}
         open={confirmando !== null}
-        onOpenChange={(next) => !next && setConfirmando(null)}
+        onOpenChange={(next) => {
+          if (next) return;
+          setConfirmando(null);
+          setFallo(null);
+        }}
+        enviando={enviando}
+        fallo={fallo !== null && fallo === confirmando?.id}
         onConfirm={(indices, destinos) => {
           if (confirmando) confirmarCaptura(confirmando, indices, destinos);
-          setConfirmando(null);
         }}
         onDiscard={() => {
           if (confirmando) descartarCaptura(confirmando);

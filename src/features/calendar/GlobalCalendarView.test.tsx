@@ -2,7 +2,8 @@
  * Criterio: en el teléfono el calendario es la página del día. Las tareas con
  * hora se ven a cualquier hora, la tira de la semana, Hoy y las flechas mueven
  * el día que se mira, cada fila se completa o se mueve sin abrir el formulario
- * y la rejilla de escritorio (con @dnd-kit) no se carga nunca, ni al hidratar.
+ * (y las dos cosas se deshacen 4 s) y la rejilla de escritorio (con @dnd-kit)
+ * no se carga nunca, ni al hidratar.
  */
 import { act, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
@@ -65,6 +66,16 @@ describe("GlobalCalendarView en el teléfono", () => {
     // el espacio duro como un espacio cualquiera.
     const fila = screen.getByRole("button", { name: "09:00, Leer el capítulo cuatro" });
     expect(fila.textContent).toContain("1\u00a0h");
+  });
+
+  it("un título largo no pasa de tres renglones en la fila, y el detalle lo lleva entero", () => {
+    const largo = "Leer el capítulo 4 de Tanenbaum: planificación de procesos, hilos y la parte de interbloqueos";
+    renderMobile(<GlobalCalendarView />, {
+      convex: makeTestConvexClient([stubQuery(api.tasks.calendar, [makeTask({ id: mid("cal-largo"), title: largo, dueDate: hoyALas(8) })])]),
+    });
+
+    const fila = screen.getByRole("button", { name: `08:00, ${largo}` });
+    expect(within(fila).getByText(largo)).toHaveClass("line-clamp-3");
   });
 
   it("no carga @dnd-kit ni la rejilla de escritorio, tampoco al hidratar", () => {
@@ -160,7 +171,27 @@ describe("GlobalCalendarView en el teléfono, las operaciones", () => {
     await userEvent.click(within(hoja).getByRole("button", { name: "16:00" }));
 
     expect(convex.calls).toContainEqual({ kind: "mutation", name: "tasks:update", args: { id: tarea.id, startDate: hoyALas(16) } });
-    expect(toastSpy).toHaveBeenLastCalledWith(expect.stringMatching(/^Corregir pruebas, a las 16:00 del /));
+    expect(toastSpy).toHaveBeenLastCalledWith(expect.stringMatching(/^Corregir pruebas, a las 16:00 del /), expect.anything());
+  });
+
+  it("mover ofrece Deshacer 4 s y deshacer devuelve la hora y el día de antes", async () => {
+    const tarea = makeTask({ id: mid("cal-9"), title: "Pasar las notas", startDate: hoyALas(9), dueDate: null });
+    const { convex } = renderMobile(<GlobalCalendarView />, {
+      convex: makeTestConvexClient([stubQuery(api.tasks.calendar, [tarea])]),
+    });
+
+    await userEvent.click(screen.getByRole("button", { name: "Mover Pasar las notas" }));
+    await userEvent.click(within(await screen.findByRole("dialog", { name: "Mover" })).getByRole("button", { name: /Todo el día/ }));
+
+    const opciones = toastSpy.mock.calls.at(-1)?.[1] as unknown as { duration: number; action: { label: string; onClick: () => void } } | undefined;
+    expect(opciones?.duration).toBe(4000);
+    expect(opciones?.action.label).toBe("Deshacer");
+    act(() => opciones!.action.onClick());
+    expect(convex.calls.filter((c) => c.name === "tasks:update").at(-1)).toEqual({
+      kind: "mutation",
+      name: "tasks:update",
+      args: { id: tarea.id, startDate: hoyALas(9), dueDate: null },
+    });
   });
 
   it("programar una sin fecha a una hora escribe su inicio en el día que se mira", async () => {

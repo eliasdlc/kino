@@ -251,10 +251,13 @@ function CalendarioEscritorioBase({
                     <span className="block text-xs font-semibold uppercase tracking-[0.06em] text-muted-foreground">
                       {format(day, "EEE", { locale: es })}
                     </span>
+                    {/* Hoy se marca con su fecha en tinta subrayada; los demás numerales van en gris. */}
                     <span
                       className={cn(
                         "mt-0.5 block font-display text-lg font-bold tabular-nums",
-                        isToday(day) && "text-primary",
+                        isToday(day)
+                          ? "text-foreground underline decoration-foreground decoration-2 underline-offset-[0.25em]"
+                          : "text-muted-foreground",
                       )}
                     >
                       {format(day, "d")}
@@ -297,7 +300,7 @@ function CalendarioEscritorioBase({
                   return (
                     <div
                       key={day.toISOString()}
-                      className={cn("relative border-r border-border last:border-r-0", isToday(day) && "bg-primary/5")}
+                      className="relative border-r border-border last:border-r-0"
                       style={{ height: TOTAL_HEIGHT }}
                     >
                       {/* Huecos soltables por hora; la energía sólo en la vista Día */}

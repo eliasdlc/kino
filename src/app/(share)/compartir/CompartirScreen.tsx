@@ -38,9 +38,15 @@ function donde(registro: RegistroCompartido, problema: string | null): string {
   return "Guardado en el teléfono. Sale solo cuando vuelva la red.";
 }
 
-/** La página del recibo: papel a toda la altura visible, con el área segura. */
-const PAGINA =
-  "mx-auto flex min-h-dvh w-full max-w-md flex-col gap-6 pt-[max(1.25rem,env(safe-area-inset-top))] pr-[max(1.25rem,env(safe-area-inset-right))] pb-[max(1.25rem,env(safe-area-inset-bottom))] pl-[max(1.25rem,env(safe-area-inset-left))]";
+/** La columna del recibo con el área segura, la misma dentro y fuera del catálogo. */
+const COLUMNA =
+  "mx-auto flex w-full max-w-md flex-col gap-6 pt-[max(1.25rem,env(safe-area-inset-top))] pr-[max(1.25rem,env(safe-area-inset-right))] pb-[max(1.25rem,env(safe-area-inset-bottom))] pl-[max(1.25rem,env(safe-area-inset-left))]";
+
+/** Como página: papel a toda la altura visible, con las salidas abajo. */
+const PAGINA = `${COLUMNA} min-h-dvh`;
+
+/** Dentro de otra página mide lo que dice: un alto fijo dejaba un hueco bajo una frase. */
+const INCRUSTADA = COLUMNA;
 
 /** El título y la línea de dónde quedó, en la voz como en las demás puertas. */
 function Encabezado({ titulo, linea, Titular }: { titulo: string; linea: string; Titular: "h1" | "h2" }) {
@@ -131,7 +137,7 @@ function Contenido({ registro, previewUrl }: { registro: RegistroCompartido; pre
 export function CompartirScreen({ registro, previewUrl, perdido, problema = null, incrustada = false }: CompartirScreenProps) {
   const Pagina = incrustada ? "div" : "main";
   const Titular = incrustada ? "h2" : "h1";
-  const pagina = incrustada ? PAGINA.replace("min-h-dvh", "min-h-[36rem]") : PAGINA;
+  const pagina = incrustada ? INCRUSTADA : PAGINA;
 
   if (perdido) {
     return (
@@ -182,7 +188,7 @@ export function CompartirScreen({ registro, previewUrl, perdido, problema = null
 export function CompartirFallo({ onReintentar, incrustada = false }: { onReintentar: () => void; incrustada?: boolean }) {
   const Pagina = incrustada ? "div" : "main";
   return (
-    <Pagina className={incrustada ? PAGINA.replace("min-h-dvh", "min-h-[30rem]") : PAGINA}>
+    <Pagina className={incrustada ? INCRUSTADA : PAGINA}>
       <Encabezado
         Titular={incrustada ? "h2" : "h1"}
         titulo="No se pudo abrir"

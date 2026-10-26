@@ -3,14 +3,14 @@
  * lista vacía con una cosa flotando es el estado que nadie diseña y el que
  * casi todo el mundo ve el primer día. Completar tacha en el sitio con
  * Deshacer, descartar una captura también se deshace, y confirmar dice cuántas
- * tareas creó y dónde.
+ * tareas creó y dónde, o, si falla, lo dice en la hoja sin cerrarla.
  */
 import { act, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { api } from '@convex/_generated/api';
 import { makeSystem, makeTask, mid } from '@/app/system-design/mock-data';
-import { makeTestConvexClient, renderMobile, stubMutation, stubQuery } from '@/shared/testing/render';
+import { makeTestConvexClient, renderMobile, stubMutation, stubMutationError, stubQuery } from '@/shared/testing/render';
 import type { CaptureItem } from '@/features/captures/captures.types';
 import { ITEMS_PARA_EMPUJAR } from '@/features/systems/GroupNudge';
 import { avisoDeConfirmadas, DESHACER_MS, InboxView, ITEMS_VISIBLES } from './InboxView';
@@ -205,6 +205,28 @@ describe('InboxView, las capturas', () => {
 
     expect(convex.calls).toContainEqual({ kind: 'mutation', name: 'captures:confirmar', args: { id: 'cap-1', indices: [0, 1] } });
     await vi.waitFor(() => expect(toastSpy.mock.calls.at(-1)?.[0]).toBe('2 tareas creadas en Bandeja'));
+  });
+
+  it('si confirmar falla, la hoja sigue abierta y dice que no se creó nada', async () => {
+    toastSpy.mockClear();
+    const convex = makeTestConvexClient([], [stubMutationError(api.captures.confirmar, new Error('sin red'))]);
+    renderMobile(
+      <InboxView
+        system={BANDEJA}
+        initialTasks={[]}
+        initialCaptures={[captura({ proposedItems: [{ title: 'Repasar el parcial' }, { title: 'Pedir la rúbrica' }] })]}
+      />,
+      { convex },
+    );
+
+    await userEvent.click(screen.getByRole('button', { name: /https:\/\/react\.dev\/learn/ }));
+    const hoja = await screen.findByRole('dialog');
+    await userEvent.click(within(hoja).getByRole('button', { name: 'Confirmar 2' }));
+
+    expect(await within(hoja).findByRole('alert')).toHaveTextContent('No se pudo confirmar');
+    expect(screen.getByRole('dialog')).toBeVisible();
+    expect(within(hoja).getByRole('button', { name: 'Confirmar 2' })).toBeEnabled();
+    expect(toastSpy).not.toHaveBeenCalledWith(expect.stringMatching(/creadas?/), expect.anything());
   });
 
   it('el aviso de confirmadas reparte la cuenta por destino', () => {

@@ -32,7 +32,14 @@ interface ShareConfirmProps {
   onOpenChange: (open: boolean) => void;
   onConfirm: (indices: number[], destinos: DestinoConfirmado[]) => void;
   onDiscard: () => void;
+  /** Mientras la confirmación va de camino: el botón lo dice y no se toca dos veces. */
+  enviando?: boolean;
+  /** Si la última confirmación no salió. La hoja se queda abierta y lo dice. */
+  fallo?: boolean;
 }
+
+/** Lo que se dice cuando confirmar no salió: nada se creó y la captura sigue ahí. */
+export const FALLO_AL_CONFIRMAR = { estado: "No se pudo confirmar.", detalle: "La captura sigue aquí: inténtalo de nuevo." };
 
 /**
  * El gesto que convierte lo compartido en items. Todo llega marcado porque el
@@ -51,7 +58,7 @@ interface ShareConfirmProps {
  * después, en la tarea: elegirlo en esta hoja pide que la confirmación lo
  * acepte.
  */
-export function ShareConfirm({ captura, open, onOpenChange, onConfirm, onDiscard }: ShareConfirmProps) {
+export function ShareConfirm({ captura, open, onOpenChange, onConfirm, onDiscard, enviando = false, fallo = false }: ShareConfirmProps) {
   const propuestos = captura?.proposedItems ?? [];
   const [descartados, setDescartados] = useState<Set<number>>(new Set());
 
@@ -112,6 +119,8 @@ export function ShareConfirm({ captura, open, onOpenChange, onConfirm, onDiscard
             }
             onConfirm={onConfirm}
             onDiscard={onDiscard}
+            enviando={enviando}
+            fallo={fallo}
           />
         )}
       </ResponsiveDialogContent>
@@ -130,12 +139,16 @@ function Propuestas({
   onAlternar,
   onConfirm,
   onDiscard,
+  enviando,
+  fallo,
 }: {
   propuestos: ItemPropuesto[];
   descartados: Set<number>;
   onAlternar: (indice: number) => void;
   onConfirm: (indices: number[], destinos: DestinoConfirmado[]) => void;
   onDiscard: () => void;
+  enviando: boolean;
+  fallo: boolean;
 }) {
   const { data: sistemas } = useSystems();
   const sistemaDe = (systemId: string | undefined) => (systemId ? sistemas?.find((s) => s.id === systemId) : undefined);
@@ -195,8 +208,13 @@ function Propuestas({
         })}
       </ul>
       <div className="space-y-2 pt-1">
-        <Button size="lg" className="w-full text-base" disabled={marcados.length === 0} onClick={confirmar}>
-          {marcados.length === 0 ? "No queda nada marcado" : `Confirmar ${marcados.length}`}
+        {fallo && (
+          <p role="alert" className="text-sm leading-snug text-body">
+            <b className="font-semibold text-destructive">{FALLO_AL_CONFIRMAR.estado}</b> {FALLO_AL_CONFIRMAR.detalle}
+          </p>
+        )}
+        <Button size="lg" className="w-full text-base" disabled={marcados.length === 0 || enviando} onClick={confirmar}>
+          {marcados.length === 0 ? "No queda nada marcado" : enviando ? "Confirmando" : `Confirmar ${marcados.length}`}
         </Button>
         <Button variant="ghost" className="w-full text-muted-foreground" onClick={onDiscard}>
           Descartar la captura

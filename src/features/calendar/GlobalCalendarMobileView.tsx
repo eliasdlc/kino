@@ -75,7 +75,7 @@ function Meta({ task }: { task: TaskTransport }) {
   );
 }
 
-function Titulo({ task }: { task: TaskTransport }) {
+function Titulo({ task, className }: { task: TaskTransport; className?: string }) {
   const hecha = task.status === "done";
   return (
     <span
@@ -83,6 +83,7 @@ function Titulo({ task }: { task: TaskTransport }) {
         "block font-semibold leading-snug text-foreground",
         task.effectivePriority === "critical" && "font-bold",
         hecha && "text-muted-foreground line-through",
+        className,
       )}
     >
       {task.title}
@@ -105,6 +106,11 @@ function Seccion({ id, titulo, cuenta, children }: { id: string; titulo: string;
  * y la meta son el botón que abre el detalle; a la derecha, las dos acciones
  * que se hacen desde un calendario sin abrir el formulario: moverla (la misma
  * hoja que programa) y completarla con el círculo de 48 px de Hoy y Bandeja.
+ *
+ * Por debajo de 360 px las dos acciones lado a lado dejaban unos 100 px al
+ * título: ahí se apilan (el círculo arriba, a la altura del título, y Mover
+ * debajo) y el título gana casi 50 px. El título se corta en tres renglones
+ * en cualquier ancho; el detalle lo trae entero.
  */
 function FilaDelDia({
   task,
@@ -127,7 +133,7 @@ function FilaDelDia({
       className="group"
       margin={margen}
       trailing={
-        <span className="-mr-2 inline-flex items-center">
+        <span className="-mr-2 inline-flex items-center max-[360px]:flex-col-reverse">
           {!hecha && (
             <Button variant="ghost" size="icon" aria-label={`Mover ${task.title}`} onClick={onMover} className="text-muted-foreground">
               <CalendarClock />
@@ -159,7 +165,7 @@ function FilaDelDia({
         aria-label={etiqueta}
         className="focus-ring -my-2 block min-h-[2.85rem] w-full rounded-md py-2 text-left"
       >
-        <Titulo task={task} />
+        <Titulo task={task} className="line-clamp-3" />
         <Meta task={task} />
       </button>
     </MarginRow>
