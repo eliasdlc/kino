@@ -84,6 +84,15 @@ describe('InboxView', () => {
     expect(convex.calls.filter((c) => c.name === 'tasks:toggle')).toHaveLength(2);
   });
 
+  it('la fila lleva el círculo del margen de Hoy y Tareas, no una casilla cuadrada', () => {
+    renderMobile(<InboxView system={BANDEJA} initialTasks={items(2)} initialCaptures={[]} />);
+
+    const completar = screen.getByRole('button', { name: 'Completar Cosa 1' });
+    const circulo = completar.querySelector('span')!;
+    expect(circulo).toHaveClass('size-[1.35rem]', 'rounded-full', 'border-[1.6px]');
+    expect(screen.queryByRole('checkbox')).toBeNull();
+  });
+
   it('con un solo item no pinta una lista con una cosa flotando', () => {
     renderMobile(<InboxView system={BANDEJA} initialTasks={items(1)} />);
 
