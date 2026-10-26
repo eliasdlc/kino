@@ -41,12 +41,26 @@ function pintado(apariencia: { elements?: unknown }, nombre: string): CSSStyleDe
   return getComputedStyle(container.querySelector(`.cl-${nombre}`)!);
 }
 
+/** El CSS que emoción inyecta para el estilo de un elemento, tal como llega al documento. */
+function reglasDe(apariencia: { elements?: unknown }, nombre: string): string {
+  pintado(apariencia, nombre);
+  return [...document.querySelectorAll("style")].map((hoja) => hoja.textContent ?? "").join("").replace(/\s+/g, "");
+}
+
+const escapar = (texto: string) => texto.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+
 describe("clerkPuertaAppearance", () => {
-  it("quita la caja, su sombra y la cabecera de Clerk", () => {
+  it("quita la caja y su sombra, y calla el título pero no el correo ni la frase del paso", () => {
     const elementos = clerkPuertaAppearance.elements as Record<string, Estilo>;
 
     expect(elementos.cardBox).toMatchObject({ boxShadow: "none", background: "transparent" });
-    expect(elementos.header).toEqual({ display: "none" });
+    expect(pintado(clerkPuertaAppearance, "headerTitle").display).toBe("none");
+    // En el paso del código y en el de la contraseña el correo (con su botón de
+    // editar) y la frase viven dentro de la cabecera: ocultarla deja sin salida
+    // a quien se equivocó de correo.
+    for (const nombre of ["header", "headerSubtitle", "identityPreview"]) {
+      expect({ nombre, display: pintado(clerkPuertaAppearance, nombre).display }).not.toEqual({ nombre, display: "none" });
+    }
   });
 
   it.each([
@@ -84,6 +98,21 @@ describe("clerkPuertaAppearance", () => {
 
     // Sin sombra, el borde pasa a ser un hairline de verdad en la misma regla.
     expect(social?.['&[data-variant="outline"]']).toEqual({ boxShadow: "none", border: "1px solid var(--ln2)" });
+  });
+
+  it.each([
+    ["las puertas", clerkPuertaAppearance],
+    ["la cuenta de Ajustes", clerkAppearance],
+  ])("en %s el primario no lleva sombra en reposo y conserva un anillo al enfocar", (_, apariencia) => {
+    const css = reglasDe(apariencia, "formButtonPrimary");
+    const primario = '[data-variant="solid"][data-color="primary"]';
+
+    // Reposo: una regla del selector de Clerk con `box-shadow: none`.
+    expect(css).toMatch(new RegExp(`${escapar(primario)}\\{[^}]*box-shadow:none`));
+    // Foco: esa misma regla (0,3,0) gana al anillo de Clerk (0,2,0), así que el
+    // anillo se repone con el mismo selector y no es `none`.
+    const enfocado = css.match(new RegExp(`${escapar(primario)}:focus-visible\\{([^}]*)\\}`));
+    expect(enfocado?.[1]).toMatch(/box-shadow:(?!none)[^;]+/);
   });
 });
 
