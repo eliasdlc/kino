@@ -287,10 +287,10 @@ function CalendarioEscritorioBase({
                   {HOURS.map((hour) => (
                     <div
                       key={hour}
-                      className="flex items-start justify-end border-t border-border/40 pt-1 pr-1 text-xs text-muted-foreground tabular-nums first:border-t-0"
+                      className="flex items-start justify-end border-t border-border/40 pt-1 pr-1.5 text-[0.84rem] font-medium whitespace-nowrap text-muted-foreground tabular-nums first:border-t-0"
                       style={{ height: ROW_HEIGHT }}
                     >
-                      {format(new Date(2000, 0, 1, hour), "HH:mm")}
+                      <span data-slot="hora">{format(new Date(2000, 0, 1, hour), "HH:mm")}</span>
                     </div>
                   ))}
                 </div>

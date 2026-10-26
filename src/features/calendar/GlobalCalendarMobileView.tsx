@@ -339,7 +339,7 @@ export function GlobalCalendarMobileView({
               task={task}
               etiqueta={`${placementTime(task)}, ${task.title}`}
               margen={
-                <span className="block pt-2.5 pr-1 text-[0.8rem] font-semibold text-muted-foreground tabular-nums">{placementTime(task)}</span>
+                <span data-slot="hora" className="block pt-2.5 text-[0.84rem] font-semibold whitespace-nowrap text-muted-foreground tabular-nums">{placementTime(task)}</span>
               }
               onOpen={() => onOpenTask(task)}
               onMover={() => onProgramar(task)}

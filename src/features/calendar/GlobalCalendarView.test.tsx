@@ -13,7 +13,7 @@ import { describe, expect, it, vi } from "vitest";
 import { api } from "@convex/_generated/api";
 import { makeTask, mid } from "@/app/system-design/mock-data";
 import { dayToLocalISO } from "@/features/tasks/tasks.utils";
-import { makeTestConvexClient, renderMobile, stubQuery } from "@/shared/testing/render";
+import { makeTestConvexClient, renderMobile, renderWithProviders, stubQuery } from "@/shared/testing/render";
 import { dayKey } from "./calendar.layout";
 import { GlobalCalendarView } from "./GlobalCalendarView";
 
@@ -54,6 +54,23 @@ describe("GlobalCalendarView en el teléfono", () => {
     expect(screen.getByText(/Revisar el capítulo tres/)).toBeVisible();
     expect(screen.getByText(/Llamar antes de dormir/)).toBeVisible();
     expect(screen.getByText(/Correr temprano/)).toBeVisible();
+  });
+
+  it("a 320 px la hora del margen se lee 09:00 de una pieza, en mute y tabular, y la semana trae siete días de 2.85rem", () => {
+    window.innerWidth = 320;
+    const tareas = [makeTask({ id: mid("cal-320"), title: "Leer el capítulo cuatro", dueDate: hoyALas(9) })];
+    renderWithProviders(<GlobalCalendarView />, {
+      convex: makeTestConvexClient([stubQuery(api.tasks.calendar, tareas)]),
+    });
+
+    const hora = document.querySelector('[data-slot="hora"]')!;
+    expect(hora).toHaveTextContent(/^09:00$/);
+    expect(hora).toHaveClass("text-muted-foreground", "tabular-nums", "whitespace-nowrap");
+    expect(hora).not.toHaveClass("text-[0.8rem]");
+    const dias = within(screen.getByRole("navigation", { name: "Días de la semana" })).getAllByRole("button");
+    expect(dias).toHaveLength(7);
+    dias.forEach((d) => expect(d).toHaveClass("min-w-[2.85rem]"));
+    expect(dndCargado).not.toHaveBeenCalled();
   });
 
   it("la duración de la meta no parte la cifra de su unidad en un ancho estrecho", () => {
