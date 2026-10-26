@@ -5,6 +5,8 @@
  * retira, porque si no flota encima del campo que se está escribiendo. Si
  * alguien vuelve al vidrio o a los iconos, falla aquí antes que en la captura.
  */
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { act, fireEvent, screen } from "@testing-library/react";
 import { renderMobile } from "@/shared/testing/render";
@@ -46,6 +48,33 @@ describe("BottomNav", () => {
     expect(palabras.className).toContain("grid-cols-[repeat(5,minmax(0,1fr))]");
     for (const palabra of palabras.children) expect(palabra.className).toContain("min-w-0");
     expect(screen.getByRole("button", { name: "Nueva tarea" }).className).toContain("size-[2.85rem]");
+  });
+
+  it("a 320 px «Sistemas» y «Bandeja» quedan con un hueco visible, contando el rem de 17 px", () => {
+    renderMobile(<BottomNav />);
+
+    // jsdom no maqueta: se calcula el ancho de columna desde las clases del
+    // pie y el rem de `globals.css`. Con 16 px de rem «Sistemas» cabía; con
+    // 17 px el orbe, el margen y el hueco crecen un 6 % y la palabra no.
+    const css = readFileSync(join(process.cwd(), "src/app/globals.css"), "utf8");
+    const rem = Number(/html\s*\{\s*font-size:\s*(\d+)px/.exec(css)?.[1]);
+    expect(rem).toBeGreaterThan(0);
+    const base = (el: Element) => el.className.split(/\s+/).filter((c) => !c.includes(":"));
+    const px = (clases: string[], prefijo: string) => {
+      const clase = clases.find((c) => c.startsWith(`${prefijo}-`));
+      return clase ? Number(clase.slice(prefijo.length + 1)) * 0.25 * rem : 0;
+    };
+
+    const nav = screen.getByRole("navigation", { name: "Secciones" });
+    const orbe = Number(/_(\d+(?:\.\d+)?)rem\]/.exec(nav.className)?.[1]) * rem;
+    const columna = (320 - 2 * px(base(nav), "px") - px(base(nav), "gap") - orbe) / 5;
+
+    // Trazo medido en una captura a 393 px (12,75 px, sin tracking); el
+    // tracking de debajo de 360 px lo aprieta 0,025 em por letra.
+    const tracking = base(nav.firstElementChild!).includes("tracking-tight") ? 0.025 * 0.75 * rem : 0;
+    const trazo = (medido: number, letras: number) => medido - letras * tracking;
+    const hueco = (columna - trazo(54.5, 8)) / 2 + (columna - trazo(45.5, 7)) / 2;
+    expect(hueco).toBeGreaterThanOrEqual(6);
   });
 
   it("la palabra activa es la única en ámbar y lleva el punto", () => {
