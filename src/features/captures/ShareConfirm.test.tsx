@@ -150,7 +150,7 @@ describe("ShareConfirm", () => {
 
     // Bandeja cierra la hoja vaciando la captura, no por el diálogo.
     rerender(ver(null, false));
-    rerender(ver(captura({ id: "cap-2" }), true));
+    rerender(ver(captura({ id: "cap-2" as CaptureItem["id"] }), true));
 
     expect(screen.getByRole("button", { name: "Confirmar 3" })).toBeVisible();
   });
