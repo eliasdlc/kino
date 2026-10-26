@@ -8,6 +8,7 @@
 import { describe, expect, it, vi } from "vitest";
 import { act, fireEvent, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
+import { toast } from "sonner";
 import { addDays, startOfToday } from "date-fns";
 import { api } from "@convex/_generated/api";
 import { makeTestConvexClient, renderWithProviders, stubMutation, stubQuery } from "@/shared/testing/render";
@@ -170,6 +171,42 @@ describe("AllTasksList", () => {
     const grupo = within(todas).getByRole("heading", { name: "Esta semana" }).parentElement!.parentElement!;
     expect(titulosDe(grupo)).toEqual(["Leer el capítulo dos", "Pedir la beca"]);
     expect(within(grupo).getByRole("button", { name: "Completar Leer el capítulo dos" })).toHaveAttribute("aria-pressed", "true");
+  });
+
+  it("E1: después de Deshacer, una fila de Todas vuelve a ser la viva, sin tachar", async () => {
+    const convex = makeTestConvexClient(
+      [lista([vencida, lectura, beca])],
+      [stubMutation(api.tasks.toggle, { status: "today", completedBy: null, completedVia: null, observedMinutes: 0 })],
+    );
+    renderWithProviders(<AllTasksList systems={sistemas} />, { convex });
+
+    fireEvent.click(screen.getByRole("button", { name: "Completar Leer el capítulo dos" }));
+    act(() => convex.publish(lista([vencida, { ...lectura, status: "done" } as TaskTransport, beca])));
+    const aviso = vi.mocked(toast).mock.calls.at(-1)![1] as unknown as { action: { onClick: () => void } };
+    await act(async () => aviso.action.onClick());
+    await vi.waitFor(() => expect(convex.calls.filter((c) => c.name === "tasks:update")).toHaveLength(1));
+    act(() => convex.publish(lista([vencida, lectura, beca])));
+
+    const todas = screen.getByRole("region", { name: "Todas las tareas" });
+    expect(titulosDe(todas)).toEqual(["Leer el capítulo dos", "Pedir la beca"]);
+    expect(within(todas).getByRole("button", { name: "Completar Leer el capítulo dos" })).toHaveAttribute("aria-pressed", "false");
+    expect(todas.querySelector("[data-struck]")).toBeNull();
+    expect(titulosDe(screen.getByRole("region", { name: "Vencidas" }))).toEqual(["Entregar el informe"]);
+  });
+
+  it("E2: completar una vencida no congela Todas, que sigue el orden que se le pide", () => {
+    const alta = tarea("h", "Alta", { priority: "high", effectivePriority: "high", createdAt: "2026-10-02T12:00:00.000Z" });
+    const baja = tarea("l", "Baja", { priority: "low", effectivePriority: "low", createdAt: "2026-10-03T12:00:00.000Z" });
+    const { convex, rerender } = pintar([vencida, alta, baja]);
+    const todas = () => titulosDe(screen.getByRole("region", { name: "Todas las tareas" }));
+    expect(todas()).toEqual(["Alta", "Baja"]);
+
+    fireEvent.click(screen.getByRole("button", { name: "Completar Entregar el informe" }));
+    act(() => convex.publish(lista([{ ...vencida, status: "done" } as TaskTransport, alta, baja])));
+    setNavigation({ search: "sort=created" });
+    rerender(<AllTasksList systems={sistemas} />);
+
+    expect(todas()).toEqual(["Baja", "Alta"]);
   });
 
   it("Seleccionar enseña las casillas de todas las filas sin abrir ninguna hoja", () => {
