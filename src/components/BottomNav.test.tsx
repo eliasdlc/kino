@@ -34,6 +34,20 @@ describe("BottomNav", () => {
     expect(screen.getByRole("button", { name: "Nueva tarea" }).className).toContain("rounded-full");
   });
 
+  it("a 320 px las cinco columnas reparten el ancho a partes iguales y la del orbe queda reservada", () => {
+    renderMobile(<BottomNav />);
+
+    // Sin `minmax(0,1fr)` una columna crece hasta su palabra (`auto` mínimo)
+    // y «Sistemas» se come el hueco de sus vecinas. jsdom no mide: se fija la
+    // estructura que garantiza el reparto.
+    const nav = screen.getByRole("navigation", { name: "Secciones" });
+    expect(nav.className).toContain("grid-cols-[minmax(0,1fr)_2.85rem]");
+    const palabras = nav.firstElementChild!;
+    expect(palabras.className).toContain("grid-cols-[repeat(5,minmax(0,1fr))]");
+    for (const palabra of palabras.children) expect(palabra.className).toContain("min-w-0");
+    expect(screen.getByRole("button", { name: "Nueva tarea" }).className).toContain("size-[2.85rem]");
+  });
+
   it("la palabra activa es la única en ámbar y lleva el punto", () => {
     renderMobile(<BottomNav />);
 
