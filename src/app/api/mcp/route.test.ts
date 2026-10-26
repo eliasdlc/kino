@@ -8,10 +8,21 @@ const clerk = vi.hoisted(() => ({
 vi.mock("@clerk/nextjs/server", () => ({ auth: clerk.auth }));
 vi.mock("@clerk/mcp-tools/next", () => ({ verifyClerkToken: clerk.verifyClerkToken }));
 
+// Qué dice Convex del cliente (`mcpClients.registrar`), y si el servidor llega a montarse.
+const kino = vi.hoisted(() => ({
+  registrarCliente: vi.fn(async () => ({ revocado: false })),
+  registerAllTools: vi.fn(),
+}));
+vi.mock("@/features/mcp/clients", async (original) => ({
+  ...(await original<typeof import("@/features/mcp/clients")>()),
+  registrarCliente: kino.registrarCliente,
+}));
+vi.mock("@/features/mcp/tools", () => ({ registerAllTools: kino.registerAllTools }));
+
 const { POST } = await import("./route");
 
 // `reason` y `message` son lo que el middleware de Clerk deja en `x-clerk-auth-reason` y `x-clerk-auth-message`.
-const post = (bearer?: string, reason?: string, message?: string) =>
+const post = (bearer?: string, reason?: string, message?: string, body: unknown = { jsonrpc: "2.0", id: 1, method: "tools/list", params: {} }) =>
   POST(
     new Request("http://localhost:3000/api/mcp", {
       method: "POST",
@@ -22,7 +33,7 @@ const post = (bearer?: string, reason?: string, message?: string) =>
         ...(reason ? { "x-clerk-auth-reason": reason } : {}),
         ...(message ? { "x-clerk-auth-message": message } : {}),
       },
-      body: JSON.stringify({ jsonrpc: "2.0", id: 1, method: "tools/list", params: {} }),
+      body: JSON.stringify(body),
     }),
   );
 
@@ -31,6 +42,7 @@ describe("/api/mcp · el fallo de Kino y el token inválido no se confunden", ()
     delete process.env.KINO_MCP_SIGNING_JWK;
     clerk.auth.mockReset().mockResolvedValue({});
     clerk.verifyClerkToken.mockReset();
+    kino.registrarCliente.mockReset().mockResolvedValue({ revocado: false });
   });
 
   it("con un token que Clerk acepta y sin la clave de firma, responde 503 con el motivo", async () => {
@@ -86,5 +98,57 @@ describe("/api/mcp · el fallo de Kino y el token inválido no se confunden", ()
 
     expect(res.status).toBe(401);
     expect(res.headers.get("WWW-Authenticate")).toContain("oauth-protected-resource/api/mcp");
+  });
+});
+
+describe("/api/mcp · un cliente desconectado en Ajustes no entra", () => {
+  const CLAUDE_CODE = { token: "oat_1", clientId: "cli_viejo", scopes: ["documents:write"], extra: { userId: "user_1" } };
+  const INITIALIZE = {
+    jsonrpc: "2.0",
+    id: 0,
+    method: "initialize",
+    params: { protocolVersion: "2025-06-18", capabilities: {}, clientInfo: { name: "claude-code", version: "2.1.0" } },
+  };
+
+  beforeEach(() => {
+    clerk.auth.mockReset().mockResolvedValue({});
+    clerk.verifyClerkToken.mockReset().mockReturnValue(CLAUDE_CODE);
+    kino.registrarCliente.mockReset().mockResolvedValue({ revocado: false });
+    kino.registerAllTools.mockReset();
+  });
+
+  it("anota el client_id que verificó Clerk y el nombre que trae el initialize", async () => {
+    await post("oat_1", undefined, undefined, INITIALIZE);
+
+    expect(kino.registrarCliente).toHaveBeenCalledWith({
+      clerkId: "user_1",
+      clientId: "cli_viejo",
+      scope: "write",
+      clientName: "claude-code",
+    });
+  });
+
+  it("revocado: 403 con acceso revocado desde Kino, sin desafío OAuth y sin montar el servidor", async () => {
+    kino.registrarCliente.mockResolvedValue({ revocado: true });
+
+    for (const body of [INITIALIZE, { jsonrpc: "2.0", id: 2, method: "tools/call", params: { name: "list_systems" } }]) {
+      const res = await post("oat_1", undefined, undefined, body);
+      expect(res.status).toBe(403);
+      expect(res.headers.get("WWW-Authenticate")).toBeNull();
+      const respuesta = (await res.json()) as { error: { message: string } };
+      expect(respuesta.error.message).toContain("Acceso revocado desde Kino");
+    }
+    expect(kino.registerAllTools).not.toHaveBeenCalled();
+  });
+
+  it("si Convex no contesta, 503 con el motivo: sin saber si está revocado, no pasa", async () => {
+    kino.registrarCliente.mockRejectedValue(new Error("Convex no respondió en 5000 ms al registrar el cliente"));
+
+    const res = await post("oat_1");
+
+    expect(res.status).toBe(503);
+    const respuesta = (await res.json()) as { error: { message: string } };
+    expect(respuesta.error.message).toContain("Convex no respondió");
+    expect(kino.registerAllTools).not.toHaveBeenCalled();
   });
 });

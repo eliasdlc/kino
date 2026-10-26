@@ -2,7 +2,8 @@ import { verifyClerkToken } from "@clerk/mcp-tools/next";
 import { auth } from "@clerk/nextjs/server";
 import type { AuthInfo } from "@modelcontextprotocol/sdk/server/auth/types.js";
 import { createMcpHandler, withMcpAuth } from "mcp-handler";
-import { clerkFault, faultResponse, mintConvexToken, scopeFor, withServerFaults } from "@/features/mcp/auth";
+import { clerkFault, faultResponse, mintConvexToken, revokedAuth, revokedResponse, scopeFor, withServerFaults } from "@/features/mcp/auth";
+import { clientNameOf, registrarCliente } from "@/features/mcp/clients";
 import { registerAllTools } from "@/features/mcp/tools";
 import { convexCall } from "@/features/mcp/tools/define";
 import { SITE_URL } from "@/shared/lib/site-url";
@@ -24,6 +25,8 @@ const SERVER_VERSION = "3.0.0";
 const mcp = (req: Request) => {
   const fault = faultResponse(req.auth);
   if (fault) return fault;
+  const revoked = revokedResponse(req.auth);
+  if (revoked) return revoked;
   const token = req.auth?.extra?.convexToken;
   if (typeof token !== "string") return new Response("Unauthorized", { status: 401 });
   return createMcpHandler(
@@ -48,6 +51,13 @@ const verify = async (req: Request, bearer?: string): Promise<AuthInfo | undefin
   const clerkId = info.extra?.userId;
   if (typeof clerkId !== "string") return undefined;
   const scope = scopeFor(info.scopes);
+  // Anota el cliente y pregunta si la persona ya lo desconectó. Si Convex no
+  // contesta, la excepción sube a `withServerFaults` y sale un 503: sin saber si
+  // está revocado, un cliente cerrado no puede pasar por un Convex caído.
+  if (info.clientId) {
+    const { revocado } = await registrarCliente({ clerkId, clientId: info.clientId, scope, clientName: await clientNameOf(req) });
+    if (revocado) return revokedAuth(info);
+  }
   // El cliente OAuth sale de lo que Clerk verificó, no de lo que el agente
   // diga: es lo que firma sus propuestas y sus filas del log.
   const convexToken = await mintConvexToken({ clerkId, scope, clientId: info.clientId });

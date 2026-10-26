@@ -178,3 +178,27 @@ export function faultResponse(auth: AuthInfo | undefined): Response | undefined 
     { status: 503, headers: { "Retry-After": "30" } },
   );
 }
+
+/** Dónde viaja, dentro de `extra`, que la persona desconectó a este cliente. */
+const REVOKED = "kinoRevocado";
+
+/** La verificación de un cliente que `mcpClients` dice revocado: sin token para Convex. */
+export function revokedAuth(info: AuthInfo): AuthInfo {
+  return { ...info, extra: { ...info.extra, [REVOKED]: true } };
+}
+
+/**
+ * La respuesta a un cliente que la persona desconectó en Ajustes > Agentes, o
+ * nada si no lo está. Es un 403 con un error JSON-RPC que el cliente enseña
+ * tal cual, y nunca monta el servidor: no corre ninguna tool.
+ *
+ * **Sin `WWW-Authenticate`**, a propósito. Un 401, o un desafío Bearer, hace
+ * que el cliente repita el OAuth con el mismo `client_id`, que sigue revocado:
+ * es el bucle que quitó el fallo de Kino de arriba.
+ */
+export function revokedResponse(auth: AuthInfo | undefined): Response | undefined {
+  if (auth?.extra?.[REVOKED] !== true) return undefined;
+  const message =
+    "Acceso revocado desde Kino. Quien usa esta cuenta desconectó este cliente en Ajustes > Agentes; para volver, conéctalo de nuevo desde ahí.";
+  return Response.json({ jsonrpc: "2.0", error: { code: -32001, message }, id: null }, { status: 403 });
+}

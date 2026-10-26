@@ -114,6 +114,8 @@ export function describeError(error: unknown): string {
         return "La autorización del conector caducó. Vuelve a conectar Kino.";
       case "FORBIDDEN_SCOPE":
         return `Este conector tiene alcance "${String(data.granted)}" y esta herramienta exige "${String(data.required)}". Vuelve a autorizar Kino con más permisos.`;
+      case "REVOKED":
+        return "Acceso revocado desde Kino. Para volver, conéctalo de nuevo desde Ajustes > Agentes.";
       case "NO_USER":
         return "Esta cuenta todavía no tiene espacio en Kino: abre la app en el navegador y termina el onboarding.";
       case "NOT_FOUND":
