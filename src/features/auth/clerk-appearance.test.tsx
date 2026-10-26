@@ -50,15 +50,22 @@ function reglasDe(apariencia: { elements?: unknown }, nombre: string): string {
 const escapar = (texto: string) => texto.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 
 describe("clerkPuertaAppearance", () => {
-  it("quita la caja y su sombra, y calla el título pero no el correo ni la frase del paso", () => {
+  it("quita la caja y su sombra, y calla el título y su frase", () => {
     const elementos = clerkPuertaAppearance.elements as Record<string, Estilo>;
 
     expect(elementos.cardBox).toMatchObject({ boxShadow: "none", background: "transparent" });
-    expect(pintado(clerkPuertaAppearance, "headerTitle").display).toBe("none");
-    // En el paso del código y en el de la contraseña el correo (con su botón de
-    // editar) y la frase viven dentro de la cabecera: ocultarla deja sin salida
-    // a quien se equivocó de correo.
-    for (const nombre of ["header", "headerSubtitle", "identityPreview"]) {
+    // La frase ("para continuar a Kino") sola era un fragmento en minúscula bajo
+    // el h1 y la voz de la página.
+    for (const nombre of ["headerTitle", "headerSubtitle"]) {
+      expect({ nombre, display: pintado(clerkPuertaAppearance, nombre).display }).toEqual({ nombre, display: "none" });
+    }
+  });
+
+  it("no calla lo que da salida en el paso del correo, de la contraseña y del código", () => {
+    // La cabecera lleva el correo con su botón de editar y el enlace de volver;
+    // el campo, el de "¿Olvidaste tu contraseña?" o "Reenviar": ocultarlos deja
+    // sin salida a quien se equivocó.
+    for (const nombre of ["header", "identityPreview", "identityPreviewEditButton", "headerBackLink", "formFieldAction"]) {
       expect({ nombre, display: pintado(clerkPuertaAppearance, nombre).display }).not.toEqual({ nombre, display: "none" });
     }
   });
@@ -103,16 +110,22 @@ describe("clerkPuertaAppearance", () => {
   it.each([
     ["las puertas", clerkPuertaAppearance],
     ["la cuenta de Ajustes", clerkAppearance],
-  ])("en %s el primario no lleva sombra en reposo y conserva un anillo al enfocar", (_, apariencia) => {
+  ])("en %s el primario no lleva sombra en ningún estado y conserva un anillo al enfocar con teclado", (_, apariencia) => {
     const css = reglasDe(apariencia, "formButtonPrimary");
-    const primario = '[data-variant="solid"][data-color="primary"]';
+    const primario = escapar('[data-variant="solid"][data-color="primary"]');
+    // Cada estado es una regla propia: las de Clerk para `:focus` (0,4,0) y
+    // `:focus:not(:focus-visible)` (0,5,0) ganan a la de reposo (0,3,0) y traen
+    // la sombra de vuelta tras un toque de ratón o de dedo.
+    const regla = (estado: string) => css.match(new RegExp(`${primario}${escapar(estado)}\\{([^}]*)\\}`));
 
-    // Reposo: una regla del selector de Clerk con `box-shadow: none`.
-    expect(css).toMatch(new RegExp(`${escapar(primario)}\\{[^}]*box-shadow:none`));
-    // Foco: esa misma regla (0,3,0) gana al anillo de Clerk (0,2,0), así que el
-    // anillo se repone con el mismo selector y no es `none`.
-    const enfocado = css.match(new RegExp(`${escapar(primario)}:focus-visible\\{([^}]*)\\}`));
-    expect(enfocado?.[1]).toMatch(/box-shadow:(?!none)[^;]+/);
+    for (const estado of ["", ":focus", ":focus:not(:focus-visible)"]) {
+      expect({ estado, regla: regla(estado)?.[1] }).toEqual({ estado, regla: "box-shadow:none;" });
+    }
+    expect(regla(":focus-visible")?.[1]).toMatch(/^box-shadow:(?!none)[^;]+;$/);
+    // `:focus-visible` pesa lo mismo que `:focus`: va después para que el anillo gane.
+    expect(css.indexOf(`${'[data-variant="solid"][data-color="primary"]'}:focus-visible{`)).toBeGreaterThan(
+      css.indexOf(`${'[data-variant="solid"][data-color="primary"]'}:focus:not(:focus-visible){`),
+    );
   });
 });
 
