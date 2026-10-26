@@ -5,6 +5,7 @@ import dynamic from 'next/dynamic';
 import { useRouter, useSearchParams } from 'next/navigation';
 import {
   Archive,
+  Bot,
   Bell,
   BatteryCharging,
   CalendarClock,
@@ -24,6 +25,7 @@ import { ThemeRow } from './ThemeRow';
 import { TimezoneRow } from './TimezoneRow';
 import { IndexRow, Pendiente, SettingsGroup, SettingsSheet, SheetLoading, SwitchRow, TITULO_GRUPO } from './settings-ui';
 import {
+  AGENTES_DESCRIPCION,
   ALTO_CUENTA,
   CONEXIONES_DESCRIPCION,
   CRONOTIPOS,
@@ -51,6 +53,7 @@ const cargar = {
   revision: () => import('./WeeklyReviewDaySection'),
   cuenta: () => import('@/features/account/AccountSection'),
   conexiones: () => import('./ConnectionsSection'),
+  agentes: () => import('./AgentsSection'),
   atajos: () => import('./ShortcutsSection'),
   diario: () => import('./DigestsSection'),
   datos: () => import('./DataPortabilitySection'),
@@ -67,6 +70,7 @@ const EnergyProfileSection = dynamic(() => cargar.energia().then((m) => m.Energy
 const RemindersSection = dynamic(() => cargar.recordatorios().then((m) => m.RemindersSection), { loading: cargando(5) });
 const WeeklyReviewDaySection = dynamic(() => cargar.revision().then((m) => m.WeeklyReviewDaySection), { loading: cargando(7) });
 const ConnectionsSection = dynamic(() => cargar.conexiones().then((m) => m.ConnectionsSection), { loading: cargando(2) });
+const AgentsSection = dynamic(() => cargar.agentes().then((m) => m.AgentsSection), { loading: cargando(4) });
 const ShortcutsSection = dynamic(() => cargar.atajos().then((m) => m.ShortcutsSection), { loading: cargando(6) });
 const DigestsSection = dynamic(() => cargar.diario().then((m) => m.DigestsSection), { loading: cargando(2) });
 const DataPortabilitySection = dynamic(() => cargar.datos().then((m) => m.DataPortabilitySection), { loading: cargando(3) });
@@ -285,6 +289,13 @@ export function SettingsIndex() {
         <AccountRow abrir={setHoja} />
         <TimezoneRow />
         <ConnectionsRow abrir={setHoja} />
+        <IndexRow
+          icon={<Bot aria-hidden className={glifo} />}
+          title="Agentes"
+          meta="Claude, ChatGPT y Codex de OpenAI"
+          onOpen={() => setHoja('agentes')}
+          onPrefetch={precargar('agentes')}
+        />
       </SettingsGroup>
 
       <SettingsGroup title="Una vez">
@@ -363,6 +374,9 @@ export function SettingsIndex() {
       </SettingsSheet>
       <SettingsSheet open={hoja === 'conexiones'} onOpenChange={cerrar} title="Conexiones" description={CONEXIONES_DESCRIPCION}>
         <ConnectionsSection />
+      </SettingsSheet>
+      <SettingsSheet open={hoja === 'agentes'} onOpenChange={cerrar} title="Agentes" description={AGENTES_DESCRIPCION}>
+        <AgentsSection />
       </SettingsSheet>
       <SettingsSheet open={hoja === 'atajos'} onOpenChange={cerrar} title="Atajos de teclado" description="Para moverte sin soltar el teclado.">
         <ShortcutsSection />
@@ -465,7 +479,7 @@ export function SettingsIndexSkeleton() {
         fila('limite', { limite: true }),
         ...['perfil', 'recordatorios', 'avisos', 'revision'].map((k) => fila(k)),
       ])}
-      {grupo('Cuenta', ['cuenta', 'zona', 'conexiones'].map((k) => fila(k)))}
+      {grupo('Cuenta', ['cuenta', 'zona', 'conexiones', 'agentes'].map((k) => fila(k)))}
       {grupo('Una vez', [
         fila('atajos', { soloEscritorio: true }),
         ...['diario', 'datos', 'papelera', 'borrar'].map((k) => fila(k)),

@@ -69,6 +69,16 @@ describe('SettingsIndex', () => {
     expect(await within(hoja).findByRole('radio', { name: 'Domingo' })).toHaveAttribute('aria-checked', 'true');
   });
 
+  it('Agentes abre su hoja con una pestaña por cliente', async () => {
+    renderMobile(<SettingsIndex />, { convex: cliente() });
+
+    await userEvent.click(screen.getByRole('button', { name: /Agentes/ }));
+
+    const hoja = await screen.findByRole('dialog', { name: 'Agentes' });
+    const pestanas = await within(hoja).findAllByRole('tab');
+    expect(pestanas.map((p) => p.textContent)).toEqual(['Claude', 'Claude Code', 'ChatGPT', 'Codex de OpenAI']);
+  });
+
   it('el regreso del OAuth de GitHub abre Conexiones, y al cerrarla la URL lo olvida', async () => {
     setNavigation({ pathname: '/settings', search: '?github=connected' });
     renderMobile(<SettingsIndex />, { convex: cliente() });
@@ -99,7 +109,7 @@ describe('SettingsIndex', () => {
     const esqueleto = document.querySelector('[data-slot="settings-index-skeleton"]')!;
     const grupos = [...esqueleto.querySelectorAll('section')];
     expect(grupos.map((g) => g.querySelector('h2')?.textContent)).toEqual(['Cada día', 'Cuenta', 'Una vez']);
-    // Seis en Cada día, tres en Cuenta, cinco en Una vez (atajos sólo en escritorio).
-    expect(grupos.map((g) => g.querySelectorAll('[data-slot="settings-skeleton-row"]').length)).toEqual([6, 3, 5]);
+    // Seis en Cada día, cuatro en Cuenta, cinco en Una vez (atajos sólo en escritorio).
+    expect(grupos.map((g) => g.querySelectorAll('[data-slot="settings-skeleton-row"]').length)).toEqual([6, 4, 5]);
   });
 });

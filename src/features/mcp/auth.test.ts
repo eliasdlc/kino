@@ -1,9 +1,20 @@
-import { createLocalJWKSet, exportJWK, generateKeyPair, jwtVerify } from "jose";
+import { createLocalJWKSet, decodeProtectedHeader, exportJWK, generateKeyPair, jwtVerify } from "jose";
+import { withMcpAuth } from "mcp-handler";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { MCP_CLIENT_CLAIM, MCP_TOKEN_AUDIENCE, MCP_TOKEN_ISSUER } from "@convex/lib/mcpToken";
 import { allows, SCOPES } from "@convex/lib/scopes";
 import { ALL_TOOLS } from "./tools";
-import { MCP_OAUTH_SCOPES, MCP_SCOPE_CONSENT, MCP_SCOPE_RESOURCE, mintConvexToken, publicJwks, scopeFor } from "./auth";
+import {
+  clerkFault,
+  faultResponse,
+  MCP_OAUTH_SCOPES,
+  MCP_SCOPE_CONSENT,
+  MCP_SCOPE_RESOURCE,
+  mintConvexToken,
+  publicJwks,
+  scopeFor,
+  withServerFaults,
+} from "./auth";
 
 describe("scopeFor · de los scopes de Clerk al alcance de Convex", () => {
   it("sin ninguno de los tres, el conector sólo lee", () => {
@@ -97,6 +108,66 @@ describe("mintConvexToken · el token que Convex valida", () => {
     expect(keys[0]).not.toHaveProperty("d");
     expect(keys[0]).toMatchObject({ kid: "kino-mcp", alg: "ES256", use: "sig" });
   });
+
+  it("una máquina de pruebas firma con su propio kid, y su mitad pública lo lleva", async () => {
+    process.env.KINO_MCP_KEY_ID = "";
+    // Una variable vacía en Vercel no puede dejar el token sin kid.
+    expect(decodeProtectedHeader(await mintConvexToken({ clerkId: "user_123", scope: "read" })).kid).toBe("kino-mcp");
+    process.env.KINO_MCP_KEY_ID = "kino-mcp-agentbox";
+    try {
+      const token = await mintConvexToken({ clerkId: "user_123", scope: "read" });
+      expect(decodeProtectedHeader(token).kid).toBe("kino-mcp-agentbox");
+      expect(publicJwks({ kty: "EC", crv: "P-256", x: "x", y: "y" }).keys[0].kid).toBe("kino-mcp-agentbox");
+    } finally {
+      delete process.env.KINO_MCP_KEY_ID;
+    }
+  });
+});
+
+describe("withServerFaults · un fallo de Kino no se disfraza de login caducado", () => {
+  const url = "https://www.usekino.dev/api/mcp";
+  const post = () => new Request(url, { method: "POST", headers: { Authorization: "Bearer oat_valido" } });
+  // El mismo envoltorio que la ruta, y un handler que hace lo que hace la ruta
+  // antes de montar el servidor: contestar el fallo si lo hay.
+  const route = (verify: Parameters<typeof withServerFaults<Request>>[0]) =>
+    withMcpAuth((req: Request) => faultResponse(req.auth) ?? new Response("tools", { status: 200 }), withServerFaults(verify), {
+      required: true,
+      resourceMetadataPath: "/.well-known/oauth-protected-resource/api/mcp",
+      resourceUrl: "https://www.usekino.dev",
+    });
+
+  it("si la verificación lanza, responde 503 con el motivo y no corre ninguna tool", async () => {
+    const res = await route(async () => {
+      throw new Error("Falta KINO_MCP_SIGNING_JWK: el conector MCP no puede firmar tokens para Convex.");
+    })(post());
+    const largo = await route(async () => {
+      throw new Error("x".repeat(1000));
+    })(post());
+
+    expect(res.status).toBe(503);
+    expect(res.headers.get("WWW-Authenticate")).toBeNull();
+    const body = (await res.json()) as { error: { message: string } };
+    expect(body.error.message).toContain("volver a entrar no lo arregla");
+    expect(body.error.message).toContain("Falta KINO_MCP_SIGNING_JWK");
+    // El motivo es texto de un error ajeno: se recorta para no volcar un mensaje entero.
+    const recortado = ((await largo.json()) as { error: { message: string } }).error.message;
+    expect(recortado.endsWith("x".repeat(300))).toBe(true);
+    expect(recortado).not.toContain("x".repeat(301));
+  });
+
+  it("sin token válido sigue siendo 401 con la metadata, que es lo que arranca el OAuth", async () => {
+    const res = await route(async () => undefined)(post());
+
+    expect(res.status).toBe(401);
+    expect(res.headers.get("WWW-Authenticate")).toContain("oauth-protected-resource/api/mcp");
+  });
+
+  it("con un token válido pasa al servidor", async () => {
+    const res = await route(async (_req, bearer) => ({ token: bearer!, clientId: "claude", scopes: [], extra: {} }))(post());
+
+    expect(res.status).toBe(200);
+    expect(await res.text()).toBe("tools");
+  });
 });
 
 describe("el copy del consentimiento", () => {
@@ -125,5 +196,52 @@ describe("el copy del consentimiento", () => {
     expect(MCP_SCOPE_CONSENT.write).toContain("check-in de energía");
     expect(MCP_SCOPE_CONSENT.write).toContain("páginas creadas por agentes");
     expect(MCP_SCOPE_CONSENT.write).toContain("autorices expresamente");
+  });
+});
+
+describe("clerkFault · un Clerk caído no es un token inválido", () => {
+  const headers = (reason: string, message = "") =>
+    new Headers({ "x-clerk-auth-reason": reason, "x-clerk-auth-message": message });
+  const sufijo = " (code=token-verification-failed, status=n/a)";
+
+  it("los motivos que son fallo de Clerk", () => {
+    expect(clerkFault(headers("unexpected-error"))).toBe("unexpected-error");
+    expect(clerkFault(headers("secret-key-invalid"))).toBe("secret-key-invalid");
+  });
+
+  it("no poder verificar es fallo de Clerk, aunque lo reporte como verificación fallida", () => {
+    // El primero lo dio el servidor de dev con una clave secreta mala el 25 oct;
+    // los dos siguientes, Clerk sin red y Clerk devolviendo una página HTML.
+    const caidas = [
+      "The provided Clerk Secret Key is invalid. Make sure that your Clerk Secret Key is correct.",
+      "fetch failed",
+      "Unexpected token '<', \"<html>Serv\"... is not valid JSON",
+      "Failed to load JWKS from Clerk Backend or Frontend API.",
+      "The JWKS endpoint did not contain any signing keys. Contact support@clerk.com.",
+      "Error loading Clerk JWKS from https://api.clerk.com/v1/jwks with code=503",
+    ];
+    for (const message of caidas) expect(clerkFault(headers("token-verification-failed", message + sufijo)), message).toBeDefined();
+    expect(clerkFault(headers("token-verification-failed"))).toBe("token-verification-failed");
+  });
+
+  it("los rechazos del token en sí son 401: caducado, mal firmado, mal formado o con un kid que no existe", () => {
+    // Los mensajes con los que @clerk/backend 3.17 rechaza un JWT.
+    const delToken = [
+      "JWT is expired. Expiry date: Sat, 25 Oct 2026 20:00:00 GMT, Current date: Sat, 25 Oct 2026 21:00:00 GMT.",
+      "JWT signature is invalid.",
+      "JWT cannot be used prior to not before date claim (nbf). Not before date: Sat, 25 Oct 2026 22:00:00 GMT",
+      "JWT issued at date claim (iat) is in the future. Issued at date: Sat, 25 Oct 2026 22:00:00 GMT",
+      "Invalid JWT form. The header, payload, or signature could not be decoded.",
+      'Invalid JWT type "JWT". Expected "at+jwt".',
+      'Invalid JWT algorithm "HS256". Supported: RS256.',
+      'Invalid JWT audience claim (aud) "otro". Is not included in ["kino"].',
+      "Error verifying JWT signature. bad key",
+      "Unable to find a signing key in JWKS that matches the kid='ins_x' of the provided session token.",
+      "Subject claim (sub) is required and must be a string. Received undefined.",
+      "Invalid M2M JWT category.",
+    ];
+    for (const message of delToken) expect(clerkFault(headers("token-verification-failed", message + sufijo)), message).toBeUndefined();
+    expect(clerkFault(headers("token-invalid", "Invalid JWT form."))).toBeUndefined();
+    expect(clerkFault(new Headers())).toBeUndefined();
   });
 });

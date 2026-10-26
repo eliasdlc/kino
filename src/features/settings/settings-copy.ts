@@ -45,6 +45,10 @@ export const NOMBRE_FUENTE: Record<string, string> = { github: 'GitHub' };
 export const CONEXIONES_DESCRIPCION =
   'De dónde entra trabajo que no escribiste tú. Lo que traiga una fuente no pisa lo que añadas encima: la energía, la fecha y el plan de hoy siguen siendo tuyos.';
 
+/** Lo que la hoja de Agentes explica arriba. */
+export const AGENTES_DESCRIPCION =
+  'Conecta Claude, ChatGPT o Codex de OpenAI. Entras con tu cuenta de Kino y lo autorizas; no hay claves que copiar.';
+
 /** Lo que la hoja de Datos explica arriba. */
 export const DATOS_DESCRIPCION =
   'Bájate todo lo tuyo: un JSON por tabla para reimportarlo y un Markdown por capítulo para leerlo en cualquier otra herramienta.';
