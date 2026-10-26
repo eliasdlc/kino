@@ -54,11 +54,17 @@ export function CompileMenu({
   folderId,
   systemId,
   manuscript: preloaded,
+  onPrint,
 }: {
   folderId: string;
   systemId: string;
   /** El modo lectura ya lo tiene; la biblioteca de obras lo pide al abrir. */
   manuscript?: Manuscript;
+  /**
+   * Quien ya muestra la lectura imprime ahí mismo: ir a `?print=1` desde esa
+   * misma dirección no navega, y la segunda vez no imprimiría nada.
+   */
+  onPrint?: () => void;
 }) {
   const [open, setOpen] = useState(false);
   const [busy, setBusy] = useState<string | null>(null);
@@ -91,6 +97,12 @@ export function CompileMenu({
   const isMobile = useIsMobile();
   const pdfHref = `/systems/${systemId}/folders/${folderId}/lectura?print=1`;
   const disponible = Boolean(manuscript) && !pending;
+
+  // La hoja se cierra antes de imprimir, para que no salga en la página.
+  function imprimir() {
+    setOpen(false);
+    requestAnimationFrame(() => onPrint?.());
+  }
 
   const disparador = (
     <Button variant="outline" className="gap-1.5" aria-busy={pending || undefined} onClick={isMobile ? () => setOpen(true) : undefined}>
@@ -131,7 +143,10 @@ export function CompileMenu({
               >
                 <span className="block text-base text-foreground">Word (.docx)</span>
               </MarginRow>
-              <MarginRow href={pdfHref} className={UNA_LINEA} margin={<Printer aria-hidden className="size-5" />}>
+              <MarginRow
+                {...(onPrint ? { onClick: imprimir } : { href: pdfHref })}
+                className={UNA_LINEA} margin={<Printer aria-hidden className="size-5" />}
+              >
                 <span className="block text-base text-foreground">PDF, imprimiendo la lectura</span>
               </MarginRow>
               {/* Reservada: aparecer no empuja nada. */}
@@ -162,12 +177,19 @@ export function CompileMenu({
           Word (.docx)
         </DropdownMenuItem>
         <DropdownMenuSeparator />
-        <DropdownMenuItem asChild>
-          <Link href={pdfHref}>
+        {onPrint ? (
+          <DropdownMenuItem onSelect={imprimir}>
             <Printer className="size-4" />
             PDF, imprimiendo la lectura
-          </Link>
-        </DropdownMenuItem>
+          </DropdownMenuItem>
+        ) : (
+          <DropdownMenuItem asChild>
+            <Link href={pdfHref}>
+              <Printer className="size-4" />
+              PDF, imprimiendo la lectura
+            </Link>
+          </DropdownMenuItem>
+        )}
       </DropdownMenuContent>
     </DropdownMenu>
   );
