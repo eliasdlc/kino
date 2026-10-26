@@ -120,6 +120,15 @@ describe("AllTasksList", () => {
     expect(titulosDe(todas)).toEqual(["Leer el capítulo dos", "Pedir la beca"]);
   });
 
+  it("el título de Todas las tareas va solo en su línea y la cuenta con las herramientas", () => {
+    pintar();
+
+    const titulo = screen.getByRole("heading", { name: "Todas las tareas" });
+    expect(titulo.parentElement).toHaveTextContent(/^Todas las tareas$/);
+    const todas = screen.getByRole("region", { name: "Todas las tareas" });
+    expect(within(todas).getByText("2 tareas").parentElement).toContainElement(within(todas).getByRole("button", { name: "Filtros" }));
+  });
+
   it("completar una vencida la deja tachada en Vencidas y no la pasa a Todas", () => {
     const { convex } = pintar();
 

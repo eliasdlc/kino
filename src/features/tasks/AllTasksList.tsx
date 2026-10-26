@@ -363,11 +363,14 @@ export function AllTasksList({ systems }: AllTasksListProps) {
       />
 
       <section aria-labelledby="todas-titulo">
-        <SectionHead id="todas-titulo" title="Todas las tareas" count={isLoading ? undefined : cuenta} />
+        <SectionHead id="todas-titulo" title="Todas las tareas" />
 
-        {/* Herramientas: la hoja de filtros, la selección y las fichas de lo
-            que está activo, cada una con el valor que quita. */}
+        {/* Herramientas: la cuenta, la hoja de filtros, la selección y las
+            fichas de lo que está activo, cada una con el valor que quita. La
+            cuenta va aquí y no junto al título: en el teléfono lo partía en
+            dos líneas. */}
         <div className="flex flex-wrap items-center gap-1.5 py-2 pl-(--margen)">
+          {!isLoading && <span className="mr-1 text-[0.84rem] text-muted-foreground tabular-nums">{cuenta}</span>}
           <Button size="sm" variant="secondary" onClick={() => setShowFilters(true)}>
             <SlidersHorizontal className="size-4" />
             Filtros

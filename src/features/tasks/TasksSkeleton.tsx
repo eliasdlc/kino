@@ -113,8 +113,9 @@ export function ListaDeTareasSkeleton() {
         <ListaSkeleton filas={2} />
       </div>
       <div>
-        <SectionHead title="Todas las tareas" count={<Skeleton className="inline-block h-3.5 w-24 align-middle" />} />
-        <div className="py-2 pl-(--margen)">
+        <SectionHead title="Todas las tareas" />
+        <div className="flex items-center gap-2.5 py-2 pl-(--margen)">
+          <Skeleton className="h-3.5 w-24" />
           <Skeleton className="h-[2.85rem] w-28 rounded-full md:pointer-fine:h-10" />
         </div>
         <ListaSkeleton filas={6} />
