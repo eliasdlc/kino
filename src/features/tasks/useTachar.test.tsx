@@ -2,15 +2,18 @@
  * Criterio: una lista tacha sin moverse. Al completar, la fila se tacha en su
  * renglón y se queda aunque la suscripción ya no la traiga (lo sugerido deja
  * de sugerir una hecha); el aviso ofrece Deshacer, y Deshacer devuelve la
- * tarea una sola vez aunque se pulse tarde, porque la mutación es un flip.
+ * tarea a donde estaba (estado y plan de hoy) una sola vez aunque se pulse
+ * tarde, porque la mutación es un flip. Lo tachado vive sólo en su visita.
  */
 import { describe, expect, it, vi, beforeEach } from "vitest";
-import { fireEvent, screen } from "@testing-library/react";
+import { act, fireEvent, screen } from "@testing-library/react";
+import { toast } from "sonner";
 import { api } from "@convex/_generated/api";
-import { makeTestConvexClient, renderWithProviders, stubMutation } from "@/shared/testing/render";
+import { makeTestConvexClient, renderWithProviders, stubMutation, stubMutationError, stubMutationPending } from "@/shared/testing/render";
+import type { TaskStatus } from "./tasks.state-machine";
 import type { TaskTransport } from "./tasks.types";
 import { TaskRow } from "./TaskRow";
-import { useListaTachable } from "./useTachar";
+import { useListaTachable, useTacharEnSitio } from "./useTachar";
 
 const toastMock = vi.fn<(...args: unknown[]) => string>(() => "aviso");
 vi.mock("sonner", () => ({
@@ -18,10 +21,13 @@ vi.mock("sonner", () => ({
 }));
 
 /** Lo que el servidor contesta a `tasks:toggle` de una tarea hecha: la reabre en Hoy. */
-const reabierta = stubMutation(api.tasks.toggle, { status: "today", completedBy: null, completedVia: null, observedMinutes: 0 });
+const REABIERTA = { status: "today", completedBy: null, completedVia: null, observedMinutes: 0 } as const;
+const reabierta = stubMutation(api.tasks.toggle, REABIERTA);
 
-const tarea = (id: string, title: string, status = "week") =>
-  ({ id, title, status, priority: "medium", effectivePriority: "medium", energyLevel: "medium", dueDate: null, estimatedTime: null, taskType: "task", systemId: "s1" }) as unknown as TaskTransport;
+const tarea = (id: string, title: string, status = "week", inTodayPlan = status === "today") =>
+  ({ id, title, status, inTodayPlan, priority: "medium", effectivePriority: "medium", energyLevel: "medium", dueDate: null, estimatedTime: null, taskType: "task", systemId: "s1" }) as unknown as TaskTransport;
+
+const deshacerDelAviso = () => (toastMock.mock.calls.at(-1)![1] as { action: { onClick: () => void } }).action.onClick();
 
 function Lista({ items, toggle }: { items: TaskTransport[]; toggle: (id: string) => void }) {
   const { filas, struck, handleToggle } = useListaTachable(items, toggle);
@@ -35,7 +41,10 @@ function Lista({ items, toggle }: { items: TaskTransport[]; toggle: (id: string)
 }
 
 describe("useListaTachable", () => {
-  beforeEach(() => toastMock.mockClear());
+  beforeEach(() => {
+    toastMock.mockClear();
+    vi.mocked(toast.error).mockClear();
+  });
 
   it("la fila tachada se queda en su renglón aunque la suscripción la suelte", () => {
     const toggle = vi.fn();
@@ -67,18 +76,59 @@ describe("useListaTachable", () => {
     expect(toggle.mock.calls).toEqual([["a"]]);
     expect(convex.calls.map((c) => [c.name, c.args])).toEqual([
       ["tasks:toggle", { id: "a" }],
-      ["tasks:update", { id: "a", status: "backlog" }],
+      ["tasks:update", { id: "a", status: "backlog", inTodayPlan: false }],
     ]);
   });
 
-  it("D3b: si la reapertura ya deja la tarea en su estado, Deshacer no escribe estado", async () => {
-    const convex = makeTestConvexClient([], [reabierta]);
+  it("D3b: si la reapertura ya deja la tarea en su sitio, Deshacer no escribe estado", async () => {
+    const reapertura = stubMutationPending(api.tasks.toggle);
+    const convex = makeTestConvexClient([], [reapertura.stub]);
     renderWithProviders(<Lista items={[tarea("a", "Primera", "today")]} toggle={vi.fn()} />, { convex });
     fireEvent.click(screen.getByRole("button", { name: "Completar Primera" }));
-    (toastMock.mock.calls[0]![1] as { action: { onClick: () => void } }).action.onClick();
+    deshacerDelAviso();
     await vi.waitFor(() => expect(convex.calls.map((c) => c.name)).toEqual(["tasks:toggle"]));
-    await Promise.resolve();
+    // El servidor contesta la reapertura; una vuelta del bucle de eventos deja
+    // correr entera la cadena que decide si escribir el estado.
+    await act(async () => reapertura.responder(REABIERTA));
+    await act(() => new Promise((listo) => setTimeout(listo, 0)));
     expect(convex.calls.map((c) => c.name)).toEqual(["tasks:toggle"]);
+  });
+
+  it("E6: Deshacer devuelve al plan de hoy una tarea de la semana que estaba en él", async () => {
+    const convex = makeTestConvexClient([], [reabierta]);
+    renderWithProviders(<Lista items={[tarea("a", "Primera", "week", true)]} toggle={vi.fn()} />, { convex });
+    fireEvent.click(screen.getByRole("button", { name: "Completar Primera" }));
+    deshacerDelAviso();
+    await vi.waitFor(() => expect(convex.calls.filter((c) => c.name === "tasks:update")).toHaveLength(1));
+    expect(convex.calls.at(-1)!.args).toEqual({ id: "a", status: "week", inTodayPlan: true });
+  });
+
+  it("E5: si el estado guardado no se puede escribir después de reabrir, se dice", async () => {
+    const convex = makeTestConvexClient([], [reabierta, stubMutationError(api.tasks.update, new Error("Sin conexión"))]);
+    renderWithProviders(<Lista items={[tarea("a", "Primera", "week")]} toggle={vi.fn()} />, { convex });
+    fireEvent.click(screen.getByRole("button", { name: "Completar Primera" }));
+    deshacerDelAviso();
+    await vi.waitFor(() => expect(convex.calls.map((c) => c.name)).toEqual(["tasks:toggle", "tasks:update"]));
+    await vi.waitFor(() => expect(toast.error).toHaveBeenCalledTimes(1));
+  });
+
+  it("E3: la página siguiente no ve en su primer render lo tachado en la anterior", () => {
+    const equis = tarea("x", "Equis", "backlog");
+    function Anterior() {
+      const { handleToggle } = useTacharEnSitio(vi.fn());
+      return <button onClick={() => handleToggle(equis)}>Tachar</button>;
+    }
+    const vistos: TaskStatus[] = [];
+    function Siguiente() {
+      const { estadoDe } = useTacharEnSitio(vi.fn());
+      vistos.push(estadoDe({ ...equis, status: "done" }));
+      return null;
+    }
+    const { rerender } = renderWithProviders(<Anterior />, { convex: makeTestConvexClient() });
+    fireEvent.click(screen.getByRole("button", { name: "Tachar" }));
+    rerender(<Siguiente />);
+    // Hecha y sin tachar en esta visita: se filtra como hecha desde el primer render.
+    expect(vistos[0]).toBe("done");
   });
 
   it("deshacer con el círculo cierra el aviso y el Deshacer del aviso ya no hace nada", async () => {
@@ -93,7 +143,7 @@ describe("useListaTachable", () => {
     await vi.waitFor(() => expect(convex.calls.filter((c) => c.name === "tasks:update")).toHaveLength(1));
     expect(convex.calls.map((c) => [c.name, c.args])).toEqual([
       ["tasks:toggle", { id: "a" }],
-      ["tasks:update", { id: "a", status: "week" }],
+      ["tasks:update", { id: "a", status: "week", inTodayPlan: false }],
     ]);
   });
 });
