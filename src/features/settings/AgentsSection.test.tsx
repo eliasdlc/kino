@@ -16,6 +16,11 @@ import {
 } from "@/features/mcp/connect";
 import { AgentsSection } from "./AgentsSection";
 
+// Los comandos se pintan argumento por argumento, así que se buscan por el
+// texto completo del <code> que los contiene.
+const esComando = (comando: string) => (_: string, el: Element | null) =>
+  el?.tagName === "CODE" && el.textContent === comando;
+
 const NOMBRES = ["Claude", "Claude Code", "ChatGPT", "Codex de OpenAI"];
 
 describe("AgentsSection", () => {
@@ -30,20 +35,20 @@ describe("AgentsSection", () => {
     renderWithProviders(<AgentsSection />);
 
     // Claude Code es el que se ve al entrar.
-    expect(screen.getByText(CLAUDE_CODE_COMMANDS[0])).toBeVisible();
-    expect(screen.queryByText(CODEX_COMMANDS[0])).toBeNull();
+    expect(screen.getByText(esComando(CLAUDE_CODE_COMMANDS[0]))).toBeVisible();
+    expect(screen.queryByText(esComando(CODEX_COMMANDS[0]))).toBeNull();
 
     await user.click(screen.getByRole("tab", { name: "Codex de OpenAI" }));
-    expect(screen.getByText(CODEX_COMMANDS[0])).toBeVisible();
-    expect(screen.getByText(CODEX_COMMANDS[1])).toBeVisible();
-    expect(screen.queryByText(CLAUDE_CODE_COMMANDS[0])).toBeNull();
+    expect(screen.getByText(esComando(CODEX_COMMANDS[0]))).toBeVisible();
+    expect(screen.getByText(esComando(CODEX_COMMANDS[1]))).toBeVisible();
+    expect(screen.queryByText(esComando(CLAUDE_CODE_COMMANDS[0]))).toBeNull();
 
     await user.click(screen.getByRole("tab", { name: "Claude" }));
     expect(screen.getByRole("link", { name: /Añadir Kino a Claude/ })).toHaveAttribute(
       "href",
       CLAUDE_ADD_CONNECTOR_URL,
     );
-    expect(screen.queryByText(CODEX_COMMANDS[0])).toBeNull();
+    expect(screen.queryByText(esComando(CODEX_COMMANDS[0]))).toBeNull();
   });
 
   it("Copiar los dos escribe los dos comandos del cliente en el portapapeles", async () => {
