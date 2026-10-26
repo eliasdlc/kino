@@ -12,7 +12,7 @@ import { useSuggestedTasks, useAddToTodayPlan, useToggleTodayTask, useTodayPlanT
 import { getOverdueTasks } from './OverdueGroup';
 import { TaskDetailSheet } from './TaskDetailSheet';
 import { TaskRow } from './TaskRow';
-import { useListaTachable } from './useTachar';
+import { conVisita, useListaTachable } from './useTachar';
 import { LISTA_FILA_ALTO, ListaSkeleton, PresupuestoSkeleton } from './TasksSkeleton';
 import type { TaskTransport } from './tasks.types';
 
@@ -59,7 +59,7 @@ function AddToPlan({ added, onAdd, title }: { added: boolean; onAdd: () => void;
  * a la vez se tachaba en una y saltaba en la otra. Mientras el presupuesto
  * no se sabe, su renglón guarda el sitio a su altura real.
  */
-export function KinoSuggestedSection() {
+export const KinoSuggestedSection = conVisita(function KinoSuggestedSection() {
   const { data: sugeridas = [], isLoading } = useSuggestedTasks();
   const { isLoading: ajustesCargando } = useUserSettings();
   const { isLoading: planCargando } = useTodayPlanTasks();
@@ -150,4 +150,4 @@ export function KinoSuggestedSection() {
       />
     </section>
   );
-}
+});
