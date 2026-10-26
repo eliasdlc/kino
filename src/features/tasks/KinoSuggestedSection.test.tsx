@@ -86,4 +86,13 @@ describe("KinoSuggestedSection", () => {
     expect(container.querySelector("[data-slot=presupuesto-skeleton]")).toBeNull();
     expect(screen.getByText("Energía comprometida")).toBeInTheDocument();
   });
+
+  it("D9: el porqué del servidor no llega a la fila sugerida", () => {
+    const why = "Vence hoy, prioridad alta, energía media";
+    const { container } = pintar([sugerida("a", "Leer el capítulo dos", { why, dueDate: addDays(startOfToday(), 1).toISOString() })]);
+
+    expect(container.querySelector("[data-slot=task-row-title]")).toHaveTextContent("Leer el capítulo dos");
+    expect(screen.queryByText(why)).toBeNull();
+    expect(container).not.toHaveTextContent(why);
+  });
 });
