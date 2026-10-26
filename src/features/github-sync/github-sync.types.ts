@@ -1,5 +1,5 @@
 /**
- * KIN-135 · Sincronización de issues de GitHub con el board de un sistema `project`.
+ * KIN-135: sincronización de issues de GitHub con el board de un sistema `project`.
  *
  * Dirección: **sólo lectura, GitHub manda**. Es una decisión, no una etapa: la
  * bidireccional obliga a resolver conflictos de escritura y a pelearse con el

@@ -1,10 +1,11 @@
 /**
  * Criterio: abrir una clase enseña lo que contiene, no un índice de pestañas.
  * Los apuntes van arriba y las entregas debajo, en la misma página, y el ciclo
- * es una etiqueta que se toca para mover la clase, no un formulario.
+ * es una etiqueta que se toca para mover la clase, no un formulario. El
+ * título va en la columna de texto también cuando el margen se pliega.
  */
 import { describe, expect, it, vi } from "vitest";
-import { fireEvent, screen } from "@testing-library/react";
+import { fireEvent, screen, within } from "@testing-library/react";
 import { makeTestConvexClient, renderMobile } from "@/shared/testing/render";
 import { setNavigation } from "@/shared/testing/navigation";
 import { AcademicSubjectView } from "./AcademicSubjectView";
@@ -56,21 +57,31 @@ describe("AcademicSubjectView", () => {
   it("enseña los apuntes y las entregas en la misma página", () => {
     renderSubject();
     expect(screen.getByRole("heading", { name: "Cálculo III" })).toBeVisible();
-    expect(screen.getByText("Apuntes")).toBeVisible();
-    expect(screen.getByText("Límites y continuidad")).toBeVisible();
-    expect(screen.getByText("Entregas y exámenes")).toBeVisible();
+    const apuntes = screen.getByText("Límites y continuidad");
+    const entregas = screen.getByRole("heading", { name: "Entregas y exámenes" });
+    expect(apuntes).toBeVisible();
+    // Los apuntes antes que las entregas: la carpeta enseña primero lo que contiene.
+    expect(apuntes.compareDocumentPosition(entregas) & Node.DOCUMENT_POSITION_FOLLOWING).toBe(Node.DOCUMENT_POSITION_FOLLOWING);
   });
 
   it("no separa tareas y apuntes en pestañas", () => {
     renderSubject();
-    const tabs = screen.getAllByRole("tab").map((tab) => tab.textContent);
-    expect(tabs.join(" ")).not.toContain("Apuntes");
+    const vistas = within(screen.getByRole("group", { name: "Vistas de tareas" }))
+      .getAllByRole("button")
+      .map((vista) => vista.textContent);
+    expect(vistas.join(" ")).not.toContain("Apuntes");
+  });
+
+  it("el título se queda en la columna de texto cuando el glifo del margen se oculta", () => {
+    renderSubject();
+
+    // Sin columna fija, en escritorio el texto caía en la del margen, de ancho cero.
+    expect(screen.getByRole("heading", { level: 1, name: "Cálculo III" }).parentElement).toHaveClass("col-start-2");
   });
 
   it("enseña el profesor y el horario de la clase", () => {
     renderSubject();
-    expect(screen.getByText("Prof. Rodríguez")).toBeVisible();
-    expect(screen.getByText("Lun y Mie 9:00")).toBeVisible();
+    expect(screen.getByText("Prof. Rodríguez, Lun y Mie 9:00")).toBeVisible();
   });
 
   it("el ciclo es una etiqueta que abre mover la clase", () => {

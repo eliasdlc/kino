@@ -1,5 +1,6 @@
 import { notFound, redirect } from "next/navigation";
 import { PageBreadcrumb } from "@/components/PageBreadcrumb";
+import { PageWrapper } from "@/components/PageWrapper";
 import { api } from "@convex/_generated/api";
 import { serverQuery } from "@/shared/convex/server";
 import { ReadingView } from "@/features/writing/ReadingView";
@@ -44,9 +45,11 @@ export default async function ReadingRoute({
           ]}
         />
       </div>
-      <div className="p-4 md:p-8">
+      {/* El canto de las demás páginas del sistema; la columna del margen
+          dentro de la lectura la pone la pantalla de lectura. */}
+      <PageWrapper className="w-full">
         <ReadingView manuscript={manuscript} autoPrint={print === "1"} />
-      </div>
+      </PageWrapper>
     </div>
   );
 }

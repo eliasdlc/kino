@@ -1,9 +1,13 @@
 "use client";
 
-import { useMemo, useState } from "react";
-import { Search, Plus, Loader2 } from "lucide-react";
+import { useId, useMemo, useState } from "react";
+import { Search, Plus } from "lucide-react";
 import { Input } from "@/components/ui/input";
+import { EmptyState } from "@/components/ui/empty-state";
+import { MarginRow } from "@/components/ui/margin-row";
+import { IndexHead } from "@/features/notebooks/IndexHead";
 import { Button } from "@/components/ui/button";
+import { RowsSkeleton } from "@/components/Skeletons";
 import { Label } from "@/components/ui/label";
 import {
   ResponsiveDialog,
@@ -25,7 +29,6 @@ import {
   type EntityType,
 } from "./entities.attributes";
 import {
-  ENTITY_TYPE_ICON,
   ENTITY_TYPE_LABEL,
   ENTITY_TYPE_LABEL_PLURAL,
 } from "./entities.ui";
@@ -37,6 +40,8 @@ import type { EntityListItemTransport } from "./entities.types";
  * un click.
  */
 export function CodexLibrary({ systemId }: { systemId: string }) {
+  // Un fallo de la consulta no llega como `isError`: Convex lo lanza en el
+  // render y lo recoge el `error.tsx` de la ruta, que es su estado de error.
   const { data: entities = [], isLoading } = useSystemEntities(systemId);
   const [query, setQuery] = useState("");
   const [openEntityId, setOpenEntityId] = useState<string | null>(null);
@@ -61,70 +66,70 @@ export function CodexLibrary({ systemId }: { systemId: string }) {
   }, [entities, query]);
 
   const total = entities.length;
+  const hallados = [...grouped.values()].reduce((n, list) => n + list.length, 0);
 
   return (
     <div className="space-y-5">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div className="relative flex-1 max-w-sm">
-          <Search className="absolute left-2.5 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+          <Search aria-hidden className="absolute left-2.5 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
           <Input
             value={query}
             onChange={(e) => setQuery(e.target.value)}
-            placeholder="Buscar en el universo…"
+            placeholder="Buscar en el universo"
+            aria-label="Buscar en el universo"
             className="pl-8"
           />
         </div>
-        <Button className="gap-2" onClick={() => setCreating(true)}>
+        {/* Sin el brillo del botón: en una página de Diario nada flota. */}
+        <Button className="gap-2 shadow-none" onClick={() => setCreating(true)}>
           <Plus className="size-4" />
           Nueva entidad
         </Button>
       </div>
 
       {isLoading ? (
-        <p className="text-sm text-muted-foreground">Cargando el universo…</p>
-      ) : total === 0 ? (
-        <div className="rounded-lg border border-dashed border-border p-8 text-center">
-          <p className="text-sm font-medium">Tu universo está vacío</p>
-          <p className="mt-1 text-sm text-muted-foreground">
-            Menciona personajes, lugares u objetos con @ mientras escribes, o crea uno aquí.
-          </p>
+        // La forma del índice que va a llegar: un título de sección y filas numeradas.
+        <div role="status" aria-busy aria-label="Cargando el universo">
+          <IndexHead title={<span aria-hidden className="inline-block h-[0.72em] w-28 rounded-md bg-muted align-middle" />} />
+          <RowsSkeleton rows={4} margin="numeral" />
         </div>
+      ) : total === 0 ? (
+        <EmptyState
+          className="pl-(--margen)"
+          title="Tu universo está vacío"
+          description="Menciona personajes, lugares u objetos con @ mientras escribes, o crea uno aquí."
+        />
+      ) : hallados === 0 ? (
+        <p className="flex flex-wrap items-center gap-x-2 pl-(--margen) text-sm text-muted-foreground">
+          <span>{`Nada en el universo se llama "${query.trim()}".`}</span>
+          <Button variant="link" size="sm" className="px-1" onClick={() => setQuery("")}>
+            Limpiar
+          </Button>
+        </p>
       ) : (
+        // Un índice por tipo, como el de las carpetas: el título de sección
+        // con su cuenta y una fila por entidad con su numeral en el margen.
+        // Sin cards: la fila es el contenedor.
         <div className="space-y-6">
           {ENTITY_TYPES.map((type) => {
             const list = grouped.get(type);
             if (!list || list.length === 0) return null;
-            const Icon = ENTITY_TYPE_ICON[type];
             return (
-              <section key={type} className="space-y-2">
-                <div className="flex items-center gap-2">
-                  <Icon className="size-4 text-muted-foreground" />
-                  <h3 className="text-sm font-semibold">
-                    {ENTITY_TYPE_LABEL_PLURAL[type]}
-                  </h3>
-                  <span className="text-xs text-muted-foreground">{list.length}</span>
-                </div>
-                <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-4">
-                  {list.map((e) => (
-                    <button
-                      key={e.id}
-                      type="button"
-                      onClick={() => setOpenEntityId(e.id)}
-                      className="flex flex-col gap-1 rounded-lg border border-border bg-card p-3 text-left transition-colors hover:border-primary/40 hover:bg-accent/40"
-                    >
-                      <span className="truncate text-sm font-medium">{e.name}</span>
-                      {e.summary ? (
-                        <span className="line-clamp-2 text-xs text-muted-foreground">
-                          {e.summary}
-                        </span>
-                      ) : (
-                        <span className="text-xs text-muted-foreground/70">
-                          {ENTITY_TYPE_LABEL[type]}
-                        </span>
-                      )}
-                    </button>
-                  ))}
-                </div>
+              <section key={type} aria-labelledby={`codex-${type}`}>
+                <IndexHead id={`codex-${type}`} title={ENTITY_TYPE_LABEL_PLURAL[type]} trailing={list.length} />
+                {list.map((e, i) => (
+                  <MarginRow
+                    key={e.id}
+                    onClick={() => setOpenEntityId(e.id)}
+                    margin={<span className="mt-[0.55rem] block text-sm leading-none text-mute tabular-nums">{i + 1}</span>}
+                  >
+                    <span className="block truncate text-base font-semibold text-foreground">{e.name}</span>
+                    <span className="line-clamp-2 block text-sm text-muted-foreground">
+                      {e.summary || ENTITY_TYPE_LABEL[type]}
+                    </span>
+                  </MarginRow>
+                ))}
               </section>
             );
           })}
@@ -165,6 +170,7 @@ function CreateEntityDialog({
   const [name, setName] = useState("");
   const [type, setType] = useState<EntityType>("character");
   const create = useCreateEntity(systemId);
+  const campo = useId();
 
   function submit() {
     const trimmed = name.trim();
@@ -189,8 +195,11 @@ function CreateEntityDialog({
         </ResponsiveDialogHeader>
         <div className="space-y-3">
           <div className="space-y-1.5">
-            <Label className="text-xs text-muted-foreground">Nombre</Label>
+            <Label htmlFor={`${campo}-nombre`} className="text-xs text-muted-foreground">
+              Nombre
+            </Label>
             <Input
+              id={`${campo}-nombre`}
               autoFocus
               value={name}
               onChange={(e) => setName(e.target.value)}
@@ -199,9 +208,11 @@ function CreateEntityDialog({
             />
           </div>
           <div className="space-y-1.5">
-            <Label className="text-xs text-muted-foreground">Tipo</Label>
+            <Label htmlFor={`${campo}-tipo`} className="text-xs text-muted-foreground">
+              Tipo
+            </Label>
             <Select value={type} onValueChange={(v) => setType(v as EntityType)}>
-              <SelectTrigger className="w-full">
+              <SelectTrigger id={`${campo}-tipo`} className="w-full">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
@@ -218,8 +229,7 @@ function CreateEntityDialog({
             onClick={submit}
             disabled={!name.trim() || create.isPending}
           >
-            {create.isPending && <Loader2 className="size-4 animate-spin" />}
-            Crear
+            {create.isPending ? "Creando" : "Crear"}
           </Button>
         </div>
       </ResponsiveDialogContent>

@@ -44,6 +44,13 @@ describe("buildWritingSuggestions", () => {
     expect(out[0]!.target).toEqual({ kind: "page", id: "p1" });
   });
 
+  it("un capítulo sin obra no dice «en sin obra» ni lleva punto medio", () => {
+    const [retomar] = buildWritingSuggestions(
+      signals({ openChapter: { pageId: "p2", title: "Apunte", folderName: "sin obra", wordCount: 136, daysSinceEdit: 2 } }),
+    );
+    expect(retomar!.reason).toBe("Es lo último que escribiste, hace 2 días: 136 palabras sin obra asignada.");
+  });
+
   it("cada sugerencia trae su porqué comprobable", () => {
     // Números por debajo del millar: el separador depende del ICU del entorno y
     // lo que se prueba aquí es que la razón cite el dato, no cómo se formatea.

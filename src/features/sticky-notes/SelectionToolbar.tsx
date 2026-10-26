@@ -30,7 +30,7 @@ export function SelectionToolbar({ selection, onAnnotate }: SelectionToolbarProp
       <button
         type="button"
         onClick={() => onAnnotate(selection)}
-        className="ml-auto min-h-12 shrink-0 rounded-full px-3 text-sm font-semibold text-primary transition-colors hover:bg-primary/10"
+        className="ml-auto min-h-12 shrink-0 rounded-full px-3 text-sm font-semibold text-primary transition-colors duration-(--dur-toque) ease-(--ease-pluma) hover:bg-primary/10"
       >
         Anotarlo
       </button>

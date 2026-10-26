@@ -63,8 +63,8 @@ export function BoardCard({ task, systemId, isFocused, onToggle, onDelete, onEdi
     >
       {stalled && aging !== null && (
         <div className="flex justify-end mb-1">
-          <span className="inline-flex items-center gap-1 rounded-full bg-amber-500/15 text-amber-600 dark:text-amber-400 text-[10px] font-medium px-1.5 py-0.5">
-            {aging}d sin avanzar
+          <span className="inline-flex items-center gap-1 text-xs font-semibold text-warn">
+            {`parada, ${aging} días sin avanzar`}
           </span>
         </div>
       )}

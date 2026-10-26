@@ -60,7 +60,7 @@ export function TagPicker({ systemId, value, onChange, label, allowCreate }: Tag
             type="button"
             onClick={() => onChange(selected ? null : tag.id)}
             className={cn(
-              "inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium border transition-all",
+              "inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium border transition-[color,background-color,border-color] duration-(--dur-toque) ease-(--ease-pluma) focus-ring pointer-coarse:min-h-[2.85rem] pointer-coarse:px-3.5 pointer-coarse:text-sm",
               selected
                 ? "bg-muted border-foreground/30 text-foreground"
                 : "bg-transparent border-border text-muted-foreground hover:border-muted-foreground/50",
@@ -94,13 +94,14 @@ export function TagPicker({ systemId, value, onChange, label, allowCreate }: Tag
             }}
             placeholder="Nueva categoría"
             disabled={isPending}
-            className="text-xs bg-muted rounded-full px-2.5 py-1 border outline-none focus:ring-1 focus:ring-primary/40"
+            aria-label="Nueva categoría"
+            className="rounded-full border bg-muted px-2.5 py-1 text-xs outline-none focus-ring pointer-coarse:min-h-[2.85rem] pointer-coarse:px-3.5 pointer-coarse:text-base"
           />
         ) : (
           <button
             type="button"
             onClick={() => setAdding(true)}
-            className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium border border-dashed border-border text-muted-foreground hover:border-muted-foreground/50 transition-colors"
+            className="inline-flex items-center gap-1 rounded-full border border-dashed border-border px-2.5 py-1 text-xs font-medium text-muted-foreground transition-[color,border-color] duration-(--dur-toque) ease-(--ease-pluma) hover:border-muted-foreground/50 focus-ring pointer-coarse:min-h-[2.85rem] pointer-coarse:px-3.5 pointer-coarse:text-sm"
           >
             <Plus size={12} /> Categoría
           </button>
