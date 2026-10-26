@@ -97,17 +97,26 @@ describe("GlobalCalendarView en el teléfono", () => {
 
   it("no carga @dnd-kit ni la rejilla de escritorio, tampoco al hidratar", () => {
     // La hidratación usa la instantánea del servidor: si esa dijera
-    // "escritorio", el teléfono pintaría la rejilla antes de saltar. El
-    // contenedor llega vacío, así que React avisa del desajuste y vuelve a
-    // pintar en el cliente: ese aviso es el esperado y se calla aquí.
+    // "escritorio", el teléfono pintaría la rejilla antes de saltar. Para que
+    // React hidrate de verdad (y no se rinda ante un contenedor vacío y pinte
+    // en el cliente) el contenedor lleva el HTML que el servidor serviría al
+    // teléfono: el de un primer pintado de móvil.
+    // El servidor no tiene datos todavía: su HTML es el de las consultas en carga.
+    const servido = renderMobile(<GlobalCalendarView />, { convex: makeTestConvexClient([]) });
+    const html = servido.container.innerHTML;
+    servido.unmount();
     const contenedor = document.body.appendChild(document.createElement("div"));
+    contenedor.innerHTML = html;
+    const noCoincide = vi.fn();
+
     renderMobile(<GlobalCalendarView />, {
       container: contenedor,
       hydrate: true,
-      onRecoverableError: () => {},
-      convex: makeTestConvexClient([stubQuery(api.tasks.calendar, [])]),
+      onRecoverableError: noCoincide,
+      convex: makeTestConvexClient([]),
     });
 
+    expect(noCoincide).not.toHaveBeenCalled();
     expect(screen.getByRole("heading", { level: 1, name: "Calendario" })).toBeInTheDocument();
     expect(screen.queryByRole("radiogroup", { name: "Vista" })).not.toBeInTheDocument();
     expect(dndCargado).not.toHaveBeenCalled();
@@ -344,9 +353,65 @@ describe("GlobalCalendarView en el teléfono, el día que se mira", () => {
     expect(document.querySelectorAll('[data-slot="page"] [data-slot="skeleton"]').length).toBeGreaterThan(0);
 
     act(() => convex.publish(stubQuery(api.tasks.calendar, [])));
+    act(() => convex.publish(stubQuery(api.tasks.list, { items: [], restantes: 0 })));
 
     expect(screen.getByText("Nada con fecha este día")).toBeVisible();
     expect(document.querySelectorAll('[data-slot="page"] [data-slot="skeleton"]').length).toBe(0);
+  });
+
+  it("mientras la lista de las sin fecha no llega no dice 0 ni «ya tiene fecha», y al llegar sí", async () => {
+    const convex = makeTestConvexClient([stubQuery(api.tasks.calendar, [])]);
+    renderMobile(<GlobalCalendarView />, { convex });
+    const cabecera = screen.getByRole("button", { name: /Sin programar/ });
+
+    await userEvent.click(cabecera);
+
+    expect(screen.queryByText("Todo lo pendiente ya tiene fecha.")).toBeNull();
+    expect(cabecera.textContent).toBe("Sin programar");
+    const lista = document.getElementById(cabecera.getAttribute("aria-controls")!)!;
+    expect(lista.querySelectorAll('[data-slot="skeleton"]').length).toBeGreaterThan(0);
+    // Quieto: un esqueleto que late no es una carga, es una distracción.
+    expect(lista.querySelector('[class*="animate-"]')).toBeNull();
+
+    act(() => convex.publish(stubQuery(api.tasks.list, { items: [], restantes: 0 })));
+
+    expect(screen.getByText("Todo lo pendiente ya tiene fecha.")).toBeVisible();
+    expect(cabecera.textContent).toBe("Sin programar0");
+    expect(lista.querySelectorAll('[data-slot="skeleton"]').length).toBe(0);
+  });
+
+  it("los puntos de la tira cuentan las tareas con hora y las de todo el día", () => {
+    const hoy = startOfToday();
+    const manana = addDays(hoy, 1);
+    renderMobile(<GlobalCalendarView />, {
+      convex: makeTestConvexClient([
+        stubQuery(api.tasks.calendar, [
+          makeTask({ id: mid("punto-1"), title: "Con hora", dueDate: hoyALas(9) }),
+          makeTask({ id: mid("punto-2"), title: "Con otra hora", dueDate: hoyALas(14) }),
+          makeTask({ id: mid("punto-3"), title: "Una más", dueDate: hoyALas(18) }),
+          makeTask({ id: mid("punto-4"), title: "Todo el día de mañana", dueDate: dayToLocalISO(dayKey(manana)) }),
+        ]),
+      ]),
+    });
+    const tira = within(screen.getByRole("navigation", { name: "Días de la semana" }));
+
+    // Tres con hora y ninguna de todo el día: «tres o más», no «sin nada».
+    expect(tira.getByRole("button", { name: `${fechaDe(hoy)}, tres o más con fecha` })).toBeVisible();
+    expect(tira.getByRole("button", { name: `${fechaDe(manana)}, 1 con fecha` })).toBeVisible();
+  });
+
+  it("una tarea hecha no ofrece Mover, y una pendiente con hora sí", () => {
+    renderMobile(<GlobalCalendarView />, {
+      convex: makeTestConvexClient([
+        stubQuery(api.tasks.calendar, [
+          makeTask({ id: mid("mov-1"), title: "Ya entregada", dueDate: hoyALas(9), status: "done" }),
+          makeTask({ id: mid("mov-2"), title: "Por entregar", dueDate: hoyALas(10) }),
+        ]),
+      ]),
+    });
+
+    expect(screen.queryByRole("button", { name: "Mover Ya entregada" })).toBeNull();
+    expect(screen.getByRole("button", { name: "Mover Por entregar" })).toBeVisible();
   });
 
   it("el nombre de la fila dice también si está hecha, vencida o crítica", async () => {
