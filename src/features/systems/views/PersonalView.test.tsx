@@ -1,4 +1,4 @@
-import { screen } from '@testing-library/react';
+import { act, fireEvent, screen } from '@testing-library/react';
 import { describe, expect, it } from 'vitest';
 import { api } from '@convex/_generated/api';
 import { makeFolder, makeSystem, makeTask, mid } from '@/app/system-design/mock-data';
@@ -83,5 +83,17 @@ describe('PersonalView', () => {
     });
 
     expect(screen.getByRole('link', { name: /Salud/ })).toHaveTextContent('2');
+  });
+
+  it('D2: completar desde la hoja deja la fila de Hoy tachada en su renglón', () => {
+    const habito = makeTask({ id: mid('task-h'), systemId: CASA.id, title: 'Caminar 30 minutos', status: 'today', metadata: { kind: 'habit' } });
+    const convex = makeTestConvexClient([stubQuery(api.folders.bySystem, [SALUD]), stubQuery(api.tasks.bySystem, [habito])]);
+    renderMobile(<PersonalView system={CASA} initialTasks={[habito]} />, { convex });
+
+    fireEvent.click(screen.getByRole('button', { name: 'Caminar 30 minutos' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Marcar como hecha' }));
+    act(() => convex.publish(stubQuery(api.tasks.bySystem, [{ ...habito, status: 'done' }])));
+
+    expect(screen.getByRole('button', { name: 'Caminar 30 minutos', hidden: true })).toHaveClass('line-through');
   });
 });

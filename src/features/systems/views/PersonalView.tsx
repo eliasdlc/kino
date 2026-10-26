@@ -5,8 +5,10 @@ import Link from 'next/link';
 import { CreateTaskDialog } from '@/features/tasks/CreateTaskDialog';
 import { TaskDetailSheet } from '@/features/tasks/TaskDetailSheet';
 import { useTasks, useToggleTask } from '@/features/tasks/tasks.hooks';
+import { useTacharEnSitio } from '@/features/tasks/useTachar';
 import type { TaskTransport } from '@/features/tasks/tasks.types';
 import { useFolders } from '@/features/folders/folders.hooks';
+import { cn } from '@/lib/utils';
 import { findTaskKind, resolveSystemManifest } from '@/shared/lib/system-manifest';
 import type { SystemViewProps } from './SystemDetailView';
 
@@ -27,11 +29,13 @@ export function PersonalView({ system, initialTasks }: SystemViewProps) {
   const { data: tasks = initialTasks } = useTasks(system.id, initialTasks);
   const { data: folders = [] } = useFolders(system.id);
   const { mutate: toggle } = useToggleTask(system.id);
+  const { handleToggle, estadoDe } = useTacharEnSitio(toggle);
   const [open, setOpen] = useState<TaskTransport | null>(null);
 
   // `today` es el estado de scheduling del plan de hoy, así que ya excluye lo
-  // cerrado: una tarea completada sale del plan.
-  const hoy = tasks.filter((task) => task.status === 'today');
+  // cerrado: una tarea completada sale del plan en la siguiente visita. Hasta
+  // entonces se queda en su renglón, tachada, con su Deshacer.
+  const hoy = tasks.filter((task) => estadoDe(task) === 'today');
 
   // Lo que hay dentro de un área son sus pendientes, no sus subcarpetas: sale
   // de las tareas ya cargadas y no cuesta una consulta por área.
@@ -64,13 +68,20 @@ export function PersonalView({ system, initialTasks }: SystemViewProps) {
                   <button
                     type="button"
                     aria-label={`Completar ${task.title}`}
-                    onClick={() => toggle(task.id)}
-                    className="ml-1 size-5 shrink-0 rounded-sm border-2 border-input transition-colors hover:border-primary"
+                    aria-pressed={task.status === 'done'}
+                    onClick={() => handleToggle(task)}
+                    className={cn(
+                      'ml-1 size-5 shrink-0 rounded-sm border-2 transition-colors hover:border-primary',
+                      task.status === 'done' ? 'border-task-done bg-task-done' : 'border-input',
+                    )}
                   />
                   <button
                     type="button"
                     onClick={() => setOpen(task)}
-                    className="min-h-12 min-w-0 flex-1 truncate py-3 text-left text-sm"
+                    className={cn(
+                      'min-h-12 min-w-0 flex-1 truncate py-3 text-left text-sm',
+                      task.status === 'done' && 'text-muted-foreground line-through',
+                    )}
                   >
                     {task.title}
                   </button>
