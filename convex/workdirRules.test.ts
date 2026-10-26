@@ -317,7 +317,7 @@ describe('una subtarea se queda con el sistema de su madre', () => {
     expect(await t.run(async (ctx) => (await ctx.db.query('tasks').collect()).filter((task) => task.title === 'Hija'))).toHaveLength(0);
   });
 
-  it('bulkCreate: cada subtarea va con su madre; el lote y la tarea propia siguen mandando', async () => {
+  it('bulkCreate: cada subtarea va con su madre; la tarea propia sigue mandando', async () => {
     const t = convexTest(schema, modules);
     const { agente, ids } = await cuenta(t, ana, ['Universidad', 'Casa', 'Tesis']);
     await agente.mutation(api.workdirRules.save, { systemId: ids.Universidad!, workingDirectory: '/home/ana/Universidad' });
@@ -328,13 +328,25 @@ describe('una subtarea se queda con el sistema de su madre', () => {
       tasks: [{ title: 'Hija', parentTaskId }, { title: 'Suelta' }, { title: 'Propia', parentTaskId, systemId: ids.Tesis! }],
       workingDirectory: '/home/ana/Universidad',
     });
-    const conLote = await agente.mutation(api.tasks.bulkCreate, { tasks: [{ title: 'Hija del lote', parentTaskId }], systemId: ids.Tesis! });
     const soloHijas = await agente.mutation(api.tasks.bulkCreate, { tasks: [{ title: 'Hija sola', parentTaskId }], workingDirectory: '/home/ana/sin-regla' });
 
     expect(heredan.status === 'created' && heredan.tasks.map((task) => task.systemId)).toEqual([ids.Casa, ids.Universidad, ids.Tesis]);
-    expect(conLote.status === 'created' && conLote.tasks.map((task) => task.systemId)).toEqual([ids.Tesis]);
     expect(soloHijas).toMatchObject({ status: 'created', routedBy: 'parent' });
     expect(soloHijas.status === 'created' && soloHijas.tasks[0]?.systemId).toBe(ids.Casa);
+  });
+
+  it('bulkCreate: la madre gana al systemId del lote y el systemId de la tarea gana a los dos', async () => {
+    const t = convexTest(schema, modules);
+    const { agente, ids } = await cuenta(t, ana, ['Universidad', 'Casa', 'Tesis']);
+    const madre = await agente.mutation(api.tasks.createFromAgent, { title: 'Madre', systemId: ids.Casa! });
+    const parentTaskId = madre.status === 'created' ? madre.task.id : undefined;
+
+    const res = await agente.mutation(api.tasks.bulkCreate, {
+      tasks: [{ title: 'Hija del lote', parentTaskId }, { title: 'Suelta del lote' }, { title: 'Propia', parentTaskId, systemId: ids.Universidad! }],
+      systemId: ids.Tesis!,
+    });
+
+    expect(res.status === 'created' && res.tasks.map((task) => task.systemId)).toEqual([ids.Casa, ids.Tesis, ids.Universidad]);
   });
 
   it('bulkCreate: la madre de otra persona no crea ninguna', async () => {

@@ -684,8 +684,10 @@ export const bulkCreate = kinoZodMutation({
   },
   handler: async (ctx, { tasks, ...batch }) => {
     const userId = ctx.user._id;
-    // Una subtarea sin sistema propio se queda con el de su madre, salvo que el lote nombre uno.
-    const heredaDeLaMadre = (item: (typeof tasks)[number]) => !item.systemId && !batch.systemId && item.parentTaskId !== undefined;
+    // Una subtarea sin sistema propio se queda con el de su madre. El systemId de
+    // la tarea manda porque el agente lo eligió para ella; el del lote es solo un
+    // valor por defecto y no saca a una subtarea del sistema de su madre.
+    const heredaDeLaMadre = (item: (typeof tasks)[number]) => !item.systemId && item.parentTaskId !== undefined;
     const needsRoute = tasks.some((item) => !item.systemId && !heredaDeLaMadre(item));
     const route = needsRoute ? await routeAgentCreate(ctx, userId, batch) : undefined;
     if (route?.status === 'needs_system') return route;
