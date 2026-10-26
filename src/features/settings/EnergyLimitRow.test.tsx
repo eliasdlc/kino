@@ -38,6 +38,30 @@ describe('EnergyLimitRow', () => {
     expect(screen.queryByRole('button', { name: /Guardar/ })).not.toBeInTheDocument();
   });
 
+  it('toques separados por menos de la espera reinician el reloj: una sola escritura, con el último valor', async () => {
+    const convex = makeTestConvexClient(
+      [stubQuery(api.settings.get, AJUSTES_DE_PRUEBA)],
+      [stubMutation(api.settings.update, AJUSTES_DE_PRUEBA)],
+    );
+    renderWithProviders(<EnergyLimitRow />, { convex });
+
+    const mas = screen.getByRole('button', { name: 'Sumar 5 puntos' });
+    // Cuatro toques a 0, 300, 600 y 900 ms: ninguna pausa llega a la espera.
+    for (let i = 0; i < 4; i++) {
+      fireEvent.click(mas);
+      await act(async () => {
+        vi.advanceTimersByTime(300);
+      });
+    }
+    // Ya pasaron 1200 ms desde el primer toque, pero sólo 300 desde el último.
+    expect(convex.calls).toEqual([]);
+
+    await act(async () => {
+      vi.advanceTimersByTime(ESPERA_GUARDADO_MS - 300);
+    });
+    expect(convex.calls).toEqual([{ kind: 'mutation', name: 'settings:update', args: { dailyEnergyLimit: 70 } }]);
+  });
+
   it('el grupo del stepper se llama como su fila', () => {
     renderWithProviders(<EnergyLimitRow />, { convex: makeTestConvexClient([stubQuery(api.settings.get, AJUSTES_DE_PRUEBA)]) });
     expect(screen.getByRole('group', { name: 'Límite diario' })).toBeVisible();
