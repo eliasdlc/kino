@@ -5,6 +5,7 @@ import { MCP_CLIENT_CLAIM, MCP_TOKEN_AUDIENCE, MCP_TOKEN_ISSUER } from "@convex/
 import { allows, SCOPES } from "@convex/lib/scopes";
 import { ALL_TOOLS } from "./tools";
 import {
+  clerkFault,
   faultResponse,
   MCP_OAUTH_SCOPES,
   MCP_SCOPE_CONSENT,
@@ -195,5 +196,36 @@ describe("el copy del consentimiento", () => {
     expect(MCP_SCOPE_CONSENT.write).toContain("check-in de energía");
     expect(MCP_SCOPE_CONSENT.write).toContain("páginas creadas por agentes");
     expect(MCP_SCOPE_CONSENT.write).toContain("autorices expresamente");
+  });
+});
+
+describe("clerkFault · un Clerk caído no es un token inválido", () => {
+  const headers = (reason: string, message = "") =>
+    new Headers({ "x-clerk-auth-reason": reason, "x-clerk-auth-message": message });
+
+  it("los motivos que son fallo de Clerk", () => {
+    expect(clerkFault(headers("unexpected-error"))).toBe("unexpected-error");
+    expect(clerkFault(headers("secret-key-invalid"))).toBe("secret-key-invalid");
+  });
+
+  it("no poder cargar sus claves es fallo de Clerk, aunque lo reporte como verificación fallida", () => {
+    // El primero es el que dio el servidor de dev con una clave secreta mala el 25 oct.
+    const caidas = [
+      "The provided Clerk Secret Key is invalid. Make sure that your Clerk Secret Key is correct. (code=token-verification-failed, status=n/a)",
+      "Failed to load JWKS from Clerk Backend or Frontend API.",
+      "Error loading Clerk JWKS from https://api.clerk.com/v1/jwks with code=503",
+    ];
+    for (const message of caidas) expect(clerkFault(headers("token-verification-failed", message)), message).toBe(message);
+  });
+
+  it("un JWT caducado, mal firmado o con un kid que no existe es culpa del token", () => {
+    const delToken = [
+      "JWT is expired. Expiry date: Sat, 25 Oct 2026 20:00:00 GMT, Current date: Sat, 25 Oct 2026 21:00:00 GMT.",
+      "JWT signature is invalid.",
+      "Unable to find a signing key in JWKS that matches the kid='ins_x' of the provided session token.",
+    ];
+    for (const message of delToken) expect(clerkFault(headers("token-verification-failed", message)), message).toBeUndefined();
+    expect(clerkFault(headers("token-invalid", "Invalid JWT form."))).toBeUndefined();
+    expect(clerkFault(new Headers())).toBeUndefined();
   });
 });

@@ -106,6 +106,33 @@ export function publicJwks(privateJwk: JWK, kid = keyId()): { keys: JWK[] } {
   return { keys: [publicJwk] };
 }
 
+/**
+ * Los motivos de Clerk que son fallo suyo y no del token. Clerk no lanza: deja
+ * la petición sin sesión con el motivo en `x-clerk-auth-reason` y su texto en
+ * `x-clerk-auth-message`, así que sin leerlos un Clerk caído saldría como 401 y
+ * el cliente pediría volver a entrar.
+ */
+const CLERK_FAULT_REASONS = new Set(["unexpected-error", "secret-key-invalid"]);
+
+/**
+ * Un token OAuth de Kino es un JWT, y para verificarlo Clerk carga sus claves
+ * con la clave secreta del servidor. Si esa carga falla, Clerk lo reporta como
+ * `token-verification-failed`, el mismo motivo que un JWT caducado o mal
+ * firmado; lo que los separa es el texto. Son los mensajes de
+ * `loadClerkJWKFromRemote` en `@clerk/backend`, salvo el de un `kid` que no
+ * existe, que sí es culpa del token.
+ */
+const CLERK_KEY_LOADING = /Failed to load JWKS|did not contain any signing keys|Error loading Clerk JWKS|Clerk Secret Key/;
+
+/** El fallo de Clerk que trae la petición, o nada si lo que falló fue el token. */
+export function clerkFault(headers: Headers): string | undefined {
+  const reason = headers.get("x-clerk-auth-reason") ?? "";
+  const message = headers.get("x-clerk-auth-message") ?? "";
+  if (CLERK_FAULT_REASONS.has(reason)) return reason;
+  if (reason === "token-verification-failed" && CLERK_KEY_LOADING.test(message)) return message;
+  return undefined;
+}
+
 /** Dónde viaja, dentro de `extra`, un fallo de Kino al autorizar. */
 const FAULT = "kinoFault";
 

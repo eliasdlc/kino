@@ -10,8 +10,8 @@ vi.mock("@clerk/mcp-tools/next", () => ({ verifyClerkToken: clerk.verifyClerkTok
 
 const { POST } = await import("./route");
 
-// `reason` es lo que el middleware de Clerk deja en `x-clerk-auth-reason`.
-const post = (bearer?: string, reason?: string) =>
+// `reason` y `message` son lo que el middleware de Clerk deja en `x-clerk-auth-reason` y `x-clerk-auth-message`.
+const post = (bearer?: string, reason?: string, message?: string) =>
   POST(
     new Request("http://localhost:3000/api/mcp", {
       method: "POST",
@@ -20,6 +20,7 @@ const post = (bearer?: string, reason?: string) =>
         Accept: "application/json, text/event-stream",
         ...(bearer ? { Authorization: `Bearer ${bearer}` } : {}),
         ...(reason ? { "x-clerk-auth-reason": reason } : {}),
+        ...(message ? { "x-clerk-auth-message": message } : {}),
       },
       body: JSON.stringify({ jsonrpc: "2.0", id: 1, method: "tools/list", params: {} }),
     }),
@@ -61,6 +62,8 @@ describe("/api/mcp · el fallo de Kino y el token inválido no se confunden", ()
       const body = (await res.json()) as { error: { message: string } };
       expect(body.error.message).toContain(reason);
     }
+    const clave = "The provided Clerk Secret Key is invalid. Make sure that your Clerk Secret Key is correct.";
+    expect((await post("oat_1", "token-verification-failed", clave)).status).toBe(503);
   });
 
   it("si el token es el que falla, 401 aunque Clerk diga por qué", async () => {

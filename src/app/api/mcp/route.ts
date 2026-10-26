@@ -2,7 +2,7 @@ import { verifyClerkToken } from "@clerk/mcp-tools/next";
 import { auth } from "@clerk/nextjs/server";
 import type { AuthInfo } from "@modelcontextprotocol/sdk/server/auth/types.js";
 import { createMcpHandler, withMcpAuth } from "mcp-handler";
-import { faultResponse, mintConvexToken, scopeFor, withServerFaults } from "@/features/mcp/auth";
+import { clerkFault, faultResponse, mintConvexToken, scopeFor, withServerFaults } from "@/features/mcp/auth";
 import { registerAllTools } from "@/features/mcp/tools";
 import { convexCall } from "@/features/mcp/tools/define";
 import { SITE_URL } from "@/shared/lib/site-url";
@@ -34,15 +34,6 @@ const mcp = (req: Request) => {
 };
 
 /**
- * Los motivos con los que el middleware de Clerk deja una petición sin sesión
- * cuando el fallo es suyo y no del token: su API no contesta, o rechaza la
- * clave secreta del servidor. Viajan en la cabecera `x-clerk-auth-reason`.
- * Clerk no lanza en esos casos, así que sin esto saldrían como un 401 y el
- * cliente pediría volver a entrar.
- */
-const CLERK_FAULTS = new Set(["unexpected-error", "secret-key-invalid"]);
-
-/**
  * Clerk verifica el access token OAuth (JWT u opaco) y dice quién es y qué
  * scopes concedió. Con eso se firma el token que Convex acepta; viaja en
  * `extra` porque es lo único que las tools necesitan del caller.
@@ -50,8 +41,8 @@ const CLERK_FAULTS = new Set(["unexpected-error", "secret-key-invalid"]);
 const verify = async (req: Request, bearer?: string): Promise<AuthInfo | undefined> => {
   const info = verifyClerkToken(await auth({ acceptsToken: "oauth_token" }), bearer);
   if (!info) {
-    const reason = req.headers.get("x-clerk-auth-reason");
-    if (bearer && reason && CLERK_FAULTS.has(reason)) throw new Error(`Clerk no pudo verificar el token (${reason}).`);
+    const fault = bearer ? clerkFault(req.headers) : undefined;
+    if (fault) throw new Error(`Clerk no pudo verificar el token: ${fault}`);
     return undefined;
   }
   const clerkId = info.extra?.userId;
