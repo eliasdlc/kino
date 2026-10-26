@@ -3,16 +3,15 @@ import { api } from "@convex/_generated/api";
 import { serverQuery } from "@/shared/convex/server";
 import { Providers } from "./providers";
 import { accountThemeScript } from "@/shared/lib/theme-script";
-import { SystemsSidebar } from "@/features/systems/SystemsSidebar";
-import { SidebarProvider } from "@/components/ui/sidebar";
+import { SystemsSidebar, type CuentaDelSidebar } from "@/features/systems/SystemsSidebar";
 import { MobileHeader } from "@/components/MobileHeader";
 import { BottomNav } from "@/components/BottomNav";
 import { AppMain } from "@/components/AppMain";
 import { InstallPrompt } from "@/components/InstallPrompt";
 import { OfflineIndicator } from "@/features/offline/OfflineIndicator";
 
-import { GlobalCommandPalette } from "@/features/command-palette/GlobalCommandPalette";
-import { GlobalQuickAddDialog } from "@/features/tasks/GlobalQuickAddDialog";
+import { GlobalCommandPaletteLazy } from "@/features/command-palette/GlobalCommandPaletteLazy";
+import { GlobalQuickAddDialogLazy } from "@/features/tasks/GlobalQuickAddDialogLazy";
 import { GlobalNavigationShortcuts } from "@/features/command-palette/GlobalNavigationShortcuts";
 import { FocusTimerProvider } from "@/features/tasks/FocusTimerProvider";
 import { FocusTimerWidget } from "@/features/tasks/FocusTimerWidget";
@@ -22,6 +21,15 @@ import { AnalyticsIdentity } from "@/shared/observability/AnalyticsIdentity";
 import { ActiveSince } from "@/features/account/ActiveSince";
 import { MantenerAvisos } from "@/features/notifications/MantenerAvisos";
 
+/**
+ * El shell de la app. Antes de emitir nada espera la sesión (una cookie) y una
+ * sola vuelta con las dos lecturas en paralelo: la fila de `users` y los
+ * ajustes. La fila decide si la persona termina el onboarding antes de ver
+ * ninguna pantalla, y el tema tiene que conocerse antes de la primera pintura
+ * o un dispositivo estrenado da un destello. Cada página llega en streaming
+ * detrás de su `loading.tsx`, así que la cabecera, el pie y el sidebar se
+ * pintan antes que los datos de cualquier pantalla.
+ */
 export default async function AppLayout({
   children,
 }: {
@@ -30,15 +38,15 @@ export default async function AppLayout({
   const session = await getServerSession();
   if (!session) redirect("/login");
 
-  // El tema y el onboarding salen de la misma lectura.
+  // El onboarding y el tema salen de la misma vuelta.
   const [user, settings] = await Promise.all([
     serverQuery(api.users.current, {}),
     serverQuery(api.settings.get, {}),
   ]);
-
   if (!user.onboardingCompleted) redirect("/onboarding");
-
   const theme = settings.theme ?? "system";
+
+  const cuenta: CuentaDelSidebar = { name: user.name, email: user.email, image: user.image ?? null };
 
   return (
     <Providers initialTheme={theme}>
@@ -54,22 +62,16 @@ export default async function AppLayout({
           dispositivo todavía no tiene uno propio. Ver `theme-script`. */}
       <script dangerouslySetInnerHTML={{ __html: accountThemeScript(theme) }} />
       <FocusTimerProvider>
-        <SidebarProvider>
-          <div className="flex h-screen w-full overflow-hidden">
-            <SystemsSidebar
-              userName={user.name}
-              userEmail={user.email}
-              userImage={user.image ?? null}
-            />
-            <div className="flex flex-col flex-1 min-w-0 overflow-hidden">
-              <MobileHeader />
-              <AppMain>{children}</AppMain>
-              <BottomNav />
-            </div>
+        <div className="flex h-dvh w-full overflow-hidden">
+          <SystemsSidebar cuenta={cuenta} />
+          <div className="flex min-w-0 flex-1 flex-col overflow-hidden">
+            <MobileHeader />
+            <AppMain>{children}</AppMain>
+            <BottomNav />
           </div>
-        </SidebarProvider>
-        <GlobalCommandPalette />
-        <GlobalQuickAddDialog />
+        </div>
+        <GlobalCommandPaletteLazy />
+        <GlobalQuickAddDialogLazy />
         <GlobalNavigationShortcuts />
         <FocusTimerWidget />
         <FocusTimerModeDialog />
@@ -79,3 +81,4 @@ export default async function AppLayout({
     </Providers>
   );
 }
+

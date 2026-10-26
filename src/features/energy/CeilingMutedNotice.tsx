@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { api } from '@convex/_generated/api';
 import { useConvexQuery } from '@/shared/convex/hooks';
+import { SectionHead } from '@/features/dashboard/SectionHead';
 
 /** El día de la fecha, para la celda: "27" de "2026-08-27". */
 function diaDe(date: string): string {
@@ -10,13 +11,18 @@ function diaDe(date: string): string {
 }
 
 /**
- * El techo apagado, y el único momento donde Kino pierde en público.
+ * El techo apagado, y el único momento en que la previsión pierde en público.
  *
- * La cifra va delante de todo: cuánto se equivocó, sobre cuántos días. Después,
- * las predicciones que lo demuestran, una celda por medición, y cada una abre su
- * propia fila: qué dijo Kino ese día y qué registraste tú. No es un enlace a una
+ * La cifra va delante de todo: cuánto falló, sobre cuántos días. Después, las
+ * mediciones que lo demuestran, una celda por día, y cada una abre su propia
+ * línea: lo previsto ese día y lo que registraste tú. No es un enlace a una
  * lista aparte, porque el criterio es que cada una señale la suya, y no es una
  * celda muerta, porque un control que no hace nada no se pinta.
+ *
+ * Es una sección de Diario: título con hairline, la frase en tinta y las
+ * celdas como numerales sin caja; los días que fallaron van en tinta y peso,
+ * los demás en mute, y la elegida se subraya en el acento porque es la activa.
+ * El sujeto es la previsión, nunca Kino.
  *
  * `null` cuando el techo está encendido: no hay nada que confesar.
  */
@@ -29,46 +35,50 @@ export function CeilingMutedNotice() {
   const detalle = honestidad.predicciones.find((p) => `${p.date}:${p.slot}` === abierta);
 
   return (
-    <section
-      aria-labelledby="techo-apagado"
-      className="space-y-3 rounded-2xl border border-primary bg-primary/8 p-4"
-    >
-      <h2
-        id="techo-apagado"
-        className="font-display text-xl font-bold tracking-[-0.02em] text-primary"
-      >
-        Me equivoqué {honestidad.errorMedio} puntos al día, {honestidad.dias} días seguidos.
-      </h2>
-      <p className="text-sm text-foreground/80">
-        Apagué el techo. Sigo midiendo el día, pero dejo de opinar sobre cuánto cabe.
-      </p>
+    <section aria-labelledby="techo-apagado" className="space-y-3">
+      <SectionHead id="techo-apagado" title="El techo, apagado" />
 
-      <ul className="grid grid-cols-7 gap-1">
-        {honestidad.predicciones.map((prediccion) => {
-          const clave = `${prediccion.date}:${prediccion.slot}`;
-          return (
-            <li key={clave}>
-              <button
-                type="button"
-                aria-pressed={abierta === clave}
-                aria-label={`${prediccion.date}, error de ${prediccion.error} puntos`}
-                onClick={() => setAbierta(abierta === clave ? null : clave)}
-                data-fallo={prediccion.error > honestidad.umbral}
-                className="grid h-12 w-full place-items-center rounded-md bg-card font-mono text-xs tabular-nums transition-colors aria-pressed:ring-1 aria-pressed:ring-primary data-[fallo=true]:bg-primary/20 data-[fallo=true]:font-bold data-[fallo=true]:text-primary"
-              >
-                {diaDe(prediccion.date)}
-              </button>
-            </li>
-          );
-        })}
-      </ul>
-
-      {detalle && (
-        <p className="text-sm text-foreground/80">
-          {detalle.date}: dije {detalle.predicted} y registraste {detalle.reported}.{' '}
-          <b className="font-semibold text-primary">{detalle.error} de error.</b>
+      <div className="space-y-3 pl-(--margen)">
+        <p className="font-display text-xl leading-tight font-bold tracking-[-0.02em] text-foreground">
+          La previsión falló {honestidad.errorMedio} puntos al día, {honestidad.dias} días seguidos.
         </p>
-      )}
+        <p className="font-voice text-[0.98rem] leading-snug text-body italic">
+          El día se sigue midiendo, pero sin opinar sobre cuánto cabe.
+        </p>
+
+        {/* Cada día se toca (abre su línea), así que mide el táctil de 48 px
+            también a lo ancho: tantas columnas de 2.85rem como quepan, y como
+            mucho siete. A 393 son seis por renglón, en vez de siete de 42 px. */}
+        <ul data-slot="ceiling-days" className="grid max-w-[23.8rem] grid-cols-[repeat(auto-fill,minmax(2.85rem,1fr))]">
+          {honestidad.predicciones.map((prediccion) => {
+            const clave = `${prediccion.date}:${prediccion.slot}`;
+            return (
+              <li key={clave}>
+                <button
+                  type="button"
+                  aria-pressed={abierta === clave}
+                  aria-label={`${prediccion.date}, error de ${prediccion.error} puntos`}
+                  onClick={() => setAbierta(abierta === clave ? null : clave)}
+                  data-fallo={prediccion.error > honestidad.umbral}
+                  className="focus-ring grid h-12 w-full min-w-[2.85rem] place-items-center rounded-md text-sm text-muted-foreground tabular-nums decoration-2 underline-offset-[0.35em] transition-colors duration-(--dur-toque) ease-(--ease-pluma) aria-pressed:text-foreground aria-pressed:underline aria-pressed:decoration-primary data-[fallo=true]:font-bold data-[fallo=true]:text-foreground"
+                >
+                  {diaDe(prediccion.date)}
+                </button>
+              </li>
+            );
+          })}
+        </ul>
+        <p className="text-[0.78rem] text-muted-foreground">
+          En tinta, los días que fallaron por más de {honestidad.umbral} puntos.
+        </p>
+
+        {detalle && (
+          <p className="border-t border-border pt-2.5 text-sm text-body tabular-nums">
+            {detalle.date}: previsto {detalle.predicted}, registraste {detalle.reported}.{' '}
+            <b className="font-semibold text-foreground">{detalle.error} de error.</b>
+          </p>
+        )}
+      </div>
     </section>
   );
 }

@@ -31,7 +31,8 @@ function Slider({
       min={min}
       max={max}
       className={cn(
-        "relative flex w-full touch-none items-center select-none data-disabled:opacity-50 data-vertical:h-full data-vertical:min-h-40 data-vertical:w-auto data-vertical:flex-col",
+        // La pista entera responde a 2.85rem de alto, no sólo el pulgar.
+        "relative flex w-full touch-none items-center select-none data-horizontal:min-h-[2.85rem] data-disabled:opacity-50 data-vertical:h-full data-vertical:min-h-40 data-vertical:w-auto data-vertical:flex-col",
         className
       )}
       {...props}
@@ -49,7 +50,8 @@ function Slider({
         <SliderPrimitive.Thumb
           data-slot="slider-thumb"
           key={index}
-          className="relative block size-4 shrink-0 rounded-full border border-primary bg-background ring-ring/30 transition-[color,box-shadow] select-none after:absolute after:-inset-2 hover:ring-3 focus-visible:ring-3 focus-visible:outline-hidden active:ring-3 disabled:pointer-events-none disabled:opacity-50"
+          // El pulgar dibuja 1rem; su zona de toque, con el ::after, mide 2.85rem.
+          className="relative block size-4 shrink-0 rounded-full border border-primary bg-background transition-[color,transform] duration-(--dur-toque) select-none focus-ring after:absolute after:-inset-[0.925rem] active:scale-110 disabled:pointer-events-none disabled:opacity-50"
         />
       ))}
     </SliderPrimitive.Root>

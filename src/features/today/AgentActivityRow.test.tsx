@@ -1,7 +1,9 @@
 /**
  * Criterio: con cero acciones la fila no se pinta y no deja hueco. Con N, la
  * cifra va delante de la clase y el sujeto es tu agente, nunca Kino. Los dos
- * botones hacen algo: uno abre la lista de las N acciones y el otro las deshace.
+ * botones hacen algo: uno abre la lista de las N acciones y el otro las deshace,
+ * y los dos miden el táctil de 48 px, porque el Deshacer del agente es una
+ * acción que no se puede fallar con el pulgar.
  */
 import { describe, expect, it } from "vitest";
 import { screen } from "@testing-library/react";
@@ -86,5 +88,15 @@ describe("AgentActivityRow", () => {
     });
 
     expect(screen.getByText(/Tu agente/)).toHaveTextContent("Tu agente creó 1 capítulo.");
+  });
+
+  it("los dos botones miden 2.85rem, sin anular la altura ni el relleno", () => {
+    renderWithProviders(<AgentActivityRow />, { convex: conActividad(cincoAcciones) });
+
+    for (const nombre of ["Ver las 5 acciones", "Deshacer"]) {
+      const boton = screen.getByRole("button", { name: nombre });
+      expect(boton).toHaveClass("h-[2.85rem]");
+      expect(boton.className).not.toMatch(/h-auto|px-0/);
+    }
   });
 });

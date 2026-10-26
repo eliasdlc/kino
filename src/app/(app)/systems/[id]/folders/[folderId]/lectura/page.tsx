@@ -31,7 +31,7 @@ export default async function ReadingRoute({
 
   return (
     <div className="w-full">
-      <div className="reading-no-print sticky top-0 z-(--z-raised) border-b bg-background px-4 py-2.5 md:px-6">
+      <div className="reading-no-print sticky top-0 z-(--z-raised) hidden border-b bg-background px-4 py-2.5 md:block md:px-6">
         <PageBreadcrumb
           items={[
             { label: "Sistemas", href: "/systems" },

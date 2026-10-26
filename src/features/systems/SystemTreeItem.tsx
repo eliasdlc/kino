@@ -35,7 +35,6 @@ interface SystemTreeItemProps {
   activeFolderId?: string;
   collapsed?: boolean;
   isPinned?: boolean;
-  onNavigate?: () => void;
 }
 
 export function SystemTreeItem({
@@ -44,7 +43,6 @@ export function SystemTreeItem({
   activeFolderId,
   collapsed,
   isPinned,
-  onNavigate,
 }: SystemTreeItemProps) {
   const isExpanded = useSystemsTreeStore((s) => s.expanded[system.id] ?? false);
   const toggle = useSystemsTreeStore((s) => s.toggle);
@@ -126,7 +124,7 @@ export function SystemTreeItem({
           >
             <Icon className={`size-5 shrink-0 text-${cls}`} />
             {isStale && (
-              <span className="absolute right-1 top-1 size-2 rounded-full bg-amber-500/80 ring-2 ring-sidebar" />
+              <span className="absolute right-1 top-1 size-2 rounded-full bg-muted-foreground ring-2 ring-sidebar" />
             )}
           </Link>
         </TooltipTrigger>
@@ -161,7 +159,6 @@ export function SystemTreeItem({
         {/* SystemTransport link */}
         <Link
           href={`/systems/${system.id}`}
-          onClick={onNavigate}
           className="flex items-center gap-2 flex-1 min-w-0"
         >
           <Icon className={`size-5 shrink-0 text-${cls}`} />
@@ -172,7 +169,7 @@ export function SystemTreeItem({
           {isStale && (
             <Tooltip>
               <TooltipTrigger asChild>
-                <span className="size-2 rounded-full bg-amber-500/80 shrink-0 inline-block" />
+                <span className="size-2 rounded-full bg-muted-foreground shrink-0 inline-block" />
               </TooltipTrigger>
               <TooltipContent side="right">
                 {system.daysSinceLastActivity != null
@@ -236,7 +233,7 @@ export function SystemTreeItem({
           {foldersLoading && (
             <div className="space-y-1 py-1">
               {[0, 1].map((i) => (
-                <div key={i} className="h-6 rounded-md bg-muted animate-pulse" />
+                <div key={i} className="h-6 rounded-md bg-muted" />
               ))}
             </div>
           )}

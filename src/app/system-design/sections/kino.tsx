@@ -10,20 +10,6 @@ import { TaskCardFor } from "@/features/tasks/cards/TaskCardFor";
 import { ItemEventList } from "@/features/tasks/ItemEventList";
 import { AgentActivityRow } from "@/features/today/AgentActivityRow";
 import { ProposalBody } from "@/features/today/ProposalBody";
-import {
-  SidebarProvider,
-  SidebarGroup,
-  SidebarGroupContent,
-  SidebarGroupLabel,
-  SidebarMenu,
-  SidebarMenuBadge,
-  SidebarMenuButton,
-  SidebarMenuItem,
-  SidebarMenuSub,
-  SidebarMenuSubButton,
-  SidebarMenuSubItem,
-} from "@/components/ui/sidebar";
-import { LayoutGrid, Inbox, Calendar, BookOpen, Rocket } from "lucide-react";
 import { GithubRepoPanelView } from "@/features/github-sync/GithubRepoPanelView";
 import { DangerZoneSection } from "@/features/account/DangerZoneSection";
 import { PushDeviceStatus } from '@/features/notifications/PushDeviceStatus';
@@ -357,64 +343,6 @@ export function KinoSection() {
       </SubSection>
 
       <SubSection
-        title="Sidebar — primitivas"
-        description="Bloques del sidebar (grupo, item activo, badge de contador, submenú). El SystemsSidebar real es server-side con datos; aquí se muestran las primitivas de ui/sidebar con las que está construido."
-      >
-        <SidebarProvider className="min-h-0 w-auto">
-          <div className="w-64 rounded-lg border border-sidebar-border bg-sidebar p-2 text-sidebar-foreground">
-            <SidebarGroup>
-              <SidebarGroupLabel>Navegación</SidebarGroupLabel>
-              <SidebarGroupContent>
-                <SidebarMenu>
-                  <SidebarMenuItem>
-                    <SidebarMenuButton isActive>
-                      <LayoutGrid /> Dashboard
-                    </SidebarMenuButton>
-                  </SidebarMenuItem>
-                  <SidebarMenuItem>
-                    <SidebarMenuButton>
-                      <Inbox /> Inbox
-                    </SidebarMenuButton>
-                    <SidebarMenuBadge>12</SidebarMenuBadge>
-                  </SidebarMenuItem>
-                  <SidebarMenuItem>
-                    <SidebarMenuButton>
-                      <Calendar /> Calendario
-                    </SidebarMenuButton>
-                  </SidebarMenuItem>
-                </SidebarMenu>
-              </SidebarGroupContent>
-            </SidebarGroup>
-            <SidebarGroup>
-              <SidebarGroupLabel>Sistemas</SidebarGroupLabel>
-              <SidebarGroupContent>
-                <SidebarMenu>
-                  <SidebarMenuItem>
-                    <SidebarMenuButton>
-                      <BookOpen className="text-blue-500" /> Universidad
-                    </SidebarMenuButton>
-                    <SidebarMenuSub>
-                      <SidebarMenuSubItem>
-                        <SidebarMenuSubButton isActive>Cálculo II</SidebarMenuSubButton>
-                      </SidebarMenuSubItem>
-                      <SidebarMenuSubItem>
-                        <SidebarMenuSubButton>Física I</SidebarMenuSubButton>
-                      </SidebarMenuSubItem>
-                    </SidebarMenuSub>
-                  </SidebarMenuItem>
-                  <SidebarMenuItem>
-                    <SidebarMenuButton>
-                      <Rocket className="text-purple-500" /> Side project
-                    </SidebarMenuButton>
-                  </SidebarMenuItem>
-                </SidebarMenu>
-              </SidebarGroupContent>
-            </SidebarGroup>
-          </div>
-        </SidebarProvider>
-      </SubSection>
-
-      <SubSection
         title="AgentActivityRow"
         description="Lo que hizo tu agente hoy, bajo el plan. No pide una decisión, así que no gasta la única apertura del día. Con cero acciones no se pinta nada."
       >
@@ -493,7 +421,7 @@ export function KinoSection() {
         className="border-solid bg-muted/30"
       >
         <p className="text-sm text-muted-foreground">
-          Estos se revisan en la app real; todas sus piezas (tokens, primitivas de sidebar,
+          Estos se revisan en la app real; todas sus piezas (tokens,
           task cards, board cards, barras de calendario) están en este catálogo.
         </p>
       </Specimen>
