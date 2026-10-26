@@ -9,7 +9,7 @@ import { ALL_TOOLS, SERVER_INSTRUCTIONS } from "./index";
  * aprendidos. Quitar uno rompe a quien lo usa; añadir uno es una decisión que
  * pasa por aquí.
  *
- * Son 71. Tres son los ojos prestados: `list_captures` lista lo que espera por
+ * Son 72. Tres son los ojos prestados: `list_captures` lista lo que espera por
  * fuente, `get_capture` entrega la captura para que el agente la mire con su
  * clave y `resolve_capture` recibe lo que leyó, sin crear nada. Las seis que faltan respecto a la lista de antes se
  * retiraron a propósito y no vuelven sin reabrir el principio 2: las cinco de
