@@ -202,29 +202,45 @@ describe("el copy del consentimiento", () => {
 describe("clerkFault · un Clerk caído no es un token inválido", () => {
   const headers = (reason: string, message = "") =>
     new Headers({ "x-clerk-auth-reason": reason, "x-clerk-auth-message": message });
+  const sufijo = " (code=token-verification-failed, status=n/a)";
 
   it("los motivos que son fallo de Clerk", () => {
     expect(clerkFault(headers("unexpected-error"))).toBe("unexpected-error");
     expect(clerkFault(headers("secret-key-invalid"))).toBe("secret-key-invalid");
   });
 
-  it("no poder cargar sus claves es fallo de Clerk, aunque lo reporte como verificación fallida", () => {
-    // El primero es el que dio el servidor de dev con una clave secreta mala el 25 oct.
+  it("no poder verificar es fallo de Clerk, aunque lo reporte como verificación fallida", () => {
+    // El primero lo dio el servidor de dev con una clave secreta mala el 25 oct;
+    // los dos siguientes, Clerk sin red y Clerk devolviendo una página HTML.
     const caidas = [
-      "The provided Clerk Secret Key is invalid. Make sure that your Clerk Secret Key is correct. (code=token-verification-failed, status=n/a)",
+      "The provided Clerk Secret Key is invalid. Make sure that your Clerk Secret Key is correct.",
+      "fetch failed",
+      "Unexpected token '<', \"<html>Serv\"... is not valid JSON",
       "Failed to load JWKS from Clerk Backend or Frontend API.",
+      "The JWKS endpoint did not contain any signing keys. Contact support@clerk.com.",
       "Error loading Clerk JWKS from https://api.clerk.com/v1/jwks with code=503",
     ];
-    for (const message of caidas) expect(clerkFault(headers("token-verification-failed", message)), message).toBe(message);
+    for (const message of caidas) expect(clerkFault(headers("token-verification-failed", message + sufijo)), message).toBeDefined();
+    expect(clerkFault(headers("token-verification-failed"))).toBe("token-verification-failed");
   });
 
-  it("un JWT caducado, mal firmado o con un kid que no existe es culpa del token", () => {
+  it("los rechazos del token en sí son 401: caducado, mal firmado, mal formado o con un kid que no existe", () => {
+    // Los mensajes con los que @clerk/backend 3.17 rechaza un JWT.
     const delToken = [
       "JWT is expired. Expiry date: Sat, 25 Oct 2026 20:00:00 GMT, Current date: Sat, 25 Oct 2026 21:00:00 GMT.",
       "JWT signature is invalid.",
+      "JWT cannot be used prior to not before date claim (nbf). Not before date: Sat, 25 Oct 2026 22:00:00 GMT",
+      "JWT issued at date claim (iat) is in the future. Issued at date: Sat, 25 Oct 2026 22:00:00 GMT",
+      "Invalid JWT form. The header, payload, or signature could not be decoded.",
+      'Invalid JWT type "JWT". Expected "at+jwt".',
+      'Invalid JWT algorithm "HS256". Supported: RS256.',
+      'Invalid JWT audience claim (aud) "otro". Is not included in ["kino"].',
+      "Error verifying JWT signature. bad key",
       "Unable to find a signing key in JWKS that matches the kid='ins_x' of the provided session token.",
+      "Subject claim (sub) is required and must be a string. Received undefined.",
+      "Invalid M2M JWT category.",
     ];
-    for (const message of delToken) expect(clerkFault(headers("token-verification-failed", message)), message).toBeUndefined();
+    for (const message of delToken) expect(clerkFault(headers("token-verification-failed", message + sufijo)), message).toBeUndefined();
     expect(clerkFault(headers("token-invalid", "Invalid JWT form."))).toBeUndefined();
     expect(clerkFault(new Headers())).toBeUndefined();
   });

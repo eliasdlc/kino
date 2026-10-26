@@ -69,8 +69,13 @@ describe("/api/mcp · el fallo de Kino y el token inválido no se confunden", ()
   it("si el token es el que falla, 401 aunque Clerk diga por qué", async () => {
     clerk.verifyClerkToken.mockReturnValue(undefined);
 
-    for (const reason of ["token-invalid", "token-verification-failed", "token-type-mismatch"]) {
-      expect((await post("oat_1", reason)).status, reason).toBe(401);
+    const delToken: [string, string?][] = [
+      ["token-invalid", "Invalid JWT form. A JWT consists of three parts separated by dots."],
+      ["token-verification-failed", "JWT is expired. Expiry date: Sat, 25 Oct 2026 20:00:00 GMT"],
+      ["token-type-mismatch"],
+    ];
+    for (const [reason, message] of delToken) {
+      expect((await post("oat_1", reason, message)).status, reason).toBe(401);
     }
   });
 

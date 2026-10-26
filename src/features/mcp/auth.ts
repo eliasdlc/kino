@@ -116,20 +116,23 @@ const CLERK_FAULT_REASONS = new Set(["unexpected-error", "secret-key-invalid"]);
 
 /**
  * Un token OAuth de Kino es un JWT, y para verificarlo Clerk carga sus claves
- * con la clave secreta del servidor. Si esa carga falla, Clerk lo reporta como
+ * con la clave secreta del servidor. Todo lo que falla ahí (la red, una
+ * respuesta que no es JSON, la clave rechazada) Clerk lo reporta como
  * `token-verification-failed`, el mismo motivo que un JWT caducado o mal
- * firmado; lo que los separa es el texto. Son los mensajes de
- * `loadClerkJWKFromRemote` en `@clerk/backend`, salvo el de un `kid` que no
- * existe, que sí es culpa del token.
+ * firmado, y sólo conserva el texto del error. Por eso se nombra el lado
+ * acotado: los mensajes con los que `@clerk/backend` rechaza un token en sí,
+ * que empiezan siempre igual. Cualquier otro texto bajo ese motivo es Clerk sin
+ * poder verificar, incluido un fallo de red que nadie ha listado.
  */
-const CLERK_KEY_LOADING = /Failed to load JWKS|did not contain any signing keys|Error loading Clerk JWKS|Clerk Secret Key/;
+const TOKEN_REJECTED =
+  /^(JWT |Invalid JWT|Error verifying JWT signature|Unable to find a signing key|Subject claim|Invalid [\w ]*category)/;
 
 /** El fallo de Clerk que trae la petición, o nada si lo que falló fue el token. */
 export function clerkFault(headers: Headers): string | undefined {
   const reason = headers.get("x-clerk-auth-reason") ?? "";
   const message = headers.get("x-clerk-auth-message") ?? "";
   if (CLERK_FAULT_REASONS.has(reason)) return reason;
-  if (reason === "token-verification-failed" && CLERK_KEY_LOADING.test(message)) return message;
+  if (reason === "token-verification-failed" && !TOKEN_REJECTED.test(message)) return message || reason;
   return undefined;
 }
 
