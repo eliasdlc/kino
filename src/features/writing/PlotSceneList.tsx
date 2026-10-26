@@ -65,11 +65,17 @@ export function PlotSceneList({
 }) {
   const [moving, setMoving] = useState<{ chapterId: string; index: number } | null>(null);
   // Los avisos de Deshacer viven más que la hoja que los creó: miran el tablero
-  // de ahora, no el de cuando se movió la escena.
-  const gridRef = useRef(grid);
+  // de ahora, no el de cuando se movió la escena. Al salir del tablero ya no hay
+  // ninguno que mirar (`null`), y los avisos se retiran: un Deshacer nunca actúa
+  // sobre una rejilla que quien escribe ya no ve.
+  const gridRef = useRef<PlotGrid | null>(grid);
   useEffect(() => {
     gridRef.current = grid;
+    return () => {
+      gridRef.current = null;
+    };
   }, [grid]);
+  useEffect(() => retirarAviso, []);
 
   const capituloDeLaEscena = moving ? grid.chapters.findIndex((c) => c.chapterId === moving.chapterId) : -1;
   const scene = moving ? grid.chapters[capituloDeLaEscena]?.scenes[moving.index] : undefined;
@@ -205,8 +211,8 @@ function MovePanel({
   grid: PlotGrid;
   from: { chapterId: string; index: number };
   scene: PlotScene;
-  /** El tablero más reciente, para comprobar al deshacer que la escena sigue donde la dejamos. */
-  getGrid: () => PlotGrid;
+  /** El tablero más reciente, para comprobar al deshacer que la escena sigue donde la dejamos; `null` si ya se salió del tablero. */
+  getGrid: () => PlotGrid | null;
   busy: boolean;
   onApply: Apply;
   onDone: () => void;
@@ -221,12 +227,14 @@ function MovePanel({
     onApply(
       { kind: "move", chapterId: from.chapterId, index: from.index, toChapterId: target.chapterId, toIndex: llega },
       {
-        onSuccess: () =>
+        onSuccess: () => {
+          if (!getGrid()) return;
           avisar(`Escena movida a ${tituloDe(target, i)}`, () => {
             if (!sigueAhi(getGrid(), target.chapterId, llega, scene)) return false;
             onApply({ kind: "move", chapterId: target.chapterId, index: llega, toChapterId: from.chapterId, toIndex: from.index });
             return true;
-          }),
+          });
+        },
       },
     );
     onDone();
@@ -238,12 +246,14 @@ function MovePanel({
     onApply(
       { kind: "arc", chapterId: from.chapterId, index: from.index, arc },
       {
-        onSuccess: () =>
+        onSuccess: () => {
+          if (!getGrid()) return;
           avisar(arc ? `La escena pasa al arco ${arc}` : "La escena se queda sin arco", () => {
             if (!sigueAhi(getGrid(), from.chapterId, from.index, scene)) return false;
             onApply({ kind: "arc", chapterId: from.chapterId, index: from.index, arc: antes });
             return true;
-          }),
+          });
+        },
       },
     );
     onDone();
@@ -328,8 +338,13 @@ function MovePanel({
   );
 }
 
-/** El aviso de Deshacer que sigue en pantalla, para retirarlo cuando llega uno nuevo. */
+/** El aviso de Deshacer que sigue en pantalla, para retirarlo cuando llega uno nuevo o se sale del tablero. */
 let avisoVigente: string | number | undefined;
+
+function retirarAviso() {
+  if (avisoVigente !== undefined) toast.dismiss(avisoVigente);
+  avisoVigente = undefined;
+}
 
 /**
  * El aviso que dice qué cambió en el texto, con la vuelta atrás a un toque.
@@ -338,7 +353,7 @@ let avisoVigente: string | number | undefined;
  * dejó, y entonces el aviso lo dice en vez de mover otra cosa.
  */
 function avisar(mensaje: string, deshacer: () => boolean) {
-  if (avisoVigente !== undefined) toast.dismiss(avisoVigente);
+  retirarAviso();
   avisoVigente = toast(mensaje, {
     action: {
       label: "Deshacer",
@@ -351,8 +366,8 @@ function avisar(mensaje: string, deshacer: () => boolean) {
 }
 
 /** Si en ese capítulo y lugar sigue la misma escena, por su arranque y su tamaño. */
-function sigueAhi(grid: PlotGrid, chapterId: string, index: number, scene: PlotScene): boolean {
-  const ahora = grid.chapters.find((c) => c.chapterId === chapterId)?.scenes[index];
+function sigueAhi(grid: PlotGrid | null, chapterId: string, index: number, scene: PlotScene): boolean {
+  const ahora = grid?.chapters.find((c) => c.chapterId === chapterId)?.scenes[index];
   return ahora?.preview === scene.preview && ahora.wordCount === scene.wordCount;
 }
 

@@ -44,8 +44,8 @@ type Apply = React.ComponentProps<typeof PlotSceneList>["onApply"];
 function setup(busy = false, grid: PlotGrid = GRID) {
   const onApply = vi.fn<Apply>();
   const vista = (g: PlotGrid) => <PlotSceneList grid={g} systemId="sys-1" busy={busy} onApply={onApply} />;
-  const { rerender } = renderWithProviders(vista(grid));
-  return { onApply, user: userEvent.setup(), mostrar: (g: PlotGrid) => rerender(vista(g)) };
+  const { rerender, unmount } = renderWithProviders(vista(grid));
+  return { onApply, user: userEvent.setup(), mostrar: (g: PlotGrid) => rerender(vista(g)), unmount };
 }
 
 /** El tablero tras mover una escena al final de otro capítulo, como lo deja el servidor. */
@@ -236,8 +236,8 @@ describe("PlotSceneList, lo que se ve al mover", () => {
       mostrar(tablero);
     }
 
-    // Cada aviso nuevo retira el anterior (el primero retira el de otro test, que no cuenta).
-    expect(vi.mocked(toast.dismiss).mock.calls.slice(1).map(([id]) => id)).toEqual(["aviso-1", "aviso-2"]);
+    // Cada aviso nuevo retira el anterior.
+    expect(vi.mocked(toast.dismiss).mock.calls.map(([id]) => id)).toEqual(["aviso-1", "aviso-2"]);
 
     const pedidas = onApply.mock.calls.length;
     avisos[0]!.onClick();
@@ -246,6 +246,66 @@ describe("PlotSceneList, lo que se ve al mover", () => {
     // El último sí sigue vigente.
     avisos[2]!.onClick();
     expect(onApply).toHaveBeenCalledTimes(pedidas + 1);
+  });
+
+  it("Deshacer de un movimiento no actúa si la escena de ese sitio cambió de tamaño aunque empiece igual", async () => {
+    const { onApply, user, mostrar } = setup();
+    await openFirstMove(user);
+    await user.click(within(screen.getByRole("dialog")).getByRole("button", { name: /La carta/ }));
+
+    const tablero = trasMover(GRID, { chapterId: "cap-1", index: 0 }, "cap-2");
+    mostrar({
+      ...tablero,
+      chapters: tablero.chapters.map((c) =>
+        c.chapterId === "cap-2" ? { ...c, scenes: c.scenes.map((e) => (e.index === 1 ? { ...e, wordCount: e.wordCount + 40 } : e)) } : c,
+      ),
+    });
+    deshacerDelUltimoAviso(onApply).onClick();
+
+    expect(onApply).toHaveBeenCalledTimes(1);
+    expect(vi.mocked(toast).mock.calls.at(-1)![0]).toMatch(/Ya no se puede deshacer/);
+  });
+
+  it("Deshacer de un arco no actúa si la escena de ese sitio ya es otra", async () => {
+    const { onApply, user, mostrar } = setup();
+    await openFirstMove(user);
+    await user.click(within(screen.getByRole("dialog")).getByRole("button", { name: /Herencia/ }));
+
+    mostrar({
+      ...GRID,
+      chapters: GRID.chapters.map((c) =>
+        c.chapterId === "cap-1" ? { ...c, scenes: [{ index: 0, arc: null, preview: "Una escena nueva", wordCount: 50 }, ...c.scenes] } : c,
+      ),
+    });
+    deshacerDelUltimoAviso(onApply).onClick();
+
+    expect(onApply).toHaveBeenCalledTimes(1);
+    expect(vi.mocked(toast).mock.calls.at(-1)![0]).toMatch(/Ya no se puede deshacer/);
+  });
+
+  it("al salir del tablero retira el aviso, y su Deshacer ya no actúa sobre la rejilla que se dejó", async () => {
+    const { onApply, user, unmount } = setup();
+    await openFirstMove(user);
+    await user.click(within(screen.getByRole("dialog")).getByRole("button", { name: /La carta/ }));
+    const accion = deshacerDelUltimoAviso(onApply);
+    expect(vi.mocked(toast.dismiss)).not.toHaveBeenCalled();
+
+    unmount();
+    expect(vi.mocked(toast.dismiss)).toHaveBeenCalledWith("aviso-1");
+    // Aunque el aviso siguiera a la vista: la escena nunca está en el sitio que se recuerda.
+    accion.onClick();
+    expect(onApply).toHaveBeenCalledTimes(1);
+  });
+
+  it("si el servidor confirma tras salir del tablero, no deja un aviso que deshaga a ciegas", async () => {
+    const { onApply, user, unmount } = setup();
+    await openFirstMove(user);
+    await user.click(within(screen.getByRole("dialog")).getByRole("button", { name: /La carta/ }));
+
+    unmount();
+    const llamada = onApply.mock.calls.at(-1)!;
+    void llamada[1]?.onSuccess?.(GRID as never, llamada[0]!);
+    expect(toast).not.toHaveBeenCalled();
   });
 
   it("mientras reescribe lo dice también en el teléfono", () => {
