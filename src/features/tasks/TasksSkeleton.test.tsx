@@ -2,8 +2,7 @@
  * Criterio: el esqueleto de /tasks tiene la forma de la página (CLS). Sale
  * del mismo módulo que la página y pinta igual lo que es fijo: el título, la
  * voz entera (a dos líneas en el teléfono), el segmento y los títulos de
- * sección. Reserva el presupuesto a su altura real, un hueco de Vencidas y
- * las filas a la altura de las de verdad. No anima.
+ * sección. Reserva el presupuesto a su altura real y las filas a la altura de las de verdad. No anima.
  */
 import { describe, expect, it } from "vitest";
 import { screen } from "@testing-library/react";
@@ -18,14 +17,14 @@ describe("TasksPageSkeleton", () => {
     for (const clase of VOZ_TAREAS.split(" ")) expect(voz).toHaveClass(clase);
   });
 
-  it("reserva el presupuesto a 4,5 rem, un hueco de Vencidas y las filas a su altura", () => {
+  it("reserva el presupuesto a 4,5 rem y las filas a su altura, sin hueco de Vencidas", () => {
     const { container } = renderWithProviders(<TasksPageSkeleton />);
     expect(container.querySelector("[data-slot=presupuesto-skeleton]")).toHaveClass("h-[4.5rem]");
-    expect(screen.getByText("Vencidas")).toBeInTheDocument();
+    expect(screen.queryByText("Vencidas")).toBeNull();
     expect(screen.getByRole("heading", { name: "Sugerido para hoy" })).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "Todas las tareas" })).toBeInTheDocument();
     const filas = container.querySelectorAll("[data-slot=lista-skeleton-fila]");
-    expect(filas).toHaveLength(13);
+    expect(filas).toHaveLength(11);
     for (const fila of filas) expect(fila).toHaveClass(LISTA_FILA_ALTO);
   });
 

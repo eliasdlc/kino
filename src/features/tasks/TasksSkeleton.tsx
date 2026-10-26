@@ -81,24 +81,13 @@ export function PresupuestoSkeleton() {
   );
 }
 
-/** El título de Vencidas esperando: el de `OverdueGroup`, con su botón de 48 px y su hairline. */
-function VencidasHeadSkeleton() {
-  return (
-    <div className="flex items-center justify-between gap-3 border-b border-input pb-[0.2rem]">
-      <span className="flex min-h-[2.85rem] items-center font-display text-[1.25rem] leading-[1.15] font-bold tracking-[-0.02em]">
-        Vencidas
-      </span>
-      <Skeleton className="h-3.5 w-16" />
-    </div>
-  );
-}
-
 /**
  * Lo de debajo del segmento en Lista, esperando: lo sugerido (su título, el
- * presupuesto y cinco filas), las vencidas (su título y dos filas) y todas las
- * tareas (su título, las herramientas y seis filas). La página lo pinta igual
- * mientras sus suscripciones llegan, y cambia a la lista de verdad de una vez:
- * nada que ya estuviera en pantalla se mueve.
+ * presupuesto y cinco filas) y todas las tareas (su título, las herramientas y
+ * seis filas). Vencidas no guarda sitio: sin vencidas no se pinta, que es lo
+ * común, y un hueco de más haría encoger la página al cargar. La página lo
+ * pinta igual mientras sus suscripciones llegan, y cambia a la lista de verdad
+ * de una vez: nada que ya estuviera en pantalla se mueve.
  */
 export function ListaDeTareasSkeleton() {
   return (
@@ -107,10 +96,6 @@ export function ListaDeTareasSkeleton() {
         <SectionHead title="Sugerido para hoy" count={<Skeleton className="inline-block h-3.5 w-16 align-middle" />} />
         <PresupuestoSkeleton />
         <ListaSkeleton filas={5} />
-      </div>
-      <div>
-        <VencidasHeadSkeleton />
-        <ListaSkeleton filas={2} />
       </div>
       <div>
         <SectionHead title="Todas las tareas" />
