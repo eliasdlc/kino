@@ -28,6 +28,8 @@ export const save = kinoZodMutation({
     if (!system || system.userId !== userId || !system.isActive) notFound('System not found');
 
     const workdir = readWorkdir(input);
+    // Un remoto que Kino no sabe leer no deja clave que guardar: que guarde la carpeta.
+    if (!workdir.repo && !workdir.path) invalid('Kino no sabe leer ese gitRemote; guarda la regla por workingDirectory');
     const [kind, key] = workdir.repo ? (['repo', workdir.repo] as const) : (['path', workdir.path!] as const);
     const now = Date.now();
 

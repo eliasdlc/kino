@@ -169,6 +169,42 @@ describe('una carpeta sin regla', () => {
   });
 });
 
+describe('un remoto que Kino no sabe leer se ignora y decide la carpeta', () => {
+  const remotos = ['git@github-work:ana/kino.git', '/srv/git/kino.git'];
+
+  it('con regla de carpeta, la tarea cae en el sistema de la carpeta', async () => {
+    const t = convexTest(schema, modules);
+    const { agente, ids } = await cuenta(t, ana, ['Kino']);
+    await agente.mutation(api.workdirRules.save, { systemId: ids.Kino!, workingDirectory: '/home/ana/dev/kino' });
+
+    for (const gitRemote of remotos) {
+      const res = await agente.mutation(api.tasks.createFromAgent, { title: 'x', workingDirectory: '/home/ana/dev/kino', gitRemote });
+      expect(res, gitRemote).toMatchObject({ status: 'created', routedBy: 'rule', rule: { kind: 'path', key: '/home/ana/dev/kino', systemName: 'Kino' } });
+      expect(res.status === 'created' && res.task.systemId, gitRemote).toBe(ids.Kino);
+    }
+  });
+
+  it('sin regla, pide el sistema sin el remoto y no escribe nada', async () => {
+    const t = convexTest(schema, modules);
+    const { agente } = await cuenta(t, ana, ['Kino']);
+
+    for (const gitRemote of remotos) {
+      const res = await agente.mutation(api.tasks.createFromAgent, { title: 'x', workingDirectory: '/home/ana/dev/kino', gitRemote });
+      expect(res, gitRemote).toEqual({ status: 'needs_system', workingDirectory: '/home/ana/dev/kino', gitRemote: null });
+    }
+    expect(await t.run((ctx) => ctx.db.query('tasks').collect())).toHaveLength(0);
+    expect(await t.run((ctx) => ctx.db.query('workdirRules').collect())).toHaveLength(0);
+  });
+
+  it('guardar una regla solo con ese remoto pide la carpeta y no guarda nada', async () => {
+    const t = convexTest(schema, modules);
+    const { agente, ids } = await cuenta(t, ana, ['Kino']);
+
+    expect(await codeOf(agente.mutation(api.workdirRules.save, { systemId: ids.Kino!, gitRemote: remotos[0]! }))).toBe('VALIDATION_ERROR');
+    expect(await t.run((ctx) => ctx.db.query('workdirRules').collect())).toHaveLength(0);
+  });
+});
+
 describe('bulkCreate sigue la misma regla que createFromAgent', () => {
   const tareas = [{ title: 'Uno' }, { title: 'Dos' }];
 

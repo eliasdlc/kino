@@ -97,9 +97,12 @@ export function normalizeRemote(raw: string): string | null {
 }
 
 /**
- * Lo que manda el agente, normalizado. Una ruta o un remoto que no se pueden
- * leer son un error, no una ausencia: callarlo mandaría la tarea a la Bandeja
- * sin que nadie supiera por qué.
+ * Lo que manda el agente, normalizado. Una ruta que no se puede leer es un
+ * error, no una ausencia: callarlo mandaría la tarea a la Bandeja sin que
+ * nadie supiera por qué. Un remoto que Kino no sabe leer (un alias de ssh como
+ * `git@github-work:ana/tesis.git`, un repo local) se ignora como si no hubiera
+ * llegado: el repo es válido para git aunque no tenga una clave aquí, y la
+ * carpeta sigue decidiendo.
  */
 export function readWorkdir(input: { workingDirectory?: string; gitRemote?: string }): Workdir {
   const workdir: Workdir = {};
@@ -110,8 +113,7 @@ export function readWorkdir(input: { workingDirectory?: string; gitRemote?: stri
   }
   if (input.gitRemote !== undefined) {
     const repo = normalizeRemote(input.gitRemote);
-    if (!repo) invalid('gitRemote tiene que ser la URL del remoto, como https://github.com/ana/tesis.git o git@github.com:ana/tesis.git');
-    workdir.repo = repo;
+    if (repo) workdir.repo = repo;
   }
   return workdir;
 }
