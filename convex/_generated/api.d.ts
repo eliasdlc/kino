@@ -25,6 +25,7 @@ import type * as githubData from "../githubData.js";
 import type * as http from "../http.js";
 import type * as insights from "../insights.js";
 import type * as lib_academic from "../lib/academic.js";
+import type * as lib_agentRoute from "../lib/agentRoute.js";
 import type * as lib_avisos from "../lib/avisos.js";
 import type * as lib_correo from "../lib/correo.js";
 import type * as lib_cronHealth from "../lib/cronHealth.js";
@@ -100,6 +101,7 @@ declare const fullApi: ApiFromModules<{
   http: typeof http;
   insights: typeof insights;
   "lib/academic": typeof lib_academic;
+  "lib/agentRoute": typeof lib_agentRoute;
   "lib/avisos": typeof lib_avisos;
   "lib/correo": typeof lib_correo;
   "lib/cronHealth": typeof lib_cronHealth;

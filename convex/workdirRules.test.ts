@@ -261,3 +261,92 @@ describe('cada persona, sus reglas', () => {
     expect((await agente.mutation(api.workdirRules.save, { systemId: ids.Universidad!, workingDirectory: '/r/0' })).replaced).toBe(true);
   });
 });
+
+describe('una subtarea se queda con el sistema de su madre', () => {
+  it('createFromAgent: la madre manda sobre la regla de la carpeta', async () => {
+    const t = convexTest(schema, modules);
+    const { agente, ids } = await cuenta(t, ana, ['Universidad', 'Casa']);
+    await agente.mutation(api.workdirRules.save, { systemId: ids.Universidad!, workingDirectory: '/home/ana/Universidad' });
+    const madre = await agente.mutation(api.tasks.createFromAgent, { title: 'Madre', systemId: ids.Casa! });
+    const madreId = madre.status === 'created' ? madre.task.id : undefined;
+
+    const res = await agente.mutation(api.tasks.createFromAgent, { title: 'Hija', parentTaskId: madreId, workingDirectory: '/home/ana/Universidad' });
+
+    expect(res).toMatchObject({ status: 'created', routedBy: 'parent' });
+    expect(res.status === 'created' && res.task.systemId).toBe(ids.Casa);
+  });
+
+  it('createFromAgent: el systemId explícito manda sobre la madre', async () => {
+    const t = convexTest(schema, modules);
+    const { agente, ids } = await cuenta(t, ana, ['Universidad', 'Casa']);
+    const madre = await agente.mutation(api.tasks.createFromAgent, { title: 'Madre', systemId: ids.Casa! });
+
+    const res = await agente.mutation(api.tasks.createFromAgent, {
+      title: 'Hija',
+      parentTaskId: madre.status === 'created' ? madre.task.id : undefined,
+      systemId: ids.Universidad!,
+    });
+
+    expect(res).toMatchObject({ status: 'created', routedBy: 'systemId' });
+    expect(res.status === 'created' && res.task.systemId).toBe(ids.Universidad);
+  });
+
+  it('createFromAgent: una carpeta sin regla no frena a la subtarea', async () => {
+    const t = convexTest(schema, modules);
+    const { agente, ids } = await cuenta(t, ana, ['Casa']);
+    const madre = await agente.mutation(api.tasks.createFromAgent, { title: 'Madre', systemId: ids.Casa! });
+
+    const res = await agente.mutation(api.tasks.createFromAgent, {
+      title: 'Hija',
+      parentTaskId: madre.status === 'created' ? madre.task.id : undefined,
+      workingDirectory: '/home/ana/sin-regla',
+    });
+
+    expect(res).toMatchObject({ status: 'created', routedBy: 'parent' });
+  });
+
+  it('createFromAgent: la madre de otra persona es NOT_FOUND y no se crea nada', async () => {
+    const t = convexTest(schema, modules);
+    const deAna = await cuenta(t, ana, ['Casa']);
+    const deBeto = await cuenta(t, beto, ['Casa']);
+    const madre = await deBeto.agente.mutation(api.tasks.createFromAgent, { title: 'Madre de Beto', systemId: deBeto.ids.Casa! });
+    const madreId = madre.status === 'created' ? madre.task.id : undefined;
+
+    expect(await codeOf(deAna.agente.mutation(api.tasks.createFromAgent, { title: 'Hija', parentTaskId: madreId }))).toBe('NOT_FOUND');
+    expect(await codeOf(deAna.agente.mutation(api.tasks.createFromAgent, { title: 'Hija', parentTaskId: madreId, systemId: deAna.ids.Casa! }))).toBe('NOT_FOUND');
+    expect(await t.run(async (ctx) => (await ctx.db.query('tasks').collect()).filter((task) => task.title === 'Hija'))).toHaveLength(0);
+  });
+
+  it('bulkCreate: cada subtarea va con su madre; el lote y la tarea propia siguen mandando', async () => {
+    const t = convexTest(schema, modules);
+    const { agente, ids } = await cuenta(t, ana, ['Universidad', 'Casa', 'Tesis']);
+    await agente.mutation(api.workdirRules.save, { systemId: ids.Universidad!, workingDirectory: '/home/ana/Universidad' });
+    const madre = await agente.mutation(api.tasks.createFromAgent, { title: 'Madre', systemId: ids.Casa! });
+    const parentTaskId = madre.status === 'created' ? madre.task.id : undefined;
+
+    const heredan = await agente.mutation(api.tasks.bulkCreate, {
+      tasks: [{ title: 'Hija', parentTaskId }, { title: 'Suelta' }, { title: 'Propia', parentTaskId, systemId: ids.Tesis! }],
+      workingDirectory: '/home/ana/Universidad',
+    });
+    const conLote = await agente.mutation(api.tasks.bulkCreate, { tasks: [{ title: 'Hija del lote', parentTaskId }], systemId: ids.Tesis! });
+    const soloHijas = await agente.mutation(api.tasks.bulkCreate, { tasks: [{ title: 'Hija sola', parentTaskId }], workingDirectory: '/home/ana/sin-regla' });
+
+    expect(heredan.status === 'created' && heredan.tasks.map((task) => task.systemId)).toEqual([ids.Casa, ids.Universidad, ids.Tesis]);
+    expect(conLote.status === 'created' && conLote.tasks.map((task) => task.systemId)).toEqual([ids.Tesis]);
+    expect(soloHijas).toMatchObject({ status: 'created', routedBy: 'parent' });
+    expect(soloHijas.status === 'created' && soloHijas.tasks[0]?.systemId).toBe(ids.Casa);
+  });
+
+  it('bulkCreate: la madre de otra persona no crea ninguna', async () => {
+    const t = convexTest(schema, modules);
+    const deAna = await cuenta(t, ana, ['Casa']);
+    const deBeto = await cuenta(t, beto, ['Casa']);
+    const madre = await deBeto.agente.mutation(api.tasks.createFromAgent, { title: 'Madre de Beto', systemId: deBeto.ids.Casa! });
+    const parentTaskId = madre.status === 'created' ? madre.task.id : undefined;
+
+    const code = await codeOf(deAna.agente.mutation(api.tasks.bulkCreate, { tasks: [{ title: 'Primera' }, { title: 'Hija', parentTaskId }] }));
+
+    expect(code).toBe('NOT_FOUND');
+    expect(await t.run(async (ctx) => (await ctx.db.query('tasks').collect()).filter((task) => ['Primera', 'Hija'].includes(task.title)))).toHaveLength(0);
+  });
+});
