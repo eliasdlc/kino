@@ -1,5 +1,6 @@
 import { toast } from 'sonner';
 import { api } from '@convex/_generated/api';
+import type { Id } from '@convex/_generated/dataModel';
 import { useConvexMutation, useConvexQuery, useLocalMutation } from '@/shared/convex/hooks';
 import { downloadBlob } from '@/shared/utils/download';
 
@@ -78,4 +79,22 @@ export function useExportImages() {
       },
     },
   );
+}
+
+/** Los agentes que ya llamaron a Kino con esta cuenta: activos y revocados. */
+export function useAgentesConectados() {
+  return useConvexQuery(api.mcpClients.list, {});
+}
+
+/**
+ * Corta un agente conectado. El nombre viaja junto al id solo para el aviso:
+ * la mutación recibe el id.
+ */
+export function useDesconectarAgente() {
+  return useConvexMutation(api.mcpClients.desconectar, {
+    map: ({ id }: { id: Id<'mcpClients'>; label: string }) => ({ id }),
+    onSuccess: (_, { label }) =>
+      toast.success(`${label} desconectado. Su próxima llamada recibe "acceso revocado desde Kino".`),
+    onError: () => toast.error('No se pudo desconectar. Inténtalo otra vez.'),
+  });
 }

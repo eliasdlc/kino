@@ -1,10 +1,11 @@
 'use client';
 
-import { Fragment } from 'react';
+import { Fragment, type ReactNode } from 'react';
 import { ExternalLink } from 'lucide-react';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
+import { Skeleton } from '@/components/ui/skeleton';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import {
   CLAUDE_ADD_CONNECTOR_URL,
@@ -12,6 +13,8 @@ import {
   CODEX_COMMANDS,
   MCP_RESOURCE_URL,
 } from '@/features/mcp/connect';
+import { cuandoDe } from '@/features/tasks/item-events';
+import { useAgentesConectados, useDesconectarAgente } from './settings.hooks';
 
 /**
  * Cómo conectar a Kino el agente que ya usas, un cliente a la vez. Los
@@ -28,6 +31,111 @@ const CLIENTES = [
   { id: 'chatgpt', nombre: 'ChatGPT' },
   { id: 'codex', nombre: 'Codex de OpenAI' },
 ] as const;
+
+type Conectado = NonNullable<ReturnType<typeof useAgentesConectados>['data']>['activos'][number];
+
+const ALCANCE: Record<Conectado['scope'], string> = {
+  read: 'Leer',
+  propose: 'Proponer',
+  write: 'Escribir',
+};
+
+const HORA = new Intl.DateTimeFormat('es-DO', { hour: 'numeric', minute: '2-digit', hourCycle: 'h23' });
+const DIA = new Intl.DateTimeFormat('es-DO', { day: 'numeric', month: 'long' });
+
+/** "hoy a las 18:40", "ayer a la 1:05" o "el 3 de octubre a las 9:30". */
+function cuandoSeCorto(ms: number, ahora = Date.now()) {
+  const hora = HORA.format(ms);
+  const aLas = `${hora.startsWith('1:') ? 'a la' : 'a las'} ${hora}`;
+  const dia = (t: number) => new Date(t).toDateString();
+  if (dia(ms) === dia(ahora)) return `hoy ${aLas}`;
+  if (dia(ms) === dia(ahora - 86_400_000)) return `ayer ${aLas}`;
+  return `el ${DIA.format(ms)} ${aLas}`;
+}
+
+const haceCuanto = (ms: number) => cuandoDe(new Date(ms).toISOString());
+
+/**
+ * La línea de cada pestaña: espera mientras ningún cliente de ese tipo ha
+ * llamado y, cuando llega la primera llamada, cambia sola a la última. Mientras
+ * la lista carga no pinta nada, para que "Esperando" no parpadee.
+ */
+function Espera({
+  cliente,
+  activos,
+}: {
+  cliente: (typeof CLIENTES)[number];
+  activos: Conectado[] | undefined;
+}) {
+  if (!activos) return null;
+  const ultimo = activos
+    .filter((c) => c.kind === cliente.id)
+    .reduce<Conectado | undefined>((a, c) => (a && a.lastSeenAt >= c.lastSeenAt ? a : c), undefined);
+  return (
+    <p className="text-sm text-muted-foreground" aria-live="polite">
+      {ultimo
+        ? `Última llamada de ${cliente.nombre} ${haceCuanto(ultimo.lastSeenAt)}. Lo ves en Conectados.`
+        : `Esperando la primera llamada de ${cliente.nombre}. Esta línea cambia sola cuando llegue.`}
+    </p>
+  );
+}
+
+/**
+ * Los clientes que ya llamaron, activos primero. Desconectar corta al momento,
+ * sin confirmar: el aviso dice qué recibe el cliente en su próxima llamada.
+ */
+function Conectados({
+  activos,
+  revocados,
+}: {
+  activos: Conectado[] | undefined;
+  revocados: Conectado[] | undefined;
+}) {
+  const desconectar = useDesconectarAgente();
+  return (
+    <section aria-labelledby="agentes-conectados" className="space-y-2">
+      <h3 id="agentes-conectados" className="text-sm font-semibold">
+        Conectados
+      </h3>
+      {!activos || !revocados ? (
+        <Skeleton className="h-16 w-full rounded-xl" />
+      ) : activos.length + revocados.length === 0 ? (
+        <p className="text-sm text-muted-foreground">Todavía no ha llamado ninguno.</p>
+      ) : (
+        <ul className="divide-y rounded-xl border">
+          {activos.map((c) => (
+            <li key={c._id} className="flex items-center justify-between gap-3 px-4 py-3">
+              <div className="min-w-0">
+                <p className="truncate text-sm font-medium">{c.label}</p>
+                <p className="text-xs text-muted-foreground">
+                  {ALCANCE[c.scope]}, última llamada {haceCuanto(c.lastSeenAt)}
+                </p>
+              </div>
+              <Button
+                variant="ghost"
+                disabled={desconectar.isPending && desconectar.variables?.id === c._id}
+                onClick={() => desconectar.mutate({ id: c._id, label: c.label })}
+              >
+                Desconectar
+              </Button>
+            </li>
+          ))}
+          {revocados.map((c) => (
+            <li key={c._id} className="flex items-center justify-between gap-3 px-4 py-3">
+              <div className="min-w-0">
+                <p className="truncate text-sm font-medium">{c.label}</p>
+                <p className="text-xs text-muted-foreground">
+                  Desconectado {cuandoSeCorto(c.revokedAt ?? c.lastSeenAt)}
+                </p>
+              </div>
+              <span className="shrink-0 text-xs text-muted-foreground">Revocado</span>
+            </li>
+          ))}
+        </ul>
+      )}
+    </section>
+  );
+}
 
 /** Copia al portapapeles y avisa del resultado; sin permiso, lo dice. */
 async function copiar(texto: string, aviso: string) {
@@ -46,12 +154,14 @@ function Pasos({
   boton,
   aviso,
   nota,
+  pie,
 }: {
   titulo: string;
   lineas: readonly string[];
   boton: string;
   aviso: string;
   nota: string;
+  pie?: ReactNode;
 }) {
   return (
     <Card className="gap-3 px-4">
@@ -78,11 +188,17 @@ function Pasos({
         <Button onClick={() => copiar(lineas.join('\n'), aviso)}>{boton}</Button>
       </div>
       <p className="text-sm text-muted-foreground">{nota}</p>
+      {pie}
     </Card>
   );
 }
 
 export function AgentsSection() {
+  const { data } = useAgentesConectados();
+  const activos = data?.activos;
+  const espera = (id: (typeof CLIENTES)[number]['id']) => (
+    <Espera cliente={CLIENTES.find((c) => c.id === id)!} activos={activos} />
+  );
   return (
     <div className="space-y-4">
       <div>
@@ -126,6 +242,7 @@ export function AgentsSection() {
                 </a>
               </Button>
             </div>
+            {espera('claude')}
           </Card>
         </TabsContent>
 
@@ -136,6 +253,7 @@ export function AgentsSection() {
             boton="Copiar los dos"
             aviso="Comandos copiados"
             nota='El segundo abre el navegador para que autorices. Sin él, Claude Code se queda en "Needs authentication".'
+            pie={espera('claude-code')}
           />
         </TabsContent>
 
@@ -146,6 +264,7 @@ export function AgentsSection() {
             boton="Copiar la dirección"
             aviso="Dirección copiada"
             nota="Desde la configuración de ChatGPT, añade un servidor MCP personalizado y pega esta dirección. Depende de tu plan de ChatGPT."
+            pie={espera('chatgpt')}
           />
         </TabsContent>
 
@@ -156,9 +275,12 @@ export function AgentsSection() {
             boton="Copiar los dos"
             aviso="Comandos copiados"
             nota="Sirven en la terminal, en el editor y en la app. El primero ya abre el navegador para que autorices; el segundo lo repite si lo cerraste."
+            pie={espera('codex')}
           />
         </TabsContent>
       </Tabs>
+
+      <Conectados activos={activos} revocados={data?.revocados} />
     </div>
   );
 }

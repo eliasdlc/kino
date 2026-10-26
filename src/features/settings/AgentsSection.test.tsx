@@ -1,14 +1,18 @@
 /**
  * Criterio: Ajustes explica cómo conectar cada agente, uno a la vez, con los
  * comandos de `features/mcp/connect` y sin nombrar "Codex" a solas, que en Kino
- * es el codex de entidades.
+ * es el codex de entidades. Cada pestaña espera la primera llamada de su
+ * cliente y deja de esperar sola cuando llega; la lista Conectados enseña los
+ * que ya llamaron y desconecta uno sin confirmar.
  */
 import { describe, expect, it, vi } from "vitest";
 
-import { screen } from "@testing-library/react";
+import { screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { toast } from "sonner";
-import { renderWithProviders } from "@/shared/testing/render";
+import { api } from "@convex/_generated/api";
+import type { Id } from "@convex/_generated/dataModel";
+import { makeTestConvexClient, renderWithProviders, stubQuery } from "@/shared/testing/render";
 import {
   CLAUDE_ADD_CONNECTOR_URL,
   CLAUDE_CODE_COMMANDS,
@@ -34,6 +38,41 @@ const esComando = (comando: string) => (_: string, el: Element | null) =>
   el?.tagName === "CODE" && el.textContent === comando;
 
 const NOMBRES = ["Claude", "Claude Code", "ChatGPT", "Codex de OpenAI"];
+
+const HACE_4_MIN = () => Date.now() - 4 * 60_000;
+
+/** Un Claude Code activo y un ChatGPT revocado, como en el mock. */
+const conLista = (activos = true) =>
+  makeTestConvexClient([
+    stubQuery(api.mcpClients.list, {
+      activos: activos
+        ? [
+            {
+              _id: "m1" as Id<"mcpClients">,
+              kind: "claude-code",
+              label: "Claude Code",
+              scope: "write",
+              lastSeenAt: HACE_4_MIN(),
+            },
+          ]
+        : [],
+      revocados: activos
+        ? [
+            {
+              _id: "m2" as Id<"mcpClients">,
+              kind: "chatgpt",
+              label: "ChatGPT",
+              scope: "read",
+              lastSeenAt: Date.now() - 86_400_000,
+              revokedAt: Date.now() - 3_600_000,
+            },
+          ]
+        : [],
+    }),
+  ]);
+
+const esperando = (nombre: string) =>
+  `Esperando la primera llamada de ${nombre}. Esta línea cambia sola cuando llegue.`;
 
 describe("AgentsSection", () => {
   it("se llama Agentes y ofrece una pestaña por cliente", () => {
@@ -100,7 +139,7 @@ describe("AgentsSection", () => {
 
   it("ningún texto dice Codex a solas ni asistente, en ninguna pestaña", async () => {
     const user = userEvent.setup();
-    const { container } = renderWithProviders(<AgentsSection />);
+    const { container } = renderWithProviders(<AgentsSection />, { convex: conLista() });
 
     for (const nombre of NOMBRES) {
       await user.click(screen.getByRole("tab", { name: nombre }));
@@ -108,5 +147,68 @@ describe("AgentsSection", () => {
       expect(container.textContent).not.toMatch(/Codex(?! de OpenAI)/);
       expect(container.textContent).not.toMatch(/asistente/i);
     }
+  });
+
+  it("cada pestaña espera la primera llamada de su cliente mientras no ha llamado ninguno", async () => {
+    const user = userEvent.setup();
+    renderWithProviders(<AgentsSection />, { convex: conLista(false) });
+
+    for (const nombre of NOMBRES) {
+      await user.click(screen.getByRole("tab", { name: nombre }));
+      expect(screen.getByText(esperando(nombre))).toBeVisible();
+    }
+    expect(screen.getByText("Todavía no ha llamado ninguno.")).toBeVisible();
+  });
+
+  it("mientras la lista carga no dice que espera", () => {
+    renderWithProviders(<AgentsSection />);
+    expect(screen.queryByText(/Esperando/)).toBeNull();
+  });
+
+  it("con un Claude Code conectado su pestaña deja de esperar y las demás siguen esperando", async () => {
+    const user = userEvent.setup();
+    renderWithProviders(<AgentsSection />, { convex: conLista() });
+
+    expect(screen.queryByText(esperando("Claude Code"))).toBeNull();
+    expect(
+      screen.getByText("Última llamada de Claude Code hace 4 minutos. Lo ves en Conectados."),
+    ).toBeVisible();
+
+    await user.click(screen.getByRole("tab", { name: "Codex de OpenAI" }));
+    expect(screen.getByText(esperando("Codex de OpenAI"))).toBeVisible();
+  });
+
+  it("Conectados enseña el activo con Desconectar y el revocado sin botón", () => {
+    renderWithProviders(<AgentsSection />, { convex: conLista() });
+    const lista = within(screen.getByRole("region", { name: "Conectados" }));
+    const [activo, revocado] = lista.getAllByRole("listitem");
+
+    expect(within(activo).getByText("Claude Code")).toBeVisible();
+    expect(within(activo).getByText("Escribir, última llamada hace 4 minutos")).toBeVisible();
+    expect(within(activo).getByRole("button", { name: "Desconectar" })).toBeVisible();
+
+    expect(within(revocado).getByText("ChatGPT")).toBeVisible();
+    expect(within(revocado).getByText("Revocado")).toBeVisible();
+    expect(within(revocado).getByText(/^Desconectado (hoy|ayer) a las? \d/)).toBeVisible();
+    expect(within(revocado).queryByRole("button")).toBeNull();
+  });
+
+  it("Desconectar corta ese cliente sin confirmar y avisa qué recibe en su próxima llamada", async () => {
+    vi.clearAllMocks();
+    const user = userEvent.setup();
+    const convex = conLista();
+    renderWithProviders(<AgentsSection />, { convex });
+
+    await user.click(screen.getByRole("button", { name: "Desconectar" }));
+
+    expect(screen.queryByRole("dialog")).toBeNull();
+    expect(convex.calls).toContainEqual({
+      kind: "mutation",
+      name: "mcpClients:desconectar",
+      args: { id: "m1" },
+    });
+    expect(toast.success).toHaveBeenCalledWith(
+      'Claude Code desconectado. Su próxima llamada recibe "acceso revocado desde Kino".',
+    );
   });
 });
