@@ -77,6 +77,8 @@ export class TestConvexClient {
   readonly #listeners = new Map<string, Set<() => void>>();
   /** Las mutaciones y acciones que el componente disparó, en orden. */
   readonly calls: ConvexCall[] = [];
+  /** Las suscripciones que el componente abrió, con los argumentos con que preguntó. */
+  readonly watched: { name: string; args: Record<string, unknown> }[] = [];
 
   constructor(stubs: readonly QueryStub[] = [], writeStubs: readonly QueryStub[] = []) {
     for (const stub of stubs) this.#results.set(stub.name, stub.value);
@@ -92,8 +94,9 @@ export class TestConvexClient {
     for (const notify of this.#listeners.get(stub.name) ?? []) notify();
   }
 
-  watchQuery(query: FunctionReference<"query">) {
+  watchQuery(query: FunctionReference<"query">, args: Record<string, unknown> = {}) {
     const name = getFunctionName(query);
+    this.watched.push({ name, args });
     const results = this.#results;
     const listeners = this.#listeners;
     return {
