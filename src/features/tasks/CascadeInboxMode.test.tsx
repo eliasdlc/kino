@@ -25,4 +25,28 @@ describe("CascadeInboxMode", () => {
     fireEvent.click(hoy);
     expect(convex.calls.find((c) => c.name === "tasks:bulkMove")?.args).toMatchObject({ taskIds: ["t1"], status: "today" });
   });
+
+  it("D6: cada apertura empieza por la primera tarea de la selección de ese momento", () => {
+    const otra = { ...tarea, id: "t2", title: "Renovar el seguro" } as TaskTransport;
+    const tercera = { ...tarea, id: "t3", title: "Llamar al banco" } as TaskTransport;
+    const convex = makeTestConvexClient([stubQuery(api.systems.list, [])]);
+    const { rerender } = renderMobile(<CascadeInboxMode tasks={[tarea, otra]} open onOpenChange={vi.fn()} />, { convex });
+    fireEvent.click(screen.getByRole("button", { name: "Saltar" }));
+    expect(screen.getByText("2 de 2")).toBeInTheDocument();
+
+    rerender(<CascadeInboxMode tasks={[]} open={false} onOpenChange={vi.fn()} />);
+    rerender(<CascadeInboxMode tasks={[tercera, tarea, otra]} open onOpenChange={vi.fn()} />);
+
+    expect(screen.getByText("1 de 3")).toBeInTheDocument();
+    expect(screen.getByText("Llamar al banco")).toBeInTheDocument();
+  });
+
+  it("D6: sin nada que enseñar, las teclas no hacen nada", () => {
+    const onOpenChange = vi.fn();
+    const convex = makeTestConvexClient([stubQuery(api.systems.list, [])]);
+    renderMobile(<CascadeInboxMode tasks={[]} open onOpenChange={onOpenChange} />, { convex });
+    fireEvent.keyDown(document.body, { key: "n" });
+    fireEvent.keyDown(document.body, { key: "ArrowRight" });
+    expect(onOpenChange).not.toHaveBeenCalled();
+  });
 });

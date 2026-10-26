@@ -42,6 +42,12 @@ const DESTINOS: { status: TaskStatus | null; label: string; tecla: string; icon:
  */
 export function CascadeInboxMode({ tasks, open, onOpenChange }: CascadeInboxModeProps) {
   const [index, setIndex] = useState(0);
+  // Cada apertura empieza por la primera tarea de la selección de ese momento.
+  const [abierto, setAbierto] = useState(open);
+  if (open !== abierto) {
+    setAbierto(open);
+    if (open) setIndex(0);
+  }
   const { mutate: bulkMove } = useBulkMove();
   const { data: systems } = useSystems();
   const isMobile = useIsMobile();
@@ -63,11 +69,13 @@ export function CascadeInboxMode({ tasks, open, onOpenChange }: CascadeInboxMode
     bulkMove({ taskIds: [task.id], status }, { onSuccess: advance });
   }
 
-  useHotkey("h", () => choose("today"), { enabled: open });
-  useHotkey("m", () => choose("tomorrow"), { enabled: open });
-  useHotkey("s", () => choose("week"), { enabled: open });
-  useHotkey("c", () => choose("done"), { enabled: open });
-  useHotkey(["n", "ArrowRight"], () => advance(), { enabled: open });
+  // Las teclas sólo rigen mientras la hoja enseña una tarea.
+  const mostrando = open && !!task;
+  useHotkey("h", () => choose("today"), { enabled: mostrando });
+  useHotkey("m", () => choose("tomorrow"), { enabled: mostrando });
+  useHotkey("s", () => choose("week"), { enabled: mostrando });
+  useHotkey("c", () => choose("done"), { enabled: mostrando });
+  useHotkey(["n", "ArrowRight"], () => advance(), { enabled: mostrando });
 
   if (!task) return null;
 
