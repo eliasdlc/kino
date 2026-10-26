@@ -933,6 +933,22 @@ export default defineSchema({
     .index('by_user_source_external', ['userId', 'source', 'externalId'])
     .index('by_user_created', ['userId', 'createdAt']),
 
+  // A qué sistema va lo que un agente hace en una carpeta. `key` es la carpeta
+  // como ruta absoluta normalizada (`kind: 'path'`) o el repo como
+  // `host/dueño/nombre` sacado de su remoto (`kind: 'repo'`), escritos por
+  // `convex/lib/workdir.ts`. Una regla por clave y persona; el resolver busca
+  // por clave exacta, así que nunca lee las reglas de nadie más. Techo de
+  // `WORKDIR_RULES_MAX` por persona, aplicado en la mutación. No se poda.
+  workdirRules: defineTable({
+    userId: v.id('users'),
+    kind: literals(['path', 'repo']),
+    key: v.string(),
+    systemId: v.id('systems'),
+    ...authorship,
+    createdAt: ts,
+    updatedAt: ts,
+  }).index('by_user_kind_key', ['userId', 'kind', 'key']),
+
   // Una propuesta es una fila con estado que caduca. Techo de veinte
   // pendientes por usuario, aplicado en la mutación.
   proposals: defineTable({
