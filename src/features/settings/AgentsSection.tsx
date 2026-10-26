@@ -59,12 +59,15 @@ function Pasos({
       <pre className="space-y-0.5 overflow-x-auto rounded-xl border bg-background px-3 py-2.5 font-jetbrains text-xs">
         {lineas.map((linea) => (
           // Cada argumento va sin cortes, así la línea solo se parte en los
-          // espacios y nunca después del guion de "--transport".
+          // espacios y nunca después del guion de "--transport". La dirección
+          // es la excepción: con el texto grande no cabe entera en una línea.
           <code key={linea} className="block whitespace-pre-wrap">
             {linea.split(' ').map((parte, i) => (
               <Fragment key={i}>
                 {i > 0 && ' '}
-                <span className="whitespace-nowrap">{parte}</span>
+                <span className={/^https?:\/\//.test(parte) ? 'break-all' : 'whitespace-nowrap'}>
+                  {parte}
+                </span>
               </Fragment>
             ))}
           </code>
@@ -90,10 +93,16 @@ export function AgentsSection() {
       </div>
 
       <Tabs defaultValue="claude-code" className="gap-3">
-        {/* Cuatro nombres no caben en una fila a 393 px: dos por fila hasta `sm`. */}
+        {/* Cuatro nombres no caben en una fila a 393 px: dos por fila hasta `sm`.
+            En la rejilla un nombre puede partirse en dos líneas con el texto
+            grande, en vez de salirse de su celda. */}
         <TabsList className="group-data-horizontal/tabs:h-auto grid w-full grid-cols-2 rounded-[1.375rem] sm:flex sm:w-fit sm:rounded-full">
           {CLIENTES.map((cliente) => (
-            <TabsTrigger key={cliente.id} value={cliente.id} className="h-[2.35rem]">
+            <TabsTrigger
+              key={cliente.id}
+              value={cliente.id}
+              className="h-auto min-h-[2.35rem] whitespace-normal text-center leading-tight sm:whitespace-nowrap"
+            >
               {cliente.nombre}
             </TabsTrigger>
           ))}
