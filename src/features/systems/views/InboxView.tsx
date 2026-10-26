@@ -5,7 +5,7 @@ import { GitBranch, Link2, Mic } from 'lucide-react';
 import { CascadeInboxMode } from '@/features/tasks/CascadeInboxMode';
 import { TaskDetailSheet } from '@/features/tasks/TaskDetailSheet';
 import { useTasks, useToggleTask } from '@/features/tasks/tasks.hooks';
-import { useTacharEnSitio } from '@/features/tasks/useTachar';
+import { conVisita, useTacharEnSitio } from '@/features/tasks/useTachar';
 import { cn } from '@/lib/utils';
 import type { TaskTransport } from '@/features/tasks/tasks.types';
 import { GroupNudge } from '@/features/systems/GroupNudge';
@@ -47,7 +47,7 @@ const SOURCE_GLYPHS: Record<string, typeof Link2> = {
  * estado sin pregunta, así que no pasa por la cola de una sola interrupción ni
  * gasta la apertura del día (D-18).
  */
-export function InboxView({ system, initialTasks }: SystemViewProps) {
+export const InboxView = conVisita(function InboxView({ system, initialTasks }: SystemViewProps) {
   const { data: tasks = [] } = useTasks(system.id, initialTasks);
   const { mutate: toggle } = useToggleTask(system.id);
   const { handleToggle, estadoDe } = useTacharEnSitio(toggle);
@@ -159,7 +159,7 @@ export function InboxView({ system, initialTasks }: SystemViewProps) {
       />
     </section>
   );
-}
+});
 
 function Header({ id, count }: { id: string; count: number }) {
   return (
