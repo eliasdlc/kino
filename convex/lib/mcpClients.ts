@@ -13,11 +13,10 @@ export const MCP_CLIENTS_SUBJECT = 'kino:mcp-clients';
 export const MCP_CLIENTS_ACTIVE_CAP = 30;
 
 /**
- * Cuántas filas lee `mcpClients` de una persona de una vez: los activos más
- * los revocados que caben detrás. Los revocados no se podan, pero solo crecen
- * cuando alguien pulsa Desconectar, así que veinte de margen sobran.
+ * Cuántos revocados enseña la lista, los más recientes. No se podan, pero solo
+ * crecen cuando alguien pulsa Desconectar.
  */
-export const MCP_CLIENTS_LECTURA = MCP_CLIENTS_ACTIVE_CAP + 20;
+export const MCP_CLIENTS_REVOCADOS_VISIBLES = 20;
 
 /**
  * Cada cuánto como mucho se reescribe la fila de un cliente: una llamada

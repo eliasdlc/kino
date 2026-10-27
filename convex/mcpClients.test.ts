@@ -289,6 +289,20 @@ describe('el techo de clientes', () => {
     expect((await t.withIdentity(ana).query(api.mcpClients.list, {})).activos).toHaveLength(MCP_CLIENTS_ACTIVE_CAP);
   });
 
+  it('con 21 revocados más recientes que todos los activos, el techo sigue en 30', async () => {
+    for (let i = 0; i < MCP_CLIENTS_ACTIVE_CAP; i++) await sembrar(ana, `activo_${i}`, T0 - 50_000 + i);
+    for (let i = 0; i < 21; i++) await sembrar(ana, `revocado_${i}`, T0 - 1_000 + i, T0 - 500 + i);
+
+    await registrar('nuevo', { clientName: 'claude-code' });
+
+    const activos = (await filas()).filter((c) => c.revokedAt === undefined);
+    expect(activos).toHaveLength(MCP_CLIENTS_ACTIVE_CAP);
+    expect(activos.map((c) => c.clientId)).not.toContain('activo_0');
+    const lista = await t.withIdentity(ana).query(api.mcpClients.list, {});
+    expect(lista.activos).toHaveLength(MCP_CLIENTS_ACTIVE_CAP);
+    expect(lista.revocados[0]).toMatchObject({ label: 'revocado_20' });
+  });
+
   it('por debajo del techo no saca a nadie', async () => {
     for (let i = 0; i < MCP_CLIENTS_ACTIVE_CAP - 1; i++) await sembrar(ana, `activo_${i}`, T0 - 5_000 + i);
     await registrar('nuevo');

@@ -844,7 +844,10 @@ export default defineSchema({
     revokedAt: v.optional(ts),
   })
     .index('by_user_client', ['userId', 'clientId'])
-    .index('by_user_lastSeen', ['userId', 'lastSeenAt']),
+    // Los activos son los de `revokedAt` sin valor, por su última llamada; los
+    // revocados, por la fecha en que se cortaron. Así el techo cuenta activos
+    // exactos aunque haya muchos revocados.
+    .index('by_user_revoked_lastSeen', ['userId', 'revokedAt', 'lastSeenAt']),
 
   // Bitácora de las tareas programadas. No lleva userId: es del sistema.
   cronRuns: defineTable({

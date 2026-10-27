@@ -5,7 +5,7 @@ import { notFound } from './lib/errors';
 import {
   clienteConocido,
   MCP_CLIENTS_ACTIVE_CAP,
-  MCP_CLIENTS_LECTURA,
+  MCP_CLIENTS_REVOCADOS_VISIBLES,
   MCP_CLIENTS_SUBJECT,
   REGISTRAR_CADA_MS,
   SIN_NOMBRE,
@@ -55,15 +55,13 @@ export const registrar = kinoServicio(MCP_CLIENTS_SUBJECT)({
     const nombre = clientName?.trim() ? clienteConocido(clientName) : undefined;
 
     if (!fila) {
-      // Las más recientes primero; los activos más antiguos quedan al final.
-      const recientes = await ctx.db
+      // Solo los activos, los más recientes primero: el más antiguo queda al
+      // final. Un revocado no entra en la cuenta ni se borra nunca.
+      const activos = await ctx.db
         .query('mcpClients')
-        .withIndex('by_user_lastSeen', (q) => q.eq('userId', user._id))
+        .withIndex('by_user_revoked_lastSeen', (q) => q.eq('userId', user._id).eq('revokedAt', undefined))
         .order('desc')
-        // Lee los activos más los revocados que caben detrás: el techo cuenta
-        // activos y un revocado no se borra nunca (ver arriba).
-        .take(MCP_CLIENTS_LECTURA);
-      const activos = recientes.filter((c) => c.revokedAt === undefined);
+        .take(MCP_CLIENTS_ACTIVE_CAP);
       const sobran = activos.length - (MCP_CLIENTS_ACTIVE_CAP - 1);
       if (sobran > 0) {
         for (const vieja of activos.slice(-sobran)) await ctx.db.delete(vieja._id);
@@ -103,14 +101,18 @@ export const registrar = kinoServicio(MCP_CLIENTS_SUBJECT)({
 export const list = kinoQuery({
   args: {},
   handler: async (ctx) => {
-    const filas = await ctx.db
+    const activos = await ctx.db
       .query('mcpClients')
-      .withIndex('by_user_lastSeen', (q) => q.eq('userId', ctx.user._id))
+      .withIndex('by_user_revoked_lastSeen', (q) => q.eq('userId', ctx.user._id).eq('revokedAt', undefined))
       .order('desc')
-      // Los activos más los revocados que caben detrás: el techo de `registrar`
-      // acota los primeros y los segundos solo crecen al pulsar Desconectar.
-      .take(MCP_CLIENTS_LECTURA);
-    const item = (c: (typeof filas)[number]) => ({
+      // El techo de `registrar` deja como mucho este número de activos.
+      .take(MCP_CLIENTS_ACTIVE_CAP);
+    const revocados = await ctx.db
+      .query('mcpClients')
+      .withIndex('by_user_revoked_lastSeen', (q) => q.eq('userId', ctx.user._id).gt('revokedAt', 0))
+      .order('desc')
+      .take(MCP_CLIENTS_REVOCADOS_VISIBLES);
+    const item = (c: (typeof activos)[number]) => ({
       _id: c._id,
       kind: c.kind,
       label: c.label,
@@ -119,11 +121,8 @@ export const list = kinoQuery({
       ...(c.revokedAt !== undefined ? { revokedAt: c.revokedAt } : {}),
     });
     return {
-      activos: filas.filter((c) => c.revokedAt === undefined).map(item),
-      revocados: filas
-        .filter((c) => c.revokedAt !== undefined)
-        .sort((a, b) => b.revokedAt! - a.revokedAt!)
-        .map(item),
+      activos: activos.map(item),
+      revocados: revocados.map(item),
     };
   },
 });
