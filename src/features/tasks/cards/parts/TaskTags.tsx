@@ -1,27 +1,20 @@
 import { cn } from "@/lib/utils";
-import { getTaskTypeConfig } from "../../task-type-config";
-import type { TaskTransport } from "../../tasks.types";
+import { PRIORITY_WORD } from "../../task-vocab";
 
 /**
- * Paleta de los tags del board (ver mockup de `ProjectTaskCard`).
- *
- * Los hex del mockup se pintaron contra fondo negro, así que se quedan en la
- * variante `dark:` y el tema claro usa el mismo tono en su paso legible sobre
- * blanco. En oscuro no cambia ni un valor.
+ * Las etiquetas del ticket del tablero, sobre los roles. La prioridad es peso,
+ * no color: crítica en negrita y en tinta, alta en seminegrita, media y baja
+ * en mute. El coral queda para vencida y el --ok para hecha, así que ninguna
+ * prioridad los usa. Sin hex sueltos: el mismo rol vale en claro y en oscuro.
  */
 const PRIORITY_TAG: Record<string, { className: string; label: string }> = {
-  critical: { className: "bg-task-overdue/12 text-task-overdue dark:bg-[#3b2224] dark:text-[#d55e62]", label: "Crítica" },
-  high: { className: "bg-task-overdue/12 text-task-overdue dark:bg-[#3b2224] dark:text-[#d55e62]", label: "Alta" },
-  medium: { className: "bg-primary/12 text-primary dark:bg-[#392a1e] dark:text-[#d58d4e]", label: "Media" },
-  low: { className: "bg-task-done/12 text-task-done dark:bg-[#1c3329] dark:text-[#4ed583]", label: "Baja" },
+  critical: { className: "font-bold text-foreground", label: PRIORITY_WORD.critical },
+  high: { className: "font-semibold text-body", label: PRIORITY_WORD.high },
+  medium: { className: "text-muted-foreground", label: PRIORITY_WORD.medium },
+  low: { className: "text-muted-foreground", label: PRIORITY_WORD.low },
 };
 
-const ENERGY_LABEL: Record<string, string> = {
-  high: "Energía alta",
-  medium: "Energía media",
-  low: "Energía baja",
-  flexible: "Flexible",
-};
+const TAG = "inline-flex items-center gap-1.5 rounded-full bg-secondary px-2.5 py-1 text-xs font-medium";
 
 /**
  * La prioridad que cuenta. Cuando la fecha la subió por encima de la elegida,
@@ -34,47 +27,16 @@ export function PriorityTag({ priority, chosen }: { priority: string | null; cho
   const elegida = raised ? (PRIORITY_TAG[chosen] ?? PRIORITY_TAG.medium).label.toLowerCase() : null;
   return (
     <span
-      className={cn("inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-medium", tag.className)}
+      className={cn(TAG, tag.className)}
       title={raised ? `Subió por la fecha. La elegiste ${elegida}.` : undefined}
     >
       {raised ? (
         <span aria-hidden>↑</span>
       ) : (
-        <span className="w-[5px] h-[5px] rounded-full" style={{ backgroundColor: "currentColor" }} />
+        <span className="size-[5px] rounded-full bg-current" />
       )}
       {tag.label}
       {raised && <span className="sr-only">, subió por la fecha; la elegiste {elegida}</span>}
     </span>
-  );
-}
-
-export function TaskTypeTag({ taskType, metadata }: { taskType: string | null, metadata?: Record<string, unknown> | null }) {
-  if (!taskType) return null;
-  const config = getTaskTypeConfig(taskType, metadata);
-  return (
-    <span className="inline-flex items-center px-2.5 py-1 rounded-md text-xs font-medium bg-secondary text-foreground dark:bg-[#222b40] dark:text-[#6888d3]">
-      {config.label}
-    </span>
-  );
-}
-
-export function EnergyTag({ energyLevel }: { energyLevel: string | null }) {
-  if (!energyLevel) return null;
-  return (
-    <span className="inline-flex items-center px-2.5 py-1 rounded-md text-xs font-medium bg-primary/12 text-primary dark:bg-[#2d223b] dark:text-[#b068d3]">
-      {ENERGY_LABEL[energyLevel] ?? energyLevel}
-    </span>
-  );
-}
-
-/** Fila de tags del ticket: prioridad + tipo + energía. */
-export function TaskTags({ task }: { task: TaskTransport }) {
-  const config = getTaskTypeConfig(task.taskType, task.metadata);
-  return (
-    <div className="flex items-center gap-2 flex-wrap">
-      <PriorityTag priority={task.effectivePriority} chosen={task.priority} />
-      <TaskTypeTag taskType={task.taskType} metadata={task.metadata} />
-      {!config.hideEnergyAndPriority && <EnergyTag energyLevel={task.energyLevel} />}
-    </div>
   );
 }

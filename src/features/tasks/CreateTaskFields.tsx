@@ -13,7 +13,7 @@ import type { ParsedQuickInput } from "./quick-date-parse";
 import { PRIORITY_LABELS, formatDuration, nlChipVisibility } from "./create-task.helpers";
 
 /**
- * Secciones del diálogo de crear tarea (KIN-146 · FE-05).
+ * Secciones del diálogo de crear tarea (KIN-146, FE-05).
  * Extraídas de `CreateTaskDialog` tal cual: los cinco chips del parser eran el
  * mismo bloque repetido con otro contenido, y ahora salen de una sola pieza.
  */
@@ -64,7 +64,7 @@ export function NlChips({
         <DismissibleChip
           ariaLabel="Ignorar fecha detectada"
           icon={<CalendarRange size={12} className="shrink-0" />}
-          label={`${format(new Date(parsed.dueDate! + 'T00:00:00'), 'EEE d MMM', { locale: es })}${parsed.dueTime ? ` · ${parsed.dueTime}` : ''}`}
+          label={`${format(new Date(parsed.dueDate! + 'T00:00:00'), 'EEE d MMM', { locale: es })}${parsed.dueTime ? `, ${parsed.dueTime}` : ''}`}
           onDismiss={() => onDismiss('dueDate')}
         />
       )}

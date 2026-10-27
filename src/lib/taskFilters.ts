@@ -15,7 +15,6 @@ export interface TaskFilters {
   dateRange: '' | 'overdue' | 'no-date' | 'has-date' | 'next7';
   group: '' | 'system' | 'status' | 'priority' | 'energy';
   sort: 'priority' | 'dueDate' | 'energy' | 'created';
-  view: 'list' | 'grid';
 }
 
 export const DEFAULT_FILTERS: TaskFilters = {
@@ -28,13 +27,12 @@ export const DEFAULT_FILTERS: TaskFilters = {
   dateRange: '',
   group: '',
   sort: 'priority',
-  view: 'list',
 };
 
 // ── URL serialization ──────────────────────────────────────────────────────
 
 const CSV_KEYS: (keyof TaskFilters)[] = ['status', 'system', 'priority', 'energy', 'type', 'tag'];
-const SCALAR_KEYS: (keyof TaskFilters)[] = ['dateRange', 'group', 'sort', 'view'];
+const SCALAR_KEYS: (keyof TaskFilters)[] = ['dateRange', 'group', 'sort'];
 
 export function parseFiltersFromParams(p: URLSearchParams): TaskFilters {
   const f = { ...DEFAULT_FILTERS };
@@ -85,7 +83,8 @@ export function applyFilters(tasks: TaskTransport[], f: TaskFilters): TaskTransp
     if (f.system.length && !f.system.includes(t.systemId)) return false;
     if (f.priority.length && !f.priority.includes(t.effectivePriority ?? '')) return false;
     if (f.energy.length && !f.energy.includes(t.energyLevel ?? '')) return false;
-    if (f.type.length && !f.type.includes(t.taskType ?? '')) return false;
+    // Una tarea sin tipo, o con el `todo` de antes, es una tarea: "Tarea" la encuentra.
+    if (f.type.length && !f.type.includes(t.taskType == null || t.taskType === 'todo' ? 'task' : t.taskType)) return false;
     if (f.tag.length && !f.tag.includes(t.contextTagId ?? '')) return false;
     if (f.dateRange) {
       const due = t.dueDate ? parseDueDate(t.dueDate) : null;

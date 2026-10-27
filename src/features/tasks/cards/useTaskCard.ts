@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { differenceInCalendarDays, isBefore, startOfToday } from "date-fns";
-import { parseDueDate } from "../tasks.utils";
+import { isFutureExamOrQuiz, parseDueDate } from "../tasks.utils";
 import { useFolders } from "@/features/folders/folders.hooks";
 import { getTaskTypeConfig } from "../task-type-config";
 import { useFocusTimer } from "../FocusTimerProvider";
@@ -10,16 +10,10 @@ import type { FolderWithCounts } from "@/features/folders/folders.types";
 
 export interface TaskCardState {
   isDone: boolean;
-  isCritical: boolean;
-  isHigh: boolean;
-  isOverdue: boolean;
   isExpanded: boolean;
-  completing: boolean;
   isThisRunning: boolean;
   anotherRunning: boolean;
-  showPriorityBadge: boolean;
   dueDays: number | null;
-  isDueSoon: boolean;
   folder: FolderWithCounts | undefined;
   typeConfig: ReturnType<typeof getTaskTypeConfig>;
   timerState: ReturnType<typeof useFocusTimer>["state"];
@@ -34,15 +28,12 @@ export function useTaskCard(
   onToggle: (taskId: string) => void,
 ): TaskCardState {
   const [isExpanded, setIsExpanded] = useState(false);
-  const [completing, setCompleting] = useState(false);
 
   const { state: timerState, openModeDialog } = useFocusTimer();
   const isThisRunning = timerState.taskId === task.id && timerState.phase !== "idle";
   const anotherRunning = timerState.phase !== "idle" && !isThisRunning;
 
   const isDone = task.status === "done";
-  const isCritical = task.effectivePriority === "critical" && !isDone;
-  const isHigh = task.effectivePriority === "high" && !isDone;
   const isOverdue =
     !!task.dueDate &&
     !isDone &&
@@ -52,47 +43,26 @@ export function useTaskCard(
   const folder = task.folderId ? folders?.find((f) => f.id === task.folderId) : undefined;
   const typeConfig = getTaskTypeConfig(task.taskType, task.metadata);
 
-  const showPriorityBadge = (isCritical || isHigh) && !isDone;
-
   const dueDays =
     task.dueDate && !isOverdue
       ? differenceInCalendarDays(parseDueDate(task.dueDate), startOfToday())
       : null;
-  const isDueSoon = dueDays !== null && dueDays <= 2;
-
-  const isExamOrQuiz =
-    task.taskType === "event" &&
-    ((task.metadata as Record<string, unknown>)?.eventSubtype === "exam" || (task.metadata as Record<string, unknown>)?.eventSubtype === "quiz");
-  
-  const isFutureEvent =
-    isExamOrQuiz && task.startDate && isBefore(new Date(), new Date(task.startDate));
 
   function handleToggle() {
-    
-    if (!isDone && isFutureEvent) {
+    if (!isDone && isFutureExamOrQuiz(task)) {
       toast.error("No puedes completar este evento antes de que suceda.");
       return;
     }
 
-    if (!isDone) {
-      setCompleting(true);
-      setTimeout(() => setCompleting(false), 550);
-    }
     onToggle(task.id);
   }
 
   return {
     isDone,
-    isCritical,
-    isHigh,
-    isOverdue,
     isExpanded,
-    completing,
     isThisRunning,
     anotherRunning,
-    showPriorityBadge,
     dueDays,
-    isDueSoon,
     folder,
     typeConfig,
     timerState,

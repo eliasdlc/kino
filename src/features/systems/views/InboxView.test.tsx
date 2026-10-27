@@ -73,7 +73,8 @@ describe('InboxView', () => {
 
   it('completar tacha en su sitio, ofrece Deshacer 4 s y deshacer la devuelve', async () => {
     const [tarea] = items(1);
-    const { convex } = renderMobile(<InboxView system={BANDEJA} initialTasks={[tarea!]} initialCaptures={[]} />);
+    const convex = makeTestConvexClient([], [stubMutation(api.tasks.toggle, { status: tarea!.status === "done" ? "today" : tarea!.status, completedBy: null, completedVia: null, observedMinutes: 0 })]);
+    renderMobile(<InboxView system={BANDEJA} initialTasks={[tarea!]} initialCaptures={[]} />, { convex });
 
     await userEvent.click(screen.getByRole('button', { name: 'Completar Cosa 1' }));
 
@@ -308,7 +309,8 @@ describe('InboxView, lo que el servidor y el tiempo cambian bajo la fila', () =>
   it('tocar otra vez el círculo de una tachada la devuelve y retira su aviso', async () => {
     toastSpy.dismiss.mockClear();
     const [tarea] = items(1);
-    const { convex } = renderMobile(<InboxView system={BANDEJA} initialTasks={[tarea!]} initialCaptures={[]} />);
+    const convex = makeTestConvexClient([], [stubMutation(api.tasks.toggle, { status: tarea!.status === "done" ? "today" : tarea!.status, completedBy: null, completedVia: null, observedMinutes: 0 })]);
+    renderMobile(<InboxView system={BANDEJA} initialTasks={[tarea!]} initialCaptures={[]} />, { convex });
 
     await userEvent.click(screen.getByRole('button', { name: 'Completar Cosa 1' }));
     await userEvent.click(screen.getByRole('button', { name: 'Completar Cosa 1' }));
@@ -401,5 +403,21 @@ describe('InboxView, lo que el servidor y el tiempo cambian bajo la fila', () =>
     expect(action.label).toBe('Abrir Tesis');
     action.onClick();
     expect(testRouter.push).toHaveBeenCalledWith(`/systems/${TESIS.id}`);
+  });
+});
+
+describe('InboxView, tachar desde la hoja', () => {
+  it('D2: completar desde la hoja deja la fila tachada en su renglón', async () => {
+    const [primera, segunda] = items(2) as [ReturnType<typeof makeTask>, ReturnType<typeof makeTask>];
+    const convex = makeTestConvexClient([stubQuery(api.tasks.bySystem, [primera, segunda])]);
+    renderMobile(<InboxView system={BANDEJA} initialTasks={[primera, segunda]} initialCaptures={[]} />, { convex });
+
+    await userEvent.click(screen.getByRole('button', { name: 'Cosa 1' }));
+    await userEvent.click(within(await screen.findByRole('dialog')).getByRole('button', { name: 'Marcar como hecha' }));
+    act(() => convex.publish(stubQuery(api.tasks.bySystem, [{ ...primera, status: 'done' }, segunda])));
+
+    const lista = screen.getAllByRole('list', { hidden: true }).at(0)!;
+    expect(within(lista).getAllByRole('button', { name: /^Completar Cosa \d$/, hidden: true })).toHaveLength(2);
+    expect(within(lista).getByRole('button', { name: 'Completar Cosa 1', hidden: true })).toHaveAttribute('aria-pressed', 'true');
   });
 });

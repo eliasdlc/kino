@@ -26,7 +26,7 @@ export function UndoableEventRow({ evento }: { evento: ItemEvent }) {
   // sitio. Es el mismo sitio donde el servidor pone los motivos que ya sabía.
   const [rechazo, setRechazo] = useState<string | null>(null);
 
-  const frase = `${sujetoDe(evento.actor)} ${FRASES[evento.action]?.item ?? "hizo un cambio"} · ${cuandoDe(evento.occurredAt)}`;
+  const frase = `${sujetoDe(evento.actor)} ${FRASES[evento.action]?.item ?? "hizo un cambio"}, ${cuandoDe(evento.occurredAt)}`;
   const motivo = rechazo ?? (evento.deshacer.forma === "no" ? evento.deshacer.motivo : null);
 
   return (
@@ -37,7 +37,7 @@ export function UndoableEventRow({ evento }: { evento: ItemEvent }) {
     <li className="flex max-w-[46rem] flex-col gap-1 py-2 text-sm text-foreground/80 first:pt-0 last:pb-0 sm:flex-row sm:items-start sm:justify-between sm:gap-4">
       <span>
         {frase}
-        {evento.undoneAt !== null && ` · deshecho ${cuandoDe(evento.undoneAt)}`}
+        {evento.undoneAt !== null && `, deshecho ${cuandoDe(evento.undoneAt)}`}
       </span>
 
       {motivo !== null ? (
