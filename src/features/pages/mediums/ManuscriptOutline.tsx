@@ -1,7 +1,7 @@
 "use client";
 
 import { Asterisk, BookOpen, Hash, RectangleHorizontal } from "lucide-react";
-import { cn } from "@/lib/utils";
+import { SectionHead } from "@/features/dashboard/SectionHead";
 import type { OutlineItem, OutlineKind } from "./outline";
 
 const KIND_ICON: Record<OutlineKind, typeof Hash> = {
@@ -19,6 +19,9 @@ const KIND_ICON: Record<OutlineKind, typeof Hash> = {
  * Lo pintan dos sitios: el panel del manuscrito, que lo enseña siempre con sus
  * escenas, y el de un documento normal en un teléfono, donde el carril de
  * títulos no cabe. De ahí que el encabezado lo ponga quien llama.
+ *
+ * Cada entrada es una fila del índice: el glifo de su clase en el margen
+ * pequeño de la sangría y 48 px de alto en un dedo.
  */
 export function ManuscriptOutline({
   items,
@@ -31,19 +34,17 @@ export function ManuscriptOutline({
   onJump: (pos: number) => void;
 }) {
   return (
-    <div>
-      <p className="mb-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-        {heading}
-      </p>
+    <div className="space-y-1">
+      <SectionHead as="h3" title={heading} />
 
       {items.length === 0 ? (
         // Solo llega aquí el manuscrito: la lista de un documento normal no se
         // monta hasta que hay dos títulos, y con dos no está vacía.
-        <p className="text-xs text-muted-foreground/70">
+        <p className="py-2 text-sm text-muted-foreground">
           Sin escenas todavía. Un separador o un título abren la primera.
         </p>
       ) : (
-        <div className="flex flex-col gap-0.5">
+        <div className="flex flex-col">
           {items.map((item) => {
             const Icon = KIND_ICON[item.kind];
             return (
@@ -52,12 +53,9 @@ export function ManuscriptOutline({
                 type="button"
                 onClick={() => onJump(item.pos)}
                 style={{ paddingLeft: `${0.25 + item.depth * 0.75}rem` }}
-                className={cn(
-                  "flex items-center gap-1.5 rounded-md py-1 pr-2 text-left text-xs transition-colors",
-                  "text-muted-foreground hover:bg-accent hover:text-foreground"
-                )}
+                className="flex min-h-9 items-center gap-2 rounded-md py-1 pr-2 text-left text-sm text-body transition-colors duration-(--dur-toque) ease-(--ease-pluma) focus-ring hover:bg-secondary hover:text-foreground pointer-coarse:min-h-[2.85rem]"
               >
-                <Icon className="size-3 shrink-0 opacity-60" />
+                <Icon aria-hidden className="size-3.5 shrink-0 text-muted-foreground" />
                 <span className="truncate">{item.label}</span>
               </button>
             );

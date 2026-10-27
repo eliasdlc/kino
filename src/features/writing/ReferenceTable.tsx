@@ -3,15 +3,24 @@
 import Image from "next/image";
 import { useState } from "react";
 import { Pin, PinOff, Plus, X } from "lucide-react";
+import { Input } from "@/components/ui/input";
+import { MarginRow } from "@/components/ui/margin-row";
 import { useSystemEntities } from "@/features/entities/entities.hooks";
-import { ENTITY_TYPE_ICON } from "@/features/entities/entities.ui";
+import { ENTITY_TYPE_ICON, ENTITY_TYPE_LABEL } from "@/features/entities/entities.ui";
 import { EntityFicheSheet } from "@/features/entities/EntityFicheSheet";
 import type { EntityListItemTransport } from "@/features/entities/entities.types";
+import { SectionHead } from "@/features/dashboard/SectionHead";
+import { UNA_LINEA } from "@/shared/components/una-linea";
 
 /**
  * Mesa de referencias (PLAN-11 §7): las fichas que el autor deja fijadas para
  * tenerlas delante mientras escribe: esencial en manga, donde la referencia
  * visual del personaje va junto al guion.
+ *
+ * Filas de margen de Diario: la portada (o el icono del tipo) en el margen, el
+ * nombre que abre la ficha y Quitar en la cola. Quitar se ve siempre en un
+ * dedo; sólo con ratón espera al hover. Fijar es una fila más al final, y su
+ * búsqueda abre filas del mismo tamaño: nada aquí baja de 48 px.
  */
 export function ReferenceTable({
   systemId,
@@ -41,112 +50,106 @@ export function ReferenceTable({
 
   return (
     <div className="space-y-2">
-      <div className="flex items-center justify-between">
-        <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-          Mesa de referencias
-        </p>
-        {canPin && (
-          <button
-            type="button"
-            onClick={() => setPicking((p) => !p)}
-            className="flex items-center gap-1 text-xs text-muted-foreground transition-colors hover:text-foreground"
-            title="Fijar una referencia"
-          >
-            {picking ? <X className="size-3.5" /> : <Plus className="size-3.5" />}
-          </button>
-        )}
-      </div>
+      <SectionHead as="h3" title="Mesa de referencias" />
 
       {!canPin && (
-        <p className="text-xs text-muted-foreground">
+        <p className="text-sm text-muted-foreground">
           Los manuscritos sueltos no tienen mesa: pertenecen a ninguna obra.
         </p>
       )}
 
-      {picking && (
-        <div className="space-y-1 rounded-md border border-border p-2">
-          <input
-            autoFocus
-            value={query}
-            onChange={(e) => setQuery(e.target.value)}
-            placeholder="Buscar en el codex…"
-            className="w-full rounded bg-muted/60 px-2 py-1 text-xs outline-none focus:ring-1 focus:ring-primary/40"
-          />
-          {candidates.length === 0 ? (
-            <p className="px-1 py-1 text-xs text-muted-foreground">Sin resultados.</p>
-          ) : (
-            candidates.map((e) => {
-              const Icon = ENTITY_TYPE_ICON[e.type];
-              return (
-                <button
-                  key={e.id}
-                  type="button"
-                  onClick={() => {
-                    onToggle(e.id);
-                    setQuery("");
-                  }}
-                  className="flex w-full items-center gap-2 rounded px-1.5 py-1 text-left text-xs transition-colors hover:bg-accent/50"
-                >
-                  <Icon className="size-3.5 shrink-0 text-muted-foreground" />
-                  <span className="min-w-0 flex-1 truncate">{e.name}</span>
-                  <Pin className="size-3 shrink-0 text-muted-foreground" />
-                </button>
-              );
-            })
-          )}
-        </div>
-      )}
-
       {canPin && pinned.length === 0 && !picking && (
-        <p className="text-xs text-muted-foreground">
+        <p className="text-sm text-muted-foreground">
           Fija personajes o lugares para tenerlos a la vista mientras escribes.
         </p>
       )}
 
-      {pinned.length > 0 && (
-        <ul className="grid grid-cols-3 gap-1.5">
-          {pinned.map((e) => {
-            const Icon = ENTITY_TYPE_ICON[e.type];
-            return (
-              <li key={e.id} className="group relative">
-                <button
-                  type="button"
-                  onClick={() => setOpenEntityId(e.id)}
-                  className="block w-full overflow-hidden rounded-md border border-border bg-muted/40 text-left transition-colors hover:border-primary/40"
-                  title={e.name}
-                >
-                  <span className="relative flex aspect-square items-center justify-center bg-muted">
-                    {e.coverImageUrl ? (
-                      // `unoptimized` como en las fichas del codex (W2): las
-                      // portadas viven en Vercel Blob, fuera de remotePatterns.
-                      <Image
-                        src={e.coverImageUrl}
-                        alt={e.name}
-                        fill
-                        sizes="80px"
-                        className="object-cover"
-                        unoptimized
-                      />
-                    ) : (
-                      <Icon className="size-4 text-muted-foreground" />
-                    )}
-                  </span>
-                  <span className="block truncate px-1 py-0.5 text-[10px] text-muted-foreground">
-                    {e.name}
-                  </span>
-                </button>
+      {(pinned.length > 0 || canPin) && (
+        <div>
+          {pinned.map((e) => (
+            <MarginRow
+              key={e.id}
+              data-slot="reference"
+              className={`group ${UNA_LINEA}`}
+              margin={<Portada entity={e} />}
+              trailing={
                 <button
                   type="button"
                   onClick={() => onToggle(e.id)}
                   aria-label={`Quitar ${e.name} de la mesa`}
-                  className="absolute right-0.5 top-0.5 rounded bg-background/80 p-0.5 text-muted-foreground opacity-0 transition-opacity hover:text-foreground focus:opacity-100 group-hover:opacity-100 md:opacity-0"
+                  title="Quitar de la mesa"
+                  className="press -mr-2 flex size-[2.85rem] items-center justify-center rounded-full text-muted-foreground transition-[color,opacity,transform] duration-(--dur-toque) ease-(--ease-pluma) focus-ring hover:text-foreground md:pointer-fine:opacity-0 md:pointer-fine:group-hover:opacity-100 md:pointer-fine:focus-visible:opacity-100"
                 >
-                  <PinOff className="size-3" />
+                  <PinOff aria-hidden className="size-4" />
                 </button>
-              </li>
-            );
-          })}
-        </ul>
+              }
+            >
+              <button
+                type="button"
+                onClick={() => setOpenEntityId(e.id)}
+                className="flex min-h-[2.85rem] w-full min-w-0 flex-col justify-center rounded-md text-left focus-ring"
+              >
+                <span className="block truncate text-base font-semibold text-foreground">{e.name}</span>
+                <span className="block truncate text-sm text-muted-foreground">
+                  {ENTITY_TYPE_LABEL[e.type].toLowerCase()}
+                </span>
+              </button>
+            </MarginRow>
+          ))}
+
+          {canPin && (
+            <MarginRow
+              className={UNA_LINEA}
+              margin={picking ? <X aria-hidden className="size-5" /> : <Plus aria-hidden className="size-5" />}
+              onClick={() => {
+                setPicking((p) => !p);
+                setQuery("");
+              }}
+              aria-expanded={picking}
+            >
+              <span className="block text-base font-medium text-foreground">
+                {picking ? "Dejar de buscar" : "Fijar una referencia"}
+              </span>
+            </MarginRow>
+          )}
+        </div>
+      )}
+
+      {picking && (
+        <div className="space-y-1 pl-(--margen) pt-1">
+          <Input
+            autoFocus
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            placeholder="Buscar en el codex…"
+            aria-label="Buscar en el codex"
+          />
+          {candidates.length === 0 ? (
+            <p className="py-2 text-sm text-muted-foreground">Sin resultados.</p>
+          ) : (
+            <ul aria-label="Fichas para fijar" className="-ml-(--margen)">
+              {candidates.map((e) => {
+                const Icon = ENTITY_TYPE_ICON[e.type];
+                return (
+                  <li key={e.id}>
+                    <MarginRow
+                      className={UNA_LINEA}
+                      margin={<Icon aria-hidden className="size-5" />}
+                      trailing={<Pin aria-hidden className="size-4" />}
+                      onClick={() => {
+                        onToggle(e.id);
+                        setQuery("");
+                      }}
+                      aria-label={`Fijar ${e.name}`}
+                    >
+                      <span className="block truncate text-base text-foreground">{e.name}</span>
+                    </MarginRow>
+                  </li>
+                );
+              })}
+            </ul>
+          )}
+        </div>
       )}
 
       <EntityFicheSheet
@@ -156,5 +159,18 @@ export function ReferenceTable({
         onOpenChange={(o) => !o && setOpenEntityId(null)}
       />
     </div>
+  );
+}
+
+/** La portada en un círculo del margen; sin portada, el icono de su tipo. */
+function Portada({ entity }: { entity: EntityListItemTransport }) {
+  const Icon = ENTITY_TYPE_ICON[entity.type];
+  if (!entity.coverImageUrl) return <Icon aria-hidden className="size-5" />;
+  return (
+    <span className="relative block size-9 overflow-hidden rounded-full border border-border bg-secondary">
+      {/* `unoptimized` como en las fichas del codex (W2): las portadas viven en
+          Vercel Blob, fuera de remotePatterns. */}
+      <Image src={entity.coverImageUrl} alt="" fill sizes="36px" className="object-cover" unoptimized />
+    </span>
   );
 }

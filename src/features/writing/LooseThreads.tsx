@@ -2,15 +2,20 @@
 
 import { useMemo, useState } from "react";
 import Link from "next/link";
-import { Check, Loader2, RotateCcw, Scissors, Settings2, Sparkles } from "lucide-react";
+import { Check, RotateCcw, Settings2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { EmptyState } from "@/components/ui/empty-state";
+import { Skeleton } from "@/components/ui/skeleton";
 import { Label } from "@/components/ui/label";
 import { Slider } from "@/components/ui/slider";
 import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from "@/components/ui/popover";
+  ResponsiveDialog,
+  ResponsiveDialogContent,
+  ResponsiveDialogDescription,
+  ResponsiveDialogHeader,
+  ResponsiveDialogTitle,
+  ResponsiveDialogTrigger,
+} from "@/components/ui/responsive-dialog";
 import {
   Select,
   SelectContent,
@@ -34,6 +39,10 @@ import type { SystemTransport } from "@/features/systems/systems.types";
  * No inventa nada: cada señalamiento dice en qué capítulo fue y se verifica en un
  * clic. Y se puede cerrar a mano: una entidad de fondo nombrada una vez a
  * propósito no es un cabo suelto, y un detector que grita demasiado se ignora.
+ *
+ * Diario: cada hilo es una fila con el glifo de su clase en el margen, sin
+ * caja; cerrarlo a mano se ve en un dedo y aparece al pasar en escritorio; la
+ * sensibilidad es una hoja con nombre en el teléfono.
  */
 export function LooseThreads({ system }: { system: SystemTransport }) {
   const { data: works = [] } = useFolders(system.id);
@@ -52,14 +61,10 @@ export function LooseThreads({ system }: { system: SystemTransport }) {
 
   if (works.length === 0) {
     return (
-      <div className="rounded-lg border border-dashed p-10 text-center">
-        <Scissors className="mx-auto size-8 text-muted-foreground/40" />
-        <p className="mt-2 text-sm font-medium">Todavía no hay obras que revisar</p>
-        <p className="mt-1 text-sm text-muted-foreground">
-          Los hilos sueltos se miden dentro de una obra: cuántos capítulos lleva
-          callada una entidad que apenas se nombró.
-        </p>
-      </div>
+      <EmptyState
+        title="Todavía no hay obras que revisar"
+        description="Los hilos sueltos se miden dentro de una obra: cuántos capítulos lleva callada una entidad que apenas se nombró."
+      />
     );
   }
 
@@ -86,8 +91,9 @@ export function LooseThreads({ system }: { system: SystemTransport }) {
       </div>
 
       {isLoading ? (
-        <div className="flex h-40 items-center justify-center rounded-lg border border-dashed">
-          <Loader2 className="size-5 animate-spin text-muted-foreground" />
+        <div aria-busy className="space-y-px">
+          <Skeleton className="h-[4.6rem] w-full rounded-md" />
+          <Skeleton className="h-[4.6rem] w-full rounded-md" />
         </div>
       ) : (data?.chapterCount ?? 0) === 0 ? (
         <Empty
@@ -98,10 +104,9 @@ export function LooseThreads({ system }: { system: SystemTransport }) {
         <Empty
           title="Ningún hilo suelto"
           hint={`Con el criterio actual (hasta ${data?.settings.maxMentions} menciones y ${data?.settings.minSilentChapters} capítulos de silencio) no hay nada olvidado en esta obra.`}
-          celebratory
         />
       ) : (
-        <ul className="space-y-2">
+        <ul>
           {open.map((thread) => (
             <ThreadRow
               key={thread.entityId}
@@ -115,13 +120,13 @@ export function LooseThreads({ system }: { system: SystemTransport }) {
       )}
 
       {resolved.length > 0 && (
-        <details className="rounded-lg border bg-muted/10 px-3 py-2">
-          <summary className="cursor-pointer text-sm text-muted-foreground">
+        <details className="border-t border-border">
+          <summary className="flex min-h-[2.85rem] cursor-pointer items-center rounded-md pl-(--margen) text-sm text-muted-foreground focus-ring hover:text-foreground">
             {resolved.length === 1
               ? "1 hilo cerrado a mano"
               : `${resolved.length} hilos cerrados a mano`}
           </summary>
-          <ul className="mt-2 space-y-2">
+          <ul>
             {resolved.map((thread) => (
               <ThreadRow
                 key={thread.entityId}
@@ -145,23 +150,8 @@ export function LooseThreads({ system }: { system: SystemTransport }) {
   );
 }
 
-function Empty({
-  title,
-  hint,
-  celebratory,
-}: {
-  title: string;
-  hint: string;
-  celebratory?: boolean;
-}) {
-  const Icon = celebratory ? Sparkles : Scissors;
-  return (
-    <div className="rounded-lg border border-dashed p-10 text-center">
-      <Icon className="mx-auto size-8 text-muted-foreground/40" />
-      <p className="mt-2 text-sm font-medium">{title}</p>
-      <p className="mx-auto mt-1 max-w-md text-sm text-muted-foreground">{hint}</p>
-    </div>
-  );
+function Empty({ title, hint }: { title: string; hint: string }) {
+  return <EmptyState title={title} description={hint} />;
 }
 
 function ThreadRow({
@@ -179,40 +169,34 @@ function ThreadRow({
   const { mutate: resolve, isPending } = useResolveThread(folderId);
 
   return (
-    <li
-      className={cn(
-        "group flex items-start gap-3 rounded-lg border bg-card p-3",
-        thread.resolved && "opacity-60",
-      )}
-    >
-      <Icon className="mt-0.5 size-4 shrink-0 text-muted-foreground" />
+    <li className="group grid grid-cols-[var(--margen)_1fr_auto] items-start border-b border-border py-2 last:border-b-0">
+      <span className="flex h-[2.15rem] items-center justify-center text-muted-foreground">
+        <Icon aria-hidden className="size-5" />
+      </span>
 
-      <div className="min-w-0 flex-1 space-y-1">
-        <div className="flex flex-wrap items-center gap-2">
-          <button
-            type="button"
-            onClick={onOpen}
-            className="truncate text-sm font-medium hover:underline"
-          >
-            {thread.name}
-          </button>
-          {thread.reopened && (
-            <span className="rounded-full bg-accent px-2 py-0.5 text-[11px] text-muted-foreground">
-              retomado
-            </span>
+      <div className="min-w-0">
+        <button
+          type="button"
+          onClick={onOpen}
+          className={cn(
+            // El nombre mide una línea; el antes invisible alarga el toque a
+            // 48 px sin mover el texto ni el glifo del margen.
+            "relative block max-w-full rounded-md py-1 text-left text-base font-semibold focus-ring hover:underline before:absolute before:inset-x-0 before:-inset-y-2 before:content-['']",
+            thread.resolved ? "text-muted-foreground" : "text-foreground",
           )}
-          <span className="font-mono text-xs text-muted-foreground">
-            {thread.totalMentions === 1
-              ? "1 mención"
-              : `${thread.totalMentions} menciones`}
-          </span>
-        </div>
-
-        <p className="text-sm text-muted-foreground">{threadSummary(thread)}</p>
-
+        >
+          <span className="block truncate">{thread.name}</span>
+        </button>
+        <p className="text-sm text-muted-foreground">
+          {thread.totalMentions === 1 ? "1 mención" : `${thread.totalMentions} menciones`}
+          {thread.reopened ? ", retomado" : ""}
+        </p>
+        <p className="mt-1 text-sm text-body">{threadSummary(thread)}</p>
         <Link
           href={`/systems/${systemId}/pages/${thread.lastChapter.id}`}
-          className="inline-block text-xs text-muted-foreground underline-offset-2 hover:text-foreground hover:underline"
+          // Un enlace secundario: tinta apagada y subrayado, el ámbar queda para la
+          // acción primaria de la pantalla.
+          className="inline-flex min-h-9 items-center rounded-md text-sm text-muted-foreground underline underline-offset-2 transition-colors duration-(--dur-toque) ease-(--ease-pluma) focus-ring hover:text-foreground pointer-coarse:min-h-[2.85rem]"
         >
           Ir a esa aparición
         </Link>
@@ -222,17 +206,18 @@ function ThreadRow({
         variant="ghost"
         size="sm"
         disabled={isPending}
+        aria-busy={isPending || undefined}
         onClick={() => resolve({ entityId: thread.entityId, resolved: !thread.resolved })}
-        className="shrink-0 gap-1.5 text-muted-foreground md:opacity-0 md:transition-opacity md:group-hover:opacity-100 md:focus-visible:opacity-100"
+        className="shrink-0 gap-1.5 text-muted-foreground transition-opacity duration-(--dur-toque) ease-(--ease-pluma) md:pointer-fine:opacity-0 md:pointer-fine:group-hover:opacity-100 md:pointer-fine:focus-visible:opacity-100"
       >
         {thread.resolved ? (
           <>
-            <RotateCcw className="size-3.5" />
+            <RotateCcw aria-hidden className="size-4" />
             Reabrir
           </>
         ) : (
           <>
-            <Check className="size-3.5" />
+            <Check aria-hidden className="size-4" />
             Es deliberado
           </>
         )}
@@ -262,23 +247,26 @@ function SensitivityPopover({ system }: { system: SystemTransport }) {
   }
 
   return (
-    <Popover>
-      <PopoverTrigger asChild>
-        <Button variant="outline" size="sm" className="gap-1.5">
-          <Settings2 className="size-4" />
+    <ResponsiveDialog>
+      <ResponsiveDialogTrigger asChild>
+        <Button variant="outline" className="gap-1.5">
+          <Settings2 aria-hidden className="size-4" />
           Sensibilidad
         </Button>
-      </PopoverTrigger>
-      <PopoverContent className="w-80 space-y-5">
-        <p className="text-xs text-muted-foreground">
-          Un detector que grita demasiado se ignora. Sube el silencio exigido si te
-          está señalando cosas que son a propósito.
-        </p>
+      </ResponsiveDialogTrigger>
+      <ResponsiveDialogContent className="max-w-sm space-y-5">
+        <ResponsiveDialogHeader>
+          <ResponsiveDialogTitle>Sensibilidad del detector</ResponsiveDialogTitle>
+          <ResponsiveDialogDescription>
+            Un detector que grita demasiado se ignora. Sube el silencio exigido si te
+            está señalando cosas que son a propósito.
+          </ResponsiveDialogDescription>
+        </ResponsiveDialogHeader>
 
         <div className="space-y-2">
-          <Label className="flex items-center justify-between text-xs">
+          <Label className="flex items-center justify-between text-sm">
             <span>Se nombró como mucho</span>
-            <span className="font-mono text-muted-foreground">
+            <span className="text-muted-foreground tabular-nums">
               {draft.maxMentions} {draft.maxMentions === 1 ? "vez" : "veces"}
             </span>
           </Label>
@@ -293,9 +281,9 @@ function SensitivityPopover({ system }: { system: SystemTransport }) {
         </div>
 
         <div className="space-y-2">
-          <Label className="flex items-center justify-between text-xs">
+          <Label className="flex items-center justify-between text-sm">
             <span>Lleva callada al menos</span>
-            <span className="font-mono text-muted-foreground">
+            <span className="text-muted-foreground tabular-nums">
               {draft.minSilentChapters}{" "}
               {draft.minSilentChapters === 1 ? "capítulo" : "capítulos"}
             </span>
@@ -309,7 +297,7 @@ function SensitivityPopover({ system }: { system: SystemTransport }) {
             onValueCommit={([v]) => commit({ ...draft, minSilentChapters: v! })}
           />
         </div>
-      </PopoverContent>
-    </Popover>
+      </ResponsiveDialogContent>
+    </ResponsiveDialog>
   );
 }

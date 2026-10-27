@@ -627,7 +627,7 @@ export function makeStudioReport(overrides: Partial<StudioReport> = {}): StudioR
       {
         kind: "resume-chapter",
         title: "Retoma «Capítulo 4: La niebla»",
-        reason: "Es lo último que escribiste, hace 2 días, 1.240 palabras en La marea baja.",
+        reason: "Es lo último que escribiste, hace 2 días: 1.240 palabras en La marea baja.",
         target: { kind: "page", id: MOCK_PAGE_ID },
         weight: 88,
       },

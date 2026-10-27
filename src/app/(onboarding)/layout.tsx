@@ -16,7 +16,7 @@ export default async function OnboardingLayout({
   if (user.onboardingCompleted) redirect('/dashboard');
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="min-h-dvh bg-background text-foreground">
       {/* Antes que `children`: sus efectos corren en ese orden, así que la
           persona ya está identificada cuando la pantalla de debajo dispara su
           primer evento del funnel. */}
