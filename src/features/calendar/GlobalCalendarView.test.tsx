@@ -167,7 +167,7 @@ describe("GlobalCalendarView en el teléfono, las operaciones", () => {
 
     await userEvent.click(screen.getByRole("button", { name: /^09:00, Repasar la escena/ }));
 
-    expect(await screen.findByRole("dialog", { name: "Editar tarea" })).toBeVisible();
+    expect(await screen.findByRole("dialog", { name: "Tarea" })).toBeVisible();
   });
 
   it("el círculo de la fila la completa y ofrece Deshacer 4 s", async () => {
