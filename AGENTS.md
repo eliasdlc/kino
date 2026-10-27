@@ -12,11 +12,13 @@ Instrumento de planificación construido alrededor de la gestión de energía co
 
 ```bash
 pnpm install                        # Instalar dependencias
-pnpm dev                            # Dev server (http://localhost:3000)
+pnpm local dev                      # Entorno propio del worktree: backend de Convex, puertos y semilla, y `next dev` (ver «Entorno local por worktree»)
+pnpm local up|down|status|reset     # Levantar, apagar, ver o borrar el backend de este worktree
+pnpm dev                            # Sólo Next, en el puerto 3000 y contra el backend que diga .env.local
 pnpm build                          # Build de producción
 pnpm lint                           # ESLint strict ( debe pasar con 0 errores
 pnpm typecheck                      # tsc --noEmit ) debe pasar
-npx convex dev                      # Publica las funciones en el deployment de dev y regenera convex/_generated
+npx convex dev                      # Publica las funciones en el deployment que apunte el entorno (el del worktree tras `pnpm local up`) y regenera convex/_generated
 npx convex run migrations/<fichero>:run   # Corre una migración de datos contra dev (ver «Migraciones de datos»)
 pnpm test                           # Suite completa (lógica pura, sin base)
 pnpm check:voz                      # La voz del producto: cinco reglas de grep. Falla en rojo
@@ -82,7 +84,8 @@ Producción y desarrollo son **dos deployments de Convex** del mismo proyecto, y
 | Entorno | Quién lo usa | Convex | Clerk |
 |---|---|---|---|
 | Producción | el deploy de `main` en Vercel | deployment `prod`: `CONVEX_DEPLOY_KEY` en la variable **Production** de Vercel, y en ningún otro sitio | instancia Production (`pk_live_` / `sk_live_`) |
-| Desarrollo | los previews de Vercel (PRs y `dev`) y el `.env.local` de cada máquina | deployment de dev: `NEXT_PUBLIC_CONVEX_URL` en la variable **Preview** de Vercel y en `.env.local`; las funciones las publica `npx convex dev` desde la laptop | instancia Development (`pk_test_` / `sk_test_`) |
+| Desarrollo | los previews de Vercel (PRs y `dev`) | deployment de dev compartido (`judicious-marmot-297`): `NEXT_PUBLIC_CONVEX_URL` en la variable **Preview** de Vercel; los previews sólo construyen Next contra él | instancia Development (`pk_test_` / `sk_test_`) |
+| Local | cada worktree, para desarrollar y capturar | un backend de Convex propio (`scripts/entorno-local.sh`), con su puerto, su base y su semilla; no toca el de dev | la misma instancia Development: la cuenta sembrada es la misma en todos los worktrees |
 
 **El schema y las funciones de producción los publica sólo el despliegue.** El `buildCommand` de `vercel.json` es `scripts/vercel-build.sh`: con `CONVEX_DEPLOY_KEY` en el entorno corre `npx convex deploy --cmd 'pnpm build'`, que publica las funciones y deja `NEXT_PUBLIC_CONVEX_URL` puesta para `next build`. Si el schema no valida contra los datos, el build falla y el deploy anterior sigue arriba; el código nunca sale sin sus funciones. Sin la clave (los previews) se construye sólo Next contra el deployment de dev.
 
@@ -147,6 +150,46 @@ diff origen.txt destino.txt
 **Para ensayar**, usa el deployment de dev (`dev:` en la clave) o uno de preview: el snapshot pisa lo que haya. **En un desastre real** el origen ya no existe para comparar; la huella del paso 3 sale del propio fichero, así que el `diff` del paso 6 sigue valiendo. Lo que no vuelve con el snapshot son las funciones programadas en vuelo: los crons se registran solos en el siguiente `convex deploy`.
 
 Ensayo sobre el deployment de dev (37 tablas, 550 documentos, 47 cuadernos con 255 106 bytes de contenido, 226 tareas): volcado 2 s y 192 KB cifrados, restauración 12 s, `diff` vacío. Lo que esos números **no** miden es el tamaño real de producción; ese dato sale la primera vez que se restaure allí.
+
+### Entorno local por worktree
+
+Cada worktree corre su propio backend de Convex (el binario `convex-local-backend` que descarga la CLI), con su base SQLite, su almacenamiento, sus puertos y su semilla. Un cambio de `convex/schema.ts` o de una función ya no toca a ningún otro worktree ni al deployment de dev.
+
+```bash
+pnpm install
+pnpm local dev       # up + `next dev` en el puerto de este worktree
+pnpm local up        # sólo el backend, las funciones, .env.local y la semilla
+pnpm local status    # los tres puertos y si el backend responde
+pnpm local down      # apaga; los datos se quedan
+pnpm local reset     # apaga y borra los datos; el próximo `up` siembra otra vez
+eval "$(pnpm -s local env)"   # apunta `npx convex run|env|logs` a este backend
+```
+
+- **Puertos**: salen de la ruta del worktree (Next `3100 + n`, Convex `3300 + n`, acciones HTTP `3500 + n`, con `n` entre 0 y 99) y se corren al siguiente hueco libre. Se fijan una vez en `.kino-local/puertos.env`; no hay 3010 ni 3210 en ninguna parte. `pnpm local status` los imprime.
+- **`.env.local` lo escribe el script entero** en cada `up`. Un `.env.local` copiado de otro worktree (el que apuntaba a `127.0.0.1:3210`, un backend que no existe) deja de importar: se sobrescribe. Las claves de Clerk de desarrollo salen de `~/.config/secretos/kino.env`; si falta, el script se detiene y lo dice.
+- **Semilla desechable**: la primera vez crea la cuenta `prueba@usekino.dev` con el id de Clerk de siempre, completa el onboarding de «estudiante» y corre `scripts/capturas/sembrar.mjs`. `pnpm local reset` la tira.
+- **Qué corre aquí y qué no**:
+
+| Pieza | Local |
+|---|---|
+| Queries, mutaciones, acciones, `use node` (`account`, `github`, `pushSend`) | Corre. Las `use node` piden Node 20, 22 o 24 en el PATH del backend; el script usa `mise where node@24` si el `node` por defecto es otro |
+| Auth de Clerk | Corre. `CLERK_JWT_ISSUER_DOMAIN` se deriva de la clave publicable y el backend valida el JWT real de Clerk contra su JWKS (hace falta red) |
+| Conector MCP | Corre con una clave propia por worktree: `KINO_MCP_JWKS` en el backend, `KINO_MCP_SIGNING_JWK` en `.env.local` |
+| Crons | Apagados (`KINO_CRONS_APAGADOS=true`, como en dev). Las funciones que disparan sí corren: `npx convex run scheduler:taskReminders`. Que el backend los registre al quitar la variable no está probado |
+| Webhook `user.created` de Clerk | No llega: Clerk sólo apunta al deployment de dev. La fila la crea `users.ensure` desde `src/proxy.ts`, o el script de semilla |
+| Push (VAPID) y correo (Resend) | Sin configurar, como en dev: los avisos se registran y no envían |
+
+- **Tiempos medidos en agentbox** (26 de octubre de 2026, i5-6500 con disco mecánico, compartida con otras sesiones): `pnpm install` 193 s con carga 15 a 29; `up` desde cero con el binario ya descargado y la máquina a carga 3, **97 s**; reiniciar con datos, **22 s**. Con la máquina cargada el primer `up` puede tardar varios minutos: el arranque en frío del backend llegó a 40 s y el primer análisis de módulos a 120 s.
+- **Límite conocido: el arranque en frío de una función.** Convex corta una query o mutación a 1 s y una función que carga su isolate por primera vez tras un rato inactivo puede pasarse, sobre todo en agentbox con carga alta: `users:current` tardó 14 s la primera vez y 0,85 s las siguientes. Se nota como un `Function execution timed out (maximum duration: 1s)` en la primera petición; repetirla funciona. `up` reintenta el push de funciones hasta tres veces por lo mismo.
+- **Capturas contra el entorno local**: la autenticación quedó probada con un JWT real de la plantilla `convex` de Clerk (`users:current` devolvió la cuenta sembrada). Una vuelta completa de `scripts/capturas/run.mjs` en agentbox no se logró: la página de login no terminó de cargar Clerk en 30 s con la máquina cargada. Dónde se captura, y con `KINO_URL` apuntando al puerto de Next del worktree, se decide en el brief.
+
+## Facts
+
+- production: https://www.usekino.dev
+- production branch: `main` (Vercel). `dev` produce previews, nunca producción.
+- dev Convex deployment: `judicious-marmot-297` (compartido por los previews de Vercel; los worktrees ya no lo usan para desarrollar)
+- dev ruleset: `23715168` («Integration: tasks enter dev with checks»). **«Require branches to be up to date» está apagado** desde el 26 de octubre de 2026 (`strict_required_status_checks_policy: false`), como en ConoceRD: un merge ya no relanza los checks de los demás PRs abiertos. Siguen exigidos `typecheck · lint · test`, `presupuesto de JavaScript`, `branch-model`, `proof` y `budget`, más PR y sin borrado ni force-push. Para verlo: `gh api repos/eliasdlc/kino/rulesets/23715168 --jq '.rules[] | select(.type=="required_status_checks") | .parameters.strict_required_status_checks_policy'`
+- cuenta sembrada: `prueba@usekino.dev` (Clerk de desarrollo); el backend local la crea con el mismo id de Clerk
 
 ## Estructura: vertical slice
 
@@ -329,7 +372,17 @@ CSS puro: keyframes, transitions, Tailwind. **No instalar Framer Motion.**
 - **Mobile**: `ResponsiveDialog` (Dialog en desktop, Drawer en móvil), vistas `*MobileView`, **sin drag and drop en touch**, acciones hover con `md:opacity-0`. La rama por viewport va **antes** del contexto de arrastre, no dentro de la nota que se arrastra, y el gesto que se pierde gana una **operación con nombre** que deja su evento y se deshace: `BoardMoveSheet` para las columnas del tablero, `StackNoteSheet` para apilar notas.
 - Todo cambio de UI se previsualiza en **`/system-design`** y añade su specimen.
 - Cada ruta con su `loading.tsx`, cubierta por un `error.tsx`.
-- **Verificar mirando**: `node scripts/capturas/run.mjs` (con `pnpm dev` corriendo) captura las 19 rutas y el catálogo `/system-design` con la cuenta sembrada a 393x852, 430x748, 1131x686 y 1440x900, en claro y oscuro; `scripts/capturas/sembrar.mjs` le da densidad a esa cuenta en el deployment de dev. Nada visible se da por hecho sin esas capturas.
+- **Verificar mirando**: `node scripts/capturas/run.mjs` (con `pnpm local dev` corriendo; añade `KINO_URL=http://localhost:<puerto de Next del worktree>`, que imprime `pnpm local status`) captura las 19 rutas y el catálogo `/system-design` con la cuenta sembrada a 393x852, 430x748, 1131x686 y 1440x900, en claro y oscuro; `scripts/capturas/sembrar.mjs` le da densidad a esa cuenta, y `pnpm local up` ya lo corre la primera vez. Nada visible se da por hecho sin esas capturas.
+
+**La matriz de captura que lleva todo brief de implementación.** Quien delega un cambio visible la copia entera en el brief, porque una captura que falta una celda no prueba el cambio y rehacerla cuesta una vuelta (el 26 de octubre se perdió entre hilos y costó unos 70 minutos):
+
+| Eje | Valores |
+|---|---|
+| Ancho | 393, 430, 1131 y 1440 |
+| Tema | claro y oscuro |
+| Texto | 150 % (el tamaño de texto del sistema o `font-size` del navegador al 150 %), además del 100 % |
+
+Son 4 anchos por 2 temas por 2 tamaños de texto: 16 capturas por pantalla tocada. A 150 % de texto se mira que nada se corte, solape ni quede fuera de la pantalla. `run.mjs` produce hoy los 4 anchos por 2 temas a 100 %; el 150 % no lo hace (Tailwind mide en `rem`, así que basta con `html { font-size: 150% }` inyectado antes de capturar) y lo pone quien implementa hasta que el script lo soporte.
 
 ### Tests
 

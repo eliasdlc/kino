@@ -44,11 +44,10 @@ jobs:
 
       - run: pnpm check:voz
 
-      # El carril único de schema: un PR que toca `convex/schema.ts` no
-      # construye mientras haya otro PR abierto, porque todos los previews
-      # publican contra el mismo deployment de dev. El token es sólo para
+      # Aviso de schema, informativo: dice si otro PR abierto también edita
+      # `convex/schema.ts` y termina en verde siempre. El token es sólo para
       # listar PRs; los tests siguen sin ver ninguna variable.
-      - name: carril de schema
+      - name: aviso de schema
         if: github.event_name == 'pull_request'
         env:
           GH_TOKEN: ${{ github.token }}

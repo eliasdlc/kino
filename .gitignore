@@ -8,6 +8,9 @@ package-lock.json
 .next/
 out/
 
+# Entorno local de cada worktree (scripts/entorno-local.sh): backend, datos y puertos
+.kino-local/
+
 # Environment variables
 .env
 .env.local
