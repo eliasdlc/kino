@@ -1,7 +1,10 @@
 "use client";
 
 import { useState } from "react";
-import { History, Loader2, RotateCcw } from "lucide-react";
+import { History, RotateCcw } from "lucide-react";
+import { MarginRow } from "@/components/ui/margin-row";
+import { SectionHead } from "@/features/dashboard/SectionHead";
+import { MargenDeUnaLinea, UNA_LINEA } from "@/shared/components/una-linea";
 import { Button } from "@/components/ui/button";
 import {
   ResponsiveDialog,
@@ -28,21 +31,17 @@ export function ChapterHistory({ pageId }: { pageId: string }) {
 
   return (
     <div>
-      <p className="mb-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-        Historial
-      </p>
-      <Button
-        variant="ghost"
-        size="sm"
-        className="h-8 justify-start gap-2 px-2 text-sm font-normal"
+      <SectionHead as="h3" title="Historial" className="mb-1" />
+      <MarginRow
         onClick={() => setOpen(true)}
+        className={UNA_LINEA}
+        margin={<MargenDeUnaLinea><History aria-hidden className="size-5" /></MargenDeUnaLinea>}
       >
-        <History className="size-3.5 shrink-0" />
-        Versiones del capítulo
-      </Button>
+        <span className="block text-base text-foreground">Versiones del capítulo</span>
+      </MarginRow>
 
       <ResponsiveDialog open={open} onOpenChange={setOpen}>
-        <ResponsiveDialogContent className="max-h-[85vh] max-w-2xl overflow-y-auto">
+        <ResponsiveDialogContent className="max-h-[85dvh] max-w-2xl overflow-y-auto">
           <ResponsiveDialogHeader>
             <ResponsiveDialogTitle>Versiones del capítulo</ResponsiveDialogTitle>
           </ResponsiveDialogHeader>
@@ -61,15 +60,15 @@ function HistoryBody({ pageId }: { pageId: string }) {
 
   if (isLoading) {
     return (
-      <div className="flex h-32 items-center justify-center">
-        <Loader2 className="size-5 animate-spin text-muted-foreground" />
-      </div>
+      <p role="status" className="py-6 text-sm text-muted-foreground">
+        Buscando las versiones guardadas
+      </p>
     );
   }
 
   if (snapshots.length === 0) {
     return (
-      <p className="py-6 text-center text-sm text-muted-foreground">
+      <p className="py-6 text-sm text-muted-foreground">
         Todavía no hay versiones. Se guarda una cada vez que vuelves al capítulo
         después de un rato: el mismo corte que usa la racha para saber que fue
         otra sesión.
@@ -79,27 +78,20 @@ function HistoryBody({ pageId }: { pageId: string }) {
 
   return (
     <div className="space-y-3">
-      <p className="text-xs text-muted-foreground">
+      <p className="text-sm text-muted-foreground">
         Una versión por sesión de escritura. Se conservan las últimas{" "}
         {MAX_SNAPSHOTS_PER_PAGE}.
       </p>
 
-      <ul className="space-y-1.5">
+      <ul>
         {snapshots.map((snapshot, i) => (
-          <li
-            key={snapshot.id}
-            className="rounded-lg border bg-card p-2.5"
-          >
+          <li key={snapshot.id} className="border-b border-border py-2 last:border-b-0">
             <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
-              <span className="text-sm font-medium">
+              <span className="text-base font-semibold text-foreground">
                 {formatWhen(snapshot.createdAt)}
               </span>
-              {i === 0 && (
-                <span className="rounded-full bg-accent px-2 py-0.5 text-[11px] text-muted-foreground">
-                  la más reciente
-                </span>
-              )}
-              <span className="font-mono text-xs text-muted-foreground">
+              {i === 0 && <span className="text-sm text-muted-foreground">la más reciente</span>}
+              <span className="text-sm text-muted-foreground tabular-nums">
                 {snapshot.wordCount.toLocaleString("es")} palabras
               </span>
               <Delta value={snapshot.wordsDelta} />
@@ -108,7 +100,7 @@ function HistoryBody({ pageId }: { pageId: string }) {
                 <Button
                   variant="ghost"
                   size="sm"
-                  className="h-7 px-2 text-xs"
+                  aria-expanded={previewId === snapshot.id}
                   onClick={() =>
                     setPreviewId((id) => (id === snapshot.id ? null : snapshot.id))
                   }
@@ -118,11 +110,11 @@ function HistoryBody({ pageId }: { pageId: string }) {
                 <Button
                   variant="ghost"
                   size="sm"
-                  className="h-7 gap-1.5 px-2 text-xs"
+                  className="gap-1.5"
                   disabled={isPending}
                   onClick={() => setConfirmId(snapshot.id)}
                 >
-                  <RotateCcw className="size-3.5" />
+                  <RotateCcw aria-hidden className="size-4" />
                   Restaurar
                 </Button>
               </div>
@@ -158,12 +150,13 @@ function Delta({ value }: { value: number }) {
   return (
     <span
       className={cn(
-        "font-mono text-xs",
-        value > 0 ? "text-muted-foreground" : "text-amber-500",
+        "text-sm tabular-nums",
+        value > 0 ? "text-muted-foreground" : "text-foreground",
       )}
     >
-      {value > 0 ? "+" : ""}
-      {value.toLocaleString("es")}
+      {value > 0
+        ? `${value.toLocaleString("es")} más`
+        : `${Math.abs(value).toLocaleString("es")} menos`}
     </span>
   );
 }
@@ -173,16 +166,16 @@ function Preview({ snapshotId }: { snapshotId: string }) {
 
   if (isLoading) {
     return (
-      <div className="mt-2 flex h-16 items-center justify-center">
-        <Loader2 className="size-4 animate-spin text-muted-foreground" />
-      </div>
+      <p role="status" className="mt-2 text-sm text-muted-foreground">
+        Abriendo esta versión
+      </p>
     );
   }
 
   return (
     <SanitizedHtml
       html={data?.content}
-      className="reading-surface mt-2 max-h-64 overflow-y-auto rounded-md border bg-muted/20 p-3 text-sm"
+      className="reading-surface mt-2 max-h-64 overflow-y-auto rounded-xl border border-border bg-background p-3 text-sm"
       data-layout="book"
     />
   );

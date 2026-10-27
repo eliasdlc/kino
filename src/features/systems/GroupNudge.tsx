@@ -1,5 +1,8 @@
 'use client';
 
+import { Button } from '@/components/ui/button';
+import { MarginRow } from '@/components/ui/margin-row';
+
 /**
  * Items sueltos en Bandeja a partir de los cuales vale la pena decir algo. Ocho
  * es cuando el montón deja de leerse de un vistazo.
@@ -26,23 +29,24 @@ interface GroupNudgeProps {
  * va cuando la Bandeja baja de ocho, no cuando alguien la silencia.
  *
  * Vive bajo el encabezado y sobre la lista, que es donde se lee antes que el
- * montón que describe.
+ * montón que describe. Es una fila de margen: la cifra en el margen, en
+ * Bricolage y mute como el numeral de un índice, la frase en la columna de
+ * texto y la salida a la derecha, a 48 px.
  */
 export function GroupNudge({ count, onTriage }: GroupNudgeProps) {
   if (count < ITEMS_PARA_EMPUJAR) return null;
 
   return (
-    <div className="flex items-center gap-3 border-b border-border py-3 text-sm">
-      <p className="min-w-0 text-foreground/80">
-        <b className="font-semibold text-foreground">{count}</b> cosas sin sistema.
-      </p>
-      <button
-        type="button"
-        onClick={onTriage}
-        className="ml-auto min-h-12 shrink-0 rounded-full px-3 text-sm font-semibold text-primary transition-colors hover:bg-primary/10"
-      >
-        Repartirlas
-      </button>
-    </div>
+    <MarginRow
+      className="last:border-b"
+      margin={<span className="block pt-1.5 font-display text-lg font-bold text-muted-foreground tabular-nums">{count}</span>}
+      trailing={
+        <Button variant="ghost" onClick={onTriage} className="-mr-2 text-primary hover:text-primary">
+          Repartirlas
+        </Button>
+      }
+    >
+      <span className="block text-body">cosas sin sistema</span>
+    </MarginRow>
   );
 }

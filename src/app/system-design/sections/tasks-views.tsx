@@ -1,7 +1,7 @@
 "use client";
 
 import { CyclePicker } from "@/features/academic/CyclePicker";
-import { ClassCard } from "@/features/academic/ClassCard";
+import { ClassRow } from "@/features/academic/ClassRow";
 import { DefaultTaskCard } from "@/features/tasks/cards/DefaultTaskCard";
 import { Suspense, useState } from "react";
 import { DndContext } from "@dnd-kit/core";
@@ -19,6 +19,9 @@ import { RecurrencePicker } from "@/features/tasks/RecurrencePicker";
 import { MultiDayTaskBar } from "@/features/tasks/MultiDayTaskBar";
 import { BoardCard } from "@/features/systems/views/project/BoardCard";
 import { SprintBar } from "@/features/systems/views/project/SprintBar";
+import { ProjectArchive } from "@/features/systems/views/project/ProjectArchive";
+import { ProjectBoard } from "@/features/systems/views/project/ProjectBoard";
+import { AcademicTaskViews } from "@/features/academic/AcademicTaskViews";
 import { InboxView } from "@/features/systems/views/InboxView";
 import { PersonalView } from "@/features/systems/views/PersonalView";
 import { makeFolder, makeSystem } from "../mock-data";
@@ -61,6 +64,21 @@ const VIDA = [
   makeTask({ id: mid("p-5"), systemId: PERSONAL.id, title: "Pedir la analítica", status: "backlog", folderId: AREAS[0]!.id, metadata: { kind: "errand" } }),
 ];
 
+/** Un tablero con tarjetas en tres de sus cuatro columnas: la vacía también se ve. */
+const TABLERO = [
+  makeTask({ id: mid("pb-1"), title: "Diseñar el índice de sistemas", boardStatus: "todo", status: "week" }),
+  makeTask({ id: mid("pb-2"), title: "Migrar las notas al sistema", boardStatus: "todo", status: "backlog" }),
+  makeTask({ id: mid("pb-3"), title: "Radiografía del sistema", boardStatus: "in_progress", boardStatusChangedAt: daysFromNow(-9), status: "today" }),
+  makeTask({ id: mid("pb-4"), title: "Cerrar la landing", boardStatus: "done", status: "done", completedAt: daysFromNow(-1) }),
+];
+
+/** Entregas y exámenes de un ciclo académico, para la navegación de sus vistas. */
+const ENTREGAS = [
+  makeTask({ id: mid("at-1"), title: "Práctica 4: normalización", taskType: "task", dueDate: daysFromNow(1), status: "week" }),
+  makeTask({ id: mid("at-2"), title: "Parcial 2", taskType: "event", startDate: daysFromNow(3), dueDate: daysFromNow(3), status: "week", metadata: { eventSubtype: "exam" } }),
+  makeTask({ id: mid("at-3"), title: "Leer el capítulo 6", dueDate: daysFromNow(5), status: "week" }),
+];
+
 const SYSTEM_MAP = new Map([
   [MOCK_SYSTEM_ID, { id: MOCK_SYSTEM_ID, name: "Universidad", color: "blue" }],
 ]);
@@ -80,7 +98,7 @@ export function TasksViewsSection() {
     <Section
       id="tareas"
       number="12"
-      title="Tareas — vistas y controles"
+      title="Tareas: vistas y controles"
       description="Las demás representaciones de una tarea (fila de lista global, card de planning, card del board kanban) y los pickers que las editan."
     >
       <SubSection title="Títulos completos y ciclos académicos" description="Cards con altura natural y árbol de años, ciclos y materias.">
@@ -99,18 +117,20 @@ export function TasksViewsSection() {
               <CyclePicker system={makeSystem({ templateType: "academic" })} initialPeriods={ACADEMIC_PERIODS} />
             </Suspense>
           </Specimen>
-          <Specimen label="Tarjeta de clase" hint="La rejilla de apuntes de un sistema académico. Dice quién la da, cuándo se ve y qué está por entregar.">
+          <Specimen label="Fila de clase" hint="El índice de un sistema académico. Dice quién la da, cuándo se ve, cuánto falta y la entrega más próxima.">
             <Suspense fallback={<div className="h-32" />}>
-              <div className="grid max-w-3xl gap-3 sm:grid-cols-2">
-                <ClassCard
+              <div className="w-full max-w-xl">
+                <ClassRow
+                  index={1}
                   folder={{ ...makeFolder({ name: "Inteligencia de Negocios" }), metadata: { professor: "Prof. Rodríguez", schedule: "Lun y Mie 9:00" }, subfolderCount: 0, pageCount: 9 }}
                   systemId={MOCK_SYSTEM_ID}
                   periods={ACADEMIC_PERIODS}
                   tasks={[makeTask({ title: "Práctica 4", dueDate: daysFromNow(-1) }), makeTask({ title: "Parcial 2", dueDate: daysFromNow(6) })]}
                   href="#"
                 />
-                <ClassCard
-                  folder={{ ...makeFolder({ name: "Seminario de Investigación Aplicada a la Ingeniería de Software" }), metadata: {}, subfolderCount: 0, pageCount: 0 }}
+                <ClassRow
+                  index={2}
+                  folder={{ ...makeFolder({ id: mid("seminario"), name: "Seminario de Investigación Aplicada a la Ingeniería de Software" }), metadata: {}, subfolderCount: 0, pageCount: 0 }}
                   systemId={MOCK_SYSTEM_ID}
                   periods={ACADEMIC_PERIODS}
                   tasks={[]}
@@ -194,8 +214,8 @@ export function TasksViewsSection() {
       </SubSection>
 
       <SubSection
-        title="Board kanban (project) — BoardCard y SprintBar"
-        description="La card arrastrable del board con badge de estancamiento («Xd sin avanzar») y la barra de ciclos con filtro. Columnas: Por hacer · En progreso · En review · Hecho."
+        title="Board kanban (project): BoardCard, SprintBar y ProjectArchive"
+        description="La card arrastrable del board con badge de estancamiento («Xd sin avanzar») y la barra de ciclos con filtro: el filtro elegido va en tinta, a 2.85rem en el teléfono. Columnas: Por hacer, En progreso, En review y Hecho, cada una con su palabra sobre un hairline y no en una caja. El archivo es un índice de ciclos cerrados que se pliegan."
       >
         <div className="max-w-2xl space-y-4">
           <SprintBar
@@ -242,7 +262,55 @@ export function TasksViewsSection() {
               </div>
             </DndContext>
           </ClientOnly>
+          <Seeded stubs={[seedQuery(api.tasks.bySystem, [makeTask({ id: mid("arch-1"), title: "Cerrar la landing", sprintId: mid("spr-2"), status: "done" })])]}>
+            <Specimen label="Archivo con un ciclo cerrado" hint="ProjectArchive: numeral en el margen, fila que se pliega, borrar con nombre">
+              <div className="w-full">
+                <ProjectArchive
+                  systemId={MOCK_SYSTEM_ID}
+                  initialData={[makeTask({ id: mid("arch-1"), title: "Cerrar la landing", sprintId: mid("spr-2"), status: "done" })]}
+                  sprints={[makeSprint({ id: mid("spr-2"), name: "Ciclo 2", status: "completed", completedAt: daysFromNow(-3) } as never)]}
+                />
+              </div>
+            </Specimen>
+            <Specimen label="Archivo vacío" hint="EmptyState, en la columna de texto">
+              <div className="w-full">
+                <ProjectArchive systemId={MOCK_SYSTEM_ID} initialData={[]} sprints={[]} />
+              </div>
+            </Specimen>
+          </Seeded>
         </div>
+      </SubSection>
+
+      <SubSection
+        title="ProjectBoard"
+        description="El tablero entero de un sistema project, con su cabecera de cifras (activas, hechas y estancadas en ámbar). Cada columna es una sección y no una caja: su palabra en Bricolage sobre un hairline fuerte y la cuenta en mute a la derecha, a 2.85rem de alto. Una columna sin tarjetas conserva su título y su cero. En el teléfono no se arrastra: cada tarjeta lleva Mover, que abre la hoja de columnas."
+      >
+        <ClientOnly>
+          <Seeded stubs={[seedQuery(api.tasks.bySystem, TABLERO)]}>
+            <div className="w-full max-w-5xl">
+              <ProjectBoard systemId={MOCK_SYSTEM_ID} initialData={TABLERO} sprintFilter={null} onEdit={noop} />
+            </div>
+          </Seeded>
+        </ClientOnly>
+      </SubSection>
+
+      <SubSection
+        title="AcademicTaskViews"
+        description="Las entregas y exámenes de un sistema académico o de una clase. Las cuatro vistas (Esta semana, Calendario, Planificación, Archivadas) son pestañas-palabra en tinta con su subrayado, no cuatro cajas: pesan lo que pesa una línea de texto y miden 2.85rem para el dedo. En el teléfono dicen la palabra corta. A la derecha, crear. La pestaña elegida vive en la URL, así que en este catálogo cambiarla añade ?view= a la dirección."
+      >
+        <Suspense fallback={<div className="h-[2.85rem]" />}>
+          <Seeded
+            stubs={[
+              seedQuery(api.tasks.bySystem, ENTREGAS),
+              seedQuery(api.folders.bySystem, []),
+              seedQuery(api.tags.bySystem, []),
+            ]}
+          >
+            <div className="w-full max-w-3xl">
+              <AcademicTaskViews systemId={MOCK_SYSTEM_ID} initialTasks={ENTREGAS} />
+            </div>
+          </Seeded>
+        </Suspense>
       </SubSection>
 
       <SubSection

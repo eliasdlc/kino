@@ -75,12 +75,17 @@ describe('OverBudgetExit', () => {
     expect(screen.getByRole('button').className).toContain('h-12');
   });
 
-  it('ningún estado usa rojo: el sobregiro es el acento', () => {
+  it('ningún estado usa rojo, y el bloque es una sección sin caja', () => {
     renderMobile(<OverBudgetExit />, { convex: cliente(SOBREGIRO) });
 
-    const bloque = screen.getByRole('region');
-    expect(bloque.className).toContain('border-primary');
+    const bloque = screen.getByRole('region', { name: 'El día no cabe' });
     expect(bloque.outerHTML).not.toMatch(/destructive|task-overdue|text-red|bg-red/);
+    // Diario no tiene cards: ni borde alrededor ni relleno teñido.
+    expect(bloque.className).not.toMatch(/border|bg-|rounded/);
+    expect(bloque.querySelectorAll('[class*="bg-card"], [class*="bg-primary/"]')).toHaveLength(0);
+    // La frase con la cifra va en tinta; el acento queda para la única acción.
+    expect(screen.getByText('El día queda en 62 de 50 puntos.')).toHaveClass('text-foreground');
+    expect(bloque.querySelectorAll('.bg-primary')).toHaveLength(1);
   });
 
   it('mover las tres las manda a mañana, y las tres', async () => {

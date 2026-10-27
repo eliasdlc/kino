@@ -1,48 +1,36 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Box, Inbox, LayoutDashboard, List, Plus, Search } from "lucide-react";
+import { Plus } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useQuickAddStore } from "@/features/tasks/quick-add.store";
 import { useCommandPaletteStore } from "@/features/command-palette/command-palette.store";
-
-const DESTINOS = [
-  { href: "/dashboard", icon: LayoutDashboard, label: "Hoy" },
-  { href: "/bandeja", icon: Inbox, label: "Bandeja" },
-  { href: "/tasks", icon: List, label: "Tareas" },
-  { href: "/systems", icon: Box, label: "Sistemas" },
-] as const;
+import { useTecladoAbierto } from "@/hooks/use-teclado-abierto";
+import { DESTINOS_MOVIL, destinoActivo } from "./navigation";
 
 /**
- * Cuánto tiene que encogerse el viewport visual para que sea el teclado y no
- * las barras del navegador apareciendo. Por debajo de esto es cromo del
- * navegador; por encima sólo cabe un teclado.
- */
-const UMBRAL_TECLADO = 150;
-
-/**
- * El chrome móvil: la barra de destinos y el orbe de crear, dos objetos que
- * flotan sobre el contenido sin tocar ningún borde. La barra es vidrio; el
- * destino activo es el acento sobre su propio pill y el glifo se rellena al
- * 22 por ciento, nunca un segundo icono.
+ * El pie del teléfono: papel con un hairline arriba, cinco palabras y el orbe
+ * de crear aparte. Sin vidrio, sin desenfoque y sin iconos: cuatro palabras se
+ * leen mejor que cuatro glifos de 24 px, y la activa va en ámbar con un punto
+ * debajo. Buscar es la quinta palabra porque el atajo de teclado no existe en
+ * touch y sin ella la búsqueda no tenía puerta en el teléfono. Calendario no
+ * cabe: se alcanza desde la fecha de Hoy y desde el segmento de Tareas.
  *
- * Cinco posiciones, y la del medio no es un sitio: es Buscar, que en el
- * teléfono no tiene otra puerta porque el atajo de teclado no existe en touch.
- * Sin ella la búsqueda sencillamente no existía en el móvil.
+ * Toca el borde de abajo a propósito y suma el área segura del dispositivo:
+ * en un teléfono con barra de gestos el pie empieza encima de ella.
  *
- * La segunda es Bandeja y la quinta Sistemas (D-10 y D-11). Ajustes sale de la
- * barra: cinco posiciones son cinco, y de las seis candidatas Ajustes es la que
- * menos se visita en un día normal y la única que ya tiene otra puerta, el menú
- * lateral que abre la cabecera.
- *
- * Lo que la barra le quita a la pantalla vive en `--kino-bottom-chrome`, que
- * `<main>` reserva. Con el teclado abierto la barra se retira y la variable se
+ * Lo que el pie le quita a la pantalla vive en `--kino-bottom-chrome`, que
+ * `<main>` reserva. Con el teclado abierto el pie se retira y la variable se
  * pone a cero, o quedaría flotando encima del campo que estás escribiendo.
+ *
+ * `rutaActual` existe para el catálogo, que enseña el pie con cada palabra
+ * activa sin cambiar de página.
  */
-export function BottomNav() {
+export function BottomNav({ rutaActual }: { rutaActual?: string } = {}) {
   const pathname = usePathname();
+  const ruta = rutaActual ?? pathname;
   const setQuickAddOpen = useQuickAddStore((s) => s.setOpen);
   const setPaletteOpen = useCommandPaletteStore((s) => s.setOpen);
   const tecladoAbierto = useTecladoAbierto();
@@ -56,37 +44,33 @@ export function BottomNav() {
     };
   }, [tecladoAbierto]);
 
-  function isActive(href: string) {
-    if (href === "/dashboard") return pathname === "/dashboard";
-    return pathname.startsWith(href);
-  }
-
   if (tecladoAbierto) return null;
 
   return (
     <nav
       aria-label="Secciones"
-      className="fixed inset-x-[0.9rem] z-(--z-overlay) grid grid-cols-[1fr_3.3rem] items-center gap-[0.6rem] md:hidden"
-      style={{ bottom: "calc(1.25rem + env(safe-area-inset-bottom))" }}
+      className="fixed inset-x-0 bottom-0 z-(--z-overlay) grid grid-cols-[1fr_auto] items-center gap-1.5 border-t border-border bg-background px-2 pb-[env(safe-area-inset-bottom)] md:hidden"
+      style={{ minHeight: "calc(var(--kino-bottom-nav) + env(safe-area-inset-bottom))" }}
     >
-      <div className="grid grid-cols-5 rounded-full border border-(--glass-ln) bg-(--glass) p-[0.3rem] shadow-[0_0.8em_2em_-0.8em_rgba(0,0,0,0.6)] backdrop-blur-[1.4rem] backdrop-saturate-[1.8]">
-        {DESTINOS.slice(0, 2).map((destino) => (
-          <NavLink key={destino.href} {...destino} active={isActive(destino.href)} />
+      <div className="grid h-[3.3rem] grid-cols-5">
+        {DESTINOS_MOVIL.map((destino) => (
+          <Palabra
+            key={destino.href}
+            href={destino.href}
+            label={destino.label}
+            active={destinoActivo(destino.href, ruta)}
+          />
         ))}
-        <button type="button" onClick={() => setPaletteOpen(true)} className={slotClass(false)}>
-          <Search className="size-6 stroke-[1.8]" />
-          <span className="leading-none">Buscar</span>
+        <button type="button" onClick={() => setPaletteOpen(true)} className={palabraClass(false)}>
+          Buscar
         </button>
-        {DESTINOS.slice(2).map((destino) => (
-          <NavLink key={destino.href} {...destino} active={isActive(destino.href)} />
-        ))}
       </div>
 
       <button
         type="button"
         onClick={() => setQuickAddOpen(true)}
         aria-label="Nueva tarea"
-        className="flex size-[3.3rem] items-center justify-center rounded-full bg-primary text-primary-foreground shadow-[0_0.5em_1.4em_-0.4em_var(--glow)] transition-transform hover:bg-primary/90 active:scale-95"
+        className="press flex size-[2.85rem] items-center justify-center rounded-full bg-primary text-primary-foreground transition-[background-color,transform] duration-(--dur-toque) ease-(--ease-pluma) focus-ring hover:bg-primary/90"
       >
         <Plus className="size-6" />
       </button>
@@ -94,35 +78,25 @@ export function BottomNav() {
   );
 }
 
-/** El hueco de una posición de la barra, sea destino o acción. */
-function slotClass(active: boolean) {
+/** Una posición del pie, sea destino o Buscar: una palabra de 2.85rem o más de alto. */
+function palabraClass(active: boolean) {
   return cn(
-    "flex h-[3.6rem] flex-col items-center justify-center gap-[0.15rem] rounded-full text-[0.6rem] font-semibold transition-colors",
-    active ? "bg-(--glass-on) text-primary" : "text-muted-foreground hover:text-foreground",
+    "relative flex h-full min-h-[2.85rem] items-center justify-center rounded-md text-xs font-semibold transition-colors duration-(--dur-toque) ease-(--ease-pluma) focus-ring",
+    active ? "text-primary" : "text-muted-foreground hover:text-foreground",
   );
 }
 
-function NavLink({ href, icon: Icon, label, active }: { href: string; icon: typeof List; label: string; active: boolean }) {
+function Palabra({ href, label, active }: { href: string; label: string; active: boolean }) {
   return (
-    <Link href={href} aria-current={active ? "page" : undefined} className={slotClass(active)}>
-      <Icon className={cn("size-6", active ? "fill-primary/20 stroke-2" : "stroke-[1.8]")} />
-      <span className="leading-none">{label}</span>
+    <Link href={href} aria-current={active ? "page" : undefined} className={palabraClass(active)}>
+      {label}
+      {active && (
+        <span
+          aria-hidden
+          data-slot="punto"
+          className="absolute bottom-[0.35rem] left-1/2 size-[0.3rem] -translate-x-1/2 rounded-full bg-current"
+        />
+      )}
     </Link>
   );
-}
-
-/** Si el teclado del teléfono está tapando la parte de abajo de la pantalla. */
-function useTecladoAbierto(): boolean {
-  const [abierto, setAbierto] = useState(false);
-
-  useEffect(() => {
-    const viewport = window.visualViewport;
-    if (!viewport) return;
-    const mirar = () => setAbierto(window.innerHeight - viewport.height > UMBRAL_TECLADO);
-    mirar();
-    viewport.addEventListener("resize", mirar);
-    return () => viewport.removeEventListener("resize", mirar);
-  }, []);
-
-  return abierto;
 }

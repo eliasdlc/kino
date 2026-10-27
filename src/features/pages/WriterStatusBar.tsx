@@ -1,10 +1,10 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
-import { Flame, Focus, Minimize2, Target } from "lucide-react";
+import { useEffect, useRef } from "react";
+import { Flame, Focus, Minimize2, Scroll, Target } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useSharedEditor } from "./EditorContext";
-import { countWords } from "@/shared/lib/word-count";
+import { useWordCount } from "./use-word-count";
 import { useWritingOverview } from "@/features/writing/writing.hooks";
 import { useCelebrateOnce } from "@/features/writing/celebrate";
 
@@ -25,6 +25,12 @@ const STREAK_MILESTONES = [7, 30, 100, 365];
  * Status bar del arquetipo Writing (PLAN-11 §7): palabras del capítulo en vivo,
  * progreso de la obra contra su meta y racha. El conteo se deriva del contenido
  * Tiptap: nunca un contador persistido (D12: derivar > mantener).
+ *
+ * Es un grupo con nombre y no una región viva: la cifra cambia en cada pausa
+ * de tecleo y un lector de pantalla no tiene por qué repetir la barra entera.
+ * La racha que ya cuenta hoy va en --ok y el progreso de la obra en tinta: el
+ * ámbar se queda para la acción. «Papel cálido» y «Enfoque» son interruptores
+ * con borde cuando están apagados y tinta llena cuando están puestos.
  */
 export function WriterStatusBar({
   obra,
@@ -42,19 +48,10 @@ export function WriterStatusBar({
   onToggleFocus?: () => void;
 }) {
   const editor = useSharedEditor();
-  const [chapterWords, setChapterWords] = useState(0);
+  // Una sola cuenta por pausa, compartida con quien la necesite.
+  const chapterWords = useWordCount(editor);
   const { data: overview } = useWritingOverview(systemId);
   const celebrateOnce = useCelebrateOnce();
-
-  useEffect(() => {
-    if (!editor) return;
-    const recount = () => setChapterWords(countWords(editor.getHTML()));
-    recount();
-    editor.on("update", recount);
-    return () => {
-      editor.off("update", recount);
-    };
-  }, [editor]);
 
   const obraWords = obra ? obra.wordsExcludingCurrent + chapterWords : null;
   const goal = obra?.wordGoal ?? null;
@@ -97,9 +94,14 @@ export function WriterStatusBar({
     // Pegajosa sólo desde md. En un teléfono `bottom-0` pelea con el teclado
     // virtual: el viewport de layout no encoge al abrirse, así que la barra se
     // queda debajo del teclado o encima de la línea que estás escribiendo. Lo
-    // que lleva (recuento y modo focus) se consulta entre frases, no mientras
-    // se teclea, así que baja con el texto y deja de competir.
-    <div className="z-(--z-raised) flex flex-wrap items-center gap-x-4 gap-y-1 border-t border-border bg-background/80 px-4 py-2 text-xs text-muted-foreground backdrop-blur md:flex-nowrap md:sticky md:bottom-0 md:px-6">
+    // que lleva (recuento y modo enfoque) se consulta entre frases, no mientras
+    // se teclea, así que baja con el texto y deja de competir; escribiendo, lo
+    // que se toca es la barra del pulgar. Papel con hairline, sin vidrio.
+    <div
+      role="group"
+      aria-label="Estado del capítulo"
+      className="z-(--z-raised) flex flex-wrap items-center gap-x-4 gap-y-1 border-t border-border bg-background px-4 py-1 text-sm text-muted-foreground md:sticky md:bottom-0 md:flex-nowrap md:px-6"
+    >
       <span className="tabular-nums">
         <span className="font-semibold text-foreground">{chapterWords.toLocaleString("es")}</span> palabras en el capítulo
       </span>
@@ -108,13 +110,23 @@ export function WriterStatusBar({
         <div className="flex w-full min-w-0 items-center gap-2 md:w-auto md:flex-1">
           <span className="shrink-0 truncate tabular-nums">
             {obra.name}: {obraWords!.toLocaleString("es")}
-            {goal ? ` / ${goal.toLocaleString("es")}` : ""}
+            {goal ? ` de ${goal.toLocaleString("es")}` : ""}
           </span>
           {pct != null && (
-            <div className="h-1 w-24 shrink-0 overflow-hidden rounded-full bg-muted">
+            // La barra crece en transform, nunca en ancho: escala desde la
+            // izquierda y no mueve nada a su alrededor.
+            <div
+              role="progressbar"
+              aria-label="Progreso de la obra"
+              aria-valuenow={pct}
+              aria-valuemin={0}
+              aria-valuemax={100}
+              className="h-1 w-24 shrink-0 overflow-hidden rounded-full bg-secondary"
+            >
               <div
-                className="h-full rounded-full bg-primary transition-all duration-500"
-                style={{ width: `${pct}%` }}
+                data-slot="progreso"
+                className="h-full w-full origin-left rounded-full bg-foreground transition-transform duration-(--dur-cuenta) ease-(--ease-pluma)"
+                style={{ transform: `scaleX(${pct / 100})` }}
               />
             </div>
           )}
@@ -123,7 +135,7 @@ export function WriterStatusBar({
 
       {overview && overview.streakDays > 0 && !focusMode && (
         <span
-          className="flex shrink-0 items-center gap-1 font-mono"
+          className="flex shrink-0 items-center gap-1 tabular-nums"
           title={
             overview.streakIncludesToday
               ? "Tu racha ya cuenta hoy"
@@ -131,12 +143,13 @@ export function WriterStatusBar({
           }
         >
           <Flame
+            aria-hidden
             className={cn(
               "size-3.5",
-              overview.streakIncludesToday ? "text-primary" : "text-muted-foreground",
+              overview.streakIncludesToday ? "text-ok" : "text-muted-foreground",
             )}
           />
-          {overview.streakDays}
+          {overview.streakDays === 1 ? "1 día" : `${overview.streakDays} días`}
         </span>
       )}
 
@@ -145,24 +158,34 @@ export function WriterStatusBar({
           <button
             type="button"
             onClick={onTogglePaper}
-            className="rounded px-1.5 py-0.5 transition-colors hover:text-foreground"
-            title="Alternar fondo papel"
+            aria-pressed={paper}
+            className={BOTON}
+            title="Escribir sobre papel cálido"
           >
-            {paper ? "Papel" : "Oscuro"}
+            <Scroll aria-hidden className="size-4" />
+            Papel cálido
           </button>
         )}
         {onToggleFocus && (
           <button
             type="button"
             onClick={onToggleFocus}
-            className="flex items-center gap-1 rounded px-1.5 py-0.5 transition-colors hover:text-foreground"
-            title={focusMode ? "Salir de focus (Esc)" : "Modo focus"}
+            aria-pressed={focusMode}
+            className={BOTON}
+            title={focusMode ? "Salir del enfoque (Esc)" : "Atenuar todo menos el párrafo que escribes"}
           >
-            {focusMode ? <Minimize2 className="size-3.5" /> : <Focus className="size-3.5" />}
-            {focusMode ? "Salir" : "Focus"}
+            {focusMode ? <Minimize2 aria-hidden className="size-4" /> : <Focus aria-hidden className="size-4" />}
+            {focusMode ? "Salir" : "Enfoque"}
           </button>
         )}
       </div>
     </div>
   );
 }
+
+/**
+ * Los dos interruptores de la barra: borde cuando están apagados, tinta llena
+ * cuando están puestos, 48 px en un dedo.
+ */
+const BOTON =
+  "flex h-9 items-center gap-1.5 rounded-full border border-input px-3 text-sm font-medium transition-[color,background-color,border-color] duration-(--dur-toque) ease-(--ease-pluma) focus-ring hover:text-foreground aria-pressed:border-foreground aria-pressed:bg-foreground aria-pressed:text-background pointer-coarse:h-[2.85rem]";

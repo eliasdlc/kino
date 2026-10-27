@@ -1,8 +1,8 @@
 /**
  * Criterio: encima del plan hay como mucho una línea, con el título clampado a
- * dos líneas y dos botones que hacen algo. Los dos acusan recibo, porque lo que
- * la cola mide es si hubo respuesta y no cuál fue. Sin candidato no se pinta
- * nada, ni un hueco ni un esqueleto.
+ * dos líneas, un hairline y no una caja, y dos botones de 48 px que hacen
+ * algo. Los dos acusan recibo, porque lo que la cola mide es si hubo respuesta
+ * y no cuál fue. Sin candidato no se pinta nada, ni un hueco ni un esqueleto.
  */
 import { describe, expect, it } from "vitest";
 import { screen } from "@testing-library/react";
@@ -26,6 +26,18 @@ describe("InterruptionLine", () => {
     expect(screen.getByText("4 vencidas")).toBeVisible();
     expect(screen.getByRole("button", { name: "Repartir" })).toBeVisible();
     expect(screen.getByRole("button", { name: "Ahora no" })).toBeVisible();
+  });
+
+  it("es una línea con hairline y sus dos botones miden el táctil", () => {
+    const { container } = renderWithProviders(<InterruptionLine />, { convex: conRitual(4) });
+    const linea = container.querySelector("[data-slot=interruption-line]");
+    expect(linea).toHaveClass("border-b");
+    expect(linea?.className).not.toMatch(/rounded|bg-card|px-4/);
+    for (const nombre of ["Repartir", "Ahora no"]) {
+      const boton = screen.getByRole("button", { name: nombre });
+      expect(boton).toHaveClass("h-[2.85rem]");
+      expect(boton.className).not.toMatch(/h-auto|px-0/);
+    }
   });
 
   it("marca que se mostró en cuanto se pinta: el reloj de los dos días arranca al verla", () => {

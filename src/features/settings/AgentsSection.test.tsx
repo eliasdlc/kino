@@ -75,9 +75,8 @@ const esperando = (nombre: string) =>
   `Esperando la primera llamada de ${nombre}. Esta línea cambia sola cuando llegue.`;
 
 describe("AgentsSection", () => {
-  it("se llama Agentes y ofrece una pestaña por cliente", () => {
+  it("ofrece una pestaña por cliente", () => {
     renderWithProviders(<AgentsSection />);
-    expect(screen.getByRole("heading", { name: "Agentes" })).toBeVisible();
     expect(screen.getAllByRole("tab").map((tab) => tab.textContent)).toEqual(NOMBRES);
   });
 

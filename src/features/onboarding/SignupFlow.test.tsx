@@ -1,3 +1,8 @@
+/**
+ * Criterio: el alta entera, una pantalla, una pregunta y un botón que ya
+ * funciona. La segunda pantalla es Hoy, así que lo que se prueba de ella es
+ * que el flujo empuja allí después de escribir.
+ */
 import { screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { describe, expect, it, vi } from 'vitest';
@@ -11,12 +16,6 @@ vi.mock('next/navigation', async () => (await import('@/shared/testing/navigatio
 const track = vi.hoisted(() => vi.fn());
 vi.mock('@/shared/observability/analytics.client', () => ({ track }));
 
-/**
- * El alta entera: una pantalla, una pregunta y un botón que ya funciona. La
- * segunda pantalla es Hoy, así que lo que se prueba de ella es que el flujo
- * empuja allí después de escribir.
- */
-
 function cliente() {
   return makeTestConvexClient([], [stubMutation(api.onboarding.complete, { ok: true })]);
 }
@@ -29,6 +28,12 @@ describe('SignupFlow', () => {
     // Una: la del arquetipo. Ni cronotipo, ni sueño, ni horas, ni recarga.
     expect(screen.getAllByRole('radiogroup')).toHaveLength(1);
     expect(screen.queryByRole('slider')).not.toBeInTheDocument();
+  });
+
+  it('dice qué pasa al entrar, antes de tocar', () => {
+    renderMobile(<SignupFlow />);
+
+    expect(screen.getByText('Entras a Hoy con el plan sembrado para este trabajo.')).toBeVisible();
   });
 
   it('el botón de entrar está activo desde el primer momento', () => {

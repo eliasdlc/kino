@@ -1,20 +1,29 @@
 import { Skeleton } from "@/components/ui/skeleton";
+import { PageWrapper } from "@/components/PageWrapper";
+import { RowsSkeleton } from "@/components/Skeletons";
 
-/** El esqueleto tiene la forma de la lista que viene: título, cifra y filas. */
+/**
+ * La forma de Bandeja: el título en la columna de texto con la cuenta a la
+ * derecha, la línea de debajo (que Bandeja pinta siempre que tiene algo) y las
+ * filas de margen con su círculo. El margen no se pliega en escritorio: las
+ * filas lo llevan y el título se alinea con su texto.
+ */
 export default function BandejaLoading() {
   return (
-    <div className="mx-auto max-w-6xl space-y-1 p-6">
-      <div className="flex items-baseline gap-3 pb-2">
-        <Skeleton className="h-6 w-28 rounded" />
-        <Skeleton className="ml-auto h-4 w-6 rounded" />
-      </div>
-      {[1, 2, 3, 4, 5].map((row) => (
-        <div key={row} className="flex items-center gap-3 border-b border-border py-3">
-          <Skeleton className="size-5 shrink-0 rounded-sm" />
-          <Skeleton className="h-4 flex-1 rounded" />
-          <Skeleton className="size-4 shrink-0 rounded" />
+    <PageWrapper aria-busy className="w-full">
+      <div className="space-y-4">
+        <div className="grid grid-cols-[var(--margen)_1fr_auto] items-baseline">
+          <span />
+          <div className="space-y-1">
+            <Skeleton className="h-[2.115rem] w-32" />
+            <div className="flex h-[1.25rem] items-center">
+              <Skeleton className="h-3.5 w-56" />
+            </div>
+          </div>
+          <Skeleton className="h-5 w-6" />
         </div>
-      ))}
-    </div>
+        <RowsSkeleton rows={5} margin="circle" />
+      </div>
+    </PageWrapper>
   );
 }

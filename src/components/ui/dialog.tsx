@@ -39,7 +39,8 @@ function DialogOverlay({
     <DialogPrimitive.Overlay
       data-slot="dialog-overlay"
       className={cn(
-        "fixed inset-0 isolate z-(--z-modal) bg-black/10 duration-100 supports-backdrop-filter:backdrop-blur-xs data-open:animate-in data-open:fade-in-0 data-closed:animate-out data-closed:fade-out-0",
+        // El fondo oscurece con la tinta (--scrim), sin vidrio ni negro fijo.
+        "fixed inset-0 isolate z-(--z-modal) bg-(--scrim) duration-(--dur-pagina) data-open:animate-in data-open:fade-in-0 data-closed:animate-out data-closed:fade-out-0",
         className
       )}
       {...props}
@@ -61,7 +62,9 @@ function DialogContent({
       <DialogPrimitive.Content
         data-slot="dialog-content"
         className={cn(
-          "fixed top-1/2 left-1/2 z-(--z-modal) grid w-full max-w-[calc(100%-2rem)] -translate-x-1/2 -translate-y-1/2 gap-4 rounded-2xl border border-border bg-popover p-5 text-sm text-popover-foreground shadow-(--shadow) duration-100 outline-none sm:max-w-sm data-open:animate-in data-open:fade-in-0 data-open:zoom-in-95 data-closed:animate-out data-closed:fade-out-0 data-closed:zoom-out-95",
+          // Entra con pluma en --dur-pagina y sale con tinta. Lleva la única
+          // sombra del producto (ninguna en oscuro).
+          "fixed top-1/2 left-1/2 z-(--z-modal) grid w-full max-w-[calc(100%-2rem)] -translate-x-1/2 -translate-y-1/2 gap-4 rounded-xl border border-border bg-popover p-5 text-sm text-popover-foreground shadow-(--shadow) outline-none sm:max-w-sm data-open:animate-in data-open:fade-in-0 data-open:zoom-in-95 data-open:duration-(--dur-pagina) data-open:ease-(--ease-pluma) data-closed:animate-out data-closed:fade-out-0 data-closed:zoom-out-95 data-closed:duration-(--dur-toque) data-closed:ease-(--ease-tinta)",
           className
         )}
         {...props}
@@ -71,12 +74,11 @@ function DialogContent({
           <DialogPrimitive.Close data-slot="dialog-close" asChild>
             <Button
               variant="ghost"
-              className="absolute top-2 right-2"
-              size="icon-sm"
+              className="absolute top-1.5 right-1.5"
+              size="icon"
             >
-              <XIcon
-              />
-              <span className="sr-only">Close</span>
+              <XIcon />
+              <span className="sr-only">Cerrar</span>
             </Button>
           </DialogPrimitive.Close>
         )}
@@ -107,7 +109,8 @@ function DialogFooter({
     <div
       data-slot="dialog-footer"
       className={cn(
-        "-mx-5 -mb-5 flex flex-col-reverse gap-2 rounded-b-2xl border-t bg-muted/50 p-4 sm:flex-row sm:justify-end",
+        // Sin banda: las acciones van sobre el mismo papel que el cuerpo.
+        "flex flex-col-reverse gap-2 sm:flex-row sm:justify-end",
         className
       )}
       {...props}
@@ -115,7 +118,7 @@ function DialogFooter({
       {children}
       {showCloseButton && (
         <DialogPrimitive.Close asChild>
-          <Button variant="outline">Close</Button>
+          <Button variant="outline">Cerrar</Button>
         </DialogPrimitive.Close>
       )}
     </div>
@@ -130,7 +133,8 @@ function DialogTitle({
     <DialogPrimitive.Title
       data-slot="dialog-title"
       className={cn(
-        "font-heading text-base leading-none font-semibold",
+        // El título de un overlay es un título de pantalla: display en 700.
+        "font-display text-xl leading-tight font-bold tracking-tight",
         className
       )}
       {...props}

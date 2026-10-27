@@ -70,6 +70,7 @@ import {
 } from "@/components/ui/context-menu";
 import {
   Command,
+  CommandDialog,
   CommandEmpty,
   CommandGroup,
   CommandInput,
@@ -107,17 +108,18 @@ export function OverlaysSection() {
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [moveOpen, setMoveOpen] = useState(false);
   const [confirmarOpen, setConfirmarOpen] = useState(false);
+  const [paletteOpen, setPaletteOpen] = useState(false);
 
   return (
     <Section
       id="overlays"
       number="07"
       title="Overlays"
-      description="Diálogos, drawers, menús y toasts. Regla mobile: ResponsiveDialog decide Dialog (desktop) o Drawer (móvil) — es el patrón por defecto para formularios (project-mobile)."
+      description="Diálogo, hoja inferior, hoja lateral, menús y toasts. El diálogo y las hojas llevan la única sombra (ninguna en oscuro) y entran con pluma; menús y popovers son bloques con hairline, sin sombra. Los títulos van en display 700; los textos de cierre dicen Cerrar. En el teléfono ResponsiveDialog abre la hoja inferior, con asa y botón Cerrar visible, y toda fila de menú mide 2.85rem."
     >
       <SubSection title="Diálogos">
         <SpecimenGrid cols={4}>
-          <Specimen label="Dialog" hint="modal centrado, desktop">
+          <Specimen label="Diálogo" hint="centrado; el pie sin banda, sobre el mismo papel">
             <Dialog>
               <DialogTrigger asChild>
                 <Button variant="outline">Abrir dialog</Button>
@@ -126,7 +128,7 @@ export function OverlaysSection() {
                 <DialogHeader>
                   <DialogTitle>Editar sistema</DialogTitle>
                   <DialogDescription>
-                    Estructura estándar: título, descripción, cuerpo y footer.
+                    Título en display, descripción, cuerpo y pie.
                   </DialogDescription>
                 </DialogHeader>
                 <div className="space-y-2">
@@ -141,9 +143,9 @@ export function OverlaysSection() {
             </Dialog>
           </Specimen>
 
-          <Specimen label="ConfirmDialog" hint="confirmación destructiva estándar">
+          <Specimen label="Confirmación" hint="ConfirmDialog sobre ResponsiveDialog: hoja en el teléfono, el foco en Cancelar">
             <Button variant="destructive" onClick={() => setConfirmOpen(true)}>
-              Eliminar…
+              Eliminar
             </Button>
             <ConfirmDialog
               open={confirmOpen}
@@ -154,7 +156,7 @@ export function OverlaysSection() {
             />
           </Specimen>
 
-          <Specimen label="ResponsiveDialog" hint="Dialog ≥md · Drawer en móvil">
+          <Specimen label="Diálogo responsive" hint="ResponsiveDialog: Dialog desde md, hoja inferior en el teléfono">
             <ResponsiveDialog>
               <ResponsiveDialogTrigger asChild>
                 <Button variant="outline">Abrir responsive</Button>
@@ -163,12 +165,12 @@ export function OverlaysSection() {
                 <ResponsiveDialogHeader>
                   <ResponsiveDialogTitle>Nueva tarea</ResponsiveDialogTitle>
                   <ResponsiveDialogDescription>
-                    Redimensiona la ventana bajo 768px para verlo como drawer.
+                    Bajo 768 px es la hoja inferior, con asa y Cerrar.
                   </ResponsiveDialogDescription>
                 </ResponsiveDialogHeader>
                 <div className="space-y-2 p-4 md:p-0">
                   <Label htmlFor="ds-resp-title">Título</Label>
-                  <Input id="ds-resp-title" placeholder="Preparar entrega…" />
+                  <Input id="ds-resp-title" placeholder="Preparar entrega" />
                 </div>
               </ResponsiveDialogContent>
             </ResponsiveDialog>
@@ -201,7 +203,7 @@ export function OverlaysSection() {
             />
           </Specimen>
 
-          <Specimen label="Drawer" hint="bottom sheet móvil (vaul)">
+          <Specimen label="Hoja inferior" hint="Drawer (vaul): asa, Cerrar, sube en --dur-hoja con pluma y se recoge en --dur-pagina con tinta">
             <Drawer>
               <DrawerTrigger asChild>
                 <Button variant="outline">Abrir drawer</Button>
@@ -209,7 +211,7 @@ export function OverlaysSection() {
               <DrawerContent>
                 <DrawerHeader>
                   <DrawerTitle>Detalle rápido</DrawerTitle>
-                  <DrawerDescription>Desliza hacia abajo para cerrar.</DrawerDescription>
+                  <DrawerDescription>Cierra con el botón o deslizando el asa.</DrawerDescription>
                 </DrawerHeader>
                 <div className="p-4 pt-0 text-sm text-muted-foreground">
                   Contenido del drawer.
@@ -220,9 +222,9 @@ export function OverlaysSection() {
         </SpecimenGrid>
       </SubSection>
 
-      <SubSection title="Sheet" description="Panel lateral (detalle de tarea usa side=right).">
+      <SubSection title="Sheet" description="La hoja lateral del escritorio (el detalle de tarea usa side=right). Entra en --dur-hoja con pluma y sale con tinta.">
         <SpecimenGrid cols={2}>
-          <Specimen label="Right" hint="TaskDetailSheet">
+          <Specimen label="Derecha" hint="TaskDetailSheet">
             <Sheet>
               <SheetTrigger asChild>
                 <Button variant="outline">Panel derecho</Button>
@@ -235,7 +237,7 @@ export function OverlaysSection() {
               </SheetContent>
             </Sheet>
           </Specimen>
-          <Specimen label="Left">
+          <Specimen label="Izquierda">
             <Sheet>
               <SheetTrigger asChild>
                 <Button variant="outline">Panel izquierdo</Button>
@@ -253,7 +255,7 @@ export function OverlaysSection() {
 
       <SubSection title="Menús y popovers">
         <SpecimenGrid cols={4}>
-          <Specimen label="DropdownMenu" hint="menú de opciones (cards, listas)">
+          <Specimen label="Menú" hint="DropdownMenu: bloque con hairline, filas de 2.85rem, sin sombra">
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <Button variant="outline">Opciones</Button>
@@ -273,7 +275,7 @@ export function OverlaysSection() {
             </DropdownMenu>
           </Specimen>
 
-          <Specimen label="ContextMenu" hint="clic derecho sobre el área">
+          <Specimen label="Menú contextual" hint="clic derecho sobre el área">
             <ContextMenu>
               <ContextMenuTrigger asChild>
                 <div className="flex h-20 w-full items-center justify-center rounded-lg border border-dashed border-border text-sm text-muted-foreground">
@@ -295,7 +297,7 @@ export function OverlaysSection() {
             </ContextMenu>
           </Specimen>
 
-          <Specimen label="Popover" hint="contenido libre anclado">
+          <Specimen label="Popover" hint="contenido libre anclado, bloque sin sombra">
             <Popover>
               <PopoverTrigger asChild>
                 <Button variant="outline">Abrir popover</Button>
@@ -309,7 +311,7 @@ export function OverlaysSection() {
             </Popover>
           </Specimen>
 
-          <Specimen label="Tooltip" hint="hover / focus">
+          <Specimen label="Pista" hint="Tooltip: tinta sobre la página, sin flecha">
             <Tooltip>
               <TooltipTrigger asChild>
                 <Button variant="ghost" size="icon" aria-label="Energía">
@@ -324,11 +326,38 @@ export function OverlaysSection() {
 
       <SubSection
         title="Command"
-        description="La base del command palette global (⌘K). Aquí embebido; en la app vive en un CommandDialog."
+        description="La base del buscador global (Ctrl K o Cmd K). Aquí embebido; en la app vive en un CommandDialog, que en escritorio es un diálogo centrado y en el teléfono la hoja inferior con Cerrar visible. Campo de 2.85rem y filas de 2.85rem, sin ningún important."
       >
-        <div className="max-w-md rounded-lg border border-border">
+        <div className="mb-4">
+          <Button variant="outline" onClick={() => setPaletteOpen(true)}>
+            Abrir el buscador
+          </Button>
+          <CommandDialog open={paletteOpen} onOpenChange={setPaletteOpen}>
+            <CommandInput placeholder="Buscar o saltar a" />
+            <CommandList>
+              <CommandEmpty>Sin resultados.</CommandEmpty>
+              <CommandGroup heading="Acciones">
+                <CommandItem onSelect={() => setPaletteOpen(false)}>
+                  <Plus className="size-4" /> Nueva tarea
+                </CommandItem>
+                <CommandItem onSelect={() => setPaletteOpen(false)}>
+                  <Search className="size-4" /> Buscar en páginas
+                </CommandItem>
+              </CommandGroup>
+              <CommandGroup heading="Ir a">
+                <CommandItem onSelect={() => setPaletteOpen(false)}>
+                  <Zap className="size-4" /> Hoy
+                </CommandItem>
+                <CommandItem onSelect={() => setPaletteOpen(false)}>
+                  <Calendar className="size-4" /> Calendario
+                </CommandItem>
+              </CommandGroup>
+            </CommandList>
+          </CommandDialog>
+        </div>
+        <div className="max-w-md rounded-xl border border-border">
           <Command>
-            <CommandInput placeholder="Buscar o saltar a…" />
+            <CommandInput placeholder="Buscar o saltar a" />
             <CommandList>
               <CommandEmpty>Sin resultados.</CommandEmpty>
               <CommandGroup heading="Acciones">
@@ -356,10 +385,10 @@ export function OverlaysSection() {
       </SubSection>
 
       <SubSection
-        title="Command · resultados de búsqueda (KIN-92)"
-        description="Cuando hay término, el palette muestra resultados del servidor ordenados por relevancia. Los de tarea y página traen debajo el fragmento donde apareció el término, con la coincidencia resaltada — sin él, un resultado que casó por el cuerpo no explica por qué salió. Los sistemas no llevan fragmento: sólo tienen nombre."
+        title="Command: resultados de búsqueda"
+        description="Cuando hay término, el palette muestra resultados del servidor ordenados por relevancia. Los de tarea y página traen debajo el fragmento donde apareció el término, con la coincidencia resaltada: sin él, un resultado que casó por el cuerpo no explica por qué salió. Los sistemas no llevan fragmento, sólo tienen nombre."
       >
-        <div className="max-w-md rounded-lg border border-border">
+        <div className="max-w-md rounded-xl border border-border">
           <Command shouldFilter={false}>
             <CommandInput placeholder="cancion" />
             <CommandList>
@@ -402,14 +431,14 @@ export function OverlaysSection() {
 
       <SubSection
         title="Toasts (sonner)"
-        description="Toaster global con richColors, posición bottom-right (layout raíz)."
+        description="Toaster global de sonner con los roles (sf, ink, ln2) y sin richColors: un toast es papel, no un semáforo. Abajo a la derecha en escritorio; en el teléfono sube por encima del chrome inferior (--kino-bottom-chrome)."
       >
         <div className="flex flex-wrap gap-3">
           <Button variant="outline" onClick={() => toast("Tarea creada")}>
-            Default
+            Normal
           </Button>
           <Button variant="outline" onClick={() => toast.success("Tarea completada")}>
-            Success
+            Hecho
           </Button>
           <Button variant="outline" onClick={() => toast.error("No se pudo guardar")}>
             Error
@@ -422,7 +451,7 @@ export function OverlaysSection() {
               })
             }
           >
-            Con acción
+            Con Deshacer
           </Button>
         </div>
       </SubSection>

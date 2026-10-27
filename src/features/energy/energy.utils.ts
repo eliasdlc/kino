@@ -160,15 +160,13 @@ export function formatHour(hour: number): string {
   return `${h12} ${period}`;
 }
 
-/** Rango compacto: "6–8 PM" si comparten periodo, "11 AM – 1 PM" si no. */
+/**
+ * Un rango de horas, siempre de una sola manera: "10 AM a 12 PM", "6 PM a 8 PM".
+ * Es la misma forma de la leyenda de la curva y de su frase, sin raya ni guion,
+ * y cada hora lleva su periodo aunque compartan el mismo.
+ */
 export function formatHourRange(start: number, end: number): string {
-  const s = ((Math.floor(start) % 24) + 24) % 24;
-  const e = ((Math.floor(end) % 24) + 24) % 24;
-  const sPeriod = s < 12 ? 'AM' : 'PM';
-  const ePeriod = e < 12 ? 'AM' : 'PM';
-  const s12 = s % 12 === 0 ? 12 : s % 12;
-  const e12 = e % 12 === 0 ? 12 : e % 12;
-  return sPeriod === ePeriod ? `${s12}–${e12} ${ePeriod}` : `${s12} ${sPeriod} – ${e12} ${ePeriod}`;
+  return `${formatHour(start)} a ${formatHour(end)}`;
 }
 
 // "Tu pico" se calcula en `convex/lib/energy/curve.ts`, el mismo que usa el
@@ -192,7 +190,7 @@ export function buildPeakAdvice(
     return { tone: 'rest', text: 'Hora de bajar el ritmo y recargar para mañana.' };
   }
   if (!peak) {
-    return { tone: 'after', text: 'Aún estoy aprendiendo tu ritmo: registra tu energía para afinar.' };
+    return { tone: 'after', text: 'Tu ritmo todavía se está aprendiendo: registra tu energía para afinarlo.' };
   }
   if (h >= peak.start && h < peak.end) {
     return { tone: 'peak', text: 'Estás en tu pico: aprovéchalo para lo más difícil.' };

@@ -24,7 +24,7 @@ export function StickyNoteStack({ notes, context }: StickyNoteStackProps) {
         <button
           type="button"
           onClick={() => setExpanded(false)}
-          className="text-[10px] text-muted-foreground hover:text-foreground transition-colors"
+          className="text-[10px] text-muted-foreground hover:text-foreground transition-colors duration-(--dur-toque) ease-(--ease-pluma)"
         >
           Colapsar pila ↑
         </button>

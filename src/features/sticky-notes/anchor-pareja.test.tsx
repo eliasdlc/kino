@@ -114,7 +114,7 @@ describe("la pareja nota y frase", () => {
     const { editorDe } = pintar();
     await waitFor(() => expect(editorDe()).not.toBeNull());
 
-    await userEvent.click(tarjeta());
+    await userEvent.click(screen.getByRole("button", { name: /^Editar nota/ }));
     await screen.findByPlaceholderText("Título...");
 
     await waitFor(() => expect(frase(editorDe()).className).toContain("sticky-anchor-lit"));
@@ -127,7 +127,7 @@ describe("la pareja nota y frase", () => {
     const { editorDe } = pintar();
     await waitFor(() => expect(editorDe()).not.toBeNull());
 
-    await userEvent.click(tarjeta());
+    await userEvent.click(screen.getByRole("button", { name: /^Editar nota/ }));
     await screen.findByPlaceholderText("Título...");
     await userEvent.keyboard("{Escape}");
 

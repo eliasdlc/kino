@@ -1,8 +1,8 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import type { RefObject } from "react";
-import { Plus, StickyNote } from "lucide-react";
+import { Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
@@ -30,6 +30,7 @@ import { StickyNoteCreator } from "./StickyNoteCreator";
 import { StackNoteSheet } from "./StackNoteSheet";
 import { dropNote } from "./drop-note";
 import { clampToCanvas, NOTE_W, type NotebookMetrics } from "./sticky-position";
+import { IndexHead } from "@/features/notebooks/IndexHead";
 import type { StickyNoteItem } from "./sticky-notes.types";
 
 /**
@@ -93,7 +94,11 @@ function DraggableNote({
   context: NoteContext;
   activeId: string | null;
 }) {
-  const { attributes, listeners, setNodeRef, isDragging } = useDraggable({ id: note.id });
+  // Sin `attributes`: dnd-kit pone `role="button"` y un tabindex en el
+  // envoltorio, que contiene los botones de la propia nota (un control dentro
+  // de otro). Aquí no hay sensor de teclado, así que esa parada de Tab no
+  // movía nada; con teclado, la nota se mueve por nombre desde su menú.
+  const { listeners, setNodeRef, isDragging } = useDraggable({ id: note.id });
   const { setNodeRef: setDropRef, isOver } = useDroppable({ id: note.id });
 
   const setRef = (el: HTMLElement | null) => {
@@ -104,13 +109,13 @@ function DraggableNote({
   return (
     <div
       ref={setRef}
+      data-arrastrable
       {...listeners}
-      {...attributes}
       style={{ transform: isDragging ? undefined : `rotate(${tiltOf(note.id)}deg)` }}
       className={cn(
         // Mientras se edita, la bandeja de colores asoma por debajo y tiene
         // que pintarse sobre la fila siguiente: el foco dentro la sube.
-        "relative touch-none transition-transform focus-within:z-(--z-raised)",
+        "relative touch-none transition-transform duration-(--dur-toque) ease-(--ease-pluma) focus-within:z-(--z-raised)",
         // Levantada, en la cuadrícula queda su hueco: la nota va en el puntero.
         isDragging && "opacity-25",
         isOver && activeId !== note.id && "ring-2 ring-primary/60 rounded-lg scale-105"
@@ -171,9 +176,14 @@ function NotesRow({
 
 export function StickyNotesGrid(props: Props) {
   const isPage = "pageId" in props && !!props.pageId;
-  const context: NoteContext = isPage
-    ? { pageId: props.pageId as string }
-    : { folderId: props.folderId as string };
+  // Estable entre renders: la tarjeta va en `memo` y un contexto nuevo cada vez
+  // la volvería a pintar entera.
+  const pageId = isPage ? (props.pageId as string) : undefined;
+  const folderId = !isPage ? (props.folderId as string) : undefined;
+  const context: NoteContext = useMemo(
+    () => (pageId ? { pageId } : { folderId: folderId as string }),
+    [pageId, folderId]
+  );
 
   const pageQuery = useStickyNotesByPage(isPage ? (props.pageId as string) : "");
   const folderQuery = useStickyNotesByFolder(!isPage ? (props.folderId as string) : "");
@@ -239,21 +249,22 @@ export function StickyNotesGrid(props: Props) {
   return (
     <>
       <div className="space-y-3">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-[0.06em] text-muted-foreground">
-            <StickyNote className="size-4" />
-            Notas
-          </div>
-          <Button
-            variant="ghost"
-            size="sm"
-            className="h-7 gap-1 text-xs text-muted-foreground"
-            onClick={(e) => setCreatorAnchor({ x: e.clientX, y: e.clientY })}
-          >
-            <Plus className="size-3" />
-            Añadir
-          </Button>
-        </div>
+        {/* El título de sección de Diario: la palabra en Bricolage y la acción
+            con nombre a la derecha, a 48 px en el teléfono. */}
+        <IndexHead
+          title="Notas"
+          trailing={
+            <Button
+              variant="ghost"
+              size="sm"
+              className="text-muted-foreground md:pointer-fine:h-8"
+              onClick={(e) => setCreatorAnchor({ x: e.clientX, y: e.clientY })}
+            >
+              <Plus aria-hidden className="size-4" />
+              Añadir nota
+            </Button>
+          }
+        />
 
         {isLoading && (
           <div className="flex flex-wrap gap-3">
