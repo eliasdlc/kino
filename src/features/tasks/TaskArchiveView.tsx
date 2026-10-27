@@ -2,6 +2,8 @@ import { useState } from "react";
 import type { TaskTransport } from "./tasks.types";
 import { useDeleteTaskWithUndo, useTasks, useFolderTasks, useToggleTask } from "./tasks.hooks";
 import { DefaultTaskCard } from "./cards/DefaultTaskCard";
+import { EmptyState } from "@/components/ui/empty-state";
+import { SectionHead } from "@/features/dashboard/SectionHead";
 import { TaskTrashSection } from "./TaskTrashSection";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { useTaskKeyboardNavigation } from "./useTaskKeyboardNavigation";
@@ -41,13 +43,10 @@ export function TaskArchiveView({ systemId, initialData, folderId, folderInitial
 
     return (
         <div className="flex flex-col gap-4 w-full h-full">
-            <h2 className="text-2xl font-bold">Tareas archivadas</h2>
-            <div className="flex flex-col gap-2.5 w-full h-full overflow-y-auto">
+            <SectionHead title="Hechas" count={archivedTasks.length > 0 ? `${archivedTasks.length}` : undefined} />
+            <div className="-mt-4 w-full">
                 {archivedTasks.length === 0 ? (
-                    <div className="flex flex-col items-center justify-center py-10 text-center space-y-2 border border-dashed rounded-lg bg-card">
-                        <p className="text-sm font-medium">{empty.title}</p>
-                        <p className="text-sm text-muted-foreground">{empty.hint}</p>
-                    </div>
+                    <EmptyState className="pl-(--margen)" title={empty.title} description={empty.hint} />
                 ) : (
                     archivedTasks.map((task) => (
                         <DefaultTaskCard

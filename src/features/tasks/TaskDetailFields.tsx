@@ -1,13 +1,23 @@
 "use client";
 
+import { useState } from "react";
 import { format } from "date-fns";
-import { CalendarIcon, Download } from "lucide-react";
+import { es } from "date-fns/locale";
+import { Download } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
+import { MarginRow } from "@/components/ui/margin-row";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import {
+  ResponsiveDialog,
+  ResponsiveDialogContent,
+  ResponsiveDialogDescription,
+  ResponsiveDialogHeader,
+  ResponsiveDialogTitle,
+} from "@/components/ui/responsive-dialog";
 import { Calendar } from "@/components/ui/calendar";
-import { TimePicker } from "@/components/ui/time-picker";
+import { useIsMobile } from "@/hooks/use-mobile";
+import { cn } from "@/lib/utils";
 import type { TaskTransport } from "./tasks.types";
 import { closedByPhrase, formatDuration, hasDueTime, taskJsonFilename, withDay, withTime } from "./task-detail.helpers";
 import { api } from "@convex/_generated/api";
@@ -15,10 +25,124 @@ import { useConvexQuery } from "@/shared/convex/hooks";
 import { getConvexClient } from "@/shared/convex/client";
 
 /**
- * Bloques del panel de detalle de tarea (KIN-146 · FE-05).
- * Extraídos de `TaskDetailSheet` tal cual. `DateTimeField` unifica los dos
- * selectores de fecha, que eran el mismo bloque duplicado palabra por palabra.
+ * Los renglones del detalle de una tarea. Cada dato es una fila de margen: su
+ * rótulo vive en el margen, en versalitas de mute, y el valor en la columna de
+ * texto, sin caja alrededor. Es la gramática de `MarginRow`: un renglón por
+ * dato, separados por hairline, como en el mock de Diario (VENCE, ENERGÍA,
+ * DURA, EN).
  */
+
+/** El rótulo del margen: corto, en versalitas, alineado contra la columna de texto. */
+function Rotulo({ id, htmlFor, children }: { id?: string; htmlFor?: string; children: React.ReactNode }) {
+  const clase =
+    "block text-right text-[0.62rem] leading-none font-semibold tracking-[0.07em] whitespace-nowrap text-muted-foreground uppercase";
+  // El margen centra lo que lleva; el rótulo se pega a la columna de texto y,
+  // si es más ancho que el margen, crece hacia la izquierda (el canto de la
+  // hoja), nunca hacia el valor.
+  return (
+    <span className="flex w-full justify-end pt-[1.05rem] pr-2">
+      {htmlFor ? (
+        <label id={id} htmlFor={htmlFor} className={clase}>
+          {children}
+        </label>
+      ) : (
+        <span id={id} className={clase}>
+          {children}
+        </span>
+      )}
+    </span>
+  );
+}
+
+/**
+ * Un dato del detalle. `htmlFor` cuando el valor es un campo (el rótulo es su
+ * `label`); `id` cuando el valor es un grupo que se nombra con `aria-labelledby`.
+ */
+export function DetailRow({
+  label,
+  htmlFor,
+  id,
+  children,
+  className,
+}: {
+  label: string;
+  htmlFor?: string;
+  id?: string;
+  children: React.ReactNode;
+  className?: string;
+}) {
+  return (
+    <MarginRow
+      data-slot="detail-row"
+      margin={
+        <Rotulo id={id} htmlFor={htmlFor}>
+          {label}
+        </Rotulo>
+      }
+      className={cn("items-start", className)}
+    >
+      {children}
+    </MarginRow>
+  );
+}
+
+/** El valor de un dato que se toca para cambiarlo: 48 px con el dedo, sin borde de caja. */
+export const VALOR_TOCABLE =
+  "press focus-ring -ml-2 inline-flex min-h-[2.85rem] max-w-full items-center rounded-full px-2 text-left text-base transition-[background-color,transform] duration-(--dur-toque) ease-(--ease-pluma) hover:bg-sf2/60 md:pointer-fine:min-h-9";
+
+/** "18 oct 2026, 14:00", la fecha del detalle en español y sin punto medio. */
+export function fechaDelDetalle(value: Date): string {
+  const dia = format(value, "d MMM yyyy", { locale: es }).replace(".", "");
+  return hasDueTime(value) ? `${dia}, ${format(value, "HH:mm")}` : dia;
+}
+
+/**
+ * Lo que se abre al tocar un valor: en el teléfono una hoja (el pulgar no
+ * apunta a un globo flotante sobre otra hoja), con ratón un globo junto al
+ * valor.
+ */
+export function CampoFlotante({
+  titulo,
+  descripcion,
+  open,
+  onOpenChange,
+  disparador,
+  children,
+}: {
+  titulo: string;
+  descripcion?: string;
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  /** El botón que abre, ya con su texto; recibe `onClick` en el teléfono. */
+  disparador: (props: { onClick?: () => void }) => React.ReactElement;
+  children: React.ReactNode;
+}) {
+  const isMobile = useIsMobile();
+  if (isMobile) {
+    return (
+      <>
+        {disparador({ onClick: () => onOpenChange(true) })}
+        <ResponsiveDialog open={open} onOpenChange={onOpenChange}>
+          <ResponsiveDialogContent>
+            <ResponsiveDialogHeader>
+              <ResponsiveDialogTitle>{titulo}</ResponsiveDialogTitle>
+              <ResponsiveDialogDescription className={cn(!descripcion && "sr-only")}>{descripcion ?? titulo}</ResponsiveDialogDescription>
+            </ResponsiveDialogHeader>
+            {children}
+          </ResponsiveDialogContent>
+        </ResponsiveDialog>
+      </>
+    );
+  }
+  return (
+    <Popover open={open} onOpenChange={onOpenChange}>
+      <PopoverTrigger asChild>{disparador({})}</PopoverTrigger>
+      <PopoverContent className="w-auto p-3" align="start">
+        {children}
+      </PopoverContent>
+    </Popover>
+  );
+}
 
 export function TimeLoggedSection({ taskId }: { taskId: string }) {
   const { data } = useConvexQuery(api.tasks.timeLogSummary, { id: taskId });
@@ -26,13 +150,14 @@ export function TimeLoggedSection({ taskId }: { taskId: string }) {
   if (!data || data.sessionCount === 0) return null;
 
   return (
-    <div className="mt-4 pt-4 border-t">
-      <p className="text-xs text-muted-foreground mb-1">Tiempo registrado</p>
-      <p className="text-sm font-medium">
+    <DetailRow label="Tiempo">
+      <p className="pt-[0.6rem] text-base">
         {formatDuration(data.totalMinutes)}
-        <span className="text-muted-foreground font-normal"> · {data.sessionCount} sesión{data.sessionCount !== 1 ? 'es' : ''}</span>
+        <span className="text-muted-foreground">
+          , en {data.sessionCount} sesión{data.sessionCount !== 1 ? "es" : ""}
+        </span>
       </p>
-    </div>
+    </DetailRow>
   );
 }
 
@@ -51,72 +176,82 @@ export function ClosingSignature({ task }: { task: TaskTransport }) {
   if (!task.completedAt) return null;
 
   return (
-    <div className="mt-4 pt-4 border-t">
-      <p className="text-xs text-muted-foreground mb-1">Firma del cierre</p>
-      <p className="text-sm">
-        {closedByPhrase(task.completedVia)}
-        {" · "}
-        {data && data.totalMinutes > 0
-          ? `${formatDuration(data.totalMinutes)} de trabajo observado`
-          : "sin tiempo observado"}
+    <DetailRow label="Cierre">
+      <p className="pt-[0.6rem] text-base">
+        {closedByPhrase(task.completedVia)},{" "}
+        {data && data.totalMinutes > 0 ? `${formatDuration(data.totalMinutes)} de trabajo observado` : "sin tiempo observado"}
       </p>
-    </div>
+    </DetailRow>
   );
 }
 
+/**
+ * Una fecha del detalle (Empieza, Vence): el valor en español, y al tocarlo el
+ * calendario con la hora y Limpiar. En el teléfono es una hoja con "Listo"
+ * abajo; con ratón, un globo.
+ */
 export function DateTimeField({
   label,
+  titulo,
   timeInputId,
   value,
   onChange,
 }: {
+  /** El rótulo corto del margen: "Vence". */
   label: string;
+  /** El título de la hoja: "Fecha de vencimiento". */
+  titulo: string;
   timeInputId: string;
   value: Date | undefined;
   onChange: (updater: (prev: Date | undefined) => Date | undefined) => void;
 }) {
+  const [open, setOpen] = useState(false);
+  const rotuloId = `${timeInputId}-rotulo`;
   return (
-    <div className="space-y-1.5">
-      <Label>{label}</Label>
-      <Popover>
-        <PopoverTrigger asChild>
-          <Button variant="outline" className="w-full min-w-0 justify-start gap-2 text-sm font-normal">
-            <CalendarIcon size={16} className="shrink-0 text-muted-foreground" />
-            {value ? (
-              <span className="truncate">
-                {format(value, "MMM d, yyyy")}
-                {hasDueTime(value) && <span className="text-muted-foreground"> · {format(value, "HH:mm")}</span>}
-              </span>
-            ) : (
-              <span className="truncate text-muted-foreground">Elegir fecha</span>
-            )}
-          </Button>
-        </PopoverTrigger>
-        <PopoverContent className="w-auto p-0" align="start">
-          <Calendar mode="single" selected={value} onSelect={(day) => onChange((prev) => withDay(prev, day))} />
+    <DetailRow label={label} id={rotuloId}>
+      <CampoFlotante
+        titulo={titulo}
+        open={open}
+        onOpenChange={setOpen}
+        disparador={(props) => (
+          <button type="button" aria-labelledby={rotuloId} aria-describedby={`${timeInputId}-valor`} className={VALOR_TOCABLE} {...props}>
+            <span id={`${timeInputId}-valor`} className={cn("truncate", !value && "text-muted-foreground")}>
+              {value ? fechaDelDetalle(value) : "Sin fecha"}
+            </span>
+          </button>
+        )}
+      >
+        <div className="space-y-3">
+          <Calendar mode="single" locale={es} selected={value} onSelect={(day) => onChange((prev) => withDay(prev, day))} className="mx-auto p-0" />
           {value && (
-            <div className="p-2 border-t space-y-2">
-              <div className="flex items-center gap-2">
-                <Label htmlFor={timeInputId} className="text-xs text-muted-foreground shrink-0">Hora</Label>
-                <TimePicker
-                  id={timeInputId}
-                  value={format(value, "HH:mm")}
-                  onChange={(val) => onChange((prev) => withTime(prev, val))}
-                  className="h-8"
-                />
-              </div>
-              <Button variant="ghost" size="sm" className="w-full" onClick={() => onChange(() => undefined)}>
-                Limpiar
-              </Button>
+            <div className="flex items-center gap-3">
+              <label htmlFor={timeInputId} className="shrink-0 text-sm text-muted-foreground">
+                Hora
+              </label>
+              <Input
+                id={timeInputId}
+                type="time"
+                value={hasDueTime(value) ? format(value, "HH:mm") : ""}
+                onChange={(e) => onChange((prev) => withTime(prev, e.target.value || "00:00"))}
+                className="h-[2.85rem] w-32 md:pointer-fine:h-9 dark:[color-scheme:dark]"
+              />
             </div>
           )}
-        </PopoverContent>
-      </Popover>
-    </div>
+          <div className="flex gap-2">
+            <Button variant="secondary" className="flex-1" disabled={!value} onClick={() => onChange(() => undefined)}>
+              Limpiar
+            </Button>
+            <Button className="flex-1" onClick={() => setOpen(false)}>
+              Listo
+            </Button>
+          </div>
+        </div>
+      </CampoFlotante>
+    </DetailRow>
   );
 }
 
-/** Calificación de un evento académico ya completado (examen, quiz, práctica). */
+/** Calificación de un evento académico ya completado (examen, quiz, práctica). Un renglón más, sin caja. */
 export function GradeField({
   metadata,
   onChange,
@@ -125,10 +260,11 @@ export function GradeField({
   onChange: (next: Record<string, unknown> | null) => void;
 }) {
   return (
-    <div className="space-y-1.5 p-3 rounded-lg bg-task-done/10 border border-task-done/20">
-      <Label className="text-task-done font-medium">Calificación obtenida</Label>
-      <Input
+    <DetailRow label="Nota" htmlFor="task-grade">
+      <input
+        id="task-grade"
         type="number"
+        inputMode="numeric"
         min={0}
         max={100}
         value={(metadata?.grade as string | number) || ""}
@@ -142,10 +278,10 @@ export function GradeField({
           }
           onChange(Object.keys(newMetadata).length ? newMetadata : null);
         }}
-        placeholder="Ej: 95"
-        className="w-full bg-background"
+        placeholder="De 0 a 100"
+        className="focus-ring min-h-[2.85rem] w-full rounded-md bg-transparent text-base tabular-nums outline-none placeholder:text-muted-foreground"
       />
-    </div>
+    </DetailRow>
   );
 }
 
@@ -170,8 +306,8 @@ export function ExportTaskJsonButton({ task }: { task: TaskTransport }) {
         URL.revokeObjectURL(url);
       }}
     >
-      <Download size={14} />
-      JSON
+      <Download className="size-4" />
+      Descargar en JSON
     </Button>
   );
 }

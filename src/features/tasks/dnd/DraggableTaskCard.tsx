@@ -19,15 +19,16 @@ interface DraggableTaskCardProps {
   isFocused?: boolean;
   /** Renderiza la variante compacta (columnas estrechas de Planificación). */
   compact?: boolean;
+  /** Tachada en esta visita: se queda en su columna con el círculo lleno. */
+  struck?: boolean;
   onToggle: (taskId: string) => void;
   onDelete: (task: TaskTransport) => void;
   onEdit?: (task: TaskTransport) => void;
 }
 
 /**
- * Wraps TaskCard with drag capabilities.
- * Done/archived tasks are not draggable.
- * When actively dragging, the original card shows a ghosted placeholder.
+ * La fila de tarea con arrastre, para los tableros de escritorio. Una hecha no
+ * se arrastra; mientras se arrastra, la original queda a media opacidad.
  */
 export function DraggableTaskCard({
   task,
@@ -37,6 +38,7 @@ export function DraggableTaskCard({
   systemType,
   isFocused,
   compact,
+  struck,
   onToggle,
   onDelete,
   onEdit,
@@ -73,15 +75,15 @@ export function DraggableTaskCard({
       {...attributes}
       {...listeners}
       onKeyDown={handleKeyDown}
-      className={cn(
-        "touch-none", // Prevents scroll jank on mobile during drag
-        isDragging && "opacity-40 border-dashed pointer-events-none"
-      )}
+      // Sin `touch-none`: el arrastre es sólo de ratón y teclado (MouseSensor),
+      // así que el dedo desplaza la página como en cualquier otra lista.
+      className={cn(isDragging && "pointer-events-none opacity-40")}
     >
       {compact ? (
         <PlanningTaskCard
           task={task}
           isFocused={isFocused}
+          struck={struck}
           onToggle={onToggle}
           onDelete={onDelete}
           onEdit={onEdit}
@@ -92,6 +94,7 @@ export function DraggableTaskCard({
           task={task}
           systemId={systemId}
           isFocused={isFocused}
+          struck={struck}
           onToggle={onToggle}
           onDelete={onDelete}
           onEdit={onEdit}

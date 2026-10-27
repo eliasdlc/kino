@@ -1,114 +1,68 @@
 'use client';
 
 import { useState } from 'react';
-import { Sparkles, RefreshCw, CalendarPlus, AlertCircle } from 'lucide-react';
-import { isToday, isTomorrow, differenceInCalendarDays } from 'date-fns';
 import { toast } from 'sonner';
-import { cn } from '@/lib/utils';
-import { Button } from '@/components/ui/button';
+import { EmptyState } from '@/components/ui/empty-state';
+import { SectionHead } from '@/features/dashboard/SectionHead';
 import { EnergyBudgetBar } from '@/features/energy/EnergyBudgetBar';
 import { useEnergyBudget } from '@/features/energy/energy.hooks';
+import { useUserSettings } from '@/features/settings/settings.hooks';
 import { crossesLimitWith } from '@/features/energy/energy.budget';
-import { useSuggestedTasks, useAddToTodayPlan, useToggleTodayTask, type SuggestedTask } from './tasks.hooks';
+import { useSuggestedTasks, useAddToTodayPlan, useToggleTodayTask, useTodayPlanTasks, type SuggestedTask } from './tasks.hooks';
+import { getOverdueTasks } from './OverdueGroup';
 import { TaskDetailSheet } from './TaskDetailSheet';
+import { TaskRow } from './TaskRow';
+import { conVisita, useListaTachable } from './useTachar';
+import { LISTA_FILA_ALTO, ListaSkeleton, PresupuestoSkeleton } from './TasksSkeleton';
 import type { TaskTransport } from './tasks.types';
-import { parseDueDate } from './tasks.utils';
 
+/** Cuántas sugerencias se ven: siete caben en una pantalla de teléfono sin volverse otra lista. */
+const VISIBLES = 7;
 
-
-
-function dueDateLabel(dueDate: string | null): string {
-  if (!dueDate) return '';
-  const d = parseDueDate(dueDate);
-  if (isToday(d)) return 'hoy';
-  if (isTomorrow(d)) return 'mañana';
-  return d.toLocaleDateString('es', { day: 'numeric', month: 'short' });
-}
-
-function formatMinutes(min: number | null): string {
-  if (!min) return '';
-  if (min < 60) return `~${min}m`;
-  const h = Math.floor(min / 60);
-  const m = min % 60;
-  return m ? `~${h}h ${m}m` : `~${h}h`;
-}
-
-interface SuggestedRowProps {
-  task: SuggestedTask;
-  addedIds: Set<string>;
-  onAdd: (taskId: string) => void;
-  onComplete: (taskId: string) => void;
-  onOpen: (task: TaskTransport) => void;
-}
-
-function SuggestedRow({ task, addedIds, onAdd, onComplete, onOpen }: SuggestedRowProps) {
-  const isAdded = addedIds.has(task.id) || task.inTodayPlan;
-  const isDone = task.status === 'done';
-
+/**
+ * Agregar al plan, en la cola de la fila: la palabra, no un glifo suelto, en
+ * 48 px de alto. Ya en el plan dice "en el plan" en mute y deja de ser botón:
+ * el --ok es de hecha, y un check verde junto a un círculo vacío decía a la
+ * vez hecha y pendiente. Las dos ocupan el mismo ancho, para que el título no
+ * se reparta en otras líneas al agregar.
+ */
+function AddToPlan({ added, onAdd, title }: { added: boolean; onAdd: () => void; title: string }) {
+  const caja = '-mr-2 inline-flex min-h-[2.85rem] min-w-[5.6rem] items-center justify-end px-2 text-sm';
+  if (added) {
+    return (
+      <span className={`${caja} text-muted-foreground`} aria-label={`${title} ya está en el plan`} role="img">
+        en el plan
+      </span>
+    );
+  }
   return (
-    <div
-      className={cn(
-        'group flex items-start gap-3 px-4 py-3 transition-colors hover:bg-accent/40',
-        isDone && 'opacity-50',
-      )}
+    <button
+      type="button"
+      onClick={onAdd}
+      aria-label={`Agregar ${title} al plan de hoy`}
+      className={`${caja} press focus-ring rounded-full font-semibold text-foreground transition-[background-color,transform] duration-(--dur-toque) ease-(--ease-pluma) hover:bg-sf2/60`}
     >
-      <button
-        onClick={() => onComplete(task.id)}
-        className={cn(
-          'mt-0.5 size-[1.3rem] shrink-0 rounded-full border-2 transition-colors',
-          isDone ? 'border-primary bg-primary' : 'border-input hover:border-primary',
-        )}
-        aria-label="Completar"
-      />
-
-      {/* Dos niveles: el título, y por qué con la meta debajo */}
-      <button onClick={() => onOpen(task)} className="min-w-0 flex-1 text-left">
-        <p
-          className={cn(
-            'line-clamp-2 text-[0.95rem] leading-snug',
-            task.effectivePriority === 'critical' && 'font-semibold',
-            isDone && 'text-muted-foreground line-through',
-          )}
-        >
-          {task.title}
-        </p>
-        <p className="mt-0.5 text-xs text-muted-foreground">
-          {task.why}
-          {task.dueDate && (
-            <>
-              {' · '}
-              {differenceInCalendarDays(parseDueDate(task.dueDate), new Date()) < 0 ? (
-                <b className="font-semibold text-task-overdue">vencida</b>
-              ) : (
-                'vence'
-              )}{' '}
-              {dueDateLabel(task.dueDate)}
-            </>
-          )}
-          {formatMinutes(Number(task.estimatedTime)) && <> · {formatMinutes(Number(task.estimatedTime))}</>}
-        </p>
-      </button>
-
-      {/* Agregar al plan */}
-      <button
-        onClick={() => onAdd(task.id)}
-        disabled={isAdded || isDone}
-        title={isAdded ? 'Ya está en el plan de hoy' : 'Agregar al plan de hoy'}
-        className={cn(
-          'mt-0.5 shrink-0 rounded-full p-1.5 transition-colors',
-          isAdded
-            ? 'cursor-default text-task-done'
-            : 'text-muted-foreground hover:text-primary',
-        )}
-      >
-        <CalendarPlus className="size-4" />
-      </button>
-    </div>
+      Al plan
+    </button>
   );
 }
 
-export function KinoSuggestedSection() {
-  const { data: suggestions = [], isLoading, isError, refetch } = useSuggestedTasks();
+/**
+ * Lo sugerido para hoy: un título con hairline, el presupuesto de energía en
+ * la columna de texto (aceptar sugerencias es comprometer el día, así que el
+ * presupuesto se ve aquí mismo) y hasta siete filas. La meta es la de toda
+ * fila de tarea (vencida, prioridad, energía), que ya es el porqué que manda
+ * el servidor dicho con el vocabulario común. Agregar al plan es la cola de
+ * cada fila; completar, el círculo, con la fila tachada en su sitio y Deshacer.
+ *
+ * Una vencida no se sugiere aquí: tiene su sección justo debajo, y en las dos
+ * a la vez se tachaba en una y saltaba en la otra. Mientras el presupuesto
+ * no se sabe, su renglón guarda el sitio a su altura real.
+ */
+export const KinoSuggestedSection = conVisita(function KinoSuggestedSection() {
+  const { data: sugeridas = [], isLoading } = useSuggestedTasks();
+  const { isLoading: ajustesCargando } = useUserSettings();
+  const { isLoading: planCargando } = useTodayPlanTasks();
   const { mutate: addToPlan } = useAddToTodayPlan();
   const { mutate: complete } = useToggleTodayTask();
   const budget = useEnergyBudget();
@@ -116,114 +70,84 @@ export function KinoSuggestedSection() {
   const [addedIds, setAddedIds] = useState<Set<string>>(new Set());
   const [selectedTask, setSelectedTask] = useState<TaskTransport | null>(null);
 
-  // Mostrar hasta 7 tareas; excluir las que se añadieron al plan (desaparecen)
-  const visible = suggestions
-    .filter((t) => !addedIds.has(t.id))
-    .slice(0, 7);
+  const vencidas = new Set(getOverdueTasks(sugeridas as TaskTransport[]).map((t) => t.id));
+  const suggestions = sugeridas.filter((t) => !vencidas.has(t.id));
+  const { filas, struck, handleToggle } = useListaTachable(suggestions.slice(0, VISIBLES), (taskId) => complete({ taskId }));
 
-  function handleAdd(taskId: string) {
+  function handleAdd(task: SuggestedTask) {
     // Aviso en el cruce exacto del presupuesto (D2: avisa, jamás bloquea). Solo
     // al cruzar: ya en sobregiro no se repite en cada tarea que se agregue.
-    const task = suggestions.find((t) => t.id === taskId);
-    if (budget && task) {
+    if (budget) {
       const { crosses, overBy, next } = crossesLimitWith(budget, task);
       if (crosses) {
         // La cifra delante y el día como sujeto, igual que la salida del
-        // sobregiro: Kino no se presenta como una autoridad que elige no
-        // ejercerse.
+        // sobregiro.
         toast(`El día quedaría en ${next} de ${budget.limit} puntos`, {
           description: `${overBy} por encima. Nada se bloquea.`,
         });
       }
     }
-
-    addToPlan({ taskId });
-    setAddedIds((prev) => new Set([...prev, taskId]));
-  }
-
-  function handleComplete(taskId: string) {
-    complete({ taskId });
-  }
-
-  function handleRegenerate() {
-    void refetch();
-  }
-
-  if (isLoading) {
-    return (
-      <div className="rounded-2xl border border-border bg-card shadow-(--shadow)">
-        <div className="flex items-center gap-2 border-b border-border px-4 py-3">
-          <Sparkles className="size-4 text-primary" />
-          <span className="text-[1.06rem] font-bold tracking-[-0.01em]">Sugerido para hoy</span>
-        </div>
-        <div className="space-y-3 px-4 py-3">
-          {[...Array(3)].map((_, i) => (
-            <div key={i} className="h-10 rounded-md bg-muted" />
-          ))}
-        </div>
-      </div>
-    );
-  }
-
-  if (isError) {
-    return (
-      <div className="flex items-center gap-2 rounded-xl border border-border bg-card px-4 py-3 text-sm text-muted-foreground">
-        <AlertCircle className="w-4 h-4 shrink-0" />
-        No se pudieron cargar las sugerencias.
-      </div>
-    );
+    addToPlan({ taskId: task.id });
+    setAddedIds((prev) => new Set([...prev, task.id]));
   }
 
   return (
-    <>
-      <section aria-label="Sugerido para hoy" className="overflow-hidden rounded-2xl border border-border bg-card shadow-(--shadow)">
-        <div className="flex items-center justify-between gap-3 border-b border-border px-4 py-3">
-          <div className="flex min-w-0 items-center gap-2">
-            <Sparkles className="size-4 shrink-0 text-primary" />
-            <span className="text-[1.06rem] font-bold tracking-[-0.01em]">Sugerido para hoy</span>
-            <span className="hidden text-xs text-muted-foreground sm:inline">· por tu energía y urgencia</span>
-          </div>
-          <Button size="xs" variant="ghost" onClick={handleRegenerate}>
-            <RefreshCw className="size-3.5" />
-            Regenerar
-          </Button>
-        </div>
+    <section aria-labelledby="sugerido-titulo">
+      <SectionHead id="sugerido-titulo" title="Sugerido para hoy" count={isLoading || filas.length === 0 ? undefined : `${filas.length} tarea${filas.length === 1 ? '' : 's'}`} />
 
-        {/* Aceptar sugerencias es comprometer el día: el presupuesto se ve aquí mismo */}
-        <div className="border-b border-border px-4 py-2.5">
-          <EnergyBudgetBar />
-        </div>
+      {ajustesCargando || planCargando ? <PresupuestoSkeleton /> : <EnergyBudgetBar className="py-3 pl-(--margen)" />}
 
-        {visible.length === 0 ? (
-          <p className="px-4 py-4 text-sm text-muted-foreground">
-            {suggestions.length === 0
-              ? 'No hay tareas activas para sugerir. ¡Buen trabajo!'
-              : 'Todas las sugerencias ya están en tu plan de hoy.'}
-          </p>
-        ) : (
-          <div className="divide-y divide-border">
-            {visible.map((task) => (
-              <SuggestedRow
+      {isLoading ? (
+        <ListaSkeleton filas={3} />
+      ) : filas.length === 0 ? (
+        <EmptyState
+          className="pl-(--margen)"
+          title={
+            suggestions.length > 0 ? 'Todo lo sugerido está en el plan' : vencidas.size > 0 ? 'Lo urgente está en Vencidas' : 'Nada que sugerir'
+          }
+          description={
+            suggestions.length > 0
+              ? 'Lo que sigue lo eliges tú, desde la lista de abajo.'
+              : vencidas.size > 0
+                ? 'Empieza por ahí: está justo debajo.'
+                : 'No quedan tareas abiertas. El resto del día es tuyo.'
+          }
+        />
+      ) : (
+        <div>
+          {filas.map((task) => {
+            const added = addedIds.has(task.id) || task.inTodayPlan;
+            return (
+              <TaskRow
                 key={task.id}
                 task={task}
-                addedIds={addedIds}
-                onAdd={handleAdd}
-                onComplete={handleComplete}
-                onOpen={setSelectedTask}
+                density="plan"
+                className={LISTA_FILA_ALTO}
+                struck={struck.has(task.id)}
+                onComplete={() => handleToggle(task)}
+                onOpen={() => setSelectedTask(task)}
+                trailing={
+                  task.status === 'done' ? (
+                    <span className="-mr-2 block min-h-[2.85rem] min-w-[5.6rem]" aria-hidden />
+                  ) : (
+                    <AddToPlan added={added} onAdd={() => handleAdd(task as SuggestedTask)} title={task.title} />
+                  )
+                }
               />
-            ))}
-          </div>
-        )}
-      </section>
-
-      {selectedTask && (
-        <TaskDetailSheet
-          task={selectedTask}
-          systemId={selectedTask.systemId}
-          open={!!selectedTask}
-          onOpenChange={(open) => { if (!open) setSelectedTask(null); }}
-        />
+            );
+          })}
+        </div>
       )}
-    </>
+
+      <TaskDetailSheet
+        task={selectedTask}
+        systemId={selectedTask?.systemId ?? ''}
+        open={selectedTask !== null}
+        onOpenChange={(open) => {
+          if (!open) setSelectedTask(null);
+        }}
+        onComplete={(task) => handleToggle(task)}
+      />
+    </section>
   );
-}
+});

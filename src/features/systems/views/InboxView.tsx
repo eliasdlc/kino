@@ -12,6 +12,7 @@ import { CascadeInboxMode } from '@/features/tasks/CascadeInboxMode';
 import { TaskDetailSheet } from '@/features/tasks/TaskDetailSheet';
 import { useQuickAddStore } from '@/features/tasks/quick-add.store';
 import { useTasks, useToggleTask } from '@/features/tasks/tasks.hooks';
+import { conVisita, useTacharEnSitio } from '@/features/tasks/useTachar';
 import type { TaskTransport } from '@/features/tasks/tasks.types';
 import { GroupNudge } from '@/features/systems/GroupNudge';
 import { CaptureRow } from '@/features/captures/CaptureRow';
@@ -89,11 +90,17 @@ interface InboxViewProps extends SystemViewProps {
  * estado sin pregunta, así que no pasa por la cola de una sola interrupción ni
  * gasta la apertura del día (D-18).
  */
-export function InboxView({ system, initialTasks, initialCaptures, tituloComo = 'h1' }: InboxViewProps) {
+export const InboxView = conVisita(function InboxView({
+  system,
+  initialTasks,
+  initialCaptures,
+  tituloComo = 'h1',
+}: InboxViewProps) {
   const router = useRouter();
   const tituloId = useId();
   const { data: tasks = [] } = useTasks(system.id, initialTasks);
   const { mutate: toggle } = useToggleTask(system.id);
+  const { struck, handleToggle, estadoDe } = useTacharEnSitio(toggle);
   const { data: capturas = [] } = useCaptures(initialCaptures);
   const { mutate: confirmar, isPending: enviando } = useConfirmCapture();
   const { mutate: descartar } = useDiscardCapture();
@@ -108,10 +115,6 @@ export function InboxView({ system, initialTasks, initialCaptures, tituloComo = 
   useEffect(() => {
     hojaAbierta.current = confirmando?.id ?? null;
   }, [confirmando]);
-  // Las tachadas en esta visita: siguen en su fila aunque el servidor ya las
-  // cuente como hechas, y el Deshacer sólo devuelve lo que se tachó aquí.
-  const [tachadas, setTachadas] = useState<ReadonlySet<string>>(() => new Set());
-  const avisos = useRef(new Map<string, string | number>());
   // Las capturas descartadas que todavía se pueden deshacer: fuera de la
   // lista ya, con su mutación esperando en un temporizador.
   const [descartando, setDescartando] = useState<ReadonlySet<string>>(() => new Set());
@@ -130,7 +133,8 @@ export function InboxView({ system, initialTasks, initialCaptures, tituloComo = 
   }, [descartar]);
 
   const pending = tasks.filter((task) => task.status !== 'done');
-  const enLista = tasks.filter((task) => task.status !== 'done' || tachadas.has(task.id));
+  // Una completada aquí se queda en su renglón, tachada, hasta la siguiente visita.
+  const enLista = tasks.filter((task) => estadoDe(task) !== 'done');
   const visibles = capturas.filter((captura) => !descartando.has(captura.id));
   const sinConfirmar = visibles.filter((captura) => captura.status === 'pending');
   const visible = enLista.slice(0, ITEMS_VISIBLES);
@@ -150,33 +154,6 @@ export function InboxView({ system, initialTasks, initialCaptures, tituloComo = 
       : pending.length > 1
         ? 'Ábrelas para mandarlas a un sistema, o déjalas ahí.'
         : null;
-
-  function deshacer(task: TaskTransport) {
-    if (!avisos.current.has(task.id)) return;
-    avisos.current.delete(task.id);
-    setTachadas((prev) => {
-      const next = new Set(prev);
-      next.delete(task.id);
-      return next;
-    });
-    toggle(task.id);
-  }
-
-  function completar(task: TaskTransport) {
-    if (avisos.current.has(task.id)) {
-      // El círculo de una tachada la devuelve: su aviso ya no tiene qué deshacer.
-      toast.dismiss(avisos.current.get(task.id));
-      deshacer(task);
-      return;
-    }
-    setTachadas((prev) => new Set(prev).add(task.id));
-    toggle(task.id);
-    const aviso = toast(`Hecha: ${task.title}`, {
-      duration: DESHACER_MS,
-      action: { label: 'Deshacer', onClick: () => deshacer(task) },
-    });
-    avisos.current.set(task.id, aviso);
-  }
 
   function devolverCaptura(id: string) {
     const temporizador = porDescartar.current.get(id);
@@ -267,8 +244,8 @@ export function InboxView({ system, initialTasks, initialCaptures, tituloComo = 
               <InboxTaskRow
                 key={task.id}
                 task={task}
-                tachada={tachadas.has(task.id)}
-                onComplete={() => completar(task)}
+                tachada={struck.has(task.id) || task.status === 'done'}
+                onComplete={() => handleToggle(task)}
                 onOpen={() => setOpen(task)}
               />
             ))}
@@ -310,7 +287,7 @@ export function InboxView({ system, initialTasks, initialCaptures, tituloComo = 
       />
     </section>
   );
-}
+});
 
 /**
  * Una tarea de Bandeja: el círculo de completar de 48 px en el margen, el

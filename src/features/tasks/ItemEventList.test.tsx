@@ -21,8 +21,8 @@ describe("ItemEventList", () => {
       convex: conEventos({ items: [creadoPorElAgente, editadoPorOtra], restantes: 0 }),
     });
 
-    expect(screen.getByText(/Tu agente creó esta tarea · hace 2 minutos/)).toBeVisible();
-    expect(screen.getByText(/Otra persona editó esta tarea · hace 3 horas/)).toBeVisible();
+    expect(screen.getByText(/Tu agente creó esta tarea, hace 2 minutos/)).toBeVisible();
+    expect(screen.getByText(/Otra persona editó esta tarea, hace 3 horas/)).toBeVisible();
   });
 
   it("el nombre de otra persona no llega a la pantalla, pero su vía sí", () => {

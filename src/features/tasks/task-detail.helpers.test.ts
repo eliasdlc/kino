@@ -56,7 +56,7 @@ function form(partial: Partial<TaskDetailFormState> = {}): TaskDetailFormState {
   } as TaskDetailFormState;
 }
 
-describe("buildDirtyTaskData · sin cambios", () => {
+describe("buildDirtyTaskData, sin cambios", () => {
   it("no manda nada cuando el formulario refleja la tarea", () => {
     expect(buildDirtyTaskData(task(), form())).toEqual({});
   });
@@ -77,7 +77,7 @@ describe("buildDirtyTaskData · sin cambios", () => {
   });
 });
 
-describe("buildDirtyTaskData · campos simples", () => {
+describe("buildDirtyTaskData, campos simples", () => {
   it("manda sólo lo que cambió", () => {
     const data = buildDirtyTaskData(task(), form({ priority: "critical" }));
     expect(data).toEqual({ priority: "critical" });
@@ -98,7 +98,7 @@ describe("buildDirtyTaskData · campos simples", () => {
   });
 });
 
-describe("buildDirtyTaskData · fechas", () => {
+describe("buildDirtyTaskData, fechas", () => {
   it("manda la fecha como ISO conservando la hora", () => {
     const d = new Date("2026-03-04T15:30:00.000Z");
     const data = buildDirtyTaskData(task(), form({ dueDate: d }));
@@ -125,7 +125,7 @@ describe("buildDirtyTaskData · fechas", () => {
   });
 });
 
-describe("buildDirtyTaskData · selects con opción 'none'", () => {
+describe("buildDirtyTaskData, selects con opción 'none'", () => {
   it("'none' significa null, no el string", () => {
     const data = buildDirtyTaskData(
       task({ folderId: "f1", sprintId: "s1" }),
@@ -141,7 +141,7 @@ describe("buildDirtyTaskData · selects con opción 'none'", () => {
   });
 });
 
-describe("buildDirtyTaskData · metadata", () => {
+describe("buildDirtyTaskData, metadata", () => {
   it("compara por contenido, no por referencia", () => {
     const data = buildDirtyTaskData(
       task({ metadata: { eventSubtype: "exam" } }),

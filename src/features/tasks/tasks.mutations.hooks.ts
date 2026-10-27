@@ -6,11 +6,13 @@ import { api } from "@convex/_generated/api";
 import { useConvexMutation } from "@/shared/convex/hooks";
 import { type UpdateTaskInput } from "./tasks.types";
 import { trackOnce } from "@/shared/observability/analytics.client";
+import { toggleLocally } from "./tasks.optimistic";
 
 /**
  * Mutaciones de una tarea: crear, editar, completar, borrar y restaurar.
  * Las listas son suscripciones, así que aquí no hay caché que corregir a mano:
- * cada mutación escribe y Convex empuja el cambio a todas las vistas.
+ * cada mutación escribe y Convex empuja el cambio a todas las vistas. La única
+ * optimista es completar (`toggleLocally`): el círculo no espera al viaje.
  */
 
 const statusLabel: Record<string, string> = {
@@ -31,7 +33,7 @@ export function useCreateTask(_systemId: string, _folderId?: string) {
       // Mensaje neutro con el destino real (sirve desde QuickAdd global o desde
       // un sistema): no asume que haya un "Action tab" en pantalla.
       const where = statusLabel[newTask.status] ?? "tu lista";
-      toast.success(`"${newTask.title}" creada · ${where}`);
+      toast.success(`"${newTask.title}" creada en ${where}`);
     },
     onError: (err) => toast.error(err.message ?? "No se pudo crear la tarea"),
   });
@@ -40,6 +42,7 @@ export function useCreateTask(_systemId: string, _folderId?: string) {
 export function useToggleTask(_systemId: string, _folderId?: string) {
   return useConvexMutation(api.tasks.toggle, {
     map: (taskId: string) => ({ id: taskId }),
+    optimisticUpdate: toggleLocally,
     onError: (err) => toast.error(err.message ?? "No se pudo actualizar la tarea"),
   });
 }

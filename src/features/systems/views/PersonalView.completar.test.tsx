@@ -5,7 +5,7 @@
  * Deshacer, que la devuelve a pendiente una sola vez.
  */
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { fireEvent, screen } from "@testing-library/react";
+import { act, fireEvent, screen } from "@testing-library/react";
 import { makeSystem, makeTask, mid } from "@/app/system-design/mock-data";
 import { renderMobile } from "@/shared/testing/render";
 import type { TaskTransport } from "@/features/tasks/tasks.types";
@@ -26,9 +26,16 @@ const toggle = vi.fn((taskId: string) => {
   tareas = tareas.map((t) => (t.id === taskId ? { ...t, status: t.status === "done" ? "today" : "done" } : t)) as TaskTransport[];
 });
 
+// Reabrir (el Deshacer) viaja por `mutateAsync` y devuelve la tarea como queda.
+const reabrir = vi.fn(async (taskId: string) => {
+  toggle(taskId);
+  return tareas.find((t) => t.id === taskId)!;
+});
+
 vi.mock("@/features/tasks/tasks.hooks", () => ({
   useTasks: () => ({ data: tareas }),
-  useToggleTask: () => ({ mutate: toggle }),
+  useToggleTask: () => ({ mutate: toggle, mutateAsync: reabrir }),
+  useUpdateTask: () => ({ mutateAsync: vi.fn(async () => undefined) }),
 }));
 vi.mock("@/features/folders/folders.hooks", () => ({ useFolders: () => ({ data: [] }) }));
 vi.mock("@/features/tasks/CreateTaskDialog", () => ({ CreateTaskDialog: () => null }));
@@ -42,13 +49,14 @@ describe("PersonalView, completar", () => {
   beforeEach(() => {
     toastMock.mockClear();
     toggle.mockClear();
+    reabrir.mockClear();
     tareas = [
       makeTask({ id: mid("a"), systemId: CASA.id, title: "Caminar", status: "today" }),
       makeTask({ id: mid("b"), systemId: CASA.id, title: "Regar las plantas", status: "today" }),
     ];
   });
 
-  it("tacha la fila en su sitio y ofrece Deshacer, que la devuelve una sola vez", () => {
+  it("tacha la fila en su sitio y ofrece Deshacer, que la devuelve una sola vez", async () => {
     const { rerender } = renderMobile(<PersonalView system={CASA} initialTasks={tareas} />);
 
     fireEvent.click(screen.getByRole("button", { name: "Completar Caminar" }));
@@ -67,9 +75,11 @@ describe("PersonalView, completar", () => {
     expect(opciones.duration).toBe(4000);
     expect(opciones.action.label).toBe("Deshacer");
 
-    opciones.action.onClick();
-    opciones.action.onClick();
-    expect(toggle).toHaveBeenCalledTimes(2);
+    await act(async () => {
+      opciones.action.onClick();
+      opciones.action.onClick();
+    });
+    expect(reabrir).toHaveBeenCalledTimes(1);
     rerender(<PersonalView system={CASA} initialTasks={tareas} />);
     expect(screen.getByRole("button", { name: "Completar Caminar" })).toHaveAttribute("aria-pressed", "false");
   });

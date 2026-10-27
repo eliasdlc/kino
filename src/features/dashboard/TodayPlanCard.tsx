@@ -11,6 +11,7 @@ import {
   useRemoveFromPlan,
 } from '@/features/tasks/tasks.hooks';
 import { useFocusTimer } from '@/features/tasks/FocusTimerProvider';
+import { TaskDetailSheet } from '@/features/tasks/TaskDetailSheet';
 import { userTomorrow } from '@/shared/time';
 import { PlanTaskRow } from './PlanTaskRow';
 import { SectionHead } from './SectionHead';
@@ -112,6 +113,7 @@ export function TodayPlanCard({ noProfile, energyItems }: TodayPlanCardProps) {
   const { openModeDialog } = useFocusTimer();
 
   const [showConfetti, setShowConfetti] = useState(false);
+  const [abierta, setAbierta] = useState<TaskTransport | null>(null);
   const confettiTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   useEffect(() => () => {
     if (confettiTimer.current) clearTimeout(confettiTimer.current);
@@ -248,6 +250,7 @@ export function TodayPlanCard({ noProfile, energyItems }: TodayPlanCardProps) {
                 task={task}
                 struck={struck.has(task.id)}
                 onComplete={() => handleToggle(task)}
+                onOpen={() => setAbierta(task)}
                 onMoveToTomorrow={() =>
                   moveToTomorrow({
                     taskId: task.id,
@@ -266,6 +269,16 @@ export function TodayPlanCard({ noProfile, energyItems }: TodayPlanCardProps) {
           )}
         </div>
       )}
+
+      <TaskDetailSheet
+        task={abierta}
+        systemId={abierta?.systemId ?? ''}
+        open={abierta !== null}
+        onComplete={handleToggle}
+        onOpenChange={(open) => {
+          if (!open) setAbierta(null);
+        }}
+      />
     </section>
   );
 }

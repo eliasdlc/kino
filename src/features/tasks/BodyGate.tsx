@@ -28,12 +28,14 @@ export function BodyGate({ body, onConvert }: BodyGateProps) {
   if (!visible) return null;
 
   return (
-    <div className="flex items-center gap-3 rounded-xl border border-border bg-card px-3 py-2.5 text-sm">
-      <p className="min-w-0 text-foreground/80">Esto ya es una página.</p>
+    // Un renglón con hairline, no un aviso en caja: es una línea más de la
+    // hoja, debajo de lo que acabas de escribir.
+    <div className="flex items-center gap-3 border-t border-border py-1 text-sm">
+      <p className="min-w-0 font-voice text-base text-body italic">Esto ya es una página.</p>
       <button
         type="button"
         onClick={onConvert}
-        className="ml-auto min-h-12 shrink-0 rounded-full px-3 text-sm font-semibold text-primary transition-colors hover:bg-primary/10"
+        className="focus-ring ml-auto min-h-[2.85rem] shrink-0 rounded-full px-3 text-sm font-semibold text-primary transition-[background-color] duration-(--dur-toque) ease-(--ease-pluma) hover:bg-primary/10"
       >
         Convertirla
       </button>
