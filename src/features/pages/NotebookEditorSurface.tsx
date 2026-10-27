@@ -17,6 +17,7 @@ import { StickyNoteCreator } from "@/features/sticky-notes/StickyNoteCreator";
 import { SelectionToolbar } from "@/features/sticky-notes/SelectionToolbar";
 import { useStickyNotesByPage } from "@/features/sticky-notes/sticky-notes.hooks";
 import { useNotebookMetrics } from "@/features/sticky-notes/use-notebook-metrics";
+import { ReviewBridge } from "@/features/reviews/ReviewBridge";
 import type { PageDetailTransport } from "./pages.types";
 import { usePrimeraPintura } from "./primera-pintura";
 
@@ -425,6 +426,8 @@ export default function NotebookEditorSurface({
           <AnchorBridge notes={allNotes} />
           {/* Y cada frase anotada, con el color de papel de la nota que la comenta. */}
           <AnchorPaint notes={allNotes} />
+          {/* Los comentarios de revisión: su resaltado, y el editor prestado al panel. */}
+          <ReviewBridge pageId={page.id} />
 
           {writer && (
             <WriterStatusBar

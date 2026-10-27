@@ -137,6 +137,17 @@
   --warn: #a83f22;
   --ok: #1e7a45;
   --danger: #b3123a;
+  /* La paleta de la revisión: un color por tipo de comentario. Es física como
+     la de las notas adhesivas, y esquiva los hues que ya dicen algo: el rojo
+     de lo irreversible, el coral de lo vencido, el ámbar de la acción y el
+     verde de lo hecho. Redacción va en el gris de los metadatos porque es lo
+     más pequeño que se arregla. Oscuro, más abajo, sube la luminosidad. */
+  --rv-structure: #6d4bc4;
+  --rv-argument: #2563a8;
+  --rv-evidence: #0f7a73;
+  --rv-clarity: #5f7012;
+  --rv-style: #a23a8f;
+  --rv-grammar: var(--mute);
   --ac-text: color-mix(in srgb, var(--ac) 72%, var(--ink));
   --warn-text: color-mix(in srgb, var(--warn) 72%, var(--ink));
   --ok-text: color-mix(in srgb, var(--ok) 72%, var(--ink));
@@ -237,6 +248,11 @@
   --warn: #e8836a;
   --ok: #5fcb8a;
   --danger: #ff5c7a;
+  --rv-structure: #b39dfa;
+  --rv-argument: #7fb2f0;
+  --rv-evidence: #5fd1c6;
+  --rv-clarity: #bfd36a;
+  --rv-style: #e597d6;
   /* En oscuro el rol ya contrasta sobre su tinte: el texto del par es el rol. */
   --ac-text: color-mix(in srgb, var(--ac) 60%, var(--ink));
   --warn-text: color-mix(in srgb, var(--warn) 60%, var(--ink));
@@ -700,6 +716,44 @@
   padding: 0.05em 0.12em;
   -webkit-box-decoration-break: clone;
   box-decoration-break: clone;
+}
+
+/* ── Fragmentos con comentario de revisión ──────────────────────────────────
+   El color dice el tipo y el peso de la raya la importancia: crítico grueso,
+   importante normal, detalle punteado. En reposo el fragmento lleva un lavado
+   muy suave de su color, que basta para ver de un vistazo qué clase de
+   problema hay y dónde; el activo lo sube, y eso dice «este es el que estás
+   mirando». Una pregunta de la persona, que no tiene tipo, va en ámbar. */
+.review-anchor {
+  --rv: var(--ac);
+  text-decoration-line: underline;
+  text-decoration-color: var(--rv);
+  text-decoration-thickness: 0.12em;
+  text-underline-offset: 0.24em;
+  text-decoration-skip-ink: none;
+  background: color-mix(in srgb, var(--rv) 13%, transparent);
+  cursor: pointer;
+  border-radius: 0.2rem;
+  -webkit-box-decoration-break: clone;
+  box-decoration-break: clone;
+  transition: background-color 200ms ease-out;
+}
+.review-cat-structure { --rv: var(--rv-structure); }
+.review-cat-argument { --rv: var(--rv-argument); }
+.review-cat-evidence { --rv: var(--rv-evidence); }
+.review-cat-clarity { --rv: var(--rv-clarity); }
+.review-cat-style { --rv: var(--rv-style); }
+.review-cat-grammar { --rv: var(--rv-grammar); }
+.review-anchor-critical {
+  text-decoration-thickness: 0.2em;
+}
+.review-anchor-suggestion,
+.review-anchor-question {
+  text-decoration-style: dotted;
+}
+.review-anchor-active,
+.review-anchor:hover {
+  background: color-mix(in srgb, var(--rv) 28%, transparent);
 }
 
 /* Ancla de posicion: sostiene la nota junto a su parrafo y no marca nada. */

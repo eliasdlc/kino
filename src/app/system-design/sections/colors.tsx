@@ -50,6 +50,16 @@ const SEMANTIC_TOKENS: Array<{ token: string; usage: string }> = [
   { token: "ring", usage: "Focus ring (focus-visible)" },
 ];
 
+/** La revisión de documentos: un color por tipo de comentario (globals.css, `--rv-*`). */
+const REVIEW_TOKENS: Array<{ token: string; usage: string }> = [
+  { token: "rv-structure", usage: "Estructura: violeta" },
+  { token: "rv-argument", usage: "Argumento: azul" },
+  { token: "rv-evidence", usage: "Evidencia: verde azulado" },
+  { token: "rv-clarity", usage: "Claridad: oliva" },
+  { token: "rv-style", usage: "Estilo: fucsia" },
+  { token: "rv-grammar", usage: "Redacción: el gris de los metadatos" },
+];
+
 const CHART_TOKENS: Array<{ token: string; usage: string }> = [
   { token: "chart-1", usage: "Serie 1" },
   { token: "chart-2", usage: "Serie 2" },
@@ -94,7 +104,7 @@ export function ColorsSection() {
       id="colores"
       number="01"
       title="Colores"
-      description="Todo color de Kino sale de un rol (globals.css). El acento es el ámbar (hue 38) y la escala neutra entera va teñida con ese hue a saturación 12: papel, no gris. Los roles también son clases: bg-sf2, text-mute, border-ln2. Los componentes nunca usan colores directos salvo las tres paletas físicas de abajo."
+      description="Todo color de Kino sale de un rol (globals.css). El acento es el ámbar (hue 38) y la escala neutra entera va teñida con ese hue a saturación 12: papel, no gris. Los roles también son clases: bg-sf2, text-mute, border-ln2. Los componentes nunca usan colores directos salvo las cuatro paletas físicas de abajo: colores de sistema, sticky notes, revisión y energía."
     >
       <SubSection
         title="Roles"
@@ -182,6 +192,16 @@ export function ColorsSection() {
               <span className="font-mono text-[10px] opacity-70">{c.hex}</span>
             </div>
           ))}
+        </div>
+      </SubSection>
+
+      <SubSection
+        title="Revisión: un color por tipo"
+        description="El tipo de un comentario de revisión se ve en su color: el subrayado y el lavado del fragmento, la franja de la tarjeta y la leyenda del panel. Esquiva el rojo de lo irreversible, el coral de lo vencido, el ámbar de la acción y el verde de lo hecho. La importancia no va en color: va en el peso de la raya y en la señal de tres barras."
+      >
+        <TokenGrid tokens={REVIEW_TOKENS} />
+        <div className="mt-3">
+          <DarkPreview tokens={REVIEW_TOKENS} />
         </div>
       </SubSection>
 

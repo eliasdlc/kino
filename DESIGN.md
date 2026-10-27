@@ -62,7 +62,9 @@ Contrastes WCAG (luminancia relativa) sobre `--bg`, claro / oscuro: ink 15,4 / 1
 
 Los estados de tarea acompañan a la palabra y nunca la sustituyen: vencida es `--warn` con "vencida" delante, hecha es `--ok` con el check, crítica y alta son peso y orden en tinta, no color (`globals.css:155-165`, DECISIONS:50).
 
-Tres paletas físicas viven fuera de los roles, a propósito (`src/app/system-design/sections/colors.tsx:93`): los once colores de sistema (`colors.tsx:130`, safelist en `globals.css:7-10`), el papel de las notas adhesivas (`colors.tsx:168`) y los tres niveles de energía, alto verde, medio amarillo, bajo rojo (`colors.tsx:186`).
+Cuatro paletas físicas viven fuera de los roles, a propósito (`src/app/system-design/sections/colors.tsx`): los once colores de sistema (safelist en `globals.css:7-10`), el papel de las notas adhesivas, los tipos de comentario de la revisión y los tres niveles de energía, alto verde, medio amarillo, bajo rojo.
+
+La de la revisión (`--rv-*` en `globals.css`) da un color a cada tipo de comentario: estructura violeta, argumento azul, evidencia verde azulado, claridad oliva, estilo fucsia y redacción en el gris de `--mute`. Esquiva a propósito los hues que ya dicen algo: el carmesí de lo irreversible, el coral de lo vencido, el ámbar de la acción y el verde de lo hecho. Lo lleva el subrayado del fragmento, la franja de la tarjeta y la leyenda del panel; la importancia del comentario sigue en peso (la raya y una señal de tres barras), no en color.
 
 ## Acento
 
@@ -152,6 +154,7 @@ Lo que ya está decidido, con su fuente. Una corrección nueva de Elias entra aq
 - Cuatro palabras prohibidas en el copy: coach, productividad, asistente, detectamos (`scripts/check-voz.sh:93-102`).
 - Ningún nombre de tipo en texto visible (`scripts/check-voz.sh:47-55`).
 - El ámbar es el color primario ("quiero que ámbar sea el color primario", 2026-09-06, DECISIONS:44).
+- Los comentarios de revisión llevan color por tipo ("Usa color coding para ver importancia del comentario o el tipo", Elias, 2026-10-24). Se eligió el tipo y no la importancia porque la importancia en color habría caído en el rojo de lo irreversible; la importancia va en peso.
 - La nota adhesiva se pega donde la pongas y ahí se queda ("la idea es que el sticky note sea lo más parecido a un sticky note en la vida real", 2026-09-15, DECISIONS:73).
 - El acento señala y no decora; nada en bucle; sin gradiente de marca (DECISIONS:51).
 - Hoy no pone una tarjeta antes de la cifra y nada vacío ocupa espacio (`src/app/(app)/dashboard/page.tsx:20-25`, DECISIONS:50).

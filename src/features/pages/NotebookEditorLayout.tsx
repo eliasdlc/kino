@@ -7,6 +7,9 @@ import { cn } from "@/lib/utils";
 import { PageBreadcrumb } from "@/components/PageBreadcrumb";
 import { ChapterStatusToggle } from "@/features/writing/ChapterStatusToggle";
 import { WritingSessionButton } from "@/features/writing/WritingSessionButton";
+import { ReviewProvider } from "@/features/reviews/ReviewContext";
+import { ReviewPanel } from "@/features/reviews/ReviewPanel";
+import { ReviewToggle } from "@/features/reviews/ReviewToggle";
 import type { OutlineItem } from "./mediums/outline";
 import type { BreadcrumbItem } from "@/components/PageBreadcrumb";
 import type { PageDetailTransport, PageListItemTransport } from "./pages.types";
@@ -205,6 +208,9 @@ export function NotebookEditorLayout({
   }, [focusMode]);
 
   return (
+    // La revisión es de este cuaderno: el botón de la barra, el panel y el
+    // editor comparten qué comentario está encendido.
+    <ReviewProvider>
     <div className="flex h-full flex-col overflow-hidden">
       {/* El nombre de la pantalla para quien la lee con lector: el título se
           escribe en un campo, y un campo no es un encabezado. */}
@@ -234,6 +240,7 @@ export function NotebookEditorLayout({
             unit={medium?.unit}
           />
         )}
+        <ReviewToggle pageId={page.id} />
         <button
           type="button"
           onClick={openPanel}
@@ -273,6 +280,7 @@ export function NotebookEditorLayout({
             onOpenPanel={openPanel}
           />
         </PrimeraPinturaContext.Provider>
+        {!focusMode && <ReviewPanel pageId={page.id} title={livePage.title} />}
       </div>
 
       {panelMounted && (
@@ -292,5 +300,6 @@ export function NotebookEditorLayout({
         />
       )}
     </div>
+    </ReviewProvider>
   );
 }
