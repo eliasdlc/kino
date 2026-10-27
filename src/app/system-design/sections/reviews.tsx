@@ -107,7 +107,7 @@ export function ReviewsSection() {
   return (
     <Section
       id="revision"
-      number="20"
+      number="21"
       title="Revisión de documentos"
       description="El agente de la persona deja comentarios anclados a fragmentos del texto; la persona los cierra uno a uno y la barra se llena. Mide la revisión, nunca el documento."
     >
