@@ -1,7 +1,7 @@
 /**
  * Criterio: las primitivas de acción y formulario obedecen a la geometría de
  * Diario. Un botón es un pill de 2.85rem (el táctil mínimo) y la acción
- * primaria lleva el glow del acento, nunca una sombra; `xs` y `sm` no bajan
+ * primaria se distingue por el ámbar, sin sombra ni halo; `xs` y `sm` no bajan
  * de ese táctil en el teléfono y sólo encogen desde `md` con puntero fino. Un campo es un pill
  * de la misma altura y el área una superficie de 1.125rem. Todos comparten un
  * único foco visible (`focus-ring`), y el interruptor amplía su zona de toque
@@ -17,13 +17,13 @@ import { Switch } from "./switch";
 import { Textarea } from "./textarea";
 
 describe("las primitivas de acción", () => {
-  it("el botón es un pill de 2.85rem con el foco único y la primaria lleva el glow", () => {
+  it("el botón es un pill de 2.85rem con el foco único y la primaria no lleva sombra ni halo", () => {
     renderWithProviders(<Button>Guardar</Button>);
     const boton = screen.getByRole("button", { name: "Guardar" });
     expect(boton).toBeVisible();
     expect(boton.className).toContain("rounded-full");
     expect(boton.className).toContain("h-[2.85rem]");
-    expect(boton.className).toContain("var(--glow)");
+    expect(boton.className).not.toMatch(/shadow|var\(--glow\)/);
     expect(boton.className).toContain("focus-ring");
     expect(boton.className).not.toContain("ring-3");
     expect(boton.className).not.toMatch(/\[\d+px\]/);

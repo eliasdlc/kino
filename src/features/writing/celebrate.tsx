@@ -20,11 +20,13 @@ export function celebrate({
 }) {
   toast.custom(
     () => (
-      <div className="flex w-80 items-start gap-3 rounded-xl border bg-card p-4 shadow-lg">
-        <Icon className="mt-0.5 size-5 shrink-0 text-primary" />
+      // La superficie de la casa (hairline y la sombra única). El hito es algo
+      // cumplido y lleva --ok: el ámbar se queda para la acción primaria.
+      <div className="flex w-80 items-start gap-3 rounded-xl border border-border bg-popover p-4 text-popover-foreground shadow-(--shadow)">
+        <Icon aria-hidden className="mt-0.5 size-5 shrink-0 text-ok" />
         <div className="min-w-0">
-          <p className="text-sm font-medium text-foreground">{title}</p>
-          {detail && <p className="mt-0.5 text-xs text-muted-foreground">{detail}</p>}
+          <p className="text-sm font-semibold text-foreground">{title}</p>
+          {detail && <p className="mt-0.5 text-sm text-muted-foreground">{detail}</p>}
         </div>
       </div>
     ),

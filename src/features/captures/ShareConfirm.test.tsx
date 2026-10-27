@@ -1,13 +1,16 @@
 /**
- * Criterio: todo llega marcado, desmarcar lo que no sirve cuesta un toque, y
- * confirmar dice cuántos va a crear. Y ningún control se pinta sin
- * comportamiento: una captura que nadie ha leído no enseña una lista vacía con
- * un botón que no haría nada.
+ * Criterio: todo llega marcado, desmarcar lo que no sirve cuesta un toque,
+ * confirmar dice cuántos va a crear y a dónde fueron, y descartar la captura
+ * entera es otro toque también cuando el agente propuso algo. Y ningún control
+ * se pinta sin comportamiento: una captura que nadie ha leído no enseña una
+ * lista vacía, y ofrece dejarla donde está además de descartarla.
  */
 import { describe, expect, it, vi } from "vitest";
 import { screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { renderMobile } from "@/shared/testing/render";
+import { api } from "@convex/_generated/api";
+import { makeSystem, mid } from "@/app/system-design/mock-data";
+import { makeTestConvexClient, renderMobile, stubQuery } from "@/shared/testing/render";
 import { ShareConfirm } from "./ShareConfirm";
 import type { CaptureItem } from "./captures.types";
 
@@ -66,7 +69,32 @@ describe("ShareConfirm", () => {
     await userEvent.click(screen.getByRole("button", { name: /Entregar el diagrama ER/ }));
     await userEvent.click(screen.getByRole("button", { name: "Confirmar 2" }));
 
-    expect(onConfirm).toHaveBeenCalledExactlyOnceWith([0, 2]);
+    expect(onConfirm).toHaveBeenCalledExactlyOnceWith([0, 2], [{ systemId: null, nombre: "Bandeja", cuenta: 2 }]);
+  });
+
+  it("un item desmarcado se puede volver a marcar", async () => {
+    pintar();
+    const item = screen.getByRole("button", { name: /Repasar el parcial/ });
+
+    await userEvent.click(item);
+    expect(item).toHaveAttribute("aria-pressed", "false");
+    await userEvent.click(item);
+
+    expect(item).toHaveAttribute("aria-pressed", "true");
+    expect(screen.getByRole("button", { name: "Confirmar 3" })).toBeEnabled();
+  });
+
+  it("mientras la confirmación va de camino el botón dice Confirmando y no se toca dos veces", async () => {
+    const onConfirm = vi.fn();
+    renderMobile(
+      <ShareConfirm captura={captura()} open enviando onOpenChange={() => {}} onConfirm={onConfirm} onDiscard={vi.fn()} />,
+    );
+
+    const boton = screen.getByRole("button", { name: "Confirmando" });
+    expect(boton).toBeDisabled();
+    await userEvent.click(boton);
+    expect(onConfirm).not.toHaveBeenCalled();
+    expect(screen.queryByRole("button", { name: /^Confirmar \d/ })).toBeNull();
   });
 
   it("sin nada marcado el botón lo dice y no deja confirmar", async () => {
@@ -88,6 +116,20 @@ describe("ShareConfirm", () => {
     expect(onConfirm).not.toHaveBeenCalled();
   });
 
+  it("la que nadie leyó se puede dejar donde está, sin descartarla", async () => {
+    const onOpenChange = vi.fn();
+    const onDiscard = vi.fn();
+    renderMobile(
+      <ShareConfirm captura={captura({ proposedItems: null })} open onOpenChange={onOpenChange} onConfirm={vi.fn()} onDiscard={onDiscard} />,
+    );
+
+    expect(screen.getByRole("link", { name: "Cómo conectar tu agente" })).toHaveAttribute("href", "/docs#mcp");
+    await userEvent.click(screen.getByRole("button", { name: "Dejarla aquí" }));
+
+    expect(onOpenChange).toHaveBeenCalledWith(false);
+    expect(onDiscard).not.toHaveBeenCalled();
+  });
+
   it("descartar la que nadie leyó es una decisión, y se pide una vez", async () => {
     const { onDiscard } = pintar(captura({ proposedItems: null }));
 
@@ -105,6 +147,103 @@ describe("ShareConfirm", () => {
   it("la nota que el agente puso en un item se lee debajo de su título", () => {
     pintar();
 
-    expect(screen.getByText("Tesis")).toBeVisible();
+    expect(screen.getByText(/Tesis/)).toBeVisible();
+  });
+
+  it("cada item dice a dónde va: el sistema propuesto o Bandeja", () => {
+    pintar();
+
+    expect(screen.getAllByText(/^a Bandeja/)).toHaveLength(PROPUESTOS.length);
+  });
+
+  it("una captura mal leída se descarta entera sin desmarcar uno por uno", async () => {
+    const { onDiscard, onConfirm } = pintar();
+
+    await userEvent.click(screen.getByRole("button", { name: "Descartar la captura" }));
+
+    expect(onDiscard).toHaveBeenCalledOnce();
+    expect(onConfirm).not.toHaveBeenCalled();
+  });
+
+  it("lo que se desmarcó en una captura no pasa a la siguiente", async () => {
+    const ver = (item: CaptureItem | null, open: boolean) => (
+      <ShareConfirm captura={item} open={open} onOpenChange={() => {}} onConfirm={vi.fn()} onDiscard={vi.fn()} />
+    );
+    const { rerender } = renderMobile(ver(captura(), true));
+    await userEvent.click(screen.getByRole("button", { name: /Repasar el parcial/ }));
+    expect(screen.getByRole("button", { name: "Confirmar 2" })).toBeVisible();
+
+    // Bandeja cierra la hoja vaciando la captura, no por el diálogo.
+    rerender(ver(null, false));
+    rerender(ver(captura({ id: "cap-2" as CaptureItem["id"] }), true));
+
+    expect(screen.getByRole("button", { name: "Confirmar 3" })).toBeVisible();
+  });
+
+  it("mientras la hoja se cierra sigue mostrando la captura, no la de «nadie la ha leído»", () => {
+    const ver = (item: CaptureItem | null, open: boolean) => (
+      <ShareConfirm captura={item} open={open} onOpenChange={() => {}} onConfirm={vi.fn()} onDiscard={vi.fn()} />
+    );
+    const { rerender } = renderMobile(ver(captura(), true));
+
+    // Bandeja vacía la captura en cuanto confirmar sale; la hoja tarda en irse.
+    rerender(ver(null, false));
+
+    const hoja = document.querySelector('[data-slot="drawer-content"]');
+    expect(hoja).toHaveAttribute("data-state", "closed");
+    expect(screen.getByText("3 tareas propuestas")).toBeInTheDocument();
+    expect(screen.queryByText("Todavía nadie la ha leído")).toBeNull();
+    expect(screen.queryByRole("button", { name: "Descartarla" })).toBeNull();
+  });
+
+  it("la última se guarda al abrir con una captura, que es como Bandeja monta la hoja: vacía", () => {
+    const ver = (item: CaptureItem | null, open: boolean) => (
+      <ShareConfirm captura={item} open={open} onOpenChange={() => {}} onConfirm={vi.fn()} onDiscard={vi.fn()} />
+    );
+    const { rerender } = renderMobile(ver(null, false));
+    rerender(ver(captura(), true));
+    rerender(ver(null, false));
+
+    const hoja = document.querySelector('[data-slot="drawer-content"]');
+    expect(hoja).toHaveAttribute("data-state", "closed");
+    expect(screen.getByText("3 tareas propuestas")).toBeInTheDocument();
+    expect(screen.queryByText("Todavía nadie la ha leído")).toBeNull();
+  });
+
+  it("una captura caducada lo dice y no ofrece Confirmar, que el servidor rechaza", async () => {
+    const { onConfirm, onDiscard } = pintar(captura({ status: "expired", diasRestantes: 0 }));
+
+    expect(screen.getByText("Caducó sin confirmar")).toBeVisible();
+    expect(screen.queryByRole("button", { name: /Confirmar|No queda nada marcado/ })).toBeNull();
+    await userEvent.click(screen.getByRole("button", { name: "Descartarla" }));
+    expect(onDiscard).toHaveBeenCalledOnce();
+    expect(onConfirm).not.toHaveBeenCalled();
+  });
+
+  it("un item propuesto para un sistema dice su nombre y confirma contándolo en ese destino", async () => {
+    const tesis = makeSystem({ id: mid("sys-1"), name: "Tesis" });
+    const onConfirm = vi.fn();
+    renderMobile(
+      <ShareConfirm
+        captura={captura({ proposedItems: [{ title: "Escribir la intro", systemId: tesis.id }, { title: "Pedir la rúbrica" }] })}
+        open
+        onOpenChange={() => {}}
+        onConfirm={onConfirm}
+        onDiscard={vi.fn()}
+      />,
+      { convex: makeTestConvexClient([stubQuery(api.systems.list, [tesis])]) },
+    );
+
+    expect(screen.getByText(/^a Tesis/)).toBeVisible();
+    expect(screen.getByText(/^a Bandeja/)).toBeVisible();
+    await userEvent.click(screen.getByRole("button", { name: "Confirmar 2" }));
+
+    expect(onConfirm).toHaveBeenCalledExactlyOnceWith(
+      [0, 1],
+      [
+        { systemId: tesis.id, nombre: "Tesis", cuenta: 1 },
+        { systemId: null, nombre: "Bandeja", cuenta: 1 },
+      ],
+    );
   });
 });

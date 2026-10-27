@@ -1,38 +1,67 @@
 "use client";
 
 import { useState } from "react";
-import { CheckCircle2, Circle, Loader2 } from "lucide-react";
+import { CheckCircle2, Circle } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { MarginRow } from "@/components/ui/margin-row";
+import { usePage } from "@/features/pages/pages.hooks";
 import { useToggleChapterComplete } from "./writing.hooks";
 import { useCelebrateOnce } from "./celebrate";
+import { unidadDe } from "./unidad";
+import type { MediumUnit } from "@/shared/lib/mediums";
 
 /**
  * El check de estado del capítulo (PLAN-11 §7). Terminar un capítulo es el hito
  * más frecuente de una obra larga, así que se marca desde el propio editor y
  * entra solo al diario: no hay un formulario de hitos en ninguna parte.
+ *
+ * Terminado es `--ok` con su palabra, como una tarea hecha, y nunca el ámbar:
+ * el ámbar es de la acción. Mientras se guarda, la palabra lo dice («Guardando»)
+ * en vez de girar un icono. Dos formas: la palabra de la barra del escritorio
+ * (`barra`) y la fila del panel del teléfono (`fila`), con el círculo en el
+ * margen y 48 px de alto.
+ *
+ * El nombre ya dice el estado y lo que hace el toque («En curso: marcar la
+ * escena como terminada»), así que no lleva `aria-pressed`: un lector no lo
+ * repite dos veces. El sustantivo concuerda con el medium (la escena, la
+ * entrega, el episodio). En la barra, la palabra reserva el ancho de la más
+ * larga para no empujar al vecino al cambiar.
  */
+const PALABRAS = ["En curso", "Guardando", "Terminado"] as const;
+
 export function ChapterStatusToggle({
   pageId,
   systemId,
   title,
   initialCompletedAt,
-  unitNoun = "capítulo",
+  unit,
+  variant = "barra",
 }: {
   pageId: string;
   systemId: string;
   title: string | null;
   initialCompletedAt: Date | string | null;
-  unitNoun?: string;
+  /** La unidad del medium; sin ella, «capítulo». */
+  unit?: MediumUnit | null;
+  variant?: "barra" | "fila";
 }) {
-  const [completed, setCompleted] = useState(initialCompletedAt !== null);
+  const u = unidadDe(unit);
+  // El valor vivo manda: el panel del teléfono se desmonta al cerrarse y el
+  // snapshot del servidor con que se monta se queda viejo. `initialCompletedAt`
+  // sólo cubre el instante antes de la primera lectura.
+  const { data: pagina } = usePage(pageId);
+  const guardado = (pagina ? pagina.completedAt : initialCompletedAt) !== null;
+  const [esperado, setEsperado] = useState<boolean | null>(null);
+  const completed = esperado ?? guardado;
   const { mutate: toggle, isPending } = useToggleChapterComplete(pageId, systemId);
   const celebrateOnce = useCelebrateOnce();
 
   function handleClick() {
+    if (isPending) return;
     const next = !completed;
-    setCompleted(next);
+    setEsperado(next);
     toggle(next, {
-      onError: () => setCompleted(!next),
+      onSettled: () => setEsperado(null),
       onSuccess: () => {
         if (!next) return;
         celebrateOnce(`chapter:${pageId}`, {
@@ -44,28 +73,49 @@ export function ChapterStatusToggle({
     });
   }
 
+  const Icono = completed ? CheckCircle2 : Circle;
+  const palabra = isPending ? "Guardando" : completed ? "Terminado" : "En curso";
+  const accion = completed ? `marcar ${u.el} como en curso` : `marcar ${u.el} como ${u.terminado}`;
+
+  if (variant === "fila") {
+    return (
+      <MarginRow
+        margin={<Icono aria-hidden className={cn("size-6", completed && "text-ok")} />}
+        onClick={handleClick}
+        aria-busy={isPending || undefined}
+        trailing={<span className={cn(completed && "text-ok")}>{palabra}</span>}
+      >
+        <span className="block text-base font-semibold text-foreground">
+          {completed ? `${u.Noun} ${u.terminado}` : `Marcar ${u.el} como ${u.terminado}`}
+        </span>
+        <span className="block text-sm text-muted-foreground">Entra al diario de la obra</span>
+      </MarginRow>
+    );
+  }
+
   return (
     <button
       type="button"
       onClick={handleClick}
-      disabled={isPending}
-      aria-pressed={completed}
+      aria-busy={isPending || undefined}
       className={cn(
-        "flex shrink-0 items-center gap-1.5 rounded-md px-2 py-1 text-xs transition-colors disabled:opacity-60",
-        completed
-          ? "text-primary hover:bg-accent"
-          : "text-muted-foreground hover:bg-accent hover:text-foreground",
+        "press flex h-9 shrink-0 items-center gap-1.5 rounded-full px-3 text-sm font-medium transition-[color,background-color,transform] duration-(--dur-toque) ease-(--ease-pluma) focus-ring hover:bg-secondary pointer-coarse:h-[2.85rem]",
+        completed ? "text-ok" : "text-muted-foreground hover:text-foreground",
       )}
-      title={completed ? `Marcar ${unitNoun} como en curso` : `Marcar ${unitNoun} como terminado`}
     >
-      {isPending ? (
-        <Loader2 className="size-3.5 animate-spin" />
-      ) : completed ? (
-        <CheckCircle2 className="size-3.5" />
-      ) : (
-        <Circle className="size-3.5" />
-      )}
-      <span className="hidden sm:inline">{completed ? "Terminado" : "En curso"}</span>
+      <Icono aria-hidden className="size-4" />
+      {/* Las tres palabras en la misma celda: la visible manda y las otras dos,
+          ocultas, fijan el ancho de la más larga. A la izquierda: un botón
+          centra su texto, y la palabra corta quedaría flotando. */}
+      <span className="grid text-left">
+        <span className="col-start-1 row-start-1">{palabra}</span>
+        {PALABRAS.filter((otra) => otra !== palabra).map((otra) => (
+          <span key={otra} aria-hidden className="invisible col-start-1 row-start-1">
+            {otra}
+          </span>
+        ))}
+      </span>
+      {!isPending && <span className="sr-only">: {accion}</span>}
     </button>
   );
 }

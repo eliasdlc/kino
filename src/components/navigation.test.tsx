@@ -47,6 +47,10 @@ describe("la lista única de navegación", () => {
     expect(destinoActivo("/tasks", "/tasksx")).toBe(false);
   });
 
+  it("el calendario del teléfono vuelve a Hoy, que es su puerta", () => {
+    expect(cabeceraDe("/calendar")).toEqual({ tipo: "anidada", padreHref: "/dashboard", padreLabel: "Hoy" });
+  });
+
   it("la cabecera sabe qué es raíz y a quién vuelve lo anidado", () => {
     expect(cabeceraDe("/tasks")).toEqual({ tipo: "raiz" });
     expect(cabeceraDe("/systems/abc")).toMatchObject({ tipo: "anidada", padreHref: "/systems", padreLabel: "Sistemas" });

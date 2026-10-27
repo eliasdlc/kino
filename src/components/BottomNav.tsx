@@ -86,7 +86,7 @@ export function BottomNav({ rutaActual }: { rutaActual?: string } = {}) {
         type="button"
         onClick={() => setQuickAddOpen(true)}
         aria-label="Nueva tarea"
-        className="press flex size-[2.85rem] items-center justify-center rounded-full bg-primary text-primary-foreground shadow-[0_.5em_1.4em_-.4em_var(--glow)] transition-[background-color,transform] duration-(--dur-toque) ease-(--ease-pluma) focus-ring hover:bg-primary/90"
+        className="press flex size-[2.85rem] items-center justify-center rounded-full bg-primary text-primary-foreground transition-[background-color,transform] duration-(--dur-toque) ease-(--ease-pluma) focus-ring hover:bg-primary/90"
       >
         <Plus className="size-6" />
       </button>

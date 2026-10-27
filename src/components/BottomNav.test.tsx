@@ -1,5 +1,6 @@
 /**
- * Criterio: el pie del teléfono es papel con cinco palabras y el orbe aparte.
+ * Criterio: el pie del teléfono es papel con cinco palabras y el orbe aparte,
+ * plano como los botones (sin halo: en Diario nada tiene elevación).
  * La activa es la única en ámbar y lleva el punto; Buscar abre la paleta y
  * el orbe el diálogo de nueva tarea; y con el teclado abierto el pie se
  * retira, porque si no flota encima del campo que se está escribiendo. Si
@@ -141,6 +142,12 @@ describe("BottomNav", () => {
     expect(buscarAlOrbe).toBeGreaterThanOrEqual(4);
     expect(margenDerecho).toBeGreaterThanOrEqual(8);
     expect(Math.min(...objetivos)).toBeGreaterThanOrEqual(2.85 * rem);
+  });
+
+  it("el orbe es plano, sin la sombra ni el halo que perdieron los botones", () => {
+    renderMobile(<BottomNav />);
+
+    expect(screen.getByRole("button", { name: "Nueva tarea" }).className).not.toMatch(/shadow|var\(--glow\)/);
   });
 
   it("la palabra activa es la única en ámbar y lleva el punto", () => {

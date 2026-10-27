@@ -71,15 +71,15 @@ export function SignupFlow({
   }
 
   return (
-    <div className="mx-auto flex min-h-[100dvh] w-full max-w-md flex-col gap-4 p-5">
+    <div className="mx-auto flex h-dvh w-full max-w-md flex-col gap-4 pt-[max(1.25rem,env(safe-area-inset-top))] pr-[max(1.25rem,env(safe-area-inset-right))] pb-[max(1.25rem,env(safe-area-inset-bottom))] pl-[max(1.25rem,env(safe-area-inset-left))]">
       <TrackOnMount event="onboarding_started" properties={{ segment }} />
 
-      <header className="shrink-0">
-        <h1 className="font-display text-[2rem] leading-tight font-bold tracking-[-0.03em]">
+      <header className="shrink-0 space-y-2">
+        <h1 className="font-display text-[2rem] leading-[1.05] font-bold tracking-[-0.03em]">
           ¿En qué trabajas?
         </h1>
-        <p className="mt-2 text-sm text-muted-foreground">
-          Una sola pregunta. Lo demás lo mide Kino.
+        <p className="font-voice text-[1.06rem] italic leading-snug text-body">
+          Una sola pregunta. Lo demás se mide con el uso, no se pregunta.
         </p>
       </header>
 
@@ -91,13 +91,20 @@ export function SignupFlow({
         </p>
       )}
 
-      <Button
-        onClick={enter}
-        disabled={isLoading}
-        className="h-[3.2rem] shrink-0 rounded-full text-base font-bold"
-      >
-        {isLoading ? 'Armando tu día' : 'Entrar'}
-      </Button>
+      <div className="shrink-0 space-y-2">
+        <Button
+          size="lg"
+          onClick={enter}
+          disabled={isLoading}
+          aria-busy={isLoading}
+          className="w-full text-base font-bold"
+        >
+          {isLoading ? 'Armando tu día' : 'Entrar'}
+        </Button>
+        <p className="text-center text-sm text-muted-foreground" aria-live="polite">
+          {isLoading ? 'Sembrando el sistema y el plan de hoy.' : 'Entras a Hoy con el plan sembrado para este trabajo.'}
+        </p>
+      </div>
     </div>
   );
 }

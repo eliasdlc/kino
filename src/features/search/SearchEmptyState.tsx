@@ -4,15 +4,17 @@ import { SEARCH_PER_SOURCE, SEARCH_SOURCES } from "./search.types";
  * El vacío de la búsqueda. Dice dónde miró y hasta dónde, porque un hueco que
  * enumera sus fuentes es información y un hueco que sólo dice «sin resultados»
  * es una pared: con el primero sabes que tu nota adhesiva no existe, con el
- * segundo sólo que no la encontró.
+ * segundo sólo que no la encontró. La línea principal va en la voz, como todo
+ * estado vacío de Diario; el tope, en mute debajo.
  */
 export function SearchEmptyState({ query }: { query: string }) {
   const fuentes = SEARCH_SOURCES.map((f) => f.fuente);
-  const enumeradas = `${fuentes.slice(0, -1).join(", ")} ni ${fuentes.at(-1)}`;
+  // "en A, B o C": "ni" sólo vale con la negación delante de cada una.
+  const enumeradas = `${fuentes.slice(0, -1).join(", ")} o ${fuentes.at(-1)}`;
 
   return (
     <div className="space-y-1 px-4 py-6 text-center">
-      <p className="text-sm">
+      <p className="font-voice text-base italic leading-snug text-body">
         Nada con «{query}» en {enumeradas}.
       </p>
       <p className="text-xs text-muted-foreground">
