@@ -49,7 +49,7 @@ const TOC: Array<{ id: string; number: string; label: string }> = [
   { id: "codex", number: "15", label: "Codex" },
   { id: "mediums", number: "16", label: "Bloques por medium" },
   { id: "motivacion", number: "17", label: "Motivación" },
-  { id: "onboarding", number: "18", label: "Onboarding por identidad" },
+  { id: "onboarding", number: "18", label: "Las puertas, Bandeja y el calendario" },
   { id: "componible", number: "19", label: "Sistema componible" },
   { id: "ajustes", number: "20", label: "Ajustes" },
 ];

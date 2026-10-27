@@ -2,10 +2,15 @@
 
 import { api } from "@convex/_generated/api";
 import { useConvexMutation, useConvexQuery } from "@/shared/convex/hooks";
+import type { CaptureItem } from "./captures.types";
 
-/** Lo que espera confirmación y lo que caducó sin irse todavía. */
-export function useCaptures() {
-  return useConvexQuery(api.captures.pendientes, {});
+/**
+ * Lo que espera confirmación y lo que caducó sin irse todavía. `initialData`
+ * es lo que leyó el servidor de Bandeja: con él la lista llega entera en el
+ * primer pintado y las capturas no entran después empujando a las tareas.
+ */
+export function useCaptures(initialData?: CaptureItem[]) {
+  return useConvexQuery(api.captures.pendientes, {}, { initialData });
 }
 
 /** Crea la captura en el servidor con lo que el worker dejó en el teléfono. */
