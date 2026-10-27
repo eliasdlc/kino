@@ -1,16 +1,22 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
-import { ArrowRight, Check, Tag } from "lucide-react";
+import { ArrowRight, Check } from "lucide-react";
+import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { MarginRow } from "@/components/ui/margin-row";
 import {
   ResponsiveDialog,
   ResponsiveDialogContent,
+  ResponsiveDialogDescription,
   ResponsiveDialogHeader,
   ResponsiveDialogTitle,
 } from "@/components/ui/responsive-dialog";
+import { SectionHead } from "@/features/dashboard/SectionHead";
 import { cn } from "@/lib/utils";
+import { UNA_LINEA } from "@/shared/components/una-linea";
 import type { usePlotOperation } from "./writing.hooks";
 import type { PlotChapter, PlotGrid, PlotScene } from "./writing.plot";
 
@@ -30,6 +36,16 @@ import type { PlotChapter, PlotGrid, PlotScene } from "./writing.plot";
  * Sin arrastre, a propósito. La rejilla ya decía que la vía explícita tiene que
  * existir siempre porque un arrastre accidental reescribe el manuscrito; en una
  * pantalla táctil esa vía no es la alternativa, es la única.
+ *
+ * Diario: cada capítulo abre con su numeral en el margen y su título en
+ * Literata sobre un hairline; cada escena es una fila con su número en el
+ * margen, el arranque del texto en Literata y Mover a 48 px. La hoja de mover
+ * es una hoja con nombre de filas de margen, no una lista de cajas.
+ *
+ * Mover reescribe el texto con un toque, así que la hoja dice qué escena mueve
+ * (su número, su capítulo y su arranque) y, al aplicar, un aviso dice qué pasó
+ * con Deshacer, que aplica la operación inversa. Mientras se reescribe, la
+ * pantalla lo dice en una línea que ya tenía su sitio.
  */
 
 type Apply = ReturnType<typeof usePlotOperation>["mutate"];
@@ -48,61 +64,89 @@ export function PlotSceneList({
   onApply: Apply;
 }) {
   const [moving, setMoving] = useState<{ chapterId: string; index: number } | null>(null);
+  // Los avisos de Deshacer viven más que la hoja que los creó: miran el tablero
+  // de ahora, no el de cuando se movió la escena. Al salir del tablero ya no hay
+  // ninguno que mirar (`null`), y los avisos se retiran: un Deshacer nunca actúa
+  // sobre una rejilla que quien escribe ya no ve.
+  const gridRef = useRef<PlotGrid | null>(grid);
+  useEffect(() => {
+    gridRef.current = grid;
+    return () => {
+      gridRef.current = null;
+    };
+  }, [grid]);
+  useEffect(() => retirarAviso, []);
 
-  const scene = moving
-    ? grid.chapters.find((c) => c.chapterId === moving.chapterId)?.scenes[moving.index]
-    : undefined;
+  const capituloDeLaEscena = moving ? grid.chapters.findIndex((c) => c.chapterId === moving.chapterId) : -1;
+  const scene = moving ? grid.chapters[capituloDeLaEscena]?.scenes[moving.index] : undefined;
+  const tituloDelCapitulo = tituloDe(grid.chapters[capituloDeLaEscena], capituloDeLaEscena);
 
   return (
-    <div className="space-y-4">
-      <p className="text-xs text-muted-foreground">
-        Las escenas salen del texto. Moverlas reescribe el capítulo, así que no hay un orden
-        aparte que se pueda desincronizar.
-      </p>
+    <div className="space-y-6">
+      <div className="pl-(--margen)">
+        <p className="text-sm text-muted-foreground">{AYUDA_DEL_TABLERO}</p>
+        {/* El sitio de la frase está siempre: aparecer no empuja el tablero. */}
+        <p role="status" className="min-h-6 text-sm font-medium text-foreground">
+          {busy ? "Reescribiendo el capítulo" : ""}
+        </p>
+      </div>
 
-      {grid.chapters.map((chapter, i) => (
-        <section key={chapter.chapterId} className="space-y-1.5">
-          <div className="flex items-baseline justify-between gap-3">
-            <Link
-              href={`/systems/${systemId}/pages/${chapter.chapterId}`}
-              className="min-w-0 truncate text-sm font-medium hover:underline"
-            >
-              {chapter.title?.trim() || `Capítulo ${i + 1}`}
-            </Link>
-            <span className="shrink-0 font-mono text-[11px] text-muted-foreground">
-              {chapter.scenes.length === 1 ? "1 escena" : `${chapter.scenes.length} escenas`}
-            </span>
-          </div>
+      {grid.chapters.map((chapter, i) => {
+        const titulo = tituloDe(chapter, i);
+        return (
+          <section key={chapter.chapterId} aria-labelledby={`capitulo-${chapter.chapterId}`}>
+            <div className="grid grid-cols-[var(--margen)_1fr_auto] items-baseline gap-y-1 border-b border-border pb-2">
+              <span aria-hidden className="text-center font-display text-lg font-bold text-muted-foreground tabular-nums">
+                {i + 1}
+              </span>
+              <h2 id={`capitulo-${chapter.chapterId}`} className="min-w-0">
+                <Link
+                  href={`/systems/${systemId}/pages/${chapter.chapterId}`}
+                  className="line-clamp-2 rounded-md font-serif text-lg leading-snug font-semibold text-foreground focus-ring hover:underline"
+                >
+                  {titulo}
+                </Link>
+              </h2>
+              <span className="pl-2.5 text-sm text-muted-foreground tabular-nums">
+                {chapter.scenes.length === 1 ? "1 escena" : `${chapter.scenes.length} escenas`}
+              </span>
+            </div>
 
-          {chapter.scenes.length === 0 ? (
-            <p className="rounded-lg border border-dashed px-3 py-4 text-center text-xs text-muted-foreground/60">
-              Sin escenas todavía
-            </p>
-          ) : (
-            chapter.scenes.map((s) => (
-              <SceneRow
-                key={s.index}
-                scene={s}
-                busy={busy}
-                onMove={() => setMoving({ chapterId: chapter.chapterId, index: s.index })}
-              />
-            ))
-          )}
-        </section>
-      ))}
+            {chapter.scenes.length === 0 ? (
+              <p className="py-3 pl-(--margen) text-sm text-muted-foreground">Sin escenas todavía</p>
+            ) : (
+              chapter.scenes.map((s) => (
+                <SceneRow
+                  key={s.index}
+                  scene={s}
+                  chapterTitle={titulo}
+                  busy={busy}
+                  onMove={() => setMoving({ chapterId: chapter.chapterId, index: s.index })}
+                />
+              ))
+            )}
+          </section>
+        );
+      })}
 
       <ResponsiveDialog open={moving !== null} onOpenChange={(o) => !o && setMoving(null)}>
         <ResponsiveDialogContent className="max-w-md" mobileClassName="max-h-[80dvh]">
           <ResponsiveDialogHeader>
             <ResponsiveDialogTitle>
-              {scene ? `Mover la escena ${scene.index + 1}` : "Mover la escena"}
+              {scene ? `Mover la escena ${scene.index + 1} de ${tituloDelCapitulo}` : "Mover la escena"}
             </ResponsiveDialogTitle>
+            {scene && (
+              <ResponsiveDialogDescription className="line-clamp-2 font-serif text-base text-body italic">
+                {scene.preview || "Escena en blanco"}
+              </ResponsiveDialogDescription>
+            )}
           </ResponsiveDialogHeader>
           {moving && scene && (
             <MovePanel
               grid={grid}
               from={moving}
               scene={scene}
+              getGrid={() => gridRef.current}
               busy={busy}
               onApply={onApply}
               onDone={() => setMoving(null)}
@@ -116,38 +160,33 @@ export function PlotSceneList({
 
 function SceneRow({
   scene,
+  chapterTitle,
   busy,
   onMove,
 }: {
   scene: PlotScene;
+  chapterTitle: string;
   busy: boolean;
   onMove: () => void;
 }) {
   return (
-    <div className="flex items-start gap-2 rounded-lg border bg-card p-3">
-      <div className="min-w-0 flex-1">
-        <p className="mb-1 flex flex-wrap items-center gap-x-2 gap-y-1 font-mono text-[10px] text-muted-foreground">
-          <span>
-            Escena {scene.index + 1} · {scene.wordCount.toLocaleString("es")} palabras
-          </span>
-          {scene.arc && (
-            <span className="inline-flex items-center gap-1 rounded-full bg-muted px-2 py-0.5 text-foreground">
-              <Tag className="size-2.5" />
-              {scene.arc}
-            </span>
-          )}
-        </p>
-        <p className="line-clamp-3 text-xs text-muted-foreground">
-          {scene.preview || "Escena en blanco"}
+    <div className="grid grid-cols-[var(--margen)_1fr_auto] items-start gap-y-1 border-b border-border py-2.5 last:border-b-0">
+      <span aria-hidden className="pt-0.5 text-center text-sm font-semibold text-muted-foreground tabular-nums">
+        {scene.index + 1}
+      </span>
+      <div className="min-w-0">
+        <p className="line-clamp-2 font-serif text-base text-body">{scene.preview || "Escena en blanco"}</p>
+        <p className="mt-0.5 text-sm text-muted-foreground tabular-nums">
+          {scene.wordCount.toLocaleString("es")} palabras{scene.arc ? `, ${scene.arc}` : ""}
         </p>
       </div>
-      {/* 44px de alto: el mínimo táctil, y esta acción reescribe el manuscrito. */}
+      {/* Esta acción reescribe el manuscrito: 48 px y un nombre que dice cuál. */}
       <Button
         variant="outline"
-        size="sm"
-        className="h-11 shrink-0 px-3"
+        className="ml-2.5 shrink-0"
         disabled={busy}
         onClick={onMove}
+        aria-label={`Mover la escena ${scene.index + 1} de ${chapterTitle}`}
       >
         Mover
       </Button>
@@ -158,12 +197,13 @@ function SceneRow({
 /**
  * Las dos operaciones que la rejilla ofrece con arrastre y con chevrons, aquí como
  * dos listas: a qué capítulo va la escena y con qué arco se queda. Cada una es una
- * sola petición, igual que en la rejilla.
+ * sola petición, igual que en la rejilla, y cada una se deshace con la inversa.
  */
 function MovePanel({
   grid,
   from,
   scene,
+  getGrid,
   busy,
   onApply,
   onDone,
@@ -171,88 +211,171 @@ function MovePanel({
   grid: PlotGrid;
   from: { chapterId: string; index: number };
   scene: PlotScene;
+  /** El tablero más reciente, para comprobar al deshacer que la escena sigue donde la dejamos; `null` si ya se salió del tablero. */
+  getGrid: () => PlotGrid | null;
   busy: boolean;
   onApply: Apply;
   onDone: () => void;
 }) {
-  const arcs: Array<string | null> = [...grid.arcs, null];
+  const [arcoNuevo, setArcoNuevo] = useState("");
+  const arcs: Array<string | null> = grid.arcs.length > 0 ? [...grid.arcs, null] : [];
 
-  function moveTo(target: PlotChapter) {
+  function moveTo(target: PlotChapter, i: number) {
     if (target.chapterId === from.chapterId) return;
-    onApply({
-      kind: "move",
-      chapterId: from.chapterId,
-      index: from.index,
-      toChapterId: target.chapterId,
-      toIndex: target.scenes.length,
-    });
+    // La escena cae al final del capítulo destino; de ahí vuelve a su sitio.
+    const llega = target.scenes.length;
+    onApply(
+      { kind: "move", chapterId: from.chapterId, index: from.index, toChapterId: target.chapterId, toIndex: llega },
+      {
+        onSuccess: () => {
+          if (!getGrid()) return;
+          avisar(`Escena movida a ${tituloDe(target, i)}`, () => {
+            if (!sigueAhi(getGrid(), target.chapterId, llega, scene)) return false;
+            onApply({ kind: "move", chapterId: target.chapterId, index: llega, toChapterId: from.chapterId, toIndex: from.index });
+            return true;
+          });
+        },
+      },
+    );
     onDone();
   }
 
   function setArc(arc: string | null) {
-    if ((scene.arc ?? null) === arc) return;
-    onApply({ kind: "arc", chapterId: from.chapterId, index: from.index, arc });
+    const antes = scene.arc ?? null;
+    if (antes === arc) return;
+    onApply(
+      { kind: "arc", chapterId: from.chapterId, index: from.index, arc },
+      {
+        onSuccess: () => {
+          if (!getGrid()) return;
+          avisar(arc ? `La escena pasa al arco ${arc}` : "La escena se queda sin arco", () => {
+            if (!sigueAhi(getGrid(), from.chapterId, from.index, scene)) return false;
+            onApply({ kind: "arc", chapterId: from.chapterId, index: from.index, arc: antes });
+            return true;
+          });
+        },
+      },
+    );
     onDone();
   }
 
   return (
-    <div className="space-y-5 overflow-y-auto px-4 pb-6 sm:px-0 sm:pb-0">
-      <section>
-        <p className="mb-2 text-xs font-medium text-muted-foreground">A qué capítulo</p>
-        <div className="space-y-1">
+    <div className="space-y-5">
+      <section className="space-y-1">
+        <SectionHead as="h3" title="A qué capítulo" />
+        <div>
           {grid.chapters.map((c, i) => {
             const here = c.chapterId === from.chapterId;
             return (
-              <button
+              <MarginRow
                 key={c.chapterId}
-                type="button"
-                disabled={busy || here}
-                onClick={() => moveTo(c)}
-                className={cn(
-                  "flex min-h-11 w-full items-center gap-2 rounded-lg border px-3 py-2 text-left text-sm transition-colors",
-                  here ? "bg-muted text-muted-foreground" : "hover:bg-accent",
-                )}
+                onClick={here ? undefined : () => !busy && moveTo(c, i)}
+                aria-disabled={(!here && busy) || undefined}
+                aria-current={here || undefined}
+                className={cn(UNA_LINEA, here && "text-muted-foreground")}
+                margin={<span className="font-display text-base font-bold tabular-nums">{i + 1}</span>}
+                trailing={here ? "aquí está" : <ArrowRight aria-hidden className="size-4" />}
               >
-                <span className="min-w-0 flex-1 truncate">
-                  {c.title?.trim() || `Capítulo ${i + 1}`}
+                <span className={cn("block truncate font-serif text-base", here ? "text-muted-foreground" : "text-foreground")}>
+                  {tituloDe(c, i)}
                 </span>
-                {here ? (
-                  <span className="shrink-0 text-xs">aquí está</span>
-                ) : (
-                  <ArrowRight className="size-4 shrink-0 text-muted-foreground" />
-                )}
-              </button>
+              </MarginRow>
             );
           })}
         </div>
-        <p className="mt-1.5 text-[11px] text-muted-foreground">
+        <p className="pl-(--margen) text-sm text-muted-foreground">
           La escena se coloca al final del capítulo que elijas.
         </p>
       </section>
 
-      <section>
-        <p className="mb-2 text-xs font-medium text-muted-foreground">Con qué arco</p>
-        <div className="space-y-1">
-          {arcs.map((arc) => {
-            const current = (scene.arc ?? null) === arc;
-            return (
-              <button
-                key={arc ?? SIN_ARCO_LABEL}
-                type="button"
-                disabled={busy || current}
-                onClick={() => setArc(arc)}
-                className={cn(
-                  "flex min-h-11 w-full items-center gap-2 rounded-lg border px-3 py-2 text-left text-sm transition-colors",
-                  current ? "bg-muted text-muted-foreground" : "hover:bg-accent",
-                )}
-              >
-                <span className="min-w-0 flex-1 truncate">{arc ?? SIN_ARCO_LABEL}</span>
-                {current && <Check className="size-4 shrink-0" />}
-              </button>
-            );
-          })}
-        </div>
+      <section className="space-y-1">
+        <SectionHead as="h3" title="Con qué arco" />
+        {arcs.length > 0 && (
+          <div>
+            {arcs.map((arc) => {
+              const current = (scene.arc ?? null) === arc;
+              return (
+                <MarginRow
+                  key={arc ?? SIN_ARCO_LABEL}
+                  onClick={current ? undefined : () => !busy && setArc(arc)}
+                  aria-disabled={(!current && busy) || undefined}
+                  aria-current={current || undefined}
+                  className={UNA_LINEA}
+                  margin={current ? <Check aria-hidden className="size-5 text-foreground" /> : null}
+                >
+                  <span className={cn("block truncate text-base text-foreground", current && "font-semibold")}>
+                    {arc ?? SIN_ARCO_LABEL}
+                  </span>
+                </MarginRow>
+              );
+            })}
+          </div>
+        )}
+        <form
+          className="flex items-center gap-2 pt-2 pl-(--margen)"
+          onSubmit={(e) => {
+            e.preventDefault();
+            const arc = arcoNuevo.trim();
+            if (!arc) return;
+            setArcoNuevo("");
+            setArc(arc);
+          }}
+        >
+          <Input
+            value={arcoNuevo}
+            onChange={(e) => setArcoNuevo(e.target.value)}
+            placeholder={arcs.length > 0 ? "Otro arco" : "Nombre del primer arco"}
+            aria-label="Arco nuevo"
+            maxLength={60}
+            className="h-[2.85rem] flex-1"
+          />
+          <Button type="submit" variant="outline" disabled={busy || !arcoNuevo.trim()}>
+            Poner
+          </Button>
+        </form>
       </section>
     </div>
   );
 }
+
+/** El aviso de Deshacer que sigue en pantalla, para retirarlo cuando llega uno nuevo o se sale del tablero. */
+let avisoVigente: string | number | undefined;
+
+function retirarAviso() {
+  if (avisoVigente !== undefined) toast.dismiss(avisoVigente);
+  avisoVigente = undefined;
+}
+
+/**
+ * El aviso que dice qué cambió en el texto, con la vuelta atrás a un toque.
+ * Cada movimiento retira el aviso anterior: su Deshacer hablaba de un tablero que
+ * ya no es éste. `deshacer` devuelve `false` si la escena ya no está donde se la
+ * dejó, y entonces el aviso lo dice en vez de mover otra cosa.
+ */
+function avisar(mensaje: string, deshacer: () => boolean) {
+  retirarAviso();
+  avisoVigente = toast(mensaje, {
+    action: {
+      label: "Deshacer",
+      onClick: () => {
+        if (!deshacer()) toast("Ya no se puede deshacer: la escena cambió de sitio");
+      },
+    },
+    duration: 6000,
+  });
+}
+
+/** Si en ese capítulo y lugar sigue la misma escena, por su arranque y su tamaño. */
+function sigueAhi(grid: PlotGrid | null, chapterId: string, index: number, scene: PlotScene): boolean {
+  const ahora = grid?.chapters.find((c) => c.chapterId === chapterId)?.scenes[index];
+  return ahora?.preview === scene.preview && ahora.wordCount === scene.wordCount;
+}
+
+/** El nombre de un capítulo: su título o su número. */
+function tituloDe(chapter: PlotChapter | undefined, i: number): string {
+  return chapter?.title?.trim() || `Capítulo ${i + 1}`;
+}
+
+/** La misma frase en el tablero del teléfono y en la rejilla de escritorio. */
+export const AYUDA_DEL_TABLERO =
+  "Las escenas salen del texto. Moverlas reescribe el capítulo, así que no hay un orden aparte que se pueda desincronizar.";

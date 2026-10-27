@@ -1,7 +1,7 @@
 "use client";
 
-import Link from "next/link";
 import { ArrowRight, type LucideIcon } from "lucide-react";
+import { MarginRow } from "@/components/ui/margin-row";
 import type { Suggestion } from "./types";
 
 /**
@@ -59,7 +59,7 @@ export function SuggestionList<TSuggestion extends Suggestion>({
   }
 
   return (
-    <ul className="space-y-2">
+    <ul>
       {suggestions.map((suggestion) => (
         <SuggestionRow
           key={suggestion.kind}
@@ -74,27 +74,26 @@ export function SuggestionList<TSuggestion extends Suggestion>({
 }
 
 /**
- * Un estado vacío es una fila más, así que se compone igual que una: el icono a
- * la izquierda y los dos textos apilados a su derecha. Puestos como hermanos
- * dentro de la misma fila salían uno al lado del otro.
+ * Un estado vacío es una fila más, así que se compone igual que una: el icono
+ * en el margen y los dos textos apilados en la columna de texto. Puestos como
+ * hermanos dentro de la misma fila salían uno al lado del otro.
  */
 function EmptyState({ state }: { state: SuggestionEmptyState }) {
   const { icon: Icon, title, description } = state;
   return (
-    <div className="flex items-start gap-3 rounded-xl border border-border bg-card px-4 py-3">
-      <Icon className="mt-0.5 size-4 shrink-0 text-muted-foreground" />
-      <div className="min-w-0 flex-1">
-        <p className="text-sm font-medium">{title}</p>
-        <p className="mt-0.5 text-sm text-muted-foreground">{description}</p>
-      </div>
-    </div>
+    <MarginRow margin={<Icon aria-hidden className="size-5" />}>
+      <span className="block text-base font-medium text-foreground">{title}</span>
+      <span className="mt-0.5 block text-sm text-muted-foreground">{description}</span>
+    </MarginRow>
   );
 }
 
-/** La caja de una fila, igual lleve a algún sitio o no. */
-const ROW = "flex w-full items-start gap-3 rounded-xl border border-border bg-card p-3 text-left";
-const ROW_ACTIVA = `${ROW} transition-colors hover:bg-accent/40`;
-
+/**
+ * Una sugerencia es una fila de margen de Diario: el glifo en el margen, el
+ * título y su razón en la columna de texto y la flecha en la cola si lleva a
+ * algún sitio. Las filas se separan con un hairline, sin caja. La fila es un
+ * enlace con `href`, un botón con `onSelect` y un renglón quieto sin ninguno.
+ */
 function SuggestionRow<TSuggestion extends Suggestion>({
   suggestion,
   Icon,
@@ -107,31 +106,19 @@ function SuggestionRow<TSuggestion extends Suggestion>({
   onSelect?: () => void;
 }) {
   const lleva = href !== null || onSelect !== undefined;
-  const body = (
-    <>
-      <Icon className="mt-0.5 size-4 shrink-0 text-muted-foreground" />
-      <div className="min-w-0 flex-1">
-        <p className="text-sm font-medium">{suggestion.title}</p>
-        {/* El porqué siempre visible: sin el dato, esto sería una corazonada. */}
-        <p className="mt-0.5 text-sm text-muted-foreground">{suggestion.reason}</p>
-      </div>
-      {lleva && <ArrowRight className="mt-0.5 size-4 shrink-0 text-muted-foreground" />}
-    </>
-  );
-
   return (
-    <li>
-      {href !== null ? (
-        <Link href={href} className={ROW_ACTIVA}>
-          {body}
-        </Link>
-      ) : onSelect ? (
-        <button type="button" onClick={onSelect} className={ROW_ACTIVA}>
-          {body}
-        </button>
-      ) : (
-        <div className={ROW}>{body}</div>
-      )}
+    <li className="border-b border-border last:border-b-0">
+      <MarginRow
+        href={href ?? undefined}
+        onClick={href === null ? onSelect : undefined}
+        className="border-b-0"
+        margin={<Icon aria-hidden className="size-5" />}
+        trailing={lleva ? <ArrowRight aria-hidden className="size-4" /> : undefined}
+      >
+        <span className="block text-base font-medium text-foreground">{suggestion.title}</span>
+        {/* El porqué siempre visible: sin el dato, esto sería una corazonada. */}
+        <span className="mt-0.5 block text-sm text-muted-foreground">{suggestion.reason}</span>
+      </MarginRow>
     </li>
   );
 }

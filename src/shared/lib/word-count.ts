@@ -9,9 +9,17 @@ export function countWords(html: string | null | undefined): number {
     .replace(/<\/?(p|li|h[1-6]|br|div)[^>]*>/gi, " ")
     .replace(/<[^>]+>/g, "")
     .replace(/&nbsp;/g, " ")
-    .replace(/&[a-z]+;/gi, " ")
-    .replace(/\s+/g, " ")
-    .trim();
-  if (!text) return 0;
-  return text.split(/\s+/).length;
+    .replace(/&[a-z]+;/gi, " ");
+  return countPlainWords(text);
+}
+
+/**
+ * Las palabras de un texto ya sin etiquetas. `&`, `<` y `>` separan palabras:
+ * en el HTML son las entidades que `countWords` reemplaza por un espacio, así
+ * que el texto plano de un documento abierto (donde ya son los caracteres) debe
+ * pasar por aquí para dar la misma cifra que el servidor.
+ */
+export function countPlainWords(text: string): number {
+  const limpio = text.replace(/[&<>]/g, " ").replace(/\s+/g, " ").trim();
+  return limpio ? limpio.split(" ").length : 0;
 }

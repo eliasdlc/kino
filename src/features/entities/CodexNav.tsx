@@ -16,7 +16,14 @@ export function CodexNav({
 }) {
   return (
     // En el teléfono las cuatro lecturas no caben: la fila hace scroll horizontal y ninguna etiqueta se parte.
-    <div className="-mx-1 flex items-center gap-1 overflow-x-auto px-1 [scrollbar-width:none]" role="tablist">
+    // Son pestañas-palabra, como las de la cabecera del sistema: la elegida en
+    // tinta con su subrayado. Elegir una lectura es un estado, y el ámbar se
+    // queda para crear (Nueva entidad).
+    <div
+      className="-mx-1 flex items-end gap-x-5 overflow-x-auto border-b border-border px-1 [scrollbar-width:none]"
+      role="tablist"
+      aria-label="Lecturas del codex"
+    >
       {CODEX_VIEWS.map((view) => {
         const Icon = view.icon;
         const active = view.id === current;
@@ -27,12 +34,13 @@ export function CodexNav({
             role="tab"
             aria-selected={active}
             className={cn(
-              "flex h-10 shrink-0 items-center gap-1.5 rounded-full px-4 text-sm font-semibold whitespace-nowrap transition-colors",
-              active ? "bg-primary text-primary-foreground" : "bg-secondary text-muted-foreground hover:text-foreground",
+              "relative flex h-[2.85rem] shrink-0 items-center gap-1.5 px-1 text-sm font-semibold whitespace-nowrap transition-colors duration-(--dur-toque) ease-(--ease-pluma) focus-ring",
+              active ? "text-foreground" : "text-muted-foreground hover:text-foreground",
             )}
           >
-            <Icon className="size-4" />
+            <Icon aria-hidden className="size-4" />
             {view.label}
+            {active && <span aria-hidden className="absolute inset-x-0 -bottom-px h-0.5 rounded-full bg-foreground" />}
           </Link>
         );
       })}

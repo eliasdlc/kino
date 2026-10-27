@@ -9,6 +9,7 @@ import {
   TOTAL_HEIGHT,
   blockGeometry,
   dayKey,
+  dayLoad,
   energyBgClass,
   getPlacementDate,
   groupTasksByDay,
@@ -18,6 +19,8 @@ import {
   resizedMinutes,
   slotTop,
   suggestHour,
+  timedTasksOfDay,
+  weekOf,
 } from "./calendar.layout";
 
 /**
@@ -240,5 +243,38 @@ describe("occupiedHoursForDay", () => {
 describe("dayKey", () => {
   it("da la misma clave para dos instantes del mismo día", () => {
     expect(dayKey(new Date(2026, 0, 5, 1, 0))).toBe(dayKey(new Date(2026, 0, 5, 23, 0)));
+  });
+});
+
+describe("timedTasksOfDay", () => {
+  it("ordena por hora y no recorta lo que cae fuera de 06:00 a 22:00", () => {
+    const dia = new Date(2026, 0, 5, 12, 0);
+    const noche = task({ id: "noche", startDate: new Date(2026, 0, 5, 23, 15).toISOString() });
+    const madrugada = task({ id: "madrugada", startDate: new Date(2026, 0, 5, 5, 0).toISOString() });
+    const media = task({ id: "media", dueDate: new Date(2026, 0, 5, 12, 30).toISOString() });
+    const porDia = groupTasksByDay([noche, media, madrugada], { timed: true });
+
+    expect(timedTasksOfDay(porDia, dia).map((t) => t.id)).toEqual(["madrugada", "media", "noche"]);
+  });
+});
+
+describe("weekOf y dayLoad", () => {
+  it("la semana va de lunes a domingo y contiene el día", () => {
+    const semana = weekOf(new Date(2026, 9, 18));
+    expect(semana).toHaveLength(7);
+    expect(semana[0]!.getDay()).toBe(1);
+    expect(dayKey(semana[6]!)).toBe("2026-10-18");
+  });
+
+  it("cuenta las dos clases de tarea y se queda en tres puntos", () => {
+    const dia = new Date(2026, 0, 5);
+    const conHora = [1, 2, 3].map((h) => task({ id: `h${h}`, startDate: new Date(2026, 0, 5, 9 + h).toISOString() }));
+    const sinHora = task({ id: "d", dueDate: "2026-01-05T00:00:00.000Z" });
+    const timed = groupTasksByDay(conHora, { timed: true });
+    const allDay = groupTasksByDay([sinHora], { timed: false });
+
+    expect(dayLoad(allDay, new Map(), dia)).toBe(1);
+    expect(dayLoad(allDay, timed, dia)).toBe(3);
+    expect(dayLoad(new Map(), new Map(), dia)).toBe(0);
   });
 });

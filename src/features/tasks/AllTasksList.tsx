@@ -1,27 +1,44 @@
 'use client';
 
-import { useState, useCallback, useMemo } from 'react';
+import { memo, useState, useCallback, useLayoutEffect, useMemo, useRef } from 'react';
 import { useRouter, useSearchParams, usePathname } from 'next/navigation';
-import { Plus, SlidersHorizontal, LayoutList, LayoutGrid, X } from 'lucide-react';
+import { Check, ListChecks, Plus, SlidersHorizontal, Trash2, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { cn } from '@/lib/utils';
+import { EmptyState } from '@/components/ui/empty-state';
+import {
+  ResponsiveDialog,
+  ResponsiveDialogContent,
+  ResponsiveDialogDescription,
+  ResponsiveDialogHeader,
+  ResponsiveDialogTitle,
+} from '@/components/ui/responsive-dialog';
+import { SectionHead } from '@/features/dashboard/SectionHead';
 import {
   DEFAULT_FILTERS, parseFiltersFromParams, filtersToParams, countActiveFilters,
   applyFilters, SORTERS, groupTasks,
   type TaskFilters,
 } from '@/lib/taskFilters';
 import { useAllTasks, useToggleTodayTask, useDeleteAnyTaskWithUndo } from './tasks.hooks';
-import { TaskListRow } from './TaskListRow';
-import { TaskFilterPanel } from './TaskFilterPanel';
+import { TaskRow, type TaskRowAction } from './TaskRow';
+import {
+  TaskFilterPanel,
+  DATE_OPTIONS,
+  ENERGY_OPTIONS,
+  GROUP_OPTIONS,
+  PRIORITY_OPTIONS,
+  SORT_OPTIONS,
+  STATUS_OPTIONS,
+  TYPE_OPTIONS,
+} from './TaskFilterPanel';
 import { TaskDetailSheet } from './TaskDetailSheet';
-import { DefaultTaskCard } from './cards/DefaultTaskCard';
-import { ConfirmDialog } from '@/components/ui/confirm-dialog';
 import { useTaskKeyboardNavigation } from './useTaskKeyboardNavigation';
 import { useHotkey } from '@/shared/hooks/useHotkey';
 import { useQuickAddStore } from './quick-add.store';
 import { BulkActionBar } from './BulkActionBar';
 import { CascadeInboxMode } from './CascadeInboxMode';
 import { OverdueGroup, getOverdueTasks } from './OverdueGroup';
+import { conVisita, useListaTachable } from './useTachar';
+import { LISTA_FILA_ALTO, ListaSkeleton } from './TasksSkeleton';
 import type { TaskTransport } from './tasks.types';
 
 interface SystemInfo {
@@ -34,11 +51,36 @@ interface AllTasksListProps {
   systems: SystemInfo[];
 }
 
-const FILTER_CHIP_LABELS: Partial<Record<keyof TaskFilters, string>> = {
-  status: 'Estado', system: 'Sistema', priority: 'Prioridad',
-  energy: 'Energía', type: 'Tipo', tag: 'Etiqueta', dateRange: 'Fecha',
-  group: 'Agrupar', sort: 'Orden',
-};
+/** Una ficha de filtro activo: dice el valor que quita, no el nombre del campo. */
+interface FichaActiva {
+  key: keyof TaskFilters;
+  /** El valor que quita, en los filtros de varios valores. */
+  value?: string;
+  label: string;
+}
+
+function palabra(options: readonly { value: string; label: string }[], value: string): string {
+  return options.find((o) => o.value === value)?.label ?? value;
+}
+
+/**
+ * Las fichas de lo que está filtrado, una por valor: "Crítica", "Energía
+ * alta", "Próximos 7 días". Antes decían "Prioridad" o "Fecha", y para saber
+ * qué filtraban había que reabrir la hoja.
+ */
+function fichasActivas(filters: TaskFilters, systems: readonly SystemInfo[]): FichaActiva[] {
+  const fichas: FichaActiva[] = [];
+  for (const v of filters.status) fichas.push({ key: 'status', value: v, label: palabra(STATUS_OPTIONS, v) });
+  for (const v of filters.system) fichas.push({ key: 'system', value: v, label: systems.find((s) => s.id === v)?.name ?? 'Un sistema' });
+  for (const v of filters.priority) fichas.push({ key: 'priority', value: v, label: `Prioridad ${palabra(PRIORITY_OPTIONS, v).toLowerCase()}` });
+  for (const v of filters.energy) fichas.push({ key: 'energy', value: v, label: `Energía ${palabra(ENERGY_OPTIONS, v).toLowerCase()}` });
+  for (const v of filters.type) fichas.push({ key: 'type', value: v, label: palabra(TYPE_OPTIONS, v) });
+  if (filters.tag.length > 0) fichas.push({ key: 'tag', label: filters.tag.length === 1 ? 'Una etiqueta' : `${filters.tag.length} etiquetas` });
+  if (filters.dateRange) fichas.push({ key: 'dateRange', label: palabra(DATE_OPTIONS, filters.dateRange) });
+  if (filters.group) fichas.push({ key: 'group', label: `Por ${palabra(GROUP_OPTIONS, filters.group).toLowerCase()}` });
+  if (filters.sort !== DEFAULT_FILTERS.sort) fichas.push({ key: 'sort', label: `Orden: ${palabra(SORT_OPTIONS, filters.sort).toLowerCase()}` });
+  return fichas;
+}
 
 const GROUP_ORDER: Record<string, number> = {
   'Crítica': 0, 'Alta': 1, 'Media': 2, 'Baja': 3,
@@ -46,7 +88,65 @@ const GROUP_ORDER: Record<string, number> = {
   'Completadas': 4, 'Archivadas': 5,
 };
 
-export function AllTasksList({ systems }: AllTasksListProps) {
+/**
+ * Todas las tareas, como una sección de Diario: el título con la cuenta y un
+ * hairline, una línea de herramientas (Filtros abre una hoja con la cuenta
+ * viva, Limpiar y "Ver N tareas"; Seleccionar enseña las casillas de todas las
+ * filas; las fichas dicen el valor que quitan) y las filas, sin caja. Las
+ * vencidas van antes, en su propia sección, con las mismas acciones.
+ * Completar tacha la fila en su sitio con Deshacer; el título abre el detalle
+ * en una hoja; mover a la papelera no pregunta, el aviso trae Deshacer. Con
+ * algo elegido, la barra de la selección se pega al pie de la pantalla.
+ */
+interface Manejadores {
+  completar: (task: TaskTransport) => void;
+  abrir: (task: TaskTransport) => void;
+  elegir: (taskId: string) => void;
+  borrar: (taskId: string) => void;
+}
+
+/**
+ * Una fila de Todas las tareas, memoizada: sólo vuelve a pintarse si cambia
+ * su tarea o su estado (tachada, con foco, elegida). Los manejadores llegan
+ * estables desde la lista.
+ */
+const FilaDeTodas = memo(function FilaDeTodas({
+  task,
+  struck,
+  context,
+  focused,
+  selected,
+  seleccionando,
+  h,
+}: {
+  task: TaskTransport;
+  struck: boolean;
+  context?: string;
+  focused: boolean;
+  selected: boolean;
+  seleccionando: boolean;
+  h: Manejadores;
+}) {
+  return (
+    <TaskRow
+      task={task}
+      density="lista"
+      className={LISTA_FILA_ALTO}
+      struck={struck}
+      context={context}
+      focused={focused}
+      onComplete={() => h.completar(task)}
+      onOpen={() => h.abrir(task)}
+      actions={[
+        { label: selected ? 'Quitar de la selección' : 'Seleccionar', icon: ListChecks, onSelect: () => h.elegir(task.id) },
+        { label: 'Mover a la papelera', icon: Trash2, onSelect: () => h.borrar(task.id), destructive: true },
+      ]}
+      selection={{ selected, visible: seleccionando, onToggle: () => h.elegir(task.id) }}
+    />
+  );
+});
+
+export const AllTasksList = conVisita(function AllTasksList({ systems }: AllTasksListProps) {
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
@@ -67,8 +167,10 @@ export function AllTasksList({ systems }: AllTasksListProps) {
     [tareaEnlazada, tasks],
   );
   const selectedTask = elegida ?? enlazada;
-  const [deleteTarget, setDeleteTarget] = useState<TaskTransport | null>(null);
   const [selectedTaskIds, setSelectedTaskIds] = useState<Set<string>>(new Set());
+  // Seleccionar sin pasar por la hoja de cada fila: el botón enseña las
+  // casillas de todas y se elige de un toque.
+  const [modoSeleccion, setModoSeleccion] = useState(false);
   const [cascadeOpen, setCascadeOpen] = useState(false);
 
   const toggleSelection = useCallback((taskId: string) => {
@@ -80,7 +182,10 @@ export function AllTasksList({ systems }: AllTasksListProps) {
     });
   }, []);
 
-  const clearSelection = useCallback(() => setSelectedTaskIds(new Set()), []);
+  const clearSelection = useCallback(() => {
+    setSelectedTaskIds(new Set());
+    setModoSeleccion(false);
+  }, []);
 
   const systemMap = useMemo(
     () => new Map(systems.map((s) => [s.id, s])),
@@ -90,107 +195,145 @@ export function AllTasksList({ systems }: AllTasksListProps) {
   const handleFiltersChange = useCallback(
     (next: TaskFilters) => {
       const params = filtersToParams(next);
-      router.replace(`${pathname}?${params.toString()}`, { scroll: false });
+      // La vista de la página (Lista o Calendario) usa `view`; los filtros ya
+      // no tienen rejilla, así que no la escriben.
+      params.delete('view');
+      const qs = params.toString();
+      router.replace(qs ? `${pathname}?${qs}` : pathname, { scroll: false });
     },
     [router, pathname],
   );
 
-  const handleViewToggle = (view: TaskFilters['view']) => {
-    handleFiltersChange({ ...filters, view });
-  };
-
-  const removeFilterChip = (key: keyof TaskFilters) => {
+  const quitarFicha = ({ key, value }: FichaActiva) => {
     const reset: Partial<TaskFilters> = {};
-    if (Array.isArray(filters[key])) reset[key] = [] as never;
-    else reset[key] = '' as never;
+    const actual = filters[key];
+    if (Array.isArray(actual)) reset[key] = (value === undefined ? [] : actual.filter((v) => v !== value)) as never;
+    else reset[key] = (key === 'sort' ? DEFAULT_FILTERS.sort : '') as never;
     handleFiltersChange({ ...filters, ...reset });
   };
+  const limpiarFiltros = () => handleFiltersChange({ ...DEFAULT_FILTERS, sort: filters.sort });
 
-  // Apply filters + sort
+  const overdueTasks = useMemo(() => getOverdueTasks(tasks), [tasks]);
+  const vencidas = useListaTachable(overdueTasks, (taskId) => toggleTask({ taskId }));
+  // Lo que Vencidas enseña no se cuenta como una más de Todas. Una vencida
+  // tachada en esta visita sigue en su sección: si no, al dejar de estar
+  // vencida aparecería también abajo, como fila hecha, y empujaría lo que hay
+  // debajo.
+  const overdueIds = useMemo(() => new Set(vencidas.filas.map((t) => t.id)), [vencidas.filas]);
+
+  // Las vencidas tienen su sección arriba: aquí no se repiten, salvo que un
+  // filtro de fecha las pida a propósito.
   const filtered = useMemo(() => {
     const visible = applyFilters(
-      tasks.filter((t) => t.parentTaskId === null),
+      tasks.filter((t) => t.parentTaskId === null && (filters.dateRange === 'overdue' || !overdueIds.has(t.id))),
       filters,
     );
     return [...visible].sort(SORTERS[filters.sort]);
-  }, [tasks, filters]);
+  }, [tasks, filters, overdueIds]);
 
-  // Active chips (only keys with values set)
-  const activeChips = (Object.keys(FILTER_CHIP_LABELS) as (keyof TaskFilters)[]).filter((k) => {
-    const v = filters[k];
-    return Array.isArray(v) ? v.length > 0 : !!v && v !== 'priority' && v !== 'list';
-  });
+  const { filas, struck, handleToggle, estadoDe } = useListaTachable(filtered, (taskId) => toggleTask({ taskId }));
+
+  const fichas = fichasActivas(filters, systems);
   const filterCount = countActiveFilters(filters);
 
-  const overdueTasks = useMemo(() => getOverdueTasks(tasks), [tasks]);
-
-  // Keyboard navigation: j/k move focus, x toggles selection, shift+j/k range-select
-  const { focusedTaskId } = useTaskKeyboardNavigation(filtered, {
+  // j y k recorren lo que se ve, en el orden en que se ve: las vencidas y
+  // luego todas, con las tachadas en su sitio. x elige, shift+j/k elige un
+  // tramo.
+  const navegables = useMemo(
+    () => [...(vencidas.filas as TaskTransport[]), ...(filas as TaskTransport[])],
+    [vencidas.filas, filas],
+  );
+  const { focusedTaskId } = useTaskKeyboardNavigation(navegables, {
     onSelect: setSelectedTask,
     onSelectionToggle: toggleSelection,
   }, {
-    enabled: !selectedTask && !deleteTarget,
+    enabled: !selectedTask && !showFilters,
   });
 
   // esc clears selection (only when something is selected, avoids conflicting with other esc handlers)
-  useHotkey('escape', clearSelection, { enabled: selectedTaskIds.size > 0 });
+  useHotkey('escape', clearSelection, { enabled: selectedTaskIds.size > 0 || modoSeleccion });
 
-  function renderRows(items: TaskTransport[]) {
-    if (filters.view === 'grid') {
-      return (
-        <div className="grid grid-cols-1 gap-3 px-4 py-3 sm:grid-cols-2 lg:grid-cols-3">
-          {items.map((t) => (
-            <DefaultTaskCard
-              key={t.id}
-              task={t}
-              systemId={t.systemId}
-              isFocused={t.id === focusedTaskId}
-              onToggle={(id) => toggleTask({ taskId: id })}
-              onDelete={() => setDeleteTarget(t)}
-              onEdit={setSelectedTask}
-              isSelected={selectedTaskIds.has(t.id)}
-              onSelectionToggle={toggleSelection}
-            />
-          ))}
-        </div>
-      );
-    }
+  const seleccionando = selectedTaskIds.size > 0 || modoSeleccion;
+
+  function accionesDe(t: TaskTransport): TaskRowAction[] {
+    return [
+      {
+        label: selectedTaskIds.has(t.id) ? 'Quitar de la selección' : 'Seleccionar',
+        icon: ListChecks,
+        onSelect: () => toggleSelection(t.id),
+      },
+      { label: 'Mover a la papelera', icon: Trash2, onSelect: () => deleteTask(t.id), destructive: true },
+    ];
+  }
+
+  function filaDe(t: TaskTransport) {
+    return {
+      actions: accionesDe(t),
+      selection: {
+        selected: selectedTaskIds.has(t.id),
+        visible: seleccionando,
+        onToggle: () => toggleSelection(t.id),
+      },
+    };
+  }
+
+  // Las filas de Todas reciben manejadores estables (leen los del último
+  // render por una ref, puesta antes de pintar), así que completar una no
+  // vuelve a pintar las otras 199.
+  const manejadores = useRef<Manejadores | null>(null);
+  useLayoutEffect(() => {
+    manejadores.current = { completar: handleToggle, abrir: setSelectedTask, elegir: toggleSelection, borrar: deleteTask };
+  }, [handleToggle, toggleSelection, deleteTask]);
+  const estables = useMemo<Manejadores>(
+    () => ({
+      completar: (t) => manejadores.current?.completar(t),
+      abrir: (t) => manejadores.current?.abrir(t),
+      elegir: (id) => manejadores.current?.elegir(id),
+      borrar: (id) => manejadores.current?.borrar(id),
+    }),
+    [],
+  );
+
+  function renderRows(items: readonly TaskTransport[]) {
     return (
-      <div className="divide-y divide-border">
+      <div>
         {items.map((t) => (
-          <TaskListRow
+          <FilaDeTodas
             key={t.id}
             task={t}
-            systemMap={systemMap}
-            isFocused={t.id === focusedTaskId}
-            onToggle={(id) => toggleTask({ taskId: id })}
-            onOpen={setSelectedTask}
-            isSelected={selectedTaskIds.has(t.id)}
-            onSelectionToggle={toggleSelection}
+            struck={struck.has(t.id)}
+            context={systemMap.get(t.systemId)?.name}
+            focused={t.id === focusedTaskId}
+            selected={selectedTaskIds.has(t.id)}
+            seleccionando={seleccionando}
+            h={estables}
           />
         ))}
       </div>
     );
   }
 
-  function renderGrouped(items: TaskTransport[]) {
+  function renderGrouped(items: readonly TaskTransport[]) {
     if (!filters.group) return renderRows(items);
-    const grouped = groupTasks(items, filters.group);
+    // Se agrupa por el estado de antes de tachar: una fila tachada se queda en
+    // su grupo hasta la siguiente visita en vez de saltar a Completadas.
+    const porId = new Map(items.map((t) => [t.id, t]));
+    const grouped = groupTasks(items.map((t) => ({ ...t, status: estadoDe(t) })), filters.group);
     const keys = [...grouped.keys()].sort(
       (a, b) => (GROUP_ORDER[a] ?? 99) - (GROUP_ORDER[b] ?? 99),
     );
     return (
-      <div className="space-y-1">
+      <div>
         {keys.map((key) => {
-          const groupItems = grouped.get(key) ?? [];
+          const groupItems = (grouped.get(key) ?? []).map((t) => porId.get(t.id)!);
           const groupName = filters.group === 'system'
             ? (systemMap.get(key)?.name ?? key)
             : key;
           return (
             <div key={key}>
-              <div className="sticky top-0 z-(--z-raised) bg-card/90 px-4 py-2 backdrop-blur-sm">
-                <span className="text-xs font-semibold uppercase tracking-[0.06em] text-muted-foreground">{groupName}</span>
-                <span className="ml-2 text-xs text-muted-foreground tabular-nums">{groupItems.length}</span>
+              <div className="flex items-baseline gap-2 border-b border-border pt-4 pb-1.5 pl-(--margen)">
+                <h3 className="text-xs font-semibold tracking-[0.06em] text-muted-foreground uppercase">{groupName}</h3>
+                <span className="text-xs text-muted-foreground tabular-nums">{groupItems.length}</span>
               </div>
               {renderRows(groupItems)}
             </div>
@@ -200,166 +343,144 @@ export function AllTasksList({ systems }: AllTasksListProps) {
     );
   }
 
+  const cuenta = [
+    `${filtered.length} tarea${filtered.length === 1 ? '' : 's'}`,
+    filterCount > 0 ? `${filterCount} filtro${filterCount === 1 ? '' : 's'}` : null,
+  ]
+    .filter(Boolean)
+    .join(', ');
+
   return (
     <>
-      <section aria-label="Todas las tareas" className="overflow-hidden rounded-2xl border border-border bg-card shadow-(--shadow)">
-        {/* Header */}
-        <div className="flex items-center justify-between gap-3 border-b border-border px-4 py-3">
-          <div className="flex items-center gap-2">
-            <span className="text-[1.06rem] font-bold tracking-[-0.01em]">Todas las tareas</span>
-            <span className="text-xs text-muted-foreground">
-              {filtered.length}
-              {filterCount > 0 && ` · ${filterCount} filtro${filterCount > 1 ? 's' : ''}`}
-            </span>
-            {selectedTaskIds.size > 0 && (
-              <span className="text-xs font-medium text-primary bg-primary/10 px-2 py-0.5 rounded-full">
-                {selectedTaskIds.size} seleccionada{selectedTaskIds.size !== 1 ? 's' : ''}
-              </span>
-            )}
-          </div>
+      <OverdueGroup
+        tasks={overdueTasks}
+        filas={vencidas.filas}
+        struck={vencidas.struck}
+        systemMap={systemMap}
+        onOpen={setSelectedTask}
+        onComplete={vencidas.handleToggle}
+        focusedTaskId={focusedTaskId}
+        filaDe={filaDe}
+      />
 
-          <div className="flex items-center gap-1.5">
+      <section aria-labelledby="todas-titulo">
+        <SectionHead id="todas-titulo" title="Todas las tareas" />
+
+        {/* Herramientas: la cuenta, la hoja de filtros, la selección y las
+            fichas de lo que está activo, cada una con el valor que quita. La
+            cuenta va aquí y no junto al título: en el teléfono lo partía en
+            dos líneas. */}
+        <div className="flex flex-wrap items-center gap-1.5 py-2 pl-(--margen)">
+          {!isLoading && <span className="mr-1 text-[0.84rem] text-muted-foreground tabular-nums">{cuenta}</span>}
+          <Button size="sm" variant="secondary" onClick={() => setShowFilters(true)}>
+            <SlidersHorizontal className="size-4" />
+            Filtros
+            {filterCount > 0 && <span className="tabular-nums">{filterCount}</span>}
+          </Button>
+          <Button
+            size="sm"
+            variant="ghost"
+            aria-pressed={seleccionando}
+            onClick={() => (seleccionando ? clearSelection() : setModoSeleccion(true))}
+          >
+            {seleccionando ? <Check className="size-4" /> : <ListChecks className="size-4" />}
+            {seleccionando ? 'Terminar' : 'Seleccionar'}
+          </Button>
+          {fichas.map((ficha) => (
             <Button
+              key={`${ficha.key}-${ficha.value ?? ''}`}
               size="sm"
-              variant={showFilters ? 'default' : 'secondary'}
-              onClick={() => setShowFilters((v) => !v)}
+              variant="ghost"
+              onClick={() => quitarFicha(ficha)}
+              aria-label={`Quitar el filtro ${ficha.label}`}
+              className="text-foreground"
             >
-              <SlidersHorizontal className="size-4" />
-              Filtros
-              {filterCount > 0 && <span className="tabular-nums">{filterCount}</span>}
+              {ficha.label}
+              <X className="size-3.5 text-muted-foreground" />
             </Button>
-
-            {/* View toggle: un segmento pill, el elegido es el acento */}
-            <div className="flex rounded-full bg-secondary p-1" role="group" aria-label="Vista">
-              {(['list', 'grid'] as const).map((v) => (
-                <button
-                  key={v}
-                  type="button"
-                  onClick={() => handleViewToggle(v)}
-                  aria-pressed={filters.view === v}
-                  className={cn(
-                    'flex size-8 items-center justify-center rounded-full transition-colors',
-                    filters.view === v ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:text-foreground',
-                  )}
-                  title={v === 'list' ? 'Vista lista' : 'Vista grid'}
-                >
-                  {v === 'list' ? <LayoutList className="size-4" /> : <LayoutGrid className="size-4" />}
-                </button>
-              ))}
-            </div>
-          </div>
+          ))}
         </div>
 
-        {/* Filter chips */}
-        {activeChips.length > 0 && (
-          <div className="flex flex-wrap gap-1.5 border-b border-border px-4 py-2">
-            {activeChips.map((key) => (
-              <span
-                key={key}
-                className="flex items-center gap-1 rounded-full bg-primary/15 px-2.5 py-0.5 text-xs font-semibold text-primary"
-              >
-                {FILTER_CHIP_LABELS[key]}
-                <button onClick={() => removeFilterChip(key)} className="hover:text-primary/70">
-                  <X className="w-3 h-3" />
-                </button>
-              </span>
-            ))}
-          </div>
+        {isLoading ? (
+          <ListaSkeleton filas={6} />
+        ) : filas.length === 0 ? (
+          filterCount > 0 ? (
+            <EmptyState
+              className="pl-(--margen)"
+              title="Nada con esos filtros"
+              description="Quita uno y la lista vuelve."
+              action={
+                <Button variant="secondary" onClick={limpiarFiltros}>
+                  Limpiar filtros
+                </Button>
+              }
+            />
+          ) : (
+            <EmptyState
+              className="pl-(--margen)"
+              title={overdueTasks.length > 0 ? 'Sólo quedan las vencidas' : 'Una página en blanco'}
+              description={overdueTasks.length > 0 ? 'Lo de arriba es todo lo que hay.' : 'La primera tarea empieza la lista.'}
+              action={
+                <Button onClick={() => setQuickAddOpen(true)}>
+                  <Plus className="size-5" />
+                  Nueva tarea
+                </Button>
+              }
+            />
+          )
+        ) : (
+          renderGrouped(filas)
         )}
 
-        {/* Filter panel */}
-        {showFilters && (
-          <div className="border-b border-border p-4">
-            <TaskFilterPanel filters={filters} systems={systems} onChange={handleFiltersChange} />
-          </div>
-        )}
-
-        {/* Overdue group: KIN-29, 30, 31 */}
-        {selectedTaskIds.size === 0 && (
-          <OverdueGroup
-            tasks={overdueTasks}
-            systemMap={systemMap}
-            onOpen={setSelectedTask}
-            onToggle={(id) => toggleTask({ taskId: id })}
-          />
-        )}
-
-        {/* Bulk action bar */}
         <BulkActionBar
           selectedIds={selectedTaskIds}
           onClear={clearSelection}
           onVaciar={selectedTaskIds.size > 0 ? () => setCascadeOpen(true) : undefined}
         />
-
-        {/* TaskTransport list */}
-        {isLoading ? (
-          <div className="space-y-3 px-4 py-3">
-            {[...Array(5)].map((_, i) => (
-              <div key={i} className="h-10 rounded-md bg-muted" />
-            ))}
-          </div>
-        ) : filtered.length === 0 ? (
-          <div className="px-4 py-10 text-center">
-            <p className="text-sm text-muted-foreground">
-              {filterCount > 0 ? 'No hay tareas con esos filtros.' : 'Aún no tienes tareas.'}
-            </p>
-            {filterCount > 0 ? (
-              <Button
-                variant="link"
-                size="sm"
-                className="mt-1"
-                onClick={() => handleFiltersChange({
-                  ...DEFAULT_FILTERS,
-                  sort: filters.sort,
-                  view: filters.view,
-                })}
-              >
-                Limpiar filtros
-              </Button>
-            ) : (
-              <Button size="sm" className="mt-3" onClick={() => setQuickAddOpen(true)}>
-                <Plus className="size-4" />
-                Crear tarea
-              </Button>
-            )}
-          </div>
-        ) : (
-          renderGrouped(filtered)
-        )}
       </section>
 
-      {selectedTask && (
-        <TaskDetailSheet
-          task={selectedTask}
-          systemId={selectedTask.systemId}
-          open={!!selectedTask}
-          onOpenChange={(open) => {
-            if (open) return;
-            setSelectedTask(null);
-            if (tareaEnlazada) {
-              const params = new URLSearchParams(searchParams.toString());
-              params.delete('tarea');
-              const qs = params.toString();
-              router.replace(qs ? `${pathname}?${qs}` : pathname);
-            }
-          }}
-        />
-      )}
+      <ResponsiveDialog open={showFilters} onOpenChange={setShowFilters}>
+        <ResponsiveDialogContent className="sm:max-w-lg max-h-[90vh] overflow-y-auto">
+          <ResponsiveDialogHeader>
+            <ResponsiveDialogTitle>Filtros</ResponsiveDialogTitle>
+            <ResponsiveDialogDescription>Cada toque filtra la lista al momento; abajo, cuántas quedan.</ResponsiveDialogDescription>
+          </ResponsiveDialogHeader>
+          <TaskFilterPanel filters={filters} systems={systems} onChange={handleFiltersChange} />
+          {/* El pie de la hoja: la cuenta viva y las dos salidas, al alcance
+              del pulgar aunque la lista quede tapada. */}
+          <div
+            data-slot="filtros-pie"
+            className="sticky bottom-0 z-10 -mx-4 -mb-[calc(1rem+env(safe-area-inset-bottom))] flex gap-2 border-t border-border bg-popover px-4 pt-3 pb-[calc(1rem+env(safe-area-inset-bottom))] md:-mx-5 md:-mb-5 md:px-5 md:pb-5"
+          >
+            <Button variant="secondary" disabled={filterCount === 0} onClick={limpiarFiltros}>
+              Limpiar
+            </Button>
+            <Button className="flex-1" onClick={() => setShowFilters(false)}>
+              Ver {filtered.length} tarea{filtered.length === 1 ? '' : 's'}
+            </Button>
+          </div>
+        </ResponsiveDialogContent>
+      </ResponsiveDialog>
 
-      <ConfirmDialog
-        open={deleteTarget !== null}
-        title="Mover a la papelera"
-        description={`"${deleteTarget?.title}" se moverá a la papelera.`}
-        confirmLabel="Mover a la papelera"
-        onConfirm={() => {
-          if (deleteTarget) deleteTask(deleteTarget.id);
-          setDeleteTarget(null);
+      <TaskDetailSheet
+        task={selectedTask}
+        systemId={selectedTask?.systemId ?? ''}
+        open={selectedTask !== null}
+        onComplete={(t) => handleToggle(t)}
+        onOpenChange={(open) => {
+          if (open) return;
+          setSelectedTask(null);
+          if (tareaEnlazada) {
+            const params = new URLSearchParams(searchParams.toString());
+            params.delete('tarea');
+            const qs = params.toString();
+            router.replace(qs ? `${pathname}?${qs}` : pathname);
+          }
         }}
-        onCancel={() => setDeleteTarget(null)}
       />
 
       <CascadeInboxMode
-        tasks={filtered.filter((t) => selectedTaskIds.has(t.id))}
+        tasks={navegables.filter((t) => selectedTaskIds.has(t.id))}
         open={cascadeOpen}
         onOpenChange={(open) => {
           setCascadeOpen(open);
@@ -368,4 +489,4 @@ export function AllTasksList({ systems }: AllTasksListProps) {
       />
     </>
   );
-}
+});

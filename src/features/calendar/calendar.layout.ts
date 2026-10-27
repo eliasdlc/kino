@@ -1,9 +1,9 @@
-import { format } from "date-fns";
+import { addDays, format, startOfWeek } from "date-fns";
 import type { TaskTransport } from "@/features/tasks/tasks.types";
 import { parseDueDate, dueDateHasTime, parseTaskDay } from "@/features/tasks/tasks.utils";
 
 /**
- * Cálculo puro de la rejilla del calendario (KIN-146 · FE-05).
+ * Cálculo puro de la rejilla del calendario (KIN-146, FE-05).
  *
  * Extraído de `GlobalCalendarView` sin cambiar comportamiento: aquí vive la
  * geometría: dónde cae un bloque, cuánto mide, en qué día entra cada tarea:
@@ -41,7 +41,7 @@ export function minutesToTimeString(minutes: number): string {
   return `${h.toString().padStart(2, "0")}:${m.toString().padStart(2, "0")}`;
 }
 
-/** Nivel de energía 0–100 → clase de fondo del overlay. */
+/** Nivel de energía de 0 a 100, a la clase de fondo del overlay. */
 export function energyBgClass(capacity: number): string {
   if (capacity >= 60) return "bg-task-done/8";
   if (capacity >= 30) return "bg-primary/8";
@@ -134,4 +134,45 @@ export function occupiedHoursForDay(tasks: TaskTransport[], day: Date): Set<numb
     if (dayKey(date) === key) set.add(date.getHours());
   }
   return set;
+}
+
+/** "09:30" de la hora en que se coloca una tarea con hora. */
+export function placementTime(task: TaskTransport): string | null {
+  const dateVal = getPlacementDate(task);
+  if (!dateVal || !dueDateHasTime(dateVal)) return null;
+  return format(parseDueDate(dateVal), "HH:mm");
+}
+
+/**
+ * Las tareas con hora de un día, en el orden en que pasan. Recibe el mapa por
+ * día de `groupTasksByDay({ timed: true })`, el mismo que lee la rejilla de
+ * escritorio, así que el teléfono y el escritorio no pueden discrepar en qué
+ * tarea cae en qué día. No recorta por la rejilla de 06:00 a 22:00: una tarea
+ * a las 23:15 también es del día.
+ */
+export function timedTasksOfDay(timedByDay: Map<string, TaskTransport[]>, day: Date): TaskTransport[] {
+  const tasks = timedByDay.get(dayKey(day)) ?? [];
+  const instant = (task: TaskTransport) => parseDueDate(getPlacementDate(task) ?? "").getTime();
+  return [...tasks].sort((a, b) => instant(a) - instant(b));
+}
+
+/** Los siete días de la semana (lunes a domingo) que contiene `day`. */
+export function weekOf(day: Date): Date[] {
+  const start = startOfWeek(day, { weekStartsOn: 1 });
+  return Array.from({ length: 7 }, (_, i) => addDays(start, i));
+}
+
+/**
+ * Cuánto lleva cada día, de 0 a 3 puntos: la tira de la semana dibuja un punto
+ * por cada tarea hasta tres, y tres quiere decir "tres o más". Cuenta las dos
+ * clases (con hora y de todo el día) porque las dos ocupan el día.
+ */
+export function dayLoad(
+  byDayAllDay: Map<string, TaskTransport[]>,
+  timedByDay: Map<string, TaskTransport[]>,
+  day: Date,
+): number {
+  const key = dayKey(day);
+  const total = (byDayAllDay.get(key)?.length ?? 0) + (timedByDay.get(key)?.length ?? 0);
+  return Math.min(3, total);
 }

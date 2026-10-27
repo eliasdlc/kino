@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { Download, Loader2, Trash2 } from 'lucide-react';
+import { Download, Trash2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -13,18 +13,31 @@ import {
   ResponsiveDialogTitle,
 } from '@/components/ui/responsive-dialog';
 import { useExportWorkspace } from '@/features/settings/settings.hooks';
+import { IndexRow } from '@/features/settings/settings-ui';
 import { useAccount, useDeleteAccount } from './account.hooks';
 
 /**
- * Confirmación del borrado: ofrece la exportación antes y exige escribir el
- * correo de la cuenta. Al terminar se navega en duro a /login para que no
- * quede nada de la cuenta en memoria del cliente.
+ * Lo que pide el borrado: la copia antes de irse y escribir el correo de la
+ * cuenta. Aparte del diálogo para que el catálogo lo enseñe. Al terminar se
+ * navega en duro a /login para que no quede nada de la cuenta en memoria del
+ * cliente.
  */
-function DeleteAccountDialog({ email, onClose }: { email: string; onClose: () => void }) {
+export function DeleteAccountBody({
+  email,
+  onClose,
+  deleteAccount,
+  enfocar = true,
+}: {
+  email: string;
+  onClose: () => void;
+  /** El campo toma el foco al abrir; el catálogo lo apaga para no arrastrar la página. */
+  enfocar?: boolean;
+  /** La acción de borrar, de quien monta el cuerpo: el diálogo no se cierra mientras corre. */
+  deleteAccount: ReturnType<typeof useDeleteAccount>;
+}) {
   const [typed, setTyped] = useState('');
   const [error, setError] = useState<string | null>(null);
   const exportWorkspace = useExportWorkspace();
-  const deleteAccount = useDeleteAccount();
   const matches = typed.trim().toLowerCase() === email.toLowerCase();
 
   function handleSubmit(e: React.FormEvent) {
@@ -40,104 +53,95 @@ function DeleteAccountDialog({ email, onClose }: { email: string; onClose: () =>
   }
 
   return (
+    <>
+      {/* La copia antes de irse, en una fila con hairline y no en una caja. */}
+      <div className="space-y-2 border-y border-border py-3">
+        <p className="text-sm font-semibold text-foreground">Llévate una copia antes</p>
+        <p className="text-sm text-muted-foreground">Un ZIP con todo en Markdown y JSON.</p>
+        <Button
+          type="button"
+          variant="outline"
+          disabled={exportWorkspace.isPending}
+          onClick={() => exportWorkspace.mutate()}
+        >
+          <Download aria-hidden className="size-4" />
+          {exportWorkspace.isPending ? 'Preparando el ZIP' : 'Exportar'}
+        </Button>
+      </div>
+
+      <form onSubmit={handleSubmit} className="space-y-4">
+        <div className="space-y-1.5">
+          {/* En bloque y no en fila: la etiqueta flex partía el correo en una columna estrecha. */}
+          <Label htmlFor="delete-account-email" className="block leading-snug">
+            Escribe <span className="font-mono break-all">{email}</span> para confirmar
+          </Label>
+          <Input
+            id="delete-account-email"
+            type="email"
+            autoComplete="off"
+            value={typed}
+            onChange={(e) => {
+              setTyped(e.target.value);
+              setError(null);
+            }}
+            autoFocus={enfocar}
+          />
+          {error && <p className="text-xs text-destructive">{error}</p>}
+        </div>
+        <div className="flex flex-col gap-2 sm:flex-row sm:justify-end">
+          <Button type="button" variant="ghost" onClick={onClose} disabled={deleteAccount.isPending}>
+            Cancelar
+          </Button>
+          <Button type="submit" variant="destructive" disabled={!matches || deleteAccount.isPending}>
+            <Trash2 aria-hidden className="size-4" />
+            {deleteAccount.isPending ? 'Borrando la cuenta' : 'Borrar mi cuenta'}
+          </Button>
+        </div>
+      </form>
+    </>
+  );
+}
+
+/** La confirmación del borrado, en su hoja. No se cierra mientras se borra. */
+function DeleteAccountDialog({ email, onClose }: { email: string; onClose: () => void }) {
+  const deleteAccount = useDeleteAccount();
+  return (
     <ResponsiveDialog open onOpenChange={(open) => !open && !deleteAccount.isPending && onClose()}>
       <ResponsiveDialogContent className="max-w-md">
         <ResponsiveDialogHeader>
           <ResponsiveDialogTitle>Borrar tu cuenta</ResponsiveDialogTitle>
           <ResponsiveDialogDescription>
-            Se borran tus sistemas, tareas, cuadernos, imágenes, claves API y sesiones. No hay
+            Se borran tus sistemas, tareas, cuadernos, imágenes y sesiones. No hay
             papelera para esto: no se puede deshacer.
           </ResponsiveDialogDescription>
         </ResponsiveDialogHeader>
-
-        <div className="flex items-center justify-between gap-4 rounded-lg border p-3">
-          <div className="space-y-0.5 min-w-0">
-            <p className="text-sm font-medium">Llévate una copia antes</p>
-            <p className="text-xs text-muted-foreground">Un ZIP con todo en Markdown y JSON.</p>
-          </div>
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            className="gap-2 shrink-0"
-            disabled={exportWorkspace.isPending}
-            onClick={() => exportWorkspace.mutate()}
-          >
-            {exportWorkspace.isPending ? (
-              <Loader2 className="size-4 animate-spin" />
-            ) : (
-              <Download className="size-4" />
-            )}
-            Exportar
-          </Button>
-        </div>
-
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <div className="space-y-1.5">
-            <Label htmlFor="delete-account-email">
-              Escribe <span className="font-mono break-all">{email}</span> para confirmar
-            </Label>
-            <Input
-              id="delete-account-email"
-              type="email"
-              autoComplete="off"
-              value={typed}
-              onChange={(e) => {
-                setTyped(e.target.value);
-                setError(null);
-              }}
-              autoFocus
-            />
-            {error && <p className="text-xs text-destructive">{error}</p>}
-          </div>
-          <div className="flex flex-col gap-2 sm:flex-row sm:justify-end">
-            <Button type="button" variant="ghost" onClick={onClose} disabled={deleteAccount.isPending}>
-              Cancelar
-            </Button>
-            <Button type="submit" variant="destructive" disabled={!matches || deleteAccount.isPending}>
-              <Trash2 className="size-4" />
-              {deleteAccount.isPending ? 'Borrando…' : 'Borrar mi cuenta'}
-            </Button>
-          </div>
-        </form>
+        <DeleteAccountBody email={email} onClose={onClose} deleteAccount={deleteAccount} />
       </ResponsiveDialogContent>
     </ResponsiveDialog>
   );
 }
 
+/**
+ * La última fila de Una vez: borrar la cuenta. Va al final, después de la
+ * exportación, porque es el orden natural de irse. Abre la confirmación que
+ * pide escribir el correo; la fila espera a saber cuál es.
+ */
 export function DangerZoneSection() {
   const { data: account } = useAccount();
   const [confirming, setConfirming] = useState(false);
 
   return (
-    <div className="space-y-4">
-      <div>
-        <h2 className="text-lg font-semibold">Zona de peligro</h2>
-        <p className="text-sm text-muted-foreground">Lo que no se puede deshacer.</p>
-      </div>
-
-      <div className="flex items-center justify-between gap-4 rounded-lg border border-destructive/30 p-4">
-        <div className="space-y-0.5">
-          <p className="text-sm font-medium">Borrar la cuenta y todos sus datos</p>
-          <p className="text-xs text-muted-foreground">
-            Todo lo tuyo desaparece de Kino al instante. Antes puedes exportarlo.
-          </p>
-        </div>
-        <Button
-          variant="outline"
-          size="sm"
-          className="shrink-0 gap-2 border-destructive/40 text-destructive hover:bg-destructive/10 hover:text-destructive"
-          disabled={!account}
-          onClick={() => setConfirming(true)}
-        >
-          <Trash2 className="size-4" />
-          Borrar cuenta
-        </Button>
-      </div>
-
+    <>
+      <IndexRow
+        tone="danger"
+        icon={<Trash2 aria-hidden className="size-5 stroke-[1.8]" />}
+        title="Borrar la cuenta"
+        meta="Sin papelera; exporta antes"
+        onOpen={account ? () => setConfirming(true) : undefined}
+      />
       {confirming && account && (
         <DeleteAccountDialog email={account.email} onClose={() => setConfirming(false)} />
       )}
-    </div>
+    </>
   );
 }

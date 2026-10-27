@@ -53,7 +53,7 @@ export function StackNoteSheet({ open, onOpenChange, note, notes, onStack }: Sta
                     onOpenChange(false);
                     onStack(target.id);
                   }}
-                  className="flex min-h-12 w-full items-center gap-3 rounded-xl border border-border px-4 text-left text-sm font-medium transition-colors hover:border-primary hover:bg-accent"
+                  className="flex min-h-12 w-full items-center gap-3 rounded-xl border border-border px-4 text-left text-sm font-medium transition-colors duration-(--dur-toque) ease-(--ease-pluma) hover:border-primary hover:bg-accent"
                 >
                   <span aria-hidden className="size-2 shrink-0 rounded-full bg-muted-foreground" />
                   <span className="min-w-0 flex-1 truncate">{noteLabel(target)}</span>

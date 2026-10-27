@@ -1,32 +1,36 @@
 import { Skeleton } from "@/components/ui/skeleton";
 import { BreadcrumbSkeleton } from "@/components/Skeletons";
+import { PageWrapper } from "@/components/PageWrapper";
 
 export default function ReadingLoading() {
   return (
-    <div className="w-full">
-      <div className="sticky top-0 z-(--z-raised) border-b bg-background px-4 py-2.5 md:px-6">
+    <div aria-busy className="w-full">
+      <div className="sticky top-0 z-(--z-raised) hidden border-b bg-background px-4 py-2.5 md:block md:px-6">
         <BreadcrumbSkeleton segments={4} />
       </div>
-      <div className="mx-auto w-full max-w-4xl p-4 md:p-8">
-        <div className="mb-8 flex items-center justify-between gap-3">
-          <div className="space-y-2">
-            <Skeleton className="h-5 w-48 rounded" />
-            <Skeleton className="h-3 w-64 rounded" />
+      {/* El mismo canto que la página: `PageWrapper` y la columna de lectura. */}
+      <PageWrapper className="w-full">
+        <div className="mx-auto w-full max-w-4xl">
+          <div className="mb-8 flex items-center justify-between gap-3">
+            <div className="space-y-2">
+              <Skeleton className="h-5 w-48 rounded" />
+              <Skeleton className="h-3 w-64 rounded" />
+            </div>
+            <Skeleton className="h-[2.85rem] w-32 rounded-full" />
           </div>
-          <Skeleton className="h-9 w-32 rounded-md" />
+          {/* Columna de lectura: líneas de texto, no cards */}
+          <div className="space-y-3">
+            <Skeleton className="mx-auto h-4 w-40 rounded" />
+            {Array.from({ length: 14 }).map((_, i) => (
+              <Skeleton
+                key={i}
+                className="h-3.5 rounded"
+                style={{ width: i % 5 === 4 ? "62%" : "100%" }}
+              />
+            ))}
+          </div>
         </div>
-        {/* Columna de lectura: líneas de texto, no cards */}
-        <div className="space-y-3">
-          <Skeleton className="mx-auto h-4 w-40 rounded" />
-          {Array.from({ length: 14 }).map((_, i) => (
-            <Skeleton
-              key={i}
-              className="h-3.5 rounded"
-              style={{ width: i % 5 === 4 ? "62%" : "100%" }}
-            />
-          ))}
-        </div>
-      </div>
+      </PageWrapper>
     </div>
   );
 }

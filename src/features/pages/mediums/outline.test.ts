@@ -33,9 +33,9 @@ describe("deriveOutline", () => {
 
     expect(items).toHaveLength(2);
     expect(items[0]).toMatchObject({ pos: 0, kind: "scene" });
-    expect(items[0].label).toBe("Escena 1 · Kael cruzó el puente al amanecer.");
+    expect(items[0].label).toBe("Escena 1: Kael cruzó el puente al amanecer.");
     expect(items[1]).toMatchObject({ pos: 40, kind: "scene" });
-    expect(items[1].label).toBe("Escena 2 · Dahl esperaba al otro lado.");
+    expect(items[1].label).toBe("Escena 2: Dahl esperaba al otro lado.");
   });
 
   it("numera escenas por orden y trunca el texto largo", () => {
@@ -49,7 +49,7 @@ describe("deriveOutline", () => {
       ]),
     );
 
-    expect(items.map((i) => i.label.split(" · ")[0])).toEqual([
+    expect(items.map((i) => i.label.split(": ")[0])).toEqual([
       "Escena 1",
       "Escena 2",
       "Escena 3",
@@ -68,9 +68,9 @@ describe("deriveOutline", () => {
     );
 
     expect(items.map((i) => ({ kind: i.kind, label: i.label }))).toEqual([
-      { kind: "page", label: "Página 1 · Kael entra al dojo" },
-      { kind: "page", label: "Página 2 · El golpe" },
-      { kind: "panel", label: "Panel 1 · Cierre a negro" },
+      { kind: "page", label: "Página 1: Kael entra al dojo" },
+      { kind: "page", label: "Página 2: El golpe" },
+      { kind: "panel", label: "Panel 1: Cierre a negro" },
     ]);
   });
 
@@ -115,7 +115,7 @@ describe("deriveOutline", () => {
     );
 
     expect(items.map((i) => i.label)).toEqual([
-      "Escena 1 · inicio",
+      "Escena 1: inicio",
       "Escena 2",
       "Segunda parte",
     ]);
@@ -133,8 +133,8 @@ describe("corte guía del plot grid (KIN-141)", () => {
       ]),
     );
     expect(items.map((i) => i.label)).toEqual([
-      "Escena 1 · La niebla no levantó.",
-      "Escena 2 · Bruno la encontró.",
+      "Escena 1: La niebla no levantó.",
+      "Escena 2: Bruno la encontró.",
     ]);
   });
 

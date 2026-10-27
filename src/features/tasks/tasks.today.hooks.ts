@@ -3,15 +3,18 @@
 import { toast } from "sonner";
 import { api } from "@convex/_generated/api";
 import { useConvexMutation, useConvexQuery } from "@/shared/convex/hooks";
+import { toggleLocally } from "./tasks.optimistic";
 
 /** El plan comprometido de hoy. */
 export function useTodayPlanTasks() {
   return useConvexQuery(api.tasks.todayPlan, {});
 }
 
+/** Completar o deshacer, optimista: el círculo cambia en el toque (`tasks.optimistic.ts`). */
 export function useToggleTodayTask() {
   return useConvexMutation(api.tasks.toggle, {
     map: ({ taskId }: { taskId: string }) => ({ id: taskId }),
+    optimisticUpdate: toggleLocally,
     onError: () => toast.error('No se pudo guardar. Intenta de nuevo.'),
   });
 }

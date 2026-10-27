@@ -64,9 +64,15 @@ describe("la sección de notas", () => {
   });
 });
 
-/** Lo que dnd-kit deja en el DOM cuando una nota es arrastrable. */
+/**
+ * Las notas con listeners de arrastre. El envoltorio lo marca él mismo porque
+ * ya no lleva los atributos ARIA de dnd-kit (su `role="button"` envolvía los
+ * botones de la nota); los dos selectores viejos siguen aquí por si vuelven.
+ */
 function notasArrastrables(container: HTMLElement) {
-  return container.querySelectorAll("[aria-roledescription='draggable'], [aria-describedby^='DndDescribedBy']");
+  return container.querySelectorAll(
+    "[data-arrastrable], [aria-roledescription='draggable'], [aria-describedby^='DndDescribedBy']"
+  );
 }
 
 /** Abre el menú de una nota, que en touch se alcanza con pulsación larga. */

@@ -28,8 +28,9 @@ export type StudioReport = FunctionReturnType<typeof api.writing.studio>;
 
 /**
  * Datos de muestra para el catálogo visual. Los componentes compuestos de Kino
- * (SystemCard, task cards…) consumen filas reales de la DB; aquí las fabricamos
- * completas para que cada estado visual sea reproducible sin datos reales.
+ * (las filas del índice de sistemas, las task cards, las filas de documentos)
+ * consumen filas reales de la base; aquí las fabricamos completas para que cada
+ * estado visual sea reproducible sin datos reales.
  */
 
 /** Instante fijo del catálogo, en la misma forma que llega por la red. */
@@ -347,8 +348,8 @@ export function makeEntityDetail(overrides: Partial<EntityDetailTransport> = {})
       },
     ],
     appearances: [
-      { pageId: MOCK_PAGE_ID, pageTitle: "Capítulo 1 · La marea baja", mentionCount: 7 },
-      { pageId: uuid(303), pageTitle: "Capítulo 2 · El gremio", mentionCount: 3 },
+      { pageId: MOCK_PAGE_ID, pageTitle: "Capítulo 1: La marea baja", mentionCount: 7 },
+      { pageId: uuid(303), pageTitle: "Capítulo 2: El gremio", mentionCount: 3 },
     ],
     ...overrides,
   };
@@ -373,7 +374,7 @@ function makeSession(overrides: Partial<WritingSession> = {}): WritingSession {
   return {
     id: uuid(400),
     pageId: MOCK_PAGE_ID,
-    pageTitle: "Capítulo 1 · La marea baja",
+    pageTitle: "Capítulo 1: La marea baja",
     folderId: MOCK_FOLDER_ID,
     startedAt: "2026-07-15T09:05:00Z",
     endedAt: "2026-07-15T10:40:00Z",
@@ -405,7 +406,7 @@ export function makeWorkJournal(overrides: Partial<WorkJournal> = {}): WorkJourn
         minutes: 120,
         cumulativeWords: 23_490,
         milestones: [
-          { kind: "chapter-completed", pageId: MOCK_PAGE_ID, pageTitle: "Capítulo 1 · La marea baja" },
+          { kind: "chapter-completed", pageId: MOCK_PAGE_ID, pageTitle: "Capítulo 1: La marea baja" },
           { kind: "streak", days: 10 },
         ],
       },
@@ -429,8 +430,8 @@ function makeLooseThread(overrides: Partial<LooseThread> = {}): LooseThread {
     type: "object",
     totalMentions: 2,
     chapterCount: 1,
-    firstChapter: { index: 2, id: uuid(600), title: "Capítulo 2 · El gremio" },
-    lastChapter: { index: 2, id: uuid(600), title: "Capítulo 2 · El gremio" },
+    firstChapter: { index: 2, id: uuid(600), title: "Capítulo 2: El gremio" },
+    lastChapter: { index: 2, id: uuid(600), title: "Capítulo 2: El gremio" },
     silentChapters: 5,
     resolved: false,
     reopened: false,
@@ -465,7 +466,7 @@ export function makeLooseThreadsReport(
         silentChapters: 3,
         reopened: true,
         firstChapter: { index: 1, id: uuid(602), title: "Capítulo 1" },
-        lastChapter: { index: 4, id: uuid(603), title: "Capítulo 4 · La niebla" },
+        lastChapter: { index: 4, id: uuid(603), title: "Capítulo 4: La niebla" },
       }),
       makeLooseThread({
         entityId: uuid(503),
@@ -503,7 +504,7 @@ export function makeTimelineReport(
         when: "Año 1023, otoño",
         what: "El puente cede durante la tormenta y aísla el puerto por dos inviernos.",
         order: 1,
-        narratedIn: [chapter(3, "Capítulo 3 · Lo que quedó")],
+        narratedIn: [chapter(3, "Capítulo 3: Lo que quedó")],
         firstNarratedIndex: 3,
         outOfOrder: true,
       },
@@ -514,7 +515,7 @@ export function makeTimelineReport(
         when: "Año 1025, invierno",
         what: "Bruno firma en nombre de una casa que ya no existe.",
         order: 2,
-        narratedIn: [chapter(1, "Capítulo 1"), chapter(2, "Capítulo 2 · El gremio")],
+        narratedIn: [chapter(1, "Capítulo 1"), chapter(2, "Capítulo 2: El gremio")],
         firstNarratedIndex: 1,
         outOfOrder: false,
       },
@@ -538,7 +539,7 @@ export function makeTimelineReport(
         when: null,
         what: null,
         order: null,
-        narratedIn: [chapter(4, "Capítulo 4 · La niebla")],
+        narratedIn: [chapter(4, "Capítulo 4: La niebla")],
         firstNarratedIndex: 4,
         outOfOrder: false,
       },
@@ -547,9 +548,9 @@ export function makeTimelineReport(
   };
 }
 
-const PROSE_CHAPTER = `<p>La niebla no levantó ese día, ni el siguiente. Aurelia lo anotó en el margen del mapa, con la letra pequeña que usaba para lo que no quería que nadie leyera.</p><p>El puerto seguía ahí abajo, respirando. Los barcos habían dejado de salir hacía dos semanas y nadie decía por qué.</p><div data-scene-break class="scene-break">* * *</div><p>Bruno la encontró en el taller, con la carta desplegada y la tinta todavía fresca.</p><p>—No vas a arreglarlo mirándolo —dijo.</p>`;
+const PROSE_CHAPTER = `<p>La niebla no levantó ese día, ni el siguiente. Aurelia lo anotó en el margen del mapa, con la letra pequeña que usaba para lo que no quería que nadie leyera.</p><p>El puerto seguía ahí abajo, respirando. Los barcos habían dejado de salir hacía dos semanas y nadie decía por qué.</p><div data-scene-break class="scene-break">* * *</div><p>Bruno la encontró en el taller, con la carta desplegada y la tinta todavía fresca.</p><p>«No vas a arreglarlo mirándolo», dijo.</p>`;
 
-const SCREENPLAY_CHAPTER = `<p data-sp="sceneHeading" class="sp-sceneHeading">int. taller de mapas — noche</p><p data-sp="action" class="sp-action">Aurelia despliega la carta sobre la mesa. La tinta todavía huele.</p><p data-sp="character" class="sp-character">aurelia</p><p data-sp="parenthetical" class="sp-parenthetical">(sin levantar la vista)</p><p data-sp="dialogue" class="sp-dialogue">Mi madre dejó este borde sin cerrar a propósito.</p>`;
+const SCREENPLAY_CHAPTER = `<p data-sp="sceneHeading" class="sp-sceneHeading">int. taller de mapas - noche</p><p data-sp="action" class="sp-action">Aurelia despliega la carta sobre la mesa. La tinta todavía huele.</p><p data-sp="character" class="sp-character">aurelia</p><p data-sp="parenthetical" class="sp-parenthetical">(sin levantar la vista)</p><p data-sp="dialogue" class="sp-dialogue">Mi madre dejó este borde sin cerrar a propósito.</p>`;
 
 export function makeManuscript(overrides: Partial<Manuscript> = {}): Manuscript {
   const medium = overrides.medium ?? "novel";
@@ -562,8 +563,8 @@ export function makeManuscript(overrides: Partial<Manuscript> = {}): Manuscript 
     medium,
     totalWords: 148,
     chapters: [
-      { id: uuid(900), title: "Capítulo 1 · La niebla", content: body, wordCount: 84, completed: true },
-      { id: uuid(901), title: "Capítulo 2 · El gremio", content: body, wordCount: 64, completed: false },
+      { id: uuid(900), title: "Capítulo 1: La niebla", content: body, wordCount: 84, completed: true },
+      { id: uuid(901), title: "Capítulo 2: El gremio", content: body, wordCount: 64, completed: false },
     ],
     ...overrides,
   };
@@ -583,7 +584,7 @@ export function makePlotGrid(overrides: Partial<PlotGrid> = {}): PlotGrid {
     chapters: [
       {
         chapterId: uuid(950),
-        title: "Capítulo 1 · La niebla",
+        title: "Capítulo 1: La niebla",
         scenes: [
           scene(0, "Aurelia", "La niebla no levantó ese día, ni el siguiente. Aurelia lo anotó en el margen del mapa.", 640),
           scene(1, "El gremio", "Bruno la encontró en el taller, con la carta desplegada y la tinta todavía fresca.", 410),
@@ -591,7 +592,7 @@ export function makePlotGrid(overrides: Partial<PlotGrid> = {}): PlotGrid {
       },
       {
         chapterId: uuid(951),
-        title: "Capítulo 2 · El gremio",
+        title: "Capítulo 2: El gremio",
         scenes: [
           scene(0, "El gremio", "Firmaron sin leerlo. Nadie preguntó en nombre de qué casa hablaba Bruno.", 520),
           scene(1, null, "El posadero cerró antes de tiempo y no dio explicaciones.", 180),
@@ -625,8 +626,8 @@ export function makeStudioReport(overrides: Partial<StudioReport> = {}): StudioR
     suggestions: [
       {
         kind: "resume-chapter",
-        title: "Retoma «Capítulo 4 · La niebla»",
-        reason: "Es lo último que escribiste, hace 2 días · 1.240 palabras en La marea baja.",
+        title: "Retoma «Capítulo 4: La niebla»",
+        reason: "Es lo último que escribiste, hace 2 días: 1.240 palabras en La marea baja.",
         target: { kind: "page", id: MOCK_PAGE_ID },
         weight: 88,
       },

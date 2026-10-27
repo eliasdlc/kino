@@ -1,8 +1,9 @@
 /**
- * Criterio: la fila de una captura es la misma fila que la de una tarea, con su
- * marca a la izquierda y el glifo de su tipo en el hueco que Bandeja ya
- * reservaba. Lo que no lleva es casilla: una captura no se completa, se
- * confirma, y confirmar abre otra pantalla.
+ * Criterio: la fila de una captura es la misma fila de margen que la de una
+ * tarea, con el glifo de su tipo, nombrado en español, en el margen, y una
+ * meta que dice qué espera en palabras (sin leer, cuántas propone, cuándo
+ * llegó, de dónde). Sin barra de color y sin casilla: una captura no se
+ * completa, se confirma, y confirmar abre otra pantalla.
  */
 import { describe, expect, it, vi } from "vitest";
 import { screen } from "@testing-library/react";
@@ -43,7 +44,7 @@ describe("CaptureRow", () => {
     pintar(captura({ kind: "link", url: "https://react.dev/learn" }));
 
     expect(screen.getByText("https://react.dev/learn")).toBeVisible();
-    expect(screen.getByLabelText("link")).toBeInTheDocument();
+    expect(screen.getByLabelText("enlace")).toBeInTheDocument();
   });
 
   it("una foto sin texto dice que es una foto, no un nombre inventado", () => {
@@ -58,28 +59,57 @@ describe("CaptureRow", () => {
     expect(screen.queryByRole("checkbox")).toBeNull();
   });
 
+  it("una recién llegada dice que nadie la ha leído y cuándo llegó", () => {
+    const ahora = new Date();
+    const llegada = new Date(ahora.getFullYear(), ahora.getMonth(), ahora.getDate(), 9, 5).getTime();
+    pintar(captura({ createdAt: llegada }));
+
+    expect(screen.getByText("sin leer")).toBeVisible();
+    expect(screen.getByText(", hoy 09:05")).toBeVisible();
+  });
+
+  it("con propuestas dice cuántas, y la fuente cuando la hay", () => {
+    pintar(captura({ proposedItems: [{ title: "Uno" }, { title: "Dos" }], source: "correo" }));
+
+    expect(screen.getByText("2 tareas propuestas")).toBeVisible();
+    expect(screen.getByText(", desde correo")).toBeVisible();
+  });
+
+  it("sin barra de color: el estado es una palabra", () => {
+    pintar(captura());
+
+    expect(screen.getByRole("button").className).not.toMatch(/before:bg-/);
+  });
+
   it("mientras no toque avisar, la fila no habla de caducidad", () => {
     pintar(captura({ avisa: false, diasRestantes: 30 }));
 
-    expect(screen.queryByText(/Caduca/)).toBeNull();
+    expect(screen.queryByText(/caduca/)).toBeNull();
   });
 
   it("el aviso llega antes, con los días que quedan", () => {
     pintar(captura({ avisa: true, diasRestantes: 7 }));
 
-    expect(screen.getByText("Caduca en 7 días")).toBeVisible();
+    expect(screen.getByText(", caduca en 7 días")).toBeVisible();
   });
 
   it("el último día se dice en palabras, no en un uno", () => {
     pintar(captura({ avisa: true, diasRestantes: 1 }));
 
-    expect(screen.getByText("Caduca mañana")).toBeVisible();
+    expect(screen.getByText(", caduca mañana")).toBeVisible();
   });
 
   it("lo caducado sigue en la lista y lo dice: no desaparece en silencio", () => {
     pintar(captura({ status: "expired", diasRestantes: 0, avisa: false }));
 
-    expect(screen.getByText("Caducó sin confirmar")).toBeVisible();
+    expect(screen.getByText("caducó sin confirmar")).toHaveClass("text-task-overdue");
+  });
+
+  it("la fila entera mide el táctil de la casa y se lee con su tipo", () => {
+    pintar(captura({ kind: "voice" }));
+
+    const fila = screen.getByRole("button", { name: /nota de voz: Nota de voz/ });
+    expect(fila).toHaveClass("min-h-[3.4rem]");
   });
 
   it("tocarla la abre", async () => {

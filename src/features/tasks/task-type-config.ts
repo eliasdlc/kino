@@ -12,7 +12,7 @@ export type TaskTypeConfig = {
   forceStatus: boolean;
   /** Fields hidden in Step 2 of the creation form */
   hiddenInStep2: string[];
-  /** Show overdue styling (red border/badge) */
+  /** Si vencida se dice (la palabra en coral) */
   showOverdueStyling: boolean;
   /** Creates a taskReminder record automatically */
   createsReminder: boolean;
@@ -22,12 +22,21 @@ export type TaskTypeConfig = {
   hideDates: boolean;
 };
 
+/**
+ * Los tipos no tienen color propio: cada uno se distingue por su glifo y su
+ * palabra, sobre los roles de la casa. Antes cada uno traía un tono stock de
+ * Tailwind (ámbar, cielo, naranja, violeta, rojo, esmeralda) que competía con
+ * el acento y con el coral de vencida.
+ */
+const PILL = "bg-secondary text-foreground hover:bg-secondary/80";
+const ICON = "text-muted-foreground";
+
 const TASK_TYPE_CONFIG: Record<TaskTypeKey, TaskTypeConfig> = {
   task: {
     label: "Tarea",
     icon: CheckSquare,
-    pillClass: "bg-muted text-foreground hover:bg-muted/80",
-    iconClass: "text-foreground",
+    pillClass: PILL,
+    iconClass: ICON,
     forceStatus: false,
     hiddenInStep2: [],
     showOverdueStyling: true,
@@ -38,8 +47,8 @@ const TASK_TYPE_CONFIG: Record<TaskTypeKey, TaskTypeConfig> = {
   idea: {
     label: "Idea",
     icon: Lightbulb,
-    pillClass: "bg-amber-500/15 text-amber-700 dark:text-amber-400 hover:bg-amber-500/25",
-    iconClass: "text-amber-500",
+    pillClass: PILL,
+    iconClass: ICON,
     defaultStatus: "backlog",
     forceStatus: true,
     hiddenInStep2: ['startDate', 'dueDate', 'estimatedMinutes'],
@@ -51,8 +60,8 @@ const TASK_TYPE_CONFIG: Record<TaskTypeKey, TaskTypeConfig> = {
   event: {
     label: "Evento",
     icon: CalendarCheck,
-    pillClass: "bg-sky-500/15 text-sky-700 dark:text-sky-400 hover:bg-sky-500/25",
-    iconClass: "text-sky-500",
+    pillClass: PILL,
+    iconClass: ICON,
     forceStatus: false,
     hiddenInStep2: [],
     showOverdueStyling: false,
@@ -63,8 +72,8 @@ const TASK_TYPE_CONFIG: Record<TaskTypeKey, TaskTypeConfig> = {
   reminder: {
     label: "Recordatorio",
     icon: Bell,
-    pillClass: "bg-orange-500/15 text-orange-700 dark:text-orange-400 hover:bg-orange-500/25",
-    iconClass: "text-orange-500",
+    pillClass: PILL,
+    iconClass: ICON,
     forceStatus: false,
     hiddenInStep2: ['energyLevel', 'startDate'],
     showOverdueStyling: true,
@@ -73,10 +82,10 @@ const TASK_TYPE_CONFIG: Record<TaskTypeKey, TaskTypeConfig> = {
     hideDates: false,
   },
   epic: {
-    label: "Epic",
+    label: "Épica",
     icon: Layers,
-    pillClass: "bg-violet-500/15 text-violet-700 dark:text-violet-400 hover:bg-violet-500/25",
-    iconClass: "text-violet-500",
+    pillClass: PILL,
+    iconClass: ICON,
     forceStatus: false,
     hiddenInStep2: [],
     showOverdueStyling: true,
@@ -100,8 +109,8 @@ export function getTaskTypeConfig(
         ...baseConfig,
         label: "Examen",
         icon: GraduationCap,
-        pillClass: "bg-red-500/15 text-red-700 dark:text-red-400 hover:bg-red-500/25",
-        iconClass: "text-red-500",
+        pillClass: PILL,
+        iconClass: ICON,
       };
     }
     if (subtype === 'quiz') {
@@ -109,8 +118,8 @@ export function getTaskTypeConfig(
         ...baseConfig,
         label: "Quiz",
         icon: HelpCircle,
-        pillClass: "bg-orange-500/15 text-orange-700 dark:text-orange-400 hover:bg-orange-500/25",
-        iconClass: "text-orange-500",
+        pillClass: PILL,
+        iconClass: ICON,
       };
     }
     if (subtype === 'practice') {
@@ -118,8 +127,8 @@ export function getTaskTypeConfig(
         ...baseConfig,
         label: "Práctica",
         icon: PenTool,
-        pillClass: "bg-emerald-500/15 text-emerald-700 dark:text-emerald-400 hover:bg-emerald-500/25",
-        iconClass: "text-emerald-500",
+        pillClass: PILL,
+        iconClass: ICON,
       };
     }
   }

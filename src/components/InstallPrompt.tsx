@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { Download, X } from "lucide-react";
+import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 
 const DISMISSED_KEY = "kino-install-prompt-dismissed";
@@ -48,25 +49,44 @@ export function InstallPrompt() {
 
   if (!visible) return null;
 
+  return <InstallStrip onInstall={handleInstall} onDismiss={handleDismiss} />;
+}
+
+/**
+ * La tira de instalar: papel con un hairline encima del pie en el teléfono y
+ * una tarjeta en la esquina desde md. `fijo` en falso la deja en el flujo,
+ * para el catálogo.
+ */
+export function InstallStrip({
+  onInstall,
+  onDismiss,
+  fijo = true,
+}: {
+  onInstall: () => void;
+  onDismiss: () => void;
+  fijo?: boolean;
+}) {
   return (
-    <div className="fixed bottom-[calc(var(--kino-bottom-chrome)+0.5rem)] md:bottom-6 left-4 right-4 md:left-auto md:right-6 md:w-80 z-(--z-overlay) rounded-xl border bg-card shadow-lg p-4 flex items-start gap-3">
-      <div className="flex-1 min-w-0 space-y-1">
-        <p className="text-sm font-medium">Instalar Kino</p>
-        <p className="text-xs text-muted-foreground">
-          Agrégalo a tu pantalla de inicio para acceso rápido y notificaciones.
+    <div
+      className={cn(
+        "flex items-start gap-2 border-t border-border bg-background px-5 py-4",
+        fijo &&
+          "fixed inset-x-0 bottom-(--kino-bottom-chrome) z-(--z-overlay) md:inset-x-auto md:right-6 md:bottom-6 md:w-80 md:rounded-xl md:border md:shadow-(--shadow)",
+      )}
+    >
+      <div className="min-w-0 flex-1 space-y-1">
+        <p className="font-display text-base font-bold tracking-tight">Instalar Kino</p>
+        <p className="text-sm text-muted-foreground">
+          Agrégalo a tu pantalla de inicio para abrirlo en un toque y recibir avisos.
         </p>
-        <Button size="sm" className="mt-2 h-8 text-xs gap-1.5" onClick={handleInstall}>
-          <Download className="size-3.5" />
+        <Button size="sm" className="mt-2" onClick={onInstall}>
+          <Download className="size-4" />
           Instalar
         </Button>
       </div>
-      <button
-        onClick={handleDismiss}
-        className="text-muted-foreground hover:text-foreground transition-colors shrink-0"
-        aria-label="Descartar"
-      >
-        <X className="size-4" />
-      </button>
+      <Button variant="ghost" size="icon-sm" onClick={onDismiss} aria-label="Descartar" className="-mt-2 -mr-2 shrink-0 text-muted-foreground">
+        <X className="size-5" />
+      </Button>
     </div>
   );
 }

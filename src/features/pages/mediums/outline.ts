@@ -57,7 +57,7 @@ function outlineSnippet(text: string): string | null {
 
 function withSnippet(label: string, text: string): string {
   const s = outlineSnippet(text);
-  return s ? `${label} · ${s}` : label;
+  return s ? `${label}: ${s}` : label;
 }
 
 export function deriveOutline(doc: OutlineDoc): OutlineItem[] {
@@ -176,7 +176,7 @@ export function deriveOutline(doc: OutlineDoc): OutlineItem[] {
         if (!openScene) return;
         const s = outlineSnippet(node.textContent);
         if (!s) return;
-        openScene.label = `${openScene.label} · ${s}`;
+        openScene.label = `${openScene.label}: ${s}`;
         openScene = null;
       }
     }

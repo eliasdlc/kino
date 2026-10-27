@@ -16,6 +16,7 @@ import {
   createEntityApi,
 } from "@/features/entities/entities.client";
 import type { EntityListItemTransport } from "@/features/entities/entities.types";
+import { colocarJuntoAlCursor } from "./caret-popover";
 
 /**
  * Nodo Mention del Codex (Writing W2). Trigger `@`: sugiere entidades del universo
@@ -78,7 +79,7 @@ async function buildItems(systemId: string, query: string): Promise<MentionItem[
   return items;
 }
 
-/** Popover anclado al caret con flip vertical simple (idéntico al slash menu). */
+/** Popover anclado al cursor, medido contra el viewport visual como el menú `/`. */
 function renderMentionMenu() {
   let renderer: ReactRenderer<MentionListRef, MentionListProps> | null = null;
   let el: HTMLDivElement | null = null;
@@ -88,14 +89,7 @@ function renderMentionMenu() {
     if (!el || !clientRect) return;
     const rect = clientRect();
     if (!rect) return;
-    const menuHeight = el.offsetHeight || 300;
-    const spaceBelow = window.innerHeight - rect.bottom;
-    const top =
-      spaceBelow < menuHeight + 16 ? rect.top - menuHeight - 6 : rect.bottom + 6;
-    el.style.position = "fixed";
-    el.style.left = `${Math.round(rect.left)}px`;
-    el.style.top = `${Math.round(Math.max(8, top))}px`;
-    el.style.zIndex = "50";
+    colocarJuntoAlCursor(el, rect);
   };
 
   return {

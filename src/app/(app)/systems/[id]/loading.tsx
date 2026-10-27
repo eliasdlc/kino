@@ -1,96 +1,85 @@
 import { Skeleton } from "@/components/ui/skeleton";
 import { PageWrapper } from "@/components/PageWrapper";
-import { BreadcrumbSkeleton, TaskCardSkeleton } from "@/components/Skeletons";
+import { BreadcrumbSkeleton, RowsSkeleton } from "@/components/Skeletons";
+import { Readings } from "@/features/systems/SystemDetailHeader";
+import { cn } from "@/lib/utils";
 
+/**
+ * Un renglón de texto que espera: la barra va dentro de un párrafo con la
+ * tipografía real, así que ocupa el alto de línea de lo que va a llegar y no
+ * un alto inventado.
+ */
+function Renglon({ className, ancho }: { className: string; ancho: string }) {
+  return (
+    <span className={cn("block", className)}>
+      <span className={cn("inline-block h-[0.72em] rounded-md bg-muted align-middle", ancho)} />
+    </span>
+  );
+}
+
+/**
+ * La forma de un sistema, con la geometría de `SystemDetailHeader`: el tile
+ * en el margen, la columna de texto y la de acciones, el eyebrow y el nombre
+ * en dos renglones en el teléfono, la intención en dos, las tres lecturas
+ * con su palabra en dos, la fila de «Cómo va» de 48 px y las pestañas-palabra
+ * de 48 px sobre su hairline. Después, las filas de la superficie. Así el
+ * índice no salta cuando llega la página.
+ */
 export default function SystemLoading() {
   return (
-    <div className="w-full">
-      {/* Sticky breadcrumb */}
-      <div className="sticky top-0 z-(--z-raised) bg-background border-b px-6 py-2.5">
+    <div aria-busy className="w-full">
+      <div className="sticky top-0 z-(--z-raised) hidden border-b bg-background px-4 py-2.5 md:block md:px-6">
         <BreadcrumbSkeleton segments={2} />
       </div>
 
       <PageWrapper className="w-full">
-        {/* System header: mirrors SystemDetailHeader (tinted card, collapsible) */}
-        <div className="rounded-lg bg-muted/30 px-4 py-3 w-full space-y-2.5">
-          {/* Title row */}
-          <div className="flex items-start justify-between gap-4">
-            <div className="flex items-center gap-3 flex-1">
-              <Skeleton className="size-4 rounded shrink-0" />
-              <Skeleton className="size-3 rounded-full shrink-0" />
-              <Skeleton className="h-7 w-48 rounded" />
-            </div>
-            <Skeleton className="size-9 rounded-md shrink-0" />
-          </div>
-          {/* Identity statement */}
-          <Skeleton className="h-4 w-3/5 rounded ml-7" />
-          {/* Metadata badges */}
-          <div className="flex items-center gap-2 pl-7">
-            <Skeleton className="h-5 w-16 rounded-full" />
-            <Skeleton className="h-5 w-14 rounded-full" />
-            <Skeleton className="h-5 w-20 rounded-full" />
-          </div>
-          {/* Stats row */}
-          <div className="flex items-center gap-4 pl-7">
-            <Skeleton className="h-3 w-16 rounded" />
-          </div>
-        </div>
+        <div className="w-full space-y-5">
+          <div className="grid grid-cols-[var(--margen)_1fr_auto] gap-y-3">
+            <span className="flex justify-start self-start pt-1">
+              <Skeleton className="size-[2.4rem] rounded-xl" />
+            </span>
 
-        {/* SystemDetailTabs container */}
-        <div className="p-1 rounded-lg flex items-center h-10 w-full select-none mb-4">
-          <div className="flex-1 h-full rounded-md flex items-center justify-center text-sm font-medium text-transparent">
-            Tasks
-          </div>
-          <div className="flex-1 h-full rounded-md bg-transparent flex items-center justify-center text-sm font-medium text-transparent">
-            Docs
-          </div>
-        </div>
-
-        {/* TasksList inner Tabs & Button */}
-        <div className="flex items-center justify-between mb-4">
-          {/* Inner TabsList (w-fit) */}
-          <div className="p-1 rounded-lg flex items-center h-10 w-[300px] select-none">
-            <div className="flex-1 h-full rounded-md bg-transparent" />
-            <div className="flex-1 h-full rounded-md bg-transparent" />
-            {/* Action tab is default */}
-            <div className="flex-1 h-full rounded-md" />
-            <div className="flex-1 h-full rounded-md bg-transparent" />
-          </div>
-          {/* Create Task Button */}
-          <Skeleton className="h-10 w-[120px] rounded-md" />
-        </div>
-
-        {/* Action View Loading State */}
-        <div className="flex flex-col gap-4 w-full h-full">
-          {/* Daily Progress Section */}
-          <div className="space-y-3">
-            <Skeleton className="h-7 w-48 rounded" />
-            <Skeleton className="h-2 w-full rounded-full" />
-          </div>
-
-          {/* Energy Columns Grid */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 w-full pt-2">
-            {[
-              { label: "Energía alta", desc: "Tareas que requieren mucho foco." },
-              { label: "Energía media", desc: "Trabajo constante, foco moderado." },
-              { label: "Energía baja", desc: "Tareas ligeras, fáciles de retomar." },
-            ].map((col, idx) => (
-              <div key={col.label} className="flex flex-col gap-2 min-w-0">
-                <div className="space-y-1 mb-2 select-none">
-                  <div className="font-semibold text-base text-transparent rounded w-max">
-                    {col.label}
-                  </div>
-                  <div className="text-sm text-transparent rounded w-max">
-                    {col.desc}
-                  </div>
-                </div>
-                <div className="flex flex-col gap-2">
-                  <TaskCardSkeleton />
-                  {idx === 0 && <TaskCardSkeleton />}
-                </div>
+            <div className="min-w-0 space-y-2">
+              {/* En el teléfono el eyebrow (tipo, energía, frecuencia) y el nombre
+                  en 1.9rem parten casi siempre en dos renglones; en escritorio, uno. */}
+              <div>
+                <Renglon className="text-xs" ancho="w-44" />
+                <Renglon className="text-xs md:hidden" ancho="w-20" />
               </div>
+              <div>
+                <Renglon className="font-display text-[1.9rem] leading-[1.08]" ancho="w-3/4" />
+                <Renglon className="font-display text-[1.9rem] leading-[1.08] md:hidden" ancho="w-1/2" />
+              </div>
+              <div>
+                <Renglon className="text-[1.06rem] leading-normal" ancho="w-full" />
+                <Renglon className="text-[1.06rem] leading-normal" ancho="w-2/3" />
+              </div>
+            </div>
+
+            <div className="self-start pl-2">
+              <Skeleton className="size-[2.85rem] rounded-full md:pointer-fine:size-9" />
+            </div>
+
+            <div className="col-start-2 col-end-4 min-w-0 space-y-3">
+              <Readings readings={null} lineas={2} />
+              <div className="flex min-h-[2.85rem] items-center md:pointer-fine:min-h-9">
+                <Skeleton className="h-4 w-20" />
+              </div>
+            </div>
+          </div>
+
+          {/* Las pestañas-palabra: 48 px de alto sobre su hairline. */}
+          <div className="flex items-center gap-x-5 border-b border-border">
+            {[0, 1, 2].map((i) => (
+              <span key={i} className="flex h-[2.85rem] items-center px-1">
+                <Skeleton className="h-4 w-16" />
+              </span>
             ))}
           </div>
+        </div>
+
+        <div>
+          <RowsSkeleton rows={4} margin="circle" />
         </div>
       </PageWrapper>
     </div>

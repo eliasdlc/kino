@@ -1,5 +1,12 @@
-import { screen } from '@testing-library/react';
+/**
+ * Criterio: un sistema personal habla con su manifiesto. El plural de sus
+ * áreas y el nombre de cada clase de tarea (hábito, recado, evento) salen de
+ * `SYSTEM_TYPE_CONFIG.personal`, no de texto escrito en la vista, así que
+ * cambiar una palabra del arquetipo la cambia aquí sin tocar el componente.
+ */
+import { act, fireEvent, screen } from '@testing-library/react';
 import { describe, expect, it } from 'vitest';
+import { capitalize } from '@/shared/lib/system-manifest';
 import { api } from '@convex/_generated/api';
 import { makeFolder, makeSystem, makeTask, mid } from '@/app/system-design/mock-data';
 import { makeTestConvexClient, renderMobile, stubQuery } from '@/shared/testing/render';
@@ -33,7 +40,7 @@ describe('PersonalView', () => {
   it('nombra el contenedor con el plural del manifiesto', () => {
     renderMobile(<PersonalView system={CASA} initialTasks={[]} />, { convex: conCarpetas([SALUD]) });
 
-    expect(screen.getByRole('heading', { name: AREAS })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: capitalize(AREAS) })).toBeInTheDocument();
     expect(screen.getByText('Salud')).toBeInTheDocument();
   });
 
@@ -49,8 +56,8 @@ describe('PersonalView', () => {
       convex: conCarpetas([SALUD]),
     });
 
-    const secciones = screen.getAllByRole('heading', { level: 3 }).map((h) => h.textContent);
-    expect(secciones).toEqual(['Hoy', AREAS]);
+    const secciones = screen.getAllByRole('heading', { level: 2 }).map((h) => h.textContent);
+    expect(secciones).toEqual(['Hoy', capitalize(AREAS)]);
     expect(screen.getByText('Caminar 30 minutos')).toBeInTheDocument();
     // El tipo de tarea también sale del manifiesto: "Hábito", no "habit".
     expect(screen.getByText(HABITO)).toBeInTheDocument();
@@ -83,5 +90,17 @@ describe('PersonalView', () => {
     });
 
     expect(screen.getByRole('link', { name: /Salud/ })).toHaveTextContent('2');
+  });
+
+  it('D2: completar desde la hoja deja la fila de Hoy tachada en su renglón', () => {
+    const habito = makeTask({ id: mid('task-h'), systemId: CASA.id, title: 'Caminar 30 minutos', status: 'today', metadata: { kind: 'habit' } });
+    const convex = makeTestConvexClient([stubQuery(api.folders.bySystem, [SALUD]), stubQuery(api.tasks.bySystem, [habito])]);
+    renderMobile(<PersonalView system={CASA} initialTasks={[habito]} />, { convex });
+
+    fireEvent.click(screen.getByRole('button', { name: 'Caminar 30 minutos' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Marcar como hecha' }));
+    act(() => convex.publish(stubQuery(api.tasks.bySystem, [{ ...habito, status: 'done' }])));
+
+    expect(screen.getByRole('button', { name: 'Caminar 30 minutos', hidden: true })).toHaveClass('line-through');
   });
 });
