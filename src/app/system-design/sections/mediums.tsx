@@ -4,6 +4,7 @@ import { Section, SubSection, Specimen, SpecimenGrid } from "../helpers";
 import { SCREENPLAY_LABELS } from "@/features/pages/mediums/screenplay.extension";
 import { ReadingView } from "@/features/writing/ReadingView";
 import { makeManuscript, mid } from "../mock-data";
+import { EscrituraEditorSubsections } from "./escritura-editor";
 
 /**
  * Los bloques por medium (PLAN-11 W3).
@@ -39,6 +40,8 @@ const SCREENPLAY_LINES: Array<{ node: keyof typeof SCREENPLAY_LABELS; text: stri
 export function MediumsSection() {
   return (
     <Section id="mediums" number="16" title="Bloques por medium">
+      <EscrituraEditorSubsections />
+
       <SubSection
         title="Separador de escena"
         description="El corte dentro del capítulo. Atom: no se escribe dentro de él."
@@ -81,7 +84,7 @@ export function MediumsSection() {
         title="Guion audiovisual"
         description="Los cinco bloques del formato Final Draft. Las sangrías y mayúsculas son CSS: lo guardado es la línea tal cual la escribió el autor."
       >
-        <Specimen label="Escena completa" hint="p[data-sp] · .sp-*">
+        <Specimen label="Escena completa" hint="p[data-sp], .sp-*">
           <EditorSurface>
             {SCREENPLAY_LINES.map((line, i) => (
               <p key={i} data-sp={line.node} className={`sp-${line.node}`}>
@@ -116,13 +119,13 @@ export function MediumsSection() {
         description="La cuarta salida del MediumManifest (KIN-138): la obra como la vería quien la lee. La prosa se pagina con columnas CSS y scroll-snap —el truco de los lectores de ePub, sin partir el HTML—; el guion no, porque sus páginas se cuentan en líneas y paginarlo por píxeles sería mentir."
       >
         <SpecimenGrid>
-          <Specimen label="Novela" hint="readingLayout: book · serif, sangría, justificado">
+          <Specimen label="Novela" hint="readingLayout: book, serif, sangría, justificado">
             <div className="w-full">
               <ReadingView manuscript={makeManuscript()} />
             </div>
           </Specimen>
 
-          <Specimen label="Guion" hint="readingLayout: screenplay · sin paginado">
+          <Specimen label="Guion" hint="readingLayout: screenplay, sin paginado">
             <div className="w-full">
               <ReadingView manuscript={makeManuscript({ medium: "screenplay" })} />
             </div>

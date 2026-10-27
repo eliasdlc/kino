@@ -345,11 +345,34 @@ async function seedOnePerTable(ctx: MutationCtx) {
     expiresAt: NOW,
     createdAt: NOW,
   });
+  const reviewId = await ctx.db.insert('pageReviews', {
+    userId,
+    pageId,
+    systemId,
+    createdBy: userId,
+    createdVia: 'oauth',
+    createdAt: NOW,
+    updatedAt: NOW,
+  });
+  await ctx.db.insert('pageComments', {
+    userId,
+    pageId,
+    systemId,
+    reviewId,
+    quote: 'una frase',
+    body: 'Por qué importa',
+    status: 'open',
+    replies: [],
+    createdBy: userId,
+    createdVia: 'oauth',
+    createdAt: NOW,
+    updatedAt: NOW,
+  });
 }
 
 describe('convex/schema', () => {
-  it('declara las treinta y ocho tablas', () => {
-    expect(TABLE_NAMES).toHaveLength(38);
+  it('declara las cuarenta tablas', () => {
+    expect(TABLE_NAMES).toHaveLength(40);
   });
 
   it('acepta un documento mínimo en cada tabla', async () => {

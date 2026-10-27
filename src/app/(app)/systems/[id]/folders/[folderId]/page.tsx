@@ -5,13 +5,16 @@ import { notFound, redirect } from "next/navigation";
 import { api } from "@convex/_generated/api";
 import { serverQuery } from "@/shared/convex/server";
 import { PageBreadcrumb } from "@/components/PageBreadcrumb";
-import { Skeleton } from "@/components/ui/skeleton";
+import { PageHeader, PageWrapper } from "@/components/PageWrapper";
+import { PageHeaderSkeleton } from "@/components/Skeletons";
 import { FolderDocuments } from "@/features/notebooks/FolderDocuments";
+import { FolderBodySkeleton } from "@/features/notebooks/FolderSkeleton";
+import { Folder } from "lucide-react";
+import { IndexHead } from "@/features/notebooks/IndexHead";
 
 import { TasksList } from "@/features/tasks/TasksList";
 import { resolveSystemManifest } from "@/shared/lib/system-manifest";
 import { containerDetailEmptyCopy } from "@/shared/lib/archetype-copy";
-import { Separator } from "@/components/ui/separator";
 import { getServerSession } from "@/shared/utils/session";
 
 interface FolderViewRouteProps {
@@ -38,6 +41,10 @@ export default async function FolderViewRoute({ params, searchParams }: FolderVi
   // Volver al sistema devuelve a la superficie desde la que se entró, con el
   // mismo ciclo: perder el filtro al subir un nivel obligaba a volver a
   // elegirlo en cada ida y vuelta.
+  const academic = system.templateType === "academic";
+  // El glifo del contenedor del arquetipo (la obra, el área), no uno genérico.
+  const Glyph = resolveSystemManifest(system).folderRole?.icon ?? Folder;
+
   const systemHref = `/systems/${systemId}?tab=docs${cycle ? `&cycle=${encodeURIComponent(cycle)}` : ""}`;
 
   const breadcrumbItems = [
@@ -52,30 +59,39 @@ export default async function FolderViewRoute({ params, searchParams }: FolderVi
 
   return (
     <div className="w-full">
-      <div className="sticky top-0 z-(--z-raised) bg-background border-b px-4 md:px-6 py-2.5">
+      <div className="sticky top-0 z-(--z-raised) hidden border-b bg-background px-4 py-2.5 md:block md:px-6">
         <PageBreadcrumb items={breadcrumbItems} />
       </div>
-      <div className="p-4 md:p-6">
-        <Suspense fallback={<FolderSkeleton />}>
-          <FolderContent systemId={systemId} folderId={folderId} folder={folder} system={system} />
-        </Suspense>
-      </div>
-    </div>
-  );
-}
-
-function FolderSkeleton() {
-  return (
-    <div className="space-y-6">
-      <div className="flex gap-2">
-        <div className="h-8 w-32 rounded-full bg-muted" />
-        <div className="h-8 w-28 rounded-full bg-muted" />
-      </div>
-      <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-        {Array.from({ length: 4 }).map((_, index) => (
-          <Skeleton key={index} className="h-28 w-full rounded-2xl" />
-        ))}
-      </div>
+      <PageWrapper className="w-full">
+        {academic ? (
+          // La materia pinta su propia cabecera con su ciclo: espera entera.
+          <Suspense
+            fallback={
+              <div aria-busy className="space-y-7">
+                <PageHeaderSkeleton />
+                <FolderBodySkeleton />
+              </div>
+            }
+          >
+            <FolderContent systemId={systemId} folderId={folderId} folder={folder} system={system} />
+          </Suspense>
+        ) : (
+          // El título ya se sabe: se pinta fuera del `Suspense` y no
+          // desaparece mientras llega el índice.
+          <div className="space-y-7">
+            <PageHeader title={folder.name} margin={<Glyph className="size-5" aria-hidden />} />
+            <Suspense
+              fallback={
+                <div aria-busy>
+                  <FolderBodySkeleton />
+                </div>
+              }
+            >
+              <FolderContent systemId={systemId} folderId={folderId} folder={folder} system={system} />
+            </Suspense>
+          </div>
+        )}
+      </PageWrapper>
     </div>
   );
 }
@@ -111,15 +127,18 @@ async function FolderContent({
       initialChildren={children}
       initialPages={allPages}
       emptyCopy={emptyCopy}
+      system={system}
     />
   );
 
   if (!academic) {
     return (
-      <div className="space-y-6">
+      <div className="space-y-7">
         {documents}
-        <Separator />
-        <TasksList systemId={systemId} initialData={[]} folderId={folderId} folderInitialData={folderTasks} />
+        <section aria-labelledby={`${folderId}-tareas`} className="space-y-3">
+          <IndexHead id={`${folderId}-tareas`} title="Tareas" />
+          <TasksList systemId={systemId} initialData={[]} folderId={folderId} folderInitialData={folderTasks} />
+        </section>
       </div>
     );
   }

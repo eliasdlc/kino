@@ -2,7 +2,8 @@
  * Criterio: el detalle de una tarea cerrada dice quién la cerró, por qué vía y
  * cuánto trabajo observado tiene, en una sola línea. Cuando no hay firma o no
  * hay tiempo registrado lo dice con el mismo tamaño de letra que cuando los
- * hay, y una tarea sin cerrar no pinta la línea en vez de pintar un hueco.
+ * hay, y una tarea sin cerrar no pinta la línea en vez de pintar un hueco. La
+ * línea va sin punto medio: las piezas se separan con una coma.
  */
 import { describe, expect, it } from "vitest";
 import { screen } from "@testing-library/react";
@@ -23,7 +24,7 @@ describe("ClosingSignature", () => {
       <ClosingSignature task={tarea({ completedAt: "2026-09-07T10:00:00.000Z", completedVia: "session" })} />,
       { convex: conTiempo(95) },
     );
-    expect(screen.getByText(/La cerraste tú, desde el navegador · 1h 35min de trabajo observado/)).toBeVisible();
+    expect(screen.getByText(/La cerraste tú, desde el navegador, 1h 35min de trabajo observado/)).toBeVisible();
   });
 
   it("un issue cerrado en GitHub firma la vía sin persona", () => {
@@ -31,7 +32,7 @@ describe("ClosingSignature", () => {
       <ClosingSignature task={tarea({ completedAt: "2026-09-07T10:00:00.000Z", completedVia: "sync" })} />,
       { convex: conTiempo(0, 0) },
     );
-    expect(screen.getByText(/La cerró la sincronización con GitHub · sin tiempo observado/)).toBeVisible();
+    expect(screen.getByText(/La cerró la sincronización con GitHub, sin tiempo observado/)).toBeVisible();
   });
 
   it("sin firma lo dice, y al mismo tamaño de letra que con firma", () => {
@@ -55,6 +56,6 @@ describe("ClosingSignature", () => {
     renderWithProviders(<ClosingSignature task={tarea({ completedAt: null, completedVia: null })} />, {
       convex: conTiempo(30),
     });
-    expect(screen.queryByText("Firma del cierre")).toBeNull();
+    expect(screen.queryByText("Cierre")).toBeNull();
   });
 });

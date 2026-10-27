@@ -1,19 +1,23 @@
 import React from "react";
-import { format } from "date-fns";
 import type { TaskTransport } from "./tasks.types";
-import { parseDueDate } from "./tasks.utils";
 import { cn } from "@/lib/utils";
+import { shortDate } from "./task-vocab";
 import { cva, type VariantProps } from "class-variance-authority";
 
+/**
+ * La barra de una tarea de varios días: neutra sobre sf2, sin sombra. La
+ * prioridad es peso de la letra, como en la fila: el coral es de vencida y el
+ * ámbar de la acción, así que ninguna prioridad los usa.
+ */
 const multiDayBarVariants = cva(
-  "flex items-center gap-2 px-2 py-1 text-xs font-medium rounded-md cursor-pointer transition-colors shadow-sm border",
+  "flex min-h-[2.85rem] cursor-pointer items-center gap-2 rounded-md bg-secondary px-2.5 text-xs text-foreground transition-[background-color] duration-(--dur-toque) ease-(--ease-pluma) hover:bg-sf2 md:pointer-fine:min-h-7",
   {
     variants: {
       priority: {
-        critical: "bg-task-overdue/10 text-task-overdue border-task-overdue/20 hover:bg-task-overdue/20",
-        high: "bg-primary/10 text-primary border-primary/20 hover:bg-primary/20",
-        medium: "bg-secondary text-foreground border-secondary hover:bg-secondary",
-        low: "bg-muted text-muted-foreground border-muted hover:bg-muted",
+        critical: "font-bold",
+        high: "font-semibold",
+        medium: "font-medium",
+        low: "font-medium text-muted-foreground",
       },
     },
     defaultVariants: {
@@ -39,13 +43,11 @@ export function MultiDayTaskBar({ task, onEdit, startCol, span, className, ...pr
       }}
       {...props}
     >
-      <div className="truncate flex-1 font-semibold">
+      <div className="min-w-0 flex-1 truncate">
         {task.title}
       </div>
-      <div className="shrink-0 text-[10px] opacity-70">
-        {task.startDate && task.dueDate && (
-          `${format(parseDueDate(task.startDate), "MMM d")} - ${format(parseDueDate(task.dueDate), "MMM d")}`
-        )}
+      <div className="shrink-0 text-[0.7rem] font-normal text-muted-foreground tabular-nums">
+        {task.startDate && task.dueDate && `${shortDate(task.startDate)} a ${shortDate(task.dueDate)}`}
       </div>
     </div>
   );

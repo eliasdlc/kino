@@ -2,13 +2,14 @@
  * Criterio: los tres estados de llegada (texto o enlace, imagen, audio) y el de
  * error. Y sobre todos, la línea que dice dónde quedó lo compartido: es el
  * único sitio del producto donde esa frase vale, porque aquí ya está guardado
- * antes de que la pantalla exista.
+ * antes de que la pantalla exista. Como página ocupa la altura visible; dentro
+ * del catálogo mide lo que dice, sin un alto fijo que deja un hueco.
  */
 import { describe, expect, it, vi } from "vitest";
 import { screen } from "@testing-library/react";
 import { renderMobile } from "@/shared/testing/render";
 import type { RegistroCompartido } from "@/features/captures/shareTarget";
-import { CompartirScreen } from "./CompartirScreen";
+import { CompartirFallo, CompartirScreen } from "./CompartirScreen";
 
 vi.mock("next/navigation", async () => (await import("@/shared/testing/navigation")).navigationMock());
 
@@ -94,7 +95,8 @@ describe("CompartirScreen", () => {
     renderMobile(<CompartirScreen registro={registro({ text: "idea" })} previewUrl={null} />);
 
     expect(screen.getByRole("link", { name: "Abrir Bandeja" })).toHaveAttribute("href", "/bandeja");
-    expect(screen.getByRole("link", { name: "Compartir otra cosa" })).toHaveAttribute("href", "/dashboard");
+    // La segunda dice adónde lleva: antes prometía "compartir otra cosa" y abría Hoy.
+    expect(screen.getByRole("link", { name: "Ir a Hoy" })).toHaveAttribute("href", "/dashboard");
   });
 });
 
@@ -127,5 +129,20 @@ describe("cuando no se pudo guardar", () => {
     );
 
     expect(screen.getByText("Está en Bandeja, sin confirmar.")).toBeVisible();
+  });
+
+  it("como página llena la altura visible; incrustada no fija alto, ni el recibo ni su error", () => {
+    const { container, unmount } = renderMobile(<CompartirScreen registro={registro({ text: "Hola" })} previewUrl={null} />);
+    expect(container.firstElementChild).toHaveClass("min-h-dvh");
+    unmount();
+
+    for (const pieza of [
+      <CompartirScreen key="recibo" registro={registro({ text: "Hola" })} previewUrl={null} incrustada />,
+      <CompartirFallo key="fallo" onReintentar={vi.fn()} incrustada />,
+    ]) {
+      const { container: dentro, unmount: quitar } = renderMobile(pieza);
+      expect(dentro.firstElementChild!.className).not.toMatch(/min-h-/);
+      quitar();
+    }
   });
 });

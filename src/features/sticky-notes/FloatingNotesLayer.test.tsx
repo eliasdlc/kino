@@ -4,6 +4,8 @@
  * nada: el envoltorio capturaba el puntero en el `pointerdown` y se quedaba con
  * el `click`, y los eventos de los menús (que React sube por su árbol aunque
  * estén montados en `<body>`) arrancaban un arrastre en vez de activar su item.
+ * El arrastre mueve la nota con `transform` y escribe una vez al soltar, y es
+ * del ratón: un dedo sobre la nota desplaza el cuaderno.
  */
 import { useRef } from "react";
 import { describe, expect, it } from "vitest";
@@ -60,6 +62,12 @@ const mutaciones = (convex: ReturnType<typeof makeTestConvexClient>) =>
 const envoltorios = (container: HTMLElement) =>
   [...container.querySelectorAll<HTMLElement>(".absolute.w-44")];
 
+/** Borrar pide confirmación: el diálogo nombra la nota y su botón borra. */
+async function confirmarBorrado() {
+  const dialogo = await screen.findByRole("dialog", { name: "Eliminar nota" });
+  await userEvent.click(within(dialogo).getByRole("button", { name: "Eliminar" }));
+}
+
 /** Mueve el puntero apretado. Pasado el umbral de 4 px es arrastre; antes, click. */
 async function arrastrar(desde: Element, dx: number, dy = 40) {
   await userEvent.pointer([
@@ -70,14 +78,28 @@ async function arrastrar(desde: Element, dx: number, dy = 40) {
 }
 
 describe("los controles de una nota flotante", () => {
-  it("la X la borra", async () => {
+  it("la X la borra después de confirmar", async () => {
     const { convex } = pintar();
 
     await userEvent.click(screen.getByRole("button", { name: "Eliminar nota" }));
+    expect(mutaciones(convex)).toEqual([]);
+    await confirmarBorrado();
 
     expect(mutaciones(convex)).toEqual([
       { kind: "mutation", name: "stickyNotes:remove", args: { id: NOTA.id } },
     ]);
+  });
+
+  it("una nota guardada junto al borde de abajo o de la izquierda se pinta donde siempre", () => {
+    const abajo = makeStickyNote({ id: mid("n-abajo"), positionSide: "over", positionX: 0.5, positionY: 0.91, anchorId: null });
+    const izquierda = makeStickyNote({ id: mid("n-izq"), positionSide: "over", positionX: -0.45, positionY: 0.3, anchorId: null });
+    const { container } = pintar([abajo, izquierda]);
+
+    const [a, i] = envoltorios(container);
+    // 0,91 * 2000 = 1820, que cabe con el lado de 176 con el que se recorta.
+    expect(a.style.top).toBe("1820px");
+    // columnLeft 176 - 0,45 * 816 = -191, y el recorte lo deja asomando 48 px.
+    expect(i.style.left).toBe("-128px");
   });
 
   it("pulsar el cuerpo abre el editor", async () => {
@@ -157,7 +179,7 @@ describe("editar sobre el papel", () => {
 
     await userEvent.click(screen.getByText("Idea de tesis"));
     await screen.findByPlaceholderText("Título...");
-    await userEvent.click(screen.getByRole("button", { name: "pink" }));
+    await userEvent.click(screen.getByRole("button", { name: "Rosa" }));
 
     expect(mutaciones(convex)).toEqual([
       { kind: "mutation", name: "stickyNotes:update", args: { id: NOTA.id, color: "pink" } },
@@ -166,7 +188,7 @@ describe("editar sobre el papel", () => {
 
   it("la bandeja queda inerte mientras la nota no se edita", async () => {
     const { container } = pintar();
-    const bandeja = () => screen.getByRole("button", { name: "pink", hidden: true }).parentElement!;
+    const bandeja = () => screen.getByRole("button", { name: "Rosa", hidden: true }).parentElement!;
 
     expect(bandeja()).toHaveAttribute("inert");
     await userEvent.click(screen.getByText("Idea de tesis"));
@@ -188,10 +210,40 @@ describe("el arrastre de una nota flotante", () => {
     expect(escritas[0]!.args).toMatchObject({ id: NOTA.id, positionSide: "over" });
   });
 
+  it("mientras se arrastra, la nota viaja en transform y su top y left no cambian", async () => {
+    const { container } = pintar();
+    const nota = envoltorios(container)[0]!;
+    const antes = { top: nota.style.top, left: nota.style.left };
+
+    await userEvent.pointer([
+      { target: screen.getByText("Idea de tesis"), coords: { clientX: 200, clientY: 200 }, keys: "[MouseLeft>]" },
+      { coords: { clientX: 260, clientY: 240 } },
+    ]);
+
+    expect(nota).toHaveAttribute("data-dragging");
+    expect(nota.style.transform).toMatch(/translate\(/);
+    expect({ top: nota.style.top, left: nota.style.left }).toEqual(antes);
+    await userEvent.pointer({ keys: "[/MouseLeft]" });
+  });
+
+  it("un dedo no arrastra la nota: desplaza el cuaderno y no escribe nada", async () => {
+    const { convex, container } = pintar();
+
+    await userEvent.pointer([
+      { target: screen.getByText("Idea de tesis"), coords: { clientX: 200, clientY: 200 }, keys: "[TouchA>]" },
+      { pointerName: "TouchA", coords: { clientX: 320, clientY: 260 } },
+      { keys: "[/TouchA]" },
+    ]);
+
+    expect(envoltorios(container)[0]).not.toHaveAttribute("data-dragging");
+    expect(mutaciones(convex).filter((c) => c.name === "stickyNotes:update")).toHaveLength(0);
+  });
+
   it("empezar sobre un botón pulsa, no arrastra", async () => {
     const { convex } = pintar();
 
     await arrastrar(screen.getByRole("button", { name: "Eliminar nota" }), 120);
+    await confirmarBorrado();
 
     // La nota se borra y nadie guarda una posición: el botón no es un asa.
     expect(mutaciones(convex).map((c) => c.name)).toEqual(["stickyNotes:remove"]);

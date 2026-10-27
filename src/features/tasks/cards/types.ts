@@ -10,6 +10,8 @@ export interface TaskCardProps {
   systemId: string;
   draggable?: boolean;
   isFocused?: boolean;
+  /** Tachada en esta visita: la lista que la pinta la deja en su sitio hasta la siguiente. */
+  struck?: boolean;
   onToggle: (taskId: string) => void;
   onDelete: (task: TaskTransport) => void;
   onEdit?: (task: TaskTransport) => void;

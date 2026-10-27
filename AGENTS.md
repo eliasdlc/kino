@@ -417,6 +417,7 @@ está incompleta.
 | `captures` | 48 h sin confirmar | caducan con aviso; el blob se va con la fila |
 | `systemMembers`, `systemInvites`, `sessionDigests`, `interruptions` | no se podan | son estado y rastro, no historia. `interruptions` guarda una fila por candidato mostrado, y son unidades al año por persona |
 | `academicPeriods` | no se podan | años y ciclos permanentes; archivar un sistema conserva su historial |
+| `pageReviews`, `pageComments` | no se podan | son el rastro de cómo se trabajó un texto y viajan en el export. Lo acotado es la lectura: abiertos con techo de escritura (`MAX_OPEN_PER_PAGE`) y los cerrados más recientes (`convex/lib/reviews.ts`) |
 | `cronRuns` | ver `convex/cronRuns.ts` | el snapshot diario |
 
 ### Borrados y cascadas
@@ -454,6 +455,15 @@ El trabajo de esta parte es que no se olvide nada, así que la regla es insistir
 - **«¿Ya hiciste esto?»** Con el resumen de la mañana salen hasta tres pushes aparte (`PREGUNTAS_DIA`), uno por vencida de hace dos días o más, rotando por día (`preguntasDelDia`), con «Sí, hecha» y «Todavía no». «Todavía no» calla la tarea hasta el próximo resumen y no mueve su fecha. No van por correo ni se reintentan, y no llevan cuenta en la base: viajan con la única lectura del día que ya tiene todas las vencidas delante.
 - **Canales.** Push primero; si ningún dispositivo lo recibe, correo, con tope de `TOPE_CORREOS_DIA` al día. El resumen va siempre por los dos. Un correo que Resend rechaza para esa persona (dirección inválida, o un destinatario que `onboarding@resend.dev` no admite) no se reintenta: si tampoco había dispositivo, el aviso avanza como si no hubiera canal, y la vuelta lo cuenta en `rechazados` de su `cronRuns`. Todo lo demás vuelve en quince minutos, también una clave mala, un dominio sin verificar o un error que no se reconoce: es un fallo de la cuenta entera y tiene que hacer ruido (`convex/lib/correo.ts`).
 - **La invariante.** El cron sólo lee `tasks.by_nextReminder` y `userSettings.by_nextDigest`. **Toda escritura que cambie la fecha, el estado o la intensidad de una tarea llama a `recalcularAviso`**, y todo cambio de zona, silencio o intensidad en Ajustes a `recalcularAvisosDe`. Si una se olvida, el resumen de la mañana repara las tareas que lee al día siguiente, pero eso es la red, no el diseño.
+
+## Revisión de documentos
+
+La persona le da un documento a su agente (Claude Code, Claude Desktop o cualquiera con el conector) y el agente deja comentarios anclados a fragmentos; ella los cierra uno a uno y una barra se llena. **Kino no manda el texto a ningún modelo**: el panel copia una instrucción que la persona pega en su agente (`src/features/reviews/agent-prompt.ts`). Viven en `convex/reviews.ts`, `convex/lib/reviews.ts` (pesos y techos, puro) y `src/features/reviews/`.
+
+- **El ancla es una cita, no una marca.** `pageComments` guarda `quote` con `prefix` y `suffix`, como el `TextQuoteSelector` del W3C, y el editor la pinta por decoración (`review-highlight.extension.ts`). El HTML de la página nunca lleva nada del agente. Una cita se busca con la misma regla a los dos lados (`src/shared/lib/text-quote.ts`), y `review_page` rechaza la pasada entera si una cita no está o se repite sin contexto.
+- **El rango viaja con la edición.** Si la persona reescribe el fragmento, el resaltado la sigue y la tarjeta ofrece «Lo arreglé»; si lo borra, el comentario queda tachado al final de la lista. Nada se resuelve solo: ni la persona por editar ni el agente por ver la cita cambiada (`list_page_comments` le dice `anchor: missing`, y la tool le pide comprobar antes de `resolve_page_comment`).
+- **La barra mide la revisión, nunca el texto.** Pesa por severidad (crítico 3, importante 2, detalle 1), cuenta un descarte como avance y dice lo que queda con palabras. La pasada se cierra con su último comentario (`closedAt`), y eso es lo que dispara la celebración una sola vez.
+- **Cada lado su gesto.** El agente comenta, contesta, comprueba y retira lo suyo; no cierra una pregunta de la persona ni corrige lo que ella escribió. Aplicar una propuesta lo hace la persona en su editor, como cualquier otra edición suya. Preguntar sobre un fragmento y reabrir no son tools (`SIN_TOOL`).
 
 ## Features en el schema sin implementación activa
 

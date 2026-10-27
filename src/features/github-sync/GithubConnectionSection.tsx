@@ -5,7 +5,6 @@ import { useSearchParams } from "next/navigation";
 import { toast } from "sonner";
 import { GitBranch, TriangleAlert } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Label } from "@/components/ui/label";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { useDisconnectGithub, useGithubConnection } from "./github-sync.hooks";
@@ -33,83 +32,75 @@ export function GithubConnectionSection() {
   }, [resultado]);
 
   return (
-    <div className="space-y-4">
-      <div>
-        {/* Un nivel por debajo de Conexiones, que es quien la monta: dos
-            títulos del mismo peso uno encima de otro leen como dos secciones
-            hermanas y no como una fuente dentro de su lista. */}
-        <h3 className="text-base font-medium">GitHub</h3>
-        <p className="text-sm text-muted-foreground">
-          Conecta tu cuenta para traer los issues de un repositorio al board de un
-          sistema de tipo proyecto. Kino sólo lee: nunca escribe en GitHub.
-        </p>
-      </div>
-
-      <div className="flex items-center justify-between gap-4 rounded-lg border p-4">
-        <div className="flex min-w-0 items-center gap-3">
-          <GitBranch className="size-4 shrink-0 text-muted-foreground" />
-          <div className="min-w-0 space-y-0.5">
-            <Label className="text-sm font-medium">Cuenta conectada</Label>
+    <div className="space-y-3">
+      {/* Sin caja: la hoja de Conexiones ya es el grupo, y esta fuente es una
+          fila de su lista, con el peso de las filas de Ajustes. El nombre
+          sigue siendo un encabezado para quien navega la hoja por títulos,
+          pero se pinta como el título de una fila y no como una sección. */}
+      <div className="flex items-start gap-3">
+        <GitBranch aria-hidden className="mt-[0.2rem] size-5 shrink-0 stroke-[1.8] text-muted-foreground" />
+        <div className="min-w-0 space-y-1">
+          <h3 className="text-base leading-6 font-semibold text-foreground">GitHub</h3>
+          <p className="text-sm leading-5 text-muted-foreground">
+            Conecta tu cuenta para traer los issues de un repositorio al tablero de
+            un sistema de tipo proyecto. Sólo se lee: nada se escribe en GitHub.
+          </p>
+          <div className="text-sm leading-5" aria-live="polite">
             {isLoading ? (
               <Skeleton className="h-4 w-40" />
             ) : error ? (
               // Sin esta rama, un fallo al preguntar por la conexión se leía
               // como «este despliegue no tiene la integración», que es otra cosa.
-              <p className="flex items-center gap-1.5 text-xs text-destructive">
-                <TriangleAlert className="size-3.5 shrink-0" />
+              <p className="flex items-center gap-1.5 text-destructive">
+                <TriangleAlert aria-hidden className="size-4 shrink-0" />
                 No se pudo comprobar la cuenta. Vuelve a cargar la página.
               </p>
             ) : !data?.configured ? (
-              <p className="text-xs text-muted-foreground">
-                Este despliegue no tiene configurada la integración.
-              </p>
+              <p className="text-muted-foreground">Este despliegue no tiene configurada la integración.</p>
             ) : data.revoked ? (
-              <p className="flex items-center gap-1.5 text-xs text-destructive">
-                <TriangleAlert className="size-3.5 shrink-0" />
+              <p className="flex items-center gap-1.5 text-destructive">
+                <TriangleAlert aria-hidden className="size-4 shrink-0" />
                 GitHub rechazó el token. Vuelve a conectar.
               </p>
             ) : data.connected ? (
-              <p className="truncate text-xs text-muted-foreground">
-                {data.login ? `@${data.login}` : "Conectada"}
-                {data.lastSyncedAt
-                  ? ` · última sincronización ${new Date(data.lastSyncedAt).toLocaleString()}`
-                  : " · sin sincronizar todavía"}
+              <p className="text-foreground">
+                {data.login ? `Conectada como @${data.login}` : "Conectada"}
+                <span className="text-muted-foreground">
+                  {data.lastSyncedAt
+                    ? `, última sincronización ${new Date(data.lastSyncedAt).toLocaleString()}`
+                    : ", sin sincronizar todavía"}
+                </span>
               </p>
             ) : (
-              <p className="text-xs text-muted-foreground">Ninguna</p>
+              <p className="text-muted-foreground">Sin cuenta conectada.</p>
             )}
           </div>
-        </div>
 
-        {isLoading ? (
-          <Skeleton className="h-9 w-28 shrink-0 rounded-md" />
-        ) : error || !data?.configured ? null : data.connected ? (
-          <div className="flex shrink-0 gap-2">
-            {data.revoked && (
-              <Button asChild size="sm">
-                {/* eslint-disable-next-line @next/next/no-html-link-for-pages -- `/api/...` no es una página: es el endpoint que redirige a GitHub, y necesita navegación real. La regla lo confunde desde que existe el catch-all del contrato. */}
-                <a href="/api/integrations/github/connect?returnTo=/settings">
-                  Reconectar
-                </a>
-              </Button>
-            )}
-            <Button
-              variant="outline"
-              size="sm"
-              disabled={isPending}
-              onClick={() => setConfirmOpen(true)}
-            >
-              Desconectar
-            </Button>
-          </div>
-        ) : (
-          <Button asChild size="sm" className="shrink-0">
-            {/* eslint-disable-next-line @next/next/no-html-link-for-pages -- Mismo caso que arriba: endpoint de redirección, no página. */}
-            <a href="/api/integrations/github/connect?returnTo=/settings">
-              Conectar
-            </a>
-          </Button>
-        )}
+          {isLoading ? (
+            <Skeleton className="mt-2 h-[2.85rem] w-32 rounded-full md:pointer-fine:h-10" />
+          ) : error || !data?.configured ? null : (
+            <div className="flex flex-wrap gap-2 pt-1">
+              {data.connected ? (
+                <>
+                  {data.revoked && (
+                    <Button asChild size="sm">
+                      {/* eslint-disable-next-line @next/next/no-html-link-for-pages -- `/api/...` no es una página: es el endpoint que redirige a GitHub, y necesita navegación real. La regla lo confunde desde que existe el catch-all del contrato. */}
+                      <a href="/api/integrations/github/connect?returnTo=/settings">Reconectar</a>
+                    </Button>
+                  )}
+                  <Button variant="outline" size="sm" disabled={isPending} onClick={() => setConfirmOpen(true)}>
+                    {isPending ? "Desconectando" : "Desconectar"}
+                  </Button>
+                </>
+              ) : (
+                <Button asChild size="sm">
+                  {/* eslint-disable-next-line @next/next/no-html-link-for-pages -- Mismo caso que arriba: endpoint de redirección, no página. */}
+                  <a href="/api/integrations/github/connect?returnTo=/settings">Conectar</a>
+                </Button>
+              )}
+            </div>
+          )}
+        </div>
       </div>
 
       <ConfirmDialog

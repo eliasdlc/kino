@@ -1,43 +1,35 @@
 "use client";
 
+import dynamic from "next/dynamic";
 import { usePlanningWeek } from "@/shared/hooks/use-url-view";
-import { useMemo, useState, useCallback } from "react";
+import { useMemo } from "react";
 import {
   addDays,
   addWeeks,
   format,
   getISOWeek,
   isSameDay,
-  isToday,
   startOfWeek,
-  differenceInCalendarDays,
   isBefore,
   isAfter,
 } from "date-fns";
-
-import { ChevronLeft, ChevronRight } from "lucide-react";
-import {
-  DndContext,
-  PointerSensor,
-  KeyboardSensor,
-  useSensor,
-  useSensors,
-  type DragStartEvent,
-  type DragEndEvent,
-} from "@dnd-kit/core";
-import { Button } from "@/components/ui/button";
-import { DraggableTaskCard } from "./dnd/DraggableTaskCard";
-import { DroppableColumn } from "./dnd/DroppableColumn";
-import { TaskDragOverlay } from "./dnd/TaskDragOverlay";
-import type { TaskDragData } from "./dnd/dnd.types";
+import { es } from "date-fns/locale";
 import { useTasks, useFolderTasks, useToggleTask, useDeleteTaskWithUndo, useUpdateTask } from "./tasks.hooks";
 import type { TaskTransport } from "./tasks.types";
 import { parseDueDate, parseTaskDay, dayToLocalISO } from "./tasks.utils";
-import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { useTaskKeyboardNavigation } from "./useTaskKeyboardNavigation";
-import { MultiDayTaskBar } from "./MultiDayTaskBar";
 import { TaskPlanningMobileView } from "./TaskPlanningMobileView";
-import { useIsMobile } from "@/hooks/use-mobile";
+import { usePunteroGrueso } from "./use-puntero-grueso";
+import { useTacharEnSitio } from "./useTachar";
+
+/**
+ * La semana con arrastre, aparte: `@dnd-kit` sólo se descarga en escritorio y
+ * al abrir Planificación. Mientras llega, el texto de estado ocupa su sitio.
+ */
+const TaskPlanningBoard = dynamic(() => import("./TaskPlanningBoard"), {
+  ssr: false,
+  loading: () => <p className="py-6 text-sm text-muted-foreground">Abriendo la semana</p>,
+});
 
 /** ¿startDate y dueDate caen el mismo día calendario? (ambos timestamptz). */
 function sameDueDay(startDate: string, dueDate: string): boolean {
@@ -53,6 +45,11 @@ interface TaskPlanningViewProps {
   keyboardDisabled?: boolean;
 }
 
+/**
+ * Planificación: la semana, con lo que se trabaja cada día. Completar tacha la
+ * fila en su día con Deshacer de cuatro segundos; mover a la papelera no
+ * pregunta, el aviso trae Deshacer.
+ */
 export function TaskPlanningView({ systemId, initialData, folderId, folderInitialData, onEdit, keyboardDisabled }: TaskPlanningViewProps) {
   // Use folder-scoped or system-scoped tasks depending on context
   const systemQuery = useTasks(systemId, initialData);
@@ -62,21 +59,10 @@ export function TaskPlanningView({ systemId, initialData, folderId, folderInitia
   const { mutate: toggleTask } = useToggleTask(systemId, folderId);
   const { mutate: deleteTask } = useDeleteTaskWithUndo(systemId, folderId);
   const { mutate: updateTask } = useUpdateTask(systemId);
-
-  // Track the currently dragged task for the DragOverlay
-  const [activeTask, setActiveTask] = useState<TaskTransport | null>(null);
+  const { struck, handleToggle, estadoDe } = useTacharEnSitio((id) => toggleTask(id));
 
   // Week navigation: 0 = current week, 1 = next, -1 = previous
   const [weekOffset, setWeekOffset] = usePlanningWeek();
-
-  // Sensors: pointer for mouse/touch, keyboard for a11y
-  const sensors = useSensors(
-    useSensor(PointerSensor, {
-      // 8px activation distance prevents accidental drags on click
-      activationConstraint: { distance: 8 },
-    }),
-    useSensor(KeyboardSensor, keyboardDisabled ? { keyboardCodes: { start: [], cancel: [], end: [] } } : {})
-  );
 
   const weekDates = useMemo(() => {
     const baseDate = addWeeks(new Date(), weekOffset);
@@ -92,14 +78,15 @@ export function TaskPlanningView({ systemId, initialData, folderId, folderInitia
     const sameMonth =
       start.getMonth() === end.getMonth() && start.getFullYear() === end.getFullYear();
     if (sameMonth) {
-      return format(start, "LLLL yyyy");
+      return format(start, "LLLL yyyy", { locale: es });
     }
-    return `${format(start, "LLLL")} – ${format(end, "LLLL yyyy")}`;
+    return `${format(start, "LLLL", { locale: es })} a ${format(end, "LLLL yyyy", { locale: es })}`;
   }, [weekDates]);
 
   const visibleTasks = useMemo(() => {
     return tasks.filter((task) => {
-      if (task.status === "done") return false;
+      // Una tachada en esta visita se queda en su día hasta la siguiente.
+      if (estadoDe(task) === "done") return false;
 
       // Multi-day task: has startDate and dueDate, and they are different
       if (task.startDate && task.dueDate && !sameDueDay(task.startDate, task.dueDate)) {
@@ -120,7 +107,7 @@ export function TaskPlanningView({ systemId, initialData, folderId, folderInitia
       }
       return false;
     });
-  }, [tasks, weekDates]);
+  }, [tasks, weekDates, estadoDe]);
 
   const multiDayTasks = useMemo(() => {
     return visibleTasks.filter(
@@ -134,254 +121,77 @@ export function TaskPlanningView({ systemId, initialData, folderId, folderInitia
     );
   }, [visibleTasks]);
 
-  const [deleteTarget, setDeleteTarget] = useState<TaskTransport | null>(null);
+  const completar = (id: string) => {
+    const task = visibleTasks.find((t) => t.id === id);
+    if (task) handleToggle(task);
+  };
+  const papelera = (task: TaskTransport) => deleteTask(task.id);
 
   const { focusedTaskId } = useTaskKeyboardNavigation(visibleTasks, {
     onSelect: onEdit,
-    onToggle: toggleTask,
-    onDelete: setDeleteTarget,
+    onToggle: completar,
+    onDelete: papelera,
   }, {
-    enabled: !keyboardDisabled && deleteTarget === null
+    enabled: !keyboardDisabled
   });
 
-  const handleDragStart = useCallback((event: DragStartEvent) => {
-    const data = event.active.data.current as TaskDragData | undefined;
-    if (data?.task) {
-      setActiveTask(data.task);
-    }
-  }, []);
+  const tactil = usePunteroGrueso();
 
-  const handleDragEnd = useCallback(
-    (event: DragEndEvent) => {
-      setActiveTask(null);
+  // startDate es timestamptz: se manda la medianoche LOCAL (no el día pelado,
+  // que se guardaría a medianoche UTC y corre el día en zonas negativas).
+  function moveToDay(taskId: string, dayISO: string) {
+    updateTask({ taskId, data: { startDate: dayToLocalISO(dayISO) } });
+  }
 
-      const { active, over } = event;
-      if (!over) return; // Dropped outside any droppable: no-op
+  // Mientras no se sabe el puntero (la hidratación) no se monta ninguna de las
+  // dos semanas: un teléfono no llega a pedir la del arrastre.
+  if (tactil === null) {
+    return <p className="py-6 pl-(--margen) text-sm text-muted-foreground">Abriendo la semana</p>;
+  }
 
-      const data = active.data.current as TaskDragData | undefined;
-      if (!data) return;
-
-      const targetId = over.id as string;
-
-      // Same column: no-op
-      if (targetId === data.sourceId) return;
-
-      // startDate es timestamptz: enviar medianoche LOCAL (no el día pelado, que
-      // se guardaría a medianoche UTC y corre el día en tz negativas).
-      updateTask({
-        taskId: data.task.id,
-        data: { startDate: dayToLocalISO(targetId) },
-      });
-    },
-    [updateTask]
-  );
-
-  const handleDragCancel = useCallback(() => {
-    setActiveTask(null);
-  }, []);
-
-  const isMobile = useIsMobile();
-
-  // En mobile el drag & drop de 7 columnas no funciona: vista de un día a la
-  // vez, mover de día vía menú en vez de arrastrar.
-  if (isMobile) {
+  // Con el dedo, las siete columnas no caben o no se arrastran: un día a la
+  // vez, y mover de día con una hoja con nombre. Lo decide el puntero: una
+  // tableta táctil ancha también recibe la hoja.
+  if (tactil) {
     return (
-      <>
-        <TaskPlanningMobileView
-          weekDates={weekDates}
-          weekOffset={weekOffset}
-          monthHeading={monthHeading}
-          weekNumber={weekNumber}
-          singleDayTasks={singleDayTasks}
-          multiDayTasks={multiDayTasks}
-          onPrevWeek={() => setWeekOffset((v) => v - 1)}
-          onNextWeek={() => setWeekOffset((v) => v + 1)}
-          onResetWeek={() => setWeekOffset(0)}
-          onToggle={(id) => toggleTask(id)}
-          onDelete={setDeleteTarget}
-          onEdit={onEdit}
-          onMoveToDay={(taskId, dayISO) =>
-            updateTask({ taskId, data: { startDate: dayToLocalISO(dayISO) } })
-          }
-        />
-        <ConfirmDialog
-          open={deleteTarget !== null}
-          title="Mover a la papelera"
-          description={`"${deleteTarget?.title}" se moverá a la papelera.`}
-          confirmLabel="Mover a la papelera"
-          onConfirm={() => {
-            if (deleteTarget) deleteTask(deleteTarget.id);
-            setDeleteTarget(null);
-          }}
-          onCancel={() => setDeleteTarget(null)}
-        />
-      </>
+      <TaskPlanningMobileView
+        weekDates={weekDates}
+        weekOffset={weekOffset}
+        monthHeading={monthHeading}
+        weekNumber={weekNumber}
+        singleDayTasks={singleDayTasks}
+        multiDayTasks={multiDayTasks}
+        struck={struck}
+        onPrevWeek={() => setWeekOffset((v) => v - 1)}
+        onNextWeek={() => setWeekOffset((v) => v + 1)}
+        onResetWeek={() => setWeekOffset(0)}
+        onToggle={completar}
+        onDelete={papelera}
+        onEdit={onEdit}
+        onMoveToDay={moveToDay}
+      />
     );
   }
 
   return (
-    <DndContext
-      id="task-planning-dnd"
-      sensors={sensors}
-      onDragStart={handleDragStart}
-      onDragEnd={handleDragEnd}
-      onDragCancel={handleDragCancel}
-    >
-      <div className="flex flex-col gap-4">
-        {/* Week navigation header */}
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <Button
-              variant="ghost"
-              size="icon"
-              className="size-8"
-              onClick={() => setWeekOffset((v) => v - 1)}
-              aria-label="Semana anterior"
-            >
-              <ChevronLeft className="size-5" />
-            </Button>
-            <h2 className="text-2xl font-bold capitalize">
-              {monthHeading}
-              <span className="text-base font-normal text-muted-foreground ml-2">
-               : Week {weekNumber}
-              </span>
-            </h2>
-            <Button
-              variant="ghost"
-              size="icon"
-              className="size-8"
-              onClick={() => setWeekOffset((v) => v + 1)}
-              aria-label="Semana siguiente"
-            >
-              <ChevronRight className="size-5" />
-            </Button>
-          </div>
-
-          {weekOffset !== 0 && (
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => setWeekOffset(0)}
-            >
-              This week
-            </Button>
-          )}
-        </div>
-
-        <div className="overflow-x-auto pb-2">
-        <div className="min-w-[1120px] space-y-4">
-        {/* Multi-Day Tasks Header */}
-        {multiDayTasks.length > 0 && (
-          <div className="grid grid-cols-7 gap-2 w-full pt-1 pb-3 border-b border-border">
-            {multiDayTasks.map((task) => {
-              const start = parseDueDate(task.startDate!);
-              const due = parseDueDate(task.dueDate!);
-              const weekStart = weekDates[0]!;
-              const weekEnd = weekDates[6]!;
-
-              const effectiveStart = isBefore(start, weekStart) ? weekStart : start;
-              const effectiveDue = isAfter(due, weekEnd) ? weekEnd : due;
-
-              const startCol = differenceInCalendarDays(effectiveStart, weekStart) + 1;
-              const span = differenceInCalendarDays(effectiveDue, effectiveStart) + 1;
-
-              return (
-                <MultiDayTaskBar
-                  key={task.id}
-                  task={task}
-                  onEdit={onEdit}
-                  startCol={startCol}
-                  span={span}
-                />
-              );
-            })}
-          </div>
-        )}
-
-        <div className="flex flex-row gap-2 w-full min-h-[calc(100vh-16rem)]">
-          {weekDates.map((dayDate) => {
-            const today = isToday(dayDate);
-            const dayISO = format(dayDate, "yyyy-MM-dd");
-            const dayTasks = singleDayTasks.filter((task) => {
-              const anchor = task.startDate ?? task.dueDate;
-              return anchor != null && isSameDay(parseTaskDay(anchor), dayDate);
-            });
-
-            return (
-              <DroppableColumn
-                key={dayISO}
-                id={dayISO}
-                className={`flex flex-col gap-2 flex-1 min-w-0 p-2 ${
-                  today ? "bg-primary/5 ring-1 ring-primary/20" : ""
-                }`}
-              >
-                {/* Day header */}
-                <div
-                  className={`flex items-baseline gap-1.5 px-1 pb-1.5 border-b ${
-                    today ? "border-primary/30" : "border-border"
-                  }`}
-                >
-                  <span
-                    className={`text-[11px] font-semibold uppercase tracking-wider ${
-                      today ? "text-primary" : "text-muted-foreground"
-                    }`}
-                  >
-                    {format(dayDate, "EEE")}
-                  </span>
-                  <span
-                    className={`text-xl font-bold leading-none ${
-                      today ? "text-primary" : "text-foreground"
-                    }`}
-                  >
-                    {format(dayDate, "d")}
-                  </span>
-                </div>
-
-                {/* Tasks */}
-                <div className="flex flex-col gap-2">
-                  {dayTasks.length === 0 ? (
-                    <div className="flex justify-center py-3 opacity-30">
-                      <span className="text-xs text-muted-foreground">Sin tareas</span>
-                    </div>
-                  ) : (
-                    dayTasks.map((task) => (
-                      <DraggableTaskCard
-                        key={task.id}
-                        task={task}
-                        systemId={systemId}
-                        sourceType="day"
-                        sourceId={dayISO}
-                        compact
-                        isFocused={task.id === focusedTaskId}
-                        onToggle={(id) => toggleTask(id)}
-                        onDelete={() => setDeleteTarget(task)}
-                        onEdit={onEdit}
-                      />
-                    ))
-                  )}
-                </div>
-              </DroppableColumn>
-            );
-          })}
-        </div>
-        </div>
-        </div>
-      </div>
-
-      {/* Floating drag preview: rendered in a portal, follows cursor */}
-      <TaskDragOverlay activeTask={activeTask} systemId={systemId} />
-
-      <ConfirmDialog
-        open={deleteTarget !== null}
-        title="Mover a la papelera"
-        description={`"${deleteTarget?.title}" se moverá a la papelera.`}
-        confirmLabel="Mover a la papelera"
-        onConfirm={() => {
-          if (deleteTarget) deleteTask(deleteTarget.id);
-          setDeleteTarget(null);
-        }}
-        onCancel={() => setDeleteTarget(null)}
-      />
-    </DndContext>
+    <TaskPlanningBoard
+      systemId={systemId}
+      weekDates={weekDates}
+      weekOffset={weekOffset}
+      monthHeading={monthHeading}
+      weekNumber={weekNumber}
+      singleDayTasks={singleDayTasks}
+      multiDayTasks={multiDayTasks}
+      focusedTaskId={focusedTaskId}
+      struck={struck}
+      keyboardDisabled={keyboardDisabled}
+      onPrevWeek={() => setWeekOffset((v) => v - 1)}
+      onNextWeek={() => setWeekOffset((v) => v + 1)}
+      onResetWeek={() => setWeekOffset(0)}
+      onToggle={completar}
+      onDelete={papelera}
+      onEdit={onEdit}
+      onMoveToDay={moveToDay}
+    />
   );
 }

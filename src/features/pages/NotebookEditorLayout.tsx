@@ -1,117 +1,119 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import dynamic from "next/dynamic";
-import Link from "next/link";
-import { useRouter } from "next/navigation";
-import { PanelRight, Plus, Loader2, Download } from "lucide-react";
+import { Ellipsis, PanelRight } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { Button } from "@/components/ui/button";
-import { Separator } from "@/components/ui/separator";
-import { Sheet, SheetContent, SheetTitle } from "@/components/ui/sheet";
 import { PageBreadcrumb } from "@/components/PageBreadcrumb";
-import { LinkedTasksPanel } from "./LinkedTasksPanel";
-import { NotebookTagPicker } from "./NotebookTagPicker";
-import { CodexRail } from "@/features/entities/CodexRail";
 import { ChapterStatusToggle } from "@/features/writing/ChapterStatusToggle";
 import { WritingSessionButton } from "@/features/writing/WritingSessionButton";
-import { ReferenceTable } from "@/features/writing/ReferenceTable";
-import { ChapterHistory } from "@/features/writing/ChapterHistory";
-import { ChapterSummaryPanel } from "@/features/writing/ChapterSummaryPanel";
-import { usePinnedReferences } from "@/features/writing/pinned-references";
-import { EditorShortcutsHelp } from "./EditorShortcutsHelp";
-import { useSubPages, useCreateSubPage } from "./pages.hooks";
-import { htmlToMarkdown, exportFileMeta } from "./export/html-to-markdown";
-import { downloadBlob, slugify } from "@/shared/utils/download";
-import { ManuscriptOutline } from "./mediums/ManuscriptOutline";
-import { RAIL_MIN_ITEMS } from "./DocumentRail";
+import { ReviewProvider } from "@/features/reviews/ReviewContext";
+import { ReviewPanel } from "@/features/reviews/ReviewPanel";
+import { ReviewToggle } from "@/features/reviews/ReviewToggle";
 import type { OutlineItem } from "./mediums/outline";
 import type { BreadcrumbItem } from "@/components/PageBreadcrumb";
 import type { PageDetailTransport, PageListItemTransport } from "./pages.types";
 import type { WriterObra } from "./WriterStatusBar";
 import type { MediumManifest } from "@/shared/lib/mediums";
+import { unidadDe } from "@/features/writing/unidad";
+import {
+  BOTON_MAS,
+  nombreDelBotonMas,
+  FILA_DEL_TITULO,
+  LETRA_DEL_TITULO,
+  PrimeraPinturaContext,
+  CUERPO_DEL_ESCRITOR,
+  RESERVA_CODEX,
+  contenedorConScroll,
+  usePrimeraPintura,
+  type ScrollGuardado,
+} from "./primera-pintura";
 
-// The Tiptap surface (StarterKit + table + suggestion + list, plus image in
-// Sprint 3) is loaded client-side on demand so it stays out of the route's
-// initial JS bundle (KIN-73).
-const NotebookEditorSurface = dynamic(() => import("./NotebookEditorSurface"), {
-  ssr: false,
-  loading: () => (
-    <div className="flex-1 overflow-y-auto">
-      <div className="max-w-3xl mx-auto px-4 py-6 md:px-6 md:py-8 space-y-3">
-        <div className="h-7 w-1/3 animate-pulse rounded bg-muted" />
-        <div className="h-4 w-full animate-pulse rounded bg-muted/70" />
-        <div className="h-4 w-5/6 animate-pulse rounded bg-muted/70" />
-        <div className="h-4 w-2/3 animate-pulse rounded bg-muted/70" />
-      </div>
-    </div>
-  ),
-});
+/**
+ * Lo que se pinta antes de que llegue el editor: el título y el texto ya
+ * saneados por el servidor, con las mismas clases que tendrá el editor. Leer
+ * no espera a Tiptap; el cursor y la barra llegan con su chunk. Para que el
+ * texto no se mueva al llegar, la primera pintura lleva lo que el editor pone
+ * encima del cuerpo: la fila del título con Más a 2.85rem y, en un capítulo
+ * con fichas del codex, el alto de su fila. Y lo que se bajó leyendo se
+ * conserva: el editor arranca en el mismo scroll.
+ */
+export function PrimeraPinturaDelEditor() {
+  const pintura = usePrimeraPintura();
+  const columna = useRef<HTMLDivElement>(null);
+  const guardar = pintura?.guardarScroll;
 
-function ExportPanel({
-  page,
-  medium = null,
-}: {
-  page: PageDetailTransport;
-  medium?: MediumManifest | null;
-}) {
-  // El medium decide el serializador: un guion sale en Fountain (.fountain), lo
-  // que importan Final Draft y Highland; el resto en Markdown (PLAN-11 §6).
-  const { extension, label } = exportFileMeta(medium?.id ?? null);
-
-  function exportMarkdown() {
-    const md = htmlToMarkdown(page.content ?? "", { medium: medium?.id ?? null });
-    const blob = new Blob([md], { type: "text/markdown;charset=utf-8" });
-    downloadBlob(blob, `${slugify(page.title ?? "")}.${extension}`);
-  }
-
-  function exportJson() {
-    const payload = {
-      id: page.id,
-      title: page.title,
-      content: page.content,
-      createdAt: page.createdAt,
-      updatedAt: page.updatedAt,
+  // Al irse, apunta qué se desplazaba y cuánto: el editor que llega arranca ahí.
+  useLayoutEffect(() => {
+    const nodo = columna.current;
+    return () => {
+      const contenedor = contenedorConScroll(nodo);
+      if (contenedor) guardar?.({ contenedor, top: contenedor.scrollTop });
     };
-    const blob = new Blob([JSON.stringify(payload, null, 2)], {
-      type: "application/json;charset=utf-8",
-    });
-    downloadBlob(blob, `${slugify(page.title ?? "")}.json`);
-  }
+  }, [guardar]);
 
   return (
-    <div>
-      <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">
-        Exportar
-      </p>
-      <div className="flex flex-col gap-1">
-        <Button
-          variant="ghost"
-          size="sm"
-          className="justify-start gap-2 h-8 px-2 text-sm font-normal"
-          onClick={exportMarkdown}
+    <div aria-busy className="relative flex flex-1 flex-col overflow-hidden">
+      <div ref={columna} data-slot="primera-pintura" className="flex-1 overflow-y-auto">
+        <div
+          className={cn(
+            "mx-auto space-y-8 py-6 pl-[max(1.25rem,env(safe-area-inset-left))] pr-[max(1.25rem,env(safe-area-inset-right))] md:px-6 md:py-8",
+            pintura?.writer ? "max-w-[46rem] md:my-6 md:px-10" : "max-w-3xl",
+          )}
         >
-          <Download className="size-3.5 shrink-0" />
-          {label}
-        </Button>
-        <Button
-          variant="ghost"
-          size="sm"
-          className="justify-start gap-2 h-8 px-2 text-sm font-normal"
-          onClick={exportJson}
-        >
-          <Download className="size-3.5 shrink-0" />
-          JSON (.json)
-        </Button>
+          <div className="flex flex-col gap-4">
+            <div className={FILA_DEL_TITULO}>
+              <p
+                className={cn(
+                  "block min-w-0 flex-1",
+                  LETRA_DEL_TITULO,
+                  pintura?.titulo ? "text-foreground" : "text-muted-foreground/60",
+                )}
+              >
+                {pintura?.titulo || "Sin título"}
+              </p>
+              <button
+                type="button"
+                onClick={pintura?.onOpenPanel}
+                aria-label={nombreDelBotonMas(pintura?.etiquetaMas ?? null)}
+                className={BOTON_MAS}
+              >
+                {pintura?.etiquetaMas && <span>{pintura.etiquetaMas}</span>}
+                <Ellipsis aria-hidden className="size-5" />
+              </button>
+            </div>
+            {pintura?.writer && (
+              <div className="md:hidden">
+                {pintura.fichasDelCodex > 0 && <div aria-hidden className={RESERVA_CODEX} />}
+              </div>
+            )}
+            <div className={cn("tiptap-editor relative flex-1", pintura?.writer && CUERPO_DEL_ESCRITOR)}>
+              {pintura?.cuerpo}
+            </div>
+          </div>
+        </div>
       </div>
     </div>
   );
 }
 
+// La superficie de Tiptap (StarterKit, tablas, sugerencias, listas, imagen) se
+// carga en el cliente y bajo demanda, fuera del JavaScript inicial de la ruta
+// (KIN-73). Mientras llega, la primera pintura enseña el texto del servidor.
+const NotebookEditorSurface = dynamic(() => import("./NotebookEditorSurface"), {
+  ssr: false,
+  loading: PrimeraPinturaDelEditor,
+});
+
+// El panel (índice, codex, referencias, versiones, etiquetas, tareas, exportar)
+// es un solo chunk aparte fuera del JavaScript inicial: nadie lo necesita para
+// empezar a escribir. Se precarga en reposo y se monta la primera vez que se abre.
+const cargarPanel = () => import("./EditorPanel");
+const EditorPanel = dynamic(cargarPanel, { ssr: false });
+
 interface NotebookEditorLayoutProps {
   page: PageDetailTransport;
   systemId: string;
-  systemName: string;
   breadcrumbItems: BreadcrumbItem[];
   /** The root notebook: null if current page IS the root */
   parentNotebook: Pick<PageListItemTransport, "id" | "title"> | null;
@@ -125,116 +127,18 @@ interface NotebookEditorLayoutProps {
   obraMetadata?: Record<string, unknown> | null;
   /** Medium de la obra (W3): estructura del editor, vocabulario y export. */
   medium?: MediumManifest | null;
-}
-
-function SubPagesSidebar({
-  rootPageId,
-  currentPageId,
-  systemId,
-  systemName,
-  initialSubPages,
-  medium = null,
-}: {
-  rootPageId: string;
-  currentPageId: string;
-  systemId: string;
-  systemName: string;
-  initialSubPages: PageListItemTransport[];
-  medium?: MediumManifest | null;
-}) {
-  const router = useRouter();
-  const { data: subPages = initialSubPages ?? [] } = useSubPages(rootPageId);
-  const { mutate: createSubPage, isPending } = useCreateSubPage(rootPageId, systemId);
-  const [adding, setAdding] = useState(false);
-  const [newTitle, setNewTitle] = useState("");
-
-  function handleCreate() {
-    const title = newTitle.trim();
-    createSubPage(
-      // La plantilla del medium arranca la estructura (una página con su primer
-      // panel, un encabezado de escena): la prosa nace en blanco.
-      { title: title || undefined, content: medium?.template || undefined },
-      {
-        onSuccess: (page) => {
-          setNewTitle("");
-          setAdding(false);
-          router.push(`/systems/${systemId}/pages/${page.id}`);
-        },
-      }
-    );
-  }
-
-  return (
-    <div>
-      <div className="p-3 space-y-1">
-        <p className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground px-2 mb-2">
-          {systemName}
-        </p>
-
-        {/* Root notebook link */}
-        <Link
-          href={`/systems/${systemId}/pages/${rootPageId}`}
-          className={`block px-2 py-1.5 rounded-md text-sm font-semibold transition-colors truncate ${currentPageId === rootPageId
-            ? "bg-accent text-accent-foreground"
-            : "text-foreground hover:bg-accent/50"
-            }`}
-        >
-          Portada
-        </Link>
-
-        {subPages.length > 0 && (
-          <div className="ml-2 border-l border-border/50 pl-2 space-y-0.5 mt-1">
-            {subPages.map((sp) => (
-              <Link
-                key={sp.id}
-                href={`/systems/${systemId}/pages/${sp.id}`}
-                className={`block px-2 py-1.5 rounded-md text-xs transition-colors truncate ${currentPageId === sp.id
-                  ? "bg-accent text-accent-foreground font-medium"
-                  : "text-muted-foreground hover:text-foreground hover:bg-accent/50"
-                  }`}
-              >
-                {sp.title ?? "Sin título"}
-              </Link>
-            ))}
-          </div>
-        )}
-
-        {adding ? (
-          <div className="ml-4 mt-1">
-            <input
-              autoFocus
-              value={newTitle}
-              onChange={(e) => setNewTitle(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === "Enter") handleCreate();
-                if (e.key === "Escape") { setAdding(false); setNewTitle(""); }
-              }}
-              onBlur={() => { if (!newTitle.trim()) setAdding(false); }}
-              placeholder={medium ? `${medium.unit.newLabel}...` : "Nueva página..."}
-              maxLength={500}
-              className="w-full bg-muted/60 rounded px-2 py-1 text-xs outline-none focus:ring-1 focus:ring-primary/40 border border-border"
-            />
-            {isPending && <Loader2 className="size-3 animate-spin mt-1 text-muted-foreground" />}
-          </div>
-        ) : (
-          <button
-            type="button"
-            onClick={() => setAdding(true)}
-            className="flex items-center gap-1 px-2 py-1 text-xs text-muted-foreground hover:text-foreground transition-colors ml-2"
-          >
-            <Plus className="size-3" />
-            {medium ? medium.unit.newLabel : "Nueva página"}
-          </button>
-        )}
-      </div>
-    </div>
-  );
+  /**
+   * El cuerpo saneado y renderizado en el servidor, con la clase del editor.
+   * Llega como nodo para que el saneo (y su librería) se quede en el servidor.
+   */
+  firstPaint?: React.ReactNode;
+  /** Cuántas fichas del codex nombra el capítulo: reserva su fila en la primera pintura. */
+  fichasDelCodex?: number;
 }
 
 export function NotebookEditorLayout({
   page,
   systemId,
-  systemName,
   breadcrumbItems,
   parentNotebook,
   initialSubPages,
@@ -242,21 +146,21 @@ export function NotebookEditorLayout({
   obra = null,
   obraMetadata = null,
   medium = null,
+  firstPaint = null,
+  fichasDelCodex = 0,
 }: NotebookEditorLayoutProps) {
-  const [rightOpen, setRightOpen] = useState(false);
+  const [panelOpen, setPanelOpen] = useState(false);
+  // El chunk del panel se pide al abrirlo y se queda montado: cerrar y volver a
+  // abrir no lo vuelve a descargar ni pierde su animación de salida.
+  const [panelMounted, setPanelMounted] = useState(false);
   const [focusMode, setFocusMode] = useState(false);
-  const { pinnedIds, toggle: togglePin, canPin } = usePinnedReferences({
-    systemId,
-    folderId: obra?.id ?? null,
-    metadata: obraMetadata,
-  });
   // Índice del documento: lo calcula el editor (que vive en un chunk aparte) y lo
   // publica aquí; el salto se queda en un ref para no re-renderizar por él. Lo
   // lee el navegador del manuscrito, y bajo md también la lista del panel.
   const [outline, setOutline] = useState<OutlineItem[]>([]);
   const jumpRef = useRef<((pos: number) => void) | null>(null);
-
-  const rootPageId = parentNotebook?.id ?? page.id;
+  // El scroll de la primera pintura, para que el editor arranque donde quedó.
+  const scrollDeLaPrimeraPintura = useRef<ScrollGuardado | null>(null);
 
   // El título se escribe en el editor pero lo pintan las migas, el nombre de la
   // sesión de escritura, el interruptor de capítulo y el del archivo exportado.
@@ -266,6 +170,32 @@ export function NotebookEditorLayout({
   const liveBreadcrumb = breadcrumbItems.map((item, index) =>
     index === breadcrumbItems.length - 1 ? { ...item, label: title || "Sin título" } : item,
   );
+
+  function guardarScroll(scroll: ScrollGuardado) {
+    scrollDeLaPrimeraPintura.current = scroll;
+  }
+  function tomarScroll() {
+    const scroll = scrollDeLaPrimeraPintura.current;
+    scrollDeLaPrimeraPintura.current = null;
+    return scroll;
+  }
+
+  function openPanel() {
+    setPanelMounted(true);
+    setPanelOpen(true);
+  }
+
+  // El chunk del panel se pide en reposo, después de la primera pintura: el
+  // primer toque en la puerta del panel abre la hoja al instante y no espera a
+  // la red. Sin requestIdleCallback (Safari), un segundo después.
+  useEffect(() => {
+    if (typeof window.requestIdleCallback === "function") {
+      const id = window.requestIdleCallback(() => void cargarPanel(), { timeout: 4000 });
+      return () => window.cancelIdleCallback(id);
+    }
+    const id = window.setTimeout(() => void cargarPanel(), 1000);
+    return () => window.clearTimeout(id);
+  }, []);
 
   // Esc sale del modo focus (PLAN-11 §7).
   useEffect(() => {
@@ -278,152 +208,98 @@ export function NotebookEditorLayout({
   }, [focusMode]);
 
   return (
-    <div className="flex h-full overflow-hidden flex-col">
-      {/* Breadcrumb bar: oculta en modo focus para dejar solo el texto */}
+    // La revisión es de este cuaderno: el botón de la barra, el panel y el
+    // editor comparten qué comentario está encendido.
+    <ReviewProvider>
+    <div className="flex h-full flex-col overflow-hidden">
+      {/* El nombre de la pantalla para quien la lee con lector: el título se
+          escribe en un campo, y un campo no es un encabezado. */}
+      <h1 className="sr-only">{title || "Sin título"}</h1>
+
+      {/* La barra de arriba es de escritorio. En el teléfono la cabecera corrida
+          ya lleva «‹ padre», y lo demás (sesión, estado del capítulo, panel)
+          vive en Más, en el título y en la barra del pulgar. En modo enfoque
+          desaparece para dejar sólo el texto. */}
       <div
+        data-slot="editor-bar"
         className={cn(
-          "sticky top-0 z-(--z-raised) bg-background border-b px-4 md:px-3 py-2.5 shrink-0 flex items-center gap-2",
-          focusMode && "hidden"
+          "sticky top-0 z-(--z-raised) hidden shrink-0 items-center gap-2 border-b border-border bg-background px-3 py-1.5 md:flex",
+          focusMode && "md:hidden",
         )}
       >
-        <div className="flex-1 min-w-0">
+        <div className="min-w-0 flex-1">
           <PageBreadcrumb items={liveBreadcrumb} />
         </div>
-        {writer && (
-          <WritingSessionButton pageId={page.id} pageTitle={livePage.title} systemId={systemId} />
-        )}
+        {writer && <WritingSessionButton pageId={page.id} pageTitle={livePage.title} systemId={systemId} />}
         {writer && (
           <ChapterStatusToggle
             pageId={page.id}
             systemId={systemId}
             title={livePage.title}
             initialCompletedAt={page.completedAt}
-            unitNoun={medium?.unit.noun}
+            unit={medium?.unit}
           />
         )}
-        <Button
-          variant="ghost"
-          size="icon"
-          className="size-7 shrink-0 text-muted-foreground"
-          onClick={() => setRightOpen(true)}
+        <ReviewToggle pageId={page.id} />
+        <button
+          type="button"
+          onClick={openPanel}
           aria-label="Abrir panel"
+          aria-expanded={panelOpen}
+          className="press flex size-9 shrink-0 items-center justify-center rounded-full text-muted-foreground transition-[color,background-color,transform] duration-(--dur-toque) ease-(--ease-pluma) focus-ring hover:bg-secondary hover:text-foreground pointer-coarse:size-[2.85rem]"
         >
           <PanelRight className="size-4" />
-        </Button>
+        </button>
       </div>
 
       <div className="flex flex-1 overflow-hidden">
-        {/* Main editor: centered content with free-floating margin notes overlay */}
-        <NotebookEditorSurface
-          page={page}
-          title={title}
-          onTitleChange={setTitle}
-          systemId={systemId}
-          writer={writer}
-          obra={obra}
-          medium={medium}
-          focusMode={focusMode}
-          onToggleFocus={() => setFocusMode((f) => !f)}
-          onOutline={setOutline}
-          jumpRef={jumpRef}
-        />
+        <PrimeraPinturaContext.Provider
+          value={{
+            titulo: title,
+            cuerpo: firstPaint,
+            writer,
+            etiquetaMas: writer ? unidadDe(medium?.unit).Noun : null,
+            fichasDelCodex,
+            onOpenPanel: openPanel,
+            guardarScroll: guardarScroll,
+            tomarScroll: tomarScroll,
+          }}
+        >
+          <NotebookEditorSurface
+            page={page}
+            title={title}
+            onTitleChange={setTitle}
+            systemId={systemId}
+            writer={writer}
+            obra={obra}
+            medium={medium}
+            focusMode={focusMode}
+            onToggleFocus={() => setFocusMode((f) => !f)}
+            onOutline={setOutline}
+            jumpRef={jumpRef}
+            onOpenPanel={openPanel}
+          />
+        </PrimeraPinturaContext.Provider>
+        {!focusMode && <ReviewPanel pageId={page.id} title={livePage.title} />}
       </div>
 
-      {/* Floating right panel */}
-      <Sheet open={rightOpen} onOpenChange={setRightOpen}>
-        {/* La tarjeta flotante es de escritorio: en un teléfono un panel de 280px
-            al 95% de alto deja el contenido en una columna que no cabe. Debajo de
-            md el Sheet usa su forma normal, a toda altura. */}
-        <SheetContent
-          side="right"
-          className="p-0 flex flex-col gap-0 shadow-2xl md:!w-70 md:!h-[95%] md:!my-auto md:rounded-2xl"
-        >
-          <SheetTitle className="sr-only">Panel del cuaderno</SheetTitle>
-
-          <SubPagesSidebar
-            rootPageId={rootPageId}
-            currentPageId={page.id}
-            systemId={systemId}
-            systemName={systemName}
-            initialSubPages={initialSubPages}
-            medium={medium}
-          />
-
-          <Separator />
-
-          <div className="p-4 space-y-4 flex-1 overflow-y-auto">
-            {writer && (
-              <>
-                <ManuscriptOutline
-                  items={outline}
-                  heading={`En este ${medium?.unit.noun ?? "capítulo"}`}
-                  onJump={(pos) => {
-                    jumpRef.current?.(pos);
-                    setRightOpen(false);
-                  }}
-                />
-                <Separator />
-                <CodexRail
-                  pageId={page.id}
-                  systemId={systemId}
-                  pinnedIds={pinnedIds}
-                  onTogglePin={canPin ? togglePin : undefined}
-                />
-                <Separator />
-                <ReferenceTable
-                  systemId={systemId}
-                  pinnedIds={pinnedIds}
-                  onToggle={togglePin}
-                  canPin={canPin}
-                />
-                <Separator />
-                <ChapterSummaryPanel pageId={page.id} />
-                <Separator />
-                <ChapterHistory pageId={page.id} />
-                <Separator />
-              </>
-            )}
-
-            {/* La versión táctil del carril. En escritorio el carril ya navega
-                el documento, y dos índices a la vez es ruido; en un teléfono no
-                se pinta, así que el panel es lo único que queda. */}
-            {!writer && outline.length >= RAIL_MIN_ITEMS && (
-              <>
-                <div className="md:hidden">
-                  <ManuscriptOutline
-                    items={outline}
-                    heading="En este documento"
-                    onJump={(pos) => {
-                      jumpRef.current?.(pos);
-                      setRightOpen(false);
-                    }}
-                  />
-                </div>
-                <Separator className="md:hidden" />
-              </>
-            )}
-
-            <div>
-              <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">
-                Etiquetas
-              </p>
-              <NotebookTagPicker pageId={page.id} systemId={systemId} />
-            </div>
-
-            <Separator />
-
-            <LinkedTasksPanel pageId={page.id} systemId={systemId} />
-
-            <Separator />
-
-            <ExportPanel page={livePage} medium={medium} />
-
-            <Separator />
-
-            <EditorShortcutsHelp medium={medium} />
-          </div>
-        </SheetContent>
-      </Sheet>
+      {panelMounted && (
+        <EditorPanel
+          open={panelOpen}
+          onOpenChange={setPanelOpen}
+          page={livePage}
+          systemId={systemId}
+          rootPageId={parentNotebook?.id ?? page.id}
+          initialSubPages={initialSubPages}
+          writer={writer}
+          obra={obra}
+          obraMetadata={obraMetadata}
+          medium={medium}
+          outline={outline}
+          onJump={(pos) => jumpRef.current?.(pos)}
+        />
+      )}
     </div>
+    </ReviewProvider>
   );
 }

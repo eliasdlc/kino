@@ -11,6 +11,7 @@ import { Table, TableRow, TableHeader, TableCell } from "@tiptap/extension-table
 import { TaskList, TaskItem } from "@tiptap/extension-list";
 import { StickyAnchorMark } from "@/features/sticky-notes/sticky-anchor.extension";
 import { StickyAnchorPaint } from "@/features/sticky-notes/anchor-paint.extension";
+import { ReviewHighlight } from "@/features/reviews/review-highlight.extension";
 import { SlashCommand } from "./slash-command.extension";
 import { LinkMarkdown } from "./link-markdown.extension";
 import { ImageUrlPaste } from "./image-paste.extension";
@@ -74,6 +75,8 @@ export function EditorProvider({
       StickyAnchorMark,
       // El color de cada frase anotada, que no se guarda con el texto.
       StickyAnchorPaint,
+      // Los fragmentos con comentario de revisión. Tampoco se guardan con el texto.
+      ReviewHighlight,
       ...(codex
         ? [CodexMention.configure({ systemId: codex.systemId, HTMLAttributes: {} })]
         : []),
@@ -83,6 +86,11 @@ export function EditorProvider({
     editorProps: {
       attributes: { class: "focus:outline-none min-h-[60vh] text-sm leading-7" },
       transformPastedHTML: (html) => cleanPastedHtml(html),
+      // Al seguir el cursor, el editor deja aire arriba y abajo: abajo cabe la
+      // barra del pulgar del teléfono (3.3rem) con su canto, así que la línea
+      // que escribes nunca queda debajo de ella.
+      scrollMargin: { top: 72, bottom: 104, left: 0, right: 0 },
+      scrollThreshold: { top: 72, bottom: 104, left: 0, right: 0 },
     },
   });
 

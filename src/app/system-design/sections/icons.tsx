@@ -5,7 +5,6 @@ import { ICON_MAP, DEFAULT_ICON } from "@/features/systems/system-icons";
 import {
   Plus,
   Trash2,
-  Loader2,
   X,
   ChevronRight,
   ChevronDown,
@@ -57,7 +56,6 @@ import {
 const APP_ICONS: Array<[string, LucideIcon]> = [
   ["Plus", Plus],
   ["Trash2", Trash2],
-  ["Loader2", Loader2],
   ["X", X],
   ["Check", Check],
   ["CheckCircle2", CheckCircle2],
@@ -122,18 +120,18 @@ export function IconsSection() {
       id="iconos"
       number="04"
       title="Iconografía"
-      description="Familia única: lucide-react (stroke 2 por defecto). Tamaños estándar: size-5 (20px) en botones, size-4 (16px) en menús y metadatos, size-3.5 (14px) en contextos densos. Sin emojis en la UI."
+      description="Familia única: lucide-react, trazo 1.8 en reposo; el activo es el mismo glifo relleno al 20 % con trazo 2, nunca un segundo glifo. Tamaños: 1.25rem en botones, 1rem en menús y metadatos, 0.875rem en lo denso. En el margen de Diario el glifo va en mute. Sin emojis ni spinners: un estado de carga es texto o un esqueleto."
     >
       <SubSection title="Tamaños">
         <div className="flex items-end gap-6 rounded-lg border border-dashed border-border p-4">
           {[
-            ["size-3.5", "14px · denso"],
-            ["size-4", "16px · menús"],
-            ["size-5", "20px · botones"],
-            ["size-6", "24px · destacado"],
+            ["size-3.5", "0.875rem, denso"],
+            ["size-4", "1rem, menús y margen"],
+            ["size-5", "1.25rem, botones"],
+            ["size-6", "1.5rem, destacado"],
           ].map(([cls, label]) => (
             <div key={cls} className="flex flex-col items-center gap-2">
-              <Zap className={cls} />
+              <Zap className={cls} strokeWidth={1.8} />
               <span className="font-mono text-[10px] text-muted-foreground">{label}</span>
             </div>
           ))}

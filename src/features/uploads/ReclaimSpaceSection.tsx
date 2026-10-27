@@ -62,27 +62,27 @@ export function ReclaimSpaceSection() {
   );
 
   return (
-    <div className="flex items-center justify-between gap-4 rounded-lg border p-4">
-      <div className="space-y-0.5">
-        <p className="text-sm font-medium">Liberar espacio de imágenes</p>
-        <p className="text-xs text-muted-foreground">
+    // Una fila, no una caja: la hoja de Datos ya agrupa, y el hairline lo pone
+    // la lista que la monta.
+    <div className="flex items-start gap-3">
+      <Eraser aria-hidden className="mt-[0.2rem] size-5 shrink-0 stroke-[1.8] text-muted-foreground" />
+      <div className="min-w-0 space-y-1">
+        <p className="text-base leading-6 font-semibold text-foreground">Liberar espacio de imágenes</p>
+        <p className="text-sm leading-5 text-muted-foreground">
           Borra las imágenes que ya no aparecen en ninguna página ni ficha. Las subidas
           en las últimas 24 horas nunca se tocan.
         </p>
         {lastResult ? (
-          <p className="text-xs text-muted-foreground pt-1">{summarize(lastResult)}</p>
+          <p className="text-sm leading-5 text-foreground" aria-live="polite">
+            {summarize(lastResult)}
+          </p>
         ) : null}
+        <div className="pt-1">
+          <Button variant="outline" size="sm" disabled={isPending} onClick={() => mutate()}>
+            {isPending ? 'Liberando el espacio' : 'Liberar espacio'}
+          </Button>
+        </div>
       </div>
-      <Button
-        variant="outline"
-        size="sm"
-        className="gap-2 shrink-0"
-        disabled={isPending}
-        onClick={() => mutate()}
-      >
-        <Eraser className="size-4" />
-        {isPending ? 'Liberando…' : 'Liberar espacio'}
-      </Button>
     </div>
   );
 }

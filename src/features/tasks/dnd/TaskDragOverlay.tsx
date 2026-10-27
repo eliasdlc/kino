@@ -1,7 +1,6 @@
 "use client";
 
 import { DragOverlay } from "@dnd-kit/core";
-import { cn } from "@/lib/utils";
 import type { TaskTransport } from "../tasks.types";
 import { ProjectTaskCard } from "../cards/ProjectTaskCard";
 
@@ -12,17 +11,12 @@ interface TaskDragOverlayProps {
 
 export function TaskDragOverlay({ activeTask, systemId }: TaskDragOverlayProps) {
   return (
-    <DragOverlay dropAnimation={{ duration: 200, easing: "ease" }}>
+    // El ticket en vuelo es el mismo renglón sobre el papel, con el hairline
+    // fuerte alrededor: sin sombra ni giro, que son otro vocabulario de
+    // elevación. La caída usa la curva de la casa.
+    <DragOverlay dropAnimation={{ duration: 160, easing: "cubic-bezier(0.2, 0.8, 0.2, 1)" }}>
       {activeTask ? (
-        <div
-          className={cn(
-            "shadow-xl shadow-black/30",
-            "scale-[1.03] rotate-[1deg]",
-            "opacity-95",
-            "cursor-grabbing",
-            "pointer-events-none"
-          )}
-        >
+        <div className="pointer-events-none cursor-grabbing rounded-md border border-input bg-background px-1">
           <ProjectTaskCard
             task={activeTask}
             systemId={systemId}

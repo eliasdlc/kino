@@ -6,7 +6,7 @@ import { updateSystemSchema } from "./systems.schemas";
  * composición se convierte en un saco donde cualquier cliente escribe lo que
  * quiera y la UI lo lee como vocabulario.
  */
-describe("updateSystemSchema · composición", () => {
+describe("updateSystemSchema, composición", () => {
   it("acepta una composición completa", () => {
     const parsed = updateSystemSchema.safeParse({
       metadata: {

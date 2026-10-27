@@ -191,7 +191,7 @@ export function MotivationSection() {
         description="Continuidad narrativa sin LLM: aritmética sobre las menciones ya indexadas. Cada hallazgo dice en qué capítulo fue, así que se verifica en un clic. Cerrar un hilo lo silencia hasta que la entidad vuelva a nombrarse."
       >
         <SpecimenGrid>
-          <Specimen label="Con hallazgos" hint="LooseThreads · uno retomado, uno cerrado">
+          <Specimen label="Con hallazgos" hint="LooseThreads, uno retomado, uno cerrado">
             <ThreadsSpecimen report={makeLooseThreadsReport()} />
           </Specimen>
 
@@ -212,7 +212,7 @@ export function MotivationSection() {
         description="Los eventos en el tiempo de la historia, no en el del manuscrito. El capítulo dice dónde se cuenta cada uno, y lo que se narra antes de tiempo queda marcado — un flashback se ve sin buscarlo. Se reordena con flechas, no arrastrando: el proyecto no usa drag and drop en touch."
       >
         <SpecimenGrid>
-          <Specimen label="Con flashback" hint="InWorldTimeline · uno fuera de orden, uno sin ubicar">
+          <Specimen label="Con flashback" hint="InWorldTimeline, uno fuera de orden, uno sin ubicar">
             <TimelineSpecimen report={makeTimelineReport()} />
           </Specimen>
 
@@ -249,7 +249,7 @@ export function MotivationSection() {
         description="Una versión por sesión de escritura: el corte lo pone el mismo detector que alimenta la racha. Restaurar guarda antes el estado actual, así que volver atrás siempre se puede deshacer."
       >
         <SpecimenGrid>
-          <Specimen label="Con versiones" hint="ChapterHistory · abre el diálogo">
+          <Specimen label="Con versiones" hint="ChapterHistory, abre el diálogo">
             <HistorySpecimen snapshots={makeSnapshots()} />
           </Specimen>
 
@@ -264,7 +264,7 @@ export function MotivationSection() {
         description="Qué escribir hoy, sin LLM: sale de sesiones, menciones y capítulos que Kino ya tenía. Cada sugerencia enseña el dato del que viene — eso es lo que separa una señal de una corazonada."
       >
         <SpecimenGrid>
-          <Specimen label="Con señales" hint="Studio · sugerencias y huecos del codex">
+          <Specimen label="Con señales" hint="Studio, sugerencias y huecos del codex">
             <StudioSpecimen report={makeStudioReport()} />
           </Specimen>
 

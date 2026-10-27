@@ -2,28 +2,25 @@
 
 import { cn } from "@/lib/utils";
 import { useTags } from "@/features/tags/tags.hooks";
+import { tagDotClass } from "@/features/tags/tag-colors";
+import { SectionHead } from "@/features/dashboard/SectionHead";
 import { usePageTags, useAddPageTag, useRemovePageTag } from "./pages.hooks";
-
-const TAG_DOT: Record<string, string> = {
-  red: "bg-red-500",
-  blue: "bg-blue-500",
-  pink: "bg-pink-500",
-  purple: "bg-purple-500",
-  green: "bg-green-500",
-  orange: "bg-orange-500",
-  yellow: "bg-yellow-500",
-  teal: "bg-teal-500",
-  gray: "bg-zinc-500",
-  black: "bg-zinc-900",
-  white: "bg-white border border-border",
-};
 
 interface NotebookTagPickerProps {
   pageId: string;
   systemId: string;
+  /** Clase del bloque: el panel decide el aire entre bloques. */
+  className?: string;
 }
 
-export function NotebookTagPicker({ pageId, systemId }: NotebookTagPickerProps) {
+/**
+ * Las etiquetas del sistema como pastillas que se encienden y se apagan sobre
+ * la página. La puesta va en tinta (selección es estado, no acción) y con
+ * `aria-pressed`; el color de cada etiqueta sale del mapa único de etiquetas.
+ * Sin etiquetas en el sistema el bloque entero no se pinta: un encabezado
+ * sobre nada es espacio vacío.
+ */
+export function NotebookTagPicker({ pageId, systemId, className }: NotebookTagPickerProps) {
   const { data: allTags = [] } = useTags(systemId);
   const { data: pageTags = [] } = usePageTags(pageId);
   const { mutate: addTag } = useAddPageTag(pageId, systemId);
@@ -42,26 +39,30 @@ export function NotebookTagPicker({ pageId, systemId }: NotebookTagPickerProps) 
   }
 
   return (
-    <div className="flex flex-wrap gap-1.5">
-      {allTags.map((tag) => {
-        const active = activeIds.has(tag.id);
-        return (
-          <button
-            key={tag.id}
-            type="button"
-            onClick={() => toggle(tag.id)}
-            className={cn(
-              "inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium border transition-all",
-              active
-                ? "bg-muted border-foreground/30 text-foreground"
-                : "bg-transparent border-border text-muted-foreground hover:border-muted-foreground/50"
-            )}
-          >
-            <span className={cn("h-2 w-2 rounded-full shrink-0", TAG_DOT[tag.color] ?? "bg-zinc-500")} />
-            {tag.title}
-          </button>
-        );
-      })}
-    </div>
+    <section className={cn("space-y-2", className)}>
+      <SectionHead as="h3" title="Etiquetas" />
+      <div className="flex flex-wrap gap-1.5 pt-1">
+        {allTags.map((tag) => {
+          const active = activeIds.has(tag.id);
+          return (
+            <button
+              key={tag.id}
+              type="button"
+              aria-pressed={active}
+              onClick={() => toggle(tag.id)}
+              className={cn(
+                "press inline-flex h-9 items-center gap-1.5 rounded-full border px-3 text-sm font-medium transition-[color,background-color,border-color,transform] duration-(--dur-toque) ease-(--ease-pluma) focus-ring pointer-coarse:h-[2.85rem]",
+                active
+                  ? "border-foreground bg-foreground text-background"
+                  : "border-border text-muted-foreground hover:border-ln2 hover:text-foreground",
+              )}
+            >
+              <span aria-hidden className={cn("size-2 shrink-0 rounded-full", tagDotClass(tag.color))} />
+              {tag.title}
+            </button>
+          );
+        })}
+      </div>
+    </section>
   );
 }

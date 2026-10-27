@@ -1,13 +1,13 @@
 "use client";
 
-import { useRef, useState, useEffect, useCallback } from "react";
+import { useRef, useState, useEffect, useCallback, useMemo } from "react";
 import type { RefObject } from "react";
 import { StickyNoteCard } from "./StickyNoteCard";
 import { useUpdateStickyNote } from "./sticky-notes.hooks";
 import { useSharedEditor } from "@/features/pages/EditorContext";
 import { getAnchorTop } from "./anchor-utils";
 import { dropNote } from "./drop-note";
-import { clampToCanvas, NOTE_W, resolveColumnX, type NotebookMetrics } from "./sticky-position";
+import { clampToCanvas, RENDER_CLAMP_W, resolveColumnX, type NotebookMetrics } from "./sticky-position";
 import type { StickyNoteItem } from "./sticky-notes.types";
 
 interface FloatingNotesLayerProps {
@@ -95,12 +95,32 @@ function FloatingNoteItem({
   const noteRef = useRef<HTMLDivElement>(null);
   const dragStart = useRef<DragStart | null>(null);
   const [live, setLive] = useState<{ leftPx: number; topPx: number } | null>(null);
+  // El puntero dispara más eventos que frames pinta la pantalla. La posición
+  // de cada evento se apunta aquí y React se entera una vez por frame.
+  const pendiente = useRef<{ leftPx: number; topPx: number } | null>(null);
+  const frame = useRef<number | null>(null);
   const [anchorTop, setAnchorTop] = useState<number | null>(null);
 
   const { mutate: updateNote } = useUpdateStickyNote(context);
+  // La tarjeta va en `memo`: con un contexto nuevo en cada render, el arrastre
+  // la volvería a pintar entera en cada frame.
+  const cardContext = useMemo(() => ({ pageId: context.pageId }), [context.pageId]);
+
+  useEffect(
+    () => () => {
+      if (frame.current !== null) cancelAnimationFrame(frame.current);
+    },
+    []
+  );
+
+  function soltarFrame() {
+    if (frame.current !== null) cancelAnimationFrame(frame.current);
+    frame.current = null;
+    pendiente.current = null;
+  }
 
   // La nota es un cuadrado de lado fijo: el tope vertical sale de ahí.
-  const maxTop = Math.max(0, metrics.containerH - NOTE_W);
+  const maxTop = Math.max(0, metrics.containerH - RENDER_CLAMP_W);
 
   // Posición base (px, relativa al contenedor) derivada del modelo columna-relativo.
   const colX = resolveColumnX(note.positionSide, note.positionX);
@@ -115,9 +135,14 @@ function FloatingNoteItem({
       : (note.positionY ?? 0.12) * metrics.containerH;
 
   const isDragging = live !== null;
-  // Clamp final: la nota nunca se sale de la pantalla.
-  const leftPx = clampToCanvas(live?.leftPx ?? baseLeft, metrics);
-  const topPx = clamp(live?.topPx ?? baseTop, 0, maxTop);
+  // Clamp final: la nota nunca se sale de la pantalla. `top` y `left` son la
+  // posición guardada y no cambian durante el arrastre: el gesto mueve la nota
+  // con `transform`, que no recalcula el layout del cuaderno en cada frame, y
+  // la base sólo se mueve con el único commit al soltar.
+  const leftPx = clampToCanvas(baseLeft, metrics);
+  const topPx = clamp(baseTop, 0, maxTop);
+  const dx = live ? live.leftPx - leftPx : 0;
+  const dy = live ? live.topPx - topPx : 0;
   const tilt = tiltFor(note.id);
 
   const computeAnchorTop = useCallback(() => {
@@ -138,6 +163,10 @@ function FloatingNoteItem({
 
   function onPointerDown(e: React.PointerEvent<HTMLDivElement>) {
     if (e.button !== 0) return;
+    // En el teléfono la nota no se arrastra: el dedo desplaza el cuaderno, y
+    // el sitio de la nota se elige por nombre en su menú (margen izquierdo,
+    // derecho o la cuadrícula). Arrastrar es del ratón y del lápiz.
+    if (e.pointerType === "touch") return;
     // React sube los eventos de un portal a su padre de React, no al del DOM.
     // Los dos menus de la nota se montan en <body>, asi que sin esta guarda
     // pulsar uno de sus items arrancaria un arrastre y le robaria su click.
@@ -167,16 +196,33 @@ function FloatingNoteItem({
       ds.started = true;
       e.currentTarget.setPointerCapture(e.pointerId);
     }
-    setLive({ leftPx: clampToCanvas(ds.leftPx + dx, metrics), topPx: clamp(ds.topPx + dy, 0, maxTop) });
+    const siguiente = { leftPx: clampToCanvas(ds.leftPx + dx, metrics), topPx: clamp(ds.topPx + dy, 0, maxTop) };
+    // La nota se levanta en el mismo evento en que el gesto pasa a ser
+    // arrastre; lo que sigue se agrupa por frame.
+    if (live === null && pendiente.current === null) {
+      setLive(siguiente);
+      return;
+    }
+    pendiente.current = siguiente;
+    if (frame.current !== null) return;
+    frame.current = requestAnimationFrame(() => {
+      frame.current = null;
+      if (pendiente.current) setLive(pendiente.current);
+    });
   }
 
   function onPointerUp() {
     const ds = dragStart.current;
     dragStart.current = null;
-    const snapshot = live;
-    setLive(null);
+    // La última posición del puntero, aunque su frame no haya llegado a pintarse.
+    const snapshot = pendiente.current ?? live;
+    soltarFrame();
     // Sin arrastre el gesto fue un click, y el navegador ya lo entrega solo.
-    if (!ds || !ds.started || !snapshot || !containerRef.current) return;
+    if (!ds || !ds.started || !snapshot || !containerRef.current) {
+      setLive(null);
+      return;
+    }
+    setLive(snapshot);
 
     suppressNextClick();
 
@@ -193,25 +239,35 @@ function FloatingNoteItem({
         topPx: snapshot.topPx,
       }),
     });
+    // `live` se suelta un frame después del commit: en ese frame la base ya
+    // es la posición nueva y el desplazamiento vale cero, así que la nota cae
+    // con su inclinación desde donde está y no desde el doble del gesto.
+    requestAnimationFrame(() => requestAnimationFrame(() => setLive(null)));
   }
 
   function onPointerCancel() {
     dragStart.current = null;
+    soltarFrame();
     setLive(null);
   }
 
   return (
     <div
       ref={noteRef}
-      className="absolute w-44 pointer-events-auto touch-none select-none"
+      data-dragging={isDragging ? "" : undefined}
+      className="absolute w-44 pointer-events-auto select-none pointer-fine:touch-none"
       style={{
         top: `${topPx}px`,
         left: `${leftPx}px`,
         // Levantada, la nota se endereza y crece un poco, como el papel que
         // despegas de la mesa; al soltarla vuelve a caer con su inclinación.
-        transform: isDragging ? "rotate(0deg) scale(1.04)" : `rotate(${tilt}deg)`,
+        transform: isDragging
+          ? `translate(${dx}px, ${dy}px) rotate(0deg) scale(1.04)`
+          : `rotate(${tilt}deg)`,
         filter: isDragging ? "drop-shadow(0 14px 18px rgba(0,0,0,0.28))" : undefined,
-        transition: isDragging ? "none" : "transform 160ms ease",
+        // Al soltarla cae con el tiempo de tachar y la curva de pluma: un
+        // asentamiento corto, del mismo sistema que el resto del movimiento.
+        transition: isDragging ? "none" : "transform var(--dur-tachar) var(--ease-pluma)",
         zIndex,
         cursor: isDragging ? "grabbing" : "grab",
       }}
@@ -220,7 +276,7 @@ function FloatingNoteItem({
       onPointerUp={onPointerUp}
       onPointerCancel={onPointerCancel}
     >
-      <StickyNoteCard note={note} context={context} />
+      <StickyNoteCard note={note} context={cardContext} />
     </div>
   );
 }
@@ -248,7 +304,9 @@ export function FloatingNotesLayer({
     .sort((a, b) => (zOrder[a] ?? 0) - (zOrder[b] ?? 0));
 
   return (
-    <div className="absolute inset-0 pointer-events-none">
+    // `data-notes-bounds` es el borde que la bandeja de colores de una nota no
+    // cruza: pegada al final del cuaderno, la abre hacia arriba.
+    <div data-notes-bounds className="absolute inset-0 pointer-events-none">
       {notes.map((n) => (
         <FloatingNoteItem
           key={n.id}

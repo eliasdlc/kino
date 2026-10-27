@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useUrlView } from "@/shared/hooks/use-url-view";
-import { CreateTaskDialog } from "@/features/tasks/CreateTaskDialog";
+import { NewTaskButton } from "@/features/systems/NewTaskButton";
 import { TaskDetailSheet } from "@/features/tasks/TaskDetailSheet";
 import { TaskWeekFocusView } from "@/features/tasks/TaskWeekFocusView";
 import { TaskCalendarView } from "@/features/tasks/TaskCalendarView";
@@ -10,6 +10,7 @@ import { TaskPlanningView } from "@/features/tasks/TaskPlanningView";
 import { TaskArchiveView } from "@/features/tasks/TaskArchiveView";
 import type { TaskTransport } from "@/features/tasks/tasks.types";
 import { cn } from "@/lib/utils";
+import { conVisita } from "@/features/tasks/useTachar";
 
 const VIEWS = ["esta-semana", "calendar", "planning", "archive"] as const;
 type View = (typeof VIEWS)[number];
@@ -17,7 +18,7 @@ type View = (typeof VIEWS)[number];
 const LABELS: Record<View, { long: string; short: string }> = {
   "esta-semana": { long: "Esta semana", short: "Semana" },
   calendar: { long: "Calendario", short: "Calendario" },
-  planning: { long: "Planificación", short: "Plan" },
+  planning: { long: "Plan", short: "Plan" },
   archive: { long: "Archivadas", short: "Archivo" },
 };
 
@@ -26,28 +27,30 @@ const LABELS: Record<View, { long: string; short: string }> = {
  *
  * La fila de pestañas rellenas se comía una franja entera del teléfono para
  * llegar a vistas que casi no se abren desde aquí. Esto sigue siendo visible y
- * tocable (44 px de alto), pero pesa lo que pesa una línea de texto.
+ * tocable (48 px de alto), pero pesa lo que pesa una línea de texto. Es un
+ * grupo de botones con `aria-pressed` y no un `tablist`: cada vista es un
+ * cambio de la URL, no un panel hermano que las flechas recorran.
  */
 function TaskViewNav({ value, onChange }: { value: View; onChange: (next: View) => void }) {
   return (
-    <div role="tablist" aria-label="Vistas de tareas" className="-mx-1 flex min-w-0 flex-1 items-center gap-1 overflow-x-auto">
+    <div role="group" aria-label="Vistas de tareas" className="-mx-1 flex min-w-0 flex-1 items-center gap-1 overflow-x-auto">
       {VIEWS.map((view) => {
         const active = value === view;
         return (
           <button
             key={view}
             type="button"
-            role="tab"
-            aria-selected={active}
+            aria-pressed={active}
             onClick={() => onChange(view)}
             className={cn(
-              "relative min-h-11 shrink-0 px-2 text-sm font-semibold transition-colors",
-              active ? "text-primary" : "text-muted-foreground hover:text-foreground",
+              // La vista elegida es un estado: en tinta, como las pestañas-palabra.
+              "relative min-h-[2.85rem] shrink-0 px-2 text-sm font-semibold transition-colors duration-(--dur-toque) focus-ring",
+              active ? "text-foreground" : "text-muted-foreground hover:text-foreground",
             )}
           >
             <span className="sm:hidden">{LABELS[view].short}</span>
             <span className="hidden sm:inline">{LABELS[view].long}</span>
-            {active && <span aria-hidden className="absolute inset-x-2 bottom-1.5 h-0.5 rounded-full bg-primary" />}
+            {active && <span aria-hidden className="absolute inset-x-2 -bottom-px h-0.5 rounded-full bg-foreground" />}
           </button>
         );
       })}
@@ -66,7 +69,7 @@ interface AcademicTaskViewsProps {
  * El bloque de entregas y exámenes, igual en el sistema y dentro de una clase:
  * la misma navegación, las mismas vistas y el mismo sitio para crear.
  */
-export function AcademicTaskViews({ systemId, initialTasks, folderId }: AcademicTaskViewsProps) {
+export const AcademicTaskViews = conVisita(function AcademicTaskViews({ systemId, initialTasks, folderId }: AcademicTaskViewsProps) {
   const [view, setView] = useUrlView(VIEWS, "esta-semana");
   const [editTask, setEditTask] = useState<TaskTransport | null>(null);
   const [highlight, setHighlight] = useState<{ id: string; nonce: number } | null>(null);
@@ -81,7 +84,7 @@ export function AcademicTaskViews({ systemId, initialTasks, folderId }: Academic
       <div className="flex w-full flex-col gap-3">
         <div className="flex items-center gap-2 border-b border-border">
           <TaskViewNav value={view} onChange={setView} />
-          <CreateTaskDialog systemId={systemId} folderId={folderId} />
+          <NewTaskButton systemId={systemId} folderId={folderId} />
         </div>
 
         {view === "esta-semana" && (
@@ -118,4 +121,4 @@ export function AcademicTaskViews({ systemId, initialTasks, folderId }: Academic
       />
     </>
   );
-}
+});

@@ -5,11 +5,10 @@ import { format, parseISO, subDays, subHours } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { Bell, Bot, Plus, Trash2, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
-import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import type { TaskTransport } from './tasks.types';
+import { Fichas } from './Fichas';
+import { CampoFlotante, DetailRow, VALOR_TOCABLE } from './TaskDetailFields';
 import { parseDueDate } from './tasks.utils';
 import { hasDueTime } from './task-detail.helpers';
 import { useTaskReminders, useCreateTaskReminder, useDeleteTaskReminder, useUpdateTask } from './tasks.hooks';
@@ -94,76 +93,113 @@ export function TaskRemindersSection({ task }: Props) {
   }
 
   return (
-    <div className="space-y-2">
-      <div className="flex items-center justify-between">
-        <Label>Recordatorios</Label>
-        <Popover
-          open={open}
-          onOpenChange={(next) => {
-            if (next) setAbiertoEn(Date.now());
-            setOpen(next);
-          }}
-        >
-          <PopoverTrigger asChild>
-            <Button variant="ghost" size="sm" className="h-7 gap-1 text-xs">
-              <Plus size={12} />
-              Agregar
-            </Button>
-          </PopoverTrigger>
-          <PopoverContent className="w-64 p-3 space-y-3" align="end">
-            {presets.length > 0 && (
-              <div className="space-y-1.5">
-                <p className="text-xs text-muted-foreground font-medium">Relativo al vencimiento</p>
-                <div className="grid grid-cols-2 gap-1.5">
-                  {presets.map(({ label, remindAt }) => (
-                    <Button
-                      key={label}
-                      variant="outline"
-                      size="sm"
-                      className="h-7 text-xs"
-                      disabled={isCreating}
-                      onClick={() => handlePreset(remindAt, label)}
+    <>
+      <DetailRow label="Avisos" id="avisos-rotulo">
+        <div className="space-y-1 py-0.5">
+          {isLoading && <p className="pt-[0.6rem] text-sm text-muted-foreground">Leyendo los avisos</p>}
+          {!isLoading && reminders.length === 0 && (
+            <p className="pt-[0.6rem] text-base text-muted-foreground">Sin avisos puestos a mano</p>
+          )}
+          {reminders.length > 0 && (
+            <ul>
+              {reminders.map((r) => (
+                <li key={r.id} className="flex min-h-[2.85rem] items-center gap-2 text-base">
+                  {r.source === 'auto' ? (
+                    <Bot className="size-4 shrink-0 text-muted-foreground" aria-label="Automático" />
+                  ) : (
+                    <Bell className="size-4 shrink-0 text-muted-foreground" aria-hidden />
+                  )}
+                  <span className="min-w-0 flex-1 truncate">
+                    {r.label ?? 'Aviso'}
+                    <span className="ml-1.5 text-sm text-muted-foreground tabular-nums">
+                      {format(parseISO(r.remindAt), "d MMM, HH:mm", { locale: es }).replace('.', '')}
+                    </span>
+                  </span>
+                  {r.sentAt ? (
+                    <X className="size-4 shrink-0 text-muted-foreground" aria-label="Ya enviado" />
+                  ) : r.source === 'user' ? (
+                    <button
+                      type="button"
+                      onClick={() => deleteReminder(r.id)}
+                      className="focus-ring -mr-2 flex size-[2.85rem] shrink-0 items-center justify-center rounded-full text-muted-foreground transition-colors duration-(--dur-toque) ease-(--ease-pluma) hover:text-destructive md:pointer-fine:size-8"
+                      aria-label="Quitar el aviso"
                     >
-                      {label}
-                    </Button>
-                  ))}
-                </div>
-              </div>
+                      <Trash2 className="size-4" />
+                    </button>
+                  ) : null}
+                </li>
+              ))}
+            </ul>
+          )}
+          <CampoFlotante
+            titulo="Agregar un aviso"
+            descripcion={presets.length > 0 ? 'Relativo al vencimiento, o a una fecha exacta.' : 'A una fecha y hora exactas.'}
+            open={open}
+            onOpenChange={(next) => {
+              if (next) setAbiertoEn(Date.now());
+              setOpen(next);
+            }}
+            disparador={(props) => (
+              <button type="button" className={`${VALOR_TOCABLE} gap-1.5 text-muted-foreground`} {...props}>
+                <Plus className="size-4" />
+                Agregar un aviso
+              </button>
             )}
-            <div className="space-y-1.5">
-              <p className="text-xs text-muted-foreground font-medium">Fecha y hora exacta</p>
-              <Input
-                type="datetime-local"
-                className="h-8 text-xs dark:[color-scheme:dark]"
-                value={customDatetime}
-                onChange={(e) => setCustomDatetime(e.target.value)}
-              />
-              <Input
-                type="text"
-                placeholder="Etiqueta (opcional)"
-                className="h-8 text-xs"
-                maxLength={255}
-                value={customLabel}
-                onChange={(e) => setCustomLabel(e.target.value)}
-              />
-              <Button
-                size="sm"
-                className="w-full h-7 text-xs"
-                disabled={!customDatetime || isCreating}
-                onClick={handleCustom}
-              >
-                Guardar
-              </Button>
+          >
+            <div className="w-full space-y-4 md:w-64">
+              {presets.length > 0 && (
+                <div className="space-y-1.5">
+                  <p className="text-sm text-muted-foreground">Relativo al vencimiento</p>
+                  <div className="grid grid-cols-2 gap-1.5">
+                    {presets.map(({ label, remindAt }) => (
+                      <Button key={label} variant="secondary" size="sm" disabled={isCreating} onClick={() => handlePreset(remindAt, label)}>
+                        {label}
+                      </Button>
+                    ))}
+                  </div>
+                </div>
+              )}
+              <div className="space-y-1.5">
+                <p className="text-sm text-muted-foreground">Fecha y hora exactas</p>
+                <Input
+                  type="datetime-local"
+                  aria-label="Fecha y hora del aviso"
+                  className="h-[2.85rem] md:pointer-fine:h-9 dark:[color-scheme:dark]"
+                  value={customDatetime}
+                  onChange={(e) => setCustomDatetime(e.target.value)}
+                />
+                <Input
+                  type="text"
+                  aria-label="Etiqueta del aviso"
+                  placeholder="Etiqueta (opcional)"
+                  className="h-[2.85rem] md:pointer-fine:h-9"
+                  maxLength={255}
+                  value={customLabel}
+                  onChange={(e) => setCustomLabel(e.target.value)}
+                />
+                <Button className="w-full" disabled={!customDatetime || isCreating} onClick={handleCustom}>
+                  Guardar el aviso
+                </Button>
+              </div>
             </div>
-          </PopoverContent>
-        </Popover>
-      </div>
+          </CampoFlotante>
+        </div>
+      </DetailRow>
 
       {task.dueDate && (
-        <div className="flex items-center justify-between gap-3 rounded-md border px-3 py-2">
-          <div className="min-w-0 space-y-0.5">
-            <p className="text-xs font-medium">Cuánto insiste</p>
-            <p className="text-xs text-muted-foreground">
+        <DetailRow label="Insiste" id="insiste-rotulo">
+          <div className="space-y-1.5 py-1">
+            <Fichas
+              label="Cuánto insiste esta tarea"
+              labelledBy="insiste-rotulo"
+              options={INTENSIDADES}
+              selected={[task.reminderIntensity ?? 'cuenta']}
+              onToggle={(value) => {
+                if (isSaving) return;
+                updateTask({ taskId: task.id, data: { reminderIntensity: value === 'cuenta' ? null : (value as Intensidad) } });
+              }}
+            />
+            <p className="text-sm text-muted-foreground">
               {task.nextReminderAt
                 ? `Próximo aviso: ${format(parseISO(task.nextReminderAt), "EEEE d, HH:mm", { locale: es })}`
                 : task.status === 'done'
@@ -171,63 +207,8 @@ export function TaskRemindersSection({ task }: Props) {
                   : 'Sin avisos pendientes. El resumen de la mañana la sigue trayendo.'}
             </p>
           </div>
-          <Select
-            value={task.reminderIntensity ?? 'cuenta'}
-            disabled={isSaving}
-            onValueChange={(value) =>
-              updateTask({ taskId: task.id, data: { reminderIntensity: value === 'cuenta' ? null : (value as Intensidad) } })
-            }
-          >
-            <SelectTrigger className="h-8 w-[150px] shrink-0 text-xs" aria-label="Cuánto insiste esta tarea">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              {INTENSIDADES.map(({ value, label }) => (
-                <SelectItem key={value} value={value}>
-                  {label}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
+        </DetailRow>
       )}
-
-      {isLoading && (
-        <p className="text-xs text-muted-foreground">Cargando...</p>
-      )}
-
-      {!isLoading && reminders.length === 0 && (
-        <p className="text-xs text-muted-foreground">Sin recordatorios a mano</p>
-      )}
-
-      <ul className="space-y-1.5">
-        {reminders.map((r) => (
-          <li key={r.id} className="flex items-center gap-2 text-sm">
-            {r.source === 'auto' ? (
-              <Bot size={13} className="text-muted-foreground shrink-0" />
-            ) : (
-              <Bell size={13} className="text-muted-foreground shrink-0" />
-            )}
-            <span className="flex-1 min-w-0 truncate">
-              {r.label ?? 'Recordatorio'}
-              <span className="ml-1.5 text-xs text-muted-foreground">
-                {format(parseISO(r.remindAt), "d MMM, HH:mm", { locale: es })}
-              </span>
-            </span>
-            {r.sentAt ? (
-              <X size={12} className="text-muted-foreground shrink-0" aria-label="Ya enviado" />
-            ) : r.source === 'user' ? (
-              <button
-                onClick={() => deleteReminder(r.id)}
-                className="shrink-0 text-muted-foreground hover:text-destructive transition-colors"
-                aria-label="Eliminar recordatorio"
-              >
-                <Trash2 size={13} />
-              </button>
-            ) : null}
-          </li>
-        ))}
-      </ul>
-    </div>
+    </>
   );
 }

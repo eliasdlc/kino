@@ -1,32 +1,28 @@
 "use client";
 
 import { useRef, useState } from "react";
-import { Calendar, Plus, Trash2 } from "lucide-react";
-import { format } from "date-fns";
+import { Check, Plus, Trash2 } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { useSubtasks, useToggleTask, useDeleteTaskWithUndo, useCreateTask } from "./tasks.hooks";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
-import { Input } from "@/components/ui/input";
 import { TaskDetailSheet } from "./TaskDetailSheet";
 import { parseQuickInput } from "./quick-date-parse";
-import { parseDueDate } from "./tasks.utils";
+import { dueMeta } from "./task-vocab";
 import type { TaskTransport } from "./tasks.types";
-
-const ENERGY_DOT: Record<string, string> = {
-  high: "bg-primary",
-  medium: "bg-secondary",
-  low: "bg-muted",
-};
 
 interface SubtaskListProps {
   parentTaskId: string;
   systemId: string;
 }
 
+/**
+ * Las subtareas de una tarea: cada una con su círculo de 48 px, su título (que
+ * abre su propio detalle), su fecha en español y la papelera, también de 48
+ * px; con ratón la papelera aparece al pasar. Borrar no pregunta: el aviso
+ * trae Deshacer. El campo de abajo agrega otra y entiende "mañana", "!2" o
+ * "1h".
+ */
 export function SubtaskList({ parentTaskId, systemId }: SubtaskListProps) {
-  const [deleteTarget, setDeleteTarget] = useState<{ id: string; title: string } | null>(null);
   const [newTitle, setNewTitle] = useState("");
   const [editingSubtask, setEditingSubtask] = useState<TaskTransport | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -60,7 +56,7 @@ export function SubtaskList({ parentTaskId, systemId }: SubtaskListProps) {
 
   if (isLoading) {
     return (
-      <div className="flex flex-col gap-1.5 pl-4 py-1 ml-2">
+      <div className="flex flex-col gap-1.5 py-2">
         <Skeleton className="h-4 w-[80%]" />
         <Skeleton className="h-4 w-[60%]" />
       </div>
@@ -68,9 +64,12 @@ export function SubtaskList({ parentTaskId, systemId }: SubtaskListProps) {
   }
 
   const addInput = (
-    <div className="flex items-center gap-2 mt-1 pl-4 ml-2">
-      <Plus size={14} className="shrink-0 text-muted-foreground" />
-      <Input
+    <label className="flex min-h-[2.85rem] items-center gap-1">
+      <span className="flex size-[2.85rem] shrink-0 items-center justify-center text-muted-foreground md:pointer-fine:size-8" aria-hidden>
+        <Plus className="size-4" />
+      </span>
+      <span className="sr-only">Agregar subtarea</span>
+      <input
         ref={inputRef}
         value={newTitle}
         onChange={(e) => setNewTitle(e.target.value)}
@@ -79,107 +78,73 @@ export function SubtaskList({ parentTaskId, systemId }: SubtaskListProps) {
           if (e.key === "Enter") handleAddSubtask();
           if (e.key === "Escape") setNewTitle("");
         }}
-        placeholder="Agregar subtarea... (acepta mañana, !2, 1h)"
-        className="h-7 p-2 text-sm border-none shadow-none focus-visible:ring-0 bg-transparent"
+        placeholder="Otra subtarea (entiende mañana, !2, 1h)"
+        className="focus-ring min-h-[2.85rem] min-w-0 flex-1 rounded-md bg-transparent text-base outline-none placeholder:text-muted-foreground"
       />
-    </div>
+    </label>
   );
 
   if (!subtasks || subtasks.length === 0) {
     return (
-      <div className="flex flex-col gap-1">
+      <div className="flex flex-col">
         {addInput}
       </div>
     );
   }
 
   return (
-    <div className="flex flex-col gap-1">
+    <div className="flex flex-col">
       {subtasks.map((subtask) => {
         const isDone = subtask.status === "done";
 
         return (
-          <div
-            key={subtask.id}
-            className="group flex items-center gap-2.5 pl-4 py-1.5 border-l ml-2"
-          >
-            {/* KIN-74: toggle */}
+          <div key={subtask.id} className="group flex min-h-[2.85rem] items-center gap-1 border-b border-border">
             <button
               type="button"
-              onClick={() =>
-                toggleTask(subtask.id)
-              }
-              aria-label={isDone ? "Marcar como pendiente" : "Marcar como completada"}
-              className={cn(
-                "size-4 shrink-0 rounded-full border-2 transition-colors",
-                isDone
-                  ? "border-task-done bg-task-done"
-                  : "border-muted-foreground/40 hover:border-primary"
-              )}
-            />
+              onClick={() => toggleTask(subtask.id)}
+              aria-label={`Completar ${subtask.title}`}
+              aria-pressed={isDone}
+              className="press focus-ring flex size-[2.85rem] shrink-0 items-center justify-center rounded-full transition-transform duration-(--dur-toque) ease-(--ease-pluma) md:pointer-fine:size-8"
+            >
+              <span
+                className={cn(
+                  "flex size-[1.1rem] items-center justify-center rounded-full border-[1.6px] transition-[background-color,border-color] duration-(--dur-tachar) ease-(--ease-pluma)",
+                  isDone ? "border-task-done bg-task-done text-task-done-foreground" : "border-input group-hover:border-foreground/60",
+                )}
+                aria-hidden
+              >
+                {isDone && <Check className="size-2.5" strokeWidth={3} />}
+              </span>
+            </button>
 
-            {/* KIN-75: title clickable → opens TaskDetailSheet */}
             <button
               type="button"
               onClick={() => setEditingSubtask(subtask)}
               className={cn(
-                "text-sm flex-1 min-w-0 truncate text-left hover:text-muted-foreground transition-colors",
-                isDone && "line-through text-muted-foreground"
+                "focus-ring min-h-[2.85rem] min-w-0 flex-1 truncate rounded-md text-left text-base transition-colors duration-(--dur-toque) ease-(--ease-pluma) hover:text-muted-foreground",
+                isDone && "text-muted-foreground line-through decoration-input",
               )}
             >
               {subtask.title}
             </button>
 
-            {/* KIN-74: show dueDate chip if present */}
             {subtask.dueDate && (
-              <span className="hidden sm:inline-flex items-center gap-1 text-xs text-muted-foreground shrink-0">
-                <Calendar size={11} />
-                {format(parseDueDate(subtask.dueDate), "MMM d")}
-              </span>
+              <span className="shrink-0 text-sm text-muted-foreground tabular-nums">{dueMeta(subtask.dueDate, isDone).when}</span>
             )}
 
-            {/* KIN-74: show energy dot if present */}
-            {subtask.energyLevel && (
-              <span
-                className={cn("size-1.5 rounded-full shrink-0", ENERGY_DOT[subtask.energyLevel])}
-                title={`Energía ${subtask.energyLevel}`}
-              />
-            )}
-
-            <TooltipProvider>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <button
-                    type="button"
-                    onClick={() => setDeleteTarget({ id: subtask.id, title: subtask.title })}
-                    className="md:opacity-0 md:group-hover:opacity-100 transition-opacity text-muted-foreground hover:text-destructive"
-                    aria-label="Eliminar subtarea"
-                  >
-                    <Trash2 size={16} />
-                  </button>
-                </TooltipTrigger>
-                <TooltipContent>Eliminar subtarea</TooltipContent>
-              </Tooltip>
-            </TooltipProvider>
+            <button
+              type="button"
+              onClick={() => deleteTask(subtask.id)}
+              className="focus-ring flex size-[2.85rem] shrink-0 items-center justify-center rounded-full text-muted-foreground transition-[color,opacity] duration-(--dur-toque) ease-(--ease-pluma) hover:text-destructive md:pointer-fine:size-8 md:pointer-fine:opacity-0 md:pointer-fine:group-hover:opacity-100 md:pointer-fine:focus-visible:opacity-100"
+              aria-label={`Mover a la papelera ${subtask.title}`}
+            >
+              <Trash2 className="size-4" />
+            </button>
           </div>
         );
       })}
 
       {addInput}
-
-      <ConfirmDialog
-        open={deleteTarget !== null}
-        title="Mover a la papelera"
-        description={`"${deleteTarget?.title}" se moverá a la papelera.`}
-        confirmLabel="Mover a la papelera"
-        onConfirm={() => {
-          if (deleteTarget) {
-            deleteTask(deleteTarget.id);
-          }
-          setDeleteTarget(null);
-        }}
-        onCancel={() => setDeleteTarget(null)}
-      />
 
       {/* KIN-75: detail sheet para editar una subtarea */}
       <TaskDetailSheet

@@ -1,10 +1,14 @@
 'use client';
 
 import { useMemo } from 'react';
+import { toast } from 'sonner';
 import { Box, FileText, Folder, ListTodo, RotateCcw, StickyNote } from 'lucide-react';
 import { api } from '@convex/_generated/api';
-import { Skeleton } from '@/components/ui/skeleton';
+import { Button } from '@/components/ui/button';
+import { EmptyState } from '@/components/ui/empty-state';
+import { MarginRow } from '@/components/ui/margin-row';
 import { useConvexMutation, useConvexQuery } from '@/shared/convex/hooks';
+import { SheetLoading } from './settings-ui';
 
 /**
  * La papelera de la cuenta, con las cinco clases que se borran blando: tareas,
@@ -15,14 +19,23 @@ import { useConvexMutation, useConvexQuery } from '@/shared/convex/hooks';
  * Lo que se fue en cascada no se lista aparte: una subcarpeta o una nota que
  * cayó con su carpeta vuelve con ella, y la fila lo dice para que restaurar no
  * sea una sorpresa.
+ *
+ * Vive en su hoja, y las cinco suscripciones sólo existen mientras la hoja
+ * está abierta: abrir Ajustes ya no lee la papelera entera.
  */
 
-const fecha = new Intl.DateTimeFormat('es-DO', { dateStyle: 'medium', timeStyle: 'short' });
+// Día y mes: cabe al lado de Restaurar en 393 px, y lo borrado vive semanas, no años.
+const fecha = new Intl.DateTimeFormat('es-DO', { day: 'numeric', month: 'short' });
 
 type Clase = 'task' | 'page' | 'entity' | 'folder' | 'note';
 
 const ICONO = { task: ListTodo, page: FileText, entity: Box, folder: Folder, note: StickyNote } as const;
 const ETIQUETA = { task: 'Tarea', page: 'Capítulo', entity: 'Entidad', folder: 'Carpeta', note: 'Nota adhesiva' } as const;
+/** "Carpeta restaurada", "Capítulo restaurado": el participio concuerda con la clase. */
+const RESTAURADA = { task: 'restaurada', page: 'restaurado', entity: 'restaurada', folder: 'restaurada', note: 'restaurada' } as const;
+
+/** Cuánto vive el aviso de restaurar con su Deshacer. */
+export const DESHACER_MS = 5000;
 
 interface Fila {
   readonly clase: Clase;
@@ -47,6 +60,38 @@ export function TrashSection() {
     folder: useConvexMutation(api.folders.restore, { map: (id: string) => ({ id }) }),
     note: useConvexMutation(api.stickyNotes.restore, { map: (id: string) => ({ id }) }),
   } as const;
+  // Deshacer es volver a borrarlo: la misma mutación que lo trajo aquí.
+  const borrar = {
+    task: useConvexMutation(api.tasks.remove, { map: (id: string) => ({ id }) }),
+    page: useConvexMutation(api.pages.remove, { map: (id: string) => ({ id }) }),
+    entity: useConvexMutation(api.entities.remove, { map: (id: string) => ({ id }) }),
+    folder: useConvexMutation(api.folders.remove, { map: (id: string) => ({ id }) }),
+    note: useConvexMutation(api.stickyNotes.remove, { map: (id: string) => ({ id }) }),
+  } as const;
+
+  /**
+   * Restaurar saca la fila de la vista, así que, a diferencia de un control
+   * que enseña su valor nuevo, sí dice qué volvió, con Deshacer. Un segundo
+   * toque en el mismo Deshacer no la borra dos veces.
+   */
+  function alRestaurar(fila: Fila) {
+    restaurar[fila.clase].mutate(fila.id, {
+      onSuccess: () => {
+        let deshecho = false;
+        toast(`${ETIQUETA[fila.clase]} ${RESTAURADA[fila.clase]}: ${fila.titulo}`, {
+          duration: DESHACER_MS,
+          action: {
+            label: 'Deshacer',
+            onClick: () => {
+              if (deshecho) return;
+              deshecho = true;
+              borrar[fila.clase].mutate(fila.id);
+            },
+          },
+        });
+      },
+    });
+  }
 
   const cargando =
     tareas.isLoading || capitulos.isLoading || entidades.isLoading || carpetas.isLoading || notas.isLoading;
@@ -82,54 +127,46 @@ export function TrashSection() {
     ].sort((a, b) => b.deletedAt.localeCompare(a.deletedAt));
   }, [tareas.data, capitulos.data, entidades.data, carpetas.data, notas.data]);
 
+  if (cargando) return <SheetLoading rows={3} />;
+  if (filas.length === 0) {
+    return (
+      <EmptyState
+        className="pl-(--margen)"
+        title="No has borrado nada."
+        description="Lo que borres espera aquí hasta que lo restaures."
+      />
+    );
+  }
   return (
-    <div className="space-y-4">
-      <div>
-        <h2 className="text-lg font-semibold">Papelera</h2>
-        <p className="text-sm text-muted-foreground">
-          Lo que borraste sigue aquí hasta que lo restaures: tareas, capítulos, entidades, carpetas
-          y notas adhesivas. Restaurar una carpeta o un capítulo devuelve también lo que se fue con
-          él.
-        </p>
-      </div>
-
-      {cargando ? (
-        <Skeleton className="h-16 w-full rounded-lg" />
-      ) : filas.length === 0 ? (
-        <p className="rounded-lg border p-4 text-sm">No has borrado nada.</p>
-      ) : (
-        <ul className="rounded-lg border divide-y">
-          {filas.map((fila) => (
-            <TrashRow key={`${fila.clase}:${fila.id}`} fila={fila} onRestore={() => restaurar[fila.clase].mutate(fila.id)} />
-          ))}
-        </ul>
-      )}
-    </div>
+    <ul>
+      {filas.map((fila) => (
+        <TrashRow key={`${fila.clase}:${fila.id}`} fila={fila} onRestore={() => alRestaurar(fila)} />
+      ))}
+    </ul>
   );
 }
 
 function TrashRow({ fila, onRestore }: { fila: Fila; onRestore: () => void }) {
   const Icono = ICONO[fila.clase];
   return (
-    <li className="flex items-center justify-between gap-4 p-3">
-      <div className="flex min-w-0 items-center gap-3">
-        <Icono className="size-4 shrink-0 text-muted-foreground" />
-        <div className="min-w-0">
-          <p className="truncate text-sm font-medium">{fila.titulo}</p>
-          <p className="truncate text-xs text-muted-foreground">
-            {ETIQUETA[fila.clase]}
-            {fila.arrastre ? ` ${fila.arrastre}` : ''} · {fecha.format(new Date(fila.deletedAt))}
-          </p>
-        </div>
-      </div>
-      <button
-        type="button"
-        onClick={onRestore}
-        className="flex shrink-0 items-center gap-1.5 text-xs text-muted-foreground transition-colors hover:text-foreground"
+    // El hairline va en la fila de la lista: cada MarginRow es la última de su li.
+    <li className="border-b border-border last:border-b-0">
+      <MarginRow
+        className="border-b-0"
+        margin={<Icono aria-hidden className="mt-[0.5rem] size-5 stroke-[1.8]" />}
+        trailing={
+          <Button type="button" variant="ghost" size="sm" onClick={onRestore} className="text-foreground">
+            <RotateCcw aria-hidden className="size-4" />
+            Restaurar
+          </Button>
+        }
       >
-        <RotateCcw className="size-3.5 shrink-0" />
-        Restaurar
-      </button>
+        <span className="block truncate text-base leading-6 font-semibold text-foreground">{fila.titulo}</span>
+        <span className="block truncate text-sm leading-5 text-muted-foreground">
+          {ETIQUETA[fila.clase]}
+          {fila.arrastre ? ` ${fila.arrastre}` : ''}, {fecha.format(new Date(fila.deletedAt))}
+        </span>
+      </MarginRow>
     </li>
   );
 }

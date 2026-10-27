@@ -17,23 +17,23 @@ Las decisiones citadas como `DECISIONS:<línea>` están en
 
 Picked: "quiero que ámbar sea el color primario" (Elias, 2026-09-06, la 2B del rework de UI/UX, DECISIONS:44). Del mismo día son su 3A, Bricolage como display (DECISIONS:45), y la 1A, Hoy como la cota (DECISIONS:43); Literata como serif de lectura fue su verde en el PR #108 (DECISIONS:46). Aceptado el 16 de octubre: que este documento entero, y no sólo esas tres elecciones, quede como la identidad elegida.
 
-Display face: Bricolage Grotesque 700, sólo en la cifra y los títulos de pantalla. La carga `next/font/google` en `src/app/layout.tsx:3` y `:16` (variable `--font-bricolage`), que la autoaloja en el build; el token es `--font-display` (`src/app/globals.css:21`).
+Display face: Bricolage Grotesque, 800 en la cota y 700 en los títulos de pantalla, los títulos de overlay y las cifras. La carga `next/font/google` en `src/app/layout.tsx` (variable `--font-bricolage`), que la autoaloja en el build; el token es `--font-display` (`src/app/globals.css`). Dirección Diario, rework 2 (18 de octubre de 2026).
 
-Body face: Inter para todo lo demás, botones, chips, pestañas, etiquetas y el subhead en 700 (`src/app/layout.tsx:15`, `src/app/globals.css:19` y `:23`); JetBrains Mono para datos y código (`layout.tsx:17`, `globals.css:20`); Literata, serif de lectura del arquetipo Writing y del modo lectura (`layout.tsx:18`, `globals.css:24`). Las cuatro por `next/font/google`, autoalojadas.
+Body face: Figtree para la interfaz, botones, pastillas, pestañas, etiquetas, texto corrido y el subhead en 700 (`src/app/layout.tsx`, variable `--font-figtree`; `globals.css` `--font-sans` y `--font-heading`); Literata como serif de prosa (`--font-serif`) y como voz (`--font-voice`, en cursiva: la frase de la cota, la intención de un sistema, el estado vacío), cargada en redonda y cursiva; JetBrains Mono para datos y código, sin precarga (`--font-mono`). Las cuatro por `next/font/google`, autoalojadas. Inter salió con Diario: no estaba en las palabras de Elias.
 
-Brand hue: #e8b04b, el ámbar de hue 38 (`src/app/globals.css:79-80` y `:181`); su par claro #8a5a00 (`:90`) tiene el mismo hue.
+Brand hue: #e8b04b, el ámbar de hue 38 (`src/app/globals.css`, bloque de roles `:root` y `.dark`); su par claro #8a5a00 tiene el mismo hue.
 
-Neutrals: teñidos con el hue del ámbar, saturación 4 en claro y 6 en oscuro (`globals.css:79-80`). Oscuro: --bg #131211, --sf #1e1c1a, --sf2 #2b2926, --ink #f6f5f3, --mute #9f9a92 (`:175-180`). Claro: --sf #ffffff, --sf2 #ecebea, --ink #1f1c18, --mute #6d685f (`:85-89`); el --bg claro está en la tabla de color, con su nota.
+Neutrals: teñidos con el hue del ámbar (38) a saturación 12, papel y no gris (`globals.css`, bloque de roles). Claro: --bg #f8f5ef, --sf #fffdf9, --sf2 #efeae0, --ink #211d16, --body #4a443a, --mute #6f685c. Oscuro: --bg #171512, --sf #221f1a, --sf2 #2f2b24, --ink #f5f1ea, --body #d9d3c8, --mute #a39c8f. El --bg claro ya no coincide con ninguna escala de Tailwind.
 
-Accent: #8a5a00 en claro y #e8b04b en oscuro (`globals.css:90` y `:181`), con `--on` encima (#ffffff y #1a1204). Va en dos sitios: la acción (botón primario, orbe de crear, enlace) y la selección (pestaña activa, destino activo de la barra, foco). Las excepciones decididas están en la sección Acento.
+Accent: #8a5a00 en claro y #e8b04b en oscuro (`globals.css`, `--ac` en `:root` y en `.dark`), con `--on` encima (#ffffff y #1a1204). Va en dos sitios: la acción (botón primario, orbe de crear, enlace) y la selección (subrayado de la pestaña activa, destino activo del pie, foco). La pestaña y el segmento elegidos van en tinta, no en ámbar. Las excepciones decididas están en la sección Acento.
 
-Radius: escala en rem sobre la raíz de 17 (`globals.css:66-75`): detalle 0.5rem (8,5 px), chip 0.75rem (12,75), control 1rem (17), bloque 1.125rem (19,1), superficie 1.375rem (23,4), y toda acción o estado a 999 (`rounded-full`). La card es superficie (`src/components/ui/card.tsx:15`), el menú bloque con filas a chip (`dropdown-menu.tsx:46` y `:76`), el campo control (`input.tsx:11`), el botón pill (`button.tsx:8`).
+Radius: dos valores en rem sobre la raíz de 17 (`globals.css`, `--radius-*`): la pastilla (999, `rounded-full`) en toda acción y estado (botón, campo, select, segmento, círculo de completar, tooltip), y 1.125rem (19,1 px, `rounded-xl`; lg, 2xl y 3xl valen lo mismo) en lo poco que es superficie: hoja inferior, diálogo, menú, popover, área de texto, card de escritorio. Debajo, dos detalles: 0.3rem la nota adhesiva, 0.5rem el resalte de una fila de menú o una tecla. No hay card por defecto en el teléfono, así que no hay radio de card.
 
 Signature: la cota. La energía del día como cifra en Bricolage a 4.18rem en el ámbar, compartiendo renglón con la palabra y la frase que la explican, y debajo de dónde sale (`src/features/dashboard/EnergyTodayCard.tsx:89-94` y `:175`, `src/app/(app)/dashboard/page.tsx:20-25`). Es la única cifra de ese tamaño en el producto y es lo que hace de Kino un instrumento y no otra lista (DECISIONS:43, :50).
 
-Borrowed from: las primitivas son shadcn/ui en estilo `radix-vega` sobre Radix (`components.json:3`), el cajón móvil es vaul (`package.json:85`, `ResponsiveDialog`), los iconos lucide (`components.json:13`), y la geometría (pill, radios por clase de tamaño, barra flotante de vidrio con el orbe aparte, elevación por tono en oscuro) viene de la gramática compartida, que se extrajo de Liora y se inclina hacia iOS. Aceptado el 16 de octubre: nombrar el producto real del que sale la cota; mi lectura es la cifra de Readiness de Oura y el anillo de Apple Health, una cifra grande que se explica con una palabra.
+Borrowed from: las primitivas son shadcn/ui en estilo `radix-vega` sobre Radix (`components.json:3`), la hoja inferior es vaul (`ResponsiveDialog`, `Drawer`), los iconos lucide (`components.json:13`). La dirección Diario (18 de octubre de 2026) toma de Things 3 las listas sin caja, el círculo grande de completar y los encabezados de sección como títulos; de Bear la densidad tipográfica y las pestañas como palabras subrayadas; de Apple Notes el índice plegable y el Volver con el nombre del padre. La cota sigue siendo la cifra de Readiness de Oura y el anillo de Apple Health: una cifra grande que se explica con una palabra.
 
-Rejected default: lo que el scaffold traía y no se quedó: `baseColor: "neutral"` de shadcn (`components.json:9`), su `--radius: 0.625rem` uniforme (sigue declarado en `globals.css:120` sin que la escala lo lea), Geist de create-next-app (quedan sus SVG en `public/next.svg`, `public/vercel.svg`), y Framer Motion (`AGENTS.md:306`). Rechazados por Elias: petróleo 196 y salvia 150 como color (DECISIONS:44), Literata como display y una sola familia (DECISIONS:45), el ritual y la lista calma como estructura de Hoy (DECISIONS:43), las manchas radiales y el gradiente del marketing (DECISIONS:51).
+Rejected default: lo que el scaffold traía y no se quedó: `baseColor: "neutral"` de shadcn (`components.json:9`), su `--radius: 0.625rem` uniforme (retirado de `globals.css` en el rework 2: la escala es `--radius-sm/md/xl`), Geist de create-next-app (quedan sus SVG en `public/next.svg`, `public/vercel.svg`), Framer Motion (`AGENTS.md:306`) e Inter, la cara que el scaffold de shadcn traía y que Diario cambió por Figtree. Rechazados por Elias: petróleo 196 y salvia 150 como color (DECISIONS:44), Literata como display y una sola familia (DECISIONS:45), el ritual y la lista calma como estructura de Hoy (DECISIONS:43), las manchas radiales y el gradiente del marketing (DECISIONS:51).
 
 Imagery: ninguna propia. La app enseña el contenido de la persona (imágenes de entidades en `src/features/entities/EntityImages.tsx`, referencias en `src/features/writing/ReferenceTable.tsx`, lo compartido en `src/app/(share)/compartir/CompartirScreen.tsx:64`) y la landing enseña el producto vivo (`HeroDemo` en `src/features/marketing/landing/LandingHero.tsx:44`); `public/` no tiene fotografía ni ilustración. Aceptado el 16 de octubre: que la razón sea que el producto es el instrumento y la imagen sería decorado.
 
@@ -43,12 +43,12 @@ Cada color sale de un rol y cada rol tiene un valor por modo (`globals.css:78-82
 
 | Rol | Claro | Oscuro | Qué es |
 |---|---|---|---|
-| `--bg` | #f5f5f4 (`:84`) | #131211 (`:175`) | fondo de pantalla |
-| `--sf` | #ffffff (`:85`) | #1e1c1a (`:176`) | superficie |
-| `--sf2` | #ecebea (`:86`) | #2b2926 (`:177`) | superficie sobre superficie |
-| `--ink` | #1f1c18 (`:87`) | #f6f5f3 (`:178`) | títulos y valores |
-| `--body` | #46423c (`:88`) | #d8d5d0 (`:179`) | texto corrido |
-| `--mute` | #6d685f (`:89`) | #9f9a92 (`:180`) | metadatos e inactivos |
+| `--bg` | #f8f5ef | #171512 | fondo de pantalla, papel |
+| `--sf` | #fffdf9 | #221f1a | superficie |
+| `--sf2` | #efeae0 | #2f2b24 | superficie sobre superficie |
+| `--ink` | #211d16 | #f5f1ea | títulos y valores |
+| `--body` | #4a443a | #d9d3c8 | texto corrido |
+| `--mute` | #6f685c | #a39c8f | metadatos, numeral de índice e inactivos |
 | `--ac` | #8a5a00 (`:90`) | #e8b04b (`:181`) | acción y selección |
 | `--on` | #ffffff (`:91`) | #1a1204 (`:182`) | sobre el acento |
 | `--warn` | #a83f22 (`:92`) | #e8836a (`:183`) | vencida, coral hue 12 |
@@ -56,13 +56,15 @@ Cada color sale de un rol y cada rol tiene un valor por modo (`globals.css:78-82
 | `--danger` | #b3123a (`:94`) | #ff5c7a (`:185`) | lo irreversible, carmesí hue 350 |
 | `--ln` / `--ln2` | ink al 8% y al 16% (`:95-96`) | igual | hairline y hairline fuerte |
 
-Contrastes medidos sobre `--bg` claro: ink 15,4, body 8,7, mute 4,7, ac 5,4 (`globals.css:82`).
+Contrastes WCAG (luminancia relativa) sobre `--bg`, claro / oscuro: ink 15,4 / 16,2, body 8,9 / 12,2, mute 5,1 / 6,7, ac 5,5 / 9,3 (comentario del bloque de roles de `globals.css`).
 
 **Nota sobre el `--bg` claro.** #f5f5f4 sale bien de la derivación (hue 38, saturación 4, luminosidad 96 redondea justo ahí), pero coincide con un valor de la escala stone de Tailwind. El hook `design-identity` rechaza ese hex en la línea `Neutrals:` (por eso no está arriba) y en toda edición que lo escriba, y el cierre de turno relee `globals.css` entero, así que cualquier turno que toque ese fichero recibe un aviso por él. Aceptado el 16 de octubre: moverlo a #f6f5f4 (saturación 8, luminosidad 96, el mismo hue y casi el mismo blanco roto) en un PR de UI con sus capturas, en vez de nombrar stone en la línea `Neutrals:`, que dejaría pasar toda la escala stone en cualquier componente.
 
 Los estados de tarea acompañan a la palabra y nunca la sustituyen: vencida es `--warn` con "vencida" delante, hecha es `--ok` con el check, crítica y alta son peso y orden en tinta, no color (`globals.css:155-165`, DECISIONS:50).
 
-Tres paletas físicas viven fuera de los roles, a propósito (`src/app/system-design/sections/colors.tsx:93`): los once colores de sistema (`colors.tsx:130`, safelist en `globals.css:7-10`), el papel de las notas adhesivas (`colors.tsx:168`) y los tres niveles de energía, alto verde, medio amarillo, bajo rojo (`colors.tsx:186`).
+Cuatro paletas físicas viven fuera de los roles, a propósito (`src/app/system-design/sections/colors.tsx`): los once colores de sistema (safelist en `globals.css:7-10`), el papel de las notas adhesivas, los tipos de comentario de la revisión y los tres niveles de energía, alto verde, medio amarillo, bajo rojo.
+
+La de la revisión (`--rv-*` en `globals.css`) da un color a cada tipo de comentario: estructura violeta, argumento azul, evidencia verde azulado, claridad oliva, estilo fucsia y redacción en el gris de `--mute`. Esquiva a propósito los hues que ya dicen algo: el carmesí de lo irreversible, el coral de lo vencido, el ámbar de la acción y el verde de lo hecho. Lo lleva el subrayado del fragmento, la franja de la tarjeta y la leyenda del panel; la importancia del comentario sigue en peso (la raya y una señal de tres barras), no en color.
 
 ## Acento
 
@@ -75,17 +77,17 @@ La regla es acción y selección. Las excepciones que ya están decididas, cada 
 
 ## Tipografía
 
-Dos caras y una mono, más la serif de lectura (`globals.css:15-26`). La display nunca va en una primitiva: `src/components/ui/faces.test.ts:1-7` falla si alguna la usa.
+Tres caras y una mono (`globals.css`, `@theme`). La display sólo va en títulos: en las primitivas la permiten únicamente el título de un overlay (dialog, drawer, sheet) y el de EmptyState, y Literata (`font-voice`) sólo la frase de EmptyState; `src/components/ui/faces.test.ts` nombra a cualquier otra primitiva que las use.
 
 | Estilo | Valor | Dónde |
 |---|---|---|
 | Cifra (la cota) | Bricolage 700, 4.18rem, interlínea 0.86, -0.03em, cifras tabulares | `EnergyTodayCard.tsx:175` |
 | Título de pantalla | Bricolage 700, 1.41rem, -0.02em | `src/components/PageWrapper.tsx:18` |
 | Encabezado | Bricolage 700, `text-xl`, -0.02em | `OverBudgetExit.tsx:45`, `src/features/energy/CeilingMutedNotice.tsx:38` |
-| Subhead | Inter 700 (`font-heading`), -0.01em | `globals.css:22-23`, `EnergyTodayCard.tsx:180` |
-| Cuerpo | Inter 400, `text-base` = 17 px | `globals.css:197-205` |
-| UI | Inter entre `text-sm` y `text-xs` | `src/app/system-design/sections/typography.tsx:61` |
-| Eyebrow | Inter 600, `text-xs`, mayúsculas, +0.06em | `EnergyTodayCard.tsx:157` |
+| Subhead | Figtree 700 (`font-heading`), -0.01em | `globals.css` `--font-heading`, `EnergyTodayCard.tsx:180` |
+| Cuerpo | Figtree 400, `text-base` = 17 px | `globals.css`, `@layer base` |
+| UI | Figtree entre `text-sm` y `text-xs` | `src/app/system-design/sections/typography.tsx` |
+| Eyebrow | Figtree 600, `text-xs`, mayúsculas, +0.06em | `EnergyTodayCard.tsx:157` |
 | Prosa de escritor | Literata 1.0625rem, interlínea 1.85, justificada con sangría de libro | `globals.css:292-305` |
 
 La landing usa la display a escala de marketing con `clamp` (por ejemplo `src/features/marketing/landing/LandingFinalCta.tsx:12`).
@@ -101,11 +103,11 @@ La landing usa la display a escala de marketing con `clamp` (por ejemplo `src/fe
 | Nivel | Claro | Oscuro |
 |---|---|---|
 | Superficie | `--sf` blanco sobre `--bg` teñido, con hairline | paso de tono a `--sf` |
-| Elevada (card, menú, diálogo) | una sombra, `0 10px 30px` ink al 8% (`globals.css:101`) | ninguna: `--shadow: none` (`:189-190`) |
-| Acento (acción primaria) | glow del acento al 35% (`:97`, `button.tsx:12`) | al 55% (`:186`) |
+| Hoja y diálogo (Dialog, Drawer, Sheet) | una sola sombra, `0 .6rem 1.6rem` ink al 8% (`globals.css`, `--shadow`) | ninguna: `--shadow: none` |
+| Acento (acción primaria) | glow del acento al 35% (`--glow`, `button.tsx`) | al 55% |
 | Vidrio (barra inferior) | `--sf` al 84%, hairline al 8% (`:98-99`) | al 82%, hairline al 9% (`:187-188`), con `blur 1.4rem saturate 1.8` (`src/components/BottomNav.tsx:72`) |
 
-La card es superficie con hairline y la sombra del token (`card.tsx:15`, criterio en `src/components/ui/superficies.test.tsx:1-7`). Diálogo y cajón van a 1.375rem con la misma sombra (`dialog.tsx:64`, `drawer.tsx:59`).
+La card es superficie con hairline y sin sombra en ningún modo (`card.tsx`, criterio en `src/components/ui/superficies.test.tsx`). Diálogo, hoja inferior y hoja lateral van a 1.125rem con la sombra del token (`dialog.tsx`, `drawer.tsx`, `sheet.tsx`).
 
 ## Táctil y chrome
 
@@ -134,12 +136,9 @@ Una sola familia, lucide-react (`components.json:13`, `package.json:64`, `AGENTS
 
 Hallazgos de esta lectura. Ninguno se corrige aquí: cada uno es un PR de UI con sus capturas.
 
-- `src/app/layout.tsx:36-42` dice que `themeColor` son "los dos valores de `--background`", pero declara #ffffff y #161616, y `--bg` vale #f5f5f4 y #131211.
 - La barra inferior lleva una sombra negra fija también en oscuro (`BottomNav.tsx:72`), donde la elevación es un paso de tono (`globals.css:189`).
-- `xs` y `sm` del botón (2rem y 2.5rem, 34 y 42,5 px) quedan bajo el táctil de 48 (`button.tsx:28-29`).
-- El hairline común es ink al 8% (`globals.css:95`); la gramática dice 6%.
+- El hairline común es ink al 8% (`globals.css`, `--ln`); la gramática dice 6%.
 - El copy visible de la cota usa el punto medio como separador (`EnergyTodayCard.tsx:153`, `:181`, `:187`), y la casa no lo usa.
-- El catálogo describe una escala que ya no existe: "los radios derivan todos de --radius" (`foundations.tsx:21`) y "escala Tailwind por defecto" (`typography.tsx:61`).
 - La energía baja es roja (`colors.tsx:186`), y el rojo está reservado a lo irreversible (DECISIONS:44).
 - Ocho ficheros escriben neutros stock de Tailwind (`LinkedTaskCard.tsx`, `sticky-note-colors.ts`, `FolderCard.tsx`, `NotebookCard.tsx`, `QuickAccessCard.tsx`, `tag-colors.ts`, `NotebookTagPicker.tsx`, `NotebooksView.tsx`, más el gris de la paleta de sistema en `globals.css:8-10`). El hook bloquea la línea que los vuelva a escribir, y el cierre de turno avisa en cuanto se toca cualquiera de esos ficheros, porque relee el fichero entero.
 
@@ -155,6 +154,7 @@ Lo que ya está decidido, con su fuente. Una corrección nueva de Elias entra aq
 - Cuatro palabras prohibidas en el copy: coach, productividad, asistente, detectamos (`scripts/check-voz.sh:93-102`).
 - Ningún nombre de tipo en texto visible (`scripts/check-voz.sh:47-55`).
 - El ámbar es el color primario ("quiero que ámbar sea el color primario", 2026-09-06, DECISIONS:44).
+- Los comentarios de revisión llevan color por tipo ("Usa color coding para ver importancia del comentario o el tipo", Elias, 2026-10-24). Se eligió el tipo y no la importancia porque la importancia en color habría caído en el rojo de lo irreversible; la importancia va en peso.
 - La nota adhesiva se pega donde la pongas y ahí se queda ("la idea es que el sticky note sea lo más parecido a un sticky note en la vida real", 2026-09-15, DECISIONS:73).
 - El acento señala y no decora; nada en bucle; sin gradiente de marca (DECISIONS:51).
 - Hoy no pone una tarjeta antes de la cifra y nada vacío ocupa espacio (`src/app/(app)/dashboard/page.tsx:20-25`, DECISIONS:50).

@@ -4,6 +4,7 @@ import { useEffect, useReducer } from 'react';
 import { Square, Timer, CheckCircle2, Coffee } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useFocusTimer } from './FocusTimerProvider';
+import { useTecladoAbierto } from '@/hooks/use-teclado-abierto';
 
 function formatCountdown(ms: number): string {
   const totalSec = Math.ceil(ms / 1000);
@@ -28,10 +29,11 @@ const MODE_LABELS = { pomodoro: 'Pomodoro', estimated: 'Estimado', free: 'Libre'
  * `--kino-bottom-chrome` por la misma vía que la barra, así que con el timer
  * puesto la última fila de una lista sigue quedando a la vista.
  */
-const ALTO_DEL_BANNER = '3.2rem';
+const ALTO_DEL_BANNER = '3.4rem';
 
 export function FocusTimerWidget() {
   const { state, dispatch, remainingMs, elapsedMs } = useFocusTimer();
+  const tecladoAbierto = useTecladoAbierto();
 
   // Force re-render every second while timer is running
   const [, tick] = useReducer((n: number) => n + 1, 0);
@@ -123,13 +125,14 @@ export function FocusTimerWidget() {
     </div>
   );
 
-  // Banner móvil encima de la barra flotante, cuya altura sale de la misma
-  // variable que la reserva de `<main>`: nadie repite el número.
-  const mobileWidget = (
+  // Banner móvil encima del pie, cuya altura sale de la misma variable que la
+  // reserva de `<main>`: nadie repite el número. Papel con hairline como el
+  // pie, y fuera mientras el teclado está abierto, igual que él.
+  const mobileWidget = tecladoAbierto ? null : (
     <div
       className={cn(
-        'md:hidden fixed bottom-[calc(var(--kino-bottom-nav)+0.2rem)] left-0 right-0 z-(--z-overlay)',
-        'flex items-center gap-3 border-t bg-card/95 backdrop-blur-sm px-4 py-2.5',
+        'md:hidden fixed bottom-[calc(var(--kino-bottom-nav)+env(safe-area-inset-bottom))] left-0 right-0 z-(--z-overlay)',
+        'flex items-center gap-3 border-t bg-background pl-4 pr-2 py-1',
         isBreak ? 'border-secondary bg-secondary' : 'border-border',
         isExpired && 'border-primary/30',
       )}
@@ -145,19 +148,19 @@ export function FocusTimerWidget() {
         {isBreak ? 'Descanso' : state.taskTitle}
       </p>
 
-      <div className="flex gap-1 shrink-0">
+      <div className="flex gap-2 shrink-0">
         {!isBreak && !state.pageId && (
           <button
             onClick={() => dispatch({ type: 'COMPLETE_TASK' })}
-            className="p-1.5 rounded-md text-muted-foreground hover:text-task-done transition-colors"
+            className="flex size-[2.85rem] items-center justify-center rounded-full text-muted-foreground transition-colors duration-(--dur-toque) focus-ring hover:text-task-done"
             aria-label="Completar"
           >
-            <CheckCircle2 className="size-4" />
+            <CheckCircle2 className="size-5" />
           </button>
         )}
         <button
           onClick={() => dispatch(stopAction)}
-          className="p-1.5 rounded-md text-muted-foreground hover:text-destructive transition-colors"
+          className="flex size-[2.85rem] items-center justify-center rounded-full text-muted-foreground transition-colors duration-(--dur-toque) focus-ring hover:text-destructive"
           aria-label="Detener"
         >
           <Square className="size-4 fill-current" />

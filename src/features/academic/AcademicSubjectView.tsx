@@ -1,7 +1,10 @@
 "use client";
 
 import { useState, type ReactNode } from "react";
-import { CalendarClock, ChevronDown, User } from "lucide-react";
+import { ChevronDown, GraduationCap } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { IndexHead } from "@/features/notebooks/IndexHead";
+import { joinMeta } from "@/features/notebooks/index-format";
 import type { SystemTransport } from "@/features/systems/systems.types";
 import type { TaskTransport } from "@/features/tasks/tasks.types";
 import { AcademicTaskViews } from "./AcademicTaskViews";
@@ -52,48 +55,35 @@ export function AcademicSubjectView({ system, folder, subject, periods, initialT
   const schedule = metaString(folder.metadata, "schedule");
   const period = periods.find((candidate) => candidate._id === subject.academicPeriodId) ?? null;
 
+  const meta = joinMeta([professor, schedule]);
+
   return (
     <div className="w-full space-y-7">
-      <header className="space-y-2">
-        <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
-          <h1 className="min-w-0 font-display text-[1.41rem] font-bold tracking-[-0.02em] wrap-anywhere">
-            {folder.name}
-          </h1>
-          <button
-            type="button"
+      <header className="grid grid-cols-[var(--margen)_1fr] md:grid-cols-[0_1fr]">
+        <span aria-hidden className="flex justify-center self-start pt-1 text-muted-foreground md:hidden">
+          <GraduationCap className="size-5" />
+        </span>
+        {/* `col-start-2`: en escritorio el glifo se oculta y sin esto el texto
+            caía en la columna de ancho cero, una letra por línea. */}
+        <div className="col-start-2 min-w-0 space-y-1.5">
+          <h1 className="font-display text-[1.41rem] font-bold tracking-[-0.02em] wrap-anywhere">{folder.name}</h1>
+          {meta && <p className="text-sm text-muted-foreground">{meta}</p>}
+          <Button
+            variant="outline"
+            size="sm"
             onClick={() => setMoving(true)}
-            className="inline-flex min-h-8 shrink-0 items-center gap-1 rounded-full border border-border px-2.5 text-xs font-semibold text-primary transition-colors hover:border-primary/60"
             aria-label={period ? `Ciclo: ${period.name}. Mover a otro ciclo` : "Sin ciclo. Asignar un ciclo"}
           >
             {period ? period.name : "Sin ciclo"}
-            <ChevronDown className="size-3 opacity-70" />
-          </button>
+            <ChevronDown aria-hidden className="size-4 opacity-70" />
+          </Button>
         </div>
-        {(professor || schedule) && (
-          <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-muted-foreground">
-            {professor && (
-              <span className="inline-flex items-center gap-1.5">
-                <User className="size-3.5" />
-                {professor}
-              </span>
-            )}
-            {schedule && (
-              <span className="inline-flex items-center gap-1.5">
-                <CalendarClock className="size-3.5" />
-                {schedule}
-              </span>
-            )}
-          </div>
-        )}
       </header>
 
-      <section className="space-y-3">
-        <h2 className="text-xs font-semibold uppercase tracking-widest text-muted-foreground">Apuntes</h2>
-        {documents}
-      </section>
+      {documents}
 
-      <section className="space-y-3">
-        <h2 className="text-xs font-semibold uppercase tracking-widest text-muted-foreground">Entregas y exámenes</h2>
+      <section aria-labelledby={`${folder.id}-entregas`} className="space-y-3">
+        <IndexHead id={`${folder.id}-entregas`} title="Entregas y exámenes" />
         <AcademicTaskViews systemId={system.id} initialTasks={initialTasks} folderId={folder.id} />
       </section>
 

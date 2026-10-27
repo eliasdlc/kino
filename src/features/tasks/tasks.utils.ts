@@ -1,3 +1,5 @@
+import { isBefore } from 'date-fns';
+
 /**
  * Parsea un dueDate a Date.
  *
@@ -73,4 +75,18 @@ export function dayToLocalISO(day: string, time?: string | null): string {
   // time vacío/ausente → medianoche. (`||` cubre "" además de null/undefined.)
   const [hh, mm] = (time || "00:00").split(":").map(Number);
   return new Date(y!, (m ?? 1) - 1, d ?? 1, hh ?? 0, mm ?? 0).toISOString();
+}
+
+/**
+ * Un examen o una prueba que aún no ha sucedido: no se completa antes de su
+ * hora. Lo comparten el círculo de la fila y el botón de la hoja de detalle.
+ */
+export function isFutureExamOrQuiz(task: {
+  taskType: string | null;
+  metadata?: Record<string, unknown> | null;
+  startDate: string | null;
+}): boolean {
+  const subtype = task.metadata?.eventSubtype;
+  const isExamOrQuiz = task.taskType === 'event' && (subtype === 'exam' || subtype === 'quiz');
+  return isExamOrQuiz && !!task.startDate && isBefore(new Date(), new Date(task.startDate));
 }

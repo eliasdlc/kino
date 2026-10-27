@@ -8,7 +8,9 @@
  * `boardMoveTarget`, así que la guarda de "mover a donde ya está" es una sola y
  * no dos copias que se desincronizan. El arrastre no se simula aquí porque
  * dnd-kit resuelve colisiones con medidas de layout que jsdom no da; lo que sí
- * se prueba entero es el camino con nombre, que es el que nace hoy.
+ * se prueba entero es el camino con nombre, que es el que nace hoy. El ticket
+ * es la fila de tarea común: con el dedo, "Más acciones" abre la hoja de la
+ * fila y "Mover a otra columna" abre la de las columnas.
  */
 import { describe, expect, it } from "vitest";
 import { screen, within } from "@testing-library/react";
@@ -16,6 +18,7 @@ import userEvent from "@testing-library/user-event";
 import { api } from "@convex/_generated/api";
 import { makeTask, mid, MOCK_SYSTEM_ID } from "@/app/system-design/mock-data";
 import { makeTestConvexClient, renderMobile, stubQuery } from "@/shared/testing/render";
+import { conDedo } from "@/features/tasks/puntero.testing";
 import { ProjectBoard, boardMoveTarget } from "./ProjectBoard";
 
 const EN_PROGRESO = makeTask({
@@ -28,6 +31,7 @@ const EN_PROGRESO = makeTask({
 const SIN_COLUMNA = makeTask({ id: mid("card-2"), title: "Revisar la rúbrica", boardStatus: null });
 
 function pintar(tareas = [EN_PROGRESO]) {
+  conDedo();
   const convex = makeTestConvexClient([
     stubQuery(api.tasks.list, { items: tareas, restantes: 0 }),
     stubQuery(api.tags.bySystem, []),
@@ -40,10 +44,15 @@ function pintar(tareas = [EN_PROGRESO]) {
   return convex;
 }
 
-/** Abre la hoja desde el menú de la tarjeta y elige una columna. */
+/** Abre la hoja de columnas desde las acciones de la fila. */
+async function abrirMover() {
+  await userEvent.click(screen.getAllByRole("button", { name: "Más acciones" })[0]!);
+  await userEvent.click(await screen.findByRole("button", { name: "Mover a otra columna" }));
+}
+
+/** Abre la hoja de columnas y elige una. */
 async function moverCon(nombreDeColumna: RegExp) {
-  await userEvent.click(screen.getAllByRole("button", { name: "Acciones" })[0]!);
-  await userEvent.click(await screen.findByRole("menuitem", { name: /Mover a/ }));
+  await abrirMover();
   await userEvent.click(await screen.findByRole("button", { name: nombreDeColumna }));
 }
 
@@ -80,8 +89,7 @@ describe("ProjectBoard, el camino con nombre", () => {
   it("la columna donde la tarjeta ya está no se puede elegir, así que no hay escritura", async () => {
     const convex = pintar();
 
-    await userEvent.click(screen.getAllByRole("button", { name: "Acciones" })[0]!);
-    await userEvent.click(await screen.findByRole("menuitem", { name: /Mover a/ }));
+    await abrirMover();
 
     expect(await screen.findByRole("button", { name: /En progreso/ })).toBeDisabled();
     expect(convex.calls).toEqual([]);
@@ -90,8 +98,7 @@ describe("ProjectBoard, el camino con nombre", () => {
   it("la hoja dice qué tarjeta se está moviendo", async () => {
     pintar();
 
-    await userEvent.click(screen.getAllByRole("button", { name: "Acciones" })[0]!);
-    await userEvent.click(await screen.findByRole("menuitem", { name: /Mover a/ }));
+    await abrirMover();
 
     const hoja = await screen.findByRole("dialog");
     expect(within(hoja).getByText("Diagrama ER de la tesis")).toBeVisible();

@@ -2,27 +2,31 @@
 
 import { Section, SubSection, TokenSwatch } from "../helpers";
 import { COLOR_VALUES } from "@/shared/types/enums";
-import { getSystemColor, getSystemColorHex } from "@/shared/utils/system-colors";
+import { getSystemColor, getSystemColorCss } from "@/shared/utils/system-colors";
 import {
   STICKY_NOTE_COLORS,
   paperStyle,
 } from "@/features/sticky-notes/sticky-note-colors";
 
-/** Los roles: un valor por modo, sin nombre de color. Todo lo demás se mapea aquí. */
+/**
+ * Los roles: un valor por modo, sin nombre de color. Los hex y los contrastes
+ * (WCAG, luminancia relativa, sobre --bg) son los de globals.css.
+ */
 const ROLE_TOKENS: Array<{ token: string; usage: string }> = [
-  { token: "bg", usage: "Fondo de pantalla, teñido con el hue del acento" },
-  { token: "sf", usage: "Superficie: card, sheet, panel" },
-  { token: "sf2", usage: "Superficie sobre superficie: chip, ghost, contador" },
-  { token: "ink", usage: "Títulos, valores, texto principal" },
-  { token: "body", usage: "Texto corrido" },
-  { token: "mute", usage: "Meta, etiquetas, estados inactivos" },
-  { token: "ac", usage: "Acento: acción y selección, nada más" },
-  { token: "on", usage: "Texto e icono sobre el acento" },
-  { token: "warn", usage: "Vencida, siempre con la palabra delante" },
-  { token: "ok", usage: "Hecho, siempre con el glifo" },
-  { token: "danger", usage: "Sólo borrar y cerrar: lo irreversible" },
-  { token: "ln", usage: "Hairline al 8 %" },
-  { token: "ln2", usage: "Borde de selección al 16 %" },
+  { token: "bg", usage: "Fondo: papel. #f8f5ef, #171512" },
+  { token: "sf", usage: "Superficie: hoja, diálogo, menú. #fffdf9, #221f1a" },
+  { token: "sf2", usage: "Superficie sobre superficie: segmento, pastilla secundaria. #efeae0, #2f2b24" },
+  { token: "ink", usage: "Títulos y valores. #211d16, #f5f1ea. Contraste 15,4 / 16,2" },
+  { token: "body", usage: "Texto corrido. #4a443a, #d9d3c8. Contraste 8,9 / 12,2" },
+  { token: "mute", usage: "Meta, numeral de índice, inactivo. #6f685c, #a39c8f. Contraste 5,1 / 6,7" },
+  { token: "ac", usage: "Acento: acción y selección, nada más. #8a5a00, #e8b04b. Contraste 5,5 / 9,3" },
+  { token: "on", usage: "Texto e icono sobre el acento. #ffffff, #1a1204. Sobre ac 5,9 / 9,5" },
+  { token: "warn", usage: "Vencida, dormido: acompaña a la palabra. #a83f22, #e8836a. Contraste 5,7 / 6,8" },
+  { token: "ok", usage: "Hecha: el círculo relleno. #1e7a45, #5fcb8a. Contraste 4,9 / 9,0" },
+  { token: "danger", usage: "Sólo borrar y cerrar: lo irreversible. #b3123a, #ff5c7a. Contraste 6,3 / 6,1" },
+  { token: "ln", usage: "Hairline: tinta al 8 %" },
+  { token: "ln2", usage: "Hairline fuerte: tinta al 16 %, el borde de un campo o del círculo" },
+  { token: "scrim", usage: "El fondo detrás de un overlay: tinta al 20 % en claro, bg al 60 % en oscuro" },
 ];
 
 const SEMANTIC_TOKENS: Array<{ token: string; usage: string }> = [
@@ -46,6 +50,16 @@ const SEMANTIC_TOKENS: Array<{ token: string; usage: string }> = [
   { token: "ring", usage: "Focus ring (focus-visible)" },
 ];
 
+/** La revisión de documentos: un color por tipo de comentario (globals.css, `--rv-*`). */
+const REVIEW_TOKENS: Array<{ token: string; usage: string }> = [
+  { token: "rv-structure", usage: "Estructura: violeta" },
+  { token: "rv-argument", usage: "Argumento: azul" },
+  { token: "rv-evidence", usage: "Evidencia: verde azulado" },
+  { token: "rv-clarity", usage: "Claridad: oliva" },
+  { token: "rv-style", usage: "Estilo: fucsia" },
+  { token: "rv-grammar", usage: "Redacción: el gris de los metadatos" },
+];
+
 const CHART_TOKENS: Array<{ token: string; usage: string }> = [
   { token: "chart-1", usage: "Serie 1" },
   { token: "chart-2", usage: "Serie 2" },
@@ -67,7 +81,7 @@ const SIDEBAR_TOKENS: Array<{ token: string; usage: string }> = [
 
 function TokenGrid({ tokens }: { tokens: Array<{ token: string; usage: string }> }) {
   return (
-    <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 xl:grid-cols-3">
+    <div className="grid grid-cols-1 gap-x-8 sm:grid-cols-2 xl:grid-cols-3">
       {tokens.map((t) => (
         <TokenSwatch key={t.token} token={t.token} usage={t.usage} />
       ))}
@@ -90,11 +104,11 @@ export function ColorsSection() {
       id="colores"
       number="01"
       title="Colores"
-      description="Todo color de Kino sale de un rol (globals.css). El acento es el ámbar y la escala neutra va teñida con su hue. Los componentes nunca usan colores directos salvo las tres paletas físicas de abajo: colores de sistema, sticky notes y energía."
+      description="Todo color de Kino sale de un rol (globals.css). El acento es el ámbar (hue 38) y la escala neutra entera va teñida con ese hue a saturación 12: papel, no gris. Los roles también son clases: bg-sf2, text-mute, border-ln2. Los componentes nunca usan colores directos salvo las cuatro paletas físicas de abajo: colores de sistema, sticky notes, revisión y energía."
     >
       <SubSection
         title="Roles"
-        description="El contrato de la identidad. Los tokens de shadcn de abajo no declaran ningún color: cada uno vale var(--rol)."
+        description="El contrato de la identidad. Los tokens de shadcn de abajo no declaran ningún color: cada uno vale var(--rol). Los contrastes valen para texto de rol sobre bg; como borde, ln2 y sf2 no llegan a 3:1, así que el texto identifica el control. El badge usa el texto de tinte (--ac-text, --ok-text, --warn-text, --danger-text): el rol mezclado con tinta al 28 % en claro, para dar 4,5 o más sobre su tinte también en hover."
       >
         <TokenGrid tokens={ROLE_TOKENS} />
       </SubSection>
@@ -104,14 +118,14 @@ export function ColorsSection() {
       </SubSection>
 
       <SubSection
-        title="Tokens semánticos — tema actual"
+        title="Tokens semánticos, tema actual"
         description="Cambia el tema con el control de arriba para comparar. Cada swatch lee la variable CSS en vivo: lo que ves es exactamente lo que renderiza la app."
       >
         <TokenGrid tokens={SEMANTIC_TOKENS} />
       </SubSection>
 
       <SubSection
-        title="Tokens semánticos — vista fija en dark"
+        title="Tokens semánticos, vista fija en oscuro"
         description="El mismo set forzado a .dark, para comparar ambos temas lado a lado sin cambiar el tema global."
       >
         <DarkPreview tokens={SEMANTIC_TOKENS} />
@@ -127,11 +141,11 @@ export function ColorsSection() {
 
       <SubSection
         title="Colores de sistema"
-        description="Paleta fija de 11 valores (shared/utils/system-colors.ts). Se componen como text-{c}, bg-{c} y bg-{c}/10 (safelist en globals.css) o como hex para gradientes inline."
+        description="Paleta fija de 11 valores (shared/utils/system-colors.ts). Ocho son la paleta física de Tailwind y los tres neutros (gray, black, white) son roles de la casa: mute, ink y sf2. Se componen como text-{c}, bg-{c} y bg-{c}/10 (safelist en globals.css) o como valor CSS para estilos inline."
       >
         <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-4">
           {COLOR_VALUES.map((color) => {
-            const hex = getSystemColorHex(color);
+            const hex = getSystemColorCss(color);
             return (
               <div
                 key={color}
@@ -144,7 +158,7 @@ export function ColorsSection() {
                 <div className="min-w-0">
                   <p className="font-mono text-xs font-medium">{color}</p>
                   <p className="font-mono text-[11px] text-muted-foreground">
-                    {getSystemColor(color)} · {hex}
+                    {getSystemColor(color)}, {hex}
                   </p>
                 </div>
               </div>
@@ -154,17 +168,17 @@ export function ColorsSection() {
         <div className="mt-4 flex flex-wrap items-center gap-4 rounded-lg border border-dashed border-border p-4">
           <span className="text-xs text-muted-foreground">Composiciones:</span>
           <span className="text-blue-500 text-sm font-medium">text-blue-500</span>
-          <span className="rounded-md bg-blue-500 px-2 py-1 text-sm font-medium text-white">
+          <span className="rounded-full bg-blue-500 px-2 py-1 text-sm font-medium text-on">
             bg-blue-500
           </span>
-          <span className="rounded-md bg-blue-500/10 px-2 py-1 text-sm font-medium text-blue-500">
+          <span className="rounded-full bg-blue-500/10 px-2 py-1 text-sm font-medium text-blue-500">
             bg-blue-500/10
           </span>
         </div>
       </SubSection>
 
       <SubSection
-        title="Sticky notes — paleta de papel"
+        title="Notas adhesivas: la paleta de papel"
         description="Cada color define papel (hex) + tinta (textHex) + variantes Tailwind para bordes (sticky-note-colors.ts). La sombra viene de paperStyle()."
       >
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-4 lg:grid-cols-6">
@@ -178,6 +192,16 @@ export function ColorsSection() {
               <span className="font-mono text-[10px] opacity-70">{c.hex}</span>
             </div>
           ))}
+        </div>
+      </SubSection>
+
+      <SubSection
+        title="Revisión: un color por tipo"
+        description="El tipo de un comentario de revisión se ve en su color: el subrayado y el lavado del fragmento, la franja de la tarjeta y la leyenda del panel. Esquiva el rojo de lo irreversible, el coral de lo vencido, el ámbar de la acción y el verde de lo hecho. La importancia no va en color: va en el peso de la raya y en la señal de tres barras."
+      >
+        <TokenGrid tokens={REVIEW_TOKENS} />
+        <div className="mt-3">
+          <DarkPreview tokens={REVIEW_TOKENS} />
         </div>
       </SubSection>
 

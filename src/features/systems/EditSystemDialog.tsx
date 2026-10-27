@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { ChevronDown, Loader2 } from "lucide-react";
+import { ChevronDown } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -13,13 +13,13 @@ import {
   ResponsiveDialogHeader,
   ResponsiveDialogTitle,
 } from "@/components/ui/responsive-dialog";
-import { COLOR_VALUES, ENERGY_LEVEL_VALUES, FREQUENCY_VALUES, TEMPLATE_TYPE_VALUES } from "@/shared/types/enums";
-import { getSystemColor } from "@/shared/utils/system-colors";
+import { ENERGY_LEVEL_VALUES, FREQUENCY_VALUES, TEMPLATE_TYPE_VALUES } from "@/shared/types/enums";
 import { ICON_MAP, DEFAULT_ICON } from "./system-icons";
+import { SystemColorPicker, SystemIconPicker } from "./SystemPickers";
+import { systemTileStyle } from "./system-tint";
 import { useUpdateSystem } from "./systems.hooks";
 import type { SystemTransport } from "./systems.types";
 
-const ICON_KEYS = Object.keys(ICON_MAP);
 
 interface EditSystemDialogProps {
   system: SystemTransport;
@@ -65,7 +65,6 @@ export function EditSystemDialog({ system, open, onOpenChange }: EditSystemDialo
   }
 
   const PreviewIcon = ICON_MAP[icon] ?? DEFAULT_ICON;
-  const cls = getSystemColor(color);
 
   return (
     <ResponsiveDialog open={open} onOpenChange={onOpenChange}>
@@ -76,10 +75,10 @@ export function EditSystemDialog({ system, open, onOpenChange }: EditSystemDialo
 
         <div className="space-y-5">
           {/* Preview */}
-          <div className={`flex items-center gap-3 p-3 rounded-lg bg-${cls}/10 border border-border/50`}>
-            <div className={`p-2 rounded-md bg-${cls}/10`}>
-              <PreviewIcon className={`size-5 text-${cls}`} />
-            </div>
+          <div className="flex items-center gap-3">
+            <span aria-hidden className="flex size-[2.4rem] shrink-0 items-center justify-center rounded-xl" style={systemTileStyle(color)}>
+              <PreviewIcon className="size-5" />
+            </span>
             <span className={`text-sm font-medium ${name ? "text-foreground" : "text-muted-foreground"}`}>
               {name || "Nombre del sistema"}
             </span>
@@ -100,55 +99,23 @@ export function EditSystemDialog({ system, open, onOpenChange }: EditSystemDialo
           {/* Color picker */}
           <div className="space-y-1.5">
             <Label>Color</Label>
-            <div className="flex flex-wrap gap-3 justify-center">
-              {COLOR_VALUES.map((c) => (
-                <button
-                  key={c}
-                  type="button"
-                  onClick={() => setColor(c)}
-                  className={`size-6 rounded-full transition-all bg-${getSystemColor(c)} ${
-                    color === c
-                      ? "ring-2 ring-offset-2 ring-offset-background ring-foreground scale-110"
-                      : "opacity-60 hover:opacity-100"
-                  }`}
-                  title={c}
-                />
-              ))}
-            </div>
+            <SystemColorPicker value={color} onChange={(c) => setColor(c as typeof color)} />
           </div>
 
           {/* Icon picker */}
           <div className="space-y-1.5">
             <Label>Ícono</Label>
-            <div className="grid grid-cols-10 gap-1">
-              {ICON_KEYS.map((key) => {
-                const IconComponent = ICON_MAP[key];
-                return (
-                  <button
-                    key={key}
-                    type="button"
-                    onClick={() => setIcon(key)}
-                    className={`p-1.5 rounded-md transition-colors flex items-center justify-center ${
-                      icon === key
-                        ? `bg-${cls}/10 text-${cls}`
-                        : "text-muted-foreground hover:bg-accent hover:text-accent-foreground"
-                    }`}
-                    title={key}
-                  >
-                    <IconComponent className="size-4" />
-                  </button>
-                );
-              })}
-            </div>
+            <SystemIconPicker value={icon} color={color} onChange={setIcon} />
           </div>
 
           {/* Advanced toggle */}
           <button
             type="button"
+            aria-expanded={showAdvanced}
             onClick={() => setShowAdvanced(!showAdvanced)}
-            className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors"
+            className="inline-flex min-h-[2.85rem] items-center gap-1.5 rounded-full text-sm font-semibold text-muted-foreground transition-colors duration-(--dur-toque) hover:text-foreground focus-ring md:pointer-fine:min-h-9"
           >
-            <ChevronDown className={`size-3.5 transition-transform duration-150 ${showAdvanced ? "rotate-180" : ""}`} />
+            <ChevronDown aria-hidden className={`size-4 transition-transform duration-(--dur-toque) ${showAdvanced ? "rotate-180" : ""}`} />
             {showAdvanced ? "Menos opciones" : "Más opciones"}
           </button>
 
@@ -213,7 +180,7 @@ export function EditSystemDialog({ system, open, onOpenChange }: EditSystemDialo
               <div className="space-y-1.5">
                 <Label>Contexto disparador</Label>
                 <Input
-                  placeholder="E.g. When I get to the office..."
+                  placeholder="Por ejemplo: cuando llego a la oficina"
                   value={triggerContext}
                   onChange={(e) => setTriggerContext(e.target.value)}
                   maxLength={255}
@@ -225,11 +192,10 @@ export function EditSystemDialog({ system, open, onOpenChange }: EditSystemDialo
 
         <div className="flex justify-end gap-2 pt-2">
           <Button variant="ghost" onClick={() => onOpenChange(false)} disabled={isPending}>
-            Cancel
+            Cancelar
           </Button>
           <Button onClick={handleSave} disabled={!name.trim() || isPending}>
-            {isPending && <Loader2 className="size-4 animate-spin mr-2" />}
-            Save changes
+                        {isPending ? "Guardando" : "Guardar cambios"}
           </Button>
         </div>
       </ResponsiveDialogContent>

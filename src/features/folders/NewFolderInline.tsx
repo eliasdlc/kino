@@ -1,66 +1,55 @@
 "use client";
 
-import { useEffect, useRef, useState, type ComponentType } from "react";
-import { Plus, Target, type LucideProps } from "lucide-react";
+import { useState } from "react";
 import { useCreateFolder } from "./folders.hooks";
 import type { ArchetypeFieldDef } from "@/shared/lib/system-types";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import {
+  ResponsiveDialog,
+  ResponsiveDialogContent,
+  ResponsiveDialogHeader,
+  ResponsiveDialogTitle,
+} from "@/components/ui/responsive-dialog";
+import { NATIVE_SELECT_CLASS } from "@/features/notebooks/native-select";
 
 interface NewFolderInlineProps {
   systemId: string;
-  /** Texto del botón disparador, p.ej. "Nueva clase" / "Nuevo milestone". */
+  /** Texto del disparador y título de la hoja, p.ej. "Nueva obra". */
   label: string;
   placeholder: string;
-  /** Icono mostrado junto al input. Por defecto Target. */
-  icon?: ComponentType<LucideProps>;
-  /** Campos del rol de carpeta (del manifiesto). Vacío → solo nombre. */
+  /** Campos del rol de carpeta (del manifiesto). Vacío, sólo nombre. */
   fields?: ArchetypeFieldDef[];
 }
 
-// `select` tiene su propio render y `idList` es siempre `hidden` (lo escribe la
+// `select` tiene su propio render e `idList` es siempre `hidden` (lo escribe la
 // UI, no este formulario), así que ninguno necesita un tipo de input HTML.
-const INPUT_TYPE: Record<
-  Exclude<ArchetypeFieldDef["input"], "select" | "idList">,
-  string
-> = {
+const INPUT_TYPE: Record<Exclude<ArchetypeFieldDef["input"], "select" | "idList">, string> = {
   text: "text",
   date: "date",
   number: "number",
 };
 
-const FIELD_CLASS =
-  "rounded border border-border/60 bg-transparent px-2 py-1 text-xs outline-none focus:border-primary/60 placeholder:text-muted-foreground/60";
-
 /**
- * Control inline para crear un folder con el vocabulario y los campos de su
- * arquetipo (manifiesto). Sin `fields` es el patrón simple de una línea; con
- * `fields` despliega un mini-form (clase con profesor/horario, milestone con
- * fecha objetivo…). La metadata se valida server-side por systemType.
+ * Crear una carpeta con el vocabulario y los campos de su arquetipo. El
+ * disparador es una acción con nombre en el título de su sección ("Nueva
+ * obra"); el formulario es una hoja inferior en el teléfono y un diálogo en
+ * escritorio, con campos de 2.85rem. Antes era un mini formulario en línea con
+ * campos de 24 px, y es lo que crea las obras de escritura.
  */
-export function NewFolderInline({
-  systemId,
-  label,
-  placeholder,
-  icon: Icon = Target,
-  fields: allFields = [],
-}: NewFolderInlineProps) {
-  const [isCreating, setIsCreating] = useState(false);
+export function NewFolderInline({ systemId, label, placeholder, fields: allFields = [] }: NewFolderInlineProps) {
+  const [open, setOpen] = useState(false);
   const [name, setName] = useState("");
   const [values, setValues] = useState<Record<string, string>>({});
-  const inputRef = useRef<HTMLInputElement>(null);
   const { mutateAsync: createFolder, isPending } = useCreateFolder(systemId);
 
   // Los campos `hidden` del manifiesto los escribe la UI, no este formulario.
   const fields = allFields.filter((f) => !f.hidden);
-  const hasFields = fields.length > 0;
-
-  useEffect(() => {
-    if (isCreating) inputRef.current?.focus();
-  }, [isCreating]);
 
   function reset() {
     setName("");
     setValues({});
-    setIsCreating(false);
   }
 
   function buildMetadata(): Record<string, string> | undefined {
@@ -74,123 +63,84 @@ export function NewFolderInline({
 
   async function handleCreate() {
     const trimmed = name.trim();
-    if (!trimmed) {
-      reset();
-      return;
-    }
-    try {
-      await createFolder({ name: trimmed, metadata: buildMetadata() });
-    } finally {
-      reset();
-    }
-  }
-
-  function handleNameKeyDown(e: React.KeyboardEvent<HTMLInputElement>) {
-    // Con campos extra, Enter en el nombre pasa el foco al primer campo en vez
-    // de crear a medias.
-    if (e.key === "Enter" && !hasFields) handleCreate();
-    if (e.key === "Escape") reset();
-  }
-
-  if (isCreating && hasFields) {
-    return (
-      <div className="flex flex-col gap-2 rounded-md border border-primary/50 px-3 py-2.5">
-        <div className="flex items-center gap-2">
-          <Icon size={16} className="shrink-0 text-primary" />
-          <input
-            ref={inputRef}
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-            onKeyDown={handleNameKeyDown}
-            placeholder={placeholder}
-            className="flex-1 bg-transparent text-sm font-medium outline-none placeholder:text-muted-foreground/60"
-          />
-        </div>
-        <div className="grid grid-cols-1 gap-1.5 pl-6 sm:grid-cols-2">
-          {fields.map((field) =>
-            field.input === "select" ? (
-              <select
-                key={field.id}
-                aria-label={field.label}
-                value={values[field.id] ?? ""}
-                onChange={(e) => setValues((prev) => ({ ...prev, [field.id]: e.target.value }))}
-                onKeyDown={(e) => {
-                  if (e.key === "Escape") reset();
-                }}
-                className={FIELD_CLASS}
-              >
-                <option value="">{field.label}</option>
-                {(field.options ?? []).map((opt) => (
-                  <option key={opt.value} value={opt.value}>
-                    {opt.label}
-                  </option>
-                ))}
-              </select>
-            ) : (
-              <input
-                key={field.id}
-                type={INPUT_TYPE[field.input as keyof typeof INPUT_TYPE] ?? "text"}
-                value={values[field.id] ?? ""}
-                onChange={(e) => setValues((prev) => ({ ...prev, [field.id]: e.target.value }))}
-                onKeyDown={(e) => {
-                  if (e.key === "Enter") handleCreate();
-                  if (e.key === "Escape") reset();
-                }}
-                placeholder={field.label}
-                className={FIELD_CLASS}
-              />
-            )
-          )}
-        </div>
-        <div className="flex items-center gap-2 pl-6">
-          <button
-            type="button"
-            onClick={handleCreate}
-            disabled={isPending || !name.trim()}
-            className="rounded bg-primary px-2.5 py-1 text-xs font-medium text-primary-foreground disabled:opacity-50"
-          >
-            Crear
-          </button>
-          <button
-            type="button"
-            onClick={reset}
-            className="text-xs text-muted-foreground hover:text-foreground"
-          >
-            Cancelar
-          </button>
-        </div>
-      </div>
-    );
-  }
-
-  if (isCreating) {
-    return (
-      <div className="flex items-center gap-2 rounded-md border border-primary/50 px-3 py-2">
-        <Icon size={16} className="shrink-0 text-primary" />
-        <input
-          ref={inputRef}
-          value={name}
-          onChange={(e) => setName(e.target.value)}
-          onKeyDown={handleNameKeyDown}
-          onBlur={() => {
-            if (isPending) return;
-            if (!name.trim()) setIsCreating(false);
-          }}
-          placeholder={placeholder}
-          className="flex-1 bg-transparent text-sm outline-none placeholder:text-muted-foreground/60"
-        />
-      </div>
-    );
+    if (!trimmed) return;
+    await createFolder({ name: trimmed, metadata: buildMetadata() });
+    reset();
+    setOpen(false);
   }
 
   return (
-    <button
-      type="button"
-      onClick={() => setIsCreating(true)}
-      className="flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors"
-    >
-      <Plus size={15} className="shrink-0" />
-      {label}
-    </button>
+    <>
+      <Button variant="link" size="sm" className="px-1" onClick={() => setOpen(true)}>
+        {label}
+      </Button>
+
+      <ResponsiveDialog
+        open={open}
+        onOpenChange={(next) => {
+          setOpen(next);
+          if (!next) reset();
+        }}
+      >
+        <ResponsiveDialogContent>
+          <ResponsiveDialogHeader>
+            <ResponsiveDialogTitle>{label}</ResponsiveDialogTitle>
+          </ResponsiveDialogHeader>
+          <form
+            className="flex flex-col gap-4 pt-1"
+            onSubmit={(event) => {
+              event.preventDefault();
+              void handleCreate();
+            }}
+          >
+            <div className="space-y-1.5">
+              <Label htmlFor={`nueva-carpeta-${systemId}`}>Nombre</Label>
+              <Input
+                id={`nueva-carpeta-${systemId}`}
+                autoFocus
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                placeholder={placeholder}
+                maxLength={255}
+              />
+            </div>
+            {fields.map((field) => {
+              const id = `nueva-carpeta-${systemId}-${field.id}`;
+              return (
+                <div key={field.id} className="space-y-1.5">
+                  <Label htmlFor={id}>{field.label}</Label>
+                  {field.input === "select" ? (
+                    <select
+                      id={id}
+                      value={values[field.id] ?? ""}
+                      onChange={(e) => setValues((prev) => ({ ...prev, [field.id]: e.target.value }))}
+                      className={NATIVE_SELECT_CLASS}
+                    >
+                      <option value="">Sin elegir</option>
+                      {(field.options ?? []).map((opt) => (
+                        <option key={opt.value} value={opt.value}>
+                          {opt.label}
+                        </option>
+                      ))}
+                    </select>
+                  ) : (
+                    <Input
+                      id={id}
+                      type={INPUT_TYPE[field.input as keyof typeof INPUT_TYPE] ?? "text"}
+                      inputMode={field.input === "number" ? "numeric" : undefined}
+                      value={values[field.id] ?? ""}
+                      onChange={(e) => setValues((prev) => ({ ...prev, [field.id]: e.target.value }))}
+                    />
+                  )}
+                </div>
+              );
+            })}
+            <Button type="submit" disabled={isPending || !name.trim()}>
+              {isPending ? "Creando" : "Crear"}
+            </Button>
+          </form>
+        </ResponsiveDialogContent>
+      </ResponsiveDialog>
+    </>
   );
 }

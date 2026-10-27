@@ -1,6 +1,7 @@
 import { notFound, redirect } from "next/navigation";
 import { PageBreadcrumb } from "@/components/PageBreadcrumb";
-import { PageWrapper } from "@/components/PageWrapper";
+import { PageHeader, PageWrapper } from "@/components/PageWrapper";
+import { LayoutGrid } from "lucide-react";
 import { api } from "@convex/_generated/api";
 import { serverQuery } from "@/shared/convex/server";
 import { PlotGridView } from "@/features/writing/PlotGridView";
@@ -25,7 +26,7 @@ export default async function PlotBoardRoute({
 
   return (
     <div className="w-full">
-      <div className="sticky top-0 z-(--z-raised) border-b bg-background px-4 py-2.5 md:px-6">
+      <div className="sticky top-0 z-(--z-raised) hidden border-b bg-background px-4 py-2.5 md:block md:px-6">
         <PageBreadcrumb
           items={[
             { label: "Sistemas", href: "/systems" },
@@ -36,12 +37,11 @@ export default async function PlotBoardRoute({
         />
       </div>
       <PageWrapper className="w-full">
-        <div className="mb-4">
-          <h1 className="text-xl font-semibold">Tablero: {folder.name}</h1>
-          <p className="text-sm text-muted-foreground">
-            Las escenas de la obra por capítulo y arco narrativo.
-          </p>
-        </div>
+        <PageHeader
+          title={`Tablero de ${folder.name}`}
+          description="Las escenas de la obra por capítulo y arco narrativo."
+          margin={<LayoutGrid aria-hidden className="size-5 stroke-[1.8]" />}
+        />
         <PlotGridView systemId={systemId} folderId={folderId} />
       </PageWrapper>
     </div>
