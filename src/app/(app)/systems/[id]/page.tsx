@@ -9,14 +9,14 @@ import { PageBreadcrumb } from "@/components/PageBreadcrumb";
 import { SystemDetailHeader } from "@/features/systems/SystemDetailHeader";
 import type { SystemSignals } from "@/features/systems/systems.signals";
 import { SystemSurfaces } from "@/features/systems/SystemSurfaces";
-import { landingSurface } from "@/shared/lib/system-manifest";
+import { systemLanding } from "@/features/systems/system-surfaces";
 import type { FunctionReturnType } from "convex/server";
-import type { Surface } from "@/features/systems/SystemSurfaces";
+import type { Surface } from "@/features/systems/system-surfaces";
 
 type SystemDetail = FunctionReturnType<typeof api.systems.detail>;
 type AcademicPeriodList = FunctionReturnType<typeof api.academicPeriods.list>;
 import { getServerSession } from "@/shared/utils/session";
-import { TaskCardSkeleton } from "@/components/Skeletons";
+import { RowsSkeleton } from "@/components/Skeletons";
 
 export default async function SystemPage({
   params,
@@ -55,13 +55,14 @@ export default async function SystemPage({
     nextDueDate: system.nextDueDate,
   };
   // Sin `?tab=`, manda la composición: un sistema cuyas páginas son primarias
-  // abre en su biblioteca, no en el funnel de tareas.
-  const landing = landingSurface(system);
+  // (escritura, o un custom que lo pide) abre en su biblioteca, no en el
+  // funnel de tareas.
+  const landing = systemLanding(system);
 
 
   return (
     <div className="w-full">
-      <div className="sticky top-0 z-(--z-raised) bg-background border-b px-4 md:px-6 py-2.5">
+      <div className="sticky top-0 z-(--z-raised) hidden border-b bg-background px-4 py-2.5 md:block md:px-6">
         <PageBreadcrumb
           items={[
             { label: "Sistemas", href: "/systems" },
@@ -79,8 +80,8 @@ export default async function SystemPage({
 
         {/* La cabecera y las migas sólo necesitan el sistema: se pintan sin
             esperar a la lista de tareas, que es la lectura más lenta. */}
-        <div className="mt-4">
-          <Suspense fallback={<SurfacesSkeleton />}>
+        <div>
+          <Suspense fallback={<SurfacesSkeleton landing={landing} />}>
             <Surfaces
               systemId={id}
               system={system}
@@ -96,13 +97,11 @@ export default async function SystemPage({
   );
 }
 
-/** Lo que falta mientras llegan las tareas del sistema. */
-function SurfacesSkeleton() {
+/** Lo que falta mientras llegan las tareas: filas con círculo, o numeradas si abre en documentos. */
+function SurfacesSkeleton({ landing }: { landing: Surface }) {
   return (
-    <div className="flex w-full flex-col gap-3">
-      <div className="h-11 border-b border-border" />
-      <TaskCardSkeleton />
-      <TaskCardSkeleton />
+    <div aria-busy className="w-full">
+      <RowsSkeleton rows={4} margin={landing === "docs" ? "numeral" : "circle"} />
     </div>
   );
 }

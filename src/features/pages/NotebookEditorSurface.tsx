@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { cn } from "@/lib/utils";
 import { scrollBehavior } from "@/shared/utils/motion";
 import { EditorProvider, useSharedEditor } from "./EditorContext";
@@ -19,6 +19,7 @@ import { useStickyNotesByPage } from "@/features/sticky-notes/sticky-notes.hooks
 import { useNotebookMetrics } from "@/features/sticky-notes/use-notebook-metrics";
 import { ReviewBridge } from "@/features/reviews/ReviewBridge";
 import type { PageDetailTransport } from "./pages.types";
+import { usePrimeraPintura } from "./primera-pintura";
 
 /**
  * The Tiptap editing surface, isolated so it can be loaded with `next/dynamic`
@@ -59,6 +60,39 @@ function TypewriterScroll({
       editor.off("update", center);
     };
   }, [enabled, editor, scrollRef]);
+
+  return null;
+}
+
+/**
+ * El editor arranca donde quedó la primera pintura. Quien empezó a leer y bajó
+ * mientras llegaba Tiptap no vuelve arriba cuando llega: al cambiar de árbol,
+ * el texto del editor se monta un instante después y el contenedor recorta su
+ * scroll a lo poco que hay. Se le devuelve el suyo en cuanto el texto cabe,
+ * mirando unos pocos cuadros y nada más.
+ */
+const CUADROS_PARA_VOLVER = 12;
+
+export function ConservarScroll() {
+  const editor = useSharedEditor();
+  const pintura = usePrimeraPintura();
+
+  useLayoutEffect(() => {
+    if (!editor || !pintura) return;
+    const guardado = pintura.tomarScroll();
+    if (!guardado || guardado.top <= 0) return;
+    const { contenedor, top } = guardado;
+    let cuadros = 0;
+    let cuadro = 0;
+    const volver = () => {
+      contenedor.scrollTop = top;
+      if (Math.abs(contenedor.scrollTop - top) > 1 && cuadros++ < CUADROS_PARA_VOLVER) {
+        cuadro = requestAnimationFrame(volver);
+      }
+    };
+    volver();
+    return () => cancelAnimationFrame(cuadro);
+  }, [editor, pintura]);
 
   return null;
 }
@@ -160,13 +194,25 @@ function OutlineBridge({
 }) {
   const editor = useSharedEditor();
 
+  // El índice se rehace al dejar de teclear, no en cada letra: el carril y el
+  // panel lo miran entre frases, y recorrer el documento por tecla era la
+  // mitad del trabajo de escribir.
   useEffect(() => {
     if (!editor) return;
-    const recompute = () => onOutline(deriveOutline(editor.state.doc));
+    let pendiente: ReturnType<typeof setTimeout> | null = null;
+    const recompute = () => {
+      pendiente = null;
+      if (!editor.isDestroyed) onOutline(deriveOutline(editor.state.doc));
+    };
+    const programar = () => {
+      if (pendiente) clearTimeout(pendiente);
+      pendiente = setTimeout(recompute, OUTLINE_PAUSA_MS);
+    };
     recompute();
-    editor.on("update", recompute);
+    editor.on("update", programar);
     return () => {
-      editor.off("update", recompute);
+      editor.off("update", programar);
+      if (pendiente) clearTimeout(pendiente);
       onOutline([]);
     };
   }, [editor, onOutline]);
@@ -188,6 +234,9 @@ function OutlineBridge({
   return null;
 }
 
+/** Pausa tras la última tecla antes de rehacer el índice del documento. */
+const OUTLINE_PAUSA_MS = 200;
+
 export default function NotebookEditorSurface({
   page,
   systemId,
@@ -200,6 +249,7 @@ export default function NotebookEditorSurface({
   jumpRef,
   title,
   onTitleChange,
+  onOpenPanel,
 }: {
   page: PageDetailTransport;
   systemId: string;
@@ -218,6 +268,8 @@ export default function NotebookEditorSurface({
   /** Publica el índice derivado del capítulo hacia el navegador del layout. */
   onOutline?: (items: OutlineItem[]) => void;
   jumpRef?: React.RefObject<((pos: number) => void) | null>;
+  /** Abre el panel del documento: la puerta del teléfono, en el título y en la barra del pulgar. */
+  onOpenPanel?: () => void;
 }) {
   const contentRef = useRef<HTMLDivElement>(null);
   const columnRef = useRef<HTMLDivElement>(null);
@@ -319,7 +371,7 @@ export default function NotebookEditorSurface({
                 ref={columnRef}
                 data-paper={writer && paper ? "on" : undefined}
                 className={cn(
-                  "mx-auto px-4 py-6 md:px-6 md:py-8 space-y-8",
+                  "mx-auto space-y-8 py-6 pl-[max(1.25rem,env(safe-area-inset-left))] pr-[max(1.25rem,env(safe-area-inset-right))] md:px-6 md:py-8",
                   writer ? "max-w-[46rem] md:my-6 md:px-10" : "max-w-3xl"
                 )}
               >
@@ -332,7 +384,15 @@ export default function NotebookEditorSurface({
                   floatingIds={floatingIds}
                   canvas={{ containerRef: contentRef, metrics }}
                 />
-                <NotebookEditor page={page} systemId={systemId} pageId={page.id} writer={writer} title={title} onTitleChange={onTitleChange} />
+                <NotebookEditor
+                  page={page}
+                  systemId={systemId}
+                  pageId={page.id}
+                  writer={writer}
+                  title={title}
+                  onTitleChange={onTitleChange}
+                  onOpenPanel={onOpenPanel}
+                />
               </div>
               <FloatingNotesLayer
                 notes={floatingNotes}
@@ -354,6 +414,7 @@ export default function NotebookEditorSurface({
           )}
 
           {writer && <TypewriterScroll enabled={focusMode} scrollRef={scrollRef} />}
+          <ConservarScroll />
 
           {/* El índice ya no es del manuscrito: todo documento lo deriva, porque
               el carril de títulos de un apunte come de aquí igual que el panel

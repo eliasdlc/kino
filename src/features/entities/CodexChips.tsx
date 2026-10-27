@@ -36,9 +36,9 @@ export function CodexChips({ pageId, systemId }: { pageId: string; systemId: str
               key={e.id}
               type="button"
               onClick={() => setOpenEntityId(e.id)}
-              className="flex h-9 shrink-0 items-center gap-1.5 rounded-full border bg-card px-3 text-xs text-muted-foreground transition-colors active:bg-accent"
+              className="press flex h-[2.85rem] shrink-0 items-center gap-1.5 rounded-full border bg-card px-3.5 text-sm text-muted-foreground transition-[background-color,transform] duration-(--dur-toque) ease-(--ease-pluma) focus-ring active:bg-accent"
             >
-              <Icon className="size-3 shrink-0" />
+              <Icon aria-hidden className="size-4 shrink-0" />
               <span className="max-w-32 truncate text-foreground">{e.name}</span>
             </button>
           );

@@ -1,3 +1,8 @@
+/**
+ * Criterio: la única pregunta del alta. Lo que se prueba aquí no es que se
+ * pinten seis cosas: es que las seis salen del manifiesto, de modo que añadir
+ * un arquetipo no obligue a tocar el componente ni este test.
+ */
 import { useState } from 'react';
 import { screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
@@ -6,12 +11,6 @@ import { renderMobile } from '@/shared/testing/render';
 import { SYSTEM_TYPE_CONFIG, type SystemType } from '@/shared/lib/system-types';
 import { ArchetypeGallery } from './ArchetypeGallery';
 import { DEFAULT_IDENTITY, type ArchetypeIdentity } from './onboarding.archetypes';
-
-/**
- * La única pregunta del alta. Lo que se prueba aquí no es que se pinten seis
- * cosas: es que las seis salen del manifiesto, de modo que añadir un arquetipo
- * no obligue a tocar el componente ni este test.
- */
 
 /** Los arquetipos que se pueden elegir: todos menos Bandeja, que se crea sola. */
 const ELEGIBLES = (Object.keys(SYSTEM_TYPE_CONFIG) as SystemType[]).filter((t) => t !== 'inbox');
@@ -54,6 +53,14 @@ describe('ArchetypeGallery', () => {
 
     expect(escritura).toHaveAttribute('aria-checked', 'true');
     expect(screen.getAllByRole('radio').filter((r) => r.getAttribute('aria-checked') === 'true')).toHaveLength(1);
+  });
+
+  it('la elegida se dice en tinta, no en ámbar: el acento queda para Entrar', () => {
+    renderMobile(<Controlada />);
+
+    const elegida = screen.getAllByRole('radio').find((r) => r.getAttribute('aria-checked') === 'true')!;
+    expect(elegida.className).not.toMatch(/bg-primary/);
+    expect(elegida.querySelector('.bg-foreground')).toBeInTheDocument();
   });
 
   it('llega con una elegida, así que nadie mira un botón apagado', () => {

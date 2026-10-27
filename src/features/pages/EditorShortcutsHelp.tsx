@@ -1,6 +1,7 @@
 "use client";
 
 import type { MediumManifest } from "@/shared/lib/mediums";
+import { SectionHead } from "@/features/dashboard/SectionHead";
 
 /**
  * Reference of the Markdown shortcuts the editor understands (KIN-69). The input
@@ -14,14 +15,14 @@ import type { MediumManifest } from "@/shared/lib/mediums";
 type Shortcut = { keys: string; label: string };
 
 const SHORTCUTS: Shortcut[] = [
-  { keys: "# ## ###", label: "Títulos 1–3" },
+  { keys: "# ## ###", label: "Títulos 1 a 3" },
   { keys: "- *", label: "Lista" },
   { keys: "1.", label: "Lista numerada" },
   { keys: ">", label: "Cita" },
   { keys: "```", label: "Bloque de código" },
   { keys: "---", label: "Separador" },
-  { keys: "**·**", label: "Negrita" },
-  { keys: "*·*", label: "Cursiva" },
+  { keys: "**texto**", label: "Negrita" },
+  { keys: "*texto*", label: "Cursiva" },
   { keys: "/", label: "Insertar bloque (tabla, tareas…)" },
 ];
 
@@ -46,15 +47,13 @@ export function EditorShortcutsHelp({ medium = null }: { medium?: MediumManifest
   const shortcuts = [...mediumShortcuts(medium), ...SHORTCUTS];
 
   return (
-    <div>
-      <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">
-        Atajos de formato
-      </p>
-      <ul className="space-y-1.5">
+    <div className="space-y-2">
+      <SectionHead as="h3" title="Atajos de formato" />
+      <ul className="space-y-2">
         {shortcuts.map(({ keys, label }) => (
-          <li key={keys} className="flex items-center justify-between gap-3 text-xs">
-            <span className="text-muted-foreground truncate">{label}</span>
-            <kbd className="shrink-0 rounded border border-border bg-muted px-1.5 py-0.5 font-mono text-[10px] text-foreground">
+          <li key={keys} className="flex items-center justify-between gap-3 text-sm">
+            <span className="truncate text-body">{label}</span>
+            <kbd className="shrink-0 rounded-md bg-secondary px-1.5 py-0.5 font-mono text-xs text-foreground">
               {keys}
             </kbd>
           </li>

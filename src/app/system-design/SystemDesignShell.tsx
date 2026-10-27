@@ -9,6 +9,7 @@ import { Button } from "@/components/ui/button";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { SystemTypeProvider } from "@/components/SystemTypeProvider";
 import { FocusTimerProvider } from "@/features/tasks/FocusTimerProvider";
+import { useThemeStore } from "@/components/ThemeProvider";
 import { ColorsSection } from "./sections/colors";
 import { TypographySection } from "./sections/typography";
 import { FoundationsSection } from "./sections/foundations";
@@ -28,29 +29,31 @@ import { MediumsSection } from "./sections/mediums";
 import { MotivationSection } from "./sections/motivation";
 import { OnboardingSection } from "./sections/onboarding";
 import { ComposableSection } from "./sections/composable";
+import { SettingsSection } from "./sections/settings";
 import { ReviewsSection } from "./sections/reviews";
 
 const TOC: Array<{ id: string; number: string; label: string }> = [
   { id: "colores", number: "01", label: "Colores" },
   { id: "tipografia", number: "02", label: "Tipografía" },
-  { id: "fundamentos", number: "03", label: "Radios y sombras" },
+  { id: "fundamentos", number: "03", label: "Radio, movimiento y margen" },
   { id: "iconos", number: "04", label: "Iconografía" },
-  { id: "botones", number: "05", label: "Botones y badges" },
+  { id: "botones", number: "05", label: "Botones, segmentos y vacíos" },
   { id: "formularios", number: "06", label: "Formularios" },
   { id: "overlays", number: "07", label: "Overlays" },
   { id: "contenido", number: "08", label: "Contenido y datos" },
   { id: "kino", number: "09", label: "Componentes Kino" },
-  { id: "dashboard", number: "10", label: "Dashboard" },
+  { id: "dashboard", number: "10", label: "Hoy" },
   { id: "energia", number: "11", label: "Energía visible" },
   { id: "tareas", number: "12", label: "Tareas: vistas" },
   { id: "notebooks", number: "13", label: "Notebooks y notas" },
-  { id: "mobile", number: "14", label: "Mobile" },
+  { id: "mobile", number: "14", label: "Shell" },
   { id: "codex", number: "15", label: "Codex" },
   { id: "mediums", number: "16", label: "Bloques por medium" },
   { id: "motivacion", number: "17", label: "Motivación" },
-  { id: "onboarding", number: "18", label: "Onboarding por identidad" },
+  { id: "onboarding", number: "18", label: "Las puertas, Bandeja y el calendario" },
   { id: "componible", number: "19", label: "Sistema componible" },
-  { id: "revision", number: "20", label: "Revisión de documentos" },
+  { id: "ajustes", number: "20", label: "Ajustes" },
+  { id: "revision", number: "21", label: "Revisión de documentos" },
 ];
 
 /**
@@ -64,9 +67,18 @@ export function SystemDesignShell() {
   const [client] = useState(() => makeTestConvexClient() as unknown as ConvexReactClient);
 
   // Toggle local de tema: manipula la clase .dark del <html> igual que el
-  // ThemeProvider de la app, pero sin persistir — es una herramienta de
-  // comparación y arranca siempre en light para ser predecible.
+  // ThemeProvider de la app, sin persistir. Arranca con el tema que la app
+  // guardó (`kino-theme`) o el del sistema, para que el catálogo se vea como
+  // la pantalla de la que viene y las capturas en oscuro salgan oscuras. El
+  // store del tema también se hidrata con esa elección, para que los
+  // specimens que lo leen (la fila de Tema de Ajustes) se pinten enteros.
   const [dark, setDark] = useState(false);
+  useEffect(() => {
+    const guardado = window.localStorage.getItem("kino-theme");
+    const sistema = window.matchMedia("(prefers-color-scheme: dark)").matches;
+    setDark(guardado === "dark" || (guardado !== "light" && sistema));
+    useThemeStore.getState().hydrate(guardado === "dark" || guardado === "light" ? guardado : "system");
+  }, []);
   useEffect(() => {
     document.documentElement.classList.toggle("dark", dark);
   }, [dark]);
@@ -150,6 +162,7 @@ export function SystemDesignShell() {
                   <MotivationSection />
                   <OnboardingSection />
                   <ComposableSection />
+                  <SettingsSection />
                   <ReviewsSection />
                 </main>
               </div>

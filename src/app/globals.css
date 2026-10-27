@@ -4,25 +4,44 @@
 
 @custom-variant dark (&:is(.dark *));
 
-/* Safelist for dynamic system color classes composed via getSystemColor() */
-@source inline("text-{red,blue,pink,purple,green,orange,yellow,teal,gray}-500 text-gray-{900,200}");
-@source inline("bg-{red,blue,pink,purple,green,orange,yellow,teal,gray}-500 bg-gray-{900,200}");
-@source inline("bg-{red,blue,pink,purple,green,orange,yellow,teal,gray}-500/10 bg-gray-{900,200}/10");
+/* Safelist for dynamic system color classes composed via getSystemColor().
+   Los tres neutros de la paleta de sistema (gray, black, white) son roles. */
+@source inline("text-{red,blue,pink,purple,green,orange,yellow,teal}-500 text-{mute,ink,sf2}");
+@source inline("bg-{red,blue,pink,purple,green,orange,yellow,teal}-500 bg-{mute,ink,sf2}");
+@source inline("bg-{red,blue,pink,purple,green,orange,yellow,teal}-500/10 bg-{mute,ink,sf2}/10");
 
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  /* Dos caras y una mono, cargadas una sola vez en el layout raíz: Bricolage
-     para la cifra y los títulos, Inter para todo lo demás, JetBrains para
-     datos y código. Literata queda sólo para leer prosa (font-serif). Los
-     alias body y jetbrains sostienen las clases del marketing hasta su fase. */
-  --font-sans: var(--font-inter);
+  /* Los roles como clases: bg-sf2, text-mute, border-ln. Son los mismos
+     valores que los tokens de shadcn de abajo, con el nombre de la casa. */
+  --color-bg: var(--bg);
+  --color-sf: var(--sf);
+  --color-sf2: var(--sf2);
+  --color-ink: var(--ink);
+  --color-body: var(--body);
+  --color-mute: var(--mute);
+  --color-ac: var(--ac);
+  --color-on: var(--on);
+  --color-warn: var(--warn);
+  --color-ok: var(--ok);
+  --color-danger: var(--danger);
+  --color-ln: var(--ln);
+  --color-ln2: var(--ln2);
+  /* Tres caras y una mono, cargadas una sola vez en el layout raíz: Figtree
+     es la cara de interfaz, Bricolage la display (800 en la cota, 700 en
+     títulos y cifras), Literata la serif de prosa y también la voz: la frase
+     de la cota, la intención del sistema, el título de un manuscrito. En
+     cursiva lo que es voz, en redonda lo que es texto. JetBrains para datos y
+     código. Los alias body y jetbrains sostienen las clases del marketing. */
+  --font-sans: var(--font-figtree);
   --font-mono: var(--font-jetbrains-mono);
   --font-display: var(--font-bricolage);
   /* heading es el subhead de la gramática: cara de texto en 700, no la display. */
-  --font-heading: var(--font-inter);
+  --font-heading: var(--font-figtree);
   --font-serif: var(--font-literata);
-  --font-body: var(--font-inter);
+  --font-voice: var(--font-literata);
+  --font-body: var(--font-figtree);
   --font-jetbrains: var(--font-jetbrains-mono);
   --color-sidebar-ring: var(--sidebar-ring);
   --color-sidebar-border: var(--sidebar-border);
@@ -63,30 +82,56 @@
   --color-task-critical-foreground: var(--task-critical-foreground);
   --color-task-high: var(--task-high);
   --color-task-high-foreground: var(--task-high-foreground);
-  /* La escala de radios de la gramática, por clase de tamaño: 8 detalle,
-     12 chip, 16 control, 18 bloque, 22 superficie. El interior es el exterior
-     menos su padding, nunca mayor. Toda acción va a 999 (rounded-full). */
-  --radius-sm: 0.5rem;
-  --radius-md: 0.75rem;
-  --radius-lg: 1rem;
+  /* La escala de radio de Diario tiene dos valores: la pastilla (999,
+     rounded-full) en toda acción y estado, y 1.125rem (rounded-xl) en lo poco
+     que es superficie: hoja, diálogo, menú, segmento, área de texto. No hay
+     card por defecto, así que no hay radio de card. Por debajo quedan dos
+     detalles: 0.3rem para la nota adhesiva y 0.5rem para el resalte de una
+     fila de menú o una tecla. lg, 2xl y 3xl valen lo mismo que xl para que
+     ninguna clase heredada invente un tercer tamaño de superficie. */
+  --radius-sm: 0.3rem;
+  --radius-md: 0.5rem;
+  --radius-lg: 1.125rem;
   --radius-xl: 1.125rem;
-  --radius-2xl: 1.375rem;
-  --radius-3xl: 1.375rem;
+  --radius-2xl: 1.125rem;
+  --radius-3xl: 1.125rem;
   --radius-4xl: 2rem;
+  /* El sistema de movimiento con nombre. Dos curvas: pluma para entrar y
+     asentar, tinta para salir. Cinco duraciones, de un toque a la cuenta de
+     la cota. Nada en bucle. */
+  --ease-pluma: cubic-bezier(0.2, 0.8, 0.2, 1);
+  --ease-tinta: cubic-bezier(0.4, 0, 1, 1);
+  --dur-toque: 120ms;
+  --dur-tachar: 160ms;
+  --dur-pagina: 180ms;
+  --dur-hoja: 240ms;
+  --dur-cuenta: 550ms;
 }
 
 /* Los roles. Cada uno tiene un valor por modo y ninguno lleva nombre de
    color: el acento es el ámbar (hue 38) y la escala neutra entera va teñida
-   con ese hue, saturación 4 en claro y 6 en oscuro. Los tokens de shadcn de
-   más abajo se mapean a estos roles; nadie declara un color dos veces.
-   Contrastes medidos sobre --bg: ink 15,4 · body 8,7 · mute 4,7 · ac 5,4. */
+   con ese hue a saturación 12, papel y no gris. Los tokens de shadcn de más
+   abajo se mapean a estos roles; nadie declara un color dos veces.
+   Contrastes WCAG sobre --bg, luminancia relativa (claro / oscuro):
+   ink 15,4 / 16,2; body 8,9 / 12,2; mute 5,1 / 6,7; ac 5,5 / 9,3;
+   warn 5,7 / 6,8; ok 4,9 / 9,0; danger 6,3 / 6,1; on sobre ac 5,9 / 9,5.
+   AA vale para texto de rol sobre --bg (mute y ac también a 13 px). Sobre
+   sf2 ok baja a 4,5 en claro. Como borde (no texto), ln2 da 1,4 / 1,6 y sf2
+   1,1 / 1,3: ninguno llega a 3:1, así que el texto identifica el control y
+   el hairline sólo lo dibuja. El par tintado (texto de rol sobre su tinte al
+   15 %) no llega a 4,5 en claro ni, para warn y danger, en oscuro; por eso
+   cada rol semántico tiene su texto de tinte (--ac-text y compañía), el rol
+   mezclado con tinta: al 28 % en claro, al 40 % en oscuro. En reposo (tinte
+   al 15 % sobre bg, sf o sf2) da 5,2 o más en los dos modos; en hover (al
+   25 %) 4,5 o más sobre los tres, con sf2 en claro como el caso más justo
+   (ok 4,5). globals.test.ts recalcula estas cifras. */
 :root {
-  --bg: #f5f5f4;
-  --sf: #ffffff;
-  --sf2: #ecebea;
-  --ink: #1f1c18;
-  --body: #46423c;
-  --mute: #6d685f;
+  --bg: #f8f5ef;
+  --sf: #fffdf9;
+  --sf2: #efeae0;
+  --ink: #211d16;
+  --body: #4a443a;
+  --mute: #6f685c;
   --ac: #8a5a00;
   --on: #ffffff;
   --warn: #a83f22;
@@ -103,13 +148,24 @@
   --rv-clarity: #5f7012;
   --rv-style: #a23a8f;
   --rv-grammar: var(--mute);
+  --ac-text: color-mix(in srgb, var(--ac) 72%, var(--ink));
+  --warn-text: color-mix(in srgb, var(--warn) 72%, var(--ink));
+  --ok-text: color-mix(in srgb, var(--ok) 72%, var(--ink));
+  --danger-text: color-mix(in srgb, var(--danger) 72%, var(--ink));
   --ln: color-mix(in srgb, var(--ink) 8%, transparent);
   --ln2: color-mix(in srgb, var(--ink) 16%, transparent);
   --glow: color-mix(in srgb, var(--ac) 35%, transparent);
-  --glass: color-mix(in srgb, var(--sf) 84%, transparent);
-  --glass-ln: color-mix(in srgb, var(--ink) 8%, transparent);
-  --glass-on: color-mix(in srgb, var(--ac) 14%, transparent);
-  --shadow: 0 10px 30px color-mix(in srgb, var(--ink) 8%, transparent);
+  /* Elevación: ninguna en las páginas. Una sola sombra, sólo en claro, para
+     la hoja inferior, el diálogo y la nota adhesiva; en oscuro es un paso de
+     tono. El fondo detrás de un overlay oscurece con la tinta. */
+  --shadow: 0 0.6rem 1.6rem color-mix(in srgb, var(--ink) 8%, transparent);
+  --scrim: color-mix(in srgb, var(--ink) 20%, transparent);
+
+  /* El margen de Diario: la columna de 3.1rem a la izquierda de toda página
+     donde viven el glifo, el numeral, el círculo y la nota adhesiva. El texto
+     nunca entra en el margen. Una fila es grid-cols-[var(--margen)_1fr_auto]
+     (MarginRow); un bloque que no es fila se sangra con pl-(--margen). */
+  --margen: 3.1rem;
 
   /* Cinco capas con nombre. Un z-index suelto en un componente es un bug. */
   --z-base: 0;
@@ -118,17 +174,14 @@
   --z-modal: 30;
   --z-toast: 40;
 
-  /* Lo que el chrome inferior le quita a la pantalla del teléfono: la barra
-     flotante con su margen, el banner del timer cuando corre y el área segura
-     del dispositivo. Se suma aquí y en ningún otro sitio; `<main>` reserva
-     leyendo la variable, nunca un número, así que mover la barra es cambiar
+  /* Lo que el chrome inferior le quita a la pantalla del teléfono: el pie, el banner del timer cuando corre y el área segura del
+     dispositivo. Se suma aquí y en ningún otro sitio; `<main>` reserva
+     leyendo la variable, nunca un número, así que mover el pie es cambiar
      una línea. En escritorio no hay chrome abajo y vale cero. `BottomNav` la
      pone a cero mientras el teclado está abierto. */
-  --kino-bottom-nav: 5.4rem;
+  --kino-bottom-nav: 4rem;
   --kino-bottom-timer: 0rem;
   --kino-bottom-chrome: 0px;
-
-  --radius: 0.625rem;
 
   /* shadcn lee estos; el valor vive en el rol. */
   --background: var(--bg);
@@ -164,8 +217,9 @@
   --sidebar-ring: var(--ac);
 
   /* Estados de tarea. El color acompaña a la palabra, nunca la sustituye:
-     vencida es --warn con "vencida" delante; hecha es --ok con el check;
-     crítica y alta son peso y orden, así que van en tinta, no en color. */
+     vencida es --warn con "vencida" delante; hecha es --ok con el círculo
+     relleno; crítica y alta son peso y orden, así que van en tinta, no en
+     color. */
   --task-overdue: var(--warn);
   --task-due-soon: var(--mute);
   --task-done: var(--ok);
@@ -183,12 +237,12 @@
 }
 
 .dark {
-  --bg: #131211;
-  --sf: #1e1c1a;
-  --sf2: #2b2926;
-  --ink: #f6f5f3;
-  --body: #d8d5d0;
-  --mute: #9f9a92;
+  --bg: #171512;
+  --sf: #221f1a;
+  --sf2: #2f2b24;
+  --ink: #f5f1ea;
+  --body: #d9d3c8;
+  --mute: #a39c8f;
   --ac: #e8b04b;
   --on: #1a1204;
   --warn: #e8836a;
@@ -199,11 +253,16 @@
   --rv-evidence: #5fd1c6;
   --rv-clarity: #bfd36a;
   --rv-style: #e597d6;
+  /* En oscuro el rol ya contrasta sobre su tinte: el texto del par es el rol. */
+  --ac-text: color-mix(in srgb, var(--ac) 60%, var(--ink));
+  --warn-text: color-mix(in srgb, var(--warn) 60%, var(--ink));
+  --ok-text: color-mix(in srgb, var(--ok) 60%, var(--ink));
+  --danger-text: color-mix(in srgb, var(--danger) 60%, var(--ink));
   --glow: color-mix(in srgb, var(--ac) 55%, transparent);
-  --glass: color-mix(in srgb, var(--sf) 82%, transparent);
-  --glass-ln: color-mix(in srgb, var(--ink) 9%, transparent);
-  /* En oscuro la elevación es un paso de tono, nunca una sombra. */
+  /* En oscuro la elevación es un paso de tono, nunca una sombra. El fondo
+     detrás de un overlay se funde con el papel oscuro. */
   --shadow: none;
+  --scrim: color-mix(in srgb, var(--bg) 60%, transparent);
   --task-done-foreground: var(--bg);
 }
 
@@ -222,6 +281,115 @@
   html {
     @apply font-sans;
   }
+}
+
+/* El único foco visible del producto: un anillo del acento separado del
+   control por 2 px de aire, igual en botón, campo, segmento y fila. Va en
+   outline y no en box-shadow para no pelearse con el glow de la primaria. */
+@utility focus-ring {
+  outline: none;
+  &:focus-visible {
+    outline: 2px solid var(--ring);
+    outline-offset: 2px;
+  }
+}
+
+/* Movimiento con nombre. Sólo transform, opacity y color; nunca layout. */
+
+/* Pasar página: la pantalla nueva entra desde la derecha y se asienta. Sólo
+   entrada: el App Router desmonta la página que sale, así que la salida no
+   se puede animar con CSS. */
+@keyframes entrar-pagina {
+  from {
+    transform: translateX(1.5rem);
+    opacity: 0.85;
+  }
+  to {
+    transform: translateX(0);
+    opacity: 1;
+  }
+}
+
+/* La hoja inferior sube desde abajo del todo y se recoge por el mismo camino. */
+@keyframes subir-hoja {
+  from {
+    transform: translateY(100%);
+  }
+  to {
+    transform: translateY(0);
+  }
+}
+@keyframes recoger-hoja {
+  from {
+    transform: translateY(0);
+  }
+  to {
+    transform: translateY(100%);
+  }
+}
+
+/* Tachar: el círculo se rellena con --ok (hecha) y crece un punto; el título
+   cae a --mute con una transición de color de la misma duración. */
+@keyframes tachar {
+  from {
+    transform: scale(0.8);
+    background-color: transparent;
+    border-color: var(--ln2);
+  }
+  to {
+    transform: scale(1);
+    background-color: var(--ok);
+    border-color: var(--ok);
+  }
+}
+
+/* `backwards` y no `both`: al terminar no queda ningún transform puesto, así
+   que un pie o una cabecera `position: fixed` dentro de la página animada
+   siguen anclados al viewport. */
+@utility anim-entrar-pagina {
+  animation: entrar-pagina var(--dur-pagina) var(--ease-pluma) backwards;
+}
+@utility anim-subir-hoja {
+  animation: subir-hoja var(--dur-hoja) var(--ease-pluma) backwards;
+}
+@utility anim-recoger-hoja {
+  animation: recoger-hoja var(--dur-hoja) var(--ease-tinta) both;
+}
+@utility anim-tachar {
+  animation: tachar var(--dur-tachar) var(--ease-pluma) both;
+}
+/* Un toque: la pastilla o el círculo se encoge a .97 mientras se mantiene.
+   Sólo pone el transform; quien lo usa declara `transform` en su propia lista
+   de transición con --dur-toque y pluma, para que dos reglas de transition no
+   se pisen. */
+@utility press {
+  &:active {
+    transform: scale(0.97);
+  }
+}
+
+/* La hoja inferior (vaul) inyecta su CSS sin capa y a 500 ms con su propia
+   curva, y le gana a cualquier clase de Tailwind. Estas reglas le imponen el
+   sistema de la casa: sube en --dur-hoja con pluma, se recoge en --dur-pagina
+   con tinta, y el fondo acompaña en --dur-pagina. Van con importante porque
+   vaul también escribe la transición en línea al soltar el asa. */
+[data-vaul-drawer] {
+  transition-duration: var(--dur-hoja) !important;
+  transition-timing-function: var(--ease-pluma) !important;
+  animation-duration: var(--dur-hoja) !important;
+  animation-timing-function: var(--ease-pluma) !important;
+}
+[data-vaul-drawer][data-state="closed"] {
+  transition-duration: var(--dur-pagina) !important;
+  transition-timing-function: var(--ease-tinta) !important;
+  animation-duration: var(--dur-pagina) !important;
+  animation-timing-function: var(--ease-tinta) !important;
+}
+[data-vaul-overlay] {
+  transition-duration: var(--dur-pagina) !important;
+  transition-timing-function: var(--ease-pluma) !important;
+  animation-duration: var(--dur-pagina) !important;
+  animation-timing-function: var(--ease-pluma) !important;
 }
 
 /* TipTap editor styles */
@@ -768,7 +936,10 @@
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,
-  *::after {
+  *::after,
+  [data-vaul-drawer],
+  [data-vaul-drawer][data-state="closed"],
+  [data-vaul-overlay] {
     animation-duration: 0.01ms !important;
     animation-iteration-count: 1 !important;
     transition-duration: 0.01ms !important;

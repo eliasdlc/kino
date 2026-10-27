@@ -21,6 +21,7 @@ import {
 import { SlashMenu } from "./SlashMenu";
 import type { SlashItem, SlashMenuProps, SlashMenuRef } from "./SlashMenu";
 import { uploadImageFile } from "@/features/uploads/uploads.client";
+import { colocarJuntoAlCursor } from "./caret-popover";
 
 /**
  * Abre el selector de archivos, comprime a WebP, sube y inserta la imagen
@@ -144,7 +145,7 @@ function getSlashItems(items: SlashItem[], query: string): SlashItem[] {
   );
 }
 
-/** Mounts SlashMenu in a fixed, caret-anchored popover with simple flip. */
+/** El menú `/` anclado al cursor, medido contra el viewport visual (`caret-popover`). */
 function renderSlashMenu() {
   let renderer: ReactRenderer<SlashMenuRef, SlashMenuProps> | null = null;
   let el: HTMLDivElement | null = null;
@@ -154,14 +155,7 @@ function renderSlashMenu() {
     if (!el || !clientRect) return;
     const rect = clientRect();
     if (!rect) return;
-    const menuHeight = el.offsetHeight || 300;
-    const spaceBelow = window.innerHeight - rect.bottom;
-    const top =
-      spaceBelow < menuHeight + 16 ? rect.top - menuHeight - 6 : rect.bottom + 6;
-    el.style.position = "fixed";
-    el.style.left = `${Math.round(rect.left)}px`;
-    el.style.top = `${Math.round(Math.max(8, top))}px`;
-    el.style.zIndex = "50";
+    colocarJuntoAlCursor(el, rect);
   };
 
   return {

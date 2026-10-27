@@ -86,6 +86,11 @@ export function EditorProvider({
     editorProps: {
       attributes: { class: "focus:outline-none min-h-[60vh] text-sm leading-7" },
       transformPastedHTML: (html) => cleanPastedHtml(html),
+      // Al seguir el cursor, el editor deja aire arriba y abajo: abajo cabe la
+      // barra del pulgar del teléfono (3.3rem) con su canto, así que la línea
+      // que escribes nunca queda debajo de ella.
+      scrollMargin: { top: 72, bottom: 104, left: 0, right: 0 },
+      scrollThreshold: { top: 72, bottom: 104, left: 0, right: 0 },
     },
   });
 

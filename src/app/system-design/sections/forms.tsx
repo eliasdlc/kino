@@ -38,33 +38,33 @@ export function FormsSection() {
       id="formularios"
       number="06"
       title="Formularios"
-      description="Inputs, selects, switches y pickers de fecha/hora. Todos comparten el mismo focus ring (ring-ring/50) y el estado aria-invalid destructivo."
+      description="El campo y el select son pastillas de 2.85rem, la altura del botón, con el hairline fuerte; el área de texto es superficie de 1.125rem. Todos comparten el único foco visible (focus-ring) y el estado aria-invalid en carmesí. El interruptor y el pulgar del slider amplían su zona de toque a 2.85rem sin agrandar el dibujo."
     >
       <SubSection title="Input y Textarea">
         <SpecimenGrid cols={3}>
-          <Specimen label="Default" hint="con Label asociado">
+          <Specimen label="Normal" hint="con Label asociado">
             <div className="w-full space-y-2">
               <Label htmlFor="ds-name">Nombre del sistema</Label>
               <Input id="ds-name" placeholder="Universidad" />
             </div>
           </Specimen>
-          <Specimen label="Disabled">
+          <Specimen label="Deshabilitado">
             <div className="w-full space-y-2">
               <Label htmlFor="ds-dis">Campo bloqueado</Label>
               <Input id="ds-dis" disabled placeholder="No editable" />
             </div>
           </Specimen>
-          <Specimen label="Inválido" hint="aria-invalid">
+          <Specimen label="Inválido" hint="aria-invalid: borde carmesí y siempre un mensaje debajo, el color solo no basta">
             <div className="w-full space-y-2">
               <Label htmlFor="ds-inv">Email</Label>
               <Input id="ds-inv" aria-invalid defaultValue="no-es-un-email" />
               <p className="text-xs text-destructive">Introduce un email válido.</p>
             </div>
           </Specimen>
-          <Specimen label="Textarea">
-            <Textarea placeholder="Descripción de la tarea…" className="w-full" />
+          <Specimen label="Área de texto">
+            <Textarea placeholder="Descripción de la tarea" className="w-full" />
           </Specimen>
-          <Specimen label="Textarea disabled">
+          <Specimen label="Área deshabilitada">
             <Textarea disabled placeholder="Bloqueada" className="w-full" />
           </Specimen>
         </SpecimenGrid>
@@ -72,7 +72,7 @@ export function FormsSection() {
 
       <SubSection
         title="InputGroup"
-        description="Input con addons: iconos, texto o botones pegados al campo."
+        description="Campo con addons: iconos, texto o botones pegados al campo. El botón de dentro mide 2.85rem en el teléfono y encoge desde md."
       >
         <SpecimenGrid cols={3}>
           <Specimen label="Icono inicial" hint="patrón de búsqueda">
@@ -80,7 +80,7 @@ export function FormsSection() {
               <InputGroupAddon>
                 <Search className="size-4" />
               </InputGroupAddon>
-              <InputGroupInput placeholder="Buscar tareas…" />
+              <InputGroupInput placeholder="Buscar tareas" />
             </InputGroup>
           </Specimen>
           <Specimen label="Texto addon">
@@ -93,7 +93,7 @@ export function FormsSection() {
           </Specimen>
           <Specimen label="Con botón">
             <InputGroup className="w-full">
-              <InputGroupInput placeholder="Añadir rápido…" />
+              <InputGroupInput placeholder="Añadir rápido" />
               <InputGroupAddon align="inline-end">
                 <InputGroupButton aria-label="Enviar">
                   <ArrowRight />
@@ -106,7 +106,7 @@ export function FormsSection() {
 
       <SubSection title="Select">
         <SpecimenGrid cols={3}>
-          <Specimen label="Default">
+          <Specimen label="Normal">
             <Select defaultValue="medium">
               <SelectTrigger className="w-full">
                 <SelectValue placeholder="Prioridad" />
@@ -122,10 +122,10 @@ export function FormsSection() {
               </SelectContent>
             </Select>
           </Specimen>
-          <Specimen label="Placeholder">
+          <Specimen label="Sin valor">
             <Select>
               <SelectTrigger className="w-full">
-                <SelectValue placeholder="Elige un sistema…" />
+                <SelectValue placeholder="Elige un sistema" />
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="uni">Universidad</SelectItem>
@@ -133,13 +133,13 @@ export function FormsSection() {
               </SelectContent>
             </Select>
           </Specimen>
-          <Specimen label="Disabled">
+          <Specimen label="Deshabilitado">
             <Select disabled>
               <SelectTrigger className="w-full">
                 <SelectValue placeholder="Bloqueado" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="x">—</SelectItem>
+                <SelectItem value="x">Ninguno</SelectItem>
               </SelectContent>
             </Select>
           </Specimen>
@@ -148,12 +148,12 @@ export function FormsSection() {
 
       <SubSection title="Switch, Slider y Progress">
         <SpecimenGrid cols={3}>
-          <Specimen label="Switch" hint="off · on · disabled">
+          <Specimen label="Interruptor" hint="apagado, encendido, deshabilitado; zona de toque 2.85rem, pulgar con hairline">
             <Switch aria-label="Apagado" />
             <Switch defaultChecked aria-label="Encendido" />
             <Switch disabled aria-label="Deshabilitado" />
           </Specimen>
-          <Specimen label="Slider" hint="controla el Progress de al lado">
+          <Specimen label="Deslizador" hint="pista de 2.85rem de alto; controla el progreso de al lado">
             <Slider
               value={[progress]}
               onValueChange={([v]) => setProgress(v)}
@@ -162,7 +162,7 @@ export function FormsSection() {
               className="w-full"
             />
           </Specimen>
-          <Specimen label="Progress" hint={`value={${progress}}`}>
+          <Specimen label="Progreso" hint={`value={${progress}}`}>
             <Progress value={progress} className="w-full" />
           </Specimen>
         </SpecimenGrid>
@@ -170,16 +170,16 @@ export function FormsSection() {
 
       <SubSection
         title="Fecha y hora"
-        description="Calendar (react-day-picker) y TimePicker propio. La convención de fechas es timestamptz con hora opcional (project-date-convention)."
+        description="Calendar (react-day-picker) con celdas de 2.85rem en el teléfono y 2rem desde md; TimePicker propio sobre Command. La fecha es un instante con hora opcional."
       >
         <SpecimenGrid cols={3}>
-          <Specimen label="Calendar" hint="selección simple">
+          <Specimen label="Calendario" hint="selección simple; el día enfocado con flechas lleva el anillo">
             <Calendar mode="single" selected={date} onSelect={setDate} />
           </Specimen>
-          <Specimen label="TimePicker" hint='value="09:30"'>
+          <Specimen label="Hora" hint='TimePicker, value="09:30"'>
             <TimePicker value={time} onChange={setTime} />
           </Specimen>
-          <Specimen label="TimePicker disabled">
+          <Specimen label="Hora deshabilitada">
             <TimePicker disabled />
           </Specimen>
         </SpecimenGrid>

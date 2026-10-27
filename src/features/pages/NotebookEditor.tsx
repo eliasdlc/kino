@@ -4,14 +4,26 @@ import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react
 import { EditorContent } from "@tiptap/react";
 import { BubbleMenu } from "@tiptap/react/menus";
 import { ConvexError } from "convex/values";
-import { StickyNote } from "lucide-react";
+import { Ellipsis } from "lucide-react";
 import { toast } from "sonner";
+import { api } from "@convex/_generated/api";
 import { cn } from "@/lib/utils";
+import { useConvexQuery } from "@/shared/convex/hooks";
 import { usePage, useUpdatePage } from "./pages.hooks";
+import {
+  BOTON_MAS,
+  CUERPO_DEL_ESCRITOR,
+  FILA_DEL_TITULO,
+  LETRA_DEL_TITULO,
+  RESERVA_CODEX,
+  nombreDelBotonMas,
+  usePrimeraPintura,
+} from "./primera-pintura";
 import { useSharedEditor } from "./EditorContext";
 import { TableMenus } from "./TableMenus";
+import { EditorThumbBar } from "./EditorThumbBar";
 import { CodexChips } from "@/features/entities/CodexChips";
-import { CodexSelectionActions } from "./CodexBubbleMenu";
+import { SelectionToolbar } from "./SelectionToolbar";
 import { EntityFicheSheet } from "@/features/entities/EntityFicheSheet";
 import { StickyNoteCreator } from "@/features/sticky-notes/StickyNoteCreator";
 import type { PageDetailTransport } from "./pages.types";
@@ -29,6 +41,11 @@ interface NotebookEditorProps {
    */
   title: string;
   onTitleChange: (title: string) => void;
+  /**
+   * Abre el panel (índice, sesión, estado del capítulo, exportar). En el
+   * teléfono es la única puerta: la barra de arriba no existe ahí.
+   */
+  onOpenPanel?: () => void;
 }
 
 /** El título guarda solo y rápido: seguir escribiendo el cuerpo no lo retrasa. */
@@ -45,8 +62,20 @@ function esConflicto(error: Error): boolean {
   return typeof data === "object" && data !== null && "code" in data && data.code === "CONFLICT";
 }
 
-export function NotebookEditor({ page, systemId, pageId, writer = false, title, onTitleChange }: NotebookEditorProps) {
+export function NotebookEditor({
+  page,
+  systemId,
+  pageId,
+  writer = false,
+  title,
+  onTitleChange,
+  onOpenPanel,
+}: NotebookEditorProps) {
   const editor = useSharedEditor();
+  const editorRef = useRef(editor);
+  useEffect(() => {
+    editorRef.current = editor;
+  }, [editor]);
   const { mutate: updatePage } = useUpdatePage(page.id, systemId);
   // El texto también cambia fuera de esta pantalla: restaurar una versión,
   // mover una escena en la rejilla, otra pestaña, el conector MCP. La
@@ -59,9 +88,26 @@ export function NotebookEditor({ page, systemId, pageId, writer = false, title, 
     screen: { x: number; y: number };
   } | null>(null);
   const [mentionEntityId, setMentionEntityId] = useState<string | null>(null);
+  // La fila del codex se reserva mientras llegan sus fichas, con el mismo alto
+  // que la primera pintura le guardó: el cuerpo no baja cuando aparecen.
+  const primeraPintura = usePrimeraPintura();
+  const fichasDelServidor = primeraPintura?.fichasDelCodex ?? 0;
+  // La palabra de la puerta: la del layout si la hay; fuera de él, «Capítulo».
+  const etiquetaMas = writer ? (primeraPintura?.etiquetaMas ?? "Capítulo") : null;
+  const { data: fichas } = useConvexQuery(
+    api.entities.byPage,
+    writer && fichasDelServidor > 0 ? { pageId: page.id } : "skip",
+  );
+  const reservarCodex = writer && fichasDelServidor > 0 && fichas === undefined;
   const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   /** Lo tecleado que el temporizador todavía no ha dado por vencido. */
   const pendingPatch = useRef<PagePatch | null>(null);
+  /**
+   * El cuerpo cambió desde el último guardado. El HTML no se serializa en cada
+   * tecla: se pide al editor cuando el guardado vence o al cerrar, que es una
+   * vez por pausa y no una por letra.
+   */
+  const cuerpoSucio = useRef(false);
   /** Lo vencido que espera turno: sólo sale un guardado a la vez. */
   const enCola = useRef<PagePatch | null>(null);
   /** Hay un guardado esperando respuesta del servidor. */
@@ -147,6 +193,7 @@ export function NotebookEditor({ page, systemId, pageId, writer = false, title, 
         saveTimer.current = null;
       }
       pendingPatch.current = null;
+      cuerpoSucio.current = false;
       aplicandoDelServidor.current = true;
       try {
         editor.commands.setContent(contenido);
@@ -200,6 +247,7 @@ export function NotebookEditor({ page, systemId, pageId, writer = false, title, 
             if (!esConflicto(error)) return;
             enCola.current = null;
             pendingPatch.current = null;
+            cuerpoSucio.current = false;
             const delServidor = servidorRef.current;
             if (montado.current && delServidor) {
               recargar(delServidor);
@@ -229,6 +277,14 @@ export function NotebookEditor({ page, systemId, pageId, writer = false, title, 
     [enviar]
   );
 
+  /** Lo pendiente más el cuerpo, si cambió: aquí es donde se serializa el HTML. */
+  const conCuerpo = useCallback((patch: PagePatch): PagePatch => {
+    const actual = editorRef.current;
+    if (!cuerpoSucio.current || !actual || actual.isDestroyed) return patch;
+    cuerpoSucio.current = false;
+    return { ...patch, content: actual.getHTML() };
+  }, []);
+
   const scheduleSave = useCallback(
     (patch: PagePatch) => {
       pendingPatch.current = { ...pendingPatch.current, ...patch };
@@ -237,10 +293,10 @@ export function NotebookEditor({ page, systemId, pageId, writer = false, title, 
         saveTimer.current = null;
         const pending = pendingPatch.current;
         pendingPatch.current = null;
-        if (pending) guardar(pending);
+        if (pending) guardar(conCuerpo(pending));
       }, CONTENT_SAVE_MS);
     },
-    [guardar]
+    [guardar, conCuerpo]
   );
 
   // Cuando el servidor tiene otra versión, la pantalla la trae. Es la otra
@@ -259,7 +315,8 @@ export function NotebookEditor({ page, systemId, pageId, writer = false, title, 
     if (!editor) return;
     const handler = () => {
       if (aplicandoDelServidor.current) return;
-      scheduleSave({ content: editor.getHTML() });
+      cuerpoSucio.current = true;
+      scheduleSave({});
     };
     editor.on("update", handler);
     return () => { editor.off("update", handler); };
@@ -269,9 +326,11 @@ export function NotebookEditor({ page, systemId, pageId, writer = false, title, 
   // dependiera de `guardar` correría su limpieza en cada render y volvería a
   // mandar el mismo parche en bucle. Por eso la función se lee por ref.
   const guardarRef = useRef(guardar);
+  const conCuerpoRef = useRef(conCuerpo);
   useEffect(() => {
     guardarRef.current = guardar;
-  }, [guardar]);
+    conCuerpoRef.current = conCuerpo;
+  }, [guardar, conCuerpo]);
   useEffect(() => {
     // Se pone al entrar, no sólo al salir: en desarrollo StrictMode monta,
     // desmonta y vuelve a montar, y un `montado` que sólo sabe bajar dejaba el
@@ -281,7 +340,8 @@ export function NotebookEditor({ page, systemId, pageId, writer = false, title, 
       montado.current = false;
       // El cuerpo y el título salen en un solo guardado. Dos, aunque la cola
       // los ordenara, serían dos viajes para el mismo gesto de cerrar.
-      const ultimo: PagePatch = { ...pendingPatch.current };
+      // El editor sigue vivo aquí: Tiptap programa su destrucción para después.
+      const ultimo: PagePatch = conCuerpoRef.current({ ...pendingPatch.current });
       pendingPatch.current = null;
       if (saveTimer.current) {
         clearTimeout(saveTimer.current);
@@ -336,47 +396,64 @@ export function NotebookEditor({ page, systemId, pageId, writer = false, title, 
   return (
     <>
       <div className="flex flex-col gap-4 h-full">
-        <textarea
-          ref={titleField}
-          rows={1}
-          value={title}
-          onChange={handleTitleChange}
-          onKeyDown={(e) => {
-            if (e.key === "Enter") e.preventDefault();
-          }}
-          placeholder="Sin título"
-          className="block w-full resize-none overflow-hidden bg-transparent text-3xl font-bold placeholder:text-muted-foreground/40 focus:outline-none border-none p-0"
-          maxLength={500}
-        />
+        <div className={FILA_DEL_TITULO}>
+          {/* El título de un manuscrito es texto, no interfaz: va en la misma
+              Literata que el cuerpo, en redonda. */}
+          <textarea
+            ref={titleField}
+            rows={1}
+            value={title}
+            onChange={handleTitleChange}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") e.preventDefault();
+            }}
+            placeholder="Sin título"
+            aria-label="Título"
+            className={cn(
+              "block min-w-0 flex-1 resize-none overflow-hidden border-none bg-transparent p-0 text-foreground placeholder:text-muted-foreground/60 focus:outline-none",
+              LETRA_DEL_TITULO,
+            )}
+            maxLength={500}
+          />
+          {onOpenPanel && (
+            <button
+              type="button"
+              onClick={onOpenPanel}
+              aria-label={nombreDelBotonMas(etiquetaMas)}
+              className={BOTON_MAS}
+            >
+              {etiquetaMas && <span>{etiquetaMas}</span>}
+              <Ellipsis aria-hidden className="size-5" />
+            </button>
+          )}
+        </div>
         {/* El codex a un toque mientras escribes. En escritorio no: ahí el rail
             del panel derecho ya lo cubre y esta fila sería una segunda forma de
             hacer lo mismo. */}
         {writer && (
           <div className="md:hidden">
-            <CodexChips pageId={page.id} systemId={systemId} />
+            {reservarCodex ? (
+              <div aria-hidden className={RESERVA_CODEX} />
+            ) : (
+              <CodexChips pageId={page.id} systemId={systemId} />
+            )}
           </div>
         )}
-        <div className={cn("tiptap-editor flex-1 relative", writer && "tiptap-writer")}>
+        <div className={cn("tiptap-editor flex-1 relative", writer && CUERPO_DEL_ESCRITOR)}>
           {editor && (
-            <BubbleMenu editor={editor}>
-              <div className="flex items-center gap-1 bg-popover border border-border rounded-lg px-1.5 py-1 shadow-lg">
-                <button
-                  type="button"
-                  onClick={handleCreateSticky}
-                  className={cn(
-                    "flex items-center gap-1 px-2 py-1 rounded text-xs font-medium transition-colors",
-                    "text-muted-foreground hover:text-foreground hover:bg-accent"
-                  )}
-                  title="Crear sticky note del texto seleccionado"
-                >
-                  <StickyNote className="size-3" />
-                  Sticky
-                </button>
-                {writer && <CodexSelectionActions editor={editor} systemId={systemId} />}
-              </div>
+            <BubbleMenu editor={editor} options={{ placement: "top" }}>
+              <SelectionToolbar editor={editor} writer={writer} systemId={systemId} onNote={handleCreateSticky} />
             </BubbleMenu>
           )}
           {editor && <TableMenus editor={editor} />}
+          {editor && (
+            <EditorThumbBar
+              editor={editor}
+              mention={writer}
+              onNote={handleCreateSticky}
+              onMore={() => onOpenPanel?.()}
+            />
+          )}
           <div onClickCapture={handleEditorClick}>
             <EditorContent editor={editor} />
           </div>
@@ -408,5 +485,16 @@ export function NotebookEditor({ page, systemId, pageId, writer = false, title, 
 /** Deja la altura del campo en la de su contenido, sin barra de desplazamiento. */
 function ajustarAlto(campo: HTMLTextAreaElement) {
   campo.style.height = "auto";
-  campo.style.height = `${campo.scrollHeight}px`;
+  const linea = parseFloat(getComputedStyle(campo).lineHeight);
+  campo.style.height = `${altoEnLineas(campo.scrollHeight, linea)}px`;
+}
+
+/**
+ * El alto de un título de `n` líneas: `n` veces su interlínea, igual que el
+ * párrafo de la primera pintura. El `scrollHeight` de un textarea redondea
+ * hacia arriba y suma unos 3 px; con él, el cuerpo bajaba al llegar el editor.
+ */
+export function altoEnLineas(scrollHeight: number, interlinea: number): number {
+  if (!Number.isFinite(interlinea) || interlinea <= 0) return scrollHeight;
+  return Math.max(1, Math.round(scrollHeight / interlinea)) * interlinea;
 }

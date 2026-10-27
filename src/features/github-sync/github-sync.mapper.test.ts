@@ -74,7 +74,7 @@ describe("título y descripción", () => {
   });
 });
 
-describe("boardStatusFor · qué columna le toca al issue", () => {
+describe("boardStatusFor: qué columna le toca al issue", () => {
   it("una tarjeta nueva de issue abierto entra en la primera columna", () => {
     expect(boardStatusFor("open", null, null)).toBe(INITIAL_BOARD_COLUMN);
   });
@@ -141,7 +141,7 @@ describe("newTaskFromIssue", () => {
   });
 });
 
-describe("taskPatchFromIssue · re-sincronizar", () => {
+describe("taskPatchFromIssue: re-sincronizar", () => {
   it("sin cambios no propone nada", () => {
     const patch = taskPatchFromIssue(issue(), existing(), null);
 

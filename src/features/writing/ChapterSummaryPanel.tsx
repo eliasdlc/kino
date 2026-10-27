@@ -1,8 +1,10 @@
 "use client";
 
 import { useState } from "react";
-import { Loader2, Quote } from "lucide-react";
-import { Button } from "@/components/ui/button";
+import { Quote } from "lucide-react";
+import { MarginRow } from "@/components/ui/margin-row";
+import { SectionHead } from "@/features/dashboard/SectionHead";
+import { MargenDeUnaLinea, UNA_LINEA } from "@/shared/components/una-linea";
 import { useChapterSummary } from "./writing.hooks";
 
 /**
@@ -20,26 +22,22 @@ export function ChapterSummaryPanel({ pageId }: { pageId: string }) {
 
   return (
     <div>
-      <p className="mb-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-        Resumen
-      </p>
+      <SectionHead as="h3" title="Resumen" className="mb-1" />
 
       {!asked ? (
-        <Button
-          variant="ghost"
-          size="sm"
-          className="h-8 justify-start gap-2 px-2 text-sm font-normal"
+        <MarginRow
           onClick={() => setAsked(true)}
+          className={UNA_LINEA}
+          margin={<MargenDeUnaLinea><Quote aria-hidden className="size-5" /></MargenDeUnaLinea>}
         >
-          <Quote className="size-3.5 shrink-0" />
-          Resumir este capítulo
-        </Button>
+          <span className="block text-base text-foreground">Resumir este capítulo</span>
+        </MarginRow>
       ) : isLoading ? (
-        <div className="flex h-16 items-center justify-center">
-          <Loader2 className="size-4 animate-spin text-muted-foreground" />
-        </div>
+        <p role="status" className="py-3 text-sm text-muted-foreground">
+          Eligiendo las frases que más pesan
+        </p>
       ) : !data || data.sentences.length === 0 ? (
-        <p className="text-xs text-muted-foreground">
+        <p className="py-2 text-sm text-muted-foreground">
           Todavía no hay bastante texto para elegir frases.
         </p>
       ) : (
@@ -48,7 +46,7 @@ export function ChapterSummaryPanel({ pageId }: { pageId: string }) {
             {data.sentences.map((sentence) => (
               <li
                 key={sentence.position}
-                className="border-l-2 border-border pl-2 text-xs leading-relaxed text-muted-foreground"
+                className="border-l-2 border-border pl-3 font-serif text-sm leading-relaxed text-body"
               >
                 {sentence.text}
               </li>
@@ -60,7 +58,7 @@ export function ChapterSummaryPanel({ pageId }: { pageId: string }) {
               {data.keyTerms.map((term) => (
                 <span
                   key={term}
-                  className="rounded-full bg-muted px-2 py-0.5 text-[10px] text-muted-foreground"
+                  className="rounded-full bg-secondary px-2.5 py-0.5 text-xs text-muted-foreground"
                 >
                   {term}
                 </span>
@@ -68,8 +66,8 @@ export function ChapterSummaryPanel({ pageId }: { pageId: string }) {
             </div>
           )}
 
-          <p className="text-[10px] leading-snug text-muted-foreground/70">
-            Frases del propio capítulo, elegidas por peso. Kino no escribe por ti.
+          <p className="text-xs leading-snug text-muted-foreground">
+            Frases del propio capítulo, elegidas por peso. Nada está escrito por otro.
           </p>
         </div>
       )}

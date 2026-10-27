@@ -237,7 +237,7 @@ export function coverBlocks(meta: CompileMeta): DocxBlock[] {
   if (meta.author) blocks.push({ kind: "author", runs: [{ text: meta.author }] });
   blocks.push({
     kind: "author",
-    runs: [{ text: `${meta.totalWords.toLocaleString("es")} palabras · ${meta.date}` }],
+    runs: [{ text: `${meta.totalWords.toLocaleString("es")} palabras, ${meta.date}` }],
   });
   return blocks;
 }
