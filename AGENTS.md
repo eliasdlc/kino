@@ -1,544 +1,174 @@
-# Kino: instrumento de planificación por energía
-
-Instrumento de planificación construido alrededor de la gestión de energía cognitiva y sistemas basados en identidad. Fullstack Next.js 16, 100% serverless.
-
-> **Los planes, el estado y el orden de trabajo viven en Zoho Projects**, no en este repo. Este archivo cubre comandos, stack y convenciones de código: nada de roadmap.
->
-> En Zoho (portal `eliasdlc2005gmaildotcom`, proyecto `Kino`, prefijo `KI1-T`): las fases van numeradas en orden de ejecución, y son la fuente de verdad de qué se construye y por qué. El índice de decisiones vive en `~/Documents/Proyectos/Kino/dev/Kino-DECISIONS.md`. *Norte, principios y estándares* y *Estado real del producto* eran documentos de equipo de Linear y no se migraron: hasta que se reescriban, lo que manda son las fases y sus tickets.
->
-> **En este repo solo se aceptan tres Markdown:** `README.md`, `AGENTS.md` y `DESIGN.md`, el contrato de identidad visual. Ningún plan, audit ni análisis. Las notas locales que no son código van a `~/Documents/Kino/dev/`.
-
-## Comandos
-
-```bash
-pnpm install                        # Instalar dependencias
-pnpm dev                            # Dev server (http://localhost:3000)
-pnpm build                          # Build de producción
-pnpm lint                           # ESLint strict ( debe pasar con 0 errores
-pnpm typecheck                      # tsc --noEmit ) debe pasar
-npx convex dev                      # Publica las funciones en el deployment de dev y regenera convex/_generated
-npx convex run migrations/<fichero>:run   # Corre una migración de datos contra dev (ver «Migraciones de datos»)
-pnpm test                           # Suite completa (lógica pura, sin base)
-pnpm check:voz                      # La voz del producto: cinco reglas de grep. Falla en rojo
-pnpm check:bundle                   # El JavaScript que se le manda al navegador, contra su tope (exige `pnpm build` antes)
-pnpm test -- --run <path>           # Un solo archivo de test
-pnpm migrate:convex                 # Importador Postgres → Convex (scripts/migrate-to-convex), sólo para el cutover
-```
-
-**Siempre** correr `pnpm typecheck && pnpm lint` después de cualquier cambio. Si alguno falla, se arregla antes de commitear.
-
-## Stack
-
-- **Framework**: Next.js 16 (App Router, API Routes, Server Actions)
-- **Lenguaje**: TypeScript strict
-- **Base de datos**: Convex (`convex/schema.ts`, treinta y cinco tablas con un test por tabla). El schema de Drizzle sigue en `src/shared/db/schema.ts` sólo como origen del importador
-- **Auth**: Clerk. Registro, sesiones, verificación de correo, recuperación de contraseña, proveedores sociales y el panel de cuenta son componentes de Clerk (`@clerk/nextjs`). `src/proxy.ts` monta `clerkMiddleware`; `getServerSession` resuelve la identidad del request y **no escribe nada**, porque corre en cada render de cada página. Convex valida el mismo JWT con la plantilla `convex` (`convex/auth.config.ts`)
-
-  **Dónde nace la fila de `users`**, que es lo que `kinoQuery` exige y sin lo que responde `NO_USER`: la crea el webhook `user.created` de Clerk contra `https://<deployment>.convex.site/clerk/user-created` (`convex/http.ts`, secreto `CLERK_WEBHOOK_SIGNING_SECRET`). Clerk entrega ese evento en paralelo al redirect del navegador, así que hay una ventana en la que la persona llega antes que su fila: la cubre `src/proxy.ts`, que llama a `users.ensure` una vez por navegador y lo apunta en la cookie `kino_fila`. El proxy es el único sitio que corre antes del árbol; un layout competiría con su propia página, que Next renderiza en paralelo
-- **Email transaccional**: los correos de cuenta los manda Clerk. Los de recordatorios (el resumen de la mañana y el respaldo cuando un push no llega) salen por la API HTTP de Resend desde `convex/lib/correo.ts`, inerte sin `RESEND_API_KEY` y `RESEND_FROM`
-- **Server state**: Convex reactivo (`src/shared/convex/hooks.ts`). No hay TanStack Query: una query es una suscripción y se actualiza sola cuando la base cambia
-- **Formularios**: react-hook-form + zodResolver
-- **Estilos**: Tailwind + shadcn/ui (Radix)
-- **Toasts**: sonner. **Gráficas**: Recharts. **Fechas**: date-fns. **Recurrencia**: rrule
-- **Editor**: Tiptap v3
-- **Background**: Lazy Evaluation (catch-up al entrar) + los crons de Convex (`convex/crons.ts`: snapshot diario y recordatorios cada quince minutos, con bitácora en `cronRuns`). Se registran en el deployment salvo que `KINO_CRONS_APAGADOS` valga `true`, que es el caso del de desarrollo: ahí no hay a quién notificar y cada vuelta releía la base para nada. La variable apaga, nunca enciende, para que olvidarla en producción no deje a nadie sin avisos
-- **Errores**: Sentry en navegador y API. Inerte sin `NEXT_PUBLIC_SENTRY_DSN`;
-  el recorte de datos personales vive en `src/shared/observability/sentry-options.ts`
-- **Analítica de producto**: PostHog sin cookies, sólo el funnel de registro.
-  Inerte sin `NEXT_PUBLIC_POSTHOG_KEY`; los eventos que existen y las propiedades
-  que cada uno puede llevar son una lista cerrada en `src/shared/observability/analytics.ts`
-- **Deploy**: Vercel + Convex
-- **Package manager**: pnpm (NO npm, NO yarn)
-
-## Restricciones de arquitectura: no violar
-
-1. **$0/mes de infraestructura.** Todo dentro de free tiers de Vercel + Convex.
-2. **Sin Redis, sin BullMQ, sin servidor persistente.** 100% serverless.
-3. **Las rutas de Next no mantienen conexiones persistentes.** El WebSocket que refresca las pantallas lo abre el cliente de Convex, y es lo que hace que una lista se actualice sola sin intervalos. Ninguna pantalla usa un `refetch` por tiempo, y añadir uno sería una invocación por usuario y por minuto contra el free tier.
-4. **10s por función, salvo excepción justificada.** El presupuesto está declarado en dos sitios y no es prosa en ninguno de los dos:
-
-   - **En Convex**, `DEFAULT_BUDGET_MS` de `convex/lib/fn.ts`. Una acción nace acotada a 10 s sin que su autor tenga que acordarse; `kinoAction(30_000)` es la única por encima hoy (borrar la cuenta) y lo dice en su comentario.
-   - **En Next**, `export const maxDuration`. Lo declaran las tres rutas que hacen trabajo pesado: los dos ZIP de export en 10 s, y `/api/mcp` en 60 s. Esa es **la única excepción viva**, y existe porque el protocolo mantiene la petición abierta mientras el agente encadena herramientas.
-
-   Subir el límite es una decisión, no un ajuste: se escribe en el comentario de la función o la ruta. Y **acotar lo pesado sigue siendo la respuesta primero**: `tasks.list` y `pages.bySystem` devuelven `{ items, restantes }` con un tope duro (`TASK_LIST_LIMIT`, `PAGE_LIST_LIMIT`), y una lectura nueva que pueda crecer sin límite nace igual.
-5. **La sesión la emite y la revoca Clerk.** La cookie `__session` es un JWT corto que Clerk renueva cada minuto contra su backend, así que cerrar una sesión desde el panel la corta de verdad en ese plazo. Kino no guarda sesiones propias ni acepta otro token de navegador.
-
-   El conector MCP remoto (`/api/mcp`) entra por el OAuth de Clerk: el cliente se registra en dinámico, el usuario consiente en la pantalla de Clerk y la ruta verifica el access token con `@clerk/mcp-tools`. Convex no puede validar ese token (su `aud` cambia por cliente), así que la ruta firma uno propio de diez minutos con el alcance en `kino_scope` (`convex/lib/mcpToken.ts`, `src/features/mcp/auth.ts`) y Convex lo acepta por el provider `customJwt` de `auth.config.ts`. No hay claves API propias ni tabla `api_keys`.
-6. **Todo lo que vive en un sistema lleva `systemId`.** Una tarea, una carpeta, una página, una nota adhesiva y una versión de capítulo pertenecen a un sistema; lo que no dice a dónde va cae en la Bandeja (`systems.inbox`). No hay nada flotante. El schema ya lo exige en `tasks` (y en `entities`, `sprints`, `timeLogs`, `academicPeriods`, `systemMembers`, `systemInvites`). En `folders`, `pages`, `stickyNotes` y `pageSnapshots` sigue opcional porque está a mitad de su expand y contract (ver «Migraciones de datos»): todo escritor ya lo escribe (`pages.create` y `folders.create` lo exigen, una nota lo hereda de su página o su carpeta, una versión de su página), `convex/migrations/contenidoConSistema.ts` rellena los documentos de antes, y volverlo obligatorio es otro deploy.
-7. **Timestamps en UTC.** Convex guarda cada instante como milisegundos desde epoch (`ts` en `convex/schema.ts`), sin zona. El frontend convierte para mostrar.
-8. **Borrado blando** en cinco tablas vía `deletedAt`: `tasks`, `folders`, `pages`, `stickyNotes` y `entities`. Toda lectura de esas tablas excluye los borrados, salvo la de la papelera; los índices `by_user_alive`, `by_folder_alive` y `by_system_alive` llevan `deletedAt` para excluirlos sin leerlos. Una carpeta se lleva su subárbol entero, y no por una ruta jerárquica: no hay `path`, el árbol se arma en memoria desde `parentId` (`subtreeIds` en `convex/folders.ts`) y toda la cascada lleva el mismo `deletedAt`, que es lo que `restore` usa para devolver justo lo que se fue con ella (ver «Borrados y cascadas»).
-9. **Una query declara qué rango lee.** El tope de la restricción 4 acota lo que una lectura *devuelve*; nada acotaba lo que *lee*, y por ahí se fue el 93,7% de Database I/O del plan gratuito con una base de 19,72 MB en disco. Un `.collect()` sobre una tabla entera, o sobre un índice que sólo fija el usuario, lleva el motivo escrito al lado, igual que lo lleva subir `DEFAULT_BUDGET_MS`.
-
-   El caso que lo destapó es `notifications.pendingDeliveries`. Antes: `pushSubscriptions` entera y sin índice, después todas las tareas vivas de cada suscriptor por `by_user_alive_status` con el filtro de fecha en JavaScript, y después una consulta a `taskReminders` por cada una de esas tareas. Cientos de documentos leídos cada quince minutos para responder `{ notified: 0 }`. Después: `by_user_alive_due` acotado al final de mañana en la zona del usuario, y una sola pasada por `by_sent_remindAt` con `eq('sentAt', undefined).lte('remindAt', now)`. Los dos índices ya existían; lo que faltaba era la regla que obliga a usarlos. Hoy la misma función se llama `notifications.pendientes` y va un paso más allá: cada tarea guarda su próximo aviso en `nextReminderAt`, y el cron lee `by_nextReminder` hasta ahora, así que una tarea sin aviso pendiente no se lee nunca, por vieja o vencida que esté (ver «Recordatorios»).
-
-   **Duele más aquí que en otra arquitectura**, y es la otra cara de la restricción 3. Cada `useConvexQuery` es una suscripción, así que una query que lee 300 documentos no los lee una vez: los relee en cada escritura que la toque, por cada pestaña abierta. La reactividad sale gratis en invocaciones y se paga en bytes.
-
-   **Dos casos legítimos, y sólo dos.** Una tabla acotada por construcción, como `pushSubscriptions`, que es una fila por dispositivo. Y una poda por lotes que se reprograma sola, como las de `convex/podas.ts`, donde el lote es el tope. Cualquier otro `.collect()` sin rango es una deuda con nombre, no un descuido.
-
-## Entornos
-
-Producción y desarrollo son **dos deployments de Convex** del mismo proyecto, y cada uno tiene su instancia de Clerk. Ninguna laptop tiene la clave de deploy de producción.
-
-| Entorno | Quién lo usa | Convex | Clerk |
-|---|---|---|---|
-| Producción | el deploy de `main` en Vercel | deployment `prod`: `CONVEX_DEPLOY_KEY` en la variable **Production** de Vercel, y en ningún otro sitio | instancia Production (`pk_live_` / `sk_live_`) |
-| Desarrollo | los previews de Vercel (PRs y `dev`) y el `.env.local` de cada máquina | deployment de dev: `NEXT_PUBLIC_CONVEX_URL` en la variable **Preview** de Vercel y en `.env.local`; las funciones las publica `npx convex dev` desde la laptop | instancia Development (`pk_test_` / `sk_test_`) |
-
-**El schema y las funciones de producción los publica sólo el despliegue.** El `buildCommand` de `vercel.json` es `scripts/vercel-build.sh`: con `CONVEX_DEPLOY_KEY` en el entorno corre `npx convex deploy --cmd 'pnpm build'`, que publica las funciones y deja `NEXT_PUBLIC_CONVEX_URL` puesta para `next build`. Si el schema no valida contra los datos, el build falla y el deploy anterior sigue arriba; el código nunca sale sin sus funciones. Sin la clave (los previews) se construye sólo Next contra el deployment de dev.
-
-Un cambio de schema sigue teniendo que ser **compatible hacia atrás** con el código ya desplegado: Convex valida los documentos existentes contra el schema nuevo antes de aceptarlo, y entre una cosa y la otra el cliente viejo habla con las funciones nuevas.
-
-Cada deployment lleva sus propias variables (`npx convex env set`): `CLERK_JWT_ISSUER_DOMAIN` de su instancia de Clerk, `CLERK_WEBHOOK_SIGNING_SECRET` del endpoint que esa instancia firma, `KINO_CRONS_APAGADOS` donde los crons no deban registrarse, `KINO_MCP_JWKS` con la mitad pública de la clave con la que firma su Vercel (en dev, también la de pruebas de agentbox, con su propio kid), `ENCRYPTION_KEY` para la sincronización con GitHub, el par VAPID para los push (la privada firma además los botones de las notificaciones), y `RESEND_API_KEY`, `RESEND_FROM` y `KINO_APP_URL` para el correo de los recordatorios. Están descritas en `.env.example`.
-
-Postgres ya no está en el camino de la app. El schema de Drizzle (`src/shared/db/schema.ts`) sigue en el repo como origen de `pnpm migrate:convex`, el importador con el que se movieron los datos; `scripts/migrate-to-convex/verify.mts` compara las dos bases.
-
-**Respaldo.** Convex guarda snapshots propios, pero viven en la misma cuenta que los datos: un borrado de cuenta, una clave comprometida o un `import --replace-all` contra el deployment equivocado se los lleva también. `.github/workflows/backup.yml` exporta producción a un bucket de Cloudflare R2 a las 05:23 UTC: `npx convex export --include-file-storage` cifrado con `age`, en `scripts/backup/dump.sh`. La retención de 30 días es una regla de ciclo de vida del bucket, no lógica del workflow.
-
-Ese volcado ocurre sólo si se cumplen **dos condiciones que no son código**, y por eso este documento no afirma que esté ocurriendo:
-
-1. El workflow existe en `main`. GitHub dispara `schedule:` únicamente desde la rama por defecto, y `workflow_dispatch` tampoco aparece en la interfaz si el fichero no está allí. Tenerlo en `dev` no hace nada.
-2. Los seis secretos del repositorio están cargados: `CONVEX_DEPLOY_KEY` (clave de deploy del deployment de **producción**, empieza por `prod:`), `BACKUP_AGE_RECIPIENT` (pública `age1...`), `R2_ACCOUNT_ID`, `R2_ACCESS_KEY_ID`, `R2_SECRET_ACCESS_KEY`, `R2_BUCKET`.
-
-Cómo se comprueba si está corriendo de verdad, sin creerle a este párrafo:
-
-```bash
-gh run list --workflow=backup.yml
-```
-
-Sin ejecuciones ahí, el único respaldo de producción son los snapshots de la propia cuenta de Convex. El workflow falla en rojo ante cualquier secreto ausente, vacío o de otro deployment, y sólo se pone verde después de comprobar contra R2 que el objeto existe y mide lo que debe.
-
-La clave privada `age` no está en ningún servicio: vive en el gestor de contraseñas de Elias. Sin ella los volcados son ruido indescifrable, y es el único secreto del sistema que no se puede rotar sin invalidar todo lo guardado hasta ese momento. Si alguna vez el snapshot supera lo que R2 regala (10 GB), es una decisión, no un ajuste.
-
-Las variables de entorno están documentadas en **`.env.example`**, una línea por clave con para qué sirve y si es obligatoria. Toda variable nueva se añade ahí en el mismo commit que la lee.
-
-### Restaurar un respaldo
-
-Los tres scripts de `scripts/backup/` están hechos para leerse en este orden y a las tres de la mañana. `restore.sh` importa con `--replace-all`: **el deployment queda como el snapshot y lo que no venga en él se borra**, no añade. Exige que el nombre del deployment destino se escriba dos veces (dentro de la clave y en `CONFIRM_TARGET`) para que una clave pegada por error no borre nada.
-
-```bash
-# 1. Requisitos: age, la CLI de Convex del repo (pnpm install) y la clave privada.
-age --version && npx convex --version
-export AGE_IDENTITY_FILE=~/.config/kino/backup-age.key   # la del gestor de contraseñas
-
-# 2. Credenciales de R2 y el objeto. La lista sale con el más reciente al final.
-export AWS_ACCESS_KEY_ID=...  AWS_SECRET_ACCESS_KEY=...  AWS_DEFAULT_REGION=auto
-export R2_ENDPOINT="https://<R2_ACCOUNT_ID>.r2.cloudflarestorage.com"
-aws s3 ls "s3://<R2_BUCKET>/" --endpoint-url "$R2_ENDPOINT" | sort | tail -5
-aws s3 cp "s3://<R2_BUCKET>/kino-<fecha>.zip.age" . --endpoint-url "$R2_ENDPOINT"
-
-# 3. Huella del snapshot que se va a restaurar.
-scripts/backup/verify.sh kino-<fecha>.zip.age > origen.txt
-
-# 4. El destino: la clave de deploy de ese deployment, y su nombre repetido a mano.
-export CONVEX_DEPLOY_KEY='prod:<nombre>|...'
-export CONFIRM_TARGET=<nombre>
-
-# 5. Restaurar. Imprime cuánto tardó, que es el tiempo de caída real.
-scripts/backup/restore.sh kino-<fecha>.zip.age
-
-# 6. Comprobar que llegó todo. Sin salida en el diff = restauración completa.
-npx convex export --include-file-storage --path despues.zip
-scripts/backup/verify.sh despues.zip > destino.txt
-diff origen.txt destino.txt
-```
-
-`verify.sh` sólo lee un snapshot, y cuenta justo lo que un volcado incompleto pierde primero: documentos por tabla, ficheros de `_storage`, cuadernos con texto y sus bytes, entidades con relaciones, y tareas con sistema.
-
-**Para ensayar**, usa el deployment de dev (`dev:` en la clave) o uno de preview: el snapshot pisa lo que haya. **En un desastre real** el origen ya no existe para comparar; la huella del paso 3 sale del propio fichero, así que el `diff` del paso 6 sigue valiendo. Lo que no vuelve con el snapshot son las funciones programadas en vuelo: los crons se registran solos en el siguiente `convex deploy`.
-
-Ensayo sobre el deployment de dev (37 tablas, 550 documentos, 47 cuadernos con 255 106 bytes de contenido, 226 tareas): volcado 2 s y 192 KB cifrados, restauración 12 s, `diff` vacío. Lo que esos números **no** miden es el tamaño real de producción; ese dato sale la primera vez que se restaure allí.
-
-## Estructura: vertical slice
-
-```
-src/features/{feature}/
-├── {feature}.hooks.ts       # Lo que la pantalla llama: suscripciones a Convex
-├── {feature}.schemas.ts     # Schemas Zod de los formularios
-├── {feature}.types.ts       # Tipos propios del slice
-└── components/              # Lo que se pinta
-```
-
-29 slices, 24 con `.hooks.ts` y 14 con `.schemas.ts`; el resto de nombres es lo
-que cada uno necesitó. **La lógica de negocio y el acceso a datos ya no viven
-aquí**: están en `convex/`, porque una query es una función de Convex y el
-cliente se suscribe a ella. Los `{feature}.service.ts`, `.router.ts`,
-`.contract.ts` y `.queries.ts` que este documento describía se fueron con la
-API REST y no queda ninguno.
-
-Cada feature es autocontenida en lo que puede. Tipos, hooks y componentes cruzan entre slices cuando hace falta: `systems` renderiza las tarjetas de `tasks` porque un sistema enseña tareas, y eso no es acoplamiento accidental.
-
-Lo que sí es una decisión: **la lógica que dos slices necesitan va a `shared`, no se importa de un slice a otro.** Pasó con `shared/lib/word-count`, que usaban `pages` y `writing` a la vez y creaba un ciclo entre los dos slices. En el servidor la regla equivalente es `convex/lib`: lo que comparten dos módulos de `convex/` vive ahí.
-
-No hay `index.ts` por slice ni regla de lint que lo verifique, y es a propósito: con veintisiete slices y un desarrollador, declarar una superficie pública por slice cuesta más de lo que evita.
-
-## Convenciones de código
-
-### Data fetching
-
-Toda lectura de cliente pasa por `useConvexQuery` (`src/shared/convex/hooks.ts`), y toda lectura de servidor por `serverQuery`. Cero `fetch` suelto en componentes, cero `useEffect + setState` para datos de servidor.
-
-No hay query keys: el argumento de la función **es** la clave de la suscripción. Dos componentes que piden lo mismo con los mismos argumentos comparten una sola lectura (`ConvexQueryCacheProvider`), así que repetir un hook en dos sitios no dobla el tráfico.
-
-### Mutaciones: una suscripción, no una caché que invalidar
-
-Convex es reactivo. Una lectura es una suscripción: cuando la mutación cambia la
-base, cada lista que la miraba se vuelve a pintar sola. No hay claves que
-invalidar y no hay `refetch` (existe en el tipo para que compile quien lo
-llamaba, y no hace nada). `useConvexMutation` **espera la respuesta**, salvo
-que reciba `optimisticUpdate`: entonces reescribe las queries locales en el
-mismo tick y Convex lo deshace solo si la mutación falla. Hoy lo usa un solo
-hook, `useUpdateStickyNote`, para que una nota soltada no vuelva a su sitio
-viejo durante el viaje de ida y vuelta.
-
-Lo que sí hay que cuidar es la otra mitad: **una pantalla que recibe props de un
-server component no se entera de nada.** El servidor renderiza una foto y nadie
-la revalida. Cuando el valor puede cambiar mientras la pantalla está abierta
-(el título de una página, el nombre de una carpeta), el componente se suscribe
-(`usePage`, `usePages`, `useFolders`) y usa la prop del servidor sólo como
-`initialData`. Ese es el patrón, y el error que sustituye al de las claves mal
-invalidadas.
-
-Para que `initialData` sirva de verdad, **la ruta pide con los mismos argumentos
-que el hook**. Si el cliente filtra por ciclo y el servidor no, el payload que
-acaba de viajar no encaja y la lista se pide dos veces en cada carga.
-
-### Fechas y timezone
-
-**El gotcha número uno del proyecto.** Todo gira alrededor de "hoy", `dueDate`, slots y "vencidas".
-
-- Todo pasa por **`src/shared/time`** (`userToday`, `userTomorrow`, `calendarDayInTz`, `zonedDayClockToUtc`, `hourInTimeZone`, `minutesInTimeZone`), y en el servidor por su par `convex/lib/time.ts`. **Está prohibido reimplementar "hoy en la timezone del usuario"** en cualquier otro lado.
-- `dayToLocalISO` no vive ahí: está en `src/features/tasks/tasks.utils.ts`, junto a `parseTaskDay` y `dueDateHasTime`, porque convierte el día de un formulario a la medianoche **del navegador**, no a la zona del usuario.
-- `dueDate` y `startDate` son **instantes con hora opcional** (milisegundos), no días. Un día sin hora se guarda como medianoche: la del navegador desde la app, la de UTC en lo importado por MCP o seeds, y `parseTaskDay` lee las dos. Cuidado con el off-by-one.
-- El cálculo de "hoy" y de slots para lógica de negocio se hace **en el servidor** con la timezone del usuario. El cliente solo pinta: así un reloj mal puesto en el cliente no corrompe el plan.
-
-### La API REST ya no existe
-
-`0236f8a` se la llevó cuando el cliente y las páginas pasaron a hablar con
-Convex. Lo que había antes (un contrato oRPC por slice, `{feature}.router.ts`,
-`shared/api/client`, `shared/api/handler.ts` y un catch-all
-`src/app/api/[...rest]/route.ts` que servía toda la API) no está en el
-repositorio, y este documento lo describió durante un tiempo después de
-borrarlo.
-
-**La consecuencia se ve desde fuera y cuesta un rato entenderla.** Un cliente
-que siga hablando REST contra `https://www.usekino.dev/api/<lo que sea>` no
-recibe un 404 de la API: recibe el HTML de la página 404 de la aplicación, que
-es lo que Next sirve para una ruta que no existe. Eso le pasa hoy al servidor
-MCP que se configura por URL en `~/.claude.json` de Elias, cuyas tools llaman a
-`/api/systems` y compañía. **La única entrada MCP viva es `/api/mcp`**, la del
-conector con OAuth de Clerk.
-
-Los códigos de error de dominio viven ahora en `convex/lib/errors.ts`:
-`NOT_FOUND`, `VALIDATION_ERROR`, `FORBIDDEN`, `CONFLICT` y
-`CONFIRMATION_REQUIRED`, lanzados como `ConvexError`. La identidad y el alcance
-los resuelve el envoltorio de `convex/lib/fn.ts`, no un middleware de ruta.
-
-**Las tools del MCP son funciones de Convex con nombre.** Viven en
-`src/features/mcp/tools/catalog.ts`: cada `readTool`, `proposeTool` o
-`writeTool` apunta a una función de `api.*`, y el invariante lo sostiene el
-tipo, no una convención. `Spec<F, S>` (`define.ts`) está parametrizado por la
-función y por el schema de entrada: si lo que sale del schema no encaja en los
-argumentos de la función, `args` deja de ser opcional y la tool no compila sin
-el adaptador. Cambiar una función rompe el typecheck de la tool que la usa, no
-la primera llamada del agente. Cada tool lleva además su `ref`, con el que
-`convex/reach.test.ts` comprueba que ninguna publica una función cerrada, y su
-`perfil` (`read`, `propose` o `write`), el alcance de credencial que exige.
-
-Lo escrito a mano es lo que el agente lee: el nombre y la descripción.
-`catalog.test.ts` fija la lista de nombres como contrato visible: quitar o
-añadir una tool pasa por ahí. `SIN_TOOL` lista las funciones que existen y no se exponen,
-cada una con su motivo; ningún test obliga a que una función nueva caiga en una
-de las dos listas, así que clasificarla es parte de escribirla. Las sesiones de
-aprendizaje (`learning.ts`) son secuencias sobre varias funciones, sin `ref`, y
-van aparte.
-
-Lo que cruza la red no es una fila: `Transport<T>` (en
-`src/shared/lib/transport.ts`) convierte las fechas en texto ISO, que es lo que
-sobrevive a un `JSON.stringify`. El cliente usa `TaskTransport`, no `Task`, y un
-Server Component que pase filas como `initialData` tiene que llamar a
-`toTransport` primero.
-
-### Rutas fuera de Convex
-
-Una ruta de Next **no hereda el modelo de alcances**. El envoltorio de `convex/lib/fn.ts` es quien resuelve la identidad y comprueba `kino_scope`, y una ruta que no llama a Convex por él no pasa por ninguna de las dos cosas.
-
-Así que **toda ruta fuera de Convex comprueba a mano quién llama, o escribe en su comentario por qué no hace falta**. Hoy son seis y cada una lo dice:
-
-| Ruta | Qué exige |
-|---|---|
-| `/api/export/workspace`, `/api/systems/[id]/export` | sesión de navegador (`getServerSession`). Un token del conector MCP trae `userId` y nunca `sessionId`: ahí se corta, y `export.test.ts` lo prueba |
-| `/api/mcp` | el access token de Clerk, verificado con `@clerk/mcp-tools`; de ahí sale el `kino_scope` que Convex recibe |
-| `/api/uploads` | sesión de navegador |
-| `/api/integrations/github/{connect,callback}` | sesión de navegador, más el `state` del OAuth |
-
-Comprobar la sesión **no** es lo mismo que comprobar el alcance. Una ruta que quiera dejar entrar a un agente tiene que mirar su alcance ella misma.
-
-Lo mismo vale para las rutas HTTP de Convex (`convex/http.ts`), que tampoco pasan por el envoltorio. La que abre los recordatorios es `/push/accion`: la llama el service worker cuando alguien pulsa «Hecha», «En 1 h» o «Todavía no» en una notificación, sin sesión. Exige un enlace firmado con HMAC que el servidor metió en el push (`convex/lib/firmaAccion.ts`, clave derivada de `VAPID_PRIVATE_KEY`, vigente una semana), y sólo abre esas tres acciones, reversibles, sobre esa tarea. Lo que cierra por ahí firma con la vía `push`.
-
-### Validación
-
-Una sola fuente Zod por entidad, importada por servidor y cliente. El backend **siempre** valida aunque el cliente ya lo hizo. `userId` **siempre** viene de la sesión, nunca del body. Los `metadata` jsonb se validan con Zod discriminado por `systemType`: metadata no es un saco.
-
-**Todo campo de texto libre lleva `.max()` con su cifra y su motivo escritos al lado.** Sin tope, un solo `create` agota el plan gratuito. Los tres que lo necesitaban están en `PAGE_CONTENT_MAX` (500.000), `TASK_DESCRIPTION_MAX` (10.000) y `TEXT_ANCHOR_MAX` (2.000). El tope es **de escritura**: lo que ya está guardado por encima se lee igual, porque un tope nuevo no puede dejar a nadie sin su texto.
-
-### El alcance de cada función
-
-Cuánto llega un agente a hacer no lo decide su token, lo decide la función. Son cuatro, y se declaran eligiendo el constructor de `convex/lib/fn.ts`:
-
-| Alcance | Constructor | Qué es |
-|---|---|---|
-| `readOnly` | `kinoQuery`, `kinoZodQuery` | leer. Cualquier conector llega |
-| `direct` | `kinoMutation`, `kinoZodMutation`, `kinoAction()` | escribir algo reversible |
-| `proposed` | `kinoProposal`, `kinoZodProposal` | proponer, no escribir |
-| `closed` | `kinoClosed`, `kinoZodClosed`, `kinoAction(ms, 'closed')` | sólo desde el navegador. Ningún alcance del conector lo abre |
-
-Es el principio de la casa escrito donde se aplica: se escribe lo reversible, se propone lo que suplanta tu voz, y lo irreversible o lo que toca credenciales no se toca desde fuera. `closed` exige sesión, no alcance: un token del conector trae `userId` y nunca `sessionId`.
-
-`convex/reach.test.ts` recorre las funciones públicas, falla si alguna no declara alcance, imprime la cuenta y comprueba que el catálogo del MCP no publica ninguna cerrada. El tipo generado de `api.*` no conserva esa marca, así que **ese test es la comprobación, no el compilador**: quitarlo deja la regla sin nadie que la sostenga.
-
-### Estado
-
-| Tipo | Herramienta |
-|---|---|
-| Server state | Convex reactivo (`useConvexQuery`) |
-| Filtros de lista | URL (`useSearchParams`) |
-| UI efímera | `useState` / `useReducer` |
-| Timer activo cross-route | React Context en root |
-| UI global (abierto/cerrado, tema, sidebar) | Zustand |
-
-**Zustand sólo para estado de UI global.** Nunca datos de servidor: eso es de Convex y no se copia a un store paralelo. La regla existía para impedir esa fuga, y esa fuga no se ha dado: los cuatro stores que hay (`ThemeProvider`, `command-palette`, `quick-add`, `systems`) guardan booleanos y preferencias. Para un booleano de apertura, un provider más en el árbol re-renderiza todo lo que cuelga de él a cambio de nada.
-
-**No introducir Redux ni Jotai, ni reintroducir TanStack Query.** Con las suscripciones de Convex, Zustand y el Context que ya existe para el timer, sobra.
-
-### Lógica de negocio
-
-Todo scoring de energía, urgencia e importancia vive en el **backend** (`convex/`). El cliente nunca recalcula: recibe el valor ya computado.
-
-### Animaciones
-
-CSS puro: keyframes, transitions, Tailwind. **No instalar Framer Motion.**
-
-- Animar `transform`, `opacity` y color. Nunca una propiedad de layout (`width`, `height`, `top`, `left`), y nunca un desenfoque en bucle: clava la GPU en pantallas de refresco alto.
-- **`prefers-reduced-motion` lo apaga todo desde `globals.css`**, en un bloque sobre `*`. Es global a propósito: `motion-safe:` sólo alcanza las clases de Tailwind, y seis animaciones de la landing se declaran dentro de un `style` inline, donde por construcción no llega.
-- Una animación que corre en JavaScript (una cuenta, un desplazamiento suave) no la apaga ese bloque: tiene que preguntar por la preferencia ella misma, como hace `EnergyTodayCard`.
-- `transition-all` ya no está en ninguna de las primitivas de `components/ui`: cada una declara las propiedades que de verdad transiciona. Quedan 34 en código de feature, y cada pasada de UI convierte las suyas; no se añaden nuevas.
-
-### UI
-
-- **Sin emojis.** Texto o iconos lucide.
-- **Mobile**: `ResponsiveDialog` (Dialog en desktop, Drawer en móvil), vistas `*MobileView`, **sin drag and drop en touch**, acciones hover con `md:opacity-0`. La rama por viewport va **antes** del contexto de arrastre, no dentro de la nota que se arrastra, y el gesto que se pierde gana una **operación con nombre** que deja su evento y se deshace: `BoardMoveSheet` para las columnas del tablero, `StackNoteSheet` para apilar notas.
-- Todo cambio de UI se previsualiza en **`/system-design`** y añade su specimen.
-- Cada ruta con su `loading.tsx`, cubierta por un `error.tsx`.
-- **Verificar mirando**: `node scripts/capturas/run.mjs` (con `pnpm dev` corriendo) captura las 19 rutas y el catálogo `/system-design` con la cuenta sembrada a 393x852, 430x748, 1131x686 y 1440x900, en claro y oscuro; `scripts/capturas/sembrar.mjs` le da densidad a esa cuenta en el deployment de dev. Nada visible se da por hecho sin esas capturas.
-
-### Tests
-
-Una sola batería, `pnpm test`, en tres proyectos de Vitest según el entorno que necesitan (`vitest.config.ts`):
-
-- **`src/**/*.test.ts`** → lógica pura en Node. Sin base, sin red.
-- **`convex/**/*.test.ts`** → las funciones de Convex contra `convex-test`, en el proceso y con el schema real: aislamiento entre usuarios, máquinas de estado, crons. Es la batería que antes pedía Postgres y ya no pide nada.
-- **`*.test.tsx`** y los pocos `.test.ts` listados en `domTests` → jsdom, sólo para lo que toca el DOM.
-
-Un test de función vale lo que vale su versión rota: si se invierte la condición y la batería sigue verde, el test no estaba probando la función.
-
-**Todo `.test.tsx` renderiza desde `@/shared/testing/render`** (`renderWithProviders`, `renderMobile`, `makeTestConvexClient`). Uno que monte su propio árbol de proveedores se rechaza en revisión: cinco copias del árbol se quedan viejas de una en una sin que nada falle. Los polyfills que jsdom no trae viven en `src/shared/testing/jsdom-setup.ts`, cada uno con el componente que lo llama escrito al lado, y `next/navigation` se finge desde `@/shared/testing/navigation`, nunca a mano.
-
-Un `.test.tsx` abre con un comentario de tres a cinco líneas que dice **qué criterio** prueba. Si ese comentario no se puede escribir, el test no vale: un test de humo por pasada convierte la regla en un trámite. Y las aserciones son de `jest-dom` (`toBeVisible`, `toBeDisabled`, `toBeInTheDocument`), nunca `toBeDefined()`, que pasa aunque el elemento esté oculto.
-
-`pnpm test:coverage` imprime el número. No hay umbral que rompa el CI: la mitad `.tsx` arranca cerca de cero y un umbral puesto hoy sólo se cumpliría bajándolo.
-
-### El manifiesto de arquetipo
-
-`src/shared/lib/system-types.ts` es la fuente única de cómo se comporta cada `systemType`: vocabulario, `folderRole`, `pageRole`, `taskKinds`. **Nunca hardcodear un label o un comportamiento por tipo de sistema**: se lee del manifiesto. Añadir un arquetipo debe ser añadir una entrada, no un fork de código.
-
-Lo mismo para los mediums de escritura en `src/shared/lib/mediums.ts`. Ojo: el manifiesto gobierna lo que el editor **ofrece** (slash menu, plantilla, export), no lo que el schema admite: los nodos se montan siempre para que cambiar de medium nunca degrade contenido ya escrito.
-
-## Git
-
-- **Ramas**: `main` → `dev` → rama de feature. Nunca push directo a `main`.
-- **Commits**: Conventional Commits, atómicos, **sin trailers de atribución a IA**.
-- Las ramas completadas son registro histórico: **no se borran**.
-- Antes de un PR: `pnpm typecheck && pnpm lint && pnpm test`.
-- Nunca commitear `.env` ni secretos. `.env.example` es el único `.env` versionado y no lleva valores reales.
-
-## Definition of Done
-
-Criterio de aceptación cumplido, `typecheck` limpio, `lint` en 0, tests verdes con test nuevo si se tocó lógica, commit atómico, decisión no trivial anotada en el ticket de Zoho.
-
-## Qué NO hacer
-
-- **No** guardar timestamps sin timezone.
-- **No** importar la lógica de otro slice: lo que comparten dos slices va a `shared` (y en el servidor, a `convex/lib`).
-- **No** usar `any`.
-- **No** saltarse Zod en ningún input de endpoint.
-- **No** introducir Redux ni Jotai, ni meter datos de servidor en un store de Zustand.
-- **No** implementar guards de Premium/subscripción: no existe código de payments.
-- **No** reimplementar cálculos de fecha fuera de `src/shared/time`.
-- **No** crear archivos Markdown en el repo más allá de `README.md`, `AGENTS.md` y `DESIGN.md`.
-
-## Migraciones de datos
-
-Convex valida el schema contra los documentos que ya existen: si un campo pasa
-a obligatorio y hay una sola fila sin él, el deploy se rechaza y el anterior
-sigue arriba. De ahí la única regla que gobierna esta parte, **expand y
-contract**: un campo nace opcional, una migración lo rellena en todos los
-documentos, todo escritor lo escribe, y sólo entonces, **en otro deploy**,
-deja de ser opcional. Nunca las dos cosas a la vez.
-
-Las migraciones viven en `convex/migrations/`, una por fichero, sobre el
-componente oficial `@convex-dev/migrations` que registra `convex/convex.config.ts`.
-El componente guarda el estado de cada una (lote, cursor, si terminó), así que
-una que muere a mitad retoma donde iba y una segunda pasada no repite trabajo.
-Además cada paso comprueba antes de escribir: reejecutar una migración
-completa no toca ningún documento.
-
-La cabecera de cada fichero enumera campo por campo qué rellena y de dónde sale
-cada valor. Es lo que hay que leer antes de correrla, y lo que hay que
-actualizar si cambia.
-
-```bash
-npx convex run migrations/autoriaYPapelera:run        # todas las de un fichero, en orden
-npx convex run migrations/autoriaYPapelera:tasksAutoria   # una suelta
-```
-
-Contra producción **nunca a mano**: el `convex deploy` del build las publica, y
-correrlas es una decisión aparte que se toma con el respaldo del día delante.
-
-### Retenciones
-
-Cada tabla que caduca dice aquí quién la poda. Una tabla nueva sin esta línea
-está incompleta.
+# Kino
+
+## What it is
+
+Instrumento de planificación construido alrededor de la gestión de energía cognitiva y sistemas basados en identidad. Fullstack Next.js 16 (App Router), 100% serverless, con Convex como base y Clerk como identidad.
+
+Lo que no se rompe, y por qué:
+
+- **$0/mes de infraestructura**, dentro de los free tiers de Vercel y Convex. Sin Redis, BullMQ ni servidor persistente.
+- **La sesión la emite y la revoca Clerk.** Kino no guarda sesiones propias ni acepta otro token de navegador, para que cerrar una sesión desde el panel la corte de verdad.
+- **Lo reversible se escribe, lo que suplanta tu voz se propone, y lo irreversible o lo que toca credenciales no se toca desde un agente.** Es el principio de la casa y lo aplica `convex/lib/fn.ts`.
+- **Una fuente conectada entrega capturas, nunca tareas** (salvo `pva` y `github`). Una fuente nueva que escriba tareas necesita una decisión de Elias.
+- **Kino nunca escribe en GitHub** ni manda el texto de un documento a ningún modelo.
+- No existe código de pagos: `subscriptionStatus` y `planType` son placeholders. No implementar guards de Premium.
+
+Los planes, el estado y el orden de trabajo viven en Zoho Projects (portal `eliasdlc2005gmaildotcom`, proyecto `Kino`, prefijo `KI1-T`), no en este repo. Las fases son la fuente de verdad de qué se construye y por qué; el índice de decisiones está en `~/Documents/Proyectos/Kino/dev/Kino-DECISIONS.md`. En este repo solo se aceptan tres Markdown: `README.md`, `AGENTS.md` y `DESIGN.md` (contrato de identidad visual). Ningún plan, audit ni análisis; las notas locales van a `~/Documents/Kino/dev/`.
+
+## Owner's note
+
+To fill in by Elias.
+
+## Glossary
+
+- Bandeja: el sistema `systems.inbox`, adonde cae todo lo que no dice a qué sistema pertenece.
+- Sistema: contenedor de tareas, carpetas, páginas y notas; tiene un `systemType` (arquetipo) que fija su vocabulario.
+- Arquetipo: el comportamiento de un `systemType`, declarado en `src/shared/lib/system-types.ts`.
+- Captura: lo que entrega una fuente conectada y espera en Bandeja hasta que una persona decide si es tarea (`convex/captures.ts`).
+- Alcance (`kino_scope`): lo que un token del conector MCP puede hacer: `readOnly`, `direct`, `proposed` o `closed`.
+- Conector MCP: la única entrada MCP viva, `/api/mcp`, con OAuth de Clerk.
+- Expand y contract: la regla de migraciones: el campo nace opcional, se rellena, todo escritor lo escribe, y sólo en otro deploy se vuelve obligatorio.
+- Borrado blando: `deletedAt` en `tasks`, `folders`, `pages`, `stickyNotes` y `entities`.
+- Prioridad efectiva: la prioridad elegida subida por cercanía de la fecha (`src/shared/lib/effective-priority.ts`); no se escribe en la base.
+- Resumen de la mañana: el digest diario de recordatorios (`morningDigestTime`, 08:00 por defecto).
+- Specimen: el ejemplo de un componente en `/system-design`.
+- `SIN_TOOL`: la lista de funciones de Convex que existen y no se exponen por MCP, cada una con su motivo.
+
+## Facts
+
+- production: https://www.usekino.dev
+- production branch: main (Vercel); `dev` produce previews
+- preview: Vercel previews de PRs y de `dev`, contra el deployment de dev de Convex
+- deploy: Vercel + Convex. `scripts/vercel-build.sh` corre `npx convex deploy --cmd 'pnpm build'` si hay `CONVEX_DEPLOY_KEY`; ninguna laptop tiene la clave de producción
+- convex: dos deployments del mismo proyecto, `prod` y dev; cada uno con su instancia de Clerk (`pk_live_`/`sk_live_` y `pk_test_`/`sk_test_`)
+- backup: `.github/workflows/backup.yml`, 05:23 UTC, a Cloudflare R2 cifrado con `age`, retención 30 días; la clave privada `age` vive en el gestor de contraseñas de Elias
+- zoho: portal `eliasdlc2005gmaildotcom`, proyecto `Kino`, prefijo `KI1-T`
+- package manager: pnpm (no npm, no yarn)
+
+## Ways to hurt yourself
+
+1. **Superar el free tier.** Cada función corre en 10 s (`DEFAULT_BUDGET_MS` en `convex/lib/fn.ts`; `kinoAction(30_000)` es la única excepción, y `export const maxDuration` en Next: los dos ZIP en 10 s, `/api/mcp` en 60 s). Subir un límite es una decisión escrita en el comentario de la función. Las lecturas nuevas que puedan crecer nacen acotadas como `tasks.list` y `pages.bySystem` (`{ items, restantes }`, `TASK_LIST_LIMIT`, `PAGE_LIST_LIMIT`). Ninguna pantalla usa `refetch` por tiempo.
+2. **Una query sin rango.** Cada `useConvexQuery` es una suscripción: una query que lee 300 documentos los relee en cada escritura, por cada pestaña. Un `.collect()` sobre una tabla entera o sobre un índice que sólo fija el usuario lleva el motivo escrito al lado. Sólo valen dos casos: tabla acotada por construcción (`pushSubscriptions`) y poda por lotes que se reprograma sola (`convex/podas.ts`). Así se fue el 93,7% de Database I/O del plan gratuito.
+3. **Un schema que Convex rechaza.** Convex valida el schema contra los documentos existentes: un campo obligatorio con una sola fila sin él rechaza el deploy. Expand y contract en dos deploys, nunca a la vez, y el cambio tiene que ser compatible hacia atrás con el código ya desplegado. Contra producción las migraciones **nunca se corren a mano**: las publica el `convex deploy` del build, y correrlas es una decisión aparte con el respaldo del día delante.
+4. **Fechas.** Es el gotcha número uno. Todo "hoy", `dueDate`, slots y "vencidas" pasa por `src/shared/time` (y `convex/lib/time.ts` en servidor); está prohibido reimplementar "hoy en la timezone del usuario". `dueDate` y `startDate` son instantes con hora opcional en milisegundos: un día sin hora es medianoche del navegador desde la app y de UTC desde MCP o seeds, y `parseTaskDay` lee las dos (cuidado con el off-by-one). `dayToLocalISO` vive en `src/features/tasks/tasks.utils.ts`. El cálculo de negocio se hace en el servidor.
+5. **Una ruta de Next no hereda el modelo de alcances.** El envoltorio de `convex/lib/fn.ts` resuelve identidad y `kino_scope`; una ruta (o ruta HTTP de `convex/http.ts`) que no llama a Convex por él no pasa por ninguna. Toda ruta fuera de Convex comprueba a mano quién llama o escribe en su comentario por qué no hace falta: exports, uploads y connect/callback de GitHub exigen sesión de navegador (un token MCP trae `userId` y nunca `sessionId`, y `export.test.ts` lo prueba); `/api/mcp` verifica el token de Clerk con `@clerk/mcp-tools`; `/push/accion` exige un enlace firmado con HMAC (`convex/lib/firmaAccion.ts`) y sólo abre tres acciones reversibles. Comprobar la sesión no es comprobar el alcance.
+6. **El alcance lo decide la función, no el token.** Se declara eligiendo el constructor de `convex/lib/fn.ts` (`kinoQuery` readOnly; `kinoMutation` y `kinoAction()` direct; `kinoProposal` proposed; `kinoClosed` y `kinoAction(ms, 'closed')` sólo navegador). El tipo generado de `api.*` no conserva la marca: `convex/reach.test.ts` es la comprobación, no el compilador. Quitarlo deja la regla sin sostén.
+7. **Una fila flotante o un borrado que destruye.** Todo lo que vive en un sistema lleva `systemId` (en `folders`, `pages`, `stickyNotes` y `pageSnapshots` sigue opcional a mitad de expand y contract: todo escritor ya lo escribe, y volverlo obligatorio es otro deploy). El borrado blando excluye los borrados en toda lectura salvo la papelera (índices `by_*_alive`). Una cascada blanda marca sólo a los hijos con `deletedAt` y deja intacto lo que se alcanza por el padre, porque `restore` tiene que devolver la cosa entera. Excepciones: derivadas (`pageEntityMentions`) se borran; `tags.remove` destruye; `systems.remove` archiva (`isActive: false`); `users.purge` es el único borrado duro.
+8. **Creer que el respaldo corre.** `backup.yml` sólo respalda si el workflow está en `main` (GitHub dispara `schedule:` sólo desde la rama por defecto) y los seis secretos están cargados (`CONVEX_DEPLOY_KEY` de producción, empieza por `prod:`, `BACKUP_AGE_RECIPIENT`, `R2_ACCOUNT_ID`, `R2_ACCESS_KEY_ID`, `R2_SECRET_ACCESS_KEY`, `R2_BUCKET`). Compruébalo con `gh run list --workflow=backup.yml`; sin ejecuciones, el único respaldo son los snapshots de la propia cuenta de Convex. La clave privada `age` es el único secreto que no se puede rotar sin invalidar lo guardado. Pasar de los 10 GB gratis de R2 es una decisión.
+9. **Hablarle REST a Kino.** La API REST ya no existe. Un cliente que llame `https://www.usekino.dev/api/<lo que sea>` no recibe 404 de API sino el HTML de la página 404 de la app (le pasa al MCP por URL de `~/.claude.json` de Elias). La única entrada MCP viva es `/api/mcp`. Los errores de dominio están en `convex/lib/errors.ts` (`NOT_FOUND`, `VALIDATION_ERROR`, `FORBIDDEN`, `CONFLICT`, `CONFIRMATION_REQUIRED`, como `ConvexError`).
+
+## Surfaces
+
+Un cambio que toca una de estas pide revisar las otras:
+
+- **Tabla nueva:** `convex/schema.ts`, un test por tabla, su línea en la retención de abajo, y su cascada de borrado si lo necesita (`scripts/migrate-to-convex/cascadas.ts`, que un test mantiene igual al schema de Drizzle).
+- **Variable de entorno nueva:** `.env.example` en el mismo commit que la lee, y `npx convex env set` en cada deployment que la necesite. Cada deployment lleva `CLERK_JWT_ISSUER_DOMAIN`, `CLERK_WEBHOOK_SIGNING_SECRET`, `KINO_CRONS_APAGADOS` (sólo apaga, nunca enciende), `KINO_MCP_JWKS`, `ENCRYPTION_KEY`, el par VAPID, `RESEND_API_KEY`, `RESEND_FROM` y `KINO_APP_URL`.
+- **Función de Convex nueva:** su constructor de alcance, y clasificarla en `src/features/mcp/tools/catalog.ts` (`readTool`, `proposeTool` o `writeTool`, con su `ref` y `perfil`) o en `SIN_TOOL` con su motivo. Ningún test obliga a lo segundo; es parte de escribirla. `catalog.test.ts` fija la lista de nombres como contrato visible.
+- **Escritura que cambie fecha, estado o intensidad de una tarea:** llama a `recalcularAviso` (y un cambio de zona, silencio o intensidad en Ajustes, a `recalcularAvisosDe`). El cron sólo lee `tasks.by_nextReminder` y `userSettings.by_nextDigest`; si se olvida, el resumen de la mañana repara al día siguiente, pero eso es la red, no el diseño.
+- **Texto libre nuevo:** lleva `.max()` con su cifra y motivo (`PAGE_CONTENT_MAX` 500.000, `TASK_DESCRIPTION_MAX` 10.000, `TEXT_ANCHOR_MAX` 2.000). El tope es de escritura: lo ya guardado se lee igual.
+- **Tabla que caduca:** su fila en Retenciones, abajo; sin ella está incompleta.
+- **Fuente conectada nueva:** `src/features/connections/providers.ts` (su test falla si un tercero declara que entrega tareas) y captura vía `ingerirCaptura`, idempotente por `(userId, source, externalId)`.
+- **Arquetipo o medium nuevo:** una entrada en `src/shared/lib/system-types.ts` o `src/shared/lib/mediums.ts`, no un fork de código. El manifiesto gobierna lo que el editor ofrece, no lo que el schema admite.
+- **Cambio de UI:** su specimen en `/system-design`, `loading.tsx` y `error.tsx` por ruta, y la vista móvil (`*MobileView`, `ResponsiveDialog`).
+- **Cambio de voz, bundle o auth:** `pnpm check:voz`, `pnpm check:bundle` y `pnpm check:auth-production`.
+
+Retenciones, quién poda cada tabla que caduca:
 
 | Tabla | Retención | Quién la dispara |
 |---|---|---|
-| `eventLog` | 30 días desde `occurredAt` | cron `event-log-prune`, por lotes de 1.000 que se reprograman solos (`convex/eventLog.ts`) |
+| `eventLog` | 30 días desde `occurredAt` | cron `event-log-prune`, lotes de 1.000 (`convex/eventLog.ts`) |
 | `itemLinks` | 30 días desde `lastSeenAt` | el mismo cron, cuando exista quien las escriba |
-| `proposals` | 14 días desde `expiresAt` | nadie: pasan a `expired` al mirarlas, no se borran |
+| `proposals` | 14 días desde `expiresAt` | nadie: pasan a `expired` al mirarlas |
 | `captures` | 48 h sin confirmar | caducan con aviso; el blob se va con la fila |
-| `systemMembers`, `systemInvites`, `sessionDigests`, `interruptions` | no se podan | son estado y rastro, no historia. `interruptions` guarda una fila por candidato mostrado, y son unidades al año por persona |
-| `academicPeriods` | no se podan | años y ciclos permanentes; archivar un sistema conserva su historial |
-| `pageReviews`, `pageComments` | no se podan | son el rastro de cómo se trabajó un texto y viajan en el export. Lo acotado es la lectura: abiertos con techo de escritura (`MAX_OPEN_PER_PAGE`) y los cerrados más recientes (`convex/lib/reviews.ts`) |
+| `systemMembers`, `systemInvites`, `sessionDigests`, `interruptions`, `academicPeriods`, `pageReviews`, `pageComments` | no se podan | estado y rastro, no historia; lo acotado es la lectura (`convex/lib/reviews.ts`) |
 | `cronRuns` | ver `convex/cronRuns.ts` | el snapshot diario |
 
-### Borrados y cascadas
+## Run and verify
 
-Convex no tiene `ON DELETE`: cada cascada es un paso explícito dentro de la
-mutación que borra, o no ocurre. La lista completa de las que heredamos de
-Postgres está en `scripts/migrate-to-convex/cascadas.ts`, y un test la mantiene
-igual a lo que declaraba el schema de Drizzle.
-
-Casi todos los borrados de Kino son **blandos** (`deletedAt`), y eso decide la
-forma de la cascada: **una cascada blanda no destruye lo que cuelga**. Marca a
-los hijos que también tienen `deletedAt` (subtareas, subcapítulos, subcarpetas,
-notas) y deja intacto lo que sólo se alcanza a través del padre (recordatorios,
-tiempo, versiones, enlaces), porque restaurar tiene que devolver la cosa
-entera y sus lectores ya filtran por el padre borrado.
-
-Las excepciones, y por qué:
-
-- **Derivadas** (`pageEntityMentions`): se borran de verdad; se recalculan al
-  guardar el texto.
-- **Etiquetas** (`tags.remove`): destruye de verdad. Sólo el dueño del sistema,
-  desetiqueta únicamente dentro de su alcance, y deja fila en `eventLog`.
-- **Sistemas** (`systems.remove`): no borra, archiva (`isActive: false`). Sus
-  siete cascadas de Postgres no ocurren a propósito.
-- **Cuenta** (`users.purge`): el único borrado duro de todo, sobre las
-  dieciocho tablas con `userId`.
-
-## Recordatorios
-
-El trabajo de esta parte es que no se olvide nada, así que la regla es insistir hasta que la tarea se termine, se mueva o se silencie a propósito. Viven en `convex/lib/recordatorios.ts` (el calendario, puro y probado), `convex/lib/avisos.ts` (el puente con la base) y `convex/notifications.ts` + `convex/pushSend.ts` (el cron).
-
-- **Prioridad efectiva.** `priority` es la importancia que se elige, y nace en `high`. La urgencia la pone la fecha: a 7 días cuenta al menos como media, a 3 como alta y a 1 (o vencida) como crítica. `src/shared/lib/effective-priority.ts` lo calcula; `taskItem` lo manda hecho como `effectivePriority` y `priorityRaised`, y las listas, filtros y avisos usan ese. No se escribe en la base.
-- **Dos mecanismos.** El resumen de la mañana (`morningDigestTime`, 08:00 por defecto) trae lo vencido, lo de hoy y lo que se acerca, con antelación según la prioridad elegida (`DIAS_EN_RESUMEN`). Los avisos por tarea cubren la recta final y lo vencido, según la intensidad (`HORAS_ANTES`, `VENCIDA_CADA_H`): agresivos, medios o bajos en la cuenta, y cualquiera de las tres o `off` por tarea. Una vencida insiste sin tope.
-- **Horas de silencio** (22:00 a 07:00 por defecto): lo que cae dentro se salta, y lo que vence de noche o temprano recibe una última llamada una hora antes.
-- **«¿Ya hiciste esto?»** Con el resumen de la mañana salen hasta tres pushes aparte (`PREGUNTAS_DIA`), uno por vencida de hace dos días o más, rotando por día (`preguntasDelDia`), con «Sí, hecha» y «Todavía no». «Todavía no» calla la tarea hasta el próximo resumen y no mueve su fecha. No van por correo ni se reintentan, y no llevan cuenta en la base: viajan con la única lectura del día que ya tiene todas las vencidas delante.
-- **Canales.** Push primero; si ningún dispositivo lo recibe, correo, con tope de `TOPE_CORREOS_DIA` al día. El resumen va siempre por los dos. Un correo que Resend rechaza para esa persona (dirección inválida, o un destinatario que `onboarding@resend.dev` no admite) no se reintenta: si tampoco había dispositivo, el aviso avanza como si no hubiera canal, y la vuelta lo cuenta en `rechazados` de su `cronRuns`. Todo lo demás vuelve en quince minutos, también una clave mala, un dominio sin verificar o un error que no se reconoce: es un fallo de la cuenta entera y tiene que hacer ruido (`convex/lib/correo.ts`).
-- **La invariante.** El cron sólo lee `tasks.by_nextReminder` y `userSettings.by_nextDigest`. **Toda escritura que cambie la fecha, el estado o la intensidad de una tarea llama a `recalcularAviso`**, y todo cambio de zona, silencio o intensidad en Ajustes a `recalcularAvisosDe`. Si una se olvida, el resumen de la mañana repara las tareas que lee al día siguiente, pero eso es la red, no el diseño.
-
-## Revisión de documentos
-
-La persona le da un documento a su agente (Claude Code, Claude Desktop o cualquiera con el conector) y el agente deja comentarios anclados a fragmentos; ella los cierra uno a uno y una barra se llena. **Kino no manda el texto a ningún modelo**: el panel copia una instrucción que la persona pega en su agente (`src/features/reviews/agent-prompt.ts`). Viven en `convex/reviews.ts`, `convex/lib/reviews.ts` (pesos y techos, puro) y `src/features/reviews/`.
-
-- **El ancla es una cita, no una marca.** `pageComments` guarda `quote` con `prefix` y `suffix`, como el `TextQuoteSelector` del W3C, y el editor la pinta por decoración (`review-highlight.extension.ts`). El HTML de la página nunca lleva nada del agente. Una cita se busca con la misma regla a los dos lados (`src/shared/lib/text-quote.ts`), y `review_page` rechaza la pasada entera si una cita no está o se repite sin contexto.
-- **El rango viaja con la edición.** Si la persona reescribe el fragmento, el resaltado la sigue y la tarjeta ofrece «Lo arreglé»; si lo borra, el comentario queda tachado al final de la lista. Nada se resuelve solo: ni la persona por editar ni el agente por ver la cita cambiada (`list_page_comments` le dice `anchor: missing`, y la tool le pide comprobar antes de `resolve_page_comment`).
-- **La barra mide la revisión, nunca el texto.** Pesa por severidad (crítico 3, importante 2, detalle 1), cuenta un descarte como avance y dice lo que queda con palabras. La pasada se cierra con su último comentario (`closedAt`), y eso es lo que dispara la celebración una sola vez.
-- **Cada lado su gesto.** El agente comenta, contesta, comprueba y retira lo suyo; no cierra una pregunta de la persona ni corrige lo que ella escribió. Aplicar una propuesta lo hace la persona en su editor, como cualquier otra edición suya. Preguntar sobre un fragmento y reabrir no son tools (`SIN_TOOL`).
-
-## Features en el schema sin implementación activa
-
-No referenciarlas como si existieran:
-
-- **Billing / Premium**: `subscriptionStatus` y `planType` son placeholders, sin código.
-- **Sync adapters**: `syncConnections` sólo la usa GitHub (ver abajo). El resto de valores de `syncProviderEnum` siguen sin lógica. Qué puede escribir cada fuente está en "Fuentes conectadas".
-- **iCalendar import**: sin implementación.
-- **Context tags**: tabla en schema, sin pantalla de gestión.
-- **Cola de mutaciones persistente**: no existe. Una mutación hecha sin red la retiene en memoria el cliente de Convex y la reenvía al reconectar; si la pestaña se cierra antes, se pierde. Lo que sí funciona sin red: `/offline` es la página de respaldo que next-pwa precachea, y el POST de la hoja de compartir lo guarda el service worker (`worker/index.js`, que además atiende push y sus botones) en IndexedDB (`src/features/captures/shareTarget.ts`) hasta que `/compartir` lo sube. `tasks.create`, `pages.create` y la creación de notas adhesivas aceptan un `clientRequestId` opcional y no duplican al repetirse (índice `by_user_clientRequest`), pero hoy ningún cliente lo manda.
-
-## Fuentes conectadas
-
-**Una fuente conectada entrega capturas, nunca tareas.** Lo que llega del correo, de Drive o de cualquier fuente nueva espera en Bandeja como captura (`convex/captures.ts`, `ingerirCaptura`), y una persona, o su agente con propuesta y confirmación, decide qué se vuelve tarea. Al confirmar, la tarea lleva el nombre de la fuente en `externalSource`, que es lo que permite contar cuántas tareas nacieron sin que nadie las tecleara.
-
-Hay **dos excepciones**, y escriben tareas directo porque cada item trae un id estable de la fuente y un hecho que no hay que interpretar:
-
-- **El aula virtual** (`pva`, `POST /academico` en `convex/http.ts`, `convex/academico.ts`).
-- **GitHub** (`github`, abajo).
-
-Una fuente nueva que quiera escribir tareas necesita una decisión de Elias y una línea en esta lista. El registro es `src/features/connections/providers.ts`: cada proveedor declara su estado, qué entrega, su clase de captura y su forma de refresco, y su test falla si un tercero declara que entrega tareas. La entrada rechaza una fuente que no está en el registro, y es idempotente por `(userId, source, externalId)`: un refresco repetido deja una sola captura y nunca resucita una que ya se confirmó o se descartó.
-
-## Sincronización con GitHub (KIN-135)
-
-Un sistema `project` puede declarar un repositorio en `systems.metadata.github` y traer sus issues al board como tarjetas. El slice es `src/features/github-sync/`.
-
-- **Dirección: sólo lectura.** GitHub manda sobre título, cuerpo, abierto/cerrado y milestone. Kino nunca escribe en GitHub.
-- **Idempotencia** por `uq_tasks_external` `(user_id, external_source, external_id)`, con `external_id` = id numérico global del issue. Los milestones mapean a sprints por `uq_sprints_external` `(system_id, external_id)`.
-- **Lo que un refresco nunca pisa**: `energyLevel`, `dueDate`, `startDate`, `inTodayPlan` y demás campos de `KINO_OWNED_FIELDS` (`github-sync.mapper.ts`). Son el valor que Kino añade sobre un issue; si un refresco los borrara, el feature destruiría trabajo.
-- **Columnas**: issue cerrado → columna terminal (que completa la tarea por el puente de `moveTaskBoard`); reabierto → sale de la terminal. Las columnas intermedias las mueve la persona y la sincronización no las toca.
-- **Refresco**: bajo demanda al abrir el board o con el botón. Sin cron: un repo que nadie mira no gasta nada.
-
-Necesita `GITHUB_SYNC_CLIENT_ID`, `GITHUB_SYNC_CLIENT_SECRET` y `ENCRYPTION_KEY` (ver `.env.example`). Son un OAuth App aparte del login porque GitHub sólo admite **una** URL de callback por app y esa ya la ocupa Clerk, y porque leer issues privados exige el scope `repo`. Sin estas variables la integración se oculta sola: no rompe nada, simplemente no aparece.
-
-# Delivery contract
-
-`main` is the Vercel production branch. Every task branch starts from current
-`origin/dev` and merges into `dev`. Releases promote `dev` into `main` through a
-separate PR. Preserve all branches. Merging a task into `dev` is integration, not
-production delivery.
-
-Run `pnpm typecheck`, `pnpm lint`, `pnpm test`, and the Python suite before review:
-
-```sh
+```bash
+pnpm install
+pnpm dev                              # http://localhost:3000, contra el deployment de dev de .env.local
+npx convex dev                        # publica las funciones en dev y regenera convex/_generated
+pnpm typecheck && pnpm lint           # después de cualquier cambio; 0 errores
+pnpm test                             # lógica pura (src), convex-test (convex) y jsdom (*.test.tsx)
+pnpm test -- --run <path>             # un solo archivo
+pnpm check:voz                        # cinco reglas de grep sobre la voz del producto
+pnpm build && pnpm check:bundle       # el JavaScript al navegador contra su tope
 python3 -m unittest discover -s scripts/tests -v
+npx convex run migrations/<fichero>:run   # migración contra dev; la cabecera del fichero dice qué rellena
 ```
 
-Require `typecheck · lint · test`, `presupuesto de JavaScript`, and `branch-model`
-for both dev and main merges. `branch-model.yml` runs trusted base code on
-`pull_request_target`, never executes PR code, and fails any route other than task
-to `dev` or `dev` to `main`. To check a route locally:
+Antes de un PR: `pnpm typecheck && pnpm lint && pnpm test`, y la suite de Python. Si algo falla se arregla antes de commitear.
 
-```sh
-python3 scripts/delivery.py check-branch NUMBER
+**Sesión de pruebas (headless).** Usuario sembrado `prueba@usekino.dev`, `pnpm dev` en el puerto 3000. Pide un sign-in token a Clerk: `POST /v1/sign_in_tokens` con `CLERK_SECRET_KEY` desde `~/.config/secrets/kino.env` (exportado con `set -a`, nunca impreso). En la página: `Clerk.client.signIn.create({ strategy: "ticket", ticket })` y `Clerk.setActive`. Entra sólo con el token: el formulario de contraseña cae en la pantalla de client-trust de Clerk en headless.
+
+**Verificar mirando.** `node scripts/capturas/run.mjs` (con `pnpm dev` corriendo) captura las 19 rutas y el catálogo `/system-design` con la cuenta sembrada a 393x852, 430x748, 1131x686 y 1440x900, en claro y oscuro; `scripts/capturas/sembrar.mjs` le da densidad a esa cuenta en el deployment de dev. Nada visible se da por hecho sin esas capturas.
+
+**Tests.** Un test de función vale lo que vale su versión rota: si invertir la condición deja la batería verde, no probaba nada. Todo `.test.tsx` renderiza desde `@/shared/testing/render` (`renderWithProviders`, `renderMobile`, `makeTestConvexClient`) y finge `next/navigation` desde `@/shared/testing/navigation`; los polyfills de jsdom viven en `src/shared/testing/jsdom-setup.ts` con el componente que los llama. Un `.test.tsx` abre con un comentario de tres a cinco líneas con el criterio que prueba, y usa aserciones de `jest-dom`, nunca `toBeDefined()`. `pnpm test:coverage` imprime el número; no hay umbral.
+
+**Restaurar un respaldo** (`restore.sh` importa con `--replace-all`: el deployment queda como el snapshot y lo que no venga en él se borra). Exige el nombre del deployment dos veces (dentro de la clave y en `CONFIRM_TARGET`). Ensáyalo contra dev (`dev:` en la clave) o un preview.
+
+```bash
+age --version && npx convex --version
+export AGE_IDENTITY_FILE=~/.config/kino/backup-age.key   # la del gestor de contraseñas
+export AWS_ACCESS_KEY_ID=...  AWS_SECRET_ACCESS_KEY=...  AWS_DEFAULT_REGION=auto
+export R2_ENDPOINT="https://<R2_ACCOUNT_ID>.r2.cloudflarestorage.com"
+aws s3 ls "s3://<R2_BUCKET>/" --endpoint-url "$R2_ENDPOINT" | sort | tail -5   # el más reciente al final
+aws s3 cp "s3://<R2_BUCKET>/kino-<fecha>.zip.age" . --endpoint-url "$R2_ENDPOINT"
+scripts/backup/verify.sh kino-<fecha>.zip.age > origen.txt
+export CONVEX_DEPLOY_KEY='prod:<nombre>|...'
+export CONFIRM_TARGET=<nombre>
+scripts/backup/restore.sh kino-<fecha>.zip.age            # imprime el tiempo de caída real
+npx convex export --include-file-storage --path despues.zip
+scripts/backup/verify.sh despues.zip > destino.txt
+diff origen.txt destino.txt                               # sin salida = restauración completa
 ```
 
-There is no owner-acceptance gate. The agent merges a PR itself once the merge
-criteria in Elias's `development-workflow` skill hold, and leaves for Elias the
-PRs that need his eye. Zoho owns product scope. The `delivery-events` branch and
-its ruleset stay as a read-only archive of past acceptance decisions; nothing
-writes to it anymore.
+Lo que no vuelve con el snapshot son las funciones programadas en vuelo: los crons se registran solos en el siguiente `convex deploy`. En un desastre real el `diff` sigue valiendo porque la huella sale del propio fichero.
 
-After a release PR merges into `main`, verify production:
+Lo que sólo la persona o un dispositivo puede mostrar: notificaciones push y sus botones en un teléfono real, la hoja de compartir del service worker (`worker/index.js`) y el modo sin red (`/offline`). Una mutación hecha sin red la retiene el cliente de Convex en memoria; no hay cola persistente.
 
-```sh
-python3 scripts/delivery.py production --pr RELEASE_PR_NUMBER
-python3 scripts/delivery.py production --pr RELEASE_PR_NUMBER --publish
-pnpm check:auth-production
-```
+## Pull requests
 
-Production verification requires a merged `dev` to `main` PR contained in main, a
-READY production deployment for current main, HTTP 200 at the production domain,
-and a green production social-auth check. It checks deployment and main identities
-again after the HTTP probe. `--publish` adds a commit status and PR receipt; it
-does not deploy. HTTP 200 proves domain availability, not product journeys. Verify
-changed behavior separately before review. A failed deployment, auth health check
-or Zoho update leaves closure pending. Only close the task after production
-verification. Credentials and raw Vercel responses never enter Git.
+- Ramas: `main` → `dev` → rama de tarea. `main` es la rama de producción de Vercel; toda rama de tarea sale de `origin/dev` actual y entra a `dev`; un release promueve `dev` a `main` en otro PR. No se borran ramas.
+- Checks requeridos en `dev` y `main`: `typecheck · lint · test`, `presupuesto de JavaScript` y `branch-model`. `branch-model.yml` corre código base confiable en `pull_request_target`, nunca ejecuta código del PR, y falla toda ruta que no sea tarea a `dev` o `dev` a `main`. Se comprueba local con `python3 scripts/delivery.py check-branch NUMBER`.
+- No hay gate de aceptación del dueño: el agente mergea cuando se cumplen los criterios del skill `development-workflow` y deja a Elias lo que necesita su ojo. La rama `delivery-events` y su ruleset son archivo de lectura de decisiones pasadas; nada escribe ahí.
+- Tras mergear un release a `main`, verificar producción: `python3 scripts/delivery.py production --pr RELEASE_PR_NUMBER`, luego con `--publish` (añade un commit status y el recibo en el PR; no despliega), y `pnpm check:auth-production`. Exige un PR `dev` a `main` mergeado y contenido en main, un deployment de producción READY para el main actual, HTTP 200 en el dominio de producción y la comprobación de social-auth en verde; vuelve a comprobar las identidades después del sondeo HTTP. HTTP 200 prueba disponibilidad, no recorridos de producto: el comportamiento cambiado se verifica aparte. Un deployment, auth o actualización de Zoho fallidos dejan el cierre pendiente; la tarea sólo se cierra tras verificar producción. Credenciales y respuestas crudas de Vercel nunca entran a Git.
+- Commits: Conventional Commits, atómicos, sin trailers de atribución a IA. Nunca commitear `.env` ni secretos; `.env.example` es el único `.env` versionado y no lleva valores reales.
+- Definition of Done: criterio de aceptación cumplido, `typecheck` limpio, `lint` en 0, tests verdes con test nuevo si se tocó lógica, y la decisión no trivial anotada en el ticket de Zoho.
+
+## Map
+
+- funciones de Convex y su alcance: `convex/lib/fn.ts`; `pnpm test -- --run convex/reach.test.ts`
+- catálogo del MCP: `src/features/mcp/tools/catalog.ts`; `pnpm test -- --run src/features/mcp`
+- ruta MCP y su token propio: `src/features/mcp/auth.ts`, `convex/lib/mcpToken.ts`; `pnpm test -- --run src/features/mcp`
+- fechas y timezone: `src/shared/time`, `convex/lib/time.ts`; `pnpm test -- --run src/shared/time`
+- recordatorios: `convex/lib/recordatorios.ts` (calendario), `convex/lib/avisos.ts` (puente), `convex/notifications.ts`, `convex/pushSend.ts` (cron); `pnpm test -- --run convex/lib/recordatorios`
+- correo de recordatorios: `convex/lib/correo.ts`
+- crons: `convex/crons.ts`, bitácora `cronRuns`; `pnpm test -- --run convex`
+- webhook de Clerk y rutas HTTP: `convex/http.ts`; `pnpm test -- --run convex`
+- middleware de Clerk y fila de `users`: `src/proxy.ts`
+- migraciones: `convex/migrations/`
+- revisión de documentos: `convex/reviews.ts`, `convex/lib/reviews.ts`, `src/features/reviews/`; `pnpm test -- --run src/features/reviews`
+- fuentes conectadas: `convex/captures.ts`, `src/features/connections/providers.ts`; `pnpm test -- --run src/features/connections`
+- sincronización con GitHub: `src/features/github-sync/` (`KINO_OWNED_FIELDS` en `github-sync.mapper.ts`); `pnpm test -- --run src/features/github-sync`
+- manifiesto de arquetipos y mediums: `src/shared/lib/system-types.ts`, `src/shared/lib/mediums.ts`
+- cliente de datos: `src/shared/convex/hooks.ts` (`useConvexQuery`, `useConvexMutation`)
+- transporte de fechas por la red: `src/shared/lib/transport.ts`
+- errores y analítica: `src/shared/observability/sentry-options.ts`, `src/shared/observability/analytics.ts`
+- respaldo: `scripts/backup/`, `.github/workflows/backup.yml`
+- importador de Postgres: `scripts/migrate-to-convex/` (`pnpm migrate:convex`, sólo para el cutover)
+- delivery y producción: `scripts/delivery.py`; `python3 -m unittest discover -s scripts/tests -v`
+
+## Taste
+
+- **Una suscripción, no una caché.** Convex es reactivo: no hay query keys, no hay `refetch` (existe en el tipo y no hace nada), no hay TanStack Query. El argumento de la función es la clave, así que dos componentes que piden lo mismo comparten una lectura (`ConvexQueryCacheProvider`). Toda lectura de cliente pasa por `useConvexQuery` y de servidor por `serverQuery`: cero `fetch` suelto, cero `useEffect + setState` para datos de servidor.
+- **Una pantalla con props de un server component no se entera de nada.** Si el valor puede cambiar con la pantalla abierta (título de una página, nombre de una carpeta), el componente se suscribe (`usePage`, `usePages`, `useFolders`) y usa la prop sólo como `initialData`, y la ruta pide con los mismos argumentos que el hook. `useConvexMutation` espera la respuesta salvo con `optimisticUpdate` (hoy sólo `useUpdateStickyNote`).
+- **Vertical slice.** La lógica que dos slices necesitan va a `shared`, no se importa de un slice a otro (`shared/lib/word-count` es el caso); en servidor, a `convex/lib`. No hay `index.ts` por slice, a propósito. La lógica de negocio y el scoring de energía, urgencia e importancia viven en `convex/`: el cliente nunca recalcula.
+- **Lo que cruza la red no es una fila.** `Transport<T>` convierte fechas en ISO; el cliente usa `TaskTransport`, y un Server Component que pase filas como `initialData` llama `toTransport` primero.
+- **Validación.** Una sola fuente Zod por entidad, importada por servidor y cliente; el backend siempre valida. `userId` siempre viene de la sesión, nunca del body. Los `metadata` se validan con Zod discriminado por `systemType`.
+- **Tools del MCP.** `Spec<F, S>` (`define.ts`) liga la tool a la función y a su schema de entrada: cambiar una función rompe el typecheck de la tool, no la primera llamada del agente. Lo escrito a mano es lo que el agente lee: nombre y descripción.
+- **Estado.** Filtros de lista en la URL (`useSearchParams`), UI efímera en `useState`/`useReducer`, timer activo cross-route en un Context en root. Zustand sólo para estado de UI global (booleanos y preferencias; los cuatro stores que hay son `ThemeProvider`, `command-palette`, `quick-add`, `systems`), nunca datos de servidor. No Redux, no Jotai, no TanStack Query.
+- **Animaciones.** CSS puro: no instalar Framer Motion. Sólo `transform`, `opacity` y color; nunca una propiedad de layout ni un desenfoque en bucle. `prefers-reduced-motion` lo apaga todo desde `globals.css`; una animación que corre en JavaScript pregunta por la preferencia ella misma (`EnergyTodayCard`). No añadir `transition-all`: cada transición declara sus propiedades.
+- **UI.** Sin emojis: texto o iconos lucide. Móvil: sin drag and drop en touch, acciones hover con `md:opacity-0`; la rama por viewport va antes del contexto de arrastre, y el gesto perdido gana una operación con nombre que deja su evento y se deshace (`BoardMoveSheet`, `StackNoteSheet`).
+- **Sin `any`**, sin saltarse Zod en ningún input de endpoint, sin timestamps sin timezone.
