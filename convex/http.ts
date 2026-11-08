@@ -6,11 +6,12 @@ import type { Id } from './_generated/dataModel';
 import { z } from 'zod';
 import { verificarAccion } from './lib/firmaAccion';
 import { academicoSchema } from './academico';
+import { whatsappSchema } from './whatsapp';
 import { DIGEST_BYTES_MAX, digestBytes, digestSchema } from './digests';
 import { clerkUserCreatedSchema, clerkUserDeletedSchema, correoPrimario, nombreDe } from './users';
 
-// Las rutas HTTP del deployment. Hoy hay cuatro: la entrada del diario de
-// sesiones, la de lo que publica el aula virtual, el webhook con el que
+// Las rutas HTTP del deployment. Hoy hay cinco: la entrada del diario de
+// sesiones, la de lo que publica el aula virtual, la del resumen de WhatsApp, el webhook con el que
 // Clerk avisa de una cuenta nueva o borrada, y los botones de las
 // notificaciones.
 //
@@ -132,6 +133,43 @@ const ingestaAcademica = httpAction(async (ctx, request) => {
 });
 
 /**
+ * La entrada del resumen nocturno de WhatsApp.
+ *
+ * Misma forma que el aula y por las mismas razones: credencial propia en
+ * `KINO_WHATSAPP_TOKEN`, cuenta fijada por el deployment en
+ * `KINO_WHATSAPP_EMAIL`, y sin las dos la ruta no existe. El cuerpo no elige
+ * la cuenta. Escribe tareas en la Bandeja; si la cuenta no tiene Bandeja
+ * responde 503 en vez de dejarlas en otro sitio.
+ *
+ * 200 con `{ created, existing }` (los `externalId` de cada lado), 400 si no
+ * valida, 403 con cualquier otra credencial, 503 sin configurar.
+ */
+const ingestaWhatsapp = httpAction(async (ctx, request) => {
+  const secret = process.env.KINO_WHATSAPP_TOKEN;
+  const email = process.env.KINO_WHATSAPP_EMAIL;
+  if (!secret || !email) return json(503, { error: 'WHATSAPP_NOT_CONFIGURED' });
+
+  const token = bearer(request);
+  if (!token || !sameSecret(token, secret)) return json(403, { error: 'FORBIDDEN' });
+
+  const parsed = whatsappSchema.safeParse(await request.json().catch(() => null));
+  if (!parsed.success) return json(400, { error: 'VALIDATION_ERROR', issues: parsed.error.issues });
+
+  const user = await ctx.runQuery(internal.digests.userByEmail, { email });
+  if (!user) return json(503, { error: 'WHATSAPP_USER_NOT_FOUND' });
+
+  const systemId = await ctx.runQuery(internal.whatsapp.destino, { userId: user._id });
+  if (!systemId) return json(503, { error: 'WHATSAPP_INBOX_NOT_FOUND' });
+
+  const result = await ctx.runMutation(internal.whatsapp.ingerir, {
+    userId: user._id,
+    systemId,
+    items: parsed.data.items,
+  });
+  return json(200, result);
+});
+
+/**
  * La cuenta nueva y la cuenta borrada. Una sola ruta para los dos eventos: el
  * endpoint de cada instancia de Clerk se suscribe a ambos y comparte secreto,
  * así que no hace falta un segundo endpoint ni un segundo secreto. La ruta
@@ -242,6 +280,7 @@ http.route({ path: '/push/accion', method: 'POST', handler: accionDeAviso });
 http.route({ path: '/push/accion', method: 'OPTIONS', handler: preflight });
 http.route({ path: '/digests', method: 'POST', handler: uploadDigest });
 http.route({ path: '/academico', method: 'POST', handler: ingestaAcademica });
+http.route({ path: '/whatsapp', method: 'POST', handler: ingestaWhatsapp });
 http.route({ path: '/clerk/user-created', method: 'POST', handler: clerkWebhook });
 
 export default http;
