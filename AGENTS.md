@@ -34,8 +34,8 @@ To fill in by Elias.
 - Specimen: el ejemplo de un componente en `/system-design`.
 - `SIN_TOOL`: la lista de funciones de Convex que existen y no se exponen por MCP, cada una con su motivo.
 - Cuaderno (notebook): un cuaderno sobre una materia de la universidad, una parte de su vida o un proyecto; ahí se escribe todo y viven todas sus páginas.
-- Full send: el agente lleva el PR de una tarea hasta mergearlo cuando se cumplen los criterios; es el modo por defecto si Elias no nombra otro.
-- Full stop: el agente deja el PR listo para mergear y sin mergear (checks en verde sobre la cabeza, prueba hecha), con una forma de probarlo en sus primeras líneas; Elias lo mergea con el botón. Se usa en lo que toca la frontera de auth o una tabla nueva.
+- Full send: una palabra clave; cuando aparece en su mensaje, su skill carga y el agente lleva el PR de la tarea hasta mergearlo con los criterios de merge de development-workflow. No hay modo por defecto: sin la palabra, el agente lee la petición y decide. _Avoid_: modo por defecto, auto-merge, ship it.
+- Full stop: una palabra clave; cuando aparece en su mensaje, su skill carga y el agente deja el PR listo para mergear y sin mergear (checks en verde sobre la cabeza, prueba hecha), con una forma de probarlo en sus primeras líneas; Elias lo mergea con el botón. Sin ninguna de las dos palabras, el agente mergea si los criterios se cumplen y ninguna fila de «needs my eye» aplica, y si no deja el PR listo con su prueba de un paso y la fila que aplica. _Avoid_: modo por defecto, esperar aprobación.
 
 ## Facts
 
