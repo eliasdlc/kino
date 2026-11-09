@@ -74,6 +74,7 @@ import type * as tags from "../tags.js";
 import type * as tasks from "../tasks.js";
 import type * as today from "../today.js";
 import type * as users from "../users.js";
+import type * as whatsapp from "../whatsapp.js";
 import type * as writing from "../writing.js";
 
 import type {
@@ -149,6 +150,7 @@ declare const fullApi: ApiFromModules<{
   tasks: typeof tasks;
   today: typeof today;
   users: typeof users;
+  whatsapp: typeof whatsapp;
   writing: typeof writing;
 }>;
 
