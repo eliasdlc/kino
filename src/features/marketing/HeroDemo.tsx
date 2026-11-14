@@ -112,7 +112,7 @@ export function HeroDemo() {
 
         <div className="h-[3px] bg-foreground/10">
           <div
-            className="h-full bg-task-done transition-all duration-300"
+            className="h-full bg-task-done transition-[width] duration-300"
             style={{ width: `${progressPct}%` }}
           />
         </div>
@@ -129,7 +129,7 @@ export function HeroDemo() {
                   type="button"
                   onClick={() => toggleTask(t.id)}
                   aria-label="Completar tarea"
-                  className="flex h-6 w-6 flex-none items-center justify-center rounded-full border-2 text-[13px] font-extrabold leading-none text-background transition-all"
+                  className="flex h-6 w-6 flex-none items-center justify-center rounded-full border-2 text-[13px] font-extrabold leading-none text-background transition-colors"
                   style={{
                     borderColor: done ? "var(--ok)" : "color-mix(in srgb, var(--ink) 28%, transparent)",
                     background: done ? "var(--ok)" : "transparent",
@@ -198,7 +198,7 @@ export function HeroDemo() {
                     key={l.key}
                     type="button"
                     onClick={() => setCheckin(sel ? null : l.key)}
-                    className="cursor-pointer rounded-full border px-[11px] py-[5px] font-jetbrains text-[11.5px] font-semibold transition-all"
+                    className="cursor-pointer rounded-full border px-[11px] py-[5px] font-jetbrains text-[11.5px] font-semibold transition-colors"
                     style={{
                       borderColor: sel ? "color-mix(in srgb, var(--ac) 70%, transparent)" : "color-mix(in srgb, var(--ink) 14%, transparent)",
                       background: sel ? "color-mix(in srgb, var(--ac) 20%, transparent)" : "color-mix(in srgb, var(--ink) 4%, transparent)",

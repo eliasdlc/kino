@@ -120,7 +120,7 @@ export function LandingEnergyDemo() {
                   style={{ height: "100%" }}
                 >
                   <div
-                    className="w-full rounded-t-[3px] transition-all duration-200"
+                    className="w-full rounded-t-[3px] transition-[height,opacity,transform,box-shadow] duration-200"
                     style={{
                       height: `${barPct}%`,
                       background: isNow
@@ -155,7 +155,7 @@ export function LandingEnergyDemo() {
 
         {/* Energy Status */}
         <div
-          className="mb-5 flex items-center justify-between gap-4 rounded-2xl border px-5 py-4 transition-all duration-500"
+          className="mb-5 flex items-center justify-between gap-4 rounded-2xl border px-5 py-4 transition-colors duration-500"
           style={{
             borderColor: `${meta.color}35`,
             background: `${meta.color}08`,
@@ -171,7 +171,7 @@ export function LandingEnergyDemo() {
             </div>
           </div>
           <div
-            className="flex h-11 w-11 flex-none items-center justify-center rounded-full border-2 font-jetbrains text-xs font-bold transition-all duration-500"
+            className="flex h-11 w-11 flex-none items-center justify-center rounded-full border-2 font-jetbrains text-xs font-bold transition-colors duration-500"
             style={{ borderColor: meta.color, color: meta.color }}
           >
             {pct}%
@@ -183,7 +183,7 @@ export function LandingEnergyDemo() {
           {ranked.map((t, i) => (
             <div
               key={t.id}
-              className="flex items-center gap-3 rounded-2xl border px-4 py-3.5 transition-all duration-500"
+              className="flex items-center gap-3 rounded-2xl border px-4 py-3.5 transition-[opacity,color,background-color,border-color] duration-500"
               style={{
                 opacity: t.available ? 1 : 0.32,
                 borderColor: i === 0 ? `${meta.color}50` : "color-mix(in srgb, var(--ink) 6%, transparent)",
@@ -206,7 +206,7 @@ export function LandingEnergyDemo() {
               <span className="font-jetbrains text-[11px] text-muted-foreground">{t.time}</span>
               {i === 0 ? (
                 <span
-                  className="rounded-full px-2.5 py-1 font-jetbrains text-[10px] font-semibold transition-all duration-500"
+                  className="rounded-full px-2.5 py-1 font-jetbrains text-[10px] font-semibold transition-colors duration-500"
                   style={{ background: `${meta.color}22`, color: meta.color }}
                 >
                   ahora

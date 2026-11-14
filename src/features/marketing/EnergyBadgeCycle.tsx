@@ -24,7 +24,7 @@ export function EnergyBadgeCycle() {
         return (
           <span
             key={l.key}
-            className="rounded-full border px-3.5 py-[7px] font-jetbrains text-xs transition-all duration-500"
+            className="rounded-full border px-3.5 py-[7px] font-jetbrains text-xs transition-[color,background-color,border-color,box-shadow] duration-500"
             style={{
               borderColor: sel ? `${l.color}55` : "color-mix(in srgb, var(--ink) 10%, transparent)",
               background: sel ? `${l.color}18` : "color-mix(in srgb, var(--ink) 5%, transparent)",
