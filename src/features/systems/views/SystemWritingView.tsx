@@ -106,10 +106,10 @@ export function ObraRow({ obra, index, pagesByFolder, systemId, manifest, defaul
         obra={obra}
         partes={partes}
         manuscripts={manuscripts}
-        // Leer, Tablero y Compilar leen los capítulos de la carpeta de la obra,
-        // no los de sus partes: sólo se ofrecen si ahí hay algo que leer. La
-        // cuenta es la del servidor, que no se corta con el tope de la lista.
-        hayTexto={obra.pageCount > 0}
+        // Leer, Tablero y Compilar leen los capítulos de la obra y los de sus
+        // partes: sólo se ofrecen si en alguna hay algo que leer. Las cuentas
+        // son las del servidor, que no se cortan con el tope de la lista.
+        hayTexto={obra.pageCount + partes.reduce((sum, parte) => sum + parte.pageCount, 0) > 0}
         systemId={systemId}
         manifest={manifest}
         mediumId={medium.id}
@@ -136,7 +136,7 @@ function ObraBody({
   obra: FolderWithCounts;
   partes: FolderWithCounts[];
   manuscripts: PageListItemTransport[];
-  /** La obra tiene capítulos propios: lo que leen la lectura, el tablero y compilar. */
+  /** La obra o sus partes tienen capítulos: lo que leen la lectura, el tablero y compilar. */
   hayTexto: boolean;
   systemId: string;
   manifest: ArchetypeManifest;

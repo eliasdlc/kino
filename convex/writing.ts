@@ -69,10 +69,24 @@ async function ownSystem(ctx: Ctx, userId: Id<'users'>, id: Id<'systems'>) {
   return doc;
 }
 
-/** Capítulos vivos de una obra, en orden de creación, que es el de lectura. */
-async function chaptersOf(ctx: Ctx, userId: Id<'users'>, folderId: Id<'folders'>) {
+/** Capítulos vivos de una carpeta, en orden de creación. */
+async function ownChapters(ctx: Ctx, userId: Id<'users'>, folderId: Id<'folders'>) {
   const docs = await ctx.db.query('pages').withIndex('by_folder', (q) => q.eq('folderId', folderId)).collect();
   return docs.filter((doc) => doc.userId === userId && doc.deletedAt === undefined).sort((a, b) => a.createdAt - b.createdAt);
+}
+
+/**
+ * Capítulos vivos de una obra en orden de lectura: los de su carpeta primero y
+ * después los de cada parte (subcarpeta), parte por parte en el orden de las
+ * carpetas. Un nivel, el mismo que el índice de la obra enseña y cuenta.
+ */
+async function chaptersOf(ctx: Ctx, userId: Id<'users'>, folderId: Id<'folders'>) {
+  const parts = (await ctx.db.query('folders').withIndex('by_parent', (q) => q.eq('parentId', folderId)).collect())
+    .filter((doc) => doc.userId === userId && doc.deletedAt === undefined)
+    .sort((a, b) => a.sortIndex - b.sortIndex || a.createdAt - b.createdAt);
+  const chapters = await ownChapters(ctx, userId, folderId);
+  for (const part of parts) chapters.push(...(await ownChapters(ctx, userId, part._id)));
+  return chapters;
 }
 
 async function systemPages(ctx: Ctx, userId: Id<'users'>, systemId: Id<'systems'>) {

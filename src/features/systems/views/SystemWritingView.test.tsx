@@ -3,7 +3,7 @@
  * desplegada ofrece sus acciones por nombre en pastillas (Leer, Tablero,
  * Capítulo), cuenta los manuscritos de sus partes, se dice dormida en coral
  * con la palabra, y lo que no tiene obra va aparte. Leer y Tablero sólo se
- * ofrecen si la carpeta de la obra tiene capítulos que leer, y sólo la
+ * ofrecen si la obra o sus partes tienen capítulos que leer, y sólo la
  * primera obra llega desplegada.
  */
 import { screen } from "@testing-library/react";
@@ -60,13 +60,24 @@ describe("SystemWritingView", () => {
     expect(screen.getByRole("link", { name: "Biblia de la novela" })).toBeInTheDocument();
   });
 
-  it("sin capítulos en la carpeta de la obra no ofrece Leer, Tablero ni Compilar, que llevarían a una página vacía", async () => {
+  it("sin capítulos en la obra ni en sus partes no ofrece Leer, Tablero ni Compilar, que llevarían a una página vacía", async () => {
     const vacia = makeFolder({ id: mid("obra"), name: "Primera parte", metadata: { medium: "novel" }, pageCount: 0 });
-    renderMobile(<SystemWritingView system={NOVELA} initialTasks={[]} />, { convex: biblioteca(0, [EN_PARTE, SUELTO], [vacia]) });
+    const convex = biblioteca(0, [SUELTO], [vacia]);
+    convex.publish(stubQuery(api.folders.children, [{ ...PARTE, pageCount: 0 }]));
+    renderMobile(<SystemWritingView system={NOVELA} initialTasks={[]} />, { convex });
     expect(await screen.findByRole("button", { name: "Nuevo capítulo" })).toBeInTheDocument();
     expect(screen.queryByRole("link", { name: "Leer" })).not.toBeInTheDocument();
     expect(screen.queryByRole("link", { name: "Tablero" })).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: /Compilar/ })).not.toBeInTheDocument();
+  });
+
+  // KI1-T402: los capítulos de una parte también se leen en Leer y Tablero.
+  it("con capítulos sólo en sus partes ofrece Leer, Tablero y Compilar", async () => {
+    const sinPropios = makeFolder({ id: mid("obra"), name: "Primera parte", metadata: { medium: "novel" }, pageCount: 0 });
+    renderMobile(<SystemWritingView system={NOVELA} initialTasks={[]} />, { convex: biblioteca(0, [EN_PARTE, SUELTO], [sinPropios]) });
+    expect(await screen.findByRole("link", { name: "Leer" })).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Tablero" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /Compilar/ })).toBeInTheDocument();
   });
 
   it("sólo la primera obra llega desplegada; las demás esperan a que las abran", async () => {

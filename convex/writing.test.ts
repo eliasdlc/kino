@@ -63,6 +63,26 @@ describe('writing', () => {
     const done = await asAna.mutation(api.writing.setCompleted, { id: chapter.id, completed: true });
     expect(done.completedAt).not.toBeNull();
   });
+
+  // KI1-T402. Una parte es una subcarpeta de la obra. Los capítulos de la obra
+  // van primero, luego cada parte en su orden con los suyos en el de creación,
+  // aunque se hayan escrito intercalados entre partes.
+  it('Leer y el tablero leen también los capítulos de las partes de la obra, parte por parte', async () => {
+    const { asAna, systemId, work } = await seed();
+    const parteUno = await asAna.mutation(api.folders.create, { systemId, name: 'Parte I', parentId: work.id });
+    const parteDos = await asAna.mutation(api.folders.create, { systemId, name: 'Parte II', parentId: work.id });
+    await asAna.mutation(api.pages.create, { systemId, folderId: parteUno.id, title: 'Capítulo 2', content: '<p>Zoro duerme.</p>' });
+    await asAna.mutation(api.pages.create, { systemId, folderId: parteDos.id, title: 'Capítulo 4', content: '<p>Nami traza.</p>' });
+    await asAna.mutation(api.pages.create, { systemId, folderId: parteUno.id, title: 'Capítulo 3', content: '<p>Usopp miente.</p>' });
+    const orden = ['Capítulo 1', 'Capítulo 2', 'Capítulo 3', 'Capítulo 4'];
+
+    const leer = await asAna.query(api.writing.manuscript, { id: work.id });
+    expect(leer.chapters.map((c) => c.title)).toEqual(orden);
+    expect(leer.totalWords).toBe(8);
+
+    const tablero = await asAna.query(api.writing.plot, { id: work.id });
+    expect(tablero.chapters.map((c) => c.title)).toEqual(orden);
+  });
 });
 
 /**
