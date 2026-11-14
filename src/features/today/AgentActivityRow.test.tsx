@@ -56,6 +56,26 @@ describe("AgentActivityRow", () => {
     expect(screen.getByRole("button", { name: "Ocultar las acciones" })).toBeVisible();
   });
 
+  it("con una sola acción el botón dice «Ver la acción» y «Ocultar la acción»", async () => {
+    renderWithProviders(<AgentActivityRow />, {
+      convex: conActividad({ total: 1, acciones: [{ action: "task.create", cuantas: 1 }], sistemas: ["Tesis"], ids: [] }),
+    });
+
+    await userEvent.click(screen.getByRole("button", { name: "Ver la acción" }));
+
+    expect(screen.getByRole("button", { name: "Ocultar la acción" })).toBeVisible();
+  });
+
+  it("con tres acciones el botón dice «Ver las 3 acciones» y «Ocultar las acciones»", async () => {
+    renderWithProviders(<AgentActivityRow />, {
+      convex: conActividad({ total: 3, acciones: [{ action: "task.create", cuantas: 3 }], sistemas: ["Tesis"], ids: [] }),
+    });
+
+    await userEvent.click(screen.getByRole("button", { name: "Ver las 3 acciones" }));
+
+    expect(screen.getByRole("button", { name: "Ocultar las acciones" })).toBeVisible();
+  });
+
   it("«Deshacer» llama al deshacer en bloque del día", async () => {
     const convex = conActividad(cincoAcciones);
     renderWithProviders(<AgentActivityRow />, { convex });

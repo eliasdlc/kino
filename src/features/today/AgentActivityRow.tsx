@@ -60,7 +60,9 @@ export function AgentActivityRow() {
 
       <div className="-ml-3 flex flex-wrap items-center gap-1">
         <Button variant="link" className="px-3" onClick={() => setAbierto((previo) => !previo)}>
-          {abierto ? "Ocultar las acciones" : `Ver las ${data.total} acciones`}
+          {abierto
+            ? `Ocultar ${data.total === 1 ? "la acción" : "las acciones"}`
+            : `Ver ${data.total === 1 ? "la acción" : `las ${data.total} acciones`}`}
         </Button>
         <Button
           variant="ghost"
