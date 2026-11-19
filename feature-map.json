@@ -1,0 +1,355 @@
+{
+  "app": "kino",
+  "features": [
+    {
+      "id": "auth.login",
+      "name": "Entrar",
+      "route": "/login",
+      "reach": "Sin sesión, landing > Entrar",
+      "proves": "src/features/auth/puertas.test.tsx"
+    },
+    {
+      "id": "auth.register",
+      "name": "Crear cuenta",
+      "route": "/register",
+      "reach": "Sin sesión, landing > Crear cuenta",
+      "proves": "src/features/auth/puertas.test.tsx"
+    },
+    {
+      "id": "onboarding.signup-flow",
+      "name": "Elegir cómo empiezas",
+      "route": "/onboarding",
+      "reach": "Tras registrarse, el flujo de bienvenida abre solo",
+      "proves": "src/features/onboarding/SignupFlow.test.tsx"
+    },
+    {
+      "id": "today.plan",
+      "name": "Plan de hoy",
+      "route": "/dashboard",
+      "reach": "Barra lateral > Hoy > tarjeta Plan de hoy",
+      "proves": "src/features/dashboard/TodayPlanCard.test.tsx"
+    },
+    {
+      "id": "today.energy-checkin",
+      "name": "Registrar energía",
+      "route": "/dashboard",
+      "reach": "Barra lateral > Hoy > tarjeta de energía (Tramo del día)",
+      "proves": "src/features/dashboard/EnergyTodayCard.test.tsx"
+    },
+    {
+      "id": "today.focus-now",
+      "name": "Enfoque ahora",
+      "route": "/dashboard",
+      "reach": "Barra lateral > Hoy > tarjeta Enfoque ahora",
+      "proves": "Abrir Hoy con un perfil de energía y ver la tarjeta Enfoque ahora con la tarea de la hora actual"
+    },
+    {
+      "id": "today.over-budget",
+      "name": "El día no cabe",
+      "route": "/dashboard",
+      "reach": "Barra lateral > Hoy > aviso cuando el plan pasa del límite de energía",
+      "proves": "src/features/energy/OverBudgetExit.test.tsx"
+    },
+    {
+      "id": "today.interruption",
+      "name": "Interrupción del día",
+      "route": "/dashboard",
+      "reach": "Barra lateral > Hoy > línea de interrupción bajo el título",
+      "proves": "src/features/today/InterruptionLine.test.tsx"
+    },
+    {
+      "id": "today.agent-activity",
+      "name": "Actividad de agentes",
+      "route": "/dashboard",
+      "reach": "Barra lateral > Hoy > fila de actividad de agentes",
+      "proves": "src/features/today/AgentActivityRow.test.tsx"
+    },
+    {
+      "id": "today.coach",
+      "name": "Coach",
+      "route": "/dashboard",
+      "reach": "Barra lateral > Hoy > fila inferior > Coach",
+      "proves": "Abrir Hoy y ver la tarjeta Coach junto a Tu patrón y Últimos 7 días en la fila inferior"
+    },
+    {
+      "id": "today.weekly-trends",
+      "name": "Últimos 7 días",
+      "route": "/dashboard",
+      "reach": "Barra lateral > Hoy > fila inferior > Últimos 7 días",
+      "proves": "src/features/dashboard/WeeklyTrendsCard.test.tsx"
+    },
+    {
+      "id": "today.quick-add-url",
+      "name": "Añadir tarea desde un enlace",
+      "route": "/dashboard",
+      "reach": "Barra lateral > Hoy > cuadro de añadir desde URL",
+      "proves": "src/features/tasks/QuickAddFromUrl.test.tsx"
+    },
+    {
+      "id": "tasks.list",
+      "name": "Tareas",
+      "route": "/tasks",
+      "reach": "Barra lateral > Tareas > Lista",
+      "proves": "src/features/tasks/TasksPage.test.tsx"
+    },
+    {
+      "id": "tasks.calendar",
+      "name": "Calendario de tareas",
+      "route": "/tasks",
+      "reach": "Barra lateral > Tareas > selector Vista de tareas > Calendario",
+      "proves": "src/features/tasks/TasksPage.test.tsx"
+    },
+    {
+      "id": "tasks.suggested",
+      "name": "Sugeridas por Kino",
+      "route": "/tasks",
+      "reach": "Barra lateral > Tareas > Lista > sección de sugeridas",
+      "proves": "src/features/tasks/KinoSuggestedSection.test.tsx"
+    },
+    {
+      "id": "tasks.overdue",
+      "name": "Vencidas",
+      "route": "/tasks",
+      "reach": "Barra lateral > Tareas > Lista > grupo de vencidas",
+      "proves": "src/features/tasks/OverdueGroup.test.tsx"
+    },
+    {
+      "id": "tasks.all",
+      "name": "Todas las tareas",
+      "route": "/tasks",
+      "reach": "Barra lateral > Tareas > Lista > Todas las tareas",
+      "proves": "src/features/tasks/AllTasksList.test.tsx"
+    },
+    {
+      "id": "tasks.detail",
+      "name": "Detalle de tarea",
+      "route": "/tasks",
+      "reach": "Barra lateral > Tareas > tocar una tarea",
+      "proves": "src/features/tasks/TaskDetailSheet.test.tsx"
+    },
+    {
+      "id": "calendar.week",
+      "name": "Calendario",
+      "route": "/calendar",
+      "reach": "Barra lateral > Calendario (en el teléfono: Hoy > la fecha)",
+      "proves": "src/features/calendar/GlobalCalendarView.test.tsx"
+    },
+    {
+      "id": "inbox.triage",
+      "name": "Bandeja",
+      "route": "/bandeja",
+      "reach": "Barra lateral > Bandeja",
+      "proves": "src/features/systems/views/InboxView.test.tsx"
+    },
+    {
+      "id": "systems.list",
+      "name": "Sistemas",
+      "route": "/systems",
+      "reach": "Barra lateral > Sistemas",
+      "proves": "src/features/systems/SystemsList.test.tsx"
+    },
+    {
+      "id": "systems.detail",
+      "name": "Tareas y documentos del sistema",
+      "route": "/systems/[id]",
+      "reach": "Barra lateral > Sistemas > un sistema > pestañas Contenido del sistema",
+      "proves": "src/features/systems/SystemDetailHeader.test.tsx"
+    },
+    {
+      "id": "systems.writing-home",
+      "name": "Qué escribir hoy",
+      "route": "/systems/[id]",
+      "reach": "Barra lateral > Sistemas > un sistema de escritura > Qué escribir hoy",
+      "proves": "src/features/systems/views/SystemWritingView.test.tsx"
+    },
+    {
+      "id": "folders.workspace",
+      "name": "Contenido de la carpeta",
+      "route": "/systems/[id]/folders/[folderId]",
+      "reach": "Barra lateral > Sistemas > un sistema > una carpeta",
+      "proves": "Abrir una carpeta de un sistema y ver su título, sus documentos y la sección Tareas"
+    },
+    {
+      "id": "folders.academic-subject",
+      "name": "Entregas y exámenes",
+      "route": "/systems/[id]/folders/[folderId]",
+      "reach": "Barra lateral > Sistemas > sistema académico > una materia > Entregas y exámenes",
+      "proves": "Abrir una materia de un sistema académico y ver Entregas y exámenes"
+    },
+    {
+      "id": "writing.plot-grid",
+      "name": "Tablero de la obra",
+      "route": "/systems/[id]/folders/[folderId]/tablero",
+      "reach": "Barra lateral > Sistemas > sistema de escritura > una obra > Tablero",
+      "proves": "src/features/writing/PlotSceneList.test.tsx"
+    },
+    {
+      "id": "writing.reading",
+      "name": "Lectura de la obra",
+      "route": "/systems/[id]/folders/[folderId]/lectura",
+      "reach": "Barra lateral > Sistemas > sistema de escritura > una obra > Lectura",
+      "proves": "src/features/writing/ReadingView.test.tsx"
+    },
+    {
+      "id": "writing.studio",
+      "name": "Estudio",
+      "route": "/systems/[id]/estudio",
+      "reach": "Barra lateral > Sistemas > sistema de escritura > Estudio",
+      "proves": "src/features/writing/Studio.test.tsx"
+    },
+    {
+      "id": "codex.library",
+      "name": "Biblioteca",
+      "route": "/systems/[id]/codex",
+      "reach": "Barra lateral > Sistemas > sistema de escritura > Codex > Biblioteca",
+      "proves": "src/features/entities/CodexLibrary.test.tsx"
+    },
+    {
+      "id": "codex.graph",
+      "name": "Grafo",
+      "route": "/systems/[id]/codex",
+      "reach": "Barra lateral > Sistemas > sistema de escritura > Codex > Grafo",
+      "proves": "src/features/entities/UniverseGraph.test.tsx"
+    },
+    {
+      "id": "codex.loose-threads",
+      "name": "Hilos sueltos",
+      "route": "/systems/[id]/codex",
+      "reach": "Barra lateral > Sistemas > sistema de escritura > Codex > Hilos sueltos",
+      "proves": "Abrir el Codex, elegir Hilos sueltos y ver los hilos abiertos de la obra"
+    },
+    {
+      "id": "codex.timeline",
+      "name": "Cronología",
+      "route": "/systems/[id]/codex",
+      "reach": "Barra lateral > Sistemas > sistema de escritura > Codex > Cronología",
+      "proves": "Abrir el Codex, elegir Cronología y ver los hechos ordenados en el tiempo del mundo"
+    },
+    {
+      "id": "pages.editor",
+      "name": "Editor de páginas",
+      "route": "/systems/[id]/pages/[pageId]",
+      "reach": "Barra lateral > Sistemas > un sistema > una página o capítulo",
+      "proves": "src/features/pages/editor-html.test.ts"
+    },
+    {
+      "id": "pages.sticky-notes",
+      "name": "Notas",
+      "route": "/systems/[id]/pages/[pageId]",
+      "reach": "Sistemas > una página > Abrir panel (esquina superior) > Notas",
+      "proves": "src/features/sticky-notes/StickyNotesGrid.test.tsx"
+    },
+    {
+      "id": "pages.review",
+      "name": "Revisión",
+      "route": "/systems/[id]/pages/[pageId]",
+      "reach": "Barra lateral > Sistemas > una página > alternar Revisión",
+      "proves": "src/features/reviews/ReviewPanel.test.tsx"
+    },
+    {
+      "id": "settings.index",
+      "name": "Ajustes",
+      "route": "/settings",
+      "reach": "Barra lateral > menú de usuario > Ajustes",
+      "proves": "src/features/settings/SettingsIndex.test.tsx"
+    },
+    {
+      "id": "settings.energy-profile",
+      "name": "Perfil de energía",
+      "route": "/settings",
+      "reach": "Ajustes > Cada día > Perfil de energía",
+      "proves": "src/features/settings/EnergyProfileSection.test.tsx"
+    },
+    {
+      "id": "settings.reminders",
+      "name": "Recordatorios",
+      "route": "/settings",
+      "reach": "Ajustes > Cada día > Recordatorios",
+      "proves": "src/features/settings/RemindersSection.test.tsx"
+    },
+    {
+      "id": "settings.weekly-review",
+      "name": "Revisión semanal",
+      "route": "/settings",
+      "reach": "Ajustes > Cada día > Revisión semanal",
+      "proves": "src/features/settings/WeeklyReviewDaySection.test.tsx"
+    },
+    {
+      "id": "settings.connections",
+      "name": "Conexiones",
+      "route": "/settings",
+      "reach": "Ajustes > Cada día > Conexiones",
+      "proves": "src/features/settings/ConnectionsSection.test.tsx"
+    },
+    {
+      "id": "settings.agents",
+      "name": "Agentes",
+      "route": "/settings",
+      "reach": "Ajustes > Cuenta > Agentes",
+      "proves": "src/features/settings/AgentsSection.test.tsx"
+    },
+    {
+      "id": "settings.shortcuts",
+      "name": "Atajos de teclado",
+      "route": "/settings",
+      "reach": "Ajustes > Una vez > Atajos de teclado",
+      "proves": "Abrir Ajustes, abrir Atajos de teclado y ver la lista de atajos"
+    },
+    {
+      "id": "settings.digests",
+      "name": "Diario de sesiones",
+      "route": "/settings",
+      "reach": "Ajustes > Una vez > Diario de sesiones",
+      "proves": "src/features/settings/DigestsSection.test.tsx"
+    },
+    {
+      "id": "settings.data-export",
+      "name": "Datos y exportación",
+      "route": "/settings",
+      "reach": "Ajustes > Una vez > Datos y exportación",
+      "proves": "src/features/settings/DataPortabilitySection.test.tsx"
+    },
+    {
+      "id": "settings.trash",
+      "name": "Papelera",
+      "route": "/settings",
+      "reach": "Ajustes > Una vez > Papelera",
+      "proves": "src/features/settings/TrashSection.test.tsx"
+    },
+    {
+      "id": "settings.danger-zone",
+      "name": "Borrar la cuenta",
+      "route": "/settings",
+      "reach": "Ajustes > Cuenta > nombre de la cuenta",
+      "proves": "src/features/account/DangerZoneSection.test.tsx"
+    },
+    {
+      "id": "shell.command-palette",
+      "name": "Escribe un comando o busca...",
+      "route": "/dashboard",
+      "reach": "Cualquier pantalla > atajo de la paleta o Buscar en la barra lateral",
+      "proves": "src/features/command-palette/GlobalCommandPaletteLazy.test.tsx"
+    },
+    {
+      "id": "shell.quick-add",
+      "name": "Nueva tarea",
+      "route": "/dashboard",
+      "reach": "Cualquier pantalla > paleta de comandos > Nueva tarea",
+      "proves": "src/features/tasks/GlobalQuickAddDialog.test.tsx"
+    },
+    {
+      "id": "capture.share-target",
+      "name": "Guardado en Kino",
+      "route": "/compartir",
+      "reach": "Desde otra app del teléfono > Compartir > Kino",
+      "proves": "src/features/captures/ShareConfirm.test.tsx"
+    },
+    {
+      "id": "offline.fallback",
+      "name": "Sin red sí puedes",
+      "route": "/offline",
+      "reach": "Sin conexión, abrir cualquier pantalla no guardada",
+      "proves": "Con la red cortada, abrir una pantalla no guardada y ver Sin red sí puedes con el botón Reintentar"
+    }
+  ]
+}
