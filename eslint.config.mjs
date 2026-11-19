@@ -5,6 +5,44 @@ import nextTs from "eslint-config-next/typescript";
 const eslintConfig = defineConfig([
   ...nextVitals,
   ...nextTs,
+  {
+    // Las reglas de AGENTS.md que un linter puede vigilar. Cada mensaje dice
+    // el arreglo, porque el agente copia el código y no la nota.
+    files: ["src/**/*.{ts,tsx}", "convex/**/*.ts"],
+    rules: {
+      "@typescript-eslint/no-explicit-any": "error",
+      "no-restricted-imports": [
+        "error",
+        {
+          paths: ["redux", "@reduxjs/toolkit", "react-redux", "jotai"].map((name) => ({
+            name,
+            message:
+              "Sin Redux ni Jotai. UI efímera en useState/useReducer, filtros en la URL, UI global en un store de Zustand; los datos del servidor viven en useConvexQuery.",
+          })),
+          patterns: [
+            {
+              group: ["redux/*", "@reduxjs/toolkit/*", "react-redux/*", "jotai/*"],
+              message: "Sin Redux ni Jotai. Usa useState/useReducer, la URL o Zustand para UI global.",
+            },
+          ],
+        },
+      ],
+    },
+  },
+  {
+    files: ["src/**/*.{ts,tsx}"],
+    ignores: ["**/*.test.{ts,tsx}"],
+    rules: {
+      "no-restricted-syntax": [
+        "error",
+        {
+          selector: "Property[key.name='refetchInterval']",
+          message:
+            "Ninguna pantalla refresca datos por tiempo. Convex es reactivo: lee con useConvexQuery y la suscripción se actualiza sola.",
+        },
+      ],
+    },
+  },
   // Override default ignores of eslint-config-next.
   globalIgnores([
     // Default ignores of eslint-config-next:
