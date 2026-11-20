@@ -1,6 +1,7 @@
 import { defineConfig, globalIgnores } from "eslint/config";
 import nextVitals from "eslint-config-next/core-web-vitals";
 import nextTs from "eslint-config-next/typescript";
+import kino from "./eslint-rules/index.mjs";
 
 const eslintConfig = defineConfig([
   ...nextVitals,
@@ -28,6 +29,18 @@ const eslintConfig = defineConfig([
         },
       ],
     },
+  },
+  {
+    // Reglas con baseline congelado: `eslint-rules/baseline.json` (ver index.mjs).
+    files: ["src/features/**/*.{ts,tsx}"],
+    plugins: { kino },
+    rules: { "kino/no-cross-slice-import": "error" },
+  },
+  {
+    files: ["convex/**/*.ts"],
+    ignores: ["**/*.test.ts", "convex/_generated/**"],
+    plugins: { kino },
+    rules: { "kino/collect-needs-reason": "error" },
   },
   {
     files: ["src/**/*.{ts,tsx}"],
